@@ -587,6 +587,48 @@ describe("ResultFilterSheet facet groups", () => {
     expect(onToggle).toHaveBeenCalledWith("Affect");
   });
 
+  // The label and hint spans concatenate in the accessible name, and the name
+  // computation normalises inter-element whitespace away, so a text-node
+  // separator does not fix it. Both group kinds carry counts, so both need the
+  // explicit name — and it must match SegmentedControl's, because a mode now
+  // hands one option array to the desktop rail and this sheet.
+  it("names a counted option 'label (hint)' rather than concatenating to 'All8'", () => {
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="differential-panel"
+        testId="differential-filter-panel"
+        title="Filter differentials"
+        groups={[
+          resultFilterGroup({
+            id: "result-type",
+            label: "Show",
+            value: "all",
+            options: [
+              { value: "all", label: "All", hint: "8" },
+              { value: "presentation", label: "Presentations", hint: "1" },
+            ],
+            onChange: vi.fn(),
+          }),
+          resultFilterFacetGroup({
+            id: "domain",
+            label: "Domain",
+            selected: new Set<string>(),
+            options: [{ value: "Crisis", label: "Crisis", hint: "12" }],
+            onToggle: vi.fn(),
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "All (8)" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Presentations (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Crisis (12)" })).toBeInTheDocument();
+    // A hintless option keeps its plain label — every pre-count call site.
+    expect(screen.queryByRole("radio", { name: "All8" })).not.toBeInTheDocument();
+  });
+
   // Every toggle must be individually reachable. The lens groups' single tab
   // stop is correct there because arrowing replaces; here it would strand
   // options behind a key binding that must not commit anything.
@@ -694,6 +736,180 @@ describe("ResultFilterSheet facet groups", () => {
 
     expect(screen.getByRole("radiogroup", { name: "Show" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Domain" })).toBeInTheDocument();
+  });
+});
+
+// docs/filter-contract.md section 5: more than three facet groups adds a
+// find-a-filter field and collapses every facet group by default. Formulation
+// (one facet group) never crosses this threshold — these tests exist for
+// services (five), the first mode to.
+describe("ResultFilterSheet dense facet groups", () => {
+  function facetGroup(id: string, label: string, options: Array<{ value: string; label: string }>) {
+    return resultFilterFacetGroup({ id, label, selected: new Set<string>(), options, onToggle: vi.fn() });
+  }
+
+  it("stays exactly as before at three facet groups or fewer — no find field, no collapse", () => {
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="three-panel"
+        testId="three-filter-panel"
+        title="Filter"
+        groups={[
+          facetGroup("a", "A", [{ value: "1", label: "One" }]),
+          facetGroup("b", "B", [{ value: "1", label: "One" }]),
+          facetGroup("c", "C", [{ value: "1", label: "One" }]),
+        ]}
+      />,
+    );
+
+    expect(screen.queryByPlaceholderText("Find a filter…")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^A$/ })).not.toBeInTheDocument();
+    // Every option is visible and reachable without a disclosure toggle.
+    expect(screen.getAllByRole("button", { name: "One" })).toHaveLength(3);
+  });
+
+  it("adds a find-a-filter field and collapses groups by default past three", () => {
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="dense-panel"
+        testId="dense-filter-panel"
+        title="Filter services"
+        groups={[
+          facetGroup("catchments", "Catchment", [{ value: "Peel", label: "Peel" }]),
+          facetGroup("age_groups", "Age group", [{ value: "youth", label: "Youth" }]),
+          facetGroup("setting_flags", "Setting", [{ value: "community", label: "Community" }]),
+          facetGroup("acuity_flags", "Acuity", [{ value: "high", label: "High acuity" }]),
+          facetGroup("housing_flags", "Housing", [{ value: "general", label: "General" }]),
+        ]}
+      />,
+    );
+
+    expect(screen.getByPlaceholderText("Find a filter…")).toBeInTheDocument();
+    // Collapsed by default: the disclosure button is present, but the option
+    // beneath it is not reachable in the accessibility tree.
+    const catchmentToggle = screen.getByRole("button", { name: "Catchment" });
+    expect(catchmentToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Peel" })).not.toBeInTheDocument();
+  });
+
+  it("opens a group holding a selection by default, and lets an explicit collapse win afterward", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="dense-panel"
+        testId="dense-filter-panel"
+        title="Filter services"
+        groups={[
+          resultFilterFacetGroup({
+            id: "catchments",
+            label: "Catchment",
+            selected: new Set(["Peel"]),
+            options: [{ value: "Peel", label: "Peel" }],
+            onToggle: vi.fn(),
+          }),
+          facetGroup("age_groups", "Age group", [{ value: "youth", label: "Youth" }]),
+          facetGroup("setting_flags", "Setting", [{ value: "community", label: "Community" }]),
+          facetGroup("acuity_flags", "Acuity", [{ value: "high", label: "High acuity" }]),
+        ]}
+      />,
+    );
+
+    // Holds a selection — opens itself without any tap.
+    expect(screen.getByRole("button", { name: /Catchment/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Peel" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Catchment/ }));
+    expect(screen.getByRole("button", { name: /Catchment/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Peel" })).not.toBeInTheDocument();
+  });
+
+  it("filters options by the needle, keeps a selected option reachable regardless, and hides an emptied group", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="dense-panel"
+        testId="dense-filter-panel"
+        title="Filter services"
+        groups={[
+          resultFilterFacetGroup({
+            id: "catchments",
+            label: "Catchment",
+            selected: new Set(["Metro-wide"]),
+            options: [
+              { value: "Peel", label: "Peel" },
+              { value: "Metro-wide", label: "Metro-wide" },
+            ],
+            onToggle: vi.fn(),
+          }),
+          facetGroup("age_groups", "Age group", [{ value: "youth", label: "Youth" }]),
+          facetGroup("setting_flags", "Setting", [{ value: "community", label: "Community" }]),
+          facetGroup("acuity_flags", "Acuity", [{ value: "high", label: "High acuity" }]),
+        ]}
+      />,
+    );
+
+    await user.type(screen.getByPlaceholderText("Find a filter…"), "peel");
+
+    // A live needle owns openness: the matched group is forced open with no
+    // disclosure button to fight it.
+    expect(screen.queryByRole("button", { name: /^Catchment$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Peel" })).toBeInTheDocument();
+    // The selected option survives the needle even though its label does not
+    // match — an active constraint must stay reachable to un-toggle.
+    expect(screen.getByRole("button", { name: "Metro-wide" })).toBeInTheDocument();
+    // A group with nothing matching disappears rather than showing an empty
+    // heading.
+    expect(screen.queryByRole("group", { name: "Age group" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Youth" })).not.toBeInTheDocument();
+  });
+
+  it("reports no match once the needle matches nothing anywhere", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="dense-panel"
+        testId="dense-filter-panel"
+        title="Filter services"
+        groups={[
+          facetGroup("catchments", "Catchment", [{ value: "Peel", label: "Peel" }]),
+          facetGroup("age_groups", "Age group", [{ value: "youth", label: "Youth" }]),
+          facetGroup("setting_flags", "Setting", [{ value: "community", label: "Community" }]),
+          facetGroup("acuity_flags", "Acuity", [{ value: "high", label: "High acuity" }]),
+        ]}
+      />,
+    );
+
+    await user.type(screen.getByPlaceholderText("Find a filter…"), "zzz-no-match");
+    expect(screen.getByText("No filter matches “zzz-no-match”.")).toBeInTheDocument();
+  });
+
+  it("renders the scope segment slot above the groups when a mode supplies one", () => {
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="scope-panel"
+        testId="scope-filter-panel"
+        title="Filter services"
+        groups={[facetGroup("catchments", "Catchment", [{ value: "Peel", label: "Peel" }])]}
+        scopeControl={<div data-testid="scope-segment">These results 12 · All items 219</div>}
+      />,
+    );
+
+    expect(screen.getByTestId("scope-segment")).toBeInTheDocument();
   });
 });
 

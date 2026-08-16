@@ -31,6 +31,14 @@ export type SegmentedControlProps<T extends string> = AccessibleName & {
   onChange: (value: T) => void;
   options: ReadonlyArray<SegmentedControlOption<T>>;
   ariaDescribedBy?: string;
+  /**
+   * The region this rail filters. Set it when the control governs a panel
+   * elsewhere in the page — the launcher's category rail pointed each of its
+   * buttons at `#launcher-results-panel`, and converging on this primitive must
+   * not silently drop that association. One group-level reference, because the
+   * radiogroup is the control; the individual radios are its options.
+   */
+  ariaControls?: string;
   layout?: "fit" | "equal";
   className?: string;
 };
@@ -42,6 +50,7 @@ export function SegmentedControl<T extends string>({
   label,
   ariaLabelledBy,
   ariaDescribedBy,
+  ariaControls,
   layout = "fit",
   className,
 }: SegmentedControlProps<T>) {
@@ -91,6 +100,7 @@ export function SegmentedControl<T extends string>({
       aria-label={label}
       aria-labelledby={ariaLabelledBy}
       aria-describedby={ariaDescribedBy}
+      aria-controls={ariaControls}
       onKeyDown={onKeyDown}
       data-layout={layout}
       className={cn(
@@ -127,7 +137,7 @@ export function SegmentedControl<T extends string>({
                 ? "flex-1 gap-1 px-0 text-3xs tracking-tight min-[360px]:px-1 min-[360px]:text-xs sm:gap-1.5 sm:px-3 sm:tracking-normal"
                 : "flex-none gap-1.5 px-3 text-xs",
               checked
-                ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
+                ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
                 : "text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)]",
             )}
           >

@@ -243,72 +243,15 @@ export function UtilityDrawer({
   );
 }
 
-const guideSections = [
-  {
-    title: "Ask and verify",
-    body: "Ask a focused guideline question, then verify linked citations and source passages before use.",
-  },
-  {
-    title: "Top source and citations",
-    body: "Use Top source, citation chips, and source cards to open the relevant document page and check the retrieved evidence.",
-  },
-  {
-    title: "Scope",
-    body: "Use document scope controls when a question should search only selected guidelines rather than every indexed source.",
-  },
-  {
-    title: "Quotes, images, sources",
-    body: "Bottom nav jumps to quotes, diagrams, and source passages. Empty sections had no citations.",
-  },
-  {
-    title: "Upload and indexing",
-    body: "Real uploads require Supabase, OpenAI setup, the database schema, and the worker. Demo mode is synthetic only.",
-  },
-  {
-    title: "Copying text",
-    body: "Copied drafts are not final clinical notes. Keep the provenance footer and verify source material before using copied text.",
-  },
-] as const;
-
-export function GuideDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  return (
-    <Sheet
-      open={open}
-      onClose={onClose}
-      title="Clinical KB guide"
-      description="Practical use notes for source-backed guideline search."
-      closeLabel="Close guide"
-      contentClassName="font-sans sm:max-w-2xl"
-      titleClassName="text-lg-minus font-semibold tracking-normal sm:text-lg"
-      bodyClassName="p-4 sm:p-5"
-      closeButtonClassName="grid size-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-    >
-      <div className="grid gap-3 sm:grid-cols-2">
-        {guideSections.map((section) => (
-          <article
-            key={section.title}
-            className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)]"
-          >
-            <h3 className="text-sm-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm">
-              {section.title}
-            </h3>
-            <p className={cn("mt-1 text-sm-minus font-normal leading-5 sm:text-sm sm:leading-6", textMuted)}>
-              {section.body}
-            </p>
-          </article>
-        ))}
-      </div>
-    </Sheet>
-  );
-}
-
-export function GuideTrigger({ onOpen }: { onOpen: () => void }) {
+export function GuideTrigger({ onOpen, onPrefetch }: { onOpen: () => void; onPrefetch?: () => void }) {
   return (
     <div className="flex justify-center pt-1">
       <button
         type="button"
         data-testid="dashboard-guide-trigger"
         onClick={onOpen}
+        onPointerEnter={onPrefetch}
+        onFocus={onPrefetch}
         className={cn(navPill, "px-3")}
         aria-label="Open user guide"
       >

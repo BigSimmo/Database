@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "7f9de4f4-73ca-4ab2-946c-b2ee3c27d708",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#193",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** Mechanical directory moves with import-graph risk and no user-facing benefit. Same reasoning as #190: fold into work already touching the files. VERIFIED CORRECT 2026-08-12 — re-checked against merged main during the full ledger sweep and left unchanged: Six domain directories exist under src/lib (extractors, observability, rag, supabase, validation, webhooks); the reorg is genuinely partial, as the row says. This stamp exists so a later reader can tell \"checked and still true\" from \"never looked at\"; the two were indistinguishable before. **Outcome:** remaining `src/lib` clusters sit in their domain directories per X7 follow-on to X2. **Next:** move non-protected clusters first; answer/retrieval clusters need the RAG flag. **Stop:** no drive-by behaviour edits inside moves."
+  }
+}

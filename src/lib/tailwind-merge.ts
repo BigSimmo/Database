@@ -103,6 +103,10 @@ export const CLINICAL_TWMERGE_THEME = {
     "mode-home-composer-wide",
     "safe",
     "safe-2",
+    "search-band-badge",
+    "specifier-map-aside",
+    "specifier-map-jump",
+    "specifier-map-step-number",
     "tap",
   ],
 
@@ -120,6 +124,7 @@ export const CLINICAL_TWMERGE_THEME = {
     "action-tray-in",
     "shimmer",
     "answer-ecg",
+    "answer-ecg-compact",
   ],
 } as const;
 

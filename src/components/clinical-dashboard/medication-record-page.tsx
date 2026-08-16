@@ -21,11 +21,15 @@ import {
 import { useMemo, useRef, useState, type CSSProperties } from "react";
 
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
-import { MedicationConsiderations } from "@/components/clinical-dashboard/medication-considerations";
+import {
+  MedicationConsiderations,
+  MedicationInteractionCallout,
+} from "@/components/clinical-dashboard/medication-considerations";
 import {
   MedicationNavHeader,
   medicationNavSections,
   medicationSectionsByTab,
+  medicationTabForSectionType,
   type MedicationTabId,
 } from "@/components/clinical-dashboard/medication-nav-header";
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
@@ -181,7 +185,10 @@ function SectionCard({ section }: { section: MedicationSection }) {
   return (
     <details
       className="group scroll-mt-16 border-b border-[color:var(--border)] last:border-b-0"
-      open={section.type === "summary" || section.type === "dose"}
+      // The category switcher already limits how much content is on screen.
+      // Open every card on arrival so switching category reveals its complete
+      // reference at once; native details still lets readers fold a card back.
+      open
     >
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 text-left [&::-webkit-details-marker]:hidden">
         <span className="flex min-w-0 items-center gap-2.5">
@@ -432,6 +439,8 @@ export function MedicationRecordPage({
   // (SSR fallback → live), and every record offers the same four tabs, so the
   // selection survives that swap rather than snapping back to Summary.
   const [activeTab, setActiveTab] = useState<MedicationTabId>("summary");
+  // Where the catalogue's own "Key Interactions" section currently lives.
+  const interactionsTab = medicationTabForSectionType("inter") ?? "more";
   const [patientOpen, setPatientOpen] = useState(false);
   const patientTriggerRef = useRef<HTMLElement | null>(null);
 
@@ -460,6 +469,18 @@ export function MedicationRecordPage({
       </Sheet>
       <InformationPageShell testId={`medication-page-${slug}`} gap={false}>
         <div className="mt-3">
+          {/* Findings against the entered patient belong on the page, not only
+              behind the patient sheet — arriving here from a result row flagged
+              "2 interactions" should not mean hunting for them. Renders nothing
+              when no profile is entered or nothing matched. */}
+          {record ? (
+            <MedicationInteractionCallout
+              record={record}
+              onOpenPatientDetails={() => setPatientOpen(true)}
+              onOpenInteractionsSection={() => setActiveTab(interactionsTab)}
+              className="mb-3"
+            />
+          ) : null}
           {record ? (
             <MedicationRecordDetail record={record} governance={governance} activeTab={activeTab} />
           ) : loading ? (

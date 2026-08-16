@@ -188,10 +188,8 @@ hosted Supabase MCP server uses OAuth, not repo secrets.
 ### Context7
 
 Workspace config in `.cursor/mcp.json` runs pinned local
-`npx -y @upstash/context7-mcp@4.0.2` with `CONTEXT7_API_KEY` from `${env:…}`;
-`.cursor/settings.json` enables the `context7-plugin`. Codex Desktop can instead
-use the installed Context7 app when its two tools are callable: resolve the library
-ID, then query one focused documentation topic. Use Context7 for
+`npx -y @upstash/context7-mcp@3.2.5` with `CONTEXT7_API_KEY` from `${env:…}`;
+`.cursor/settings.json` enables the `context7-plugin`. Use Context7 for
 versioned library docs — **Tailwind 4, Zod 4, Playwright, Vitest, React 19,
 `@supabase/supabase-js`** (peers; not exhaustive) — not for Next.js 16: read
 `node_modules/next/dist/docs/` locally and do not invent App Router APIs from
@@ -200,15 +198,13 @@ Context7 or training data.
 Optional `CONTEXT7_API_KEY` (`ctx7sk…`) from [context7.com/dashboard](https://context7.com/dashboard)
 raises rate limits. Set it as a user/OS env var, Cursor **Settings → MCP**, or a
 Cursor Cloud Agent Secret (shell `process.env`). Local stdio MCP and `npx ctx7`
-use that env; a host-installed Context7 app has separate authentication and is not
-configured by this repository. Fall back to `npx ctx7 library|docs …` if the host
-app is unavailable or rate-limited.
+use that env; a separate host-injected Context7 connector may still ignore it —
+fall back to `npx ctx7 library|docs …` if host MCP returns quota exceeded.
 Without a key, Cursor expands `${env:CONTEXT7_API_KEY}` to empty and the server
 runs anonymously at lower rate limits. **Reload MCP servers** (or restart Cursor)
 after setting or rotating the key — the stdio child captures env at spawn.
 `.env.local` alone does not expand project MCP `${env:}`. Full setup notes:
-`docs/agents-guide.md`. Never commit the API key or put secrets, personal data, or
-proprietary source into documentation queries.
+`docs/agents-guide.md`. Never commit the API key.
 
 ### Figma
 

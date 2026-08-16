@@ -27,6 +27,13 @@ export const mobileComposerIdleReserve = "2rem";
 export const mobileComposerDifferentialsCompareReserve =
   "calc(12.5rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))";
 
+/**
+ * Medication surfaces: Patient details pill + compact search pill.
+ * Keep the rem figure equal to --phone-dock-patient-details-clearance in
+ * globals.css; tests/mobile-composer-reserve.test.ts pins the pair.
+ */
+export const mobileComposerPatientDetailsReserve = "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))";
+
 // Every phone dock is the compact single-row pill (mode homes and result views
 // alike); only the answer dock with a follow-up chip row is taller. The answer
 // values are derived from the dock constants so the pairs cannot silently
@@ -41,6 +48,7 @@ export const mobileComposerVisibleReserve = {
   dashboardAnswer: dashboardCompactSingleRowReserve,
   dashboardDock: dashboardCompactSingleRowReserve,
   differentialsCompare: mobileComposerDifferentialsCompareReserve,
+  patientDetails: mobileComposerPatientDetailsReserve,
 } as const;
 
 export function resolveMobileComposerReserve(bottomComposerHidden: boolean, visibleReserve: string): string {
@@ -55,14 +63,9 @@ export function isDocumentViewerOwnedRoute(pathname: string): boolean {
   return pathname !== "/documents/search";
 }
 
-/** Calculators owns its desktop top + phone bottom search composer. */
-export function isCalculatorsOwnedRoute(pathname: string): boolean {
-  return pathname === "/calculators" || pathname.startsWith("/calculators/");
-}
-
 /** Routes that own a floating/page composer so the shell keeps only a zero pad. */
 export function isPageOwnedComposerRoute(pathname: string): boolean {
-  return isDocumentViewerOwnedRoute(pathname) || isCalculatorsOwnedRoute(pathname);
+  return isDocumentViewerOwnedRoute(pathname);
 }
 
 /*
@@ -81,6 +84,7 @@ export function resolveDashboardVisibleMobileComposerReserve(input: {
   searchMode: string;
   hasAnswerFollowUps: boolean;
   differentialsCompareAddonActive: boolean;
+  patientDetailsAddonActive?: boolean;
   /** Hero owns the phone composer (no fixed bottom dock) — match shell idle pad. */
   heroOwnsPhoneComposer?: boolean;
 }): string {
@@ -98,6 +102,9 @@ export function resolveDashboardVisibleMobileComposerReserve(input: {
   if (input.differentialsCompareAddonActive) {
     return mobileComposerVisibleReserve.differentialsCompare;
   }
+  if (input.patientDetailsAddonActive) {
+    return mobileComposerVisibleReserve.patientDetails;
+  }
   return mobileComposerVisibleReserve.dashboardDock;
 }
 
@@ -109,9 +116,10 @@ export function resolveShellVisibleMobileComposerReserve(input: {
   isStandaloneModeHome: boolean;
   searchMode: string;
   differentialsCompareAddonActive: boolean;
+  patientDetailsAddonActive?: boolean;
 }): string {
   if (!input.shouldShowSearchComposer) {
-    // Page-owned composers (DocumentViewer, Calculators) manage their own dock
+    // Page-owned composers (DocumentViewer) manage their own dock
     // clearance; the shell keeps only the hidden-size pad.
     const pageOwned = input.pageOwnedComposerRoute ?? input.documentViewerOwnedRoute ?? false;
     return pageOwned ? mobileComposerHiddenReserve : mobileComposerIdleReserve;
@@ -123,5 +131,6 @@ export function resolveShellVisibleMobileComposerReserve(input: {
   if (input.isStandaloneModeHome) return mobileComposerIdleReserve;
   if (input.searchMode === "answer") return mobileComposerVisibleReserve.shellAnswer;
   if (input.differentialsCompareAddonActive) return mobileComposerVisibleReserve.differentialsCompare;
+  if (input.patientDetailsAddonActive) return mobileComposerVisibleReserve.patientDetails;
   return mobileComposerVisibleReserve.shellDock;
 }

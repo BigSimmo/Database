@@ -5,9 +5,9 @@ description: Bootstrap a clean session for new work in this repo — create a fr
 
 # newtask — start a clean, current working copy
 
-This repo moves fast (`claude/*` branches auto-merge on green) and shares ~40 worktrees
-and one stash stack, so starting work on a stale base or a cold worktree is the default
-failure. This skill sets up an isolated, current worktree so new work starts clean.
+This repo moves fast and shares ~40 worktrees and one stash stack, so starting work on a
+stale base or a cold worktree is the default failure. This skill sets up an isolated,
+current worktree so new work starts clean.
 
 ## Before you start
 
@@ -33,6 +33,14 @@ than opening a second branch. This is one GitHub read (`mcp__github__list_pull_r
 boundary. If GitHub is unreachable, treat it as a warning and continue — an offline session
 must still be able to start work. Recorded as `#292`.
 
+**If the PR-handoff stop hook has already armed in this session, that read is denied** — a
+session that opened its own PR and then picks up another queued item cannot call
+`list_pull_requests` or `gh pr list` at all (see `docs/pr-handoff-stop-cross-agent-gap.md`).
+Do not unlock the hook for this; fall back to `git ls-remote --heads origin`, which needs no
+provider tool and still answers the question, because a session building the same surface
+almost always has a pushed branch named after it. Report which check you used. Observed
+2026-08-14 on PR #1956.
+
 ## Steps
 
 1. **Sync main.** `git fetch --quiet origin main`.
@@ -53,17 +61,6 @@ must still be able to start work. Recorded as `#292`.
 5. **Warm routes before any browser/UI work** (fresh worktrees can hash onto a
    Next-reserved port and 404 all routes until warmed): `npm run ensure`, then hit
    `/` and `/applications` once.
-6. **Before any Railway MCP tool use, link this worktree first.** The Railway CLI's link
-   state (`~/.railway/config.json`) is keyed by folder path, so every fresh worktree starts
-   unlinked. An unlinked directory makes Railway tooling try to auto-provision a project
-   for "the current directory" — which collides with the already-existing pinned project
-   and surfaces as an "already exists" error (see `railway-connector-server-conflict`
-   session, 2026-08-14). Skip this step for tasks that never touch Railway. Link explicitly
-   to the pinned project instead of letting anything auto-create one:
-   ```
-   link_service(project_id="5deaad0b-675a-4c13-978e-5ca2b5b877f9", service_id="6db32f39-2ecd-493c-a688-feb2d6670ff4")  # "Database" service
-   ```
-   Verify with `environment_status` — expect `Database` and `worker` both `SUCCESS`.
 
 ## Notes
 

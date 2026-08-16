@@ -88,10 +88,12 @@ type GeneratedAnswerPayload = {
   conflictsOrGaps?: unknown[];
 };
 
+type GeneratedAnswerAttempt = GeneratedAnswerPayload | Error | "truncated";
+
 async function answerFromTextSources(
   query: string,
   sources: SearchResult[],
-  generatedAnswer?: GeneratedAnswerPayload | Error,
+  generatedAnswer?: GeneratedAnswerAttempt | GeneratedAnswerAttempt[],
   options: { sourceOnly?: boolean } = {},
 ) {
   // `src/lib/env.ts` freezes process.env at module load. The offline vitest wrapper
@@ -116,11 +118,26 @@ async function answerFromTextSources(
       from: vi.fn(() => new EmptyQuery()),
     }),
   }));
+  let generatedAnswerAttemptIndex = 0;
   const generateStructuredTextResult = vi.fn(async () => {
-    if (generatedAnswer instanceof Error) throw generatedAnswer;
+    const attempt = Array.isArray(generatedAnswer) ? generatedAnswer[generatedAnswerAttemptIndex++] : generatedAnswer;
+    if (attempt === "truncated") {
+      return {
+        text: "",
+        model: "gpt-4.1-mini",
+        operation: "answer",
+        latencyMs: 12,
+        requestId: "req_answer_from_text_sources_truncated",
+        usage: { input_tokens: 120, output_tokens: 80, total_tokens: 200 },
+        status: "incomplete" as const,
+        truncated: true,
+        incompleteReason: "max_output_tokens",
+      };
+    }
+    if (attempt instanceof Error) throw attempt;
     return {
       text: JSON.stringify(
-        generatedAnswer ?? {
+        attempt ?? {
           answer: "No current source with specific guidance for this query was found.",
           grounded: false,
           confidence: "unsupported",
@@ -165,6 +182,116 @@ afterEach(() => {
 });
 
 describe("RAG structured-output fallback", () => {
+  it("records the specific quality-gate verdict when an unverified figure forces the source-only fallback (#231)", async () => {
+    // A realistic rejected payload, not an injected Error: the generated answer cites the
+    // right chunk but states 500 mg where the source says 250 mg. Deterministic numeric
+    // verification cannot match the figure, the post-finalize gate throws, and the answer
+    // degrades to a cited source-backed fallback. The degraded token stays unchanged; the
+    // specific verdict must now survive in answer_retry_reasons.
+    const answer = await answerFromTextSources(
+      "Lithium dosing?",
+      [
+        source({
+          id: "lithium-dose-source",
+          document_id: "lithium-guideline",
+          title: "Medication guideline",
+          file_name: "medication-guideline.pdf",
+          section_heading: "Lithium initiation",
+          content: "Start lithium carbonate at 250 mg once daily and review tolerability before titration.",
+          similarity: 0.94,
+          hybrid_score: 0.94,
+          text_rank: 0.09,
+        }),
+      ],
+      {
+        answer: "Start lithium carbonate at 500 mg once daily.",
+        grounded: true,
+        confidence: "high",
+        answerSections: [],
+        citations: [{ chunk_id: "lithium-dose-source" }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      },
+    );
+
+    // Conservative failure behaviour is preserved: no generated prose is returned as-is.
+    expect(answer.routingReason).toContain("generation_fallback:generation_quality_failed");
+    // The structured verdict that used to be discarded is now recorded.
+    expect(answer.latencyTimings?.answer_retry_reasons).toContain("generation_quality_gate:numeric_faithfulness_gap");
+    // The unverified figure never reaches the delivered answer unmarked as verified text.
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.length).toBeGreaterThan(0);
+  });
+
+  it("preserves the initial strong quality verdict when its repair attempt truncates", async () => {
+    const sources = [
+      source({
+        id: "quality-retry-source-a",
+        document_id: "quality-retry-guide-a",
+        content: "Guide A outlines routine monitoring steps and referral thresholds.",
+      }),
+      source({
+        id: "quality-retry-source-b",
+        document_id: "quality-retry-guide-b",
+        content: "Guide B outlines a second monitoring pathway and escalation thresholds.",
+      }),
+    ];
+    const templateLikeAnswer: GeneratedAnswerPayload = {
+      answer: "Compare the document monitoring pathways using the source-backed guidance.",
+      grounded: true,
+      confidence: "high",
+      answerSections: [],
+      citations: [{ chunk_id: "quality-retry-source-a" }],
+      quoteCards: [],
+      conflictsOrGaps: [],
+    };
+
+    const answer = await answerFromTextSources("Compare document monitoring pathways across two guides", sources, [
+      templateLikeAnswer,
+      templateLikeAnswer,
+      "truncated",
+    ]);
+
+    expect(answer.latencyTimings?.answer_retry_reasons).toContain("fast_template_retry_strong");
+    expect(answer.latencyTimings?.answer_retry_reasons).toContain("strong_quality_retry");
+    // The preserved verdict is whatever generatedAnswerQualityFailureReason returned for the
+    // strong answer at gate time. Current sanitizeAnswerText strips this fixture's template
+    // answer to nothing, so the first check in the ladder (empty_after_sanitize) wins over
+    // template_like_answer; the assertion pins preservation, not the ladder's tie-break.
+    expect(answer.latencyTimings?.answer_retry_reasons).toContain("generation_quality_gate:empty_after_sanitize");
+  });
+
+  it("records the cited-refusal verdict when generation returns a provider source gap (#231)", async () => {
+    const answer = await answerFromTextSources(
+      "Lithium dosing?",
+      [
+        source({
+          id: "lithium-dose-source",
+          document_id: "lithium-guideline",
+          title: "Medication guideline",
+          file_name: "medication-guideline.pdf",
+          section_heading: "Lithium initiation",
+          content: "Start lithium carbonate at 250 mg once daily and review tolerability before titration.",
+          similarity: 0.94,
+          hybrid_score: 0.94,
+          text_rank: 0.09,
+        }),
+      ],
+      {
+        answer: "No current source with specific guidance for this query was found.",
+        grounded: false,
+        confidence: "unsupported",
+        answerSections: [],
+        citations: [{ chunk_id: "lithium-dose-source" }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      },
+    );
+
+    expect(answer.routingReason).toContain("generation_fallback");
+    expect(answer.latencyTimings?.answer_retry_reasons).toContain("generation_quality_gate:provider_source_gap");
+  });
+
   it("recovers a cited provider source gap instead of treating nearby citations as a grounded answer", async () => {
     const dischargeSources = [
       source({
@@ -4589,6 +4716,38 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answerSections ?? []).toEqual([]);
   });
 
+  it("reuses a rejected warm-up embedding instead of retrying the provider", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+
+    const rpc = vi.fn(async () => ({ data: [], error: null }));
+    const embedTextWithTelemetry = vi.fn(async () => {
+      throw new Error("embedding provider unavailable");
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry,
+      generateStructuredTextResult: vi.fn(),
+    }));
+
+    const { searchChunksWithTelemetry } = await import("../src/lib/rag/rag");
+    const search = await searchChunksWithTelemetry({
+      query: "monitoring requirements",
+      topK: 4,
+      allowGlobalSearch: true,
+    });
+
+    expect(search.telemetry.embedding_prefetched).toBe(true);
+    expect(search.telemetry.embedding_skipped).toBe(true);
+    expect(embedTextWithTelemetry).toHaveBeenCalledOnce();
+  });
+
   it("does not convert caller cancellation during embedding into lexical fallback", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
@@ -4908,7 +5067,7 @@ describe("budget-aware generation deadlines", () => {
     vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
     // Burn 20_000ms of the 25_000ms fast budget inside the first attempt before it
     // resolves truncated: the 5_000ms left is below generationRecoveryReserveMs +
-    // minimumGenerationRetryMs (7_000ms), so the strong self-heal must be skipped
+    // minimumGenerationRetryMs (22_000ms), so the strong self-heal must be skipped
     // instead of spending the recovery reserve on a guaranteed-discard retry.
     const { answer, generateStructuredTextResult } = await lithiumTruncatedGenerationAnswer(20_000);
 

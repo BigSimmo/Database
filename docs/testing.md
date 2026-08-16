@@ -101,6 +101,8 @@ it is limited to the documented, exact GitHub connector-gap operation in
 | `npm run test:e2e:visual:update`          | Rewrite the pixel baselines for the current platform. Review every changed PNG before committing.                                                       |
 | `npm run verify:lighthouse`               | Build, serve, and measure the budgeted routes with Lighthouse, then grade against the committed baseline. `-- --dry-run` prints the plan.               |
 | `npm run check:lighthouse-budget`         | Grade Lighthouse JSON that already exists. `-- --update` refreshes the baseline in `lighthouse-budget.json`.                                            |
+| `npm run check:coverage-inventory`        | Fail if a declared executable root is absent from the generated `coverage/lcov.info`.                                                                   |
+| `npm run check:bundle-budget`             | Enforce aggregate production, five route-local, and mockup-only client-JS gzip baselines after a clean build.                                           |
 
 Set `FAST_CHECK_SEED` to reproduce a property-test run. Local and ordinary CI runs default to `424242`; scheduled CI may derive a bounded seed from the run ID.
 
@@ -195,8 +197,11 @@ following the same shape as `check:bundle-budget`.
   `/forms` doing this) — is retried **once**, and the retry is always logged to the run summary and
   written to `retries.txt` whether or not it recovered. A run that never started measured nothing
   about the diff; it is not a pass either, so if the retry also produces nothing the grader still
-  fails closed. A cell that _did_ measure and produced bad numbers is never retried.
-- The 45-minute advisory CI job reserves 10 minutes for the isolated build, 2 minutes for server
+  fails closed. A cell that _did_ measure outside its numeric budget receives exactly two targeted
+  confirmation samples; only that failing route/strategy is repeated, all three reports are retained,
+  and their majority is graded. Missing or incomplete confirmation evidence retains the initial
+  breach and fails closed. Passing cells are never re-run.
+- The 45-minute required CI job reserves 10 minutes for the isolated build, 2 minutes for server
   readiness, and 28 minutes for the complete measurement suite. Each Lighthouse process receives
   the lesser of its 120-second cap and the suite time remaining. If time runs out, unmeasured cells
   remain missing and the grader fails closed, while the artifact still uploads for diagnosis.
@@ -240,10 +245,9 @@ server/edge runtime entry points other than `src/proxy.ts` (which runs before ev
 navigation). An unrecognised path under a listed root stays **in** scope, so a future refactor
 over-triggers by one job rather than silently dropping a render surface.
 
-Event matrix: pull requests on perf scope when not a draft; `merge_group` skipped while the job is
-advisory (it could only add merge latency without changing the outcome — promoting it to
-`pr-required` must restore `merge_group` in the same edit, which `tests/ci-cache-safety.test.ts`
-enforces); `push` to `main`/`release/**` on perf scope **or** when `lockfile_changed` is true (the
+Event matrix: pull requests on perf scope when not a draft; `merge_group` on perf scope so the
+required aggregate re-verifies the exact merge candidate; `push` to `main`/`release/**` on perf
+scope **or** when `lockfile_changed` is true (the
 lockfile arm is the backstop for a runtime dependency bump the PR arm deliberately excludes from
 `perf_changed`); the weekly `schedule`; and `workflow_dispatch`. The `lighthouse-budget` label
 forces a run and `skip-lighthouse-budget` opts out, with skip winning. Caveat:
@@ -268,19 +272,14 @@ evidence-based verdict rather than disguising a public-network failure as a loca
 
 PR CI uses the same fail-closed classifier as `verify:pr-local`. `static-pr` always proves runtime/install parity, the classifier and verification-plan invariants, and changed-file formatting. Recognised documentation changes add documentation integrity checks; recognised workflow/policy-only changes add action/policy self-tests and `test:ci-workflows`. Mixed executable+workflow changes skip that focused Vitest invocation locally and in CI because the full unit or coverage invocation already contains the same workflow-reading suites. Executable, test, build/config, dependency, database/container, mixed, or unknown non-document paths set `static_heavy_changed`, retaining lint, typecheck, safety/config/RAG, and the full unit coverage job. Build, migration, Docker, and browser jobs remain separately scoped. A dependency audit blocks on lockfile/npm-config changes and the scheduled full-run sentinel, instead of making a low-value registry request on every PR. `verify:pr-local` additionally runs `npm ci --dry-run --ignore-scripts` first when `package.json` or `package-lock.json` changes, catching lockfile/install disagreement before the broad local plan or CI fan-out.
 
-UI scope runs a fail-fast `@critical` Chromium job on pull requests / merge queues, then required production Chromium journeys (`test:e2e:pr:shard`) across three **duration-aware explicit file groups** (`scripts/playwright-pr-shards.mjs`). Those later groups exclude `@critical`; main, scheduled, and ordinary manual runs skip the fail-fast job and retain the complete set. The dated per-file timing profile is the single source for membership and keeps both full and post-critical estimates within 30 seconds; filesystem/config parity tests fail closed on orphans, duplicates, or matcher drift. Cross-job webpack-cache transport is deliberately absent after the merged PR's final run moved a 1.09 GB artifact three times for no critical-path benefit. `.github/actions/setup-ui-e2e/**` is UI-scoped so changing the browser environment exercises its owner. `src/app/api/**` does not set `ui_changed` or `db_changed` — API handlers stay on unit/coverage (and offline RAG when retrieval-scoped). The `PR required` aggregate keeps `if: always()` and distinguishes `cancelled` from `failure` in its messages. `release-browser-matrix` runs on UI/performance/lockfile-relevant `main` pushes and on every release-branch, ordinary manual, and scheduled run; its Playwright wrapper owns the isolated production build, and successful in-run production Chromium leaves only Chromium mockups plus Firefox/WebKit. Missing prior Chromium proof falls back to the full matrix. The Lighthouse-baseline refresh dispatch is a focused measurement operation rather than a synthetic full run. Container scope calls the reusable Docker workflow and requires both app and worker image builds through the aggregate.
+UI scope starts the fast-signal `@critical` Chromium job and the required production Chromium shards concurrently on pull requests / merge queues. The three **duration-aware explicit file groups** (`scripts/playwright-pr-shards.mjs`) exclude `@critical` there, while main, scheduled, and ordinary manual runs skip the fast job and retain the complete set. The 2026-08-13 hosted timing profile keeps post-critical shard spread below 10 seconds and full-suite estimates within 30 seconds; filesystem/config parity tests fail closed on orphans, duplicates, or matcher drift. Cross-job webpack-cache transport is deliberately absent after the merged PR's final run moved a 1.09 GB artifact three times for no critical-path benefit. `.github/actions/setup-ui-e2e/**` is UI-scoped so changing the browser environment exercises its owner. `src/app/api/**` does not set `ui_changed` or `db_changed` — API handlers stay on unit/coverage (and offline RAG when retrieval-scoped). The path-scoped `ingestion-sast` job scans the untrusted-upload worker, extractors, ingestion libraries and APIs with a digest-pinned Semgrep image; `PR required` requires it whenever `ingestion_sast_changed` is true. Its public registry packs remain mutable and network-backed, so the job retries only Semgrep's fatal tooling/registry exit twice; a security finding still fails immediately. The aggregate keeps `if: always()` and distinguishes `cancelled` from `failure` in its messages. `release-browser-matrix` runs on UI/performance/lockfile-relevant `main` pushes and on every release-branch, ordinary manual, and scheduled run; its Playwright wrapper owns the isolated production build, and successful in-run production Chromium leaves only Chromium mockups plus Firefox/WebKit. Missing prior Chromium proof falls back to the full matrix. The Lighthouse-baseline refresh dispatch is a focused measurement operation rather than a synthetic full run. Container scope calls the reusable Docker workflow and requires both app and worker image builds through the aggregate.
 
-PR body synchronization is skipped unless the checked-out head actually contains `PR_POLICY_BODY.md`. The eval-canary liveness API probe runs once with the daily Ops Digest cadence rather than on every PR. These remove repeated provider-side work without weakening a required result.
+PR body synchronization is skipped unless the current PR's own diff changes `PR_POLICY_BODY.md` — an inherited copy merely present on the checked-out head (e.g. from a `main` merge) no longer triggers it (`#230`). The eval-canary liveness API probe runs once with the daily Ops Digest cadence rather than on every PR. These remove repeated provider-side work without weakening a required result.
 
-Two further jobs are advisory (deliberately outside `pr-required`): `visual-baseline` on UI scope
-(soft-fail only the classified pixel-drift step) and `lighthouse-budget` on the narrower perf scope
-(`continue-on-error` — see "When the budget runs" above; `worker/**` and container surfaces,
-dependency manifests and the lockfile, Playwright/test surfaces, most of `src/app/api/**` other than
-initial-load handlers, and `src/app/mockups/**` are excluded; `src/proxy.ts` stays in). Both upload
-their evidence on every run, pass or fail, because the artifact is the whole point on a first run —
-the baselines to adopt and the reports to grade. Promote either to required by adding it to
-`pr-required` and removing the soft-fail (`continue-on-error` / drift classifier) in the same edit;
-for `lighthouse-budget` that edit must also restore `merge_group` to its `if:`.
+The remaining visual-baseline job is advisory (deliberately outside `pr-required`) on UI scope and
+soft-fails only the classified pixel-drift step. It uploads evidence on every run because the
+artifact supplies the platform baseline to review. Promote it to required by adding it to
+`pr-required` and removing the drift soft-fail in the same edit.
 
 ## Contribution checklist (UI changes)
 

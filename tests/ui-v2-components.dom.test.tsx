@@ -409,6 +409,41 @@ describe("SegmentedControl", () => {
     expect(screen.getByRole("radio", { name: "All" })).toBeInTheDocument();
   });
 
+  it("points the group, not each radio, at the region it filters", () => {
+    render(
+      <SegmentedControl
+        label="Filter by tool category"
+        value="all"
+        onChange={() => undefined}
+        options={[
+          { value: "all", label: "All" },
+          { value: "assess", label: "Assess" },
+        ]}
+        ariaControls="launcher-results-panel"
+      />,
+    );
+
+    expect(screen.getByRole("radiogroup")).toHaveAttribute("aria-controls", "launcher-results-panel");
+    // The radios are options of the control, not separate controllers of the
+    // panel — the launcher's old rail put aria-controls on all six buttons.
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio).not.toHaveAttribute("aria-controls");
+    }
+  });
+
+  it("omits aria-controls entirely when the rail governs no separate region", () => {
+    render(
+      <SegmentedControl
+        label="Result type"
+        value="all"
+        onChange={() => undefined}
+        options={[{ value: "all", label: "All" }]}
+      />,
+    );
+
+    expect(screen.getByRole("radiogroup")).not.toHaveAttribute("aria-controls");
+  });
+
   it("keeps a controlled disabled value checked instead of remapping to the first enabled option", () => {
     render(
       <SegmentedControl
@@ -754,6 +789,44 @@ describe("Tooltip", () => {
     } finally {
       raf.mockRestore();
       caf.mockRestore();
+    }
+  });
+
+  it("coalesces capture scroll events into one passive animation-frame measurement", async () => {
+    const pendingFrames: Array<(time: number) => void> = [];
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      pendingFrames.push(callback as (time: number) => void);
+      return pendingFrames.length;
+    });
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect");
+
+    try {
+      render(
+        <Tooltip content="Batched placement">
+          <button type="button">Batched trigger</button>
+        </Tooltip>,
+      );
+
+      screen.getByRole("button", { name: "Batched trigger" }).focus();
+      await screen.findByTestId("tooltip");
+      expect(pendingFrames).toHaveLength(1);
+      act(() => pendingFrames.shift()?.(0));
+      await waitFor(() => expect(screen.getByRole("tooltip")).toBeVisible());
+      const measuredCalls = rect.mock.calls.length;
+
+      act(() => {
+        window.dispatchEvent(new Event("scroll"));
+        window.dispatchEvent(new Event("scroll"));
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      expect(pendingFrames).toHaveLength(1);
+      expect(rect).toHaveBeenCalledTimes(measuredCalls);
+      act(() => pendingFrames.shift()?.(16));
+      await waitFor(() => expect(rect.mock.calls.length).toBe(measuredCalls + 2));
+    } finally {
+      raf.mockRestore();
+      rect.mockRestore();
     }
   });
 
@@ -1216,11 +1289,11 @@ describe("Disclosure — print", () => {
     );
 
     const panel = screen.getByTestId("disclosure").querySelector('[role="region"]');
-    expect(panel).toHaveAttribute("hidden");
+    expect(panel).not.toHaveAttribute("hidden");
     expect(panel).toHaveAttribute("data-open", "false");
     // On paper there is no control to open, so a collapsed section would print
     // as though the guideline never mentioned it — undetectably.
-    expect(panel?.className).toContain("print:block");
+    expect(panel).toHaveClass("hidden", "print:block");
   });
 
   it("keeps an open panel visible and still print-expanded", () => {
@@ -1232,6 +1305,8 @@ describe("Disclosure — print", () => {
 
     const panel = screen.getByRole("region");
     expect(panel).not.toHaveAttribute("hidden");
+    expect(panel).not.toHaveClass("hidden");
+    expect(panel).toHaveClass("print:block");
     expect(panel).toHaveAttribute("data-open", "true");
   });
 });

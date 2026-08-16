@@ -491,6 +491,7 @@ test.describe("Medication responsive stress coverage", () => {
             workspaceRight: workspaceRect.right,
             patientLeft: patientRect.left,
             patientRight: patientRect.right,
+            patientVisible: patientRect.width > 0 && patientRect.height > 0,
             cardLeft: cardRect.left,
             cardRight: cardRect.right,
             cardPaddingLeft: Number.parseFloat(cardStyle.paddingLeft),
@@ -505,10 +506,8 @@ test.describe("Medication responsive stress coverage", () => {
         if (viewport.width <= 639) {
           expect(metrics?.workspaceLeft ?? 0).toBeGreaterThanOrEqual(12);
           expect(metrics?.workspaceRight ?? viewport.width).toBeLessThanOrEqual(viewport.width - 12);
-          expect(Math.abs((metrics?.patientLeft ?? 0) - (metrics?.workspaceLeft ?? 0))).toBeLessThanOrEqual(1);
-          expect(
-            Math.abs((metrics?.patientRight ?? 0) - (metrics?.workspaceRight ?? viewport.width)),
-          ).toBeLessThanOrEqual(1);
+          // Phone replaces the in-flow patient strip with the dock pill.
+          await expect(page.getByTestId("patient-details-dock-action")).toBeVisible();
           expect(Math.abs((metrics?.cardLeft ?? 0) - (metrics?.workspaceLeft ?? 0))).toBeLessThanOrEqual(1);
           expect(Math.abs((metrics?.cardRight ?? 0) - (metrics?.workspaceRight ?? viewport.width))).toBeLessThanOrEqual(
             1,
@@ -517,12 +516,43 @@ test.describe("Medication responsive stress coverage", () => {
           expect(metrics?.cardPaddingRight ?? 0).toBeGreaterThanOrEqual(15);
           expect(metrics?.filterLeft ?? 0).toBeGreaterThanOrEqual(15);
         } else {
+          expect(metrics?.patientVisible).toBe(true);
+          expect(Math.abs((metrics?.patientLeft ?? 0) - (metrics?.workspaceLeft ?? 0))).toBeLessThanOrEqual(1);
+          expect(
+            Math.abs((metrics?.patientRight ?? 0) - (metrics?.workspaceRight ?? viewport.width)),
+          ).toBeLessThanOrEqual(1);
           expect(metrics?.cardLeft ?? 0).toBeGreaterThanOrEqual(12);
           expect((metrics?.cardRight ?? viewport.width) + 12).toBeLessThanOrEqual(viewport.width);
         }
       } else {
         await expect(desktopResult).toBeVisible();
         await expect(phoneResult).toBeHidden();
+
+        const columnMetrics = await page
+          .locator('[data-testid^="medication-result-"][data-testid$="-desktop"]:visible')
+          .evaluateAll((rows) =>
+            rows.map((row) => {
+              const ceiling = row.querySelector<HTMLElement>('[data-medication-cell="ceiling"]');
+              const action = row.querySelector<HTMLElement>('[data-medication-cell="action"]');
+              const table = row.parentElement?.parentElement;
+              if (!ceiling || !action || !table) return null;
+              const ceilingRect = ceiling.getBoundingClientRect();
+              const actionRect = action.getBoundingClientRect();
+              const rowRect = row.getBoundingClientRect();
+              const tableRect = table.getBoundingClientRect();
+              return {
+                columnGap: actionRect.left - ceilingRect.right,
+                ceilingOverflow: ceiling.scrollWidth - ceiling.clientWidth,
+                rightEdgeOverflow: rowRect.right - tableRect.right,
+              };
+            }),
+          );
+        expect(columnMetrics.every(Boolean)).toBe(true);
+        for (const metrics of columnMetrics) {
+          expect(metrics?.columnGap ?? 0).toBeGreaterThanOrEqual(12);
+          expect(metrics?.ceilingOverflow ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(1);
+          expect(metrics?.rightEdgeOverflow ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(1);
+        }
       }
     }
 

@@ -47,6 +47,7 @@ jobs:
       docs_changed: ${{ steps.scope.outputs.docs_changed }}
       static_heavy_changed: ${{ steps.scope.outputs.static_heavy_changed }}
       coverage_changed: ${{ steps.scope.outputs.coverage_changed }}
+      ingestion_sast_changed: ${{ steps.scope.outputs.ingestion_sast_changed }}
       ui_changed: ${{ steps.scope.outputs.ui_changed }}
       perf_changed: ${{ steps.scope.outputs.perf_changed }}
       advisory_ui_changed: ${{ steps.scope.outputs.advisory_ui_changed }}
@@ -121,6 +122,19 @@ jobs:
             const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/trusted-policy/scripts/pr-policy.mjs`).href;
             const { collectSatisfiedGovernanceItems, requiredClinicalGovernanceItems, section } = await import(moduleUrl);
             const pr = context.payload.pull_request;
+            const changedFiles = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            const bodyTemplateWasAdded = changedFiles.some(
+              (file) => file.filename === "PR_POLICY_BODY.md" && file.status === "added",
+            );
+            if (!bodyTemplateWasAdded) {
+              core.info("PR_POLICY_BODY.md was not added by this PR; skipping PR body sync.");
+              return;
+            }
             const existingBody = pr.body || "";
             const existingCheckedItems = new Set();
             const govSection = section(existingBody, "Clinical Governance Preflight");
@@ -174,6 +188,14 @@ jobs:
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:upload-limit-parity
 
+      # The generated lexicon review is a clinical-facing artefact. It was in the
+      # local verify:pr-local chain but in no CI job, so it rotted on main and
+      # failed every local preflight while every required check stayed green
+      # (#333). Same static-heavy condition verify-pr-local.mjs already uses.
+      - name: Medication lexicon report freshness
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:medication-lexicon-report
+
       - name: GitHub Actions pin check
         if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:github-actions
@@ -220,6 +242,15 @@ jobs:
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         env:
           LEDGER_WRITE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: |
+          if [ "${LEDGER_WRITE_BASE_SHA:-}" = "0000000000000000000000000000000000000000" ]; then
+            echo "LEDGER_WRITE_BASE_SHA=" >> "$GITHUB_ENV"
+          else
+            echo "LEDGER_WRITE_BASE_SHA=$LEDGER_WRITE_BASE_SHA" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run ledger write discipline
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:ledger-write-discipline
 
       - name: PR mergeability workflow contract
@@ -414,6 +445,58 @@ jobs:
       - name: Unit tests (with coverage gate)
         run: npm run test:coverage
 
+      - name: Verify coverage inventory
+        run: npm run check:coverage-inventory
+
+  ingestion-sast:
+    name: Ingestion SAST
+    needs: changes
+    if: needs.changes.outputs.ingestion_sast_changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      # Blocking jobs use an immutable engine image. Registry rules remain
+      # ERROR-only and narrowly scoped to the untrusted-upload surface.
+      image: semgrep/semgrep@sha256:59fbed6127ea7c5dde3ba6a85142733bb20ea9aaa36120c953904f1539aaf66e
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Semgrep scan (blocking)
+        run: |
+          for attempt in 1 2 3; do
+            if semgrep scan \
+              --error \
+              --severity ERROR \
+              --oss-only \
+              --metrics off \
+              --config p/typescript \
+              --config p/javascript \
+              --config p/react \
+              --config p/nodejs \
+              --config p/python \
+              worker \
+              src/lib/ingestion*.ts \
+              src/lib/extractors \
+              src/app/api/ingestion \
+              src/app/api/upload; then
+              exit 0
+            else
+              status=$?
+            fi
+
+            # Semgrep documents exit 1 as a finding and 2 as a fatal tooling/
+            # registry error. Findings fail immediately; only transient-capable
+            # fatal errors get two bounded retries.
+            if [ "$status" -ne 2 ] || [ "$attempt" -eq 3 ]; then
+              exit "$status"
+            fi
+            echo "::warning::Semgrep fatal error on attempt ${attempt}; retrying in 10 seconds"
+            sleep 10
+          done
+
   build:
     name: Build
     needs: changes
@@ -476,7 +559,7 @@ jobs:
       contents: read
     uses: ./.github/workflows/docker-image.yml
 
-  # Fail-fast @critical Chromium smoke on PRs/merge_group before the full
+  # Fast-signal @critical Chromium smoke on PRs/merge_group alongside the full
   # production suite. Skipped on main/schedule — those run the full job only.
   # Keeps merge safety: pr-required still demands the full Production UI job.
   #
@@ -531,14 +614,11 @@ jobs:
   # change and the per-shard job names are free to differ.
   ui-critical:
     name: Production UI
-    needs: [changes, ui-critical-fast]
-    # Run when UI scope applies and the fail-fast job succeeded or was skipped
-    # (skipped on main/schedule/dispatch where critical-first is not used).
+    needs: changes
+    # Start alongside the fail-fast subset. The suites stay disjoint on PR and
+    # merge-queue events, and PR required independently demands both results.
     if: >
-      always() &&
-      needs.changes.result == 'success' &&
-      needs.changes.outputs.ui_changed == 'true' &&
-      (needs.ui-critical-fast.result == 'success' || needs.ui-critical-fast.result == 'skipped')
+      needs.changes.outputs.ui_changed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
@@ -719,16 +799,15 @@ jobs:
             tests/__screenshots__/
           if-no-files-found: ignore
 
-  # Pre-merge performance budget against a LOCAL production build, graded relative to
-  # the committed baseline in lighthouse-budget.json. Advisory until that baseline
-  # exists and `enforce` is flipped to true — see the notes in that file.
+  # Required pre-merge performance budget against a LOCAL production build, graded
+  # relative to the committed enforced baseline in lighthouse-budget.json.
   #
   # Distinct from .github/workflows/live-web-vitals.yml, which measures the deployed
   # origin for ledger #017 and by then cannot stop a regression from merging. Uses no
   # secrets and no providers: the server runs in demo mode with inert loopback
   # Supabase values, exactly like the Playwright runner.
   lighthouse-budget:
-    name: Lighthouse budget (advisory)
+    name: Lighthouse budget
     needs: changes
     # Runs when the diff can plausibly move LCP/TBT/CLS on the five budgeted routes,
     # and when the run is one whose result someone will act on. It used to key off
@@ -739,11 +818,8 @@ jobs:
     #   pull_request      – perf scope, non-draft. Drafts churn and this costs ~7 min;
     #                       `types:` already includes ready_for_review, so undrafting
     #                       re-triggers it without a push.
-    #   merge_group       – SKIPPED. The job is continue-on-error and is not in
-    #                       pr-required, so in the queue it can only add ~7 minutes of
-    #                       merge latency and can never change the outcome. If it is
-    #                       ever promoted (#118), merge_group MUST come back —
-    #                       tests/ci-cache-safety.test.ts enforces that pairing.
+    #   merge_group       – perf scope. This job is part of pr-required, so the
+    #                       merge queue re-verifies the exact candidate tree.
     #   push (main/…)     – perf scope, PLUS lockfile_changed. The lockfile arm is the
     #                       backstop for a runtime dependency bump: perf scope excludes
     #                       package.json / package-lock.json because ci-change-scope.mjs
@@ -780,13 +856,11 @@ jobs:
               needs.changes.outputs.lockfile_changed == 'true'
             )
           ) &&
-          github.event_name != 'merge_group' &&
           github.event.pull_request.draft != true
         )
       ) &&
       !contains(github.event.pull_request.labels.*.name, 'skip-lighthouse-budget') &&
       github.event.inputs.refresh_lighthouse_baseline != 'true'
-    continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -942,7 +1016,19 @@ jobs:
   pr-required:
     name: PR required
     needs:
-      [changes, static-pr, safety, coverage, build, container-images, ui-critical-fast, ui-critical, db-reset-verify]
+      [
+        changes,
+        static-pr,
+        safety,
+        coverage,
+        ingestion-sast,
+        build,
+        container-images,
+        ui-critical-fast,
+        ui-critical,
+        lighthouse-budget,
+        db-reset-verify,
+      ]
     # #095: keep `if: always()` — a skipped required check counts as PASSING
     # on GitHub, so `!cancelled()` would cancel-to-green a hand-cancelled tip.
     # Cancelled vs failure is distinguished in the script below (PR #1409).
@@ -954,6 +1040,7 @@ jobs:
         env:
           STATIC_HEAVY_CHANGED: ${{ needs.changes.outputs.static_heavy_changed }}
           COVERAGE_CHANGED: ${{ needs.changes.outputs.coverage_changed }}
+          INGESTION_SAST_CHANGED: ${{ needs.changes.outputs.ingestion_sast_changed }}
           UI_CHANGED: ${{ needs.changes.outputs.ui_changed }}
           DB_CHANGED: ${{ needs.changes.outputs.db_changed }}
           BUILD_CHANGED: ${{ needs.changes.outputs.build_changed }}
@@ -963,10 +1050,12 @@ jobs:
           STATIC_RESULT: ${{ needs.static-pr.result }}
           SAFETY_RESULT: ${{ needs.safety.result }}
           COVERAGE_RESULT: ${{ needs.coverage.result }}
+          INGESTION_SAST_RESULT: ${{ needs.ingestion-sast.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           CONTAINER_RESULT: ${{ needs.container-images.result }}
           UI_FAST_RESULT: ${{ needs.ui-critical-fast.result }}
           UI_RESULT: ${{ needs.ui-critical.result }}
+          LIGHTHOUSE_RESULT: ${{ needs.lighthouse-budget.result }}
           DB_RESULT: ${{ needs.db-reset-verify.result }}
         run: |
           set -euo pipefail
@@ -1041,6 +1130,12 @@ jobs:
             require_skipped_or_success "coverage" "$COVERAGE_RESULT"
           fi
 
+          if [ "$INGESTION_SAST_CHANGED" = "true" ]; then
+            require_success "ingestion-sast" "$INGESTION_SAST_RESULT"
+          else
+            require_skipped_or_success "ingestion-sast" "$INGESTION_SAST_RESULT"
+          fi
+
           if [ "$BUILD_CHANGED" = "true" ]; then
             require_success "build" "$BUILD_RESULT"
           else
@@ -1064,6 +1159,8 @@ jobs:
             require_skipped_or_success "production-ui-critical" "$UI_FAST_RESULT"
             require_skipped_or_success "production-ui" "$UI_RESULT"
           fi
+
+          require_skipped_or_success "lighthouse-budget" "$LIGHTHOUSE_RESULT"
 
           if [ "$DB_CHANGED" = "true" ]; then
             require_success "db-reset-verify" "$DB_RESULT"

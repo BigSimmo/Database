@@ -2,7 +2,22 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getDifferentialRecord } from "@/lib/differentials";
+import { getDifferentialRecord, getPresentationWorkflow } from "@/lib/differentials";
+import type { DocumentMatch } from "@/lib/types";
+
+const unrelatedDocumentMatch: DocumentMatch = {
+  document_id: "unrelated-source",
+  title: "Unrelated indexed source",
+  file_name: "unrelated.pdf",
+  labels: [],
+  summarySnippet: "The query matched this document without linking it to a ranked differential.",
+  bestPages: [1],
+  bestChunkIds: ["unrelated-chunk"],
+  imageCount: 0,
+  tableCount: 0,
+  matchReason: "query overlap",
+  score: 0.8,
+};
 
 const catalogState = vi.hoisted(() => ({
   status: "loading" as "loading" | "ready" | "error" | "unauthorized" | "refetching",
@@ -12,7 +27,11 @@ const catalogState = vi.hoisted(() => ({
       score: number;
       reasons: string[];
     }>,
-    presentations: [] as Array<never>,
+    presentations: [] as Array<{
+      workflow: NonNullable<ReturnType<typeof getPresentationWorkflow>>;
+      score: number;
+      reasons: string[];
+    }>,
   },
 }));
 
@@ -37,9 +56,12 @@ vi.mock("@/components/clinical-dashboard/use-differential-catalog", () => ({
   }),
 }));
 
-vi.mock("@/components/use-result-sort", () => ({
-  useResultSort: () => ["relevance", vi.fn()] as const,
-}));
+vi.mock("@/components/use-result-sort", async () => {
+  const { useState } = await import("react");
+  return {
+    useResultSort: () => useState<"relevance" | "alpha">("relevance"),
+  };
+});
 
 vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
   UniversalSearchAlsoMatches: () => null,
@@ -100,5 +122,203 @@ describe("DifferentialsHome compare selection URL handoff", () => {
         ["bpsd-as-unmet-need-delirium-pain-mimic", "medical-gi-endocrine-painful-organic-cause"].sort(),
       );
     });
+
+    const selectedControls = screen.getAllByRole("checkbox", { name: /^Remove .+ from comparison$/ });
+    expect(selectedControls.length).toBeGreaterThanOrEqual(2);
+    for (const control of selectedControls) expect(control).toBeChecked();
+  });
+
+  it("shows a filter-specific empty state and restores all results", async () => {
+    const diagnosis = getDifferentialRecord("anorexia-nervosa");
+    expect(diagnosis).toBeTruthy();
+    catalogState.status = "ready";
+    catalogState.matches = {
+      diagnoses: [{ record: diagnosis!, score: 20, reasons: ["title"] }],
+      presentations: [],
+    };
+
+    render(<DifferentialsHome query="Anorexia" loading={false} searchSubmitted onRunSearch={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Anorexia nervosa").length).toBeGreaterThan(0);
+    });
+
+    await act(async () => {
+      screen.getByRole("radio", { name: "Presentations (0)" }).click();
+    });
+
+    expect(screen.getByTestId("differentials-filter-empty-results")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "No presentations in this result set" })).toBeVisible();
+    expect(screen.queryByText(/No catalogue matches/)).not.toBeInTheDocument();
+
+    await act(async () => {
+      screen.getByRole("button", { name: "Show all results" }).click();
+    });
+
+    expect(screen.queryByTestId("differentials-filter-empty-results")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Anorexia nervosa").length).toBeGreaterThan(0);
+  });
+
+  it("keeps the submitted query when opening a presentation comparison", async () => {
+    const presentation = getPresentationWorkflow("acute-confusion-encephalopathy");
+    expect(presentation).toBeTruthy();
+    catalogState.status = "ready";
+    catalogState.matches = {
+      diagnoses: [],
+      presentations: [{ workflow: presentation!, score: 20, reasons: ["title"] }],
+    };
+
+    render(<DifferentialsHome query="acute confusion" loading={false} searchSubmitted onRunSearch={vi.fn()} />);
+
+    await waitFor(() => {
+      const presentationLinks = screen.getAllByRole("link", { name: /Acute confusion/i });
+      expect(presentationLinks.length).toBeGreaterThan(0);
+      for (const link of presentationLinks) {
+        expect(link).toHaveAttribute(
+          "href",
+          "/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion",
+        );
+      }
+    });
+  });
+
+  it("keeps guided best matches in accent styling, shows only clinical cues, and ranks them after A–Z sorting", async () => {
+    const alphabeticalFirst = getDifferentialRecord("acute-dystonia");
+    const relevanceBest = getDifferentialRecord("medical-gi-endocrine-painful-organic-cause");
+    expect(alphabeticalFirst && relevanceBest).toBeTruthy();
+    catalogState.status = "ready";
+    catalogState.matches = {
+      diagnoses: [
+        { record: relevanceBest!, score: 20, reasons: ["title"] },
+        { record: alphabeticalFirst!, score: 12, reasons: ["title"] },
+      ],
+      presentations: [],
+    };
+
+    render(<DifferentialsHome query="Pain" loading={false} searchSubmitted onRunSearch={vi.fn()} />);
+
+    const bestMatch = await screen.findByTestId("differential-best-match-card");
+    expect(bestMatch).toHaveClass("border-[color:var(--clinical-accent-border)]");
+    expect(bestMatch).not.toHaveClass("border-[color:var(--success-border)]");
+
+    const resultRow = screen.getByTestId("differential-compact-result");
+    const clinicalCue = alphabeticalFirst!.currentPresentation.find((cue) => cue.trim());
+    const investigation = alphabeticalFirst!.investigations.find((step) => step.trim());
+    expect(clinicalCue).toBeTruthy();
+    expect(investigation).toBeTruthy();
+    expect(resultRow).toHaveTextContent(clinicalCue!.replaceAll("/", " / ").replace(/\s+/g, " ").trim().toLowerCase());
+    expect(resultRow).not.toHaveTextContent(investigation!);
+
+    await act(async () => {
+      screen.getByRole("button", { name: "A–Z" }).click();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("differential-best-match-rank")).toHaveTextContent("2");
+    });
+  });
+
+  it("does not present query-wide source matches as verification of the ranked differential", async () => {
+    const relevanceBest = getDifferentialRecord("medical-gi-endocrine-painful-organic-cause");
+    expect(relevanceBest).toBeTruthy();
+    catalogState.status = "ready";
+    catalogState.matches = {
+      diagnoses: [{ record: relevanceBest!, score: 20, reasons: ["title"] }],
+      presentations: [],
+    };
+
+    render(
+      <DifferentialsHome
+        query="Pain"
+        loading={false}
+        searchSubmitted
+        documentMatches={[unrelatedDocumentMatch]}
+        evidenceQuery="Pain"
+        onRunSearch={vi.fn()}
+      />,
+    );
+
+    const bestMatch = await screen.findByTestId("differential-best-match-card");
+    expect(bestMatch).toHaveClass("border-[color:var(--clinical-accent-border)]");
+    expect(bestMatch).not.toHaveClass("border-[color:var(--success-border)]");
+  });
+
+  it("does not render an empty reasoning panel for a sparse catalogue record", async () => {
+    const record = getDifferentialRecord("medical-gi-endocrine-painful-organic-cause");
+    expect(record).toBeTruthy();
+    catalogState.status = "ready";
+    catalogState.matches = {
+      diagnoses: [
+        {
+          record: {
+            ...record!,
+            subtitle: "",
+            clinicalHinge: "",
+            currentPresentation: [" "],
+            investigations: [" "],
+          },
+          score: 20,
+          reasons: ["title"],
+        },
+      ],
+      presentations: [],
+    };
+
+    render(<DifferentialsHome query="Pain" loading={false} searchSubmitted onRunSearch={vi.fn()} />);
+
+    await screen.findByTestId("differential-best-match-card");
+    expect(screen.queryAllByTestId("differential-best-match-panel")).toHaveLength(0);
+  });
+
+  it("renders duplicate clinical cues without duplicate React keys", async () => {
+    const record = getDifferentialRecord("medical-gi-endocrine-painful-organic-cause");
+    const lead = getDifferentialRecord("acute-dystonia");
+    expect(record && lead).toBeTruthy();
+    const repeatedCue = record!.currentPresentation.find((cue) => cue.trim()) ?? "pain";
+    catalogState.status = "ready";
+    catalogState.matches = {
+      diagnoses: [
+        { record: lead!, score: 20, reasons: ["title"] },
+        {
+          record: { ...record!, currentPresentation: [repeatedCue, repeatedCue] },
+          score: 12,
+          reasons: ["title"],
+        },
+      ],
+      presentations: [],
+    };
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      render(<DifferentialsHome query="Pain" loading={false} searchSubmitted onRunSearch={vi.fn()} />);
+      await screen.findByTestId("differential-best-match-card");
+      expect(consoleError.mock.calls.flat().join(" ")).not.toContain("same key");
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("drops blank and less-specific duplicate cues from the reasoning panel", async () => {
+    const record = getDifferentialRecord("medical-gi-endocrine-painful-organic-cause");
+    expect(record).toBeTruthy();
+    catalogState.status = "ready";
+    catalogState.matches = {
+      diagnoses: [
+        {
+          record: { ...record!, currentPresentation: ["pain", "severe pain", " "] },
+          score: 20,
+          reasons: ["title"],
+        },
+      ],
+      presentations: [],
+    };
+
+    render(<DifferentialsHome query="Pain" loading={false} searchSubmitted onRunSearch={vi.fn()} />);
+
+    const lookForSections = await screen.findAllByText("Look for");
+    expect(lookForSections).not.toHaveLength(0);
+    for (const heading of lookForSections) {
+      expect(heading.parentElement).toHaveTextContent("severe pain");
+      expect(heading.parentElement).not.toHaveTextContent("pain · severe pain");
+    }
   });
 });

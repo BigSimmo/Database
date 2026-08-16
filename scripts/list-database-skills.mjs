@@ -12,6 +12,12 @@ export const repositorySkillSurfaces = [
   { name: "Cursor", root: path.join(repositoryRoot, ".cursor", "skills") },
   { name: "Clinical KB plugin", root: path.join(repositoryRoot, "plugins", "clinical-kb", "skills") },
 ];
+export const expectedRepositorySkillSurfaceCounts = {
+  Codex: 42,
+  Claude: 8,
+  Cursor: 15,
+  "Clinical KB plugin": 1,
+};
 
 function wordCount(value) {
   return String(value || "")
@@ -132,6 +138,7 @@ export function validateRepositorySkillPolicies(
     "creates one validated UUID JSON file",
     "never edit the canonical ledger",
     "commit only the newly created request file(s)",
+    "git add -- docs/outstanding-issues-inbox/<uuid>.json",
   ]);
   requireContract(".claude/skills/ledger/SKILL.md", [
     "create no request and do not change the canonical ledger",
@@ -148,13 +155,47 @@ export function validateRepositorySkillPolicies(
     "Indexing is provider-backed",
   ]);
   requireContract(".claude/skills/handoff/SKILL.md", [
-    "never unstage or otherwise move another session's work",
+    "never unstage",
+    "mutate another session's index entries",
     "run `npm run format`",
   ]);
   requireContract(".claude/skills/prlanded/SKILL.md", [
     "require an explicit cleanup request",
     "does not itself authorize deletion",
   ]);
+  requireContract(".cursor/skills/release-readiness-review/SKILL.md", [
+    "Use `npm run verify:pr-local`",
+    "requires user approval",
+    "`npm run check:supabase-project` is provider-backed",
+  ]);
+  requireContract(".cursor/skills/testing-review/SKILL.md", ["`verify:release` only after explicit user approval"]);
+  requireContract("plugins/clinical-kb/skills/clinical-kb-workflow/SKILL.md", [
+    "use `npm run verify:pr-local`",
+    "explicitly requests release confidence",
+    "do not run it without explicit user approval",
+  ]);
+
+  const cursorReviewSkills = [
+    "accessibility-review",
+    "ai-architecture-review",
+    "api-review",
+    "code-quality-review",
+    "design-review",
+    "frontend-architecture-review",
+    "performance-review",
+    "release-readiness-review",
+    "repo-auditor",
+    "security-review",
+    "supabase-postgres-best-practices",
+    "testing-review",
+    "ux-review",
+  ];
+  for (const name of cursorReviewSkills) {
+    requireContract(`.cursor/skills/${name}/SKILL.md`, [
+      "use `npm run ledger:append` to create an immutable review record",
+      "never edit the frozen `docs/branch-review-ledger.md` table",
+    ]);
+  }
 
   const indexing = byRelative.get(".cursor/skills/cursor-codebase-indexing/SKILL.md") ?? "";
   if (indexing.includes("Bash(cmd:*)")) {
@@ -167,6 +208,12 @@ export function validateRepositorySkillPolicies(
       files.filter((file) => file.surface === surface.name).length,
     ]),
   );
+  for (const [surface, expected] of Object.entries(expectedRepositorySkillSurfaceCounts)) {
+    const actual = surfaceCounts[surface] ?? 0;
+    if (actual !== expected) {
+      errors.push(`Repository skill inventory mismatch for ${surface}: expected ${expected}, found ${actual}`);
+    }
+  }
   return { errors, files, surfaceCounts };
 }
 

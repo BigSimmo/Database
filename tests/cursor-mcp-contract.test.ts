@@ -26,7 +26,7 @@ describe("Cursor project MCP contract", () => {
 
   it("runs Context7 as pinned local stdio MCP with env-interpolated API key", () => {
     expect(servers.context7?.command).toBe("npx");
-    expect(servers.context7?.args).toEqual(["-y", "@upstash/context7-mcp@4.0.2"]);
+    expect(servers.context7?.args).toEqual(["-y", "@upstash/context7-mcp@3.2.5"]);
     expect(servers.context7?.env?.CONTEXT7_API_KEY).toBe("${env:CONTEXT7_API_KEY}");
     expect(servers.context7?.url).toBeUndefined();
     expect(servers.context7?.headers).toBeUndefined();

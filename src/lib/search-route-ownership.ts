@@ -15,6 +15,8 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
   "formulation",
   "therapy-compass",
   "factsheets",
+  "tools",
+  "calculators",
 ]);
 
 /**
@@ -33,6 +35,7 @@ const standaloneModeHomePaths = new Set<string>([
   "/factsheets",
   "/therapy-compass",
   "/tools",
+  "/calculators",
   // Documents and Medication gained real homes when `/` became the single shared
   // home for every mode. Like the others they own an in-flow hero composer.
   "/documents",
@@ -78,6 +81,7 @@ const alwaysStandaloneShellPathPrefixes = [
   "/therapy-compass",
   "/medications",
   "/calculators",
+  "/tools",
 ] as const;
 
 export function isAlwaysStandaloneShellPath(pathname: string): boolean {

@@ -29,7 +29,10 @@ import { fileURLToPath } from "node:url";
 import {
   listLedgerArchivePaths,
   listLedgerRecordPaths,
+  normalizeRef,
+  normalizeScope,
   parseLedgerRows,
+  refTokens,
   reviewRecordPath,
 } from "./branch-review-ledger.mjs";
 
@@ -57,6 +60,36 @@ function isRealDate(value) {
   const [y, m, d] = value.split("-").map(Number);
   const date = new Date(Date.UTC(y, m - 1, d));
   return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
+
+function reviewKey(row) {
+  const tokens = [...refTokens(row.ref)].sort();
+  const ref = tokens.length > 0 ? tokens.join(",") : normalizeRef(row.ref);
+  const head = row.head.replace(/`/g, "").trim().toLowerCase();
+  return `${ref}::${head}::${normalizeScope(row.scope)}`;
+}
+
+/** Detect equivalent review records whose non-key prose differs across sources. */
+export function duplicateReviewKeyFailures(rows, { crossSourceOnly = false } = {}) {
+  const failures = [];
+  const seen = new Map();
+  for (const row of rows) {
+    if (row.date < STRICT_FROM) continue;
+    const key = reviewKey(row);
+    const prior = seen.get(key);
+    if (!prior) {
+      seen.set(key, row);
+      continue;
+    }
+    if (crossSourceOnly && prior.source === row.source) continue;
+    const first = prior.source ? `${prior.source}:${prior.line}` : `line ${prior.line}`;
+    const second = row.source ? `${row.source}:${row.line}` : `line ${row.line}`;
+    failures.push(
+      `review records repeat the same normalized ref/HEAD/scope at ${first} and ${second}; ` +
+        "cite the prior record or use a distinct superseding scope.",
+    );
+  }
+  return failures;
 }
 
 export function validateLedger({ ledger, mergeAttribute, protocol }) {
@@ -96,7 +129,7 @@ export function validateLedger({ ledger, mergeAttribute, protocol }) {
   if (headings.length > 0) {
     failures.push(
       `${headings.length} record(s) written as a dated heading instead of a table row at line(s) ${headings.join(", ")}. ` +
-        `Heading records split the table and are invisible to every ledger consumer.`,
+        "Heading records split the table and are invisible to every ledger consumer.",
     );
   }
 
@@ -168,14 +201,14 @@ export function validateLedger({ ledger, mergeAttribute, protocol }) {
   const strictKeys = new Map();
   const nearDuplicates = [];
   for (const row of strict) {
-    const key = `${row.ref}::${row.head}::${row.scope}`.toLowerCase();
+    const key = reviewKey(row);
     if (strictKeys.has(key)) nearDuplicates.push(`${strictKeys.get(key)} and ${row.line}`);
     else strictKeys.set(key, row.line);
   }
   if (nearDuplicates.length > 0) {
     failures.push(
       `${nearDuplicates.length} record(s) repeat the same ref/HEAD/scope (line pairs ${nearDuplicates.join("; ")}). ` +
-        `Cite the prior record, or record what supersedes it in the Scope cell.`,
+        "Cite the prior record, or record what supersedes it in the Scope cell.",
     );
   }
 
@@ -279,6 +312,30 @@ function selfTest() {
     "escaped pipe is accepted",
   );
 
+  const first = { ...parseLedgerRows(row({ outcome: "first" }))[0], source: "a.record.md" };
+  const second = {
+    ...parseLedgerRows(row({ date: "2026-07-30", ref: "origin/codex/thing", outcome: "second" }))[0],
+    source: "b.record.md",
+  };
+  assert(
+    duplicateReviewKeyFailures([first, second], { crossSourceOnly: true }).length === 1,
+    "equivalent key across immutable sources fails even when prose differs",
+  );
+  const superseding = {
+    ...second,
+    scope: "diff review (supersedes 2026-07-29)",
+    raw: row({
+      date: "2026-07-30",
+      ref: "origin/codex/thing",
+      scope: "diff review (supersedes 2026-07-29)",
+      outcome: "second",
+    }),
+  };
+  assert(
+    duplicateReviewKeyFailures([first, superseding], { crossSourceOnly: true }).length === 0,
+    "distinct superseding scope remains valid",
+  );
+
   console.log("branch-review-ledger self-test passed.");
 }
 
@@ -352,21 +409,23 @@ function main() {
   }
 
   let immutableRecords = 0;
-  const allRows = parseLedgerRows(readFileSync(path.join(root, LEDGER_PATH), "utf8"));
+  const withSource = (relative, rows) => rows.map((row) => ({ ...row, source: relative }));
+  const allRows = withSource(LEDGER_PATH, parseLedgerRows(readFileSync(path.join(root, LEDGER_PATH), "utf8")));
   for (const relative of listLedgerArchivePaths().slice(1)) {
-    allRows.push(...parseLedgerRows(readFileSync(path.join(root, relative), "utf8")));
+    allRows.push(...withSource(relative, parseLedgerRows(readFileSync(path.join(root, relative), "utf8"))));
   }
   for (const relative of listLedgerRecordPaths()) {
     const record = validateImmutableRecord(relative, readFileSync(path.join(root, relative), "utf8"));
     failures.push(...record.failures);
     immutableRecords += record.rows.length;
-    allRows.push(...record.rows);
+    allRows.push(...withSource(relative, record.rows));
   }
   const exactRows = new Set();
   for (const row of allRows) {
     if (exactRows.has(row.raw)) failures.push(`duplicate review record across ledger sources: ${row.raw}`);
     exactRows.add(row.raw);
   }
+  failures.push(...duplicateReviewKeyFailures(allRows, { crossSourceOnly: true }));
 
   if (failures.length > 0) {
     console.error("Branch review ledger guard failed:");
@@ -379,11 +438,10 @@ function main() {
       `${archiveRecords > 0 ? ` + ${archiveRecords} archived` : ""}` +
       `${immutableRecords > 0 ? ` + ${immutableRecords} immutable` : ""} ` +
       `(${result.strictCount} under the ${STRICT_FROM} machine-readable contract), immutable review writes, ` +
-      `six cells each, no conflict markers, mojibake, heading records, or duplicates.`,
+      "six cells each, no conflict markers, mojibake, heading records, or duplicates.",
   );
 }
 
-// Guarded so the unit tests can import validateLedger without running the gate.
 const isMain =
   process.argv[1]?.endsWith("/check-branch-review-ledger.mjs") ||
   process.argv[1]?.endsWith("\\check-branch-review-ledger.mjs");

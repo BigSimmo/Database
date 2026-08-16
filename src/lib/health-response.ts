@@ -8,6 +8,7 @@ import {
   type AnswerCoalescingMetricsSnapshot,
 } from "@/lib/observability/answer-coalescing-metrics";
 import type { SpendProbeClient, SpendSnapshot } from "@/lib/observability/spend-metrics";
+import { resolveDeploymentCommitSha } from "@/lib/observability/sentry-release";
 
 type HealthResponseOptions = {
   forceDeep?: boolean;
@@ -109,6 +110,7 @@ export async function healthResponse(request: Request, options: HealthResponseOp
       demoMode: isDemoMode(),
       timestamp: new Date().toISOString(),
       uptimeSeconds: Math.round(process.uptime()),
+      deploymentCommitSha: resolveDeploymentCommitSha(),
       checks,
       ...(slo ? { slo } : {}),
       ...(cache ? { cache } : {}),

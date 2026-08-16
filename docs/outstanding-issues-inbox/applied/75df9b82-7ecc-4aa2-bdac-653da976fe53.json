@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "75df9b82-7ecc-4aa2-bdac-653da976fe53",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#100",
+    "detail": "UPDATE 2026-08-13 (PR #1909): Phase 0 offline contract proof and flag-gated Phase 1 server emission implemented (RAG_INCREMENTAL_EVIDENCE_PREVIEW, default false). Remaining: client parsing/rendering phase behind its own flag + verify:ui, then the design's provider-backed acceptance gates before production enablement; Phase 2 stays provider-gated. **Design complete; runtime work remains provider-gated.** [`verified-answer-incremental-delivery-design.md`](verified-answer-incremental-delivery-design.md) records the clinical-governance decision and staged contract: keep the `progress`/`final`/`error` allowlist; disclose bounded, owner-scoped evidence only after the canonical danger-level source-governance refusal permits it, then emit complete answer sections only after each reuses the full production verification boundary; reconcile every preview byte-for-byte with the authoritative `final`; discard all previews on error/cancel/retry; deploy behind separate parse/emission/render flags. Phase 0 contract proof and Phase 1 evidence preview can be developed offline, but visible rollout still needs clinical/browser proof. Phase 2 changes generation architecture and requires explicit approval for answer-quality evals plus a baseline/post live canary pair. **Naive token streaming remains REFUTED:** never re-land `token`, `revising`, provisional prose, or a weaker stream-only verifier. Cross-references #021."
+  }
+}

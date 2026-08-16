@@ -67,7 +67,8 @@ import {
   type IngestionQualityReviewItem,
 } from "@/components/clinical-dashboard/document-manager-contracts";
 import { LibraryHealthStrip } from "@/components/clinical-dashboard/library-health-strip";
-import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
+import { GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
+import { LazyGuideDialog, loadGuideDialog } from "@/components/clinical-dashboard/lazy-guide-dialog";
 import { SystemNotice, DegradedNotice } from "@/components/clinical-dashboard/dashboard-notices";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import { isPreformattedGroundedAnswer } from "@/components/clinical-dashboard/answer-content";
@@ -109,6 +110,7 @@ import {
   replaceOwnedAbortController,
   mergeDocumentRefresh,
   normalizeNavigationHash,
+  shouldShowSharedHome,
   setupNeedsSlowRecheck,
   setupRecheckPollMs,
   shorterPollDelay,
@@ -248,6 +250,7 @@ import { DashboardDesktopResultComposerSlot } from "@/components/clinical-dashbo
 import {
   desktopPageComposerSlotId,
   differentialsMobileCompareAddonSlotId,
+  patientDetailsAddonSlotId,
   modeHomeDesktopComposerSlotId,
 } from "@/lib/mode-home-composer";
 import { toolCatalogRecords } from "@/lib/tools-catalog";
@@ -3012,14 +3015,15 @@ export function ClinicalDashboard({
   const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
   const submittedAnswerSearchActive =
     activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
-  // `/` is the single home page for every mode. The mode pill retargets the
-  // composer instead of navigating, so the hero must not be answer-only: picking
-  // DSM on home keeps this exact surface and only swaps the placeholder. Gated on
-  // the pathname (never on `searchMode`) per the hero-vs-dock rule in
-  // docs/search-chrome-behaviour.md — a mode pick must not flip composer reserve.
-  const isHomeRoute = pathname === "/";
-  const showSharedHome =
-    isHomeRoute && !submittedUrlRunRequested && !error && !answer && !loading && !submittedAnswerSearchActive;
+  const showSharedHome = shouldShowSharedHome({
+    pathname,
+    mode: searchParams.get("mode"),
+    submittedUrlRunRequested,
+    hasError: Boolean(error),
+    hasAnswer: Boolean(answer),
+    loading,
+    submittedAnswerSearchActive,
+  });
   const showAnswerPending =
     activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
   const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
@@ -3082,6 +3086,9 @@ export function ClinicalDashboard({
     ((searchMode === "services" || searchMode === "forms") && !modeSearchSubmitted && !query.trim() && !loading);
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
+  // Prescribing submitted searches render here (there is no standalone results
+  // route), so this is where the Patient details pill docks for that mode.
+  const patientDetailsAddonActive = searchMode === "prescribing" && modeSearchSubmitted && Boolean(query.trim());
   // Hidden dock pad must stay at 0rem — Safari toolbar safe-area recreates a blank band.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,
@@ -3089,6 +3096,7 @@ export function ClinicalDashboard({
       searchMode,
       hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
       differentialsCompareAddonActive,
+      patientDetailsAddonActive,
       heroOwnsPhoneComposer,
     }),
   );
@@ -3374,7 +3382,18 @@ export function ClinicalDashboard({
           // maximum screen space (mode homes and result views alike).
           mobileBottomSearchVariant="compact"
           mobileBottomSearchAddonSlotId={
-            differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
+            differentialsCompareAddonActive
+              ? differentialsMobileCompareAddonSlotId
+              : patientDetailsAddonActive
+                ? patientDetailsAddonSlotId
+                : undefined
+          }
+          mobileBottomSearchAddonKind={
+            differentialsCompareAddonActive
+              ? "differentials-compare"
+              : patientDetailsAddonActive
+                ? "patient-details"
+                : undefined
           }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
           desktopPageComposerSlotId={desktopResultComposerSlotId}
@@ -4071,7 +4090,7 @@ export function ClinicalDashboard({
               )}
 
               {(settingsState.documentsDrawerOpen || settingsState.uploadDrawerOpen) && (
-                <GuideTrigger onOpen={openGuide} />
+                <GuideTrigger onOpen={openGuide} onPrefetch={loadGuideDialog} />
               )}
             </div>
           </SearchCommandProvider>
@@ -4084,13 +4103,14 @@ export function ClinicalDashboard({
           hidden
           onNavigate={navigateMobileSection}
         />
-        <GuideDialog open={settingsState.guideOpen} onClose={settingsGuideFlow.closeGuideWithRestore} />
+        <LazyGuideDialog open={settingsState.guideOpen} onClose={settingsGuideFlow.closeGuideWithRestore} />
         <SidebarDialogs.SidebarSettingsDialog
           open={settingsState.settingsOpen}
           onClose={closeSettings}
           identity={sidebarIdentity}
           onSignOut={auth.signOut}
           onOpenGuide={settingsGuideFlow.openGuideFromSettings}
+          onPrefetchGuide={loadGuideDialog}
           initialFocus={settingsGuideFlow.settingsInitialFocus}
         />
         <SidebarDialogs.SidebarAccountSetupDialog

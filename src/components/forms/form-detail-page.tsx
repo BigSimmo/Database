@@ -844,6 +844,10 @@ function formInformationItems(rows: Array<{ label: string; value?: string | null
         </span>
       ),
       description: value,
+      // The collapsed line is a preview of this same value. Opening the row
+      // replaces that preview with the fully wrapped answer instead of echoing
+      // it in a visually separate, bordered panel.
+      extendDescription: true,
       content: <p className={cn("text-sm leading-6", textMuted)}>{value}</p>,
     };
   });
@@ -1118,7 +1122,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             </section>
 
             <section id="form-information" aria-label="Form information" className={cn(inPageAnchor, "grid gap-2")}>
-              <DisclosureGroup items={formInformationItems(detailRows)} headingLevel={3} />
+              <DisclosureGroup className="min-w-0" items={formInformationItems(detailRows)} headingLevel={3} />
             </section>
 
             {/* The `-mobile`/`-desktop` id pairs below are the section anchors

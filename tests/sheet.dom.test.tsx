@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Sheet } from "@/components/ui/sheet";
+import { OverlayRoot } from "@/components/ui/overlay-root";
 
 // jsdom (via vitest's environment) normally provides requestAnimationFrame, but
 // guard it so the Sheet's focus scheduling never throws if a runner omits it.
@@ -23,6 +24,20 @@ afterEach(() => {
   if (typeof document !== "undefined" && document.body) {
     document.body.style.overflow = "";
   }
+});
+
+it("portals into OverlayRoot's modal host by default", async () => {
+  render(
+    <>
+      <OverlayRoot />
+      <Sheet open onClose={() => {}} title="Default portal sheet">
+        <p>Default portal body</p>
+      </Sheet>
+    </>,
+  );
+
+  const body = await screen.findByText("Default portal body");
+  expect(body.closest('[data-overlay-host="modal"]')).not.toBeNull();
 });
 
 function Stacked({
@@ -219,6 +234,63 @@ describe("Sheet stacked-overlay coordination", () => {
     expect(classes).toContain("sm:max-h-[min(80dvh,36rem)]");
     expect(classes).not.toContain("max-h-[calc(100dvh-2rem)]");
     expect(classes).not.toContain("sm:max-h-[88dvh]");
+  });
+
+  it("protects fullscreen and opted-in near-full headers without padding short bottom sheets", () => {
+    const { rerender } = render(
+      <Sheet open onClose={vi.fn()} title="Fullscreen" mobilePlacement="fullscreen">
+        <p>Body</p>
+      </Sheet>,
+    );
+
+    let dialog = screen.getByRole("dialog");
+    let header = dialog.querySelector<HTMLElement>('[data-sheet-header="true"]');
+    expect(dialog).toHaveAttribute("data-mobile-header-safe-area", "padding");
+    expect(header).not.toBeNull();
+    expect(header!.classList).toContain("pt-[max(1rem,var(--safe-area-top))]");
+
+    rerender(
+      <Sheet open onClose={vi.fn()} title="Short bottom sheet">
+        <p>Body</p>
+      </Sheet>,
+    );
+    dialog = screen.getByRole("dialog");
+    header = dialog.querySelector<HTMLElement>('[data-sheet-header="true"]');
+    expect(dialog).toHaveAttribute("data-mobile-header-safe-area", "none");
+    expect(header!.classList).not.toContain("pt-[max(1rem,var(--safe-area-top))]");
+
+    rerender(
+      <Sheet open onClose={vi.fn()} title="Near-full bottom sheet" mobileHeaderSafeArea="padding">
+        <p>Body</p>
+      </Sheet>,
+    );
+    dialog = screen.getByRole("dialog");
+    header = dialog.querySelector<HTMLElement>('[data-sheet-header="true"]');
+    expect(dialog).toHaveAttribute("data-mobile-header-safe-area", "padding");
+    expect(header!.classList).toContain("pt-[max(1rem,var(--safe-area-top))]");
+    expect(header!.classList).toContain("sm:pt-5");
+  });
+
+  it("offsets an absolutely positioned header below the phone safe area", () => {
+    render(
+      <Sheet
+        open
+        onClose={vi.fn()}
+        title="Overlay header"
+        mobileHeaderSafeArea="offset"
+        headerClassName="absolute right-3 top-3 p-0 sm:right-4 sm:top-4"
+      >
+        <p>Body</p>
+      </Sheet>,
+    );
+
+    const dialog = screen.getByRole("dialog");
+    const header = dialog.querySelector<HTMLElement>('[data-sheet-header="true"]');
+    expect(dialog).toHaveAttribute("data-mobile-header-safe-area", "offset");
+    expect(header).not.toBeNull();
+    expect(header!.classList).toContain("top-[max(0.75rem,var(--safe-area-top))]");
+    expect(header!.classList).toContain("sm:top-4");
+    expect(header!.classList).not.toContain("top-3");
   });
 
   it("keeps the dialog mounted in production when the title resolves empty", () => {

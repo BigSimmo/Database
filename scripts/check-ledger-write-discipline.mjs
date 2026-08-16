@@ -10,13 +10,18 @@
  *
  * This is deliberately stronger than a shape check. A valid-looking manual
  * edit would still reintroduce the shared-hunk race that the inbox removes.
+ *
+ * Both comparison endpoints are commits, so an edit that is still sitting in
+ * the working tree is invisible here and the audited range is empty. Reporting
+ * a pass in that state told an author on 2026-08-13 that a forbidden hand-edit
+ * of the canonical ledger was fine (issue #313). The gate therefore refuses to
+ * report any verdict while a governed path is dirty — see dirtyGovernedPaths.
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { applyRequest, validateRequest } from "./ledger-inbox.mjs";
+import { applyRequestBatch, validateRequest } from "./ledger-inbox.mjs";
 import { parseLedgerRows } from "./branch-review-ledger.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -27,6 +32,19 @@ const APPLIED = `${INBOX}/applied`;
 
 function git(args) {
   return execFileSync("git", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+}
+
+/**
+ * Untrimmed on purpose: porcelain's status field is two columns wide and its
+ * first column is a space for an unstaged change, so trimming shifts every path
+ * by one character and the governed-path match silently stops firing.
+ */
+function statusPorcelain(pathspecs) {
+  return execFileSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=normal", "--", ...pathspecs], {
+    cwd: ROOT,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  });
 }
 
 function readAt(ref, relative) {
@@ -95,10 +113,14 @@ export function verifyIssueReconciliation({
   );
 
   const moved = [];
+  const retained = [];
   for (const [name, text] of basePending) {
     const targetPending = headPending.get(name);
     const targetApplied = headApplied.get(name);
-    if (targetPending === text) continue;
+    if (targetPending === text) {
+      retained.push(name);
+      continue;
+    }
     if (targetPending !== undefined) {
       failures.push(`${INBOX}/${name} changed in place; requests are immutable.`);
       continue;
@@ -126,10 +148,18 @@ export function verifyIssueReconciliation({
     }
   }
 
+  if (moved.length > 0 && retained.length > 0) {
+    failures.push(
+      `reconciliation moved only part of the base inbox and left ${retained.length} request(s) pending: ${retained.join(", ")}. ` +
+        "Process the complete batch and use an immutable cancel request for each rejected mutation.",
+    );
+  }
+
   if (failures.length > 0) return failures;
-  let expected = baseIssues;
+  let expected;
   try {
-    for (const name of moved.sort()) expected = applyRequest(expected, basePendingParsed.requests.get(name));
+    const requests = moved.sort().map((name) => basePendingParsed.requests.get(name));
+    expected = applyRequestBatch(baseIssues, requests).markdown;
   } catch (error) {
     failures.push(
       `queued reconciliation cannot be applied safely: ${error instanceof Error ? error.message : String(error)}`,
@@ -138,11 +168,53 @@ export function verifyIssueReconciliation({
   }
   if (expected !== headIssues) {
     failures.push(
-      `${ISSUES_LEDGER} does not exactly match the serial application of ${moved.length} moved inbox request(s) from the base. ` +
+      `${ISSUES_LEDGER} does not exactly match the audited application of ${moved.length} moved inbox request(s) from the base. ` +
         "Run npm run issues:reconcile from a fresh ledger branch; do not edit the canonical ledger directly.",
     );
   }
   return failures;
+}
+
+function governedReason(relative) {
+  if (relative === ISSUES_LEDGER) return "the canonical outstanding-issues ledger";
+  if (relative === REVIEW_LEDGER) return "the frozen branch-review ledger";
+  if (relative === INBOX || relative.startsWith(`${INBOX}/`)) return "an outstanding-issues inbox request";
+  return undefined;
+}
+
+/**
+ * Governed paths carrying working-tree changes the committed-range audit cannot
+ * see. Input is `git status --porcelain=v1 -z --untracked-files=normal` output;
+ * NUL records avoid porcelain's quoting rules entirely, and a rename/copy record
+ * is followed by a second field holding its original path.
+ *
+ * Pure and exported so the script self-test and focused tests can exercise it
+ * without a fixture repository.
+ */
+export function dirtyGovernedPaths(porcelain) {
+  const fields = String(porcelain ?? "").split("\0");
+  const dirty = [];
+  const seen = new Set();
+  for (let index = 0; index < fields.length; index += 1) {
+    const record = fields[index];
+    if (record.length < 4) continue; // trailing empty field, never a real record
+    const status = record.slice(0, 2);
+    const paths = [record.slice(3)];
+    if (status[0] === "R" || status[0] === "C") {
+      const origin = fields[index + 1];
+      index += 1;
+      if (origin) paths.push(origin);
+    }
+    for (const relative of paths) {
+      const reason = governedReason(relative);
+      if (reason === undefined || seen.has(relative)) continue;
+      seen.add(relative);
+      const change =
+        status === "??" ? "is untracked" : `has an uncommitted change (${status.trim() || status.trimEnd()})`;
+      dirty.push({ path: relative, status, reason: `${reason} ${change}` });
+    }
+  }
+  return dirty;
 }
 
 export function reviewLedgerRowsChanged(baseMarkdown, headMarkdown) {
@@ -203,7 +275,8 @@ function selfTest() {
     action: "add",
     payload: { pri: "P2", type: "issue", summary: "queued" },
   });
-  const head = applyRequest(base, JSON.parse(request));
+  const parsed = JSON.parse(request);
+  const head = applyRequestBatch(base, [parsed]).markdown;
   const options = {
     baseIssues: base,
     headIssues: head,
@@ -217,6 +290,82 @@ function selfTest() {
   if (verifyIssueReconciliation({ ...options, headIssues: base }).length === 0) {
     throw new Error("self-test failed: manual canonical edit accepted");
   }
+
+  const doneName = "22222222-2222-4222-8222-222222222222.json";
+  const updateName = "33333333-3333-4333-8333-333333333333.json";
+  const cancelName = "44444444-4444-4444-8444-444444444444.json";
+  const done = JSON.stringify({
+    version: 1,
+    id: doneName.slice(0, -5),
+    createdOn: "2026-08-13",
+    action: "done",
+    payload: { id: "#001", outcome: "superseded" },
+  });
+  const update = JSON.stringify({
+    version: 1,
+    id: updateName.slice(0, -5),
+    createdOn: "2026-08-13",
+    action: "update",
+    payload: { id: "#001", summary: "updated" },
+  });
+  const cancel = JSON.stringify({
+    version: 1,
+    id: cancelName.slice(0, -5),
+    createdOn: "2026-08-13",
+    action: "cancel",
+    payload: { requestId: doneName.slice(0, -5), reason: "prefer the update" },
+  });
+  const cancellationRequests = [done, update, cancel].map(JSON.parse);
+  const cancellationHead = applyRequestBatch(base, cancellationRequests).markdown;
+  const cancellationOptions = {
+    baseIssues: base,
+    headIssues: cancellationHead,
+    basePending: new Map([
+      [doneName, done],
+      [updateName, update],
+      [cancelName, cancel],
+    ]),
+    headPending: new Map(),
+    baseApplied: new Map(),
+    headApplied: new Map([
+      [doneName, done],
+      [updateName, update],
+      [cancelName, cancel],
+    ]),
+  };
+  if (verifyIssueReconciliation(cancellationOptions).length !== 0) {
+    throw new Error("self-test failed: audited cancellation reconciliation rejected");
+  }
+  const partial = verifyIssueReconciliation({
+    ...cancellationOptions,
+    headIssues: applyRequestBatch(base, [JSON.parse(update)]).markdown,
+    headPending: new Map([
+      [doneName, done],
+      [cancelName, cancel],
+    ]),
+    headApplied: new Map([[updateName, update]]),
+  });
+  if (!partial.some((failure) => failure.includes("only part of the base inbox"))) {
+    throw new Error("self-test failed: partial reconciliation was accepted");
+  }
+
+  // #313: the committed-range audit cannot see a working-tree edit, so a pass
+  // reported over a dirty governed path is a green that evaluated nothing.
+  if (dirtyGovernedPaths("").length !== 0) throw new Error("self-test failed: a clean worktree was reported dirty");
+  const dirtyLedger = dirtyGovernedPaths(` M ${ISSUES_LEDGER}\0`);
+  if (dirtyLedger.length !== 1 || dirtyLedger[0].path !== ISSUES_LEDGER) {
+    throw new Error("self-test failed: an uncommitted canonical ledger edit was not detected");
+  }
+  if (dirtyGovernedPaths(`?? ${INBOX}/${name}\0`).length !== 1) {
+    throw new Error("self-test failed: an untracked inbox request was not detected");
+  }
+  if (dirtyGovernedPaths(`R  ${APPLIED}/${name}\0${INBOX}/${name}\0`).length !== 2) {
+    throw new Error("self-test failed: a renamed request did not report both of its paths");
+  }
+  if (dirtyGovernedPaths(" M src/lib/rag/rag.ts\0").length !== 0) {
+    throw new Error("self-test failed: an unrelated dirty file was treated as a ledger violation");
+  }
+
   const review = `| 2026-08-13 | codex/a | ${"a".repeat(40)} | review | pass | test |\n`;
   if (!reviewLedgerRowsChanged("", review) || reviewLedgerRowsChanged(review, review)) {
     throw new Error("self-test failed: legacy review row change detection is incorrect");
@@ -227,6 +376,24 @@ function selfTest() {
 function main() {
   if (process.argv.includes("--self-test")) return selfTest();
   const { base, head } = resolveArgs(process.argv.slice(2));
+
+  // Only when the head endpoint is the working checkout's tip. guard-push.mjs
+  // passes an explicit committed --head at a moment when the tree is legitimately
+  // dirty, and CI checks out clean, so neither is affected by this refusal.
+  if (head === "HEAD") {
+    const dirty = dirtyGovernedPaths(statusPorcelain([ISSUES_LEDGER, REVIEW_LEDGER, INBOX]));
+    if (dirty.length > 0) {
+      console.error("Ledger write-discipline check refused to report a verdict:");
+      for (const entry of dirty) console.error(`- ${entry.path}: ${entry.reason}`);
+      console.error(
+        "\nThis gate compares two committed refs, so an uncommitted ledger edit is invisible to it and a pass " +
+          "would mean nothing. Commit the change first — git add the inbox request if it is new — then re-run.",
+      );
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   const failures = [];
   const baseReview = readAt(base, REVIEW_LEDGER);
   const headReview = readAt(head, REVIEW_LEDGER);

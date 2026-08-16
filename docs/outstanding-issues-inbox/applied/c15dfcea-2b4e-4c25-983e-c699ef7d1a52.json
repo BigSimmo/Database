@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "c15dfcea-2b4e-4c25-983e-c699ef7d1a52",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#215",
+    "detail": "**Outcome:** two of the four image-only findings from the 2026-08-02 audit are shipped; two remain open for an explicit implementation-or-drop decision. **RESTATED 2026-08-13 after inspection against main 2d270392 — two of the four items already shipped and the row no longer describes them as open.** DONE: src/components/clinical-dashboard/image-lightbox.tsx carries decoding=\"async\" (Phase 0, PR #1660), asserted by tests/signed-image.dom.test.tsx. DONE: SignedImage has the priority prop for above-fold evidence — it also skips the IntersectionObserver deferral entirely — and document viewer Phase 3 (PR #1772) added the other half of that pair: an explicit fetchPriority of high when priority is set and low otherwise, so a deferred rail figure does not contend with the page's own above-the-fold work. The document rail additionally passes a 240px observer root margin against the shared 640px default. REMAINING, both confirmed by inspection rather than inferred: (a) src/components/pwa-lifecycle.tsx still has no decoding attribute; (b) public/demo-documents/ still contains no .webp — the PNGs are ~80 KB each and served as-is, so the conversion with a PNG fallback has not been done. **Next:** apply decoding=async in pwa-lifecycle.tsx, and either convert the demo PNGs to WebP with a PNG fallback or record that an ~80 KB synthetic demo asset is not worth the build step. **Stop:** do not treat this row as covering the broader performance findings — those live under #016, #013, #117 and #147."
+  }
+}

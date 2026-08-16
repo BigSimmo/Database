@@ -253,7 +253,9 @@
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
         "tests/in-page-nav-playwright-contract.test.ts",
-        "tests/information-page-shell.dom.test.tsx"
+        "tests/information-page-shell.dom.test.tsx",
+        "tests/ui-route-coverage.spec.ts",
+        "tests/ui-specifiers.spec.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -363,6 +365,7 @@
         "tests/ckb-v2-token-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-contract-utils.test.ts",
+        "tests/design-system-target-evidence.test.ts",
         "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
@@ -522,15 +525,20 @@
       "source": "src/components/ui/disclosure.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
-      "productImportFiles": [],
+      "directImportFiles": ["src/components/clinical-dashboard/medication-considerations.tsx"],
+      "productImportFiles": ["src/components/clinical-dashboard/medication-considerations.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
         "preview": ".design-sync/previews/Disclosure.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/medication-interaction-surfaces.dom.test.tsx",
+        "tests/ui-forms-section-nav.spec.ts",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -539,8 +547,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -558,7 +566,11 @@
         "preview": ".design-sync/previews/DisclosureGroup.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/forms-information-disclosure.dom.test.tsx",
+        "tests/ui-forms-section-nav.spec.ts"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -650,7 +662,8 @@
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/visual-evidence.tsx",
         "src/components/document-viewer/document-rail-panels.tsx",
-        "src/components/dsm/dsm-search-page.tsx"
+        "src/components/dsm/dsm-search-page.tsx",
+        "src/components/mode-home-template.tsx"
       ],
       "productImportFiles": [
         "src/components/ClinicalDashboard.tsx",
@@ -664,7 +677,8 @@
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/visual-evidence.tsx",
         "src/components/document-viewer/document-rail-panels.tsx",
-        "src/components/dsm/dsm-search-page.tsx"
+        "src/components/dsm/dsm-search-page.tsx",
+        "src/components/mode-home-template.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -675,6 +689,7 @@
       "testFiles": [
         "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-target-evidence.test.ts",
         "tests/dsm-search-empty-state.dom.test.tsx",
         "tests/therapy-compass-ui.dom.test.tsx",
         "tests/ui-primitives.dom.test.tsx"
@@ -1005,7 +1020,7 @@
         "preview": ".design-sync/previews/LoadingPanel.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/design-system-target-evidence.test.ts"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -1077,6 +1092,9 @@
       "testFiles": [
         "tests/app-announcements-root.test.ts",
         "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-target-evidence.test.ts",
+        "tests/diagnosis-map-panel.dom.test.tsx",
+        "tests/sheet.dom.test.tsx",
         "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
@@ -1377,14 +1395,28 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/differentials-home.tsx",
+        "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/in-page-nav/in-page-nav-header.tsx"
+        "src/components/factsheets/factsheets-search-page.tsx",
+        "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/services/services-navigator-page.tsx",
+        "src/components/specifiers/specifiers-home-page.tsx",
+        "src/components/tools/tools-search-results-page.tsx"
       ],
       "productImportFiles": [
+        "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/differentials-home.tsx",
+        "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/in-page-nav/in-page-nav-header.tsx"
+        "src/components/factsheets/factsheets-search-page.tsx",
+        "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/services/services-navigator-page.tsx",
+        "src/components/specifiers/specifiers-home-page.tsx",
+        "src/components/tools/tools-search-results-page.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1392,7 +1424,12 @@
         "preview": ".design-sync/previews/SegmentedControl.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/factsheets-search-page.dom.test.tsx",
+        "tests/search-results-header-band.dom.test.tsx",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -1463,11 +1500,12 @@
         "src/components/clinical-dashboard/answer-content.tsx",
         "src/components/clinical-dashboard/answer-result-surface.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
-        "src/components/clinical-dashboard/document-search-results.tsx",
+        "src/components/clinical-dashboard/guide-dialog.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/mode-action-popup.tsx",
+        "src/components/clinical-dashboard/patient-details-dock-action.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/differentials/diagnosis-map-panel.tsx",
@@ -1477,8 +1515,7 @@
         "src/components/forms/forms-search-results-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
-        "src/components/services/service-group-nav.tsx",
-        "src/components/therapy-compass/filter-sheet.tsx",
+        "src/components/tools/tools-search-results-page.tsx",
         "src/components/ui/confirm-dialog.tsx"
       ],
       "productImportFiles": [
@@ -1491,11 +1528,12 @@
         "src/components/clinical-dashboard/answer-content.tsx",
         "src/components/clinical-dashboard/answer-result-surface.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
-        "src/components/clinical-dashboard/document-search-results.tsx",
+        "src/components/clinical-dashboard/guide-dialog.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/mode-action-popup.tsx",
+        "src/components/clinical-dashboard/patient-details-dock-action.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/differentials/diagnosis-map-panel.tsx",
@@ -1505,8 +1543,7 @@
         "src/components/forms/forms-search-results-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
-        "src/components/services/service-group-nav.tsx",
-        "src/components/therapy-compass/filter-sheet.tsx"
+        "src/components/tools/tools-search-results-page.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1522,6 +1559,8 @@
         "tests/factsheet-save.dom.test.tsx",
         "tests/header-scroll-hide-contract.test.ts",
         "tests/image-lightbox-geometry.test.ts",
+        "tests/in-page-nav-route-sections.dom.test.tsx",
+        "tests/mobile-sheet-safe-area-contract.test.ts",
         "tests/mode-nav.dom.test.tsx",
         "tests/rag-answer-fallback.test.ts",
         "tests/settings-dialog-actions.dom.test.tsx",
@@ -2960,7 +2999,7 @@
         "files": []
       },
       "permittedComponentFamilies": ["controls", "feedback", "layout"],
-      "sanctionedSpecialPatterns": ["ApplicationsLauncherPage", "CalculatorsSearchPage"],
+      "sanctionedSpecialPatterns": ["CalculatorsSearchPage", "ToolsSearchResultsPage"],
       "roots": [
         {
           "file": "src/app/(search-app)/calculators/page.tsx",
@@ -2980,7 +3019,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["ApplicationsLauncherPage"]
+          "sanctionedPatternsPresent": ["ToolsSearchResultsPage"]
         }
       ]
     },
@@ -3360,7 +3399,7 @@
   "summary": {
     "registeredComponentCount": 54,
     "previewCount": 54,
-    "productImportedComponentCount": 31,
+    "productImportedComponentCount": 32,
     "rootCount": 59,
     "productionRouteCount": 51,
     "nextUiEntryCount": 103

@@ -31,6 +31,20 @@ const tabSectionTypes: Record<MedicationTabId, ReadonlySet<string>> = {
   more: new Set(["inter", "pearl", "evid", "spec", "comp", "sel", "src"]),
 };
 
+/**
+ * Which tab panel holds a given catalogue section type.
+ *
+ * Derived from the same table the panels render, so a section that moves
+ * between tabs cannot leave a "jump to this section" control pointing at the
+ * tab it used to be in.
+ */
+export function medicationTabForSectionType(sectionType: string): MedicationTabId | null {
+  const entry = (Object.entries(tabSectionTypes) as [MedicationTabId, ReadonlySet<string>][]).find(([, types]) =>
+    types.has(sectionType),
+  );
+  return entry?.[0] ?? null;
+}
+
 export function medicationSectionsByTab(record: MedicationRecord): Record<MedicationTabId, MedicationSection[]> {
   return {
     summary: record.sections.filter((section) => tabSectionTypes.summary.has(section.type)),
@@ -43,9 +57,9 @@ export function medicationSectionsByTab(record: MedicationRecord): Record<Medica
 /**
  * The medication record page's navigable sections.
  *
- * Ids and labels carried over verbatim from the `SectionTabs` roving-tabindex
- * tablist this replaces, so a reader's mental map of the page is unchanged —
- * only the control moved into the shared header.
+ * Ids carried over from the `SectionTabs` roving-tabindex tablist this replaces.
+ * The final destination is labelled "Additional" so "More" can unambiguously
+ * mean the Home/Therapy-style priority overflow control.
  *
  * Exported as the base table (the shape `docs/search-chrome-behaviour.md`
  * requires a nav-header sibling to own) with `buildMedicationNavSections` adding
@@ -57,7 +71,7 @@ export const medicationNavSections: readonly PageSection[] = [
   { id: "summary", label: "Summary", icon: ClipboardList },
   { id: "dosing", label: "Dosing", icon: CalendarDays },
   { id: "safety", label: "Safety", icon: ShieldAlert },
-  { id: "more", label: "More", icon: Layers },
+  { id: "more", label: "Additional", icon: Layers },
 ];
 
 /**
@@ -156,6 +170,7 @@ export function MedicationNavHeader({
   return (
     <InPageNavHeader
       {...shared}
+      className="sm:border-b-[color:var(--border-lux)] sm:bg-[color:var(--surface-lux)] sm:py-3 sm:shadow-[var(--e1)]"
       sections={buildMedicationNavSections(record)}
       activeId={activeTab}
       onSelectSection={(id) => {

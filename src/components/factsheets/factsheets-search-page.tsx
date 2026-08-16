@@ -3,19 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Info, LayoutGrid, List, SearchX } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
   resultFilterGroup,
+  type ResultFilterOption,
 } from "@/components/clinical-dashboard/result-filter-control";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import {
   categoryTheme,
   factsheetCategories,
+  filterFactsheets,
   type Factsheet,
-  type FactsheetCategory,
 } from "@/components/factsheets/factsheets-data";
 import { factsheetGlyph } from "@/components/factsheets/factsheets-icons";
 import { cn } from "@/components/ui-primitives";
@@ -30,11 +32,6 @@ function searchHref(query: string, category?: string) {
   return suffix ? `/factsheets/search?${suffix}` : "/factsheets/search";
 }
 
-const filterChips: Array<{ key?: FactsheetCategory; label: string }> = [
-  { key: undefined, label: "All" },
-  ...factsheetCategories.map((category) => ({ key: category, label: category })),
-];
-
 export function FactsheetsSearchPage({
   query,
   category,
@@ -48,7 +45,51 @@ export function FactsheetsSearchPage({
   const [view, setView] = useState<ViewMode>("list");
   const activeCategory = factsheetCategories.find((entry) => entry === category);
   const filterPanelId = useId();
+  const categoryDeadEndNoteId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
+
+  // Category genuinely narrows within the current search — `filterFactsheets`
+  // ANDs query and category — unlike services' quick filters or formulation's
+  // old pattern presets, which replaced the query outright. So this is a real
+  // lens (docs/filter-contract.md section 1), not something to evict.
+  //
+  // Query-matched, category-UNfiltered, so a hint answers "how many for this
+  // category, at the current query". Derive the option list from those matches:
+  // unrelated zero-member categories do not exist. A selected category that the
+  // query has narrowed to zero stays visible as a disabled, explained dead end
+  // so URL state remains truthful and the available options provide an escape.
+  const queryMatches = useMemo(() => filterFactsheets(query), [query]);
+  const categoryOptions = useMemo<ReadonlyArray<ResultFilterOption<string>>>(() => {
+    const categoryCounts = new Map<string, number>();
+    for (const sheet of queryMatches) {
+      categoryCounts.set(sheet.category, (categoryCounts.get(sheet.category) ?? 0) + 1);
+    }
+
+    const options: ResultFilterOption<string>[] = [{ value: "all", label: "All", hint: String(queryMatches.length) }];
+    for (const entry of factsheetCategories) {
+      const count = categoryCounts.get(entry) ?? 0;
+      if (count === 0 && entry !== activeCategory) continue;
+      options.push({
+        value: entry,
+        label: entry,
+        hint: String(count),
+        disabled: count === 0,
+      });
+    }
+    return options;
+  }, [activeCategory, queryMatches]);
+  const activeCategoryIsDeadEnd = Boolean(
+    activeCategory && categoryOptions.find((option) => option.value === activeCategory)?.disabled,
+  );
+  const activeCategoryDeadEndMessage = activeCategoryIsDeadEnd
+    ? `No results in ${activeCategory} for this search. Choose All or another available category.`
+    : undefined;
+  const applyCategory = (value: string) => {
+    const option = categoryOptions.find((entry) => entry.value === value);
+    if (!option || option.disabled) return;
+    setFilterOpen(false);
+    router.push(searchHref(query, value === "all" ? undefined : value));
+  };
 
   return (
     <div
@@ -65,39 +106,6 @@ export function FactsheetsSearchPage({
         query={query}
         matchCount={results.length}
         className="mt-4"
-        utilityControls={
-          <div
-            role="group"
-            aria-label="Result view"
-            className="inline-flex min-h-tap overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:min-h-10"
-          >
-            {(["list", "cards"] as const).map((mode) => {
-              const isActive = view === mode;
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setView(mode)}
-                  aria-pressed={isActive}
-                  className={cn(
-                    "inline-flex min-h-tap items-center gap-1.5 px-2.5 text-xs font-bold capitalize transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10",
-                    mode === "cards" && "border-l border-[color:var(--border)]",
-                    isActive
-                      ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
-                  )}
-                >
-                  {mode === "list" ? (
-                    <List className="h-3.5 w-3.5" aria-hidden="true" />
-                  ) : (
-                    <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
-                  )}
-                  <span className="max-[389px]:sr-only">{mode}</span>
-                </button>
-              );
-            })}
-          </div>
-        }
         filterLabel="Filter factsheets by category"
         // A compact badged trigger, so it shares the count line.
         mobileControlsPlacement="inline"
@@ -111,32 +119,66 @@ export function FactsheetsSearchPage({
             onToggle={() => setFilterOpen((current) => !current)}
           />
         }
+        // The same control the sheet renders below, sharing `categoryOptions` —
+        // the two breakpoints used to disagree on renderer (raw `<Link>` chips
+        // here, a real radiogroup in the sheet) even though the VALUES already
+        // agreed. One shared array is what stops that drifting again.
         filterControls={
-          <div className="polished-scroll flex min-w-0 items-center gap-1.5 overflow-x-auto">
-            <span className="hidden shrink-0 text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)] sm:inline">
-              Category
-            </span>
-            {filterChips.map((chip) => {
-              const isActive = chip.key ? activeCategory === chip.key : !activeCategory;
-              return (
-                <Link
-                  key={chip.label}
-                  href={searchHref(query, chip.key)}
-                  aria-current={isActive ? "true" : undefined}
-                  className={cn(
-                    "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-2.5 text-2xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9 sm:text-xs",
-                    isActive
-                      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                      : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-                  )}
-                >
-                  {chip.label}
-                </Link>
-              );
-            })}
+          <div className="grid min-w-0 gap-1.5">
+            <SegmentedControl
+              label="Category"
+              value={activeCategory ?? "all"}
+              onChange={applyCategory}
+              options={categoryOptions}
+              ariaDescribedBy={activeCategoryDeadEndMessage ? categoryDeadEndNoteId : undefined}
+            />
+            {activeCategoryDeadEndMessage ? (
+              <p
+                id={categoryDeadEndNoteId}
+                data-testid="factsheet-category-dead-end"
+                className="text-xs font-medium leading-5 text-[color:var(--text-muted)]"
+              >
+                {activeCategoryDeadEndMessage}
+              </p>
+            ) : null}
           </div>
         }
       />
+
+      <div className="mt-3 flex items-center justify-end gap-2" data-testid="factsheets-view-toolbar">
+        <span className="text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">View</span>
+        <div
+          role="group"
+          aria-label="Result view"
+          className="inline-flex min-h-tap overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:min-h-10"
+        >
+          {(["list", "cards"] as const).map((mode) => {
+            const isActive = view === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setView(mode)}
+                aria-pressed={isActive}
+                className={cn(
+                  "inline-flex min-h-tap items-center gap-1.5 px-2.5 text-xs font-bold capitalize transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10",
+                  mode === "cards" && "border-l border-[color:var(--border)]",
+                  isActive
+                    ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                    : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+                )}
+              >
+                {mode === "list" ? (
+                  <List className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                <span className="max-[389px]:sr-only">{mode}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Phone-only by construction: the trigger that opens it lives in the
           ribbon's `mobileControls` slot, which the band hides from `sm` up.
@@ -153,22 +195,12 @@ export function FactsheetsSearchPage({
             id: "category",
             label: "Category",
             value: activeCategory ?? "all",
-            options: filterChips.map((chip) => ({ value: chip.key ?? "all", label: chip.label })),
-            onChange: (value) => {
-              setFilterOpen(false);
-              router.push(searchHref(query, value === "all" ? undefined : value));
-            },
+            options: categoryOptions,
+            onChange: applyCategory,
           }),
         ]}
-        onClearAll={
-          activeCategory
-            ? () => {
-                setFilterOpen(false);
-                router.push(searchHref(query));
-              }
-            : undefined
-        }
-        footerNote={`${results.length} showing`}
+        onClearAll={activeCategory ? () => applyCategory("all") : undefined}
+        footerNote={activeCategoryDeadEndMessage ?? `${results.length} showing`}
       />
 
       {results.length === 0 ? (
@@ -184,7 +216,7 @@ export function FactsheetsSearchPage({
           </div>
           <Link
             href="/factsheets/search"
-            className="inline-flex min-h-tap items-center rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]"
+            className="inline-flex min-h-tap items-center rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]"
           >
             Browse sheets
           </Link>

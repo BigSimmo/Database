@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "42dd600a-b032-45a5-8c53-cb185f08cf13",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#309",
+    "detail": "Attempted 2026-08-14: an implementation task for chips-for-6-20 was stopped before any code was written, because it directly contradicts this row's own current, still-open text, which requires a full-width DENSE LIST (right-aligned count column, group headings) for the 6-20 band, and explicitly says chips-for-6-20 does not satisfy this row. Confirmed chips-for-6-20 is ALREADY the live behaviour (dense = facetGroups.length > 3 || totalFacetOptions > 20 in result-filter-control.tsx), and that closing this row on that basis was already tried once and explicitly reverted (PR #1925, 'correct #309 to partially delivered'). No code changed, no PR opened. Needs a product/design decision between: (1) build the genuine full-width dense-list renderer plus the nine-option DOM assertion this row asks for, or (2) formally amend docs/filter-contract.md section 5 to deliberately drop the middle band with reviewer sign-off -- different from what already happened (a silent merge-conflict resolution the row says didn't count).",
+    "source": "session 2026-08-14, agent stop per contract contradiction"
+  }
+}

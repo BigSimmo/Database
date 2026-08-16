@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "3f38592b-8346-48dc-87d9-acc585ffe5b8",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#117",
+    "detail": "**Outcome:** `/therapy-compass` mobile LCP lands near the other mobile routes instead of double them. **Measured 2026-07-30** by the new pre-merge Lighthouse budget: mobile LCP 5229 ms, TBT 612 ms, CLS 0.142, against 2123-2460 ms on every other mobile route and 826 ms on desktop — so it is client-side work under mobile CPU/network throttling, not server latency. **Cause before this PR:** `useTherapyData` fetched the thin browse index (205 records) for the home/search/pathways screens, so the download plus JSON parse sat on the critical path before content painted. **Current split:** home now fetches `public/therapy-compass-data/therapies-home.211dab554c4ec62d.json` (136,288 bytes raw), pathways use the thin browse index, and search loads the full prose corpus (#1471). 90% of the index weight is long-form clinical prose — indications 159 KB (26%), contraindicationsOrCautions 139 KB (23%), bestUsedFor 73 KB (12%), clinicalSummary 67 KB (11%), patientPopulation 59 KB (10%), targetSymptoms 48 KB (8%) — while name, slug, category, tags and setting together are 54 KB (7%). **Remaining decision for search/pathways: rendered on the card, matched by search, or neither.** `therapy-card.tsx` references five of those prose fields and the same index feeds the search screen, so stripping fields could silently change clinical display or search recall. **Next:** settle that per-field question, then either pre-truncate prose that only feeds card display, or move search matching server-side / load prose on first keystroke. **Gate:** `check:therapy-data-index` plus the therapy Playwright journeys; re-measure with `npm run verify:lighthouse`. **Stop:** do not drop a field from the catalogue payload without confirming no card renders it and no search path matches on it. Same class as #013 (route-chunk / catalogue JSON weight), different route and now measured."
+  }
+}

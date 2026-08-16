@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -26,6 +26,8 @@ import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { sectionTargetIds, type PageSection } from "@/components/in-page-nav/page-section-index";
 import { ServiceDetailPage, serviceNavSections } from "@/components/services/service-detail-page";
 import { specifierNavSections } from "@/components/specifiers/specifier-nav-header";
+import { specifierMapSections } from "@/components/specifiers/specifier-map-nav-header";
+import { SpecifierMapPage } from "@/components/specifiers/specifier-map-page";
 import { SpecifierRecordPage } from "@/components/specifiers/specifier-record-page";
 import { SpecifierReferencePage } from "@/components/specifiers/specifier-reference-page";
 import { dsmDiagnoses } from "@/lib/dsm";
@@ -57,7 +59,10 @@ vi.mock("@/components/clinical-dashboard/use-medication-catalog", () => ({
   useMedicationDetail: () => ({ data: null, loading: false, error: null }),
 }));
 vi.mock("@/components/clinical-dashboard/patient-profile-panel", () => ({ PatientProfilePanel: () => null }));
-vi.mock("@/components/clinical-dashboard/medication-considerations", () => ({ MedicationConsiderations: () => null }));
+vi.mock("@/components/clinical-dashboard/medication-considerations", () => ({
+  MedicationConsiderations: () => null,
+  MedicationInteractionCallout: () => null,
+}));
 
 afterEach(cleanup);
 
@@ -149,6 +154,11 @@ const routes: RouteCase[] = [
     name: "/forms/[slug]",
     sections: formNavSections,
     render: () => <FormDetailPage form={formRecords[0]} />,
+  },
+  {
+    name: "/specifiers/map",
+    sections: specifierMapSections,
+    render: () => <SpecifierMapPage />,
   },
   {
     name: "/specifiers/[slug] (curated record)",
@@ -264,10 +274,75 @@ describe("in-page navigation section contracts", () => {
 
   it("covers every route that mounts the shared header", () => {
     // A component converted without a case here would leave its declared
-    // sections unguarded, which is the whole failure mode. Seven anchor-scrolling
+    // sections unguarded, which is the whole failure mode. Eight anchor-scrolling
     // routes plus one factsheet case per `kind`; the medication page swaps
     // panels rather than scrolling and is guarded by the suite below.
-    expect(routes).toHaveLength(12);
+    expect(routes).toHaveLength(13);
+  });
+
+  it("keeps the specifier map header and role buttons synchronized during ordinary scrolling", async () => {
+    class TestIntersectionObserver {
+      readonly root = null;
+      readonly rootMargin = "";
+      readonly thresholds = [];
+
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords(): IntersectionObserverEntry[] {
+        return [];
+      }
+    }
+
+    vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
+    let scrollY = 0;
+    const scrollSpy = vi.spyOn(window, "scrollY", "get").mockImplementation(() => scrollY);
+    const sectionTops: Record<string, number> = {
+      "episode-features": 0,
+      "course-onset": 320,
+      "severity-remission": 640,
+    };
+    const clientRectsSpy = vi.spyOn(HTMLElement.prototype, "getClientRects").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return sectionTops[this.id] === undefined
+        ? ([] as unknown as DOMRectList)
+        : ([this.getBoundingClientRect()] as unknown as DOMRectList);
+    });
+    const rectSpy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const top = (sectionTops[this.id] ?? 1_000) - scrollY;
+      return {
+        x: 0,
+        y: top,
+        top,
+        right: 100,
+        bottom: top + 100,
+        left: 0,
+        width: 100,
+        height: 100,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
+
+    try {
+      render(<SpecifierMapPage />);
+      await waitFor(() => expect(screen.getByTestId("specifier-map-section-trigger")).toBeInTheDocument());
+
+      scrollY = 160;
+      fireEvent.scroll(window);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("specifier-map-jump-course-onset")).toHaveAttribute("aria-current", "true");
+        expect(screen.getByTestId("specifier-map-section-trigger")).toHaveTextContent("Course and onset");
+      });
+    } finally {
+      clientRectsSpy.mockRestore();
+      rectSpy.mockRestore();
+      scrollSpy.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 });
 
@@ -323,6 +398,81 @@ describe("in-page navigation panel-swap contracts", () => {
     }
   });
 
+  it("uses Therapy priority bands instead of a horizontally scrolling rail", () => {
+    render(<MedicationRecordPage slug={medication!.slug} fallbackRecord={medication!} />);
+    const rail = screen.getByTestId("medication-section-rail");
+
+    expect(rail).not.toHaveClass("overflow-x-auto");
+    expect(rail.querySelector(".mode-nav")).toHaveAttribute("data-density-profile", "extended");
+    expect(
+      within(rail)
+        .getByRole("button", { name: /^Summary/ })
+        .closest("li"),
+    ).toHaveAttribute("data-band", "3");
+    expect(
+      within(rail)
+        .getByRole("button", { name: /^Dosing/ })
+        .closest("li"),
+    ).toHaveAttribute("data-band", "3");
+    expect(
+      within(rail)
+        .getByRole("button", { name: /^Safety/ })
+        .closest("li"),
+    ).toHaveAttribute("data-band", "5");
+    expect(
+      within(rail)
+        .getByRole("button", { name: /^Additional/ })
+        .closest("li"),
+    ).toHaveAttribute("data-band", "5");
+    expect(screen.getByTestId("medication-section-overflow").closest("li")).toHaveAttribute("data-until", "4");
+  });
+
+  it("opens the section sheet from More and returns focus to that opener", async () => {
+    const user = userEvent.setup();
+    render(<MedicationRecordPage slug={medication!.slug} fallbackRecord={medication!} />);
+    const overflow = screen.getByTestId("medication-section-overflow");
+
+    await user.click(overflow);
+    const sheet = screen.getByTestId("medication-section-sheet");
+    await user.click(within(sheet).getByRole("button", { name: /^Safety/ }));
+
+    expect(document.querySelector("#medication-panel-safety")).not.toBeNull();
+    expect(overflow).toHaveAccessibleName("More, current section: Safety");
+    await waitFor(() => expect(overflow).toHaveFocus());
+  });
+
+  it("restores focus to a visible rail control when More hides while the sheet is open", async () => {
+    // Mimic the 33rem `@container` band: More vanishes while the dialog is still
+    // open. Sheet only checks `isConnected` on returnFocusRef, so without a late
+    // visible-target resolver keyboard focus would land on <body>.
+    const user = userEvent.setup();
+    render(<MedicationRecordPage slug={medication!.slug} fallbackRecord={medication!} />);
+    const overflow = screen.getByTestId("medication-section-overflow");
+    const rail = screen.getByTestId("medication-section-rail");
+    const summary = within(rail).getByRole("button", { name: /^Summary/ });
+
+    await user.click(overflow);
+    expect(await screen.findByTestId("medication-section-sheet")).toBeTruthy();
+
+    // Mirror the wide rail band: title disclosure is `sm:hidden`, More is
+    // `@container` `display: none`, and every section slot is shown.
+    const titleTrigger = screen.getByTestId("medication-section-trigger");
+    titleTrigger.style.display = "none";
+    const moreSlot = overflow.closest("li");
+    expect(moreSlot).not.toBeNull();
+    moreSlot!.style.display = "none";
+    for (const slot of rail.querySelectorAll<HTMLElement>("li[data-band]")) {
+      slot.style.display = "flex";
+    }
+
+    await user.click(screen.getByRole("button", { name: "Close section list" }));
+    await waitFor(() => expect(screen.queryByTestId("medication-section-sheet")).toBeNull());
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+    expect(document.activeElement).toBe(summary);
+    expect(document.activeElement).not.toBe(overflow);
+    expect(document.activeElement).not.toBe(titleTrigger);
+  });
+
   it("swaps the panel from the rail, not only from the sheet", async () => {
     const user = userEvent.setup();
     render(<MedicationRecordPage slug={medication!.slug} fallbackRecord={medication!} />);
@@ -332,6 +482,24 @@ describe("in-page navigation panel-swap contracts", () => {
 
     expect(document.querySelector("#medication-panel-safety")).not.toBeNull();
     expect(within(rail).getByRole("button", { name: /^Safety/ })).toHaveAttribute("aria-current", "true");
+  });
+
+  it("opens every card when a medication category becomes active", async () => {
+    const user = userEvent.setup();
+    render(<MedicationRecordPage slug={medication!.slug} fallbackRecord={medication!} />);
+    const rail = screen.getByTestId("medication-section-rail");
+
+    for (const section of medicationNavSections) {
+      await user.click(within(rail).getByRole("button", { name: new RegExp(`^${section.label}`) }));
+      const panel = document.querySelector<HTMLElement>(`#medication-panel-${CSS.escape(section.id)}`);
+      const cards = Array.from(panel?.querySelectorAll<HTMLDetailsElement>(":scope > details") ?? []);
+
+      expect(cards.length, `the "${section.id}" panel renders no cards`).toBeGreaterThan(0);
+      expect(
+        cards.every((card) => card.open),
+        `the "${section.id}" panel contains a folded card`,
+      ).toBe(true);
+    }
   });
 
   it("offers no dead segment: every declared tab holds at least one section", () => {

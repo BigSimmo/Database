@@ -1,13 +1,16 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { normalizedSchemaSha256 as driftSha } from "../scripts/check-drift";
 import {
   autoMergeVerdict,
+  changedFilesForRange,
   driftVerdict,
   findPrettierBin,
   formatGuard,
+  guardBaseForRange,
   HEAVY_RUN_ADMISSION_BUSY_EXIT,
   HEAVY_RUN_ADMISSION_BUSY_MARKER,
   isCoordinatorBusyOutput,
@@ -19,6 +22,7 @@ import {
   needsTypecheck,
   normalizedSchemaSha256 as guardSha,
   parsePushRanges,
+  pushedBranchNames,
   pushedTipMatchesHead,
   staticGuard,
 } from "../scripts/guard-push.mjs";
@@ -27,7 +31,7 @@ const ZERO = "0".repeat(40);
 const created: string[] = [];
 
 afterEach(() => {
-  for (const root of created.splice(0)) rmSync(root, { recursive: true, force: true });
+  for (const root of created.splice(0)) rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 function dependencyFixture(lockMarker: string, withPrettier = false) {
@@ -47,6 +51,20 @@ function dependencyFixture(lockMarker: string, withPrettier = false) {
   return root;
 }
 
+function gitFixture() {
+  const root = mkdtempSync(join(tmpdir(), "guard-push-git-"));
+  created.push(root);
+  const git = (...args: string[]) =>
+    execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  git("init", "--quiet", "--initial-branch=main");
+  git("config", "user.name", "Guard Push Test");
+  git("config", "user.email", "guard-push@example.invalid");
+  writeFileSync(join(root, "README.md"), "base\n");
+  git("add", "README.md");
+  git("commit", "--quiet", "-m", "base");
+  return { root, git, baseSha: git("rev-parse", "HEAD") };
+}
+
 describe("guard-push sha parity", () => {
   it("guard-push's sha is byte-identical to check-drift's (they must never diverge)", () => {
     for (const sample of ["create table t();\n", "a\r\nb\r\n", "", "SELECT 1;"]) {
@@ -60,8 +78,10 @@ describe("guard-push sha parity", () => {
 });
 
 describe("auto-merge verdict", () => {
-  it("never blocks a non-claude branch", () => {
-    expect(autoMergeVerdict("main", { autoMergeRequest: {}, state: "OPEN" }).block).toBe(false);
+  it("blocks any PR branch with armed auto-merge", () => {
+    expect(autoMergeVerdict("codex/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 6 }).block).toBe(
+      true,
+    );
   });
 
   it("blocks a claude/* branch with an armed auto-merge on an open PR", () => {
@@ -83,6 +103,23 @@ describe("auto-merge verdict", () => {
   });
 });
 
+describe("manual auto-merge ownership policy", () => {
+  it("keeps active agent policies aligned on preserving an armed PR", () => {
+    const policyFiles = [
+      "../AGENTS.md",
+      "../.claude/skills/run-pr/SKILL.md",
+      "../.claude/skills/handoff/SKILL.md",
+      "../.cursor/agents/pr-babysit.md",
+    ];
+
+    for (const file of policyFiles) {
+      const policy = readFileSync(new URL(file, import.meta.url), "utf8");
+      expect(policy, file).toContain("auto-merge state is user-owned");
+      expect(policy, file).toContain("must not disable");
+    }
+  });
+});
+
 describe("drift verdict", () => {
   const text = "create table t();\n";
   it("is fresh when the manifest sha matches", () => {
@@ -100,7 +137,13 @@ describe("push-range parsing", () => {
   it("parses a new-branch push (zero remote sha)", () => {
     const ranges = parsePushRanges(`refs/heads/x abc123 refs/heads/x ${ZERO}\n`);
     expect(ranges).toHaveLength(1);
+    expect(ranges[0].remoteRef).toBe("refs/heads/x");
     expect(ranges[0].remoteSha).toBe(ZERO);
+  });
+
+  it("guards the remote branch even when a different branch is checked out", () => {
+    const ranges = parsePushRanges(`refs/heads/local abc123 refs/heads/pr-head ${ZERO}\n`);
+    expect(pushedBranchNames(ranges, "main")).toEqual(["pr-head"]);
   });
 
   it("skips a branch-deletion push (zero local sha)", () => {
@@ -109,6 +152,75 @@ describe("push-range parsing", () => {
 
   it("ignores blank lines", () => {
     expect(parsePushRanges("\n  \n")).toHaveLength(0);
+  });
+
+  it("compares a fast-forward push from its remote tip", () => {
+    const { root, git } = gitFixture();
+    git("update-ref", "refs/remotes/origin/main", "HEAD");
+    git("switch", "--quiet", "-c", "feature");
+    writeFileSync(join(root, "one.md"), "one\n");
+    git("add", "one.md");
+    git("commit", "--quiet", "-m", "one");
+    const remoteSha = git("rev-parse", "HEAD");
+    writeFileSync(join(root, "two.md"), "two\n");
+    git("add", "two.md");
+    git("commit", "--quiet", "-m", "two");
+    const localSha = git("rev-parse", "HEAD");
+
+    // Ordinary push: the remote tip is reachable, so it stays the base and only
+    // the newly pushed commit is in scope.
+    expect(guardBaseForRange({ localSha, remoteSha }, root)).toBe(remoteSha);
+    expect(changedFilesForRange({ localSha, remoteSha }, root)).toEqual(["two.md"]);
+  });
+
+  // A force-push abandons the old remote tip. Comparing against it makes every
+  // file the discarded history carried look deleted, which is unanswerable for
+  // transaction guards; the merge base is the question CI actually asks.
+  it("falls back to the merge base when the remote tip was discarded by a force-push", () => {
+    const { root, git, baseSha } = gitFixture();
+    git("update-ref", "refs/remotes/origin/main", "HEAD");
+    git("switch", "--quiet", "-c", "feature");
+    writeFileSync(join(root, "abandoned.md"), "abandoned\n");
+    git("add", "abandoned.md");
+    git("commit", "--quiet", "-m", "abandoned");
+    const discardedSha = git("rev-parse", "HEAD");
+
+    git("reset", "--quiet", "--hard", baseSha);
+    writeFileSync(join(root, "rebuilt.md"), "rebuilt\n");
+    git("add", "rebuilt.md");
+    git("commit", "--quiet", "-m", "rebuilt");
+    const localSha = git("rev-parse", "HEAD");
+
+    expect(discardedSha).not.toBe(localSha);
+    expect(guardBaseForRange({ localSha, remoteSha: discardedSha }, root)).toBe(baseSha);
+    // abandoned.md must not read as a deletion introduced by this push.
+    expect(changedFilesForRange({ localSha, remoteSha: discardedSha }, root)).toEqual(["rebuilt.md"]);
+  });
+
+  it("keeps a Windows new-branch static command scoped to the PR side of an advanced main", () => {
+    const { root, git, baseSha } = gitFixture();
+    git("switch", "--quiet", "-c", "feature");
+    mkdirSync(join(root, "scripts"), { recursive: true });
+    writeFileSync(join(root, "scripts", "feature.mjs"), "export const feature = true;\n");
+    git("add", "scripts/feature.mjs");
+    git("commit", "--quiet", "-m", "feature");
+    const featureSha = git("rev-parse", "HEAD");
+
+    git("switch", "--quiet", "main");
+    mkdirSync(join(root, "src"), { recursive: true });
+    for (let index = 0; index < 360; index += 1) {
+      const name = `main-only-${String(index).padStart(3, "0")}-${"x".repeat(96)}.ts`;
+      writeFileSync(join(root, "src", name), `export const value${index} = ${index};\n`);
+    }
+    git("add", "src");
+    git("commit", "--quiet", "-m", "advance main");
+    git("update-ref", "refs/remotes/origin/main", "HEAD");
+    git("branch", "origin/main", baseSha);
+
+    const twoDotFiles = git("diff", "--name-only", `refs/remotes/origin/main..${featureSha}`).split("\n");
+    expect(lintableFiles(twoDotFiles).join(" ").length).toBeGreaterThan(32_767);
+    expect(changedFilesForRange({ localSha: featureSha, remoteSha: ZERO }, root)).toEqual(["scripts/feature.mjs"]);
+    expect(guardBaseForRange({ localSha: featureSha, remoteSha: ZERO }, root)).toBe(baseSha);
   });
 });
 

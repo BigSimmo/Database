@@ -1,265 +1,260 @@
 # Edge Ingestion Overhaul — 3-PR Execution Plan
 
-**Status:** planned, nothing built. Base commit for PR 1: a fresh `origin/main`
-(plan written against `af773a7e3`).
-**Owner context:** clinical KB (`psychiatry.tools`); live Supabase `Clinical KB
-Database` (`sjrfecxgysukkwxsowpy`); Railway app + container worker. Every live /
-provider action is approval-gated per `AGENTS.md`.
-**Why:** the edge enrichment pipeline produces heuristic "summaries" (truncated
-text slices), the recovered-from-live `ingestion-worker` edge function can
-complete never-indexed documents, and the real LLM summary pipeline
-(`src/lib/document-enrichment.ts`) is not wired into any automated path.
+**Status:** Planning only. Revalidated against `main`
+`570740c84bc77b1c5d36493fd1011625c354f6d2` on 2026-08-16.
 
-## Cross-chat continuity rules (read first)
+**Current baseline:** `supabase/functions/ingestion-worker/` and
+`supabase/functions/indexing-v3-agent/` both remain present. App-layer document
+enrichment already uses a source-anchored structured schema through
+`generateStructuredTextResult` in `src/lib/document-enrichment.ts`.
 
-1. Each PR starts from a fresh `origin/main` base; never pile onto a stale head.
-2. One build agent touches the hot file per PR
-   (`supabase/functions/indexing-v3-agent/index.ts`). Parallel agents only on
-   disjoint files (docs, tests, scripts).
-3. Every PR: `npm run format` **and commit the result** before push; run
-   `verify:pr-local`; PR body must carry the complete
-   `## Clinical Governance Preflight` from `.github/pull_request_template.md`
-   plus the exact `RAG impact:` line given per PR below, written in full prose
-   (it is parsed by `scripts/pr-policy.mjs` — a shortened fragment fails the
-   gate).
-4. **RAG flag (AGENTS.md):** these changes alter retrieval _inputs_ — summary
-   text/embeddings and labels feed hybrid search
-   (`src/lib/rag/rag-contracts.ts:134`). PR 1 = "no retrieval behaviour
-   change"; PR 2 = "behaviour change — canary pair". No ranking code changes.
-5. Never execute without explicit user approval: live migrations, edge
-   function deploys, dashboard cron edits, backfill runs (OpenAI spend),
-   canary evals, `check:supabase-project`, or Supabase reads. Report the exact
-   command and ask.
-6. After a PR opens: stop (repo policy — no babysitting CI). Record the review
-   via `npm run ledger:append`.
-7. Resume checklist for another chat: PR number, branch, last commit SHA, next
-   step, gates run with decisive output lines, and open approval items.
+**Goal:** Retire the recovered ingestion worker, make the surviving indexing
+agent generation-aware and failure-isolated, move automated summaries onto the
+current structured-enrichment contract, then add lease fencing and quality
+gates.
 
----
+## Mandatory execution rules
 
-## PR 1 — Phase 0: P1 fixes + retire `ingestion-worker`
-
-**Branch:** `codex/edge-ingestion-retire-p1`.
-**Class:** fail-safe removal + correctness.
-**Estimate:** ~2.5–3.5 h build; ~0.5 day wall-clock with review/CI.
-
-### Changes
-
-1. **Delete** `supabase/functions/ingestion-worker/index.ts` and
-   `supabase/functions/ingestion-worker/auth.ts` (whole directory).
-2. **`supabase/config.toml`:** remove the `[functions.ingestion-worker]` /
-   `verify_jwt = true` block; keep `[functions.indexing-v3-agent] verify_jwt = false`.
-3. **New migration** `supabase/migrations/<timestamp>_retire_ingestion_worker.sql`:
-   - `drop function if exists public.invoke_ingestion_worker(integer);`
-   - Header comment: the dashboard pg_cron job calling this function must be
-     removed by an operator **before/with** application (operator step —
-     approval-gated). The drop is idempotent.
-4. **Mirror in `supabase/schema.sql`:** remove the `invoke_ingestion_worker`
-   definition, its `revoke execute … / grant execute …` pair, and the
-   `ALTER DATABASE SET app.ingestion_worker_base_url` block (currently around
-   lines 3455–3510).
-5. **`supabase/functions/indexing-v3-agent/index.ts` fixes (same PR):**
-   - **Committed-generation filter** on all three `document_chunks` queries:
-     `ensureSummary` (`:573-579`), the labels chunk query (`:792-798`), and
-     `ensureSectionsFromChunks` (`:1018-1024`). Add:
-     `and (c.index_generation_id is null or c.index_generation_id = (select (metadata->>'index_generation_id')::uuid from public.documents where id = $docId))`
-     — the `is null` arm keeps legacy always-visible rows so legacy docs do not
-     lose their summaries.
-   - **Batch isolation (R24b):** in the serve loop (`:1939-1954`), wrap
-     `await markJobFailure(job, msg)` in its own `try/catch` so a status-RPC
-     failure cannot abandon the remaining claimed jobs.
-   - **Retry backoff alignment:** resolves by deletion — the misaligned fixed
-     60 s backoff lived in the retired `ingestion-worker`; the agent already
-     uses the `INDEXING_V3_RETRY_DELAY_MS` ladder via `behavior.ts`.
-6. **Docs sweep** (grep first, then edit): `docs/codebase-index.md`
-   (edge-function table / config.toml note), `docs/deployment-architecture.md`
-   §3 (edge role is `indexing-v3-agent` only),
-   `docs/disaster-recovery-runbook.md` (~line 107–114: pg_cron invoked-function
-   list + edge-function redeploy list), `docs/ingestion-state-machine.md` §2
-   writers (add a retirement note for the recovered-from-live worker).
-7. **Tests:** grep `tests/` and `scripts/` for `ingestion-worker` /
-   `invoke_ingestion_worker`; update `tests/supabase-schema.test.ts` only if it
-   pins the function; add an assertion that `invoke_ingestion_worker` is absent
-   from `schema.sql` (prevents resurrection).
-
-### Gates (run and record decisive output)
-
-| Gate                                                            | Why                                                                           |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `npm run check:edge:functions`                                  | Deno v2 typecheck of the remaining agent (needs Deno v2 locally; CI enforces) |
-| `npm run check:indexing`                                        | ingestion-surface health                                                      |
-| `npm run test:focused -- --files tests/supabase-schema.test.ts` | schema contract                                                               |
-| `npm run check:migration-role`                                  | **required** — Supabase SQL changed                                           |
-| `npm run verify:pr-local`                                       | PR handoff gate                                                               |
-| `npm run check:production-readiness`                            | ingestion/privacy domain rule                                                 |
-
-**PR body:** complete `## Clinical Governance Preflight` (all items) plus:
-`RAG impact: no retrieval behaviour change — removes the backfill edge worker
-and adds claim/query generation guards only; no ranking or retrieval inputs
-change in this PR.`
-
-### Approval gates (operator; report + ask)
-
-1. Apply `<timestamp>_retire_ingestion_worker.sql` to live (pause, confirm, per
-   migration safety rules).
-2. Remove the dashboard pg_cron schedule for `invoke_ingestion_worker` (if
-   present — confirm first; if it is **still active**, this is urgent: it may
-   be completing unindexed documents right now).
-3. Deploy the updated `indexing-v3-agent`.
-
-**Rollback:** restore the deleted files, revert config/schema, re-deploy the
-previous agent version. The DB drop is inert if the cron is removed first.
+1. Start every implementation PR from a fresh, current `origin/main`. Re-run the
+   relevant searches before editing because paths, SQL signatures, and helper
+   contracts may have moved after this plan was written.
+2. Keep one owner for each hot file, especially
+   `supabase/functions/indexing-v3-agent/index.ts`. Parallel work may cover only
+   disjoint documentation, tests, or scripts.
+3. Format only files intentionally changed. Use targeted Prettier, then
+   `npm run format:changed`, and inspect the complete status and diff before
+   committing. Never use repository-wide formatting as a blanket handoff step,
+   and never commit test results, traces, screenshots, Lighthouse output, logs,
+   caches, scratch files, or unrelated corpus assets.
+4. Treat changes to selected chunks, summaries, labels, sections, or embeddings
+   as retrieval-behaviour changes even when ranking code is untouched. State the
+   RAG impact explicitly and run the smallest offline regression gate that can
+   detect the changed failure path.
+5. Do not run live Supabase reads or writes, migrations, edge deployments,
+   provider-backed evaluations, backfills, or paid OpenAI calls without
+   separate explicit approval.
+6. Use current source symbols rather than historical line numbers. Current
+   schema and migration signatures are authoritative. Mirror SQL changes into
+   `supabase/schema.sql` and generated database types or manifests only when the
+   repository contract requires them.
+7. After a PR opens, observe exact-head required CI and actionable review
+   threads only while the active authorised run continues. Do not claim
+   background monitoring and do not post periodic PR comments.
+8. Complete the current PR template, including concrete verification,
+   risk/rollback, the Clinical Governance Preflight when applicable, and the
+   exact RAG-impact statement.
+9. End each implementation PR with a clean diff and one immutable review-ledger
+   record created through `npm run ledger:append`. Never edit the historical
+   ledger table directly.
 
 ---
 
-## PR 2 — Phase 1: Real AI summaries in `indexing-v3-agent`
+## PR 1 — Retire `ingestion-worker` and correct generation handling
 
-**Branch:** `codex/edge-ingestion-ai-summary`.
-**Class:** behaviour change (retrieval inputs).
-**Estimate:** ~5–7 h build; ~1–1.5 days wall-clock including canary.
+**Branch:** `codex/edge-ingestion-retire-p1`
 
-### Design (locked)
+**Class:** Runtime removal plus enrichment-correctness change.
 
-- Replace `ensureSummary` (`index.ts:564-607`) with an OpenAI structured-output
-  summary mirroring `src/lib/document-enrichment.ts`'s `summarySchema`:
-  `summary` (string), `clinical_specifics.profile` with source-anchored items
-  (`text` + `source_chunk_ids` + `evidence_type` + `support`), `labels[]`.
-- **Coverage-aware chunk selection:** Deno port of
-  `selectCoverageAwarePromptChunks` (first/middle/last + section-diverse, char
-  budget ~8–10 k) — never first-N-only.
-- Call `POST https://api.openai.com/v1/chat/completions` with
-  `response_format: json_schema`; reuse the `OPENAI_REQUEST_TIMEOUT_MS` /
-  `OPENAI_MAX_RETRIES` / non-retryable-4xx fast-fail patterns from
-  `fetchEmbeddingBatch` (`:249-309`). Model: `OPENAI_INDEXING_MODEL` env
-  (default `gpt-5.6-terra`), `maxOutputTokens` 2400.
-- **Runtime validation:** assert object shape, non-empty summary, labels array,
-  finite lengths (mirror `parseGeneratedSummary`).
-- **Fallback:** on failure keep the existing heuristic but with
-  `model:'heuristic-fallback'` + `metadata.reason` — never claim LLM success.
-- **Regeneration semantics:** replace the early-return (`:571`) — skip only
-  when the stored row has `metadata->>'summary_kind' = 'llm'` AND
-  `summary_version = 'v1'` AND a non-null summary; otherwise regenerate
-  (covers heuristic rows, empty rows, reindexed content).
-- **Markers on upsert:** `model` = actual LLM model;
-  `metadata = { generated_by:'indexing-v3-agent', summary_kind:'llm',
-summary_version:'v1', index_generation_id: <committed gen>, generated_at }`.
-- **Stage-then-swap:** generate + validate fully before any DB write; upsert
-  only (`on conflict document_id do update`); never delete-before-generate
-  (R24a).
-- **Embedding:** `upsertCoreEmbeddingFields` embeds the new summary with the
-  existing `text-embedding-3-small` + `assertEmbeddingDim` — gte-small
-  divergence disappears with PR 1's deletion.
-- **Contract test:** extract the JSON schema into
-  `supabase/functions/indexing-v3-agent/summary-schema.ts`; add
-  `tests/edge-summary-schema.test.ts` (reads/validates the schema keys — same
-  pattern as `tests/supabase-schema.test.ts` reads SQL) so vitest pins the
-  contract even though the Deno runtime has no local unit harness.
-- **Backfill (operator-run, approval-gated):** extend
-  `scripts/enrich-documents.ts` with a filter for rows whose `model` matches
-  heuristic markers (`gte-small-heuristic-summary-v1`, `v3-summary-heuristic`);
-  dry-run first, then batched live run (~2000 legacy rows — OpenAI spend,
-  explicit approval). Confirm first whether live rows are dim-compatible (the
-  backfill overwrites embeddings with 1536-dim).
+### Scope
 
-### Gates
+1. Delete `supabase/functions/ingestion-worker/`.
+2. Remove the corresponding function block from `supabase/config.toml`.
+3. Add an idempotent migration that drops
+   `public.invoke_ingestion_worker(integer)`. Document that any dashboard
+   `pg_cron` schedule calling it must be removed before or with the migration.
+4. Mirror removal of the function, grants, and
+   `app.ingestion_worker_base_url` configuration from `supabase/schema.sql`.
+   Update generated schema artefacts only through their repository generators.
+5. In the surviving indexing agent, restrict summary, label, and section
+   source-chunk reads to:
+   - legacy visible rows where `index_generation_id is null`, or
+   - rows matching the document's committed generation.
+   Keep the predicate consistent across every enrichment read and add a focused
+   regression test for stale-generation exclusion plus legacy visibility.
+6. Isolate per-job failure recording. A failure inside the status/RPC update
+   must not abort processing of the remaining claimed jobs.
+7. Sweep documentation and tests for `ingestion-worker`,
+   `invoke_ingestion_worker`, and the retired base-URL setting. Update only
+   current operational references. Preserve historical audit records unless
+   repository policy explicitly requires a superseding note.
+8. Add a schema-contract assertion that the retired function cannot be
+   reintroduced accidentally.
 
-`npm run check:edge:functions` · `npm run check:indexing` ·
-`npm run test:focused -- --files tests/edge-summary-schema.test.ts,tests/document-enrichment.test.ts` ·
-`npm run verify:pr-local` · `npm run check:production-readiness`.
+### Verification
 
-**PR body:** complete Clinical Governance Preflight plus:
-`RAG impact: behaviour change — canary pair <baseline commit/state> -> <post-change>`
-(document summaries and their embeddings feed hybrid retrieval; the canary must
-pin doc/content recall 1.0 and zero per-case rr regressions).
+- `npm run check:edge:functions`
+- `npm run check:indexing`
+- focused schema and indexing-agent contract tests
+- `npm run check:migration-role`
+- `npm run verify:pr-local`
+- `npm run check:production-readiness`
 
-### Approval gates
+**RAG impact:** behaviour change — generation-aware chunk selection can change
+derived summaries, labels, and sections while leaving ranking code unchanged.
+Require focused offline enrichment/retrieval regression evidence. Any live
+canary remains provider-backed and separately approval-gated.
 
-1. Deploy the agent (operator).
-2. Offline golden check first (`npm run eval:retrieval` local/offline fixtures),
-   then **live eval-canary pair** before trusting (provider-backed, ~$1–2,
-   explicit approval).
-3. Backfill run (explicit approval).
-4. Rollout strategy: ship with heuristic-fallback intact; canary on a document
-   sample before the full fleet.
+### Operator approvals
 
-**Rollback:** re-deploy previous agent version (writes are idempotent upserts;
-heuristic rows unchanged). Canary regression → single-commit revert +
-confirmation run.
+- Confirm and remove any live `pg_cron` schedule for
+  `invoke_ingestion_worker`.
+- Apply the retirement migration.
+- Deploy the updated `indexing-v3-agent`.
+
+**Rollback:** Restore the retired edge-function files and configuration, revert
+the agent change, and redeploy the previous version. Recreating the SQL wrapper
+must occur only after its cron and secret dependencies are deliberately
+restored.
 
 ---
 
-## PR 3 — Phase 2 + 3: Edge-loop hardening, quality gates, docs
+## PR 2 — Structured, source-anchored summaries in `indexing-v3-agent`
 
-**Branch:** `codex/edge-ingestion-hardening`.
-**Class:** hardening/quality (no retrieval behaviour change).
-**Estimate:** ~3–4 h build; ~0.5–1 day wall-clock.
+**Branch:** `codex/edge-ingestion-ai-summary`
 
-### Changes
+**Class:** Retrieval-input behaviour change.
 
-1. **Lease heartbeat + lock-holder fencing (R1/R2 class):** migration
-   `<ts>_agent_lease_heartbeat_and_fencing.sql` — extend
-   `update_indexing_v3_agent_job_status` (and the agent's status writes) to
-   accept `p_worker_id` and fence on `locked_by`; the agent refreshes
-   `locked_at` mid-run guarded by its own worker id. Mirror in `schema.sql`.
-   Matters once LLM latency makes a 45-min double-claim realistic.
-2. **Re-open path for `needs_enrichment_artifacts` (R24a/R24d):** migration
-   letting claim accept that status when `metadata` carries an explicit repair
-   marker (`repair_requested_at`); wire `repair_strict_enrichment_gate_batch`
-   into an ops path (`scripts/check-indexing.ts` or a small new script) with a
-   dry-run.
-3. **Schema↔live re-sync (R24e):** reconcile `ingestion_job_stages.job_id` FK
-   (drop or repoint) and the claim-RPC seed-insert + `d.status='indexed'` join
-   into `schema.sql` so fresh environments match live.
-4. **`scripts/check-indexing.ts` extension:** assert every document has a
-   summary row carrying `model`/`summary_kind` markers; count heuristic rows;
-   flag truncation tails (`...$`) and summaries lacking `source_chunk_ids`;
-   fail closed on new heuristic-only rows after rollout.
-5. **Docs:** `docs/ingestion-state-machine.md` — new summary lifecycle states
-   (heuristic → llm, version marker, regeneration rules); strike the phase-3
-   backlog items this closes; update `docs/deployment-architecture.md` /
-   `worker-deploy-runbook.md` if the heartbeat changes operator guidance.
+### Scope
 
-### Gates
+1. Make the edge summary contract match the current app-layer structured
+   enrichment contract in `src/lib/document-enrichment.ts`, including:
+   - a non-empty summary
+   - source-anchored clinical profile items
+   - labels with validated type and confidence
+   - bounded arrays and text lengths
+2. Prefer a transport-neutral shared schema and normaliser. Where the Node and
+   Deno runtime boundary prevents safe sharing, keep an explicit parity test
+   that fails when either contract changes.
+3. Port the current coverage-aware prompt selection strategy. Do not use
+   first-N-only chunk selection.
+4. Use the repository's current OpenAI structured-generation semantics rather
+   than hard-coding a legacy endpoint. Resolve the indexing model through the
+   current configuration contract, preserve timeout/retry handling, and verify
+   model availability before any approved live use.
+5. Generate and validate the complete payload before writing. Upsert only after
+   validation. Never delete a valid summary before replacement generation has
+   succeeded.
+6. Regenerate when the stored summary is missing, heuristic, from an older
+   summary version, or tied to a superseded committed generation. Skip only a
+   current, valid, source-anchored summary.
+7. Mark successful and fallback rows unambiguously. At minimum record:
+   `generated_by`, `summary_kind`, `summary_version`,
+   `index_generation_id`, model, and generation time. A heuristic fallback must
+   never claim LLM success.
+8. Keep embedding dimensions and model selection aligned with the current
+   schema and `EMBEDDING_DIMENSIONS` contract.
+9. Add contract tests for schema parity, parsing, source-anchor validation,
+   generation/version skip rules, fallback markers, and stage-then-swap
+   behaviour.
+10. Extend the existing backfill path with a dry-run filter for legacy
+    heuristic rows. Do not run it without explicit approval and a reviewed cost
+    estimate.
 
-`npm run check:migration-role` · `npm run check:edge:functions` ·
-`npm run check:indexing` · focused vitest (schema + check-indexing tests) ·
-`npm run verify:cheap` (cross-cutting SQL/scripts) ·
-`npm run check:production-readiness`.
+### Verification
 
-**PR body:** Clinical Governance Preflight +
-`RAG impact: no retrieval behaviour change — lease/repair/schema-sync
-hardening and offline quality assertions only.`
+- `npm run check:edge:functions`
+- `npm run check:indexing`
+- focused edge-summary and document-enrichment tests
+- `npm run eval:rag:offline` or the current offline selector invoked by
+  `verify:pr-local`
+- `npm run verify:pr-local`
+- `npm run check:production-readiness`
 
-### Approval gates
+**RAG impact:** behaviour change — summary text, labels, and summary embeddings
+feed retrieval. Record a pinned offline baseline and post-change result. A live
+retrieval-quality or answer canary requires separate approval and must compare
+the exact deployed commit.
 
-Apply the two migrations to live (operator, paused and confirmed); re-deploy
-the agent if its status-write signature changed.
+### Operator approvals
 
-**Rollback:** migrations are additive/fencing-only; roll back the deploy; the
-check-script assertions can be relaxed to warnings.
+- Deploy the updated edge function.
+- Run any provider-backed canary.
+- Run the legacy-summary backfill.
+
+**Rollback:** Redeploy the previous agent. Because replacement writes are
+validated upserts, previously valid rows remain recoverable. A canary regression
+requires reverting the responsible commit before broader rollout.
 
 ---
 
-## Definition of done (whole programme)
+## PR 3 — Lease fencing, repair paths, and quality gates
 
-1. `ingestion-worker` gone from repo, config, schema, docs, live function list,
-   and live cron.
-2. New/regenerated summaries are LLM-generated with `summary_kind='llm'`,
-   versioned, anchored, and generation-aware; heuristic exists only as an
-   explicitly labelled fallback.
-3. Legacy heuristic rows backfilled (or tracked as a known, counted remainder).
-4. Canary pair green; `check:indexing` fails closed on summary-quality
-   regressions.
-5. Heartbeat/fencing, re-open path, and schema sync live; state-machine doc
-   reflects the new truth.
+**Branch:** `codex/edge-ingestion-hardening`
 
-## Residual risks (honest)
+**Class:** Cross-cutting reliability and governance hardening.
 
-- **Unverified live facts:** whether the `invoke_ingestion_worker` cron is still
-  active, and the live `document_embedding_fields.embedding` dimension vs
-  gte-small rows — both need one approval-gated Supabase read before/at PR 1
-  handoff.
-- Deno v2 availability on the local Windows box; if absent,
-  `check:edge:functions` warns locally and CI carries the gate.
-- PR 2's canary and backfill cost real money and operator time — they sit on
-  the critical path and cannot be parallelized away.
+### Scope
+
+1. Add worker-identity fencing to indexing job status updates and lease
+   heartbeats. A stale worker must not refresh or complete a job owned by a
+   newer worker.
+2. Add a bounded, explicit repair path for documents requiring enrichment
+   artefacts. It must be dry-run capable, auditable, and unable to reopen
+   arbitrary completed work without a repair marker.
+3. Reconcile `supabase/schema.sql`, migrations, generated types, and the
+   repository's observed-live drift contract. Do not infer live state from this
+   plan. Confirm it only through a separately approved read.
+4. Extend offline indexing checks to report:
+   - missing summaries
+   - heuristic or outdated summary markers
+   - invalid source anchors
+   - generation mismatches
+   - unexpected truncation/fallback growth
+5. Fail closed on newly introduced invalid rows after the structured-summary
+   rollout, while reporting a separately tracked legacy remainder.
+6. Update the ingestion state-machine and deployment/runbook documentation with
+   the final ownership, retry, lease, repair, and rollback semantics.
+
+### Verification
+
+- `npm run check:migration-role`
+- `npm run check:edge:functions`
+- `npm run check:indexing`
+- focused status-RPC, lease-fencing, repair-path, and schema tests
+- `npm run verify:cheap`
+- `npm run check:production-readiness`
+
+**RAG impact:** no ranking-code change, but repair and quality enforcement can
+change which enrichment artefacts are accepted. Treat any regenerated summary
+or embedding as retrieval-affecting and apply the PR 2 evidence requirements.
+
+### Operator approvals
+
+- Apply migrations.
+- Deploy an agent whose status-RPC signature changed.
+- Perform any live repair or reconciliation run.
+
+**Rollback:** Revert the deployment first. Migrations must be designed to remain
+safe if the new worker is rolled back, or include an explicit, reviewed
+down-migration/compatibility path.
+
+---
+
+## Programme definition of done
+
+1. `ingestion-worker` is absent from active code, configuration, schema,
+   current runbooks, live functions, and live schedules.
+2. The surviving agent reads only visible/committed-generation content and
+   continues processing other jobs when one failure-recording path breaks.
+3. New summaries are structured, source-anchored, versioned,
+   generation-aware, and explicitly identify fallback generation.
+4. Offline retrieval/enrichment evidence is green, and any approved live
+   canary is pinned to the deployed commit.
+5. Lease fencing prevents stale workers from completing newer claims.
+6. Repair actions are explicit, dry-run capable, auditable, and bounded.
+7. Schema, migrations, generated artefacts, current documentation, and approved
+   live state agree.
+
+## Residual risks to resolve during implementation
+
+- Whether a live `invoke_ingestion_worker` cron still exists.
+- Whether live summary and embedding rows match the repository's current
+  dimension and generation contracts.
+- Whether the Deno edge runtime can share the structured schema directly with
+  the Node app without introducing an unsupported dependency boundary.
+- Provider model availability, latency, token cost, and structured-output
+  behaviour.
+- The volume of legacy heuristic rows and the cost and duration of backfill.
+
+These are discovery or approval items, not assumptions. Record the evidence in
+the implementation PR that resolves each item.

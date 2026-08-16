@@ -28,10 +28,22 @@ import {
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
-import { considerationSummaryBadge } from "@/components/clinical-dashboard/medication-considerations";
+import {
+  medicationVerdictRingClass,
+  verdictSummaryBadge,
+} from "@/components/clinical-dashboard/medication-considerations";
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
+import { PatientDetailsDockAction } from "@/components/clinical-dashboard/patient-details-dock-action";
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
-import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
+import {
+  useMedicationCatalog,
+  type MedicationCatalogInterpretation,
+} from "@/components/clinical-dashboard/use-medication-catalog";
+import {
+  composeMedicationVerdict,
+  evaluateMedicationInteractions,
+  type MedicationVerdict,
+} from "@/lib/medication-interactions";
 import { evaluatePatientAlerts } from "@/lib/medication-patient-alerts";
 import {
   BadgeCluster,
@@ -42,6 +54,7 @@ import {
 import { medicationIdentityBadges, type MedicationRecord } from "@/lib/medications";
 import { SEMANTIC_TONE_META } from "@/lib/semantic-tone";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
+import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { cn, EmptyState, pageContainer } from "@/components/ui-primitives";
 
 type MedicationPrescribingWorkspaceProps = {
@@ -79,6 +92,8 @@ type MedicationRow = {
   badges: ClinicalBadgeItem[];
   /** Per-medication (drug-class) identity accent hex, for a subtle icon tint. */
   accent?: string;
+  /** Composed patient verdict; absent when no patient profile is entered. */
+  verdict?: MedicationVerdict;
 };
 
 type MedicationResultFilter = "best" | "indication" | "safety" | "monitoring";
@@ -199,6 +214,42 @@ function StatusNotice({
   );
 }
 
+function MedicationInterpretationChip({ interpretation }: { interpretation?: MedicationCatalogInterpretation }) {
+  const correctedQuery = interpretation?.correctedQuery?.trim();
+  const hasCorrection = Boolean(correctedQuery);
+  const expansions = Array.from(
+    new Set(interpretation?.appliedExpansions?.map((term) => term.trim()).filter(Boolean) ?? []),
+  );
+  if (!hasCorrection && expansions.length === 0) return null;
+
+  const displayTerms = hasCorrection && correctedQuery ? correctedQuery : expansions.slice(0, 3).join(", ");
+  const hiddenExpansionCount = hasCorrection ? expansions.length : Math.max(0, expansions.length - 3);
+  const leadingLabel = hasCorrection ? "Did you mean" : "Search also included";
+  const accessibleLabel = hasCorrection
+    ? `Did you mean ${correctedQuery}?${
+        expansions.length ? ` Related terms were also included: ${expansions.join(", ")}.` : ""
+      }`
+    : `Search also included related terms: ${expansions.join(", ")}.`;
+
+  return (
+    <div className="medication-results-inset">
+      <p
+        role="note"
+        aria-label={accessibleLabel}
+        title={accessibleLabel}
+        data-testid="medication-query-interpretation"
+        className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-1 text-2xs font-semibold text-[color:var(--clinical-accent)]"
+      >
+        <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <span className="shrink-0">{leadingLabel}</span>
+        <span aria-hidden="true">·</span>
+        <span className="min-w-0 truncate">{displayTerms}</span>
+        {hiddenExpansionCount ? <span className="shrink-0">+{hiddenExpansionCount}</span> : null}
+      </p>
+    </div>
+  );
+}
+
 function MedicationHome({
   loading,
   realDataReady,
@@ -259,50 +310,6 @@ function resultMatchesFilter(result: MedicationResult, filter: MedicationResultF
   return (
     result.actionTone === "warning" ||
     /monitor|level|review|renal|hepatic/i.test(`${result.action} ${result.dose} ${result.ceiling}`)
-  );
-}
-
-function FilterStrip({
-  activeFilter,
-  counts,
-  onFilterChange,
-}: {
-  activeFilter: MedicationResultFilter;
-  counts: Record<MedicationResultFilter, number>;
-  onFilterChange: (filter: MedicationResultFilter) => void;
-}) {
-  return (
-    <div
-      className="medication-filter-strip answer-suggestion-row-scroll flex gap-1.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]"
-      aria-label="Medication result filters"
-    >
-      {medicationResultFilters.map((filter) => {
-        const active = activeFilter === filter.id;
-        const Icon = filter.icon;
-        return (
-          <button
-            key={filter.id}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onFilterChange(filter.id)}
-            className={cn(
-              "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-2xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:px-3 sm:text-xs",
-              active
-                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)]",
-            )}
-          >
-            <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            {filter.label}
-            <span
-              className={cn("nums text-2xs font-semibold", active ? "opacity-80" : "text-[color:var(--text-muted)]")}
-            >
-              {counts[filter.id]}
-            </span>
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -378,13 +385,13 @@ function HighlightedName({ text, term }: { text: string; term: string }) {
   );
 }
 
-function DoseCeiling({ value }: { value: string }) {
+function MaximumDose({ value }: { value: string }) {
   return (
-    <span className="inline-flex min-h-6 w-fit items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
+    <span className="inline-grid min-h-6 min-w-0 max-w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-2xs font-semibold text-[color:var(--text-muted)]">
       <span className="rounded border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs uppercase tracking-label text-[color:var(--text-muted)]">
-        Ceiling
+        Max
       </span>
-      <span className="nums break-words text-[color:var(--text-heading)] md:whitespace-nowrap">{value}</span>
+      <span className="nums min-w-0 break-words leading-5 text-[color:var(--text-heading)]">{value}</span>
     </span>
   );
 }
@@ -413,12 +420,25 @@ function MedicationResults({
     const toRow = (result: MedicationResult, medication?: MedicationRecord): MedicationRow => {
       const badges = medication ? medicationIdentityBadges(medication, governance?.[medication.slug]) : [];
       const accent = medication?.accent;
-      // Prepend a per-patient alert badge so the highest-severity consideration
+      // Prepend a per-patient verdict badge so the highest-severity signal
       // surfaces first in the row's badge cluster (priority-sorted by tone).
+      // The verdict folds BOTH engines together — physiology considerations and
+      // interactions against the entered medication list — and degrades a
+      // would-be green to grey whenever either engine left something unassessed.
       if (medication && !profileEmpty) {
         const alerts = evaluatePatientAlerts(medication, profile);
-        const alertBadge = considerationSummaryBadge(alerts.considerations.length, alerts.highestTone);
-        if (alertBadge) return { result, badges: [alertBadge, ...badges], accent };
+        const interactions = evaluateMedicationInteractions(medication.slug, profile.medications ?? [], medication);
+        const verdict = composeMedicationVerdict({
+          considerationTone: alerts.highestTone,
+          considerationCount: alerts.considerations.length,
+          unassessedCount: alerts.unassessed.length,
+          interactionTone: interactions.highestTone,
+          interactionCount: interactions.interactions.length,
+          unresolvedRowCount: interactions.unresolvedRowCount,
+          unreachableCounterpartyCount: interactions.unreachableCounterparties.length,
+        });
+        const verdictBadge = verdictSummaryBadge(verdict);
+        return { result, badges: verdictBadge ? [verdictBadge, ...badges] : badges, accent, verdict };
       }
       return { result, badges, accent };
     };
@@ -455,6 +475,18 @@ function MedicationResults({
     };
   }, [activeFilter, catalog.data, profile, profileEmpty]);
   const resultCount = rows.length;
+  // One array feeds the desktop rail and the phone sheet, so the counts cannot
+  // drift between them and the dimension states one-of-N at both breakpoints.
+  const filterOptions = useMemo<ReadonlyArray<SegmentedControlOption<MedicationResultFilter>>>(
+    () =>
+      medicationResultFilters.map((filter) => ({
+        value: filter.id,
+        label: filter.label,
+        icon: filter.icon,
+        hint: String(counts[filter.id]),
+      })),
+    [counts],
+  );
   // The match-quality badge only earns its slot when it differentiates: hide it on
   // "Exact clinical fit" rows when every visible row says the same thing.
   const showMatchBadge = useMemo(() => new Set(rows.map((row) => row.result.match)).size > 1, [rows]);
@@ -485,8 +517,21 @@ function MedicationResults({
             onToggle={() => setFilterOpen((current) => !current)}
           />
         }
-        filterControls={<FilterStrip activeFilter={activeFilter} counts={counts} onFilterChange={setActiveFilter} />}
+        filterControls={
+          <SegmentedControl
+            value={activeFilter}
+            onChange={setActiveFilter}
+            options={filterOptions}
+            label="Medication result filters"
+            // `.medication-filter-strip` is load-bearing: ui-stress.spec.ts
+            // measures this row's first button for tap height and left inset.
+            className="medication-filter-strip"
+          />
+        }
       />
+
+      <MedicationInterpretationChip interpretation={catalog.data?.interpretation} />
+
       {/* Phone-only by construction: the trigger that opens it lives in the
           ribbon's `mobileControls` slot, which the band hides from `sm` up. */}
       <ResultFilterSheet
@@ -500,11 +545,7 @@ function MedicationResults({
             id: "result-filter",
             label: "Show",
             value: activeFilter,
-            options: medicationResultFilters.map((filter) => ({
-              value: filter.id,
-              label: filter.label,
-              hint: String(counts[filter.id]),
-            })),
+            options: filterOptions,
             onChange: setActiveFilter,
           }),
         ]}
@@ -512,7 +553,15 @@ function MedicationResults({
         footerNote={`${resultCount} showing`}
       />
 
-      <PatientProfilePanel variant="compact" className="medication-patient-strip" />
+      {/* Phone gets the docked pill + sheet instead of the in-flow strip: two
+          copies of one form would duplicate every `data-testid` while the sheet
+          is open, and the strip is exactly the list space the pill exists to
+          give back. Above the phone breakpoint the pill does not render, so the
+          strip is the only entry point and must stay. */}
+      <PatientProfilePanel variant="compact" className="medication-patient-strip max-sm:hidden" />
+      {/* Renders only where the phone dock exposes its addon slot (the submitted
+          prescribing view); a no-op elsewhere and above the phone breakpoint. */}
+      <PatientDetailsDockAction />
 
       {/* The error branch moved into the band's fault panel, which carries the
           same message and announces it once. Loading copy stays here. */}
@@ -552,11 +601,11 @@ function MedicationResults({
       ) : null}
 
       {!initialCatalogLoading && !catalog.error && resultCount > 0 ? (
-        <div className="hidden overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] lg:block">
-          <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+        <div className="hidden overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] lg:block">
+          <div className="grid grid-cols-[minmax(12rem,1.12fr)_minmax(5.5rem,0.46fr)_minmax(7rem,0.66fr)_minmax(12rem,1.15fr)_1.5rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             <span>Medication</span>
-            <span>Dose</span>
-            <span>Ceiling</span>
+            <span>Usual dose</span>
+            <span>Max dose</span>
             <span>Prescribing action</span>
             <span className="sr-only">Open</span>
           </div>
@@ -564,27 +613,35 @@ function MedicationResults({
             {rows.map((row, index) => {
               const result = row.result;
               const selected = index === 0 && Boolean(query.trim());
+              // The verdict ring replaces the selected-row accent ring rather
+              // than stacking with it: one edge mechanism, one owner, and safety
+              // outranks "this is the top hit".
+              const verdictRing = row.verdict ? medicationVerdictRingClass(row.verdict.tone) : null;
               const rowClassName = cn(
-                "group grid w-full grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] items-center gap-2.5 px-4 py-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
+                "group grid w-full grid-cols-[minmax(12rem,1.12fr)_minmax(5.5rem,0.46fr)_minmax(7rem,0.66fr)_minmax(12rem,1.15fr)_1.5rem] items-start gap-3 px-4 py-3.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
                 selected
-                  ? "bg-[color:var(--clinical-accent-soft)]/35 shadow-[var(--shadow-rail-active)] ring-1 ring-inset ring-[color:var(--clinical-accent)]/35"
-                  : result.href
-                    ? "hover:bg-[color:var(--surface-subtle)]"
-                    : "cursor-default opacity-80",
+                  ? cn(
+                      "bg-[color:var(--clinical-accent-soft)]/35 shadow-[var(--shadow-rail-active)]",
+                      verdictRing ?? "ring-1 ring-inset ring-[color:var(--clinical-accent)]/35",
+                    )
+                  : cn(
+                      result.href ? "hover:bg-[color:var(--surface-subtle)]" : "cursor-default opacity-80",
+                      verdictRing,
+                    ),
               );
               const rowContent = (
                 <>
-                  <div className="flex min-w-0 items-center gap-2.5">
+                  <div className="flex min-w-0 items-start gap-3">
                     <ResultToneIcon result={result} accent={row.accent} />
                     <div className="min-w-0">
-                      <span className="block break-words text-base-minus font-semibold text-[color:var(--text-heading)]">
+                      <span className="block break-words text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
                         <HighlightedName text={result.name} term={query} />
                       </span>
-                      <span className="line-clamp-1 break-words text-xs font-medium text-[color:var(--text-muted)]">
+                      <span className="mt-0.5 line-clamp-1 break-words text-xs font-medium leading-4 text-[color:var(--text-muted)]">
                         {result.indication}
                       </span>
                       {showMatchBadge || result.match !== "Exact clinical fit" || row.badges.length > 0 ? (
-                        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
+                        <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
                           {showMatchBadge || result.match !== "Exact clinical fit" ? (
                             <ResultMatchBadge result={result} />
                           ) : null}
@@ -593,12 +650,17 @@ function MedicationResults({
                       ) : null}
                     </div>
                   </div>
-                  <span className="nums line-clamp-2 text-sm-minus font-semibold text-[color:var(--text-heading)]">
+                  <span className="nums line-clamp-2 min-w-0 break-words pt-0.5 text-sm-minus font-semibold leading-5 text-[color:var(--text-heading)]">
                     {result.dose}
                   </span>
-                  <DoseCeiling value={result.ceiling} />
-                  <span className="flex min-w-0 items-start gap-1.5 text-sm-minus font-medium leading-snug text-[color:var(--text-heading)]">
-                    <ActionToneIcon tone={result.actionTone} className="mt-0.5 h-3.5 w-3.5" />
+                  <div data-medication-cell="ceiling" className="min-w-0 pt-0.5">
+                    <MaximumDose value={result.ceiling} />
+                  </div>
+                  <span
+                    data-medication-cell="action"
+                    className="flex min-w-0 items-start gap-2 pt-0.5 text-sm-minus font-medium leading-5 text-[color:var(--text-heading)]"
+                  >
+                    <ActionToneIcon tone={result.actionTone} className="mt-[0.1875rem] h-3.5 w-3.5" />
                     <span className="line-clamp-2 min-w-0 break-words">{result.action}</span>
                   </span>
                   {result.href ? (
@@ -675,7 +737,7 @@ function MedicationResults({
                 ) : null}
                 <div className="flex max-w-full flex-wrap items-center gap-1.5 text-sm-minus font-semibold text-[color:var(--text-heading)]">
                   <span className="nums line-clamp-2 break-words">{result.dose}</span>
-                  <DoseCeiling value={result.ceiling} />
+                  <MaximumDose value={result.ceiling} />
                 </div>
                 <p className="line-clamp-2 break-words text-pretty text-xs leading-normal text-[color:var(--text-muted)]">
                   <ActionToneIcon tone={result.actionTone} className="mr-1 inline-block h-3.5 w-3.5 align-[-0.15em]" />
@@ -702,6 +764,7 @@ function MedicationResults({
                 href={result.href}
                 data-testid={`medication-result-${result.id}-phone`}
                 data-selected={selected ? "true" : "false"}
+                data-verdict={row.verdict?.tone}
                 className={cardClassName}
               >
                 {cardContent}
@@ -714,6 +777,7 @@ function MedicationResults({
               key={result.id}
               data-testid={`medication-result-${result.id}-phone`}
               data-selected={selected ? "true" : "false"}
+              data-verdict={row.verdict?.tone}
               className={cardClassName}
             >
               {cardContent}

@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import userEvent from "@testing-library/user-event";
@@ -10,6 +10,7 @@ import { FavouritesCommandLibraryPage } from "@/components/clinical-dashboard/fa
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { ApplicationsLauncherWorkspace } from "@/components/applications-launcher-page";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { ToolsSearchResultsPage } from "@/components/tools/tools-search-results-page";
 import { filterCrossModesForSession, visibleAppModeDefinitionsForSession } from "@/lib/app-modes";
 import { toolCatalogRecordsForSession } from "@/lib/tools-catalog";
 
@@ -133,7 +134,7 @@ describe("favourites auth gate DOM", () => {
     authSession.status = "signed_out";
     render(<FavouritesCommandLibraryPage query="" demoMode={false} />);
 
-    expect(screen.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Favourites" })).toBeVisible();
     expect(screen.getByText(/Sign up to save favourites and access them across devices/i)).toBeVisible();
     expect(screen.getByTestId("favourites-open-account-setup")).toBeVisible();
     expect(screen.getByRole("heading", { name: "Sign up to save favourites" })).toBeVisible();
@@ -144,7 +145,7 @@ describe("favourites auth gate DOM", () => {
     authSession.status = "signed_out";
     render(<FavouritesCommandLibraryPage query="" demoMode={true} />);
 
-    expect(screen.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Favourites" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: "Sign up to save favourites" })).toBeNull();
     expect(screen.queryByTestId("favourites-open-account-setup")).toBeNull();
   });
@@ -154,44 +155,74 @@ describe("favourites auth gate DOM", () => {
 
     expect(screen.getByRole("heading", { name: "Sign up to save favourites" })).toBeVisible();
     expect(screen.getByText(/Sign in or create an account to save favourites/i)).toBeVisible();
-    expect(screen.getByText("Saved favourites")).toBeVisible();
+    expect(screen.getByText("Save favourites")).toBeVisible();
   });
 
   it("separates account-synced data from device-only recents", () => {
     render(<AccountSetupDialog open onClose={() => undefined} />);
 
-    expect(screen.getByRole("heading", { name: "What’s saved where" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Saved to your account" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Stays on this device" })).toBeVisible();
-    expect(screen.getByText(/Recent searches/i)).toBeVisible();
-    expect(screen.getByText(/Stay in this browser session and do not sync/i)).toBeVisible();
-    expect(screen.getByText("No PHI required")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Your workspace, wherever you work." })).toBeVisible();
+    expect(screen.getByText("Save favourites")).toBeVisible();
+    expect(screen.getByText(/Reopen trusted resources on any device/i)).toBeVisible();
+    expect(screen.getByText("Keep your clinical defaults")).toBeVisible();
+    expect(screen.getByText(/Your jurisdiction and answer style follow you/i)).toBeVisible();
+    expect(screen.getByText("Recent searches stay here")).toBeVisible();
+    expect(screen.getByText(/Browser activity does not sync to your account/i)).toBeVisible();
+    expect(screen.getAllByText("Do not enter patient-identifiable information.")).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "Privacy and data processing" })).toHaveLength(2);
+    for (const privacyLink of screen.getAllByRole("link", { name: "Privacy and data processing" })) {
+      expect(privacyLink).toHaveAttribute("href", "/privacy");
+    }
     expect(screen.queryByText(/Everything syncs across your devices/i)).toBeNull();
     expect(screen.queryByText(/never shared/i)).toBeNull();
     expect(screen.queryByText("Account-scoped saves")).toBeNull();
   });
 
-  it("wires available OAuth providers and presents Apple as non-interactive status", async () => {
+  it("leads with and wires Apple, Google, and Microsoft OAuth", async () => {
     const user = userEvent.setup();
     render(<AccountSetupDialog open onClose={() => undefined} />);
 
-    await user.click(screen.getByRole("button", { name: "Continue with Google" }));
+    const apple = screen.getByRole("button", { name: "Continue with Apple" });
+    const google = screen.getByRole("button", { name: "Continue with Google" });
+    const microsoft = screen.getByRole("button", { name: "Continue with Microsoft" });
+    const email = screen.getByLabelText(/Work email/);
+
+    expect(apple.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(google.compareDocumentPosition(microsoft) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(microsoft.compareDocumentPosition(email) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await user.click(apple);
+    expect(authSession.signInWithOAuth).toHaveBeenCalledWith("apple");
+
+    await user.click(google);
     expect(authSession.signInWithOAuth).toHaveBeenCalledWith("google");
 
-    await user.click(screen.getByRole("button", { name: "Continue with Microsoft" }));
+    await user.click(microsoft);
     expect(authSession.signInWithOAuth).toHaveBeenCalledWith("azure");
 
-    expect(screen.getByText("Apple sign-in is not available yet.")).toBeVisible();
-    expect(screen.queryByRole("button", { name: /Apple/i })).toBeNull();
+    expect(screen.queryByText(/Apple sign-in is not available/i)).toBeNull();
+  });
+
+  it("shows the selected provider and locks competing actions while OAuth starts", () => {
+    authSession.signInWithOAuth.mockImplementationOnce(() => new Promise<void>(() => undefined));
+    render(<AccountSetupDialog open onClose={() => undefined} />);
+
+    const apple = screen.getByRole("button", { name: "Continue with Apple" });
+    fireEvent.click(apple);
+    expect(apple).toHaveTextContent("Connecting…");
+    for (const provider of ["Apple", "Google", "Microsoft"]) {
+      expect(screen.getByRole("button", { name: `Continue with ${provider}` })).toBeDisabled();
+    }
+    expect(screen.getByRole("button", { name: "Continue securely" })).toBeDisabled();
   });
 
   it("submits email and announces success and failure feedback", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<AccountSetupDialog open onClose={() => undefined} />);
 
-    const submit = screen.getByRole("button", { name: "Continue with email" });
+    const submit = screen.getByRole("button", { name: "Continue securely" });
     expect(submit).toBeDisabled();
-    const email = screen.getByLabelText(/Email address/);
+    const email = screen.getByLabelText(/Work email/);
     expect(email).toHaveAttribute("data-sheet-autofocus", "true");
     await user.type(email, "clinician@clinic.example");
     await user.click(submit);
@@ -211,7 +242,8 @@ describe("favourites auth gate DOM", () => {
     authSession.status = "signed_out";
     render(<ApplicationsLauncherWorkspace canAccessFavourites={false} />);
 
-    expect(screen.queryByRole("button", { name: "Saved" })).toBeNull();
+    // The category rail is a lens: its options are radios, not buttons.
+    expect(screen.queryByRole("radio", { name: "Saved" })).toBeNull();
     expect(screen.queryByTestId("tool-shortcut-favourites")).toBeNull();
     expect(screen.queryByText("Saved workflows")).toBeNull();
     expect(screen.getByTestId("tools-hub")).toBeVisible();
@@ -220,7 +252,7 @@ describe("favourites auth gate DOM", () => {
   it("keeps Tools Saved workflows available when Favourites access is granted", () => {
     render(<ApplicationsLauncherWorkspace canAccessFavourites={true} />);
 
-    expect(screen.getByRole("button", { name: "Saved" })).toBeVisible();
+    expect(screen.getByRole("radio", { name: "Saved" })).toBeVisible();
     expect(screen.getByTestId("tool-shortcut-favourites")).toBeVisible();
     expect(
       toolCatalogRecordsForSession({ authenticated: true, demoMode: false }).some((t) => t.id === "favourites"),
@@ -228,6 +260,19 @@ describe("favourites auth gate DOM", () => {
     expect(filterCrossModesForSession(["favourites", "forms"], { authenticated: false, demoMode: false })).toEqual([
       "forms",
     ]);
+  });
+
+  it("applies the same Favourites access gate to the all-tools results directory", () => {
+    const { rerender } = render(<ToolsSearchResultsPage canAccessFavourites={false} />);
+
+    expect(screen.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+    expect(screen.queryByRole("radio", { name: /Saved/ })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Saved workflows" })).toBeNull();
+
+    rerender(<ToolsSearchResultsPage canAccessFavourites />);
+
+    expect(screen.getByRole("radio", { name: "Saved (1)" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Saved workflows" })).toBeVisible();
   });
 
   it("omits Favourites from the mode menu for guests", async () => {

@@ -2,14 +2,14 @@
 /**
  * guard-push — pre-push safety net for this repo's known, repeated traps.
  *
- * Runs five independent guards; any one can BLOCK the push (non-zero exit) and
- * each honours an explicit override env var so you are never truly stuck:
+ * Runs five independent guards; any one can BLOCK the push (non-zero exit).
+ * All except the auto-merge ownership guard have an explicit override env var:
  *
- *   1. Auto-merge race sentinel (claude/* branches only)
- *      This repo auto-merges claude/* PRs on green. Pushing a late follow-up
- *      commit to a PR whose auto-merge is already armed races the merge and has
- *      orphaned commits before. If `gh` reports an armed autoMergeRequest for the
- *      current branch's open PR, block. Override: ALLOW_AUTOMERGE_PUSH=1.
+ *   1. Auto-merge ownership guard (all PR branches)
+ *      Per-PR auto-merge state is user-owned. Pushing to a PR whose auto-merge is
+ *      already armed can race the merge and, for actors without write permission,
+ *      GitHub disables auto-merge. If `gh` reports an armed autoMergeRequest for
+ *      the current branch's open PR, block without an automation override.
  *      Fails OPEN (never blocks) when gh is missing/unauthenticated, so
  *      contributors without gh can still push.
  *
@@ -53,6 +53,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ZERO_SHA = "0000000000000000000000000000000000000000";
+const MAIN_REMOTE_REF = "refs/remotes/origin/main";
 const SCHEMA_PATH = "supabase/schema.sql";
 const MANIFEST_PATH = "supabase/drift-manifest.json";
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -68,13 +69,13 @@ export function normalizedSchemaSha256(schemaSqlText) {
   return createHash("sha256").update(schemaSqlText.replace(/\r\n/g, "\n")).digest("hex");
 }
 
-function runGit(args) {
-  return execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+function runGit(args, cwd = PROJECT_ROOT) {
+  return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
 }
 
-function tryGit(args) {
+function tryGit(args, cwd = PROJECT_ROOT) {
   try {
-    return runGit(args);
+    return runGit(args, cwd);
   } catch {
     return undefined;
   }
@@ -87,33 +88,89 @@ function currentBranch() {
 /**
  * Resolve the set of files being pushed from the pre-push stdin payload. Each
  * line is "<localRef> <localSha> <remoteRef> <remoteSha>". For a brand-new remote
- * branch (remoteSha all-zero) we diff against origin/main so we still see the new
- * work rather than the whole history. Deletion pushes (local sha all-zero) are
- * dropped, so an empty array means "nothing to check".
+ * branch (remoteSha all-zero) we use PR-style three-dot scope against origin/main
+ * so main-only commits cannot inflate the changed-file command line. Deletion
+ * pushes (local sha all-zero) are dropped, so an empty array means "nothing to
+ * check".
  */
 export function parsePushRanges(stdinText) {
   const ranges = [];
   for (const raw of stdinText.split("\n")) {
     const line = raw.trim();
     if (!line) continue;
-    const [localRef, localSha, , remoteSha] = line.split(/\s+/);
+    const [localRef, localSha, remoteRef, remoteSha] = line.split(/\s+/);
     if (!localSha || localSha === ZERO_SHA) continue; // branch deletion — nothing to push
-    ranges.push({ localRef, localSha, remoteSha: remoteSha ?? ZERO_SHA });
+    ranges.push({ localRef, localSha, remoteRef, remoteSha: remoteSha ?? ZERO_SHA });
   }
   return ranges;
 }
 
-function changedFilesForRange(range) {
-  const base =
-    range.remoteSha && range.remoteSha !== ZERO_SHA
-      ? range.remoteSha
-      : tryGit(["rev-parse", "--verify", "--quiet", "origin/main"])
-        ? "origin/main"
-        : undefined;
-  const spec = base ? `${base}..${range.localSha}` : range.localSha;
-  const out = base
-    ? tryGit(["diff", "--name-only", spec])
-    : tryGit(["show", "--name-only", "--pretty=format:", range.localSha]);
+/** Exported for tests: resolve the remote PR branches a push will mutate. */
+export function pushedBranchNames(ranges, fallbackBranch = "") {
+  const branches = new Set();
+  for (const range of ranges) {
+    const ref = range.remoteRef || range.localRef || "";
+    if (ref.startsWith("refs/heads/")) branches.add(ref.slice("refs/heads/".length));
+  }
+  if (branches.size === 0 && fallbackBranch) branches.add(fallbackBranch);
+  return [...branches];
+}
+
+/** True when `ancestor` is reachable from `descendant`, i.e. the push fast-forwards. */
+function isAncestor(ancestor, descendant, cwd = PROJECT_ROOT) {
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], { cwd, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Merge base with origin/main — the base a PR is actually evaluated against, and
+ * the same one CI passes as LEDGER_WRITE_BASE_SHA (.github/workflows/ci.yml). */
+function mainMergeBase(range, cwd = PROJECT_ROOT) {
+  if (!tryGit(["rev-parse", "--verify", "--quiet", MAIN_REMOTE_REF], cwd)) return undefined;
+  return tryGit(["merge-base", MAIN_REMOTE_REF, range.localSha], cwd);
+}
+
+/** Exported for tests: a fast-forward push compares from its remote tip; a new
+ * branch, or one whose history was rewritten, compares from the PR merge base so
+ * newer main-only commits are out of scope for transaction guards that accept
+ * explicit base/head commits.
+ *
+ * The rewritten-history case matters: after a force-push the old remote tip is an
+ * abandoned line, so every request it carried reads as deleted and the ledger
+ * transaction guard can never pass — no matter how clean the rebuild is. Falling
+ * back to the merge base asks the question CI asks instead of an unanswerable one. */
+export function guardBaseForRange(range, cwd = PROJECT_ROOT) {
+  if (range.remoteSha && range.remoteSha !== ZERO_SHA) {
+    if (isAncestor(range.remoteSha, range.localSha, cwd)) return range.remoteSha;
+    return mainMergeBase(range, cwd);
+  }
+  return mainMergeBase(range, cwd);
+}
+
+export function changedFilesForRange(range, cwd = PROJECT_ROOT) {
+  // A rewritten history is treated like a new branch here for the same reason as
+  // guardBaseForRange: `<abandoned tip>..<local>` is not the set of files this push
+  // actually introduces relative to main.
+  const existingRemote =
+    range.remoteSha && range.remoteSha !== ZERO_SHA && isAncestor(range.remoteSha, range.localSha, cwd);
+  const hasOriginMain = !existingRemote && tryGit(["rev-parse", "--verify", "--quiet", MAIN_REMOTE_REF], cwd);
+  const spec = existingRemote
+    ? `${range.remoteSha}..${range.localSha}`
+    : hasOriginMain
+      ? `${MAIN_REMOTE_REF}...${range.localSha}`
+      : undefined;
+  let out = spec
+    ? tryGit(["diff", "--name-only", spec], cwd)
+    : tryGit(["show", "--name-only", "--pretty=format:", range.localSha], cwd);
+  if (out === undefined && !existingRemote && hasOriginMain) {
+    // Three-dot scope requires a merge base. Orphan branches and ancestry-
+    // incomplete clones can have origin/main without one; conservatively compare
+    // the endpoint trees so a Git error cannot become "no changed files".
+    out = tryGit(["diff", "--name-only", `${MAIN_REMOTE_REF}..${range.localSha}`], cwd);
+  }
   if (!out) return [];
   return out
     .split("\n")
@@ -162,7 +219,6 @@ function ghIsAvailable() {
 
 /** Exported for tests: decide from a parsed `gh pr view` payload. */
 export function autoMergeVerdict(branch, prPayload) {
-  if (!branch.startsWith("claude/")) return { block: false, reason: "not-a-claude-branch" };
   if (!prPayload) return { block: false, reason: "no-open-pr" };
   if (prPayload.state && prPayload.state !== "OPEN") return { block: false, reason: "pr-not-open" };
   if (prPayload.autoMergeRequest) {
@@ -171,36 +227,33 @@ export function autoMergeVerdict(branch, prPayload) {
   return { block: false, reason: "auto-merge-not-armed" };
 }
 
-function autoMergeGuard(branch) {
-  if (process.env.ALLOW_AUTOMERGE_PUSH === "1") {
-    return { name: "auto-merge", ok: true, skipped: "ALLOW_AUTOMERGE_PUSH=1" };
-  }
-  if (!branch.startsWith("claude/")) return { name: "auto-merge", ok: true };
+function autoMergeGuard(branches) {
   if (!ghIsAvailable()) {
     return { name: "auto-merge", ok: true, note: "gh not available — auto-merge check skipped (fail-open)" };
   }
-  let payload;
-  try {
-    const raw = execFileSync("gh", ["pr", "view", "--json", "autoMergeRequest,state,number"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-    payload = JSON.parse(raw);
-  } catch {
-    // No PR for this branch, or gh unauthenticated: fail open.
-    return { name: "auto-merge", ok: true, note: "no open PR resolvable — auto-merge check skipped" };
-  }
-  const verdict = autoMergeVerdict(branch, payload);
-  if (verdict.block) {
-    return {
-      name: "auto-merge",
-      ok: false,
-      message:
-        `PR #${verdict.number} on ${branch} has auto-merge ARMED.\n` +
-        `  Pushing now races the squash-merge and can orphan this commit (it has happened before).\n` +
-        `  Let the armed merge land first, or disable auto-merge on the PR, then push.\n` +
-        `  To push anyway: ALLOW_AUTOMERGE_PUSH=1 git push`,
-    };
+  for (const branch of branches) {
+    let payload;
+    try {
+      const raw = execFileSync("gh", ["pr", "view", branch, "--json", "autoMergeRequest,state,number"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      });
+      payload = JSON.parse(raw);
+    } catch {
+      // No PR for this branch, or gh unauthenticated: fail open.
+      continue;
+    }
+    const verdict = autoMergeVerdict(branch, payload);
+    if (verdict.block) {
+      return {
+        name: "auto-merge",
+        ok: false,
+        message:
+          `PR #${verdict.number} on ${branch} has auto-merge ARMED.\n` +
+          `  Auto-merge state is user-owned; automation must not disable it or push through it.\n` +
+          `  Leave this PR untouched until it merges or the user manually changes that state.`,
+      };
+    }
   }
   return { name: "auto-merge", ok: true };
 }
@@ -863,10 +916,7 @@ function ledgerWriteGuard(ranges) {
   if (!hasHotLedgerWrite(collectChangedFiles(ranges))) return { name: "ledger-write", ok: true };
 
   for (const range of ranges) {
-    const base =
-      range.remoteSha && range.remoteSha !== ZERO_SHA
-        ? range.remoteSha
-        : tryGit(["rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"]);
+    const base = guardBaseForRange(range);
     if (!base) {
       return {
         name: "ledger-write",
@@ -918,10 +968,11 @@ function main() {
   const ranges = parsePushRanges(stdin);
   if (ranges.length === 0) process.exit(0); // deletion-only push or nothing to do
   const branch = currentBranch();
+  const pushedBranches = pushedBranchNames(ranges, branch);
   const changedFiles = collectChangedFiles(ranges);
   // formatGuard reads the pushed blobs; drift/static only need the paths.
   const results = [
-    autoMergeGuard(branch),
+    autoMergeGuard(pushedBranches),
     formatGuard(collectChangedBlobs(ranges)),
     driftGuard(changedFiles),
     staticGuard(changedFiles, { ranges }),
@@ -951,7 +1002,10 @@ function assert(condition, label) {
 
 function selfTest() {
   // auto-merge verdicts
-  assert(autoMergeVerdict("main", { autoMergeRequest: {} }).block === false, "non-claude branch never blocks");
+  assert(
+    autoMergeVerdict("codex/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 6 }).block === true,
+    "armed auto-merge on codex/* blocks",
+  );
   assert(
     autoMergeVerdict("claude/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 7 }).block === true,
     "armed auto-merge on claude/* blocks",

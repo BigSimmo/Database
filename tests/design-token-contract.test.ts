@@ -143,7 +143,6 @@ describe("surface scale", () => {
 describe("elevation ladder", () => {
   it.each(themes)("aliases every shadow role onto an --e tier in $name", ({ tokens }) => {
     const aliases = {
-      "--shadow-tight": "--e1",
       "--shadow-card": "--e2",
       "--shadow-soft": "--e2",
       "--shadow-hover": "--e3",
@@ -158,15 +157,82 @@ describe("elevation ladder", () => {
     expect(tokens.get("--e0")).toBe("none");
   });
 
+  // `--shadow-tight` is retired (`#262` part 1). It was a pure pass-through onto
+  // `--e1` in every scope — both themes and the forced-colors flattening — so
+  // the role bought nothing but a second name for one tier, and a call site had
+  // no way to tell which spelling was current.
+  //
+  // This is asserted over the tracked tree rather than the stylesheet alone
+  // because the retirement has already been un-done once: PR #1803 migrated 49
+  // files, and the `acf78bf` merge on 2026-08-11 silently restored the
+  // declarations AND every call site while leaving this file's prose behind.
+  // A declaration-only check would have gone red on that revert, but only
+  // because the declarations came back with the call sites; sweeping both
+  // spellings over `src` is what makes the gate independent of which half of a
+  // bad merge lands.
+  it("keeps the retired --shadow-tight token deleted across the tracked tree", () => {
+    const tracked = execFileSync("git", ["ls-files", "src"], { encoding: "utf8" })
+      .split("\n")
+      .filter((file) => /\.(tsx?|css)$/.test(file));
+
+    const survivors = tracked.flatMap((file) => {
+      const source = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+      return source
+        .split(/\r?\n/)
+        .map((line, index) => ({ line, number: index + 1 }))
+        .filter(({ line }) => /--shadow-tight\s*:|var\(--shadow-tight\)/.test(line))
+        .map(({ number }) => `${file}:${number}`);
+    });
+
+    expect(survivors, "--shadow-tight is retired; reach for the --e1 tier directly").toEqual([]);
+  });
+
+  // `--shadow-focus` is retired (`#261`). It was not an elevation alias at all:
+  // it packed a 3px accent halo in FRONT of `--shadow-soft`, so its one consumer
+  // — `.chat-composer-shell-delta:focus-within` — painted a companion ring on
+  // top of the accent border swap, which is the second focus affordance the
+  // shared `:focus-visible` treatment is written to prevent. The composer now
+  // uses the sanctioned `outline: 2px solid var(--focus)`.
+  //
+  // Unlike the `--shadow-tight` assertion above this is not a raw substring
+  // check: the stylesheet comment at the composer rule names the retired token
+  // on purpose, so that the next author reaching for a focus halo finds the
+  // reason it is gone rather than re-deriving it. The two spellings below are
+  // the only ways the token can actually come back to life — a declaration and
+  // a `var()` consumer — so they are what the gate rejects.
+  it("keeps the retired --shadow-focus token deleted in every scope", () => {
+    for (const [name, stylesheet] of [
+      ["globals.css", globals],
+      ["ckb-v2-tokens.css", v2Stylesheet],
+    ] as const) {
+      expect(stylesheet, `${name} redeclares --shadow-focus; focus is an outline, not a ring`).not.toContain(
+        "--shadow-focus:",
+      );
+      expect(stylesheet, `${name} consumes --shadow-focus; focus is an outline, not a ring`).not.toContain(
+        "var(--shadow-focus)",
+      );
+    }
+  });
+
   it("flattens the ladder itself under forced colors, not only the role aliases", () => {
     const forced = globals.slice(globals.indexOf("@media (forced-colors: active)"));
     for (const tier of ["--e1", "--e2", "--e3", "--e4"]) {
       expect(forced, `${tier} must be neutralised in forced-colors mode`).toContain(`${tier}: none;`);
     }
   });
+
+  it("pins the complete v2 forced-colors selector group", () => {
+    const forced = v2Stylesheet.slice(v2Stylesheet.indexOf("@media (forced-colors: active)"));
+    expect(forced).toMatch(/\.ckb-v2\.ckb-v2,\s+\.dark \.ckb-v2\.ckb-v2,\s+\.ckb-v2\.dark\.ckb-v2\s*\{/);
+  });
 });
 
 describe("status colour ranking", () => {
+  it.each(themes)("keeps warning body text AA-safe on the default surface in $name", ({ tokens, name }) => {
+    const ratio = contrastRatio(colourOf(tokens, "--warning"), colourOf(tokens, "--surface"));
+    expect(ratio, `${name} --warning body text on --surface`).toBeGreaterThanOrEqual(4.5);
+  });
+
   // Every status pair used to sit in a 4.6–5.2:1 band, so nothing read as more
   // urgent than anything else.
   it("clears 5.5:1 for every light-mode status pair", () => {

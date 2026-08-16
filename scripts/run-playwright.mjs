@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { mkdirSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmdirSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { childProcessExitCode, childProcessFailureSummary } from "./child-process-result.mjs";
 import { assertPlaywrightBrowsersReady } from "./playwright-browser-preflight.mjs";
+import { removePathSync } from "./retryable-fs.mjs";
 import { offlineTestEnvironment } from "./test-environment.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 import {
@@ -218,7 +219,7 @@ function cleanup() {
   try {
     stopOwnedProcessTree(server);
     if (!keepBuildRoot) {
-      rmSync(absoluteRunRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      removePathSync(absoluteRunRoot, { recursive: true });
       try {
         rmdirSync(path.dirname(absoluteRunRoot));
       } catch (error) {
@@ -260,6 +261,33 @@ try {
           baseUrl: "../..",
           paths: { "@/*": ["src/*"] },
         },
+        // Declaring include/exclude here (rather than leaving them unset and
+        // inheriting the root tsconfig.json's) is deliberate. TypeScript resolves
+        // an extended config's *inherited* relative include/exclude entries
+        // against the repo root, so an unset include here would still resolve
+        // "**/*.ts" and ".next/dev/types/**/*.ts" against the shared top-level
+        // .next/ directory — not this isolated run's own NEXT_DIST_DIR output
+        // under `dist/`. That pulls stale/foreign route types from whatever the
+        // top-level .next happens to contain (a prior `npm run dev` or `npm run
+        // build`) into this run's typecheck. Excluding the repo-root .next/ and
+        // pointing at this run's own dist/types + dist/dev/types keeps the
+        // isolated build's typecheck scoped to itself (outstanding-issues #210).
+        include: [
+          "../../next-env.d.ts",
+          "../../**/*.ts",
+          "../../**/*.tsx",
+          "../../**/*.mts",
+          "dist/types/**/*.ts",
+          "dist/dev/types/**/*.ts",
+        ],
+        exclude: [
+          "../../node_modules",
+          "../../scratch/**",
+          "../../supabase/functions/**",
+          "../../worktrees/**",
+          "../../scripts/archive/**",
+          "../../.next/**",
+        ],
       },
       null,
       2,

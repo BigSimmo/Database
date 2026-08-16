@@ -87,7 +87,7 @@ function CrossModeLinkChip({ link, Icon, query, onModeSearch }: CrossModeLinkCar
   return (
     <article
       role="listitem"
-      className="flex shrink-0 items-stretch overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-tight)]"
+      className="flex shrink-0 items-stretch overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--e1)]"
     >
       <Link
         href={link.detailHref}
@@ -137,8 +137,8 @@ export function CrossModeLinksSection({
   variant?: CrossModeLinksVariant;
 }) {
   const router = useRouter();
-  const services = useRegistryRecords("service", { enabled });
-  const forms = useRegistryRecords("form", { enabled });
+  const services = useRegistryRecords("service", { enabled, view: "search" });
+  const forms = useRegistryRecords("form", { enabled, view: "search" });
   // fields=index keeps this to the ~30 KB identity slice of the catalog.
   const medications = useMedicationCatalog(undefined, { enabled, fields: "index" });
   const [differentials, setDifferentials] = useState<CrossModeDifferentialCatalog | null>(null);

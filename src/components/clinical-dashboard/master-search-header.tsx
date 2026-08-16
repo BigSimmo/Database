@@ -37,6 +37,7 @@ import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { restoreFocusUnlessMoved, useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
+import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
@@ -78,6 +79,7 @@ import {
   isDesktopComposerSlotReady,
   phoneHeaderCollapseAddonSlotId,
   setModeHomeComposerReservePending,
+  type PhoneDockAddonKind,
 } from "@/lib/mode-home-composer";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { CommandSurfacePlacement } from "@/lib/search-command-surface";
@@ -95,6 +97,32 @@ const scopeSheetMediaQuery = "(max-width: 1023px)";
 const desktopPageComposerMediaQuery = "(min-width: 640px)";
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const modeHomeComposerSmUpMediaQuery = "(min-width: 640px)";
+
+const phoneModeGroups = [
+  {
+    id: "find",
+    label: "Find",
+    hint: "Answers, sources, services",
+    modeIds: ["answer", "documents", "services", "forms", "favourites"],
+  },
+  {
+    id: "diagnose",
+    label: "Diagnose",
+    hint: "Criteria, clues, formulation",
+    modeIds: ["differentials", "dsm", "specifiers", "formulation"],
+  },
+  {
+    id: "care",
+    label: "Care",
+    hint: "Medication, calculators, tools, therapy",
+    modeIds: ["prescribing", "calculators", "tools", "therapy-compass", "factsheets"],
+  },
+] as const satisfies ReadonlyArray<{
+  id: string;
+  label: string;
+  hint: string;
+  modeIds: readonly AppModeId[];
+}>;
 
 function splitFilterText(value: string) {
   return value
@@ -200,6 +228,7 @@ export function MasterSearchHeader({
   desktopPageComposerSlotId,
   heroComposerBreakpoint = "all",
   mobileBottomSearchAddonSlotId,
+  mobileBottomSearchAddonKind,
   hideOnScroll,
   onBottomComposerHiddenChange,
   showDesktopNewChat = true,
@@ -218,7 +247,7 @@ export function MasterSearchHeader({
   realDataReady: boolean;
   onQueryChange: (query: string) => void;
   onSearchModeChange: (mode: AppModeId) => void;
-  onAsk: () => void;
+  onAsk: (query?: string) => void;
   onClearQuery: () => void;
   onClearScope: () => void;
   onQueryModeChange: (mode: ClinicalQueryMode) => void;
@@ -268,6 +297,8 @@ export function MasterSearchHeader({
   heroComposerBreakpoint?: "all" | "sm-up";
   /** Mobile/tablet slot rendered above the search pill for page-specific composer addons. */
   mobileBottomSearchAddonSlotId?: string;
+  /** Which page-owned action occupies the dock addon slot. One at a time. */
+  mobileBottomSearchAddonKind?: PhoneDockAddonKind;
   /** Phone-only hide-on-scroll for the universal header and bottom search dock.
    *  "overlay" translates the sticky header away (host scrolls the document,
    *  content already flows beneath); "collapse" also releases the header's
@@ -324,6 +355,7 @@ export function MasterSearchHeader({
   // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
   // Do not OR demoMode again here — that would reopen Favourites when props diverge.
   const router = useRouter();
+  const [, setLastAppMode] = useLastAppMode();
   const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
     authenticated: canAccessFavourites,
     demoMode: false,
@@ -344,6 +376,7 @@ export function MasterSearchHeader({
     selectedSearch.kind === "forms" ||
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
+    selectedSearch.kind === "calculators" ||
     selectedSearch.kind === "favourites" ||
     selectedSearch.kind === "specifiers" ||
     selectedSearch.kind === "formulation" ||
@@ -491,6 +524,7 @@ export function MasterSearchHeader({
   // out of the page-owned slot rather than portaling into the slot directly.
   const [desktopComposerPortalHost, setDesktopComposerPortalHost] = useState<HTMLDivElement | null>(null);
   const modeMenuRef = useRef<HTMLDivElement | null>(null);
+  const phoneModeMenuListRef = useRef<HTMLDivElement | null>(null);
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const pendingModeSelectionFocusRef = useRef<AppModeId | null>(null);
@@ -626,9 +660,11 @@ export function MasterSearchHeader({
                       ? "formulation"
                       : searchMode === "tools"
                         ? "tools"
-                        : searchMode === "factsheets"
-                          ? "factsheets"
-                          : "answer";
+                        : searchMode === "calculators"
+                          ? "calculators"
+                          : searchMode === "factsheets"
+                            ? "factsheets"
+                            : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
 
@@ -783,6 +819,10 @@ export function MasterSearchHeader({
       onSearchModeChange("tools");
       return;
     }
+    if (actionId === "calculators-browse") {
+      router.push("/calculators");
+      return;
+    }
     if (actionId === "differentials-build") {
       onSearchModeChange("differentials");
       onQueryChange(trimmedQuery || "acute confusion differential diagnosis");
@@ -852,6 +892,30 @@ export function MasterSearchHeader({
 
   function selectAppMode(mode: (typeof appModeDefinitions)[number]) {
     setModeMenuOpen(false);
+    if (mode.id === "tools" && "href" in mode && mode.href) {
+      // Tools is a browse-first directory: selecting it opens the canonical
+      // all-tools page instead of retargeting the shared-home composer.
+      // Persist the selection here rather than via onSearchModeChange: that
+      // callback owns shared-home navigation and would race this canonical push.
+      setLastAppMode(mode.id);
+      pendingModeSelectionFocusRef.current = mode.id;
+      router.push(mode.href);
+      if (mode.id === searchMode) {
+        const restoreSameModeFocus = () => {
+          if (pendingModeSelectionFocusRef.current !== mode.id) return;
+          if (document.getElementById("app-mode-menu")) {
+            window.setTimeout(restoreSameModeFocus, 50);
+            return;
+          }
+          restoreFocusUnlessMoved(modeButtonRef.current);
+          pendingModeSelectionFocusRef.current = null;
+        };
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(restoreSameModeFocus);
+        });
+      }
+      return;
+    }
     if (isSearchableAppMode(mode.id)) {
       // Wait until the URL-owned mode prop settles before returning focus. The
       // trigger's accessible name changes with that prop; focusing in the click
@@ -894,6 +958,35 @@ export function MasterSearchHeader({
     visibleAppModeOptions.findIndex((mode) => mode.id === selectedAppMode.id),
   );
 
+  useEffect(() => {
+    if (!modeMenuOpen || !usesPhoneSearchLayout) return undefined;
+
+    let settledFrame: number | null = null;
+    const frame = window.requestAnimationFrame(() => {
+      settledFrame = window.requestAnimationFrame(() => {
+        const menu = phoneModeMenuListRef.current;
+        const target = modeOptionRefs.current[modeMenuFocusIndex];
+        const scrollBody = menu?.parentElement;
+        if (!menu || !target || !scrollBody) return;
+
+        const bodyRect = scrollBody.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        if (targetRect.top >= bodyRect.top && targetRect.bottom <= bodyRect.bottom) return;
+
+        // Keep positioning inside the fixed sheet body. scrollIntoView would
+        // also visit document ancestors and can move the page behind the modal.
+        const targetCenter = targetRect.top + targetRect.height / 2;
+        const bodyCenter = bodyRect.top + bodyRect.height / 2;
+        scrollBody.scrollTop += targetCenter - bodyCenter;
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (settledFrame !== null) window.cancelAnimationFrame(settledFrame);
+    };
+  }, [modeMenuFocusIndex, modeMenuOpen, usesPhoneSearchLayout]);
+
   // Both the hero-portal composer and the default composer bind the caller's
   // queryInputRef. During home <-> result transitions the two briefly coexist,
   // and React nulls a plain shared ref when the outgoing composer unmounts —
@@ -927,11 +1020,11 @@ export function MasterSearchHeader({
   // Prefetch only the mode the user is about to choose — the highlighted option
   // on open, then whichever option receives focus/pointer while scanning.
   //
-  // A pick always returns to the shared home; warm that exact URL rather than a
-  // mode-owned home or search route the user has not asked to open.
+  // Most picks return to the shared home. Tools is browse-first and opens its
+  // canonical all-results directory, so warm that route instead.
   function prefetchModeSelection(modeId: AppModeId) {
     if (modeId === searchMode) return;
-    const href = appModeSelectionHref(modeId);
+    const href = modeId === "tools" ? "/tools" : appModeSelectionHref(modeId);
     if (prefetchedModeHrefsRef.current.has(href)) return;
     prefetchedModeHrefsRef.current.add(href);
     router.prefetch(href, {
@@ -1024,70 +1117,88 @@ export function MasterSearchHeader({
     }
   }
 
-  function renderModeMenuOptions() {
-    // Title-only rows: descriptions stay in aria-label so the phone sheet can
-    // show nearly the full catalogue at a glance (no subtitle / section chrome).
-    return visibleAppModeOptions.map((mode, index) => {
-      const Icon = appModeIcons[mode.id];
-      const active = mode.id === searchMode;
-      return (
-        <button
-          key={mode.id}
-          ref={(element) => {
-            modeOptionRefs.current[index] = element;
-          }}
-          type="button"
-          role="menuitemradio"
-          aria-checked={active}
-          aria-label={`${mode.label}. ${mode.description}`}
-          tabIndex={active ? 0 : -1}
-          data-sheet-autofocus={usesPhoneSearchLayout && index === modeMenuFocusIndex ? "true" : undefined}
-          onFocus={() => prefetchModeSelection(mode.id)}
-          onPointerEnter={() => prefetchModeSelection(mode.id)}
-          onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
-          onClick={() => selectAppMode(mode)}
+  function renderModeMenuOption(mode: (typeof visibleAppModeOptions)[number], index: number) {
+    const Icon = appModeIcons[mode.id];
+    const active = mode.id === searchMode;
+    return (
+      <button
+        key={mode.id}
+        ref={(element) => {
+          modeOptionRefs.current[index] = element;
+        }}
+        type="button"
+        role="menuitemradio"
+        aria-checked={active}
+        aria-label={`${mode.label}. ${mode.description}`}
+        tabIndex={active ? 0 : -1}
+        data-sheet-autofocus={usesPhoneSearchLayout && index === modeMenuFocusIndex ? "true" : undefined}
+        onFocus={() => prefetchModeSelection(mode.id)}
+        onPointerEnter={() => prefetchModeSelection(mode.id)}
+        onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
+        onClick={() => selectAppMode(mode)}
+        className={cn(
+          "relative grid w-full items-center text-left transition-[background-color,color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none",
+          usesPhoneSearchLayout
+            ? "min-h-14 grid-cols-[2.5rem_minmax(0,1fr)_1.5rem] gap-2.5 rounded-xl px-2 py-2"
+            : "min-h-[3.25rem] grid-cols-[2rem_minmax(0,1fr)_auto] gap-2 rounded-md px-2.5 py-2",
+          active
+            ? usesPhoneSearchLayout
+              ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)] shadow-[var(--shadow-inset)] ring-1 ring-inset ring-[color:var(--clinical-accent-border)]"
+              : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)]"
+            : "text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
+        )}
+      >
+        {active && !usesPhoneSearchLayout ? (
+          <span
+            aria-hidden="true"
+            className="absolute inset-y-1 left-0 w-0.5 rounded-r-full bg-[color:var(--clinical-accent)]"
+          />
+        ) : null}
+        <span
+          data-mode-icon={usesPhoneSearchLayout ? mode.id : undefined}
           className={cn(
-            "relative grid w-full items-center gap-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-            usesPhoneSearchLayout
-              ? "grid-cols-[2rem_minmax(0,1fr)_1.25rem] rounded-lg px-2 py-1"
-              : "grid-cols-[2rem_minmax(0,1fr)_auto] rounded-md px-2.5 py-2",
-            usesPhoneSearchLayout ? "min-h-12" : "min-h-[3.25rem]",
+            "grid place-items-center border transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none",
+            usesPhoneSearchLayout ? "h-10 w-10 rounded-xl" : "h-8 w-8 rounded-lg",
             active
-              ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)]"
-              : "text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
+              ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
+              : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
           )}
         >
-          {active ? (
-            <span
-              aria-hidden="true"
-              className="absolute inset-y-1 left-0 w-0.5 rounded-r-full bg-[color:var(--clinical-accent)]"
-            />
-          ) : null}
-          <span
-            className={cn(
-              "grid h-8 w-8 place-items-center rounded-lg border",
-              active
-                ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
-                : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
-            )}
-          >
-            <Icon aria-hidden="true" className="h-4 w-4" />
-          </span>
-          <span className="min-w-0 truncate text-sm font-semibold tracking-[var(--tracking-display)] text-[color:var(--text-heading)]">
+          <Icon
+            aria-hidden="true"
+            className={usesPhoneSearchLayout ? "size-icon-lg" : "size-icon-md"}
+            strokeWidth={usesPhoneSearchLayout ? 1.8 : 2}
+          />
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-semibold tracking-[var(--tracking-display)] text-[color:var(--text-heading)]">
             {mode.label}
           </span>
-          {active ? (
-            <Check
-              aria-hidden="true"
-              className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]"
-              strokeWidth={2.5}
-            />
-          ) : (
-            <span aria-hidden="true" className="h-4 w-4" />
-          )}
-        </button>
-      );
-    });
+          {usesPhoneSearchLayout ? (
+            <span className="mt-0.5 line-clamp-2 text-xs font-medium leading-4 text-[color:var(--text-muted)]">
+              {mode.description}
+            </span>
+          ) : null}
+        </span>
+        {active && usesPhoneSearchLayout ? (
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+            <Check aria-hidden="true" className="size-icon-sm" strokeWidth={2.5} />
+          </span>
+        ) : active ? (
+          <Check
+            aria-hidden="true"
+            className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]"
+            strokeWidth={2.5}
+          />
+        ) : (
+          <span aria-hidden="true" className={usesPhoneSearchLayout ? "h-6 w-6" : "size-icon-md"} />
+        )}
+      </button>
+    );
+  }
+
+  function renderModeMenuOptions() {
+    return visibleAppModeOptions.map((mode, index) => renderModeMenuOption(mode, index));
   }
 
   const restoreActionMenuFocusRef = useRef(false);
@@ -1718,7 +1829,11 @@ export function MasterSearchHeader({
           }
         }}
         data-footer-variant={usesPhoneFooterDock ? (usesCompactMobileBottomStyle ? "compact" : "default") : undefined}
-        data-footer-addon={usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? "differentials-compare" : undefined}
+        data-footer-addon={
+          usesPhoneFooterDock && mobileBottomSearchAddonSlotId
+            ? (mobileBottomSearchAddonKind ?? "differentials-compare")
+            : undefined
+        }
         data-command-open={
           // Phones never show the command dropdown, so the dock scrim must not
           // grow for it — gate the open attribute to widths that can display it.
@@ -2178,7 +2293,7 @@ export function MasterSearchHeader({
             aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
             aria-label={`Mode ${selectedAppMode.label}`}
           >
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
               {/* 16px in the 32px pill, not the 14px metadata step: this is a
                   primary control, and 2.25 keeps its absolute stroke in line
                   with the larger glyphs beside it. */}
@@ -2270,19 +2385,70 @@ export function MasterSearchHeader({
           open={modeMenuOpen}
           onClose={dismissModeMenu}
           title="Choose mode"
-          description={`Currently · ${selectedAppMode.label}`}
+          descriptionContent={
+            <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-xs leading-5 text-[color:var(--text-muted)]">
+              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                <SelectedAppModeIcon aria-hidden="true" className="size-icon-xs" strokeWidth={1.9} />
+              </span>
+              <span className="min-w-0 truncate">
+                Currently{" "}
+                <span className="font-semibold text-[color:var(--text-heading)]">{selectedAppMode.label}</span>
+              </span>
+            </span>
+          }
           closeLabel="Close mode menu"
           returnFocusRef={modeButtonRef}
           portal
           mobilePlacement="bottom"
           mobileSize="content"
+          mobileHeaderSafeArea="padding"
           testId="app-mode-menu-sheet"
-          contentClassName="max-h-[calc(100dvh-0.5rem)] sm:max-w-md"
-          bodyClassName="px-1.5 py-1"
-          headerClassName="bg-[color:var(--surface-lux)] px-4 py-3"
+          contentClassName="max-h-[calc(100dvh-0.75rem)] rounded-t-3xl bg-[color:var(--surface-lux)] sm:max-w-md sm:rounded-2xl"
+          bodyClassName="bg-[color:var(--surface-lux)] px-2.5 pb-2 pt-0.5"
+          headerClassName="bg-[color:var(--surface-lux)] px-4 pb-3 pt-1.5"
+          titleClassName="tracking-[var(--tracking-display)]"
+          closeButtonClassName="grid size-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition-colors duration-[var(--duration-fast)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border motion-reduce:transition-none"
         >
-          <div id="app-mode-menu" role="menu" aria-label="Choose app mode" className="grid gap-0">
-            {renderModeMenuOptions()}
+          <div ref={phoneModeMenuListRef} id="app-mode-menu" role="menu" aria-label="Choose app mode">
+            {phoneModeGroups.map((group) => {
+              const groupModes = group.modeIds.flatMap((modeId) => {
+                const mode = visibleAppModeOptions.find((candidate) => candidate.id === modeId);
+                return mode ? [mode] : [];
+              });
+              if (groupModes.length === 0) return null;
+              const headingId = `app-mode-group-${group.id}`;
+              return (
+                <section
+                  key={group.id}
+                  role="group"
+                  aria-labelledby={headingId}
+                  data-mode-group={group.id}
+                  className="pt-3 first:pt-1"
+                >
+                  <div className="sticky top-0 z-[5] -mx-2.5 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/96 px-3 py-1.5 backdrop-blur-md">
+                    <div className="flex min-w-0 items-baseline gap-2">
+                      <h3
+                        id={headingId}
+                        className="shrink-0 text-2xs font-black uppercase tracking-kicker text-[color:var(--text-muted)]"
+                      >
+                        {group.label}
+                      </h3>
+                      <p className="min-w-0 truncate text-2xs font-medium text-[color:var(--text-muted)]">
+                        {group.hint}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-1.5 grid gap-1">
+                    {groupModes.map((mode) =>
+                      renderModeMenuOption(
+                        mode,
+                        visibleAppModeOptions.findIndex((candidate) => candidate.id === mode.id),
+                      ),
+                    )}
+                  </div>
+                </section>
+              );
+            })}
           </div>
         </Sheet>
       ) : null}

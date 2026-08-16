@@ -1,4 +1,9 @@
 @import "tailwindcss";
+/* Design-scratch routes have their own route-scoped utility sheet. Keeping
+   their rapidly growing utility vocabulary out of every production page cuts
+   the shared render-blocking stylesheet without changing mockup rendering. */
+@source not "./mockups";
+@source not "../components/**/*mockup*";
 /* Opt-in v2 design-system token layer. Every rule is scoped to `.ckb-v2`, so
    importing it cannot change any surface that does not carry the class. */
 @import "./ckb-v2-tokens.css";
@@ -59,6 +64,13 @@
      which covers the composer input as well as the icon/send buttons). */
   --spacing-tap: 3rem;
 
+  /* Specifier-map layout roles: jump target height, numbered step column, and
+     wide-screen detail rail. These stay together so the page cannot drift back
+     to unrelated one-off dimensions. */
+  --spacing-specifier-map-jump: 5.25rem;
+  --spacing-specifier-map-step-number: 2.25rem;
+  --spacing-specifier-map-aside: 22rem;
+
   /* Mode-home composer slots reserve their settled portal geometry before the
      client host adopts them. Without this structural reserve, Therapy moved the
      entire action stack when hydration relocated the composer (CLS 0.248).
@@ -91,6 +103,15 @@
   --spacing-icon-md: 1rem; /* 16px — default: buttons, nav, fields */
   --spacing-icon-lg: 1.25rem; /* 20px — header / primary controls */
   --spacing-icon-xl: 1.5rem; /* 24px — hero / composer emphasis */
+
+  /* Active-filter count bubble on the search band. 17px is deliberately off
+     both the 4px grid and the icon scale above: it is a text-bearing box sized
+     to its own --text-2xs numeral plus the tinted ring, not a glyph, so
+     snapping it to 16px clips the digit and 20px reads as the solid alert disc
+     the pill is written to avoid. Held as a token because the raw value has
+     already leaked once — it reached mode-nav and a since-deleted therapy
+     filter sheet before the shared control absorbed those call sites (#275). */
+  --spacing-search-band-badge: 1.0625rem;
 
   /* Type scale — sub-`xs` micro steps plus the 13–22px "between" steps the
      dense clinical UI reaches for. These are intentionally SIZE-ONLY: unlike
@@ -210,7 +231,8 @@
   --animate-dialog-rise: dialog-rise 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-action-tray-in: action-tray-in var(--swipe-duration, 160ms) cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
-  --animate-answer-ecg: answer-ecg-sweep 2.6s linear infinite;
+  --animate-answer-ecg: answer-ecg-pulse 1.8s ease-in-out infinite;
+  --animate-answer-ecg-compact: answer-ecg-pulse 1.6s ease-in-out infinite;
 }
 
 /* Theme tokens */
@@ -429,7 +451,6 @@
      resting-hairline role is gone: its call sites reach for --e1 directly. */
   --shadow-card: var(--e2);
   --shadow-soft: var(--e2);
-  --shadow-tight: var(--e1);
   --shadow-hover: var(--e3);
   --shadow-elevated: var(--e4);
   --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 90%), var(--e4);
@@ -481,6 +502,14 @@
   --phone-dock-hidden-pad: 0rem;
   --phone-dock-differentials-compare-clearance: 12.5rem;
   --phone-dock-differentials-compare-compact-clearance: 12.25rem;
+  /* Patient details is a single ~3rem row + 0.5rem gap above the pill, so it
+     clears roughly 3.5rem less than the Compare bar. */
+  --phone-dock-patient-details-clearance: 9rem;
+  --phone-dock-patient-details-compact-clearance: 8.75rem;
+  --patient-details-fab-gap: 0.5rem;
+  --patient-details-fab-padding: 0.3125rem 0.5rem 0.3125rem 1rem;
+  --patient-details-fab-count-size: 1.625rem;
+  --patient-details-fab-count-padding: 0.375rem;
   /* Radius tokens are the single source of truth in @theme above (they also
      generate the rounded-* utilities); do not redefine them here or var() and
      the utilities drift apart. */
@@ -669,7 +698,6 @@
 
   --shadow-card: var(--e2);
   --shadow-soft: var(--e2);
-  --shadow-tight: var(--e1);
   --shadow-hover: var(--e3);
   --shadow-elevated: var(--e4);
   --shadow-lux: var(--e4);
@@ -1125,6 +1153,81 @@ summary::-webkit-details-marker {
   border-color: var(--border-strong);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   color: var(--text-muted);
+  font-weight: 800;
+}
+
+/* Medication surfaces: Patient details sits above the search pill in the dock,
+   the same in-flow trick as the Compare bar so scroll-hide moves both together.
+   Deliberately one row shorter and quieter than Compare: Compare is the primary
+   call to action on its surface, this is a persistent context control. */
+.patient-details-fab {
+  pointer-events: none;
+  position: relative;
+  z-index: var(--z-raised, 10);
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  margin-bottom: var(--patient-details-fab-gap);
+}
+
+.patient-details-fab__button {
+  pointer-events: auto;
+  display: inline-flex;
+  /* 3rem is --spacing-tap, the production tap floor. Never reduce below it. */
+  min-height: 3rem;
+  max-width: min(100%, 36rem);
+  align-items: center;
+  gap: var(--patient-details-fab-gap);
+  border-radius: var(--radius-pill, 9999px);
+  border: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  padding: var(--patient-details-fab-padding);
+  color: var(--text-heading);
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  box-shadow: var(--e3);
+  touch-action: manipulation;
+  transition:
+    transform var(--duration-quick) var(--ease-spring),
+    background-color var(--duration-quick) var(--ease-out-soft),
+    border-color var(--duration-quick) var(--ease-out-soft),
+    box-shadow var(--duration-quick) var(--ease-out-soft);
+}
+
+/* Populated profile: the control becomes the accent so "a patient is loaded"
+   is legible at a glance without reading the count. */
+.patient-details-fab__button--active {
+  border-color: color-mix(in srgb, var(--clinical-accent), white 14%);
+  background:
+    radial-gradient(
+      circle at 82% 0%,
+      color-mix(in srgb, var(--clinical-accent-contrast) 18%, transparent),
+      transparent 34%
+    ),
+    linear-gradient(135deg, color-mix(in srgb, var(--clinical-accent), white 7%), var(--clinical-accent));
+  color: var(--clinical-accent-contrast);
+}
+
+.patient-details-fab__button:active {
+  transform: translateY(1px) scale(0.99);
+  transition: transform var(--duration-quick) var(--ease-spring);
+}
+
+.patient-details-fab__button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.patient-details-fab__count {
+  display: grid;
+  height: var(--patient-details-fab-count-size);
+  min-width: var(--patient-details-fab-count-size);
+  place-items: center;
+  border-radius: var(--radius-pill, 9999px);
+  background: color-mix(in srgb, var(--clinical-accent-contrast) 20%, transparent);
+  padding-inline: var(--patient-details-fab-count-padding);
+  font-size: 0.75rem;
   font-weight: 800;
 }
 
@@ -1820,6 +1923,31 @@ summary::-webkit-details-marker {
     box-shadow: inset 3px 0 0 var(--clinical-accent);
   }
 
+  /* The patient verdict owns the card edge, including on the selected row.
+     These must sit AFTER the [data-selected] rule above: that rule is unlayered
+     and pins border-color, so a Tailwind border utility loses to it and the top
+     hit — the one most likely to be prescribed — would render its interaction
+     warning with a neutral edge. Equal specificity, later in source, wins. */
+  .medication-mobile-result[data-verdict="danger"] {
+    border-color: var(--danger-border);
+  }
+
+  .medication-mobile-result[data-verdict="warning"] {
+    border-color: var(--warning-border);
+  }
+
+  .medication-mobile-result[data-verdict="success"] {
+    border-color: var(--success-border);
+  }
+
+  .medication-mobile-result[data-verdict="clinical"] {
+    border-color: color-mix(in srgb, var(--clinical-accent) 40%, transparent);
+  }
+
+  .medication-mobile-result[data-verdict="info"] {
+    border-color: var(--info-border);
+  }
+
   .medication-mobile-result:focus-visible {
     outline-offset: -2px;
   }
@@ -2286,6 +2414,17 @@ summary::-webkit-details-marker {
     height: max(var(--phone-dock-differentials-compare-compact-clearance), calc(var(--safe-area-bottom) + 11rem));
   }
 
+  /* Medication surfaces: Patient details pill above the search pill in the dock.
+     Heights track --phone-dock-patient-details-* (same as content reserve). */
+  .answer-footer-search-dock[data-footer-addon="patient-details"] .answer-footer-search-backdrop {
+    height: max(var(--phone-dock-patient-details-clearance), calc(var(--safe-area-bottom) + 7.75rem));
+  }
+
+  .answer-footer-search-dock.document-mobile-search-compact[data-footer-addon="patient-details"]
+    .answer-footer-search-backdrop {
+    height: max(var(--phone-dock-patient-details-compact-clearance), calc(var(--safe-area-bottom) + 7.5rem));
+  }
+
   .document-mobile-search-pill {
     min-height: 3.6rem;
     border-color: var(--border-strong);
@@ -2346,6 +2485,11 @@ summary::-webkit-details-marker {
      the Compare bar does not leave a 1px/subpixel peep on the viewport edge. */
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-footer-addon="differentials-compare"][data-scroll-hidden="true"] {
     transform: translateY(calc(100% + 0.75rem + var(--safe-area-bottom)));
+  }
+
+  /* Same extra clearance for the Patient details row, scaled to its shorter height. */
+  .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge[data-footer-addon="patient-details"][data-scroll-hidden="true"] {
+    transform: translateY(calc(100% + 0.5rem + var(--safe-area-bottom)));
   }
 
   /* Document viewer owns its floating composer (not the shared dock). Lift it
@@ -2474,46 +2618,287 @@ summary::-webkit-details-marker {
   padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
 }
 
-/* Global PWA notices sit above the bottom composer and home indicator without
-   changing page scroll ownership. The lifecycle component renders only when an
-   offline, restored, installable, or waiting-update state needs attention. */
-/* PWA notices: bottom sheet-style on phones (thumb zone, above the fixed
-   composer), floating bottom-right card on medium screens, and top-right
-   toast under the header on desktop — beside the browser's own install
-   affordance and clear of the composer. */
+/* Global PWA notices sit above the phone composer and home indicator without
+   taking page scroll ownership. Install is a compact surface, not a modal:
+   central search stays usable and the wide-screen card remains lower-right. */
 .pwa-notice-stack {
-  --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 5.5rem);
+  --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 5rem);
+  /* PWA-only geometry and typography roles. Keep the component's exact
+     measured proportions while consuming the shared radius, spacing, and motion
+     ladders wherever a matching step exists. */
+  --pwa-notice-gap: var(--radius-lg);
+  --pwa-card-radius: var(--radius-xl);
+  --pwa-control-radius: var(--radius-md);
+  --pwa-inset-xs: var(--radius-xs);
+  --pwa-inset-sm: var(--radius-sm);
+  --pwa-inset-md: var(--radius-md);
+  --pwa-inset-lg: var(--radius-lg);
+  --pwa-inset-xl: var(--spacing-icon-md);
+  --pwa-grip-height: calc(var(--spacing-icon-sm) + var(--radius-xs));
+  --pwa-grip-width: calc(var(--spacing-icon-xl) + var(--radius-lg));
+  --pwa-grip-thickness: 0.1875rem;
+  --pwa-header-min-height: calc(4 * var(--radius-xl));
+  --pwa-row-min-height: calc(2 * var(--radius-xl) + 2 * var(--radius-xs));
+  --pwa-row-padding-block: 0.4375rem;
+  --pwa-line-height-control: 1;
+  --pwa-line-height-tagline: 1.35rem;
+  --pwa-line-height-copy: var(--spacing-icon-lg);
+  --pwa-line-height-support: var(--pwa-grip-height);
+  --pwa-motion-enter: 280ms;
 
   position: fixed;
   z-index: 95;
-  left: max(0.75rem, var(--safe-area-left));
-  right: max(0.75rem, var(--safe-area-right));
+  left: max(0.5rem, var(--safe-area-left));
+  right: max(0.5rem, var(--safe-area-right));
   bottom: var(--pwa-notice-bottom-gap);
   display: grid;
-  gap: 0.75rem;
+  gap: var(--pwa-notice-gap);
   pointer-events: none;
 }
 
-/* Install notices present as a native-feeling bottom sheet on phones: full
-   bleed to the viewport edges (escaping the stack gutter), flush to the
-   bottom over the composer zone while visible, top corners only, and content
-   padded clear of the home indicator. Matches the drag-grip language of the
-   phone Mode-menu sheet (src/components/ui/sheet.tsx). */
+.pwa-notice-card {
+  overflow: hidden;
+  border: 1px solid var(--border-lux);
+  border-radius: var(--pwa-card-radius);
+  background: var(--surface-lux);
+  box-shadow:
+    0 18px 48px color-mix(in srgb, var(--text-heading) 11%, transparent),
+    0 3px 10px color-mix(in srgb, var(--text-heading) 6%, transparent);
+  animation: pwa-notice-in var(--pwa-motion-enter) cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+.pwa-lifecycle-card {
+  padding: var(--pwa-inset-xl);
+}
+
+.pwa-connection-restored {
+  justify-self: end;
+  border-color: color-mix(in srgb, var(--success) 24%, var(--border-lux));
+  border-radius: var(--radius-pill, 9999px);
+  background: color-mix(in srgb, var(--success-soft) 88%, var(--surface-lux));
+  padding: var(--pwa-inset-sm) var(--pwa-inset-lg) var(--pwa-inset-sm) calc(2 * var(--pwa-inset-xs));
+  box-shadow: var(--e1);
+}
+
+.pwa-connection-restored > div > span {
+  width: calc(2 * var(--pwa-inset-xl));
+  height: calc(2 * var(--pwa-inset-xl));
+  border-radius: var(--radius-pill, 9999px);
+}
+
+.pwa-install-sheet {
+  max-height: calc(100dvh - var(--pwa-notice-bottom-gap) - 4.25rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pwa-install-grip {
+  display: flex;
+  height: var(--pwa-grip-height);
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--clinical-accent-soft) 72%, var(--surface-lux));
+}
+
+.pwa-install-grip span {
+  width: var(--pwa-grip-width);
+  height: var(--pwa-grip-thickness);
+  border-radius: var(--radius-pill, 9999px);
+  background: color-mix(in srgb, var(--text-muted) 48%, transparent);
+}
+
+.pwa-install-header {
+  display: flex;
+  min-height: var(--pwa-header-min-height);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pwa-notice-gap);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-lux) 82%, transparent);
+  background: color-mix(in srgb, var(--clinical-accent-soft) 72%, var(--surface-lux));
+  padding: calc(2 * var(--pwa-inset-xs)) var(--pwa-inset-md) calc(2 * var(--pwa-inset-xs)) var(--pwa-inset-xl);
+}
+
+.pwa-install-mark {
+  border-radius: var(--pwa-control-radius);
+  filter: drop-shadow(0 2px 3px color-mix(in srgb, var(--clinical-accent) 18%, transparent));
+}
+
+.pwa-install-dismiss {
+  display: inline-flex;
+  min-height: var(--spacing-tap);
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pwa-inset-xs);
+  border-radius: var(--pwa-control-radius);
+  padding: 0 calc(2 * var(--pwa-inset-xs));
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: var(--pwa-line-height-control);
+  transition:
+    color var(--duration-quick) ease,
+    background-color var(--duration-quick) ease;
+}
+
+.pwa-install-dismiss:hover {
+  background: color-mix(in srgb, var(--surface-lux) 72%, transparent);
+  color: var(--text-heading);
+}
+
+.pwa-install-dismiss:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.pwa-install-body {
+  background: var(--surface-lux);
+  padding: var(--spacing-icon-sm) var(--pwa-inset-xl) var(--pwa-inset-xl);
+}
+
+.pwa-install-compact-copy {
+  display: none;
+}
+
+.pwa-install-tagline {
+  color: var(--text-heading);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: var(--pwa-line-height-tagline);
+}
+
+.pwa-install-copy {
+  margin-top: var(--pwa-inset-sm);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: var(--pwa-line-height-copy);
+}
+
+.pwa-install-support {
+  margin-top: var(--pwa-inset-sm);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: var(--pwa-line-height-support);
+}
+
+.pwa-install-benefits,
+.pwa-install-steps {
+  margin-top: var(--pwa-inset-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-lux);
+  border-radius: var(--pwa-control-radius);
+  background: color-mix(in srgb, var(--clinical-accent-soft) 20%, var(--surface-lux));
+}
+
+.pwa-install-benefits li,
+.pwa-install-steps li {
+  display: flex;
+  min-height: var(--pwa-row-min-height);
+  align-items: center;
+  gap: var(--pwa-inset-md);
+  padding: var(--pwa-row-padding-block) var(--pwa-inset-lg);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: var(--pwa-line-height-support);
+}
+
+.pwa-install-benefits li + li,
+.pwa-install-steps li + li {
+  border-top: 1px solid color-mix(in srgb, var(--border-lux) 80%, transparent);
+}
+
+.pwa-install-benefits svg,
+.pwa-install-steps svg {
+  flex: none;
+  color: var(--clinical-accent);
+}
+
+.pwa-install-steps li {
+  min-height: var(--spacing-tap);
+  justify-content: space-between;
+  font-size: 0.8125rem;
+}
+
+.pwa-install-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: calc(2 * var(--pwa-inset-xs));
+  margin-top: var(--pwa-inset-lg);
+}
+
+.pwa-install-actions-single {
+  grid-template-columns: 1fr;
+}
+
+/* The in-flow phone home composer sits near the viewport centre. Keep the
+   browser-native install prompt below it without moving page content: the full
+   value proposition remains on larger and dock-owned surfaces, while the phone
+   hero gets a concise, action-first card. */
 @media (max-width: 639.98px) {
-  .pwa-install-sheet {
-    margin-left: calc(-1 * max(0.75rem, var(--safe-area-left)));
-    margin-right: calc(-1 * max(0.75rem, var(--safe-area-right)));
-    margin-bottom: calc(-1 * var(--pwa-notice-bottom-gap));
-    border-radius: 1.25rem 1.25rem 0 0;
-    border-bottom: 0;
-    padding-left: max(1.25rem, var(--safe-area-left));
-    padding-right: max(1.25rem, var(--safe-area-right));
-    padding-bottom: calc(1.25rem + var(--safe-area-bottom));
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-notice-stack {
+    --pwa-notice-bottom-gap: max(0.5rem, var(--safe-area-bottom));
+  }
+
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-grip,
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-tagline,
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-copy,
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-support,
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-benefits {
+    display: none;
+  }
+
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-header {
+    min-height: 3.25rem;
+    padding-block: calc(2 * var(--pwa-inset-xs));
+  }
+
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-body {
+    padding: var(--pwa-inset-sm) var(--pwa-inset-xl) var(--pwa-inset-xl);
+  }
+
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-compact-copy {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: var(--pwa-line-height-support);
+  }
+
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-actions {
+    margin-top: var(--pwa-inset-sm);
   }
 }
 
-.pwa-notice-card {
-  animation: pwa-notice-in 280ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+.pwa-action {
+  transition:
+    border-color var(--duration-quick) ease,
+    background-color var(--duration-quick) ease,
+    color var(--duration-quick) ease,
+    box-shadow var(--duration-quick) ease;
+}
+
+.pwa-action-primary {
+  border: 1px solid var(--clinical-accent);
+  background: var(--clinical-accent);
+  color: var(--clinical-accent-contrast);
+  box-shadow: var(--e1);
+}
+
+.pwa-action-primary:hover {
+  border-color: var(--clinical-accent-hover);
+  background: var(--clinical-accent-hover);
+}
+
+.pwa-action-secondary {
+  border: 1px solid color-mix(in srgb, var(--clinical-accent) 58%, var(--border-lux));
+  background: var(--surface-lux);
+  color: var(--clinical-accent);
+}
+
+.pwa-action-secondary:hover {
+  background: var(--clinical-accent-soft);
 }
 
 @keyframes pwa-notice-in {
@@ -2530,32 +2915,33 @@ summary::-webkit-details-marker {
 @media (min-width: 640px) {
   .pwa-notice-stack {
     left: auto;
-    width: min(25rem, calc(100vw - 2rem - var(--safe-area-left) - var(--safe-area-right)));
+    right: max(1rem, var(--safe-area-right));
+    bottom: max(1rem, var(--safe-area-bottom));
+    width: min(27rem, calc(100vw - 2rem - var(--safe-area-left) - var(--safe-area-right)));
+  }
+
+  /* Submitted answer views own a fixed bottom composer. Keep the install
+     surface in the opposite corner so neither control can obscure the other. */
+  body:has(form.answer-footer-search-edge) .pwa-notice-stack {
+    top: calc(4.25rem + max(0.75rem, var(--safe-area-top)));
+    bottom: auto;
+  }
+
+  .pwa-install-grip {
+    display: none;
   }
 }
 
 @media (display-mode: standalone) {
   .pwa-notice-stack {
-    --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 6rem);
+    --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 5.5rem);
   }
 }
 
-/* Last so it also wins over the standalone bottom offset at desktop width. */
 @media (min-width: 1280px) {
   .pwa-notice-stack {
-    top: calc(4.25rem + max(0.5rem, var(--safe-area-top)));
-    bottom: auto;
-  }
-
-  @keyframes pwa-notice-in {
-    from {
-      opacity: 0;
-      transform: translateY(-0.625rem) scale(0.98);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
+    right: max(1.5rem, var(--safe-area-right));
+    bottom: max(1.5rem, var(--safe-area-bottom));
   }
 }
 
@@ -2567,6 +2953,24 @@ summary::-webkit-details-marker {
 
 html[data-motion="reduced"] .pwa-notice-card {
   animation: none;
+}
+
+@media (forced-colors: active) {
+  .pwa-notice-card,
+  .pwa-install-benefits,
+  .pwa-install-steps,
+  .pwa-action,
+  .pwa-install-dismiss {
+    border-color: CanvasText;
+  }
+
+  .pwa-install-header,
+  .pwa-install-body,
+  .pwa-install-benefits,
+  .pwa-install-steps,
+  .pwa-action-secondary {
+    background: Canvas;
+  }
 }
 
 /* Tabular figures for data, counts, page numbers, byte sizes */
@@ -2646,8 +3050,9 @@ td,
    Density is chosen by CONTAINER width in `rem` — never by device width, and
    never by runtime measurement. The unit is the mechanism: raising the browser
    or OS text size grows the root font, so a phone crosses a threshold exactly
-   when its labels would stop fitting. A 320px phone is 20rem at 100% text and
-   keeps three slots; at 200% it resolves to 10rem and collapses to one control.
+   when its labels would stop fitting. Each declared label family has a
+   calibrated profile: short Specifier labels can use space that Therapy's
+   longer labels cannot, without either set changing under the user at runtime.
 
    The collapsed control is the DEFAULT and the bar is the enhancement, so
    anything unmeasured, unsupported or mid-load renders the one state that
@@ -2662,24 +3067,11 @@ td,
    430px was WORSE at three of four labels clipped, because crossing a band adds
    a slot to the same space. See ledger #113.
 
-   Budgets are therefore the sum of the slots' intrinsic widths, remeasured:
-   Search 92.4px, Compare 144.3px, Recommend 125.6px, Pathways 108.5px, More
-   ~77px, plus the bar's own 8px inline padding. Three slots (first two + More)
-   need ~322px; four need ~479px.
-
-   The thresholds carry ~8% over those numbers rather than a pixel or two, and
-   that margin is not padding for its own sake: the SAME labels measure wider on
-   a CI runner than on a development box, because the variable face rasterises
-   differently per environment. A first attempt at 21/31rem passed locally and
-   failed on CI by exactly one pixel ("Compare" needed 59px and had 58px, having
-   needed 56px locally). A threshold calibrated to one machine's font metrics is
-   calibrated to nothing, so these sit clear of the whole spread.
-
-   These are calibrated to the widest label set currently shipped, which a fixed
-   `rem` threshold cannot generalise to an arbitrary item list. That gap is held
-   by a gate, not by hope: `ui-mode-nav-density.spec.ts` asserts no label
-   truncates at either band boundary, so a mode whose labels are longer fails CI
-   rather than shipping clipped words.
+   The thresholds retain font-metric headroom rather than sitting on one local
+   rasterisation. `ui-mode-nav-density.spec.ts` loads every consumer at every
+   profile boundary and fails if a complete label clips, the bar scrolls, or a
+   destination disappears. Adding or renaming a destination therefore requires
+   deliberate profile calibration instead of inheriting an unsafe default.
    ───────────────────────────────────────────────────────────────────────── */
 
 /* The centred column, and the ONLY container-query container. Measuring the
@@ -2691,8 +3083,8 @@ td,
    80rem is the header row's own `max-w-7xl`; the ink offset is added back on
    both sides because the bar's first tab sits that far inside its box. Below
    `lg` the rail's gutter computes to zero, so the container is exactly the
-   viewport and the calibrated 22/33/42rem bands are untouched on phone and
-   tablet. */
+   viewport and every calibrated profile reads the same available width on
+   phone and tablet. */
 @utility mode-nav {
   container-type: inline-size;
   container-name: mode-nav;
@@ -2742,6 +3134,8 @@ td,
    attributes that CSS then switches on:
      `data-band="3|4|5"`  the narrowest band at which this destination appears
      `data-until="3|4"`   the widest band at which More still appears
+   `data-density-profile` only changes the rem width at which a band becomes
+   active; it never changes order or hides an item independently.
    Slots are never re-ordered, so the ones that stay do not move as the
    container narrows; the overflow only ever fills from the tail. */
 .mode-nav__slot[data-band="4"],
@@ -2791,62 +3185,133 @@ td,
   background-color: transparent;
 }
 
-@container mode-nav (min-width: 22rem) {
-  .mode-nav__control {
+@container mode-nav (min-width: 16rem) {
+  .mode-nav[data-density-profile="two-item"] .mode-nav__control {
     display: none;
   }
 
-  /* Content-sized and left-aligned at EVERY band, which is what the widest band
-     always did: "the bar reads as a continuation of the header rather than four
-     columns stretched across it". Extending it downward is the fix for #113 —
-     one layout mode instead of two, and no track can be narrower than its own
-     label. */
-  .mode-nav__bar {
+  .mode-nav[data-density-profile="two-item"] .mode-nav__bar {
     display: flex;
   }
 }
 
-@container mode-nav (min-width: 33rem) {
-  .mode-nav__slot[data-band="4"] {
+@container mode-nav (min-width: 17rem) {
+  .mode-nav[data-density-profile="compact-four"] .mode-nav__control {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="compact-four"] .mode-nav__bar {
+    display: flex;
+  }
+}
+
+@container mode-nav (min-width: 20rem) {
+  .mode-nav[data-density-profile="balanced-four"] .mode-nav__control {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="balanced-four"] .mode-nav__bar {
+    display: flex;
+  }
+}
+
+@container mode-nav (min-width: 22rem) {
+  .mode-nav[data-density-profile="extended"] .mode-nav__control {
+    display: none;
+  }
+
+  /* Content-sized and left-aligned at EVERY band, so the bar reads as a
+     continuation of the header rather than columns stretched across it. */
+  .mode-nav[data-density-profile="extended"] .mode-nav__bar {
+    display: flex;
+  }
+}
+
+@container mode-nav (min-width: 23rem) {
+  .mode-nav[data-density-profile="compact-four"] .mode-nav__slot[data-band="4"] {
     display: flex;
   }
 
-  .mode-nav__slot[data-until="3"] {
+  .mode-nav[data-density-profile="compact-four"] .mode-nav__slot[data-until="3"] {
     display: none;
   }
 
   /* The page's own slot is on screen from here, so it owns the mark. */
-  .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
+  .mode-nav[data-density-profile="compact-four"] .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
     display: none;
   }
 
-  .mode-nav__more[data-active-from="4"] .mode-nav__ink {
+  .mode-nav[data-density-profile="compact-four"] .mode-nav__more[data-active-from="4"] .mode-nav__ink {
     color: var(--text-muted);
   }
 
-  .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+  .mode-nav[data-density-profile="compact-four"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+    background-color: transparent;
+  }
+}
+
+@container mode-nav (min-width: 31rem) {
+  .mode-nav[data-density-profile="balanced-four"] .mode-nav__slot[data-band="4"] {
+    display: flex;
+  }
+
+  .mode-nav[data-density-profile="balanced-four"] .mode-nav__slot[data-until="3"] {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="balanced-four"] .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="balanced-four"] .mode-nav__more[data-active-from="4"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav[data-density-profile="balanced-four"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+    background-color: transparent;
+  }
+}
+
+@container mode-nav (min-width: 33rem) {
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-band="4"] {
+    display: flex;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-until="3"] {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
     background-color: transparent;
   }
 }
 
 @container mode-nav (min-width: 42rem) {
-  .mode-nav__slot[data-band="5"] {
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-band="5"] {
     display: flex;
   }
 
-  .mode-nav__slot[data-until="4"] {
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-until="4"] {
     display: none;
   }
 
-  .mode-nav__more[data-active-from="5"] .mode-nav__more-name {
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__more-name {
     display: none;
   }
 
-  .mode-nav__more[data-active-from="5"] .mode-nav__ink {
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__ink {
     color: var(--text-muted);
   }
 
-  .mode-nav__more[data-active-from="5"] .mode-nav__rule {
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__rule {
     background-color: transparent;
   }
 }
@@ -2954,9 +3419,17 @@ td,
   }
 }
 
-@keyframes answer-ecg-sweep {
-  to {
-    stroke-dashoffset: -320;
+/* Animate compositable opacity on the HTML overlay that contains the bright ECG
+   path. Mobile WebKit can report animations on SVG path properties as running
+   without repainting them, especially in an installed PWA. Keeping animation on
+   a regular HTML layer makes the pulse visible without JavaScript or layout work. */
+@keyframes answer-ecg-pulse {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
   }
 }
 
@@ -2973,12 +3446,13 @@ td,
  * those unlayered classes, check the class body first; the class wins.
  */
 @layer components {
-  .answer-activity-trace {
-    contain: paint;
-  }
-
   .answer-activity-trace__sweep {
     animation: var(--animate-answer-ecg);
+    will-change: opacity;
+  }
+
+  .answer-activity-trace[data-density="compact"] .answer-activity-trace__sweep {
+    animation: var(--animate-answer-ecg-compact);
   }
 
   .app-edge-backdrop {

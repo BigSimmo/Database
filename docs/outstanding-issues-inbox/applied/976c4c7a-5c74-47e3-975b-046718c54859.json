@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "976c4c7a-5c74-47e3-975b-046718c54859",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#177",
+    "outcome": "Resolved by PR #1886: unversioned Therapy Compass catalogue aliases are served by Next afterFiles rewrites to the current content-addressed assets with must-revalidate alias headers, while duplicate public alias files are no longer written and the generator guard prevents them reappearing."
+  }
+}

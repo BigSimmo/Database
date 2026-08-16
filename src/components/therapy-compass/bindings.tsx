@@ -112,6 +112,13 @@ export type TcBindings = {
   // ---- search ---------------------------------------------------------
   search: SearchOptions;
   searchResults: Therapy[];
+  /**
+   * Query-only matches — same query, tags/reviewedOnly/briefOnly reset to
+   * `EMPTY_SEARCH`. The base for a facet option's count ("how many would I
+   * have if I ticked this as well" — docs/filter-contract.md section 3),
+   * which must never be narrowed by the very selection it is counting.
+   */
+  queryMatches: Therapy[];
   setQuery: (q: string) => void;
   submitQuery: (q: string) => void; // set query + go search
   toggleTag: (tag: string) => void;
@@ -212,7 +219,7 @@ function segStyle(active: boolean): string {
   return [
     "inline-flex min-h-tap items-center justify-center rounded-md border-0 bg-transparent px-4 py-[7px] text-sm-minus font-semibold text-[color:var(--text-muted)]",
     "hover:enabled:bg-[color:var(--surface-subtle)] hover:enabled:text-[color:var(--text)]",
-    active ? "bg-[color:var(--surface)] text-[color:var(--clinical-accent-hover)] shadow-[var(--shadow-tight)]" : "",
+    active ? "bg-[color:var(--surface)] text-[color:var(--clinical-accent-hover)] shadow-[var(--e1)]" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -246,6 +253,13 @@ export function TcProvider({ children }: { children: ReactNode }) {
     enabled: !isHome,
   });
   const therapies = useMemo(() => data?.therapies ?? [], [data]);
+  // Home reads the build-time summary rather than the catalogue so first paint
+  // never waits on catalogue I/O (`enabled: !isHome` above). The count and the
+  // default slugs are therefore only as true as the last generator run, which
+  // is why `npm run check:therapy-data-index` (build-therapies-index --check)
+  // is load-bearing in verify:cheap - do not bypass it. If home ever lists real
+  // therapy records rather than a count, it must re-enable `useTherapyData`;
+  // extending the generated summary instead would drift silently.
   const therapyCount = isHome ? THERAPY_CATALOGUE_SUMMARY.totalCount : therapies.length;
   const pathways = useMemo(() => data?.pathways ?? [], [data]);
 
@@ -321,6 +335,16 @@ export function TcProvider({ children }: { children: ReactNode }) {
     // match aria-pressed state without waiting for useDeferredValue.
     return searchTherapies(therapies, { ...search, query: deferredSearch.query });
   }, [therapies, deferredSearch.query, search]);
+  // Same query-deferral shape as `searchResults`, tags/reviewedOnly/briefOnly
+  // reset — so a facet count never lags behind or races ahead of the query
+  // typing the reader can see.
+  const queryMatches = useMemo(() => {
+    const liveQuery = search.query.trim();
+    const deferredQuery = deferredSearch.query.trim();
+    if (!liveQuery) return searchTherapies(therapies, EMPTY_SEARCH);
+    if (!deferredQuery) return [];
+    return searchTherapies(therapies, { ...EMPTY_SEARCH, query: deferredSearch.query });
+  }, [therapies, deferredSearch.query, search.query]);
   const compareTherapies = useMemo(
     () => compareSlugs.map((sl) => bySlug.get(sl)).filter((t): t is Therapy => Boolean(t)),
     [compareSlugs, bySlug],
@@ -422,6 +446,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
 
       search,
       searchResults,
+      queryMatches,
       setQuery: (q) => patchSearch({ query: q }),
       submitQuery: (q) => {
         patchSearch({ query: q });
@@ -538,6 +563,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
     relatedForSelected,
     search,
     searchResults,
+    queryMatches,
     compareSlugs,
     compareTherapies,
     recQuery,

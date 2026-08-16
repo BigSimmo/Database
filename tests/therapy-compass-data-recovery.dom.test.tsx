@@ -66,8 +66,8 @@ describe("Therapy Compass required data recovery", () => {
     expect(screen.getAllByRole("main")).toHaveLength(1);
     await waitFor(() => expect(fetchMock).not.toHaveBeenCalled());
 
-    fireEvent.click(screen.getByRole("button", { name: /Create a patient sheet/i }));
-    expect(navigation.push).toHaveBeenCalledWith(
+    expect(screen.getByRole("link", { name: /Create a patient sheet/i })).toHaveAttribute(
+      "href",
       `/therapy-compass/${THERAPY_CATALOGUE_SUMMARY.defaultSheetSlug}/sheet`,
     );
   });

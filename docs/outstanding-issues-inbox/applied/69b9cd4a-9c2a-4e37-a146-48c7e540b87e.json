@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "69b9cd4a-9c2a-4e37-a146-48c7e540b87e",
+  "createdOn": "2026-08-14",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "check:medication-lexicon-report has been failing on main for every local verify:pr-local, and no CI job runs it",
+    "detail": "Found 2026-08-14 while running the PR preflight for an unrelated design-token change. 'npm run check:medication-lexicon-report' reports 'docs/medication-interaction-lexicon-review.md is stale. Run npm run medications:lexicon-report and commit the result.' and exits 1. Two things make this worth a row rather than a quick fix in a passing PR. FIRST, it is on main, not on any branch: reproduced in a clean worktree checked out at pristine origin/main (both d47aa6d and, after a merge, 79b01b3), with a diff touching zero medication, lexicon or data/ files. SECOND, and this is the part that explains why it went unnoticed, NOTHING IN CI RUNS IT — a grep for medication-lexicon-report across .github/workflows/ returns nothing. It is reached only through the local verify:pr-local chain, where it is the LAST step, so it fails every local PR preflight while every CI run stays green. The failure mode is therefore self-concealing in the direction that matters: the gate is invisible to the required checks and visible only to whoever is about to hand off, who then has to decide whether an unrelated stale generated doc is theirs to fix. It was not fixed in the design-token PR that found it, deliberately: the report is a clinical-facing generated document and regenerating it inside a CSS-token PR would bundle a clinical-risk artefact with unrelated chores, which AGENTS.md PR bundling explicitly forbids. Next: run 'npm run medications:lexicon-report', read the resulting diff to confirm it is a pure regeneration and not a content change needing clinical review, and commit it in its own PR. Then decide the real question this exposes — either wire the check into CI so it cannot silently rot again, or move it out of verify:pr-local so it stops failing preflights it does not gate. A check in the local chain but not in CI is the worst of both. Stop: do not simply delete the check or drop it from verify:pr-local to get a green preflight; the staleness is real and the generated file is a clinical artefact.",
+    "source": "session 2026-08-14; PR #1942 preflight; reproduced on pristine origin/main d47aa6d and 79b01b3; grep over .github/workflows"
+  }
+}

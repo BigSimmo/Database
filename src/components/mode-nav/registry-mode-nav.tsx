@@ -10,14 +10,30 @@ import {
   Stethoscope,
   type LucideIcon,
 } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 import { ModeNav, type ModeNavItem } from "@/components/mode-nav/mode-nav";
-import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
+import { type ModeNavDensityProfile } from "@/components/mode-nav/mode-nav-bands";
+import { appModeDefinition } from "@/lib/app-modes";
 import {
   modeSecondaryNavigationEntries,
   modeSecondaryNavigationHref,
+  type ModeNavAdoptedMode,
   type RoutedModeSecondaryNavigationId,
 } from "@/lib/mode-secondary-navigation";
+
+/**
+ * Each adopted mode opts into a label-width budget. Keeping this exhaustive
+ * means a newly adopted mode cannot inherit a density that was calibrated for
+ * different words and silently clip them.
+ */
+export const registryModeNavDensityProfiles = {
+  dsm: "two-item",
+  specifiers: "compact-four",
+  formulation: "compact-four",
+  differentials: "balanced-four",
+  factsheets: "two-item",
+} as const satisfies Record<ModeNavAdoptedMode, ModeNavDensityProfile>;
 
 /**
  * Exhaustive by type, deliberately. A `?? FileText` fallback compiles for a
@@ -58,11 +74,19 @@ export function RegistryModeNav({
   activeId,
   searchParamString = "",
 }: {
-  modeId: AppModeId;
+  modeId: ModeNavAdoptedMode;
   /** `null` marks no destination as current (record/detail routes). */
   activeId: string | null;
   searchParamString?: string;
 }) {
+  const pathname = usePathname();
+  const embeddedPresentationOnCompare =
+    pathname === "/differentials/compare" || pathname.startsWith("/differentials/compare/");
+  // The ad-hoc compare workspace reuses DifferentialPresentationWorkflowPage,
+  // but its shell already owns the Compare bar. Suppress only that embedded
+  // page-owned Presentations bar so the header slot keeps one correct occupant.
+  if (modeId === "differentials" && activeId === "presentations" && embeddedPresentationOnCompare) return null;
+
   const currentSearchParams = new URLSearchParams(searchParamString);
   // Action-only entries are dropped, not adapted: `ModeNavItem` takes an href
   // by design so deep links, back and prefetch keep working.
@@ -86,5 +110,12 @@ export function RegistryModeNav({
       : [],
   );
 
-  return <ModeNav items={items} label={`${appModeDefinition(modeId).label} pages`} activeId={activeId} />;
+  return (
+    <ModeNav
+      items={items}
+      label={`${appModeDefinition(modeId).label} pages`}
+      densityProfile={registryModeNavDensityProfiles[modeId]}
+      activeId={activeId}
+    />
+  );
 }

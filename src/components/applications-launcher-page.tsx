@@ -34,6 +34,7 @@ import {
 } from "@/components/clinical-dashboard/result-filter-control";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cn, EmptyState } from "@/components/ui-primitives";
 import { Chip, type ChipStatusTone } from "@/components/ui/chip";
 import { Sheet } from "@/components/ui/sheet";
@@ -280,7 +281,7 @@ function ToolSearch({
         aria-label={copy.openSelectedAriaLabel}
         data-testid="tools-local-search-submit"
         className={cn(
-          "grid h-tap w-tap place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)]",
+          "grid h-tap w-tap place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--clinical-accent-hover)]",
           focusRing,
         )}
       >
@@ -390,31 +391,20 @@ function FilterTabs({
   const [filterOpen, setFilterOpen] = useState(false);
   // `more` is the desktop "All" tab's overflow state, not a category of its own.
   const resolvedFilter: LauncherFilter = activeFilter === "more" ? "all" : activeFilter;
+  // One array for the desktop rail and the phone sheet. The categories partition
+  // the tool list, so this is a lens at both breakpoints — the rail used to say
+  // many-of-N with `aria-pressed` while the sheet said one-of-N.
+  const launcherFilterOptions = desktopFilters.map((filter) => ({ value: filter.id, label: filter.label }));
   return (
     <>
-      <div className="hidden flex-wrap items-center gap-2 sm:flex" role="group" aria-label="Filter by tool category">
-        {desktopFilters.map((filter) => {
-          const active = filter.id === activeFilter || (filter.id === "all" && activeFilter === "more");
-          return (
-            <button
-              key={filter.id}
-              type="button"
-              id={`launcher-filter-desktop-${filter.id}`}
-              aria-pressed={active}
-              aria-controls="launcher-results-panel"
-              onClick={() => onFilterChange(filter.id)}
-              className={cn(
-                "inline-flex min-h-tap items-center justify-center whitespace-nowrap rounded-lg border px-4 text-xs font-bold transition",
-                active
-                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
-                  : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
-                focusRing,
-              )}
-            >
-              {filter.label}
-            </button>
-          );
-        })}
+      <div className="hidden sm:block">
+        <SegmentedControl
+          value={resolvedFilter}
+          onChange={onFilterChange}
+          options={launcherFilterOptions}
+          label="Filter by tool category"
+          ariaControls="launcher-results-panel"
+        />
       </div>
       {/* The phone half of the same control. This launcher renders no results
           band, so the trigger sits inline here rather than in a ribbon slot —
@@ -440,7 +430,7 @@ function FilterTabs({
               id: "category",
               label: "Category",
               value: resolvedFilter,
-              options: desktopFilters.map((filter) => ({ value: filter.id, label: filter.label })),
+              options: launcherFilterOptions,
               onChange: (value) => {
                 setFilterOpen(false);
                 onFilterChange(value);
@@ -500,7 +490,7 @@ function ToolCard({
           <ToolChips app={app} />
         </span>
       </span>
-      <span className="self-end rounded-lg bg-[color:var(--clinical-accent)] px-3 py-2 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+      <span className="self-end rounded-lg bg-[color:var(--clinical-accent)] px-3 py-2 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
         Details
         <ChevronRight className="ml-1 inline h-3.5 w-3.5" aria-hidden />
       </span>
@@ -541,7 +531,7 @@ function MobileToolRow({
           {app.description}
         </span>
       </span>
-      <span className="inline-flex min-h-9 items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3 text-2xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+      <span className="inline-flex min-h-9 items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3 text-2xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
         Details
         <ChevronRight className="ml-1 h-3 w-3" aria-hidden />
       </span>
@@ -683,7 +673,7 @@ function DetailDialog({ app, open, onClose }: { app: LauncherApp; open: boolean;
             target={app.external ? "_blank" : undefined}
             rel={app.external ? "noopener noreferrer" : undefined}
             className={cn(
-              "inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)]",
+              "inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--clinical-accent-hover)]",
               focusRing,
             )}
           >

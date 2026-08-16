@@ -48,9 +48,14 @@ ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-build-publishable-key
 # the runtime configuration Railway supplies with the public value Next inlines.
 ARG NEXT_PUBLIC_MAX_UPLOAD_MB=
 ARG MAX_UPLOAD_MB=
+# Railway exposes reference variables to Docker builds only when the Dockerfile
+# declares the matching build argument. This non-secret SHA keeps build-time
+# source maps and runtime Sentry events on the same release identity.
+ARG RAILWAY_GIT_COMMIT_SHA=
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
 ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}
+ENV RAILWAY_GIT_COMMIT_SHA=${RAILWAY_GIT_COMMIT_SHA}
 # The repo build script allocates an 8 GiB heap. Prefer builders with >= 10 GiB
 # locally (Docker Desktop hard-fails under the RAM guard by default). CI image
 # builds pass ALLOW_LOW_RAM_BUILD=1 because GitHub buildx runners report ~7–8 GiB
@@ -84,7 +89,9 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/.next ./.next
 COPY public ./public
 COPY --from=build /app/src/lib/security-headers.ts ./src/lib/security-headers.ts
+COPY --from=build /app/src/lib/observability/sentry-release.ts ./src/lib/observability/sentry-release.ts
 COPY --from=build /app/src/lib/supabase/project.ts ./src/lib/supabase/project.ts
+COPY --from=build /app/src/components/therapy-compass/data/generated-assets.ts ./src/components/therapy-compass/data/generated-assets.ts
 COPY package.json next.config.ts ./
 USER node
 EXPOSE 3000

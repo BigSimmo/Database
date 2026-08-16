@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "ce304701-1e01-4cfb-bf9c-202608141940",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "a860ce7a-5ecf-4f30-a3b9-5c22d1d914b9",
+    "reason": "Cancel closure of #237: the jsdom assertion does not verify the requested real 320px browser visual pass for a low-confidence extraction."
+  }
+}

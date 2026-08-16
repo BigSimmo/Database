@@ -32,6 +32,7 @@ import {
   commandDropdownCanDisplay,
   commandDropdownMinimumWidthMediaQuery,
   commandDropdownPointerMediaQuery,
+  commandSurfaceRemoteSearchEnabled,
   differentialRedFlagTerms,
   filteredSuggestions,
   isFormCodeQuery,
@@ -185,10 +186,7 @@ function SmartRotatingHint({
   const activeExample = examples[activeExampleIndex % examples.length];
 
   useEffect(() => {
-    if (isTickerHeld) {
-      return;
-    }
-
+    if (isTickerHeld) return;
     if (examples.length <= 1) return;
     const intervalId = window.setInterval(() => {
       setActiveExampleIndex((current) => (current + 1) % examples.length);
@@ -200,12 +198,13 @@ function SmartRotatingHint({
     setHeldTickerExample(activeExample);
     setIsTickerHeld(true);
   }, [activeExample]);
-
-  const releaseTicker = useCallback(() => {
-    setIsTickerHeld(false);
-  }, []);
-
-  const resolvedTickerExample = isTickerHeld ? (heldTickerExample ?? activeExample) : activeExample;
+  const releaseTicker = useCallback(() => setIsTickerHeld(false), []);
+  // A mode change can replace the examples while a pointer/focus hold is
+  // active. Never keep displaying or submit a held value that is no longer in
+  // the current mode's suggestion set.
+  const currentHeldTickerExample =
+    heldTickerExample && examples.includes(heldTickerExample) ? heldTickerExample : activeExample;
+  const resolvedTickerExample = isTickerHeld ? currentHeldTickerExample : activeExample;
 
   if (!activeExample) return null;
 
@@ -443,7 +442,7 @@ export function UniversalSearchCommandSurface({
   dropdownOpen: boolean;
   onDropdownOpenChange: (open: boolean) => void;
   onQueryChange: (query: string) => void;
-  onSearch: () => void;
+  onSearch: (query?: string) => void;
   onPickRecent: (query: string) => void;
   onCrossMode: (modeId: AppModeId, query: string) => void;
   onRunModeAction?: (actionId: ModeActionId) => void;
@@ -491,7 +490,7 @@ export function UniversalSearchCommandSurface({
   // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
   const universal = useUniversalSearch({
     query: trimmedQuery,
-    enabled: dropdownOpen && dropdownDisplayable && Boolean(config),
+    enabled: dropdownOpen && dropdownDisplayable && commandSurfaceRemoteSearchEnabled(modeId),
     contextMode: modeId,
   });
   const savedRegistryFavourites = useSavedRegistryFavourites().items;
@@ -699,7 +698,7 @@ export function UniversalSearchCommandSurface({
             onSelect: () => {
               onDropdownOpenChange(false);
               onQueryChange(suggestion.text);
-              onSearch();
+              onSearch(suggestion.text);
             },
             render: (active) => (
               <OptionShell active={active} hint="Search">

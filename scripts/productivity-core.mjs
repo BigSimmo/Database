@@ -105,19 +105,23 @@ function baseLocalChecks(risks) {
     ];
   }
 
-  const checks = [check("npm run verify:cheap", "Run the fast offline repository gate.")];
-  if (risks.retrieval || risks.clinical) {
-    checks.unshift(
-      check("npm run eval:rag:offline", "Protect retrieval and answer contracts without provider access."),
-    );
-  }
   if (risks.ui) {
-    checks.push(check("npm run ensure", "Start or verify the identity-checked local app before browser work."));
-    checks.push(check("npm run test:e2e:critical", "Exercise the smallest high-value Chromium path."));
-    checks.push(check("npm run verify:ui", "Run the full local Chromium UI gate after focused fixes."));
+    return [
+      check("npm run ensure", "Start the verified app and use the printed URL before any browser check."),
+      check("npm run test:e2e:critical", "Exercise the focused critical UI journeys in Chromium."),
+      check(
+        "npm run verify:pr-local",
+        "Run the single fail-closed, risk-routed PR gate after browser proof; add --extended only when shared UI foundations require the full Chromium matrix.",
+      ),
+    ];
   }
-  checks.push(check("npm run verify:pr-local", "Mirror the risk-scoped PR gate before handoff."));
-  return checks;
+
+  return [
+    check(
+      "npm run verify:pr-local",
+      "Run the single fail-closed, risk-routed PR gate; inspect its dry-run when scope is uncertain.",
+    ),
+  ];
 }
 
 function approvalChecks(risks) {
@@ -174,7 +178,11 @@ export function buildWorkflowPlan(workflow, files = [], options = {}) {
   const risks = classifyRisks(normalized);
   let localChecks = baseLocalChecks(risks);
   let approvalRequired = approvalChecks(risks);
-  const proof = ["Record exact commands and exit codes.", "Preserve unrelated staged, unstaged, and untracked work."];
+  const proof = [
+    "Record exact commands, exit codes, and the decisive output line; exit 0 alone is not proof.",
+    "Preserve unrelated staged, unstaged, and untracked work.",
+    "Do not stack broad gates unless each covers a distinct plausible failure class.",
+  ];
 
   if (workflow === "triage") {
     localChecks = [];
@@ -282,6 +290,12 @@ export function buildWorkflowPlan(workflow, files = [], options = {}) {
     if (phase === "start" || phase === "cleanup") {
       proof.push(
         "Keep read-only commands and independent feature worktrees unblocked; only primary writes need the cooperative lease.",
+      );
+    }
+    if (phase === "handoff") {
+      proof.push(
+        "Record branch and HEAD before staging, immediately before commit, and after commit; stop on unexpected movement or foreign index changes.",
+        "Verify the commit message and exact path list are yours before push; never pipe push output through a status-masking command.",
       );
     }
     if (phase === "reconcile") {

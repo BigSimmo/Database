@@ -9,8 +9,13 @@ description: Track and recall all outstanding tasks, recommendations, and issues
 execution order, open **tasks**, **recommendations**, **issues**, provider/operator work, and archive
 history. Chat context resets; that file does not. This skill reads it back and keeps it current.
 
-**The ledger is the source of truth, not chat memory.** Never answer `/issues` from conversation
-recall — always read the file first, so the answer is correct even in a fresh session.
+**The ledger on the remote `main` branch is the source of truth, not chat memory or a stale
+worktree.** Never answer `/issues` from conversation recall or by reading the checkout file
+directly. Run `npm run issues:report -- --json`; it reads the locally cached
+`origin/main:docs/outstanding-issues.md`, reports the checkout's `behind`/`ahead` counts, and labels
+that source `revalidated: false`. Repeat its warning instead of presenting cached state as current.
+A current remote read requires an explicitly authorized `git fetch origin main` immediately before
+the report; record that fetch separately because the report itself performs no provider access.
 
 ## Trigger
 
@@ -21,7 +26,7 @@ recall — always read the file first, so the answer is correct even in a fresh 
 
 ## Default: `/issues` (read-only)
 
-1. Read `docs/outstanding-issues.md`.
+1. Run `npm run issues:report -- --json` and use that payload, preserving its cached-state warning.
 2. State the **Recommended execution queue** back in order, including acuity, timing, and gate.
 3. Summarize any open items not represented in that queue, grouped by priority (P1 → P3), each as
    `#ID · type · summary — next action (source)`.
@@ -31,6 +36,13 @@ recall — always read the file first, so the answer is correct even in a fresh 
 If a filter is given, filter the open items before rendering steps 2–3, then show only matching
 queued tasks and matching non-queued items: `/issues P1` (by priority), `/issues issues` /
 `/issues recs` / `/issues tasks` (by type), `/issues <keyword>` (summary/detail substring match).
+
+`/issues wins` or `/issues agent-safe` runs
+`npm run issues:report -- --agent-safe-wins --json`. The classifier includes only queued work
+estimated at no more than four hours whose capability is not Operator and whose timing/outcome names
+no provider, live environment, RAG/retrieval/clinical surface, approval, owner decision, or human
+decision. Keep report order unchanged and always state A1 priority blockers before these convenience
+wins; the filter never changes acuity.
 
 **A row being open is not evidence that nobody is working on it.** Some rows carry a progress marker
 in their prose (`IN PROGRESS`, `IMPLEMENTED in PR #1766`), but there is no structured status field and
@@ -102,9 +114,15 @@ ledger sweep. Refresh only after a successful reconciliation or before opening a
 
 Require the decisive `ISSUES_LIST_UPDATED` line. The stable artifact is
 `C:\Users\joshs\OneDrive\ISSUES-LIST.html`. If refresh fails, do not undo a valid ledger mutation;
-report that the Markdown source is current and the visual artifact is stale. Still proceed to
-the reconciliation handoff — a stale visual artifact must not invalidate a successful canonical
+report that the Markdown source is current and the visual artifact is stale. Still proceed to the
+reconciliation handoff — a stale visual artifact must not invalidate a successful canonical
 transaction.
+
+**This step is unavailable off the operator's Windows machine.** The script and the artifact are
+both absolute Windows paths, so a Linux, container, or cloud session cannot run it and cannot
+verify it — the artifact drifts silently from the moment such a session reconciles. Do not
+improvise a substitute renderer or write the HTML by hand; report the register as stale, name the
+reconciliation commit that made it so, and leave the refresh to the operator.
 
 ## Persist the memory (commit)
 
@@ -112,6 +130,7 @@ When the user explicitly asks for a commit, commit only the newly created reques
 `docs/outstanding-issues.md`. Use explicit paths so unrelated staged files cannot ride along:
 
 ```bash
+git add -- docs/outstanding-issues-inbox/<uuid>.json
 git commit --only docs/outstanding-issues-inbox/<uuid>.json -m "issues: queue <what changed>"
 ```
 

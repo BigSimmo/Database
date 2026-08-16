@@ -152,8 +152,8 @@ function routePathname(routeAbs: string): string {
  * the band through their own page:
  * - `isAlwaysStandaloneShellPath` — never mounts the dashboard (services, forms, …)
  * - `isStandaloneModeHomePath` — mode homes with their own results page, including
- *   `/tools`, which is intentionally outside the always-standalone Suspense list
- *   but still mounts `ApplicationsLauncherPage` rather than the dashboard body
+ *   `/tools`, whose default and submitted states both mount its route-owned
+ *   `ToolsSearchResultsPage`
  */
 function reachabilityRoots(routeAbs: string): string[] {
   const pathname = routePathname(routeAbs);
@@ -986,7 +986,7 @@ describe("band adoption detection", () => {
       );
       expect(routeReachesBand(path.join(dir, "default-reexport-route.tsx"))).toBe(true);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });

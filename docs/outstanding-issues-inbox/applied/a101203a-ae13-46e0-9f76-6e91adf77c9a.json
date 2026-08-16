@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "a101203a-ae13-46e0-9f76-6e91adf77c9a",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#253",
+    "outcome": "Superseded by deletion. MobileResultFilterControl — the native select whose highlight PR #1606 set out to fix — no longer exists; every mode moved to ResultFilterTrigger + ResultFilterSheet under #247. What remained was a decision, not a merge, and the row's own text recommended closing it as superseded. PR #1606 should be closed on GitHub."
+  }
+}

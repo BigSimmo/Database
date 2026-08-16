@@ -9,7 +9,9 @@ A green exit code is not proof. Contended gates can wait a long time before fail
 leave later checks unrun, and a stale worktree makes healthy-looking runs meaningless. This skill
 exists because those failures have cost real time more than once.
 
-**Rule: never report a gate as passing without quoting the line that proves it ran.**
+**Rule: never report a gate as passing without quoting the decisive line that proves it ran. Pick
+one smallest sufficient gate first; do not stack broad gates unless each covers a distinct plausible
+failure path.**
 
 ## The false-green traps
 
@@ -25,10 +27,11 @@ Check these before believing any result.
   lint, or typecheck result as void until `npm ci` has run. Its own failure message says as much.
 - **`verify:cheap` stops at the first failing check.** Everything after that point never ran. Do not
   describe the change as broadly verified when the gate died at check 2 of 35.
-- **Changed-file formatting is required in CI but is not part of `verify:cheap`.** During iteration,
-  format only task-owned files. Before a push, follow `AGENTS.md`: from an isolated or otherwise
-  fully owned worktree run `npm run format`, review the complete formatter diff, and commit it.
-  Never sweep a shared dirty checkout that contains another task's work.
+- **Changed-file formatting is required in CI but is not part of `verify:cheap`.** A locally green
+  `verify:cheap` can still fail CI on formatting. During iteration, format only task-owned files.
+  Before a push, follow `AGENTS.md`: from an isolated or otherwise fully owned worktree run
+  `npm run format`, review the complete formatter diff, and commit it. Never sweep a shared dirty
+  checkout that contains another task's work.
 - **Piping a gate into `tail` or `head` masks its exit code.** In Bash, capture `${PIPESTATUS[0]}`,
   or check the exit status before piping.
 

@@ -48,7 +48,27 @@ fi
 
 if [ -x "$NODE_BIN/node" ]; then
   export PATH="$NODE_BIN:$PATH"
-  echo "export PATH=\"$NODE_BIN:\$PATH\"" >> "$CLAUDE_ENV_FILE"
+  # CLAUDE_ENV_FILE and CLAUDE_PROJECT_DIR below are set by Claude Code when this
+  # runs as a hook, and unset when a human or agent runs it by hand. Under
+  # `set -u` an unguarded expansion aborts the script — and it aborts *here*,
+  # after the tarball has downloaded and after PATH is exported only inside this
+  # soon-to-exit child process, but before that PATH can be persisted for the
+  # caller and before the install below. The operator sees a failure and cannot
+  # tell the download actually succeeded.
+  #
+  # That matters because manual invocation is not a hypothetical: SessionStart
+  # hooks do not re-fire when a long-lived session re-bases onto a newer main, so
+  # a session that predates this file acquires it without ever running it, stays
+  # on the container's older Node, and then fails `check:runtime` — the first
+  # step of verify:pr-local — for every diff. Running this script is the remedy,
+  # so it has to work when run.
+  if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+    echo "export PATH=\"$NODE_BIN:\$PATH\"" >> "$CLAUDE_ENV_FILE"
+  else
+    echo "[session-start] CLAUDE_ENV_FILE is unset (run by hand?); PATH is active only inside this hook process."
+    echo "[session-start] To keep it in your invoking shell, run this command there:"
+    echo "export PATH=\"$NODE_BIN:\$PATH\""
+  fi
 fi
 
 if ! supported_runtime "$(node -v 2>/dev/null | sed -E 's/^v//' || true)"; then
@@ -57,22 +77,35 @@ fi
 
 echo "[session-start] Using node $(node -v) / npm $(npm -v)"
 
-cd "$CLAUDE_PROJECT_DIR"
+# Fall back to the repository this script lives in, derived from its own path
+# rather than from the caller's cwd, so a manual run installs into the right tree
+# from anywhere.
+cd "${CLAUDE_PROJECT_DIR:-"$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"}"
 # npm ci keeps the lockfile untouched (npm install rewrites peer/optional
 # metadata and dirties the worktree). A bare "node_modules exists" check is not
 # enough: a cached container keeps stale node_modules after dependency-bumping
 # merges, which surfaces as fake typecheck/test regressions (2026-07-19 audit).
 # Stamp the lockfile hash after a successful install and reinstall whenever the
 # lockfile no longer matches the stamp.
-LOCK_STAMP="node_modules/.session-start-lock-hash"
+# Keep this marker inside node_modules/.cache. npm's postinstall records a
+# trusted file inventory of node_modules (scripts/check-installed-lock-parity.mjs
+# --write-stamp), and this hook writes its own marker *after* that runs — so a
+# marker written directly into node_modules/ leaves the tree one file ahead of
+# the stamp and fails check:installed-lock-parity, which is the first real step
+# of verify:pr-local. `.cache` is in that check's VOLATILE_DIRECTORIES set, so a
+# marker there is ignored by the inventory while still being wiped by npm ci
+# along with the rest of node_modules, preserving the staleness semantics below.
+LOCK_STAMP="node_modules/.cache/session-start-lock-hash"
 lock_hash="$(sha256sum package-lock.json | cut -d' ' -f1)"
 if [ ! -d node_modules ]; then
   npm ci --no-audit --no-fund
+  mkdir -p "$(dirname "$LOCK_STAMP")"
   echo "$lock_hash" > "$LOCK_STAMP"
   echo "[session-start] Dependencies installed"
 elif [ ! -f "$LOCK_STAMP" ] || [ "$(cat "$LOCK_STAMP")" != "$lock_hash" ]; then
   echo "[session-start] node_modules is stale for the current lockfile, reinstalling"
   npm ci --no-audit --no-fund
+  mkdir -p "$(dirname "$LOCK_STAMP")"
   echo "$lock_hash" > "$LOCK_STAMP"
   echo "[session-start] Dependencies reinstalled"
 else

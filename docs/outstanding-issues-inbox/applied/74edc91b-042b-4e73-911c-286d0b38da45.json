@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "74edc91b-042b-4e73-911c-286d0b38da45",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#235",
+    "outcome": "DELIVERED — verified on main 2026-08-14. ADOPTION.md:318 section 7 now lists proof targets for all six surfaces, and section 7.1 records per-surface executable evidence with its focused owner/check. PR #1842 merged."
+  }
+}

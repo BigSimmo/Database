@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "31650c87-cfea-4a98-88e1-bd41b44c12b2",
+  "createdOn": "2026-08-14",
+  "action": "can\u0063el",
+  "payload": {
+    "requestId": "e1506952-64c6-472f-9da4-812f8d69b483",
+    "reason": "Superseded by request 8621298b-db72-4960-818a-66ae49a3977f, which records that the matcher was subsequently lost from main, distinguishes eight exact blob reversions from three later-evolved files, and moves the one-edit cap into the #1800 re-land."
+  }
+}

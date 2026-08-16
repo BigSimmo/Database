@@ -120,7 +120,13 @@ export function mergeRegistryRecordWithDefault(kind: RegistryRecordKind, row: Re
     >;
   }
   if (row.catalog_payload !== null) {
-    merged.catalogPayload = { ...(baseline.catalogPayload ?? {}), ...(ownerRecord.catalogPayload ?? {}) };
+    const catalogPayload = { ...(baseline.catalogPayload ?? {}), ...(ownerRecord.catalogPayload ?? {}) };
+    if (kind === "service") {
+      const tags = catalogPayload.tags;
+      merged.catalogPayload = typeof tags === "object" && tags !== null ? { tags } : {};
+    } else {
+      merged.catalogPayload = catalogPayload;
+    }
   }
 
   return merged;

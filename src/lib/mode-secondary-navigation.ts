@@ -57,10 +57,11 @@ export const modeSecondaryNavigationRegistry = {
   ],
   prescribing: [],
   tools: [],
+  calculators: [],
   // Inert: `PageSecondaryNavigation` early-returns on `/therapy-compass*`, and
   // the mode's live destination list is `useTherapyNavItems` in
   // `src/components/therapy-compass/nav.tsx`, which feeds the shared `ModeNav`.
-  // Kept because this registry is a 13-mode contract, not because it renders.
+  // Kept because this registry is a 14-mode contract, not because it renders.
   // Editing these entries changes nothing a user sees.
   "therapy-compass": [
     { id: "search", label: "Search", action: "therapy-search" },
@@ -118,7 +119,9 @@ export const MODE_NAV_ADOPTED_MODES = [
   "factsheets",
 ] as const satisfies readonly AppModeId[];
 
-export function modeUsesHeaderModeNav(modeId: AppModeId): boolean {
+export type ModeNavAdoptedMode = (typeof MODE_NAV_ADOPTED_MODES)[number];
+
+export function modeUsesHeaderModeNav(modeId: AppModeId): modeId is ModeNavAdoptedMode {
   return (MODE_NAV_ADOPTED_MODES as readonly AppModeId[]).includes(modeId);
 }
 

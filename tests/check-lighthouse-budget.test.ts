@@ -11,6 +11,8 @@ import {
   expectedBudgetRuns,
   gradeRun,
   incompleteBudgetEvidence,
+  majorityBreachDecision,
+  numericBreachConfirmationRuns,
   readReports,
   renderBudgetTable,
 } from "../scripts/check-lighthouse-budget.mjs";
@@ -351,6 +353,34 @@ describe("compareToLighthouseBudget", () => {
   });
 });
 
+describe("numeric breach confirmation", () => {
+  const baseline = baselineFromRows(completeRows());
+
+  it("targets only cells with a numeric breach", () => {
+    const rows = completeRows({ "mobile-dsm": { lcpMs: 4000 }, "desktop-forms": { cls: 0.2 } });
+    expect(numericBreachConfirmationRuns(rows, budget({ baseline }))).toEqual(["desktop-forms", "mobile-dsm"]);
+  });
+
+  it("does not turn missing evidence into a numeric retry", () => {
+    const rows = completeRows().filter((entry: Row) => entry.run !== "mobile-dsm");
+    expect(numericBreachConfirmationRuns(rows, budget({ baseline }))).toEqual([]);
+  });
+
+  it("requires two breached samples out of three", () => {
+    expect(majorityBreachDecision([true, true, false])).toEqual({ breached: true, breachCount: 2, sampleCount: 3 });
+    expect(majorityBreachDecision([true, false, false])).toEqual({
+      breached: false,
+      breachCount: 1,
+      sampleCount: 3,
+    });
+  });
+
+  it("fails closed when the three-sample set is incomplete", () => {
+    expect(majorityBreachDecision([true, false])).toBeNull();
+    expect(majorityBreachDecision([true, false, undefined])).toBeNull();
+  });
+});
+
 describe("baselineFromRows", () => {
   it("records the graded metrics per run, sorted for a stable diff", () => {
     const baseline = baselineFromRows([row("mobile-root", { lcpMs: 1200 }), row("desktop-root", { lcpMs: 900 })]);
@@ -437,6 +467,14 @@ describe("committed lighthouse-budget.json", () => {
     expect(runner).toContain('detached: process.platform !== "win32"');
   });
 
+  it("uses two targeted confirmations and restores the initial breach when evidence is incomplete", () => {
+    const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
+
+    expect(runner).toContain("for (let attempt = 1; attempt <= 2; attempt += 1)");
+    expect(runner).toContain("majorityBreachDecision(samples)");
+    expect(runner).toMatch(/if \(unavailable \|\| !decision\) \{\s*copyFileSync\(initial, target\.output\)/);
+  });
+
   it("bounds each Lighthouse process independently of its navigation timeout", () => {
     const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
 
@@ -469,8 +507,12 @@ describe("measurementFailureReason", () => {
     expect(measurementFailureReason(0, report())).toBeNull();
   });
 
-  it("flags a non-zero exit", () => {
+  it("flags a non-zero exit that wrote no report", () => {
     expect(measurementFailureReason(1, null)).toContain("exited 1");
+  });
+
+  it("grades a parseable report even when post-measurement cleanup exits non-zero", () => {
+    expect(measurementFailureReason(1, report())).toBeNull();
   });
 
   it("flags a run that was killed without a status", () => {
@@ -521,7 +563,7 @@ describe("readReports", () => {
 
       expect(readReports(directory).map((entry: { run: string }) => entry.run)).toEqual(["mobile-root"]);
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });

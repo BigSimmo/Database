@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 import { afterEach, describe, expect, it } from "vitest";
 import { childProcessExitCode, childProcessFailureSummary } from "../scripts/child-process-result.mjs";
 import {
@@ -16,17 +17,82 @@ import { acquireHeavyRunLock, testRunLockInternals } from "../scripts/test-run-l
 import { typescriptBuildInfoPath, vitestCacheDirectory } from "../scripts/test-cache-path.mjs";
 import { vitestLeaseMode } from "../scripts/test-run-selection.mjs";
 import { redactSensitiveText } from "../scripts/sensitive-text.mjs";
+import { recursiveRemovalRetryOptions, removePathSync } from "../scripts/retryable-fs.mjs";
 
 const temporaryDirectories: string[] = [];
 
 afterEach(() => {
-  for (const directory of temporaryDirectories.splice(0)) rmSync(directory, { recursive: true, force: true });
+  for (const directory of temporaryDirectories.splice(0)) removePathSync(directory, { recursive: true });
 });
 
 function temporaryDirectory(prefix: string) {
   const directory = mkdtempSync(path.join(os.tmpdir(), prefix));
   temporaryDirectories.push(directory);
   return directory;
+}
+
+function sourceFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const filePath = path.join(directory, entry.name);
+    if (entry.isDirectory()) return sourceFiles(filePath);
+    return /\.(?:test|spec)\.[jt]sx?$/.test(entry.name) ? [filePath] : [];
+  });
+}
+
+function propertyAssignment(
+  objectLiteral: ts.ObjectLiteralExpression,
+  name: string,
+): ts.PropertyAssignment | undefined {
+  return objectLiteral.properties.find(
+    (property): property is ts.PropertyAssignment =>
+      ts.isPropertyAssignment(property) &&
+      (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) &&
+      property.name.text === name,
+  );
+}
+
+function isRmSyncCall(expression: ts.LeftHandSideExpression) {
+  return (
+    (ts.isIdentifier(expression) && expression.text === "rmSync") ||
+    (ts.isPropertyAccessExpression(expression) && expression.name.text === "rmSync")
+  );
+}
+
+function scriptKindFor(filePath: string) {
+  switch (path.extname(filePath)) {
+    case ".js":
+      return ts.ScriptKind.JS;
+    case ".jsx":
+      return ts.ScriptKind.JSX;
+    case ".tsx":
+      return ts.ScriptKind.TSX;
+    default:
+      return ts.ScriptKind.TS;
+  }
+}
+
+function unsafeRecursiveRmSyncCalls(sourceText: string, filePath: string): string[] {
+  const sourceFile = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true, scriptKindFor(filePath));
+  const unsafe: string[] = [];
+
+  const visit = (node: ts.Node) => {
+    if (ts.isCallExpression(node) && isRmSyncCall(node.expression)) {
+      const options = node.arguments[1];
+      if (options && ts.isObjectLiteralExpression(options)) {
+        const recursive = propertyAssignment(options, "recursive");
+        if (recursive?.initializer.kind === ts.SyntaxKind.TrueKeyword) {
+          const retries = propertyAssignment(options, "maxRetries");
+          const retryCount =
+            retries && ts.isNumericLiteral(retries.initializer) ? Number(retries.initializer.text) : Number.NaN;
+          if (!Number.isFinite(retryCount) || retryCount <= 0) unsafe.push(node.getText(sourceFile));
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+
+  visit(sourceFile);
+  return unsafe;
 }
 
 function requireLeasePath(lease: { path?: string }) {
@@ -57,6 +123,57 @@ describe("child process results", () => {
     const result = spawnSync(`clinical-kb-missing-command-${Date.now()}`, []);
     expect(result.error).toBeTruthy();
     expect(childProcessExitCode(result)).toBe(1);
+  });
+});
+
+describe("temporary path cleanup", () => {
+  it("uses Windows-tolerant recursive removal for ephemeral runner state", () => {
+    expect(recursiveRemovalRetryOptions).toEqual({ maxRetries: 5, retryDelay: 100 });
+    const directory = temporaryDirectory("clinical-kb-retryable-removal-");
+    writeFileSync(path.join(directory, "artifact.txt"), "temporary", "utf8");
+    removePathSync(directory, { recursive: true });
+    expect(existsSync(directory)).toBe(false);
+  });
+
+  it("retries transient file removal failures that Node only retries recursively", () => {
+    let calls = 0;
+    removePathSync(
+      "ignored",
+      {},
+      {
+        remove() {
+          calls += 1;
+          if (calls < 3) throw Object.assign(new Error("handle retained"), { code: "EPERM" });
+        },
+      },
+    );
+    expect(calls).toBe(3);
+  });
+
+  it("keeps lock and browser runners on the shared cleanup path", () => {
+    for (const runner of ["test-run-lock.mjs", "run-playwright.mjs", "run-lighthouse-budget.mjs"]) {
+      const source = readFileSync(new URL(`../scripts/${runner}`, import.meta.url), "utf8");
+      expect(source).toContain('import { removePathSync } from "./retryable-fs.mjs";');
+      expect(source).not.toContain("rmSync(");
+    }
+  });
+
+  it("scopes retry validation to each rmSync options object regardless of option order", () => {
+    const sourceText = `
+    rmSync("unsafe", { recursive: true }); // maxRetries: 5
+    "maxRetries: 5";
+    rmSync("safe", { maxRetries: 5, recursive: true });
+    fs.rmSync("also-safe", { recursive: true, maxRetries: 5 });
+  `;
+    expect(unsafeRecursiveRmSyncCalls(sourceText, "fixture.ts")).toEqual(['rmSync("unsafe", { recursive: true })']);
+  });
+
+  it("requires bounded retries for every recursive test-fixture cleanup", () => {
+    const testsRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
+    for (const filePath of sourceFiles(testsRoot)) {
+      const unsafe = unsafeRecursiveRmSyncCalls(readFileSync(filePath, "utf8"), filePath);
+      expect(unsafe, `${filePath}\n${unsafe.join("\n")}`).toEqual([]);
+    }
   });
 });
 
@@ -654,13 +771,16 @@ describe("provider-safe test environment", () => {
 
   it("keeps residual source surfaces visible without lowering the core coverage floor", () => {
     const config = readFileSync(new URL("../vitest.config.mts", import.meta.url), "utf8");
+    const coverageContract = readFileSync(new URL("../scripts/coverage-contract.mjs", import.meta.url), "utf8");
+    expect(config).toContain('import { COVERAGE_INCLUDE_GLOBS } from "./scripts/coverage-contract.mjs"');
+    expect(config).toContain("include: [...COVERAGE_INCLUDE_GLOBS]");
     for (const pattern of [
       '"src/**/*.{ts,tsx}"',
       '"scripts/**/*.{ts,mjs,cjs}"',
       '"worker/**/*.ts"',
       '"supabase/functions/**/*.ts"',
     ]) {
-      expect(config).toContain(pattern);
+      expect(coverageContract).toContain(pattern);
     }
     expect(config).toContain('"src/{lib/**/*.ts,app/**/route.ts,components/**/*.{ts,tsx}}"');
     expect(config).not.toContain('"src/app/**/{page,layout,loading,error,not-found}.tsx"');

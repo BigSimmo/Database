@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   clientChunkNamesFromManifestSource,
+  clientRouteAndChunkNamesFromManifestSource,
   compareToBudget,
   EXIT_FAILSAFE_MS,
   exitProcess,
@@ -13,8 +14,11 @@ import {
   initialDashboardChunkNames,
   measureChunkPaths,
   measureChunks,
+  measureBudgetRoutes,
   MOCKUP_ROUTE_SEGMENT,
+  normalizeManifestRoute,
   partitionRouteClientChunks,
+  resolveBaselineSource,
 } from "../scripts/check-bundle-budget.mjs";
 
 const buf = (n: number) => Buffer.alloc(n, "a"); // highly compressible; gzip < raw
@@ -46,7 +50,7 @@ describe("measureChunkPaths", () => {
       expect(m.totalRawBytes).toBe(5000);
       expect(m.largest[0].name.endsWith("b.js")).toBe(true);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });
@@ -166,7 +170,7 @@ describe("check-bundle-budget CLI exit", () => {
       expect(result.stdout).toContain("[bundle-budget] done.");
       expect(Date.now() - started).toBeLessThan(5_000);
     } finally {
-      rmSync(sandbox, { recursive: true, force: true });
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -179,7 +183,7 @@ describe("check-bundle-budget CLI exit", () => {
       expect(result.stdout).toContain("production (what users download");
       expect(result.stdout).toContain(`${MOCKUP_ROUTE_SEGMENT} (design scratch, 404s in production`);
     } finally {
-      rmSync(sandbox, { recursive: true, force: true });
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -192,7 +196,7 @@ describe("check-bundle-budget CLI exit", () => {
       expect(result.code).toBe(1);
       expect(result.stderr).toContain("cannot separate production weight");
     } finally {
-      rmSync(sandbox, { recursive: true, force: true });
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -209,7 +213,7 @@ describe("check-bundle-budget CLI exit", () => {
       expect(result.code).toBe(1);
       expect(result.stderr).toContain("could not be decoded");
     } finally {
-      rmSync(sandbox, { recursive: true, force: true });
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });
@@ -256,6 +260,34 @@ describe("compareToBudget", () => {
     expect(v.status).toBe("fail");
     expect(v.overPct).toBe(Number.POSITIVE_INFINITY);
     expect(v.reason).toContain("+∞%");
+  });
+});
+
+describe("bundle baseline provenance", () => {
+  const gitHead = "A".repeat(40);
+
+  it("prefers an explicit measurement source and normalizes it", () => {
+    const readHead = vi.fn(() => "b".repeat(40));
+    expect(resolveBaselineSource({ BUNDLE_BUDGET_SOURCE_SHA: gitHead }, readHead)).toBe(gitHead.toLowerCase());
+    expect(readHead).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the current Git head and rejects malformed candidates", () => {
+    expect(resolveBaselineSource({ GITHUB_SHA: "not-a-sha" }, () => "b".repeat(40))).toBe("b".repeat(40));
+    expect(resolveBaselineSource({}, () => "still-not-a-sha")).toBeNull();
+  });
+});
+
+describe("committed route bundle budgets", () => {
+  it("covers the same five journeys as Lighthouse with enforced numeric baselines", () => {
+    const bundle = JSON.parse(readFileSync(path.resolve("bundle-budget.json"), "utf8"));
+    const lighthouse = JSON.parse(readFileSync(path.resolve("lighthouse-budget.json"), "utf8"));
+
+    expect(Object.keys(bundle.routes)).toEqual(lighthouse.routes);
+    for (const routeBudget of Object.values(bundle.routes) as Array<{ gzipBytes: unknown; tolerancePct: unknown }>) {
+      expect(routeBudget.gzipBytes).toEqual(expect.any(Number));
+      expect(routeBudget.tolerancePct).toBe(10);
+    }
   });
 });
 
@@ -316,7 +348,11 @@ describe("production vs mockup chunk attribution", () => {
   /** Build an injectable fake of `.next/server/app` from a path -> contents map. */
   function fakeTree(files: Record<string, string>) {
     const readDir = (dir: string) => {
-      const prefix = dir.endsWith("/") ? dir : `${dir}/`;
+      // `partitionRouteClientChunks` correctly uses the host path separator.
+      // The fixture map is deliberately repository-style POSIX paths, so make
+      // the fake filesystem accept Windows paths as well.
+      const normalizedDir = dir.replaceAll("\\", "/");
+      const prefix = normalizedDir.endsWith("/") ? normalizedDir : `${normalizedDir}/`;
       const names = new Set<string>();
       const out: { name: string; isDirectory: () => boolean; isFile: () => boolean }[] = [];
       for (const full of Object.keys(files)) {
@@ -330,13 +366,19 @@ describe("production vs mockup chunk attribution", () => {
       }
       return out;
     };
-    return { readDir, readFile: (p: string) => files[p] };
+    return { readDir, readFile: (p: string) => files[p.replaceAll("\\", "/")] };
   }
 
   it("parses chunk names out of a route client-reference manifest", () => {
     const names = clientChunkNamesFromManifestSource(manifest("/page", ["a.js", "b.js"]));
     expect(names).toBeInstanceOf(Set);
     expect([...(names ?? [])]).toEqual(["a.js", "b.js"]);
+  });
+
+  it("normalizes route groups and page manifest keys", () => {
+    expect(normalizeManifestRoute("/page")).toBe("/");
+    expect(normalizeManifestRoute("/(search-app)/documents/search/page")).toBe("/documents/search");
+    expect(clientRouteAndChunkNamesFromManifestSource(manifest("/forms/page", ["forms.js"]))?.route).toBe("/forms");
   });
 
   it("returns null rather than an empty set on an unparseable manifest", () => {
@@ -360,6 +402,37 @@ describe("production vs mockup chunk attribution", () => {
     expect(result.routeCount).toBe(2);
     expect(result.mockupRouteCount).toBe(1);
     expect(result.unparseable).toEqual([]);
+    expect([...result.routeChunks.get("/")!]).toEqual(["shared.js"]);
+  });
+
+  it("measures shared and route-local chunks for every configured route", () => {
+    const measured = [
+      { name: "shared.js", gzipBytes: 100 },
+      { name: "root.js", gzipBytes: 40 },
+      { name: "forms.js", gzipBytes: 60 },
+    ];
+    const routeChunks = new Map([
+      ["/", new Set(["shared.js", "root.js"])],
+      ["/forms", new Set(["shared.js", "forms.js"])],
+    ]);
+    const result = measureBudgetRoutes(measured, routeChunks, {
+      "/": { gzipBytes: 140 },
+      "/forms": { gzipBytes: 160 },
+    });
+
+    expect(result.missing).toEqual([]);
+    expect(result.measured).toEqual({
+      "/": { gzipBytes: 140, chunks: 2 },
+      "/forms": { gzipBytes: 160, chunks: 2 },
+    });
+  });
+
+  it("fails closed when a configured route has no manifest", () => {
+    const result = measureBudgetRoutes([], new Map([["/", new Set()]]), {
+      "/": { gzipBytes: 0 },
+      "/missing": { gzipBytes: 0 },
+    });
+    expect(result.missing).toEqual(["/missing"]);
   });
 
   it("treats nested mockup routes as scratch and API route manifests as production", () => {

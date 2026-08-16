@@ -8,11 +8,10 @@ import {
   Bookmark,
   BookmarkCheck,
   CircleCheck,
-  ChevronRight,
   Clipboard,
-  Copy,
   DollarSign,
   Globe2,
+  HeartHandshake,
   Info,
   LayoutGrid,
   Mail,
@@ -45,7 +44,6 @@ import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
 import { ServiceReferralFlow } from "@/components/services/service-referral-flow";
 import { appModeHomeHref } from "@/lib/app-modes";
-import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import { compactCatalogField } from "@/lib/compact-best-use-title";
 import { serviceCoreGroupIds, serviceCoreGroups } from "@/lib/service-core-groups";
 import {
@@ -56,6 +54,7 @@ import {
   type ServiceRecord,
   type ServiceStatusChip,
   type ServiceSummaryCard,
+  type ServiceVerification,
 } from "@/lib/service-ranker";
 import { useAccountData } from "@/components/account-data-provider";
 
@@ -94,11 +93,31 @@ function summaryCardIsRenderable(card: ServiceSummaryCard) {
   return hasText(card.title) && !/\|/.test(card.title ?? "");
 }
 
+function dedupeSummaryCardDetails(cards: ServiceSummaryCard[]) {
+  const seenDetails = new Set<string>();
+
+  return cards.map((card) => {
+    if (!hasText(card.detail)) return card;
+    const detailKey = normalizeTagForList(card.detail);
+    const titleKey = hasText(card.title) ? normalizeTagForList(card.title) : undefined;
+    if (detailKey === titleKey || seenDetails.has(detailKey)) return { ...card, detail: undefined };
+    seenDetails.add(detailKey);
+    return card;
+  });
+}
+
 function chipToneClass(tone: ServiceStatusChip["tone"] | undefined | null) {
   if (tone === "danger") return toneDanger;
   if (tone === "info") return toneInfo;
   if (tone === "warning") return toneWarning;
   if (tone === "success") return toneSuccess;
+  return toneNeutral;
+}
+
+function confidenceToneClass(confidence: ServiceVerification["confidence"]) {
+  if (confidence === "High") return toneSuccess;
+  if (confidence === "Medium") return toneWarning;
+  if (confidence === "Low") return toneDanger;
   return toneNeutral;
 }
 
@@ -159,7 +178,7 @@ function contactHref(contact: ServiceContact | null | undefined) {
     return compact ? `tel:${compact}` : undefined;
   }
   if (contact.kind === "email") return `mailto:${value}`;
-  if (contact.kind === "web") return value;
+  if (contact.kind === "web") return /^https?:\/\//i.test(value) ? value : undefined;
   return undefined;
 }
 
@@ -167,15 +186,32 @@ function hrefIsExternal(href: string | undefined) {
   return Boolean(href && /^https?:\/\//i.test(href));
 }
 
+function actionDestinationIdentity(href: string | undefined) {
+  if (!href) return undefined;
+  if (!hrefIsExternal(href)) return href;
+
+  try {
+    const url = new URL(href);
+    url.hash = "";
+    url.pathname = url.pathname.replace(/\/+$/, "") || "/";
+    return url.toString();
+  } catch {
+    return href;
+  }
+}
+
 function summaryCardsFor(service: ServiceRecord): ServiceSummaryCard[] {
   if (Array.isArray(service.summaryCards)) {
-    return service.summaryCards
+    const cards = service.summaryCards
       .map((card) => ({
         ...card,
         title: hasText(card.title) ? compactCatalogField(card.title, 120) : card.title,
         detail: hasText(card.detail) ? compactCatalogField(card.detail, 120) : undefined,
       }))
       .filter(summaryCardIsRenderable);
+
+    if (cards.length > 0 || !hasText(service.bestUse)) return cards;
+    return [{ id: "best-use", label: "Best use", title: bestUseCardTitle(service.bestUse) }];
   }
 
   const cards: ServiceSummaryCard[] = [];
@@ -255,7 +291,7 @@ function dedupeTagItems(items: string[]) {
  */
 export const serviceNavSections: readonly PageSection[] = [
   { id: "service-overview", label: "Overview", icon: Info },
-  { id: "service-quick-facts", label: "Quick facts", icon: LayoutGrid },
+  { id: "service-priority-facts", label: "Priority facts", icon: LayoutGrid },
   { id: "service-referral", label: "Referral", icon: Clipboard },
   { id: "service-criteria", label: "Criteria", icon: ShieldCheck },
   { id: "service-verification", label: "Verification", icon: BadgeCheck },
@@ -284,9 +320,9 @@ function Section({
         "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]",
       )}
     >
-      <div className="border-b border-[color:var(--border)] px-3 py-3 sm:px-4">
-        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+      <div className="border-b border-[color:var(--border)] px-3 py-2.5 sm:px-4 sm:py-3">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2.5">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
             <Icon className="h-4 w-4" aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
@@ -296,49 +332,46 @@ function Section({
           {action ? <div className="shrink-0">{action}</div> : null}
         </div>
       </div>
-      <div className="p-3 sm:p-4">{children}</div>
+      <div className="p-2.5 sm:p-3">{children}</div>
     </section>
   );
 }
 
 function SummaryCard({ card }: { card: ServiceSummaryCard }) {
+  const isCost = card.id === "cost";
+
   return (
-    <article className="group min-h-[6.25rem] rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface)]">
-      <div className="mb-2 flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+    <article
+      className={cn(
+        "min-h-[7.25rem] rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:min-h-[7.75rem]",
+        isCost && "border-[color:var(--success-border)] bg-[color:var(--success-soft)]/25",
+      )}
+    >
+      <div className="flex items-start gap-2.5">
+        <span
+          className={cn(
+            "grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]",
+            isCost && "bg-[color:var(--success-soft)] text-[color:var(--success)]",
+          )}
+        >
           {renderSummaryIcon(card)}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-[color:var(--text-muted)]">{displayText(card.label, "Detail")}</p>
-          <h3 className="mt-0.5 text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
+          <p className="text-2xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
+            {displayText(card.label, "Detail")}
+          </p>
+          <h3 className="mt-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)] sm:text-base-minus">
             {displayText(card.title)}
           </h3>
         </div>
-        <ChevronRight
-          className="mt-2 h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition group-hover:text-[color:var(--clinical-accent)]"
-          aria-hidden
-        />
       </div>
-      {hasText(card.detail) ? (
-        <p className={cn("pl-[3.25rem] text-xs leading-5", textMuted)}>{card.detail.trim()}</p>
-      ) : null}
+      {hasText(card.detail) ? <p className={cn("mt-2 text-xs leading-5", textMuted)}>{card.detail.trim()}</p> : null}
     </article>
   );
 }
 
-/**
- * Displays referral information rows with their values and copy actions.
- *
- * @param rows - The referral information rows to display
- * @param onCopy - Callback invoked with a row value and feedback label when copying is requested
- */
-function ReferralTable({
-  rows,
-  onCopy,
-}: {
-  rows: ServiceInfoRow[];
-  onCopy: (value: string | null | undefined, label: string) => void;
-}) {
+/** Compact scan-first referral facts. Direct actions live in the referral band above. */
+function ReferralTable({ rows }: { rows: ServiceInfoRow[] }) {
   if (!rows.length) {
     return (
       <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm">
@@ -349,49 +382,34 @@ function ReferralTable({
   }
 
   return (
-    <div className="space-y-2">
+    <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
       {rows.map((row, index) => {
         const isPrimary = index === 0;
         const isCost = row.label.toLowerCase().includes("cost");
 
         return (
-          <article
+          <div
             key={`${row.label}-${index}`}
             className={cn(
-              "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]",
+              "grid grid-cols-[2rem_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 shadow-[var(--shadow-inset)]",
               isPrimary && "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/35",
               isCost && "bg-[color:var(--success-soft)]/25",
             )}
           >
-            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2.5 sm:grid-cols-[auto_minmax(8rem,0.55fr)_minmax(0,1fr)_auto] sm:items-center">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-inset)]">
-                {renderRowIcon(row.label)}
-              </span>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">{row.label}</h3>
-                {isPrimary ? (
-                  <p className="mt-0.5 text-xs font-medium leading-4 text-[color:var(--clinical-accent)]">
-                    Primary access route
-                  </p>
-                ) : null}
-              </div>
-              <p className="col-start-2 min-w-0 whitespace-pre-line break-words text-sm font-medium leading-6 text-[color:var(--text-heading)] sm:col-start-auto">
-                {displayText(row.value)}
-              </p>
-              <button
-                type="button"
-                disabled={!hasText(row.value)}
-                onClick={() => onCopy(row.value, `${row.label} copied`)}
-                aria-label={`Copy ${row.label}`}
-                className="inline-grid h-tap w-tap place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Copy className="h-4 w-4" aria-hidden />
-              </button>
-            </div>
-          </article>
+            <span className="row-span-2 grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-inset)]">
+              {renderRowIcon(row.label)}
+            </span>
+            <dt className="min-w-0 text-2xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
+              {row.label}
+              {isPrimary ? <span className="sr-only">, primary access route</span> : null}
+            </dt>
+            <dd className="mt-0.5 min-w-0 whitespace-pre-line break-words text-sm font-medium leading-5 text-[color:var(--text-heading)]">
+              {displayText(row.value)}
+            </dd>
+          </div>
         );
       })}
-    </div>
+    </dl>
   );
 }
 
@@ -500,7 +518,19 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   const ContactActionIcon = primaryContact?.kind === "email" ? Mail : primaryContact?.kind === "web" ? Globe2 : Phone;
   const contactActionLabel =
     primaryContact?.kind === "email" ? "Email" : primaryContact?.kind === "web" ? "Open website" : "Call";
+  const contactLabel = contactDisplayValue(primaryContact);
   const verified = service.verification?.locallyVerified === true;
+  const readinessActionHref = callHref ?? sourceHref;
+  const readinessActionLabel = callHref
+    ? primaryContact?.kind === "phone" && contactLabel
+      ? `Call ${contactLabel}`
+      : contactActionLabel
+    : "Confirm at source";
+  const ReadinessActionIcon = callHref ? ContactActionIcon : Globe2;
+  const ReadinessStatusIcon = verified ? BadgeCheck : TriangleAlert;
+  const showSourceAction = Boolean(
+    sourceHref && actionDestinationIdentity(sourceHref) !== actionDestinationIdentity(callHref),
+  );
   const preferredCardOrder = ["best-use", "eligibility", "route", "cost"] as const;
   const summaryCardById = new Map(summaryCards.map((card) => [card.id, card]));
   const compactSummaryCards = preferredCardOrder
@@ -509,37 +539,24 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   const leftoverCards = summaryCards.filter(
     (card) => !preferredCardOrder.includes(card.id as (typeof preferredCardOrder)[number]),
   );
-  const visibleSummaryCards = [...compactSummaryCards, ...leftoverCards.filter(summaryCardIsRenderable)];
-  const compactedBestUse = hasText(service.bestUse) ? compactCatalogField(service.bestUse, 160) : "";
+  const visibleSummaryCards = dedupeSummaryCardDetails([
+    ...compactSummaryCards,
+    ...leftoverCards.filter(summaryCardIsRenderable),
+  ]);
   const compactedSubtitle = hasText(service.subtitle) ? compactCatalogField(service.subtitle, 160) : "";
   const tagItems = dedupeTagItems([...(service.catchments ?? []), ...(service.tags ?? [])]);
   const criteria = service.criteria ?? [];
   const showReferralSection = referralRows.length > 0;
-  const showCriteriaSection = criteria.length > 0 || Boolean(compactedBestUse);
+  const showCriteriaSection = criteria.length > 0;
   const showTagsSection = tagItems.length > 0;
-  const showQuickFacts = visibleSummaryCards.length > 0;
+  const showPriorityFacts = visibleSummaryCards.length > 0;
   const meetCount = criteria.filter((item) => item.tone === "meet").length;
   const cautionCount = criteria.filter((item) => item.tone !== "meet").length;
-  const contactLabel = contactDisplayValue(primaryContact);
   const recordGroups = serviceCoreGroupIds(service);
   const localConfirmationDetail =
     service.verification?.notes?.find((note) => /hour/i.test(note)) ??
     service.verification?.notes?.find((note) => /local|confirm/i.test(note)) ??
     "Hours not public";
-
-  async function copyValue(value: string | null | undefined, label: string) {
-    if (!hasText(value)) {
-      setNotice("Nothing available to copy");
-      return;
-    }
-
-    try {
-      await copyTextToClipboard(value.trim());
-      setNotice(label);
-    } catch {
-      setNotice("Copy failed");
-    }
-  }
 
   async function toggleSaved() {
     try {
@@ -594,19 +611,6 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
               )}
               {saved ? "Remove saved service" : "Save service"}
             </button>
-            {actionableContact ? (
-              <button
-                type="button"
-                onClick={() => {
-                  close();
-                  void copyValue(primaryContact?.value, "Contact copied");
-                }}
-                className={inPageActionRowClass}
-              >
-                <Clipboard className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-                Copy contact
-              </button>
-            ) : null}
             {callHref ? (
               <a
                 href={callHref}
@@ -618,7 +622,8 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                 <ContactActionIcon className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
                 {contactActionLabel}
               </a>
-            ) : sourceHref ? (
+            ) : null}
+            {showSourceAction && sourceHref ? (
               <a
                 href={sourceHref}
                 target="_blank"
@@ -666,23 +671,35 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
           </div>
         ) : null}
 
-        <div className="mt-3 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
+        <div className="mt-3">
           <div className="min-w-0 space-y-4">
-            <section id="service-overview" className={cn(inPageAnchor, "rounded-lg bg-[color:var(--surface-lux)]")}>
-              <div className="grid items-start gap-3 sm:gap-4">
+            <section
+              id="service-overview"
+              className={cn(
+                inPageAnchor,
+                "rounded-lg border border-[color:var(--border-lux)] border-l-4 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-5",
+              )}
+            >
+              <div className="grid grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:gap-4">
+                <span className="grid size-tap place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-[4.5rem] sm:w-[4.5rem] sm:rounded-xl">
+                  <HeartHandshake className="h-5 w-5 sm:h-8 sm:w-8" aria-hidden />
+                </span>
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
-                    <h1 className="max-w-4xl text-3xl font-extrabold leading-display text-[color:var(--text-heading)] sm:text-4xl">
-                      {service.title}
-                    </h1>
-                  </div>
+                  <h1 className="max-w-4xl text-2xl font-extrabold leading-display text-[color:var(--text-heading)] sm:text-4xl">
+                    {service.title}
+                  </h1>
+                  {compactedSubtitle ? (
+                    <p className="mt-1.5 max-w-4xl text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:mt-3 sm:text-base sm:leading-6">
+                      {compactedSubtitle}
+                    </p>
+                  ) : null}
                   {service.statusChips?.length ? (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                    <div className="mt-2.5 flex flex-wrap gap-1.5 sm:mt-3">
                       {service.statusChips.map((chip, index) => (
                         <span
                           key={chip.label ?? `status-chip-${index}`}
                           className={cn(
-                            "inline-flex min-h-6 items-center gap-1.5 rounded-2xl border px-2.5 py-0.5 text-2xs font-bold",
+                            "inline-flex min-h-6 items-center gap-1.5 rounded-full border px-2 py-0.5 text-2xs font-bold sm:px-2.5",
                             chipToneClass(chip.tone),
                           )}
                         >
@@ -705,56 +722,76 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                       ) : null;
                     })}
                   </div>
-                  {compactedSubtitle ? (
-                    <p className="mt-3 max-w-4xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                      {compactedSubtitle}
-                    </p>
-                  ) : null}
                 </div>
               </div>
             </section>
 
-            <ServiceReferralFlow active="refer" />
-
             <section
               id="service-referral-readiness"
               aria-label="Referral readiness"
-              className="grid gap-3 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,0.8fr)]"
+              className="grid gap-3 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/20 p-3 shadow-[var(--shadow-inset)] sm:p-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,0.85fr)_minmax(0,0.7fr)]"
             >
-              <div className="flex min-w-0 gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-                  <Navigation className="h-5 w-5" aria-hidden />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-[color:var(--text-muted)]">Referral route</p>
-                  <h2 className="mt-0.5 break-words text-base font-semibold leading-5 text-[color:var(--text-heading)]">
-                    {hasText(service.referral) || hasText(service.route)
-                      ? compactCatalogField(hasText(service.referral) ? service.referral : (service.route ?? ""), 150)
-                      : "Confirm referral route"}
-                  </h2>
-                  <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-                    {actionableContact && contactLabel
-                      ? `${primaryContact?.label ?? "Contact"}: ${contactLabel}`
-                      : sourceHref
-                        ? "Use the source service page to confirm current contact details."
-                        : "Service-specific contact details require local confirmation."}
-                  </p>
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 flex-1 gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+                    <Navigation className="h-5 w-5" aria-hidden />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-2xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
+                      Referral route
+                    </p>
+                    <h2 className="mt-1 break-words text-base font-semibold leading-5 text-[color:var(--text-heading)]">
+                      {hasText(service.referral) || hasText(service.route)
+                        ? compactCatalogField(hasText(service.referral) ? service.referral : (service.route ?? ""), 150)
+                        : "Confirm referral route"}
+                    </h2>
+                    <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+                      {actionableContact && contactLabel
+                        ? `${primaryContact?.label ?? "Contact"}: ${contactLabel}`
+                        : sourceHref
+                          ? "Confirm the current contact at the source."
+                          : "Service-specific contact details require local confirmation."}
+                    </p>
+                  </div>
                 </div>
+                {readinessActionHref ? (
+                  <a
+                    href={readinessActionHref}
+                    target={hrefIsExternal(readinessActionHref) ? "_blank" : undefined}
+                    rel={hrefIsExternal(readinessActionHref) ? "noopener noreferrer" : undefined}
+                    className="inline-flex min-h-tap shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  >
+                    <ReadinessActionIcon className="h-4 w-4" aria-hidden />
+                    {readinessActionLabel}
+                  </a>
+                ) : null}
               </div>
               <div className="border-t border-[color:var(--border)] pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-                <div className="flex gap-3">
-                  <TriangleAlert className="mt-1 h-5 w-5 shrink-0 text-[color:var(--warning)]" aria-hidden />
+                <div className="flex gap-2.5">
+                  <ReadinessStatusIcon
+                    className={cn(
+                      "mt-0.5 h-5 w-5 shrink-0",
+                      verified ? "text-[color:var(--success)]" : "text-[color:var(--warning)]",
+                    )}
+                    aria-hidden
+                  />
                   <div>
                     <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                       {verified ? "Verified for local use" : "Verify locally before use"}
                     </p>
-                    <p className={cn("mt-1 text-xs leading-5", textMuted)}>{localConfirmationDetail}</p>
+                    <p className={cn("mt-0.5 text-xs leading-5", textMuted)}>{localConfirmationDetail}</p>
                   </div>
                 </div>
               </div>
               <div className="border-t border-[color:var(--border)] pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-                <p className="text-xs font-semibold text-[color:var(--text-muted)]">Confidence</p>
-                <span className={cn(metadataPillDensity.standard, "mt-2 inline-flex rounded-full", toneWarning)}>
+                <p className="text-2xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Confidence</p>
+                <span
+                  className={cn(
+                    metadataPillDensity.standard,
+                    "mt-2 inline-flex rounded-full",
+                    confidenceToneClass(service.verification?.confidence),
+                  )}
+                >
                   {service.verification?.confidence ?? "Unknown"}
                 </span>
                 <p className="mt-1 text-2xs leading-4 text-[color:var(--text-muted)]">
@@ -763,17 +800,24 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
               </div>
             </section>
 
-            {showQuickFacts ? (
+            {showPriorityFacts ? (
               <section
-                id="service-quick-facts"
-                aria-label="Service quick facts"
-                className={cn(inPageAnchor, "grid gap-3 pt-3 sm:grid-cols-2 sm:pt-0 xl:grid-cols-4")}
+                id="service-priority-facts"
+                aria-label="Priority facts"
+                className={cn(inPageAnchor, "space-y-2.5")}
               >
-                {visibleSummaryCards.map((card) => (
-                  <SummaryCard key={card.id} card={card} />
-                ))}
+                <h2 className="text-base-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-base">
+                  Priority facts
+                </h2>
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
+                  {visibleSummaryCards.map((card) => (
+                    <SummaryCard key={card.id} card={card} />
+                  ))}
+                </div>
               </section>
             ) : null}
+
+            <ServiceReferralFlow active="refer" />
 
             <div
               className={cn(
@@ -785,7 +829,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
             >
               {showReferralSection ? (
                 <Section id="service-referral" icon={Clipboard} title="Referral information">
-                  <ReferralTable rows={referralRows} onCopy={copyValue} />
+                  <ReferralTable rows={referralRows} />
                 </Section>
               ) : null}
 
@@ -806,13 +850,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                       </div>
                     }
                   >
-                    {compactedBestUse ? (
-                      <p className="mb-3 border-b border-[color:var(--border)] pb-3 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                        <span className="font-semibold text-[color:var(--text-heading)]">Best use:</span>{" "}
-                        {compactedBestUse}
-                      </p>
-                    ) : null}
-                    {criteria.length > 0 ? <CriteriaBoard criteria={criteria} /> : null}
+                    <CriteriaBoard criteria={criteria} />
                   </Section>
                 ) : null}
 
@@ -852,6 +890,18 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                           {service.source.status}
                         </span>
                       </>
+                    ) : null}
+                    {sourceHref ? (
+                      <a
+                        href={sourceHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="View service source"
+                        className="ml-auto inline-flex min-h-tap items-center justify-center gap-2 rounded-lg px-2.5 text-sm font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      >
+                        View source
+                        <Globe2 className="h-4 w-4" aria-hidden />
+                      </a>
                     ) : null}
                   </div>
                 </section>

@@ -1030,6 +1030,8 @@ export type RagAnswer = {
     embedding_skip_reason?: string | null;
     embedding_latency_ms?: number;
     embedding_cache_hit?: boolean;
+    /** True when this retrieval initiated an embedding warm-up flight. */
+    embedding_prefetched?: boolean;
     vector_candidate_count?: number;
     embedding_field_count?: number;
     retrieval_query_variant_count?: number;
@@ -1041,6 +1043,9 @@ export type RagAnswer = {
     context_pack_cache_hits?: number;
     answer_retry_count?: number;
     answer_retry_reasons?: string[];
+    /** Cache-version refresh plus answer-cache lookups before retrieval starts. These run
+     * inside the route budget but outside every retrieval phase timer. Additive. */
+    pre_retrieval_latency_ms?: number;
     retrieval_latency_ms?: number;
     routing_latency_ms?: number;
     search_latency_ms?: number;

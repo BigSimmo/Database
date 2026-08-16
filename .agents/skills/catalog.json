@@ -16,7 +16,6 @@
         "audit",
         "export",
         "ledger",
-        "checklist",
         "prompt-perfector"
       ]
     },

@@ -8,17 +8,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-<!-- BEGIN:context7-documentation -->
-
-# Context7 documentation routing
-
-- For version-sensitive peer-library APIs, use an available Context7 connector before relying on training data. In Codex Desktop, prefer the installed Context7 app when its tools are callable; Cursor uses the project-local server in `.cursor/mcp.json`.
-- Resolve the library name first, then query one focused topic. A user-supplied Context7 ID such as `/org/project` or `/org/project/version` may skip resolution. Prefer exact version IDs when Context7 lists the version in use.
-- Send no secrets, credentials, personal data, or proprietary source in Context7 queries. Repository `CONTEXT7_API_KEY` configuration applies to the local Cursor/CLI path and is not proof that a host-installed app is authenticated.
-- Next.js 16 is the standing exception: read `node_modules/next/dist/docs/` locally. If Context7 is unavailable or rate-limited, use the documented local `npx ctx7 library|docs` fallback or report the gap; do not invent APIs.
-
-<!-- END:context7-documentation -->
-
 <!-- BEGIN:dependency-shortcut -->
 
 ## Dependency shortcut
@@ -315,19 +304,21 @@ action must perform one; a page that ships must be reachable.
 
 # Bundle budget
 
-`check:bundle-budget` enforces **two** baselines in `bundle-budget.json`, because one number could
-not honestly answer both questions (`#013` vs `#252`, reconciled 2026-08-09):
+`check:bundle-budget` enforces **three complementary safeguards** in `bundle-budget.json`:
 
 - **`production`** — every chunk a non-mockup route reaches, plus chunks no route manifest claims
   (framework, polyfills, runtime). This is user-facing weight and the real regression guard.
   Tolerance 10%. A failure here means find the regression; do not refresh the baseline to clear it.
+- **`routes`** — client JavaScript referenced by `/`, `/therapy-compass`, `/documents/search`,
+  `/dsm`, and `/forms`, the same journeys measured by Lighthouse. Each route has a 10% tolerance,
+  so local growth cannot hide inside a still-healthy repository aggregate.
 - **`mockups`** — chunks reachable **only** from `/mockups/**`. Nobody downloads these, so this is a
   repo-hygiene ceiling for unbounded accumulation, not a per-mockup gate. Tolerance 25%.
 
 A chunk shared by a mockup and a production route counts as production — it would be built either
 way. Attribution comes from the per-route `*_client-reference-manifest.js` files under
-`.next/server/app`; if that tree is missing or resolves no routes the check **fails closed** rather
-than collapsing the two buckets.
+`.next/server/app`; if that tree is missing, resolves no routes, or omits a configured route, the
+check **fails closed** rather than collapsing the buckets or silently dropping a route.
 
 Why the split rather than a raised ceiling: measured on `main` at `af85cbc`, the repo-wide total was
 +9.96% of the old single baseline — 576 bytes from failing `Build` — while production-only was
@@ -642,7 +633,7 @@ Nothing else inherits this authorization. Only the user's own task message can t
 
 Hard guardrails (never, even during a sweep):
 
-- Never merge a pull request into `main` or any protected branch, and never enable auto-merge; the sweep fixes and reports, the user merges.
+- Never merge a pull request into `main` or any protected branch, and never enable auto-merge; the sweep fixes and reports, the user merges. Per-PR auto-merge state is user-owned: automation must not disable it. When auto-merge is already armed, do not push, update the branch/base, or perform another head-changing action; report the frozen state and leave the PR untouched until it merges or the user manually changes that state.
 - Never close a pull request, delete or rename branches, force-push, or rebase.
 - Never run provider-backed gates: `eval:rag`, `eval:quality`, `eval:retrieval:quality`, `verify:release`, `check:supabase-project`, `test:live`, or anything else that touches live Supabase/OpenAI.
 - Respect the `skip-codex-review` label as a full per-PR opt-out.
@@ -718,14 +709,12 @@ A settle-then-push addition also lands after this repo's one automatic Codex rev
 already have run against the earlier head — in practice the connector re-reviews each new
 push (observed on this same PR), but if it doesn't, request a fresh review explicitly
 before merging rather than assuming the addition was covered. **If the target PR has
-auto-merge armed, settling-then-pushing races the merge itself** — `claude/*` branches
-auto-merge on green by this repo's own default (`.claude/skills/newtask/SKILL.md`), so
-"wait for CI to settle" can mean "wait for it to squash-merge and close" before the
-bundled commit ever gets pushed, silently dropping it. `guard-push.mjs`'s auto-merge
-sentinel exists to catch this but fails open without `gh` available (observed directly
-in this repo's own sessions) — don't rely on it. Before using the settle-then-push path,
-confirm the target PR does not have auto-merge enabled, or disable it first and
-re-enable only after the bundled commit is pushed.
+auto-merge armed, settling-then-pushing races the merge itself.** Treat that PR as
+mutation-frozen: do not disable or re-enable auto-merge, push, update its branch/base, or
+otherwise change its head. Let the armed merge land, or wait for the user to manually
+change the auto-merge state before doing further branch work. `guard-push.mjs` enforces
+this for every locally pushed PR branch when authenticated `gh` is available; agent
+policy remains the backstop in environments where local hooks or `gh` are unavailable.
 Bundle only when every item being combined is:
 
 - **Independently low-risk, checked two ways — neither is exhaustive alone.**
@@ -814,15 +803,32 @@ named PR). Future process only.
   `npm run verify:pr-local` (or the smallest gate that covers the change). Format is in
   `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed
   blob. Whole-tree Prettier, not a single edited file.
-- If a `claude/*` PR has auto-merge armed, disable it before a settle-then-push bundle, push,
-  then re-enable — otherwise the first green head can squash-merge before the bundled commit
-  lands.
+- If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable
+  it. Treat the branch as mutation-frozen: no push, update-branch, base change, or bundled addition
+  until it merges or the user manually changes that state.
 - Missing CI checks are not a green pass. `pull_request` workflows do not run when GitHub
   cannot build `refs/pull/<n>/merge`. The `PR mergeability` check uses trusted
   `pull_request_target` events and refreshes unchanged PR heads after protected-base
   pushes; it fails explicitly on `mergeable_state: dirty`. Behind-but-clean heads still use
   `npm run sync:pr-branches` / `:apply` with a human `gh` identity — never bot
   `update-branch`.
+- At the first PR snapshot, collect unresolved review threads as well as check state. Triage and
+  repair clear actionable threads before waiting for the long CI tail, so a late bot finding does
+  not turn one otherwise-green run into a full second run. Reply before resolving; leave ambiguous
+  or product-sensitive threads open for the owner.
+- Babysit dormant: observe a fresh CI run only at a meaningful stage boundary, then at most once
+  every five minutes for no longer than 30 minutes per run. If it remains queued or in progress at
+  that limit, record the run URL as deferred and continue the sweep. Prefer a terminal-event wait
+  over repeated log reads, never stream logs or poll minute-by-minute, and re-read the exact
+  head/base only when a check settles or immediately before a final audit.
+- For a sweep that may need local repair, prepare one isolated, exact-lock worktree before the first
+  local gate with `node scripts/setup-codex-worktree.mjs`. It reuses only a complete byte-identical
+  install or performs the locked install once; do not create partial dependency junctions that make
+  local lint/typecheck appear unavailable.
+- When the repository merge queue is enabled, treat queue state as read-only during a Run PR sweep.
+  Report active validation capacity and failed or conflicting entries, but do not configure queue
+  concurrency/grouping or add, remove, or re-queue entries without separate explicit user
+  authorization.
 - When `gh pr checks` cannot read check runs with the current token, query the Actions runs for the
   exact head SHA instead; do not report CI as unverifiable until that read-only fallback has also
   failed.
@@ -895,8 +901,9 @@ status ledger. Update the universal ledger when work completes, is dropped, beco
 materially re-scoped. Never restore completed, duplicate, speculative, superseded, or rejected work
 to the recommended queue.
 
-- When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): read
-  `docs/outstanding-issues.md`, state the recommended queue in order, then summarize other open
+- When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): run
+  `npm run issues:report -- --json` to read the cached `origin/main` ledger with an explicit stale-state warning;
+  refresh that ref first only with provider authorization. State the recommended queue in order, then summarize other open
   items by priority. A plain `/issues` is read-only — it mutates and commits nothing.
 - `/issues add|done|update|capture …` queue immutable request files under
   `docs/outstanding-issues-inbox/`; ordinary branches never edit the canonical ledger. Commit a
@@ -1122,7 +1129,7 @@ Use `docs/codex-cloud.md` as the environment contract:
 
 Durable notes for Cloud Agents. Standard commands live in `README.md` and `package.json`; only non-obvious caveats are captured here.
 
-- Context7 peer-library docs habit (and the Next 16 local-docs carve-out) lives above and in `docs/agents-guide.md`. Project Cursor MCP is local `@upstash/context7-mcp@4.0.2` with `CONTEXT7_API_KEY` from env/Secrets. Prefer a callable host-installed Context7 app in Codex; if that path is unavailable or rate-limited, use `npx ctx7 library|docs …` with the local secret — do not invent peer APIs from training data.
+- Context7 peer-library docs habit (and the Next 16 local-docs carve-out) lives in `docs/agents-guide.md`. Project MCP is local `@upstash/context7-mcp@3.2.5` with `CONTEXT7_API_KEY` from env/Secrets. If the host-injected Context7 MCP returns quota exceeded, use `npx ctx7 library|docs …` with the same secret — do not invent peer APIs from training data.
 - Runtime: the app hard-requires Node >=24.15.0 <25 / npm 11.x (`engine-strict`; the preinstall and runtime gates enforce the minor floor, while `scripts/dev-free-port.mjs` rejects other majors). A compatible Node 24 is installed via nvm and symlinked into `/usr/local/cargo/bin` (first entry in `PATH`) so `node`/`npm` resolve to it in every shell. If a shell ever resolves `/exec-daemon/node` (v22) instead, prepend the installed nvm Node 24 bin to `PATH` (for example `"$HOME/.nvm/versions/node/v24.18.1/bin"`; run `ls "$HOME/.nvm/versions/node"` to confirm the exact patch version).
 - Live vs demo mode: the app auto-detects. When the Supabase + OpenAI env vars below are present (set them as Cloud Agent **Secrets** so they inject into `.env.local`/`process.env`), `isDemoMode()` (`src/lib/env.ts`) is false and the app runs against the live `Clinical KB Database` project (~2000 indexed docs) with OpenAI answer generation. When they are absent, dev auto-falls back to demo mode using the synthetic corpus in `src/lib/demo-data.ts` / `public/demo-documents/`. Required for live mode: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_PROJECT_REF`, `SUPABASE_PROJECT_NAME`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`sb_publishable_…`), `SUPABASE_SERVICE_ROLE_KEY` (accepts the `sb_secret_…` secret key), `OPENAI_API_KEY`. Keep `RAG_PROVIDER_MODE=auto` so OpenAI is used with graceful source-only fallback. `E2E_USER_EMAIL`/`E2E_USER_PASSWORD` power CI env-check and Playwright.
 - Live-mode caveat: `RAG_PROVIDER_MODE=auto` attempts OpenAI (fast → strong route); if generation fails the built-in quality gates it silently degrades to a deterministic "Source-only" answer that still cites real documents — this is expected, not a failure. The header sign-in UI exposes magic-link + OAuth only (no password field), but the `/api/answer` + retrieval flow works server-side without a browser session.
