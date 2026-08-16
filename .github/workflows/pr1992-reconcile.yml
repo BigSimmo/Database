@@ -40,28 +40,11 @@ jobs:
           mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
           printf 'CONFLICT_FILE=%s\n' "${conflicts[@]}"
 
-          python - "${conflicts[@]}" <<'PY'
-          from pathlib import Path
-          import sys
-
-          for raw in sys.argv[1:]:
-              path = Path(raw)
-              lines = path.read_text(encoding="utf-8").splitlines()
-              print(f::group::{raw}")
-              ranges = []
-              start = None
-              for index, line in enumerate(lines):
-                  if line.startswith("<<<<<<<"):
-                      start = max(0, index - 12)
-                  elif start is not None and line.startswith(">>>>>>>"):
-                    ranges.append((start, min(len(lines), index + 13)))
-                    start = None
-              for start, end in ranges :
-                  print(f"--- lines {start + 1}-{end} ---")
-                  for number in range(start, end):
-                      print(f"{number + 1:05d}: {lines[number]}")
-              print(f::endgroup::)
-          PY
+          for path in "${conflicts[@]}"; do
+            echo "FILE_BEGIN=$path"
+            git diff --cc --unified=25 -- "$path"
+            echo "FILE_END=$path"
+          done
 
           git merge --abort
           exit 1
