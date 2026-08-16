@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "314e5e31-7d15-46f2-adb0-c4d113bc589d",
+  "createdOn": "2026-08-15",
+  "action": "done",
+  "payload": {
+    "id": "#098",
+    "outcome": "Resolved on current main 512b8c20e by commit 563ce4195512b9e623df6ba98762f4a3dc1b9e8e: tests/search-route-round-trip-budget.test.ts pins the actual POST /api/search route-level counted-client budget and admission-before-scope contract."
+  }
+}
