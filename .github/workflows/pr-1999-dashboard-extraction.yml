@@ -1,0 +1,154 @@
+name: PR 1999 dashboard extraction
+
+on:
+  push:
+    branches:
+      - codex/chat-answer-preview-100-answer-preview-100
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr-1999-dashboard-extraction
+  cancel-in-progress: false
+
+jobs:
+  extract-answer-request:
+    if: github.event.head_commit.message == 'chore(pr-1999): run deterministic dashboard extraction'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Apply exact dashboard extraction
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/components/ClinicalDashboard.tsx")
+          text = path.read_text()
+
+          import_anchor = 'import { AnswerEvidencePreview } from "@/components/clinical-dashboard/answer-evidence-preview";\n'
+          request_import = 'import { requestAnswerStream } from "@/components/clinical-dashboard/answer-request";\n'
+          if text.count(import_anchor) != 1 or request_import in text:
+              raise SystemExit("Unexpected answer request import state")
+          text = text.replace(import_anchor, import_anchor + request_import, 1)
+
+          for entry in (
+              "  answerTimedOutError,\n",
+              "  readAnswerStream,\n",
+              "  type AnswerPayload,\n",
+          ):
+              if text.count(entry) != 1:
+                  raise SystemExit(f"Expected exactly one import entry: {entry!r}")
+              text = text.replace(entry, "", 1)
+
+          old = '''  async function requestAnswer(
+            queryText: string,
+            filtersOverride: SearchScopeFilters = scopeFilters,
+            queryModeOverride: ClinicalQueryMode = requestQueryMode,
+            onProgress: (progress: AnswerProgressUpdate) => void,
+            onEvidencePreview: (preview: VerifiedEvidencePreviewUnit | null) => void,
+            signal?: AbortSignal,
+            onStreamActivity?: () => void,
+          ) {
+            let response: Response;
+            try {
+              response = await fetch("/api/answer/stream", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(clientDemoMode ? {} : authorizationHeader),
+                },
+                body: JSON.stringify({
+                  query: queryText,
+                  documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
+                  filters: compactScopeFilters(filtersOverride),
+                  queryMode: queryModeOverride,
+                }),
+                signal,
+              });
+            } catch (error) {
+              if (answerTimedOutRef.current) throw answerTimedOutError();
+              if (isAbortError(error)) throw error;
+              throw searchNetworkFailure("Answer search");
+            }
+
+            if (response.status === 401) {
+              markSessionExpired();
+              throw makeSearchError("Search request was not authorized by the server.", 401, false);
+            }
+            if (!response.ok) {
+              throw await parseApiErrorResponse(response);
+            }
+
+            let payload: AnswerPayload;
+            try {
+              payload = await readAnswerStream(response, onProgress, undefined, undefined, onStreamActivity, onEvidencePreview);
+            } catch (error) {
+              if (answerTimedOutRef.current) throw answerTimedOutError();
+              if (isAbortError(error)) throw error;
+              throw error;
+            }
+            return {
+              kind: "answer" as const,
+              query: queryText,
+              payload,
+            };
+          }
+          '''
+          new = '''  function requestAnswer(
+            queryText: string,
+            filtersOverride: SearchScopeFilters = scopeFilters,
+            queryModeOverride: ClinicalQueryMode = requestQueryMode,
+            onProgress: (progress: AnswerProgressUpdate) => void,
+            onEvidencePreview: (preview: VerifiedEvidencePreviewUnit | null) => void,
+            signal?: AbortSignal,
+            onStreamActivity?: () => void,
+          ) {
+            return requestAnswerStream({
+              queryText,
+              filters: filtersOverride,
+              queryMode: queryModeOverride,
+              selectedDocumentIds,
+              clientDemoMode,
+              authorizationHeader,
+              onProgress,
+              onEvidencePreview,
+              signal,
+              onStreamActivity,
+              timedOut: () => answerTimedOutRef.current,
+              onSessionExpired: markSessionExpired,
+              networkFailure: () => searchNetworkFailure("Answer search"),
+            });
+          }
+          '''
+          if text.count(old) != 1:
+              raise SystemExit("Expected exactly one dashboard requestAnswer implementation")
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+          PY
+
+      - name: Format and verify focused contracts
+        run: |
+          npx prettier --write src/components/ClinicalDashboard.tsx src/components/clinical-dashboard/answer-request.ts tests/answer-request.test.ts tests/client-secret-surface.test.ts
+          npm run check:maintainability-budgets
+          node scripts/run-vitest.mjs run tests/answer-request.test.ts tests/answer-progress.test.ts tests/answer-evidence-preview.dom.test.tsx tests/client-secret-surface.test.ts --reporter=dot
+          npm run typecheck
+          git diff --check
+
+      - name: Commit and push focused extraction
+        run: |
+          git config user.name "Codex"
+          git config user.email "codex@users.noreply.github.com"
+          git add src/components/ClinicalDashboard.tsx src/components/clinical-dashboard/answer-request.ts tests/answer-request.test.ts tests/client-secret-surface.test.ts
+          git diff --cached --stat
+          git diff --cached --quiet && { echo "No extraction changes were produced." >&2; exit 1; }
+          git commit -m "refactor(answer): keep stream request out of dashboard hotspot"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
