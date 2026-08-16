@@ -88,6 +88,7 @@ import {
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
 import { AnswerEvidencePreview } from "@/components/clinical-dashboard/answer-evidence-preview";
+import { requestAnswerStream } from "@/components/clinical-dashboard/answer-request";
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
@@ -106,7 +107,6 @@ import {
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   answerReferencesDocument,
-  answerTimedOutError,
   applyRenamedDocumentToAnswer,
   compactScopeFilters,
   hasActiveIndexingWork,
@@ -177,12 +177,10 @@ import {
   keywordQueryFromNaturalLanguage,
   makeSearchError,
   progressForRetry,
-  readAnswerStream,
   searchRetryCount,
   searchRetryDelaysMs,
   sleep,
   type AnswerErrorKind,
-  type AnswerPayload,
   type SearchError,
 } from "@/components/clinical-dashboard/search-utils";
 import {
@@ -1681,7 +1679,7 @@ export function ClinicalDashboard({
     };
   }
 
-  async function requestAnswer(
+  function requestAnswer(
     queryText: string,
     filtersOverride: SearchScopeFilters = scopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
@@ -1690,49 +1688,21 @@ export function ClinicalDashboard({
     signal?: AbortSignal,
     onStreamActivity?: () => void,
   ) {
-    let response: Response;
-    try {
-      response = await fetch("/api/answer/stream", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(clientDemoMode ? {} : authorizationHeader),
-        },
-        body: JSON.stringify({
-          query: queryText,
-          documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
-          filters: compactScopeFilters(filtersOverride),
-          queryMode: queryModeOverride,
-        }),
-        signal,
-      });
-    } catch (error) {
-      if (answerTimedOutRef.current) throw answerTimedOutError();
-      if (isAbortError(error)) throw error;
-      throw searchNetworkFailure("Answer search");
-    }
-
-    if (response.status === 401) {
-      markSessionExpired();
-      throw makeSearchError("Search request was not authorized by the server.", 401, false);
-    }
-    if (!response.ok) {
-      throw await parseApiErrorResponse(response);
-    }
-
-    let payload: AnswerPayload;
-    try {
-      payload = await readAnswerStream(response, onProgress, undefined, undefined, onStreamActivity, onEvidencePreview);
-    } catch (error) {
-      if (answerTimedOutRef.current) throw answerTimedOutError();
-      if (isAbortError(error)) throw error;
-      throw error;
-    }
-    return {
-      kind: "answer" as const,
-      query: queryText,
-      payload,
-    };
+    return requestAnswerStream({
+      queryText,
+      filters: filtersOverride,
+      queryMode: queryModeOverride,
+      selectedDocumentIds,
+      clientDemoMode,
+      authorizationHeader,
+      onProgress,
+      onEvidencePreview,
+      signal,
+      onStreamActivity,
+      timedOut: () => answerTimedOutRef.current,
+      onSessionExpired: markSessionExpired,
+      networkFailure: () => searchNetworkFailure("Answer search"),
+    });
   }
 
   async function runWithRetries<T>(

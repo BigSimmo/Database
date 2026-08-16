@@ -42,9 +42,7 @@ describe("requestAnswerStream", () => {
       })}`,
       "",
     ].join("\n\n");
-    const fetchMock = vi.fn(async () =>
-      new Response(streamBody, { headers: { "Content-Type": "text/event-stream" } }),
-    );
+    const fetchMock = vi.fn(async () => new Response(streamBody, { headers: { "Content-Type": "text/event-stream" } }));
     vi.stubGlobal("fetch", fetchMock);
     const previews: Array<VerifiedEvidencePreviewUnit | null> = [];
 
@@ -80,7 +78,10 @@ describe("requestAnswerStream", () => {
   });
 
   it("expires the client session before surfacing a 401 answer response", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 401 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 401 })),
+    );
     const onSessionExpired = vi.fn();
 
     await expect(
