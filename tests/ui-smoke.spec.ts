@@ -5368,19 +5368,25 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const dialog = await openGuide(page);
     const guideScrollBody = dialog.locator(".polished-scroll");
     const mobileFooter = dialog.locator("[data-guide-mobile-footer]");
+    const mobileHeader = dialog.locator("[data-sheet-header]");
+    await expect(mobileFooter.locator("[data-guide-universal-search]")).toBeVisible();
+    await expect(mobileFooter.locator("[data-guide-tour-action-row]")).toBeVisible();
     await guideScrollBody.evaluate((element) => {
-      element.scrollTop = 80;
+      element.scrollTop = 140;
       element.dispatchEvent(new Event("scroll", { bubbles: true }));
     });
     await expect(mobileFooter).toHaveAttribute("aria-hidden", "true");
     await expect(mobileFooter).toHaveAttribute("inert", "");
+    await expect(mobileHeader).toHaveAttribute("aria-hidden", "true");
+    await expect(mobileHeader).toHaveAttribute("inert", "");
 
-    // The hidden mobile footer must not be reachable by keyboard tabbing.
-    await dialog.getByRole("button", { name: "Close guide" }).focus();
+    // Hidden phone chrome must not be reachable by keyboard tabbing.
+    await dialog.getByRole("button", { name: "Ask a better question" }).focus();
     const tabStopCount = await dialog.locator('button, input, [href], [tabindex]:not([tabindex="-1"])').count();
     for (let tabIndex = 0; tabIndex <= tabStopCount; tabIndex += 1) {
       await page.keyboard.press("Tab");
       await expect.poll(() => mobileFooter.evaluate((element) => element.contains(document.activeElement))).toBe(false);
+      await expect.poll(() => mobileHeader.evaluate((element) => element.contains(document.activeElement))).toBe(false);
     }
 
     await guideScrollBody.evaluate((element) => {
@@ -5389,6 +5395,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await expect(mobileFooter).toHaveAttribute("aria-hidden", "false");
     await expect(mobileFooter).not.toHaveAttribute("inert");
+    await expect(mobileHeader).toHaveAttribute("aria-hidden", "false");
+    await expect(mobileHeader).not.toHaveAttribute("inert");
     const search = dialog.getByPlaceholder("Search the guide");
     await search.fill("privacy");
     await expect(dialog.getByText(/topics? found for “privacy”\./)).toBeVisible();

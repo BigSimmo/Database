@@ -51,6 +51,9 @@ type SheetBaseProps = {
   titleAccessory?: ReactNode;
   descriptionContent?: ReactNode;
   headerActions?: ReactNode;
+  headerBottom?: ReactNode;
+  headerHidden?: boolean;
+  headerRef?: RefObject<HTMLDivElement | null>;
   headerClassName?: string;
   titleClassName?: string;
   closeButtonClassName?: string;
@@ -100,6 +103,9 @@ export function Sheet({
   titleAccessory,
   descriptionContent,
   headerActions,
+  headerBottom,
+  headerHidden = false,
+  headerRef,
   headerClassName,
   titleClassName,
   closeButtonClassName,
@@ -448,8 +454,13 @@ export function Sheet({
         </div>
         {title ? (
           <div
+            ref={headerRef}
+            data-sheet-header
+            aria-hidden={headerHidden}
+            inert={headerHidden || undefined}
             className={cn(
-              "flex items-center justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:p-5",
+              "flex items-center justify-between gap-x-3 border-b border-[color:var(--border)] p-4 sm:p-5",
+              Boolean(headerBottom) && "flex-wrap",
               headerClassName,
             )}
           >
@@ -488,6 +499,11 @@ export function Sheet({
                 <X aria-hidden="true" className="h-4 w-4" />
               </button>
             </div>
+            {headerBottom ? (
+              <div className="order-last -mx-4 mt-3 w-[calc(100%+2rem)] basis-full sm:-mx-5 sm:w-[calc(100%+2.5rem)]">
+                {headerBottom}
+              </div>
+            ) : null}
           </div>
         ) : null}
         <div

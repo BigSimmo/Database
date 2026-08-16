@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -42,7 +42,7 @@ describe("Clinical KB Guide Centre", () => {
     expect(within(dialog).getByRole("heading", { name: "How to verify an answer" })).toBeVisible();
   });
 
-  it("shows a useful verification example and hides the mobile tour action while scrolling down", () => {
+  it("shows a useful verification example and hides the shared header and bottom search chrome while scrolling down", async () => {
     vi.spyOn(window, "matchMedia").mockImplementation(
       () =>
         ({
@@ -60,26 +60,38 @@ describe("Clinical KB Guide Centre", () => {
     const scrollBody = dialog.querySelector<HTMLElement>(".polished-scroll");
     const footer = dialog.querySelector<HTMLElement>("[data-guide-mobile-footer]");
     const footerLayer = footer?.parentElement;
+    const header = dialog.querySelector<HTMLElement>(".guide-centre-header");
     const content = dialog.querySelector<HTMLElement>("[data-guide-content]");
     expect(scrollBody).not.toBeNull();
     expect(footer).not.toBeNull();
+    expect(header).not.toBeNull();
     expect(content).not.toBeNull();
+    expect(footer?.querySelector("[data-guide-universal-search]")).not.toBeNull();
+    expect(footer?.querySelector("[data-guide-tour-action-row]")).not.toBeNull();
 
-    Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 80 });
+    Object.defineProperty(scrollBody, "scrollHeight", { configurable: true, value: 1_600 });
+    Object.defineProperty(scrollBody, "clientHeight", { configurable: true, value: 600 });
+    Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 140 });
     fireEvent.scroll(scrollBody!);
-    expect(footerLayer).toHaveClass("translate-y-full");
+    await waitFor(() => expect(footerLayer).toHaveClass("translate-y-full"));
+    expect(header).toHaveClass("max-h-0");
+    expect(header).toHaveAttribute("aria-hidden", "true");
+    expect(header).toHaveAttribute("inert", "");
     expect(footer).toHaveAttribute("aria-hidden", "true");
     expect(footer).toHaveAttribute("inert", "");
     expect(within(footer!).queryByRole("button", { name: "Start guided tour" })).not.toBeInTheDocument();
     expect(content).toHaveClass("pb-0");
-    expect(content).not.toHaveClass("pb-28");
+    expect(content).not.toHaveClass("pb-40");
 
     Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 0 });
     fireEvent.scroll(scrollBody!);
-    expect(footerLayer).not.toHaveClass("translate-y-full");
+    await waitFor(() => expect(footerLayer).not.toHaveClass("translate-y-full"));
+    expect(header).not.toHaveClass("max-h-0");
+    expect(header).toHaveAttribute("aria-hidden", "false");
+    expect(header).not.toHaveAttribute("inert");
     expect(footer).toHaveAttribute("aria-hidden", "false");
     expect(footer).not.toHaveAttribute("inert");
-    expect(content).toHaveClass("pb-28");
+    expect(content).toHaveClass("pb-40");
   });
 
   it("keeps the guide footer available while the desktop body scrolls", () => {
@@ -95,7 +107,7 @@ describe("Clinical KB Guide Centre", () => {
     expect(footerLayer).not.toHaveClass("translate-y-full");
     expect(footer).toHaveAttribute("aria-hidden", "false");
     expect(footer).not.toHaveAttribute("inert");
-    expect(content).toHaveClass("pb-28");
+    expect(content).toHaveClass("pb-40");
   });
 
   it("wires every quick task to its complete guide topic", async () => {
