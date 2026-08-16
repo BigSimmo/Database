@@ -34,29 +34,29 @@ jobs:
 
           dashboard = Path("src/components/ClinicalDashboard.tsx")
           text = dashboard.read_text()
-          old = '''  // Any mounted mode home (answer, documents, prescribing, differentials, tools,
+          old_line = '  const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";'
+          new_lines = '''  const heroComposerBreakpoint =
+            showDesktopHomeComposer && activeModeResultKind !== "tools" ? "all" : "sm-up";'''
+          if text.count(old_line) != 1:
+              raise SystemExit(f"expected one hero composer assignment, found {text.count(old_line)}")
+          text = text.replace(old_line, new_lines)
+          text = text.replace(
+              '''  // Any mounted mode home (answer, documents, prescribing, differentials, tools,
           // favourites) keeps the in-flow hero pill on phones ("all") per the
           // page-ownership contract. Only result/submitted views fall back to "sm-up"
-          // so phones get the compact bottom dock.
-          const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";
-          '''
-          new = '''  // Most mounted mode homes keep the in-flow hero pill on phones. Tools is the
+          // so phones get the compact bottom dock.''',
+              '''  // Most mounted mode homes keep the in-flow hero pill on phones. Tools is the
           // deliberate exception: its content-rich directory uses the shared compact
-          // footer on phones while retaining the hero composer from sm upward.
-          const heroComposerBreakpoint =
-            showDesktopHomeComposer && activeModeResultKind !== "tools" ? "all" : "sm-up";
-          '''
-          if text.count(old) != 1:
-              raise SystemExit(f"expected one ClinicalDashboard ownership block, found {text.count(old)}")
-          dashboard.write_text(text.replace(old, new))
+          // footer on phones while retaining the hero composer from sm upward.''',
+          )
+          dashboard.write_text(text)
 
           spec = Path("tests/ui-tools.spec.ts")
           text = spec.read_text()
           old = '''      await expect(page.getByTestId("tools-search-results-page")).toBeVisible();
                 await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
                 await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
-                await expectNoPageHorizontalOverflow(page);
-          '''
+                await expectNoPageHorizontalOverflow(page);'''
           new = '''      await expect(page.getByTestId("tools-search-results-page")).toBeVisible();
                 await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
                 if (viewport.name === "phone") {
@@ -66,16 +66,14 @@ jobs:
                   await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
                   await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
                 }
-                await expectNoPageHorizontalOverflow(page);
-          '''
+                await expectNoPageHorizontalOverflow(page);'''
           if text.count(old) != 1:
               raise SystemExit(f"expected one mode-picker assertion block, found {text.count(old)}")
           text = text.replace(old, new)
 
           old = '''      await expect(page.getByRole("heading", { level: 2, name: "Clinical KB Search" }).first()).toBeVisible();
                 await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
-                await expectNoPageHorizontalOverflow(page);
-          '''
+                await expectNoPageHorizontalOverflow(page);'''
           new = '''      await expect(page.getByRole("heading", { level: 2, name: "Clinical KB Search" }).first()).toBeVisible();
                 if (width < 640) {
                   await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toHaveCount(0);
@@ -84,8 +82,7 @@ jobs:
                   await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
                   await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
                 }
-                await expectNoPageHorizontalOverflow(page);
-          '''
+                await expectNoPageHorizontalOverflow(page);'''
           if text.count(old) != 1:
               raise SystemExit(f"expected one breakpoint assertion block, found {text.count(old)}")
           spec.write_text(text.replace(old, new))
