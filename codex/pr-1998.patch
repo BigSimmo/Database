@@ -1,0 +1,131 @@
+diff --git a/src/components/clinical-dashboard/document-search-results.tsx b/src/components/clinical-dashboard/document-search-results.tsx
+--- a/src/components/clinical-dashboard/document-search-results.tsx
++++ b/src/components/clinical-dashboard/document-search-results.tsx
+@@ -118,6 +118,10 @@ type DocumentFilterDraft = {
+   selectedDocumentIds: string[];
+ };
+ 
++function loadedSourceCountHint(count: number) {
++  return `${count} loaded source${count === 1 ? "" : "s"}`;
++}
++
+ /** Initial DOM budget for document result cards; further rows reveal on demand. */
+ const DOCUMENT_RESULTS_INITIAL_WINDOW = 25;
+ const DOCUMENT_RESULTS_PAGE_SIZE = 25;
+@@ -1027,15 +1031,21 @@ function DocumentSearchResultsPanelImpl({
+           selectedDocumentIds,
+         };
+-  const draftSelectedDocumentIds = new Set(activeDraft.selectedDocumentIds);
+-  const draftTagFacetGroups = projectSmartTagFacetGroups(tagFacetIndex, activeDraft.facetKeys);
+-  const draftVisibleMatches = filterDocumentsBySmartTagFacetIndex(tagFacetIndex, activeDraft.facetKeys);
+-  const draftResultTabs = resultTypeTabs(draftVisibleMatches);
+-  const draftResultType = draftResultTabs.some((tab) => tab.key === activeDraft.resultType)
++  const draftSelectedDocumentIds = new Set(filterPanelOpen ? activeDraft.selectedDocumentIds : []);
++  const draftTagFacetGroups = filterPanelOpen
++    ? projectSmartTagFacetGroups(tagFacetIndex, activeDraft.facetKeys)
++    : [];
++  const draftVisibleMatches = filterPanelOpen
++    ? filterDocumentsBySmartTagFacetIndex(tagFacetIndex, activeDraft.facetKeys)
++    : [];
++  const draftResultTabs = filterPanelOpen ? resultTypeTabs(draftVisibleMatches) : [];
++  const draftResultType = filterPanelOpen && draftResultTabs.some((tab) => tab.key === activeDraft.resultType)
+     ? activeDraft.resultType
+     : "all";
+-  const draftDisplayedMatches = filterMatchesByResultType(draftVisibleMatches, draftResultType);
++  const draftDisplayedMatches = filterPanelOpen
++    ? filterMatchesByResultType(draftVisibleMatches, draftResultType)
++    : [];
+ 
+   function toggleDraftListFilter(
+     key: DocumentLabelFilterKey | "sourceStatuses" | "validationStatuses" | "extractionQualities",
+@@ -1125,6 +1135,7 @@ function DocumentSearchResultsPanelImpl({
+   }
+ 
+   const documentFilterGroups: ResultFilterGroup[] = [];
++  if (filterPanelOpen) {
+   if (recentDocuments.length > 0) {
+     documentFilterGroups.push(
+       resultFilterFacetGroup({
+@@ -1147,7 +1158,7 @@ function DocumentSearchResultsPanelImpl({
+               value: document.id,
+               label: documentDisplayTitle(document),
+               searchText: `${document.title} ${document.file_name}`,
+-              hint: String(count),
++              hint: loadedSourceCountHint(count),
+               disabled: count === 0 && !draftSelectedDocumentIds.has(document.id),
+             };
+           }),
+@@ -1194,7 +1205,7 @@ function DocumentSearchResultsPanelImpl({
+           return {
+             value,
+             label: group.labels[value] ?? value,
+-            hint: String(count),
++            hint: loadedSourceCountHint(count),
+             disabled: count === 0 && !selected.has(value),
+           };
+         }),
+@@ -1214,7 +1225,7 @@ function DocumentSearchResultsPanelImpl({
+         {
+           value: "all",
+           label: "Any locality",
+-          hint: String(
++          hint: loadedSourceCountHint(
+             filterDocumentsByRetrievalScope(
+               recentDocuments,
+               { ...activeDraft.scopeFilters, locality: undefined },
+@@ -1234,7 +1245,7 @@ function DocumentSearchResultsPanelImpl({
+           return {
+             value,
+             label: value === "local" ? "Local" : "Non-local",
+-            hint: String(count),
++            hint: loadedSourceCountHint(count),
+             disabled: count === 0 && activeDraft.scopeFilters.locality !== value,
+           };
+         }),
+@@ -1267,7 +1278,7 @@ function DocumentSearchResultsPanelImpl({
+           return {
+             value,
+             label: value,
+-            hint: String(count),
++            hint: loadedSourceCountHint(count),
+             disabled: count === 0 && !selected.has(value),
+           };
+         }),
+@@ -1318,10 +1329,13 @@ function DocumentSearchResultsPanelImpl({
+       }),
+     );
+   }
+-  const draftActiveFilterCount =
+-    activeDraft.facetKeys.length +
+-    Number(draftResultType !== "all") +
+-    documentRetrievalFilterValueCount(activeDraft.scopeFilters, activeDraft.selectedDocumentIds.length);
++  }
++  const draftActiveFilterCount = filterPanelOpen
++    ? activeDraft.facetKeys.length +
++      Number(draftResultType !== "all") +
++      documentRetrievalFilterValueCount(activeDraft.scopeFilters, activeDraft.selectedDocumentIds.length)
++    : 0;
+ 
+   /* A retrieval layer errored, so no count from this search is trustworthy —
+      including a non-zero one. The band owns that claim: it renders `matchCount`
+@@ -1344,7 +1358,7 @@ function DocumentSearchResultsPanelImpl({
+       panelId={filterPanelId}
+       testId="document-filter-panel"
+       title="Filter documents"
+-      description="Set retrieval scope and refine the matches already returned. Changes run together."
++      description="Set retrieval scope across the full corpus. Counts describe only sources loaded in this view; result refinements apply to returned matches."
+       chromeResetKey={query}
+       groups={documentFilterGroups}
+       applicationMode="staged"
+diff --git a/tests/document-filter-panel.dom.test.tsx b/tests/document-filter-panel.dom.test.tsx
+--- a/tests/document-filter-panel.dom.test.tsx
++++ b/tests/document-filter-panel.dom.test.tsx
+@@ -212,7 +212,7 @@ describe("DocumentSearchResultsPanel filters", () => {
+ 
+     await user.click(screen.getByTestId("document-filter-trigger-phone"));
+     const panel = screen.getByTestId("document-filter-panel");
+-    await user.click(within(panel).getByRole("radio", { name: /^Local \(1\)$/ }));
++    await user.click(within(panel).getByRole("radio", { name: /^Local \(1 loaded source\)$/ }));
+     expect(onDocumentFiltersApply).not.toHaveBeenCalled();
+     await user.click(within(panel).getByTestId("document-filter-panel-done"));
+ 
