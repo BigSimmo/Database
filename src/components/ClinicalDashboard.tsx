@@ -34,7 +34,12 @@ import { useUploadDesktopLayout } from "@/components/clinical-dashboard/use-uplo
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { ownsVerticalScroll, scrollSurface } from "@/components/clinical-dashboard/scroll-surface";
-import { isLocalNoAuthMode, resolveClientDemoMode, resolveUploadReadOnlyMode } from "@/lib/client-env";
+import {
+  incrementalEvidencePreviewRenderingEnabled,
+  isLocalNoAuthMode,
+  resolveClientDemoMode,
+  resolveUploadReadOnlyMode,
+} from "@/lib/client-env";
 import { isAdministratorUser } from "@/lib/authorization";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
@@ -82,6 +87,7 @@ import {
   type AnswerProgressUpdate,
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
+import { AnswerEvidencePreview } from "@/components/clinical-dashboard/answer-evidence-preview";
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
@@ -225,11 +231,13 @@ import {
 } from "@/components/clinical-dashboard/use-persisted-answer-thread";
 import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import { buildAnswerRenderModel, isAnswerSourceBacked } from "@/lib/answer-render-policy";
+import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
 import {
   frontendSourceGovernanceWarnings,
   groupSourceGovernanceWarnings,
   type SourceGovernanceWarning,
 } from "@/lib/source-governance";
+
 import { type SmartDocumentTag, type SmartDocumentTagFacet } from "@/lib/document-tags";
 import type {
   ClinicalDocument,
@@ -438,6 +446,7 @@ export function ClinicalDashboard({
     setSourceGovernanceWarnings([]);
     setError(null);
     setAnswerProgress(null);
+    setAnswerEvidencePreview(null);
     setDifferentialEvidenceQuery(null);
   }, [resetAnswerThread]);
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>(initialSearchNavigationContext.scopeFilters);
@@ -450,6 +459,7 @@ export function ClinicalDashboard({
   const [answerProgress, setAnswerProgress] = useState<string | null>(null);
   const [answerProgressEvents, setAnswerProgressEvents] = useState<TimedAnswerProgressUpdate[]>([]);
   const [answerProgressStartedAt, setAnswerProgressStartedAt] = useState<number | null>(null);
+  const [answerEvidencePreview, setAnswerEvidencePreview] = useState<VerifiedEvidencePreviewUnit | null>(null);
   const [answerLifecycle, dispatchAnswerLifecycle] = useReducer(answerLifecycleReducer, initialAnswerLifecycle);
   const [error, setError] = useState<string | null>(null);
   // Companion state for `error`, used to pick the right recovery UI (retry vs.
@@ -1676,6 +1686,7 @@ export function ClinicalDashboard({
     filtersOverride: SearchScopeFilters = scopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
     onProgress: (progress: AnswerProgressUpdate) => void,
+    onEvidencePreview: (preview: VerifiedEvidencePreviewUnit | null) => void,
     signal?: AbortSignal,
     onStreamActivity?: () => void,
   ) {
@@ -1711,7 +1722,7 @@ export function ClinicalDashboard({
 
     let payload: AnswerPayload;
     try {
-      payload = await readAnswerStream(response, onProgress, onStreamActivity);
+      payload = await readAnswerStream(response, onProgress, undefined, undefined, onStreamActivity, onEvidencePreview);
     } catch (error) {
       if (answerTimedOutRef.current) throw answerTimedOutError();
       if (isAbortError(error)) throw error;
@@ -1774,6 +1785,7 @@ export function ClinicalDashboard({
     setAnswerProgress(null);
     setAnswerProgressEvents([]);
     setAnswerProgressStartedAt(null);
+    setAnswerEvidencePreview(null);
     dispatchAnswerLifecycle({ type: "cancel" });
   }
 
@@ -1934,6 +1946,10 @@ export function ClinicalDashboard({
         return [...current, { ...progress, receivedAt: Date.now() }].slice(-16);
       });
     };
+    const onAnswerEvidencePreview = (preview: VerifiedEvidencePreviewUnit | null) => {
+      if (!requestIsCurrent()) return;
+      setAnswerEvidencePreview(incrementalEvidencePreviewRenderingEnabled() ? preview : null);
+    };
     const onRetryProgress = (message: string) => {
       if (isAnswerRequest) onAnswerProgress({ stage: "retrying", message });
       else onProgress(message);
@@ -1952,6 +1968,7 @@ export function ClinicalDashboard({
     setSearchFacets(null);
     setSearchScope(null);
     setSourceGovernanceWarnings([]);
+    setAnswerEvidencePreview(null);
     setAnswerViewMode("high_yield");
     if (isAnswerRequest) {
       const startedAt = Date.now();
@@ -2030,15 +2047,18 @@ export function ClinicalDashboard({
                   abortController.signal,
                 )
               : await runWithRetries(
-                  () =>
-                    requestAnswer(
+                  () => {
+                    onAnswerEvidencePreview(null);
+                    return requestAnswer(
                       entry.query,
                       filtersOverride,
                       targetQueryMode,
                       onAnswerProgress,
+                      onAnswerEvidencePreview,
                       abortController.signal,
                       answerWatchdog.touch,
-                    ),
+                    );
+                  },
                   onRetryProgress,
                   abortController.signal,
                 );
@@ -3659,6 +3679,10 @@ export function ClinicalDashboard({
                   ) : loading && answerProgress ? (
                     <SearchProgressBanner message={answerProgress} onStop={stopSearch} />
                   ) : null)}
+
+                {activeModeResultKind === "answer" && loading && answerEvidencePreview ? (
+                  <AnswerEvidencePreview preview={answerEvidencePreview} />
+                ) : null}
 
                 {showUniversalAlsoMatches &&
                 (activeModeResultKind === "tools" ||
