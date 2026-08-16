@@ -100,4 +100,11 @@ describe("consumeUniversalSearchNdjson", () => {
 
     await expect(consumeUniversalSearchNdjson(response)).rejects.toThrow("complete event");
   });
+
+  it("rejects a redacted server error event without requiring a complete event", async () => {
+    const { consumeUniversalSearchNdjson } = await import("../src/lib/universal-search-stream");
+    const response = responseFromChunks([`${JSON.stringify({ type: "error", code: "universal_search_failed" })}\n`]);
+
+    await expect(consumeUniversalSearchNdjson(response)).rejects.toThrow("Universal search failed.");
+  });
 });
