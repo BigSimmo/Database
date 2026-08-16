@@ -12,7 +12,7 @@ diff --git a/src/components/clinical-dashboard/document-search-results.tsx b/src
  /** Initial DOM budget for document result cards; further rows reveal on demand. */
  const DOCUMENT_RESULTS_INITIAL_WINDOW = 25;
  const DOCUMENT_RESULTS_PAGE_SIZE = 25;
-@@ -1027,15 +1031,21 @@ function DocumentSearchResultsPanelImpl({
+@@ -1027,13 +1031,19 @@ function DocumentSearchResultsPanelImpl({
            selectedDocumentIds,
          };
 -  const draftSelectedDocumentIds = new Set(activeDraft.selectedDocumentIds);
@@ -91,7 +91,7 @@ diff --git a/src/components/clinical-dashboard/document-search-results.tsx b/src
              disabled: count === 0 && !selected.has(value),
            };
          }),
-@@ -1318,10 +1329,13 @@ function DocumentSearchResultsPanelImpl({
+@@ -1318,10 +1329,12 @@ function DocumentSearchResultsPanelImpl({
        }),
      );
    }
@@ -108,7 +108,7 @@ diff --git a/src/components/clinical-dashboard/document-search-results.tsx b/src
  
    /* A retrieval layer errored, so no count from this search is trustworthy —
       including a non-zero one. The band owns that claim: it renders `matchCount`
-@@ -1344,7 +1358,7 @@ function DocumentSearchResultsPanelImpl({
+@@ -1344,7 +1357,7 @@ function DocumentSearchResultsPanelImpl({
        panelId={filterPanelId}
        testId="document-filter-panel"
        title="Filter documents"
@@ -120,7 +120,7 @@ diff --git a/src/components/clinical-dashboard/document-search-results.tsx b/src
 diff --git a/tests/document-filter-panel.dom.test.tsx b/tests/document-filter-panel.dom.test.tsx
 --- a/tests/document-filter-panel.dom.test.tsx
 +++ b/tests/document-filter-panel.dom.test.tsx
-@@ -212,7 +212,7 @@ describe("DocumentSearchResultsPanel filters", () => {
+@@ -212,6 +212,6 @@ describe("DocumentSearchResultsPanel filters", () => {
  
      await user.click(screen.getByTestId("document-filter-trigger-phone"));
      const panel = screen.getByTestId("document-filter-panel");
@@ -128,4 +128,3 @@ diff --git a/tests/document-filter-panel.dom.test.tsx b/tests/document-filter-pa
 +    await user.click(within(panel).getByRole("radio", { name: /^Local \(1 loaded source\)$/ }));
      expect(onDocumentFiltersApply).not.toHaveBeenCalled();
      await user.click(within(panel).getByTestId("document-filter-panel-done"));
- 
