@@ -1153,13 +1153,18 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
+    await expect(page.getByTestId("service-quick-search-suggestions")).toHaveCount(0);
     const input = visibleGlobalSearchInput(page).first();
     await expect(input).toBeVisible();
     const quickFilter = page.getByTestId("service-filter-trigger-phone");
     await expect(quickFilter).toBeVisible();
     await expect(quickFilter).toHaveAccessibleName(/No filters active/);
-    await page.getByTestId("service-quick-search-suggestions").getByRole("button", { name: "Crisis" }).click();
-    await expect(page).toHaveURL(/\/services\?.*q=crisis/);
+    await expect(page.getByRole("navigation", { name: "Service groups" })).toHaveCount(0);
+    await quickFilter.click();
+    const phoneFilterPanel = page.getByTestId("service-filter-panel");
+    await phoneFilterPanel.getByRole("button", { name: "Service category" }).click();
+    await expect(phoneFilterPanel.getByRole("button", { name: /^Crisis & urgent/ })).toBeVisible();
+    await phoneFilterPanel.getByRole("button", { name: "Close", exact: true }).click();
 
     // Phones keep the full search results in the page instead of opening a
     // command sheet over the small viewport.
@@ -1355,6 +1360,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await gotoLauncher(page, "/services?focus=1");
     await expect(page.getByTestId("services-home").getByTestId("global-search-input")).toBeVisible();
     await expect(page.getByTestId("services-home").getByTestId("global-search-input")).toBeFocused();
+    await expect(page.getByTestId("service-quick-search-suggestions")).toHaveCount(0);
 
     await gotoLauncher(page, "/forms?focus=1");
     await expect(visibleByTestId(page, "forms-home").getByTestId("global-search-input")).toBeVisible();
@@ -1369,6 +1375,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(page.locator('input[placeholder="Search services..."]:visible').first()).toHaveValue("13YARN");
     await expect(page.getByTestId("service-search-results")).toBeVisible();
     await expect(page.getByTestId("service-search-result-13yarn")).toContainText("13YARN");
+    await expect(page.getByTestId("service-quick-search-suggestions")).toHaveCount(0);
     await expect(
       page.getByTestId("service-search-result-13yarn").getByLabel("Review referral for 13YARN"),
     ).toHaveAttribute("href", "/services/13yarn");
@@ -1386,20 +1393,22 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("services results keep browse navigation without a walkthrough", async ({ page }) => {
+  test("services results keep category filtering and compact referral progress without suggestion rows", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
 
     await expect(page.getByRole("heading", { level: 1, name: "13YARN" })).toBeVisible();
     await expect(page.getByLabel("Referral workflow")).toHaveCount(0);
-    // The four-card numbered walkthrough stays gone (assertion above); what
-    // replaces it is a one-line dot rail under a DIFFERENT accessible name,
-    // so the check above cannot be satisfied by quietly renaming the old
-    // component back onto this route (ledger #163).
+    // The four-card numbered walkthrough stays gone (assertion above). A
+    // compact progress rail sits between the results heading and the list,
+    // under a different accessible name (ledger #163).
     const referralProgress = page.getByRole("navigation", { name: "Referral progress" });
     await expect(referralProgress).toBeVisible();
     await expect(referralProgress.locator('[aria-current="step"]')).toHaveText("Search");
-    await expect(page.getByRole("navigation", { name: "Service groups" })).toBeVisible();
+    await expect(referralProgress).toContainText("Step 1 of 4");
+    await expect(page.getByRole("navigation", { name: "Service groups" })).toHaveCount(0);
     await expect(page.getByTestId("services-shortlist-bar")).toHaveCount(0);
 
     // The row is compact by contract: the Catchment/Eligibility/Cost strip
@@ -1408,27 +1417,33 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     const firstResult = page.getByTestId("service-search-result-13yarn");
     await expect(firstResult.getByText("Catchment", { exact: true })).toHaveCount(0);
     await expect(firstResult.getByRole("button", { name: "Save 13YARN to favourites" })).toBeVisible();
+    const headingBox = await page.getByRole("heading", { level: 1, name: "13YARN" }).boundingBox();
+    const progressBox = await referralProgress.boundingBox();
+    const resultBox = await firstResult.boundingBox();
+    expect(headingBox).not.toBeNull();
+    expect(progressBox).not.toBeNull();
+    expect(resultBox).not.toBeNull();
+    expect(progressBox!.y).toBeGreaterThan(headingBox!.y);
+    expect(progressBox!.y).toBeLessThan(resultBox!.y);
 
-    const culturallySafe = page
-      .getByTestId("service-quick-search-suggestions")
-      .getByRole("button", { name: "Culturally safe" });
-    await expect(culturallySafe).toBeVisible();
-    await waitForReactEventHandler(culturallySafe);
-    await culturallySafe.click();
-    await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
-    await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
+    await expect(page.getByTestId("service-quick-search-suggestions")).toHaveCount(0);
 
-    // Quick search suggestions and facet clearing are separate contracts.
-    // Exercise a real facet, then clear only that facet while preserving q.
+    // The former service-group strip is now an honest, overlapping facet in
+    // the shared filter sheet. Clearing it preserves the active query.
     await page.getByTestId("service-filter-trigger-desktop").click();
     const filterPanel = page.getByTestId("service-filter-panel");
-    await filterPanel.getByRole("button", { name: /^Acuity/ }).click();
-    const crisisFacet = filterPanel.getByRole("button", { name: /^Crisis \/ urgent/ });
-    await expect(crisisFacet).toBeVisible();
-    await crisisFacet.click();
-    await expect(page).toHaveURL(/acuity_flags=crisis_high/);
+    await filterPanel.getByRole("button", { name: "Service category" }).click();
+    await expect(filterPanel.getByRole("button", { name: /^Public mental health/ })).toBeVisible();
+    await expect(filterPanel.getByRole("button", { name: /^Alcohol & other drugs/ })).toBeVisible();
+    await expect(filterPanel.getByRole("button", { name: /^Community & specialist support/ })).toBeVisible();
+    const crisisCategory = filterPanel.getByRole("button", { name: /^Crisis & urgent/ });
+    await expect(crisisCategory).toBeVisible();
+    await crisisCategory.click();
+    await expect(page).toHaveURL(/group=urgent/);
+    await expect(page.getByRole("button", { name: "Remove Crisis & urgent filter" })).toBeVisible();
     await filterPanel.getByTestId("service-filter-panel-clear").click();
-    await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
+    await expect(page).toHaveURL(/q=13YARN/);
+    await expect(page).not.toHaveURL(/group=/);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
     await filterPanel.getByRole("button", { name: "Close", exact: true }).click();
 
