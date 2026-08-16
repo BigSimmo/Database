@@ -69,8 +69,8 @@ gates.
    source-chunk reads to:
    - legacy visible rows where `index_generation_id is null`, or
    - rows matching the document's committed generation.
-   Keep the predicate consistent across every enrichment read and add a focused
-   regression test for stale-generation exclusion plus legacy visibility.
+     Keep the predicate consistent across every enrichment read and add a focused
+     regression test for stale-generation exclusion plus legacy visibility.
 6. Isolate per-job failure recording. A failure inside the status/RPC update
    must not abort processing of the remaining claimed jobs.
 7. Sweep documentation and tests for `ingestion-worker`,
