@@ -107,9 +107,7 @@ describe("consumeUniversalSearchNdjson", () => {
     const response = new Response(
       new ReadableStream<Uint8Array>({
         start(controller) {
-          controller.enqueue(
-            encoder.encode(`${JSON.stringify({ type: "error", code: "universal_search_failed" })}\n`),
-          );
+          controller.enqueue(encoder.encode(`${JSON.stringify({ type: "error", code: "universal_search_failed" })}\n`));
         },
         cancel(reason) {
           cancelled(reason);
