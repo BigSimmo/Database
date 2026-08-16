@@ -57,7 +57,11 @@ export async function consumeUniversalSearchNdjson(
     const event = parseEvent(line);
     if (event.type === "group") await options.onGroup?.(event.group, event.query);
     else if (event.type === "complete") complete = event.response;
-    else throw new Error("Universal search failed.");
+    else {
+      const error = new Error("Universal search failed.");
+      void reader.cancel(error).catch(() => undefined);
+      throw error;
+    }
   };
 
   try {
