@@ -98,6 +98,16 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/pr1992-reconcile.py apply-fixes
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/app/globals.css")
+          text = path.read_text(encoding="utf-8")
+          old = "    color: #5b6472;"
+          if old not in text:
+              raise SystemExit("print provenance colour literal was not found")
+          path.write_text(text.replace(old, "    color: var(--text-muted);", 1), encoding="utf-8")
+          PY
           rm scripts/pr1992-reconcile.py
           rm .github/workflows/pr1992-reconcile.yml
 
