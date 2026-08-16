@@ -128,3 +128,25 @@ diff --git a/tests/document-filter-panel.dom.test.tsx b/tests/document-filter-pa
 +    await user.click(within(panel).getByRole("radio", { name: /^Local \(1 loaded source\)$/ }));
      expect(onDocumentFiltersApply).not.toHaveBeenCalled();
      await user.click(within(panel).getByTestId("document-filter-panel-done"));
+diff --git a/tests/filter-review-regressions.dom.test.tsx b/tests/filter-review-regressions.dom.test.tsx
+--- a/tests/filter-review-regressions.dom.test.tsx
++++ b/tests/filter-review-regressions.dom.test.tsx
+@@ -232,9 +232,7 @@ describe("filter review regressions", () => {
+     const view = renderMedicationWorkspace();
+ 
+     expect(new URLSearchParams(window.location.search).get("class")).toBe("Other");
+-    fireEvent.click(screen.getByTestId("medication-filter-trigger-desktop"));
+-    fireEvent.click(screen.getByRole("radio", { name: "All medications, 0 matches" }));
+-    expect(new URLSearchParams(window.location.search).get("class")).toBe("Other");
++    expect(screen.queryByTestId("medication-filter-trigger-desktop")).not.toBeInTheDocument();
+ 
+     medicationCatalogState.current = {
+       data: {
+@@ -280,4 +278,7 @@ describe("filter review regressions", () => {
+ 
+     expect(new URLSearchParams(window.location.search).get("class")).toBe("Other");
+     expect(screen.getByRole("button", { name: "Remove Class: Other filter" })).toBeInTheDocument();
++    fireEvent.click(screen.getByTestId("medication-filter-trigger-desktop"));
++    fireEvent.click(screen.getByRole("radio", { name: "All medications, 1 match" }));
++    expect(new URLSearchParams(window.location.search).get("class")).toBe("Other");
+   });
