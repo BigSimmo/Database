@@ -8,10 +8,14 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: codex-fix-pr-1993
+  cancel-in-progress: false
+
 jobs:
   fix:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - name: Checkout exact PR head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -25,7 +29,34 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Apply the Tools phone ownership correction
+      - name: Snapshot authoritative head and base
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            "+refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/${GITHUB_REF_NAME}" \
+            "+refs/heads/main:refs/remotes/origin/main"
+          remote_head="$(git rev-parse "refs/remotes/origin/${GITHUB_REF_NAME}")"
+          if [[ "$remote_head" != "$GITHUB_SHA" ]]; then
+            echo "PR head moved from $GITHUB_SHA to $remote_head; refusing to overwrite it."
+            exit 78
+          fi
+          {
+            echo "REVIEWED_HEAD=$GITHUB_SHA"
+            echo "BASE_SHA=$(git rev-parse refs/remotes/origin/main)"
+          } >> "$GITHUB_ENV"
+
+      - name: Merge latest base when needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Codex"
+          git config user.email "codex@users.noreply.github.com"
+          if ! git merge-base --is-ancestor "$BASE_SHA" HEAD; then
+            git merge --no-commit --no-ff "$BASE_SHA"
+          fi
+
+      - name: Apply the verified Tools phone correction
         shell: bash
         run: |
           set -euo pipefail
@@ -34,22 +65,70 @@ jobs:
 
           dashboard = Path("src/components/ClinicalDashboard.tsx")
           text = dashboard.read_text()
+          old_comment = "\n".join(
+              [
+                  '  // Any mounted mode home (answer, documents, prescribing, differentials, tools,',
+                  '  // favourites) keeps the in-flow hero pill on phones ("all") per the',
+                  '  // page-ownership contract. Only result/submitted views fall back to "sm-up"',
+                  '  // so phones get the compact bottom dock.',
+              ]
+          )
+          new_comment = "\n".join(
+              [
+                  "  // Most mounted mode homes keep the in-flow hero pill on phones. Tools is the",
+                  "  // deliberate exception: its content-rich directory uses the shared compact",
+                  "  // footer on phones while retaining the hero composer from sm upward.",
+              ]
+          )
+          if text.count(old_comment) != 1:
+              raise SystemExit(f"expected one hero ownership comment, found {text.count(old_comment)}")
+          text = text.replace(old_comment, new_comment)
+
           old_line = '  const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";'
           new_lines = '''  const heroComposerBreakpoint =
             showDesktopHomeComposer && activeModeResultKind !== "tools" ? "all" : "sm-up";'''
           if text.count(old_line) != 1:
               raise SystemExit(f"expected one hero composer assignment, found {text.count(old_line)}")
-          text = text.replace(old_line, new_lines)
-          text = text.replace(
-              '''  // Any mounted mode home (answer, documents, prescribing, differentials, tools,
-          // favourites) keeps the in-flow hero pill on phones ("all") per the
-          // page-ownership contract. Only result/submitted views fall back to "sm-up"
-          // so phones get the compact bottom dock.''',
-              '''  // Most mounted mode homes keep the in-flow hero pill on phones. Tools is the
-          // deliberate exception: its content-rich directory uses the shared compact
-          // footer on phones while retaining the hero composer from sm upward.''',
+          dashboard.write_text(text.replace(old_line, new_lines))
+
+          contract = Path("tests/mobile-composer-reserve.test.ts")
+          text = contract.read_text()
+          old_intro = "\n".join(
+              [
+                  '  it("derives hero phone ownership from the mounted hero slot; any mode home uses all-widths breakpoint", () => {',
+                  "    // Any mounted mode home (answer, documents, prescribing, tools, favourites)",
+                  '    // needs "all" (phones keep the in-flow hero pill) per the page-ownership',
+                  '    // contract. Only result/submitted views use "sm-up" so phones get the compact',
+                  "    // bottom dock. desktopHomeComposerSlotId is undefined on result views, so",
+                  "    // heroOwnsPhoneComposer stays false there regardless of the breakpoint value.",
+              ]
           )
-          dashboard.write_text(text)
+          new_intro = "\n".join(
+              [
+                  '  it("derives hero phone ownership from the mounted hero slot while Tools delegates phones to the footer", () => {',
+                  "    // Most mounted mode homes keep the in-flow hero pill on phones. Tools is the",
+                  "    // deliberate exception: its content-rich directory delegates phones to the",
+                  '    // compact footer while retaining the hero from sm upward. Result/submitted',
+                  '    // views also use "sm-up"; desktopHomeComposerSlotId is undefined there, so',
+                  "    // heroOwnsPhoneComposer stays false regardless of the breakpoint value.",
+              ]
+          )
+          if text.count(old_intro) != 1:
+              raise SystemExit(f"expected one mobile ownership contract intro, found {text.count(old_intro)}")
+          text = text.replace(old_intro, new_intro)
+
+          old_expectation = (
+              '    expect(dashboard).toContain(\'const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";\');'
+          )
+          new_expectation = '''    expect(dashboard).toMatch(
+              /const heroComposerBreakpoint =\s*showDesktopHomeComposer && activeModeResultKind !== "tools" \? "all" : "sm-up";/,
+            );
+            expect(dashboard).not.toContain(
+              'const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";',
+            );'''
+          if text.count(old_expectation) != 1:
+              raise SystemExit(f"expected one stale breakpoint assertion, found {text.count(old_expectation)}")
+          contract.write_text(text.replace(old_expectation, new_expectation))
 
           spec = Path("tests/ui-tools.spec.ts")
           text = spec.read_text()
@@ -95,20 +174,65 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx prettier --write src/components/ClinicalDashboard.tsx tests/ui-tools.spec.ts
-          npx prettier --check src/components/ClinicalDashboard.tsx tests/ui-tools.spec.ts
+          npx prettier --write \
+            src/components/ClinicalDashboard.tsx \
+            tests/mobile-composer-reserve.test.ts \
+            tests/ui-tools.spec.ts
+          npx prettier --check \
+            src/components/ClinicalDashboard.tsx \
+            tests/mobile-composer-reserve.test.ts \
+            tests/ui-tools.spec.ts
+          npx eslint \
+            src/components/ClinicalDashboard.tsx \
+            tests/mobile-composer-reserve.test.ts \
+            tests/ui-tools.spec.ts \
+            --max-warnings 0
           npm run typecheck
-          npm test -- tests/search-shell-props.test.ts tests/mobile-composer-reserve.test.ts tests/phone-dock-addon-contract.test.ts
+          npm test -- \
+            tests/search-shell-props.test.ts \
+            tests/mobile-composer-reserve.test.ts \
+            tests/phone-dock-addon-contract.test.ts
 
-      - name: Commit the focused fix and remove this temporary workflow
+      - name: Append immutable review record
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run ledger:append -- \
+            --date 2026-08-16 \
+            --scope "PR #1993 Tools phone footer ownership and current-base review" \
+            --base "$BASE_SHA" \
+            --head "$REVIEWED_HEAD" \
+            --checks "Prettier; ESLint on changed files; TypeScript; targeted Vitest; immutable ledger validation" \
+            --outcome "Confirmed and fixed dashboard Tools phone composer ownership, aligned stale responsive contracts, removed the temporary repair workflow, and kept the branch current with main."
+          npm run check:branch-review-ledger
+
+      - name: Commit the verified fix and remove this temporary workflow
         shell: bash
         run: |
           set -euo pipefail
           git rm .github/workflows/codex-fix-pr-1993.yml
+          git add \
+            src/components/ClinicalDashboard.tsx \
+            tests/mobile-composer-reserve.test.ts \
+            tests/ui-tools.spec.ts \
+            docs/branch-review-records
           git diff --check
+          git diff --cached --check
           git status --short
-          git config user.name "Codex"
-          git config user.email "codex@users.noreply.github.com"
-          git add src/components/ClinicalDashboard.tsx tests/ui-tools.spec.ts
-          git commit -m "fix(tools): use the shared phone footer across Tools homes"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+          git fetch --no-tags origin \
+            "+refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/${GITHUB_REF_NAME}" \
+            "+refs/heads/main:refs/remotes/origin/main"
+          current_remote_head="$(git rev-parse "refs/remotes/origin/${GITHUB_REF_NAME}")"
+          current_base="$(git rev-parse refs/remotes/origin/main)"
+          if [[ "$current_remote_head" != "$REVIEWED_HEAD" ]]; then
+            echo "PR head moved from $REVIEWED_HEAD to $current_remote_head; refusing to overwrite it."
+            exit 78
+          fi
+          if [[ "$current_base" != "$BASE_SHA" ]]; then
+            echo "Base moved from $BASE_SHA to $current_base; refusing to leave the PR stale."
+            exit 78
+          fi
+
+          git commit -m "fix(tools): complete shared phone footer ownership"
+          git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
