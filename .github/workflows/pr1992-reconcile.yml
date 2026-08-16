@@ -164,9 +164,8 @@ jobs:
           npm run typecheck
           npm run lint
           npm run check:branch-review-ledger
-          npm run check:ledger-write-discipline
 
-      - name: Commit and push the reconciled branch
+      - name: Commit, verify write discipline, and push the reconciled branch
         shell: bash
         run: |
           set -euo pipefail
@@ -178,4 +177,5 @@ jobs:
           git diff --cached --check
           git status --short
           git commit -m "merge: reconcile main into therapy convergence"
+          npm run check:ledger-write-discipline
           git push origin HEAD:codex/therapy-global-convergence-20260814
