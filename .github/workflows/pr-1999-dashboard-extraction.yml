@@ -29,6 +29,7 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
           path = Path("src/components/ClinicalDashboard.tsx")
           text = path.read_text()
@@ -48,89 +49,44 @@ jobs:
                   raise SystemExit(f"Expected exactly one import entry: {entry!r}")
               text = text.replace(entry, "", 1)
 
-          old = '''  async function requestAnswer(
-            queryText: string,
-            filtersOverride: SearchScopeFilters = scopeFilters,
-            queryModeOverride: ClinicalQueryMode = requestQueryMode,
-            onProgress: (progress: AnswerProgressUpdate) => void,
-            onEvidencePreview: (preview: VerifiedEvidencePreviewUnit | null) => void,
-            signal?: AbortSignal,
-            onStreamActivity?: () => void,
-          ) {
-            let response: Response;
-            try {
-              response = await fetch("/api/answer/stream", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  ...(clientDemoMode ? {} : authorizationHeader),
-                },
-                body: JSON.stringify({
-                  query: queryText,
-                  documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
-                  filters: compactScopeFilters(filtersOverride),
-                  queryMode: queryModeOverride,
-                }),
-                signal,
-              });
-            } catch (error) {
-              if (answerTimedOutRef.current) throw answerTimedOutError();
-              if (isAbortError(error)) throw error;
-              throw searchNetworkFailure("Answer search");
-            }
-
-            if (response.status === 401) {
-              markSessionExpired();
-              throw makeSearchError("Search request was not authorized by the server.", 401, false);
-            }
-            if (!response.ok) {
-              throw await parseApiErrorResponse(response);
-            }
-
-            let payload: AnswerPayload;
-            try {
-              payload = await readAnswerStream(response, onProgress, undefined, undefined, onStreamActivity, onEvidencePreview);
-            } catch (error) {
-              if (answerTimedOutRef.current) throw answerTimedOutError();
-              if (isAbortError(error)) throw error;
-              throw error;
-            }
-            return {
-              kind: "answer" as const,
-              query: queryText,
-              payload,
-            };
-          }
-          '''
-          new = '''  function requestAnswer(
-            queryText: string,
-            filtersOverride: SearchScopeFilters = scopeFilters,
-            queryModeOverride: ClinicalQueryMode = requestQueryMode,
-            onProgress: (progress: AnswerProgressUpdate) => void,
-            onEvidencePreview: (preview: VerifiedEvidencePreviewUnit | null) => void,
-            signal?: AbortSignal,
-            onStreamActivity?: () => void,
-          ) {
-            return requestAnswerStream({
-              queryText,
-              filters: filtersOverride,
-              queryMode: queryModeOverride,
-              selectedDocumentIds,
-              clientDemoMode,
-              authorizationHeader,
-              onProgress,
-              onEvidencePreview,
-              signal,
-              onStreamActivity,
-              timedOut: () => answerTimedOutRef.current,
-              onSessionExpired: markSessionExpired,
-              networkFailure: () => searchNetworkFailure("Answer search"),
-            });
-          }
-          '''
-          if text.count(old) != 1:
-              raise SystemExit("Expected exactly one dashboard requestAnswer implementation")
-          text = text.replace(old, new, 1)
+          pattern = re.compile(
+              r"  async function requestAnswer\(\n.*?\n  \}\n\n(?=  async function runWithRetries<T>)",
+              re.DOTALL,
+          )
+          replacement = "\n".join(
+              [
+                  "  function requestAnswer(",
+                  "    queryText: string,",
+                  "    filtersOverride: SearchScopeFilters = scopeFilters,",
+                  "    queryModeOverride: ClinicalQueryMode = requestQueryMode,",
+                  "    onProgress: (progress: AnswerProgressUpdate) => void,",
+                  "    onEvidencePreview: (preview: VerifiedEvidencePreviewUnit | null) => void,",
+                  "    signal?: AbortSignal,",
+                  "    onStreamActivity?: () => void,",
+                  "  ) {",
+                  "    return requestAnswerStream({",
+                  "      queryText,",
+                  "      filters: filtersOverride,",
+                  "      queryMode: queryModeOverride,",
+                  "      selectedDocumentIds,",
+                  "      clientDemoMode,",
+                  "      authorizationHeader,",
+                  "      onProgress,",
+                  "      onEvidencePreview,",
+                  "      signal,",
+                  "      onStreamActivity,",
+                  "      timedOut: () => answerTimedOutRef.current,",
+                  "      onSessionExpired: markSessionExpired,",
+                  '      networkFailure: () => searchNetworkFailure("Answer search"),',
+                  "    });",
+                  "  }",
+                  "",
+                  "",
+              ]
+          )
+          text, replacements = pattern.subn(replacement, text)
+          if replacements != 1:
+              raise SystemExit(f"Expected one dashboard requestAnswer implementation, found {replacements}")
           path.write_text(text)
           PY
 
