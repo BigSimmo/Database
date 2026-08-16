@@ -249,15 +249,11 @@ describe("favourites account retry", () => {
     await waitFor(() => expect(pendingPuts).toHaveLength(1));
     expect(pendingPuts[0]?.body.saved).toBe(true);
 
-    await act(async () =>
-      pendingPuts[0]?.resolve({ ok: true, status: 200, json: async () => ({}) }),
-    );
+    await act(async () => pendingPuts[0]?.resolve({ ok: true, status: 200, json: async () => ({}) }));
     await waitFor(() => expect(pendingPuts).toHaveLength(2));
     expect(pendingPuts[1]?.body.saved).toBe(false);
 
-    await act(async () =>
-      pendingPuts[1]?.resolve({ ok: true, status: 200, json: async () => ({}) }),
-    );
+    await act(async () => pendingPuts[1]?.resolve({ ok: true, status: 200, json: async () => ({}) }));
     await waitFor(() => expect(screen.getByTestId("therapy-saved")).toHaveTextContent("not saved"));
   });
 });
