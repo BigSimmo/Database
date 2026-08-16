@@ -215,6 +215,10 @@ function filterMatchesByResultType(matches: DocumentMatch[], filter: ResultTypeF
   return matches;
 }
 
+function loadedSourceCountHint(count: number) {
+  return `${count.toLocaleString()} loaded ${count === 1 ? "source" : "sources"}`;
+}
+
 function relevanceTone(document: DocumentMatch) {
   const verdict = document.relevance?.verdict as string | undefined;
   const percent = documentRelevancePercent(document);
@@ -1025,14 +1029,25 @@ function DocumentSearchResultsPanelImpl({
           scopeFilters: publicDocumentScopeFilters(committedScopeFilters),
           selectedDocumentIds,
         };
-  const draftSelectedDocumentIds = new Set(activeDraft.selectedDocumentIds);
-  const draftTagFacetGroups = projectSmartTagFacetGroups(tagFacetIndex, activeDraft.facetKeys);
-  const draftVisibleMatches = filterDocumentsBySmartTagFacetIndex(tagFacetIndex, activeDraft.facetKeys);
-  const draftResultTabs = resultTypeTabs(draftVisibleMatches);
-  const draftResultType = draftResultTabs.some((tab) => tab.key === activeDraft.resultType)
+  // These projections exist solely to render the open filter sheet. Keep the
+  // library-sized scans dormant while it is closed so composer keystrokes do
+  // not rebuild every projected count.
+  const draftSourceDocuments = filterPanelOpen ? recentDocuments : [];
+  const loadedSourceCountsAreComplete = documentCount > 0 && draftSourceDocuments.length >= documentCount;
+  const draftSelectedDocumentIds = new Set(filterPanelOpen ? activeDraft.selectedDocumentIds : []);
+  const draftTagFacetGroups = filterPanelOpen
+    ? projectSmartTagFacetGroups(tagFacetIndex, activeDraft.facetKeys)
+    : [];
+  const draftVisibleMatches = filterPanelOpen
+    ? filterDocumentsBySmartTagFacetIndex(tagFacetIndex, activeDraft.facetKeys)
+    : [];
+  const draftResultTabs = filterPanelOpen ? resultTypeTabs(draftVisibleMatches) : [];
+  const draftResultType = filterPanelOpen && draftResultTabs.some((tab) => tab.key === activeDraft.resultType)
     ? activeDraft.resultType
     : "all";
-  const draftDisplayedMatches = filterMatchesByResultType(draftVisibleMatches, draftResultType);
+  const draftDisplayedMatches = filterPanelOpen
+    ? filterMatchesByResultType(draftVisibleMatches, draftResultType)
+    : [];
 
   function toggleDraftListFilter(
     key: DocumentLabelFilterKey | "sourceStatuses" | "validationStatuses" | "extractionQualities",
@@ -1125,20 +1140,20 @@ function DocumentSearchResultsPanelImpl({
   }
 
   const documentFilterGroups: ResultFilterGroup[] = [];
-  if (recentDocuments.length > 0) {
+  if (draftSourceDocuments.length > 0) {
     documentFilterGroups.push(
       resultFilterFacetGroup({
         id: "selected-sources",
         label: "Selected sources",
         description: "Choose specific indexed sources. Leave empty to search across the filtered source set.",
         selected: draftSelectedDocumentIds,
-        options: [...recentDocuments]
+        options: [...draftSourceDocuments]
           .sort((left, right) => documentDisplayTitle(left).localeCompare(documentDisplayTitle(right)))
           .map((document) => {
             const withCandidate = new Set(draftSelectedDocumentIds);
             if (!withCandidate.has(document.id)) withCandidate.add(document.id);
             const count = filterDocumentsByRetrievalScope(
-              recentDocuments,
+              draftSourceDocuments,
               activeDraft.scopeFilters,
               withCandidate,
             ).length;
@@ -1146,7 +1161,7 @@ function DocumentSearchResultsPanelImpl({
               value: document.id,
               label: documentDisplayTitle(document),
               searchText: `${document.title} ${document.file_name}`,
-              hint: String(count),
+              hint: loadedSourceCountHint(count),
               disabled: count === 0 && !draftSelectedDocumentIds.has(document.id),
             };
           }),
@@ -1160,26 +1175,28 @@ function DocumentSearchResultsPanelImpl({
     );
   }
 
-  const governanceGroups = [
-    {
-      key: "sourceStatuses" as const,
-      label: "Source status",
-      values: sourceStatusValues,
-      labels: sourceStatusLabels,
-    },
-    {
-      key: "validationStatuses" as const,
-      label: "Clinical validation",
-      values: validationStatusValues,
-      labels: validationStatusLabels,
-    },
-    {
-      key: "extractionQualities" as const,
-      label: "Extraction quality",
-      values: extractionQualityValues,
-      labels: extractionQualityLabels,
-    },
-  ];
+  const governanceGroups = filterPanelOpen
+    ? [
+        {
+          key: "sourceStatuses" as const,
+          label: "Source status",
+          values: sourceStatusValues,
+          labels: sourceStatusLabels,
+        },
+        {
+          key: "validationStatuses" as const,
+          label: "Clinical validation",
+          values: validationStatusValues,
+          labels: validationStatusLabels,
+        },
+        {
+          key: "extractionQualities" as const,
+          label: "Extraction quality",
+          values: extractionQualityValues,
+          labels: extractionQualityLabels,
+        },
+      ]
+    : [];
   for (const group of governanceGroups) {
     const selected = new Set((activeDraft.scopeFilters[group.key] as string[] | undefined) ?? []);
     documentFilterGroups.push(
@@ -1190,7 +1207,7 @@ function DocumentSearchResultsPanelImpl({
         selected,
         options: group.values.map((value) => {
           const count = projectedDocumentScopeCount({
-            documents: recentDocuments,
+            documents: draftSourceDocuments,
             filters: activeDraft.scopeFilters,
             selectedDocumentIds: draftSelectedDocumentIds,
             key: group.key,
@@ -1199,8 +1216,8 @@ function DocumentSearchResultsPanelImpl({
           return {
             value,
             label: group.labels[value] ?? value,
-            hint: String(count),
-            disabled: count === 0 && !selected.has(value),
+            hint: loadedSourceCountHint(count),
+            disabled: loadedSourceCountsAreComplete && count === 0 && !selected.has(value),
           };
         }),
         onToggle: (value) => toggleDraftListFilter(group.key, value),
@@ -1208,52 +1225,55 @@ function DocumentSearchResultsPanelImpl({
     );
   }
 
-  documentFilterGroups.push(
-    resultFilterGroup({
-      id: "locality",
-      label: "Source locality",
-      description: "Separate WA and health-service sources from non-local guidance.",
-      value: activeDraft.scopeFilters.locality ?? "all",
-      options: [
-        {
-          value: "all",
-          label: "Any locality",
-          hint: String(
-            filterDocumentsByRetrievalScope(
-              recentDocuments,
-              { ...activeDraft.scopeFilters, locality: undefined },
-              draftSelectedDocumentIds,
-            ).length,
-          ),
-        },
-        ...(["local", "non_local"] as const).map((value) => {
-          const count = filterDocumentsByRetrievalScope(
-            recentDocuments,
-            { ...activeDraft.scopeFilters, locality: value },
-            draftSelectedDocumentIds,
-          ).length;
-          return {
-            value,
-            label: value === "local" ? "Local" : "Non-local",
-            hint: String(count),
-            disabled: count === 0 && activeDraft.scopeFilters.locality !== value,
-          };
-        }),
-      ],
-      onChange: (value) =>
-        setFilterDraft((current) => ({
-          ...current,
-          scopeFilters: {
-            ...current.scopeFilters,
-            locality: value === "all" ? undefined : value,
+  if (filterPanelOpen) {
+    documentFilterGroups.push(
+      resultFilterGroup({
+        id: "locality",
+        label: "Source locality",
+        description: "Separate WA and health-service sources from non-local guidance.",
+        value: activeDraft.scopeFilters.locality ?? "all",
+        options: [
+          {
+            value: "all",
+            label: "Any locality",
+            hint: loadedSourceCountHint(
+              filterDocumentsByRetrievalScope(
+                draftSourceDocuments,
+                { ...activeDraft.scopeFilters, locality: undefined },
+                draftSelectedDocumentIds,
+              ).length,
+            ),
           },
-        })),
-    }),
-  );
+          ...(["local", "non_local"] as const).map((value) => {
+            const count = filterDocumentsByRetrievalScope(
+              draftSourceDocuments,
+              { ...activeDraft.scopeFilters, locality: value },
+              draftSelectedDocumentIds,
+            ).length;
+            return {
+              value,
+              label: value === "local" ? "Local" : "Non-local",
+              hint: loadedSourceCountHint(count),
+              disabled:
+                loadedSourceCountsAreComplete && count === 0 && activeDraft.scopeFilters.locality !== value,
+            };
+          }),
+        ],
+        onChange: (value) =>
+          setFilterDraft((current) => ({
+            ...current,
+            scopeFilters: {
+              ...current.scopeFilters,
+              locality: value === "all" ? undefined : value,
+            },
+          })),
+      }),
+    );
+  }
 
-  for (const field of documentLabelFilterFields) {
+  for (const field of filterPanelOpen ? documentLabelFilterFields : []) {
     const selected = new Set(activeDraft.scopeFilters[field.key] ?? []);
-    const values = [...new Set([...deriveDocumentLabelOptions(recentDocuments, field.labelType), ...selected])];
+    const values = [...new Set([...deriveDocumentLabelOptions(draftSourceDocuments, field.labelType), ...selected])];
     if (values.length === 0) continue;
     documentFilterGroups.push(
       resultFilterFacetGroup({
@@ -1263,7 +1283,7 @@ function DocumentSearchResultsPanelImpl({
         selected,
         options: values.map((value) => {
           const count = projectedDocumentScopeCount({
-            documents: recentDocuments,
+            documents: draftSourceDocuments,
             filters: activeDraft.scopeFilters,
             selectedDocumentIds: draftSelectedDocumentIds,
             key: field.key,
@@ -1272,8 +1292,8 @@ function DocumentSearchResultsPanelImpl({
           return {
             value,
             label: value,
-            hint: String(count),
-            disabled: count === 0 && !selected.has(value),
+            hint: loadedSourceCountHint(count),
+            disabled: loadedSourceCountsAreComplete && count === 0 && !selected.has(value),
           };
         }),
         onToggle: (value) => toggleDraftListFilter(field.key, value),
@@ -1281,7 +1301,7 @@ function DocumentSearchResultsPanelImpl({
     );
   }
 
-  if (draftResultTabs.length > 1) {
+  if (filterPanelOpen && draftResultTabs.length > 1) {
     documentFilterGroups.push(
       resultFilterGroup({
         id: "result-type",
@@ -1320,10 +1340,11 @@ function DocumentSearchResultsPanelImpl({
       }),
     );
   }
-  const draftActiveFilterCount =
-    activeDraft.facetKeys.length +
-    Number(draftResultType !== "all") +
-    documentRetrievalFilterValueCount(activeDraft.scopeFilters, activeDraft.selectedDocumentIds.length);
+  const draftActiveFilterCount = filterPanelOpen
+    ? activeDraft.facetKeys.length +
+      Number(draftResultType !== "all") +
+      documentRetrievalFilterValueCount(activeDraft.scopeFilters, activeDraft.selectedDocumentIds.length)
+    : 0;
 
   /* A retrieval layer errored, so no count from this search is trustworthy —
      including a non-zero one. The band owns that claim: it renders `matchCount`
@@ -1336,14 +1357,14 @@ function DocumentSearchResultsPanelImpl({
      above zero it is the only thing that says the list is a floor rather than
      the answer. (Raised by Devin review on PR #1640.) */
   const retrievalDegraded = Boolean(searchScope?.retrieval?.degraded);
-  const documentFilterSheet = showFilterControl ? (
+  const documentFilterSheet = showFilterControl && filterPanelOpen ? (
     <ResultFilterSheet
       open={filterPanelOpen}
       onClose={() => setFilterPanelState({ query, open: false })}
       panelId={filterPanelId}
       testId="document-filter-panel"
       title="Filter documents"
-      description="Set retrieval scope and refine the matches already returned. Changes run together."
+      description="Set retrieval scope and refine the matches already returned. Source-scope counts cover loaded sources; changes run together across the full indexed library."
       chromeResetKey={query}
       groups={documentFilterGroups}
       applicationMode="staged"
