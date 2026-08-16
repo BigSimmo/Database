@@ -1515,7 +1515,6 @@
         "src/components/forms/forms-search-results-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
-        "src/components/services/service-group-nav.tsx",
         "src/components/tools/tools-search-results-page.tsx",
         "src/components/ui/confirm-dialog.tsx"
       ],
@@ -1544,7 +1543,6 @@
         "src/components/forms/forms-search-results-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
-        "src/components/services/service-group-nav.tsx",
         "src/components/tools/tools-search-results-page.tsx"
       ],
       "designSync": {
@@ -1562,6 +1560,7 @@
         "tests/header-scroll-hide-contract.test.ts",
         "tests/image-lightbox-geometry.test.ts",
         "tests/in-page-nav-route-sections.dom.test.tsx",
+        "tests/mobile-sheet-safe-area-contract.test.ts",
         "tests/mode-nav.dom.test.tsx",
         "tests/rag-answer-fallback.test.ts",
         "tests/settings-dialog-actions.dom.test.tsx",

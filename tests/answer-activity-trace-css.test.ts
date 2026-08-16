@@ -3,6 +3,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const globalsCss = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
+const answerStatusSource = readFileSync(
+  new URL("../src/components/clinical-dashboard/answer-status.tsx", import.meta.url),
+  "utf8",
+);
 
 function keyframes(name: string) {
   const start = globalsCss.indexOf(`@keyframes ${name}`);
@@ -34,5 +38,11 @@ describe("answer activity trace CSS", () => {
     expect(pulse).toMatch(/opacity:\s*0\.2;/);
     expect(pulse).toMatch(/opacity:\s*1;/);
     expect(pulse).not.toMatch(/stroke-dashoffset/);
+  });
+
+  it("hosts the animation on a regular HTML compositor layer instead of an SVG path", () => {
+    expect(answerStatusSource).toMatch(/<span[^>]*data-slot="answer-activity-trace-sweep"/s);
+    expect(answerStatusSource).not.toMatch(/<path[^>]*data-slot="answer-activity-trace-sweep"/s);
+    expect(globalsCss).toMatch(/\.answer-activity-trace__sweep\s*{[^}]*will-change:\s*opacity;/s);
   });
 });

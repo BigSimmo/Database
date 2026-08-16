@@ -907,6 +907,19 @@ function accountSetupDialog(page: Page) {
   return page.getByRole("dialog", { name: "Account setup" });
 }
 
+async function expectControlsBelowPhoneTopSafeArea(page: Page, controls: Locator[]) {
+  const safeAreaTop = await page.evaluate(() =>
+    Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top")),
+  );
+  expect(safeAreaTop).toBeGreaterThan(0);
+
+  for (const control of controls) {
+    const bounds = await control.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.y).toBeGreaterThanOrEqual(safeAreaTop);
+  }
+}
+
 async function expectAccountSettingsSurface(settings: Locator) {
   await expect(settings.getByRole("heading", { name: "Account & app" })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
@@ -1587,6 +1600,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await settings.getByRole("button", { name: "Close settings" }).click();
     await expect(settings).toBeHidden();
     await page.setViewportSize({ width: 390, height: 820 });
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--safe-area-top", "59px");
+    });
 
     const escapeMenu = await openMobileClinicalGuideMenu(page);
     await escapeMenu.getByRole("button", { name: "Settings", exact: true }).click();
@@ -1601,14 +1617,26 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectAccountSetupSurface(setup);
     await expectAccountProviderLayout(setup, "stack");
     await expect(setup.getByLabel("Work email")).toBeFocused();
+    const setupClose = setup.getByRole("button", { name: "Close account setup" });
+    const workspaceMark = setup.getByTestId("account-workspace-mark");
+    await expectControlsBelowPhoneTopSafeArea(page, [setupClose, workspaceMark]);
     const setupBox = await setup.boundingBox();
     expect(setupBox).not.toBeNull();
     expect(setupBox!.x).toBeGreaterThanOrEqual(-1);
     expect(setupBox!.width + fullscreenTolerance).toBeLessThanOrEqual(viewport.width + fullscreenTolerance);
     await expectNoPageHorizontalOverflow(page);
 
+    for (const viewportSize of [
+      { width: 320, height: 700 },
+      { width: 430, height: 820 },
+      { width: 639, height: 820 },
+    ]) {
+      await page.setViewportSize(viewportSize);
+      await expectControlsBelowPhoneTopSafeArea(page, [setupClose, workspaceMark]);
+      await expectNoPageHorizontalOverflow(page);
+    }
+
     await page.setViewportSize({ width: 320, height: 700 });
-    const setupClose = setup.getByRole("button", { name: "Close account setup" });
     const setupEmail = setup.getByLabel("Work email");
     await setupEmail.scrollIntoViewIfNeeded();
     await expect(setupEmail).toBeInViewport();
@@ -1739,6 +1767,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const appModeTrigger = page.getByRole("button", { name: "Mode Answer" });
     await waitForReactEventHandler(appModeTrigger, "onClick");
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--safe-area-top", "59px");
+    });
     await appModeTrigger.click();
 
     const modeSheet = page.getByTestId("app-mode-menu-sheet");
@@ -1748,6 +1779,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeMenu).toBeVisible();
     await expect(appModeTrigger).toHaveAttribute("aria-expanded", "true");
     await expect(appModeTrigger).toHaveAttribute("aria-controls", "app-mode-menu");
+    await expectControlsBelowPhoneTopSafeArea(page, [
+      modeSheet.getByRole("heading", { name: "Choose mode" }),
+      modeSheet.getByRole("button", { name: "Close mode menu" }),
+    ]);
 
     // The full catalogue remains in one radio menu, but the phone presentation
     // now groups it into the three clinical jobs clinicians scan for first.
@@ -4284,7 +4319,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(navigator.getByTestId("services-shortlist-bar")).toHaveCount(0);
     await expect(navigator.getByTestId("services-comparison")).toHaveCount(0);
 
-    // The dot rail is progressive: it tracks the shortlist state rather than
+    // The compact rail is progressive: it tracks shortlist state rather than
     // standing there as an always-on four-card walkthrough (ledger #163).
     const progress = navigator.getByRole("navigation", { name: "Referral progress" });
     const currentStage = progress.locator('[aria-current="step"]');
