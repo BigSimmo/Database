@@ -5,7 +5,33 @@ import {
   normalizeAnswerProgressEvent,
 } from "../src/components/clinical-dashboard/answer-progress";
 import { toPublicAnswerProgressEvent } from "../src/lib/answer-progress-public";
-import { readAnswerStream } from "../src/components/clinical-dashboard/search-utils";
+import {
+  evidencePreviewReconcilesWithFinal,
+  readAnswerStream,
+} from "../src/components/clinical-dashboard/search-utils";
+import type { VerifiedEvidencePreviewUnit } from "../src/lib/answer-stream-contract";
+
+const previewSource = {
+  id: "chunk-1",
+  document_id: "doc-1",
+  title: "Clozapine Monitoring",
+  file_name: "clozapine.pdf",
+  page_number: 3,
+  chunk_index: 1,
+  section_heading: "Monitoring",
+  content: "ANC thresholds and FBC monitoring schedule for clozapine.",
+  image_ids: [],
+  similarity: 0.82,
+  images: [],
+};
+
+const evidencePreview: VerifiedEvidencePreviewUnit = {
+  schemaVersion: 1,
+  kind: "evidence_preview",
+  sequence: 0,
+  sources: [previewSource],
+  selectedContextCount: 1,
+};
 
 describe("answer progress events", () => {
   it("keeps only safe, normalized Australian source counts at the public boundary", () => {
@@ -108,16 +134,23 @@ describe("answer progress events", () => {
     ).toMatchObject({ resultCount: 2, selectedContextCount: undefined });
   });
 
-  it("shares one SSE parser across answer surfaces and commits completion only with a valid final answer", async () => {
+  it("parses only allowlisted SSE events and clears a verified preview when final becomes authoritative", async () => {
     const progress: string[] = [];
     const tokens: string[] = [];
+    const previews: Array<VerifiedEvidencePreviewUnit | null> = [];
     let revisions = 0;
     const body = [
-      'event: progress\ndata: {"stage":"retrieving","message":"private"}',
+      `event: progress\ndata: ${JSON.stringify({ stage: "ranking", message: "private", verifiedUnit: evidencePreview })}`,
       'event: token\ndata: {"delta":"Draft"}',
       "event: revising\ndata: {}",
       'event: progress\ndata: {"stage":"complete","message":"private","elapsedMs":1200}',
-      'event: final\ndata: {"answer":"Grounded answer.","grounded":true,"confidence":"medium","citations":[],"sources":[]}',
+      `event: final\ndata: ${JSON.stringify({
+        answer: "Grounded answer.",
+        grounded: true,
+        confidence: "medium",
+        citations: [],
+        sources: [previewSource],
+      })}`,
       "",
     ].join("\n\n");
 
@@ -128,12 +161,176 @@ describe("answer progress events", () => {
       () => {
         revisions += 1;
       },
+      undefined,
+      (preview) => previews.push(preview),
     );
 
-    expect(progress).toEqual(["retrieving", "complete"]);
-    expect(tokens).toEqual(["Draft"]);
-    expect(revisions).toBe(1);
+    expect(progress).toEqual(["ranking", "complete"]);
+    expect(tokens).toEqual([]);
+    expect(revisions).toBe(0);
+    expect(previews).toEqual([evidencePreview, null]);
     expect(answer.answer).toBe("Grounded answer.");
+  });
+
+  it("drops invalid, duplicate, and out-of-order verified units", async () => {
+    const previews: Array<VerifiedEvidencePreviewUnit | null> = [];
+    const previewByStage: Array<[string, VerifiedEvidencePreviewUnit | null]> = [];
+    let visiblePreview: VerifiedEvidencePreviewUnit | null = null;
+    const body = [
+      `event: progress\ndata: ${JSON.stringify({ stage: "ranking", message: "private", verifiedUnit: evidencePreview })}`,
+      `event: progress\ndata: ${JSON.stringify({ stage: "generating", message: "private", verifiedUnit: evidencePreview })}`,
+      `event: progress\ndata: ${JSON.stringify({
+        stage: "verifying",
+        message: "private",
+        verifiedUnit: { ...evidencePreview, schemaVersion: 2 },
+      })}`,
+      `event: final\ndata: ${JSON.stringify({
+        answer: "Grounded answer.",
+        grounded: true,
+        confidence: "medium",
+        citations: [],
+        sources: [previewSource],
+      })}`,
+      "",
+    ].join("\n\n");
+
+    await readAnswerStream(
+      new Response(body, { headers: { "Content-Type": "text/event-stream" } }),
+      (progress) => previewByStage.push([progress.stage, visiblePreview]),
+      undefined,
+      undefined,
+      undefined,
+      (preview) => {
+        visiblePreview = preview;
+        previews.push(preview);
+      },
+    );
+
+    expect(previews).toEqual([evidencePreview, null]);
+    expect(previewByStage).toContainEqual(["ranking", evidencePreview]);
+    expect(previewByStage).toContainEqual(["generating", null]);
+    expect(previewByStage).toContainEqual(["verifying", null]);
+  });
+
+  it("discards a preview on stream error and starts sequence validation fresh for a retry", async () => {
+    const firstAttemptPreviews: Array<VerifiedEvidencePreviewUnit | null> = [];
+    const failedBody = [
+      `event: progress\ndata: ${JSON.stringify({ stage: "ranking", message: "private", verifiedUnit: evidencePreview })}`,
+      'event: error\ndata: {"error":"provider unavailable","status":503}',
+      "",
+    ].join("\n\n");
+
+    await expect(
+      readAnswerStream(
+        new Response(failedBody, { headers: { "Content-Type": "text/event-stream" } }),
+        () => undefined,
+        undefined,
+        undefined,
+        undefined,
+        (preview) => firstAttemptPreviews.push(preview),
+      ),
+    ).rejects.toThrow("provider unavailable");
+    expect(firstAttemptPreviews).toEqual([evidencePreview, null]);
+
+    const retryPreviews: Array<VerifiedEvidencePreviewUnit | null> = [];
+    const retryBody = [
+      `event: progress\ndata: ${JSON.stringify({ stage: "ranking", message: "private", verifiedUnit: evidencePreview })}`,
+      `event: final\ndata: ${JSON.stringify({
+        answer: "Retry succeeded.",
+        grounded: true,
+        confidence: "medium",
+        citations: [],
+        sources: [previewSource],
+      })}`,
+      "",
+    ].join("\n\n");
+    await readAnswerStream(
+      new Response(retryBody, { headers: { "Content-Type": "text/event-stream" } }),
+      () => undefined,
+      undefined,
+      undefined,
+      undefined,
+      (preview) => retryPreviews.push(preview),
+    );
+    expect(retryPreviews).toEqual([evidencePreview, null]);
+  });
+
+  it("discards a preview when the response stream is cancelled", async () => {
+    const previews: Array<VerifiedEvidencePreviewUnit | null> = [];
+    const encoder = new TextEncoder();
+    let previewDelivered = false;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (!previewDelivered) {
+          previewDelivered = true;
+          controller.enqueue(
+            encoder.encode(
+              `event: progress\ndata: ${JSON.stringify({ stage: "ranking", message: "private", verifiedUnit: evidencePreview })}\n\n`,
+            ),
+          );
+          return;
+        }
+        controller.error(new DOMException("Cancelled", "AbortError"));
+      },
+    });
+
+    await expect(
+      readAnswerStream(
+        new Response(body, { headers: { "Content-Type": "text/event-stream" } }),
+        () => undefined,
+        undefined,
+        undefined,
+        undefined,
+        (preview) => previews.push(preview),
+      ),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(previews).toEqual([evidencePreview, null]);
+  });
+
+  it("requires byte-identical preview sources to reconcile with final", () => {
+    const finalPayload = {
+      answer: "Grounded answer.",
+      grounded: true,
+      confidence: "medium" as const,
+      citations: [],
+      sources: [previewSource],
+    };
+
+    expect(evidencePreviewReconcilesWithFinal(evidencePreview, finalPayload)).toBe(true);
+    expect(
+      evidencePreviewReconcilesWithFinal(
+        { ...evidencePreview, sources: [{ ...previewSource, content: "Changed source text." }] },
+        finalPayload,
+      ),
+    ).toBe(false);
+  });
+
+  it("discards a mismatched preview while retaining the authoritative final payload", async () => {
+    const previews: Array<VerifiedEvidencePreviewUnit | null> = [];
+    const authoritativeSource = { ...previewSource, content: "Authoritative final source text." };
+    const body = [
+      `event: progress\ndata: ${JSON.stringify({ stage: "ranking", message: "private", verifiedUnit: evidencePreview })}`,
+      `event: final\ndata: ${JSON.stringify({
+        answer: "Authoritative final answer.",
+        grounded: true,
+        confidence: "medium",
+        citations: [],
+        sources: [authoritativeSource],
+      })}`,
+      "",
+    ].join("\n\n");
+
+    const finalPayload = await readAnswerStream(
+      new Response(body, { headers: { "Content-Type": "text/event-stream" } }),
+      () => undefined,
+      undefined,
+      undefined,
+      undefined,
+      (preview) => previews.push(preview),
+    );
+
+    expect(previews).toEqual([evidencePreview, null]);
+    expect(finalPayload.sources).toEqual([authoritativeSource]);
   });
 
   it("fails closed when a shared answer stream ends without a valid final payload", async () => {
