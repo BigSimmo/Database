@@ -1,4 +1,4 @@
-name: PR 1992 reconcile probe
+name: PR 1992 conflict detail probe
 
 on:
   push:
@@ -8,14 +8,9 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: pr-1992-reconcile
-  cancel-in-progress: true
-
 jobs:
   probe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -23,7 +18,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Report merge conflicts against current main
+      - name: Print conflict hunks against current main
         shell: bash
         run: |
           set -euo pipefail
@@ -42,7 +37,31 @@ jobs:
           fi
 
           echo "MERGE_RESULT=conflicted"
-          git diff --name-only --diff-filter=U | sed 's/^/CONFLICT_FILE=/'
-          git status --short
+          mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
+          printf 'CONFLICT_FILE=%s\n' "${conflicts[@]}"
+
+          python - "${conflicts[@]}" <<'PY'
+          from pathlib import Path
+          import sys
+
+          for raw in sys.argv[1:]:
+              path = Path(raw)
+              lines = path.read_text(encoding="utf-8").splitlines()
+              print(f::group::{raw}")
+              ranges = []
+              start = None
+              for index, line in enumerate(lines):
+                  if line.startswith("<<<<<<<"):
+                      start = max(0, index - 12)
+                  elif start is not None and line.startswith(">>>>>>>"):
+                    ranges.append((start, min(len(lines), index + 13)))
+                    start = None
+              for start, end in ranges :
+                  print(f"--- lines {start + 1}-{end} ---")
+                  for number in range(start, end):
+                      print(f"{number + 1:05d}: {lines[number]}")
+              print(f::endgroup::)
+          PY
+
           git merge --abort
           exit 1
