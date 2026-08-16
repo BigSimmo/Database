@@ -104,7 +104,7 @@ export function CalculatorSheet({
         onClick={onClose}
         className="absolute inset-0 animate-overlay-in bg-[color:var(--neutral-950)]/55 backdrop-blur-[2px]"
       />
-      <div className="relative flex max-h-[92dvh] w-full animate-sheet-up flex-col overflow-hidden rounded-t-xl border border-[color:var(--border-strong)] bg-[color:var(--background)] shadow-[var(--shadow-lux)] sm:max-w-3xl sm:animate-dialog-rise sm:rounded-xl">
+      <div className="relative flex max-h-[calc(100dvh-max(0.75rem,var(--safe-area-top)))] w-full animate-sheet-up flex-col overflow-hidden rounded-t-xl border border-[color:var(--border-strong)] bg-[color:var(--background)] shadow-[var(--shadow-lux)] sm:max-h-[92dvh] sm:max-w-3xl sm:animate-dialog-rise sm:rounded-xl">
         <header className="modal-landscape-container grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface)] py-3">
           <span className="grid size-9 shrink-0 place-items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
             <Icon className="size-icon-md" aria-hidden="true" />
