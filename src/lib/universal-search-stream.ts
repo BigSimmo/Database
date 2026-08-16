@@ -7,7 +7,8 @@ export type UniversalSearchStreamResponse = UniversalSearchResponse & {
 
 export type UniversalSearchStreamEvent =
   | { type: "group"; query: string; group: UniversalSearchGroup }
-  | { type: "complete"; response: UniversalSearchStreamResponse };
+  | { type: "complete"; response: UniversalSearchStreamResponse }
+  | { type: "error"; code: "universal_search_failed" };
 
 function abortReason(signal: AbortSignal): Error {
   return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
@@ -24,6 +25,9 @@ function parseEvent(line: string): UniversalSearchStreamEvent {
   }
   if (parsed.type === "complete" && parsed.response) {
     return parsed as Extract<UniversalSearchStreamEvent, { type: "complete" }>;
+  }
+  if (parsed.type === "error" && parsed.code === "universal_search_failed") {
+    return parsed as Extract<UniversalSearchStreamEvent, { type: "error" }>;
   }
   throw new Error("Invalid universal-search NDJSON event.");
 }
@@ -52,7 +56,12 @@ export async function consumeUniversalSearchNdjson(
     if (!line.trim()) return;
     const event = parseEvent(line);
     if (event.type === "group") await options.onGroup?.(event.group, event.query);
-    else complete = event.response;
+    else if (event.type === "complete") complete = event.response;
+    else {
+      const error = new Error("Universal search failed.");
+      void reader.cancel(error).catch(() => undefined);
+      throw error;
+    }
   };
 
   try {
