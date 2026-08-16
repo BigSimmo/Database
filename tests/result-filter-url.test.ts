@@ -18,10 +18,21 @@ describe("result filter URL state", () => {
     expect(readResultFilterValues(params, "risk", allowed)).toEqual(["high", "low"]);
   });
 
+  it("de-duplicates values after trimming whitespace", () => {
+    const params = new URLSearchParams("risk=high,%20high,low");
+    expect(readResultFilterValues(params, "risk", allowed)).toEqual(["high", "low"]);
+  });
+
   it("writes sorted facets while preserving unrelated parameters", () => {
     const params = new URLSearchParams("q=mania&ids=a,b&focus=1");
     writeResultFilterValues(params, "risk", ["low", "high", "low"], allowed);
     expect(params.toString()).toBe("q=mania&ids=a%2Cb&focus=1&risk=high%2Clow");
+  });
+
+  it("de-duplicates written values after trimming whitespace", () => {
+    const params = new URLSearchParams();
+    writeResultFilterValues(params, "risk", ["high", " high" as "high", "low"], allowed);
+    expect(params.get("risk")).toBe("high,low");
   });
 
   it("omits empty facets and default lenses", () => {
