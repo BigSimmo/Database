@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { parseListRows } from "@/lib/api-list-response";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
@@ -13,65 +14,88 @@ type Severity = "danger" | "warning" | "info";
 type ReviewType =
   "failed_ocr" | "low_extraction_confidence" | "missing_tables" | "image_only_pages" | "failed_job" | "manual_review";
 
-type DocumentRow = {
-  id: string;
-  title: string | null;
-  file_name: string | null;
-  status: string | null;
-  page_count: number | null;
-  chunk_count: number | null;
-  image_count: number | null;
-  error_message: string | null;
-  metadata: Record<string, unknown> | null;
-  updated_at: string | null;
-};
+const nullableRecordSchema = z.record(z.string(), z.unknown()).nullable();
+const nullableStringSchema = z.string().nullable();
+const nullableNumberSchema = z.number().nullable();
 
-type QualityRow = {
-  document_id: string;
-  quality_score: number | null;
-  extraction_quality: string | null;
-  metrics: Record<string, unknown> | null;
-  issues: string[] | null;
-  updated_at: string | null;
-};
+const documentRowSchema = z
+  .object({
+    id: z.string(),
+    title: nullableStringSchema,
+    file_name: nullableStringSchema,
+    status: nullableStringSchema,
+    page_count: nullableNumberSchema,
+    chunk_count: nullableNumberSchema,
+    image_count: nullableNumberSchema,
+    error_message: nullableStringSchema,
+    metadata: nullableRecordSchema,
+    updated_at: nullableStringSchema,
+  })
+  .passthrough();
 
-type JobRow = {
-  id: string;
-  document_id: string;
-  status: string | null;
-  stage: string | null;
-  error_message: string | null;
-  updated_at: string | null;
-};
+const qualityRowSchema = z
+  .object({
+    document_id: z.string(),
+    quality_score: nullableNumberSchema,
+    extraction_quality: nullableStringSchema,
+    metrics: nullableRecordSchema,
+    issues: z.array(z.string()).nullable(),
+    updated_at: nullableStringSchema,
+  })
+  .passthrough();
 
-type StageRow = {
-  id: string;
-  document_id: string;
-  job_id: string | null;
-  stage_name: string | null;
-  stage_status: string | null;
-  error_message: string | null;
-  metadata: Record<string, unknown> | null;
-  artifact_counts: Record<string, unknown> | null;
-  finished_at: string | null;
-  started_at: string | null;
-};
+const jobRowSchema = z
+  .object({
+    id: z.string(),
+    document_id: z.string(),
+    status: nullableStringSchema,
+    stage: nullableStringSchema,
+    error_message: nullableStringSchema,
+    updated_at: nullableStringSchema,
+  })
+  .passthrough();
 
-type PageRow = {
-  document_id: string;
-  page_number: number | null;
-  text: string | null;
-  ocr_used: boolean | null;
-  metadata: Record<string, unknown> | null;
-};
+const stageRowSchema = z
+  .object({
+    id: z.string(),
+    document_id: z.string(),
+    job_id: nullableStringSchema,
+    stage_name: nullableStringSchema,
+    stage_status: nullableStringSchema,
+    error_message: nullableStringSchema,
+    metadata: nullableRecordSchema,
+    artifact_counts: nullableRecordSchema,
+    finished_at: nullableStringSchema,
+    started_at: nullableStringSchema,
+  })
+  .passthrough();
 
-type ImageRow = {
-  document_id: string;
-  page_number: number | null;
-  source_kind: string | null;
-  searchable: boolean | null;
-  metadata: Record<string, unknown> | null;
-};
+const pageRowSchema = z
+  .object({
+    document_id: z.string(),
+    page_number: nullableNumberSchema,
+    text: nullableStringSchema,
+    ocr_used: z.boolean().nullable(),
+    metadata: nullableRecordSchema,
+  })
+  .passthrough();
+
+const imageRowSchema = z
+  .object({
+    document_id: z.string(),
+    page_number: nullableNumberSchema,
+    source_kind: nullableStringSchema,
+    searchable: z.boolean().nullable(),
+    metadata: nullableRecordSchema,
+  })
+  .passthrough();
+
+type DocumentRow = z.infer<typeof documentRowSchema>;
+type QualityRow = z.infer<typeof qualityRowSchema>;
+type JobRow = z.infer<typeof jobRowSchema>;
+type StageRow = z.infer<typeof stageRowSchema>;
+type PageRow = z.infer<typeof pageRowSchema>;
+type ImageRow = z.infer<typeof imageRowSchema>;
 
 type ReviewItem = {
   id: string;
@@ -343,7 +367,7 @@ export async function GET(request: Request) {
       .limit(limit);
     if (documentsError) throw new Error(documentsError.message);
 
-    const documents = (documentsData ?? []) as unknown as DocumentRow[];
+    const documents = parseListRows(documentsData, documentRowSchema);
     const documentIds = documents.map((document) => document.id);
     if (documentIds.length === 0) return NextResponse.json({ items: [] });
 
@@ -381,11 +405,11 @@ export async function GET(request: Request) {
     return NextResponse.json({
       items: buildReviewItems({
         documents,
-        qualityRows: (qualityResult.data ?? []) as unknown as QualityRow[],
-        jobs: (jobsResult.data ?? []) as unknown as JobRow[],
-        stages: (stagesResult.data ?? []) as unknown as StageRow[],
-        pages: (pagesResult.data ?? []) as unknown as PageRow[],
-        images: (imagesResult.data ?? []) as unknown as ImageRow[],
+        qualityRows: parseListRows(qualityResult.data, qualityRowSchema),
+        jobs: parseListRows(jobsResult.data, jobRowSchema),
+        stages: parseListRows(stagesResult.data, stageRowSchema),
+        pages: parseListRows(pagesResult.data, pageRowSchema),
+        images: parseListRows(imagesResult.data, imageRowSchema),
       }).slice(0, 80),
     });
   } catch (error) {
