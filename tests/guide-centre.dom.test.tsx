@@ -68,6 +68,7 @@ describe("Clinical KB Guide Centre", () => {
     expect(content).not.toBeNull();
     expect(footer?.querySelector("[data-guide-universal-search]")).not.toBeNull();
     expect(footer?.querySelector("[data-guide-tour-action-row]")).not.toBeNull();
+    expect(header).toHaveClass("pt-[max(1rem,var(--safe-area-top))]");
 
     Object.defineProperty(scrollBody, "scrollHeight", { configurable: true, value: 1_600 });
     Object.defineProperty(scrollBody, "clientHeight", { configurable: true, value: 600 });
@@ -75,6 +76,7 @@ describe("Clinical KB Guide Centre", () => {
     fireEvent.scroll(scrollBody!);
     await waitFor(() => expect(footerLayer).toHaveClass("translate-y-full"));
     expect(header).toHaveClass("max-h-0");
+    expect(header).not.toHaveClass("pt-[max(1rem,var(--safe-area-top))]");
     expect(header).toHaveAttribute("aria-hidden", "true");
     expect(header).toHaveAttribute("inert", "");
     expect(footer).toHaveAttribute("aria-hidden", "true");
@@ -87,6 +89,7 @@ describe("Clinical KB Guide Centre", () => {
     fireEvent.scroll(scrollBody!);
     await waitFor(() => expect(footerLayer).not.toHaveClass("translate-y-full"));
     expect(header).not.toHaveClass("max-h-0");
+    expect(header).toHaveClass("pt-[max(1rem,var(--safe-area-top))]");
     expect(header).toHaveAttribute("aria-hidden", "false");
     expect(header).not.toHaveAttribute("inert");
     expect(footer).toHaveAttribute("aria-hidden", "false");
