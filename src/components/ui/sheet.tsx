@@ -473,8 +473,12 @@ export function Sheet({
               "flex items-center justify-between gap-x-3 border-b border-[color:var(--border)] p-4 sm:p-5",
               Boolean(headerBottom) && "flex-wrap",
               headerClassName,
-              !headerHidden && resolvedMobileHeaderSafeArea === "padding" && "pt-[max(1rem,var(--safe-area-top))] sm:pt-5",
-              !headerHidden && resolvedMobileHeaderSafeArea === "offset" && "top-[max(0.75rem,var(--safe-area-top))] sm:top-4",
+              !headerHidden &&
+                resolvedMobileHeaderSafeArea === "padding" &&
+                "pt-[max(1rem,var(--safe-area-top))] sm:pt-5",
+              !headerHidden &&
+                resolvedMobileHeaderSafeArea === "offset" &&
+                "top-[max(0.75rem,var(--safe-area-top))] sm:top-4",
             )}
           >
             <div className="flex min-w-0 flex-1 items-center gap-3">
