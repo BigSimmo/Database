@@ -20,18 +20,20 @@ jobs:
     timeout-minutes: 45
     env:
       TARGET_BRANCH: codex/filter-system-overhaul
-      KNOWN_ANCESTOR: d6da003e98a60c3bec5c6a6f6c2d187506cb2ad8
-      EXPECTED_SOURCE_BLOB: 944b5e6877f2115630874e654ea3b4406e07432e
+      KNOWN_ANCESTOR: 3c9a2cb56cb45a1297dc39e51dc4aa3113ec56c9
+      EXPECTED_SOURCE_BLOB: b711421c25f7c50fd81786249e31ac2cc7ccfee1
       EXPECTED_TEST_BLOB: 97f21fa89037f958b82eb9cb0b16741fec302727
+      EXPECTED_REVIEW_TEST_BLOB: 9423590c5a4c7723907d52fd4d2d41e6b6b7b897
       SOURCE_PATH: src/components/clinical-dashboard/document-search-results.tsx
       TEST_PATH: tests/document-filter-panel.dom.test.tsx
+      REVIEW_TEST_PATH: tests/filter-review-regressions.dom.test.tsx
     steps:
       - name: Checkout maintenance branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
-      - name: Validate current PR state and apply authored patch locally
+      - name: Validate current PR state and apply authored tests locally
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -41,17 +43,22 @@ jobs:
           git fetch --no-tags origin "$TARGET_BRANCH" main
           target_sha="$(git rev-parse "origin/$TARGET_BRANCH")"
           git merge-base --is-ancestor "$KNOWN_ANCESTOR" "$target_sha" || {
-            echo "::error::Target branch no longer descends from the independently reviewed head $KNOWN_ANCESTOR."
+            echo "::error::Target branch no longer descends from reviewed head $KNOWN_ANCESTOR."
             exit 1
           }
           source_blob="$(git rev-parse "$target_sha:$SOURCE_PATH")"
           test_blob="$(git rev-parse "$target_sha:$TEST_PATH")"
+          review_test_blob="$(git rev-parse "$target_sha:$REVIEW_TEST_PATH")"
           test "$source_blob" = "$EXPECTED_SOURCE_BLOB" || {
             echo "::error::$SOURCE_PATH changed after review ($source_blob != $EXPECTED_SOURCE_BLOB)."
             exit 1
           }
           test "$test_blob" = "$EXPECTED_TEST_BLOB" || {
             echo "::error::$TEST_PATH changed after review ($test_blob != $EXPECTED_TEST_BLOB)."
+            exit 1
+          }
+          test "$review_test_blob" = "$EXPECTED_REVIEW_TEST_BLOB" || {
+            echo "::error::$REVIEW_TEST_PATH changed after review ($review_test_blob != $EXPECTED_REVIEW_TEST_BLOB)."
             exit 1
           }
           pr_json="$({
@@ -65,9 +72,6 @@ jobs:
           auto_merge_actor="$(jq -r '.auto_merge.enabled_by.login // "unknown"' <<<"$pr_json")"
           echo "PR head: $target_sha"
           echo "Auto-merge state: $auto_merge_state (enabled by: $auto_merge_actor)"
-          if test "$auto_merge_state" = "armed"; then
-            echo "::warning::Verification-only mode: repository guard prohibits pushing while auto-merge is armed."
-          fi
           git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
           git apply --check --whitespace=error-all /tmp/pr-1998.patch
           git apply --whitespace=error-all /tmp/pr-1998.patch
@@ -76,12 +80,11 @@ jobs:
       - name: Setup Node and install immutable dependencies
         uses: ./.github/actions/setup-node-cached
 
-      - name: Format focused changes
+      - name: Format and check focused files
         shell: bash
         run: |
           set -euo pipefail
           ./node_modules/.bin/prettier --write \
-            src/components/clinical-dashboard/document-search-results.tsx \
             tests/document-filter-panel.dom.test.tsx \
             tests/filter-review-regressions.dom.test.tsx
           ./node_modules/.bin/prettier --check \
@@ -106,18 +109,17 @@ jobs:
       - name: Run UI design-system contract
         run: npm run check:design-system-contract
 
-      - name: Create local focused commit
+      - name: Create local focused test commit
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "Codex"
           git config user.email "87357024+BigSimmo@users.noreply.github.com"
           git add \
-            src/components/clinical-dashboard/document-search-results.tsx \
             tests/document-filter-panel.dom.test.tsx \
             tests/filter-review-regressions.dom.test.tsx
           git diff --cached --check
-          git commit -m "fix(filters): clarify loaded counts and defer document projections"
+          git commit -m "test(filters): cover document projections and medication hydration"
 
       - name: Merge current main locally without rewriting history
         id: merge
@@ -138,7 +140,7 @@ jobs:
               test -n "$file" || continue
               echo "===== $file ====="
               git checkout --conflict=diff3 -- "$file" || true
-              sed -n '1,320p' "$file" || true
+              sed -n '1,360p' "$file" || true
             done < <(git diff --name-only --diff-filter=U)
             echo "::endgroup::"
             exit 1
@@ -170,4 +172,4 @@ jobs:
 
       - name: Record that no PR mutation occurred
         if: always()
-        run: echo "This workflow performs verification only and never pushes the PR branch or changes auto-merge."
+        run: echo "Verification only; the PR branch and auto-merge state were not changed."
