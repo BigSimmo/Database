@@ -5,6 +5,7 @@ import {
   emptyPagination,
   indexingListResponse,
   offsetPagination,
+  parseStatusRows,
   type StatusRow,
 } from "@/lib/api-list-response";
 import { isDemoMode } from "@/lib/env";
@@ -63,7 +64,7 @@ export async function GET(request: Request) {
       .range(offset, offset + limit - 1);
 
     if (error) throw new Error(error.message);
-    const batches = (data ?? []) as unknown as BatchRow[];
+    const batches = parseStatusRows(data);
     return batchesResponse(batches, {
       pagination: offsetPagination({ limit, offset, pageLength: batches.length, count }),
     });
