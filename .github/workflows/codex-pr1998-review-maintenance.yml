@@ -21,11 +21,15 @@ jobs:
     env:
       TARGET_BRANCH: codex/filter-system-overhaul
       KNOWN_ANCESTOR: 3c9a2cb56cb45a1297dc39e51dc4aa3113ec56c9
-      EXPECTED_SOURCE_BLOB: b711421c25f7c50fd81786249e31ac2cc7ccfee1
-      EXPECTED_TEST_BLOB: 97f21fa89037f958b82eb9cb0b16741fec302727
+      EXPECTED_DOCUMENT_SOURCE_BLOB: b711421c25f7c50fd81786249e31ac2cc7ccfee1
+      EXPECTED_FAVOURITES_BLOB: a323765441cc90461666fe2c6ee8fb36d8f18a12
+      EXPECTED_FILTER_CONTROL_BLOB: 0bcb8756c308e9db35debe3cacdf8dbbf07b5711
+      EXPECTED_DOCUMENT_TEST_BLOB: 97f21fa89037f958b82eb9cb0b16741fec302727
       EXPECTED_REVIEW_TEST_BLOB: 9423590c5a4c7723907d52fd4d2d41e6b6b7b897
-      SOURCE_PATH: src/components/clinical-dashboard/document-search-results.tsx
-      TEST_PATH: tests/document-filter-panel.dom.test.tsx
+      DOCUMENT_SOURCE_PATH: src/components/clinical-dashboard/document-search-results.tsx
+      FAVOURITES_PATH: src/components/clinical-dashboard/favourites-command-library-page.tsx
+      FILTER_CONTROL_PATH: src/components/clinical-dashboard/result-filter-control.tsx
+      DOCUMENT_TEST_PATH: tests/document-filter-panel.dom.test.tsx
       REVIEW_TEST_PATH: tests/filter-review-regressions.dom.test.tsx
     steps:
       - name: Checkout maintenance branch
@@ -33,7 +37,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate current PR state and apply authored tests locally
+      - name: Validate current PR state and apply authored patch locally
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -46,21 +50,21 @@ jobs:
             echo "::error::Target branch no longer descends from reviewed head $KNOWN_ANCESTOR."
             exit 1
           }
-          source_blob="$(git rev-parse "$target_sha:$SOURCE_PATH")"
-          test_blob="$(git rev-parse "$target_sha:$TEST_PATH")"
-          review_test_blob="$(git rev-parse "$target_sha:$REVIEW_TEST_PATH")"
-          test "$source_blob" = "$EXPECTED_SOURCE_BLOB" || {
-            echo "::error::$SOURCE_PATH changed after review ($source_blob != $EXPECTED_SOURCE_BLOB)."
-            exit 1
+          check_blob() {
+            local path="$1"
+            local expected="$2"
+            local actual
+            actual="$(git rev-parse "$target_sha:$path")"
+            test "$actual" = "$expected" || {
+              echo "::error::$path changed after review ($actual != $expected)."
+              exit 1
+            }
           }
-          test "$test_blob" = "$EXPECTED_TEST_BLOB" || {
-            echo "::error::$TEST_PATH changed after review ($test_blob != $EXPECTED_TEST_BLOB)."
-            exit 1
-          }
-          test "$review_test_blob" = "$EXPECTED_REVIEW_TEST_BLOB" || {
-            echo "::error::$REVIEW_TEST_PATH changed after review ($review_test_blob != $EXPECTED_REVIEW_TEST_BLOB)."
-            exit 1
-          }
+          check_blob "$DOCUMENT_SOURCE_PATH" "$EXPECTED_DOCUMENT_SOURCE_BLOB"
+          check_blob "$FAVOURITES_PATH" "$EXPECTED_FAVOURITES_BLOB"
+          check_blob "$FILTER_CONTROL_PATH" "$EXPECTED_FILTER_CONTROL_BLOB"
+          check_blob "$DOCUMENT_TEST_PATH" "$EXPECTED_DOCUMENT_TEST_BLOB"
+          check_blob "$REVIEW_TEST_PATH" "$EXPECTED_REVIEW_TEST_BLOB"
           pr_json="$({
             curl --fail --silent --show-error \
               -H "Accept: application/vnd.github+json" \
@@ -85,13 +89,17 @@ jobs:
         run: |
           set -euo pipefail
           ./node_modules/.bin/prettier --write \
-            src/components/clinical-dashboard/document-search-results.tsx \
-            tests/document-filter-panel.dom.test.tsx \
-            tests/filter-review-regressions.dom.test.tsx
+            "$DOCUMENT_SOURCE_PATH" \
+            "$FAVOURITES_PATH" \
+            "$FILTER_CONTROL_PATH" \
+            "$DOCUMENT_TEST_PATH" \
+            "$REVIEW_TEST_PATH"
           ./node_modules/.bin/prettier --check \
-            src/components/clinical-dashboard/document-search-results.tsx \
-            tests/document-filter-panel.dom.test.tsx \
-            tests/filter-review-regressions.dom.test.tsx
+            "$DOCUMENT_SOURCE_PATH" \
+            "$FAVOURITES_PATH" \
+            "$FILTER_CONTROL_PATH" \
+            "$DOCUMENT_TEST_PATH" \
+            "$REVIEW_TEST_PATH"
           git diff --check
 
       - name: Run focused provider-free filter regressions
@@ -117,11 +125,13 @@ jobs:
           git config user.name "Codex"
           git config user.email "87357024+BigSimmo@users.noreply.github.com"
           git add \
-            src/components/clinical-dashboard/document-search-results.tsx \
-            tests/document-filter-panel.dom.test.tsx \
-            tests/filter-review-regressions.dom.test.tsx
+            "$DOCUMENT_SOURCE_PATH" \
+            "$FAVOURITES_PATH" \
+            "$FILTER_CONTROL_PATH" \
+            "$DOCUMENT_TEST_PATH" \
+            "$REVIEW_TEST_PATH"
           git diff --cached --check
-          git commit -m "test(filters): cover review regressions"
+          git commit -m "fix(filters): close review regressions"
 
       - name: Merge current main locally without rewriting history
         id: merge
@@ -142,7 +152,7 @@ jobs:
               test -n "$file" || continue
               echo "===== $file ====="
               git checkout --conflict=diff3 -- "$file" || true
-              sed -n '1,360p' "$file" || true
+              sed -n '1,420p' "$file" || true
             done < <(git diff --name-only --diff-filter=U)
             echo "::endgroup::"
             exit 1
@@ -158,9 +168,11 @@ jobs:
         run: |
           set -euo pipefail
           ./node_modules/.bin/prettier --check \
-            src/components/clinical-dashboard/document-search-results.tsx \
-            tests/document-filter-panel.dom.test.tsx \
-            tests/filter-review-regressions.dom.test.tsx
+            "$DOCUMENT_SOURCE_PATH" \
+            "$FAVOURITES_PATH" \
+            "$FILTER_CONTROL_PATH" \
+            "$DOCUMENT_TEST_PATH" \
+            "$REVIEW_TEST_PATH"
           npm test -- \
             tests/filter-review-regressions.dom.test.tsx \
             tests/document-filter-panel.dom.test.tsx \
@@ -170,7 +182,7 @@ jobs:
           npm run check:design-system-contract
           git diff --check
           git status --short
-          git log --oneline --decorate -5
+          git log --oneline --decorate -6
 
       - name: Record that no PR mutation occurred
         if: always()
