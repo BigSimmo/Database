@@ -73,7 +73,7 @@ export function scopeFilterChips(filters: SearchScopeFilters | null | undefined)
     chips.push({
       id: chipId("locality", filters.locality),
       groupLabel: "Locality",
-      valueLabel: filters.locality === "local" ? "local" : "non-local",
+      valueLabel: filters.locality === "local" ? "Local" : "Non-local",
     });
   }
   return chips;
