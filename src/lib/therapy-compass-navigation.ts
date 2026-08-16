@@ -182,9 +182,10 @@ export function therapyWorkspaceSearchParams(
   if (state.density !== DEFAULT_THERAPY_WORKSPACE_STATE.density) params.set("density", state.density);
   if (state.duration !== DEFAULT_THERAPY_WORKSPACE_STATE.duration) params.set("duration", state.duration);
   if (state.tone !== DEFAULT_THERAPY_WORKSPACE_STATE.tone) params.set("tone", state.tone);
-  if (state.sections.join("|") !== ALL_SHEET_SECTIONS.join("|")) {
-    if (state.sections.length === 0) params.set("section", "none");
-    else setRepeated(params, "section", state.sections);
+  const canonicalSections = ALL_SHEET_SECTIONS.filter((section) => state.sections.includes(section));
+  if (canonicalSections.join("|") !== ALL_SHEET_SECTIONS.join("|")) {
+    if (canonicalSections.length === 0) params.set("section", "none");
+    else setRepeated(params, "section", canonicalSections);
   }
   if (!state.clinician) params.set("clinician", "0");
   return params;

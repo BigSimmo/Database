@@ -112,6 +112,7 @@
         "tests/accessible-table.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
+        "tests/ui-tools.spec.ts",
         "tests/ward-output.test.ts"
       ],
       "baseline": {
@@ -1522,7 +1523,6 @@
         "src/components/forms/forms-search-results-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
-        "src/components/services/service-group-nav.tsx",
         "src/components/tools/tools-search-results-page.tsx",
         "src/components/ui/confirm-dialog.tsx"
       ],
@@ -1551,7 +1551,6 @@
         "src/components/forms/forms-search-results-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
-        "src/components/services/service-group-nav.tsx",
         "src/components/tools/tools-search-results-page.tsx"
       ],
       "designSync": {
@@ -1569,6 +1568,7 @@
         "tests/header-scroll-hide-contract.test.ts",
         "tests/image-lightbox-geometry.test.ts",
         "tests/in-page-nav-route-sections.dom.test.tsx",
+        "tests/mobile-sheet-safe-area-contract.test.ts",
         "tests/mode-nav-contract.test.ts",
         "tests/mode-nav.dom.test.tsx",
         "tests/rag-answer-fallback.test.ts",
@@ -3038,7 +3038,7 @@
         "files": []
       },
       "permittedComponentFamilies": ["controls", "feedback", "layout"],
-      "sanctionedSpecialPatterns": ["ApplicationsLauncherPage", "CalculatorsSearchPage"],
+      "sanctionedSpecialPatterns": ["CalculatorsSearchPage", "ToolsSearchResultsPage"],
       "roots": [
         {
           "file": "src/app/(search-app)/calculators/page.tsx",
@@ -3058,7 +3058,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["ApplicationsLauncherPage"]
+          "sanctionedPatternsPresent": ["ToolsSearchResultsPage"]
         }
       ]
     },

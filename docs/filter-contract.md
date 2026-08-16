@@ -28,10 +28,13 @@ does today — tells the reader they cannot hold two domains at once, which is f
 
 ### There is no `navigate` kind, and that is the point
 
-Services' quick filters do not filter. They call `router.push` and **replace the query**, so
-choosing one discards the search and its results with no warning and no undo. A control labelled
-"Filter" must not do that. Query-replacing presets belong beside the composer as suggested
-searches (`AnswerSuggestionChips`), not inside the filter sheet.
+Services' former quick filters did not filter. They called `router.push` and **replaced the
+query**, so choosing one discarded the search and its results with no warning and no undo. A
+control labelled "Filter" must not do that. Moving those presets beside the results as suggested
+searches still made a second search-navigation row compete with the result hierarchy, so the
+production Services route removes them entirely. The separate service-group strip moves into the
+sheet as the real, URL-backed **Service category** facet: its four categories overlap, so they use
+OR-within multi-selection rather than pretending to be a one-of-N lens.
 
 Factsheets' category dimension is not this pattern, despite an earlier draft of this section
 grouping it with services' quick filters: `filterFactsheets(query, category)` ANDs the two, so
@@ -93,9 +96,9 @@ scope segment — `These results N | All items N`, counts on both — built from
 tabindex and radio semantics. `ResultFilterSheet` reserves the slot (`scopeControl`) but does not
 build the segment itself: "meaningfully larger" and what the two counts mean are per-mode
 judgements the shared renderer cannot make. Services is the first mode to use it — see
-`services-navigator-page.tsx`: the segment is gated on the catalogue exceeding the query/group
-scoped result set (not the facet-narrowed one, so the segment does not flicker away as facets are
-applied), and both counts reflect the current facet/lens selection.
+`services-navigator-page.tsx`: the segment is gated on the catalogue exceeding the query-scoped
+result set (not the facet-narrowed one, so the segment does not flicker away as facets are applied),
+and both counts reflect the current category/facet/lens selection.
 
 It earns its place because it is the only escape from a filtered-to-zero state that does not
 discard the query: the commit becomes "Show N in all items" instead of a dead end.
@@ -122,7 +125,7 @@ find-a-filter field and collapse-by-default disclosures.
 | > 3 groups, or > 20 options | chips plus find-a-filter and collapse-by-default, every group behind a disclosure header |
 
 `ResultFilterSheet` computes the threshold once across all facet groups. The option-count limb
-catches a small number of very large groups, while the group-count limb covers services' five
+catches a small number of very large groups, while the group-count limb covers services' six
 facet groups. Below the threshold every group renders as before.
 
 Collapse rules, when they apply: groups start collapsed; a group holding a selection opens
@@ -161,11 +164,12 @@ Contract first, then one PR per mode:
    desktop rail so the breakpoints stop disagreeing. Done for differentials, medication,
    applications and specifiers (all `lens`), formulation (`facet`), and factsheets, whose real
    category lens now shares one counted option array between desktop and phone.
-3. **Services** — move its query-replacing quick filters to the composer. Done for services:
-   five facets (catchments, age_groups, setting_flags, acuity_flags, housing_flags),
+3. **Services** — remove its query-replacing quick filters instead of presenting them as filters or
+   a competing suggestion row. Done for services: Service category plus five catalogue facets
+   (catchments, age_groups, setting_flags, acuity_flags, housing_flags),
    substance_flags as a lens (an exact partition, not an accumulating constraint — see
-   `src/lib/service-facets.ts`), a URL round-trip alongside `q`/`group`, and the scope segment
-   (section 4). Services is also the first mode dense enough (5 facet groups) to exercise the
+   `src/lib/service-facets.ts`), a URL round-trip alongside `q`, and the scope segment (section 4).
+   Services is also the first mode dense enough (6 facet groups) to exercise the
    `> 3 groups` chrome added to the shared sheet for this — see section 5.
 4. **Therapy-compass** — converge runtime use of the bespoke phone-only filter sheet and trigger
    onto `ResultFilterSheet`, `ResultFilterTrigger`, and `ResultFilterFacetChips`. Topics are OR

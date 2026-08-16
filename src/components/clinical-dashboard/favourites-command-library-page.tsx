@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   ChevronsRight,
+  Clock,
   Copy,
   ExternalLink,
   FileText,
   Folder,
+  FolderPlus,
   Heart,
   MoreVertical,
   Pill,
@@ -20,15 +22,9 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 
-import {
-  FavouritesMobileBrowseRail,
-  FavouritesMobileQuickViews,
-  FavouritesSidebar,
-  useFavouritesNavCollapsed,
-  type FavouritesViewMode,
-} from "@/components/clinical-dashboard/favourites-library-nav";
+import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn, EmptyState, ignoreUnavailableActivation } from "@/components/ui-primitives";
@@ -53,7 +49,9 @@ import { useAuthSession } from "@/lib/supabase/client";
 
 type FavouriteType =
   "Medication" | "Document" | "Table" | "Saved search" | "Source" | "Service" | "Form" | "Differential" | "Therapy";
-type ViewMode = FavouritesViewMode;
+// Previously imported from `favourites-library-nav`, which this redesign
+// retired along with the sidebar and the two phone rails it exported.
+type ViewMode = "all" | "source-backed" | "pinned" | "recent";
 type SortMode = "last-used" | "title" | "type";
 
 type FavouriteItem = {
@@ -80,6 +78,15 @@ type FavouriteSet = {
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+// How many rows the Recent card shows before "View all" takes over. Small on
+// purpose: this is a glance surface sitting above the real table, not a second
+// copy of it.
+const recentPreviewLimit = 3;
+
+function subscribeNoop() {
+  return () => {};
+}
 
 const typeAppearance: Record<FavouriteType, ChipAppearance> = {
   Medication: { kind: "information", tone: "accent" },
@@ -604,11 +611,252 @@ function FavouritesEmptyMatches() {
   );
 }
 
+/**
+ * One horizontal rail replacing three separate navigation surfaces: the
+ * desktop `FavouritesSidebar`, the phone `FavouritesMobileQuickViews`, and the
+ * phone `FavouritesMobileBrowseRail`. Direction B (ledger #164) collapses sets,
+ * quick views and types into a single row of chips, so the same control reads
+ * identically at every width instead of three components disagreeing about
+ * what "browse" means.
+ *
+ * Each chip toggles its own dimension, so a set and a type still compose the
+ * way the sidebar allowed. "All" is the only chip that clears every dimension,
+ * and it reads as pressed exactly when nothing else is.
+ */
+function FavouritesFilterRail({
+  items,
+  sets,
+  selectedSetId,
+  selectedTypeId,
+  viewMode,
+  onSelectSet,
+  onSelectType,
+  onSelectViewMode,
+  onClearAll,
+}: {
+  items: FavouriteItem[];
+  sets: FavouriteSet[];
+  selectedSetId: string | null;
+  selectedTypeId: string;
+  viewMode: ViewMode;
+  onSelectSet: (id: string | null) => void;
+  onSelectType: (id: string) => void;
+  onSelectViewMode: (mode: ViewMode) => void;
+  onClearAll: () => void;
+}) {
+  const typeChips = favouriteTabs
+    .filter((tab) => tab.id !== "all" && tab.id !== "sets")
+    .map((tab) => ({ id: tab.id, label: tab.label, count: items.filter((item) => item.tabId === tab.id).length }))
+    .filter((tab) => tab.count > 0);
+  const pinnedCount = items.filter((item) => item.pinned === true).length;
+  const sourceBackedCount = items.filter((item) => isSourceBacked(item)).length;
+  const nothingActive = selectedSetId === null && selectedTypeId === "all" && viewMode === "all";
+
+  return (
+    <nav
+      aria-label="Filter favourites"
+      data-testid="favourites-filter-rail"
+      className="-mx-1 flex min-w-0 max-w-full snap-x items-center gap-2 overflow-x-auto px-1 pb-1"
+    >
+      <FilterRailChip label="All" count={null} pressed={nothingActive} onClick={onClearAll} />
+      {sets.map((set) => (
+        <FilterRailChip
+          key={`set-${set.id}`}
+          label={set.title}
+          count={set.count}
+          pressed={selectedSetId === set.id}
+          onClick={() => onSelectSet(selectedSetId === set.id ? null : set.id)}
+        />
+      ))}
+      {pinnedCount > 0 ? (
+        <FilterRailChip
+          label="Pinned"
+          count={pinnedCount}
+          pressed={viewMode === "pinned"}
+          onClick={() => onSelectViewMode(viewMode === "pinned" ? "all" : "pinned")}
+        />
+      ) : null}
+      {sourceBackedCount > 0 ? (
+        <FilterRailChip
+          label="Source-backed"
+          count={sourceBackedCount}
+          pressed={viewMode === "source-backed"}
+          onClick={() => onSelectViewMode(viewMode === "source-backed" ? "all" : "source-backed")}
+        />
+      ) : null}
+      {typeChips.map((tab) => (
+        <FilterRailChip
+          key={`type-${tab.id}`}
+          label={tab.label}
+          count={tab.count}
+          pressed={selectedTypeId === tab.id}
+          onClick={() => onSelectType(selectedTypeId === tab.id ? "all" : tab.id)}
+        />
+      ))}
+    </nav>
+  );
+}
+
+function FilterRailChip({
+  label,
+  count,
+  pressed,
+  onClick,
+}: {
+  label: string;
+  count: number | null;
+  pressed: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={pressed}
+      className={cn(
+        "inline-flex min-h-tap shrink-0 snap-start items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-bold transition sm:min-h-9",
+        focusRing,
+        pressed
+          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+      )}
+    >
+      {label}
+      {count === null ? null : (
+        <span
+          className={cn(
+            "nums rounded-full px-1.5 text-2xs font-bold",
+            pressed
+              ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+              : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+          )}
+        >
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/**
+ * The empty-query dashboard band. Both cards read from the same derived data
+ * the table does — no separate store — so they cannot drift from it.
+ */
+function FavouritesDashboardBand({
+  recentItems,
+  sets,
+  onSelectSet,
+  onShowRecent,
+}: {
+  recentItems: FavouriteItem[];
+  sets: FavouriteSet[];
+  onSelectSet: (id: string) => void;
+  onShowRecent: () => void;
+}) {
+  return (
+    <div className="grid min-w-0 gap-3 lg:grid-cols-2">
+      <section
+        data-testid="favourites-recent-card"
+        aria-labelledby="favourites-recent-heading"
+        className="min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]"
+      >
+        <div className="flex items-center justify-between gap-2 border-b border-[color:var(--border)] px-3.5 py-2.5">
+          <h2
+            id="favourites-recent-heading"
+            className="inline-flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-label text-[color:var(--text-muted)]"
+          >
+            <Clock className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
+            Recent
+          </h2>
+          <button
+            type="button"
+            onClick={onShowRecent}
+            className={cn(
+              "inline-flex min-h-tap items-center rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
+              focusRing,
+            )}
+          >
+            View all
+          </button>
+        </div>
+        <ul className="divide-y divide-[color:var(--border)]">
+          {recentItems.map((item) => (
+            <li key={item.id} className="flex min-w-0 items-center gap-2.5 px-3.5 py-2.5">
+              <Chip size="compact" appearance={typeAppearance[item.type]}>
+                {item.type}
+              </Chip>
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-sm font-bold text-[color:var(--text-heading)]">{item.title}</span>
+                <span className="truncate text-2xs font-medium text-[color:var(--text-muted)]">
+                  {item.set} · {item.lastUsed}
+                </span>
+              </span>
+              <Link
+                href={item.href}
+                aria-label={`Open ${item.title}`}
+                className={cn(
+                  "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
+                  focusRing,
+                )}
+              >
+                Open
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section
+        data-testid="favourites-sets-card"
+        aria-labelledby="favourites-sets-heading"
+        className="min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]"
+      >
+        <div className="flex items-center justify-between gap-2 border-b border-[color:var(--border)] px-3.5 py-2.5">
+          <h2
+            id="favourites-sets-heading"
+            className="inline-flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-label text-[color:var(--text-muted)]"
+          >
+            <FolderPlus className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
+            Your sets
+          </h2>
+        </div>
+        {sets.length === 0 ? (
+          <p className="px-3.5 py-4 text-xs font-medium text-[color:var(--text-muted)]">
+            Saved items group into sets as you add them.
+          </p>
+        ) : (
+          <ul className="grid gap-2 p-3 sm:grid-cols-2 xl:grid-cols-3">
+            {sets.map((set) => (
+              <li key={set.id} className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() => onSelectSet(set.id)}
+                  className={cn(
+                    "flex min-h-tap w-full min-w-0 flex-col items-start gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2.5 text-left hover:bg-[color:var(--surface)]",
+                    focusRing,
+                  )}
+                >
+                  <span className="flex min-w-0 max-w-full items-center gap-1.5">
+                    <Folder className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)]" aria-hidden />
+                    <span className="truncate text-xs font-bold text-[color:var(--text-heading)]">{set.title}</span>
+                  </span>
+                  <span className="nums text-2xs font-medium text-[color:var(--text-muted)]">
+                    {set.count} {set.count === 1 ? "item" : "items"}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function FavouritesTable({
   items,
+  rows: tableRows,
   searchTerm,
-  selectedTypeId,
-  selectedSet,
   viewMode,
   sortMode,
   selectedItemId,
@@ -616,26 +864,18 @@ function FavouritesTable({
   onSelectItem,
 }: {
   items: FavouriteItem[];
+  // The filtered/sorted rows are computed once by the page and passed in.
+  // They used to be derived here as well, from the same inputs, so the band's
+  // match count and the table's own count were two independent answers to one
+  // question — the redundant half of the "dual search" ledger #164 names.
+  rows: FavouriteItem[];
   searchTerm: string;
-  selectedTypeId: string;
-  selectedSet: FavouriteSet | null;
   viewMode: ViewMode;
   sortMode: SortMode;
   selectedItemId: string | null;
   onSortModeChange: (value: SortMode) => void;
   onSelectItem: (id: string) => void;
 }) {
-  const tableRows = useMemo(() => {
-    const rows = filterAndSortItems(items, {
-      searchTerm,
-      selectedTypeId,
-      selectedSet,
-      viewMode,
-      sortMode,
-    });
-    return rows;
-  }, [items, searchTerm, selectedSet, selectedTypeId, viewMode, sortMode]);
-
   // With the item workspace open (only at 2xl), the middle column narrows sharply.
   // Drop the leading icon and the secondary Evidence column there so titles keep
   // room instead of collapsing to a couple of characters.
@@ -647,11 +887,24 @@ function FavouritesTable({
   return (
     <section className="min-w-0 max-w-full overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-wash)] px-3.5 py-2.5">
-        <p className="inline-flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-label text-[color:var(--text-muted)]">
-          <Heart className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
-          <span className="nums font-bold text-[color:var(--text-heading)]">{tableRows.length}</span>
-          {tableRows.length === 1 ? "item" : "items"}
-          {tableRows.length !== items.length ? ` of ${items.length}` : ""}
+        <p className="inline-flex min-w-0 items-center gap-1.5 text-2xs font-semibold uppercase tracking-label text-[color:var(--text-muted)]">
+          {searchTerm.trim() ? (
+            <>
+              <Search className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
+              <span className="nums font-bold text-[color:var(--text-heading)]">{tableRows.length}</span>
+              {tableRows.length === 1 ? "match for" : "matches for"}
+              <span className="truncate font-bold normal-case text-[color:var(--text-heading)]">
+                “{searchTerm.trim()}”
+              </span>
+            </>
+          ) : (
+            <>
+              <Heart className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
+              <span className="nums font-bold text-[color:var(--text-heading)]">{tableRows.length}</span>
+              {tableRows.length === 1 ? "item" : "items"}
+              {tableRows.length !== items.length ? ` of ${items.length}` : ""}
+            </>
+          )}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <label className="relative block min-w-[9.5rem]">
@@ -1006,6 +1259,19 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
 export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?: string; demoMode: boolean }) {
   const router = useRouter();
   const auth = useAuthSession();
+  const searchCommand = useSearchCommand();
+  const hydrated = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
+  // The route's submitted `?q=` server-renders the exact list on a hard load;
+  // after hydration the shared composer's live draft owns it. That is what
+  // makes the typed query filter this page in place — no navigation, no second
+  // input, and no ModeHome to bounce through (ledger #164). The composer is
+  // still the one and only composer on the route, so the one-composer contract
+  // in docs/search-chrome-behaviour.md is untouched.
+  const activeQuery = hydrated ? (searchCommand?.query ?? query) : query;
   const favouritesAccessible = canAccessFavouritesMode({
     authenticated: auth.status === "authenticated",
     demoMode,
@@ -1013,7 +1279,6 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const authSettled = auth.status !== "loading";
   const [accountSetupDismissed, setAccountSetupDismissed] = useState(false);
   const accountSetupOpen = authSettled && !favouritesAccessible && !accountSetupDismissed;
-  const [navCollapsed, setNavCollapsed] = useFavouritesNavCollapsed();
   const {
     items: savedRegistryFavourites,
     status: favouritesHookStatus,
@@ -1043,25 +1308,42 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const effectiveSelectedSetId = selectedSetId && sets.some((set) => set.id === selectedSetId) ? selectedSetId : null;
   const selectedSet = effectiveSelectedSetId ? (sets.find((set) => set.id === effectiveSelectedSetId) ?? null) : null;
 
+  // Single source of truth for "what is in the list right now". The band's
+  // match count, the Continue gate, the empty-state branch and the table all
+  // read this one value.
   const filteredItems = useMemo(
     () =>
       filterAndSortItems(items, {
-        searchTerm: query,
+        searchTerm: activeQuery,
         selectedTypeId,
         selectedSet,
         viewMode,
         sortMode,
       }),
-    [items, query, selectedTypeId, selectedSet, viewMode, sortMode],
+    [items, activeQuery, selectedTypeId, selectedSet, viewMode, sortMode],
   );
   const continueItem = useMemo(() => getMostRecentlyUsedItem(items), [items]);
   const showContinueStrip =
     continueItem !== null && filteredItems.some((item) => item.id === continueItem.id) && filteredItems.length > 0;
+  const recentItems = useMemo(
+    () =>
+      [...items]
+        .sort((first, second) => lastUsedScore(second.lastUsed) - lastUsedScore(first.lastUsed))
+        .slice(0, recentPreviewLimit),
+    [items],
+  );
+  const searching = activeQuery.trim().length > 0;
 
   const selectedItem = selectedItemId ? (items.find((item) => item.id === selectedItemId) ?? null) : null;
 
   function clearSearch() {
     router.push("/favourites");
+  }
+
+  function clearAllFilters() {
+    setSelectedSetId(null);
+    setSelectedTypeId("all");
+    setViewMode("all");
   }
 
   if (!favouritesAccessible) {
@@ -1070,24 +1352,14 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
         data-testid="favourites-hub"
         className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:pb-32 md:pb-0"
       >
-        <span data-testid="favourites-command-library" className="sr-only">
-          Favourites command library
-        </span>
         <div className="mx-auto grid min-w-0 max-w-[40rem] gap-4 px-4 py-8 sm:px-6">
-          <header>
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                <Heart className="size-icon-lg" aria-hidden />
-              </span>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
-                  Favourites command library
-                </h1>
-                <p className="mt-1 text-pretty text-sm-minus font-medium leading-6 text-[color:var(--text-muted)]">
-                  Sign up to save favourites and access them across devices.
-                </p>
-              </div>
-            </div>
+          <header data-testid="favourites-command-library" className="flex min-w-0 flex-wrap items-baseline gap-x-3">
+            <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
+              Favourites
+            </h1>
+            <p className="text-pretty text-sm-minus font-medium leading-6 text-[color:var(--text-muted)]">
+              Sign up to save favourites and access them across devices.
+            </p>
           </header>
           <div
             role="status"
@@ -1124,47 +1396,29 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
       data-testid="favourites-hub"
       className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:pb-32 md:pb-0"
     >
-      <span data-testid="favourites-command-library" className="sr-only">
-        Favourites command library
-      </span>
       <div
         className={cn(
           "grid min-h-0 min-w-0 overflow-x-clip sm:min-h-[calc(100dvh-var(--shell-header-h))]",
-          navCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[17.5rem_minmax(0,1fr)]",
-          selectedItem &&
-            (navCollapsed
-              ? "xl:grid-cols-[5.25rem_minmax(0,1fr)_23rem]"
-              : "xl:grid-cols-[17.5rem_minmax(0,1fr)_23rem]"),
+          // The left library rail is gone — sets, quick views and types are one
+          // chip rail now (ledger #164), so the workspace is a single column
+          // that only splits when the item workspace opens.
+          selectedItem && "xl:grid-cols-[minmax(0,1fr)_23rem]",
         )}
       >
-        <FavouritesSidebar
-          sets={sets}
-          items={items}
-          selectedSetId={effectiveSelectedSetId}
-          selectedTypeId={selectedTypeId}
-          viewMode={viewMode}
-          collapsed={navCollapsed}
-          onCollapsedChange={setNavCollapsed}
-          onSelectSet={setSelectedSetId}
-          onSelectType={setSelectedTypeId}
-          onSelectViewMode={setViewMode}
-        />
         <div className="min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 lg:px-7">
           <div className="mx-auto grid min-w-0 max-w-[66rem] gap-3 2xl:max-w-[72rem]">
-            <header>
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                  <Heart className="size-icon-lg" aria-hidden />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
-                    Favourites command library
-                  </h1>
-                  <p className="mt-1 text-pretty text-sm-minus font-medium leading-6 text-[color:var(--text-muted)]">
-                    Your saved clinical knowledge, sets and searches - action-ready and source-backed.
-                  </p>
-                </div>
-              </div>
+            {/* The marketing lockup is retired (ledger #164): an icon tile, a
+                "command library" title and a sentence explaining the page to
+                someone already standing on it cost the fold about 90px and
+                said nothing the nav had not. The count is the only thing worth
+                saying here, and it is not a heading. */}
+            <header data-testid="favourites-command-library" className="flex min-w-0 flex-wrap items-baseline gap-x-3">
+              <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
+                Favourites
+              </h1>
+              <p className="nums text-sm font-medium text-[color:var(--text-muted)]">
+                {items.length} {items.length === 1 ? "item" : "items"}
+              </p>
             </header>
 
             {!demoMode && auth.status !== "authenticated" && auth.status !== "loading" ? (
@@ -1183,7 +1437,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
 
             <SearchResultsHeaderBand
               modeId="favourites"
-              query={query}
+              query={activeQuery}
               matchCount={filteredItems.length}
               // Without this a failed registry read renders as "0 matches", which
               // reads as "you have no saved favourites" rather than "we could not
@@ -1200,7 +1454,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               filterControls={
                 selectedTypeId !== "all" || selectedSet || viewMode !== "all" ? (
                   <ActiveFilterChips
-                    searchTerm={query}
+                    searchTerm={activeQuery}
                     selectedTypeId={selectedTypeId}
                     selectedSet={selectedSet}
                     viewMode={viewMode}
@@ -1214,37 +1468,43 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               }
             />
 
-            <FavouritesMobileQuickViews
+            <FavouritesFilterRail
               items={items}
+              sets={sets}
               selectedSetId={effectiveSelectedSetId}
               selectedTypeId={selectedTypeId}
               viewMode={viewMode}
               onSelectSet={setSelectedSetId}
               onSelectType={setSelectedTypeId}
               onSelectViewMode={setViewMode}
-            />
-
-            <FavouritesMobileBrowseRail
-              sets={sets}
-              selectedSetId={effectiveSelectedSetId}
-              viewMode={viewMode}
-              onSelectSet={setSelectedSetId}
-              onSelectViewMode={setViewMode}
+              onClearAll={clearAllFilters}
             />
 
             {showContinueStrip && continueItem ? <ContinueStrip item={continueItem} /> : null}
 
+            {/* Empty query is a dashboard; a typed query is a filtered table.
+                Typing does not swap surfaces or navigate — the dashboard band
+                demotes to a collapsed disclosure and the table filters in
+                place beneath it (ledger #164). */}
+            {items.length > 0 && !searching ? (
+              <FavouritesDashboardBand
+                recentItems={recentItems}
+                sets={sets}
+                onSelectSet={setSelectedSetId}
+                onShowRecent={() => setViewMode("recent")}
+              />
+            ) : null}
+
             {/* Only a successful read can say "no matches". While loading or
                 faulted an empty list means we could not look, not that the
                 library is empty; the band's fault panel reports that. */}
-            {query.trim() && filteredItems.length === 0 && favouritesRegistryStatus === "ready" ? (
-              <SearchResultsEmptyState modeId="favourites" query={query} />
+            {searching && filteredItems.length === 0 && favouritesRegistryStatus === "ready" ? (
+              <SearchResultsEmptyState modeId="favourites" query={activeQuery} />
             ) : (
               <FavouritesTable
                 items={items}
-                searchTerm={query}
-                selectedTypeId={selectedTypeId}
-                selectedSet={selectedSet}
+                rows={filteredItems}
+                searchTerm={activeQuery}
                 viewMode={viewMode}
                 sortMode={sortMode}
                 selectedItemId={selectedItemId}
@@ -1252,7 +1512,49 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 onSelectItem={setSelectedItemId}
               />
             )}
-            <UniversalSearchAlsoMatches modeId="favourites" query={query} />
+
+            {items.length > 0 && searching ? (
+              <details
+                data-testid="favourites-recent-disclosure"
+                className="min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)]"
+              >
+                <summary
+                  className={cn(
+                    "flex min-h-tap cursor-pointer list-none items-center gap-1.5 px-3.5 text-2xs font-semibold uppercase tracking-label text-[color:var(--text-muted)]",
+                    focusRing,
+                  )}
+                >
+                  <Clock className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
+                  Recent
+                </summary>
+                <ul className="divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
+                  {recentItems.map((item) => (
+                    <li key={item.id} className="flex min-w-0 items-center gap-2.5 px-3.5 py-2.5">
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-sm font-bold text-[color:var(--text-heading)]">
+                          {item.title}
+                        </span>
+                        <span className="truncate text-2xs font-medium text-[color:var(--text-muted)]">
+                          {item.set} · {item.lastUsed}
+                        </span>
+                      </span>
+                      <Link
+                        href={item.href}
+                        aria-label={`Open ${item.title}`}
+                        className={cn(
+                          "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
+                          focusRing,
+                        )}
+                      >
+                        Open
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+
+            <UniversalSearchAlsoMatches modeId="favourites" query={activeQuery} />
           </div>
         </div>
         {selectedItem ? (

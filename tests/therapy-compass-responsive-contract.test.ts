@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { sourceSegment } from "./helpers/source-contract";
+
 const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 const therapyPath = "src/components/therapy-compass";
 
@@ -163,10 +165,9 @@ describe("Therapy Compass responsive contract", () => {
   });
 
   it("lets result-card evidence and actions use the phone width without forcing the desktop grid", () => {
-    const resultCardSource = therapyCardSource.slice(
-      therapyCardSource.indexOf("export function ResultCard"),
-      therapyCardSource.indexOf("function CardCell"),
-    );
+    const resultCardSource = sourceSegment(therapyCardSource, "export function ResultCard", "function CardCell", {
+      label: "therapy ResultCard",
+    });
 
     expect(resultCardSource).toContain("data-therapy-result-card");
     expect(resultCardSource).toContain("md:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)]");

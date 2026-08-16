@@ -23,7 +23,9 @@ function Probe() {
   return (
     <>
       <div data-testid="probe" data-screen={b.screen} data-query={b.search.query} />
-      <button type="button" onClick={() => b.setQuery("draft")}>Type draft query</button>
+      <button type="button" onClick={() => b.setQuery("draft")}>
+        Type draft query
+      </button>
     </>
   );
 }
@@ -65,7 +67,7 @@ describe("TcProvider URL-driven seeding", () => {
     );
 
     navState.pathname = "/therapy-compass/search";
-    navState.search = "";
+    navState.search = "q=alpha";
     const { getByRole, getByTestId, rerender } = render(
       <TcProvider>
         <Probe />
@@ -75,7 +77,7 @@ describe("TcProvider URL-driven seeding", () => {
     fireEvent.click(getByRole("button", { name: "Type draft query" }));
     expect(getByTestId("probe").getAttribute("data-query")).toBe("draft");
 
-    navState.search = "brief=1";
+    navState.search = "q=alpha&brief=1";
     rerender(
       <TcProvider>
         <Probe />

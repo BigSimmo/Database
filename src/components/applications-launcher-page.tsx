@@ -119,6 +119,7 @@ function launcherAppsForSession(canAccessFavourites: boolean): LauncherApp[] {
 const toolsLauncherCopy = {
   heading: "Tools",
   description: "Assessment, prescribing, workflows.",
+  showAllLabel: "Show all",
   allSectionLabel: "All tools",
   countNoun: "tools",
   emptyTitle: "No tools match",
@@ -826,6 +827,19 @@ export function ApplicationsLauncherWorkspace({
           icon={Grid2X2}
           headingLevel={1}
         />
+
+        <Link
+          href="/tools"
+          aria-label="Show all tools"
+          data-testid="tools-show-all"
+          className={cn(
+            "inline-flex min-h-tap items-center justify-center gap-2 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-soft)] sm:text-sm lg:min-h-9",
+            focusRing,
+          )}
+        >
+          <Grid2X2 className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" strokeWidth={1.75} aria-hidden="true" />
+          {copy.showAllLabel}
+        </Link>
 
         {desktopComposerSlotId ? (
           <DesktopComposerPortalSlot

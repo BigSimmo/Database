@@ -24,8 +24,9 @@ describe("Therapy review regression contracts", () => {
     expect(detail).toContain('role="status"');
     expect(detail).toContain(': "sr-only"');
     expect(workspace).toContain('<InformationPageShell testId="therapy-information-loading">');
-    expect(workspace.indexOf("if (b.error)"))
-      .toBeLessThan(workspace.indexOf("if (b.loading && b.therapies.length === 0)"));
+    expect(workspace.indexOf("if (b.error)")).toBeLessThan(
+      workspace.indexOf("if (b.loading && b.therapies.length === 0)"),
+    );
   });
 
   it("keeps Therapy unavailable in production until clinical review is complete", () => {
@@ -48,10 +49,47 @@ describe("Therapy review regression contracts", () => {
 
     expect(addConstraint.toLowerCase()).toContain("not valid");
     expect(addConstraint.toLowerCase()).not.toContain("validate constraint");
-    expect(validateConstraint.toLowerCase()).toContain(
-      "validate constraint user_favourites_content_type_check",
-    );
+    expect(validateConstraint.toLowerCase()).toContain("validate constraint user_favourites_content_type_check");
     expect(validateConstraint.toLowerCase()).not.toContain("drop constraint");
     expect(validateConstraint.toLowerCase()).not.toContain("add constraint");
+  });
+
+  it("keeps follow-up Therapy review fixes canonical, token-backed, and single-pass", () => {
+    const home = source("src/components/therapy-compass/screens/home-screen.tsx");
+    const detail = source("src/components/therapy-compass/screens/detail-screen.tsx");
+    const select = source("src/components/therapy-compass/data/select.ts");
+    const globals = source("src/app/globals.css");
+    const universalSearch = source("tests/ui-universal-search.spec.ts");
+
+    expect(home).toContain('therapyScreenHref("recommend")');
+    expect(home).toContain('therapyScreenHref("pathways")');
+    expect(home).toContain('therapyScreenHref("compare")');
+    expect(home).not.toContain('href: "/therapy-compass/');
+    expect(home).not.toContain("`/therapy-compass/search?q=");
+
+    const searchStart = select.indexOf("export function searchTherapies");
+    const searchEnd = select.indexOf("// ---- related", searchStart);
+    expect(searchStart).toBeGreaterThanOrEqual(0);
+    expect(searchEnd).toBeGreaterThan(searchStart);
+    const searchImplementation = select.slice(searchStart, searchEnd);
+    expect(searchImplementation.match(/scoreTherapyCandidate\(/g)).toHaveLength(1);
+
+    expect(detail).toContain("top-[calc(var(--shell-header-h)+1rem)]");
+
+    const printStart = globals.indexOf("  [data-print-provenance] {", globals.indexOf("@media print"));
+    const printEnd = globals.indexOf("\n  }", printStart);
+    expect(printStart).toBeGreaterThanOrEqual(0);
+    expect(printEnd).toBeGreaterThan(printStart);
+    const printProvenance = globals.slice(printStart, printEnd);
+    expect(printProvenance).toContain("border-top: 1px solid var(--border);");
+    expect(printProvenance).toContain("color: var(--text-muted);");
+    expect(printProvenance).not.toContain("#d6dce5");
+    expect(printProvenance).not.toContain("#5b6472");
+
+    const groupedStart = universalSearch.indexOf('test("selecting a grouped result navigates to the record"');
+    const groupedEnd = universalSearch.indexOf('test("Enter with nothing highlighted', groupedStart);
+    expect(groupedStart).toBeGreaterThanOrEqual(0);
+    expect(groupedEnd).toBeGreaterThan(groupedStart);
+    expect(universalSearch.slice(groupedStart, groupedEnd)).toContain("await expect(option).toBeInViewport();");
   });
 });

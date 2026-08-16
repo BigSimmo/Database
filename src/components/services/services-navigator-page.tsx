@@ -2,18 +2,28 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Check, ExternalLink, GitCompareArrows, ListChecks, ShieldCheck, X } from "lucide-react";
-import { useCallback, useDeferredValue, useId, useMemo, useState } from "react";
+import {
+  ArrowRight,
+  Bookmark,
+  BookmarkCheck,
+  Check,
+  ExternalLink,
+  GitCompareArrows,
+  ListChecks,
+  X,
+} from "lucide-react";
+import { useCallback, useDeferredValue, useId, useMemo, useRef, useState } from "react";
 
+import { useAccountData } from "@/components/account-data-provider";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import {
+  type AppliedFilterChip,
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
   SearchResultsSkeleton,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
-import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
@@ -21,17 +31,17 @@ import {
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { ServiceGroupNav } from "@/components/services/service-group-nav";
 import { Chip as DesignChip, type ChipStatusTone } from "@/components/ui/chip";
 import { cn } from "@/components/ui-primitives";
 import { useResultSort } from "@/components/use-result-sort";
 import { compactBestUseTitle } from "@/lib/compact-best-use-title";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import {
-  readServiceCoreGroup,
+  readServiceCoreGroupSelection,
   serviceCoreGroupLabel,
   serviceCoreGroups,
-  serviceMatchesCoreGroup,
+  serviceMatchesCoreGroupSelection,
+  writeServiceCoreGroupSelectionToParams,
   type ServiceCoreGroupId,
 } from "@/lib/service-core-groups";
 import {
@@ -54,16 +64,6 @@ import { sortResultItems } from "@/lib/result-sort";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 
 type ServiceResultScope = "results" | "all";
-
-const bestFitQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
-const serviceQuickFilters = [
-  { label: "Best fit", query: bestFitQuery },
-  { label: "Crisis", query: "crisis" },
-  { label: "Culturally safe", query: "Aboriginal Torres Strait Islander" },
-  { label: "Phone referral", query: "phone referral" },
-  { label: "Free", query: "free" },
-  { label: "WA", query: "WA" },
-] as const;
 
 function displayText(value: string | null | undefined, fallback = "Confirm locally") {
   return value?.trim() ? value.trim() : fallback;
@@ -92,15 +92,27 @@ function ServiceCard({
   relevanceRank,
   selected,
   onToggleSelected,
+  saved,
+  savedStateReady,
+  savedStateLoadFailed,
+  savePending,
+  onToggleSaved,
 }: {
   service: ServiceRecord;
   index: number;
   relevanceRank: number | null;
   selected: boolean;
   onToggleSelected: (slug: string) => void;
+  saved: boolean;
+  // False until the account favourites read settles. Until then `saved` is
+  // `false` for EVERY service — not because nothing is saved, but because
+  // nothing has been read yet — so the control must not assert a state.
+  savedStateReady: boolean;
+  savedStateLoadFailed: boolean;
+  savePending: boolean;
+  onToggleSaved: (slug: string) => void;
 }) {
   const showBestFit = relevanceRank !== null && relevanceRank <= 2;
-  const catchment = service.catchments?.slice(0, 2).join(" · ") || service.location;
 
   return (
     <article
@@ -112,7 +124,7 @@ function ServiceCard({
           : "border-[color:var(--border)]",
       )}
     >
-      <div className="grid grid-cols-[2.25rem_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto]">
+      <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-start gap-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto]">
         <span
           className={cn(
             "grid h-9 w-9 place-items-center rounded-lg border text-sm font-extrabold",
@@ -155,33 +167,59 @@ function ServiceCard({
             ))}
           </div>
         </div>
-        <span className="hidden items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-semibold text-[color:var(--text-muted)] sm:inline-flex">
-          <ShieldCheck className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
-          {service.verification?.confidence ?? "Unknown"} confidence
-        </span>
+        {/* Favourite, not shortlist: the bookmark persists to the account
+            across sessions, while the shortlist below is this search's
+            working set and is deliberately not persisted. Two different
+            jobs, so they stay two different controls. */}
+        {/* Native `disabled`, not aria-disabled: this is transient inertness
+            while a request settles, which is exactly the case
+            docs/wiring-conventions.md reserves `disabled` for. Without it the
+            control asserts "not saved" for every service during the account
+            read and a tap issues a redundant write against a service that is
+            already saved. */}
+        <button
+          type="button"
+          onClick={() => onToggleSaved(service.slug)}
+          disabled={!savedStateReady || savedStateLoadFailed || savePending}
+          aria-pressed={savedStateReady && !savedStateLoadFailed ? saved : undefined}
+          title={
+            savedStateLoadFailed
+              ? "Saved services are unavailable. Retry from your favourites."
+              : !savedStateReady
+                ? "Loading your saved services…"
+                : savePending
+                  ? "Saving…"
+                  : undefined
+          }
+          aria-label={
+            savedStateLoadFailed
+              ? `Saved state unavailable for ${service.title}`
+              : savedStateReady
+                ? saved
+                  ? `Remove ${service.title} from favourites`
+                  : `Save ${service.title} to favourites`
+                : `Loading saved state for ${service.title}`
+          }
+          className={cn(
+            "grid min-h-12 min-w-12 place-items-center rounded-lg border focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10 sm:min-w-10",
+            savedStateReady && !savedStateLoadFailed && saved
+              ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+              : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] enabled:hover:bg-[color:var(--surface-subtle)]",
+          )}
+        >
+          {savedStateReady && !savedStateLoadFailed && saved ? (
+            <BookmarkCheck className="h-4 w-4" aria-hidden />
+          ) : (
+            <Bookmark className="h-4 w-4" aria-hidden />
+          )}
+        </button>
       </div>
 
-      <dl className="mt-3 grid min-w-0 grid-cols-1 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] sm:grid-cols-3">
-        {[
-          ["Catchment", compactText(catchment, 72, "Confirm locally")],
-          ["Eligibility", compactText(service.eligibility, 86, "Review criteria")],
-          ["Cost", compactText(service.cost, 72, "Confirm fees")],
-        ].map(([label, value], itemIndex) => (
-          <div
-            key={label}
-            className={cn(
-              "min-w-0 px-3 py-2.5",
-              itemIndex > 0 && "border-t border-[color:var(--border)] sm:border-l sm:border-t-0",
-            )}
-          >
-            <dt className="text-2xs font-semibold text-[color:var(--text-muted)]">{label}</dt>
-            <dd className="mt-0.5 line-clamp-2 text-xs font-bold leading-4 text-[color:var(--text-heading)]">
-              {value}
-            </dd>
-          </div>
-        ))}
-      </dl>
-
+      {/* The Catchment/Eligibility/Cost strip that used to sit here is gone
+          (direction B, ledger #163): three truncated fields per row turned a
+          scan of 45 crisis services into a wall of clipped prose. The full,
+          untruncated values are one tap away on the record via "Review
+          referral", which is where a referral decision is actually made. */}
       <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
         <Link
           href={`/services/${service.slug}`}
@@ -208,6 +246,90 @@ function ServiceCard({
         </button>
       </div>
     </article>
+  );
+}
+
+const referralStages = [
+  { id: "search", label: "Search" },
+  { id: "shortlist", label: "Shortlist" },
+  { id: "compare", label: "Compare" },
+  { id: "refer", label: "Refer" },
+] as const;
+
+type ReferralStageId = (typeof referralStages)[number]["id"];
+
+/**
+ * A compact progress rail, not the old four-card walkthrough. It sits directly
+ * below the results heading because it describes the current search journey;
+ * category and suggestion navigation no longer compete for this position.
+ *
+ * The accessible name stays distinct from `ServiceReferralFlow` on the service
+ * record. "Refer" is reached there, but remains visible here so the whole path
+ * is understandable before a reader starts a shortlist.
+ */
+function ServiceReferralProgress({ active }: { active: ReferralStageId }) {
+  const activeIndex = referralStages.findIndex((stage) => stage.id === active);
+
+  return (
+    <nav
+      aria-label="Referral progress"
+      data-testid="service-referral-progress"
+      className="min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 shadow-[var(--shadow-inset)] sm:px-4 sm:py-3"
+    >
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <span className="truncate text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+          Referral pathway
+        </span>
+        <span className="nums shrink-0 text-2xs font-semibold text-[color:var(--clinical-accent)]" aria-live="polite">
+          Step {activeIndex + 1} of {referralStages.length}
+        </span>
+      </div>
+      <ol className="mt-2 grid min-w-0 grid-cols-4 gap-1 sm:mt-2.5 sm:gap-2">
+        {referralStages.map((stage, index) => {
+          const isActive = index === activeIndex;
+          const isComplete = index < activeIndex;
+          return (
+            <li key={stage.id} className="relative flex min-w-0 flex-col items-center gap-1.5">
+              {index > 0 ? (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "absolute right-1/2 top-3 h-px w-[calc(100%+0.25rem)] sm:w-[calc(100%+0.5rem)]",
+                    isComplete || isActive ? "bg-[color:var(--clinical-accent-border)]" : "bg-[color:var(--border)]",
+                  )}
+                />
+              ) : null}
+              <span
+                aria-hidden
+                className={cn(
+                  "relative z-5 grid h-6 w-6 shrink-0 place-items-center rounded-full border text-3xs font-black",
+                  isActive
+                    ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                    : isComplete
+                      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                      : "border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
+                )}
+              >
+                {isComplete ? <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" /> : index + 1}
+              </span>
+              <span
+                aria-current={isActive ? "step" : undefined}
+                className={cn(
+                  "min-w-0 max-w-full truncate text-center text-2xs font-bold",
+                  isActive
+                    ? "text-[color:var(--clinical-accent)]"
+                    : isComplete
+                      ? "text-[color:var(--text)]"
+                      : "text-[color:var(--text-muted)]",
+                )}
+              >
+                {stage.label}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
   );
 }
 
@@ -296,7 +418,7 @@ export function ServicesNavigatorPage() {
   const searchParams = useSearchParams();
   const [sortValue, setSortValue] = useResultSort();
   const urlQuery = searchParams.get("q")?.trim() || searchParams.get("query")?.trim() || "";
-  const activeGroup = readServiceCoreGroup(searchParams.get("group"));
+  const categorySelection = useMemo(() => readServiceCoreGroupSelection(searchParams.get("group")), [searchParams]);
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: urlQuery }));
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : urlQuery;
   const deferredQuery = useDeferredValue(query);
@@ -311,11 +433,6 @@ export function ServicesNavigatorPage() {
     if (ranked.length) return ranked.map((match) => match.service);
     return [];
   }, [deferredQuery, query, searchableRecords]);
-  const groupedMatches = useMemo(
-    () => rankedMatches.filter((service) => serviceMatchesCoreGroup(service, activeGroup)),
-    [activeGroup, rankedMatches],
-  );
-
   // Facet selection lives in the URL, alongside `q`/`group`, so a filtered
   // services search stays shareable and survives navigating away and back —
   // see docs/filter-contract.md section 1 and PR C's own scope note.
@@ -323,12 +440,16 @@ export function ServicesNavigatorPage() {
   const substanceLens = searchParams.get("substance") ?? "all";
   const resultScope: ServiceResultScope = searchParams.get("scope") === "all" ? "all" : "results";
   // The scope segment (section 4) lets a reader who has narrowed to zero
-  // widen from the query/group-scoped set to the whole 219-item catalogue
+  // widen from the query-scoped set to the whole 219-item catalogue
   // without discarding the query. Gated on the UNFACETED result set so the
   // segment does not flicker away as facets are applied — narrowing with
   // facets only ever makes "catalogue > results" more true, never less.
-  const showResultScope = searchableRecords.length > groupedMatches.length;
-  const facetBaseMatches = resultScope === "all" ? searchableRecords : groupedMatches;
+  const showResultScope = searchableRecords.length > rankedMatches.length;
+  const scopeBaseMatches = resultScope === "all" ? searchableRecords : rankedMatches;
+  const facetBaseMatches = useMemo(
+    () => scopeBaseMatches.filter((service) => serviceMatchesCoreGroupSelection(service, categorySelection)),
+    [categorySelection, scopeBaseMatches],
+  );
   const facetedMatches = useMemo(
     () => filterServicesByFacets(facetBaseMatches, facetSelection, substanceLens),
     [facetBaseMatches, facetSelection, substanceLens],
@@ -337,38 +458,92 @@ export function ServicesNavigatorPage() {
     () => sortResultItems(facetedMatches, sortValue, (service) => service.title),
     [facetedMatches, sortValue],
   );
-  // Both scope segments show the current facet selection applied — "counts
-  // on both" — differing only in whether the query/group scoping applies.
+  // Both scope segments show the current category/facet selection applied —
+  // "counts on both" — differing only in whether the query scoping applies.
   const resultsScopedCount = useMemo(
-    () => filterServicesByFacets(groupedMatches, facetSelection, substanceLens).length,
-    [groupedMatches, facetSelection, substanceLens],
+    () =>
+      filterServicesByFacets(
+        rankedMatches.filter((service) => serviceMatchesCoreGroupSelection(service, categorySelection)),
+        facetSelection,
+        substanceLens,
+      ).length,
+    [categorySelection, facetSelection, rankedMatches, substanceLens],
   );
   const allScopedCount = useMemo(
-    () => filterServicesByFacets(searchableRecords, facetSelection, substanceLens).length,
-    [searchableRecords, facetSelection, substanceLens],
+    () =>
+      filterServicesByFacets(
+        searchableRecords.filter((service) => serviceMatchesCoreGroupSelection(service, categorySelection)),
+        facetSelection,
+        substanceLens,
+      ).length,
+    [categorySelection, facetSelection, searchableRecords, substanceLens],
   );
-  const activeFilterCount = serviceFacetSelectionSize(facetSelection) + (substanceLens === "all" ? 0 : 1);
+  const activeFilterCount =
+    categorySelection.size + serviceFacetSelectionSize(facetSelection) + (substanceLens === "all" ? 0 : 1);
   const relevanceRankMap = useMemo(() => {
     const map = new Map<string, number>();
     rankedMatches.forEach((service, index) => map.set(service.slug, index + 1));
     return map;
   }, [rankedMatches]);
-  const groupCounts = useMemo(
+  const categoryCounts = useMemo(
     () =>
       Object.fromEntries(
-        serviceCoreGroups.map((group) => [
-          group.id,
-          rankedMatches.filter((service) => serviceMatchesCoreGroup(service, group.id)).length,
-        ]),
+        serviceCoreGroups.map((group) => {
+          const widened = new Set(categorySelection);
+          widened.add(group.id);
+          const categoryMatches = scopeBaseMatches.filter((service) =>
+            serviceMatchesCoreGroupSelection(service, widened),
+          );
+          return [group.id, filterServicesByFacets(categoryMatches, facetSelection, substanceLens).length];
+        }),
       ) as Record<ServiceCoreGroupId, number>,
-    [rankedMatches],
+    [categorySelection, facetSelection, scopeBaseMatches, substanceLens],
   );
   const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
   const selected = searchableRecords.filter((service) => selectedSlugs.includes(service.slug));
   const [showComparison, setShowComparison] = useState(false);
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
-  const heading = query || (activeGroup ? serviceCoreGroupLabel(activeGroup) : "Browse services");
+  const selectedCategory = categorySelection.size === 1 ? [...categorySelection][0] : null;
+  const heading = query || (selectedCategory ? serviceCoreGroupLabel(selectedCategory) : "Browse services");
+  const accountData = useAccountData();
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  // The provider rolls back a failed mutation from its pre-request snapshot.
+  // Serialize writes from this multi-row surface so one row's rollback cannot
+  // erase another row's successful optimistic update.
+  const savingSlugsRef = useRef(new Set<string>());
+  const [savingSlugs, setSavingSlugs] = useState<ReadonlySet<string>>(() => new Set());
+  // Derived during render rather than tracked in an effect: the stage is a
+  // pure function of the shortlist state that already exists, and
+  // tests/audit-content-services-regressions.test.ts pins this file as
+  // effect-free.
+  const referralStage: ReferralStageId = showComparison ? "compare" : selectedSlugs.length ? "shortlist" : "search";
+
+  async function toggleSaved(slug: string) {
+    // Belt as well as braces: the control is disabled until the read settles,
+    // but a toggle computed from an unread library would invert the wrong
+    // state, so refuse it here too rather than trusting the caller.
+    if (!accountData.ready || accountData.loadError || savingSlugsRef.current.size > 0) return;
+    const service = searchableRecords.find((record) => record.slug === slug);
+    if (!service) return;
+    savingSlugsRef.current.add(slug);
+    setSavingSlugs(new Set(savingSlugsRef.current));
+    const nowSaved = !accountData.isSaved("service", slug);
+    try {
+      if (!(await accountData.setFavourite("service", slug, nowSaved))) {
+        setSaveNotice(
+          accountData.isAuthenticated ? "Save failed. Try again." : "Sign in or create an account to save services.",
+        );
+        return;
+      }
+      setSaveNotice(nowSaved ? `${service.title} saved to favourites.` : `${service.title} removed from favourites.`);
+    } catch {
+      setSaveNotice("Save failed. Try again.");
+    } finally {
+      savingSlugsRef.current.delete(slug);
+      setSavingSlugs(new Set(savingSlugsRef.current));
+    }
+  }
 
   function toggleSelected(slug: string) {
     setSelectedSlugs((current) => {
@@ -393,6 +568,17 @@ export function ServicesNavigatorPage() {
   // Facet/lens/scope toggles replace (not push) — a reader ticking several
   // chips should not spam the back-button history the way submitting a new
   // search does.
+  const toggleCategoryValue = useCallback(
+    (value: ServiceCoreGroupId) => {
+      updateParams((params) => {
+        const next = new Set(readServiceCoreGroupSelection(params.get("group")));
+        if (!next.delete(value)) next.add(value);
+        writeServiceCoreGroupSelectionToParams(params, next);
+      }, true);
+    },
+    [updateParams],
+  );
+
   const toggleFacetValue = useCallback(
     (dimension: ServiceFacetDimension, value: string) => {
       updateParams((params) => {
@@ -425,13 +611,13 @@ export function ServicesNavigatorPage() {
     [updateParams],
   );
 
-  // Never touches `q`/`query`/`group` — docs/filter-contract.md section 6:
-  // clearing filters and clearing a search are different intentions. The
-  // quick filters this sheet used to hold DID conflate the two (clearing
-  // them wiped the search box); moving them to suggestion chips below the
-  // band removes that conflation rather than papering over it here.
+  // Never touches `q`/`query` — docs/filter-contract.md section 6: clearing
+  // filters and clearing a search are different intentions. `group` is now
+  // the URL-backed Service category facet, so it is cleared with the rest of
+  // the filter state rather than behaving as a separate navigation strip.
   const clearAllFilters = useCallback(() => {
     updateParams((params) => {
+      params.delete("group");
       for (const dimension of serviceFacetDimensions) params.delete(dimension);
       params.delete("substance");
       params.delete("scope");
@@ -448,17 +634,27 @@ export function ServicesNavigatorPage() {
     });
   }
 
-  function hrefForGroup(group: ServiceCoreGroupId | null) {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("run", "1");
-    if (group) params.set("group", group);
-    else params.delete("group");
-    return `/services?${params.toString()}`;
-  }
-
   // `substance_flags` is an exact partition (measured 2026-08-12: all 219
   // services carry exactly one of general/aod) — a lens, not a facet. See
   // src/lib/service-facets.ts for the full measurement note.
+  const categoryGroup = useMemo(
+    () =>
+      resultFilterFacetGroup({
+        id: "service-category",
+        label: "Service category",
+        selected: categorySelection,
+        options: serviceCoreGroups.map((group) => ({
+          value: group.id,
+          label: group.label,
+          searchText: `${group.label} ${group.shortLabel}`,
+          hint: String(categoryCounts[group.id]),
+          disabled: categoryCounts[group.id] === 0 && !categorySelection.has(group.id),
+        })),
+        onToggle: toggleCategoryValue,
+      }),
+    [categoryCounts, categorySelection, toggleCategoryValue],
+  );
+
   const substanceOptionValues = useMemo(() => deriveSubstanceLensOptions(searchableRecords), [searchableRecords]);
   const substanceGroup = useMemo(
     () =>
@@ -520,6 +716,35 @@ export function ServicesNavigatorPage() {
     [facetBaseMatches, facetSelection, searchableRecords, substanceLens, toggleFacetValue],
   );
 
+  const appliedFilters = useMemo<AppliedFilterChip[]>(() => {
+    const chips: AppliedFilterChip[] = [];
+    for (const group of serviceCoreGroups) {
+      if (!categorySelection.has(group.id)) continue;
+      chips.push({
+        id: `service-category:${group.id}`,
+        label: group.label,
+        onRemove: () => toggleCategoryValue(group.id),
+      });
+    }
+    if (substanceLens !== "all") {
+      chips.push({
+        id: `substance:${substanceLens}`,
+        label: serviceSubstanceLensValueLabel(substanceLens),
+        onRemove: () => setSubstanceLensValue("all"),
+      });
+    }
+    for (const dimension of serviceFacetDimensions) {
+      for (const value of facetSelection[dimension]) {
+        chips.push({
+          id: `${dimension}:${value}`,
+          label: serviceFacetValueLabel(dimension, value),
+          onRemove: () => toggleFacetValue(dimension, value),
+        });
+      }
+    }
+    return chips;
+  }, [categorySelection, facetSelection, setSubstanceLensValue, substanceLens, toggleCategoryValue, toggleFacetValue]);
+
   return (
     <SearchResultsLayout
       testId="services-navigator"
@@ -531,6 +756,73 @@ export function ServicesNavigatorPage() {
             id={modeHomeDesktopComposerSlotId}
             className="mode-home-composer-slot hidden w-full min-w-0 [&:not(:empty)]:block"
           />
+
+          <SearchResultsHeaderBand
+            modeId="services"
+            query={heading}
+            matchCount={displayedMatches.length}
+            headingLevel={1}
+            status={
+              registryBlocked
+                ? registry.status === "unauthorized"
+                  ? "unauthorized"
+                  : "error"
+                : registryLoading
+                  ? "loading"
+                  : registry.status === "refetching"
+                    ? "refetching"
+                    : "ready"
+            }
+            faultTitle={registry.status === "unauthorized" ? "Session expired" : "Could not load services"}
+            faultBody={
+              registry.status === "unauthorized"
+                ? "Your session expired. Sign in again to search private service records and referral pathways."
+                : "The services registry could not be loaded. Try again shortly."
+            }
+            onRetry={registry.status === "unauthorized" ? undefined : registry.refetch}
+            faultAction={
+              registry.status === "unauthorized" ? (
+                <Link
+                  href="/"
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] sm:min-h-10"
+                >
+                  Open account setup
+                </Link>
+              ) : undefined
+            }
+            sortValue={sortValue}
+            onSortChange={setSortValue}
+            appliedFilters={appliedFilters}
+            onClearFilters={activeFilterCount > 0 ? clearAllFilters : undefined}
+            mobileControlsPlacement="inline"
+            mobileControls={
+              <ResultFilterTrigger
+                panelId={filterPanelId}
+                testId="service-filter-trigger-phone"
+                title="Filter services"
+                open={filterOpen}
+                activeCount={activeFilterCount}
+                onToggle={() => setFilterOpen((current) => !current)}
+              />
+            }
+            utilityControls={
+              <span className="hidden sm:inline-flex">
+                <ResultFilterTrigger
+                  panelId={filterPanelId}
+                  testId="service-filter-trigger-desktop"
+                  title="Filter services"
+                  open={filterOpen}
+                  activeCount={activeFilterCount}
+                  onToggle={() => setFilterOpen((current) => !current)}
+                />
+              </span>
+            }
+          />
+
+          {/* Progress, then the shortlist banner, then browse — the banner
+              sits under the heading it qualifies rather than above it, and
+              appears only once something is shortlisted. */}
+          <ServiceReferralProgress active={referralStage} />
 
           {selected.length ? (
             <section
@@ -569,73 +861,19 @@ export function ServicesNavigatorPage() {
             </section>
           ) : null}
 
-          <SearchResultsHeaderBand
-            modeId="services"
-            query={heading}
-            matchCount={displayedMatches.length}
-            headingLevel={1}
-            status={
-              registryBlocked
-                ? registry.status === "unauthorized"
-                  ? "unauthorized"
-                  : "error"
-                : registryLoading
-                  ? "loading"
-                  : registry.status === "refetching"
-                    ? "refetching"
-                    : "ready"
-            }
-            faultTitle={registry.status === "unauthorized" ? "Session expired" : "Could not load services"}
-            faultBody={
-              registry.status === "unauthorized"
-                ? "Your session expired. Sign in again to search private service records and referral pathways."
-                : "The services registry could not be loaded. Try again shortly."
-            }
-            onRetry={registry.status === "unauthorized" ? undefined : registry.refetch}
-            faultAction={
-              registry.status === "unauthorized" ? (
-                <Link
-                  href="/"
-                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] sm:min-h-10"
-                >
-                  Open account setup
-                </Link>
-              ) : undefined
-            }
-            sortValue={sortValue}
-            onSortChange={setSortValue}
-            mobileControlsPlacement="inline"
-            mobileControls={
-              <ResultFilterTrigger
-                panelId={filterPanelId}
-                testId="service-filter-trigger-phone"
-                title="Filter services"
-                open={filterOpen}
-                activeCount={activeFilterCount}
-                onToggle={() => setFilterOpen((current) => !current)}
-              />
-            }
-            utilityControls={
-              <span className="hidden sm:inline-flex">
-                <ResultFilterTrigger
-                  panelId={filterPanelId}
-                  testId="service-filter-trigger-desktop"
-                  title="Filter services"
-                  open={filterOpen}
-                  activeCount={activeFilterCount}
-                  onToggle={() => setFilterOpen((current) => !current)}
-                />
-              </span>
-            }
-          />
-
-          <section className="grid gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4">
-            <ServiceGroupNav
-              activeGroup={activeGroup}
-              hrefForGroup={hrefForGroup}
-              counts={{ ...groupCounts, all: rankedMatches.length }}
-            />
-          </section>
+          {/* The bookmark control is otherwise silent, and a failed save must
+              not read as a success. Visible rather than sr-only: "Sign in to
+              save services" is the common outcome for a guest, and hiding it
+              from sighted readers leaves the bookmark looking simply broken.
+              The live region is always mounted so the announcement is not
+              swallowed by the node appearing at the same time as its text. */}
+          <p
+            role="status"
+            aria-live="polite"
+            className={cn("text-xs font-semibold text-[color:var(--text-muted)]", saveNotice ? "min-h-5" : "sr-only")}
+          >
+            {saveNotice ?? ""}
+          </p>
 
           <ResultFilterSheet
             open={filterOpen}
@@ -643,10 +881,11 @@ export function ServicesNavigatorPage() {
             panelId={filterPanelId}
             testId="service-filter-panel"
             title="Filter services"
-            groups={[substanceGroup, ...facetGroups]}
+            description="Narrow the current search by service category, program and referral fit."
+            groups={[categoryGroup, substanceGroup, ...facetGroups]}
             onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
             footerNote={`${displayedMatches.length} showing`}
-            chromeResetKey={`${deferredQuery}|${activeGroup ?? ""}|${resultScope}`}
+            chromeResetKey={`${deferredQuery}|${searchParams.get("group") ?? ""}|${resultScope}`}
             scopeControl={
               showResultScope ? (
                 <SegmentedControl
@@ -660,24 +899,6 @@ export function ServicesNavigatorPage() {
                 />
               ) : undefined
             }
-          />
-
-          {/* Evicted from the filter sheet: every quick filter called
-              `router.push` and replaced the query outright, discarding the
-              search and its results with no warning and no undo — exactly
-              what docs/filter-contract.md section 1 forbids inside a control
-              labelled "Filter". Framed as a new search, which is what
-              picking one does. */}
-          <AnswerSuggestionChips
-            label="Try a focused search"
-            labelPlacement="above"
-            layout="scroll"
-            testId="service-quick-search-suggestions"
-            suggestions={serviceQuickFilters.map((filter) => filter.label)}
-            onPick={(label) => {
-              const filter = serviceQuickFilters.find((item) => item.label === label);
-              if (filter) applyServiceQuery(filter.query);
-            }}
           />
         </>
       }
@@ -699,32 +920,23 @@ export function ServicesNavigatorPage() {
           onTryExample={(example) => applyServiceQuery(example)}
         />
       ) : deferredQuery === query && displayedMatches.length === 0 ? (
-        // `displayedMatches` is now group- AND facet/lens-narrowed, so a zero
-        // here can come from either — the old copy named only the group tab
-        // and a "quick filter" concept that no longer filters anything (it
-        // navigates). Offer both escapes, and only the one that applies.
+        // `displayedMatches` is category- AND facet/lens-narrowed, so every
+        // constraint can be relaxed from the same filter surface without
+        // discarding the search query.
         <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-center">
           <h2 className="text-lg font-bold text-[color:var(--text-heading)]">No services match</h2>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-            {activeFilterCount > 0 ? "Try All services, or clear your filters." : "Try All services instead."}
+            {activeFilterCount > 0 ? "Adjust or clear your filters to see more services." : "Try a broader search."}
           </p>
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-            <Link
-              href={hrefForGroup(null)}
-              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          {activeFilterCount > 0 ? (
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="mt-3 inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
-              Show all services
-            </Link>
-            {activeFilterCount > 0 ? (
-              <button
-                type="button"
-                onClick={clearAllFilters}
-                className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-              >
-                Clear filters
-              </button>
-            ) : null}
-          </div>
+              Clear filters
+            </button>
+          ) : null}
         </section>
       ) : (
         <>
@@ -740,6 +952,11 @@ export function ServicesNavigatorPage() {
                 relevanceRank={sortValue === "alpha" ? null : (relevanceRankMap.get(service.slug) ?? null)}
                 selected={selectedSlugs.includes(service.slug)}
                 onToggleSelected={toggleSelected}
+                saved={accountData.isSaved("service", service.slug)}
+                savedStateReady={accountData.ready}
+                savedStateLoadFailed={Boolean(accountData.loadError)}
+                savePending={savingSlugs.size > 0}
+                onToggleSaved={toggleSaved}
               />
             ))}
           </div>

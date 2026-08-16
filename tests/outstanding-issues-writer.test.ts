@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { parseIssues } from "../scripts/check-outstanding-issues.mjs";
+import { displayIdForUlid, issueUlid } from "../scripts/issue-id.mjs";
 import { addIssue, escapeCell, resolveIssue, splitCells, updateIssue } from "../scripts/outstanding-issues.mjs";
 
 const OPEN_CELLS = 7;
 const ARCHIVE_CELLS = 5;
+const TEST_ULID = issueUlid(Date.UTC(2026, 1, 2), Buffer.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
+const TEST_ID = displayIdForUlid(TEST_ULID);
 
 const ledger = [
   "# Outstanding",
@@ -32,21 +35,26 @@ describe("outstanding-issues writer", () => {
   it("appends into the open table, never the archive", () => {
     // The defect this writer exists for: hand edits anchored on an id that had
     // been archived, so the new row landed in the archive table.
-    const next = addIssue(ledger, { pri: "P1", type: "rec", summary: "third" }, { date: "2026-02-02" });
-    const row = rowFor(next, "#007");
+    const next = addIssue(
+      ledger,
+      { pri: "P1", type: "rec", summary: "third" },
+      { date: "2026-02-02", issueUlid: TEST_ULID },
+    );
+    const row = rowFor(next, TEST_ID);
     expect(row?.table).toBe("open");
-    expect(next.indexOf("| #007 ")).toBeLessThan(next.indexOf("## Resolved / archive"));
+    expect(row?.ulid).toBe(TEST_ULID);
+    expect(next.indexOf(`| ${TEST_ID} `)).toBeLessThan(next.indexOf("## Resolved / archive"));
   });
 
-  it("allocates the marker's id and bumps it", () => {
-    const next = addIssue(ledger, { summary: "third" }, { date: "2026-02-02" });
-    expect(rowFor(next, "#007")).toBeDefined();
-    expect(parseIssues(next).nextId).toBe(8);
+  it("derives a permanent display id and leaves the deprecated marker untouched", () => {
+    const next = addIssue(ledger, { summary: "third" }, { date: "2026-02-02", issueUlid: TEST_ULID });
+    expect(rowFor(next, TEST_ID)?.ulid).toBe(TEST_ULID);
+    expect(parseIssues(next).nextId).toBe(7);
   });
 
   it("escapes pipes in prose instead of creating columns", () => {
-    const next = addIssue(ledger, { summary: "a | b", detail: "c | d" }, { date: "2026-02-02" });
-    const row = rowFor(next, "#007");
+    const next = addIssue(ledger, { summary: "a | b", detail: "c | d" }, { date: "2026-02-02", issueUlid: TEST_ULID });
+    const row = rowFor(next, TEST_ID);
     expect(splitCells(row!.raw)).toHaveLength(OPEN_CELLS);
     expect(row!.raw).toContain("a \\| b");
   });
@@ -66,6 +74,21 @@ describe("outstanding-issues writer", () => {
     expect(row?.table).toBe("open");
     expect(splitCells(row!.raw)).toHaveLength(OPEN_CELLS);
     expect(row!.raw).toContain("replaced \\| detail");
+  });
+
+  it("extends a colliding display id and preserves it through update and archive", () => {
+    const firstUlid = "0000000000ABCDEF0000000000";
+    const secondUlid = "0000000000ABCDEF1000000000";
+    const first = addIssue(ledger, { summary: "first modern" }, { date: "2026-02-02", issueUlid: firstUlid });
+    const second = addIssue(first, { summary: "second modern" }, { date: "2026-02-03", issueUlid: secondUlid });
+    expect(rowFor(second, "#ABCDEF")?.ulid).toBe(firstUlid);
+    expect(rowFor(second, "#ABCDEF1")?.ulid).toBe(secondUlid);
+
+    const updated = updateIssue(second, "#ABCDEF1", { detail: "retained identity" });
+    const archived = resolveIssue(updated, "#ABCDEF1", "done", { date: "2026-03-03" });
+    const row = rowFor(archived, "#ABCDEF1");
+    expect(row?.table).toBe("archive");
+    expect(row?.ulid).toBe(secondUlid);
   });
 
   it("refuses edits that would not survive the gate", () => {

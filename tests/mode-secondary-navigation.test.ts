@@ -11,7 +11,7 @@ import {
   routedModeSecondaryNavigationCount,
 } from "@/lib/mode-secondary-navigation";
 
-/** Seven modes intentionally register no destinations at all — see `emptyRegistryModes`. */
+/** Eight modes intentionally register no destinations at all — see `emptyRegistryModes`. */
 const expectedLabels: Record<AppModeId, string[]> = {
   answer: [],
   documents: [],
@@ -24,6 +24,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   formulation: ["Find", "Build", "Compare", "Map"],
   prescribing: [],
   tools: [],
+  calculators: [],
   "therapy-compass": ["Search", "Recommend", "Compare", "Pathways"],
   factsheets: ["Topics", "Search"],
 };
@@ -40,12 +41,13 @@ const cleanLandingPath: Record<AppModeId, string> = {
   formulation: "/formulation",
   prescribing: "/medications",
   tools: "/tools",
+  calculators: "/calculators",
   "therapy-compass": "/therapy-compass",
   factsheets: "/factsheets",
 };
 
 /**
- * The seven modes that register nothing. Each used to carry one
+ * The eight modes that register nothing. Each used to carry one
  * `action: "search"` entry rendering a lone <button> inside its own <nav>
  * landmark, whose only effect was focusing a composer already on screen. Every
  * one is genuinely single-surface, so the control was deleted rather than
@@ -59,12 +61,13 @@ const emptyRegistryModes = [
   "favourites",
   "prescribing",
   "tools",
+  "calculators",
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
-  it("covers all 13 modes with the approved destinations and no Home item", () => {
+  it("covers all 14 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
-    expect(appModeIds).toHaveLength(13);
+    expect(appModeIds).toHaveLength(14);
 
     for (const modeId of appModeIds) {
       const labels = modeSecondaryNavigationRegistry[modeId].map((item) => item.label);
@@ -73,7 +76,7 @@ describe("mode secondary navigation registry", () => {
     }
   });
 
-  it("registers no destinations at all for the seven single-surface modes", () => {
+  it("registers no destinations at all for the eight single-surface modes", () => {
     // Empty is a real answer, pinned rather than left incidental: a future edit
     // that re-adds a lone focus-the-composer button should have to argue with
     // this test rather than slip back in.
@@ -97,7 +100,7 @@ describe("mode secondary navigation registry", () => {
     // single-button strips were deleted it no longer decides visibility on its
     // own. `PageSecondaryNavigation` returns null on a mode with no registered
     // destinations before it consults this at all — which is what actually
-    // silences the seven above, and is asserted in
+    // silences the eight above, and is asserted in
     // tests/page-secondary-navigation.dom.test.tsx.
     for (const modeId of emptyRegistryModes) {
       expect(modeSecondaryNavigationRegistry[modeId]).toEqual([]);

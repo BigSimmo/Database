@@ -173,13 +173,14 @@ export function searchTherapies(therapies: Therapy[], opts: SearchOptions): Ther
   const q = opts.query.trim().toLowerCase();
   const topics = new Set(opts.tags);
   const scored = therapies
-    .filter((t) => {
-      if (!matchesAvailability(t, opts.reviewedOnly, opts.briefOnly)) return false;
-      if (opts.sheetOnly && !t.patientSheetAvailable) return false;
-      if (!matchesTopics(t, topics)) return false;
-      return scoreTherapyCandidate(t, q) > 0;
+    .map((t) => {
+      if (!matchesAvailability(t, opts.reviewedOnly, opts.briefOnly)) return null;
+      if (opts.sheetOnly && !t.patientSheetAvailable) return null;
+      if (!matchesTopics(t, topics)) return null;
+      const score = scoreTherapyCandidate(t, q);
+      return score > 0 ? { t, s: score } : null;
     })
-    .map((t) => ({ t, s: scoreTherapyCandidate(t, q) }));
+    .filter((candidate): candidate is { t: Therapy; s: number } => candidate !== null);
   scored.sort((a, b) => b.s - a.s || a.t.name.localeCompare(b.t.name));
   return scored.map((x) => x.t);
 }

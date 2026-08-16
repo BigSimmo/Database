@@ -789,4 +789,22 @@ describe("GET /api/search/universal (live public/owner path)", () => {
     expect(args.demo).toBe(false);
     expect(args.ownerId).toBe(userId);
   });
+
+  it("ends a rejected NDJSON search with a redacted error event", async () => {
+    const client = createSupabaseMock();
+    const runUniversalSearch = createRunMock();
+    runUniversalSearch.mockRejectedValue(new Error("private dependency failure"));
+    mockRuntime(client, runUniversalSearch);
+    const { GET } = await import("../src/app/api/search/universal/route");
+
+    const response = await GET(new Request("http://localhost/api/search/universal?q=clozapine&stream=ndjson"));
+    const events = (await response.text())
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+
+    expect(response.status).toBe(200);
+    expect(events).toEqual([{ type: "error", code: "universal_search_failed" }]);
+    expect(JSON.stringify(events)).not.toContain("private dependency failure");
+  });
 });

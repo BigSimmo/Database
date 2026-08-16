@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "7e454b66-74ae-4e67-8669-1f1fdc2c018c",
+  "createdOn": "2026-08-15",
+  "action": "done",
+  "payload": {
+    "id": "#331",
+    "outcome": "Resolved on current main: PR #1951 commit 9628b246 repairs the generated medication lexicon report and PR #1979 commit 17402395 wires check:medication-lexicon-report into the static_heavy_changed CI contract. Clean current main 512b8c20 reproduces the check green at 28 catalogue terms; clinician review remains separately tracked by #318."
+  }
+}

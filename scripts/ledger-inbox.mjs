@@ -3,8 +3,8 @@
  * Conflict-free intake for the outstanding-issues ledger.
  *
  * Feature branches write one immutable request file; only a deliberately serialized
- * `reconcile` operation edits docs/outstanding-issues.md and allocates numeric IDs.
- * This keeps a busy PR queue from contending on the next-id marker or one table row.
+ * `reconcile` operation edits docs/outstanding-issues.md. Add requests carry a
+ * durable ULID, so independent branches no longer contend on a numeric marker.
  */
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 
 import { addIssue, resolveIssue, updateIssue } from "./outstanding-issues.mjs";
 import { ISSUES_PATH, checkIssues } from "./check-outstanding-issues.mjs";
+import { isIssueDisplayId, isIssueUlid, issueUlid, issueUlidFromRequest } from "./issue-id.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const INBOX_DIR = "docs/outstanding-issues-inbox";
@@ -41,7 +42,7 @@ function requestPath(id) {
 export function validateRequest(request) {
   const problems = [];
   if (!request || typeof request !== "object") return ["request must be an object"];
-  if (request.version !== 1) problems.push("version must be 1");
+  if (![1, 2].includes(request.version)) problems.push("version must be 1 or 2");
   if (!REQUEST_ID.test(request.id ?? "")) problems.push("id must be a UUID");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(request.createdOn ?? "")) problems.push("createdOn must be YYYY-MM-DD");
   if (!ACTIONS.has(request.action)) problems.push("action must be add, done, update, or cancel");
@@ -49,13 +50,19 @@ export function validateRequest(request) {
   if (request.action === "add") {
     for (const field of ["pri", "type", "summary"])
       if (!request.payload?.[field]) problems.push(`add requires ${field}`);
+    if (request.payload?.issueUlid !== undefined && !isIssueUlid(request.payload.issueUlid)) {
+      problems.push("add issueUlid must be a valid ULID");
+    }
+    if (request.version === 2 && request.payload?.issueUlid === undefined) {
+      problems.push("version 2 add requires a valid issueUlid");
+    }
   }
   if (request.action === "done") {
-    if (!/^#\d{3,}$/.test(request.payload?.id ?? "")) problems.push("done requires a canonical #NNN id");
+    if (!isIssueDisplayId(request.payload?.id)) problems.push("done requires a canonical issue display id");
     if (!request.payload?.outcome) problems.push("done requires outcome");
   }
   if (request.action === "update") {
-    if (!/^#\d{3,}$/.test(request.payload?.id ?? "")) problems.push("update requires a canonical #NNN id");
+    if (!isIssueDisplayId(request.payload?.id)) problems.push("update requires a canonical issue display id");
     // `pri` counts as a mutation on its own: a re-prioritisation with no prose
     // change is a legitimate and common triage edit, and leaving it out here
     // made `--pri` unusable alone even once the CLI could emit it (ledger #313).
@@ -82,7 +89,10 @@ export function applyRequest(markdown, request) {
     throw new Error("cancel requests must be applied through batch reconciliation");
   }
   const options = { date: request.createdOn };
-  if (request.action === "add") return addIssue(markdown, request.payload, options);
+  if (request.action === "add") {
+    const durableId = request.payload.issueUlid ?? issueUlidFromRequest(request.createdOn, request.id);
+    return addIssue(markdown, request.payload, { ...options, issueUlid: durableId });
+  }
   if (request.action === "done") return resolveIssue(markdown, request.payload.id, request.payload.outcome, options);
   return updateIssue(markdown, request.payload.id, request.payload);
 }
@@ -100,11 +110,42 @@ function mutationConflicts(requests) {
 }
 
 /**
+ * Ids of requests that a previous reconciliation already applied. Used to tell a
+ * cancellation that lost a race (its target landed via another branch's batch)
+ * apart from one that names a request which never existed.
+ */
+function appliedRequestsById() {
+  try {
+    return new Map(
+      loadRequestsIn(APPLIED_DIR)
+        .map((entry) => entry.request)
+        .filter((request) => request?.id)
+        .map((request) => [request.id, request]),
+    );
+  } catch {
+    return new Map();
+  }
+}
+
+/**
  * Resolve immutable cancellation decisions before applying a pending request batch.
  * A cancellation request is itself retained in the applied audit trail, while the
  * targeted request is moved unchanged but deliberately not applied to the ledger.
+ *
+ * Parallel reconciliations are normal here: several branches queue requests and one
+ * of them reconciles first. A cancellation whose target was applied by that earlier
+ * batch has therefore *failed* — but throwing would wedge every consumer of this
+ * function (check:docs-links, check:ledger-write-discipline and reconcile itself)
+ * with no legal way out, because write discipline forbids deleting the queued file.
+ * So an already-applied target is reported loudly and skipped rather than fatal; a
+ * genuinely unknown target still throws.
+ *
+ * @param {Array<object>} requests pending requests in the batch
+ * @param {{ appliedRequests?: Map<string, object>, warn?: (message: string) => void }} [options]
  */
-export function planRequestBatch(requests) {
+export function planRequestBatch(requests, options = {}) {
+  const applied = options.appliedRequests ?? appliedRequestsById();
+  const warn = options.warn ?? ((message) => console.warn(message));
   const byId = new Map();
   for (const request of requests) {
     const problems = validateRequest(request);
@@ -115,10 +156,27 @@ export function planRequestBatch(requests) {
 
   const cancelledIds = new Set();
   const cancellations = [];
+  const ineffective = [];
   for (const request of requests) {
     if (request.action !== "cancel") continue;
     const target = byId.get(request.payload.requestId);
     if (!target) {
+      const appliedTarget = applied.get(request.payload.requestId);
+      if (appliedTarget) {
+        if (appliedTarget.action === "cancel") {
+          throw new Error(`cancel request ${request.id} cannot cancel another cancellation request`);
+        }
+        // Lost the race. Say so plainly: the correction this cancellation was
+        // protecting did NOT take effect, and whoever queued it needs to fix the
+        // row with a fresh update rather than assume the cancel did its job.
+        ineffective.push({ requestId: request.id, targetId: request.payload.requestId });
+        warn(
+          `ledger inbox: cancel request ${request.id} did not take effect — its target ` +
+            `${request.payload.requestId} was already applied by an earlier reconciliation. ` +
+            `The cancellation is recorded but changed nothing; correct the affected row with a new update request.`,
+        );
+        continue;
+      }
       throw new Error(`cancel request ${request.id} targets missing pending request ${request.payload.requestId}`);
     }
     if (target.action === "cancel") {
@@ -145,7 +203,7 @@ export function planRequestBatch(requests) {
     );
   }
 
-  return { active, cancellations, cancelledIds: [...cancelledIds] };
+  return { active, cancellations, cancelledIds: [...cancelledIds], ineffectiveCancellations: ineffective };
 }
 
 export function applyRequestBatch(markdown, requests) {
@@ -326,6 +384,7 @@ function createRequest(action, argv) {
           summary: argValue(argv, "summary"),
           detail: argValue(argv, "detail"),
           source: argValue(argv, "source"),
+          issueUlid: issueUlid(),
         }
       : action === "done"
         ? { id: argv[1], outcome: argValue(argv, "outcome") }
@@ -344,7 +403,7 @@ function createRequest(action, argv) {
               detail: argValue(argv, "detail"),
               source: argValue(argv, "source"),
             };
-  const request = { version: 1, id: randomUUID(), createdOn: date(), action, payload };
+  const request = { version: 2, id: randomUUID(), createdOn: date(), action, payload };
   const problems = validateRequest(request);
   if (problems.length > 0) throw new Error(problems.join("; "));
   const relative = requestPath(request.id);
@@ -536,7 +595,22 @@ function selfTest() {
   }
 
   const added = applyRequest(base, add);
-  if (!added.includes("#002")) throw new Error("self-test failed: queued add did not preserve ledger invariants");
+  const replayed = applyRequest(base, add);
+  const legacyUlid = issueUlidFromRequest(add.createdOn, add.id);
+  if (!added.includes(`issue-ulid:${legacyUlid}`) || added !== replayed) {
+    throw new Error("self-test failed: legacy queued add did not derive a stable durable id");
+  }
+  const v2Add = {
+    ...add,
+    version: 2,
+    payload: { ...add.payload, issueUlid: issueUlid(1, new Uint8Array(10)) },
+  };
+  if (validateRequest(v2Add).length > 0 || !applyRequest(base, v2Add).includes(v2Add.payload.issueUlid)) {
+    throw new Error("self-test failed: version 2 add did not preserve its durable id");
+  }
+  if (validateRequest({ ...v2Add, payload: { ...v2Add.payload, issueUlid: "invalid" } }).length === 0) {
+    throw new Error("self-test failed: invalid version 2 durable id accepted");
+  }
   const resolved = applyRequest(base, done);
   if (resolved.includes("`#001`"))
     throw new Error("self-test failed: queued resolve did not preserve ledger invariants");

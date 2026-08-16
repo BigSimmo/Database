@@ -32,6 +32,7 @@ describe("app mode search contract", () => {
     expect(universalSearchModeForDomain("therapies")).toBe("therapy-compass");
     expect(universalSearchPreferredDomains("favourites")).toEqual([]);
     expect(universalSearchPreferredDomains("factsheets")).toEqual([]);
+    expect(universalSearchPreferredDomains("calculators")).toEqual([]);
   });
 
   it("requires every mode to declare its search behavior and copy", () => {
@@ -75,6 +76,17 @@ describe("app mode search contract", () => {
     expect(config.kind).toBe("tools");
     expect(config.resultKind).toBe("tools");
     expect(config.placeholder.toLowerCase()).toContain("tools");
+  });
+
+  it("keeps calculators local and searchable as a first-class mode", () => {
+    const config = appModeSearchConfig("calculators");
+    const mode = appModeDefinitions.find((definition) => definition.id === "calculators");
+
+    expect(isSearchableAppMode("calculators")).toBe(true);
+    expect(mode?.href).toBe("/calculators");
+    expect(config.kind).toBe("calculators");
+    expect(config.resultKind).toBe("calculators");
+    expect(config.resultsSurface).toBe("results-band");
   });
 
   it("keeps services searchable through the shared dashboard composer", () => {
@@ -244,6 +256,9 @@ describe("app mode search contract", () => {
     expect(appModeHomeHref("tools", { query: "  medications  ", run: true, focus: true })).toBe(
       "/tools?q=medications&focus=1&run=1",
     );
+    expect(appModeHomeHref("calculators", { query: "  PHQ-9  ", run: true, focus: true })).toBe(
+      "/calculators?q=PHQ-9&focus=1&run=1",
+    );
   });
 
   it("keeps active search context while routing from the shared composer", () => {
@@ -278,6 +293,7 @@ describe("app mode search contract", () => {
         "formulation",
         "prescribing",
         "tools",
+        "calculators",
         "therapy-compass",
         "factsheets",
       ]),
@@ -299,6 +315,7 @@ describe("app mode search contract", () => {
     expect(isAppModeVisible("formulation", "production")).toBe(true);
     expect(isAppModeVisible("prescribing", "production")).toBe(true);
     expect(isAppModeVisible("tools", "production")).toBe(true);
+    expect(isAppModeVisible("calculators", "production")).toBe(true);
     expect(isAppModeVisible("therapy-compass", "production")).toBe(false);
     expect(isAppModeVisible("factsheets", "production")).toBe(true);
     expect(productionModes).not.toContain("evidence");
@@ -311,6 +328,7 @@ describe("app mode search contract", () => {
     expect(productionModes).toContain("formulation");
     expect(productionModes).toContain("prescribing");
     expect(productionModes).toContain("tools");
+    expect(productionModes).toContain("calculators");
     expect(productionModes).not.toContain("therapy-compass");
     expect(productionModes).toContain("factsheets");
     expect(developmentModes).toEqual(
@@ -326,6 +344,7 @@ describe("app mode search contract", () => {
         "formulation",
         "prescribing",
         "tools",
+        "calculators",
         "therapy-compass",
         "factsheets",
       ]),
@@ -397,6 +416,7 @@ describe("app mode search contract", () => {
       "therapy-compass": "/therapy-compass/search?q=clozapine&run=1",
       // Tools has no search route by design: it filters its launcher in place.
       tools: "/tools?q=clozapine&run=1",
+      calculators: "/calculators?q=clozapine&run=1",
     });
   });
 

@@ -343,7 +343,15 @@ export function TcProvider({ children }: { children: ReactNode }) {
     const replaceWorkspace = (patch: Partial<TherapyWorkspaceState>) =>
       router.replace(therapyHrefWithSearchParams(pathname, workspaceParams(patch)), { scroll: false });
     const go = (next: string) => pushWorkspace(therapyScreenHref(next));
-    const toggleSection = (key: SheetSectionKey) => setSheetSections((prev) => ({ ...prev, [key]: !prev[key] }));
+    const toggleSection = (key: SheetSectionKey) => {
+      const nextSections = { ...sheetSections, [key]: !sheetSections[key] };
+      setSheetSections(nextSections);
+      replaceWorkspace({
+        sections: (Object.entries(nextSections) as Array<[SheetSectionKey, boolean]>)
+          .filter(([, enabled]) => enabled)
+          .map(([section]) => section),
+      });
+    };
     const patchSearch = (patch: Partial<SearchOptions>) => setSearch((prev) => ({ ...prev, ...patch }));
     const openSlug = (slug: string, sub?: "brief" | "sheet") => pushWorkspace(therapyRecordHref(slug, sub));
     // Unsupported artifact actions are a no-op. Call sites expose an honest disabled
@@ -555,46 +563,11 @@ export function TcProvider({ children }: { children: ReactNode }) {
       chipPractice: chipStyle(sheetSections.practice),
       chipCoping: chipStyle(sheetSections.coping),
       chipContacts: chipStyle(sheetSections.contacts),
-      toggleAbout: () => {
-        toggleSection("about");
-        replaceWorkspace({
-          sections: sheetSections.about
-            ? enabledSections.filter((key) => key !== "about")
-            : [...enabledSections, "about"],
-        });
-      },
-      toggleSteps: () => {
-        toggleSection("steps");
-        replaceWorkspace({
-          sections: sheetSections.steps
-            ? enabledSections.filter((key) => key !== "steps")
-            : [...enabledSections, "steps"],
-        });
-      },
-      togglePractice: () => {
-        toggleSection("practice");
-        replaceWorkspace({
-          sections: sheetSections.practice
-            ? enabledSections.filter((key) => key !== "practice")
-            : [...enabledSections, "practice"],
-        });
-      },
-      toggleCoping: () => {
-        toggleSection("coping");
-        replaceWorkspace({
-          sections: sheetSections.coping
-            ? enabledSections.filter((key) => key !== "coping")
-            : [...enabledSections, "coping"],
-        });
-      },
-      toggleContacts: () => {
-        toggleSection("contacts");
-        replaceWorkspace({
-          sections: sheetSections.contacts
-            ? enabledSections.filter((key) => key !== "contacts")
-            : [...enabledSections, "contacts"],
-        });
-      },
+      toggleAbout: () => toggleSection("about"),
+      toggleSteps: () => toggleSection("steps"),
+      togglePractice: () => toggleSection("practice"),
+      toggleCoping: () => toggleSection("coping"),
+      toggleContacts: () => toggleSection("contacts"),
       sheetClinician,
       toggleClinician: () => {
         const clinician = !sheetClinician;

@@ -78,4 +78,14 @@ describe("Therapy Compass canonical navigation", () => {
     const state = readTherapyWorkspaceState(new URLSearchParams("ids=a,a,b,c,d,e,,"));
     expect(state.compareSlugs).toEqual(["a", "b", "c", "d"]);
   });
+
+  it("serializes patient-sheet sections in canonical order", () => {
+    const params = therapyWorkspaceSearchParams(new URLSearchParams(), {
+      ...DEFAULT_THERAPY_WORKSPACE_STATE,
+      sections: ["contacts", "about", "practice"],
+    });
+
+    expect(params.getAll("section")).toEqual(["about", "practice", "contacts"]);
+    expect(readTherapyWorkspaceState(params).sections).toEqual(["about", "practice", "contacts"]);
+  });
 });

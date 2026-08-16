@@ -9,6 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
+  type UIEventHandler,
 } from "react";
 import { X } from "lucide-react";
 import { OverlayPortal } from "@/components/ui/overlay-root";
@@ -24,6 +25,7 @@ import {
 } from "@/components/ui/sheet-focus";
 
 export type SheetMobileSize = "content" | "viewport";
+export type SheetMobileHeaderSafeArea = "none" | "padding" | "offset";
 
 type SheetAccessibleName =
   | { title: string; labelledBy?: string; ariaLabel?: string }
@@ -56,9 +58,19 @@ type SheetBaseProps = {
   contentClassName?: string;
   contentStyle?: CSSProperties;
   bodyClassName?: string;
+  bodyRef?: RefObject<HTMLDivElement | null>;
+  onBodyScroll?: UIEventHandler<HTMLDivElement>;
+  footerClassName?: string;
   placement?: "default" | "left";
   mobilePlacement?: "bottom" | "top" | "fullscreen";
   mobileSize?: SheetMobileSize;
+  /**
+   * Keeps the Sheet-owned header controls below the phone top safe area.
+   * Fullscreen sheets default to `padding`; near-full bottom sheets must opt in
+   * because short bottom sheets should not inherit a notch-sized empty band.
+   * Use `offset` only for an absolutely positioned header.
+   */
+  mobileHeaderSafeArea?: SheetMobileHeaderSafeArea;
   portal?: boolean;
   desktopBackdropClassName?: string;
   testId?: string;
@@ -102,9 +114,13 @@ export function Sheet({
   contentClassName,
   contentStyle,
   bodyClassName,
+  bodyRef,
+  onBodyScroll,
+  footerClassName,
   placement = "default",
   mobilePlacement = "bottom",
   mobileSize = "content",
+  mobileHeaderSafeArea,
   portal = true,
   desktopBackdropClassName,
   testId,
@@ -344,6 +360,7 @@ export function Sheet({
   const defaultSheetIsFullscreen = placement !== "left" && mobilePlacement === "fullscreen";
   const defaultSheetIsTopAligned = placement !== "left" && mobilePlacement === "top";
   const defaultSheetUsesViewportSize = placement !== "left" && mobileSize === "viewport";
+  const resolvedMobileHeaderSafeArea = mobileHeaderSafeArea ?? (defaultSheetIsFullscreen ? "padding" : "none");
   const contentClassTokens = contentClassName?.split(/\s+/) ?? [];
   const hasMobileMaxHeight = contentClassTokens.some((token) => /^!?max-h-/.test(token));
   const hasSmallScreenMaxHeight = contentClassTokens.some((token) => /^sm:!?max-h-/.test(token));
@@ -381,6 +398,7 @@ export function Sheet({
         ref={panelRef}
         id={id}
         data-testid={testId}
+        data-mobile-header-safe-area={resolvedMobileHeaderSafeArea}
         role="dialog"
         aria-modal="true"
         aria-labelledby={resolvedLabelledBy}
@@ -441,9 +459,12 @@ export function Sheet({
         </div>
         {title ? (
           <div
+            data-sheet-header="true"
             className={cn(
               "flex items-center justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:p-5",
               headerClassName,
+              resolvedMobileHeaderSafeArea === "padding" && "pt-[max(1rem,var(--safe-area-top))] sm:pt-5",
+              resolvedMobileHeaderSafeArea === "offset" && "top-[max(0.75rem,var(--safe-area-top))] sm:top-4",
             )}
           >
             <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -483,10 +504,18 @@ export function Sheet({
             </div>
           </div>
         ) : null}
-        <div className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto p-4 polished-scroll sm:p-5", bodyClassName)}>
+        <div
+          ref={bodyRef}
+          onScroll={onBodyScroll}
+          className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto p-4 polished-scroll sm:p-5", bodyClassName)}
+        >
           {children}
         </div>
-        {footer ? <div className="shrink-0 border-t border-[color:var(--border)] p-3 sm:p-4">{footer}</div> : null}
+        {footer ? (
+          <div className={cn("shrink-0 border-t border-[color:var(--border)] p-3 sm:p-4", footerClassName)}>
+            {footer}
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -33,6 +33,14 @@ than opening a second branch. This is one GitHub read (`mcp__github__list_pull_r
 boundary. If GitHub is unreachable, treat it as a warning and continue — an offline session
 must still be able to start work. Recorded as `#292`.
 
+**If the PR-handoff stop hook has already armed in this session, that read is denied** — a
+session that opened its own PR and then picks up another queued item cannot call
+`list_pull_requests` or `gh pr list` at all (see `docs/pr-handoff-stop-cross-agent-gap.md`).
+Do not unlock the hook for this; fall back to `git ls-remote --heads origin`, which needs no
+provider tool and still answers the question, because a session building the same surface
+almost always has a pushed branch named after it. Report which check you used. Observed
+2026-08-14 on PR #1956.
+
 ## Steps
 
 1. **Sync main.** `git fetch --quiet origin main`.

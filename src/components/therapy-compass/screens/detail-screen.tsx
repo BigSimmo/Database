@@ -200,7 +200,7 @@ export function DetailScreen() {
             </div>
 
             {/* RIGHT RAIL */}
-            <div className="max-sm:static max-sm:top-auto flex flex-col gap-4 sticky top-[84px]">
+            <div className="max-sm:static max-sm:top-auto flex flex-col gap-4 sticky top-[calc(var(--shell-header-h)+1rem)]">
               <div className={`${card} p-5`}>
                 <div className="text-sm font-semibold text-[color:var(--text-heading)] mb-3.5">At a glance</div>
                 <div className="flex flex-col gap-[15px]">

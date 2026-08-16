@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { parseIssues } from "./check-outstanding-issues.mjs";
+import { issueIdCitations } from "./issue-id.mjs";
 import { splitCells } from "./outstanding-issues.mjs";
 
 const LEDGER_PATH = "docs/outstanding-issues.md";
@@ -31,7 +32,7 @@ function queueRows(markdown) {
     if (cells.length !== 7) continue;
     rows.push({
       order: Number(cells[0]),
-      ids: [...cells[1].matchAll(/#\d+/g)].map((match) => match[0]),
+      ids: issueIdCitations(cells[1]),
       acuity: cells[2],
       capability: cells[3],
       when: cells[4],
@@ -75,7 +76,8 @@ export function buildIssuesReport(markdown, source) {
     .map((row) => {
       const cells = splitCells(row.raw);
       return {
-        id: cells[0],
+        // parseIssues strips the durable ULID comment from the human-facing id.
+        id: row.id,
         priority: cells[1],
         type: cells[2],
         summary: cells[3],

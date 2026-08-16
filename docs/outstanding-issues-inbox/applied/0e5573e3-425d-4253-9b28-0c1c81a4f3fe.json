@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "0e5573e3-425d-4253-9b28-0c1c81a4f3fe",
+  "createdOn": "2026-08-15",
+  "action": "done",
+  "payload": {
+    "id": "#163",
+    "outcome": "CLOSED 2026-08-15 by PR #1982, but the row was half-stale when picked up and the split is worth recording. ALREADY ON MAIN before this PR, verified against e60b49a: the query is the <h1> via SearchResultsHeaderBand headingLevel={1} (the count is separate neutral text, never a heading), the shortlist bar is already conditional on selected.length, Compare already exists, and the four-card numbered walkthrough (ServiceReferralFlow) is mounted only on /services/[slug] — tests/ui-tools.spec.ts:1394 already asserted it absent from results. The current/ baseline PNG the row was written against is from 2026-07-31 and no longer reflects main, which is why the row read as untouched work. DELIVERED BY THIS PR: the tiny Search/Shortlist/Compare/Refer dot rail (new ServiceReferralProgress, accessible name Referral progress — deliberately not Referral workflow, so the absence assertion cannot be satisfied by renaming the old component back onto the route); row compaction dropping the Catchment/Eligibility/Cost strip and the confidence pill (both values remain untruncated on the record behind Review referral); a per-row bookmark wired to account favourites and kept distinct from the non-persisted shortlist, with a visible polite status because sign-in-required is the common guest outcome; and the shortlist banner moved below the heading it qualifies. NOT DONE, deliberately: the comp draws the query dominant and the count small, which is the reverse of the shipped band. That weighting is a documented contract (docs/search-chrome-behaviour.md Results band rules 1-2), shared by twelve modes, and visual-baselined from /services?q=CMHT&run=1, so inverting it is a repo-wide change and not this row. The outcome this row asked for holds either way. Captured separately. Verification: verify:pr-local all ten selected gates passed; UI proof delegated to CI Production UI because the container ships chromium-1194 against a pinned 1234 (#255/#312)."
+  }
+}

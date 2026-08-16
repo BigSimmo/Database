@@ -14,7 +14,7 @@ export type ModeSecondaryNavigationEntry = {
  * secondary bar must never repeat a generic Home destination.
  */
 export const modeSecondaryNavigationRegistry = {
-  // Empty is a real answer, not a gap. These seven modes each registered one
+  // Empty is a real answer, not a gap. These eight modes each registered one
   // `action: "search"` entry, which rendered a lone <button> inside its own
   // <nav> landmark whose only effect was focusing a composer already visible on
   // the same screen — a landmark and a tab stop spent on a no-op. Every one of
@@ -50,6 +50,7 @@ export const modeSecondaryNavigationRegistry = {
   ],
   prescribing: [],
   tools: [],
+  calculators: [],
   // Record-owned outputs (briefs and patient sheets) deliberately stay off the
   // global mode bar: they require an explicitly selected therapy. This prevents
   // a generic navigation action from silently opening an unrelated default

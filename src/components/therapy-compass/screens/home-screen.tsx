@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { therapyHrefWithSearchParams, therapyScreenHref } from "@/lib/therapy-compass-navigation";
 
 import { THERAPY_CATALOGUE_SUMMARY } from "../data/generated-assets";
 
@@ -39,25 +40,31 @@ export function HomeScreen() {
             title: "Recommend a therapy",
             description: "Match a clinical question to indexed options.",
             icon: Sparkles,
-            href: "/therapy-compass/recommend",
+            href: therapyScreenHref("recommend"),
           },
           {
             title: "Open a pathway",
             description: "Problem-based, step-by-step workflows.",
             icon: Waypoints,
-            href: "/therapy-compass/pathways",
+            href: therapyScreenHref("pathways"),
           },
           {
             title: "Compare therapies",
             description: "Compare clinical fit, cautions and delivery.",
             icon: GitCompareArrows,
-            href: "/therapy-compass/compare",
+            href: therapyScreenHref("compare"),
           },
         ]}
         pillsTitle="Common therapy searches"
         pills={SUGGESTIONS.map((suggestion) => ({
           label: suggestion,
-          onClick: () => router.push(`/therapy-compass/search?q=${encodeURIComponent(suggestion)}&run=1`),
+          onClick: () =>
+            router.push(
+              therapyHrefWithSearchParams(
+                therapyScreenHref("search"),
+                new URLSearchParams({ q: suggestion, run: "1" }),
+              ),
+            ),
           icon: Network,
         }))}
         footer={

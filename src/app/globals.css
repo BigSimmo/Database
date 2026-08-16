@@ -231,8 +231,8 @@
   --animate-dialog-rise: dialog-rise 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-action-tray-in: action-tray-in var(--swipe-duration, 160ms) cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
-  --animate-answer-ecg: answer-ecg-sweep 1.8s linear infinite;
-  --animate-answer-ecg-compact: answer-ecg-sweep 1.6s linear infinite;
+  --animate-answer-ecg: answer-ecg-pulse 1.8s ease-in-out infinite;
+  --animate-answer-ecg-compact: answer-ecg-pulse 1.6s ease-in-out infinite;
 }
 
 /* Theme tokens */
@@ -2618,46 +2618,287 @@ summary::-webkit-details-marker {
   padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
 }
 
-/* Global PWA notices sit above the bottom composer and home indicator without
-   changing page scroll ownership. The lifecycle component renders only when an
-   offline, restored, installable, or waiting-update state needs attention. */
-/* PWA notices: bottom sheet-style on phones (thumb zone, above the fixed
-   composer), floating bottom-right card on medium screens, and top-right
-   toast under the header on desktop — beside the browser's own install
-   affordance and clear of the composer. */
+/* Global PWA notices sit above the phone composer and home indicator without
+   taking page scroll ownership. Install is a compact surface, not a modal:
+   central search stays usable and the wide-screen card remains lower-right. */
 .pwa-notice-stack {
-  --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 5.5rem);
+  --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 5rem);
+  /* PWA-only geometry and typography roles. Keep the component's exact
+     measured proportions while consuming the shared radius, spacing, and motion
+     ladders wherever a matching step exists. */
+  --pwa-notice-gap: var(--radius-lg);
+  --pwa-card-radius: var(--radius-xl);
+  --pwa-control-radius: var(--radius-md);
+  --pwa-inset-xs: var(--radius-xs);
+  --pwa-inset-sm: var(--radius-sm);
+  --pwa-inset-md: var(--radius-md);
+  --pwa-inset-lg: var(--radius-lg);
+  --pwa-inset-xl: var(--spacing-icon-md);
+  --pwa-grip-height: calc(var(--spacing-icon-sm) + var(--radius-xs));
+  --pwa-grip-width: calc(var(--spacing-icon-xl) + var(--radius-lg));
+  --pwa-grip-thickness: 0.1875rem;
+  --pwa-header-min-height: calc(4 * var(--radius-xl));
+  --pwa-row-min-height: calc(2 * var(--radius-xl) + 2 * var(--radius-xs));
+  --pwa-row-padding-block: 0.4375rem;
+  --pwa-line-height-control: 1;
+  --pwa-line-height-tagline: 1.35rem;
+  --pwa-line-height-copy: var(--spacing-icon-lg);
+  --pwa-line-height-support: var(--pwa-grip-height);
+  --pwa-motion-enter: 280ms;
 
   position: fixed;
   z-index: 95;
-  left: max(0.75rem, var(--safe-area-left));
-  right: max(0.75rem, var(--safe-area-right));
+  left: max(0.5rem, var(--safe-area-left));
+  right: max(0.5rem, var(--safe-area-right));
   bottom: var(--pwa-notice-bottom-gap);
   display: grid;
-  gap: 0.75rem;
+  gap: var(--pwa-notice-gap);
   pointer-events: none;
 }
 
-/* Install notices present as a native-feeling bottom sheet on phones: full
-   bleed to the viewport edges (escaping the stack gutter), flush to the
-   bottom over the composer zone while visible, top corners only, and content
-   padded clear of the home indicator. Matches the drag-grip language of the
-   phone Mode-menu sheet (src/components/ui/sheet.tsx). */
+.pwa-notice-card {
+  overflow: hidden;
+  border: 1px solid var(--border-lux);
+  border-radius: var(--pwa-card-radius);
+  background: var(--surface-lux);
+  box-shadow:
+    0 18px 48px color-mix(in srgb, var(--text-heading) 11%, transparent),
+    0 3px 10px color-mix(in srgb, var(--text-heading) 6%, transparent);
+  animation: pwa-notice-in var(--pwa-motion-enter) cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+.pwa-lifecycle-card {
+  padding: var(--pwa-inset-xl);
+}
+
+.pwa-connection-restored {
+  justify-self: end;
+  border-color: color-mix(in srgb, var(--success) 24%, var(--border-lux));
+  border-radius: var(--radius-pill, 9999px);
+  background: color-mix(in srgb, var(--success-soft) 88%, var(--surface-lux));
+  padding: var(--pwa-inset-sm) var(--pwa-inset-lg) var(--pwa-inset-sm) calc(2 * var(--pwa-inset-xs));
+  box-shadow: var(--e1);
+}
+
+.pwa-connection-restored > div > span {
+  width: calc(2 * var(--pwa-inset-xl));
+  height: calc(2 * var(--pwa-inset-xl));
+  border-radius: var(--radius-pill, 9999px);
+}
+
+.pwa-install-sheet {
+  max-height: calc(100dvh - var(--pwa-notice-bottom-gap) - 4.25rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pwa-install-grip {
+  display: flex;
+  height: var(--pwa-grip-height);
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--clinical-accent-soft) 72%, var(--surface-lux));
+}
+
+.pwa-install-grip span {
+  width: var(--pwa-grip-width);
+  height: var(--pwa-grip-thickness);
+  border-radius: var(--radius-pill, 9999px);
+  background: color-mix(in srgb, var(--text-muted) 48%, transparent);
+}
+
+.pwa-install-header {
+  display: flex;
+  min-height: var(--pwa-header-min-height);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pwa-notice-gap);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-lux) 82%, transparent);
+  background: color-mix(in srgb, var(--clinical-accent-soft) 72%, var(--surface-lux));
+  padding: calc(2 * var(--pwa-inset-xs)) var(--pwa-inset-md) calc(2 * var(--pwa-inset-xs)) var(--pwa-inset-xl);
+}
+
+.pwa-install-mark {
+  border-radius: var(--pwa-control-radius);
+  filter: drop-shadow(0 2px 3px color-mix(in srgb, var(--clinical-accent) 18%, transparent));
+}
+
+.pwa-install-dismiss {
+  display: inline-flex;
+  min-height: var(--spacing-tap);
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pwa-inset-xs);
+  border-radius: var(--pwa-control-radius);
+  padding: 0 calc(2 * var(--pwa-inset-xs));
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: var(--pwa-line-height-control);
+  transition:
+    color var(--duration-quick) ease,
+    background-color var(--duration-quick) ease;
+}
+
+.pwa-install-dismiss:hover {
+  background: color-mix(in srgb, var(--surface-lux) 72%, transparent);
+  color: var(--text-heading);
+}
+
+.pwa-install-dismiss:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.pwa-install-body {
+  background: var(--surface-lux);
+  padding: var(--spacing-icon-sm) var(--pwa-inset-xl) var(--pwa-inset-xl);
+}
+
+.pwa-install-compact-copy {
+  display: none;
+}
+
+.pwa-install-tagline {
+  color: var(--text-heading);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: var(--pwa-line-height-tagline);
+}
+
+.pwa-install-copy {
+  margin-top: var(--pwa-inset-sm);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: var(--pwa-line-height-copy);
+}
+
+.pwa-install-support {
+  margin-top: var(--pwa-inset-sm);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: var(--pwa-line-height-support);
+}
+
+.pwa-install-benefits,
+.pwa-install-steps {
+  margin-top: var(--pwa-inset-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-lux);
+  border-radius: var(--pwa-control-radius);
+  background: color-mix(in srgb, var(--clinical-accent-soft) 20%, var(--surface-lux));
+}
+
+.pwa-install-benefits li,
+.pwa-install-steps li {
+  display: flex;
+  min-height: var(--pwa-row-min-height);
+  align-items: center;
+  gap: var(--pwa-inset-md);
+  padding: var(--pwa-row-padding-block) var(--pwa-inset-lg);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: var(--pwa-line-height-support);
+}
+
+.pwa-install-benefits li + li,
+.pwa-install-steps li + li {
+  border-top: 1px solid color-mix(in srgb, var(--border-lux) 80%, transparent);
+}
+
+.pwa-install-benefits svg,
+.pwa-install-steps svg {
+  flex: none;
+  color: var(--clinical-accent);
+}
+
+.pwa-install-steps li {
+  min-height: var(--spacing-tap);
+  justify-content: space-between;
+  font-size: 0.8125rem;
+}
+
+.pwa-install-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: calc(2 * var(--pwa-inset-xs));
+  margin-top: var(--pwa-inset-lg);
+}
+
+.pwa-install-actions-single {
+  grid-template-columns: 1fr;
+}
+
+/* The in-flow phone home composer sits near the viewport centre. Keep the
+   browser-native install prompt below it without moving page content: the full
+   value proposition remains on larger and dock-owned surfaces, while the phone
+   hero gets a concise, action-first card. */
 @media (max-width: 639.98px) {
-  .pwa-install-sheet {
-    margin-left: calc(-1 * max(0.75rem, var(--safe-area-left)));
-    margin-right: calc(-1 * max(0.75rem, var(--safe-area-right)));
-    margin-bottom: calc(-1 * var(--pwa-notice-bottom-gap));
-    border-radius: 1.25rem 1.25rem 0 0;
-    border-bottom: 0;
-    padding-left: max(1.25rem, var(--safe-area-left));
-    padding-right: max(1.25rem, var(--safe-area-right));
-    padding-bottom: calc(1.25rem + var(--safe-area-bottom));
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-notice-stack {
+    --pwa-notice-bottom-gap: max(0.5rem, var(--safe-area-bottom));
+  }
+
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-grip,
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-tagline,
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-copy,
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-support,
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-benefits {
+    display: none;
+  }
+
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-header {
+    min-height: 3.25rem;
+    padding-block: calc(2 * var(--pwa-inset-xs));
+  }
+
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-body {
+    padding: var(--pwa-inset-sm) var(--pwa-inset-xl) var(--pwa-inset-xl);
+  }
+
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-compact-copy {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: var(--pwa-line-height-support);
+  }
+
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-actions {
+    margin-top: var(--pwa-inset-sm);
   }
 }
 
-.pwa-notice-card {
-  animation: pwa-notice-in 280ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+.pwa-action {
+  transition:
+    border-color var(--duration-quick) ease,
+    background-color var(--duration-quick) ease,
+    color var(--duration-quick) ease,
+    box-shadow var(--duration-quick) ease;
+}
+
+.pwa-action-primary {
+  border: 1px solid var(--clinical-accent);
+  background: var(--clinical-accent);
+  color: var(--clinical-accent-contrast);
+  box-shadow: var(--e1);
+}
+
+.pwa-action-primary:hover {
+  border-color: var(--clinical-accent-hover);
+  background: var(--clinical-accent-hover);
+}
+
+.pwa-action-secondary {
+  border: 1px solid color-mix(in srgb, var(--clinical-accent) 58%, var(--border-lux));
+  background: var(--surface-lux);
+  color: var(--clinical-accent);
+}
+
+.pwa-action-secondary:hover {
+  background: var(--clinical-accent-soft);
 }
 
 @keyframes pwa-notice-in {
@@ -2674,32 +2915,33 @@ summary::-webkit-details-marker {
 @media (min-width: 640px) {
   .pwa-notice-stack {
     left: auto;
-    width: min(25rem, calc(100vw - 2rem - var(--safe-area-left) - var(--safe-area-right)));
+    right: max(1rem, var(--safe-area-right));
+    bottom: max(1rem, var(--safe-area-bottom));
+    width: min(27rem, calc(100vw - 2rem - var(--safe-area-left) - var(--safe-area-right)));
+  }
+
+  /* Submitted answer views own a fixed bottom composer. Keep the install
+     surface in the opposite corner so neither control can obscure the other. */
+  body:has(form.answer-footer-search-edge) .pwa-notice-stack {
+    top: calc(4.25rem + max(0.75rem, var(--safe-area-top)));
+    bottom: auto;
+  }
+
+  .pwa-install-grip {
+    display: none;
   }
 }
 
 @media (display-mode: standalone) {
   .pwa-notice-stack {
-    --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 6rem);
+    --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 5.5rem);
   }
 }
 
-/* Last so it also wins over the standalone bottom offset at desktop width. */
 @media (min-width: 1280px) {
   .pwa-notice-stack {
-    top: calc(4.25rem + max(0.5rem, var(--safe-area-top)));
-    bottom: auto;
-  }
-
-  @keyframes pwa-notice-in {
-    from {
-      opacity: 0;
-      transform: translateY(-0.625rem) scale(0.98);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
+    right: max(1.5rem, var(--safe-area-right));
+    bottom: max(1.5rem, var(--safe-area-bottom));
   }
 }
 
@@ -2711,6 +2953,24 @@ summary::-webkit-details-marker {
 
 html[data-motion="reduced"] .pwa-notice-card {
   animation: none;
+}
+
+@media (forced-colors: active) {
+  .pwa-notice-card,
+  .pwa-install-benefits,
+  .pwa-install-steps,
+  .pwa-action,
+  .pwa-install-dismiss {
+    border-color: CanvasText;
+  }
+
+  .pwa-install-header,
+  .pwa-install-body,
+  .pwa-install-benefits,
+  .pwa-install-steps,
+  .pwa-action-secondary {
+    background: Canvas;
+  }
 }
 
 /* Tabular figures for data, counts, page numbers, byte sizes */
@@ -3159,14 +3419,17 @@ td,
   }
 }
 
-/* 320 → 0 is equivalent to 0 → -320 modulo the dash period, without
-   WebKit's unreliable negative SVG dash-offset interpolation. */
-@keyframes answer-ecg-sweep {
-  from {
-    stroke-dashoffset: 320;
+/* Animate compositable opacity on the HTML overlay that contains the bright ECG
+   path. Mobile WebKit can report animations on SVG path properties as running
+   without repainting them, especially in an installed PWA. Keeping animation on
+   a regular HTML layer makes the pulse visible without JavaScript or layout work. */
+@keyframes answer-ecg-pulse {
+  0%,
+  100% {
+    opacity: 0.2;
   }
-  to {
-    stroke-dashoffset: 0;
+  50% {
+    opacity: 1;
   }
 }
 
@@ -3183,12 +3446,9 @@ td,
  * those unlayered classes, check the class body first; the class wins.
  */
 @layer components {
-  .answer-activity-trace {
-    contain: paint;
-  }
-
   .answer-activity-trace__sweep {
     animation: var(--animate-answer-ecg);
+    will-change: opacity;
   }
 
   .answer-activity-trace[data-density="compact"] .answer-activity-trace__sweep {
@@ -4214,9 +4474,9 @@ html.theme-transitioning *:after {
   [data-print-provenance] {
     display: block !important;
     margin-top: 8mm;
-    border-top: 1px solid #d6dce5;
+    border-top: 1px solid var(--border);
     padding-top: var(--spacing-icon-xs);
-    color: #5b6472;
+    color: var(--text-muted);
     font-size: 9pt;
   }
 }

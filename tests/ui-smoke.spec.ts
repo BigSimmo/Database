@@ -904,7 +904,20 @@ function accountSettingsDialog(page: Page) {
 }
 
 function accountSetupDialog(page: Page) {
-  return page.getByRole("dialog", { name: "Set up your workspace" });
+  return page.getByRole("dialog", { name: "Account setup" });
+}
+
+async function expectControlsBelowPhoneTopSafeArea(page: Page, controls: Locator[]) {
+  const safeAreaTop = await page.evaluate(() =>
+    Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top")),
+  );
+  expect(safeAreaTop).toBeGreaterThan(0);
+
+  for (const control of controls) {
+    const bounds = await control.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.y).toBeGreaterThanOrEqual(safeAreaTop);
+  }
 }
 
 async function expectAccountSettingsSurface(settings: Locator) {
@@ -981,19 +994,31 @@ async function expectMobileSettingsLayout(settings: Locator) {
 }
 
 async function expectAccountSetupSurface(setup: Locator) {
-  await expect(setup.getByRole("heading", { name: "Set up your workspace" })).toBeVisible();
-  await expect(setup.getByLabel("Email address")).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Continue with email" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Continue to your workspace" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Your workspace, wherever you work." })).toBeVisible();
+  await expect(setup.getByLabel("Work email")).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Continue securely" })).toBeVisible();
   await expect(setup.getByRole("button", { name: "Continue with Apple" })).toBeEnabled();
   await expect(setup.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
   await expect(setup.getByRole("button", { name: "Continue with Microsoft" })).toBeEnabled();
   await expect(setup.getByText(/Apple sign-in is not available/i)).toHaveCount(0);
-  await expect(setup.getByRole("heading", { name: "What’s saved where" })).toBeVisible();
-  await expect(setup.getByText("Account", { exact: true })).toHaveCount(2);
-  await expect(setup.getByText("This device", { exact: true })).toBeVisible();
-  await expect(setup.getByText(/Stay in this browser session and do not sync/i)).toBeVisible();
-  await expect(setup.getByText(/No PHI required\./i)).toBeVisible();
-  await expect(setup).toContainText("Do not enter patient-identifying information during sign-in.");
+  const accountSetupViewportWidth = await setup.evaluate(() => window.innerWidth);
+  if (accountSetupViewportWidth >= 1024) {
+    await expect(setup.getByText("Save favourites", { exact: true })).toBeVisible();
+    await expect(setup.getByText(/Reopen trusted resources on any device/i)).toBeVisible();
+    await expect(setup.getByText("Keep your clinical defaults", { exact: true })).toBeVisible();
+    await expect(setup.getByText(/Your jurisdiction and answer style follow you/i)).toBeVisible();
+    await expect(setup.getByText("Recent searches stay here", { exact: true })).toBeVisible();
+    await expect(setup.getByText(/Browser activity does not sync to your account/i)).toBeVisible();
+  } else {
+    await expect(setup.getByText("Favourites sync", { exact: true })).toBeVisible();
+    await expect(setup.getByText("Preferences sync", { exact: true })).toBeVisible();
+    await expect(setup.getByText("Searches stay here", { exact: true })).toBeVisible();
+  }
+  const privacyLink = setup.getByRole("link", { name: "Privacy and data processing" });
+  await expect(privacyLink).toBeVisible();
+  await expect(privacyLink).toHaveAttribute("href", "/privacy");
+  await expect(privacyLink.locator("xpath=..")).toContainText("Do not enter patient-identifiable information.");
 }
 
 async function expectAccountProviderLayout(setup: Locator, layout: "row" | "stack") {
@@ -1575,6 +1600,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await settings.getByRole("button", { name: "Close settings" }).click();
     await expect(settings).toBeHidden();
     await page.setViewportSize({ width: 390, height: 820 });
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--safe-area-top", "59px");
+    });
 
     const escapeMenu = await openMobileClinicalGuideMenu(page);
     await escapeMenu.getByRole("button", { name: "Settings", exact: true }).click();
@@ -1588,17 +1616,31 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(setup).toBeVisible();
     await expectAccountSetupSurface(setup);
     await expectAccountProviderLayout(setup, "stack");
-    await expect(setup.getByLabel("Email address")).toBeFocused();
+    await expect(setup.getByLabel("Work email")).toBeFocused();
+    const setupClose = setup.getByRole("button", { name: "Close account setup" });
+    const workspaceMark = setup.getByTestId("account-workspace-mark");
+    await expectControlsBelowPhoneTopSafeArea(page, [setupClose, workspaceMark]);
     const setupBox = await setup.boundingBox();
     expect(setupBox).not.toBeNull();
     expect(setupBox!.x).toBeGreaterThanOrEqual(-1);
     expect(setupBox!.width + fullscreenTolerance).toBeLessThanOrEqual(viewport.width + fullscreenTolerance);
     await expectNoPageHorizontalOverflow(page);
 
+    for (const viewportSize of [
+      { width: 320, height: 700 },
+      { width: 430, height: 820 },
+      { width: 639, height: 820 },
+    ]) {
+      await page.setViewportSize(viewportSize);
+      await expectControlsBelowPhoneTopSafeArea(page, [setupClose, workspaceMark]);
+      await expectNoPageHorizontalOverflow(page);
+    }
+
     await page.setViewportSize({ width: 320, height: 700 });
-    const setupClose = setup.getByRole("button", { name: "Close account setup" });
-    await expect(setup.getByLabel("Email address")).toBeInViewport();
-    await expect(setup.getByRole("button", { name: "Continue with email" })).toBeInViewport();
+    const setupEmail = setup.getByLabel("Work email");
+    await setupEmail.scrollIntoViewIfNeeded();
+    await expect(setupEmail).toBeInViewport();
+    await expect(setup.getByRole("button", { name: "Continue securely" })).toBeInViewport();
     await expect(setupClose).toBeInViewport();
     await expectNoPageHorizontalOverflow(page);
 
@@ -1606,7 +1648,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await setupScrollPort.evaluate((element) => {
       element.scrollTop = element.scrollHeight;
     });
-    await expect(setup.getByText("No PHI required")).toBeInViewport();
+    await expect(setup.getByRole("link", { name: "Privacy and data processing" })).toBeInViewport();
     await expect(setupClose).toBeInViewport();
 
     await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
@@ -1725,6 +1767,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const appModeTrigger = page.getByRole("button", { name: "Mode Answer" });
     await waitForReactEventHandler(appModeTrigger, "onClick");
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--safe-area-top", "59px");
+    });
     await appModeTrigger.click();
 
     const modeSheet = page.getByTestId("app-mode-menu-sheet");
@@ -1734,6 +1779,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeMenu).toBeVisible();
     await expect(appModeTrigger).toHaveAttribute("aria-expanded", "true");
     await expect(appModeTrigger).toHaveAttribute("aria-controls", "app-mode-menu");
+    await expectControlsBelowPhoneTopSafeArea(page, [
+      modeSheet.getByRole("heading", { name: "Choose mode" }),
+      modeSheet.getByRole("button", { name: "Close mode menu" }),
+    ]);
 
     // The full catalogue remains in one radio menu, but the phone presentation
     // now groups it into the three clinical jobs clinicians scan for first.
@@ -1779,7 +1828,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(Number.parseFloat(closeGeometry.radius)).toBeGreaterThanOrEqual(22);
 
     // A lower group remains reachable through the sheet's own scroll owner.
-    // Selecting a mode closes the sheet and retargets the shared home.
+    // Tools is browse-first, so selecting it opens the canonical directory.
     const toolsMode = appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ });
     await toolsMode.scrollIntoViewIfNeeded();
     await expect(toolsMode).toBeVisible();
@@ -1787,10 +1836,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(modeSheet).toHaveCount(0);
     await expect(appModeMenu).toHaveCount(0);
-    await expect(page).toHaveURL(/\/\?mode=tools\b/);
+    await expect(page).toHaveURL(/\/tools$/);
     const toolsTrigger = page.getByRole("button", { name: "Mode Tools" });
     await expect(toolsTrigger).toBeVisible();
-    await expect(visibleByTestId(page, "shared-home-empty-state")).toBeVisible();
+    await expect(page.getByTestId("tools-search-results-page")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
 
     // Reopening on a mode in a lower group must position that selected row in
@@ -3181,7 +3231,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1&run=1");
     await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1&run=1$/);
     await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
-    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
   });
 
   test("dashboard differentials selection stays on the shared home; submitted links open Differentials", async ({
@@ -3444,7 +3494,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/favourites?q=lithium%20set&focus=1&run=1");
 
     await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
-    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
     await expect(page.getByTestId("favourites-active-filters")).toHaveCount(0);
@@ -3461,7 +3511,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search favourites...");
     await expect(globalSearchInput).toHaveValue("lithium set");
     await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
-    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
     await expect(page.getByTestId("favourites-active-filters")).toHaveCount(0);
@@ -3506,7 +3556,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/favourites");
 
-    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
     await expect(page.getByTestId("favourites-item-workspace")).toHaveCount(0);
 
     await visibleByTestId(page, "favourite-row-lithium-monitoring-guideline").locator("button[aria-pressed]").click();
@@ -3646,6 +3696,31 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
     await expectSingleMedicationPage(page);
     await expect(page.getByRole("link", { name: "Back to medications" }).filter({ visible: true })).toBeVisible();
+
+    // Desktop polish: the patient control belongs to the title row, with a
+    // deliberate breathing space before the elevated category rail below it.
+    const desktopPatientAction = page.getByTestId("medication-primary-action").filter({ visible: true });
+    const desktopMedicationRail = page.getByTestId("medication-section-rail");
+    const [patientBox, desktopRailBox] = await Promise.all([
+      desktopPatientAction.boundingBox(),
+      desktopMedicationRail.boundingBox(),
+    ]);
+    expect(patientBox).not.toBeNull();
+    expect(desktopRailBox).not.toBeNull();
+    expect(desktopRailBox!.y - (patientBox!.y + patientBox!.height)).toBeGreaterThanOrEqual(6);
+
+    const summaryCategory = desktopMedicationRail.getByRole("button", { name: /^Summary/ });
+    await summaryCategory.focus();
+    await expect(summaryCategory).toBeFocused();
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect
+      .poll(() => summaryCategory.evaluate((button) => Number.parseFloat(getComputedStyle(button).transitionDuration)))
+      .toBeLessThanOrEqual(0.001);
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "no-preference" });
+    await expect
+      .poll(() => desktopMedicationRail.evaluate((rail) => getComputedStyle(rail).borderTopStyle))
+      .not.toBe("none");
+    await page.emulateMedia({ forcedColors: "none" });
 
     // Regression guard for #1802: medication sections use the same priority
     // menu as the mode home, not the older horizontally scrolling tab strip.
@@ -4244,20 +4319,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(navigator.getByTestId("services-shortlist-bar")).toHaveCount(0);
     await expect(navigator.getByTestId("services-comparison")).toHaveCount(0);
 
+    // The compact rail is progressive: it tracks shortlist state rather than
+    // standing there as an always-on four-card walkthrough (ledger #163).
+    const progress = navigator.getByRole("navigation", { name: "Referral progress" });
+    const currentStage = progress.locator('[aria-current="step"]');
+    await expect(currentStage).toHaveText("Search");
+
     const addButtons = navigator.getByRole("button", { name: /Add .* to shortlist/ });
     await addButtons.nth(0).click();
     const shortlist = navigator.getByTestId("services-shortlist-bar");
     await expect(shortlist).toContainText("1 shortlisted");
     await expect(shortlist.getByRole("button", { name: "Compare" })).toBeDisabled();
+    await expect(currentStage).toHaveText("Shortlist");
 
     await addButtons.nth(1).click();
     await expect(shortlist).toContainText("2 shortlisted");
     await shortlist.getByRole("button", { name: "Compare" }).click();
     await expect(navigator.getByTestId("services-comparison")).toBeVisible();
+    await expect(currentStage).toHaveText("Compare");
 
     await shortlist.getByRole("button", { name: "Clear" }).click();
     await expect(navigator.getByTestId("services-shortlist-bar")).toHaveCount(0);
     await expect(navigator.getByTestId("services-comparison")).toHaveCount(0);
+    await expect(currentStage).toHaveText("Search");
   });
 
   test("search regressions avoid fetch errors and open viewer hits @critical", async ({ page }) => {
@@ -5317,6 +5401,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
 
     const dialog = await openGuide(page);
+    const guideScrollBody = dialog.locator(".polished-scroll");
+    const mobileFooter = dialog.locator("[data-guide-mobile-footer]");
+    await guideScrollBody.evaluate((element) => {
+      element.scrollTop = 80;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect(mobileFooter).toHaveAttribute("aria-hidden", "true");
+    await expect(mobileFooter).toHaveAttribute("inert", "");
+
+    // The hidden mobile footer must not be reachable by keyboard tabbing.
+    await dialog.getByRole("button", { name: "Close guide" }).focus();
+    const tabStopCount = await dialog.locator('button, input, [href], [tabindex]:not([tabindex="-1"])').count();
+    for (let tabIndex = 0; tabIndex <= tabStopCount; tabIndex += 1) {
+      await page.keyboard.press("Tab");
+      await expect.poll(() => mobileFooter.evaluate((element) => element.contains(document.activeElement))).toBe(false);
+    }
+
+    await guideScrollBody.evaluate((element) => {
+      element.scrollTop = 0;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect(mobileFooter).toHaveAttribute("aria-hidden", "false");
+    await expect(mobileFooter).not.toHaveAttribute("inert");
     const search = dialog.getByPlaceholder("Search the guide");
     await search.fill("privacy");
     await expect(dialog.getByText(/topics? found for “privacy”\./)).toBeVisible();
