@@ -197,7 +197,7 @@ function AnswerActivityTrace({ density }: { density: AnswerProgressDensity }) {
     <div
       data-testid="answer-activity-trace"
       data-density={density}
-      className={cn("answer-activity-trace w-full overflow-hidden", compact ? "h-5" : "h-10 sm:h-12")}
+      className={cn("answer-activity-trace relative w-full overflow-hidden", compact ? "h-5" : "h-10 sm:h-12")}
     >
       <svg
         aria-hidden="true"
@@ -218,19 +218,26 @@ function AnswerActivityTrace({ density }: { density: AnswerProgressDensity }) {
           vectorEffect="non-scaling-stroke"
           className="text-[color:var(--clinical-accent)] opacity-25 forced-colors:text-[CanvasText] forced-colors:opacity-100"
         />
-        <path
-          data-slot="answer-activity-trace-sweep"
-          d={answerActivityPath}
-          pathLength="320"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={compact ? 1.75 : 2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-          className="answer-activity-trace__sweep text-[color:var(--clinical-accent)] forced-colors:text-[Highlight]"
-        />
       </svg>
+      <span
+        aria-hidden="true"
+        data-slot="answer-activity-trace-sweep"
+        className="answer-activity-trace__sweep pointer-events-none absolute inset-0 block"
+      >
+        <svg focusable="false" viewBox="0 0 320 44" preserveAspectRatio="none" className="block size-full">
+          <path
+            d={answerActivityPath}
+            pathLength="320"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={compact ? 1.75 : 2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+            className="text-[color:var(--clinical-accent)] forced-colors:text-[Highlight]"
+          />
+        </svg>
+      </span>
     </div>
   );
 }
