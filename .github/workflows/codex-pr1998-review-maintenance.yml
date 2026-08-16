@@ -22,15 +22,11 @@ jobs:
       matrix:
         file:
           - .design-sync/config.json
-          - docs/design-system/COMPONENTS.md
-          - docs/design-system/adoption-manifest.json
-          - src/app/medications/search/page.tsx
-          - src/components/ClinicalDashboard.tsx
-          - src/components/clinical-dashboard/favourites-command-library-page.tsx
-          - src/components/clinical-dashboard/quick-capture.tsx
+          - docs/filter-contract.md
+          - src/components/services/services-navigator-page.tsx
           - src/components/ui/sheet.tsx
-          - tests/favourites-command-library.dom.test.tsx
-          - tests/medications-search-page.dom.test.tsx
+          - tests/sheet.dom.test.tsx
+          - tests/ui-tools.spec.ts
     env:
       TARGET_BRANCH: codex/filter-system-overhaul
       EXPECTED_HEAD: 3c9a2cb56cb45a1297dc39e51dc4aa3113ec56c9
@@ -94,8 +90,8 @@ jobs:
                   end += 1
               if end >= len(lines):
                   end = len(lines) - 1
-              lo = max(0, start - 24)
-              hi = min(len(lines), end + 25)
+              lo = max(0, start - 35)
+              hi = min(len(lines), end + 36)
               print(f"\n--- conflict {number}: lines {start + 1}-{end + 1}; context {lo + 1}-{hi} ---")
               for index in range(lo, hi):
                   print(f"{index + 1:05d}: {lines[index]}")
