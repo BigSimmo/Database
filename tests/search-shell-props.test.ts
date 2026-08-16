@@ -29,11 +29,14 @@ describe("searchShellPropsForPathname", () => {
   });
 
   it("keeps tools in the hero from tablet up and uses the shared phone footer", () => {
-    expect(searchShellPropsForPathname("/tools")).toEqual({
+    const expectedToolsShell = {
       initialMode: "tools",
       desktopSearchPlacement: "hero",
       mobileHomeComposerPlacement: "footer",
-    });
+    } as const;
+
+    expect(searchShellPropsForPathname("/tools")).toEqual(expectedToolsShell);
+    expect(searchShellPropsForPathname("/tools/interaction-checker")).toEqual(expectedToolsShell);
   });
 
   it("maps therapy and home fallbacks", () => {
