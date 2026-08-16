@@ -3119,3 +3119,55 @@ test.describe("Responsive layout guards", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 });
+
+test("low-confidence AccessibleTable keeps its full missing-value phrase readable at 320px @mockup", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.goto("/mockups/accessible-table-browser-fixture", { waitUntil: "domcontentloaded" });
+
+  const fixture = visibleByTestId(page, "accessible-table-browser-fixture");
+  await expect(fixture).toBeVisible({ timeout: 15_000 });
+  await expect(fixture.getByTestId("table-low-confidence-note")).toContainText(
+    "verify values against the source document",
+  );
+
+  const table = fixture.getByRole("table", { name: "Clozapine ANC response" });
+  await expect(table).toBeVisible();
+  const missingValues = table.getByTestId("missing-value");
+  await expect(missingValues).toHaveCount(2);
+  await expect(missingValues.first()).toHaveText("Not recorded");
+
+  const layout = await missingValues.first().evaluate((value) => {
+    const wrapper = value.parentElement;
+    if (!wrapper) throw new Error("Missing-value wrapper was not rendered");
+    const valueRect = value.getBoundingClientRect();
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const style = getComputedStyle(wrapper);
+    return {
+      valueLeft: valueRect.left,
+      valueRight: valueRect.right,
+      wrapperLeft: wrapperRect.left,
+      wrapperRight: wrapperRect.right,
+      wrapperClientWidth: wrapper.clientWidth,
+      wrapperScrollWidth: wrapper.scrollWidth,
+      whiteSpace: style.whiteSpace,
+      overflow: style.overflow,
+      textOverflow: style.textOverflow,
+    };
+  });
+
+  expect(layout.whiteSpace).toBe("normal");
+  expect(layout.textOverflow).not.toBe("ellipsis");
+  expect(layout.wrapperScrollWidth - layout.wrapperClientWidth).toBeLessThanOrEqual(1);
+  expect(layout.valueLeft).toBeGreaterThanOrEqual(layout.wrapperLeft - 1);
+  expect(layout.valueRight).toBeLessThanOrEqual(layout.wrapperRight + 1);
+  await expectNoPageHorizontalOverflow(page);
+
+  const screenshotPath = testInfo.outputPath("low-confidence-accessible-table-320px.png");
+  await fixture.screenshot({ path: screenshotPath });
+  await testInfo.attach("low-confidence-accessible-table-320px", {
+    path: screenshotPath,
+    contentType: "image/png",
+  });
+});
