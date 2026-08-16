@@ -888,14 +888,14 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
       headerHidden={chromeHidden}
       headerBottom={<GuideTopNavigation view={view} onNavigate={navigate} />}
       headerClassName={cn(
-        "guide-centre-header max-h-48 overflow-hidden pt-[max(1rem,env(safe-area-inset-top))] transition-[max-height,padding,border-color,opacity] duration-[var(--duration-moderate)] motion-reduce:transition-none sm:pt-5",
+        "guide-centre-header max-h-48 overflow-hidden pt-[max(1rem,env(safe-area-inset-top))] transition-[border-color,opacity] duration-[var(--duration-moderate)] motion-reduce:transition-none sm:pt-5",
         chromeHidden &&
           "max-h-0 border-transparent p-0 opacity-0 sm:max-h-48 sm:border-[color:var(--border)] sm:p-5 sm:opacity-100",
       )}
       mobilePlacement="fullscreen"
       footer={footer}
       footerClassName={cn(
-        "absolute inset-x-0 bottom-0 z-30 border-t border-[color:var(--border)] bg-[color:var(--surface-raised)] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[var(--shadow-elevated)] transition-[transform,opacity] duration-[var(--duration-moderate)] motion-reduce:transition-none sm:static sm:p-4 sm:shadow-none",
+        "absolute inset-x-0 bottom-0 z-30 border-t border-[color:var(--border)] bg-[color:var(--surface-raised)] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[var(--e4)] transition-[transform,opacity] duration-[var(--duration-moderate)] motion-reduce:transition-none sm:static sm:p-4 sm:shadow-none",
         chromeHidden &&
           "pointer-events-none translate-y-full opacity-0 sm:pointer-events-auto sm:translate-y-0 sm:opacity-100",
       )}
