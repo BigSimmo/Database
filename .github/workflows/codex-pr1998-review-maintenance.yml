@@ -1,0 +1,181 @@
+name: Codex PR 1998 review maintenance
+
+on:
+  push:
+    branches:
+      - codex/pr1998-review-maintenance
+
+concurrency:
+  group: codex-pr1998-review-maintenance
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  repair:
+    if: github.repository == 'BigSimmo/Database'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      TARGET_BRANCH: codex/filter-system-overhaul
+      HELPER_BRANCH: codex/pr1998-review-maintenance
+      KNOWN_ANCESTOR: d6da003e98a60c3bec5c6a6f6c2d187506cb2ad8
+      EXPECTED_SOURCE_BLOB: 944b5e6877f2115630874e654ea3b4406e07432e
+      EXPECTED_TEST_BLOB: 97f21fa89037f958b82eb9cb0b16741fec302727
+      SOURCE_PATH: src/components/clinical-dashboard/document-search-results.tsx
+      TEST_PATH: tests/document-filter-panel.dom.test.tsx
+    steps:
+      - name: Checkout maintenance branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Validate current PR state and apply authored patch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp codex/pr-1998.patch /tmp/pr-1998.patch
+          git fetch --no-tags origin "$TARGET_BRANCH" main
+          target_sha="$(git rev-parse "origin/$TARGET_BRANCH")"
+          git merge-base --is-ancestor "$KNOWN_ANCESTOR" "$target_sha" || {
+            echo "::error::Target branch no longer descends from the independently reviewed head $KNOWN_ANCESTOR."
+            exit 1
+          }
+          source_blob="$(git rev-parse "$target_sha:$SOURCE_PATH")"
+          test_blob="$(git rev-parse "$target_sha:$TEST_PATH")"
+          test "$source_blob" = "$EXPECTED_SOURCE_BLOB" || {
+            echo "::error::$SOURCE_PATH changed after review ($source_blob != $EXPECTED_SOURCE_BLOB)."
+            exit 1
+          }
+          test "$test_blob" = "$EXPECTED_TEST_BLOB" || {
+            echo "::error::$TEST_PATH changed after review ($test_blob != $EXPECTED_TEST_BLOB)."
+            exit 1
+          }
+          auto_merge_state="$({
+            curl --fail --silent --show-error \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/1998"
+          } | jq -r 'if (.auto_merge // null) == null then "none" else "armed" end')"
+          test "$auto_merge_state" = "none" || {
+            echo "::error::PR #1998 auto-merge is armed; refusing to race or alter it."
+            exit 1
+          }
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          git apply --check --whitespace=error-all /tmp/pr-1998.patch
+          git apply --whitespace=error-all /tmp/pr-1998.patch
+          git diff --check
+
+      - name: Setup Node and install immutable dependencies
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Format focused changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/prettier --write \
+            src/components/clinical-dashboard/document-search-results.tsx \
+            tests/document-filter-panel.dom.test.tsx \
+            tests/filter-review-regressions.dom.test.tsx
+          ./node_modules/.bin/prettier --check \
+            src/components/clinical-dashboard/document-search-results.tsx \
+            tests/document-filter-panel.dom.test.tsx \
+            tests/filter-review-regressions.dom.test.tsx
+          git diff --check
+
+      - name: Run focused provider-free filter regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm test -- \
+            tests/filter-review-regressions.dom.test.tsx \
+            tests/document-filter-panel.dom.test.tsx \
+            tests/differential-stream-page.dom.test.tsx \
+            tests/medication-prescribing-workspace.dom.test.tsx
+
+      - name: Run source typecheck
+        run: npm run typecheck
+
+      - name: Run UI design-system contract
+        run: npm run check:design-system-contract
+
+      - name: Commit and push focused fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Codex"
+          git config user.email "87357024+BigSimmo@users.noreply.github.com"
+          git add \
+            src/components/clinical-dashboard/document-search-results.tsx \
+            tests/document-filter-panel.dom.test.tsx \
+            tests/filter-review-regressions.dom.test.tsx
+          git diff --cached --check
+          git commit -m "fix(filters): clarify loaded counts and defer document projections"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+
+      - name: Merge current main without rewriting history
+        id: merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          if git merge --no-ff --no-commit origin/main; then
+            if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+              echo "merged=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "merged=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "::group::Merge conflicts"
+            git status --short
+            while IFS= read -r file; do
+              test -n "$file" || continue
+              echo "===== $file ====="
+              git checkout --conflict=diff3 -- "$file" || true
+              sed -n '1,260p' "$file" || true
+            done < <(git diff --name-only --diff-filter=U)
+            echo "::endgroup::"
+            exit 1
+          fi
+
+      - name: Refresh dependencies after main merge
+        if: steps.merge.outputs.merged == 'true'
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Verify merged branch
+        if: steps.merge.outputs.merged == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/prettier --check \
+            src/components/clinical-dashboard/document-search-results.tsx \
+            tests/document-filter-panel.dom.test.tsx \
+            tests/filter-review-regressions.dom.test.tsx
+          npm test -- \
+            tests/filter-review-regressions.dom.test.tsx \
+            tests/document-filter-panel.dom.test.tsx \
+            tests/differential-stream-page.dom.test.tsx \
+            tests/medication-prescribing-workspace.dom.test.tsx
+          npm run typecheck
+          npm run check:design-system-contract
+          git diff --check
+
+      - name: Commit and push main merge
+        if: steps.merge.outputs.merged == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git commit -m "Merge main into codex/filter-system-overhaul"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+
+      - name: Remove maintenance branch after success
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach
+          git push origin --delete "$HELPER_BRANCH"
