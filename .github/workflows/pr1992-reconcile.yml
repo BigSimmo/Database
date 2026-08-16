@@ -1,0 +1,46 @@
+name: PR 1992 reconcile probe
+
+on:
+  push:
+    branches:
+      - codex/therapy-global-convergence-20260814
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-1992-reconcile
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Report merge conflicts against current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          set +e
+          git merge --no-commit --no-ff origin/main
+          merge_status=$?
+          set -e
+
+          if [ "$merge_status" -eq 0 ]; then
+            echo "MERGE_RESULT=clean"
+            git merge --abort
+            exit 2
+          fi
+
+          echo "MERGE_RESULT=conflicted"
+          git diff --name-only --diff-filter=U | sed 's/^/CONFLICT_FILE=/'
+          git status --short
+          git merge --abort
+          exit 1
