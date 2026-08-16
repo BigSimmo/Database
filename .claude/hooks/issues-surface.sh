@@ -32,10 +32,11 @@ source_val="$(printf '%s' "$payload" \
 rows="$(awk '
   /^## Open items/       { inopen=1; next }
   /^## /                 { if (inopen) inopen=0 }
-  inopen && /^\| #[0-9]/  {
+  inopen && /^\| #[0-9A-HJKMNP-TV-Z]/  {
     n=split($0, c, "|")
     id=c[2]; pri=c[3]; typ=c[4]; sum=c[5]
     gsub(/^[ \t]+|[ \t]+$/, "", id)
+    sub(/[ \t]+<!--[ \t]*issue-ulid:[^>]+-->[ \t]*$/, "", id)
     gsub(/^[ \t]+|[ \t]+$/, "", pri)
     gsub(/^[ \t]+|[ \t]+$/, "", typ)
     gsub(/^[ \t]+|[ \t]+$/, "", sum)
@@ -63,10 +64,11 @@ queue_rows="$(awk '
   NR==FNR {
     if ($0 ~ /^## Open items/)                  { inopen=1; next }
     if ($0 ~ /^## /)                            { inopen=0 }
-    if (inopen && $0 ~ /^\| #[0-9]/) {
+    if (inopen && $0 ~ /^\| #[0-9A-HJKMNP-TV-Z]/) {
       split($0, oc, "|")
       oid=oc[2]; odetail=oc[6]
       gsub(/^[ \t]+|[ \t]+$/, "", oid)
+      sub(/[ \t]+<!--[ \t]*issue-ulid:[^>]+-->[ \t]*$/, "", oid)
       gsub(/^[ \t]+|[ \t]+$/, "", odetail)
       detail[oid]=odetail
     }
@@ -114,7 +116,7 @@ fi
 
 # Keep the priority summary complementary to the queue instead of repeating
 # the same recommended IDs in both sections.
-queued_ids=" $(printf '%s\n' "$queue_rows" | grep -oE '#[0-9]+' | tr '\n' ' ' || true)"
+queued_ids=" $(printf '%s\n' "$queue_rows" | grep -oE '#([0-9A-HJKMNP-TV-Z]{6,16}|[0-9]{3,})' | tr '\n' ' ' || true)"
 unqueued_rows="$(printf '%s\n' "$rows" | awk -F'\t' -v queued="$queued_ids" '
   index(queued, " " $2 " ") == 0
 ' || true)"
