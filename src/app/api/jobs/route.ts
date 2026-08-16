@@ -4,6 +4,7 @@ import {
   countActiveRows,
   indexingListResponse,
   offsetPagination,
+  parseStatusRows,
   type StatusRow,
 } from "@/lib/api-list-response";
 import { demoJobs } from "@/lib/demo-data";
@@ -61,7 +62,7 @@ export async function GET(request: Request) {
       .range(offset, offset + limit - 1);
 
     if (error) throw new Error(error.message);
-    const jobs = (data ?? []) as unknown as JobRow[];
+    const jobs = parseStatusRows(data);
     return jobsResponse(jobs, {
       pagination: offsetPagination({ limit, offset, pageLength: jobs.length, count }),
     });
