@@ -1,3 +1,35 @@
+diff --git a/src/components/clinical-dashboard/favourites-command-library-page.tsx b/src/components/clinical-dashboard/favourites-command-library-page.tsx
+--- a/src/components/clinical-dashboard/favourites-command-library-page.tsx
++++ b/src/components/clinical-dashboard/favourites-command-library-page.tsx
+@@ -1444,7 +1444,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
+                   aria-pressed={viewMode === "recent"}
+                   onClick={() => setViewMode((current) => (current === "recent" ? "all" : "recent"))}
+                   className={cn(
+-                    "search-band-ghost inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold",
++                    "search-band-ghost inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold sm:min-h-10",
+                     viewMode === "recent"
+                       ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                       : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
+diff --git a/src/components/clinical-dashboard/result-filter-control.tsx b/src/components/clinical-dashboard/result-filter-control.tsx
+--- a/src/components/clinical-dashboard/result-filter-control.tsx
++++ b/src/components/clinical-dashboard/result-filter-control.tsx
+@@ -958,10 +958,10 @@ export function ResultFilterSheet({
+             >
+               <span
+                 aria-hidden
+-                className="block h-full rounded-full bg-[color:var(--clinical-accent)] transition-[width] motion-reduce:transition-none"
++                className="block h-full w-full origin-left rounded-full bg-[color:var(--clinical-accent)] transition-transform motion-reduce:transition-none"
+                 style={{
+-                  width:
++                  transform:
+                     coverage.totalCount > 0
+-                      ? `${Math.min(100, Math.max(0, (coverage.visibleCount / coverage.totalCount) * 100))}%`
+-                      : "0%",
++                      ? `scaleX(${Math.min(1, Math.max(0, coverage.visibleCount / coverage.totalCount))})`
++                      : "scaleX(0)",
+                 }}
+               />
+             </div>
 diff --git a/tests/document-filter-panel.dom.test.tsx b/tests/document-filter-panel.dom.test.tsx
 --- a/tests/document-filter-panel.dom.test.tsx
 +++ b/tests/document-filter-panel.dom.test.tsx
