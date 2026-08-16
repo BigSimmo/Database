@@ -1,4 +1,4 @@
-name: Codex PR 1998 review maintenance
+name: Codex PR 1998 review verification
 
 on:
   push:
@@ -10,17 +10,16 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: read
 
 jobs:
-  repair:
+  verify:
     if: github.repository == 'BigSimmo/Database'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       TARGET_BRANCH: codex/filter-system-overhaul
-      HELPER_BRANCH: codex/pr1998-review-maintenance
       KNOWN_ANCESTOR: d6da003e98a60c3bec5c6a6f6c2d187506cb2ad8
       EXPECTED_SOURCE_BLOB: 944b5e6877f2115630874e654ea3b4406e07432e
       EXPECTED_TEST_BLOB: 97f21fa89037f958b82eb9cb0b16741fec302727
@@ -32,7 +31,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate current PR state and apply authored patch
+      - name: Validate current PR state and apply authored patch locally
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -55,17 +54,20 @@ jobs:
             echo "::error::$TEST_PATH changed after review ($test_blob != $EXPECTED_TEST_BLOB)."
             exit 1
           }
-          auto_merge_state="$({
+          pr_json="$({
             curl --fail --silent --show-error \
               -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/1998"
-          } | jq -r 'if (.auto_merge // null) == null then "none" else "armed" end')"
-          test "$auto_merge_state" = "none" || {
-            echo "::error::PR #1998 auto-merge is armed; refusing to race or alter it."
-            exit 1
-          }
+          })"
+          auto_merge_state="$(jq -r 'if (.auto_merge // null) == null then "none" else "armed" end' <<<"$pr_json")"
+          auto_merge_actor="$(jq -r '.auto_merge.enabled_by.login // "unknown"' <<<"$pr_json")"
+          echo "PR head: $target_sha"
+          echo "Auto-merge state: $auto_merge_state (enabled by: $auto_merge_actor)"
+          if test "$auto_merge_state" = "armed"; then
+            echo "::warning::Verification-only mode: repository guard prohibits pushing while auto-merge is armed."
+          fi
           git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
           git apply --check --whitespace=error-all /tmp/pr-1998.patch
           git apply --whitespace=error-all /tmp/pr-1998.patch
@@ -104,7 +106,7 @@ jobs:
       - name: Run UI design-system contract
         run: npm run check:design-system-contract
 
-      - name: Commit and push focused fixes
+      - name: Create local focused commit
         shell: bash
         run: |
           set -euo pipefail
@@ -116,9 +118,8 @@ jobs:
             tests/filter-review-regressions.dom.test.tsx
           git diff --cached --check
           git commit -m "fix(filters): clarify loaded counts and defer document projections"
-          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
 
-      - name: Merge current main without rewriting history
+      - name: Merge current main locally without rewriting history
         id: merge
         shell: bash
         run: |
@@ -137,17 +138,17 @@ jobs:
               test -n "$file" || continue
               echo "===== $file ====="
               git checkout --conflict=diff3 -- "$file" || true
-              sed -n '1,260p' "$file" || true
+              sed -n '1,320p' "$file" || true
             done < <(git diff --name-only --diff-filter=U)
             echo "::endgroup::"
             exit 1
           fi
 
-      - name: Refresh dependencies after main merge
+      - name: Refresh dependencies after local main merge
         if: steps.merge.outputs.merged == 'true'
         uses: ./.github/actions/setup-node-cached
 
-      - name: Verify merged branch
+      - name: Verify locally merged branch
         if: steps.merge.outputs.merged == 'true'
         shell: bash
         run: |
@@ -164,18 +165,9 @@ jobs:
           npm run typecheck
           npm run check:design-system-contract
           git diff --check
+          git status --short
+          git log --oneline --decorate -5
 
-      - name: Commit and push main merge
-        if: steps.merge.outputs.merged == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          git commit -m "Merge main into codex/filter-system-overhaul"
-          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
-
-      - name: Remove maintenance branch after success
-        shell: bash
-        run: |
-          set -euo pipefail
-          git checkout --detach
-          git push origin --delete "$HELPER_BRANCH"
+      - name: Record that no PR mutation occurred
+        if: always()
+        run: echo "This workflow performs verification only and never pushes the PR branch or changes auto-merge."
