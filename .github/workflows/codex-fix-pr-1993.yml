@@ -120,7 +120,7 @@ jobs:
           old_expectation = (
               '    expect(dashboard).toContain(\'const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";\');'
           )
-          new_expectation = '''    expect(dashboard).toMatch(
+          new_expectation = r'''    expect(dashboard).toMatch(
               /const heroComposerBreakpoint =\s*showDesktopHomeComposer && activeModeResultKind !== "tools" \? "all" : "sm-up";/,
             );
             expect(dashboard).not.toContain(
@@ -199,8 +199,8 @@ jobs:
           set -euo pipefail
           npm run ledger:append -- \
             --date 2026-08-16 \
-            --scope "PR #1993 Tools phone footer ownership and current-base review" \
-            --base "$BASE_SHA" \
+            --ref "$GITHUB_REF_NAME" \
+            --scope "PR #1993 Tools phone footer ownership against main $BASE_SHA" \
             --head "$REVIEWED_HEAD" \
             --checks "Prettier; ESLint on changed files; TypeScript; targeted Vitest; immutable ledger validation" \
             --outcome "Confirmed and fixed dashboard Tools phone composer ownership, aligned stale responsive contracts, removed the temporary repair workflow, and kept the branch current with main."
