@@ -444,7 +444,13 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
 
       await expect(page.getByTestId("tools-search-results-page")).toBeVisible();
       await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
-      await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
+      if (viewport.name === "phone") {
+        await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toHaveCount(0);
+        await expect(page.locator("form.answer-footer-search-dock")).toBeVisible();
+      } else {
+        await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
+        await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
+      }
       await expectNoPageHorizontalOverflow(page);
     });
   }
@@ -602,7 +608,13 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Tool results" })).toBeVisible();
       await expect(page.getByRole("heading", { level: 2, name: "Clinical KB Search" }).first()).toBeVisible();
-      await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
+      if (width < 640) {
+        await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toHaveCount(0);
+        await expect(page.locator("form.answer-footer-search-dock")).toBeVisible();
+      } else {
+        await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
+        await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
+      }
       await expectNoPageHorizontalOverflow(page);
     }
 

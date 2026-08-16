@@ -113,16 +113,19 @@ describe("mobile composer reserve contract", () => {
     ).toBe(mobileComposerIdleReserve);
   });
 
-  it("derives hero phone ownership from the mounted hero slot; any mode home uses all-widths breakpoint", () => {
-    // Any mounted mode home (answer, documents, prescribing, tools, favourites)
-    // needs "all" (phones keep the in-flow hero pill) per the page-ownership
-    // contract. Only result/submitted views use "sm-up" so phones get the compact
-    // bottom dock. desktopHomeComposerSlotId is undefined on result views, so
-    // heroOwnsPhoneComposer stays false there regardless of the breakpoint value.
+  it("derives hero phone ownership from the mounted hero slot while Tools delegates phones to the footer", () => {
+    // Most mounted mode homes keep the in-flow hero pill on phones. Tools is the
+    // deliberate exception: its content-rich directory delegates phones to the
+    // compact footer while retaining the hero from sm upward. Result/submitted
+    // views also use "sm-up"; desktopHomeComposerSlotId is undefined there, so
+    // heroOwnsPhoneComposer stays false regardless of the breakpoint value.
     const dashboard = source("src/components/ClinicalDashboard.tsx");
     const header = source("src/components/clinical-dashboard/master-search-header.tsx");
     expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
-    expect(dashboard).toContain('const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";');
+    expect(dashboard).toMatch(
+      /const heroComposerBreakpoint =\s*showDesktopHomeComposer && activeModeResultKind !== "tools" \? "all" : "sm-up";/,
+    );
+    expect(dashboard).not.toContain('const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";');
     expect(dashboard).toContain(
       'const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',
     );

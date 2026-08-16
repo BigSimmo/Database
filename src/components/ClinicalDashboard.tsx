@@ -3057,11 +3057,10 @@ export function ClinicalDashboard({
   const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
   const desktopResultComposerSlotId =
     !desktopHomeComposerSlotId && searchMode !== "answer" ? desktopPageComposerSlotId : undefined;
-  // Any mounted mode home (answer, documents, prescribing, differentials, tools,
-  // favourites) keeps the in-flow hero pill on phones ("all") per the
-  // page-ownership contract. Only result/submitted views fall back to "sm-up"
-  // so phones get the compact bottom dock.
-  const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";
+  // Most mounted mode homes keep the in-flow hero pill on phones. Tools is the
+  // deliberate exception: its content-rich directory uses the shared compact
+  // footer on phones while retaining the hero composer from sm upward.
+  const heroComposerBreakpoint = showDesktopHomeComposer && activeModeResultKind !== "tools" ? "all" : "sm-up";
   const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
   const hasMobileBottomSearch = searchMode !== "answer" && !heroOwnsPhoneComposer;
   // Favourites and Tools are content-rich hubs: they share the centred hero but
