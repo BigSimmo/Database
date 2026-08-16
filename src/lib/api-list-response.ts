@@ -24,7 +24,7 @@ const statusRowSchema = z
  * fields should be preserved.
  */
 export function parseListRows<Row>(data: unknown, rowSchema: z.ZodType<Row>): Row[] {
-  const parsed = z.array(rowSchema).safeParse(data ?? []);
+  const parsed = z.array(rowSchema).safeParse(data);
   if (!parsed.success) {
     // Keep dependency-response details out of both the public response and logs.
     throw new Error("Invalid list data.");
