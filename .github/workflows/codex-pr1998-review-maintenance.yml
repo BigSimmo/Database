@@ -85,6 +85,7 @@ jobs:
         run: |
           set -euo pipefail
           ./node_modules/.bin/prettier --write \
+            src/components/clinical-dashboard/document-search-results.tsx \
             tests/document-filter-panel.dom.test.tsx \
             tests/filter-review-regressions.dom.test.tsx
           ./node_modules/.bin/prettier --check \
@@ -109,17 +110,18 @@ jobs:
       - name: Run UI design-system contract
         run: npm run check:design-system-contract
 
-      - name: Create local focused test commit
+      - name: Create local focused review commit
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "Codex"
           git config user.email "87357024+BigSimmo@users.noreply.github.com"
           git add \
+            src/components/clinical-dashboard/document-search-results.tsx \
             tests/document-filter-panel.dom.test.tsx \
             tests/filter-review-regressions.dom.test.tsx
           git diff --cached --check
-          git commit -m "test(filters): cover document projections and medication hydration"
+          git commit -m "test(filters): cover review regressions"
 
       - name: Merge current main locally without rewriting history
         id: merge
