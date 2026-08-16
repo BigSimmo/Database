@@ -57,11 +57,15 @@ async function openGuide(page: Page) {
 
   const menu = page.getByRole("dialog", { name: "Clinical Guide" });
   await expect(menu).toBeVisible();
-  await menu.getByRole("button", { name: "Settings", exact: true }).click();
+  const settingsTrigger = menu.getByRole("button", { name: "Settings", exact: true });
+  await waitForReactEventHandler(settingsTrigger, "onClick");
+  await settingsTrigger.click();
 
   const settings = page.getByRole("dialog", { name: "Account & app" });
   await expect(settings).toBeVisible();
-  await settings.getByRole("button", { name: "Guide & help", exact: true }).click();
+  const guideTrigger = settings.getByRole("button", { name: "Guide & help", exact: true });
+  await waitForReactEventHandler(guideTrigger, "onClick");
+  await guideTrigger.click();
 
   const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
   await expect(dialog).toBeVisible();
