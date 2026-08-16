@@ -100,4 +100,24 @@ describe("consumeUniversalSearchNdjson", () => {
 
     await expect(consumeUniversalSearchNdjson(response)).rejects.toThrow("complete event");
   });
+
+  it("rejects a redacted server error and cancels the open response body", async () => {
+    const { consumeUniversalSearchNdjson } = await import("../src/lib/universal-search-stream");
+    const cancelled = vi.fn();
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode(`${JSON.stringify({ type: "error", code: "universal_search_failed" })}\n`));
+        },
+        cancel(reason) {
+          cancelled(reason);
+        },
+      }),
+      { headers: { "Content-Type": "application/x-ndjson; charset=utf-8" } },
+    );
+
+    await expect(consumeUniversalSearchNdjson(response)).rejects.toThrow("Universal search failed.");
+    expect(cancelled).toHaveBeenCalledOnce();
+    expect(cancelled).toHaveBeenCalledWith(expect.objectContaining({ message: "Universal search failed." }));
+  });
 });

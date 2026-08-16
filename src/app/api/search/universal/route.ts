@@ -95,7 +95,7 @@ function universalStreamResponse(
           enqueue({ type: "complete", response: { ...response, ...decoration } });
           controller.close();
         })
-        .catch((error: unknown) => {
+        .catch(() => {
           if (searchController.signal.aborted) {
             try {
               controller.close();
@@ -104,7 +104,12 @@ function universalStreamResponse(
             }
             return;
           }
-          controller.error(error);
+          // Headers have already been returned, so this failure cannot become a
+          // JSON 500. End the NDJSON protocol with a fixed, non-sensitive error
+          // event instead of erroring the response stream (which Next reports as
+          // an unhandled server request error and can leave consumers waiting).
+          enqueue({ type: "error", code: "universal_search_failed" });
+          controller.close();
         })
         .finally(() => request.signal.removeEventListener("abort", abortFromRequest));
     },
