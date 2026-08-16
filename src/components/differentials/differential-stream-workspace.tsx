@@ -372,6 +372,10 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
     ],
     [model.chapters, model.presentationChapters, model.stream],
   );
+  const chapterItemIdsByValue = useMemo(
+    () => new Map(chapterFilterOptions.map((option) => [option.value, option.itemIds])),
+    [chapterFilterOptions],
+  );
   const chapterFilterValues = useMemo(
     () => new Set(chapterFilterOptions.map((option) => option.value)),
     [chapterFilterOptions],
@@ -437,11 +441,16 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
       if (scope === "matches" && !item.isMatch) return false;
       if (related && focusedItem && item.slug !== focusedItem.slug && !relatedSlugSet.has(item.slug)) return false;
       if (priority !== "all" && item.status !== priority) return false;
-      if (
-        chapters.size > 0 &&
-        !chapterFilterOptions.some((option) => chapters.has(option.value) && option.itemIds.has(item.id))
-      )
-        return false;
+      if (chapters.size > 0) {
+        let inSelectedChapter = false;
+        for (const token of chapters) {
+          if (chapterItemIdsByValue.get(token)?.has(item.id)) {
+            inSelectedChapter = true;
+            break;
+          }
+        }
+        if (!inSelectedChapter) return false;
+      }
       return true;
     });
   const visibleItems = filterStreamItems(resultScope, presentationPriority, selectedChapterFilters, familyMode);
@@ -516,79 +525,81 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
   const showBrowseGrouping = !hasQuery && model.stream === "diagnoses";
   const showConnectionFilter = Boolean(focusedItem && (!isPresentation || focusedItem.relatedPathways.length > 0));
   const mobileFilterGroups: ResultFilterGroup[] = [];
-  mobileFilterGroups.push(
-    resultFilterGroup<PresentationPriority>({
-      id: "priority",
-      label: "Clinical urgency",
-      value: presentationPriority,
-      options: (["all", "emergent", "urgent", "routine"] as const).map((value) => ({
-        value,
-        label: value === "all" ? "All priorities" : statusLabel(value),
-        hint: String(filterStreamItems(resultScope, value, selectedChapterFilters, familyMode).length),
-      })),
-      onChange: setPresentationPriority,
-    }),
-  );
-  if (model.stream === "diagnoses" && chapterFilterOptions.length > 0) {
+  if (filterOpen) {
     mobileFilterGroups.push(
-      resultFilterFacetGroup({
-        id: "chapter",
-        label: "Chapter or presentation",
-        description: "Alternatives in this group combine with OR.",
-        selected: selectedChapterFilters,
-        optionSections: [
-          {
-            id: "chapters",
-            label: "Diagnostic chapters",
-            optionValues: chapterFilterOptions
-              .filter((option) => option.section === "chapters")
-              .map((option) => option.value),
-          },
-          {
-            id: "presentations",
-            label: "Presentation families",
-            optionValues: chapterFilterOptions
-              .filter((option) => option.section === "presentations")
-              .map((option) => option.value),
-          },
-        ],
-        options: chapterFilterOptions.map((option) => {
-          const withCandidate = new Set(selectedChapterFilters);
-          if (!withCandidate.has(option.value)) withCandidate.add(option.value);
-          const count = filterStreamItems(resultScope, presentationPriority, withCandidate, familyMode).length;
-          return {
-            value: option.value,
-            label: option.label,
-            hint: String(count),
-            disabled: count === 0 && !selectedChapterFilters.has(option.value),
-          };
-        }),
-        onToggle: (value) =>
-          replaceResultFilterUrl((params) => {
-            const next = new Set(readResultFilterValues(params, "chapter", chapterFilterValues));
-            if (!next.delete(value)) next.add(value);
-            writeResultFilterValues(params, "chapter", next, chapterFilterValues);
+      resultFilterGroup<PresentationPriority>({
+        id: "priority",
+        label: "Clinical urgency",
+        value: presentationPriority,
+        options: (["all", "emergent", "urgent", "routine"] as const).map((value) => ({
+          value,
+          label: value === "all" ? "All priorities" : statusLabel(value),
+          hint: String(filterStreamItems(resultScope, value, selectedChapterFilters, familyMode).length),
+        })),
+        onChange: setPresentationPriority,
+      }),
+    );
+    if (model.stream === "diagnoses" && chapterFilterOptions.length > 0) {
+      mobileFilterGroups.push(
+        resultFilterFacetGroup({
+          id: "chapter",
+          label: "Chapter or presentation",
+          description: "Alternatives in this group combine with OR.",
+          selected: selectedChapterFilters,
+          optionSections: [
+            {
+              id: "chapters",
+              label: "Diagnostic chapters",
+              optionValues: chapterFilterOptions
+                .filter((option) => option.section === "chapters")
+                .map((option) => option.value),
+            },
+            {
+              id: "presentations",
+              label: "Presentation families",
+              optionValues: chapterFilterOptions
+                .filter((option) => option.section === "presentations")
+                .map((option) => option.value),
+            },
+          ],
+          options: chapterFilterOptions.map((option) => {
+            const withCandidate = new Set(selectedChapterFilters);
+            if (!withCandidate.has(option.value)) withCandidate.add(option.value);
+            const count = filterStreamItems(resultScope, presentationPriority, withCandidate, familyMode).length;
+            return {
+              value: option.value,
+              label: option.label,
+              hint: String(count),
+              disabled: count === 0 && !selectedChapterFilters.has(option.value),
+            };
           }),
-      }),
-    );
-  }
-  if (focusedItem && showConnectionFilter) {
-    mobileFilterGroups.push(
-      resultFilterGroup<"all" | "family">({
-        id: isPresentation ? "pathways" : "family",
-        label: isPresentation ? "Related pathways" : "Family view",
-        value: familyMode ? "family" : "all",
-        options: [
-          { value: "all", label: isPresentation ? "All pathways" : "All entries" },
-          {
-            value: "family",
-            label: isPresentation ? "Related pathways" : "Focused family",
-            hint: focusedItem.title,
-          },
-        ],
-        onChange: (value) => setFamilyMode(value === "family"),
-      }),
-    );
+          onToggle: (value) =>
+            replaceResultFilterUrl((params) => {
+              const next = new Set(readResultFilterValues(params, "chapter", chapterFilterValues));
+              if (!next.delete(value)) next.add(value);
+              writeResultFilterValues(params, "chapter", next, chapterFilterValues);
+            }),
+        }),
+      );
+    }
+    if (focusedItem && showConnectionFilter) {
+      mobileFilterGroups.push(
+        resultFilterGroup<"all" | "family">({
+          id: isPresentation ? "pathways" : "family",
+          label: isPresentation ? "Related pathways" : "Family view",
+          value: familyMode ? "family" : "all",
+          options: [
+            { value: "all", label: isPresentation ? "All pathways" : "All entries" },
+            {
+              value: "family",
+              label: isPresentation ? "Related pathways" : "Focused family",
+              hint: focusedItem.title,
+            },
+          ],
+          onChange: (value) => setFamilyMode(value === "family"),
+        }),
+      );
+    }
   }
   const activeFilterCount =
     Number(familyMode) +
