@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "55cb57e8-7e6e-42f8-bd79-81b81a01ef3a",
+  "createdOn": "2026-08-15",
+  "action": "update",
+  "payload": {
+    "id": "#314",
+    "detail": "UPDATE 2026-08-16: the provider-free implementation is now on current main via commit ca788d41e: view=summary/search projections and gzip are shipped in repository code. Remaining scope is external-only: deploy an exact authorized SHA, verify /api/registry/records headers and transfer bytes on that deployment, then rerun live LCP. Stop: do not close from local payload measurements, and do not deploy or query production without explicit target authorization.",
+    "source": "Commit ca788d41e on current main; original latency audit evidence"
+  }
+}
