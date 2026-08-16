@@ -582,18 +582,23 @@ test("answer progress keeps focus, reduced-motion, and forced-colour behavior in
     iterationCount: "infinite",
     timingFunction: "ease-in-out",
   });
-  expect(
-    await activityTraceSweep.evaluate(async (trace) => {
-      const animation = trace.getAnimations()[0];
-      animation.pause();
-      animation.currentTime = 0;
-      await new Promise(requestAnimationFrame);
-      const restingOpacity = getComputedStyle(trace).opacity;
-      animation.currentTime = 900;
-      await new Promise(requestAnimationFrame);
-      return { restingOpacity, peakOpacity: getComputedStyle(trace).opacity };
-    }),
-  ).toEqual({ restingOpacity: "0.2", peakOpacity: "1" });
+  const restingOpacity = await activityTraceSweep.evaluate(async (trace) => {
+    const animation = trace.getAnimations()[0];
+    animation.pause();
+    animation.currentTime = 0;
+    await new Promise(requestAnimationFrame);
+    return getComputedStyle(trace).opacity;
+  });
+  const restingPixels = await activityTraceSweep.screenshot();
+  const peakOpacity = await activityTraceSweep.evaluate(async (trace) => {
+    const animation = trace.getAnimations()[0];
+    animation.currentTime = 900;
+    await new Promise(requestAnimationFrame);
+    return getComputedStyle(trace).opacity;
+  });
+  const peakPixels = await activityTraceSweep.screenshot();
+  expect({ restingOpacity, peakOpacity }).toEqual({ restingOpacity: "0.2", peakOpacity: "1" });
+  expect(restingPixels.equals(peakPixels), "the WebKit raster must visibly change across the pulse").toBe(false);
 
   await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
   await expect(currentStage.locator('[data-slot="answer-progress-stage-marker"]')).toBeVisible();
