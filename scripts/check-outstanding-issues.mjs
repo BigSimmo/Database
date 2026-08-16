@@ -29,6 +29,7 @@
 
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 
 export const ISSUES_PATH = "docs/outstanding-issues.md";
 
@@ -52,6 +53,7 @@ const QUEUE_ID_CITATION = /#(\d+)/g;
  * id shape is validated rather than assumed.
  */
 const ID_CELL = /^#\d+$/;
+const ISSUE_ROW_FINGERPRINT = /^[0-9a-f]{64}$/i;
 /**
  * A table's separator row, e.g. `| ---- | --- |`, which declares its width.
  * The inner pipes must be in the class: without them this only ever matched a
@@ -257,6 +259,26 @@ export function parseIssues(markdown) {
     queueCitations,
     bodyCount: { open: bodies.open.length, archive: bodies.archive.length },
   };
+}
+
+export function issueRowFingerprint(markdown, issueId) {
+  const match = String(issueId)
+    .trim()
+    .match(/^#(\d+)$/);
+  if (!match) return null;
+  const number = Number(match[1]);
+  if (!Number.isFinite(number)) return null;
+
+  const row = parseIssues(markdown).rows.find(
+    (entry) => entry.number === number && entry.table === "open" && entry.valid && entry.raw,
+  );
+  if (!row) return null;
+  const normalized = `| ${cells(row.raw).join(" | ")} |`;
+  return createHash("sha256").update(normalized).digest("hex");
+}
+
+export function isValidIssueRowFingerprint(value) {
+  return ISSUE_ROW_FINGERPRINT.test(String(value ?? ""));
 }
 
 export function checkIssues(markdown, { prettierIgnored = false } = {}) {
