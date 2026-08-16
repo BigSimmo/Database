@@ -7,18 +7,10 @@ import { describe, expect, it } from "vitest";
 import { GET as redirectApplications, HEAD as headApplications } from "@/app/applications/route";
 import { resolveDifferentialCompareHandoff } from "@/lib/differentials";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
+import { sourceSegment } from "./helpers/source-contract";
 
 function source(relativePath: string) {
   return readFileSync(resolve(process.cwd(), relativePath), "utf8");
-}
-
-function sourceSegment(contents: string, startMarker: string, endMarker: string) {
-  const start = contents.indexOf(startMarker);
-  const end = contents.indexOf(endMarker, start + startMarker.length);
-  if (start < 0 || end < 0) {
-    throw new Error(`Could not locate source segment from ${startMarker} to ${endMarker}.`);
-  }
-  return contents.slice(start, end);
 }
 
 const clinicalDashboardSource = source("src/components/ClinicalDashboard.tsx");
@@ -103,6 +95,7 @@ describe("audit navigation and auth regressions", () => {
       masterSearchHeaderSource,
       "ref={modeMenuRef}",
       'className={cn("relative z-[60]',
+      { label: "master mode-menu focus boundary" },
     );
 
     expect(focusLeaveContract).toContain("onBlur={(event) => {");
@@ -135,16 +128,19 @@ describe("audit navigation and auth regressions", () => {
       masterSearchHeaderSource,
       "function renderModeMenuOption(",
       "function renderModeMenuOptions()",
+      { label: "mode-menu option prefetch" },
     );
     const openModeMenuWithFocus = sourceSegment(
       masterSearchHeaderSource,
       "function openModeMenuWithFocus(",
       "function toggleModeMenu(",
+      { label: "mode-menu focus-open prefetch" },
     );
     const toggleModeMenu = sourceSegment(
       masterSearchHeaderSource,
       "function toggleModeMenu(",
       "function handleModeTriggerKeyDown(",
+      { label: "mode-menu toggle prefetch" },
     );
 
     expect(masterSearchHeaderSource).toContain("function prefetchModeSelection(modeId: AppModeId)");
@@ -181,6 +177,7 @@ describe("audit navigation and auth regressions", () => {
       clinicalDashboardSource,
       "const showUniversalAlsoMatches =",
       "const showDesktopHomeComposer =",
+      { label: "also-matches visibility gate" },
     );
     expect(alsoMatchesGate).toContain('activeModeResultKind === "tools"');
     expect(alsoMatchesGate).toContain('activeModeResultKind === "favourites"');
@@ -195,6 +192,7 @@ describe("audit navigation and auth regressions", () => {
       clinicalDashboardSource,
       "const uploadReadOnlyMode =",
       "const canUsePrivateApis =",
+      { label: "upload read-only capability" },
     );
     // Uploads stay writable in local no-auth; only explicit demo / auth-unavailable lock them.
     expect(uploadReadOnlyContract).toContain("const uploadReadOnlyMode = resolveUploadReadOnlyMode({");
@@ -209,6 +207,7 @@ describe("audit navigation and auth regressions", () => {
       clinicalDashboardSource,
       "const canUsePrivateApis =",
       "const canRunSearch =",
+      { label: "private API capability" },
     );
     expect(privateCapabilityContract).toContain("const canUsePrivateApis =");
     expect(privateCapabilityContract).toContain(
@@ -219,6 +218,7 @@ describe("audit navigation and auth regressions", () => {
       clinicalDashboardSource,
       "if (!nextDemoMode && !canUsePrivateApis) {",
       "const shouldRefreshWorkState =",
+      { label: "private polling capability" },
     );
     expect(pollingContract).toContain("if (!nextDemoMode && !canUsePrivateApis) {");
     expect(pollingContract).toContain("setDocuments([]);");
@@ -228,6 +228,7 @@ describe("audit navigation and auth regressions", () => {
       clinicalDashboardSource,
       "const mutateDocumentLabel =",
       "const handleDocumentDeleted =",
+      { label: "private label mutation" },
     );
     expect(labelMutationContract).toContain("if (!canUsePrivateApis) return false;");
 
@@ -235,6 +236,7 @@ describe("audit navigation and auth regressions", () => {
       clinicalDashboardSource,
       "function openUploadDrawer()",
       "function openEvidenceDrawer()",
+      { label: "private upload mutation" },
     );
     expect(uploadMutationContract).toContain("if (!canUseAdministrativeApis) {");
   });
@@ -266,6 +268,7 @@ describe("audit navigation and auth regressions", () => {
       uploadDesktopHookSource,
       "export function useUploadDesktopLayout(",
       "}",
+      { label: "upload desktop layout hook" },
     );
     expect(useUploadDesktopLayoutBody).toMatch(
       /return\s+useSyncExternalStore\(\s*subscribeToUploadDesktopLayout,\s*getUploadDesktopLayoutSnapshot,\s*\(\)\s*=>\s*false\s*\)/,
@@ -282,15 +285,27 @@ describe("audit navigation and auth regressions", () => {
   });
 
   it("leaves favourites universal matches to the favourites hub", () => {
-    const universalMatchesContract = sourceSegment(
+    const nonAnswerUniversalMatchesContract = sourceSegment(
       clinicalDashboardSource,
-      "{showUniversalAlsoMatches &&",
+      "{showUniversalAlsoMatches &&\n                (activeModeResultKind",
       // The shared home now opens the mode-content chain, ahead of differentials.
       "{showSharedHome ?",
+      { label: "non-answer also-matches render branch" },
+    );
+    const answerUniversalMatchesContract = sourceSegment(
+      clinicalDashboardSource,
+      '{showUniversalAlsoMatches && activeModeResultKind === "answer" ? (',
+      "</section>",
+      { label: "answer also-matches render branch" },
     );
 
-    expect(universalMatchesContract).toContain("<UniversalSearchAlsoMatches modeId={searchMode}");
-    expect(universalMatchesContract).not.toContain('activeModeResultKind === "favourites"');
+    // Pin every dashboard-owned also-matches render branch. A third occurrence
+    // must be classified here rather than silently escaping the negative.
+    expect(clinicalDashboardSource.match(/\{showUniversalAlsoMatches &&/g)).toHaveLength(2);
+    for (const contract of [nonAnswerUniversalMatchesContract, answerUniversalMatchesContract]) {
+      expect(contract).toContain("<UniversalSearchAlsoMatches modeId={searchMode}");
+      expect(contract).not.toContain('activeModeResultKind === "favourites"');
+    }
     // This test is about WHICH surface owns the favourites also-matches block,
     // not about the expression feeding its query prop — that became
     // `activeQuery` when the page took over live in-place filtering from the
