@@ -238,7 +238,7 @@ describe("scope filter chips", () => {
     expect(scopeFilterChips({ topics: ["agitation"], sites: ["FSH"], locality: "local" })).toEqual([
       { id: "scope:topics:agitation", groupLabel: "Topic", valueLabel: "agitation" },
       { id: "scope:sites:FSH", groupLabel: "Site", valueLabel: "FSH" },
-      { id: "scope:locality:local", groupLabel: "Locality", valueLabel: "local" },
+      { id: "scope:locality:local", groupLabel: "Locality", valueLabel: "Local" },
     ]);
   });
 
