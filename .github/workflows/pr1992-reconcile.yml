@@ -27,6 +27,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git config user.name "Codex PR maintenance"
+          git config user.email "87357024+BigSimmo@users.noreply.github.com"
           git fetch --no-tags origin main
           set +e
           git merge --no-commit --no-ff origin/main
@@ -36,7 +38,7 @@ jobs:
           if [ "$merge_status" -eq 0 ]; then
             echo "MERGE_RESULT=clean"
             git merge --abort
-            exit 2
+            exit 0
           fi
 
           echo "MERGE_RESULT=conflicted"
