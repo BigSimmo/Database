@@ -1,4 +1,4 @@
-name: Codex PR 1998 review verification
+name: Codex PR 1998 merge conflict inspection
 
 on:
   push:
@@ -6,184 +6,99 @@ on:
       - codex/pr1998-review-maintenance
 
 concurrency:
-  group: codex-pr1998-review-maintenance
+  group: codex-pr1998-conflict-inspection
   cancel-in-progress: false
 
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
-  verify:
+  inspect:
     if: github.repository == 'BigSimmo/Database'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        file:
+          - .design-sync/config.json
+          - docs/design-system/COMPONENTS.md
+          - docs/design-system/adoption-manifest.json
+          - src/app/medications/search/page.tsx
+          - src/components/ClinicalDashboard.tsx
+          - src/components/clinical-dashboard/favourites-command-library-page.tsx
+          - src/components/clinical-dashboard/quick-capture.tsx
+          - src/components/ui/sheet.tsx
+          - tests/favourites-command-library.dom.test.tsx
+          - tests/medications-search-page.dom.test.tsx
     env:
       TARGET_BRANCH: codex/filter-system-overhaul
-      KNOWN_ANCESTOR: 3c9a2cb56cb45a1297dc39e51dc4aa3113ec56c9
-      EXPECTED_DOCUMENT_SOURCE_BLOB: b711421c25f7c50fd81786249e31ac2cc7ccfee1
-      EXPECTED_FAVOURITES_BLOB: a323765441cc90461666fe2c6ee8fb36d8f18a12
-      EXPECTED_FILTER_CONTROL_BLOB: 0bcb8756c308e9db35debe3cacdf8dbbf07b5711
-      EXPECTED_DOCUMENT_TEST_BLOB: 97f21fa89037f958b82eb9cb0b16741fec302727
-      EXPECTED_REVIEW_TEST_BLOB: 9423590c5a4c7723907d52fd4d2d41e6b6b7b897
-      DOCUMENT_SOURCE_PATH: src/components/clinical-dashboard/document-search-results.tsx
-      FAVOURITES_PATH: src/components/clinical-dashboard/favourites-command-library-page.tsx
-      FILTER_CONTROL_PATH: src/components/clinical-dashboard/result-filter-control.tsx
-      DOCUMENT_TEST_PATH: tests/document-filter-panel.dom.test.tsx
-      REVIEW_TEST_PATH: tests/filter-review-regressions.dom.test.tsx
+      EXPECTED_HEAD: 3c9a2cb56cb45a1297dc39e51dc4aa3113ec56c9
+      FILE: ${{ matrix.file }}
     steps:
       - name: Checkout maintenance branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
-      - name: Validate current PR state and apply authored patch locally
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Reproduce and print one conflict
         shell: bash
         run: |
           set -euo pipefail
           cp codex/pr-1998.patch /tmp/pr-1998.patch
           git fetch --no-tags origin "$TARGET_BRANCH" main
-          target_sha="$(git rev-parse "origin/$TARGET_BRANCH")"
-          git merge-base --is-ancestor "$KNOWN_ANCESTOR" "$target_sha" || {
-            echo "::error::Target branch no longer descends from reviewed head $KNOWN_ANCESTOR."
+          actual_head="$(git rev-parse "origin/$TARGET_BRANCH")"
+          test "$actual_head" = "$EXPECTED_HEAD" || {
+            echo "::error::PR head drifted: $actual_head != $EXPECTED_HEAD"
             exit 1
           }
-          check_blob() {
-            local path="$1"
-            local expected="$2"
-            local actual
-            actual="$(git rev-parse "$target_sha:$path")"
-            test "$actual" = "$expected" || {
-              echo "::error::$path changed after review ($actual != $expected)."
-              exit 1
-            }
-          }
-          check_blob "$DOCUMENT_SOURCE_PATH" "$EXPECTED_DOCUMENT_SOURCE_BLOB"
-          check_blob "$FAVOURITES_PATH" "$EXPECTED_FAVOURITES_BLOB"
-          check_blob "$FILTER_CONTROL_PATH" "$EXPECTED_FILTER_CONTROL_BLOB"
-          check_blob "$DOCUMENT_TEST_PATH" "$EXPECTED_DOCUMENT_TEST_BLOB"
-          check_blob "$REVIEW_TEST_PATH" "$EXPECTED_REVIEW_TEST_BLOB"
-          pr_json="$({
-            curl --fail --silent --show-error \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/1998"
-          })"
-          auto_merge_state="$(jq -r 'if (.auto_merge // null) == null then "none" else "armed" end' <<<"$pr_json")"
-          auto_merge_actor="$(jq -r '.auto_merge.enabled_by.login // "unknown"' <<<"$pr_json")"
-          echo "PR head: $target_sha"
-          echo "Auto-merge state: $auto_merge_state (enabled by: $auto_merge_actor)"
           git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
           git apply --check --whitespace=error-all /tmp/pr-1998.patch
           git apply --whitespace=error-all /tmp/pr-1998.patch
-          git diff --check
-
-      - name: Setup Node and install immutable dependencies
-        uses: ./.github/actions/setup-node-cached
-
-      - name: Format and check focused files
-        shell: bash
-        run: |
-          set -euo pipefail
-          ./node_modules/.bin/prettier --write \
-            "$DOCUMENT_SOURCE_PATH" \
-            "$FAVOURITES_PATH" \
-            "$FILTER_CONTROL_PATH" \
-            "$DOCUMENT_TEST_PATH" \
-            "$REVIEW_TEST_PATH"
-          ./node_modules/.bin/prettier --check \
-            "$DOCUMENT_SOURCE_PATH" \
-            "$FAVOURITES_PATH" \
-            "$FILTER_CONTROL_PATH" \
-            "$DOCUMENT_TEST_PATH" \
-            "$REVIEW_TEST_PATH"
-          git diff --check
-
-      - name: Run focused provider-free filter regressions
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm test -- \
-            tests/filter-review-regressions.dom.test.tsx \
-            tests/document-filter-panel.dom.test.tsx \
-            tests/differential-stream-page.dom.test.tsx \
-            tests/medication-prescribing-workspace.dom.test.tsx
-
-      - name: Run source typecheck
-        run: npm run typecheck
-
-      - name: Run UI design-system contract
-        run: npm run check:design-system-contract
-
-      - name: Create local focused review commit
-        shell: bash
-        run: |
-          set -euo pipefail
           git config user.name "Codex"
           git config user.email "87357024+BigSimmo@users.noreply.github.com"
           git add \
-            "$DOCUMENT_SOURCE_PATH" \
-            "$FAVOURITES_PATH" \
-            "$FILTER_CONTROL_PATH" \
-            "$DOCUMENT_TEST_PATH" \
-            "$REVIEW_TEST_PATH"
-          git diff --cached --check
-          git commit -m "fix(filters): close review regressions"
-
-      - name: Merge current main locally without rewriting history
-        id: merge
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch --no-tags origin main
-          if git merge --no-ff --no-commit origin/main; then
-            if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
-              echo "merged=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "merged=false" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "::group::Merge conflicts"
-            git status --short
-            while IFS= read -r file; do
-              test -n "$file" || continue
-              echo "===== $file ====="
-              git checkout --conflict=diff3 -- "$file" || true
-              sed -n '1,420p' "$file" || true
-            done < <(git diff --name-only --diff-filter=U)
-            echo "::endgroup::"
-            exit 1
-          fi
-
-      - name: Refresh dependencies after local main merge
-        if: steps.merge.outputs.merged == 'true'
-        uses: ./.github/actions/setup-node-cached
-
-      - name: Verify locally merged branch
-        if: steps.merge.outputs.merged == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          ./node_modules/.bin/prettier --check \
-            "$DOCUMENT_SOURCE_PATH" \
-            "$FAVOURITES_PATH" \
-            "$FILTER_CONTROL_PATH" \
-            "$DOCUMENT_TEST_PATH" \
-            "$REVIEW_TEST_PATH"
-          npm test -- \
-            tests/filter-review-regressions.dom.test.tsx \
+            src/components/clinical-dashboard/document-search-results.tsx \
+            src/components/clinical-dashboard/favourites-command-library-page.tsx \
+            src/components/clinical-dashboard/result-filter-control.tsx \
             tests/document-filter-panel.dom.test.tsx \
-            tests/differential-stream-page.dom.test.tsx \
-            tests/medication-prescribing-workspace.dom.test.tsx
-          npm run typecheck
-          npm run check:design-system-contract
-          git diff --check
-          git status --short
-          git log --oneline --decorate -6
+            tests/filter-review-regressions.dom.test.tsx
+          git commit -m "fix(filters): close review regressions"
+          set +e
+          git merge --no-ff --no-commit origin/main >/tmp/merge-output.txt 2>&1
+          merge_status=$?
+          set -e
+          cat /tmp/merge-output.txt
+          if test "$merge_status" -eq 0; then
+            echo "No merge conflict."
+            exit 0
+          fi
+          if ! git diff --name-only --diff-filter=U | grep -Fxq "$FILE"; then
+            echo "$FILE is not conflicted in this reproduction."
+            exit 0
+          fi
+          git checkout --conflict=diff3 -- "$FILE"
+          python3 - "$FILE" <<'PY'
+          from __future__ import annotations
 
-      - name: Record that no PR mutation occurred
-        if: always()
-        run: echo "Verification only; the PR branch and auto-merge state were not changed."
+          import sys
+          from pathlib import Path
+
+          path = Path(sys.argv[1])
+          lines = path.read_text(encoding="utf-8").splitlines()
+          starts = [index for index, line in enumerate(lines) if line.startswith("<<<<<<< ")]
+          print(f"===== {path} | conflicts={len(starts)} =====")
+          for number, start in enumerate(starts, 1):
+              end = start
+              while end < len(lines) and not lines[end].startswith(">>>>>>> "):
+                  end += 1
+              if end >= len(lines):
+                  end = len(lines) - 1
+              lo = max(0, start - 24)
+              hi = min(len(lines), end + 25)
+              print(f"\n--- conflict {number}: lines {start + 1}-{end + 1}; context {lo + 1}-{hi} ---")
+              for index in range(lo, hi):
+                  print(f"{index + 1:05d}: {lines[index]}")
+          PY
+          echo "===== stage metadata ====="
+          git ls-files -u -- "$FILE"
