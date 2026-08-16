@@ -1,4 +1,4 @@
-name: PR 1992 conflict detail probe
+name: PR 1992 reconcile and verify
 
 on:
   push:
@@ -6,45 +6,165 @@ on:
       - codex/therapy-global-convergence-20260814
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: pr-1992-reconcile-write
+  cancel-in-progress: false
 
 jobs:
-  probe:
+  reconcile:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - name: Checkout PR branch
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          persist-credentials: false
+          persist-credentials: true
 
-      - name: Print conflict hunks against current main
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Merge current main and resolve the reviewed conflict set
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "Codex PR maintenance"
           git config user.email "87357024+BigSimmo@users.noreply.github.com"
           git fetch --no-tags origin main
+          echo "PR_HEAD_BEFORE=$(git rev-parse HEAD)"
+          echo "MAIN_HEAD=$(git rev-parse origin/main)"
+
           set +e
           git merge --no-commit --no-ff origin/main
           merge_status=$?
           set -e
 
-          if [ "$merge_status" -eq 0 ]; then
-            echo "MERGE_RESULT=clean"
-            git merge --abort
-            exit 0
+          if [ "$merge_status" -ne 0 ]; then
+            mapfile -t conflicts < <(git diff --name-only --diff-filter=U | sort)
+            expected=(
+              "docs/design-system/adoption-manifest.json"
+              "docs/site-map.md"
+              "src/components/clinical-dashboard/favourites-command-library-page.tsx"
+              "src/lib/app-modes.ts"
+              "src/lib/mode-secondary-navigation.ts"
+              "tests/app-modes.test.ts"
+              "tests/mode-secondary-navigation.test.ts"
+            )
+            mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+            if [ "${conflicts[*]}" != "${expected_sorted[*]}" ]; then
+              printf 'Unexpected conflict set:\n'
+              printf '  %s\n' "${conflicts[@]}"
+              exit 1
+            fi
+            python scripts/pr1992-reconcile.py resolve-conflicts
+            git add "${expected[@]}"
           fi
 
-          echo "MERGE_RESULT=conflicted"
-          mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
-          printf 'CONFLICT_FILE=%s\n' "${conflicts[@]}"
+          if git diff --name-only --diff-filter=U | grep -q .; then
+            echo "Unresolved conflicts remain"
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
 
-          for path in "${conflicts[@]}"; do
-            echo "FILE_BEGIN=$path"
-            git diff --cc --unified=25 -- "$path"
-            echo "FILE_END=$path"
-          done
+      - name: Install provider-free dependencies
+        run: npm ci
 
-          git merge --abort
-          exit 1
+      - name: Add focused regressions before implementation
+        run: python scripts/pr1992-reconcile.py add-tests
+
+      - name: Prove the new regressions fail before the fixes
+        shell: bash
+        run: |
+          set +e
+          npm run test -- --run \
+            tests/therapy-compass-navigation.test.ts \
+            tests/therapy-review-regressions.test.ts \
+            > /tmp/pr1992-red.log 2>&1
+          status=$?
+          set -e
+          cat /tmp/pr1992-red.log
+          if [ "$status" -eq 0 ]; then
+            echo "Expected the newly added regressions to fail before implementation."
+            exit 1
+          fi
+
+      - name: Apply the smallest confirmed follow-up fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/pr1992-reconcile.py apply-fixes
+          rm scripts/pr1992-reconcile.py
+          rm .github/workflows/pr1992-reconcile.yml
+
+      - name: Regenerate derived contracts and database drift manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx prettier --write \
+            src/components/clinical-dashboard/favourites-command-library-page.tsx \
+            src/components/therapy-compass/bindings.tsx \
+            src/components/therapy-compass/data/select.ts \
+            src/components/therapy-compass/screens/detail-screen.tsx \
+            src/components/therapy-compass/screens/home-screen.tsx \
+            src/lib/app-modes.ts \
+            src/lib/mode-secondary-navigation.ts \
+            src/lib/therapy-compass-navigation.ts \
+            src/app/globals.css \
+            tests/app-modes.test.ts \
+            tests/mode-secondary-navigation.test.ts \
+            tests/therapy-compass-navigation.test.ts \
+            tests/therapy-compass-provider-seed.dom.test.tsx \
+            tests/therapy-review-regressions.test.ts \
+            tests/ui-universal-search.spec.ts
+          npm run sitemap:update
+          npm run design-system:adoption:update
+          npm run drift:manifest
+          git diff --check
+
+      - name: Run focused provider-free Therapy and database verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test -- --run \
+            tests/favourites-account-retry.dom.test.tsx \
+            tests/therapy-favourite.dom.test.tsx \
+            tests/therapy-compass-provider-seed.dom.test.tsx \
+            tests/therapy-compass-navigation.test.ts \
+            tests/therapy-review-regressions.test.ts \
+            tests/therapy-ranking.test.ts \
+            tests/therapy-source-governance.test.ts \
+            tests/therapy-compass-search-filters.dom.test.tsx \
+            tests/therapy-compass-compare-url.dom.test.tsx \
+            tests/therapy-compass-responsive-contract.test.ts \
+            tests/therapy-global-convergence-contract.test.ts \
+            tests/drift-detection.test.ts \
+            tests/app-modes.test.ts \
+            tests/mode-secondary-navigation.test.ts
+          npm run check:therapy-data-index
+          npm run check:migration-role
+          npm run check:function-grants
+          npm run sitemap:check
+          npm run check:design-system-adoption
+          npm run typecheck
+          npm run lint
+          npm run check:branch-review-ledger
+          npm run check:ledger-write-discipline
+
+      - name: Commit and push the reconciled branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --name-only --diff-filter=U | grep -q .; then
+            echo "Cannot commit with unresolved conflicts"
+            exit 1
+          fi
+          git add -A
+          git diff --cached --check
+          git status --short
+          git commit -m "merge: reconcile main into therapy convergence"
+          git push origin HEAD:codex/therapy-global-convergence-20260814
