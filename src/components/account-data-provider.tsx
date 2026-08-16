@@ -86,6 +86,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
   const [favourites, setFavourites] = useState<FavouritesByType>(emptyFavourites);
   const favouritesRef = useRef(favourites);
   const favouriteMutationsRef = useRef(new Map<string, FavouriteMutationState>());
+  const favouriteClearTailRef = useRef<Promise<void>>(Promise.resolve());
   const [ready, setReady] = useState(auth.status !== "authenticated");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -201,7 +202,10 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       mutation.pending += 1;
       applyFavourite(contentType, key, saved);
 
-      const request = mutation.tail.then(async () => {
+      // Per-item writes remain independent, but every write observes the latest
+      // clear-all barrier. A write that begins after Clear therefore cannot race
+      // ahead of its DELETE and recreate a favourite out of order.
+      const request = Promise.all([mutation.tail, favouriteClearTailRef.current]).then(async () => {
         const response = await fetch("/api/account/favourites", {
           method: "PUT",
           headers: { "Content-Type": "application/json", ...auth.authorizationHeader },
@@ -242,20 +246,35 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       if (!demoAccountData) return false;
       return (Object.values(storageKeyByType) as string[]).every((key) => writeSavedRegistrySlugs(key, []));
     }
-    const previous = favouritesRef.current;
-    replaceFavourites(emptyFavourites);
-    const response = await fetch("/api/account/favourites", {
-      method: "DELETE",
-      headers: auth.authorizationHeader,
-    }).catch(() => null);
-    if (!response?.ok) {
-      replaceFavourites(previous);
-      setError("Saved items could not be cleared.");
-      if (response?.status === 401) auth.markSessionExpired();
-      return false;
-    }
-    setError(null);
-    return true;
+
+    // Clear is a global mutation boundary. Wait for every already-enqueued PUT,
+    // and make later PUTs wait for this DELETE through favouriteClearTailRef.
+    const pendingMutationTails = [...favouriteMutationsRef.current.values()].map((mutation) => mutation.tail);
+    const request = Promise.all([favouriteClearTailRef.current, ...pendingMutationTails]).then(async () => {
+      const response = await fetch("/api/account/favourites", {
+        method: "DELETE",
+        headers: auth.authorizationHeader,
+      }).catch(() => null);
+      if (!response?.ok) {
+        setError("Saved items could not be cleared.");
+        if (response?.status === 401) auth.markSessionExpired();
+        return false;
+      }
+
+      // Mutations queued behind the clear must roll back against the now-empty
+      // server state if their later PUT fails.
+      for (const mutation of favouriteMutationsRef.current.values()) {
+        mutation.confirmed = false;
+      }
+      replaceFavourites(emptyFavourites);
+      setError(null);
+      return true;
+    });
+    favouriteClearTailRef.current = request.then(
+      () => undefined,
+      () => undefined,
+    );
+    return request;
   }, [auth, replaceFavourites]);
 
   const value = useMemo<AccountDataContextValue>(

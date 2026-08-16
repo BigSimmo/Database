@@ -11,7 +11,14 @@ import { isAppModeVisible } from "@/lib/app-modes";
 // downloading Therapy's client graph, while the client boundary can still read
 // current pathname/search params on each navigation.
 export default function TherapyCompassLayout({ children }: { children: ReactNode }) {
-  if (process.env.NODE_ENV === "production" && !isAppModeVisible("therapy-compass", "production")) notFound();
+  const offlineReviewBuild = process.env.PLAYWRIGHT_OFFLINE_MODE === "true";
+  if (
+    process.env.NODE_ENV === "production" &&
+    !offlineReviewBuild &&
+    !isAppModeVisible("therapy-compass", "production")
+  ) {
+    notFound();
+  }
 
   return (
     <Suspense fallback={<ModeHomeRouteLoading />}>

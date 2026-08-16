@@ -24,6 +24,7 @@ export function useTherapyFavourite(slug: string | null) {
     try {
       if (!(await accountData.setFavourite("therapy", slug, nowSaved))) {
         if (mutationId !== latestMutationRef.current || currentSlugRef.current !== slug) return;
+        desiredSavedRef.current = saved;
         setNotice(
           accountData.isAuthenticated ? "Save failed. Try again." : "Sign in or create an account to save therapies.",
         );
@@ -33,6 +34,7 @@ export function useTherapyFavourite(slug: string | null) {
       setNotice(nowSaved ? "Therapy saved." : "Therapy removed from saved items.");
     } catch {
       if (mutationId !== latestMutationRef.current || currentSlugRef.current !== slug) return;
+      desiredSavedRef.current = saved;
       setNotice("Save failed. Try again.");
     }
   }

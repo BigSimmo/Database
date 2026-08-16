@@ -67,6 +67,23 @@ describe("Therapy favourite feedback", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Save failed. Try again.");
   });
 
+  it("retries the same save intent after a failed mutation", async () => {
+    accountState.authenticated = true;
+    accountState.setFavourite.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const user = userEvent.setup();
+    render(<ResultCard therapy={therapy} />);
+
+    const saveButton = screen.getByRole("button", { name: `Save ${therapy.name} to favourites` });
+    await user.click(saveButton);
+    expect(await screen.findByRole("status")).toHaveTextContent("Save failed. Try again.");
+
+    await user.click(saveButton);
+
+    expect(accountState.setFavourite).toHaveBeenNthCalledWith(1, "therapy", therapy.slug, true);
+    expect(accountState.setFavourite).toHaveBeenNthCalledWith(2, "therapy", therapy.slug, true);
+    expect(await screen.findByRole("status")).toHaveTextContent("Therapy saved.");
+  });
+
   it("preserves the final intent across rapid opposite favourite toggles", async () => {
     accountState.authenticated = true;
     const pending: Array<{ saved: boolean; resolve: (value: boolean) => void }> = [];
