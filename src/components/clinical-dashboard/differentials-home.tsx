@@ -251,6 +251,7 @@ function StatusBadge({ status, className }: { status: DifferentialRecord["status
 }
 
 type KindFilter = "all" | "presentation" | "diagnosis";
+type UrgencyFilter = "all" | DifferentialRecord["status"];
 
 function MatchBadge({ label }: { label: string }) {
   // Match quality is a relevance signal, not a source-verification or safety
@@ -756,7 +757,8 @@ function SearchResultsView({
       ),
     [catalog.matches, query],
   );
-  const [kindFilter, setKindFilter] = useState<"all" | "presentation" | "diagnosis">("all");
+  const [kindFilter, setKindFilter] = useState<KindFilter>("all");
+  const [urgencyFilter, setUrgencyFilter] = useState<UrgencyFilter>("all");
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -774,6 +776,7 @@ function SearchResultsView({
   if (lastResultSignature !== resultSignature) {
     setLastResultSignature(resultSignature);
     setKindFilter("all");
+    setUrgencyFilter("all");
     const diagnosisIds = results.filter((result) => result.kind === "diagnosis").map((result) => result.id);
     const diagnosisIdSet = new Set(diagnosisIds);
     // First result set may hydrate shareable URL ids; later query changes always
@@ -786,35 +789,79 @@ function SearchResultsView({
     setSelectedIds(new Set(nextIds));
   }
 
-  const presentationCount = results.filter((result) => result.kind === "presentation").length;
-  const diagnosisCount = results.length - presentationCount;
-  const kindFilterOptions = useMemo<ReadonlyArray<ResultFilterOption<KindFilter>>>(
-    () => [
-      { value: "all", label: "All", hint: String(results.length) },
-      { value: "presentation", label: "Presentations", hint: String(presentationCount) },
-      { value: "diagnosis", label: "Diagnoses", hint: String(diagnosisCount) },
-    ],
-    [diagnosisCount, presentationCount, results.length],
-  );
+  // Two independent lens dimensions (kind, clinical urgency) AND together. Each
+  // option's count holds the OTHER dimension at its current value and answers
+  // "how many would I have if I switched to this value instead" — the filter
+  // contract's rule for a lens count (docs/filter-contract.md section 3).
+  const matchesKind = (result: DifferentialResult, kind: KindFilter) => kind === "all" || result.kind === kind;
+  const matchesUrgency = (result: DifferentialResult, urgency: UrgencyFilter) =>
+    urgency === "all" || result.status === urgency;
+  const kindFilterOptions = useMemo<ReadonlyArray<ResultFilterOption<KindFilter>>>(() => {
+    const countFor = (kind: KindFilter) =>
+      results.filter((result) => matchesKind(result, kind) && matchesUrgency(result, urgencyFilter)).length;
+    return (["all", "presentation", "diagnosis"] as const).map((value) => ({
+      value,
+      label: value === "all" ? "All" : value === "presentation" ? "Presentations" : "Diagnoses",
+      hint: String(countFor(value)),
+    }));
+  }, [results, urgencyFilter]);
+  // Same three-tier scale the result badges already show (statusLabel), so the
+  // filter reuses the exact wording a reader has already seen on the cards
+  // instead of introducing a second vocabulary for the same field. Mirrors the
+  // identical "Clinical urgency" lens on the differentials stream/browse pages
+  // (differential-stream-workspace.tsx) so the two differentials surfaces agree.
+  const urgencyFilterOptions = useMemo<ReadonlyArray<ResultFilterOption<UrgencyFilter>>>(() => {
+    const countFor = (urgency: UrgencyFilter) =>
+      results.filter((result) => matchesKind(result, kindFilter) && matchesUrgency(result, urgency)).length;
+    return (["all", "emergent", "urgent", "routine"] as const).map((value) => ({
+      value,
+      label: value === "all" ? "All priorities" : statusLabel(value),
+      hint: String(countFor(value)),
+    }));
+  }, [results, kindFilter]);
   const relevanceResults = useMemo(
-    () => (kindFilter === "all" ? results : results.filter((result) => result.kind === kindFilter)),
-    [kindFilter, results],
+    () => results.filter((result) => matchesKind(result, kindFilter) && matchesUrgency(result, urgencyFilter)),
+    [kindFilter, urgencyFilter, results],
   );
   const visibleResults = useMemo(
     () => sortResultItems(relevanceResults, sortValue, (result) => result.title),
     [relevanceResults, sortValue],
   );
-  const appliedFilters: AppliedFilterChip[] =
-    kindFilter === "all"
-      ? []
-      : [
-          {
-            id: "result-type",
-            groupLabel: "Show",
-            valueLabel: kindFilter === "presentation" ? "Presentations" : "Diagnoses",
-            onRemove: () => setKindFilter("all"),
-          },
-        ];
+  const appliedFilters: AppliedFilterChip[] = [];
+  if (kindFilter !== "all") {
+    appliedFilters.push({
+      id: "result-type",
+      groupLabel: "Show",
+      valueLabel: kindFilter === "presentation" ? "Presentations" : "Diagnoses",
+      onRemove: () => setKindFilter("all"),
+    });
+  }
+  if (urgencyFilter !== "all") {
+    appliedFilters.push({
+      id: "urgency",
+      groupLabel: "Clinical urgency",
+      valueLabel: statusLabel(urgencyFilter),
+      onRemove: () => setUrgencyFilter("all"),
+    });
+  }
+  const activeFilterCount = appliedFilters.length;
+  const clearAllFilters = () => {
+    setKindFilter("all");
+    setUrgencyFilter("all");
+  };
+  // Only reached when both dimensions narrowed the same result set to zero, so
+  // every branch below stays possible at runtime — computed as an if-chain
+  // rather than a nested ternary so each `statusLabel` call sits behind an
+  // explicit `urgencyFilter !== "all"` narrowing.
+  function filteredEmptyHeading(): string {
+    if (kindFilter !== "all" && urgencyFilter !== "all") {
+      return `No ${kindFilter === "presentation" ? "presentations" : "diagnoses"} at ${statusLabel(urgencyFilter)} priority in this result set`;
+    }
+    if (kindFilter === "presentation") return "No presentations in this result set";
+    if (kindFilter === "diagnosis") return "No diagnoses in this result set";
+    if (urgencyFilter !== "all") return `No ${statusLabel(urgencyFilter)} results in this result set`;
+    return "No results match your filters";
+  }
   // Keep the feature card inside the active result type while preserving the
   // relevance winner when the visible list is presented alphabetically.
   const best = relevanceResults[0] ?? null;
@@ -934,8 +981,8 @@ function SearchResultsView({
         sortValue={sortValue}
         onSortChange={setSortValue}
         appliedFilters={appliedFilters}
-        onClearFilters={kindFilter === "all" ? undefined : () => setKindFilter("all")}
-        filterLabel="Filter differential result type"
+        onClearFilters={activeFilterCount > 0 ? clearAllFilters : undefined}
+        filterLabel="Filter differential results"
         // A compact badged trigger, so it shares the count line.
         mobileControlsPlacement="inline"
         mobileControls={
@@ -944,7 +991,7 @@ function SearchResultsView({
             testId="differential-filter-trigger-phone"
             title="Filter differentials"
             open={filterOpen}
-            activeCount={kindFilter === "all" ? 0 : 1}
+            activeCount={activeFilterCount}
             onToggle={() => setFilterOpen((current) => !current)}
           />
         }
@@ -954,7 +1001,7 @@ function SearchResultsView({
             testId="differential-filter-trigger-desktop"
             title="Filter differentials"
             open={filterOpen}
-            activeCount={kindFilter === "all" ? 0 : 1}
+            activeCount={activeFilterCount}
             onToggle={() => setFilterOpen((current) => !current)}
           />
         }
@@ -967,6 +1014,7 @@ function SearchResultsView({
         panelId={filterPanelId}
         testId="differential-filter-panel"
         title="Filter differentials"
+        description="Narrow by result type, then by clinical urgency. Both narrow the same list together."
         groups={[
           resultFilterGroup({
             id: "result-type",
@@ -975,8 +1023,15 @@ function SearchResultsView({
             options: kindFilterOptions,
             onChange: setKindFilter,
           }),
+          resultFilterGroup({
+            id: "urgency",
+            label: "Clinical urgency",
+            value: urgencyFilter,
+            options: urgencyFilterOptions,
+            onChange: setUrgencyFilter,
+          }),
         ]}
-        onClearAll={kindFilter === "all" ? undefined : () => setKindFilter("all")}
+        onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
         summary={{
           count: visibleResults.length,
           noun: visibleResults.length === 1 ? "result" : "results",
@@ -1044,15 +1099,13 @@ function SearchResultsView({
           data-testid="differentials-filter-empty-results"
           className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
         >
-          <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">
-            {kindFilter === "presentation" ? "No presentations in this result set" : "No diagnoses in this result set"}
-          </h2>
+          <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">{filteredEmptyHeading()}</h2>
           <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-            Other result types still match this search. Clear the result-type filter to show them.
+            Other results still match this search. Clear filters to show them.
           </p>
           <button
             type="button"
-            onClick={() => setKindFilter("all")}
+            onClick={clearAllFilters}
             className="inline-flex min-h-tap w-fit items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             Show all results
