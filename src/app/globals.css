@@ -11,6 +11,46 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
+ * Motion variants are redefined so the in-app Motion preference is authoritative
+ * in BOTH directions, without touching the ~164 `motion-reduce:`/`motion-safe:`
+ * call sites.
+ *
+ *   data-motion absent    -> "system": follow prefers-reduced-motion (unchanged)
+ *   data-motion="reduced" -> explicit opt-OUT: suppress regardless of the OS
+ *   data-motion="full"    -> explicit opt-IN: animate even when the OS asks to reduce
+ *
+ * The opt-in exists because iOS "Reduce Motion" is commonly switched on to stop
+ * app-launch zoom rather than out of vestibular sensitivity, and it was silently
+ * freezing this app's answer-progress feedback on a physical iPhone (both Safari
+ * and the installed PWA) with no in-app way to get it back.
+ */
+@custom-variant motion-reduce {
+  @media (prefers-reduced-motion: reduce) {
+    html:not([data-motion="full"]) & {
+      @slot;
+    }
+  }
+
+  html[data-motion="reduced"] & {
+    @slot;
+  }
+}
+
+@custom-variant motion-safe {
+  @media (prefers-reduced-motion: no-preference) {
+    html:not([data-motion="reduced"]) & {
+      @slot;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html[data-motion="full"] & {
+      @slot;
+    }
+  }
+}
+
+/*
  * Design tokens that generate Tailwind utilities.
  * Colour ramps and per-theme values live in :root / .dark below and are
  * consumed directly via var(), e.g. text-[color:var(--text-muted)], so
@@ -231,8 +271,8 @@
   --animate-dialog-rise: dialog-rise 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-action-tray-in: action-tray-in var(--swipe-duration, 160ms) cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
-  --animate-answer-ecg: answer-ecg-pulse 1.8s ease-in-out infinite;
-  --animate-answer-ecg-compact: answer-ecg-pulse 1.6s ease-in-out infinite;
+  --animate-answer-ecg: answer-ecg-scroll 3.2s linear infinite;
+  --animate-answer-ecg-compact: answer-ecg-scroll 2.6s linear infinite;
 }
 
 /* Theme tokens */
@@ -1754,6 +1794,18 @@ summary::-webkit-details-marker {
     width: var(--spacing-icon-lg);
   }
 }
+/* Mirrors the `motion-safe` variant: animate when the OS allows it, and also when
+   the in-app Motion preference explicitly opts in over an OS reduce request. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-motion="full"] .mode-action-surface[data-placement="up"] {
+    animation: mode-action-fold-up 170ms var(--ease-out-soft) both;
+  }
+
+  html[data-motion="full"] .mode-action-surface[data-placement="down"] {
+    animation: mode-action-fold-down 170ms var(--ease-out-soft) both;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .mode-action-surface[data-placement="up"] {
     animation: mode-action-fold-up 170ms var(--ease-out-soft) both;
@@ -2952,7 +3004,7 @@ summary::-webkit-details-marker {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pwa-notice-card {
+  html:not([data-motion="full"]) .pwa-notice-card {
     animation: none;
   }
 }
@@ -3425,17 +3477,24 @@ td,
   }
 }
 
-/* Animate compositable opacity on the HTML overlay that contains the bright ECG
-   path. Mobile WebKit can report animations on SVG path properties as running
-   without repainting them, especially in an installed PWA. Keeping animation on
-   a regular HTML layer makes the pulse visible without JavaScript or layout work. */
-@keyframes answer-ecg-pulse {
-  0%,
-  100% {
-    opacity: 0.2;
+/* Scroll the bright ECG strip like a cardiac monitor.
+ *
+ * The strip is two identical copies of the trace side by side inside a 200%-wide
+ * HTML span, so translating it by exactly -50% lands copy 2 where copy 1 started
+ * and the loop has no seam (the path starts at `M0 24` and ends at the same y).
+ *
+ * `transform` is the only animated property here on purpose. Mobile WebKit can
+ * report animations on SVG path properties as running without repainting them,
+ * especially in an installed PWA, and an earlier whole-line opacity pulse was
+ * technically running but too subtle to read as motion on a phone hairline.
+ * Translating a plain HTML layer is the same compositor-thread recipe that
+ * `.animate-skeleton-shimmer::after` already uses reliably in this app. */
+@keyframes answer-ecg-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
   }
-  50% {
-    opacity: 1;
+  to {
+    transform: translate3d(-50%, 0, 0);
   }
 }
 
@@ -3452,9 +3511,19 @@ td,
  * those unlayered classes, check the class body first; the class wins.
  */
 @layer components {
+  /* `isolation` + `translateZ(0)` mirror .animate-skeleton-shimmer: they give the
+     scrolling strip its own compositor layer so WebKit repaints it. The mask is
+     static (never animated) and only softens the two clipped edges. */
+  .answer-activity-trace {
+    isolation: isolate;
+    transform: translateZ(0);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%);
+  }
+
   .answer-activity-trace__sweep {
     animation: var(--animate-answer-ecg);
-    will-change: opacity;
+    will-change: transform;
   }
 
   .answer-activity-trace[data-density="compact"] .answer-activity-trace__sweep {
@@ -3790,16 +3859,21 @@ td,
   }
 }
 
+/* Suppressing motion must not delete the status indicator. `opacity: 0` here used
+   to hide the bright trace outright, so anyone with Reduce Motion on saw a dead
+   panel while an answer was generating. At translateX(0) the first copy of the
+   strip fills the box exactly, so simply stopping the animation leaves a correct,
+   clearly visible static ECG. */
 @media (prefers-reduced-motion: reduce) {
-  .answer-activity-trace__sweep {
+  html:not([data-motion="full"]) .answer-activity-trace__sweep {
     animation: none;
-    opacity: 0;
+    opacity: 0.55;
   }
 }
 
 html[data-motion="reduced"] .answer-activity-trace__sweep {
   animation: none;
-  opacity: 0;
+  opacity: 0.55;
 }
 
 /* IMP-04: Compositor-thread sweep used by .animate-skeleton-shimmer::after. */
@@ -3830,8 +3904,8 @@ html[data-motion="reduced"] .answer-activity-trace__sweep {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-skeleton-shimmer::after,
-  .stagger-item {
+  html:not([data-motion="full"]) .animate-skeleton-shimmer::after,
+  html:not([data-motion="full"]) .stagger-item {
     animation: none !important;
   }
 }
@@ -3841,19 +3915,22 @@ html[data-motion="reduced"] .stagger-item {
   animation: none !important;
 }
 
-/* User preference and alternate output modes */
+/* User preference and alternate output modes.
+   `html:not([data-motion="full"])` is what lets the in-app Motion preference opt
+   back in; without it this universal rule froze every animation on the page —
+   including the answer-progress spinner — for anyone with OS Reduce Motion on. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  html:not([data-motion="full"]) *,
+  html:not([data-motion="full"]) *::before,
+  html:not([data-motion="full"]) *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
 
-  .source-capsule-hit:hover .source-capsule-face,
-  .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
+  html:not([data-motion="full"]) .source-capsule-hit:hover .source-capsule-face,
+  html:not([data-motion="full"]) .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
     transform: none !important;
   }
 

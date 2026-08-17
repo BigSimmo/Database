@@ -476,7 +476,7 @@ test("follow-up answer generation stays compact above the previous answer", asyn
         timingFunction: style.animationTimingFunction,
       };
     }),
-  ).toEqual({ duration: "1.6s", iterationCount: "infinite", timingFunction: "ease-in-out" });
+  ).toEqual({ duration: "2.6s", iterationCount: "infinite", timingFunction: "linear" });
   const stop = progress.getByRole("button", { name: "Stop generating answer" });
   expect((await stop.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
 
@@ -555,6 +555,9 @@ test("answer progress keeps focus, reduced-motion, and forced-colour behavior in
   await expect(activityTraceBase).toBeVisible();
   expect(await activeSpinner.evaluate((spinner) => getComputedStyle(spinner).animationName)).toBe("none");
   expect(await activityTraceSweep.evaluate((trace) => getComputedStyle(trace).animationName)).toBe("none");
+  // Suppressing motion must not delete the indicator. This previously resolved to
+  // "0", which left everyone with OS Reduce Motion staring at a blank, frozen panel.
+  expect(await activityTraceSweep.evaluate((trace) => getComputedStyle(trace).opacity)).toBe("0.55");
 
   const stop = progress.getByRole("button", { name: "Stop generating answer" });
   const details = progress.getByText("Processing details", { exact: true });
@@ -577,28 +580,33 @@ test("answer progress keeps focus, reduced-motion, and forced-colour behavior in
       };
     }),
   ).toEqual({
-    name: "answer-ecg-pulse",
-    duration: "1.8s",
+    name: "answer-ecg-scroll",
+    duration: "3.2s",
     iterationCount: "infinite",
-    timingFunction: "ease-in-out",
+    timingFunction: "linear",
   });
-  const restingOpacity = await activityTraceSweep.evaluate(async (trace) => {
+  const restingTransform = await activityTraceSweep.evaluate(async (trace) => {
     const animation = trace.getAnimations()[0];
     animation.pause();
     animation.currentTime = 0;
     await new Promise(requestAnimationFrame);
-    return getComputedStyle(trace).opacity;
+    return getComputedStyle(trace).transform;
   });
   const restingPixels = await activityTraceSweep.screenshot();
-  const peakOpacity = await activityTraceSweep.evaluate(async (trace) => {
+  const midTransform = await activityTraceSweep.evaluate(async (trace) => {
     const animation = trace.getAnimations()[0];
-    animation.currentTime = 900;
+    animation.currentTime = 1_600;
     await new Promise(requestAnimationFrame);
-    return getComputedStyle(trace).opacity;
+    return getComputedStyle(trace).transform;
   });
-  const peakPixels = await activityTraceSweep.screenshot();
-  expect({ restingOpacity, peakOpacity }).toEqual({ restingOpacity: "0.2", peakOpacity: "1" });
-  expect(restingPixels.equals(peakPixels), "the WebKit raster must visibly change across the pulse").toBe(false);
+  const midPixels = await activityTraceSweep.screenshot();
+  // The strip actually moves: a matrix translate, not the identity, and a raster
+  // that genuinely differs. Computed style alone was never enough — the previous
+  // animation satisfied every computed-style assertion while reading as static.
+  expect(restingTransform).toBe("matrix(1, 0, 0, 1, 0, 0)");
+  expect(midTransform).not.toBe(restingTransform);
+  expect(midTransform).toMatch(/^matrix\(1, 0, 0, 1, -\d/);
+  expect(restingPixels.equals(midPixels), "the WebKit raster must visibly change as the strip travels").toBe(false);
 
   await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
   await expect(currentStage.locator('[data-slot="answer-progress-stage-marker"]')).toBeVisible();
