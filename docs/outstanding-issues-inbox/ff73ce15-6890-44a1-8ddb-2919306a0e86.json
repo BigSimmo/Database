@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ff73ce15-6890-44a1-8ddb-2919306a0e86",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "source_metadata pin in rag-row-contracts.ts is data-backed only — add check (jsonb_typeof(metadata) = 'object') on documents or loosen the pin",
+    "detail": "src/lib/rag/rag-row-contracts.ts requires source_metadata to be a JSON object (z.record) while documents.metadata jsonb permits arrays and scalars. Live query 2026-08-14 (project sjrfecxgysukkwxsowpy): select jsonb_typeof(metadata), count(*) from public.documents group by 1 returned a single row, object = 2851, so nothing breaks today — but the guarantee is data, not schema, and a future ingest could make retrieval throw RetrievalRowShapeError for that document. Options: a check constraint via a new migration (role postgres; run check:migration-role) or loosen the pin. The module's doc comment also claims every required field is 'not null in supabase/schema.sql', which is true for nine fields and false for source_metadata — one-clause docs fix in the same PR.",
+    "source": "RAG programme coordinator, S1 PR #2022 residuals and #212 handover follow-ups, 2026-08-17",
+    "issueUlid": "01M07SS78VND10QT3784W1137Y"
+  }
+}
