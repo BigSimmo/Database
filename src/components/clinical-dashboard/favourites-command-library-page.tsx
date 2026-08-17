@@ -36,6 +36,14 @@ import {
 } from "@/components/clinical-dashboard/favourites-prototype-data";
 import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 import {
+  formatLastOpened,
+  lastOpenedScore,
+  loadFavouriteLastOpened,
+  loadFavouritePinnedIds,
+  recordFavouriteOpened,
+  subscribeFavouritesStorage,
+} from "@/components/favourites/favourites-storage";
+import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
@@ -112,8 +120,6 @@ const lastUsedByItemId: Record<string, string> = {
   "qt-prolongation-quote": "Mon 11:03",
 };
 
-const pinnedItemIds = new Set(["acamprosate-renal-screen", "lithium-monitoring-guideline"]);
-
 const typeByPrototypeType: Record<PrototypeFavouriteItem["type"], FavouriteType> = {
   medications: "Medication",
   documents: "Document",
@@ -186,7 +192,11 @@ async function copyFavouriteCitation(item: FavouriteItem): Promise<boolean> {
   }
 }
 
-function toCommandItem(item: PrototypeFavouriteItem): FavouriteItem {
+function toCommandItem(
+  item: PrototypeFavouriteItem,
+  lastOpenedMap: Record<string, number>,
+  pinnedIds: ReadonlySet<string>,
+): FavouriteItem {
   const type =
     item.type === "sources" && item.primaryAction === "Run"
       ? "Saved search"
@@ -199,11 +209,14 @@ function toCommandItem(item: PrototypeFavouriteItem): FavouriteItem {
     tabId: item.type,
     set: item.set || (item.type === "services" ? "Saved services" : item.type === "forms" ? "Saved forms" : "Unsorted"),
     evidence: item.sourceMeta,
-    lastUsed: lastUsedByItemId[item.id] ?? "Saved",
+    lastUsed:
+      lastOpenedMap[item.id] !== undefined
+        ? formatLastOpened(lastOpenedMap[item.id])
+        : (lastUsedByItemId[item.id] ?? "Saved"),
     action: item.primaryAction,
     href: item.href,
     icon: item.icon ?? fallbackIconByType[item.type],
-    pinned: pinnedItemIds.has(item.id),
+    pinned: pinnedIds.has(item.id),
   };
 }
 
