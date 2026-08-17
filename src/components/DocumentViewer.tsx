@@ -1394,7 +1394,7 @@ export function DocumentViewer({
             past the PDF. */}
         {readyDocument ? (
           <div
-            id="source-summary"
+            id="source-summary-card"
             className="min-w-0 max-sm:order-2 lg:col-span-2 scroll-mt-[var(--document-anchor-offset,6rem)]"
           >
             <DocumentClinicalSummary
