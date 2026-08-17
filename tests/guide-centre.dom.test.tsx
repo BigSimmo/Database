@@ -30,10 +30,17 @@ describe("Clinical KB Guide Centre", () => {
     const search = within(dialog).getByPlaceholderText("Search the guide");
     expect(search.closest(".answer-footer-search-pill")).not.toBeNull();
 
+    const submit = within(dialog).getByRole("button", { name: "Submit guide search" });
+    expect(submit).toHaveClass("chat-send-button");
+
     await user.type(search, "privacy");
     expect(within(dialog).getByRole("heading", { name: "Search results" })).toBeVisible();
     expect(within(dialog).getByRole("button", { name: /Privacy and safe use/ })).toBeVisible();
     expect(within(dialog).getByText(/topics? found for “privacy”/)).toBeVisible();
+
+    await user.click(submit);
+    expect(within(dialog).getByRole("heading", { name: "Search results" })).toBeVisible();
+    expect(search).toHaveValue("privacy");
 
     await user.clear(search);
     await user.type(search, "no matching phrase anywhere");
