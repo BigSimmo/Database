@@ -202,6 +202,7 @@
     "audit:public-document-approvals": "node scripts/run-tsx.mjs scripts/audit-public-document-approvals.ts",
     "check:default-acl": "node scripts/run-tsx.mjs scripts/check-default-acl.ts",
     "eval:rag": "node scripts/run-eval-safe.mjs scripts/eval-rag.ts",
+    "eval:rag:adversarial:offline": "node scripts/eval-rag-adversarial-offline.mjs",
     "eval:rag:offline": "node scripts/eval-rag-offline.mjs",
     "eval:answer-quality": "node scripts/run-eval-safe.mjs scripts/eval-answer-quality.ts",
     "eval:quality": "node scripts/run-eval-safe.mjs scripts/eval-quality.ts",

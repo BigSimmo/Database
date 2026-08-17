@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (245 files) and the `package.json` script surface (250 entries),
+Curated map of `scripts/` (246 files) and the `package.json` script surface (251 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -93,7 +93,11 @@ For executable phone-chrome changes, use `verify:phone-chrome` before the broad 
 `generation_quality_gate_reasons` added for `/issues` `#231` — provider-backed, refuses demo mode),
 `check-rag-adversarial-fixtures.mjs` + `rag-adversarial-contract.mjs` (offline, network-free
 validation of the synthetic adversarial fixture dataset and its baseline record; separate from
-`check-rag-fixtures.mjs`, which is untouched).
+`check-rag-fixtures.mjs`, which is untouched),
+`eval-rag-adversarial-offline.mjs` (packet B2: fixture validation then the offline Vitest
+adversarial harness `tests/rag-adversarial-harness.test.ts`; `npm run eval:rag:adversarial:offline`,
+routed by `ci-change-scope.mjs` to RAG-surface PRs only; fails closed on missing fixture,
+network attempt, or round-trip budget breach).
 Golden fixtures:
 `scripts/fixtures/rag-retrieval-golden.json`, `scripts/fixtures/assertion-golden.json`.
 Adversarial fixtures: `scripts/fixtures/rag-adversarial-cases.v1.json` (+ its schema) and
