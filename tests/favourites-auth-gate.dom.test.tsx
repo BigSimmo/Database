@@ -60,6 +60,7 @@ function sidebarProps(showAccountLibrary: boolean) {
     onPickRecent: () => undefined,
     onOpenSettings: () => undefined,
     onOpenAccount: () => undefined,
+    onOpenSearch: () => undefined,
   };
 }
 
@@ -93,6 +94,7 @@ describe("favourites auth gate DOM", () => {
     authSession.session = null;
     authSession.error = null;
     authSession.notice = null;
+    window.localStorage.clear();
     vi.clearAllMocks();
   });
 
@@ -100,7 +102,7 @@ describe("favourites auth gate DOM", () => {
     const { rerender } = render(<ClinicalSidebarContent {...sidebarProps(false)} />);
 
     expect(screen.queryByRole("navigation", { name: "Your library" })).toBeNull();
-    const navigation = within(screen.getByRole("navigation", { name: "Navigation" }));
+    const navigation = within(screen.getByRole("navigation", { name: "Pinned shortcuts" }));
     expect(
       navigation.getAllByRole("link").map((link) => ({ name: link.textContent, href: link.getAttribute("href") })),
     ).toEqual([
@@ -120,7 +122,9 @@ describe("favourites auth gate DOM", () => {
     expect(screen.getByRole("navigation", { name: "Your library" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Favourites" })).toHaveAttribute("href", "/favourites");
     expect(
-      within(screen.getByRole("navigation", { name: "Navigation" })).queryByRole("link", { name: "Favourites" }),
+      within(screen.getByRole("navigation", { name: "Pinned shortcuts" })).queryByRole("link", {
+        name: "Favourites",
+      }),
     ).toBeNull();
   });
 
@@ -252,7 +256,7 @@ describe("favourites auth gate DOM", () => {
   it("keeps Tools Saved workflows available when Favourites access is granted", () => {
     render(<ApplicationsLauncherWorkspace canAccessFavourites={true} />);
 
-    expect(screen.getByRole("radio", { name: "Saved" })).toBeVisible();
+    expect(screen.getByRole("radio", { name: "Saved (1)" })).toBeVisible();
     expect(screen.getByTestId("tool-shortcut-favourites")).toBeVisible();
     expect(
       toolCatalogRecordsForSession({ authenticated: true, demoMode: false }).some((t) => t.id === "favourites"),

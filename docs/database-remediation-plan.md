@@ -95,7 +95,9 @@ right now), report before proceeding.
 
 ## Phase 2 — Staging rehearsal (`#056`, prerequisite for safe production work)
 
-2.1 Bring `Clinical KB Staging` to full migration parity (it is ~24 migrations behind). This
+2.1 Bring `Clinical KB Staging` to full migration parity (**26 migrations behind as measured
+2026-08-17** — ten earlier history holes plus sixteen after `20260719055623`; the gap widens as
+`main` advances, so re-measure at the start of the window rather than trusting this figure). This
 doubles as the rehearsal: the replay exercises every migration end-to-end, including the
 `20260804110240` guard (staging must prebuild or take the transactional builds — it is idle, so
 transactional is fine there).

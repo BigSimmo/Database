@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "88628da6-881d-4947-a710-56093c5503fa",
+  "createdOn": "2026-08-17",
+  "action": "update",
+  "payload": {
+    "id": "#056",
+    "detail": "`Clinical KB Staging` already exists as a healthy, empty Supabase/Railway tier with distinct secrets and no production clinical data, but it is behind the repository migration chain. In the next approved staging schema window, apply the exact missing migration chain, then re-run indexing, health, identity and data-boundary proof. Do not recreate the environment or copy production clinical documents. COUNTS REMEASURED 2026-08-15 (read-only connector query against ikoiolksxqxfxgiyqpnu): the gap is now 26, not 24, and it is widening rather than static. Staging holds 166 rows in supabase_migrations.schema_migrations with latest version 20260719055623; the repository holds 192 migration files, of which 16 - not fourteen - are dated after 20260719055623. So the composition is ten earlier history holes plus sixteen later migrations. The two-migration increase is simply new work landing on main while staging stands still, which is the expected behaviour of an unattended staging tier and not a new defect - but it does mean the apply chain grows every week this row stays open, and any runbook written against the earlier figures is already stale. Re-measure the counts at the start of the window rather than trusting these; they were accurate on 2026-08-15 and will not stay that way."
+  }
+}
