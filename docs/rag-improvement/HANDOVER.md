@@ -5,7 +5,9 @@ session implementing the programme reads first. The design authority is
 [README.md](README.md) in this directory; the protected-surface rules live in
 `docs/rag-behaviour/`. This file adds what the guide deliberately does not carry: current
 programme state, the per-session work packets, the paste-ready prompts, and the status table
-each session must update.
+each session must update. The coordinator-side layer — who dispatches sessions, merges their
+PRs, and approves canaries, plus the babysit playbook — lives in
+[COORDINATION.md](COORDINATION.md).
 
 **How to use this file (for the agent reading it at session start):**
 
@@ -42,7 +44,7 @@ generation-quality verdict on fallback`), merged 2026-08-13 — structured
 | Packet   | Scope                                           | Branch                                           | PR    | State                  | Canary / evidence refs |
 | -------- | ----------------------------------------------- | ------------------------------------------------ | ----- | ---------------------- | ---------------------- |
 | Guide    | Programme guide                                 | `claude/rag-plan-review-guide-vhrls9`            | #1895 | Merged 2026-08-13      | docs-only              |
-| Handover | Multi-session handover                          | `claude/rag-plan-review-guide-vhrls9`            | #1908 | Open — this PR         | docs-only              |
+| Handover | Multi-session handover + coordination           | `claude/rag-plan-review-guide-vhrls9`            | #1908 | Merged 2026-08-13      | docs-only              |
 | S0       | A1 phase 1: structured fallback diagnostics     | `claude/lithium-generation-quality-debug-ji1vce` | #1899 | Merged 2026-08-13      | offline 93/93 focused  |
 | S1       | A1 phase 2: evidence-chosen mitigation          | `claude/rag-a1-mitigation-<suffix>`              | —     | Not started            | —                      |
 | S2       | A2: composition menu                            | `claude/rag-a2-composition-<suffix>`             | —     | Blocked on S1 evidence | —                      |
