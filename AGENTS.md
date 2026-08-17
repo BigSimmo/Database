@@ -633,7 +633,7 @@ Nothing else inherits this authorization. Only the user's own task message can t
 
 Hard guardrails (never, even during a sweep):
 
-- Never merge a pull request into `main` or any protected branch, and never enable auto-merge; the sweep fixes and reports, the user merges. Per-PR auto-merge state is user-owned: automation must not disable it. When auto-merge is already armed, do not push, update the branch/base, or perform another head-changing action; report the frozen state and leave the PR untouched until it merges or the user manually changes that state.
+- Never merge a pull request into `main` or any protected branch, and never enable auto-merge; the sweep fixes and reports, the user merges. Per-PR auto-merge state is user-owned: automation must not disable or re-enable it. Ordinary fast-forward commits and pushes to fix CI or review findings are allowed while auto-merge is armed — GitHub re-validates required checks against the new head before it will merge, so an additive push cannot make it merge something unvalidated (`guard-push.mjs`'s auto-merge guard warns rather than blocks for this case). Never force-push, rewrite history, or change the PR's base/target while auto-merge is armed — that stays hard-blocked with no override; wait for the user to change the auto-merge state first.
 - Never close a pull request, delete or rename branches, force-push, or rebase.
 - Never run provider-backed gates: `eval:rag`, `eval:quality`, `eval:retrieval:quality`, `verify:release`, `check:supabase-project`, `test:live`, or anything else that touches live Supabase/OpenAI.
 - Respect the `skip-codex-review` label as a full per-PR opt-out.
@@ -709,11 +709,12 @@ A settle-then-push addition also lands after this repo's one automatic Codex rev
 already have run against the earlier head — in practice the connector re-reviews each new
 push (observed on this same PR), but if it doesn't, request a fresh review explicitly
 before merging rather than assuming the addition was covered. **If the target PR has
-auto-merge armed, settling-then-pushing races the merge itself.** Treat that PR as
-mutation-frozen: do not disable or re-enable auto-merge, push, update its branch/base, or
-otherwise change its head. Let the armed merge land, or wait for the user to manually
-change the auto-merge state before doing further branch work. `guard-push.mjs` enforces
-this for every locally pushed PR branch when authenticated `gh` is available; agent
+auto-merge armed, an ordinary fast-forward push is still safe to bundle onto** — GitHub
+re-validates required checks against the new head before merging. Per-PR auto-merge state is
+user-owned: automation must not disable or re-enable it, and a force-push or base/target change
+while armed still hard-blocks with no override — that is the actual race, not an additive
+commit. `guard-push.mjs` enforces the force-push block for every locally pushed PR branch when
+authenticated `gh` is available; agent
 policy remains the backstop in environments where local hooks or `gh` are unavailable.
 Bundle only when every item being combined is:
 
@@ -804,8 +805,10 @@ named PR). Future process only.
   `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed
   blob. Whole-tree Prettier, not a single edited file.
 - If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable
-  it. Treat the branch as mutation-frozen: no push, update-branch, base change, or bundled addition
-  until it merges or the user manually changes that state.
+  or re-enable it. Ordinary fast-forward pushes, `update-branch`/merge-main-in syncs, and bundled
+  additions may proceed — GitHub re-validates required checks against the new head before merging,
+  so an additive push cannot slip past that. A force-push, history rewrite, or base/target change
+  while armed still hard-blocks with no override; wait for the user to change that state first.
 - Missing CI checks are not a green pass. `pull_request` workflows do not run when GitHub
   cannot build `refs/pull/<n>/merge`. The `PR mergeability` check uses trusted
   `pull_request_target` events and refreshes unchanged PR heads after protected-base
