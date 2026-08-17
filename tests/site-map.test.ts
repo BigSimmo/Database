@@ -9,6 +9,7 @@ import { dsmDiagnoses } from "@/lib/dsm";
 import { formRecords } from "@/lib/forms";
 import { serviceRecords } from "@/lib/services";
 import { collectSiteMapData, renderSiteMap } from "../scripts/generate-site-map";
+import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 const siteMapPath = path.join(process.cwd(), "docs", "site-map.md");
 const siteMap = readFileSync(siteMapPath, "utf8");
@@ -63,18 +64,21 @@ describe("tracked sitemap", () => {
 
   it("keeps public redirect handlers out of API routes and records their redirects", () => {
     const data = collectSiteMapData();
-    const productSection = siteMap.slice(
-      siteMap.indexOf("## Main product routes"),
-      siteMap.indexOf("## Mode/query routes"),
-    );
-    const apiSection = siteMap.slice(siteMap.indexOf("## API routes"), siteMap.indexOf("## Redirects"));
+    const productSection = sourceSegment(siteMap, "## Main product routes", "## Mode/query routes", {
+      label: "site-map main product routes section",
+    });
+    const apiSection = sourceSegment(siteMap, "## API routes", "## Redirects", {
+      label: "site-map API routes section",
+    });
     const expectedProductHandlers = [
       ["/applications", "src/app/applications/route.ts", "/tools"],
       // `/differentials/compare` and `/medications` are deliberately absent:
       // compare is a real page that conditionally redirects same-presentation
       // selections, and medications is a real Medication mode home.
     ] as const;
-    const redirectSection = siteMap.slice(siteMap.indexOf("## Redirects"));
+    const redirectSection = sourceFrom(siteMap, "## Redirects", {
+      label: "site-map Redirects section",
+    });
 
     expect(data.apiRoutes.every((route) => route.route === "/api" || route.route.startsWith("/api/"))).toBe(true);
     expect(data.publicRouteHandlers.some((route) => route.route === "/auth/callback")).toBe(true);
