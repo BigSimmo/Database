@@ -39,6 +39,12 @@ describe("answer-verification (GEN-C2 / GEN-H2)", () => {
     expect(bolded?.denominatorTime).toBe("day");
     expect(bolded?.canonicalValue).toBe("200");
     expect(bolded?.canonicalUnit).toBe("mg");
+    // The direct numeric-token path folds emphasis too: the bolded dose yields the same
+    // normalized per-day token as the unformatted source text.
+    expect(extractNumericTokens("The maximum recommended dose of sertraline is **200 mg**/day.")).toContain(
+      "200mg/day",
+    );
+    expect(extractNumericTokens("adjust dose according to response, maximum 200 mg/day")).toContain("200mg/day");
   });
 
   it("verifies bolded figures against unformatted source text (#231)", () => {
