@@ -1437,7 +1437,8 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await crisisFacet.click();
     await expect(page).toHaveURL(/acuity_flags=crisis_high/);
     await filterPanel.getByTestId("service-filter-panel-clear").click();
-    await expect(page).toHaveURL(/q=13YARN/);
+    await expect(page).toHaveURL(/[?&]q=13YARN(?:&|#|$)/);
+    await expect(page).not.toHaveURL(/group=/);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
     await filterPanel.getByRole("button", { name: "Close", exact: true }).click();
 
