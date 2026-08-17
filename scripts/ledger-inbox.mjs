@@ -13,7 +13,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { addIssue, resolveIssue, updateIssue } from "./outstanding-issues.mjs";
-import { ISSUES_PATH, checkIssues } from "./check-outstanding-issues.mjs";
+import {
+  ISSUES_PATH,
+  checkIssues,
+  issueRowFingerprint,
+  isValidIssueRowFingerprint,
+} from "./check-outstanding-issues.mjs";
 import { isIssueDisplayId, isIssueUlid, issueUlid, issueUlidFromRequest } from "./issue-id.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -39,6 +44,10 @@ function requestPath(id) {
   return path.posix.join(INBOX_DIR, `${id}.json`);
 }
 
+function readOutstandingIssues() {
+  return readFileSync(path.join(ROOT, ISSUES_PATH), "utf8");
+}
+
 export function validateRequest(request) {
   const problems = [];
   if (!request || typeof request !== "object") return ["request must be an object"];
@@ -60,6 +69,11 @@ export function validateRequest(request) {
   if (request.action === "done") {
     if (!isIssueDisplayId(request.payload?.id)) problems.push("done requires a canonical issue display id");
     if (!request.payload?.outcome) problems.push("done requires outcome");
+    if (
+      request.payload?.baseRowFingerprint !== undefined &&
+      !isValidIssueRowFingerprint(request.payload.baseRowFingerprint)
+    )
+      problems.push("done requires a valid baseRowFingerprint");
   }
   if (request.action === "update") {
     if (!isIssueDisplayId(request.payload?.id)) problems.push("update requires a canonical issue display id");
@@ -69,6 +83,11 @@ export function validateRequest(request) {
     if (!["pri", "summary", "detail", "source"].some((field) => request.payload?.[field] !== undefined)) {
       problems.push("update requires pri, summary, detail, or source");
     }
+    if (
+      request.payload?.baseRowFingerprint !== undefined &&
+      !isValidIssueRowFingerprint(request.payload.baseRowFingerprint)
+    )
+      problems.push("update requires a valid baseRowFingerprint");
     if (request.payload?.pri !== undefined && !["P1", "P2", "P3"].includes(String(request.payload.pri))) {
       problems.push("update pri must be P1, P2, or P3");
     }
@@ -89,6 +108,18 @@ export function applyRequest(markdown, request) {
     throw new Error("cancel requests must be applied through batch reconciliation");
   }
   const options = { date: request.createdOn };
+  if ((request.action === "done" || request.action === "update") && request.payload?.baseRowFingerprint) {
+    const id = request.payload.id;
+    const fingerprint = issueRowFingerprint(markdown, id);
+    if (!fingerprint) {
+      throw new Error(`${id} is no longer open; reread and reissue this request from the latest ledger`);
+    }
+    if (fingerprint !== String(request.payload.baseRowFingerprint).toLowerCase()) {
+      throw new Error(
+        `${id} is stale: the ledger row changed after this request was queued; reread and reissue from the latest ledger`,
+      );
+    }
+  }
   if (request.action === "add") {
     const durableId = request.payload.issueUlid ?? issueUlidFromRequest(request.createdOn, request.id);
     return addIssue(markdown, request.payload, { ...options, issueUlid: durableId });
@@ -403,6 +434,13 @@ function createRequest(action, argv) {
               detail: argValue(argv, "detail"),
               source: argValue(argv, "source"),
             };
+  if (["done", "update"].includes(action) && typeof payload.id === "string") {
+    const currentFingerprint = issueRowFingerprint(readOutstandingIssues(), payload.id);
+    if (currentFingerprint === null) {
+      throw new Error(`ledger request rejected: ${payload.id} is not in Open items`);
+    }
+    payload.baseRowFingerprint = currentFingerprint;
+  }
   const request = { version: 2, id: randomUUID(), createdOn: date(), action, payload };
   const problems = validateRequest(request);
   if (problems.length > 0) throw new Error(problems.join("; "));
@@ -557,14 +595,14 @@ function selfTest() {
     id: "22222222-2222-4222-8222-222222222222",
     createdOn: "2026-08-13",
     action: "done",
-    payload: { id: "#001", outcome: "done" },
+    payload: { id: "#001", outcome: "done", baseRowFingerprint: issueRowFingerprint(base, "#001") },
   };
   const update = {
     version: 1,
     id: "33333333-3333-4333-8333-333333333333",
     createdOn: "2026-08-13",
     action: "update",
-    payload: { id: "#001", summary: "updated" },
+    payload: { id: "#001", summary: "updated", baseRowFingerprint: issueRowFingerprint(base, "#001") },
   };
   const cancel = {
     version: 1,
@@ -581,7 +619,7 @@ function selfTest() {
     id: "55555555-5555-4555-8555-555555555555",
     createdOn: "2026-08-13",
     action: "update",
-    payload: { id: "#001", pri: "P3" },
+    payload: { id: "#001", pri: "P3", baseRowFingerprint: issueRowFingerprint(base, "#001") },
   };
   if (validateRequest(reprioritise).length > 0) {
     throw new Error("self-test failed: a pri-only update request must validate");
@@ -616,6 +654,22 @@ function selfTest() {
     throw new Error("self-test failed: queued resolve did not preserve ledger invariants");
   if (validateRequest({ ...add, payload: {} }).length === 0)
     throw new Error("self-test failed: invalid request accepted");
+
+  const staleBase = base.replace("one", "stale");
+  let staleRejected = false;
+  try {
+    applyRequest(staleBase, done);
+  } catch (error) {
+    staleRejected = /stale/.test(String(error));
+  }
+  if (!staleRejected) throw new Error("self-test failed: stale done request was not rejected");
+  let staleUpdateRejected = false;
+  try {
+    applyRequest(staleBase, update);
+  } catch (error) {
+    staleUpdateRejected = /stale/.test(String(error));
+  }
+  if (!staleUpdateRejected) throw new Error("self-test failed: stale update request was not rejected");
 
   let conflictRejected = false;
   try {
