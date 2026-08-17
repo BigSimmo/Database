@@ -1,0 +1,51 @@
+{
+  "baselineVersion": "rag-adversarial-baseline.v1",
+  "capturedAt": "2026-08-17",
+  "promptVersion": "clinical-rag-answer-v18",
+  "semanticRerankEnabled": false,
+  "reportKey": {
+    "commit_sha": "78fe906b8f30e54112d2e33d3d2d09c62c1c4beb",
+    "dataset_version": "rag-adversarial-cases.v1",
+    "eval_config_version": "rag-eval-config-v1",
+    "model_version": "answer=gpt-5.6-terra; fast=gpt-5.6-terra; strong=gpt-5.6-sol",
+    "embedding_version": "text-embedding-3-small@1536",
+    "index_version": "20260814151000_validate_therapy_favourites_content_type"
+  },
+  "gates": [
+    {
+      "id": "retrieval_golden",
+      "caseCount": 36,
+      "status": "pending_owner_run",
+      "blockedReason": "eval:retrieval:quality is provider-backed (Supabase + OpenAI) and fires only via the owner-approved eval-canary dispatch. Not run at this commit.",
+      "priorRun": "Recorded green at 2bd146eed: eval-canary post run 32025082010, document and content recall 1.0/1.0, zero per-case reciprocal-rank regressions (docs/rag-improvement/HANDOVER.md §1)."
+    },
+    {
+      "id": "answer_gate",
+      "caseCount": 44,
+      "status": "pending_owner_run",
+      "blockedReason": "The ragEvalCases answer gate runs inside the provider-backed eval-canary dispatch. Not run at this commit.",
+      "priorRun": "HANDOVER §1 records 'answer gate 45/45' for run 32025082010 at 2bd146eed. src/lib/rag/rag-eval-cases.ts defines 44 ragEvalCases both at 2bd146eed and at this commit, so the recorded denominator is unreconciled — reconcile it against run 32025082010's report before treating either number as the baseline."
+    },
+    {
+      "id": "answer_quality",
+      "caseCount": 30,
+      "status": "pending_owner_run",
+      "blockedReason": "npm run eval:answer-quality over answerQualityEvalCases is a provider-backed OpenAI/Supabase evaluation requiring explicit owner approval per run.",
+      "priorRun": "No before/after comparison has been recorded for this commit; the set is the Gate E fixed question base named by docs/rag-improvement/README.md §A2."
+    },
+    {
+      "id": "offline_contract",
+      "caseCount": 24,
+      "status": "recorded",
+      "result": "24 offline contract suites, 597 tests passed; golden fixture validation 36 cases / 24 suites.",
+      "evidence": "npm run eval:rag:offline on this branch over 78fe906b8f30e54112d2e33d3d2d09c62c1c4beb, 2026-08-17: 'Test Files 24 passed (24) / Tests 597 passed (597)'. The 24th suite is tests/rag-adversarial-fixtures.test.ts, added by this packet; the same command reported 23 suites / 583 tests before it."
+    },
+    {
+      "id": "adversarial_fixtures",
+      "caseCount": 24,
+      "status": "recorded",
+      "result": "24 synthetic cases across 8 categories, 6 registered canaries, report canary-free.",
+      "evidence": "npm run check:rag:adversarial-fixtures at 78fe906b8f30e54112d2e33d3d2d09c62c1c4beb, 2026-08-17."
+    }
+  ]
+}
