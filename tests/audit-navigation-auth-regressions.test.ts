@@ -270,7 +270,7 @@ describe("audit navigation and auth regressions", () => {
       { label: "upload desktop layout hook" },
     );
     expect(useUploadDesktopLayoutBody).toMatch(
-      /return\s+useSyncExternalStore\(\s*subscribeToUploadDesktopLayout,\s*getUploadDesktopLayoutSnapshot,\s*\(\)\s*=>\s*false\s*,?\s*\)\s*;?$/,
+      /return\s+useSyncExternalStore\(\s*subscribeToUploadDesktopLayout,\s*getUploadDesktopLayoutSnapshot,\s*\(\)\s*=>\s*false\s*,?\s*\)\s*;?\s*$/,
     );
     // The source contract prevents the old effect/setState viewport pattern from returning.
     expect(uploadDesktopHookSource).not.toContain("useEffect");

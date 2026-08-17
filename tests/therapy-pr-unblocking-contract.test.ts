@@ -25,6 +25,6 @@ describe("Therapy PR unblocking contracts", () => {
   it("canonicalises hidden shared-home modes instead of retaining impossible URL state", () => {
     const source = read("src/app/(search-app)/page.tsx");
     expect(source).toContain('canonicalParams.set("mode", "answer")');
-    expect(source).toContain('redirect(`/?${canonicalParams.toString()}`)');
+    expect(source).toContain("redirect(`/?${canonicalParams.toString()}`)");
   });
 });
