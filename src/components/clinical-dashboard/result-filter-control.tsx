@@ -958,12 +958,13 @@ export function ResultFilterSheet({
             >
               <span
                 aria-hidden
-                className="block h-full rounded-full bg-[color:var(--clinical-accent)] transition-[width] motion-reduce:transition-none"
+                className="block h-full w-full origin-left rounded-full bg-[color:var(--clinical-accent)] transition-transform motion-reduce:transition-none"
                 style={{
-                  width:
+                  transform: `scaleX(${
                     coverage.totalCount > 0
-                      ? `${Math.min(100, Math.max(0, (coverage.visibleCount / coverage.totalCount) * 100))}%`
-                      : "0%",
+                      ? Math.min(100, Math.max(0, (coverage.visibleCount / coverage.totalCount) * 100)) / 100
+                      : 0
+                  })`,
                 }}
               />
             </div>

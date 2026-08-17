@@ -1448,7 +1448,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                   aria-pressed={viewMode === "recent"}
                   onClick={() => setViewMode((current) => (current === "recent" ? "all" : "recent"))}
                   className={cn(
-                    "search-band-ghost inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold",
+                    "search-band-ghost inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold sm:min-h-10",
                     viewMode === "recent"
                       ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                       : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
