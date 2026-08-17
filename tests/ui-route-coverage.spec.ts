@@ -3,11 +3,7 @@ import type { Route } from "playwright-core";
 import { expect, test, type Page } from "playwright/test";
 
 import { demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
-import {
-  differentialDiagnosesCards,
-  getDifferentialDetailContext,
-  getDifferentialRecord,
-} from "../src/lib/differentials";
+import { getDifferentialDetailContext, getDifferentialRecord } from "../src/lib/differentials";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { visibleByTestId } from "./playwright-settlement";
 
@@ -502,8 +498,6 @@ test.describe("previously uncovered production routes", () => {
         browserName === "webkit" && text === 'Viewport argument key "interactive-widget" not recognized and ignored.';
       if (message.type() === "error" && !isWebKitViewportDiagnostic) consoleErrors.push(text);
     });
-    const action =
-      differentialDiagnosesCards.find((card) => !card.href.endsWith("/delirium")) ?? differentialDiagnosesCards[0];
     await proveRenderedRoute(
       page,
       "/differentials/diagnoses?q=delirium",
@@ -546,31 +540,37 @@ test.describe("previously uncovered production routes", () => {
 
         const filterPanel = visibleByTestId(currentPage, "differentials-stream-filter-panel");
         await expect(filterPanel).toBeVisible();
-        const allEntries = filterPanel.getByRole("radio", { name: "All entries" });
+        const familyView = filterPanel.getByRole("radiogroup", { name: "Family view" });
+        const allEntries = familyView.getByRole("radio", { name: "All entries", exact: true });
         await allEntries.focus();
         await currentPage.keyboard.press("ArrowRight");
-        await expect(filterPanel.getByRole("radio", { name: /Focused family/ })).toHaveAttribute(
-          "aria-checked",
-          "true",
-        );
-        await filterPanel.getByRole("button", { name: "Done" }).click();
+        await expect(familyView.getByRole("radio", { name: /Focused family/ })).toHaveAttribute("aria-checked", "true");
+        await filterPanel.getByTestId("differentials-stream-filter-panel-done").click();
         await expect(filterTrigger).toBeFocused();
 
-        const removeFamily = currentPage.getByRole("button", { name: /Remove .+ family filter/ });
+        const removeFamily = currentPage.getByRole("button", { name: /Remove Family: .+ filter/ });
         await expect(removeFamily).toBeVisible();
         await removeFamily.click();
         await expect(removeFamily).toHaveCount(0);
 
-        const entry = currentPage.locator(`a[href="${action.href}"]`).first();
+        const entry = currentPage.locator('main a[href^="/differentials/diagnoses/"]:visible').first();
         await expect(entry).toBeVisible();
-        await Promise.all([currentPage.waitForURL(new RegExp(`${action.href}$`), { timeout: 30_000 }), entry.click()]);
+        const entryHref = await entry.getAttribute("href");
+        expect(entryHref).toMatch(/^\/differentials\/diagnoses\/[a-z0-9-]+$/);
+        await Promise.all([
+          currentPage.waitForURL((url) => url.pathname === entryHref, { timeout: 30_000 }),
+          entry.click(),
+        ]);
       },
     );
 
     await gotoApp(page, "/differentials/presentations");
     await page.setViewportSize({ width: 1280, height: 900 });
     await expect(page.getByRole("heading", { name: "Presentation pathways", level: 2 })).toBeVisible();
-    await expect(page.getByRole("group", { name: "Presentation priority" })).toBeVisible();
+    const presentationBrowseTrigger = visibleByTestId(page, "differentials-stream-filter-trigger-desktop");
+    await presentationBrowseTrigger.click();
+    await expect(page.getByRole("radiogroup", { name: "Clinical urgency" })).toBeVisible();
+    await page.getByTestId("differentials-stream-filter-panel-done").click();
     await expect(page.getByText("High-priority presentation pathways")).toBeVisible();
     await expect(page.getByRole("link", { name: /Open pathway/ }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Show family" })).toHaveCount(0);
@@ -600,9 +600,9 @@ test.describe("previously uncovered production routes", () => {
       "aria-checked",
       "true",
     );
-    await presentationFilterPanel.getByRole("button", { name: "Done" }).click();
+    await presentationFilterPanel.getByTestId("differentials-stream-filter-panel-done").click();
     await expect(presentationFilterTrigger).toBeFocused();
-    await expect(page.getByRole("button", { name: "Remove Emergent priority filter" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Remove Priority: Emergent filter" })).toBeVisible();
     const visiblePresentationCards = page.locator('[data-testid^="differential-stream-card-"]:visible');
     await expect(visiblePresentationCards.first()).toHaveAttribute("data-status", "emergent");
     await expect.poll(async () => visiblePresentationCards.count()).toBeGreaterThan(0);
