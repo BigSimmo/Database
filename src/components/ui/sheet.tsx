@@ -62,6 +62,13 @@ type SheetBaseProps = {
   contentStyle?: CSSProperties;
   bodyClassName?: string;
   bodyRef?: RefObject<HTMLDivElement | null>;
+  /**
+   * Makes the scrollable body reachable by keyboard when its content may not
+   * always include a focusable descendant (WCAG 2.1.1 / axe
+   * scrollable-region-focusable). Omit for bodies that always contain
+   * interactive content.
+   */
+  bodyTabIndex?: number;
   onBodyScroll?: UIEventHandler<HTMLDivElement>;
   footerClassName?: string;
   placement?: "default" | "left";
@@ -121,6 +128,7 @@ export function Sheet({
   contentStyle,
   bodyClassName,
   bodyRef,
+  bodyTabIndex,
   onBodyScroll,
   footerClassName,
   placement = "default",
@@ -526,6 +534,7 @@ export function Sheet({
         <div
           ref={bodyRef}
           onScroll={onBodyScroll}
+          tabIndex={bodyTabIndex}
           className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto p-4 polished-scroll sm:p-5", bodyClassName)}
         >
           {children}

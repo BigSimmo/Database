@@ -883,6 +883,7 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
       contentClassName="relative font-sans sm:max-w-none lg:h-[min(56rem,calc(100dvh-3rem))] lg:max-w-[min(94vw,90rem)]"
       bodyClassName="p-0 sm:p-0"
       bodyRef={scrollBodyRef}
+      bodyTabIndex={0}
       onBodyScroll={handleBodyScroll}
       headerRef={headerRef}
       headerHidden={chromeHidden}

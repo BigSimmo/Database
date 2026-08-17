@@ -56,6 +56,10 @@ describe("Clinical KB Guide Centre", () => {
     expect(within(dialog).getByLabelText("Neutral illustrative answer")).toHaveTextContent(
       "place its citation beside the words it supports",
     );
+    // Mount schedules an rAF-deferred hide-state reset (use-hide-on-scroll's
+    // resetKey effect); flush it before the first scroll so it cannot fire
+    // after and revert the scroll-triggered hide mid-assertion.
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
 
     const scrollBody = dialog.querySelector<HTMLElement>(".polished-scroll");
     const footer = dialog.querySelector<HTMLElement>("[data-guide-mobile-footer]");
