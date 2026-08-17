@@ -120,11 +120,6 @@ export function RecommendScreen() {
                   <span className="text-2xs font-semibold text-[color:var(--success-text)] bg-[color:var(--success-bg)] border border-[color:var(--success-border)] py-0.5 px-[9px] rounded-sm">
                     Strong match
                   </span>
-                  {top.modality ? (
-                    <span className="text-2xs font-semibold text-[color:var(--info-text)] bg-[color:var(--info-bg)] border border-[color:var(--info-border)] py-0.5 px-[9px] rounded-sm">
-                      {top.modality}
-                    </span>
-                  ) : null}
                 </div>
                 <p className="m-0 text-sm-minus leading-normal text-[color:var(--text-muted)]">
                   {summarise(top.clinicalSummary, 2) || top.bestUsedFor}
