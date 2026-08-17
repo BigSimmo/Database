@@ -120,9 +120,7 @@ describe("force-push detection", () => {
     const localSha = git("rev-parse", "HEAD");
 
     expect(isForcePushRange({ localSha, remoteSha, remoteRef: "refs/heads/feature" }, root)).toBe(false);
-    expect(
-      forcePushedBranchNames([{ localSha, remoteSha, remoteRef: "refs/heads/feature" }], root),
-    ).toEqual(new Set());
+    expect(forcePushedBranchNames([{ localSha, remoteSha, remoteRef: "refs/heads/feature" }], root)).toEqual(new Set());
   });
 
   it("flags a push that abandons the remote tip (history rewrite)", () => {
@@ -139,9 +137,9 @@ describe("force-push detection", () => {
     const localSha = git("rev-parse", "HEAD");
 
     expect(isForcePushRange({ localSha, remoteSha, remoteRef: "refs/heads/feature" }, root)).toBe(true);
-    expect(
-      forcePushedBranchNames([{ localSha, remoteSha, remoteRef: "refs/heads/feature" }], root),
-    ).toEqual(new Set(["feature"]));
+    expect(forcePushedBranchNames([{ localSha, remoteSha, remoteRef: "refs/heads/feature" }], root)).toEqual(
+      new Set(["feature"]),
+    );
   });
 
   it("never flags a brand-new branch (zero remote sha) as a force-push", () => {
