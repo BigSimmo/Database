@@ -53,6 +53,13 @@ vi.mock("@/components/therapy-compass/bindings", () => ({
   }),
 }));
 
+// Cross-mode results have their own auth/network contracts. These tests own
+// only Therapy's facet state and result filtering, so keep that sibling surface
+// outside this focused harness.
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
+
 import { SearchScreen } from "@/components/therapy-compass/screens/search-screen";
 
 describe("therapy-compass search filter contract adoption", () => {

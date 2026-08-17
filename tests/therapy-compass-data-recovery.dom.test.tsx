@@ -66,9 +66,9 @@ describe("Therapy Compass required data recovery", () => {
     expect(screen.getAllByRole("main")).toHaveLength(1);
     await waitFor(() => expect(fetchMock).not.toHaveBeenCalled());
 
-    expect(screen.getByRole("link", { name: /Create a patient sheet/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Compare therapies/i })).toHaveAttribute(
       "href",
-      `/therapy-compass/${THERAPY_CATALOGUE_SUMMARY.defaultSheetSlug}/sheet`,
+      "/therapy-compass/compare",
     );
   });
 
