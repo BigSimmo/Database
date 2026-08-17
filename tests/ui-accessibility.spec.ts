@@ -669,19 +669,19 @@ test.describe("Clinical KB accessibility coverage", () => {
       waitUntil: "domcontentloaded",
     });
     await expect(page.getByRole("heading", { name: "Brief Intervention" })).toBeVisible({ timeout: 60_000 });
-    const durationGroup = page.getByRole("group", { name: "Brief intervention duration" });
-    const fiveMinuteButton = durationGroup.getByRole("button", { name: "5 minutes", exact: true });
-    const fifteenMinuteButton = durationGroup.getByRole("button", { name: "15 minutes", exact: true });
-    await expect(fiveMinuteButton).toHaveAttribute("aria-pressed", "true");
-    await fifteenMinuteButton.click();
-    await expect(fiveMinuteButton).toHaveAttribute("aria-pressed", "false");
-    await expect(fifteenMinuteButton).toHaveAttribute("aria-pressed", "true");
+    const durationTabs = page.getByRole("tablist", { name: "Brief intervention duration" });
+    const fiveMinuteTab = durationTabs.getByRole("tab", { name: "5 minutes", exact: true });
+    const fifteenMinuteTab = durationTabs.getByRole("tab", { name: "15 minutes", exact: true });
+    await expect(fiveMinuteTab).toHaveAttribute("aria-selected", "true");
+    await fifteenMinuteTab.click();
+    await expect(fiveMinuteTab).toHaveAttribute("aria-selected", "false");
+    await expect(fifteenMinuteTab).toHaveAttribute("aria-selected", "true");
 
     await page.goto("/therapy-compass/cognitive-behavioural-therapy-cbt/sheet", {
       waitUntil: "domcontentloaded",
     });
     await expect(page.getByRole("heading", { name: "Patient Sheet Builder" })).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByRole("button", { name: "Plain", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("radio", { name: "Plain", exact: true })).toBeChecked();
 
     const clinicianSwitch = page.getByRole("switch", { name: "Show clinician footer" });
     const clinicianSwitchSize = await clinicianSwitch.evaluate((element) => {

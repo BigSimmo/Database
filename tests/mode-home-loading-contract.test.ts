@@ -85,12 +85,12 @@ describe("mode-home loading contract", () => {
 
   it("loads the Therapy workspace only for rich child routes, not the lightweight home", () => {
     const source = readFileSync(
-      join(process.cwd(), "src/components/clinical-dashboard/shared-search-app-shell.tsx"),
+      join(process.cwd(), "src/components/therapy-compass/therapy-compass-route-layout.tsx"),
       "utf8",
     );
-    expect(source).toMatch(/dynamic\([\s\S]*?import\("@\/components\/therapy-compass\/workspace"\)/);
+    expect(source).toMatch(/dynamic\([\s\S]*?import\("\.\/workspace"\)/);
     expect(source).not.toMatch(/^import \{ TherapyCompassWorkspace \}/m);
-    expect(source).toContain('pathname.startsWith("/therapy-compass/")');
+    expect(source).toContain("pathname === THERAPY_HOME");
   });
 
   it("keeps mode-home route loading top-aligned on phones", () => {

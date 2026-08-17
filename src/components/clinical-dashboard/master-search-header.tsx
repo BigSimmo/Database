@@ -375,6 +375,7 @@ export function MasterSearchHeader({
     selectedSearch.kind === "documents" ||
     selectedSearch.kind === "forms" ||
     selectedSearch.kind === "services" ||
+    selectedSearch.kind === "therapies" ||
     selectedSearch.kind === "tools" ||
     selectedSearch.kind === "calculators" ||
     selectedSearch.kind === "favourites" ||
