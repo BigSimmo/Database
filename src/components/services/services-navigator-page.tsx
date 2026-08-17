@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useCallback, useDeferredValue, useId, useMemo, useRef, useState } from "react";
 
+import { cardSelected, cardSurface } from "@/components/card-recipes";
 import { useAccountData } from "@/components/account-data-provider";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
@@ -118,10 +119,19 @@ function ServiceCard({
     <article
       data-testid={`service-search-result-${service.slug}`}
       className={cn(
-        "rounded-xl border bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4",
-        selected || showBestFit
-          ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent-border)]/35"
-          : "border-[color:var(--border)]",
+        cardSurface,
+        "p-3 sm:p-4",
+        // One selected encoding, shared with every other card. The old
+        // `ring-1 …/35` was a fourth way of saying "this one" and put an alpha
+        // on a token colour, so what it actually contrasted against depended on
+        // whatever surface sat behind it in each theme.
+        //
+        // The leading tile stays a RANK, not a category glyph: this is a ranked
+        // referral list, the number is what the "Best fit" pill refers to, and
+        // it doubles as the shortlist checkmark. Services also has no single
+        // category axis — records carry facets — so there is nothing honest to
+        // put there instead.
+        (selected || showBestFit) && cardSelected,
       )}
     >
       <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-start gap-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto]">

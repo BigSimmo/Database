@@ -1,16 +1,13 @@
 import Link from "next/link";
 import { ArrowRight, BookOpenText, Clock } from "lucide-react";
 
-import {
-  categoryCount,
-  categoryTheme,
-  factsheetCategories,
-  featuredFactsheets,
-} from "@/components/factsheets/factsheets-data";
+import { categoryCount, factsheetCategories, featuredFactsheets } from "@/components/factsheets/factsheets-data";
+import { cardAccentEdge, cardInteractive, focusRing } from "@/components/card-recipes";
 import { factsheetCategoryGlyph, factsheetGlyph } from "@/components/factsheets/factsheets-icons";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, eyebrowText } from "@/components/ui-primitives";
+import { FACTSHEET_CATEGORY_IDENTITY } from "@/lib/category-identity";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 
 export function FactsheetsHomePage() {
@@ -39,18 +36,18 @@ export function FactsheetsHomePage() {
           <p className={cn(eyebrowText, "text-center sm:text-left")}>Browse by topic</p>
           <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
             {factsheetCategories.map((category) => {
-              const theme = categoryTheme(category);
               return (
                 <Link
                   key={category}
                   href={`/factsheets/search?category=${encodeURIComponent(category)}`}
-                  className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  data-category-accent={FACTSHEET_CATEGORY_IDENTITY[category].accent}
+                  className={cn(
+                    "inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--e1)] transition hover:border-[color:var(--cat-border)] hover:bg-[color:var(--surface-subtle)] motion-reduce:transition-none forced-colors:border",
+                    focusRing,
+                  )}
                 >
-                  <span
-                    className="grid h-5 w-5 shrink-0 place-items-center rounded-full"
-                    style={{ backgroundColor: theme.soft, color: theme.accent }}
-                  >
-                    {factsheetCategoryGlyph(category, "h-3.5 w-3.5")}
+                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[color:var(--cat-soft)] text-[color:var(--cat-accent)]">
+                    {factsheetCategoryGlyph(category, "size-icon-sm")}
                   </span>
                   {category}
                   <span className="text-2xs font-bold tabular-nums text-[color:var(--text-muted)]">
@@ -89,30 +86,27 @@ export function FactsheetsHomePage() {
 
           <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             {featured.map((sheet) => {
-              const theme = categoryTheme(sheet.category);
               return (
                 <Link
                   key={sheet.slug}
                   href={`/factsheets/${sheet.slug}`}
                   data-testid="factsheets-featured-card"
-                  className="group flex flex-col rounded-xl border border-[color:var(--border)] border-t-[3px] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-card)] transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  style={{ borderTopColor: theme.accent }}
+                  // Accent arrives through the shared attribute rather than three
+                  // inline `style` objects. An inline value cannot be remapped by
+                  // the dark or forced-colors blocks, so the old card carried its
+                  // light-mode tint into high contrast.
+                  data-category-accent={FACTSHEET_CATEGORY_IDENTITY[sheet.category].accent}
+                  className={cn(cardInteractive, cardAccentEdge, "flex flex-col p-4")}
                 >
                   <div className="flex items-center justify-between">
-                    <span
-                      className="grid h-10 w-10 place-items-center rounded-lg"
-                      style={{ backgroundColor: theme.soft, color: theme.accent }}
-                    >
-                      {factsheetGlyph(sheet.icon, "h-5 w-5")}
+                    <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] text-[color:var(--cat-accent)] forced-colors:border">
+                      {factsheetGlyph(sheet.icon, "size-icon-lg")}
                     </span>
-                    <span
-                      className="rounded-md px-2 py-1 text-2xs font-bold"
-                      style={{ backgroundColor: theme.soft, color: theme.accent }}
-                    >
+                    <span className="rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] px-2 py-1 text-2xs font-bold text-[color:var(--cat-accent)] forced-colors:border">
                       {sheet.category}
                     </span>
                   </div>
-                  <h3 className="mt-4 text-base font-bold leading-5 text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]">
+                  <h3 className="mt-4 text-lg font-semibold leading-6 text-[color:var(--text-heading)] transition group-hover:text-[color:var(--cat-accent)] motion-reduce:transition-none">
                     {sheet.title}
                     {sheet.brand ? (
                       <span className="font-medium text-[color:var(--text-muted)]"> {sheet.brand}</span>

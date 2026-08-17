@@ -209,6 +209,28 @@ export type CategoryIdentity = {
 };
 
 /**
+ * Calculator domains.
+ *
+ * Accent only — the glyphs stay in `calculator-fixtures.ts`, which already keys
+ * them by domain and is the one axis whose icon map never forked.
+ *
+ * `risk` (suicide risk) deliberately takes an identity accent rather than
+ * `--danger`. The domain label already says "Suicide risk", and an instrument is
+ * not itself a warning; a red tile on a directory row would claim urgency about
+ * a tool rather than about a patient. Danger stays available for what an
+ * instrument actually scores.
+ */
+export type CalculatorDomainKey = "mood" | "anxiety" | "substance" | "risk" | "distress";
+
+export const CALCULATOR_DOMAIN_ACCENT: Record<CalculatorDomainKey, CategoryAccent> = {
+  mood: "indigo",
+  anxiety: "purple",
+  substance: "form",
+  risk: "rose",
+  distress: "service",
+};
+
+/**
  * The CSS custom properties a category accent resolves to.
  *
  * Prefer `data-category-accent` on the element and plain `var(--cat-accent)` in
