@@ -4719,7 +4719,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     const clinicalSummary = page.getByTestId("document-clinical-summary");
     await expect(clinicalSummary).toBeVisible();
-    await expect(clinicalSummary.getByRole("heading", { name: "High-yield clinical summary" })).toBeVisible();
+    await expect(clinicalSummary.getByRole("heading", { name: "Clinical priorities" })).toBeVisible();
     const clinicalPriorities = clinicalSummary.getByRole("button", { name: /Clinical priorities/ });
     await expect(clinicalPriorities).toHaveAttribute("aria-expanded", "false");
     const densityToggle = page.getByTestId("document-section-index").getByTestId("document-view-density-toggle");
