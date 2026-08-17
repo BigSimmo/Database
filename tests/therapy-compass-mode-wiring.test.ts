@@ -240,7 +240,7 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(routeSrc).toMatch(/searchParams/);
     expect(routeSrc).toMatch(/redirect\(`\/therapy-compass\/search/);
     // ...and the provider derives the active screen from the pathname and seeds the query from ?q.
-    expect(bindingsSrc).toMatch(/resolveRoute\(pathname\)/);
+    expect(bindingsSrc).toMatch(/resolveTherapyRoute\(pathname\)/);
     expect(bindingsSrc).toMatch(/searchParams\.get\("q"\)/);
   });
 
@@ -291,8 +291,9 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(searchScreenSrc).toContain("onClearFilters={b.clearSearchFilters}");
     expect(searchScreenSrc).not.toContain("onClearFilters={b.clearSearch}");
     // The binding must preserve the query rather than reset the whole shape.
+    expect(bindingsSrc).toContain("setSearch((prev) => ({ ...EMPTY_SEARCH, query: prev.query }));");
     expect(bindingsSrc).toContain(
-      "clearSearchFilters: () => setSearch((prev) => ({ ...EMPTY_SEARCH, query: prev.query }))",
+      "replaceWorkspace({ topics: [], briefOnly: false, sheetOnly: false, reviewedOnly: false });",
     );
     // Filter-contract adoption (docs/filter-contract.md section 6): the phone
     // sheet converged onto the shared `ResultFilterSheet`, whose `onClearAll`

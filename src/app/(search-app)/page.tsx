@@ -35,8 +35,17 @@ export default async function Home({ searchParams }: HomeProps) {
   await connection();
   const params = searchParams ? await searchParams : {};
   const requestedMode = firstSearchParam(params.mode);
-  const initialSearchMode: AppModeId =
-    isAppModeId(requestedMode) && isAppModeVisible(requestedMode) ? requestedMode : "answer";
+  let initialSearchMode: AppModeId = "answer";
+  if (isAppModeId(requestedMode) && isAppModeVisible(requestedMode)) {
+    initialSearchMode = requestedMode;
+  } else if (requestedMode) {
+    // Hidden or malformed mode links must not leave an impossible mode in the
+    // browser URL. Canonicalising to Answer also lets same-path navigations clear
+    // submitted search state rather than retaining results under a rejected mode.
+    const canonicalParams = searchParamsFromRecord(params);
+    canonicalParams.set("mode", "answer");
+    redirect(`/?${canonicalParams.toString()}`);
+  }
 
   // `/` is the single home page for every mode: the mode pill retargets the
   // composer rather than navigating, so a bare `/?mode=<id>` must RENDER home

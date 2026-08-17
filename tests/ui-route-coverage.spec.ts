@@ -134,6 +134,23 @@ async function installOfflineApiFixtures(page: Page, problems: string[]) {
       await route.fulfill({ json: { records: [], total: 0, governance: {}, demoMode: true } });
       return;
     }
+    if (pathname === "/api/search/universal") {
+      const query = url.searchParams.get("q") ?? "";
+      const response = {
+        query,
+        tookMs: 0,
+        demoMode: true,
+        contextMode: url.searchParams.get("mode") ?? "therapy-compass",
+        preferredDomains: ["therapies"],
+        domainOrder: [],
+        groups: [],
+      };
+      await route.fulfill({
+        body: `${JSON.stringify({ type: "complete", response })}\n`,
+        contentType: "application/x-ndjson; charset=utf-8",
+      });
+      return;
+    }
     const differentialMatch = pathname.match(/^\/api\/differentials\/([^/]+)$/);
     if (differentialMatch) {
       const record = getDifferentialRecord(decodeURIComponent(differentialMatch[1]));
@@ -354,7 +371,10 @@ test.describe("previously uncovered production routes", () => {
 
     await compare.focus();
     await page.keyboard.press("Space");
-    await expect(page).toHaveURL(/\/therapy-compass\/compare$/);
+    await expect(page).toHaveURL(/\/therapy-compass\/compare(?:\?.*)?$/);
+    const comparisonUrl = new URL(page.url());
+    expect(comparisonUrl.searchParams.get("q")).toBe("CBT");
+    expect(comparisonUrl.searchParams.get("ids")).toBeTruthy();
     await expect(page.getByRole("heading", { name: "Therapy Comparison", level: 1 })).toBeVisible();
   });
 

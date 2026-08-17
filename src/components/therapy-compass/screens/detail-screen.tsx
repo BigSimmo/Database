@@ -2,8 +2,10 @@
 
 import type { ReactNode } from "react";
 
-import { ContextualBackLink } from "@/components/contextual-back-link";
-import { pageContainer } from "@/components/ui-primitives";
+import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
+import { SourceDesignationBadge, SourceStatusBadge } from "@/components/ui-primitives";
+import { therapyScreenHref } from "@/lib/therapy-compass-navigation";
+import { therapySourceMetadata } from "@/lib/therapy-source-governance";
 
 import { useTcBindings } from "../bindings";
 import { card, heroCard, outlineControl, therapyBtn } from "../controls";
@@ -11,7 +13,6 @@ import { complexityLabel, parseSteps, summarise } from "../data/select";
 import type { Therapy } from "../data/types";
 import {
   AlertIcon,
-  ArrowLeftIcon,
   ChecklistIcon,
   ChevronRightIcon,
   ClockIcon,
@@ -20,246 +21,288 @@ import {
   DatabaseIcon,
   FileTextIcon,
   InfoIcon,
+  HeartIcon,
   PersonIcon,
   ScaleIcon,
   ShieldIcon,
 } from "../icons";
+import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
 import { Eyebrow, LoadingState, StatusBadge, TagRow } from "../ui";
+import { useTherapyFavourite } from "../use-therapy-favourite";
 
 export function DetailScreen() {
   const b = useTcBindings();
   const t = b.selectedTherapy;
+  const favourite = useTherapyFavourite(t?.slug ?? null);
   if (!t) return <LoadingState />;
 
   const steps = parseSteps(t.deliverySteps);
+  const { notice, saved, toggleFavourite } = favourite;
 
   return (
-    <section data-screen-label="Detail" className={pageContainer}>
-      <ContextualBackLink
-        fallbackHref="/therapy-compass/search"
-        className={`${therapyBtn} flex min-h-12 items-center gap-2 mb-4 py-1.5 px-1 border-0 bg-transparent text-[color:var(--clinical-accent)] text-sm font-semibold cursor-pointer`}
-      >
-        <ArrowLeftIcon size={18} />
-        Back to results
-      </ContextualBackLink>
-
-      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,_1fr)_344px] gap-[22px] items-start">
-        <div className="flex flex-col gap-4 min-w-0">
-          {/* HERO */}
-          <div className={`${heroCard} p-6`}>
-            <div className="flex gap-2.5 mb-3.5 flex-wrap">
-              <StatusBadge status={t.reviewStatus} />
-              {t.complexity ? (
-                <span className="text-xs font-semibold py-[5px] px-[11px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] border border-[color:var(--border)]">
-                  {complexityLabel(t.complexity)}
-                </span>
-              ) : null}
-              {t.modality ? (
-                <span className="text-xs font-semibold py-[5px] px-[11px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] border border-[color:var(--border)]">
-                  {t.modality}
-                </span>
-              ) : null}
-            </div>
-            <h1 className="mt-0 mx-0 mb-1 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
-              {t.name}
-            </h1>
-            {t.aliases.length ? (
-              <div className="text-sm-minus text-[color:var(--text-muted)] mb-3">
-                Also known as {t.aliases.join(", ")}
-              </div>
-            ) : (
-              <div className="text-sm-minus text-[color:var(--text-muted)] mb-3">{t.category}</div>
-            )}
-            {t.clinicalSummary ? (
-              <p className="mt-0 mx-0 mb-4 text-base-minus leading-normal text-[color:var(--text-muted)] max-w-[64ch]">
-                {t.clinicalSummary}
-              </p>
-            ) : null}
-            <TagRow tags={t.tags.length ? t.tags : [t.category]} max={8} />
-          </div>
-
-          {/* QUICK TILES */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <Tile
-              icon={ShieldIcon}
-              eyebrow="USE WHEN"
-              tone="accent"
-              text={summarise(t.bestUsedFor || t.indications, 1) || "See clinical record."}
-            />
-            <Tile
-              icon={AlertIcon}
-              eyebrow="AVOID / MODIFY"
-              tone="warning"
-              text={summarise(t.contraindicationsOrCautions, 1) || "Confirm suitability against source before use."}
-            />
-            <Tile
-              icon={ClockIcon}
-              eyebrow="DELIVERY"
-              tone="info"
-              text={
-                [t.timeRequired, t.sessionLength].filter(Boolean).join(" · ") ||
-                (t.briefInterventionAvailable ? "Brief version available." : "See delivery notes.")
-              }
-            />
-            <Tile
-              icon={InfoIcon}
-              eyebrow="EVIDENCE / SOURCE"
-              tone="muted"
-              text={t.evidenceLevel || (t.reviewStatus === "reviewed" ? "Reviewed record." : "Source review required.")}
-            />
-          </div>
-
-          {/* BODY */}
-          <div className={`${card} px-6 py-1.5`}>
-            {t.mechanism ? <BodyRow icon={CrosshairIcon} title="How it works" body={t.mechanism} /> : null}
-            <BodyRow icon={PersonIcon} title="When to use" body={t.indications || t.bestUsedFor} />
-            {steps.length ? (
-              <BodyRow
-                icon={FileTextIcon}
-                title="How to deliver it"
-                body={
-                  <ol className="mt-1.5 mx-0 mb-0 pl-5">
-                    {steps.map((step, i) => (
-                      <li key={i} className="text-sm-minus leading-normal text-[color:var(--text-muted)] mb-1.5">
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
-                }
-              />
-            ) : (
-              <BodyRow icon={FileTextIcon} title="How to deliver it" body={t.deliverySteps} />
-            )}
-            <SafetyRow therapy={t} />
-          </div>
-
-          {/* ACTIONS */}
-          <div className="flex flex-wrap gap-2.5">
-            {t.patientSheetAvailable ? (
-              <button
-                type="button"
-                className={`${therapyBtn} inline-flex items-center gap-[9px] h-[46px] py-0 px-5 border-0 rounded-lg bg-[color:var(--command)] text-[color:var(--command-contrast)] text-sm font-semibold shadow-[var(--e1)] cursor-pointer`}
-                onClick={() => b.openSheet(t.slug)}
-              >
-                <FileTextIcon size={17} />
-                Generate patient sheet
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className={`${therapyBtn} ${outlineControl}`}
-              onClick={() => b.toggleCompare(t.slug)}
-              aria-pressed={b.isInCompare(t.slug)}
-            >
-              <ScaleIcon size={17} />
-              {b.isInCompare(t.slug) ? "In compare" : "Compare"}
-            </button>
-            {t.briefInterventionAvailable ? (
-              <button
-                type="button"
-                className={`${therapyBtn} ${outlineControl} px-5`}
-                onClick={() => b.openBrief(t.slug)}
-              >
-                <ClockIcon size={17} />
-                Brief intervention
-              </button>
-            ) : null}
-            <button type="button" className={`${therapyBtn} ${outlineControl} px-5`} onClick={b.goReview}>
-              <ChecklistIcon size={17} />
-              Review checklist
-            </button>
-          </div>
-        </div>
-
-        {/* RIGHT RAIL */}
-        <div className="max-sm:static max-sm:top-auto flex flex-col gap-4 sticky top-[84px]">
-          <div className={`${card} p-5`}>
-            <div className="text-sm font-semibold text-[color:var(--text-heading)] mb-3.5">At a glance</div>
-            <div className="flex flex-col gap-[15px]">
-              <GlanceRow icon={CompassIcon} title="Target symptoms" body={t.targetSymptoms || t.patientPopulation} />
-              <GlanceRow
-                icon={ClockIcon}
-                title="Time & setting"
-                body={[t.timeRequired, t.setting].filter(Boolean).join(" · ")}
-              />
-              <GlanceRow
-                icon={ScaleIcon}
-                title="Complexity / population"
-                body={[t.complexity, t.patientPopulation].filter(Boolean).join(" — ")}
-              />
-            </div>
-          </div>
-
-          {b.relatedForSelected.length ? (
-            <div className={`${card} p-5`}>
-              <div className="text-sm font-semibold text-[color:var(--text-heading)] mb-2">Related therapies</div>
-              <div className="flex flex-col">
-                {b.relatedForSelected.map((r, i, arr) => (
-                  <button
-                    key={r.slug}
-                    type="button"
-                    className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center justify-between gap-2 border-0 bg-transparent px-0 py-[11px] text-left${i < arr.length - 1 ? " border-b border-[color:var(--border)]" : ""}`}
-                    onClick={() => b.open(r.slug)}
-                  >
-                    <span className="min-w-0">
-                      <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">
-                        {r.name}
-                      </span>
-                      <span className="block text-xs text-[color:var(--text-muted)] mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
-                        {r.bestUsedFor ?? r.category}
-                      </span>
+    <>
+      <TherapyRecordNavHeader
+        title={t.name}
+        backHref={b.workspaceHref(therapyScreenHref("search"))}
+        backLabel="Therapy search"
+        testIdPrefix="therapy-detail"
+      />
+      <InformationPageShell testId="therapy-detail-page" gap={false}>
+        <section data-screen-label="Detail">
+          <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,_1fr)_344px] gap-[22px] items-start">
+            <div className="flex flex-col gap-4 min-w-0">
+              {/* HERO */}
+              <div className={`${heroCard} p-6`}>
+                <div className="flex gap-2.5 mb-3.5 flex-wrap items-center">
+                  <StatusBadge status={t.reviewStatus} />
+                  {t.complexity ? (
+                    <span className="text-xs font-semibold py-[5px] px-[11px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] border border-[color:var(--border)]">
+                      {complexityLabel(t.complexity)}
                     </span>
-                    <ChevronRightIcon
-                      size={15}
-                      strokeWidth={1.8}
-                      className="text-[color:var(--decoration-soft)] flex-none"
-                    />
+                  ) : null}
+                  {t.modality ? (
+                    <span className="text-xs font-semibold py-[5px] px-[11px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] border border-[color:var(--border)]">
+                      {t.modality}
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    className={`${therapyBtn} ${outlineControl} ml-auto px-3 text-xs`}
+                    aria-pressed={saved}
+                    onClick={() => void toggleFavourite()}
+                  >
+                    <HeartIcon size={15} className={saved ? "fill-current" : undefined} />
+                    {saved ? "Saved" : "Save"}
                   </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="bg-[color:var(--surface-subtle)] border border-[color:var(--border)] rounded-xl py-[18px] px-5">
-            <div className="flex items-center gap-2 text-sm-minus font-semibold text-[color:var(--text-heading)] mb-2.5">
-              <DatabaseIcon size={16} className="text-[color:var(--warning-text)]" />
-              Source provenance
-            </div>
-            <div className="text-xs text-[color:var(--text-muted)] leading-normal">
-              {t.sources.length ? (
-                t.sources.slice(0, 3).map((src, i) => (
-                  <div key={i}>
-                    Source:{" "}
-                    <strong className="text-[color:var(--text-heading)]">
-                      {src.title ?? src.sourceType ?? "Uploaded source"}
-                    </strong>
-                  </div>
-                ))
-              ) : (
-                <div>
-                  Source:{" "}
-                  <strong className="text-[color:var(--text-heading)]">
-                    {t.sourceNotes ? "Referenced record" : "Single therapy record"}
-                  </strong>
                 </div>
-              )}
-              <div>
-                Review:{" "}
-                <span
+                <p
+                  role="status"
+                  aria-live="polite"
                   className={
-                    t.reviewStatus === "reviewed"
-                      ? "font-semibold text-[color:var(--success-text)]"
-                      : "font-semibold text-[color:var(--warning-text)]"
+                    notice
+                      ? "mt-0 mb-3 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]"
+                      : "sr-only"
                   }
                 >
-                  {t.reviewStatus === "reviewed" ? "Reviewed" : "Not yet provided"}
-                </span>
+                  {notice}
+                </p>
+                <h1 className="mt-0 mx-0 mb-1 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
+                  {t.name}
+                </h1>
+                {t.aliases.length ? (
+                  <div className="text-sm-minus text-[color:var(--text-muted)] mb-3">
+                    Also known as {t.aliases.join(", ")}
+                  </div>
+                ) : (
+                  <div className="text-sm-minus text-[color:var(--text-muted)] mb-3">{t.category}</div>
+                )}
+                {t.clinicalSummary ? (
+                  <p className="mt-0 mx-0 mb-4 text-base-minus leading-normal text-[color:var(--text-muted)] max-w-[64ch]">
+                    {t.clinicalSummary}
+                  </p>
+                ) : null}
+                <TagRow tags={t.tags.length ? t.tags : [t.category]} max={8} />
+              </div>
+
+              {/* QUICK TILES */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <Tile
+                  icon={ShieldIcon}
+                  eyebrow="USE WHEN"
+                  tone="accent"
+                  text={summarise(t.bestUsedFor || t.indications, 1) || "See clinical record."}
+                />
+                <Tile
+                  icon={AlertIcon}
+                  eyebrow="AVOID / MODIFY"
+                  tone="warning"
+                  text={summarise(t.contraindicationsOrCautions, 1) || "Confirm suitability against source before use."}
+                />
+                <Tile
+                  icon={ClockIcon}
+                  eyebrow="DELIVERY"
+                  tone="info"
+                  text={
+                    [t.timeRequired, t.sessionLength].filter(Boolean).join(" · ") ||
+                    (t.briefInterventionAvailable ? "Brief version available." : "See delivery notes.")
+                  }
+                />
+                <Tile
+                  icon={InfoIcon}
+                  eyebrow="EVIDENCE / SOURCE"
+                  tone="muted"
+                  text={
+                    t.evidenceLevel || (t.reviewStatus === "reviewed" ? "Reviewed record." : "Source review required.")
+                  }
+                />
+              </div>
+
+              {/* BODY */}
+              <div className={`${card} px-6 py-1.5`}>
+                {t.mechanism ? <BodyRow icon={CrosshairIcon} title="How it works" body={t.mechanism} /> : null}
+                <BodyRow icon={PersonIcon} title="When to use" body={t.indications || t.bestUsedFor} />
+                {steps.length ? (
+                  <BodyRow
+                    icon={FileTextIcon}
+                    title="How to deliver it"
+                    body={
+                      <ol className="mt-1.5 mx-0 mb-0 pl-5">
+                        {steps.map((step, i) => (
+                          <li key={i} className="text-sm-minus leading-normal text-[color:var(--text-muted)] mb-1.5">
+                            {step}
+                          </li>
+                        ))}
+                      </ol>
+                    }
+                  />
+                ) : (
+                  <BodyRow icon={FileTextIcon} title="How to deliver it" body={t.deliverySteps} />
+                )}
+                <SafetyRow therapy={t} />
+              </div>
+
+              {/* ACTIONS */}
+              <div className="flex flex-wrap gap-2.5">
+                {t.patientSheetAvailable ? (
+                  <button
+                    type="button"
+                    className={`${therapyBtn} inline-flex items-center gap-[9px] h-[46px] py-0 px-5 border-0 rounded-lg bg-[color:var(--command)] text-[color:var(--command-contrast)] text-sm font-semibold shadow-[var(--e1)] cursor-pointer`}
+                    onClick={() => b.openSheet(t.slug)}
+                  >
+                    <FileTextIcon size={17} />
+                    Generate patient sheet
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className={`${therapyBtn} ${outlineControl}`}
+                  onClick={() => b.toggleCompare(t.slug)}
+                  aria-pressed={b.isInCompare(t.slug)}
+                >
+                  <ScaleIcon size={17} />
+                  {b.isInCompare(t.slug) ? "In compare" : "Compare"}
+                </button>
+                {t.briefInterventionAvailable ? (
+                  <button
+                    type="button"
+                    className={`${therapyBtn} ${outlineControl} px-5`}
+                    onClick={() => b.openBrief(t.slug)}
+                  >
+                    <ClockIcon size={17} />
+                    Brief intervention
+                  </button>
+                ) : null}
+                <button type="button" className={`${therapyBtn} ${outlineControl} px-5`} onClick={b.goReview}>
+                  <ChecklistIcon size={17} />
+                  Review checklist
+                </button>
+              </div>
+            </div>
+
+            {/* RIGHT RAIL */}
+            <div className="max-sm:static max-sm:top-auto flex flex-col gap-4 sticky top-[calc(var(--shell-header-h)+1rem)]">
+              <div className={`${card} p-5`}>
+                <div className="text-sm font-semibold text-[color:var(--text-heading)] mb-3.5">At a glance</div>
+                <div className="flex flex-col gap-[15px]">
+                  <GlanceRow
+                    icon={CompassIcon}
+                    title="Target symptoms"
+                    body={t.targetSymptoms || t.patientPopulation}
+                  />
+                  <GlanceRow
+                    icon={ClockIcon}
+                    title="Time & setting"
+                    body={[t.timeRequired, t.setting].filter(Boolean).join(" · ")}
+                  />
+                  <GlanceRow
+                    icon={ScaleIcon}
+                    title="Complexity / population"
+                    body={[t.complexity, t.patientPopulation].filter(Boolean).join(" — ")}
+                  />
+                </div>
+              </div>
+
+              {b.relatedForSelected.length ? (
+                <div className={`${card} p-5`}>
+                  <div className="text-sm font-semibold text-[color:var(--text-heading)] mb-2">Related therapies</div>
+                  <div className="flex flex-col">
+                    {b.relatedForSelected.map((r, i, arr) => (
+                      <button
+                        key={r.slug}
+                        type="button"
+                        className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center justify-between gap-2 border-0 bg-transparent px-0 py-[11px] text-left${i < arr.length - 1 ? " border-b border-[color:var(--border)]" : ""}`}
+                        onClick={() => b.open(r.slug)}
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">
+                            {r.name}
+                          </span>
+                          <span className="block text-xs text-[color:var(--text-muted)] mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
+                            {r.bestUsedFor ?? r.category}
+                          </span>
+                        </span>
+                        <ChevronRightIcon
+                          size={15}
+                          strokeWidth={1.8}
+                          className="text-[color:var(--decoration-soft)] flex-none"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="bg-[color:var(--surface-subtle)] border border-[color:var(--border)] rounded-xl py-[18px] px-5">
+                <div className="flex items-center gap-2 text-sm-minus font-semibold text-[color:var(--text-heading)] mb-2.5">
+                  <DatabaseIcon size={16} className="text-[color:var(--warning-text)]" />
+                  Source provenance
+                </div>
+                <div className="text-xs text-[color:var(--text-muted)] leading-normal">
+                  {t.sources.length ? (
+                    t.sources.slice(0, 3).map((src, i) => (
+                      <div key={`${src.title ?? src.reference ?? "source"}-${i}`} className="mb-3 last:mb-0">
+                        <strong className="block text-[color:var(--text-heading)]">
+                          {src.title ?? src.reference ?? src.sourceType ?? "Source title not provided"}
+                        </strong>
+                        {src.reference && src.reference !== src.title ? (
+                          <span className="mt-0.5 block break-words">{src.reference}</span>
+                        ) : null}
+                        <span className="mt-2 flex flex-wrap gap-2">
+                          <SourceDesignationBadge metadata={therapySourceMetadata(src, t.reviewStatus)} />
+                          <SourceStatusBadge metadata={therapySourceMetadata(src, t.reviewStatus)} />
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div>
+                      Source:{" "}
+                      <strong className="text-[color:var(--text-heading)]">
+                        {t.sourceNotes ? "Referenced record" : "Single therapy record"}
+                      </strong>
+                    </div>
+                  )}
+                  <div>
+                    Review:{" "}
+                    <span
+                      className={
+                        t.reviewStatus === "reviewed"
+                          ? "font-semibold text-[color:var(--success-text)]"
+                          : "font-semibold text-[color:var(--warning-text)]"
+                      }
+                    >
+                      {t.reviewStatus === "reviewed" ? "Reviewed" : "Not yet provided"}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </section>
+          <InformationPageFooter className="mt-6">
+            Decision support — verify the record and linked source before clinical use.
+          </InformationPageFooter>
+        </section>
+      </InformationPageShell>
+    </>
   );
 }
 
