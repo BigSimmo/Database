@@ -1331,7 +1331,7 @@ export function DocumentViewer({
           // content beneath its translucent toolbar instead of showing a blank
           // band — but keep a small 0.75rem resting pad (see comment above).
           composerScrollHidden
-            ? "max-sm:pb-[0.75rem]"
+            ? "max-sm:pb-3"
             : "max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))] max-sm:[--phone-focus-bottom-clearance:calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]",
         )}
       >
