@@ -124,14 +124,10 @@ export function findBranchTouchedRowIds(baseRef = "origin/main", cwd = ROOT) {
     if (!content) continue;
     const commitRows = parseLedgerRows(content);
 
-    for (const [id, row] of commitRows.entries()) {
+    for (const id of new Set([...baseRows.keys(), ...commitRows.keys()])) {
       const baseRow = baseRows.get(id);
-      if (
-        !baseRow ||
-        baseRow.description !== row.description ||
-        baseRow.title !== row.title ||
-        baseRow.section !== row.section
-      ) {
+      const commitRow = commitRows.get(id);
+      if (!baseRow || !commitRow || baseRow.raw !== commitRow.raw || baseRow.section !== commitRow.section) {
         touchedIds.add(id);
       }
     }
@@ -158,7 +154,14 @@ export function checkLedgerStampRetention(options = {}) {
   const currentRows = parseLedgerRows(currentContent);
 
   const mergeBase = tryGit(["merge-base", baseRef, "HEAD"], cwd) || tryGit(["merge-base", "main", "HEAD"], cwd);
-  const baseContent = mergeBase ? tryGit(["show", `${mergeBase}:${ISSUES_PATH}`], cwd) : undefined;
+  if (!mergeBase) {
+    return {
+      ok: false,
+      error: `Could not resolve a merge-base against "${baseRef}" or "main". Git history is unavailable, so this check cannot verify anything — it must not report a clean pass.`,
+    };
+  }
+
+  const baseContent = tryGit(["show", `${mergeBase}:${ISSUES_PATH}`], cwd);
   const baseRows = baseContent ? parseLedgerRows(baseContent) : new Map();
 
   const touchedIds = options.touchedIds ?? findBranchTouchedRowIds(baseRef, cwd);
@@ -311,6 +314,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
 
   if (options.json) {
     console.log(JSON.stringify(result, null, 2));
+  } else if (result.error) {
+    console.error(`Ledger stamp retention check could not run: ${result.error}`);
   } else if (result.ok) {
     console.log(
       `Ledger stamp retention OK: ${result.retainedCount} touched rows verified, ${result.archivedCount} archived, 0 lost.`,

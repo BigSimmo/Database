@@ -86,11 +86,20 @@ export function readExpectedBrowserRevisions(projectRoot = process.cwd()) {
   }
   /** @type {Record<string, string>} */
   const revisions = {};
+  const missing = [];
   for (const name of ["chromium", "firefox", "webkit"]) {
     const entry = (payload.browsers ?? []).find((b) => b.name === name);
     if (entry?.revision) {
       revisions[name] = String(entry.revision);
+    } else {
+      missing.push(name);
     }
+  }
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      reason: `playwright-core browsers.json has no revision for: ${missing.join(", ")}`,
+    };
   }
   return { ok: true, revisions, browsersJsonPath };
 }

@@ -231,7 +231,9 @@ describe("Supabase round-trip budget on the /api/search route", () => {
       Array.isArray(payload.results) ? payload.results.length : 0,
       "the route must actually retrieve, or the budget proves nothing",
     ).toBeGreaterThan(0);
-    expect(counter.total(), "the route must issue retrieval RPCs, or the budget proves nothing").toBeGreaterThan(0);
+    const retrievalRpcCount =
+      counter.countOf("match_document_chunks_text_v2") + counter.countOf("match_document_table_facts_text_v2");
+    expect(retrievalRpcCount, "the route must issue retrieval RPCs, or the budget proves nothing").toBeGreaterThan(0);
 
     // 16 total round trips:
     //   1  consume_api_subject_rate_limit (route rate limiting)

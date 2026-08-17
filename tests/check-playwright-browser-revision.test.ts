@@ -29,6 +29,30 @@ describe("check-playwright-browser-revision", () => {
     }
   });
 
+  it("fails closed when browsers.json is missing a required browser's revision (#312)", () => {
+    for (const missing of ["firefox", "webkit"]) {
+      const projectRoot = mkdtempSync(path.join(tmpdir(), "pw-missing-revision-"));
+      try {
+        mkdirSync(path.join(projectRoot, "node_modules", "playwright-core"), { recursive: true });
+        writeFileSync(
+          path.join(projectRoot, "node_modules", "playwright-core", "browsers.json"),
+          JSON.stringify({
+            browsers: [
+              { name: "chromium", revision: "1234" },
+              { name: "firefox", revision: "1538" },
+              { name: "webkit", revision: "2336" },
+            ].filter((entry) => entry.name !== missing),
+          }),
+        );
+
+        const expected = readExpectedBrowserRevisions(projectRoot);
+        expect(expected.ok, `${missing} revision absent must fail closed, not silently omit it`).toBe(false);
+      } finally {
+        rmSync(projectRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      }
+    }
+  });
+
   it("lists installed browser revisions across families (#312)", () => {
     const root = mkdtempSync(path.join(tmpdir(), "pw-multi-browsers-"));
     try {
