@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 const mutationSchema = z
   .object({
-    contentType: z.enum(["service", "form", "differential"]),
+    contentType: z.enum(["service", "form", "differential", "therapy"]),
     contentKey: z.string().trim().min(1).max(180),
     saved: z.boolean(),
   })

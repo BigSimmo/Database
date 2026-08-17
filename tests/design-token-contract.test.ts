@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
@@ -173,7 +173,8 @@ describe("elevation ladder", () => {
   it("keeps the retired --shadow-tight token deleted across the tracked tree", () => {
     const tracked = execFileSync("git", ["ls-files", "src"], { encoding: "utf8" })
       .split("\n")
-      .filter((file) => /\.(tsx?|css)$/.test(file));
+      .filter((file) => /\.(tsx?|css)$/.test(file))
+      .filter((file) => existsSync(new URL(`../${file}`, import.meta.url)));
 
     const survivors = tracked.flatMap((file) => {
       const source = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
@@ -381,7 +382,8 @@ describe("type scale floor", () => {
     // arrival. Mockups are NOT exempt here — a dead class breaks them too.
     const tracked = execFileSync("git", ["ls-files", "src"], { encoding: "utf8" })
       .split("\n")
-      .filter((file) => /\.(tsx?|css)$/.test(file));
+      .filter((file) => /\.(tsx?|css)$/.test(file))
+      .filter((file) => existsSync(new URL(`../${file}`, import.meta.url)));
 
     const orphans = tracked.flatMap((file) => {
       const source = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
@@ -420,6 +422,7 @@ describe("leading vocabulary", () => {
     const production = execFileSync("git", ["ls-files", "src"], { encoding: "utf8" })
       .split("\n")
       .filter((file) => /\.(tsx?|css)$/.test(file))
+      .filter((file) => existsSync(new URL(`../${file}`, import.meta.url)))
       .filter((file) => !/mockup/i.test(file));
 
     const offenders = production.flatMap((file) => {

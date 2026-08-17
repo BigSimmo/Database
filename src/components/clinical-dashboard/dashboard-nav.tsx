@@ -74,11 +74,11 @@ export function buildMobileSectionFabState({
 }): MobileSectionFabState {
   const modeSearch = appModeSearchConfig(searchMode);
   if (!hasAnswer) {
-    if (modeSearch.resultKind === "tools") {
+    if (modeSearch.resultKind === "tools" || modeSearch.resultKind === "therapies") {
       return {
-        statusLabel: "Tools",
+        statusLabel: modeSearch.statusLabel,
         statusTone: "neutral",
-        nextStep: "Launch a clinical tool",
+        nextStep: modeSearch.nextStep,
         badgeLabel: null,
         badgeTone: "neutral",
       };
