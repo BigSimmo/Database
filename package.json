@@ -101,6 +101,7 @@
     "ledger:migrate-legacy": "node scripts/branch-review-ledger.mjs migrate-legacy",
     "ledger:dedupe": "node scripts/branch-review-ledger.mjs dedupe",
     "ledger:rotate": "node scripts/branch-review-ledger.mjs rotate",
+    "check:ledger-stamp-retention": "node scripts/check-ledger-stamp-retention.mjs --self-test && node scripts/check-ledger-stamp-retention.mjs",
     "check:pr-policy": "node scripts/pr-policy.mjs --self-test && node scripts/check-pr-policy-workflow.mjs",
     "check:env-parity": "node scripts/check-env-parity.mjs",
     "sweep:branch-ledger": "node scripts/sweep-branch-ledger.mjs",
