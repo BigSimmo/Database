@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "2bfae2cf-d91e-4617-a0cb-bb8adbbad4fc",
+  "createdOn": "2026-08-17",
+  "action": "cancel",
+  "payload": {
+    "requestId": "2f5fbcde-438b-47ab-a1b7-01309802d935",
+    "reason": "Superseded in PR #2037: tranche 3's row correction is folded into the single #212 closure request queued there, so the ledger keeps one pending mutation for #212."
+  }
+}
