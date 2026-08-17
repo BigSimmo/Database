@@ -142,7 +142,7 @@ function SidebarModesTrigger({
         onClick={onOpen}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="min-h-9 rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition-colors hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        className="min-h-tap rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition-colors hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
       >
         Edit
       </button>
@@ -464,7 +464,7 @@ function SidebarAppearanceMenu() {
       >
         <SunMedium aria-hidden="true" className="h-4 w-4 shrink-0" />
         <span className="min-w-0 flex-1 text-left">Appearance</span>
-        <span className="text-xs font-medium text-[color:var(--text-soft)]">{appearanceLabel(preference)}</span>
+        <span className="text-xs font-medium text-[color:var(--text-muted)]">{appearanceLabel(preference)}</span>
         <ChevronRight
           aria-hidden="true"
           className={cn("h-4 w-4 shrink-0 transition-transform", open && "-rotate-90")}
@@ -618,7 +618,7 @@ export function ClinicalSidebarContent({
         >
           <Search aria-hidden="true" className="h-4 w-4 shrink-0" />
           <span className="min-w-0 flex-1 truncate text-left">Search Clinical Guide</span>
-          <kbd className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 py-0.5 text-2xs font-semibold text-[color:var(--text-soft)] shadow-[var(--shadow-inset)]">
+          <kbd className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 py-0.5 text-2xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
             Ctrl K
           </kbd>
         </button>
@@ -662,7 +662,7 @@ export function ClinicalSidebarContent({
               <button
                 type="button"
                 onClick={() => setShowAllRecent((current) => !current)}
-                className="min-h-9 rounded-lg px-2.5 text-left text-sm font-semibold text-[color:var(--text-muted)] transition-colors hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="min-h-tap rounded-lg px-2.5 text-left text-sm font-semibold text-[color:var(--text-muted)] transition-colors hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               >
                 {showAllRecent ? "Show less" : "View all chats"}
               </button>
