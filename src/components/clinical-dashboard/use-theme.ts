@@ -90,7 +90,7 @@ function syncThemeColorMetadata(theme: ResolvedTheme) {
 // rapid Light -> Dark -> Auto switching from stacking a timer per change, where
 // an early callback could clear the class while a later transition was still
 // running.
-let themeTransitionTimer: number | null = null;
+let themeTransitionTimer: ReturnType<typeof setTimeout> | null = null;
 
 function endThemeTransition() {
   themeTransitionTimer = null;
@@ -106,8 +106,8 @@ function applyResolvedTheme(theme: ResolvedTheme) {
     document.documentElement.classList.add("theme-transitioning");
     document.documentElement.classList.toggle("dark", willBeDark);
     syncThemeColorMetadata(theme);
-    if (themeTransitionTimer !== null) window.clearTimeout(themeTransitionTimer);
-    themeTransitionTimer = window.setTimeout(endThemeTransition, 200);
+    if (themeTransitionTimer !== null) clearTimeout(themeTransitionTimer);
+    themeTransitionTimer = setTimeout(endThemeTransition, 200);
   } else {
     syncThemeColorMetadata(theme);
   }
