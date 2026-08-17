@@ -796,9 +796,11 @@ async function openMobileClinicalGuideMenu(page: Page) {
   expect(menuBox).not.toBeNull();
   expect(menuBox!.x).toBeGreaterThanOrEqual(0);
   await expect(menu.getByRole("button", { name: "New chat" })).toBeVisible();
-  await expect(menu.getByPlaceholder("Search chats")).toBeVisible();
-  await expect(menu.getByText("Recent chats", { exact: true })).toBeVisible();
-  const navigation = menu.getByRole("navigation", { name: "Navigation" });
+  await expect(menu.getByRole("button", { name: "Search Clinical Guide" })).toBeVisible();
+  await expect(menu.getByText("Recent chats", { exact: true })).toHaveCount(0);
+  await expect(menu.getByText("Shortcuts", { exact: true })).toBeVisible();
+  await expect(menu.getByRole("button", { name: "Edit" })).toBeVisible();
+  const navigation = menu.getByRole("navigation", { name: "Pinned shortcuts" });
   await expect(navigation).toBeVisible();
   expect(
     await navigation
@@ -812,8 +814,10 @@ async function openMobileClinicalGuideMenu(page: Page) {
     { name: "Factsheets", href: "/factsheets" },
     { name: "Tools", href: "/tools" },
   ]);
+  await expect(navigation.getByRole("button", { name: "More modes" })).toBeVisible();
   await expect(menu.getByRole("button", { name: "Guide & help", exact: true })).toHaveCount(0);
   await expect(menu.getByRole("button", { name: /^(Switch to )?(dark|light) mode$/i })).toHaveCount(0);
+  await expect(menu.getByRole("button", { name: /Appearance Auto/ })).toBeVisible();
   await expect(menu.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
   await expect(menu.getByText("Guest")).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
@@ -1210,9 +1214,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(buttonFocus.outlineStyle).toBe("solid");
     expect(buttonFocus.boxShadow).toBe(restingButtonShadow);
 
-    const chatSearch = menu.getByRole("searchbox", { name: "Search recent chats" });
-    await chatSearch.focus();
-    const fieldFocus = await chatSearch.evaluate((element) => {
+    const guideSearch = menu.getByRole("button", { name: "Search Clinical Guide" });
+    await guideSearch.focus();
+    const fieldFocus = await guideSearch.evaluate((element) => {
       const style = getComputedStyle(element);
       const rect = element.getBoundingClientRect();
       const outlineWidth = Number.parseFloat(style.outlineWidth);
@@ -1235,6 +1239,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(fieldFocus.paintedRight).toBeLessThanOrEqual(fieldFocus.rect.right);
     expect(fieldFocus.paintedBottom).toBeLessThanOrEqual(fieldFocus.rect.bottom);
     expect(fieldFocus.paintedLeft).toBeGreaterThanOrEqual(fieldFocus.rect.left);
+    await guideSearch.click();
+    await expect(menu).toHaveCount(0);
+    await expect(visibleQuestionInput(page)).toBeFocused();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1286,6 +1293,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     );
 
     const collapseSidebar = page.getByRole("button", { name: "Collapse sidebar" });
+    const guideSearch = sidebar.getByRole("button", { name: "Search Clinical Guide" });
+    await expect(guideSearch).toHaveAttribute("aria-keyshortcuts", "Control+K Meta+K");
+    await guideSearch.click();
+    await expect(visibleQuestionInput(page)).toBeFocused();
+    await collapseSidebar.focus();
+    await page.keyboard.press("Control+K");
+    await expect(visibleQuestionInput(page)).toBeFocused();
+
     await expectMinTouchTarget(collapseSidebar);
     await collapseSidebar.click();
     await expect(page.getByTestId("collapsed-account-settings")).toHaveAccessibleName(
@@ -1318,7 +1333,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const rail = page.getByLabel("Clinical Guide collapsed sidebar");
     const scrollRegion = rail.getByTestId("collapsed-sidebar-scroll-region");
-    const navigation = rail.getByRole("navigation", { name: "Navigation" });
+    const navigation = rail.getByRole("navigation", { name: "Pinned shortcuts" });
     const library = rail.getByRole("navigation", { name: "Your library" });
     await expect(rail.getByRole("button", { name: "New chat" })).toBeVisible();
     await expect(rail.getByRole("button", { name: "Settings" })).toBeVisible();
@@ -1358,6 +1373,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(moreModesSheet.getByRole("navigation", { name: "More modes" })).toBeVisible();
     await expect(moreModesSheet.getByRole("link", { name: "Differentials", exact: true })).toBeVisible();
     await expect(moreModesSheet.getByRole("link", { name: "Therapy", exact: true })).toBeVisible();
+    await moreModesSheet.getByRole("button", { name: "Pin Forms" }).click();
+    await moreModesSheet.getByRole("button", { name: "Move Forms up" }).click();
+    await moreModesSheet.getByRole("button", { name: "Close more modes" }).click();
+    expect(
+      await navigation.getByRole("link").evaluateAll((links) => links.map((link) => link.getAttribute("aria-label"))),
+    ).toEqual(["Answer", "Documents", "Services", "Medication", "Factsheets", "Forms", "Tools"]);
+    await expect(rail.getByTestId("sidebar-more-modes")).toBeVisible();
+    await expect(rail.getByTestId("sidebar-more-modes")).toBeFocused();
 
     await expectNoPageHorizontalOverflow(page);
   });
@@ -3322,49 +3345,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     }
   });
 
-  test("DSM category filter dropdown opens to the correct option by keyboard", async ({ page }) => {
+  test("DSM category facets support keyboard selection and restore focus", async ({ page }) => {
     await page.setViewportSize({ width: 1100, height: 850 });
     await mockDemoApi(page);
     await gotoApp(page, "/dsm/search?q=depression");
 
     await expect(page.getByTestId("dsm-search-page")).toBeVisible();
-    const trigger = page.getByTestId("dsm-category-filter");
-    const options = page.getByRole("menuitemradio");
-
-    // ArrowUp opens the menu with focus on the LAST option (reverse entry). This
-    // guards against a regression where a competing focus-on-open effect raced
-    // the key handler and stole focus back to the active item.
+    const trigger = page.getByTestId("dsm-category-filter-desktop");
     await trigger.focus();
-    await page.keyboard.press("ArrowUp");
-    await expect(options.last()).toBeFocused();
+    await page.keyboard.press("Enter");
+    const panel = page.getByTestId("dsm-category-filter-panel");
+    await expect(panel).toBeVisible();
 
-    // Escape closes the menu and restores focus to the trigger.
-    await page.keyboard.press("Escape");
-    await expect(options.first()).toBeHidden();
-    await expect(trigger).toBeFocused();
-
-    // ArrowDown opens the menu with focus on the active option ("All categories").
-    await page.keyboard.press("ArrowDown");
-    await expect(options.first()).toBeFocused();
-    await expect(options.first()).toHaveAttribute("aria-checked", "true");
-
-    // Options sit outside the Tab sequence (tabIndex=-1), so one Tab press from a
-    // non-final option leaves the whole widget in a single step and closes the
-    // menu instead of stepping through every category link.
-    await page.keyboard.press("Tab");
-    await expect(options.first()).toBeHidden();
-    await expect(trigger).toHaveAttribute("aria-expanded", "false");
-    await expect(options).toHaveCount(0);
-
-    // Space activates the focused option (announced as a menuitemradio) even
-    // though the underlying element is an anchor, applying the category filter.
-    await trigger.focus();
-    await page.keyboard.press("ArrowDown");
-    await expect(options.first()).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    await expect(options.nth(1)).toBeFocused();
+    const categoryGroup = panel.getByRole("group", { name: "Category" });
+    const category = categoryGroup.locator('button:not([aria-disabled="true"])').first();
+    await expect(category).toHaveAttribute("aria-pressed", "false");
+    await category.focus();
     await page.keyboard.press("Space");
     await expect(page).toHaveURL(/[?&]category=/);
+    await expect(category).toHaveAttribute("aria-pressed", "true");
+
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+    await expect(trigger).toBeFocused();
   });
 
   test("dashboard specifiers mode param redirects to the standalone specifiers route", async ({ page }) => {
@@ -4012,7 +4015,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mobileFilterTrigger.click();
     const filterPanel = page.getByTestId("document-filter-panel");
     await expect(filterPanel).toBeVisible();
-    await expect(filterPanel.getByRole("radiogroup", { name: "Source type" })).toBeVisible();
+    await expect(filterPanel.getByRole("radiogroup", { name: "Source locality" })).toBeVisible();
+    await expect(filterPanel.getByRole("radiogroup", { name: "Result type" })).toBeVisible();
     // Library lives in the sheet footer now, under a rule and below the commit
     // action. It was first renamed from "Open source filters" — it browses, it
     // does not refine, and the old name made it read as a duplicate of Filter —
@@ -4022,11 +4026,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // overflow at all"; that was measured wrong. With Library gone the rail still
     // overflowed at every common phone width, because the inline utilities group
     // was `shrink` — see the rail-fit assertion above.
-    const libraryButton = filterPanel.getByTestId("document-filter-browse-library");
+    const libraryButton = filterPanel.getByRole("button", { name: /Browse all sources/ });
     await expect(libraryButton).toBeVisible();
     await expect(libraryButton).toHaveText(/Browse all sources/);
     await expectMinTouchTarget(libraryButton);
-    await filterPanel.getByTestId("document-filter-done").click();
+    await filterPanel.getByTestId("document-filter-panel-done").click();
     await expect(filterPanel).toHaveCount(0);
     await expect(mobileFilterTrigger).toHaveAttribute("aria-expanded", "false");
     // Asserted as an absence, not merely tolerated: putting Library back on the
@@ -4129,17 +4133,20 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.keyboard.press("Escape");
     await expect(moreActions).toBeFocused();
 
-    // Source type now lives inside the filter panel rather than in a native
-    // select in the ribbon, so reaching it goes through the trigger.
+    // Retrieval scope and result refinements now live in one staged panel
+    // rather than competing with a native select in the ribbon.
     await mobileFilterTrigger.click();
     const phoneFilterPanel = page.getByTestId("document-filter-panel");
     const phoneTablesFilter = phoneFilterPanel.getByRole("radio", { name: /Tables/ });
     if ((await phoneTablesFilter.count()) > 0) {
       await phoneTablesFilter.click();
       await expect(phoneTablesFilter).toHaveAttribute("aria-checked", "true");
-      await phoneFilterPanel.getByRole("radio", { name: /^All/ }).click();
+      await phoneFilterPanel
+        .getByRole("radiogroup", { name: "Result type" })
+        .getByRole("radio", { name: /^All/ })
+        .click();
     }
-    await phoneFilterPanel.getByTestId("document-filter-done").click();
+    await phoneFilterPanel.getByTestId("document-filter-panel-done").click();
     await expect(phoneFilterPanel).toHaveCount(0);
     await expect(documentResults).toBeVisible();
 
@@ -4180,14 +4187,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(queryRibbon.getByTestId("document-filter-trigger-phone")).toBeHidden();
     await wideFilterTrigger.click();
     const wideFilterPanel = page.getByTestId("document-filter-panel");
-    await expect(wideFilterPanel.getByRole("radiogroup", { name: "Source type" })).toBeVisible();
+    await expect(wideFilterPanel.getByRole("radiogroup", { name: "Source locality" })).toBeVisible();
     const dashboardMain = page.locator("main#main-content");
     const scrollTopBeforeSources = await dashboardMain.evaluate((element) => element.scrollTop);
     // The corpus is now reached from the sheet's footer rather than the rail,
     // and reaching it dismisses the sheet: browsing is leaving this surface, so
     // the Sources drawer must not open underneath a filter panel still covering
     // the results both of them describe.
-    await wideFilterPanel.getByTestId("document-filter-browse-library").click();
+    await wideFilterPanel.getByRole("button", { name: /Browse all sources/ }).click();
     await expect(wideFilterPanel).toHaveCount(0);
     const resultsLibraryDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(resultsLibraryDialog).toBeVisible();
@@ -5403,19 +5410,25 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const dialog = await openGuide(page);
     const guideScrollBody = dialog.locator(".polished-scroll");
     const mobileFooter = dialog.locator("[data-guide-mobile-footer]");
+    const mobileHeader = dialog.locator('[data-sheet-header="true"]');
     await guideScrollBody.evaluate((element) => {
-      element.scrollTop = 80;
+      element.scrollTop = 140;
       element.dispatchEvent(new Event("scroll", { bubbles: true }));
     });
     await expect(mobileFooter).toHaveAttribute("aria-hidden", "true");
     await expect(mobileFooter).toHaveAttribute("inert", "");
+    await expect(mobileHeader).toHaveAttribute("aria-hidden", "true");
+    await expect(mobileHeader).toHaveAttribute("inert", "");
 
-    // The hidden mobile footer must not be reachable by keyboard tabbing.
-    await dialog.getByRole("button", { name: "Close guide" }).focus();
+    // The hidden mobile header and footer must not be reachable by keyboard
+    // tabbing. Close guide now lives in the header, which is itself inert
+    // while hidden, so start from a content control instead.
+    await dialog.getByRole("button", { name: "Ask a better question" }).focus();
     const tabStopCount = await dialog.locator('button, input, [href], [tabindex]:not([tabindex="-1"])').count();
     for (let tabIndex = 0; tabIndex <= tabStopCount; tabIndex += 1) {
       await page.keyboard.press("Tab");
       await expect.poll(() => mobileFooter.evaluate((element) => element.contains(document.activeElement))).toBe(false);
+      await expect.poll(() => mobileHeader.evaluate((element) => element.contains(document.activeElement))).toBe(false);
     }
 
     await guideScrollBody.evaluate((element) => {

@@ -7,7 +7,9 @@ import {
   ListChecks,
   Network,
   Search,
+  Sparkles,
   Stethoscope,
+  Waypoints,
   type LucideIcon,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -33,6 +35,7 @@ export const registryModeNavDensityProfiles = {
   formulation: "compact-four",
   differentials: "balanced-four",
   factsheets: "two-item",
+  "therapy-compass": "balanced-four",
 } as const satisfies Record<ModeNavAdoptedMode, ModeNavDensityProfile>;
 
 /**
@@ -49,6 +52,8 @@ const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> = {
   compare: GitCompareArrows,
   builder: ListChecks,
   map: Network,
+  recommend: Sparkles,
+  pathways: Waypoints,
   // The Factsheets hero glyph (`factsheets-home-page.tsx`), so the tab wears the
   // same mark as the surface it points at. Not LayoutGrid: the search page uses
   // that for its card/list view toggle, and one glyph must not mean two things

@@ -25,7 +25,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   prescribing: [],
   tools: [],
   calculators: [],
-  "therapy-compass": ["Search", "Recommend", "Compare", "Pathways", "Brief Intervention", "Patient Sheets"],
+  "therapy-compass": ["Search", "Recommend", "Compare", "Pathways"],
   factsheets: ["Topics", "Search"],
 };
 
@@ -47,7 +47,7 @@ const cleanLandingPath: Record<AppModeId, string> = {
 };
 
 /**
- * The seven modes that register nothing. Each used to carry one
+ * The eight modes that register nothing. Each used to carry one
  * `action: "search"` entry rendering a lone <button> inside its own <nav>
  * landmark, whose only effect was focusing a composer already on screen. Every
  * one is genuinely single-surface, so the control was deleted rather than
@@ -100,7 +100,7 @@ describe("mode secondary navigation registry", () => {
     // single-button strips were deleted it no longer decides visibility on its
     // own. `PageSecondaryNavigation` returns null on a mode with no registered
     // destinations before it consults this at all — which is what actually
-    // silences the seven above, and is asserted in
+    // silences the eight above, and is asserted in
     // tests/page-secondary-navigation.dom.test.tsx.
     for (const modeId of emptyRegistryModes) {
       expect(modeSecondaryNavigationRegistry[modeId]).toEqual([]);
@@ -227,6 +227,17 @@ describe("mode secondary navigation registry", () => {
         currentSearchParams: new URLSearchParams("q=sertraline&category=Medicines&run=1"),
       }),
     ).toBe("/factsheets");
+
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "therapy-compass",
+        itemId: "compare",
+        href: "/therapy-compass/compare",
+        currentSearchParams: new URLSearchParams(
+          "q=trauma&run=1&ids=cbt%2Cact&topic=Anxiety&density=dense&prompt=patient+name",
+        ),
+      }),
+    ).toBe("/therapy-compass/compare?q=trauma&run=1&ids=cbt%2Cact&topic=Anxiety&density=dense");
   });
 
   it("adopts only modes with two or more routed destinations (explicit list, not silent derivation)", () => {
@@ -241,6 +252,7 @@ describe("mode secondary navigation registry", () => {
       "factsheets",
       "formulation",
       "specifiers",
+      "therapy-compass",
     ]);
 
     for (const modeId of MODE_NAV_ADOPTED_MODES) {
@@ -251,7 +263,6 @@ describe("mode secondary navigation registry", () => {
     }
 
     for (const modeId of appModeIds) {
-      if (modeId === "therapy-compass") continue; // owns ModeNav via useTherapyNavItems
       if (routedModeSecondaryNavigationCount(modeId) < 2) {
         expect(MODE_NAV_ADOPTED_MODES).not.toContain(modeId);
       }
@@ -272,6 +283,11 @@ describe("mode secondary navigation registry", () => {
     expect(activeModeSecondaryNavigationId("factsheets", "/factsheets/sertraline")).toBeNull();
     expect(activeModeSecondaryNavigationId("factsheets", "/factsheets")).toBe("topics");
     expect(activeModeSecondaryNavigationId("factsheets", "/factsheets/search")).toBe("search");
+    expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/search")).toBe("search");
+    expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/recommend")).toBe("recommend");
+    expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/compare")).toBe("compare");
+    expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/pathways")).toBe("pathways");
+    expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/cbt")).toBeNull();
 
     // The `registry[modeId][0]?.id` fallback is gone. A mode with no branch and
     // no entries has no current destination, rather than silently lighting its

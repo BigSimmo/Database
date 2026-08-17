@@ -1,24 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  ExternalLink,
-  FileText,
-  Search,
-  Shield,
-  ShieldCheck,
-  SlidersHorizontal,
-  Workflow,
-  type LucideIcon,
-} from "lucide-react";
-import { useId, useMemo, useState, useDeferredValue } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Check, ChevronRight, ExternalLink, ShieldCheck, Workflow } from "lucide-react";
+import { useCallback, useDeferredValue, useId, useMemo, useState } from "react";
 
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, rankFormRecords, type FormSearchMatch } from "@/lib/form-ranker";
+import {
+  deriveFormCategories,
+  filterFormMatches,
+  formAvailabilityFilterLabels,
+  formAvailabilityFilterValues,
+  formFilterCandidateCount,
+  formFilterSelectionFromParams,
+  formFilterSelectionSize,
+  formMatchRisk,
+  formRiskFilterLabels,
+  formRiskFilterValues,
+  writeFormFilterSelection,
+  type FormFilterSelection,
+  type FormRiskFilter,
+} from "@/lib/form-filters";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 import {
   cn,
@@ -30,16 +33,20 @@ import {
   searchFocusRing,
   searchPageCanvas,
   searchResultsSection,
-  ToggleSwitch,
 } from "@/components/ui-primitives";
 import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
+  type AppliedFilterChip,
 } from "@/components/clinical-dashboard/search-results-header-band";
-import { ResultFilterTrigger } from "@/components/clinical-dashboard/result-filter-control";
+import {
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterFacetGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
 import { FormCodeBadge } from "@/components/forms/form-code-badge";
-import { Sheet } from "@/components/ui/sheet";
 import { sortResultItems, type ResultSortValue } from "@/lib/result-sort";
+import { replaceResultFilterUrl } from "@/lib/result-filter-url";
 import { useResultSort } from "@/components/use-result-sort";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
@@ -48,21 +55,6 @@ type FormsSearchResultsPageProps = {
 };
 
 const supportsPathwayClaims = false;
-
-const refineFilters: {
-  icon: LucideIcon;
-  title: string;
-  subtitle: string;
-  enabled: boolean;
-  danger?: boolean;
-}[] = [
-  { icon: Shield, title: "High risk only", subtitle: "Show high risk forms", enabled: false, danger: true },
-  { icon: FileText, title: "Official forms", subtitle: "Limit to official forms", enabled: true },
-  ...(supportsPathwayClaims
-    ? [{ icon: Workflow, title: "Pathway linked", subtitle: "Show pathway-linked", enabled: true }]
-    : []),
-  { icon: Search, title: "Source matches", subtitle: "Require source match", enabled: false },
-];
 
 function resultCode(match: FormSearchMatch, index: number) {
   return formCatalogDetails(match.service)?.form ?? String(index + 1);
@@ -91,33 +83,13 @@ function compactMatchReason(match: FormSearchMatch, query: string) {
   return "Content match in the forms catalogue";
 }
 
-type FormRiskLevel = "high" | "medium" | "low";
-
-const formRiskLevels: readonly FormRiskLevel[] = ["high", "medium", "low"];
-
 // Risk is the only badge a phone result card carries, so it must never out-rank
 // itself: high is solid danger, medium is a bordered wash, low stays neutral.
-const riskBadgeToneClass: Record<FormRiskLevel, string> = {
+const riskBadgeToneClass: Record<FormRiskFilter, string> = {
   high: "bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)]",
   medium: "border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]",
   low: "border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
 };
-
-/**
- * Prefer the catalogue's typed `riskLevel`. Records that reach the registry
- * without a catalogue payload still carry the level as their first status chip
- * (`"high risk"`), so fall back to that rather than dropping the safety signal.
- */
-function formRiskLevel(match: FormSearchMatch): FormRiskLevel | null {
-  const level = formCatalogDetails(match.service)?.riskLevel;
-  if (level && formRiskLevels.includes(level)) return level;
-  for (const chip of match.service.statusChips ?? []) {
-    const label = chip.label?.trim().toLowerCase() ?? "";
-    const matched = formRiskLevels.find((candidate) => label === `${candidate} risk`);
-    if (matched) return matched;
-  }
-  return null;
-}
 
 // The catalogue generates a `purpose` for every form, but most are boilerplate
 // that only restates the title ("Official form source: Transfer Order. Review
@@ -188,102 +160,6 @@ function findExactFormCodeMatch(items: CodedFormMatch[], query: string): CodedFo
       const code = formCatalogDetails(item.match.service)?.form;
       return code ? normalizeFormCodeQuery(code) === normalizedQuery : false;
     }) ?? null
-  );
-}
-
-function RefineFilterItem({
-  icon: Icon,
-  title,
-  subtitle,
-  enabled,
-  danger,
-}: {
-  icon: LucideIcon;
-  title: string;
-  subtitle: string;
-  enabled: boolean;
-  danger?: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3">
-      <span
-        className={cn(
-          "grid h-9 w-9 shrink-0 place-items-center rounded-lg",
-          danger
-            ? "bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
-            : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-        )}
-      >
-        <Icon className="h-5 w-5" aria-hidden />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{title}</p>
-        <p className="mt-0.5 truncate text-xs font-medium text-[color:var(--text-muted)]">{subtitle}</p>
-      </div>
-      <ToggleSwitch enabled={enabled} aria-label={title} />
-    </div>
-  );
-}
-
-function RefineBar({ open, onToggle, panelId }: { open: boolean; onToggle: () => void; panelId: string }) {
-  return (
-    <button
-      type="button"
-      aria-expanded={open}
-      aria-controls={panelId}
-      onClick={onToggle}
-      className={cn(
-        "inline-flex min-h-tap shrink-0 items-center gap-2 rounded-lg border px-3.5 text-sm font-extrabold transition",
-        searchFocusRing,
-        open
-          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
-      )}
-    >
-      <SlidersHorizontal className="h-4 w-4" aria-hidden />
-      Refine
-      <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} aria-hidden />
-    </button>
-  );
-}
-
-function RefinePanel({ open, panelId }: { open: boolean; panelId: string }) {
-  if (!open) return null;
-  return (
-    <section
-      id={panelId}
-      data-testid="form-search-refine-panel"
-      aria-label="Refine results"
-      className={cn(searchResultsSection, "p-4 lg:p-5")}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Refine results</h2>
-          <p className="mt-0.5 text-xs font-medium text-[color:var(--text-muted)]">Filter controls are coming soon.</p>
-        </div>
-        <button
-          type="button"
-          aria-disabled="true"
-          onClick={ignoreUnavailableActivation}
-          title="Coming soon"
-          className={cn(
-            "cursor-not-allowed rounded-md px-2 py-1 text-xs font-extrabold text-[color:var(--clinical-accent)] opacity-70",
-            searchFocusRing,
-          )}
-        >
-          Reset
-        </button>
-      </div>
-      <div
-        className="mt-3 grid gap-2 opacity-70 sm:grid-cols-2 xl:grid-cols-4"
-        aria-disabled="true"
-        title="Coming soon"
-      >
-        {refineFilters.map((filter) => (
-          <RefineFilterItem key={filter.title} {...filter} />
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -505,7 +381,7 @@ const metaChipClass = "rounded-md px-2 py-1 text-3xs font-extrabold uppercase le
 function MobileExactMatchHero({ match, code }: CodedFormMatch) {
   const form = match.service;
   const details = formCatalogDetails(form);
-  const risk = formRiskLevel(match);
+  const risk = formMatchRisk(match);
   const purpose = editorialPurpose(form);
   // Derive availability label from the actual availability field rather than
   // positional statusChips indexing to avoid fragility.
@@ -578,7 +454,7 @@ function MobileExactMatchHero({ match, code }: CodedFormMatch) {
 
 function MobileResultCard({ match, code }: CodedFormMatch) {
   const form = match.service;
-  const risk = formRiskLevel(match);
+  const risk = formMatchRisk(match);
   // `subtitle` is the catalogue's `purpose` — what the form is actually for.
   // It replaces the old "Content match in record details" line, which said the
   // same thing on every card. Boilerplate purposes are dropped entirely rather
@@ -737,11 +613,10 @@ export function FormsSearchResultsPage(props: FormsSearchResultsPageProps) {
 
 function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [sortValue, setSortValue] = useResultSort();
   const registry = useRegistryRecords("form");
   const registryReady = registry.status === "ready" || registry.status === "refetching";
-  const [refineOpen, setRefineOpen] = useState(false);
-  const refinePanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const filterPanelId = useId();
   const deferredQuery = useDeferredValue(query);
@@ -753,9 +628,114 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
     if (!deferredQuery.trim()) return [];
     return rankFormRecords(registry.records, deferredQuery);
   }, [registryReady, registry.records, deferredQuery, query]);
+  const categoryOptions = useMemo(() => deriveFormCategories(matches), [matches]);
+  const filterSelection = useMemo(
+    () => formFilterSelectionFromParams(searchParams, categoryOptions),
+    [categoryOptions, searchParams],
+  );
+  const filteredMatches = useMemo(() => filterFormMatches(matches, filterSelection), [filterSelection, matches]);
   const displayedMatches = useMemo(
-    () => sortResultItems(matches, sortValue, (match) => match.service.title),
-    [matches, sortValue],
+    () => sortResultItems(filteredMatches, sortValue, (match) => match.service.title),
+    [filteredMatches, sortValue],
+  );
+  const activeFilterCount = formFilterSelectionSize(filterSelection);
+
+  const updateFilterSelection = useCallback((next: FormFilterSelection) => {
+    replaceResultFilterUrl((params) => writeFormFilterSelection(params, next));
+  }, []);
+
+  const toggleFilter = useCallback(
+    (dimension: keyof FormFilterSelection, value: string) => {
+      replaceResultFilterUrl((params) => {
+        const current = formFilterSelectionFromParams(params, categoryOptions);
+        const nextValues = new Set(current[dimension] as ReadonlySet<string>);
+        if (!nextValues.delete(value)) nextValues.add(value);
+        writeFormFilterSelection(params, { ...current, [dimension]: nextValues });
+      });
+    },
+    [categoryOptions],
+  );
+
+  const clearFilters = useCallback(() => {
+    updateFilterSelection({ categories: new Set(), risks: new Set(), availability: new Set() });
+  }, [updateFilterSelection]);
+
+  const filterGroups = useMemo(
+    () => [
+      resultFilterFacetGroup({
+        id: "category",
+        label: "Category",
+        description: "Statutory and clinical form families.",
+        selected: filterSelection.categories,
+        options: categoryOptions.map((category) => {
+          const count = formFilterCandidateCount(matches, filterSelection, "categories", category);
+          return {
+            value: category,
+            label: category,
+            hint: String(count),
+            disabled: count === 0 && !filterSelection.categories.has(category),
+          };
+        }),
+        onToggle: (value) => toggleFilter("categories", value),
+      }),
+      resultFilterFacetGroup({
+        id: "risk",
+        label: "Clinical risk",
+        description: "Risk classification recorded in the form catalogue.",
+        selected: filterSelection.risks,
+        options: formRiskFilterValues.map((risk) => {
+          const count = formFilterCandidateCount(matches, filterSelection, "risks", risk);
+          return {
+            value: risk,
+            label: formRiskFilterLabels[risk],
+            hint: String(count),
+            disabled: count === 0 && !filterSelection.risks.has(risk),
+          };
+        }),
+        onToggle: (value) => toggleFilter("risks", value),
+      }),
+      resultFilterFacetGroup({
+        id: "availability",
+        label: "Availability",
+        description: "How the catalogue record can be obtained.",
+        selected: filterSelection.availability,
+        options: formAvailabilityFilterValues.map((availability) => {
+          const count = formFilterCandidateCount(matches, filterSelection, "availability", availability);
+          return {
+            value: availability,
+            label: formAvailabilityFilterLabels[availability],
+            hint: String(count),
+            disabled: count === 0 && !filterSelection.availability.has(availability),
+          };
+        }),
+        onToggle: (value) => toggleFilter("availability", value),
+      }),
+    ],
+    [categoryOptions, filterSelection, matches, toggleFilter],
+  );
+
+  const appliedFilters = useMemo<AppliedFilterChip[]>(
+    () => [
+      ...[...filterSelection.categories].map((category) => ({
+        id: `category-${category}`,
+        groupLabel: "Category",
+        valueLabel: category,
+        onRemove: () => toggleFilter("categories", category),
+      })),
+      ...[...filterSelection.risks].map((risk) => ({
+        id: `risk-${risk}`,
+        groupLabel: "Risk",
+        valueLabel: formRiskFilterLabels[risk],
+        onRemove: () => toggleFilter("risks", risk),
+      })),
+      ...[...filterSelection.availability].map((availability) => ({
+        id: `availability-${availability}`,
+        groupLabel: "Availability",
+        valueLabel: formAvailabilityFilterLabels[availability],
+        onRemove: () => toggleFilter("availability", availability),
+      })),
+    ],
+    [filterSelection, toggleFilter],
   );
 
   const renderFilterTrigger = (testId: string) => (
@@ -764,7 +744,7 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
       testId={testId}
       title="Filter form results"
       open={filterOpen}
-      activeCount={0}
+      activeCount={activeFilterCount}
       onToggle={() => setFilterOpen((current) => !current)}
     />
   );
@@ -809,80 +789,39 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
           }
           sortValue={sortValue}
           onSortChange={setSortValue}
+          appliedFilters={appliedFilters}
+          onClearFilters={activeFilterCount > 0 ? clearFilters : undefined}
           filterLabel="Filter form results"
-          // Same Documents idiom: compact funnel trigger in both slots so the
-          // one-line band stays universal. The panel is a coming-soon placeholder
-          // until form facets ship (see docs/search-results-bar-decisions.md).
           mobileControlsPlacement="inline"
           mobileControls={renderFilterTrigger("form-filter-trigger-phone")}
-          filterControls={
-            supportsPathwayClaims ? (
-              <div className="flex min-w-0 items-center gap-2">
-                {renderFilterTrigger("form-filter-trigger-wide")}
-                <RefineBar open={refineOpen} onToggle={() => setRefineOpen((open) => !open)} panelId={refinePanelId} />
-              </div>
-            ) : (
-              renderFilterTrigger("form-filter-trigger-wide")
-            )
-          }
+          filterControls={renderFilterTrigger("form-filter-trigger-wide")}
         />
-        <Sheet
+        <ResultFilterSheet
           open={filterOpen}
           onClose={() => setFilterOpen(false)}
-          title="Filter form results"
-          description="Form filters are not available yet."
-          portal
-          id={filterPanelId}
+          panelId={filterPanelId}
           testId="form-filter-panel"
-          footer={
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setFilterOpen(false)}
-                data-testid="form-filter-panel-done"
-                className={cn(
-                  "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:min-h-9",
-                  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                )}
-              >
-                Done
-              </button>
-            </div>
-          }
-        >
-          <div className="grid min-w-0 gap-3 py-1">
-            <p className="text-sm font-semibold leading-6 text-[color:var(--text-muted)]">
-              Form filters are coming soon. Sorting still works from the results bar.
-            </p>
-            <button
-              type="button"
-              aria-disabled="true"
-              onClick={ignoreUnavailableActivation}
-              aria-describedby="form-filters-unavailable"
-              title="Form filters — coming soon"
-              className="inline-flex min-h-tap cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-muted)] opacity-60 sm:min-h-9"
-            >
-              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-              Apply filters
-            </button>
-            <span id="form-filters-unavailable" className="sr-only">
-              Form filters are coming soon.
-            </span>
-          </div>
-        </Sheet>
+          title="Filter form results"
+          description="Narrow by form family, recorded clinical risk, and access route."
+          groups={filterGroups}
+          onClearAll={activeFilterCount > 0 ? clearFilters : undefined}
+          summary={{ count: displayedMatches.length, noun: displayedMatches.length === 1 ? "form" : "forms" }}
+          chromeResetKey={query}
+        />
         {registryReady ? (
           <>
             {query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
               <SearchResultsEmptyState
                 modeId="forms"
                 query={query}
+                appliedFilters={appliedFilters}
+                onClearFilters={activeFilterCount > 0 ? clearFilters : undefined}
                 onTryExample={(example) =>
                   router.push(appModeHomeHref("forms", { query: example, focus: true, run: true }))
                 }
               />
             ) : (
               <>
-                {supportsPathwayClaims ? <RefinePanel open={refineOpen} panelId={refinePanelId} /> : null}
                 <div className="hidden md:block">
                   <ResultsTable matches={displayedMatches} query={query} sortValue={sortValue} />
                 </div>
