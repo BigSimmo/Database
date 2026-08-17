@@ -84,6 +84,7 @@ const sidebarMoreModeIds = [
   "dsm",
   "specifiers",
   "formulation",
+  "calculators",
   "therapy-compass",
 ] as const satisfies readonly AppModeId[];
 
@@ -183,6 +184,7 @@ function MoreModesMenu({
         returnFocusRef={triggerRef}
         mobilePlacement="bottom"
         mobileSize="content"
+        mobileHeaderSafeArea="padding"
         testId="sidebar-more-modes-sheet"
         contentClassName="max-h-[calc(100dvh-0.5rem)] sm:max-w-md"
         bodyClassName="p-2"

@@ -277,6 +277,7 @@ function renderModeRoutes() {
     formulation: appModeHomeHref("formulation", { query: "I keep going over it", focus: true, run: true }),
     prescribing: appModeHomeHref("prescribing", { query: "acamprosate renal dose", focus: true, run: true }),
     tools: appModeHomeHref("tools", { query: "medications", focus: true, run: true }),
+    calculators: appModeHomeHref("calculators", { query: "PHQ-9", focus: true, run: true }),
     "therapy-compass": appModeHomeHref("therapy-compass", { query: "behavioural activation", focus: true, run: true }),
     factsheets: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
   };
@@ -374,7 +375,8 @@ function renderModePageIndex() {
       mode: "Tools",
       home: appModeHomeHref("tools"),
       search: appModeHomeHref("tools", { query: "medications", focus: true, run: true }),
-      detail: "Canonical Tools launcher at `/tools` (PT-11). `/?mode=tools` remains a dashboard-mode alias.",
+      detail:
+        "Canonical all-tools results directory at `/tools`; the universal mode picker opens it directly. `/?mode=tools` remains a dashboard-mode alias.",
     },
   ]);
 }

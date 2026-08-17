@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "1376cc64-a753-41a0-9c54-30a5cca7f896",
+  "createdOn": "2026-08-15",
+  "action": "update",
+  "payload": {
+    "id": "#312",
+    "detail": "Progress 2026-08-15: PR #1965 landed on main (commit 3ec6116) and closes the false-OK gap for the pinned Chromium revision by resolving the effective cache and requiring a launchable binary. Keep this issue open: the unscoped test:e2e and release matrix also require Firefox and WebKit, and the check does not yet report whether their locked revisions are installed. Next: enumerate required and installed revisions for all browser families, with a Chromium-only-cache regression; project-scoped --project=chromium runs may continue to require Chromium alone."
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "60fea622-a448-4e8f-a5d3-0122ab08b2d0",
+  "createdOn": "2026-08-15",
+  "action": "update",
+  "payload": {
+    "id": "#316",
+    "summary": "Live DB has 20 currently missing repo-defined indexes and 10 retrieval RPC bodies diverge; weekly live-drift has been red since 2026-07-26 with no routing",
+    "source": "PR #1968 review against docs/audit/live-drift-forensics-2026-08.md, 2026-08-15"
+  }
+}

@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { sourceSegment } from "./helpers/source-contract";
+
 function source(path: string) {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
@@ -99,8 +101,12 @@ describe("document viewer latency guards", () => {
     const viewer = source("src/components/DocumentViewer.tsx");
     const routeHook = source("src/components/document-viewer/use-document-viewer-route.ts");
     const panelInstances = viewer.match(/<IndexedTextPanel\b/g) ?? [];
-    const retryStart = viewer.indexOf("const retryPreview");
-    const retryBlock = viewer.slice(retryStart, viewer.indexOf("useEffect", retryStart));
+    // `useEffect` as an end marker is an arbitrary token, not a structure —
+    // DocumentViewer has several. Guarded so a reorder fails loudly instead of
+    // widening this window to the rest of the file.
+    const retryBlock = sourceSegment(viewer, "const retryPreview", "useEffect", {
+      label: "DocumentViewer retryPreview block",
+    });
 
     expect(viewer).toContain('assetScope: "window"');
     expect(viewer).toContain("useInitialResult");

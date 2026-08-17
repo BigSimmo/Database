@@ -10,6 +10,7 @@ import { FavouritesCommandLibraryPage } from "@/components/clinical-dashboard/fa
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { ApplicationsLauncherWorkspace } from "@/components/applications-launcher-page";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { ToolsSearchResultsPage } from "@/components/tools/tools-search-results-page";
 import { filterCrossModesForSession, visibleAppModeDefinitionsForSession } from "@/lib/app-modes";
 import { toolCatalogRecordsForSession } from "@/lib/tools-catalog";
 
@@ -133,7 +134,7 @@ describe("favourites auth gate DOM", () => {
     authSession.status = "signed_out";
     render(<FavouritesCommandLibraryPage query="" demoMode={false} />);
 
-    expect(screen.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Favourites" })).toBeVisible();
     expect(screen.getByText(/Sign up to save favourites and access them across devices/i)).toBeVisible();
     expect(screen.getByTestId("favourites-open-account-setup")).toBeVisible();
     expect(screen.getByRole("heading", { name: "Sign up to save favourites" })).toBeVisible();
@@ -144,7 +145,7 @@ describe("favourites auth gate DOM", () => {
     authSession.status = "signed_out";
     render(<FavouritesCommandLibraryPage query="" demoMode={true} />);
 
-    expect(screen.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Favourites" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: "Sign up to save favourites" })).toBeNull();
     expect(screen.queryByTestId("favourites-open-account-setup")).toBeNull();
   });
@@ -259,6 +260,19 @@ describe("favourites auth gate DOM", () => {
     expect(filterCrossModesForSession(["favourites", "forms"], { authenticated: false, demoMode: false })).toEqual([
       "forms",
     ]);
+  });
+
+  it("applies the same Favourites access gate to the all-tools results directory", () => {
+    const { rerender } = render(<ToolsSearchResultsPage canAccessFavourites={false} />);
+
+    expect(screen.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+    expect(screen.queryByRole("radio", { name: /Saved/ })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Saved workflows" })).toBeNull();
+
+    rerender(<ToolsSearchResultsPage canAccessFavourites />);
+
+    expect(screen.getByRole("radio", { name: "Saved (1)" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Saved workflows" })).toBeVisible();
   });
 
   it("omits Favourites from the mode menu for guests", async () => {

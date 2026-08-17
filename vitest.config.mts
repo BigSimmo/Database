@@ -50,8 +50,18 @@ const config = {
         // Aggregate behavioral floors ratchet the full post-fixture group rather
         // than making individual large RAG modules brittle. Each value is the
         // greater of the measured whole-group floor or the broad floor + 5pp.
+        // Ledger #192 (maturity X6, 2026-08-14): re-measured against
+        // `npm run test:coverage` on this exact file set. Group B branches (81)
+        // and Group C branches (72) had drifted >5pp below measured — the same
+        // re-ratchet trigger documented above for the whole-repo floor — so
+        // those two values were raised to sit ~2pp under the fresh measurement.
+        // Every other value here already sat within that 5pp band and is
+        // unchanged: raising a floor that already tracks its baseline closely
+        // would risk a false failure from ordinary day-to-day branch-count
+        // variance, not close a real gap.
         "src/lib/{clinical-search,retrieval-selection,answer-ranking,clinical-value-binding,medication-entities,rag/rag-candidate-sources,rag/rag-context-selection,rag/rag-retrieval-variants,rag/rag-routing}.ts":
           {
+            // Measured 2026-08-14: 90.32/81.02/92.86/93.88 (stmt/branch/func/line).
             statements: 86,
             branches: 78,
             functions: 88,
@@ -59,18 +69,23 @@ const config = {
           },
         "src/lib/{answer-verification,evidence,evidence-relevance,rag/rag-claim-support,rag/rag-evidence-gates,rag/rag-quote-verification,rag/rag-source-segmentation}.ts":
           {
+            // Measured 2026-08-14: 93.89/86.04/95.24/96.44. Branches raised
+            // 81 -> 84 (gap was 5.04pp, just past the 5pp trigger).
             statements: 92,
-            branches: 81,
+            branches: 84,
             functions: 94,
             lines: 94,
           },
         "src/lib/rag/{rag,rag-extractive-answer,rag-comparison,rag-answer-support}.ts": {
+          // Measured 2026-08-14: 87.55/78.22/92.57/91.84. Branches raised
+          // 72 -> 76 (gap was 6.22pp, the largest in this file).
           statements: 83,
-          branches: 72,
+          branches: 76,
           functions: 90,
           lines: 88,
         },
         "src/lib/{clinical-safety,source-governance,source-review,clinical-review-queue,answer-response}.ts": {
+          // Measured 2026-08-14: 96.72/85.11/98.73/98.95.
           statements: 94,
           branches: 83,
           functions: 96,

@@ -47,6 +47,23 @@ vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => (
   UniversalSearchAlsoMatches: () => null,
 }));
 
+// The result row's bookmark reads account favourites. Stubbed rather than
+// wrapped in the real provider so this file keeps testing scope/facet
+// behaviour without also exercising the account fetch.
+vi.mock("@/components/account-data-provider", () => ({
+  useAccountData: () => ({
+    favourites: { service: [], form: [], differential: [] },
+    ready: true,
+    loadError: null,
+    error: null,
+    isAuthenticated: false,
+    isSaved: () => false,
+    setFavourite: vi.fn(async () => true),
+    clearFavourites: vi.fn(async () => true),
+    reload: vi.fn(),
+  }),
+}));
+
 import { ServicesNavigatorPage } from "@/components/services/services-navigator-page";
 
 describe("services scope segment vs the query-empty state", () => {
