@@ -92,7 +92,9 @@ export function incompleteBudgetEvidence(rows, budget, { ignoreBaseline = false 
   // below. The verdict is identical either way; only the message changes.
   const drift = new Map();
 
-  for (const run of expectedBudgetRuns(budget)) {
+  const expectedRuns = expectedBudgetRuns(budget);
+
+  for (const run of expectedRuns) {
     const row = byRun.get(run);
     if (!row) {
       problems.add(`${run}: no Lighthouse report produced`);
@@ -139,7 +141,7 @@ export function incompleteBudgetEvidence(rows, budget, { ignoreBaseline = false 
   // `compareToLighthouseBudget` still returns `fail` on a non-empty result,
   // independently of `enforce`.
   const driftPairs = new Set([...drift.values()].map(({ before, after }) => JSON.stringify([before, after])));
-  if (drift.size > 0 && problems.size === 0 && driftPairs.size === 1) {
+  if (drift.size > 0 && drift.size === expectedRuns.length && problems.size === 0 && driftPairs.size === 1) {
     const [{ before, after }] = drift.values();
     return [
       `browser drift on ${drift.size} run(s): the baseline was measured by ${before}, this run used ${after} — ` +
@@ -334,8 +336,104 @@ export function readReports(directory) {
     );
 }
 
+/**
+ * Validate that a baseline object contains exactly one distinct browser version
+ * across all its recorded rows.
+ */
+export function validateBaselineBrowserVersions(baseline) {
+  const rows = Object.values(baseline ?? {});
+  if (rows.length === 0) return { ok: false, versions: [], error: "no baseline rows recorded" };
+  const versions = [
+    ...new Set(rows.map((row) => row.chromeVersion).filter((v) => typeof v === "string" && v.length > 0)),
+  ];
+  if (rows.some((row) => typeof row.chromeVersion !== "string" || !row.chromeVersion)) {
+    return {
+      ok: false,
+      versions,
+      error: `some rows are missing a recorded browser version; found ${versions.length} version(s)`,
+    };
+  }
+  if (versions.length !== 1) {
+    return {
+      ok: false,
+      versions,
+      error: `expected exactly one baseline Chrome version across all rows; found ${versions.length}`,
+    };
+  }
+  return { ok: true, versions, error: null };
+}
+
+export function selfTest() {
+  const sampleBudget = {
+    routes: ["/", "/therapy-compass"],
+    strategies: ["mobile", "desktop"],
+    baseline: null,
+  };
+  const runs = expectedBudgetRuns(sampleBudget);
+  if (runs.length !== 4) throw new Error(`selfTest failed: expected 4 runs, got ${runs.length}`);
+
+  const sampleRows = runs.map((run) => ({
+    run,
+    url: `http://localhost:4461/${run}`,
+    requestedUrl: `http://localhost:4461/${run}`,
+    runtimeError: null,
+    performanceScore: 0.99,
+    lcpMs: 1000,
+    cls: 0,
+    tbtMs: 100,
+    fcpMs: 500,
+    chromeVersion: "HeadlessChrome/140",
+  }));
+
+  const cleanProblems = incompleteBudgetEvidence(sampleRows, sampleBudget);
+  if (cleanProblems.length !== 0) {
+    throw new Error(`selfTest failed: clean matrix produced problems: ${cleanProblems.join(", ")}`);
+  }
+
+  const staleBaseline = baselineFromRows(sampleRows.map((r) => ({ ...r, chromeVersion: "HeadlessChrome/131" })));
+  const uniformDrift = incompleteBudgetEvidence(sampleRows, { ...sampleBudget, baseline: staleBaseline });
+  if (uniformDrift.length !== 1 || !uniformDrift[0].includes("browser drift on 4 run(s)")) {
+    throw new Error(`selfTest failed: uniform drift not collapsed to 1 message: ${uniformDrift.join(", ")}`);
+  }
+
+  const mixedBaseline = {
+    ...staleBaseline,
+    [runs[0]]: { ...staleBaseline[runs[0]], chromeVersion: null },
+  };
+  const nonUniformDrift = incompleteBudgetEvidence(sampleRows, { ...sampleBudget, baseline: mixedBaseline });
+  if (nonUniformDrift.length !== 3) {
+    throw new Error(
+      `selfTest failed: non-uniform drift did not retain per-run diagnostics: ${nonUniformDrift.join(", ")}`,
+    );
+  }
+
+  const validationSuccess = validateBaselineBrowserVersions(staleBaseline);
+  if (!validationSuccess.ok || validationSuccess.versions.length !== 1) {
+    throw new Error("selfTest failed: valid baseline rejected by validateBaselineBrowserVersions");
+  }
+  const validationFailure = validateBaselineBrowserVersions(mixedBaseline);
+  if (validationFailure.ok) {
+    throw new Error("selfTest failed: mixed baseline accepted by validateBaselineBrowserVersions");
+  }
+
+  const gradeResult = gradeRun(sampleRows[0], { lcpMs: 500, cls: 0, tbtMs: 100 });
+  if (gradeResult.length === 0) throw new Error("selfTest failed: gradeRun did not flag regression");
+
+  const comparison = compareToLighthouseBudget(sampleRows, { ...sampleBudget, baseline: staleBaseline });
+  if (comparison.status !== "fail") throw new Error("selfTest failed: drifted baseline did not fail comparison");
+
+  const majorityDecision = majorityBreachDecision([true, true, false]);
+  if (!majorityDecision?.breached) throw new Error("selfTest failed: majority breach decision incorrect");
+
+  console.log("check:lighthouse-budget self-test passed.");
+}
+
 function main() {
   const argv = process.argv.slice(2);
+  if (argv.includes("--self-test")) {
+    selfTest();
+    return;
+  }
   const update = argv.includes("--update");
   const requireReports = argv.includes("--require-reports");
   const asJson = argv.includes("--json");
@@ -377,9 +475,15 @@ function main() {
       console.error(`::error::refusing to update the baseline from incomplete evidence: ${measurementGaps.join("; ")}`);
       process.exit(1);
     }
+    const nextBaseline = baselineFromRows(rows);
+    const validation = validateBaselineBrowserVersions(nextBaseline);
+    if (!validation.ok) {
+      console.error(`::error::refusing to update the baseline: ${validation.error}.`);
+      process.exit(1);
+    }
     const next = {
       ...budget,
-      baseline: baselineFromRows(rows),
+      baseline: nextBaseline,
       updatedAt: new Date().toISOString(),
     };
     writeFileSync(BUDGET_PATH, `${JSON.stringify(next, null, 2)}\n`);
