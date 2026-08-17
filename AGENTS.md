@@ -415,6 +415,19 @@ Output-style plugins such as caveman mode may compress prose. They must never co
 - Bare-image storage scaffolding must discover its local schema owner at runtime and must never be reused as hosted migration SQL.
 - Run `npm run check:migration-role` after changing Supabase SQL, migration tooling, CI replay, or disaster-recovery instructions.
 - Run `npm run check:supabase-project` after changing Supabase env values.
+- **Guard-migration contract.** Any mark-applied version, `supabase migration repair --status applied`,
+  hand-applied SQL later recorded as a migration, or other history repair MUST ship a fail-fast
+  validation guard migration in the same change, following `20260804110240_restore_rag_search_health_indexes.sql`
+  exactly (validates presence + `indisvalid`/`indisready` + normalized definition, never builds,
+  `set local` timeouts, one `raise exception`). `schema_drift_snapshot()` v2 (`20260818090000`) reports every
+  `supabase_migrations` version recorded without executed statements; `check:drift` fails on any such row
+  that lacks a reviewed `migration_history` entry in `supabase/drift-allowlist.json` pointing at its guard
+  (`guard.class` `validation` is mandatory for versions from 2026-08-18; `superseded`/`no_ddl` are for
+  pre-contract history only). Never allowlist a history row bare, and never widen an entry's class to make
+  it pass. Enforced offline by `tests/migration-history-guards.test.ts`; index-monitoring decisions on the
+  retrieval-critical tables are enforced by `tests/search-health-index-coverage.test.ts` +
+  `supabase/search-health-unmonitored-indexes.json` (`required_indexes` changes travel by migration only).
+  Full contract: `docs/database-drift-detection.md`.
 
 <!-- END:supabase-project-safety -->
 
@@ -633,7 +646,7 @@ Nothing else inherits this authorization. Only the user's own task message can t
 
 Hard guardrails (never, even during a sweep):
 
-- Never merge a pull request into `main` or any protected branch, and never enable auto-merge; the sweep fixes and reports, the user merges. Per-PR auto-merge state is user-owned: automation must not disable it. When auto-merge is already armed, do not push, update the branch/base, or perform another head-changing action; report the frozen state and leave the PR untouched until it merges or the user manually changes that state.
+- Never merge a pull request into `main` or any protected branch, and never enable auto-merge; the sweep fixes and reports, the user merges. Per-PR auto-merge state is user-owned: automation must not disable or re-enable it. Ordinary fast-forward commits and pushes to fix CI or review findings are allowed while auto-merge is armed — GitHub re-validates required checks against the new head before it will merge, so an additive push cannot make it merge something unvalidated (`guard-push.mjs`'s auto-merge guard warns rather than blocks for this case). Never force-push, rewrite history, or change the PR's base/target while auto-merge is armed — that stays hard-blocked with no override; wait for the user to change the auto-merge state first.
 - Never close a pull request, delete or rename branches, force-push, or rebase.
 - Never run provider-backed gates: `eval:rag`, `eval:quality`, `eval:retrieval:quality`, `verify:release`, `check:supabase-project`, `test:live`, or anything else that touches live Supabase/OpenAI.
 - Respect the `skip-codex-review` label as a full per-PR opt-out.
@@ -709,11 +722,12 @@ A settle-then-push addition also lands after this repo's one automatic Codex rev
 already have run against the earlier head — in practice the connector re-reviews each new
 push (observed on this same PR), but if it doesn't, request a fresh review explicitly
 before merging rather than assuming the addition was covered. **If the target PR has
-auto-merge armed, settling-then-pushing races the merge itself.** Treat that PR as
-mutation-frozen: do not disable or re-enable auto-merge, push, update its branch/base, or
-otherwise change its head. Let the armed merge land, or wait for the user to manually
-change the auto-merge state before doing further branch work. `guard-push.mjs` enforces
-this for every locally pushed PR branch when authenticated `gh` is available; agent
+auto-merge armed, an ordinary fast-forward push is still safe to bundle onto** — GitHub
+re-validates required checks against the new head before merging. Per-PR auto-merge state is
+user-owned: automation must not disable or re-enable it, and a force-push or base/target change
+while armed still hard-blocks with no override — that is the actual race, not an additive
+commit. `guard-push.mjs` enforces the force-push block for every locally pushed PR branch when
+authenticated `gh` is available; agent
 policy remains the backstop in environments where local hooks or `gh` are unavailable.
 Bundle only when every item being combined is:
 
@@ -804,8 +818,10 @@ named PR). Future process only.
   `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed
   blob. Whole-tree Prettier, not a single edited file.
 - If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable
-  it. Treat the branch as mutation-frozen: no push, update-branch, base change, or bundled addition
-  until it merges or the user manually changes that state.
+  or re-enable it. Ordinary fast-forward pushes, `update-branch`/merge-main-in syncs, and bundled
+  additions may proceed — GitHub re-validates required checks against the new head before merging,
+  so an additive push cannot slip past that. A force-push, history rewrite, or base/target change
+  while armed still hard-blocks with no override; wait for the user to change that state first.
 - Missing CI checks are not a green pass. `pull_request` workflows do not run when GitHub
   cannot build `refs/pull/<n>/merge`. The `PR mergeability` check uses trusted
   `pull_request_target` events and refreshes unchanged PR heads after protected-base
