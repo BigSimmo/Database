@@ -1416,7 +1416,6 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     const referralProgress = page.getByRole("navigation", { name: "Referral progress" });
     await expect(referralProgress).toBeVisible();
     await expect(referralProgress.locator('[aria-current="step"]')).toHaveText("Search");
-    await expect(page.getByRole("navigation", { name: "Service groups" })).toBeVisible();
     await expect(page.getByTestId("services-shortlist-bar")).toHaveCount(0);
 
     // The row is compact by contract: the Catchment/Eligibility/Cost strip
@@ -1431,6 +1430,19 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     // Exercise a real facet, then clear only that facet while preserving q.
     await page.getByTestId("service-filter-trigger-desktop").click();
     const filterPanel = page.getByTestId("service-filter-panel");
+
+    // The old standalone "Service groups" browse nav is folded into this
+    // sheet as a facet (ledger follow-up to #163) rather than a separate
+    // route-driven row above the results.
+    await expect(filterPanel.getByRole("button", { name: /^Service group/ })).toBeVisible();
+    await filterPanel.getByRole("button", { name: /^Service group/ }).click();
+    const urgentGroupFacet = filterPanel.getByRole("button", { name: /^Crisis & urgent/ });
+    await expect(urgentGroupFacet).toBeVisible();
+    await urgentGroupFacet.click();
+    await expect(page).toHaveURL(/group=urgent/);
+    await urgentGroupFacet.click();
+    await expect(page).not.toHaveURL(/group=urgent/);
+
     await filterPanel.getByRole("button", { name: /^Acuity/ }).click();
     const crisisFacet = filterPanel.getByRole("button", { name: /^Crisis \/ urgent/ });
     await expect(crisisFacet).toBeVisible();
