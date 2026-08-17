@@ -12,9 +12,12 @@ Staging is two independent tiers: a **staging Supabase project** (data) and a
 > the staging corpus is empty, and `search_schema_health()` passes. Do not create replacements.
 > **Revalidated 2026-07-30:** the staging project and app are still healthy, correctly identify as
 > staging, run with `RAG_PROVIDER_MODE=offline`, and have no OpenAI key. Linked migration history
-> has **24** local-only versions: ten holes before/at `20260719053533` (four are historical
-> placeholders) and fourteen versions after `20260719055623`. `supabase db push --linked
---include-all --dry-run` prints that exact 24-version chain. Do not run a normal or partial push:
+> had **24** local-only versions: ten holes before/at `20260719053533` (four are historical
+> placeholders) and fourteen versions after `20260719055623`. **Superseded — remeasured 2026-08-17
+> the chain is 26** (the same ten holes plus **sixteen** after `20260719055623`), and it grows every
+> time `main` advances, so treat any fixed number here as stale and take the count from the dry-run
+> below rather than from this paragraph. See ledger `#056`. `supabase db push --linked
+--include-all --dry-run` prints the exact current chain. Do not run a normal or partial push:
 > history is divergent, and the full chain currently ends in the separately governed BMJ
 > attestation migration `20260727010000`. Reconcile the entire reviewed chain only in an approved
 > scope, then repeat the identity, indexing, health, and empty-data-boundary proof.
@@ -42,7 +45,8 @@ those vars are unset.
    # Unavailable until the divergent history is reconciled in an approved window:
    # do not run a normal `supabase db push`. Preview the full reviewed chain first:
    supabase db push --linked --include-all --dry-run
-   # Only after explicit approval for the complete 24-version chain:
+   # Only after explicit approval for the complete chain the dry-run just printed
+   # (26 versions as at 2026-08-17, and growing — never hardcode the count):
    # supabase db push --linked --include-all
    ```
 
