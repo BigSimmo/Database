@@ -570,11 +570,7 @@ export function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: 
   telemetry.score_spread = Number(Math.max(0, telemetry.top_score - telemetry.second_top_score).toFixed(4));
   telemetry.score_distinct_documents = new Set(results.map((result) => result.document_id)).size;
   telemetry.retrieval_candidate_count = results.length;
-  // Strict equality, deliberately: this counter measures how often lexically/structurally
-  // IMPUTED scores cross gates calibrated for cosine. "document_context" (the constant 1 on
-  // document-summary rows) is a different provenance on a route with no match strength to
-  // inflate, so counting it here would mix two populations and make the RC9 signal unreadable.
-  // Pinned by tests/rag-score.test.ts.
+  // Strict equality, deliberately: "document_context" rows carry the constant 1 with no match strength to inflate; counting them here would mix two populations and make the RC9 signal unreadable. Pinned by tests/rag-score.test.ts.
   telemetry.synthetic_similarity_count = results.filter(
     (result) => result.similarity_origin === "synthetic_text",
   ).length;
