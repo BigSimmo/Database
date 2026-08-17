@@ -123,12 +123,12 @@ interaction row or making an existing row machine-resolvable, with clinical revi
 
 ## Flagged for a closer look
 
+- `nsaids` does **not** cover Celecoxib (COX-2 Inhibitor), Parecoxib (COX-2 Inhibitor (Injectable)), whose own catalogue class names the term. A drug left out of a class is a missed alert, not a false one.
 - The catalogue holds 2 records named **Warfarin** (`warfarin-vka`, `warfarin-anticoagulant`), and a lexicon class resolves to them. They carry **different** interaction rows (`warfarin-vka`: 3, `warfarin-anticoagulant`: 3; only 0 in common), so which record the clinician opens changes which warnings they see. Reconcile them in the catalogue.
 
 Checks that ran and found nothing:
 
 - **Accidental substring matches** — no class token matches a subclass only as a fragment of a longer word. (This is the check that caught `ARB` inside _Carbapenem_.)
-- **Missed class members** — no catalogue drug whose own class or subclass names a term's phrase was left out of that term. Where a class resolves to a single drug, that is the catalogue holding one such drug, not a narrow selector.
 
 ## Sign-off
 

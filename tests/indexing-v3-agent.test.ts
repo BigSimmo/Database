@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+
+import { sourceSegment } from "./helpers/source-contract";
 import {
   agentFailureDecision,
   completionGateFromRow,
@@ -191,7 +193,9 @@ describe("indexing-v3-agent behavior", () => {
       ),
     );
     const functionBody = (name: string, nextName: string) =>
-      edgeSource.slice(edgeSource.indexOf(`async function ${name}`), edgeSource.indexOf(`async function ${nextName}`));
+      sourceSegment(edgeSource, `async function ${name}`, `async function ${nextName}`, {
+        label: `indexing-v3-agent function ${name}`,
+      });
 
     for (const [name, nextName] of [
       ["upsertMemoryCardsFromSections", "upsertSectionIndexUnits"],

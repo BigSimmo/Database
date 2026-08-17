@@ -41,7 +41,7 @@ export function ModeNavSlotInk({
         <Icon
           aria-hidden="true"
           className={cn(
-            "h-[1.0625rem] w-[1.0625rem] shrink-0",
+            "size-icon-md shrink-0",
             state === "on"
               ? "text-[color:var(--clinical-accent)]"
               : state === "trail"

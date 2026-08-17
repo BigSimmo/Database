@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { sourceFrom } from "./helpers/source-contract";
+
 /**
  * Invariants of the scoped `.ckb-v2` token layer (`src/app/ckb-v2-tokens.css`).
  *
@@ -296,7 +298,9 @@ describe("ckb-v2 structure", () => {
   });
 
   it("zeroes motion durations under prefers-reduced-motion", () => {
-    const reducedMotion = stylesheet.slice(stylesheet.indexOf("@media (prefers-reduced-motion: reduce)"));
+    const reducedMotion = sourceFrom(stylesheet, "@media (prefers-reduced-motion: reduce)", {
+      label: "ckb-v2 prefers-reduced-motion block",
+    });
     for (const token of [
       "--duration-instant",
       "--duration-fast",

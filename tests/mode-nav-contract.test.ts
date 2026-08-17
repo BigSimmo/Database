@@ -9,6 +9,7 @@ import {
   planModeNavBands,
 } from "@/components/mode-nav/mode-nav-bands";
 import { MODE_NAV_ADOPTED_MODES, modeSecondaryNavigationEntries } from "@/lib/mode-secondary-navigation";
+import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 
@@ -19,10 +20,9 @@ const globalsSource = read("src/app/globals.css");
 const workspaceSource = read("src/components/therapy-compass/workspace.tsx");
 
 /** The slice of globals.css owned by the bar, so assertions cannot drift into other rules. */
-const modeNavCss = globalsSource.slice(
-  globalsSource.indexOf("@utility mode-nav"),
-  globalsSource.indexOf("/* Motion keyframes"),
-);
+const modeNavCss = sourceSegment(globalsSource, "@utility mode-nav {", "/* Motion keyframes", {
+  label: "modeNav CSS section in globals.css",
+});
 
 describe("ModeNav band planning", () => {
   it("shows every destination when they all fit, with no overflow entry", () => {
@@ -248,13 +248,15 @@ describe("ModeNav overflow slot", () => {
       ["balanced-four", "31rem"],
       ["extended", "33rem"],
     ] as const) {
-      const start = modeNavCss.indexOf(`@container mode-nav (min-width: ${threshold})`);
-      const end = modeNavCss.indexOf("@container mode-nav", start + 1);
-      const block = modeNavCss.slice(start, end < 0 ? undefined : end);
+      const block = sourceSegment(modeNavCss, `@container mode-nav (min-width: ${threshold})`, "@container mode-nav", {
+        label: `mode-nav threshold ${threshold} block`,
+      });
       expect(block).toContain(`data-density-profile="${profile}"`);
       expect(block).toContain('.mode-nav__more[data-active-from="4"] .mode-nav__rule');
     }
-    const at42 = modeNavCss.slice(modeNavCss.indexOf("@container mode-nav (min-width: 42rem)"));
+    const at42 = sourceFrom(modeNavCss, "@container mode-nav (min-width: 42rem)", {
+      label: "mode-nav threshold 42rem block",
+    });
     expect(at42).toContain('data-density-profile="extended"');
     expect(at42).toContain('.mode-nav__more[data-active-from="5"] .mode-nav__rule');
   });
