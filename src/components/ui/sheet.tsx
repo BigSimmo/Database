@@ -52,6 +52,9 @@ type SheetBaseProps = {
   titleAccessory?: ReactNode;
   descriptionContent?: ReactNode;
   headerActions?: ReactNode;
+  headerBottom?: ReactNode;
+  headerHidden?: boolean;
+  headerRef?: RefObject<HTMLDivElement | null>;
   headerClassName?: string;
   titleClassName?: string;
   closeButtonClassName?: string;
@@ -59,6 +62,13 @@ type SheetBaseProps = {
   contentStyle?: CSSProperties;
   bodyClassName?: string;
   bodyRef?: RefObject<HTMLDivElement | null>;
+  /**
+   * Makes the scrollable body reachable by keyboard when its content may not
+   * always include a focusable descendant (WCAG 2.1.1 / axe
+   * scrollable-region-focusable). Omit for bodies that always contain
+   * interactive content.
+   */
+  bodyTabIndex?: number;
   onBodyScroll?: UIEventHandler<HTMLDivElement>;
   footerClassName?: string;
   placement?: "default" | "left";
@@ -108,6 +118,9 @@ export function Sheet({
   titleAccessory,
   descriptionContent,
   headerActions,
+  headerBottom,
+  headerHidden = false,
+  headerRef,
   headerClassName,
   titleClassName,
   closeButtonClassName,
@@ -115,6 +128,7 @@ export function Sheet({
   contentStyle,
   bodyClassName,
   bodyRef,
+  bodyTabIndex,
   onBodyScroll,
   footerClassName,
   placement = "default",
@@ -459,12 +473,20 @@ export function Sheet({
         </div>
         {title ? (
           <div
+            ref={headerRef}
             data-sheet-header="true"
+            aria-hidden={headerHidden}
+            inert={headerHidden || undefined}
             className={cn(
-              "flex items-center justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:p-5",
+              "flex items-center justify-between gap-x-3 border-b border-[color:var(--border)] p-4 sm:p-5",
+              Boolean(headerBottom) && "flex-wrap",
               headerClassName,
-              resolvedMobileHeaderSafeArea === "padding" && "pt-[max(1rem,var(--safe-area-top))] sm:pt-5",
-              resolvedMobileHeaderSafeArea === "offset" && "top-[max(0.75rem,var(--safe-area-top))] sm:top-4",
+              !headerHidden &&
+                resolvedMobileHeaderSafeArea === "padding" &&
+                "pt-[max(1rem,var(--safe-area-top))] sm:pt-5",
+              !headerHidden &&
+                resolvedMobileHeaderSafeArea === "offset" &&
+                "top-[max(0.75rem,var(--safe-area-top))] sm:top-4",
             )}
           >
             <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -502,11 +524,17 @@ export function Sheet({
                 <X aria-hidden="true" className="h-4 w-4" />
               </button>
             </div>
+            {headerBottom ? (
+              <div className="order-last -mx-4 mt-3 w-[calc(100%+2rem)] basis-full sm:-mx-5 sm:w-[calc(100%+2.5rem)]">
+                {headerBottom}
+              </div>
+            ) : null}
           </div>
         ) : null}
         <div
           ref={bodyRef}
           onScroll={onBodyScroll}
+          tabIndex={bodyTabIndex}
           className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto p-4 polished-scroll sm:p-5", bodyClassName)}
         >
           {children}

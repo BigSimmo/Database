@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuthSession } from "@/lib/supabase/client";
 import {
@@ -8,19 +8,27 @@ import {
   savedDifferentialsStorageKey,
   savedFormsStorageKey,
   savedServicesStorageKey,
+  savedTherapiesStorageKey,
   subscribeSavedRegistrySlugs,
   writeSavedRegistrySlugs,
 } from "@/lib/saved-registry-storage";
 
-export type FavouriteContentType = "service" | "form" | "differential";
+export type FavouriteContentType = "service" | "form" | "differential" | "therapy";
 
 type FavouritesByType = Record<FavouriteContentType, string[]>;
+type FavouriteMutationState = {
+  confirmed: boolean;
+  desired: boolean;
+  pending: number;
+  tail: Promise<void>;
+};
 
-const emptyFavourites: FavouritesByType = { service: [], form: [], differential: [] };
+const emptyFavourites: FavouritesByType = { service: [], form: [], differential: [], therapy: [] };
 const storageKeyByType = {
   service: savedServicesStorageKey,
   form: savedFormsStorageKey,
   differential: savedDifferentialsStorageKey,
+  therapy: savedTherapiesStorageKey,
 } satisfies Record<FavouriteContentType, string>;
 const demoAccountData = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
@@ -29,6 +37,7 @@ function readDemoFavourites(): FavouritesByType {
     service: readSavedRegistrySlugs(savedServicesStorageKey),
     form: readSavedRegistrySlugs(savedFormsStorageKey),
     differential: readSavedRegistrySlugs(savedDifferentialsStorageKey),
+    therapy: readSavedRegistrySlugs(savedTherapiesStorageKey),
   };
 }
 
@@ -53,13 +62,16 @@ const AccountDataContext = createContext<AccountDataContextValue | null>(null);
 
 function normalizedFavourites(value: unknown): FavouritesByType {
   const rows = Array.isArray(value) ? value : [];
-  const result: FavouritesByType = { service: [], form: [], differential: [] };
+  const result: FavouritesByType = { service: [], form: [], differential: [], therapy: [] };
   for (const row of rows) {
     if (!row || typeof row !== "object") continue;
     const contentType = (row as { contentType?: unknown }).contentType;
     const contentKey = (row as { contentKey?: unknown }).contentKey;
     if (
-      (contentType === "service" || contentType === "form" || contentType === "differential") &&
+      (contentType === "service" ||
+        contentType === "form" ||
+        contentType === "differential" ||
+        contentType === "therapy") &&
       typeof contentKey === "string" &&
       contentKey.trim()
     ) {
@@ -72,6 +84,9 @@ function normalizedFavourites(value: unknown): FavouritesByType {
 export function AccountDataProvider({ children }: { children: ReactNode }) {
   const auth = useAuthSession();
   const [favourites, setFavourites] = useState<FavouritesByType>(emptyFavourites);
+  const favouritesRef = useRef(favourites);
+  const favouriteMutationsRef = useRef(new Map<string, FavouriteMutationState>());
+  const favouriteClearTailRef = useRef<Promise<void>>(Promise.resolve());
   const [ready, setReady] = useState(auth.status !== "authenticated");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +94,22 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
   // exactly the same clearing and abort semantics as an auth transition.
   const [reloadAttempt, setReloadAttempt] = useState(0);
   const reload = useCallback(() => setReloadAttempt((attempt) => attempt + 1), []);
+  const replaceFavourites = useCallback((next: FavouritesByType) => {
+    favouritesRef.current = next;
+    setFavourites(next);
+  }, []);
+  const applyFavourite = useCallback(
+    (contentType: FavouriteContentType, contentKey: string, saved: boolean) => {
+      const current = favouritesRef.current;
+      replaceFavourites({
+        ...current,
+        [contentType]: saved
+          ? [contentKey, ...current[contentType].filter((item) => item !== contentKey)]
+          : current[contentType].filter((item) => item !== contentKey),
+      });
+    },
+    [replaceFavourites],
+  );
   // Depended on by identity rather than through `auth`, which would re-run the
   // load effect on every auth-object render. It is a useCallback upstream, so
   // this stays stable.
@@ -86,7 +117,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (auth.status !== "authenticated") {
-      const refreshDemoFavourites = () => setFavourites(demoAccountData ? readDemoFavourites() : emptyFavourites);
+      const refreshDemoFavourites = () => replaceFavourites(demoAccountData ? readDemoFavourites() : emptyFavourites);
       let cancelled = false;
       queueMicrotask(() => {
         if (cancelled) return;
@@ -120,13 +151,13 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
         // paths below already do this.
         if (response.status === 401) markSessionExpired();
         if (!response.ok) throw new Error(payload.message ?? payload.error ?? "Saved items could not be loaded.");
-        setFavourites(normalizedFavourites(payload.favourites));
+        replaceFavourites(normalizedFavourites(payload.favourites));
         setLoadError(null);
         setError(null);
       })
       .catch((cause) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
-        setFavourites(emptyFavourites);
+        replaceFavourites(emptyFavourites);
         setLoadError(cause instanceof Error ? cause.message : "Saved items could not be loaded.");
         setError(null);
       })
@@ -135,13 +166,13 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       });
 
     return () => controller.abort();
-  }, [auth.authEpoch, auth.authorizationHeader, auth.status, markSessionExpired, reloadAttempt]);
+  }, [auth.authEpoch, auth.authorizationHeader, auth.status, markSessionExpired, reloadAttempt, replaceFavourites]);
 
   const setFavourite = useCallback(
     async (contentType: FavouriteContentType, contentKey: string, saved: boolean) => {
       if (auth.status !== "authenticated") {
         if (demoAccountData) {
-          const current = favourites[contentType];
+          const current = favouritesRef.current[contentType];
           return writeSavedRegistrySlugs(
             storageKeyByType[contentType],
             saved
@@ -155,32 +186,59 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
 
       const key = contentKey.trim();
       if (!key) return false;
-      const previous = favourites;
-      setFavourites((current) => ({
-        ...current,
-        [contentType]: saved
-          ? [key, ...current[contentType].filter((item) => item !== key)]
-          : current[contentType].filter((item) => item !== key),
-      }));
-
-      const response = await fetch("/api/account/favourites", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", ...auth.authorizationHeader },
-        body: JSON.stringify({ contentType, contentKey: key, saved }),
-      }).catch(() => null);
-      if (!response?.ok) {
-        setFavourites(previous);
-        const payload = await response?.json().catch(() => ({}));
-        // Mutation failures must not poison loadError: the library already loaded,
-        // and Retry-on-GET would mis-describe a failed write as an unread library.
-        setError(payload?.message ?? payload?.error ?? "Saved items could not be updated.");
-        if (response?.status === 401) auth.markSessionExpired();
-        return false;
+      const mutationKey = `${contentType}:${key}`;
+      let mutation = favouriteMutationsRef.current.get(mutationKey);
+      if (!mutation) {
+        mutation = {
+          confirmed: favouritesRef.current[contentType].includes(key),
+          desired: saved,
+          pending: 0,
+          tail: Promise.resolve(),
+        };
+        favouriteMutationsRef.current.set(mutationKey, mutation);
       }
-      setError(null);
-      return true;
+
+      mutation.desired = saved;
+      mutation.pending += 1;
+      applyFavourite(contentType, key, saved);
+
+      // Per-item writes remain independent, but every write observes the latest
+      // clear-all barrier. A write that begins after Clear therefore cannot race
+      // ahead of its DELETE and recreate a favourite out of order.
+      const request = Promise.all([mutation.tail, favouriteClearTailRef.current]).then(async () => {
+        const response = await fetch("/api/account/favourites", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", ...auth.authorizationHeader },
+          body: JSON.stringify({ contentType, contentKey: key, saved }),
+        }).catch(() => null);
+        if (!response?.ok) {
+          const payload = await response?.json().catch(() => ({}));
+          // Mutation failures must not poison loadError: the library already loaded,
+          // and Retry-on-GET would mis-describe a failed write as an unread library.
+          setError(payload?.message ?? payload?.error ?? "Saved items could not be updated.");
+          if (response?.status === 401) auth.markSessionExpired();
+          return false;
+        }
+        mutation.confirmed = saved;
+        setError(null);
+        return true;
+      });
+      mutation.tail = request.then(
+        () => undefined,
+        () => undefined,
+      );
+
+      const succeeded = await request;
+      mutation.pending -= 1;
+      if (mutation.pending === 0) {
+        applyFavourite(contentType, key, mutation.confirmed);
+        favouriteMutationsRef.current.delete(mutationKey);
+      } else {
+        applyFavourite(contentType, key, mutation.desired);
+      }
+      return succeeded;
     },
-    [auth, favourites],
+    [applyFavourite, auth],
   );
 
   const clearFavourites = useCallback(async () => {
@@ -188,21 +246,36 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       if (!demoAccountData) return false;
       return (Object.values(storageKeyByType) as string[]).every((key) => writeSavedRegistrySlugs(key, []));
     }
-    const previous = favourites;
-    setFavourites(emptyFavourites);
-    const response = await fetch("/api/account/favourites", {
-      method: "DELETE",
-      headers: auth.authorizationHeader,
-    }).catch(() => null);
-    if (!response?.ok) {
-      setFavourites(previous);
-      setError("Saved items could not be cleared.");
-      if (response?.status === 401) auth.markSessionExpired();
-      return false;
-    }
-    setError(null);
-    return true;
-  }, [auth, favourites]);
+
+    // Clear is a global mutation boundary. Wait for every already-enqueued PUT,
+    // and make later PUTs wait for this DELETE through favouriteClearTailRef.
+    const pendingMutationTails = [...favouriteMutationsRef.current.values()].map((mutation) => mutation.tail);
+    const request = Promise.all([favouriteClearTailRef.current, ...pendingMutationTails]).then(async () => {
+      const response = await fetch("/api/account/favourites", {
+        method: "DELETE",
+        headers: auth.authorizationHeader,
+      }).catch(() => null);
+      if (!response?.ok) {
+        setError("Saved items could not be cleared.");
+        if (response?.status === 401) auth.markSessionExpired();
+        return false;
+      }
+
+      // Mutations queued behind the clear must roll back against the now-empty
+      // server state if their later PUT fails.
+      for (const mutation of favouriteMutationsRef.current.values()) {
+        mutation.confirmed = false;
+      }
+      replaceFavourites(emptyFavourites);
+      setError(null);
+      return true;
+    });
+    favouriteClearTailRef.current = request.then(
+      () => undefined,
+      () => undefined,
+    );
+    return request;
+  }, [auth, replaceFavourites]);
 
   const value = useMemo<AccountDataContextValue>(
     () => ({

@@ -1,10 +1,14 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { pageContainer } from "@/components/ui-primitives";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Tabs } from "@/components/ui/tabs";
 
-import { MAX_COMPARE, useTcBindings } from "../bindings";
+import { THERAPY_MAX_COMPARE } from "@/lib/therapy-compass-navigation";
+
+import { useTcBindings } from "../bindings";
 import { commandControl, outlineControl, therapyBtn } from "../controls";
 import { needsReviewCount, parseSteps, searchTherapies, shortestDelivery, summarise } from "../data/select";
 import type { Therapy } from "../data/types";
@@ -92,9 +96,7 @@ export function CompareScreen() {
       "set",
     );
 
-  const cols = `minmax(180px,1.1fr) ${items.map(() => "minmax(160px,1fr)").join(" ")}`;
   const dense = b.density === "dense";
-  const cellPad = dense ? "11px 16px" : "15px 20px";
 
   return (
     <section data-screen-label="Compare" className={pageContainer}>
@@ -113,24 +115,16 @@ export function CompareScreen() {
           </p>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="flex gap-0.5 p-[3px] bg-[color:var(--surface-inset)] rounded-lg">
-            <button
-              type="button"
-              className={`${therapyBtn} ${b.segComfortable}`}
-              onClick={b.setComfortable}
-              aria-pressed={b.density === "comfortable"}
-            >
-              Comfortable
-            </button>
-            <button
-              type="button"
-              className={`${therapyBtn} ${b.segDense}`}
-              onClick={b.setDense}
-              aria-pressed={b.density === "dense"}
-            >
-              Dense
-            </button>
-          </div>
+          <SegmentedControl
+            label="Comparison density"
+            value={b.density}
+            onChange={(value) => (value === "dense" ? b.setDense() : b.setComfortable())}
+            options={[
+              { value: "comfortable", label: "Comfortable" },
+              { value: "dense", label: "Dense" },
+            ]}
+            className="w-auto"
+          />
           <button
             type="button"
             className={`${therapyBtn} ${outlineControl}`}
@@ -202,88 +196,100 @@ export function CompareScreen() {
           </div>
 
           {/* tabs */}
-          <div
-            className="therapy-compare-tabs flex gap-[26px] border-b border-[color:var(--border)] mb-0.5"
-            role="group"
-            aria-label="Comparison fields"
+          <Tabs
+            label="Comparison fields"
+            value={b.cmpTab}
+            onChange={(value) => {
+              if (value === "priorities") b.setTabPriorities();
+              else if (value === "differences") b.setTabDifferences();
+              else b.setTabAll();
+            }}
+            items={[
+              { id: "priorities", label: "Priorities" },
+              { id: "differences", label: "Differences" },
+              { id: "all", label: "All fields" },
+            ]}
           >
-            <button
-              type="button"
-              className={`${therapyBtn} ${b.tabPriorities}`}
-              onClick={b.setTabPriorities}
-              aria-pressed={b.cmpTab === "priorities"}
+            {/* table */}
+            <div
+              data-therapy-scroll-sm
+              role="region"
+              aria-label="Therapy comparison table"
+              tabIndex={0}
+              className="overflow-x-auto rounded-xs border border-[color:var(--border)] shadow-[var(--shadow-soft)]"
             >
-              Priorities
-            </button>
-            <button
-              type="button"
-              className={`${therapyBtn} ${b.tabDifferences}`}
-              onClick={b.setTabDifferences}
-              aria-pressed={b.cmpTab === "differences"}
-            >
-              Differences
-            </button>
-            <button
-              type="button"
-              className={`${therapyBtn} ${b.tabAll}`}
-              onClick={b.setTabAll}
-              aria-pressed={b.cmpTab === "all"}
-            >
-              All fields
-            </button>
-          </div>
-
-          {/* table */}
-          <div
-            data-therapy-scroll-sm
-            className="therapy-compare-table bg-[color:var(--surface)] border border-[color:var(--border)] border-t-0 rounded-xs shadow-[var(--shadow-soft)] overflow-hidden"
-            style={{ "--tc-compare-columns": cols, "--tc-compare-cell-padding": cellPad } as CSSProperties}
-          >
-            <div className="therapy-compare-grid bg-[color:var(--surface-subtle)]">
-              <div className="py-4 px-5 text-sm-minus font-semibold text-[color:var(--text-muted)]">Field</div>
-              {items.map((t) => (
-                <div key={t.slug} className="py-3.5 px-5 border-l border-[color:var(--border)]">
-                  <div className="flex items-center gap-[7px]">
-                    <ScaleIcon size={15} className="text-[color:var(--decoration-soft)]" />
-                    <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
-                  </div>
-                  <div
-                    className={
-                      t.reviewStatus === "reviewed"
-                        ? "mt-[3px] text-2xs font-semibold text-[color:var(--success-text)]"
-                        : "mt-[3px] text-2xs font-semibold text-[color:var(--warning-text)]"
-                    }
-                  >
-                    {t.reviewStatus === "reviewed" ? "Reviewed" : "Needs review"}
-                  </div>
-                </div>
-              ))}
+              <table className="w-full min-w-[720px] border-collapse bg-[color:var(--surface)] text-left">
+                <caption className="sr-only">Therapy comparison by clinical field</caption>
+                <thead className="bg-[color:var(--surface-subtle)]">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="min-w-[180px] px-5 py-4 text-sm-minus font-semibold text-[color:var(--text-muted)]"
+                    >
+                      Field
+                    </th>
+                    {items.map((t) => (
+                      <th
+                        key={t.slug}
+                        scope="col"
+                        className="min-w-[160px] border-l border-[color:var(--border)] px-5 py-3.5 align-top"
+                      >
+                        <div className="flex items-center gap-[7px]">
+                          <ScaleIcon size={15} className="text-[color:var(--decoration-soft)]" />
+                          <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
+                        </div>
+                        <div
+                          className={
+                            t.reviewStatus === "reviewed"
+                              ? "mt-[3px] text-2xs font-semibold text-[color:var(--success-text)]"
+                              : "mt-[3px] text-2xs font-semibold text-[color:var(--warning-text)]"
+                          }
+                        >
+                          {t.reviewStatus === "reviewed" ? "Reviewed" : "Needs review"}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, ri) => {
+                    const warn = r.tone === "warning";
+                    const stripe = ri % 2 === 1;
+                    const rowTone = warn
+                      ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"
+                      : stripe
+                        ? "bg-[color:var(--surface-subtle)]"
+                        : "bg-[color:var(--surface)]";
+                    return (
+                      <tr key={r.key} className={rowTone}>
+                        <th
+                          scope="row"
+                          className={`border-t border-[color:var(--border)] font-semibold ${dense ? "px-4 py-3" : "px-5 py-4"}`}
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <r.icon size={16} strokeWidth={1.7} />
+                            {r.label}
+                          </span>
+                        </th>
+                        {items.map((t) => (
+                          <td
+                            key={t.slug}
+                            className={`border-l border-t border-[color:var(--border)] align-top text-sm-minus leading-normal ${dense ? "px-4 py-3" : "px-5 py-4"}`}
+                          >
+                            {r.get(t)}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            {rows.map((r, ri) => {
-              const warn = r.tone === "warning";
-              const stripe = ri % 2 === 1;
-              return (
-                <div
-                  key={r.key}
-                  className={`therapy-compare-grid bg-[color:var(--surface)]${warn ? " bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : stripe ? " bg-[color:var(--surface-subtle)]" : ""}`}
-                >
-                  <div className="therapy-compare-row-label flex items-center">
-                    <r.icon size={16} strokeWidth={1.7} />
-                    {r.label}
-                  </div>
-                  {items.map((t) => (
-                    <div key={t.slug} className="therapy-compare-cell border-l border-[color:var(--border)]">
-                      {r.get(t)}
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex items-center gap-2 mt-4 text-xs text-[color:var(--text-muted)]">
-            <InfoIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
-            Comparisons are source-grounded. Review status reflects the latest source checks.
-          </div>
+            <div className="flex items-center gap-2 mt-4 text-xs text-[color:var(--text-muted)]">
+              <InfoIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
+              Comparisons are source-grounded. Review status reflects the latest source checks.
+            </div>
+          </Tabs>
         </>
       )}
     </section>
@@ -314,7 +320,7 @@ function SummaryCell({
 function AddPicker() {
   const b = useTcBindings();
   const [q, setQ] = useState("");
-  const atLimit = b.compareSlugs.length >= MAX_COMPARE;
+  const atLimit = b.compareSlugs.length >= THERAPY_MAX_COMPARE;
   const matches = useMemo(() => {
     if (atLimit || !q.trim()) return [];
     return searchTherapies(b.therapies, { query: q, tags: [], briefOnly: false, sheetOnly: false, reviewedOnly: false })

@@ -4375,68 +4375,9 @@ html.theme-transitioning *:after {
 
 /* =============================================================================
  * Therapy Compass residuals — irreducible rules that cannot become utilities.
- * Print isolation, printable paper tokens, CSS-var comparison grids, clinician
- * toggle ::before track, and thin scrollbars. Everything else in the old
+ * Printable paper tokens and thin scrollbars. Everything else in the old
  * therapy-compass.css parallel system is token-backed Tailwind on the components.
  * ============================================================================= */
-
-.therapy-compare-grid {
-  display: grid;
-  grid-template-columns: var(--tc-compare-columns);
-  border-bottom: 1px solid var(--border);
-}
-
-.therapy-compare-cell,
-.therapy-compare-row-label {
-  padding: var(--tc-compare-cell-padding);
-}
-
-[data-therapy-clinician-track] {
-  position: relative;
-  width: var(--spacing-tap);
-  height: var(--spacing-tap);
-  flex: none;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-}
-
-[data-therapy-clinician-track]::before {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 42px;
-  height: 24px;
-  border-radius: 12px;
-  background: var(--border-strong);
-  content: "";
-  transform: translate(-50%, -50%);
-  transition: background-color 150ms ease;
-}
-
-[data-therapy-clinician-track][data-active="true"]::before {
-  background: var(--clinical-accent);
-}
-
-[data-therapy-clinician-knob] {
-  position: absolute;
-  z-index: 1;
-  top: 50%;
-  left: calc(50% - 18px);
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--surface-raised);
-  box-shadow: var(--e1);
-  transform: translate(0, -50%);
-  transition: transform 150ms var(--ease-spring);
-}
-
-[data-therapy-clinician-track][data-active="true"] [data-therapy-clinician-knob] {
-  transform: translate(18px, -50%);
-}
 
 [data-therapy-paper] {
   /* Fixed print palette — deliberately NOT theme-reactive. Accent mirrors Clinical Sky. */
@@ -4494,25 +4435,26 @@ html.theme-transitioning *:after {
 }
 
 @media print {
-  @page therapy-compass-sheet {
+  @page shared-clinical-output {
     size: a4 portrait;
     margin: 14mm;
   }
 
+  body:has([data-print-output]),
   body:has([data-therapy-root]) {
     background: #ffffff !important;
   }
 
-  body:has([data-therapy-root]) * {
+  body:has([data-print-output]) * {
     visibility: hidden !important;
   }
 
-  body:has([data-therapy-root]) [data-therapy-paper],
-  body:has([data-therapy-root]) [data-therapy-paper] * {
+  body:has([data-print-output]) [data-print-output],
+  body:has([data-print-output]) [data-print-output] * {
     visibility: visible !important;
   }
 
-  body:has([data-therapy-root]) [data-therapy-paper] {
+  body:has([data-print-output]) [data-print-output] {
     position: absolute !important;
     top: 0;
     left: 0;
@@ -4521,10 +4463,24 @@ html.theme-transitioning *:after {
     margin: 0 !important;
     border: 0 !important;
     box-shadow: none !important;
-    page: therapy-compass-sheet;
+    page: shared-clinical-output;
   }
 
-  body:has([data-therapy-root]) [data-therapy-no-print] {
+  body:has([data-print-output]) [data-print-hide],
+  body:has([data-print-output]) [data-therapy-no-print] {
     display: none !important;
   }
+
+  [data-print-provenance] {
+    display: block !important;
+    margin-top: 8mm;
+    border-top: 1px solid var(--border);
+    padding-top: var(--spacing-icon-xs);
+    color: var(--text-muted);
+    font-size: 9pt;
+  }
+}
+
+[data-print-provenance] {
+  display: none;
 }

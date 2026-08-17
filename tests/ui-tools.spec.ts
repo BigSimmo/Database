@@ -1454,7 +1454,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(page).toHaveURL(/group=urgent/);
     await expect(page.getByRole("button", { name: "Remove Crisis & urgent filter" })).toBeVisible();
     await filterPanel.getByTestId("service-filter-panel-clear").click();
-    await expect(page).toHaveURL(/q=13YARN/);
+    await expect(page).toHaveURL(/[?&]q=13YARN(?:&|#|$)/);
     await expect(page).not.toHaveURL(/group=/);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
     await filterPanel.getByRole("button", { name: "Close", exact: true }).click();

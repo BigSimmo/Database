@@ -201,7 +201,14 @@ export function Meter({ value, label }: { value: number | null; label: string })
         <span className="text-2xs text-[color:var(--text-muted)]">{label}</span>
         <span className="text-2xs font-semibold text-[color:var(--text-muted)]">{value == null ? "—" : `${v}%`}</span>
       </div>
-      <span className="block h-1.5 overflow-hidden rounded-xs bg-[color:var(--surface-inset)]">
+      <span
+        role={value == null ? undefined : "meter"}
+        aria-label={value == null ? undefined : label}
+        aria-valuemin={value == null ? undefined : 0}
+        aria-valuemax={value == null ? undefined : 100}
+        aria-valuenow={value == null ? undefined : v}
+        className="block h-1.5 overflow-hidden rounded-xs bg-[color:var(--surface-inset)]"
+      >
         <span
           className={cn(
             "block h-full rounded-xs",
