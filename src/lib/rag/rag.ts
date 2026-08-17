@@ -536,8 +536,8 @@ function provenanceLayerKeys(result: SearchResult) {
   return layers;
 }
 
-/** Record search score telemetry. */
-function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchResult[]) {
+/** Record search score telemetry. Exported for `tests/rag-score.test.ts`; not a route surface. */
+export function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchResult[]) {
   if (!results.length) {
     telemetry.top_score = 0;
     telemetry.second_top_score = 0;
@@ -569,6 +569,11 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
   telemetry.score_spread = Number(Math.max(0, telemetry.top_score - telemetry.second_top_score).toFixed(4));
   telemetry.score_distinct_documents = new Set(results.map((result) => result.document_id)).size;
   telemetry.retrieval_candidate_count = results.length;
+  // Strict equality, deliberately: this counter measures how often lexically/structurally
+  // IMPUTED scores cross gates calibrated for cosine. "document_context" (the constant 1 on
+  // document-summary rows) is a different provenance on a route with no match strength to
+  // inflate, so counting it here would mix two populations and make the RC9 signal unreadable.
+  // Pinned by tests/rag-score.test.ts.
   telemetry.synthetic_similarity_count = results.filter(
     (result) => result.similarity_origin === "synthetic_text",
   ).length;
