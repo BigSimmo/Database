@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { UniversalSearchGroup, UniversalSearchResponse } from "@/lib/universal-search";
 
 export type UniversalSearchStreamResponse = UniversalSearchResponse & {
@@ -10,6 +11,65 @@ export type UniversalSearchStreamEvent =
   | { type: "complete"; response: UniversalSearchStreamResponse }
   | { type: "error"; code: "universal_search_failed" };
 
+const universalSearchItemSchema = z.looseObject({
+  id: z.string(),
+  kind: z.string(),
+  title: z.string(),
+  subtitle: z.string().optional(),
+  href: z.string(),
+  score: z.number().optional(),
+  badge: z.string().optional(),
+  meta: z.string().optional(),
+  confident: z.boolean().optional(),
+});
+
+const universalSearchGroupSchema = z.looseObject({
+  kind: z.string(),
+  total: z.number(),
+  items: z.array(universalSearchItemSchema),
+  latencyMs: z.number(),
+  error: z.boolean().optional(),
+});
+
+const universalSearchStreamResponseSchema = z.looseObject({
+  query: z.string(),
+  groups: z.array(universalSearchGroupSchema),
+  tookMs: z.number(),
+  domainOrder: z.array(z.string()),
+  demoMode: z.boolean().optional(),
+  publicAccess: z.boolean().optional(),
+});
+
+export const universalSearchStreamEventSchema = z.discriminatedUnion("type", [
+  z.looseObject({
+    type: z.literal("group"),
+    query: z.string(),
+    group: universalSearchGroupSchema,
+  }),
+  z.looseObject({
+    type: z.literal("complete"),
+    response: universalSearchStreamResponseSchema,
+  }),
+  z.looseObject({
+    type: z.literal("error"),
+    code: z.literal("universal_search_failed"),
+  }),
+]);
+
+function parseEvent(line: string): UniversalSearchStreamEvent {
+  let rawJson: unknown;
+  try {
+    rawJson = JSON.parse(line);
+  } catch {
+    throw new Error("Invalid universal-search NDJSON event.");
+  }
+  const parsed = universalSearchStreamEventSchema.safeParse(rawJson);
+  if (!parsed.success) {
+    throw new Error("Invalid universal-search NDJSON event.");
+  }
+  return parsed.data as UniversalSearchStreamEvent;
+}
+
 function abortReason(signal: AbortSignal): Error {
   return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
 }
@@ -18,21 +78,8 @@ function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) throw abortReason(signal);
 }
 
-function parseEvent(line: string): UniversalSearchStreamEvent {
-  const parsed = JSON.parse(line) as Partial<UniversalSearchStreamEvent>;
-  if (parsed.type === "group" && typeof parsed.query === "string" && parsed.group) {
-    return parsed as Extract<UniversalSearchStreamEvent, { type: "group" }>;
-  }
-  if (parsed.type === "complete" && parsed.response) {
-    return parsed as Extract<UniversalSearchStreamEvent, { type: "complete" }>;
-  }
-  if (parsed.type === "error" && parsed.code === "universal_search_failed") {
-    return parsed as Extract<UniversalSearchStreamEvent, { type: "error" }>;
-  }
-  throw new Error("Invalid universal-search NDJSON event.");
-}
-
 /** Consume split NDJSON chunks, surfacing groups immediately and returning final JSON parity. */
+
 export async function consumeUniversalSearchNdjson(
   response: Response,
   options: {

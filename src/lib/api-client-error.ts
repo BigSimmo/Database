@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export class ApiClientError extends Error {
   constructor(
     message: string,
@@ -10,6 +12,20 @@ export class ApiClientError extends Error {
     this.name = "ApiClientError";
   }
 }
+
+const apiErrorDetailsSchema = z.looseObject({
+  code: z.string().optional(),
+  retryAfterSeconds: z.number().optional(),
+});
+
+const apiErrorPayloadSchema = z.looseObject({
+  message: z.string().optional(),
+  error: z.string().optional(),
+  code: z.string().optional(),
+  details: apiErrorDetailsSchema.optional(),
+});
+
+type ApiErrorPayload = z.infer<typeof apiErrorPayloadSchema>;
 
 function retryAfterMs(response: Response, now: number) {
   const raw = response.headers.get("retry-after")?.trim();
@@ -24,16 +40,22 @@ function retryableStatus(status: number) {
   return status === 408 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
 }
 
-function sseErrorPayload(text: string) {
+function parseJsonPayload(raw: string): ApiErrorPayload | null {
+  try {
+    const parsed = JSON.parse(raw);
+    const result = apiErrorPayloadSchema.safeParse(parsed);
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
+function sseErrorPayload(text: string): ApiErrorPayload | null {
   for (const block of text.split(/\r?\n\r?\n/)) {
     if (!/^event:\s*error\s*$/m.test(block)) continue;
     const data = block.match(/^data:\s*(.+)$/m)?.[1];
     if (!data) continue;
-    try {
-      return JSON.parse(data) as Record<string, unknown>;
-    } catch {
-      return null;
-    }
+    return parseJsonPayload(data);
   }
   return null;
 }
@@ -41,13 +63,9 @@ function sseErrorPayload(text: string) {
 export async function parseApiErrorResponse(response: Response, now = Date.now()) {
   const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
   const text = await response.text().catch(() => "");
-  let payload: Record<string, unknown> | null = null;
+  let payload: ApiErrorPayload | null = null;
   if (contentType.includes("json")) {
-    try {
-      payload = JSON.parse(text) as Record<string, unknown>;
-    } catch {
-      payload = null;
-    }
+    payload = parseJsonPayload(text);
   } else if (contentType.includes("text/event-stream")) {
     payload = sseErrorPayload(text);
   }
@@ -56,8 +74,7 @@ export async function parseApiErrorResponse(response: Response, now = Date.now()
     (typeof payload?.error === "string" && payload.error) ||
     (text && !contentType.includes("text/event-stream") ? text.slice(0, 300) : "") ||
     `Request failed (${response.status})`;
-  const details =
-    payload?.details && typeof payload.details === "object" ? (payload.details as Record<string, unknown>) : null;
+  const details = payload?.details ?? null;
   const code =
     (typeof payload?.code === "string" && payload.code) ||
     (typeof details?.code === "string" && details.code) ||
