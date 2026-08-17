@@ -1,0 +1,6 @@
+/* Clinical KB standard named responsive breakpoint tokens (Task #336) */
+:root {
+  --bp-phone: 640px;
+  --bp-tablet: 768px;
+  --bp-desktop: 1024px;
+}
