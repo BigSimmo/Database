@@ -1,0 +1,66 @@
+import { useEffect, useState } from "react";
+import {
+  fetchBatchSignedImageUrls,
+  getUncachedImageIds,
+  populateBatchSignedUrlsInCache,
+} from "@/lib/batch-signed-urls";
+import { useAuthSession } from "@/lib/supabase/client";
+
+/**
+ * Hook to batch-resolve and prefetch signed URLs for an array of image IDs in
+ * a single `POST /api/images/signed-urls` request (chunked in <= 100 IDs),
+ * populating the client-side signed-URL LRU cache.
+ *
+ * Child `SignedImage` or `useSignedImageUrl` components will immediately find
+ * their signed URLs synchronously in the LRU cache without firing individual N+1
+ * network fetches.
+ */
+export function useBatchSignedImageUrls(imageIds: string[], enabled = true) {
+  const { authorizationHeader, session, markSessionExpired } = useAuthSession();
+  const authIdentity = session?.user?.id ?? null;
+  const [version, setVersion] = useState(0);
+
+  useEffect(() => {
+    if (!enabled || !Array.isArray(imageIds) || imageIds.length === 0) {
+      return;
+    }
+
+    const uncachedIds = getUncachedImageIds(imageIds);
+    if (uncachedIds.length === 0) {
+      return;
+    }
+
+    let isSubscribed = true;
+    const controller = new AbortController();
+
+    async function loadBatch() {
+      try {
+        const result = await fetchBatchSignedImageUrls(uncachedIds, {
+          headers: authorizationHeader ? (authorizationHeader as HeadersInit) : undefined,
+          signal: controller.signal,
+          onUnauthorized: () => {
+            if (authIdentity !== null) markSessionExpired();
+          },
+        });
+
+        if (isSubscribed && result.status === 200) {
+          populateBatchSignedUrlsInCache(result.urls);
+          setVersion((v) => v + 1);
+        }
+      } catch (err) {
+        if ((err as Error)?.name !== "AbortError") {
+          // Silent catch for prefetch failure — individual images will fallback to single fetch
+        }
+      }
+    }
+
+    loadBatch();
+
+    return () => {
+      isSubscribed = false;
+      controller.abort();
+    };
+  }, [enabled, imageIds, authorizationHeader, authIdentity, markSessionExpired]);
+
+  return { version };
+}
