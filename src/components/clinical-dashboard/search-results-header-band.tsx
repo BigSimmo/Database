@@ -112,7 +112,12 @@ function useRailOverflow<Element extends HTMLElement>() {
 
 export type AppliedFilterChip = {
   id: string;
-  label: string;
+  /** Compact value shown on phones, for example `High`. */
+  valueLabel: string;
+  /** Context restored on larger screens, for example `Risk: High`. */
+  groupLabel?: string;
+  /** Complete label announced by assistive technology. */
+  accessibleLabel?: string;
   onRemove: () => void;
 };
 
@@ -591,9 +596,10 @@ export function SearchResultsHeaderBand({
           toolbar. It deliberately survives `loading` and a zero result: nothing
           matching is exactly when you need to relax a filter, and dropping it
           mid-search would flicker the chips out and back on every keystroke.
-          Only a fault removes it, because filtering a result set that never
-          loaded is meaningless. */}
-      {appliedFilters.length > 0 && !faulted ? (
+          A fault still keeps it: retrieval and result constraints are user
+          state, not a claim that the faulted result count is trustworthy, and
+          the controls remain the shortest recovery path. */}
+      {appliedFilters.length > 0 ? (
         <div
           data-testid="search-query-ribbon-shelf"
           role="group"
@@ -634,8 +640,8 @@ export function SearchResultsHeaderBand({
                 key={filter.id}
                 type="button"
                 onClick={filter.onRemove}
-                aria-label={`Remove ${filter.label} filter`}
-                title={filter.label}
+                aria-label={`Remove ${filter.accessibleLabel ?? `${filter.groupLabel ? `${filter.groupLabel}: ` : ""}${filter.valueLabel}`} filter`}
+                title={`${filter.groupLabel ? `${filter.groupLabel}: ` : ""}${filter.valueLabel}`}
                 data-selected="true"
                 className={cn(
                   // Hover deepens the chip's own accent rather than swapping to the
@@ -645,7 +651,13 @@ export function SearchResultsHeaderBand({
                   focusRing,
                 )}
               >
-                <span className="truncate">{filter.label}</span>
+                {filter.groupLabel ? (
+                  <span className="hidden truncate sm:inline">
+                    <span className="text-[color:var(--text-muted)]">{filter.groupLabel}: </span>
+                    {filter.valueLabel}
+                  </span>
+                ) : null}
+                <span className={cn("truncate", filter.groupLabel && "sm:hidden")}>{filter.valueLabel}</span>
                 <X className="h-3 w-3 shrink-0" aria-hidden />
               </button>
             ))}
@@ -786,11 +798,11 @@ export function ResultSortControl({
  * escape, and on therapy-compass `Clear search` is the only one for a query-only
  * zero result. Shipping the escape hatch below the floor the same change raised
  * the facets, the find field and the disclosure headings to would contradict the
- * rule this component's own redesign argues for. Relaxes to 36px from `sm`,
- * exactly like the facets.
+ * rule this component's own redesign argues for. It keeps the 40px pointer
+ * floor from `sm`, exactly like the filter controls.
  */
 const emptyStateAction =
-  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:text-[color:var(--text)] sm:min-h-9";
+  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:text-[color:var(--text)] sm:min-h-10";
 
 export function SearchResultsEmptyState({
   modeId,
@@ -992,7 +1004,7 @@ export function SearchResultsEmptyState({
               )}
             >
               <CircleMinus className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              Remove “{lastFilter.label}”
+              Remove “{lastFilter.accessibleLabel ?? lastFilter.valueLabel}”
             </button>
           ) : null}
           {onClearFilters && appliedFilters.length > 1 ? (

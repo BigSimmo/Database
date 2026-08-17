@@ -1,9 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DocumentSearchResultsPanel } from "@/components/clinical-dashboard/document-search-results";
-import type { DocumentLabel, DocumentMatch } from "@/lib/types";
+import type { ClinicalDocument, DocumentLabel, DocumentMatch } from "@/lib/types";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -14,9 +14,15 @@ vi.mock("next/navigation", () => ({
     forward: vi.fn(),
     prefetch: vi.fn(),
   }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(window.location.search),
   usePathname: () => "/documents/search",
 }));
+
+afterEach(() => {
+  cleanup();
+  window.history.replaceState(null, "", "/");
+  vi.clearAllMocks();
+});
 
 vi.mock("@/lib/supabase/client", () => ({
   useAuthSession: () => ({
@@ -69,6 +75,32 @@ const lithiumDoc = match({
   labels: [label("22222222-2222-4222-8222-222222222222", "lithium", "medication")],
 });
 
+function sourceDocument(id: string, title: string, jurisdiction: string): ClinicalDocument {
+  return {
+    id,
+    title,
+    description: null,
+    file_name: `${id}.pdf`,
+    file_type: "application/pdf",
+    file_size: 1024,
+    storage_path: `documents/${id}.pdf`,
+    status: "indexed",
+    page_count: 2,
+    chunk_count: 1,
+    image_count: 0,
+    error_message: null,
+    metadata: {
+      document_status: "current",
+      clinical_validation_status: "approved",
+      extraction_quality: "good",
+      jurisdiction,
+    },
+    labels: [],
+    created_at: "2026-08-01T00:00:00.000Z",
+    updated_at: "2026-08-01T00:00:00.000Z",
+  };
+}
+
 const baseProps = {
   matches: [clozapineDoc, lithiumDoc],
   recordMatches: [],
@@ -96,9 +128,9 @@ function resultTitles() {
 
 async function openPanel(props = baseProps) {
   const user = userEvent.setup();
-  render(<DocumentSearchResultsPanel {...props} />);
+  const view = render(<DocumentSearchResultsPanel {...props} />);
   await user.click(screen.getByTestId("document-filter-trigger-phone"));
-  return { user, panel: screen.getByTestId("document-filter-panel") };
+  return { user, view, panel: screen.getByTestId("document-filter-panel") };
 }
 
 describe("document filter panel", () => {
@@ -119,42 +151,73 @@ describe("document filter panel", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("carries source type and tag facets in one panel", async () => {
-    // Source type used to be a separate chip row in the ribbon on desktop and a
-    // native select on phones. One panel means one place to see and undo
-    // everything narrowing the list.
+  it("carries result type and smart-tag facets in one panel", async () => {
     const user = userEvent.setup();
     render(<DocumentSearchResultsPanel {...baseProps} />);
     await user.click(screen.getByTestId("document-filter-trigger-phone"));
 
     const panel = screen.getByTestId("document-filter-panel");
-    expect(within(panel).getByRole("radiogroup", { name: "Source type" })).toBeInTheDocument();
-    // Mutually exclusive, so radio semantics rather than four independent toggles.
+    expect(within(panel).getByRole("radiogroup", { name: "Result type" })).toBeInTheDocument();
     expect(within(panel).getByRole("radio", { name: /All/ })).toHaveAttribute("aria-checked", "true");
+    await user.click(within(panel).getByRole("button", { name: /^Medication/ }));
     expect(within(panel).getByRole("button", { name: /Clozapine/ })).toBeInTheDocument();
   });
 
-  it("filters the result list when a facet is selected", async () => {
+  it("stages a local facet and commits it without running document retrieval", async () => {
     const user = userEvent.setup();
-    render(<DocumentSearchResultsPanel {...baseProps} />);
+    const onDocumentFiltersApply = vi.fn();
+    const props = { ...baseProps, onDocumentFiltersApply };
+    const view = render(<DocumentSearchResultsPanel {...props} />);
     expect(resultTitles()).toHaveLength(2);
 
     await user.click(screen.getByTestId("document-filter-trigger-phone"));
+    await user.click(within(screen.getByTestId("document-filter-panel")).getByRole("button", { name: /^Medication/ }));
     await user.click(within(screen.getByTestId("document-filter-panel")).getByRole("button", { name: /Clozapine/ }));
 
+    expect(resultTitles()).toHaveLength(2);
+    await user.click(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-panel-done"));
+    view.rerender(<DocumentSearchResultsPanel {...props} />);
     expect(resultTitles()).toEqual([expect.stringContaining("Clozapine Monitoring Protocol")]);
     expect(screen.getByTestId("document-filter-trigger-phone")).toHaveTextContent("1");
+    expect(onDocumentFiltersApply).not.toHaveBeenCalled();
   });
 
-  it("filters by source type from the same panel", async () => {
+  it("stages result type from the same panel", async () => {
     const user = userEvent.setup();
-    render(<DocumentSearchResultsPanel {...baseProps} />);
+    const view = render(<DocumentSearchResultsPanel {...baseProps} />);
 
     await user.click(screen.getByTestId("document-filter-trigger-phone"));
     await user.click(within(screen.getByTestId("document-filter-panel")).getByRole("radio", { name: /Tables/ }));
 
-    // Only the clozapine document carries tables.
+    expect(resultTitles()).toHaveLength(2);
+    await user.click(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-panel-done"));
+    view.rerender(<DocumentSearchResultsPanel {...baseProps} />);
     expect(resultTitles()).toEqual([expect.stringContaining("Clozapine Monitoring Protocol")]);
+  });
+
+  it("performs one retrieval when staged source scope changes", async () => {
+    const user = userEvent.setup();
+    const onDocumentFiltersApply = vi.fn();
+    const recentDocuments = [
+      sourceDocument(clozapineDoc.document_id, clozapineDoc.title, "WA"),
+      sourceDocument(lithiumDoc.document_id, lithiumDoc.title, "National"),
+    ];
+    render(
+      <DocumentSearchResultsPanel
+        {...baseProps}
+        recentDocuments={recentDocuments}
+        onDocumentFiltersApply={onDocumentFiltersApply}
+      />,
+    );
+
+    await user.click(screen.getByTestId("document-filter-trigger-phone"));
+    const panel = screen.getByTestId("document-filter-panel");
+    await user.click(within(panel).getByRole("radio", { name: /^Local \(1 loaded source\)$/ }));
+    expect(onDocumentFiltersApply).not.toHaveBeenCalled();
+    await user.click(within(panel).getByTestId("document-filter-panel-done"));
+
+    expect(onDocumentFiltersApply).toHaveBeenCalledTimes(1);
+    expect(onDocumentFiltersApply).toHaveBeenCalledWith(expect.objectContaining({ locality: "local" }), []);
   });
 
   it("hides Clear filters until a document filter is active", async () => {
@@ -163,20 +226,21 @@ describe("document filter panel", () => {
     expect(within(panel).queryByTestId("document-filter-panel-clear")).toBeNull();
   });
 
-  it("clears both filter kinds at once", async () => {
+  it("clears staged result and smart-tag refinements at once", async () => {
     const user = userEvent.setup();
-    render(<DocumentSearchResultsPanel {...baseProps} />);
+    window.history.replaceState(null, "", "/documents/search?resultType=tables&facet=medication%3Aclozapine");
+    const view = render(<DocumentSearchResultsPanel {...baseProps} />);
+    expect(resultTitles()).toHaveLength(1);
 
     await user.click(screen.getByTestId("document-filter-trigger-phone"));
     const panel = () => screen.getByTestId("document-filter-panel");
-    await user.click(within(panel()).getByRole("radio", { name: /Tables/ }));
-    await user.click(within(panel()).getByRole("button", { name: /Clozapine/ }));
-    expect(resultTitles()).toHaveLength(1);
-
     await user.click(within(panel()).getByTestId("document-filter-panel-clear"));
+    await user.click(within(panel()).getByTestId("document-filter-panel-done"));
+    view.rerender(<DocumentSearchResultsPanel {...baseProps} />);
 
     expect(resultTitles()).toHaveLength(2);
-    expect(within(panel()).getByRole("radio", { name: /All/ })).toHaveAttribute("aria-checked", "true");
+    expect(new URLSearchParams(window.location.search).has("resultType")).toBe(false);
+    expect(new URLSearchParams(window.location.search).has("facet")).toBe(false);
   });
 
   it("is a dialog, so it overlays the results rather than pushing them down", async () => {
@@ -234,13 +298,13 @@ describe("document filter panel", () => {
     expect(document.body.style.overflow).not.toBe("hidden");
   });
 
-  it("closes on Show N documents", async () => {
+  it("closes on Update search", async () => {
     const user = userEvent.setup();
     render(<DocumentSearchResultsPanel {...baseProps} />);
 
     await user.click(screen.getByTestId("document-filter-trigger-phone"));
-    const done = within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-done");
-    expect(done).toHaveTextContent("Show 2 documents");
+    const done = within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-panel-done");
+    expect(done).toHaveTextContent("Update search");
 
     await user.click(done);
     expect(screen.queryByTestId("document-filter-panel")).toBeNull();
@@ -262,45 +326,55 @@ describe("document filter panel", () => {
 });
 
 describe("applied-filter shelf", () => {
-  async function selectClozapine(user: ReturnType<typeof userEvent.setup>) {
+  async function selectClozapine(
+    user: ReturnType<typeof userEvent.setup>,
+    view: ReturnType<typeof render>,
+    props = baseProps,
+  ) {
     await user.click(screen.getByTestId("document-filter-trigger-phone"));
+    await user.click(within(screen.getByTestId("document-filter-panel")).getByRole("button", { name: /^Medication/ }));
     await user.click(within(screen.getByTestId("document-filter-panel")).getByRole("button", { name: /Clozapine/ }));
-    await user.click(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-done"));
+    await user.click(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-panel-done"));
+    view.rerender(<DocumentSearchResultsPanel {...props} />);
   }
 
   it("shows an applied facet as a chip and removes it in one tap", async () => {
     const user = userEvent.setup();
-    render(<DocumentSearchResultsPanel {...baseProps} />);
+    const view = render(<DocumentSearchResultsPanel {...baseProps} />);
     expect(screen.queryByTestId("search-query-ribbon-shelf")).toBeNull();
 
-    await selectClozapine(user);
+    await selectClozapine(user, view);
 
     const shelf = screen.getByTestId("search-query-ribbon-shelf");
     expect(shelf).toHaveTextContent("Filtered by");
     expect(resultTitles()).toHaveLength(1);
 
     // One tap, and the count follows immediately.
-    await user.click(within(shelf).getByRole("button", { name: /Remove Clozapine filter/ }));
+    await user.click(within(shelf).getByRole("button", { name: /Remove Medication: Clozapine filter/ }));
+    view.rerender(<DocumentSearchResultsPanel {...baseProps} matches={[...baseProps.matches]} />);
     expect(resultTitles()).toHaveLength(2);
     expect(screen.queryByTestId("search-query-ribbon-shelf")).toBeNull();
   });
 
   it("carries the source type alongside facets, and Clear tears both down at once", async () => {
     const user = userEvent.setup();
-    render(<DocumentSearchResultsPanel {...baseProps} />);
+    const view = render(<DocumentSearchResultsPanel {...baseProps} />);
 
     await user.click(screen.getByTestId("document-filter-trigger-phone"));
     const panel = screen.getByTestId("document-filter-panel");
+    await user.click(within(panel).getByRole("button", { name: /^Medication/ }));
     await user.click(within(panel).getByRole("button", { name: /Clozapine/ }));
     await user.click(within(panel).getByRole("radio", { name: /Tables/ }));
-    await user.click(within(panel).getByTestId("document-filter-done"));
+    await user.click(within(panel).getByTestId("document-filter-panel-done"));
+    view.rerender(<DocumentSearchResultsPanel {...baseProps} />);
 
     const shelf = screen.getByTestId("search-query-ribbon-shelf");
-    expect(within(shelf).getByRole("button", { name: /Remove Clozapine filter/ })).toBeInTheDocument();
-    expect(within(shelf).getByRole("button", { name: /Remove Tables filter/ })).toBeInTheDocument();
+    expect(within(shelf).getByRole("button", { name: /Remove Medication: Clozapine filter/ })).toBeInTheDocument();
+    expect(within(shelf).getByRole("button", { name: /Remove Result type: Tables filter/ })).toBeInTheDocument();
 
     // Clear appears only past one chip — teardown that used to be one tap each.
     await user.click(within(shelf).getByTestId("search-query-ribbon-shelf-clear"));
+    view.rerender(<DocumentSearchResultsPanel {...baseProps} matches={[...baseProps.matches]} />);
     expect(screen.queryByTestId("search-query-ribbon-shelf")).toBeNull();
     expect(resultTitles()).toHaveLength(2);
   });
@@ -308,7 +382,11 @@ describe("applied-filter shelf", () => {
   it("survives a pending search, because chips must not flicker on every keystroke", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<DocumentSearchResultsPanel {...baseProps} />);
-    await selectClozapine(user);
+    await user.click(screen.getByTestId("document-filter-trigger-phone"));
+    await user.click(within(screen.getByTestId("document-filter-panel")).getByRole("button", { name: /^Medication/ }));
+    await user.click(within(screen.getByTestId("document-filter-panel")).getByRole("button", { name: /Clozapine/ }));
+    await user.click(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-panel-done"));
+    rerender(<DocumentSearchResultsPanel {...baseProps} />);
     expect(screen.getByTestId("search-query-ribbon-shelf")).toBeInTheDocument();
 
     rerender(<DocumentSearchResultsPanel {...baseProps} loading />);
@@ -316,14 +394,14 @@ describe("applied-filter shelf", () => {
     expect(screen.getByTestId("search-query-ribbon-shelf")).toBeInTheDocument();
   });
 
-  it("drops only on a fault, where filtering a set that never loaded is meaningless", async () => {
+  it("keeps applied recovery visible when retrieval faults", async () => {
     const user = userEvent.setup();
-    const { rerender } = render(<DocumentSearchResultsPanel {...baseProps} />);
-    await selectClozapine(user);
+    const view = render(<DocumentSearchResultsPanel {...baseProps} />);
+    await selectClozapine(user, view);
 
-    rerender(<DocumentSearchResultsPanel {...baseProps} apiUnavailable realDataReady={false} />);
+    view.rerender(<DocumentSearchResultsPanel {...baseProps} apiUnavailable realDataReady={false} />);
 
-    expect(screen.queryByTestId("search-query-ribbon-shelf")).toBeNull();
+    expect(screen.getByTestId("search-query-ribbon-shelf")).toBeInTheDocument();
   });
 });
 
@@ -389,29 +467,32 @@ describe("filter sheet — density, exclusivity and reach", () => {
   const denseProps = { ...baseProps, matches: [denseDoc, clozapineDoc, lithiumDoc], documentCount: 2014 };
 
   it("puts every facet on the tap floor, not the 28px it shipped with", async () => {
-    const { panel } = await openPanel();
+    const { user, panel } = await openPanel();
 
     // The sheet is the primary phone filtering surface and these are its only
     // interactive elements. `min-h-7` was 28px, packed at `gap-1.5`, so a
     // neighbouring mis-tap was likely.
+    await user.click(within(panel).getByRole("button", { name: /^Medication/ }));
     const facet = within(panel).getByRole("button", { name: /Clozapine/ });
     expect(facet.className).toContain("min-h-tap");
     expect(facet.className).not.toContain("min-h-7");
-    // Compact density returns from `sm`, where a pointer is likely.
-    expect(facet.className).toContain("sm:min-h-9");
-    expect(facet.className).toContain("lg:min-h-8");
+    // Pointer layouts remain compact without dropping below the filter
+    // system's 40px desktop target floor.
+    expect(facet.className).toContain("sm:min-h-10");
+    expect(facet.className).not.toContain("lg:min-h-8");
   });
 
   it("says which group replaces and which accumulate", async () => {
-    const { panel } = await openPanel();
+    const { user, panel } = await openPanel();
 
-    // Source type is a radiogroup and the facets are aria-pressed toggles, but
+    // Result type is a radiogroup and the facets are aria-pressed toggles, but
     // both rendered as chips of near-identical size, colour and radius, directly
     // adjacent — so the OR-within-group, AND-across-groups model had to be
     // discovered by experiment. The joined control is the shape cue; this is the
     // words.
     expect(within(panel).getByText("one only")).toBeVisible();
     expect(within(panel).getByRole("radio", { name: /All/ })).toHaveAttribute("aria-checked", "true");
+    await user.click(within(panel).getByRole("button", { name: /^Medication/ }));
     expect(within(panel).getByRole("button", { name: /Clozapine/ })).toHaveAttribute("aria-pressed", "false");
   });
 
@@ -502,7 +583,7 @@ describe("filter sheet — density, exclusivity and reach", () => {
     expect(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-panel-find")).toHaveValue(
       "clozapine",
     );
-    await user.click(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-done"));
+    await user.click(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-panel-done"));
 
     rerender(<DocumentSearchResultsPanel {...denseProps} query="lithium" />);
     await user.click(screen.getByTestId("document-filter-trigger-phone"));
@@ -524,14 +605,12 @@ describe("filter sheet — density, exclusivity and reach", () => {
     expect(within(panel).getByRole("button", { name: /Community/ })).toBeVisible();
   });
 
-  it("shows neither the field nor a collapse control for a handful of groups", async () => {
+  it("keeps dense search for the unified retrieval and result sections", async () => {
     const { panel } = await openPanel();
 
-    // Below the threshold every group is open permanently, so a heading that
-    // advertised a collapse would be a control that does nothing.
-    expect(within(panel).queryByTestId("document-filter-panel-find")).toBeNull();
-    expect(within(panel).queryByRole("button", { name: /^Medication/ })).toBeNull();
-    expect(within(panel).getByRole("button", { name: /Clozapine/ })).toBeVisible();
+    expect(within(panel).getByTestId("document-filter-panel-find")).toBeVisible();
+    expect(within(panel).getByRole("button", { name: /^Medication/ })).toHaveAttribute("aria-expanded", "false");
+    expect(within(panel).getByRole("button", { name: /^Source status/ })).toBeVisible();
   });
 
   it("moves Library off the rail into the sheet footer", async () => {
@@ -541,7 +620,7 @@ describe("filter sheet — density, exclusivity and reach", () => {
     // questions, and Library occupied the space the pinned Filter needs.
     expect(screen.queryByRole("button", { name: "Open source library" })).toBeNull();
 
-    const browse = within(panel).getByTestId("document-filter-browse-library");
+    const browse = within(panel).getByRole("button", { name: /Browse all sources/ });
     expect(browse).toHaveTextContent("Browse all sources");
     // The corpus count, beside it — reach, stated as a size.
     expect(browse).toHaveTextContent("2,014");
@@ -552,9 +631,10 @@ describe("filter sheet — density, exclusivity and reach", () => {
   it("states the proportion once, and warns when the combination returns nothing", async () => {
     const { user, panel } = await openPanel(denseProps);
 
-    expect(within(panel).getByText(/of 2,014 documents shown/)).toBeVisible();
-    // The footer no longer prints the number twice: the button carries it.
-    expect(within(panel).getByTestId("document-filter-done")).toHaveTextContent("Show 3 documents");
+    expect(
+      within(panel).getByRole("progressbar", { name: "Visible retrieved matches" }).parentElement,
+    ).toHaveTextContent("3 of 3 retrieved matches visible");
+    expect(within(panel).getByTestId("document-filter-panel-done")).toHaveTextContent("Update search");
 
     // Clozapine and Suicide sit on different fixture documents, so the pair
     // would return nothing. The panel does not let you build that: once
@@ -579,13 +659,9 @@ describe("filter sheet — density, exclusivity and reach", () => {
     await user.click(suicide);
 
     // Unchanged: the guarded click did not empty the list behind the reader.
-    expect(within(panel).getByTestId("document-filter-done")).toHaveTextContent("Show 1 document");
-    // The number is its own span so it can carry the emphasis, so assert the
-    // containing paragraph rather than the matched node.
+    expect(within(panel).getByTestId("document-filter-panel-done")).toHaveTextContent("Update search");
     expect(
-      within(panel)
-        .getByText(/of 2,014 documents shown/)
-        .closest("p"),
-    ).toHaveTextContent("1 of 2,014 documents shown");
+      within(panel).getByRole("progressbar", { name: "Visible retrieved matches" }).parentElement,
+    ).toHaveTextContent("1 of 3 retrieved matches visible");
   });
 });

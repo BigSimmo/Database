@@ -474,13 +474,13 @@ test.describe("Medication responsive stress coverage", () => {
         const metrics = await page.evaluate((viewportWidth) => {
           const workspace = document.querySelector<HTMLElement>(".medication-results-workspace");
           const patient = document.querySelector<HTMLElement>(".medication-patient-strip");
-          const filters = document.querySelector<HTMLElement>(".medication-filter-strip");
           const card = document.querySelector<HTMLElement>('[data-testid="medication-result-acamprosate-phone"]');
-          const firstFilter =
+          const firstFilter = document.querySelector<HTMLElement>(
             viewportWidth < 640
-              ? document.querySelector<HTMLElement>('[data-testid="medication-filter-trigger-phone"]')
-              : filters?.querySelector<HTMLElement>("button");
-          if (!workspace || !patient || !filters || !card || !firstFilter) return null;
+              ? '[data-testid="medication-filter-trigger-phone"]'
+              : '[data-testid="medication-filter-trigger-desktop"]',
+          );
+          if (!workspace || !patient || !card || !firstFilter) return null;
           const workspaceRect = workspace.getBoundingClientRect();
           const patientRect = patient.getBoundingClientRect();
           const cardRect = card.getBoundingClientRect();
@@ -501,7 +501,7 @@ test.describe("Medication responsive stress coverage", () => {
           };
         }, viewport.width);
         expect(metrics).not.toBeNull();
-        expect(metrics?.filterHeight ?? 0).toBeGreaterThanOrEqual(42);
+        expect(metrics?.filterHeight ?? 0).toBeGreaterThanOrEqual(viewport.width < 640 ? 48 : 40);
 
         if (viewport.width <= 639) {
           expect(metrics?.workspaceLeft ?? 0).toBeGreaterThanOrEqual(12);
