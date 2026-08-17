@@ -49,16 +49,14 @@ type DifferentialStreamWorkspaceProps = {
   initialFocus?: string;
 };
 
-const streamCopy: Record<DifferentialStreamType, { heading: string; description: string; entriesLabel: string }> = {
+const streamCopy: Record<DifferentialStreamType, { heading: string; description: string }> = {
   presentations: {
     heading: "Presentations",
     description: "Start with what is happening now, then open a pathway to compare likely causes.",
-    entriesLabel: "Symptom-led pathways with priority and safety cues",
   },
   diagnoses: {
     heading: "Diagnoses",
     description: "Compare likely causes and exclusion clues.",
-    entriesLabel: "Diagnosis-focused differential content",
   },
 };
 
@@ -853,15 +851,6 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
         ) : null}
 
         <section className="grid gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="text-base font-bold text-[color:var(--text-heading)]">
-                {isPresentation ? "Presentation pathways" : "Clinical entries"}
-              </h2>
-              <span className="text-sm text-[color:var(--text-muted)]">{copy.entriesLabel}</span>
-            </div>
-          </div>
-
           {visibleItems.length === 0 ? (
             <div
               data-testid="differentials-stream-empty-filter"
