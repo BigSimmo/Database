@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type { UniversalSearchGroup, UniversalSearchResponse } from "@/lib/universal-search";
 
 export type UniversalSearchStreamResponse = UniversalSearchResponse & {
@@ -11,50 +10,71 @@ export type UniversalSearchStreamEvent =
   | { type: "complete"; response: UniversalSearchStreamResponse }
   | { type: "error"; code: "universal_search_failed" };
 
-const universalSearchItemSchema = z.looseObject({
-  id: z.string(),
-  kind: z.string(),
-  title: z.string(),
-  subtitle: z.string().optional(),
-  href: z.string(),
-  score: z.number().optional(),
-  badge: z.string().optional(),
-  meta: z.string().optional(),
-  confident: z.boolean().optional(),
-});
+type UniversalSearchItem = UniversalSearchGroup["items"][number];
 
-const universalSearchGroupSchema = z.looseObject({
-  kind: z.string(),
-  total: z.number(),
-  items: z.array(universalSearchItemSchema),
-  latencyMs: z.number(),
-  error: z.boolean().optional(),
-});
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
-const universalSearchStreamResponseSchema = z.looseObject({
-  query: z.string(),
-  groups: z.array(universalSearchGroupSchema),
-  tookMs: z.number(),
-  domainOrder: z.array(z.string()),
-  demoMode: z.boolean().optional(),
-  publicAccess: z.boolean().optional(),
-});
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && !Number.isNaN(value);
+}
 
-export const universalSearchStreamEventSchema = z.discriminatedUnion("type", [
-  z.looseObject({
-    type: z.literal("group"),
-    query: z.string(),
-    group: universalSearchGroupSchema,
-  }),
-  z.looseObject({
-    type: z.literal("complete"),
-    response: universalSearchStreamResponseSchema,
-  }),
-  z.looseObject({
-    type: z.literal("error"),
-    code: z.literal("universal_search_failed"),
-  }),
-]);
+function optionalString(value: unknown) {
+  return value === undefined || typeof value === "string";
+}
+
+function optionalNumber(value: unknown) {
+  return value === undefined || isFiniteNumber(value);
+}
+
+function optionalBoolean(value: unknown) {
+  return value === undefined || typeof value === "boolean";
+}
+
+function parseItem(value: unknown): UniversalSearchItem | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.id !== "string") return null;
+  if (typeof value.kind !== "string") return null;
+  if (typeof value.title !== "string") return null;
+  if (!optionalString(value.subtitle)) return null;
+  if (typeof value.href !== "string") return null;
+  if (!optionalNumber(value.score)) return null;
+  if (!optionalString(value.badge)) return null;
+  if (!optionalString(value.meta)) return null;
+  if (!optionalBoolean(value.confident)) return null;
+  return value as unknown as UniversalSearchItem;
+}
+
+function parseGroup(value: unknown): UniversalSearchGroup | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.kind !== "string") return null;
+  if (!isFiniteNumber(value.total)) return null;
+  if (!Array.isArray(value.items)) return null;
+  const items = value.items.map(parseItem);
+  if (items.some((item) => item === null)) return null;
+  if (!isFiniteNumber(value.latencyMs)) return null;
+  if (!optionalBoolean(value.error)) return null;
+  return { ...value, items } as unknown as UniversalSearchGroup;
+}
+
+function parseResponse(value: unknown): UniversalSearchStreamResponse | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.query !== "string") return null;
+  if (!Array.isArray(value.groups)) return null;
+  const groups = value.groups.map(parseGroup);
+  if (groups.some((group) => group === null)) return null;
+  if (!isFiniteNumber(value.tookMs)) return null;
+  if (
+    value.domainOrder !== undefined &&
+    (!Array.isArray(value.domainOrder) || value.domainOrder.some((domain) => typeof domain !== "string"))
+  ) {
+    return null;
+  }
+  if (!optionalBoolean(value.demoMode)) return null;
+  if (!optionalBoolean(value.publicAccess)) return null;
+  return { ...value, groups } as unknown as UniversalSearchStreamResponse;
+}
 
 function parseEvent(line: string): UniversalSearchStreamEvent {
   let rawJson: unknown;
@@ -63,11 +83,22 @@ function parseEvent(line: string): UniversalSearchStreamEvent {
   } catch {
     throw new Error("Invalid universal-search NDJSON event.");
   }
-  const parsed = universalSearchStreamEventSchema.safeParse(rawJson);
-  if (!parsed.success) {
-    throw new Error("Invalid universal-search NDJSON event.");
+  if (!isRecord(rawJson)) throw new Error("Invalid universal-search NDJSON event.");
+  if (rawJson.type === "group") {
+    if (typeof rawJson.query !== "string") throw new Error("Invalid universal-search NDJSON event.");
+    const group = parseGroup(rawJson.group);
+    if (!group) throw new Error("Invalid universal-search NDJSON event.");
+    return { type: "group", query: rawJson.query, group };
   }
-  return parsed.data as UniversalSearchStreamEvent;
+  if (rawJson.type === "complete") {
+    const response = parseResponse(rawJson.response);
+    if (!response) throw new Error("Invalid universal-search NDJSON event.");
+    return { type: "complete", response };
+  }
+  if (rawJson.type === "error" && rawJson.code === "universal_search_failed") {
+    return { type: "error", code: "universal_search_failed" };
+  }
+  throw new Error("Invalid universal-search NDJSON event.");
 }
 
 function abortReason(signal: AbortSignal): Error {

@@ -1,18 +1,32 @@
-import { z } from "zod";
-
 const storagePrefix = "clinical.private-search-scope.";
 export const privateSearchScopeTtlMs = 30 * 60 * 1000;
 const maxDocumentIds = 25;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const storedPrivateSearchScopeSchema = z.object({
-  version: z.literal(1),
-  ownerId: z.string().min(1),
-  documentIds: z.array(z.string().regex(uuidPattern)).min(1).max(maxDocumentIds),
-  expiresAt: z.number(),
-});
+type StoredPrivateSearchScope = { version: 1; ownerId: string; documentIds: string[]; expiresAt: number };
 
-type StoredPrivateSearchScope = z.infer<typeof storedPrivateSearchScopeSchema>;
+function parseStoredPrivateSearchScope(raw: string): StoredPrivateSearchScope | null {
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof json !== "object" || json === null) return null;
+  const value = json as Partial<StoredPrivateSearchScope>;
+  if (value.version !== 1) return null;
+  if (typeof value.ownerId !== "string" || value.ownerId.length === 0) return null;
+  if (
+    !Array.isArray(value.documentIds) ||
+    value.documentIds.length === 0 ||
+    value.documentIds.length > maxDocumentIds ||
+    value.documentIds.some((id) => typeof id !== "string" || !uuidPattern.test(id))
+  ) {
+    return null;
+  }
+  if (typeof value.expiresAt !== "number" || Number.isNaN(value.expiresAt)) return null;
+  return { version: 1, ownerId: value.ownerId, documentIds: value.documentIds, expiresAt: value.expiresAt };
+}
 
 export type PrivateSearchScopeRestore =
   | { kind: "restored"; documentIds: string[] }
@@ -58,13 +72,11 @@ export function restorePrivateSearchScope(
   const raw = storage.getItem(key);
   if (!raw) return { kind: "unavailable", reason: "missing" };
   try {
-    const rawJson = JSON.parse(raw);
-    const parsed = storedPrivateSearchScopeSchema.safeParse(rawJson);
-    if (!parsed.success) {
+    const value = parseStoredPrivateSearchScope(raw);
+    if (!value) {
       storage.removeItem(key);
       return { kind: "unavailable", reason: "invalid" };
     }
-    const value = parsed.data;
     if (value.expiresAt <= now) {
       storage.removeItem(key);
       return { kind: "unavailable", reason: "expired" };

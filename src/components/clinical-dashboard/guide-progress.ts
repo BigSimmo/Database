@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { guideTourStepIds, type GuideTourStepId } from "@/components/clinical-dashboard/guide-content";
 
 export const guideProgressStorageKey = "clinical-kb-guide-progress:v1";
@@ -15,25 +14,28 @@ export const emptyGuideProgress: GuideProgress = {
   lastStepId: null,
 };
 
-const guideTourStepIdEnum = z.enum(guideTourStepIds);
-
-const guideProgressSchema = z.object({
-  version: z.literal(1),
-  completedStepIds: z.array(z.string()).transform((ids) => guideTourStepIds.filter((id) => ids.includes(id))),
-  lastStepId: guideTourStepIdEnum.nullable().catch(null),
-});
+const guideTourStepIdSet = new Set<string>(guideTourStepIds);
 
 export function parseGuideProgress(value: string | null): GuideProgress {
   if (!value) return emptyGuideProgress;
   try {
-    const raw = JSON.parse(value);
-    const parsed = guideProgressSchema.safeParse(raw);
-    if (!parsed.success) return emptyGuideProgress;
-    return {
-      version: 1,
-      completedStepIds: parsed.data.completedStepIds,
-      lastStepId: parsed.data.lastStepId,
-    };
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      parsed.version !== 1 ||
+      !Array.isArray(parsed.completedStepIds) ||
+      parsed.completedStepIds.some((id) => typeof id !== "string")
+    ) {
+      return emptyGuideProgress;
+    }
+    const completedStepIdsRaw = parsed.completedStepIds as unknown[];
+    const completedStepIds = guideTourStepIds.filter((id) => completedStepIdsRaw.includes(id));
+    const lastStepId =
+      typeof parsed.lastStepId === "string" && guideTourStepIdSet.has(parsed.lastStepId)
+        ? (parsed.lastStepId as GuideTourStepId)
+        : null;
+    return { version: 1, completedStepIds, lastStepId };
   } catch {
     return emptyGuideProgress;
   }
