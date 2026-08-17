@@ -251,15 +251,20 @@ export function parseIssues(markdown) {
 }
 
 export function issueRowFingerprint(markdown, issueId) {
-  const match = String(issueId)
-    .trim()
-    .match(/^#(\d+)$/);
-  if (!match) return null;
-  const number = Number(match[1]);
-  if (!Number.isFinite(number)) return null;
+  const trimmed = String(issueId).trim();
+  const numericMatch = trimmed.match(/^#(\d+)$/);
+  const number = numericMatch ? Number(numericMatch[1]) : null;
+  if (numericMatch && !Number.isFinite(number)) return null;
 
+  // Legacy numeric ids match by number (tolerating zero-padding differences);
+  // ULID-suffix display ids minted by reconcile match by the exact display id.
+  // Without the second arm, issues:done could never close a reconciled row.
   const row = parseIssues(markdown).rows.find(
-    (entry) => entry.number === number && entry.table === "open" && entry.valid && entry.raw,
+    (entry) =>
+      entry.table === "open" &&
+      entry.valid &&
+      entry.raw &&
+      (numericMatch ? entry.number === number : entry.id === trimmed),
   );
   if (!row) return null;
   const normalized = `| ${cells(row.raw).join(" | ")} |`;

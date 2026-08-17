@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5cc39bc6-4cf4-4a96-9ce7-a0ee46020b90",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "No mobile-WebKit or display-mode:standalone Playwright project exists; phone coverage is a narrow viewport on desktop engines",
+    "detail": "playwright.config.ts defines chromium, chromium-mockups, firefox and webkit, and the webkit project uses devices[\"Desktop Safari\"]. Every phone assertion in the suite is therefore a narrow viewport on a desktop engine, and nothing exercises display-mode: standalone at all — despite globals.css:3570-3606 carrying the only phone-AND-standalone-exclusive CSS in the repo (bounded overflow:hidden shell, -webkit-overflow-scrolling:touch scrollport). PR #2046 added per-test devices[\"iPhone 14\"] emulation in tests/ui-phone-motion.spec.ts as a cheap partial, but that is still Playwright WebKit, not the iOS engine. Next: decide between a dedicated mobile-WebKit project (CI cost) and per-test emulation as the standing pattern, and add standalone display-mode coverage for the phone shell rules. Relates to #280 (physical iPhone acceptance debt).",
+    "source": "PR #2046 phone/PWA answer-progress animation defect, 2026-08-17",
+    "issueUlid": "01M085V50M71NT23RWPENDRH8T"
+  }
+}
