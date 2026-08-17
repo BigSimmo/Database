@@ -73,8 +73,11 @@ describe("RAG adversarial fixture contract", () => {
   it("keeps every canary token digit-free so secret scanners cannot flag it", () => {
     for (const token of collectCanaryTokens(dataset)) expect(token).toMatch(/^CANARY-[A-Z]+(?:-[A-Z]+)+$/);
 
+    // A single digit is enough to prove the rule. Spelling out a realistic
+    // identifier here would recreate the very literal the rule exists to keep out
+    // of the repository — GitGuardian flagged this line when it did.
     const digitBearing = clone(dataset);
-    digitBearing.canaryRegistry[0].token = "CANARY-PHI-MRN-000000-QX9";
+    digitBearing.canaryRegistry[0].token = "CANARY-PHI-MRN-1";
     expect(validateAdversarialDataset(digitBearing).join("\n")).toContain("canaryRegistry[0]: token must match");
   });
 
