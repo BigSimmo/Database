@@ -3,6 +3,8 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { sourceFrom, sourceSegment } from "./helpers/source-contract";
+
 const nodeSetup = readFileSync(new URL("../.github/actions/setup-node-cached/action.yml", import.meta.url), "utf8");
 const uiSetup = readFileSync(new URL("../.github/actions/setup-ui-e2e/action.yml", import.meta.url), "utf8");
 const lighthouseChromiumSetup = readFileSync(
@@ -182,7 +184,9 @@ describe("CI cache safety", () => {
   });
 
   it("lets the release Playwright wrapper own its build and skips proven production Chromium", () => {
-    const releaseJob = workflow.slice(workflow.indexOf("  release-browser-matrix:"));
+    const releaseJob = sourceFrom(workflow, "  release-browser-matrix:", {
+      label: "release-browser-matrix job definition",
+    });
     expect(releaseJob).not.toContain("path: .next/cache");
     expect(releaseJob).not.toContain("run: npm run build");
     expect(releaseJob).toContain("npm run test:e2e -- --project=chromium-mockups --project=firefox --project=webkit");
@@ -190,10 +194,9 @@ describe("CI cache safety", () => {
   });
 
   it("scopes the main-branch release backstop to UI, performance, or lockfile risk", () => {
-    const releaseHeader = workflow.slice(
-      workflow.indexOf("  release-browser-matrix:"),
-      workflow.indexOf("    steps:", workflow.indexOf("  release-browser-matrix:")),
-    );
+    const releaseHeader = sourceSegment(workflow, "  release-browser-matrix:", "    steps:", {
+      label: "release-browser-matrix job header",
+    });
     expect(releaseHeader).toContain("github.ref == 'refs/heads/main'");
     expect(releaseHeader).toContain("needs.changes.outputs.ui_changed == 'true'");
     expect(releaseHeader).toContain("needs.changes.outputs.perf_changed == 'true'");

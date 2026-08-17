@@ -54,7 +54,12 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     id: "tcas",
     surfaces: ["tcas", "tca", "tricyclics", "tricyclic antidepressants", "anticholinergic tcas"],
     kind: "catalogue",
-    select: { slugs: ["amitriptyline", "nortriptyline", "imipramine", "clomipramine", "doxepin", "dothiepin"] },
+    // `dosulepin`, not `dothiepin`: same drug, and the catalogue keys it on the
+    // current INN. The old spelling matched no record, so a TCA the catalogue
+    // marks FATAL in overdose fired none of this term's 20 CRITICAL/HIGH rows.
+    // tests/medication-interaction-lexicon-coverage.test.ts now fails on any slug
+    // that resolves to nothing, so a dead selector cannot ship again.
+    select: { slugs: ["amitriptyline", "nortriptyline", "imipramine", "clomipramine", "doxepin", "dosulepin"] },
   },
   {
     id: "antipsychotics",

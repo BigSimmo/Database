@@ -73,10 +73,52 @@ against a pinned canonical definition, and only then marks a fail-fast guard mig
   attestation apply), `#025` (webhook inert), `#183` (missing SUPABASE_ACCESS_TOKEN),
   `#188`/`#196`–`#200` (DR gaps), `#191` (ACL consolidation — last), `#098`/`#099` (round trips).
 
+**Traps this programme has already hit.** Each cost real time; none is hypothetical.
+
+- **The newest migration mentioning a function often does not define it.** These `match_*` functions
+  are redefined 2–16 times across migrations, and
+  `20260724130000_explicit_base_match_rpc_execute_grants.sql` — the newest file mentioning several of
+  them — contains **zero** `create or replace function`; it only re-asserts grants. Same shape for
+  `20260724120000_table_facts_plpgsql_execute.sql`. Select the latest migration carrying an actual
+  `as $$ … $$` body, not merely a reference.
+- **Normalize before joining live functions to the manifest.** Joining manifest signatures to live
+  `p.oid::regprocedure::text` reports all 93 functions as simultaneously missing _and_ extra, because
+  the manifest stores `public.fn(extensions.vector,…)` while a live session renders `fn(vector,…)`.
+  That is a join failure, not a finding. Strip `public.`, fold `extensions.vector` → `vector`, then
+  test each surviving mismatch against the qualification variants before calling it divergence.
+- **Resolve ledger rows by exact title, and check the row is still in the _open_ table.** The
+  tracking anchor was cited as `#312` in an early prompt; `#312` is an unrelated row. Separately, a
+  close request for `#333` was queued after confirming a `#333` row existed — but the match was the
+  **archived** row, and the invalid request threw `#333 is already archived`, red-lining
+  `docs:check-links` for the whole branch.
+- **Node 24 is mandatory** (`engine-strict`). A cloud container may ship Node 20/22; `npm ci` then
+  fails `EBADENGINE` and leaves `tsx` unresolvable, which fails `check:runtime`. Install Node 24
+  before anything else.
+- **Two known tooling failures are fixed — recognise the symptoms rather than re-diagnosing them.**
+  `cancel request … targets missing pending request` was the ledger cancel-race (fixed in PR #1978;
+  a cancellation whose target was already applied is now a loud no-op). A force-push rejected with
+  "removed without an audit record" was `guardBaseForRange` comparing against abandoned history
+  (also #1978; it now falls back to the merge base). Neither should need an override.
+
 **Session hygiene for every phase:** start from a fresh worktree off latest `origin/main`
 (`newtask` skill), one branch per phase (`claude/db-remediation-phase-N`), record evidence in
 `docs/audit/live-drift-forensics-2026-08.md`, hand off via the `handoff` skill, and update the
 live-drift tracking item via `npm run issues:update` before the session ends.
+
+**Running two phases at once.** Phases whose targets differ (for example Phase 1.2 read-only against
+production and Phase 2 mutating staging) can safely run concurrently — but the **ledger**, not the
+database, is where they collide:
+
+- **Assign one ledger row per session, explicitly, in the prompt.** Two pending mutations on the same
+  row make the inbox refuse the whole batch until someone queues an explicit cancellation. Phase 1.2
+  owns the live-drift tracking item; Phase 2 owns `#056`.
+- **One reconciliation at a time, from a fresh-base branch.** Three ran in parallel on 2026-08-14 and
+  collided. `npm run issues:reconcile` is the only thing that may edit `docs/outstanding-issues.md`.
+- **Never merge `main` into a PR that carries a reconciliation** — it turns a complete transaction
+  into a partial one and the guard correctly rejects it.
+- **After a PR lands, verify the content on `main`, not the commit title** (`#324`): no gate catches
+  a merge resolution silently reverting merged work, and this programme's branches have been through
+  enough force-pushes and third-party commits for that to be a live risk.
 
 **Model guidance:** Fable for Phases 1, 3, 6 (and #191 later) — judgment-heavy, expensive
 mistakes. Opus is sufficient for Phases 0, 2, 4, 5, 7 — execution against this playbook.
