@@ -275,7 +275,8 @@ export function issueRowFingerprint(markdown, issueId) {
   // digits (`#041061`) and is indistinguishable from a legacy id by pattern
   // alone — branching on shape would silently miss exactly those rows. The
   // fallback preserves the old behaviour of resolving a non-canonical legacy id
-  // (`#5`) to its zero-padded row.
+  // (`#5`) to its zero-padded row, and the exact-id arm preserves
+  // `issues:done` closing ULID-suffix display ids minted by reconcile.
   const row = open.find((entry) => entry.id === id) ?? (legacy ? open.find((entry) => entry.number === number) : null);
   if (!row) return null;
   const normalized = `| ${cells(row.raw).join(" | ")} |`;
