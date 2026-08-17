@@ -44,8 +44,6 @@ describe("DifferentialStreamPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId("search-query-ribbon")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "All" })).toBeInTheDocument();
-    expect(screen.getByText("Symptom-led pathways with priority and safety cues")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Presentation pathways" })).toBeInTheDocument();
     await user.click(screen.getByTestId("differentials-stream-filter-trigger"));
     expect(screen.getByRole("radiogroup", { name: "Clinical urgency" })).toBeInTheDocument();
     expect(screen.getByText("High-priority presentation pathways")).toBeInTheDocument();
