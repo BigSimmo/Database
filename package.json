@@ -190,6 +190,7 @@
     "ingestion:autopilot": "node scripts/run-tsx.mjs scripts/ingestion-autopilot.ts",
     "flake:ledger": "node scripts/flake-ledger.mjs",
     "check:rag:fixtures": "node scripts/check-rag-fixtures.mjs",
+    "check:rag:adversarial-fixtures": "node scripts/check-rag-adversarial-fixtures.mjs",
     "reindex:cleanup-staged": "node scripts/run-tsx.mjs scripts/cleanup-abandoned-reindex-generations.ts",
     "images:re-stamp-generation": "node scripts/run-tsx.mjs scripts/reindex-image-generation-metadata.ts",
     "supabase:recovery-status": "node scripts/run-tsx.mjs scripts/supabase-recovery-status.ts",
