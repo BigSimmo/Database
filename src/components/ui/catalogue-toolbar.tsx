@@ -172,7 +172,7 @@ export function CatalogueToolbar({
                   {(filterTrigger.activeCount ?? 0) > 0 ? (
                     <span
                       data-testid="catalogue-filter-badge"
-                      className="grid h-5 min-w-5 place-items-center rounded-full bg-[color:var(--clinical-accent)] px-1 text-[10px] font-black text-[color:var(--clinical-accent-contrast)]"
+                      className="grid h-5 min-w-5 place-items-center rounded-full bg-[color:var(--clinical-accent)] px-1 text-3xs font-black text-[color:var(--clinical-accent-contrast)]"
                     >
                       {filterTrigger.activeCount}
                     </span>
