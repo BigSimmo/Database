@@ -107,7 +107,7 @@ describe("reserve resolvers honour the patient-details addon", () => {
     expect(
       resolveShellVisibleMobileComposerReserve({
         shouldShowSearchComposer: true,
-        isStandaloneModeHome: false,
+        heroOwnsPhoneComposer: false,
         searchMode: "prescribing",
         differentialsCompareAddonActive: false,
         patientDetailsAddonActive: true,
@@ -119,7 +119,7 @@ describe("reserve resolvers honour the patient-details addon", () => {
     expect(
       resolveShellVisibleMobileComposerReserve({
         shouldShowSearchComposer: true,
-        isStandaloneModeHome: false,
+        heroOwnsPhoneComposer: false,
         searchMode: "differentials",
         differentialsCompareAddonActive: true,
         patientDetailsAddonActive: true,
@@ -133,7 +133,7 @@ describe("reserve resolvers honour the patient-details addon", () => {
     expect(
       resolveShellVisibleMobileComposerReserve({
         shouldShowSearchComposer: true,
-        isStandaloneModeHome: true,
+        heroOwnsPhoneComposer: true,
         searchMode: "prescribing",
         differentialsCompareAddonActive: false,
         patientDetailsAddonActive: true,

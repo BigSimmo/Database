@@ -113,7 +113,8 @@ export function resolveShellVisibleMobileComposerReserve(input: {
   /** @deprecated Prefer pageOwnedComposerRoute */
   documentViewerOwnedRoute?: boolean;
   pageOwnedComposerRoute?: boolean;
-  isStandaloneModeHome: boolean;
+  /** The standalone hero owns the phone composer instead of the shared footer dock. */
+  heroOwnsPhoneComposer: boolean;
   searchMode: string;
   differentialsCompareAddonActive: boolean;
   patientDetailsAddonActive?: boolean;
@@ -124,11 +125,11 @@ export function resolveShellVisibleMobileComposerReserve(input: {
     const pageOwned = input.pageOwnedComposerRoute ?? input.documentViewerOwnedRoute ?? false;
     return pageOwned ? mobileComposerHiddenReserve : mobileComposerIdleReserve;
   }
-  // Standalone mode homes keep the in-flow hero pill at every width (phones
-  // included), so the composer sits in the content flow rather than docking to
-  // the bottom edge. Reserve only the idle content pad — matching the answer
-  // home hero — so no empty band opens below the pill.
-  if (input.isStandaloneModeHome) return mobileComposerIdleReserve;
+  // An all-width hero composer sits in content flow rather than docking to the
+  // bottom edge. Reserve only the idle content pad so no empty band opens below
+  // the pill. Standalone homes whose phone placement is the shared footer use
+  // the normal shell dock reserve below.
+  if (input.heroOwnsPhoneComposer) return mobileComposerIdleReserve;
   if (input.searchMode === "answer") return mobileComposerVisibleReserve.shellAnswer;
   if (input.differentialsCompareAddonActive) return mobileComposerVisibleReserve.differentialsCompare;
   if (input.patientDetailsAddonActive) return mobileComposerVisibleReserve.patientDetails;
