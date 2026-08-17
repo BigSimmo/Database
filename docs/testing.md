@@ -214,8 +214,9 @@ indistinguishable from an application regression. Both Lighthouse jobs therefore
 managed Chromium through the shared `./.github/actions/setup-lighthouse-chromium` composite action —
 never the ambient runner-image Chrome, which is not pinned per commit (the fleet was observed serving
 HeadlessChrome/150 and /151 to jobs minutes apart on 2026-08-07). Drift is reported as one collapsed
-instruction rather than one sentence per route, but the verdict is unchanged: incomplete evidence
-still fails, independently of `enforce`.
+instruction when uniform across all expected runs, but mixed browser versions, partial legacy rows,
+or incomplete evidence retain per-run diagnostics so distinct facts are not obscured. The verdict is
+unchanged: incomplete evidence still fails, independently of `enforce`.
 
 Because the numbers must come from that pinned browser, refresh the baseline **from a CI runner**,
 never a developer machine:
