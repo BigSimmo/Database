@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "6602201c-14f2-46e9-9407-36e56efe13d5",
+  "createdOn": "2026-08-17",
+  "action": "done",
+  "payload": {
+    "id": "#212",
+    "outcome": "Closed 2026-08-17 by tranche 4 PR #2037 (worker/main.ts), completing the four-tranche sweep: T1 PR #1946 (src/lib/rag/rag.ts, rag-row-contracts.ts), T2 PR #1981 (rag-candidate-sources.ts), T3 PR #2023 (src/app/api/** via src/lib/validation/row-contracts.ts, squash 440a34f71), T4 PR #2037 (worker/row-contracts.ts). T4 audit of the final 12-cast worker population: 1 inbound cast (claim_ingestion_jobs rows incl. documents to_jsonb payload) replaced with per-row fail-soft validation that terminally fails malformed rows through fail_or_retry_ingestion_job instead of throwing outside the job lifecycle; 2 deep-memory parameter casts replaced by asserting loadEnrichmentRows read-backs (contained by the inline-enrichment try, record-and-skip); 9 outbound insert/Json/CJS-interop casts deliberately left with per-site reasons in the PR. Residual noted, distinct population outside this item's as-unknown-as inventory: unguarded bare-as casts on extractor tableRows (worker/main.ts:693/1004) and OpenAI vision classification widening (worker/main.ts:798-800/1100/1115) - raise separately if they warrant their own item.",
+    "baseRowFingerprint": "dedd174f2b02a088373c871be74319581729f1fa4d737d84a6cbbf49498932fe"
+  }
+}
