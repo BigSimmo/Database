@@ -30,8 +30,8 @@
         "properties": {
           "token": {
             "type": "string",
-            "pattern": "^CANARY-[A-Z0-9]+(?:-[A-Z0-9]+)+$",
-            "description": "Uppercase, hyphen-separated, always prefixed CANARY- so detection is an exact literal scan."
+            "pattern": "^CANARY-[A-Z]+(?:-[A-Z]+)+$",
+            "description": "Uppercase letters and hyphens only, always prefixed CANARY- so detection is an exact literal scan. Digits are forbidden: a digit-bearing identifier-shaped literal reads as a high-entropy secret to Gitleaks and GitGuardian, and a canary must be conspicuously non-secret. Carry the PHI category in words instead."
           },
           "kind": {
             "enum": [

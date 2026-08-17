@@ -37,7 +37,7 @@ ambiguity-band semantic reranker off until an approved comparison exists.
 | `retrieval_golden`     | 36    | pending owner run | Provider-backed; last recorded green at `2bd146eed`.              |
 | `answer_gate`          | 44    | pending owner run | Provider-backed; the recorded denominator is unreconciled (§3).   |
 | `answer_quality`       | 30    | pending owner run | Provider-backed; no comparison recorded at this commit.           |
-| `offline_contract`     | 25    | recorded          | 25 suites, 602 tests passed.                                      |
+| `offline_contract`     | 25    | recorded          | 25 suites, 603 tests passed.                                      |
 | `adversarial_fixtures` | 24    | recorded          | 24 synthetic cases, 8 categories, 6 canaries, report canary-free. |
 
 Three of the five gates are marked `pending_owner_run` rather than carrying a number. That is

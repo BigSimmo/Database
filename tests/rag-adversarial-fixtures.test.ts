@@ -67,6 +67,17 @@ describe("RAG adversarial fixture contract", () => {
     }
   });
 
+  // Gitleaks and GitGuardian both flagged the first version of these tokens as
+  // high-entropy secrets because they carried MRN- and phone-shaped digit runs.
+  // Keeping them digit-free is what stops that CI failure coming back.
+  it("keeps every canary token digit-free so secret scanners cannot flag it", () => {
+    for (const token of collectCanaryTokens(dataset)) expect(token).toMatch(/^CANARY-[A-Z]+(?:-[A-Z]+)+$/);
+
+    const digitBearing = clone(dataset);
+    digitBearing.canaryRegistry[0].token = "CANARY-PHI-MRN-000000-QX9";
+    expect(validateAdversarialDataset(digitBearing).join("\n")).toContain("canaryRegistry[0]: token must match");
+  });
+
   it("rejects a canary that is planted but not declared, and one declared but not planted", () => {
     const token = collectCanaryTokens(dataset)[0]!;
 

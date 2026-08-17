@@ -83,7 +83,12 @@ export const reportKeyFields = Object.freeze([
   "index_version",
 ]);
 
-const CANARY_TOKEN = /^CANARY-[A-Z0-9]+(?:-[A-Z0-9]+)+$/;
+// Letters only, deliberately. A canary shaped like a real identifier — digits in
+// an MRN or phone body — reads as a high-entropy secret to the repository's secret
+// scanners, and both Gitleaks and GitGuardian flagged exactly that on this file's
+// first push. A canary must be conspicuously non-secret, so the category is carried
+// in words and no digit may appear in a token.
+const CANARY_TOKEN = /^CANARY-[A-Z]+(?:-[A-Z]+)+$/;
 const CASE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const CHUNK_ID = /^syn-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const COMMIT_SHA = /^[0-9a-f]{40}$/;
