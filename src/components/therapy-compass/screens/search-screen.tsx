@@ -46,9 +46,18 @@ export function SearchScreen() {
   // shelf. The query is deliberately absent: it is stated in the composer and
   // removing it is not a filter operation.
   const appliedFilters = [
-    ...b.search.tags.map((tag) => ({ id: `topic-${tag}`, label: tag, onRemove: () => b.toggleTag(tag) })),
-    ...(b.search.reviewedOnly ? [{ id: "reviewed", label: "Reviewed only", onRemove: b.toggleReviewedOnly }] : []),
-    ...(b.search.briefOnly ? [{ id: "brief", label: "Brief available", onRemove: b.toggleBriefOnly }] : []),
+    ...b.search.tags.map((tag) => ({
+      id: `topic-${tag}`,
+      groupLabel: "Topic",
+      valueLabel: tag,
+      onRemove: () => b.toggleTag(tag),
+    })),
+    ...(b.search.reviewedOnly
+      ? [{ id: "reviewed", groupLabel: "Evidence", valueLabel: "Reviewed", onRemove: b.toggleReviewedOnly }]
+      : []),
+    ...(b.search.briefOnly
+      ? [{ id: "brief", groupLabel: "Availability", valueLabel: "Brief available", onRemove: b.toggleBriefOnly }]
+      : []),
   ];
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
@@ -205,7 +214,7 @@ export function SearchScreen() {
         // "Clear search" control (every breakpoint) already covers wiping the
         // query; this sheet only ever clears what it itself narrows.
         onClearAll={activeFilterCount > 0 ? b.clearSearchFilters : undefined}
-        footerNote={`${results.length} therap${results.length === 1 ? "y" : "ies"}`}
+        summary={{ count: results.length, noun: results.length === 1 ? "therapy" : "therapies" }}
       />
 
       {/* The band's fault panel owns the failure. Without this guard an error

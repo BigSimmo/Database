@@ -2187,7 +2187,7 @@ export function ClinicalDashboard({
     if (searchMode === "documents" && trimmedQuery) {
       rememberRecentQuery(trimmedQuery);
       autoRunSearchSignatureRef.current = searchSubmissionSignature(searchMode, trimmedQuery, navigationContext);
-      window.history.pushState(
+      window.history[replaceExistingAnswer ? "replaceState" : "pushState"](
         null,
         "",
         documentsSearchHref({
@@ -3217,6 +3217,18 @@ export function ClinicalDashboard({
   const handleCrossModeSearch = useEventCallback(crossModeSearch);
   const handleDocumentTagSearch = useEventCallback(handleTagSearch);
   const handleScopeFiltersChange = useScopeFilterRelax(query, queryMode, setScopeFilters, ask);
+  const handleDocumentFiltersApply = useEventCallback((filters: SearchScopeFilters, documentIds: string[]) => {
+    setScopeFilters(filters);
+    setSelectedDocumentIds(documentIds);
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return;
+    // Let the selected-source state commit before `ask` builds the private
+    // scope reference. Calling the live ref prevents a stale render closure
+    // from submitting the previous source selection.
+    window.requestAnimationFrame(() => {
+      void askRef.current(trimmedQuery, { queryMode, scopeFilters: filters }, true);
+    });
+  });
   const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
   const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
   const handleDocumentsDrawerOpenChange = useEventCallback((nextOpen: boolean) => {
@@ -3762,6 +3774,8 @@ export function ClinicalDashboard({
                         onTagSearch={handleDocumentTagSearch}
                         scopeFilters={searchMode === "documents" ? scopeFilters : null}
                         onScopeFiltersChange={searchMode === "documents" ? handleScopeFiltersChange : undefined}
+                        selectedDocumentIds={searchMode === "documents" ? selectedDocumentIds : []}
+                        onDocumentFiltersApply={searchMode === "documents" ? handleDocumentFiltersApply : undefined}
                         showHome={searchMode === "documents" && !modeSearchSubmitted}
                         desktopComposerSlotId={desktopHomeComposerSlotId}
                       />
