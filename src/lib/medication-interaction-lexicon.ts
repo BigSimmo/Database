@@ -54,7 +54,7 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     id: "tcas",
     surfaces: ["tcas", "tca", "tricyclics", "tricyclic antidepressants", "anticholinergic tcas"],
     kind: "catalogue",
-    select: { slugs: ["amitriptyline", "nortriptyline", "imipramine", "clomipramine", "doxepin", "dothiepin"] },
+    select: { slugs: ["amitriptyline", "nortriptyline", "imipramine", "clomipramine", "doxepin", "dosulepin"] },
   },
   {
     id: "antipsychotics",

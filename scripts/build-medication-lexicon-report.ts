@@ -439,8 +439,10 @@ function missedClassMembers(
       const hit = term.surfaces.some((surface) => {
         // Compare singular stems so "NSAIDs" matches a subclass reading "NSAID".
         const stem = surface.toLowerCase().replace(/s$/, "");
-        if (stem.length < 4) return false;
-        return new RegExp(`\\b${stem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(haystack);
+        if (stem.length < 3) return false;
+        const escaped = stem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const pattern = stem.length < 4 ? `\\b${escaped}\\b` : `\\b${escaped}`;
+        return new RegExp(pattern).test(haystack);
       });
       if (hit) missed.push(`${record.name} (${record.subclass ?? record.class})`);
     }
