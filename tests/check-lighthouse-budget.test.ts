@@ -15,6 +15,7 @@ import {
   numericBreachConfirmationRuns,
   readReports,
   renderBudgetTable,
+  validateBaselineBrowserVersions,
 } from "../scripts/check-lighthouse-budget.mjs";
 import { measurementFailureReason } from "../scripts/lighthouse-measurement-outcome.mjs";
 import { deadlineAfter, processTimeoutMs, remainingMs } from "../scripts/lighthouse-time-budget.mjs";
@@ -230,6 +231,23 @@ describe("incompleteBudgetEvidence — completeness derived from what is graded"
     );
 
     expect(incompleteBudgetEvidence(rows, budget({ baseline: legacy }))).toEqual([]);
+  });
+
+  it("keeps drift per run when some baseline rows lack a recorded browser version", () => {
+    // When older baselines contain a mix of versioned and unversioned rows,
+    // drift is not uniform across all expected runs and must list per run.
+    const rows = completeRows();
+    const mixed = Object.fromEntries(
+      Object.entries(baselineFromRows(rows)).map(([run, entry], index) => [
+        run,
+        { ...(entry as object), chromeVersion: index === 0 ? null : "HeadlessChrome/131" },
+      ]),
+    );
+    const problems = incompleteBudgetEvidence(rows, budget({ baseline: mixed }));
+
+    expect(problems).toHaveLength(9);
+    expect(problems.every((problem: string) => problem.includes("measured by a different browser"))).toBe(true);
+    expect(problems[0]).not.toContain("browser drift on");
   });
 
   it("rejects colliding route slugs before anything is measured", () => {
@@ -591,5 +609,51 @@ describe("renderBudgetTable", () => {
     const result = compareToLighthouseBudget(rows, budget({ baseline: baselineFromRows(rows) }));
 
     expect(renderBudgetTable(rows, result)).toContain("within tolerance of the committed baseline");
+  });
+});
+
+describe("validateBaselineBrowserVersions", () => {
+  it("accepts a baseline with exactly one browser version across all rows", () => {
+    const baseline = baselineFromRows(completeRows());
+    const result = validateBaselineBrowserVersions(baseline);
+
+    expect(result.ok).toBe(true);
+    expect(result.versions).toEqual(["HeadlessChrome/140"]);
+    expect(result.error).toBeNull();
+  });
+
+  it("rejects an empty baseline", () => {
+    const result = validateBaselineBrowserVersions({});
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("no baseline rows recorded");
+  });
+
+  it("rejects a baseline with mixed browser versions", () => {
+    const rows = completeRows();
+    const mixed = Object.fromEntries(
+      Object.entries(baselineFromRows(rows)).map(([run, entry], index) => [
+        run,
+        { ...(entry as object), chromeVersion: index % 2 === 0 ? "HeadlessChrome/140" : "HeadlessChrome/141" },
+      ]),
+    );
+    const result = validateBaselineBrowserVersions(mixed);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("expected exactly one baseline Chrome version");
+  });
+
+  it("rejects a baseline where some rows are missing a browser version", () => {
+    const rows = completeRows();
+    const partial = Object.fromEntries(
+      Object.entries(baselineFromRows(rows)).map(([run, entry], index) => [
+        run,
+        { ...(entry as object), chromeVersion: index === 0 ? null : "HeadlessChrome/140" },
+      ]),
+    );
+    const result = validateBaselineBrowserVersions(partial);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("some rows are missing a recorded browser version");
   });
 });
