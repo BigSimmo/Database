@@ -415,6 +415,19 @@ Output-style plugins such as caveman mode may compress prose. They must never co
 - Bare-image storage scaffolding must discover its local schema owner at runtime and must never be reused as hosted migration SQL.
 - Run `npm run check:migration-role` after changing Supabase SQL, migration tooling, CI replay, or disaster-recovery instructions.
 - Run `npm run check:supabase-project` after changing Supabase env values.
+- **Guard-migration contract.** Any mark-applied version, `supabase migration repair --status applied`,
+  hand-applied SQL later recorded as a migration, or other history repair MUST ship a fail-fast
+  validation guard migration in the same change, following `20260804110240_restore_rag_search_health_indexes.sql`
+  exactly (validates presence + `indisvalid`/`indisready` + normalized definition, never builds,
+  `set local` timeouts, one `raise exception`). `schema_drift_snapshot()` v2 (`20260818090000`) reports every
+  `supabase_migrations` version recorded without executed statements; `check:drift` fails on any such row
+  that lacks a reviewed `migration_history` entry in `supabase/drift-allowlist.json` pointing at its guard
+  (`guard.class` `validation` is mandatory for versions from 2026-08-18; `superseded`/`no_ddl` are for
+  pre-contract history only). Never allowlist a history row bare, and never widen an entry's class to make
+  it pass. Enforced offline by `tests/migration-history-guards.test.ts`; index-monitoring decisions on the
+  retrieval-critical tables are enforced by `tests/search-health-index-coverage.test.ts` +
+  `supabase/search-health-unmonitored-indexes.json` (`required_indexes` changes travel by migration only).
+  Full contract: `docs/database-drift-detection.md`.
 
 <!-- END:supabase-project-safety -->
 

@@ -274,3 +274,32 @@ The A1/S1 packet must re-verify `generation_quality_gate:*` dominance on healthy
 choosing any code mitigation. Residual: hybrid fan-out still costs ~8.5 s worst-observed — owned
 by the remaining remediation phases, not a route-budget change (`#231`'s stop condition stands).
 `check:production-readiness` on the final state is **pending**.
+
+## Phase 6 — Future-proofing (repo-side; one migration authored, NOT deployed)
+
+_2026-08-18 (repo-only session; no hosted read or mutation)._ Built per plan §6.1–6.3, worker chat
+without a ledger row (residual queued via `npm run issues:add`, not on `#316`):
+
+- **6.1 History-integrity probe.** `20260818090000_schema_drift_snapshot_history_probe.sql` redefines
+  `public.schema_drift_snapshot()` (v2) to also return `migration_history` — every
+  `supabase_migrations.schema_migrations` version with `statements IS NULL` or empty — plus
+  `migration_history_probe` (`ok` / `no_history_table` / `no_statements_column`). Mirrored into
+  `schema.sql`; `drift-manifest.json` regenerated (Docker replay executed the new body: probe
+  `no_history_table`, `snapshot_version` 2). `check:drift` reports each live row as
+  `! [migration_history] no_statements <version>` unless a validated allowlist entry covers it.
+  **Not deployed** — needs the owner-approved production migration window (approval map, Phase 6.1,
+  after Phase 4). Until then the live run shows the `schema_drift_snapshot()` function `def_hash`
+  mismatch (repo-ahead) and an info line naming the pending deploy.
+- **6.2 Guard-migration contract.** Written into `docs/database-drift-detection.md` and `AGENTS.md`
+  ("Supabase project safety"). Allowlist `migration_history` entries carry `guard {class, migration,
+objects}`; classes `validation` (mandatory from 2026-08-18), `superseded`, `no_ddl`.
+  `tests/migration-history-guards.test.ts` verifies each guard file really covers its objects. Seeded
+  five §1.1 versions with repo-provable `superseded` guards (`20260701010000`, `20260701020000`,
+  `20260701030000`, `20260701060000`, `20260702000000`); the remaining §1.1 rows and the 2026-07-12
+  batch are deliberately **not** allowlisted and are the expected findings of the first post-deploy run.
+- **6.3 Runtime coverage ratchet.** `tests/search-health-index-coverage.test.ts` +
+  `supabase/search-health-unmonitored-indexes.json`: every repo-defined index on the six
+  retrieval-critical tables is monitored or listed with reason + disposition. Failed with exactly 44
+  names before the list existed; passes with 44 entries (8 `monitor-candidate`, including the three
+  §1.3-absent indexes on those tables: `document_chunks_anchor_idx`,
+  `document_index_units_heading_path_idx`, `documents_registry_projection_lookup_idx`).
