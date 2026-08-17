@@ -220,24 +220,37 @@ function AnswerActivityTrace({ density }: { density: AnswerProgressDensity }) {
           className="text-[color:var(--clinical-accent)] opacity-25 forced-colors:text-[CanvasText] forced-colors:opacity-100"
         />
       </svg>
+      {/* Two identical copies inside a 200%-wide strip. Each copy is `w-1/2` of the
+          strip, i.e. exactly one container width, so the trace is not horizontally
+          compressed. Translating the strip by -50% puts copy 2 where copy 1 was, so
+          the loop is seamless and the resting (reduced-motion) frame at 0% is a
+          correctly aligned full-width ECG rather than a blank box. */}
       <span
         aria-hidden="true"
         data-slot="answer-activity-trace-sweep"
-        className="answer-activity-trace__sweep pointer-events-none absolute inset-0 block"
+        className="answer-activity-trace__sweep pointer-events-none absolute inset-y-0 left-0 flex w-[200%]"
       >
-        <svg focusable="false" viewBox="0 0 320 44" preserveAspectRatio="none" className="block size-full">
-          <path
-            d={answerActivityPath}
-            pathLength="320"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={compact ? 1.75 : 2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            vectorEffect="non-scaling-stroke"
-            className="text-[color:var(--clinical-accent)] forced-colors:text-[Highlight]"
-          />
-        </svg>
+        {[0, 1].map((copy) => (
+          <svg
+            key={copy}
+            focusable="false"
+            viewBox="0 0 320 44"
+            preserveAspectRatio="none"
+            className="block h-full w-1/2 shrink-0"
+          >
+            <path
+              d={answerActivityPath}
+              pathLength="320"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={compact ? 1.75 : 2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+              className="text-[color:var(--clinical-accent)] forced-colors:text-[Highlight]"
+            />
+          </svg>
+        ))}
       </span>
     </div>
   );
