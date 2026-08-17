@@ -1106,9 +1106,18 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     status: favouritesHookStatus,
     refetch: refetchFavouritesRegistry,
   } = useSavedRegistryFavourites();
+  const lastOpenedMap = useSyncExternalStore(
+    subscribeFavouritesStorage,
+    loadFavouriteLastOpened,
+    loadFavouriteLastOpened,
+  );
+  const pinnedIds = useSyncExternalStore(subscribeFavouritesStorage, loadFavouritePinnedIds, loadFavouritePinnedIds);
   const items = useMemo(
-    () => [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map(toCommandItem),
-    [demoMode, savedRegistryFavourites],
+    () =>
+      [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map((item) =>
+        toCommandItem(item, lastOpenedMap, pinnedIds),
+      ),
+    [demoMode, savedRegistryFavourites, lastOpenedMap, pinnedIds],
   );
   // Demo prototypes live outside the hook. If they are the only items while a
   // registry/account read failed, keep their honest nonzero count but mark it
@@ -1162,7 +1171,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const recentItems = useMemo(
     () =>
       [...items]
-        .sort((first, second) => lastUsedScore(second.lastUsed) - lastUsedScore(first.lastUsed))
+        .sort((first, second) => lastOpenedScore(second.lastUsed) - lastOpenedScore(first.lastUsed))
         .slice(0, recentPreviewLimit),
     [items],
   );
@@ -1517,7 +1526,10 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 sortMode={sortMode}
                 selectedItemId={selectedItemId}
                 onSortModeChange={setSortMode}
-                onSelectItem={setSelectedItemId}
+                onSelectItem={(id) => {
+                  if (id) recordFavouriteOpened(id);
+                  setSelectedItemId(id);
+                }}
               />
             )}
 
@@ -1548,6 +1560,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                       </span>
                       <Link
                         href={item.href}
+                        onClick={() => recordFavouriteOpened(item.id)}
                         aria-label={`Open ${item.title}`}
                         className={cn(
                           "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
