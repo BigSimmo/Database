@@ -165,6 +165,65 @@ describe("DifferentialsHome compare selection URL handoff", () => {
     expect(screen.getAllByText("Anorexia nervosa").length).toBeGreaterThan(0);
   });
 
+  it("narrows by clinical urgency independently of result type, and clears both together", async () => {
+    const emergent = getDifferentialRecord("medical-gi-endocrine-painful-organic-cause");
+    const urgent = getDifferentialRecord("acute-dystonia");
+    expect(emergent?.status).toBe("emergent");
+    expect(urgent?.status).toBe("urgent");
+    catalogState.status = "ready";
+    catalogState.matches = {
+      diagnoses: [
+        { record: emergent!, score: 20, reasons: ["title"] },
+        { record: urgent!, score: 12, reasons: ["title"] },
+      ],
+      presentations: [],
+    };
+
+    render(<DifferentialsHome query="Pain" loading={false} searchSubmitted onRunSearch={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(emergent!.title).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(urgent!.title).length).toBeGreaterThan(0);
+    });
+
+    await act(async () => {
+      screen.getByTestId("differential-filter-trigger-phone").click();
+    });
+    expect(screen.getByRole("heading", { name: "Clinical urgency" })).toBeVisible();
+    await act(async () => {
+      screen.getByRole("radio", { name: "Emergent (1)" }).click();
+    });
+    await act(async () => {
+      screen.getByTestId("differential-filter-panel-done").click();
+    });
+
+    expect(screen.getAllByText(emergent!.title).length).toBeGreaterThan(0);
+    expect(screen.queryByText(urgent!.title)).not.toBeInTheDocument();
+
+    // A no-longer-active urgency filter narrowing the result type to zero
+    // reports the combined reason, not just the result-type half of it.
+    await act(async () => {
+      screen.getByTestId("differential-filter-trigger-phone").click();
+    });
+    await act(async () => {
+      screen.getByRole("radio", { name: "Presentations (0)" }).click();
+    });
+    await act(async () => {
+      screen.getByTestId("differential-filter-panel-done").click();
+    });
+    expect(
+      screen.getByRole("heading", { name: "No presentations at Emergent priority in this result set" }),
+    ).toBeVisible();
+
+    await act(async () => {
+      screen.getByRole("button", { name: "Show all results" }).click();
+    });
+
+    expect(screen.queryByTestId("differentials-filter-empty-results")).not.toBeInTheDocument();
+    expect(screen.getAllByText(emergent!.title).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(urgent!.title).length).toBeGreaterThan(0);
+  });
+
   it("keeps the submitted query when opening a presentation comparison", async () => {
     const presentation = getPresentationWorkflow("acute-confusion-encephalopathy");
     expect(presentation).toBeTruthy();
