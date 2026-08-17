@@ -4,7 +4,7 @@
   "promptVersion": "clinical-rag-answer-v18",
   "semanticRerankEnabled": false,
   "reportKey": {
-    "commit_sha": "181c847b82fe651b3ce583ed228da5009abf12e4",
+    "commit_sha": "92f7618c0ccac336ef6c245b89f37b046f4eac32",
     "dataset_version": "rag-adversarial-cases.v1",
     "eval_config_version": "rag-eval-config-v1",
     "model_version": "answer=gpt-5.6-terra; fast=gpt-5.6-terra; strong=gpt-5.6-sol",
@@ -35,17 +35,17 @@
     },
     {
       "id": "offline_contract",
-      "caseCount": 24,
+      "caseCount": 25,
       "status": "recorded",
-      "result": "24 offline contract suites, 597 tests passed; golden fixture validation 36 cases / 24 suites.",
-      "evidence": "npm run eval:rag:offline on this branch over 181c847b82fe651b3ce583ed228da5009abf12e4, 2026-08-17: 'Test Files 24 passed (24) / Tests 597 passed (597)'. The 24th suite is tests/rag-adversarial-fixtures.test.ts, added by this packet; the same command reported 23 suites / 583 tests before it."
+      "result": "25 offline contract suites, 602 tests passed; golden fixture validation 36 cases / 25 suites.",
+      "evidence": "npm run eval:rag:offline on this branch over 92f7618c0ccac336ef6c245b89f37b046f4eac32, 2026-08-17: 'Test Files 25 passed (25) / Tests 602 passed (602)'. The list held 23 suites / 583 tests before this branch started. Two suites were added concurrently and both are in the count: tests/rag-adversarial-fixtures.test.ts by this packet, and tests/search-route-round-trip-budget.test.ts on main. The remaining test-count movement is packet S1b (PR #2035), merged into the base while this branch was open."
     },
     {
       "id": "adversarial_fixtures",
       "caseCount": 24,
       "status": "recorded",
       "result": "24 synthetic cases across 8 categories, 6 registered canaries, report canary-free.",
-      "evidence": "npm run check:rag:adversarial-fixtures at 181c847b82fe651b3ce583ed228da5009abf12e4, 2026-08-17."
+      "evidence": "npm run check:rag:adversarial-fixtures at 92f7618c0ccac336ef6c245b89f37b046f4eac32, 2026-08-17."
     }
   ]
 }

@@ -14,7 +14,7 @@ so two reports can be compared without guessing what changed between them.
 
 | Field                 | This baseline                                                  | Where it comes from                                                         |
 | --------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `commit_sha`          | `181c847b82fe651b3ce583ed228da5009abf12e4`                     | `git rev-parse HEAD` of the evaluated tree. Full 40 characters, enforced.   |
+| `commit_sha`          | `92f7618c0ccac336ef6c245b89f37b046f4eac32`                     | `git rev-parse HEAD` of the evaluated tree. Full 40 characters, enforced.   |
 | `dataset_version`     | `rag-adversarial-cases.v1`                                     | The fixture dataset's own `datasetVersion`; cross-checked against the file. |
 | `eval_config_version` | `rag-eval-config-v1`                                           | Bumped by hand whenever a case list, threshold, or gate semantic changes.   |
 | `model_version`       | `answer=gpt-5.6-terra; fast=gpt-5.6-terra; strong=gpt-5.6-sol` | The resolved answer-model defaults in `src/lib/env.ts`.                     |
@@ -37,7 +37,7 @@ ambiguity-band semantic reranker off until an approved comparison exists.
 | `retrieval_golden`     | 36    | pending owner run | Provider-backed; last recorded green at `2bd146eed`.              |
 | `answer_gate`          | 44    | pending owner run | Provider-backed; the recorded denominator is unreconciled (§3).   |
 | `answer_quality`       | 30    | pending owner run | Provider-backed; no comparison recorded at this commit.           |
-| `offline_contract`     | 24    | recorded          | 24 suites, 597 tests passed.                                      |
+| `offline_contract`     | 25    | recorded          | 25 suites, 602 tests passed.                                      |
 | `adversarial_fixtures` | 24    | recorded          | 24 synthetic cases, 8 categories, 6 canaries, report canary-free. |
 
 Three of the five gates are marked `pending_owner_run` rather than carrying a number. That is
