@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (246 files) and the `package.json` script surface (249 entries),
+Curated map of `scripts/` (246 files) and the `package.json` script surface (251 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -102,6 +102,9 @@ Golden fixtures:
 `scripts/fixtures/rag-retrieval-golden.json`, `scripts/fixtures/assertion-golden.json`.
 Adversarial fixtures: `scripts/fixtures/rag-adversarial-cases.v1.json` (+ its schema) and
 `scripts/fixtures/rag-adversarial-baseline.v1.json`.
+Docling lab (isolated, outside `scripts/`): `eval/docling/` — `npm run check:docling-lab`
+(offline contract gate) and `npm run generate:docling-lab-lock` (hashed lock); the benchmark
+itself is dispatch-only (`.github/workflows/docling-lab.yml`). See `eval/docling/README.md`.
 
 Editing anything in this section is a protected-surface change — read `docs/rag-behaviour/` and flag
 the task before you start.

@@ -23,6 +23,8 @@
     "build:analyze": "node scripts/build-analyze.mjs",
     "generate:worker-python-lock": "node scripts/generate-worker-python-lock.mjs",
     "generate:worker-python-cloud-lock": "node scripts/generate-worker-python-lock.mjs --target cloud",
+    "generate:docling-lab-lock": "node eval/docling/generate-lock.mjs",
+    "check:docling-lab": "node eval/docling/report/build-report.mjs --validate-only",
     "check:worker-python-lock": "node scripts/check-worker-python-lock.mjs",
     "check:worker-python-cloud-lock": "node scripts/check-worker-python-lock.mjs --target cloud",
     "check:worker-python-locks:static": "node scripts/check-worker-python-lock.mjs --static",
