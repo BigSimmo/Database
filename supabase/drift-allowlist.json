@@ -1,4 +1,65 @@
 {
-  "_comment": "Known live-vs-schema.sql divergence. Empty after the forward-only 2026-07-13 reconciliation. Every future entry must carry a specific reason; check:drift fails on anything not listed here.",
-  "entries": []
+  "_comment": "Known live-vs-schema.sql divergence. Object categories (indexes, functions, ...) have been empty since the forward-only 2026-07-13 reconciliation. Every entry must carry a specific reason; check:drift fails on anything not listed here.",
+  "_migration_history_contract": "Entries with category `migration_history` / kind `no_statements` cover supabase_migrations.schema_migrations versions recorded WITHOUT executed statements (history repair / mark-applied rows) that public.schema_drift_snapshot() v2 (migration 20260818090000) reports. Each needs a `reason` and a `guard` = {class, migration, objects}. class `validation`: a later fail-fast validation migration (20260804110240 pattern) proves the objects; required for every version from 20260818000000. class `superseded`: a later migration re-created every listed object with recorded statements (pre-contract history only). class `no_ddl`: the version's own file has no effect (comments / `select 1;`). check:drift ignores a malformed entry (the row stays a finding) and tests/migration-history-guards.test.ts verifies the guard file really covers the listed objects. Seeded 2026-08-18 from docs/audit/live-drift-forensics-2026-08.md section 1.1 (versions resolved by name from the repo, not by a live read); an entry whose version is not reported by the live probe surfaces as a stale entry. See docs/database-drift-detection.md.",
+  "entries": [
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260701010000",
+      "reason": "2026-07-01 hybrid-retrieval hotfix applied to live by raw SQL and mark-applied (forensics section 1.1); match_document_chunks_hybrid has since been redefined by later migrations with recorded statements and its body/ACL sit in the drift inventory",
+      "guard": {
+        "class": "superseded",
+        "migration": "20260714110000_promote_documents_index_generation_id.sql",
+        "objects": ["match_document_chunks_hybrid"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260701020000",
+      "reason": "2026-07-01 hybrid-retrieval hotfix applied to live by raw SQL and mark-applied (forensics section 1.1); all three RPCs were re-codified verbatim from live by 20260701140631 and sit in the drift inventory",
+      "guard": {
+        "class": "superseded",
+        "migration": "20260701140631_codify_live_retrieval_rpcs.sql",
+        "objects": [
+          "match_document_index_units_hybrid",
+          "match_document_embedding_fields_hybrid",
+          "match_document_memory_cards_hybrid_v2"
+        ]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260701030000",
+      "reason": "2026-07-01 search_schema_health execution-smoke revision mark-applied after hand-apply (forensics section 1.1); search_schema_health() was redefined by the M13 guard migration and its def_hash sits in the drift inventory",
+      "guard": {
+        "class": "superseded",
+        "migration": "20260706010000_search_schema_health_m13_guard.sql",
+        "objects": ["search_schema_health"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260701060000",
+      "reason": "2026-07-01 clinical query-term corrector mark-applied after hand-apply (forensics section 1.1); correct_clinical_query_terms was redefined by the public-title corrector migration and sits in the drift inventory",
+      "guard": {
+        "class": "superseded",
+        "migration": "20260717171000_public_title_corrector.sql",
+        "objects": ["correct_clinical_query_terms"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260702000000",
+      "reason": "2026-07-02 commit_document_index_generation legacy-artifact fix mark-applied after hand-apply (forensics section 1.1); the function was redefined by the generation-commit fence migration and sits in the drift inventory",
+      "guard": {
+        "class": "superseded",
+        "migration": "20260713062125_fence_index_generation_commit.sql",
+        "objects": ["commit_document_index_generation"]
+      }
+    }
+  ]
 }
