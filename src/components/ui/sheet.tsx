@@ -71,7 +71,8 @@ type SheetBaseProps = {
   bodyTabIndex?: number;
   onBodyScroll?: UIEventHandler<HTMLDivElement>;
   footerClassName?: string;
-  placement?: "default" | "left";
+  /** Side placement is opt-in so existing dialogs keep their centred layout. */
+  placement?: "default" | "left" | "right" | "responsive-right";
   mobilePlacement?: "bottom" | "top" | "fullscreen";
   mobileSize?: SheetMobileSize;
   /**
@@ -371,9 +372,11 @@ export function Sheet({
   }
   const resolvedAriaLabel = ariaLabel || (!title && !labelledBy ? "Dialog" : undefined);
   const resolvedLabelledBy = labelledBy ?? (title ? titleId : undefined);
-  const defaultSheetIsFullscreen = placement !== "left" && mobilePlacement === "fullscreen";
-  const defaultSheetIsTopAligned = placement !== "left" && mobilePlacement === "top";
-  const defaultSheetUsesViewportSize = placement !== "left" && mobileSize === "viewport";
+  const sideSheet = placement === "left" || placement === "right";
+  const responsiveSideSheet = placement === "responsive-right";
+  const defaultSheetIsFullscreen = !sideSheet && mobilePlacement === "fullscreen";
+  const defaultSheetIsTopAligned = !sideSheet && mobilePlacement === "top";
+  const defaultSheetUsesViewportSize = !sideSheet && mobileSize === "viewport";
   const resolvedMobileHeaderSafeArea = mobileHeaderSafeArea ?? (defaultSheetIsFullscreen ? "padding" : "none");
   const contentClassTokens = contentClassName?.split(/\s+/) ?? [];
   const hasMobileMaxHeight = contentClassTokens.some((token) => /^!?max-h-/.test(token));
@@ -387,14 +390,18 @@ export function Sheet({
         // branch still stacks above sibling chrome.
         "pointer-events-auto fixed inset-0 z-[var(--z-modal)] flex bg-[color:var(--overlay-backdrop)] backdrop-blur-[2px] motion-reduce:animate-none motion-reduce:transition-none",
         desktopBackdropClassName,
-        placement !== "left" && "motion-safe:animate-overlay-in",
+        !sideSheet && !responsiveSideSheet && "motion-safe:animate-overlay-in",
         placement === "left"
           ? "items-stretch justify-start"
-          : defaultSheetIsFullscreen
-            ? "items-stretch justify-center p-0 lg:items-center lg:p-6"
-            : defaultSheetIsTopAligned
-              ? "items-start justify-center px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-6"
-              : "items-end justify-center sm:items-center sm:p-6",
+          : placement === "right"
+            ? "items-stretch justify-end"
+            : placement === "responsive-right"
+              ? "items-end justify-center sm:items-stretch sm:justify-end sm:p-0"
+              : defaultSheetIsFullscreen
+                ? "items-stretch justify-center p-0 lg:items-center lg:p-6"
+                : defaultSheetIsTopAligned
+                  ? "items-start justify-center px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-6"
+                  : "items-end justify-center sm:items-center sm:p-6",
       )}
       // Dismiss on click (not pointerdown) so the sheet stays mounted through
       // pointerup and the same gesture cannot click-through into content below.
@@ -428,30 +435,34 @@ export function Sheet({
           "transition duration-[var(--duration-moderate)] motion-reduce:transition-none sm:duration-[var(--duration-quick)]",
           placement === "left"
             ? "h-full max-h-full max-w-[min(22rem,calc(100vw-1rem))] rounded-r-2xl border-y-0 border-l-0 pt-safe sm:max-h-dvh sm:max-w-[22rem] sm:rounded-l-none sm:rounded-r-2xl sm:pb-0"
-            : cn(
-                defaultSheetIsFullscreen
-                  ? // Fullscreen panels size from the inset-0 backdrop (h-full), not
-                    // 100dvh: iOS Safari resolves dvh stale across toolbar
-                    // collapse, which strands a dead band under the sheet.
-                    "h-full max-h-full rounded-none border-0 motion-safe:animate-pop-in sm:max-w-none sm:rounded-none lg:h-auto lg:max-h-[calc(100dvh-3rem)] lg:rounded-2xl lg:border lg:border-[color:var(--border-lux)] lg:pb-0 lg:motion-safe:animate-dialog-rise"
-                  : cn(
-                      "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-dialog-rise",
-                      defaultSheetIsTopAligned
-                        ? cn(
-                            "max-h-[calc(100dvh-1.5rem)] rounded-2xl motion-safe:animate-pop-in",
-                            defaultSheetUsesViewportSize && "min-h-[calc(100dvh-2rem)] sm:min-h-0",
-                          )
-                        : cn(
-                            "rounded-t-2xl motion-safe:animate-sheet-up",
-                            defaultSheetUsesViewportSize
-                              ? "min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] sm:min-h-0"
-                              : cn(
-                                  !hasMobileMaxHeight && "max-h-[calc(100dvh-2rem)]",
-                                  !hasSmallScreenMaxHeight && "sm:max-h-[88dvh]",
-                                ),
-                          ),
-                    ),
-              ),
+            : placement === "right"
+              ? "h-full max-h-full max-w-[min(32rem,calc(100vw-1rem))] rounded-l-2xl border-y-0 border-r-0 pt-safe sm:max-h-dvh sm:max-w-[32rem] sm:rounded-l-2xl sm:rounded-r-none sm:pb-0"
+              : placement === "responsive-right"
+                ? "max-h-[calc(100dvh-2rem)] rounded-t-2xl motion-safe:animate-sheet-up sm:h-full sm:max-h-full sm:max-w-[32rem] sm:rounded-l-2xl sm:rounded-r-none sm:border-y-0 sm:border-r-0 sm:pb-0 sm:motion-safe:animate-dialog-rise"
+                : cn(
+                    defaultSheetIsFullscreen
+                      ? // Fullscreen panels size from the inset-0 backdrop (h-full), not
+                        // 100dvh: iOS Safari resolves dvh stale across toolbar
+                        // collapse, which strands a dead band under the sheet.
+                        "h-full max-h-full rounded-none border-0 motion-safe:animate-pop-in sm:max-w-none sm:rounded-none lg:h-auto lg:max-h-[calc(100dvh-3rem)] lg:rounded-2xl lg:border lg:border-[color:var(--border-lux)] lg:pb-0 lg:motion-safe:animate-dialog-rise"
+                      : cn(
+                          "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-dialog-rise",
+                          defaultSheetIsTopAligned
+                            ? cn(
+                                "max-h-[calc(100dvh-1.5rem)] rounded-2xl motion-safe:animate-pop-in",
+                                defaultSheetUsesViewportSize && "min-h-[calc(100dvh-2rem)] sm:min-h-0",
+                              )
+                            : cn(
+                                "rounded-t-2xl motion-safe:animate-sheet-up",
+                                defaultSheetUsesViewportSize
+                                  ? "min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] sm:min-h-0"
+                                  : cn(
+                                      !hasMobileMaxHeight && "max-h-[calc(100dvh-2rem)]",
+                                      !hasSmallScreenMaxHeight && "sm:max-h-[88dvh]",
+                                    ),
+                              ),
+                        ),
+                  ),
           "motion-reduce:animate-none",
           contentClassName,
         )}
@@ -459,7 +470,7 @@ export function Sheet({
         <div
           className={cn(
             "mx-auto flex w-full shrink-0 cursor-grab touch-none justify-center pb-1 pt-2 active:cursor-grabbing sm:hidden",
-            placement === "left" && "hidden",
+            sideSheet && "hidden",
             defaultSheetIsFullscreen && "hidden",
             defaultSheetIsTopAligned && "hidden",
           )}

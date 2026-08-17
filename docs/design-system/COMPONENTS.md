@@ -999,7 +999,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `RetrievalStateBanner`   | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `SafeBoldText`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `SearchField`            | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |              12 |
+| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              25 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
@@ -1012,7 +1012,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `TextField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `TextLink`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ToastRegion`            | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `ToggleSwitch`           | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
+| `ToggleSwitch`           | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Tooltip`                | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `VerificationNotice`     | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 
