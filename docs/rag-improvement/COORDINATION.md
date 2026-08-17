@@ -67,25 +67,39 @@ their status row, and stop. They never merge, never watch CI, never dispatch can
 **Wave plan** (Track A is strictly consecutive — shared files and evidence dependencies;
 Track B is the parallel lane):
 
-| Wave | Dispatch in parallel                                                          | Gate to the next wave                                                                                                                           |
-| ---- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | **S1 + S4**                                                                   | both PRs merged (S2 needs S1's code on main; S5 needs S4's fixtures)                                                                            |
-| 2    | **S2 + S5 + S6**                                                              | S2 merged + its canary pair approved and green (S2b, the split-out A3 length step, follows S2 in the same lane if HANDOVER keeps them separate) |
-| 3    | **S3** (after S2b when used)                                                  | S3 merged                                                                                                                                       |
-| 4    | S7+ only after explicit owner decisions (Gate B verdict, experiment appetite) | —                                                                                                                                               |
+| Wave | Dispatch (one fresh chat per task)                                                                | Gate to the next wave                                             |
+| ---- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 0    | **D1** (this docs PR) + **S4** + **S1b** + **#212 T4** in parallel; **C1** post-S1 canary (done)  | D1 merged (unblocks R0); S1b merged + canary green (unblocks S1c) |
+| 1    | **R0** `issues:reconcile` (serialized) + **G1** (any time, disjoint) + **S1c** (after S1b canary) | S1c merged + canary green                                         |
+| 2    | **S2** (+S2b if split) + **S5** + **S6** (S5/S6 after S4 merges)                                  | S2 merged + canary pair + `eval:answer-quality` + Gate E          |
+| 3    | **S3** + #212 closure                                                                             | S3 merged                                                         |
+| 4    | S7+ only after explicit owner decisions (Gate B verdict, experiment appetite)                     | —                                                                 |
+
+Waves 1–2 of the original plan (S1 + S4, then S2 + S5 + S6) were re-cut on 2026-08-17 after S1
+landed: the owner chose **R1 before S2** (S1's residual R1 explains most remaining lithium
+timeouts and A2/A3 add length), and **governance Option B** for the document-summary
+`similarity: 1` question. Track A stays strictly consecutive; Track B and the `#212` sibling
+stream are the parallel lanes.
 
 One session per packet, never two — the duplicate-PR trap is real and recorded (`#292`:
 PRs #1766/#1767 shipped the same conversion twice, four hours apart).
 
 **Per-packet session settings** (agreed with the owner):
 
-| Packet                | Model                     | Reasoning effort                                                   | Plan mode                                                                | Fast mode |
-| --------------------- | ------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------ | --------- |
-| S1                    | Fable                     | High (not xhigh — the plan exists; the session is build/diagnosis) | Yes — approve the mitigation-rung choice before edits                    | No        |
-| S2 (and S2b if split) | Fable                     | High                                                               | Yes — eyeball the composition menu + length targets (clinical judgement) | No        |
-| S3                    | Fable or Opus             | Medium–high                                                        | Optional                                                                 | OK        |
-| S4                    | Cheaper model fine (Opus) | Medium                                                             | No                                                                       | OK        |
-| S5/S6                 | Fable preferred           | High for sandbox/isolation design, medium for plumbing             | For the design decisions                                                 | No        |
+| Task                    | Model       | Reasoning effort                                                   | Plan mode                                                                | Fast mode |
+| ----------------------- | ----------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------ | --------- |
+| Coordinator (this chat) | Fable       | Medium — routing, not building                                     | Only while re-planning                                                   | No        |
+| C1 canary compare       | coordinator | Low                                                                | No                                                                       | —         |
+| D1 docs / R0 reconcile  | Sonnet      | Medium / Low                                                       | No                                                                       | OK        |
+| S1 (done)               | Fable       | High (not xhigh — the plan exists; the session is build/diagnosis) | Yes — approve the mitigation-rung choice before edits                    | No        |
+| S1b (R1 routing)        | Fable       | High                                                               | Yes — approve the class list before edits                                | No        |
+| S1c (R2 + R3)           | Fable       | High                                                               | Yes                                                                      | No        |
+| G1 (Option B tag)       | Opus        | High                                                               | Optional                                                                 | No        |
+| S2 (and S2b if split)   | Fable       | High                                                               | Yes — eyeball the composition menu + length targets (clinical judgement) | No        |
+| S3                      | Opus        | Medium–high                                                        | Optional                                                                 | OK        |
+| S4                      | Opus        | Medium                                                             | No                                                                       | OK        |
+| S5/S6                   | Fable       | High for sandbox/isolation design, medium for plumbing             | For the design decisions                                                 | No        |
+| #212 T4 (worker)        | Fable       | High — concurrent job claimer, retry/poison-pill risk              | Yes — approve per-site fail/skip decisions                               | No        |
 
 Rationale anchors: `AGENTS.md` "Reasoning effort calibration" (RAG surfaces = top row;
 xhigh planning over-produces; debugging inverts plan/build effort), and plan mode only in
@@ -160,12 +174,19 @@ Always a fresh owner ask, every single time:
 
 ## 7. Current state and next actions (update on change)
 
-- **Done:** PR #1895 (guide), PR #1899 (A1 phase 1), PR #1908 (worker handover) — all
-  merged 2026-08-13.
-- **Next:** dispatch Wave 1 — S1 (Fable, high, plan mode) and S4 (cheaper model, medium,
-  no plan mode) in parallel, one session each.
-- **Waiting on owner:** nothing until Wave 1 PRs open; then merges, and later S2's canary
-  approval.
+- **Done:** PR #1895 (guide), PR #1899 (A1 phase 1), PR #1908 (worker handover) — merged
+  2026-08-13. **PR #2022 (S1)** merged 2026-08-17 as squash `2bd146eed`, landing verified by
+  content; canary pair baseline run 31964560921 (`8f8d111ab`) → post run 32025082010
+  (`2bd146eed`): recall 1.0/1.0, zero per-case rr regressions, answer gate 45/45. Sibling
+  `#212` T3 (PR #2023) merged as `440a34f71`.
+- **Owner decisions 2026-08-17:** R1 before S2; governance Option B.
+- **Next (Wave 0):** dispatch S4, S1b and #212 T4 as three fresh chats; merge this docs PR;
+  then R0 reconcile. G1 may start any time. Prompts: HANDOVER §7 (S1b, S1c, G1, S4) and the
+  #212 handover artifact (T4).
+- **Waiting on owner:** merges as PRs open; S1b's canary approval when it merges; later S2's
+  canary + `eval:answer-quality` + Gate E.
+- **Live board (artifact, owner-private):** RAG Master Plan v2 —
+  `https://claude.ai/code/artifact/d5dba709-0df3-40e3-8a45-15997231533d`.
 
 ## 8. Coordination-chat bootstrap prompt
 
