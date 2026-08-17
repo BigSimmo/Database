@@ -223,12 +223,11 @@ describe("merge-loss removal mechanism", () => {
   });
 
   it("blames the oldest matching commit, not a later one carrying the absence forward", () => {
-    // git log is newest-first, so the walk runs backwards.
     const removal = classifyRemoval({
       ...base,
       historyOf: () => [
-        { sha: "later", subject: "unrelated touch" },
         { sha: "culprit", subject: "Merge branch 'main'" },
+        { sha: "later", subject: "unrelated touch" },
       ],
       entryAt: () => "pre-entry",
       isMergeCommit: (sha: string) => sha === "culprit",

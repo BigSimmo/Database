@@ -141,8 +141,7 @@ export function isReconciliationMove(file, landingRef, ref, entryAt) {
  */
 export function classifyRemoval({ file, landingSha, preEntry, ref, historyOf, entryAt, isMergeCommit }) {
   const commits = historyOf(landingSha, ref, file) ?? [];
-  for (let index = commits.length - 1; index >= 0; index -= 1) {
-    const commit = commits[index];
+  for (const commit of commits) {
     if (entryAt(commit.sha, file) !== preEntry) continue;
     return {
       mechanism: isMergeCommit(commit.sha) ? "merge-resolution" : "deliberate-commit",
@@ -307,7 +306,7 @@ function treeEntryReader() {
 }
 
 /**
- * Commits touching `file` between a landing and the ref, newest first.
+ * Commits touching `file` between a landing and the ref, oldest first.
  *
  * `--full-history` matters: default history simplification hides the merge
  * commits that are exactly what this walk is looking for, so without it a
@@ -318,7 +317,16 @@ function historyReader() {
   return (landingSha, ref, file) => {
     const key = `${landingSha}..${ref}:${file}`;
     if (!cache.has(key)) {
-      const raw = tryGit(["log", "--full-history", "--format=%H%x1f%s", `${landingSha}..${ref}`, "--", file]);
+      const raw = tryGit([
+        "log",
+        "--reverse",
+        "--first-parent",
+        "--full-history",
+        "--format=%H%x1f%s",
+        `${landingSha}..${ref}`,
+        "--",
+        file,
+      ]);
       cache.set(
         key,
         String(raw ?? "")
@@ -524,7 +532,8 @@ function main() {
   if (process.argv.includes("--self-test")) return selfTest();
   const options = resolveArgs(process.argv.slice(2));
 
-  if (tryGit(["rev-parse", "--is-shallow-repository"]) === "true") {
+  const shallow = tryGit(["rev-parse", "--is-shallow-repository"]);
+  if (shallow?.trim() !== "false") {
     console.error("[merge-loss] this is a shallow clone; pre-merge parents are unavailable and a clean sweep here");
     console.error("[merge-loss] would be meaningless. Re-run after `git fetch --unshallow`.");
     process.exitCode = 1;
