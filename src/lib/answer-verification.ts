@@ -62,6 +62,19 @@ function foldSuperscripts(text: string): string {
   return text.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, (ch) => SUPERSCRIPT_DIGITS[ch] ?? ch);
 }
 
+// Markdown emphasis markers reach answer prose from two writers — the model itself and the
+// pipeline's own high-yield bolding (boldRagAnswerHighYieldText in rag.ts), which runs BEFORE
+// numeric verification. A marker between a quantity and its per-time denominator makes
+// `**200 mg**/day` extract a bare `200mg` atom while the cited source's `200 mg/day` extracts
+// `200mg/day`, so a verbatim-faithful figure fails the exact atom-key match and the whole
+// dosing answer is discarded (#231, measured live 2026-08-17). Fold the markers (asterisks,
+// backticks, heading hashes, double underscores) to nothing before matching, mirroring the
+// claim-splitting `cleanText` in rag-claim-support.ts; single underscores are kept so
+// identifier-like tokens are not merged.
+function foldMarkdownEmphasis(text: string): string {
+  return /[*`#_]/.test(text) ? text.replace(/[*`#]+|_{2,}/g, "") : text;
+}
+
 function normalizeNumericToken(raw: string): string {
   return foldSuperscripts(raw)
     .toLowerCase()
@@ -190,7 +203,7 @@ function canonicalFrequency(count: string | undefined, phrase: string) {
 /** Extract meaning-preserving clinical value atoms for exact evidence matching. */
 export function extractClinicalValueAtoms(text: string): ClinicalValueAtom[] {
   if (!text) return [];
-  const normalized = foldSuperscripts(text).normalize("NFKC");
+  const normalized = foldSuperscripts(foldMarkdownEmphasis(text)).normalize("NFKC");
   const atoms: ClinicalValueAtom[] = [];
   const occupied: Array<[number, number]> = [];
 
@@ -1257,7 +1270,7 @@ function clinicalValueAtomDisplay(atom: ClinicalValueAtom) {
 
 export function extractNumericTokens(text: string): string[] {
   if (!text) return [];
-  const folded = foldSuperscripts(text);
+  const folded = foldSuperscripts(foldMarkdownEmphasis(text));
   const tokens = new Set<string>();
   for (const match of folded.matchAll(NUMERIC_TOKEN_PATTERN)) {
     const normalized = normalizeNumericToken(match[0]);

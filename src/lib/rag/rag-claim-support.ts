@@ -505,9 +505,19 @@ function usesSourceBoundComparisonReflow(source: SearchResult, claim: string) {
 function sourceEvidenceClaimSegments(source: SearchResult, claim: string) {
   const split = (value: string | null | undefined, context?: string | null, reflowVisualLines = false) => {
     const rawValue = reflowWrappedAgitationDoseLines(reflowWrappedEscalationRecipientLines(value ?? ""));
+    // Always rejoin PDF visual line wraps before sentence-splitting. Splitting raw extracted
+    // text on `\n+` fragments a source sentence at its hard wrap ("…for adults is 500 mg nocte
+    // and for patients over 65 years it\nis 250 mg nocte"), so no single segment carries every
+    // atom of a claim restating that sentence — a verbatim-faithful high-risk claim then reads
+    // as unsupported and the whole answer degrades to source-only (#231, measured live
+    // 2026-08-17). Blank lines, bullets, terminal punctuation, colons, and numbered headings
+    // stay hard boundaries, and the general path joins only visible sentence continuations
+    // (lowercase/digit/parenthesis starts) so separate capitalized source lines cannot
+    // manufacture support. The comparison-reflow path keeps its historical aggressive join
+    // plus low-yield noise stripping for its two known policy documents, unchanged.
     const blocks = reflowVisualLines
       ? reflowBoundedSourceLines(sourceTextForClinicalProsePreservingBreaks(rawValue))
-      : [rawValue];
+      : reflowBoundedSourceLines(rawValue, { requireContinuationStart: true });
     return blocks.flatMap((block) => {
       const sharedConditional = block.match(/^\s*((?:when|whenever|if|unless)\b[^,;.!?]+),?/i)?.[1];
       return block
