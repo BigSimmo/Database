@@ -55,6 +55,7 @@ import {
 import { useAuthSession } from "@/lib/supabase/client";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
+import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
 import * as SidebarDialogs from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
@@ -3217,18 +3218,7 @@ export function ClinicalDashboard({
   const handleCrossModeSearch = useEventCallback(crossModeSearch);
   const handleDocumentTagSearch = useEventCallback(handleTagSearch);
   const handleScopeFiltersChange = useScopeFilterRelax(query, queryMode, setScopeFilters, ask);
-  const handleDocumentFiltersApply = useEventCallback((filters: SearchScopeFilters, documentIds: string[]) => {
-    setScopeFilters(filters);
-    setSelectedDocumentIds(documentIds);
-    const trimmedQuery = query.trim();
-    if (!trimmedQuery) return;
-    // Let the selected-source state commit before `ask` builds the private
-    // scope reference. Calling the live ref prevents a stale render closure
-    // from submitting the previous source selection.
-    window.requestAnimationFrame(() => {
-      void askRef.current(trimmedQuery, { queryMode, scopeFilters: filters }, true);
-    });
-  });
+  const handleDocumentFiltersApply = useApplyFilters(query, queryMode, setScopeFilters, setSelectedDocumentIds, askRef);
   const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
   const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
   const handleDocumentsDrawerOpenChange = useEventCallback((nextOpen: boolean) => {
