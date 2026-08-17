@@ -11,11 +11,15 @@ describe("Therapy PR unblocking contracts", () => {
   });
 
   it("keeps the production content gate while allowing isolated offline UI verification", () => {
-    const source = read("src/app/(search-app)/therapy-compass/layout.tsx");
-    expect(source).toContain('process.env.PLAYWRIGHT_OFFLINE_MODE === "true"');
-    expect(source).toContain("!offlineReviewBuild");
-    expect(source).toContain("notFound()");
-    expect(source).not.toContain("NEXT_PUBLIC_DEMO_MODE");
+    const layoutSource = read("src/app/(search-app)/therapy-compass/layout.tsx");
+    const therapiesSource = read("src/lib/therapies.ts");
+
+    expect(layoutSource).toContain('process.env.PLAYWRIGHT_OFFLINE_MODE === "true"');
+    expect(layoutSource).toContain("!offlineReviewBuild");
+    expect(layoutSource).toContain("notFound()");
+    expect(layoutSource).not.toContain("NEXT_PUBLIC_DEMO_MODE");
+    expect(therapiesSource).toContain('process.env.PLAYWRIGHT_OFFLINE_MODE === "true" ? "development"');
+    expect(therapiesSource).toContain('environment === "production"');
   });
 
   it("canonicalises hidden shared-home modes instead of retaining impossible URL state", () => {

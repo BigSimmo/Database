@@ -145,14 +145,7 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
       keywords: slug.replaceAll("-", " "),
     }));
     return [...serviceItems, ...formItems, ...differentialItems, ...currentTherapyLoad.items];
-  }, [
-    services.records,
-    forms.records,
-    savedServices,
-    savedForms,
-    savedDifferentials,
-    currentTherapyLoad.items,
-  ]);
+  }, [services.records, forms.records, savedServices, savedForms, savedDifferentials, currentTherapyLoad.items]);
 
   // Only a registry that was actually requested can report a fault: a disabled
   // hook sits in its initial state forever and must not be read as a failure.
