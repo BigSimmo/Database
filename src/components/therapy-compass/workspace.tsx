@@ -4,11 +4,12 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { InformationPageShell } from "@/components/information-page-shell";
 import { cn, pageContainer } from "@/components/ui-primitives";
+import { isInformationPage } from "@/lib/information-pages";
 
 import { TcProvider, useTcBindings } from "./bindings";
 import { accentControl, therapyBtn } from "./controls";
-import { TherapyModeNav } from "./nav";
 
 function TherapyCompassFooter() {
   return (
@@ -47,6 +48,21 @@ function TherapyCompassDataError() {
   );
 }
 
+function TherapyCompassInformationRoute({ children }: { children: ReactNode }) {
+  const b = useTcBindings();
+  if (b.error) {
+    return (
+      <InformationPageShell testId="therapy-information-error">
+        <TherapyCompassDataError />
+      </InformationPageShell>
+    );
+  }
+  if (b.loading && b.therapies.length === 0) {
+    return <InformationPageShell testId="therapy-information-loading">{children}</InformationPageShell>;
+  }
+  return children;
+}
+
 function TherapyCompassMain({
   children,
   showFooter,
@@ -79,6 +95,7 @@ function TherapyCompassMain({
 export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isHome = pathname === "/therapy-compass";
+  const informationPage = isInformationPage(pathname);
 
   return (
     <TcProvider>
@@ -86,15 +103,13 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
         data-therapy-root
         className="min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))]"
       >
-        {/* Every route but the mode home carries the shared bar, which pins
-            itself inside the universal header's collapse track and so hides and
-            reveals with it at every width. Home keeps none: `ModeHomeTemplate`
-            already surfaces the same destinations as tiles, which is the
-            convention every mode home follows. */}
-        {isHome ? null : <TherapyModeNav />}
-        <TherapyCompassMain showFooter={!isHome} asMain={!isHome}>
-          {children}
-        </TherapyCompassMain>
+        {informationPage ? (
+          <TherapyCompassInformationRoute>{children}</TherapyCompassInformationRoute>
+        ) : (
+          <TherapyCompassMain showFooter={!isHome} asMain={!isHome}>
+            {children}
+          </TherapyCompassMain>
+        )}
       </div>
     </TcProvider>
   );

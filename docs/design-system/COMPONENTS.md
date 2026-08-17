@@ -955,7 +955,7 @@ tests to run.
 
 Registered public components: 54
 Components with a valid design-sync preview: 54
-Components with product imports: 32
+Components with product imports: 33
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -966,7 +966,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AnswerFooter`           | answer   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `Checkbox`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
@@ -999,16 +999,16 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `RetrievalStateBanner`   | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `SafeBoldText`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `SearchField`            | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
+| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              25 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
-| `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `SourceStatusBadge`      | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `SourceStatusBadge`      | source   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `StageList`              | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `StatusMark`             | source   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `Tabs`                   | controls | yes   | yes                | no                    | yes            | no                 |               0 |
+| `Tabs`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `TextField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `TextLink`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ToastRegion`            | feedback | yes   | yes                | no                    | yes            | no                 |               0 |

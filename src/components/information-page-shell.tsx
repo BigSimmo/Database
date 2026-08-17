@@ -15,8 +15,8 @@ import { cn, pageContainer } from "@/components/ui-primitives";
  * - `narrow`: patient-facing reading width (`max-w-[64rem]`).
  * - `bleed`: children own horizontal padding (full-bleed headers, factsheet action bars).
  *
- * Opt out (different product chrome): DocumentViewer, therapy-compass workspace,
- * differentials presentation workflow.
+ * Opt out (different product chrome): DocumentViewer and differentials
+ * presentation workflow.
  */
 
 export type InformationPageWidth = "default" | "narrow" | "bleed";
