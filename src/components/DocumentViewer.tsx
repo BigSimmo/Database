@@ -1386,13 +1386,14 @@ export function DocumentViewer({
           </div>
         ) : null}
 
-        {/* Phone order is source-first: the title strip, then the PDF, then this.
-            `buildDocumentSectionIndex` has always described the summary as coming
-            after the source — the DOM was what disagreed, by rendering this card
-            inside the overview landing above the PDF. Desktop keeps its position
-            directly under the title card, so only the phone order changes. */}
+        {/* Phone order: the title strip, then this card, then the PDF — matching
+            desktop, where the card already sits directly under the title card
+            (both are lg:col-span-2 ahead of the PDF column). Previously this card
+            was ordered after the PDF ("source-first"); moved back ahead of it so
+            a phone reader sees the clinical priorities digest before scrolling
+            past the PDF. */}
         {readyDocument ? (
-          <div className="min-w-0 max-sm:order-3 lg:col-span-2">
+          <div className="min-w-0 max-sm:order-2 lg:col-span-2">
             <DocumentClinicalSummary
               document={readyDocument}
               pageHref={usefulPageHref}
@@ -1413,7 +1414,7 @@ export function DocumentViewer({
           </div>
         ) : null}
 
-        <div className="min-w-0 space-y-4 max-sm:order-2 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
+        <div className="min-w-0 space-y-4 max-sm:order-3 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
           <div
             id="pdf-preview-section"
             className={cn(panel, "scroll-mt-[var(--document-anchor-offset,6rem)] overflow-hidden")}

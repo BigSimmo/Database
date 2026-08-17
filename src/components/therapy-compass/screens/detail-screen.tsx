@@ -60,11 +60,6 @@ export function DetailScreen() {
                       {complexityLabel(t.complexity)}
                     </span>
                   ) : null}
-                  {t.modality ? (
-                    <span className="text-xs font-semibold py-[5px] px-[11px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] border border-[color:var(--border)]">
-                      {t.modality}
-                    </span>
-                  ) : null}
                   <button
                     type="button"
                     className={`${therapyBtn} ${outlineControl} ml-auto px-3 text-xs`}
