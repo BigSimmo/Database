@@ -102,7 +102,8 @@ export function filterDocumentsByRetrievalScope(
     if (filters.sourceStatuses?.length && !filters.sourceStatuses.includes(metadata.document_status)) return false;
     if (
       filters.validationStatuses?.length &&
-      !filters.validationStatuses.includes(metadata.clinical_validation_status as never)
+      (metadata.clinical_validation_status === "unknown" ||
+        !filters.validationStatuses.includes(metadata.clinical_validation_status))
     )
       return false;
     if (filters.extractionQualities?.length && !filters.extractionQualities.includes(metadata.extraction_quality))

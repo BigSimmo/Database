@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   Activity,
@@ -544,6 +544,7 @@ function MedicationResults({
   const setMatchFilter = (value: MedicationMatchQuality) =>
     replaceResultFilterUrl((params) => writeResultFilterValue(params, "match", value, "all", medicationMatchValues));
   const toggleClass = (value: string) => {
+    if (classValueSet.size === 0) return;
     replaceResultFilterUrl((params) => {
       const next = new Set(readResultFilterValues(params, "class", classValueSet));
       if (!next.delete(value)) next.add(value);

@@ -316,7 +316,7 @@ export function DsmSearchPage({
                 {selected.length ? (
                   <ol className="mt-3 grid gap-2">
                     {selected.map((slug, index) => {
-                      const item = results.find((result) => result.slug === slug);
+                      const item = queryResults.find((result) => result.slug === slug);
                       return (
                         <li
                           key={slug}

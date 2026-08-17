@@ -1035,19 +1035,16 @@ function DocumentSearchResultsPanelImpl({
   const draftSourceDocuments = filterPanelOpen ? recentDocuments : [];
   const loadedSourceCountsAreComplete = documentCount > 0 && draftSourceDocuments.length >= documentCount;
   const draftSelectedDocumentIds = new Set(filterPanelOpen ? activeDraft.selectedDocumentIds : []);
-  const draftTagFacetGroups = filterPanelOpen
-    ? projectSmartTagFacetGroups(tagFacetIndex, activeDraft.facetKeys)
-    : [];
+  const draftTagFacetGroups = filterPanelOpen ? projectSmartTagFacetGroups(tagFacetIndex, activeDraft.facetKeys) : [];
   const draftVisibleMatches = filterPanelOpen
     ? filterDocumentsBySmartTagFacetIndex(tagFacetIndex, activeDraft.facetKeys)
     : [];
   const draftResultTabs = filterPanelOpen ? resultTypeTabs(draftVisibleMatches) : [];
-  const draftResultType = filterPanelOpen && draftResultTabs.some((tab) => tab.key === activeDraft.resultType)
-    ? activeDraft.resultType
-    : "all";
-  const draftDisplayedMatches = filterPanelOpen
-    ? filterMatchesByResultType(draftVisibleMatches, draftResultType)
-    : [];
+  const draftResultType =
+    filterPanelOpen && draftResultTabs.some((tab) => tab.key === activeDraft.resultType)
+      ? activeDraft.resultType
+      : "all";
+  const draftDisplayedMatches = filterPanelOpen ? filterMatchesByResultType(draftVisibleMatches, draftResultType) : [];
 
   function toggleDraftListFilter(
     key: DocumentLabelFilterKey | "sourceStatuses" | "validationStatuses" | "extractionQualities",
@@ -1254,8 +1251,7 @@ function DocumentSearchResultsPanelImpl({
               value,
               label: value === "local" ? "Local" : "Non-local",
               hint: loadedSourceCountHint(count),
-              disabled:
-                loadedSourceCountsAreComplete && count === 0 && activeDraft.scopeFilters.locality !== value,
+              disabled: loadedSourceCountsAreComplete && count === 0 && activeDraft.scopeFilters.locality !== value,
             };
           }),
         ],
@@ -1357,50 +1353,51 @@ function DocumentSearchResultsPanelImpl({
      above zero it is the only thing that says the list is a floor rather than
      the answer. (Raised by Devin review on PR #1640.) */
   const retrievalDegraded = Boolean(searchScope?.retrieval?.degraded);
-  const documentFilterSheet = showFilterControl && filterPanelOpen ? (
-    <ResultFilterSheet
-      open={filterPanelOpen}
-      onClose={() => setFilterPanelState({ query, open: false })}
-      panelId={filterPanelId}
-      testId="document-filter-panel"
-      title="Filter documents"
-      description="Set retrieval scope and refine the matches already returned. Source-scope counts cover loaded sources; changes run together across the full indexed library."
-      chromeResetKey={query}
-      groups={documentFilterGroups}
-      applicationMode="staged"
-      primaryActionLabel="Update search"
-      onApply={applyDocumentFilters}
-      onClearAll={
-        draftActiveFilterCount > 0
-          ? () =>
-              setFilterDraft((current) => ({
-                ...current,
-                facetKeys: [],
-                resultType: "all",
-                scopeFilters: {},
-                selectedDocumentIds: [],
-              }))
-          : undefined
-      }
-      summary={{
-        count: draftDisplayedMatches.length,
-        noun: draftDisplayedMatches.length === 1 ? "match" : "matches",
-      }}
-      coverage={{
-        visibleCount: draftDisplayedMatches.length,
-        totalCount: matches.length,
-        label: "Visible retrieved matches",
-      }}
-      secondaryAction={{
-        label: "Browse all sources",
-        count: documentCount > 0 ? documentCount : undefined,
-        onClick: () => {
-          setFilterPanelState({ query, open: false });
-          onOpenLibrary();
-        },
-      }}
-    />
-  ) : null;
+  const documentFilterSheet =
+    showFilterControl && filterPanelOpen ? (
+      <ResultFilterSheet
+        open={filterPanelOpen}
+        onClose={() => setFilterPanelState({ query, open: false })}
+        panelId={filterPanelId}
+        testId="document-filter-panel"
+        title="Filter documents"
+        description="Set retrieval scope and refine the matches already returned. Source-scope counts cover loaded sources; changes run together across the full indexed library."
+        chromeResetKey={query}
+        groups={documentFilterGroups}
+        applicationMode="staged"
+        primaryActionLabel="Update search"
+        onApply={applyDocumentFilters}
+        onClearAll={
+          draftActiveFilterCount > 0
+            ? () =>
+                setFilterDraft((current) => ({
+                  ...current,
+                  facetKeys: [],
+                  resultType: "all",
+                  scopeFilters: {},
+                  selectedDocumentIds: [],
+                }))
+            : undefined
+        }
+        summary={{
+          count: draftDisplayedMatches.length,
+          noun: draftDisplayedMatches.length === 1 ? "match" : "matches",
+        }}
+        coverage={{
+          visibleCount: draftDisplayedMatches.length,
+          totalCount: matches.length,
+          label: "Visible retrieved matches",
+        }}
+        secondaryAction={{
+          label: "Browse all sources",
+          count: documentCount > 0 ? documentCount : undefined,
+          onClick: () => {
+            setFilterPanelState({ query, open: false });
+            onOpenLibrary();
+          },
+        }}
+      />
+    ) : null;
   const showIdentityHeader =
     recordMatchCount > 0 ||
     matches.length > 0 ||

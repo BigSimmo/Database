@@ -212,7 +212,7 @@ describe("document filter panel", () => {
 
     await user.click(screen.getByTestId("document-filter-trigger-phone"));
     const panel = screen.getByTestId("document-filter-panel");
-    await user.click(within(panel).getByRole("radio", { name: /^Local \(1\)$/ }));
+    await user.click(within(panel).getByRole("radio", { name: /^Local \(1 loaded source\)$/ }));
     expect(onDocumentFiltersApply).not.toHaveBeenCalled();
     await user.click(within(panel).getByTestId("document-filter-panel-done"));
 

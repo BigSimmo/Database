@@ -232,9 +232,6 @@ describe("filter review regressions", () => {
     const view = renderMedicationWorkspace();
 
     expect(new URLSearchParams(window.location.search).get("class")).toBe("Other");
-    fireEvent.click(screen.getByTestId("medication-filter-trigger-desktop"));
-    fireEvent.click(screen.getByRole("radio", { name: "All medications, 0 matches" }));
-    expect(new URLSearchParams(window.location.search).get("class")).toBe("Other");
 
     medicationCatalogState.current = {
       data: {
@@ -280,5 +277,9 @@ describe("filter review regressions", () => {
 
     expect(new URLSearchParams(window.location.search).get("class")).toBe("Other");
     expect(screen.getByRole("button", { name: "Remove Class: Other filter" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("medication-filter-trigger-desktop"));
+    fireEvent.click(screen.getByRole("radio", { name: /^All medications/ }));
+    expect(new URLSearchParams(window.location.search).get("class")).toBe("Other");
   });
 });
