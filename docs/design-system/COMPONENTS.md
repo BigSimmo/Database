@@ -1003,9 +1003,9 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              25 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
-| `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `SourceStatusBadge`      | source   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `SourceStatusBadge`      | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `StageList`              | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `StatusMark`             | source   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Tabs`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |

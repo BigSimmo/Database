@@ -41,4 +41,9 @@ describe("design-system target adoption evidence", () => {
     expect(links).toMatch(/cross-mode-links-rail hidden[^"\n]*md:flex/);
     expect(links).not.toContain('data-testid="cross-mode-links-rail-desktop"');
   });
+
+  it("keeps catalogue toolbars delegated to the shared CatalogueToolbar component pattern", () => {
+    const builder = source("src/components/formulation/formulation-builder-page.tsx");
+    expect(builder).toContain("<CatalogueToolbar");
+  });
 });
