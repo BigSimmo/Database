@@ -91,7 +91,8 @@ describe("mobile interaction regressions", () => {
     expect(tools).not.toContain("Sort by");
     expect(tools).not.toContain("hasMenu");
     expect(tools).toContain('label: "Saved", desktopLabel: "Favourites"');
-    expect(tools).toMatch(/effectiveFilter === "more"\s*\?\s*app\.area === "coordination" \|\| app\.area === "saved"/);
+    expect(tools).toContain('if (filter === "more") return app.area === "coordination" || app.area === "saved";');
+    expect(tools).toContain("launcherAppMatchesFilter(app, effectiveFilter)");
     // Tools local search submit is an interactive control: both end tracks and
     // the submit face must read the tap knob (not a leftover h-10 / 2.75rem).
     expect(tools).toContain("grid-cols-[var(--spacing-tap)_minmax(0,1fr)_var(--spacing-tap)]");
