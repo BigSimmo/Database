@@ -10,7 +10,6 @@ import {
   Check,
   ChevronRight,
   CircleHelp,
-  ExternalLink,
   FlaskConical,
   GitCompareArrows,
   HeartPulse,
@@ -252,6 +251,7 @@ function StatusBadge({ status, className }: { status: DifferentialRecord["status
 }
 
 type KindFilter = "all" | "presentation" | "diagnosis";
+type UrgencyFilter = "all" | DifferentialRecord["status"];
 
 function MatchBadge({ label }: { label: string }) {
   // Match quality is a relevance signal, not a source-verification or safety
@@ -574,29 +574,6 @@ function BestAnswerCard({
   );
 }
 
-function SafetyCard({ safety, query }: { safety: string; query: string }) {
-  return (
-    <section className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/45 p-4 shadow-[var(--shadow-inset)]">
-      <div className="flex items-start gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-[color:var(--danger-border)] bg-[color:var(--surface)] text-[color:var(--danger)]">
-          <ShieldAlert className="h-4 w-4" aria-hidden />
-        </span>
-        <div className="min-w-0">
-          <h2 className="text-sm font-extrabold uppercase tracking-label text-[color:var(--danger)]">Safety first</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[color:var(--text-heading)]">{safety}</p>
-          <Link
-            href={differentialRouteWithQuery("/differentials/presentations", query)}
-            className="mt-2 inline-flex min-h-tap items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
-          >
-            View presentation guide
-            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function LikelyPresentationCard({ lead }: { lead: DifferentialResult }) {
   const points = [lead.subtitle, ...lead.tags, lead.safety]
     .filter((point): point is string => Boolean(point?.trim()))
@@ -725,7 +702,6 @@ function SourceStatusCard({
 function InterpretationRail({
   best,
   results,
-  query,
   sourceCount,
   evidenceState,
   loading,
@@ -734,22 +710,18 @@ function InterpretationRail({
 }: {
   best: DifferentialResult;
   results: DifferentialResult[];
-  query: string;
   sourceCount: number;
   evidenceState: DifferentialEvidenceState;
   loading: boolean;
   sourcesChecked: boolean;
   onRunSourceSearch: () => void;
 }) {
-  const safetyLead = results.find((result) => result.status === "emergent") ?? best;
-
   return (
     <aside className="hidden min-w-0 gap-3 lg:grid" aria-label="Differential interpretation">
       <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
         Interpretation
         <Info className="h-4 w-4" aria-hidden />
       </h2>
-      {safetyLead.safety ? <SafetyCard safety={safetyLead.safety} query={query} /> : null}
       {best.kind === "presentation" ? <LikelyPresentationCard lead={best} /> : null}
       <UrgencyCard results={results} />
       <SourceStatusCard
@@ -785,7 +757,8 @@ function SearchResultsView({
       ),
     [catalog.matches, query],
   );
-  const [kindFilter, setKindFilter] = useState<"all" | "presentation" | "diagnosis">("all");
+  const [kindFilter, setKindFilter] = useState<KindFilter>("all");
+  const [urgencyFilter, setUrgencyFilter] = useState<UrgencyFilter>("all");
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -803,6 +776,7 @@ function SearchResultsView({
   if (lastResultSignature !== resultSignature) {
     setLastResultSignature(resultSignature);
     setKindFilter("all");
+    setUrgencyFilter("all");
     const diagnosisIds = results.filter((result) => result.kind === "diagnosis").map((result) => result.id);
     const diagnosisIdSet = new Set(diagnosisIds);
     // First result set may hydrate shareable URL ids; later query changes always
@@ -815,35 +789,79 @@ function SearchResultsView({
     setSelectedIds(new Set(nextIds));
   }
 
-  const presentationCount = results.filter((result) => result.kind === "presentation").length;
-  const diagnosisCount = results.length - presentationCount;
-  const kindFilterOptions = useMemo<ReadonlyArray<ResultFilterOption<KindFilter>>>(
-    () => [
-      { value: "all", label: "All", hint: String(results.length) },
-      { value: "presentation", label: "Presentations", hint: String(presentationCount) },
-      { value: "diagnosis", label: "Diagnoses", hint: String(diagnosisCount) },
-    ],
-    [diagnosisCount, presentationCount, results.length],
-  );
+  // Two independent lens dimensions (kind, clinical urgency) AND together. Each
+  // option's count holds the OTHER dimension at its current value and answers
+  // "how many would I have if I switched to this value instead" — the filter
+  // contract's rule for a lens count (docs/filter-contract.md section 3).
+  const matchesKind = (result: DifferentialResult, kind: KindFilter) => kind === "all" || result.kind === kind;
+  const matchesUrgency = (result: DifferentialResult, urgency: UrgencyFilter) =>
+    urgency === "all" || result.status === urgency;
+  const kindFilterOptions = useMemo<ReadonlyArray<ResultFilterOption<KindFilter>>>(() => {
+    const countFor = (kind: KindFilter) =>
+      results.filter((result) => matchesKind(result, kind) && matchesUrgency(result, urgencyFilter)).length;
+    return (["all", "presentation", "diagnosis"] as const).map((value) => ({
+      value,
+      label: value === "all" ? "All" : value === "presentation" ? "Presentations" : "Diagnoses",
+      hint: String(countFor(value)),
+    }));
+  }, [results, urgencyFilter]);
+  // Same three-tier scale the result badges already show (statusLabel), so the
+  // filter reuses the exact wording a reader has already seen on the cards
+  // instead of introducing a second vocabulary for the same field. Mirrors the
+  // identical "Clinical urgency" lens on the differentials stream/browse pages
+  // (differential-stream-workspace.tsx) so the two differentials surfaces agree.
+  const urgencyFilterOptions = useMemo<ReadonlyArray<ResultFilterOption<UrgencyFilter>>>(() => {
+    const countFor = (urgency: UrgencyFilter) =>
+      results.filter((result) => matchesKind(result, kindFilter) && matchesUrgency(result, urgency)).length;
+    return (["all", "emergent", "urgent", "routine"] as const).map((value) => ({
+      value,
+      label: value === "all" ? "All priorities" : statusLabel(value),
+      hint: String(countFor(value)),
+    }));
+  }, [results, kindFilter]);
   const relevanceResults = useMemo(
-    () => (kindFilter === "all" ? results : results.filter((result) => result.kind === kindFilter)),
-    [kindFilter, results],
+    () => results.filter((result) => matchesKind(result, kindFilter) && matchesUrgency(result, urgencyFilter)),
+    [kindFilter, urgencyFilter, results],
   );
   const visibleResults = useMemo(
     () => sortResultItems(relevanceResults, sortValue, (result) => result.title),
     [relevanceResults, sortValue],
   );
-  const appliedFilters: AppliedFilterChip[] =
-    kindFilter === "all"
-      ? []
-      : [
-          {
-            id: "result-type",
-            groupLabel: "Show",
-            valueLabel: kindFilter === "presentation" ? "Presentations" : "Diagnoses",
-            onRemove: () => setKindFilter("all"),
-          },
-        ];
+  const appliedFilters: AppliedFilterChip[] = [];
+  if (kindFilter !== "all") {
+    appliedFilters.push({
+      id: "result-type",
+      groupLabel: "Show",
+      valueLabel: kindFilter === "presentation" ? "Presentations" : "Diagnoses",
+      onRemove: () => setKindFilter("all"),
+    });
+  }
+  if (urgencyFilter !== "all") {
+    appliedFilters.push({
+      id: "urgency",
+      groupLabel: "Clinical urgency",
+      valueLabel: statusLabel(urgencyFilter),
+      onRemove: () => setUrgencyFilter("all"),
+    });
+  }
+  const activeFilterCount = appliedFilters.length;
+  const clearAllFilters = () => {
+    setKindFilter("all");
+    setUrgencyFilter("all");
+  };
+  // Only reached when both dimensions narrowed the same result set to zero, so
+  // every branch below stays possible at runtime — computed as an if-chain
+  // rather than a nested ternary so each `statusLabel` call sits behind an
+  // explicit `urgencyFilter !== "all"` narrowing.
+  function filteredEmptyHeading(): string {
+    if (kindFilter !== "all" && urgencyFilter !== "all") {
+      return `No ${kindFilter === "presentation" ? "presentations" : "diagnoses"} at ${statusLabel(urgencyFilter)} priority in this result set`;
+    }
+    if (kindFilter === "presentation") return "No presentations in this result set";
+    if (kindFilter === "diagnosis") return "No diagnoses in this result set";
+    if (urgencyFilter !== "all") return `No ${statusLabel(urgencyFilter)} results in this result set`;
+    return "No results match your filters";
+  }
   // Keep the feature card inside the active result type while preserving the
   // relevance winner when the visible list is presented alphabetically.
   const best = relevanceResults[0] ?? null;
@@ -963,8 +981,8 @@ function SearchResultsView({
         sortValue={sortValue}
         onSortChange={setSortValue}
         appliedFilters={appliedFilters}
-        onClearFilters={kindFilter === "all" ? undefined : () => setKindFilter("all")}
-        filterLabel="Filter differential result type"
+        onClearFilters={activeFilterCount > 0 ? clearAllFilters : undefined}
+        filterLabel="Filter differential results"
         // A compact badged trigger, so it shares the count line.
         mobileControlsPlacement="inline"
         mobileControls={
@@ -973,7 +991,7 @@ function SearchResultsView({
             testId="differential-filter-trigger-phone"
             title="Filter differentials"
             open={filterOpen}
-            activeCount={kindFilter === "all" ? 0 : 1}
+            activeCount={activeFilterCount}
             onToggle={() => setFilterOpen((current) => !current)}
           />
         }
@@ -983,7 +1001,7 @@ function SearchResultsView({
             testId="differential-filter-trigger-desktop"
             title="Filter differentials"
             open={filterOpen}
-            activeCount={kindFilter === "all" ? 0 : 1}
+            activeCount={activeFilterCount}
             onToggle={() => setFilterOpen((current) => !current)}
           />
         }
@@ -996,6 +1014,7 @@ function SearchResultsView({
         panelId={filterPanelId}
         testId="differential-filter-panel"
         title="Filter differentials"
+        description="Narrow by result type, then by clinical urgency. Both narrow the same list together."
         groups={[
           resultFilterGroup({
             id: "result-type",
@@ -1004,8 +1023,15 @@ function SearchResultsView({
             options: kindFilterOptions,
             onChange: setKindFilter,
           }),
+          resultFilterGroup({
+            id: "urgency",
+            label: "Clinical urgency",
+            value: urgencyFilter,
+            options: urgencyFilterOptions,
+            onChange: setUrgencyFilter,
+          }),
         ]}
-        onClearAll={kindFilter === "all" ? undefined : () => setKindFilter("all")}
+        onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
         summary={{
           count: visibleResults.length,
           noun: visibleResults.length === 1 ? "result" : "results",
@@ -1073,216 +1099,218 @@ function SearchResultsView({
           data-testid="differentials-filter-empty-results"
           className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
         >
-          <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">
-            {kindFilter === "presentation" ? "No presentations in this result set" : "No diagnoses in this result set"}
-          </h2>
+          <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">{filteredEmptyHeading()}</h2>
           <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-            Other result types still match this search. Clear the result-type filter to show them.
+            Other results still match this search. Clear filters to show them.
           </p>
           <button
             type="button"
-            onClick={() => setKindFilter("all")}
+            onClick={clearAllFilters}
             className="inline-flex min-h-tap w-fit items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             Show all results
           </button>
         </section>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
-          <section className="min-w-0 space-y-3" aria-label="Differential diagnosis results">
-            <div className="hidden flex-wrap items-center justify-between gap-3 lg:flex">
-              <div className="min-w-0">
-                <h2 className="text-base font-extrabold uppercase tracking-eyebrow text-[color:var(--text-heading)]">
-                  Differential matches
-                </h2>
-                <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                  {sortValue === "alpha"
-                    ? "Sorted A–Z; the best relevance match remains marked."
-                    : hasSourceEvidence
-                      ? `${reviewedSourceCount.toLocaleString()} indexed source ${reviewedSourceCount === 1 ? "match" : "matches"}. Review before use.`
-                      : sourcesChecked
-                        ? "No indexed source matches. Catalogue order is unchanged."
-                        : "Ranked from the imported catalogue; indexed sources are not checked yet."}
-                </p>
-              </div>
-              <div className="hidden items-center gap-2 sm:flex">
-                {!hasSourceEvidence && !sourcesChecked ? (
-                  <button
-                    type="button"
-                    onClick={rerunSearch}
-                    disabled={loading}
-                    className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)] disabled:cursor-wait disabled:opacity-60"
-                  >
-                    <Search className="h-4 w-4" aria-hidden />
-                    {loading ? "Checking sources" : "Check indexed sources"}
-                  </button>
-                ) : sourcesChecked && !hasSourceEvidence ? (
-                  <p className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 px-3 text-sm font-semibold text-[color:var(--text-heading)]">
-                    <Info className="h-4 w-4 text-[color:var(--warning)]" aria-hidden />
-                    No indexed source matches
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="grid gap-2 lg:hidden">
-              <BestAnswerCard
-                best={best}
-                compact
-                selected={selectedIds.has(best.id)}
-                onToggle={best.kind === "diagnosis" ? () => toggleSelected(best.id) : undefined}
-              />
-              {safetyLead?.safety ? (
-                <p className="flex items-start gap-1.5 rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/40 px-3 py-2 text-xs font-semibold leading-5 text-[color:var(--text-heading)]">
-                  <ShieldAlert className="mt-0.5 size-icon-sm shrink-0 text-[color:var(--danger)]" aria-hidden />
-                  <span>
-                    <span className="font-extrabold text-[color:var(--danger)]">Safety first: </span>
-                    {safetyLead.safety}
-                  </span>
-                </p>
-              ) : null}
-              {hasSourceEvidence ? (
-                <section
-                  aria-label="Source status"
-                  className="flex items-center gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/40 px-3 py-2 text-xs"
-                >
-                  <Info className="size-icon-md shrink-0 text-[color:var(--info)]" aria-hidden />
-                  <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
-                    {reviewedSourceCount.toLocaleString()} indexed source{" "}
-                    {reviewedSourceCount === 1 ? "match" : "matches"}
-                  </p>
-                </section>
-              ) : loading ? (
-                <section
-                  aria-label="Source status"
-                  aria-live="polite"
-                  className="flex items-center gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 px-3 py-2 text-xs"
-                >
-                  <Search className="size-icon-md shrink-0 text-[color:var(--warning)]" aria-hidden />
-                  <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
-                    Checking indexed sources…
-                  </p>
-                </section>
-              ) : !sourcesChecked ? (
-                <section
-                  aria-label="Source status"
-                  className="grid gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 px-3 py-2 text-xs min-[390px]:flex min-[390px]:items-center min-[390px]:justify-between min-[390px]:gap-2 min-[390px]:py-1.5 min-[390px]:pr-1.5"
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Info className="size-icon-md shrink-0 text-[color:var(--warning)]" aria-hidden />
-                    <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
-                      Sources not checked
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={rerunSearch}
-                    className="inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] min-[390px]:w-auto"
-                  >
-                    <Search className="size-icon-sm" aria-hidden />
-                    Check sources
-                  </button>
-                </section>
-              ) : (
-                <section
-                  aria-label="Source status"
-                  className="flex items-center gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/40 py-2 pl-3 pr-3 text-xs"
-                >
-                  <Info className="size-icon-md shrink-0 text-[color:var(--info)]" aria-hidden />
-                  <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
-                    No indexed source matches
-                  </p>
-                </section>
-              )}
-            </div>
-
-            <div className="grid gap-2">
-              {visibleResults.map((result, displayIndex) => {
-                // Best-match styling remains tied to relevance while the row
-                // number follows the user's chosen presentation order.
-                const isBest = result.kind === best.kind && result.id === best.id;
-                // The featured card owns rank 1 on phones. Continue the
-                // remaining visible sequence at 2 without leaving a gap when
-                // the best match moves under A-Z presentation order.
-                const precedingNonBestResults = visibleResults
-                  .slice(0, displayIndex)
-                  .filter((candidate) => candidate.kind !== best.kind || candidate.id !== best.id);
-                const mobileIndex = precedingNonBestResults.length + 1;
-                return (
-                  // The best answer is already featured above the phone list,
-                  // so its ranked duplicate only renders from the desktop
-                  // breakpoint (hiding the wrapper keeps the grid gap clean).
-                  <div key={`${result.kind}-${result.id}`} className={cn(isBest && "max-lg:hidden")}>
-                    <div className="hidden lg:block">
-                      {isBest ? (
-                        <BestAnswerCard
-                          best={result}
-                          rank={displayIndex + 1}
-                          selected={selectedIds.has(result.id)}
-                          onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
-                        />
-                      ) : (
-                        <DesktopResultRow
-                          result={result}
-                          index={displayIndex}
-                          selected={selectedIds.has(result.id)}
-                          onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
-                        />
-                      )}
-                    </div>
-                    {!isBest ? (
-                      <div className="lg:hidden">
-                        <MobileResultCard
-                          result={result}
-                          index={mobileIndex}
-                          selected={selectedIds.has(result.id)}
-                          onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-
-            <Link
-              href={differentialRouteWithQuery("/differentials/diagnoses", query)}
-              className="hidden min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] lg:inline-flex"
+        <div className="grid gap-3">
+          {safetyLead?.safety ? (
+            <p
+              data-testid="differentials-safety-banner"
+              className="flex items-start gap-1.5 rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/40 px-3 py-2 text-xs font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm"
             >
-              View all catalogue matches ({results.length})
-              <ChevronRight className="h-4 w-4" aria-hidden />
-            </Link>
+              <ShieldAlert className="mt-0.5 size-icon-sm shrink-0 text-[color:var(--danger)]" aria-hidden />
+              <span>
+                <span className="font-extrabold text-[color:var(--danger)]">Safety first: </span>
+                {safetyLead.safety}
+              </span>
+            </p>
+          ) : null}
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
+            <section className="min-w-0 space-y-3" aria-label="Differential diagnosis results">
+              <div className="hidden flex-wrap items-center justify-between gap-3 lg:flex">
+                <div className="min-w-0">
+                  <h2 className="text-base font-extrabold uppercase tracking-eyebrow text-[color:var(--text-heading)]">
+                    Differential matches
+                  </h2>
+                  <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                    {sortValue === "alpha"
+                      ? "Sorted A–Z; the best relevance match remains marked."
+                      : hasSourceEvidence
+                        ? `${reviewedSourceCount.toLocaleString()} indexed source ${reviewedSourceCount === 1 ? "match" : "matches"}. Review before use.`
+                        : sourcesChecked
+                          ? "No indexed source matches. Catalogue order is unchanged."
+                          : "Ranked from the imported catalogue; indexed sources are not checked yet."}
+                  </p>
+                </div>
+                <div className="hidden items-center gap-2 sm:flex">
+                  {!hasSourceEvidence && !sourcesChecked ? (
+                    <button
+                      type="button"
+                      onClick={rerunSearch}
+                      disabled={loading}
+                      className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)] disabled:cursor-wait disabled:opacity-60"
+                    >
+                      <Search className="h-4 w-4" aria-hidden />
+                      {loading ? "Checking sources" : "Check indexed sources"}
+                    </button>
+                  ) : sourcesChecked && !hasSourceEvidence ? (
+                    <p className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 px-3 text-sm font-semibold text-[color:var(--text-heading)]">
+                      <Info className="h-4 w-4 text-[color:var(--warning)]" aria-hidden />
+                      No indexed source matches
+                    </p>
+                  ) : null}
+                </div>
+              </div>
 
-            {selectedCount > 0 ? (
+              <div className="grid gap-2 lg:hidden">
+                <BestAnswerCard
+                  best={best}
+                  compact
+                  selected={selectedIds.has(best.id)}
+                  onToggle={best.kind === "diagnosis" ? () => toggleSelected(best.id) : undefined}
+                />
+                {hasSourceEvidence ? (
+                  <section
+                    aria-label="Source status"
+                    className="flex items-center gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/40 px-3 py-2 text-xs"
+                  >
+                    <Info className="size-icon-md shrink-0 text-[color:var(--info)]" aria-hidden />
+                    <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
+                      {reviewedSourceCount.toLocaleString()} indexed source{" "}
+                      {reviewedSourceCount === 1 ? "match" : "matches"}
+                    </p>
+                  </section>
+                ) : loading ? (
+                  <section
+                    aria-label="Source status"
+                    aria-live="polite"
+                    className="flex items-center gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 px-3 py-2 text-xs"
+                  >
+                    <Search className="size-icon-md shrink-0 text-[color:var(--warning)]" aria-hidden />
+                    <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
+                      Checking indexed sources…
+                    </p>
+                  </section>
+                ) : !sourcesChecked ? (
+                  <section
+                    aria-label="Source status"
+                    className="grid gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 px-3 py-2 text-xs min-[390px]:flex min-[390px]:items-center min-[390px]:justify-between min-[390px]:gap-2 min-[390px]:py-1.5 min-[390px]:pr-1.5"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Info className="size-icon-md shrink-0 text-[color:var(--warning)]" aria-hidden />
+                      <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
+                        Sources not checked
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={rerunSearch}
+                      className="inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] min-[390px]:w-auto"
+                    >
+                      <Search className="size-icon-sm" aria-hidden />
+                      Check sources
+                    </button>
+                  </section>
+                ) : (
+                  <section
+                    aria-label="Source status"
+                    className="flex items-center gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/40 py-2 pl-3 pr-3 text-xs"
+                  >
+                    <Info className="size-icon-md shrink-0 text-[color:var(--info)]" aria-hidden />
+                    <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
+                      No indexed source matches
+                    </p>
+                  </section>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                {visibleResults.map((result, displayIndex) => {
+                  // Best-match styling remains tied to relevance while the row
+                  // number follows the user's chosen presentation order.
+                  const isBest = result.kind === best.kind && result.id === best.id;
+                  // The featured card owns rank 1 on phones. Continue the
+                  // remaining visible sequence at 2 without leaving a gap when
+                  // the best match moves under A-Z presentation order.
+                  const precedingNonBestResults = visibleResults
+                    .slice(0, displayIndex)
+                    .filter((candidate) => candidate.kind !== best.kind || candidate.id !== best.id);
+                  const mobileIndex = precedingNonBestResults.length + 1;
+                  return (
+                    // The best answer is already featured above the phone list,
+                    // so its ranked duplicate only renders from the desktop
+                    // breakpoint (hiding the wrapper keeps the grid gap clean).
+                    <div key={`${result.kind}-${result.id}`} className={cn(isBest && "max-lg:hidden")}>
+                      <div className="hidden lg:block">
+                        {isBest ? (
+                          <BestAnswerCard
+                            best={result}
+                            rank={displayIndex + 1}
+                            selected={selectedIds.has(result.id)}
+                            onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
+                          />
+                        ) : (
+                          <DesktopResultRow
+                            result={result}
+                            index={displayIndex}
+                            selected={selectedIds.has(result.id)}
+                            onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
+                          />
+                        )}
+                      </div>
+                      {!isBest ? (
+                        <div className="lg:hidden">
+                          <MobileResultCard
+                            result={result}
+                            index={mobileIndex}
+                            selected={selectedIds.has(result.id)}
+                            onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+
               <Link
-                href={differentialSelectedCompareHref(query, comparisonIds)}
-                className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-base font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] transition hover:bg-[color:var(--clinical-accent-hover)] lg:inline-flex"
+                href={differentialRouteWithQuery("/differentials/diagnoses", query)}
+                className="hidden min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] lg:inline-flex"
               >
-                <GitCompareArrows className="h-5 w-5" aria-hidden />
-                Compare selected
-                <span className="nums grid h-7 min-w-7 place-items-center rounded-full bg-[color:var(--clinical-accent-contrast)]/20 px-1.5 text-sm">
-                  {selectedCount}
-                </span>
-                <ChevronRight className="ml-auto h-5 w-5" aria-hidden />
+                View all catalogue matches ({results.length})
+                <ChevronRight className="h-4 w-4" aria-hidden />
               </Link>
-            ) : (
-              <p className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] lg:inline-flex">
-                <GitCompareArrows className="h-5 w-5 text-[color:var(--decoration-soft)]" aria-hidden />
-                Tick results to compare them side by side
-              </p>
-            )}
-          </section>
 
-          <InterpretationRail
-            best={best}
-            results={results}
-            query={query}
-            sourceCount={reviewedSourceCount}
-            evidenceState={evidenceState}
-            loading={loading}
-            sourcesChecked={sourcesChecked}
-            onRunSourceSearch={rerunSearch}
-          />
+              {selectedCount > 0 ? (
+                <Link
+                  href={differentialSelectedCompareHref(query, comparisonIds)}
+                  className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-base font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] transition hover:bg-[color:var(--clinical-accent-hover)] lg:inline-flex"
+                >
+                  <GitCompareArrows className="h-5 w-5" aria-hidden />
+                  Compare selected
+                  <span className="nums grid h-7 min-w-7 place-items-center rounded-full bg-[color:var(--clinical-accent-contrast)]/20 px-1.5 text-sm">
+                    {selectedCount}
+                  </span>
+                  <ChevronRight className="ml-auto h-5 w-5" aria-hidden />
+                </Link>
+              ) : (
+                <p className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] lg:inline-flex">
+                  <GitCompareArrows className="h-5 w-5 text-[color:var(--decoration-soft)]" aria-hidden />
+                  Tick results to compare them side by side
+                </p>
+              )}
+            </section>
+
+            <InterpretationRail
+              best={best}
+              results={results}
+              sourceCount={reviewedSourceCount}
+              evidenceState={evidenceState}
+              loading={loading}
+              sourcesChecked={sourcesChecked}
+              onRunSourceSearch={rerunSearch}
+            />
+          </div>
         </div>
       )}
 
