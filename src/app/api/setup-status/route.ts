@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser } from "@/lib/supabase/auth";
 import { formatSupabaseUnavailableError, isSupabaseUnavailableError, probeSupabaseHealth } from "@/lib/supabase/health";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
+import { assertSearchSchemaHealth } from "@/lib/validation/row-contracts";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -153,13 +154,6 @@ async function readSchemaStatus(supabase: AdminClient | null) {
   }
 }
 
-type SearchSchemaHealth = {
-  ok?: boolean;
-  missing?: string[];
-  vector_extension_schema?: string | null;
-  checked_at?: string;
-};
-
 async function readSearchSchemaStatus(supabase: AdminClient | null) {
   const label = "Search RPC and vector indexes";
   if (!requiredSupabaseEnvPresent) {
@@ -176,8 +170,9 @@ async function readSearchSchemaStatus(supabase: AdminClient | null) {
     if (error) {
       return check("search", label, "needs_setup", "Search health checks are temporarily unavailable.");
     }
-    const health = (data ?? {}) as SearchSchemaHealth;
-    const missing = Array.isArray(health.missing) ? health.missing : [];
+    const health = data ?? {};
+    assertSearchSchemaHealth(health);
+    const missing = health.missing;
     if (!health.ok || missing.length > 0) {
       return check(
         "search",
