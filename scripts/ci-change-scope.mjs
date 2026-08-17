@@ -289,9 +289,10 @@ const ragEvalPatterns = [
   "src/app/api/search",
   /^src\/lib\/(?:rag(?:-[^/]+)?|smart-rag-api|clinical-search|clinical-query-mode|retrieval(?:-[^/]+)?|answer(?:-[^/]+)?|citations|cross-document-synthesis|evidence(?:-[^/]+)?|ranking-config|source(?:-[^/]+)?|chunking|document-index-units|query-privacy|owner-scope|corpus-grounding|indexed-source-formatting)\.ts$/,
   /^src\/components\/(?:.*\/)?(?:answer|source|citation)[^/]*\.tsx?$/i,
-  /^scripts\/(?:check-rag-fixtures|test-rag-offline)\.mjs$/,
+  /^scripts\/(?:check-rag-fixtures|check-rag-adversarial-fixtures|rag-adversarial-contract|test-rag-offline)\.mjs$/,
   /^scripts\/(eval-|run-eval-safe|compare-retrieval-eval|retrieval-health|profile-retrieval|warm-retrieval-cache|tune-search-weights)/,
-  /^tests\/(rag|retrieval|answer|citations|evidence|eval|clinical-safety|source).*\.test\.ts$/,
+  /^tests\/(?:helpers\/)?(rag|retrieval|answer|citations|evidence|eval|clinical-safety|source).*\.test\.ts$/,
+  /^tests\/helpers\/rag-adversarial-assertions\.ts$/,
 ];
 
 // Untrusted-document parsing and ingestion surfaces are guarded by a narrow,
@@ -1041,6 +1042,28 @@ function selfTest() {
     rag_eval_changed: true,
     source_changed: true,
   });
+  // Packet B2: the adversarial fixture validator, contract module, runner and harness
+  // must all re-run the RAG-scoped offline gates when edited.
+  assertScope("rag-adversarial-fixture-checker", ["scripts/check-rag-adversarial-fixtures.mjs"], {
+    rag_eval_changed: true,
+    source_changed: true,
+  });
+  assertScope("rag-adversarial-contract-module", ["scripts/rag-adversarial-contract.mjs"], {
+    rag_eval_changed: true,
+    source_changed: true,
+  });
+  assertScope("rag-adversarial-runner", ["scripts/eval-rag-adversarial-offline.mjs"], {
+    rag_eval_changed: true,
+    source_changed: true,
+  });
+  assertScope(
+    "rag-adversarial-harness",
+    ["tests/rag-adversarial-harness.test.ts", "tests/helpers/rag-adversarial-assertions.ts"],
+    {
+      rag_eval_changed: true,
+      source_changed: true,
+    },
+  );
   assertScope("ingestion-sast-worker", ["worker/python/extract_pdf_assets.py"], {
     ingestion_sast_changed: true,
   });
