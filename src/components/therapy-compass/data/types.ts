@@ -38,7 +38,6 @@ export type Therapy = {
   slug: string;
   name: string;
   category: string;
-  modality: string | null;
   clinicalSummary: string | null;
   bestUsedFor: string | null;
   indications: string | null;
