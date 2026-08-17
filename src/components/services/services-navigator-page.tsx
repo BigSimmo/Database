@@ -18,10 +18,10 @@ import { useAccountData } from "@/components/account-data-provider";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import {
-  type AppliedFilterChip,
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
   SearchResultsSkeleton,
+  type AppliedFilterChip,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import {
@@ -30,18 +30,17 @@ import {
   resultFilterFacetGroup,
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
-import { SegmentedControl } from "@/components/ui/segmented-control";
+import { ServiceGroupNav } from "@/components/services/service-group-nav";
 import { Chip as DesignChip, type ChipStatusTone } from "@/components/ui/chip";
 import { cn } from "@/components/ui-primitives";
 import { useResultSort } from "@/components/use-result-sort";
 import { compactBestUseTitle } from "@/lib/compact-best-use-title";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import {
-  readServiceCoreGroupSelection,
+  readServiceCoreGroup,
   serviceCoreGroupLabel,
   serviceCoreGroups,
-  serviceMatchesCoreGroupSelection,
-  writeServiceCoreGroupSelectionToParams,
+  serviceMatchesCoreGroup,
   type ServiceCoreGroupId,
 } from "@/lib/service-core-groups";
 import {
@@ -60,6 +59,7 @@ import {
   type ServiceFacetDimension,
 } from "@/lib/service-facets";
 import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
+import { replaceResultFilterUrl } from "@/lib/result-filter-url";
 import { sortResultItems } from "@/lib/result-sort";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 
@@ -259,63 +259,44 @@ const referralStages = [
 type ReferralStageId = (typeof referralStages)[number]["id"];
 
 /**
- * A compact progress rail, not the old four-card walkthrough. It sits directly
- * below the results heading because it describes the current search journey;
- * category and suggestion navigation no longer compete for this position.
+ * The progressive replacement for the old four-card numbered walkthrough
+ * (direction B, ledger #163): one ~20px line of dots that says where you are
+ * without spending a third of the fold saying it.
  *
- * The accessible name stays distinct from `ServiceReferralFlow` on the service
- * record. "Refer" is reached there, but remains visible here so the whole path
- * is understandable before a reader starts a shortlist.
+ * The accessible name is deliberately NOT "Referral workflow" — that name
+ * belongs to `ServiceReferralFlow` on the service record, and
+ * `tests/ui-tools.spec.ts` asserts it is absent from the results route so the
+ * removed walkthrough cannot creep back in. Reusing it here would satisfy that
+ * assertion's letter and defeat its purpose.
+ *
+ * "Refer" is never the active stage here; it is reached on the record itself.
+ * It stays in the rail because the point is showing the whole path, not just
+ * the part this page owns.
  */
 function ServiceReferralProgress({ active }: { active: ReferralStageId }) {
   const activeIndex = referralStages.findIndex((stage) => stage.id === active);
 
   return (
-    <nav
-      aria-label="Referral progress"
-      data-testid="service-referral-progress"
-      className="min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 shadow-[var(--shadow-inset)] sm:px-4 sm:py-3"
-    >
-      <div className="flex min-w-0 items-center justify-between gap-3">
-        <span className="truncate text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-          Referral pathway
-        </span>
-        <span className="nums shrink-0 text-2xs font-semibold text-[color:var(--clinical-accent)]" aria-live="polite">
-          Step {activeIndex + 1} of {referralStages.length}
-        </span>
-      </div>
-      <ol className="mt-2 grid min-w-0 grid-cols-4 gap-1 sm:mt-2.5 sm:gap-2">
+    <nav aria-label="Referral progress" className="min-w-0">
+      <ol className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         {referralStages.map((stage, index) => {
           const isActive = index === activeIndex;
           const isComplete = index < activeIndex;
           return (
-            <li key={stage.id} className="relative flex min-w-0 flex-col items-center gap-1.5">
+            <li key={stage.id} className="flex min-w-0 items-center gap-2">
               {index > 0 ? (
                 <span
                   aria-hidden
                   className={cn(
-                    "absolute right-1/2 top-3 h-px w-[calc(100%+0.25rem)] sm:w-[calc(100%+0.5rem)]",
+                    "h-px w-4 shrink-0 sm:w-6",
                     isComplete || isActive ? "bg-[color:var(--clinical-accent-border)]" : "bg-[color:var(--border)]",
                   )}
                 />
               ) : null}
               <span
-                aria-hidden
-                className={cn(
-                  "relative z-5 grid h-6 w-6 shrink-0 place-items-center rounded-full border text-3xs font-black",
-                  isActive
-                    ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                    : isComplete
-                      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                      : "border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
-                )}
-              >
-                {isComplete ? <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" /> : index + 1}
-              </span>
-              <span
                 aria-current={isActive ? "step" : undefined}
                 className={cn(
-                  "min-w-0 max-w-full truncate text-center text-2xs font-bold",
+                  "inline-flex min-w-0 items-center gap-1.5 text-2xs font-bold",
                   isActive
                     ? "text-[color:var(--clinical-accent)]"
                     : isComplete
@@ -323,6 +304,17 @@ function ServiceReferralProgress({ active }: { active: ReferralStageId }) {
                       : "text-[color:var(--text-muted)]",
                 )}
               >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "h-2 w-2 shrink-0 rounded-full border",
+                    isActive
+                      ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)]"
+                      : isComplete
+                        ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
+                        : "border-[color:var(--border-strong)] bg-[color:var(--surface)]",
+                  )}
+                />
                 {stage.label}
               </span>
             </li>
@@ -418,7 +410,7 @@ export function ServicesNavigatorPage() {
   const searchParams = useSearchParams();
   const [sortValue, setSortValue] = useResultSort();
   const urlQuery = searchParams.get("q")?.trim() || searchParams.get("query")?.trim() || "";
-  const categorySelection = useMemo(() => readServiceCoreGroupSelection(searchParams.get("group")), [searchParams]);
+  const activeGroup = readServiceCoreGroup(searchParams.get("group"));
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: urlQuery }));
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : urlQuery;
   const deferredQuery = useDeferredValue(query);
@@ -433,23 +425,24 @@ export function ServicesNavigatorPage() {
     if (ranked.length) return ranked.map((match) => match.service);
     return [];
   }, [deferredQuery, query, searchableRecords]);
+  const groupedMatches = useMemo(
+    () => rankedMatches.filter((service) => serviceMatchesCoreGroup(service, activeGroup)),
+    [activeGroup, rankedMatches],
+  );
+
   // Facet selection lives in the URL, alongside `q`/`group`, so a filtered
   // services search stays shareable and survives navigating away and back —
-  // see docs/filter-contract.md section 1 and PR C's own scope note.
+  // see docs/filter-contract.md.
   const facetSelection = useMemo(() => serviceFacetSelectionFromParams(searchParams), [searchParams]);
   const substanceLens = searchParams.get("substance") ?? "all";
   const resultScope: ServiceResultScope = searchParams.get("scope") === "all" ? "all" : "results";
   // The scope segment (section 4) lets a reader who has narrowed to zero
-  // widen from the query-scoped set to the whole 219-item catalogue
+  // widen from the query/group-scoped set to the whole 219-item catalogue
   // without discarding the query. Gated on the UNFACETED result set so the
   // segment does not flicker away as facets are applied — narrowing with
   // facets only ever makes "catalogue > results" more true, never less.
-  const showResultScope = searchableRecords.length > rankedMatches.length;
-  const scopeBaseMatches = resultScope === "all" ? searchableRecords : rankedMatches;
-  const facetBaseMatches = useMemo(
-    () => scopeBaseMatches.filter((service) => serviceMatchesCoreGroupSelection(service, categorySelection)),
-    [categorySelection, scopeBaseMatches],
-  );
+  const showResultScope = searchableRecords.length > groupedMatches.length;
+  const facetBaseMatches = resultScope === "all" ? searchableRecords : groupedMatches;
   const facetedMatches = useMemo(
     () => filterServicesByFacets(facetBaseMatches, facetSelection, substanceLens),
     [facetBaseMatches, facetSelection, substanceLens],
@@ -458,54 +451,39 @@ export function ServicesNavigatorPage() {
     () => sortResultItems(facetedMatches, sortValue, (service) => service.title),
     [facetedMatches, sortValue],
   );
-  // Both scope segments show the current category/facet selection applied —
-  // "counts on both" — differing only in whether the query scoping applies.
+  // Both scope segments show the current facet selection applied — "counts
+  // on both" — differing only in whether the query/group scoping applies.
   const resultsScopedCount = useMemo(
-    () =>
-      filterServicesByFacets(
-        rankedMatches.filter((service) => serviceMatchesCoreGroupSelection(service, categorySelection)),
-        facetSelection,
-        substanceLens,
-      ).length,
-    [categorySelection, facetSelection, rankedMatches, substanceLens],
+    () => filterServicesByFacets(groupedMatches, facetSelection, substanceLens).length,
+    [groupedMatches, facetSelection, substanceLens],
   );
   const allScopedCount = useMemo(
-    () =>
-      filterServicesByFacets(
-        searchableRecords.filter((service) => serviceMatchesCoreGroupSelection(service, categorySelection)),
-        facetSelection,
-        substanceLens,
-      ).length,
-    [categorySelection, facetSelection, searchableRecords, substanceLens],
+    () => filterServicesByFacets(searchableRecords, facetSelection, substanceLens).length,
+    [searchableRecords, facetSelection, substanceLens],
   );
   const activeFilterCount =
-    categorySelection.size + serviceFacetSelectionSize(facetSelection) + (substanceLens === "all" ? 0 : 1);
+    serviceFacetSelectionSize(facetSelection) + (substanceLens === "all" ? 0 : 1) + (resultScope === "all" ? 1 : 0);
   const relevanceRankMap = useMemo(() => {
     const map = new Map<string, number>();
     rankedMatches.forEach((service, index) => map.set(service.slug, index + 1));
     return map;
   }, [rankedMatches]);
-  const categoryCounts = useMemo(
+  const groupCounts = useMemo(
     () =>
       Object.fromEntries(
-        serviceCoreGroups.map((group) => {
-          const widened = new Set(categorySelection);
-          widened.add(group.id);
-          const categoryMatches = scopeBaseMatches.filter((service) =>
-            serviceMatchesCoreGroupSelection(service, widened),
-          );
-          return [group.id, filterServicesByFacets(categoryMatches, facetSelection, substanceLens).length];
-        }),
+        serviceCoreGroups.map((group) => [
+          group.id,
+          rankedMatches.filter((service) => serviceMatchesCoreGroup(service, group.id)).length,
+        ]),
       ) as Record<ServiceCoreGroupId, number>,
-    [categorySelection, facetSelection, scopeBaseMatches, substanceLens],
+    [rankedMatches],
   );
   const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
   const selected = searchableRecords.filter((service) => selectedSlugs.includes(service.slug));
   const [showComparison, setShowComparison] = useState(false);
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
-  const selectedCategory = categorySelection.size === 1 ? [...categorySelection][0] : null;
-  const heading = query || (selectedCategory ? serviceCoreGroupLabel(selectedCategory) : "Browse services");
+  const heading = query || (activeGroup ? serviceCoreGroupLabel(activeGroup) : "Browse services");
   const accountData = useAccountData();
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   // The provider rolls back a failed mutation from its pre-request snapshot.
@@ -553,108 +531,93 @@ export function ServicesNavigatorPage() {
     });
   }
 
-  const updateParams = useCallback(
-    (mutator: (params: URLSearchParams) => void, replace = false) => {
+  const updateNavigationParams = useCallback(
+    (mutator: (params: URLSearchParams) => void) => {
       const params = new URLSearchParams(searchParams.toString());
       mutator(params);
       params.set("run", "1");
       const href = `/services?${params.toString()}`;
-      if (replace) router.replace(href, { scroll: false });
-      else router.push(href, { scroll: false });
+      router.push(href, { scroll: false });
     },
     [router, searchParams],
   );
 
+  const updateFilterParams = useCallback((mutator: (params: URLSearchParams) => void) => {
+    replaceResultFilterUrl((params) => {
+      mutator(params);
+      params.set("run", "1");
+    });
+  }, []);
+
   // Facet/lens/scope toggles replace (not push) — a reader ticking several
   // chips should not spam the back-button history the way submitting a new
   // search does.
-  const toggleCategoryValue = useCallback(
-    (value: ServiceCoreGroupId) => {
-      updateParams((params) => {
-        const next = new Set(readServiceCoreGroupSelection(params.get("group")));
-        if (!next.delete(value)) next.add(value);
-        writeServiceCoreGroupSelectionToParams(params, next);
-      }, true);
-    },
-    [updateParams],
-  );
-
   const toggleFacetValue = useCallback(
     (dimension: ServiceFacetDimension, value: string) => {
-      updateParams((params) => {
+      updateFilterParams((params) => {
         const current = serviceFacetSelectionFromParams(params);
         const next = new Set(current[dimension]);
         if (!next.delete(value)) next.add(value);
         writeServiceFacetSelectionToParams(params, { ...current, [dimension]: next });
-      }, true);
+      });
     },
-    [updateParams],
+    [updateFilterParams],
   );
 
   const setSubstanceLensValue = useCallback(
     (value: string) => {
-      updateParams((params) => {
+      updateFilterParams((params) => {
         if (value === "all") params.delete("substance");
         else params.set("substance", value);
-      }, true);
+      });
     },
-    [updateParams],
+    [updateFilterParams],
   );
 
   const setResultScopeValue = useCallback(
     (value: ServiceResultScope) => {
-      updateParams((params) => {
+      updateFilterParams((params) => {
         if (value === "all") params.set("scope", "all");
         else params.delete("scope");
-      }, true);
+      });
     },
-    [updateParams],
+    [updateFilterParams],
   );
 
-  // Never touches `q`/`query` — docs/filter-contract.md section 6: clearing
-  // filters and clearing a search are different intentions. `group` is now
-  // the URL-backed Service category facet, so it is cleared with the rest of
-  // the filter state rather than behaving as a separate navigation strip.
+  // Never touches `q`/`query`/`group` — docs/filter-contract.md section 6:
+  // clearing filters and clearing a search are different intentions. The
+  // old query-replacing suggestion rail conflated the two (clearing its
+  // choices also replaced the search). It is gone; this reset now changes
+  // only scope and narrowing dimensions.
   const clearAllFilters = useCallback(() => {
-    updateParams((params) => {
-      params.delete("group");
+    updateFilterParams((params) => {
       for (const dimension of serviceFacetDimensions) params.delete(dimension);
       params.delete("substance");
       params.delete("scope");
-    }, true);
-  }, [updateParams]);
+    });
+  }, [updateFilterParams]);
 
   function applyServiceQuery(nextQuery: string) {
     const trimmedQuery = nextQuery.trim();
     setLocalQuery({ urlQuery, value: trimmedQuery });
-    updateParams((params) => {
+    updateNavigationParams((params) => {
       params.delete("query");
       if (trimmedQuery) params.set("q", trimmedQuery);
       else params.delete("q");
     });
   }
 
+  function hrefForGroup(group: ServiceCoreGroupId | null) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("run", "1");
+    if (group) params.set("group", group);
+    else params.delete("group");
+    return `/services?${params.toString()}`;
+  }
+
   // `substance_flags` is an exact partition (measured 2026-08-12: all 219
   // services carry exactly one of general/aod) — a lens, not a facet. See
   // src/lib/service-facets.ts for the full measurement note.
-  const categoryGroup = useMemo(
-    () =>
-      resultFilterFacetGroup({
-        id: "service-category",
-        label: "Service category",
-        selected: categorySelection,
-        options: serviceCoreGroups.map((group) => ({
-          value: group.id,
-          label: group.label,
-          searchText: `${group.label} ${group.shortLabel}`,
-          hint: String(categoryCounts[group.id]),
-          disabled: categoryCounts[group.id] === 0 && !categorySelection.has(group.id),
-        })),
-        onToggle: toggleCategoryValue,
-      }),
-    [categoryCounts, categorySelection, toggleCategoryValue],
-  );
-
   const substanceOptionValues = useMemo(() => deriveSubstanceLensOptions(searchableRecords), [searchableRecords]);
   const substanceGroup = useMemo(
     () =>
@@ -718,32 +681,34 @@ export function ServicesNavigatorPage() {
 
   const appliedFilters = useMemo<AppliedFilterChip[]>(() => {
     const chips: AppliedFilterChip[] = [];
-    for (const group of serviceCoreGroups) {
-      if (!categorySelection.has(group.id)) continue;
+    if (resultScope === "all") {
       chips.push({
-        id: `service-category:${group.id}`,
-        label: group.label,
-        onRemove: () => toggleCategoryValue(group.id),
+        id: "scope-all",
+        groupLabel: "Search in",
+        valueLabel: "All services",
+        onRemove: () => setResultScopeValue("results"),
       });
     }
     if (substanceLens !== "all") {
       chips.push({
-        id: `substance:${substanceLens}`,
-        label: serviceSubstanceLensValueLabel(substanceLens),
+        id: `substance-${substanceLens}`,
+        groupLabel: "Program type",
+        valueLabel: serviceSubstanceLensValueLabel(substanceLens),
         onRemove: () => setSubstanceLensValue("all"),
       });
     }
     for (const dimension of serviceFacetDimensions) {
       for (const value of facetSelection[dimension]) {
         chips.push({
-          id: `${dimension}:${value}`,
-          label: serviceFacetValueLabel(dimension, value),
+          id: `${dimension}-${value}`,
+          groupLabel: serviceFacetDimensionLabels[dimension],
+          valueLabel: serviceFacetValueLabel(dimension, value),
           onRemove: () => toggleFacetValue(dimension, value),
         });
       }
     }
     return chips;
-  }, [categorySelection, facetSelection, setSubstanceLensValue, substanceLens, toggleCategoryValue, toggleFacetValue]);
+  }, [facetSelection, resultScope, setResultScopeValue, setSubstanceLensValue, substanceLens, toggleFacetValue]);
 
   return (
     <SearchResultsLayout
@@ -875,29 +840,46 @@ export function ServicesNavigatorPage() {
             {saveNotice ?? ""}
           </p>
 
+          <section className="grid gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4">
+            <ServiceGroupNav
+              activeGroup={activeGroup}
+              hrefForGroup={hrefForGroup}
+              counts={{ ...groupCounts, all: rankedMatches.length }}
+            />
+          </section>
+
           <ResultFilterSheet
             open={filterOpen}
             onClose={() => setFilterOpen(false)}
             panelId={filterPanelId}
             testId="service-filter-panel"
             title="Filter services"
-            description="Narrow the current search by service category, program and referral fit."
-            groups={[categoryGroup, substanceGroup, ...facetGroups]}
+            groups={[substanceGroup, ...facetGroups]}
             onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
-            footerNote={`${displayedMatches.length} showing`}
-            chromeResetKey={`${deferredQuery}|${searchParams.get("group") ?? ""}|${resultScope}`}
-            scopeControl={
-              showResultScope ? (
-                <SegmentedControl
-                  label="Result scope"
-                  value={resultScope}
-                  onChange={setResultScopeValue}
-                  options={[
-                    { value: "results", label: "These results", hint: String(resultsScopedCount) },
-                    { value: "all", label: "All items", hint: String(allScopedCount) },
-                  ]}
-                />
-              ) : undefined
+            summary={{ count: displayedMatches.length, noun: displayedMatches.length === 1 ? "service" : "services" }}
+            chromeResetKey={`${deferredQuery}|${activeGroup ?? ""}|${resultScope}`}
+            scope={
+              showResultScope
+                ? {
+                    label: "Search in",
+                    value: resultScope,
+                    onChange: (value) => setResultScopeValue(value as ServiceResultScope),
+                    options: [
+                      {
+                        value: "results",
+                        label: "Current results",
+                        count: resultsScopedCount,
+                        description: "Keep the current search and service group.",
+                      },
+                      {
+                        value: "all",
+                        label: "All services",
+                        count: allScopedCount,
+                        description: "Apply filters across the full catalogue.",
+                      },
+                    ],
+                  }
+                : undefined
             }
           />
         </>
@@ -920,23 +902,31 @@ export function ServicesNavigatorPage() {
           onTryExample={(example) => applyServiceQuery(example)}
         />
       ) : deferredQuery === query && displayedMatches.length === 0 ? (
-        // `displayedMatches` is category- AND facet/lens-narrowed, so every
-        // constraint can be relaxed from the same filter surface without
-        // discarding the search query.
+        // `displayedMatches` is now group- AND facet/lens-narrowed, so a zero
+        // here can come from either. Offer both escapes, and only the one that
+        // applies, without reintroducing the removed query-suggestion rail.
         <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-center">
           <h2 className="text-lg font-bold text-[color:var(--text-heading)]">No services match</h2>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-            {activeFilterCount > 0 ? "Adjust or clear your filters to see more services." : "Try a broader search."}
+            {activeFilterCount > 0 ? "Try All services, or clear your filters." : "Try All services instead."}
           </p>
-          {activeFilterCount > 0 ? (
-            <button
-              type="button"
-              onClick={clearAllFilters}
-              className="mt-3 inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <Link
+              href={hrefForGroup(null)}
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
-              Clear filters
-            </button>
-          ) : null}
+              Show all services
+            </Link>
+            {activeFilterCount > 0 ? (
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              >
+                Clear filters
+              </button>
+            ) : null}
+          </div>
         </section>
       ) : (
         <>

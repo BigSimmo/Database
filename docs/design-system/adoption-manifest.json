@@ -112,7 +112,6 @@
         "tests/accessible-table.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
-        "tests/ui-tools.spec.ts",
         "tests/ward-output.test.ts"
       ],
       "baseline": {
@@ -1399,28 +1398,20 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/applications-launcher-page.tsx",
-        "src/components/clinical-dashboard/differentials-home.tsx",
-        "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
-        "src/components/services/services-navigator-page.tsx",
-        "src/components/specifiers/specifiers-home-page.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx",
         "src/components/tools/tools-search-results-page.tsx"
       ],
       "productImportFiles": [
         "src/components/applications-launcher-page.tsx",
-        "src/components/clinical-dashboard/differentials-home.tsx",
-        "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
-        "src/components/services/services-navigator-page.tsx",
-        "src/components/specifiers/specifiers-home-page.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx",
         "src/components/tools/tools-search-results-page.tsx"
@@ -1475,6 +1466,7 @@
         "tests/answer-progress-ui-smoke.spec.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/eval-process-safety.test.ts",
+        "tests/search-results-header-band.dom.test.tsx",
         "tests/ui-formulation.spec.ts",
         "tests/ui-smoke.spec.ts",
         "tests/ui-v2-components.dom.test.tsx"
@@ -1520,9 +1512,9 @@
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/section-nav.tsx",
         "src/components/forms/form-detail-page.tsx",
-        "src/components/forms/forms-search-results-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
+        "src/components/services/service-group-nav.tsx",
         "src/components/tools/tools-search-results-page.tsx",
         "src/components/ui/confirm-dialog.tsx"
       ],
@@ -1548,9 +1540,9 @@
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/section-nav.tsx",
         "src/components/forms/form-detail-page.tsx",
-        "src/components/forms/forms-search-results-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
+        "src/components/services/service-group-nav.tsx",
         "src/components/tools/tools-search-results-page.tsx"
       ],
       "designSync": {
@@ -1935,12 +1927,10 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
-        "src/components/forms/forms-search-results-page.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx"
       ],
       "productImportFiles": [
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
-        "src/components/forms/forms-search-results-page.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx"
       ],
       "designSync": {

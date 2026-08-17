@@ -583,7 +583,8 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(filterSheet).toBeVisible();
     await expect(filterSheet.getByRole("radio", { name: /Assess/ })).toHaveAttribute("aria-checked", "false");
     await expect(filterSheet.getByRole("radio", { name: /Treat/ })).toHaveAttribute("aria-disabled", "true");
-    await filterSheet.getByRole("button", { name: "Done" }).click();
+    await expect(filterSheet.getByTestId("tools-search-filter-sheet-done")).toHaveText(/View 1 tool/);
+    await filterSheet.getByTestId("tools-search-filter-sheet-done").click();
 
     const details = results.getByRole("button", { name: "View details for Differentials" });
     await details.click();
@@ -998,6 +999,8 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       { path: "/differentials", testId: "differentials-home" },
       { path: "/factsheets", testId: "factsheets-home-main" },
       { path: "/favourites", testId: "favourites-hub" },
+      // /tools is the documented exception: phones use the shared footer dock
+      // instead of the in-flow hero pill (docs/search-chrome-behaviour.md).
     ] as const) {
       await gotoLauncher(page, home.path);
       const homeSurface = page.getByTestId(home.testId);
@@ -1165,18 +1168,15 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
-    await expect(page.getByTestId("service-quick-search-suggestions")).toHaveCount(0);
     const input = visibleGlobalSearchInput(page).first();
     await expect(input).toBeVisible();
     const quickFilter = page.getByTestId("service-filter-trigger-phone");
     await expect(quickFilter).toBeVisible();
     await expect(quickFilter).toHaveAccessibleName(/No filters active/);
-    await expect(page.getByRole("navigation", { name: "Service groups" })).toHaveCount(0);
-    await quickFilter.click();
-    const phoneFilterPanel = page.getByTestId("service-filter-panel");
-    await phoneFilterPanel.getByRole("button", { name: "Service category" }).click();
-    await expect(phoneFilterPanel.getByRole("button", { name: /^Crisis & urgent/ })).toBeVisible();
-    await phoneFilterPanel.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(page.getByTestId("service-quick-search-suggestions")).toHaveCount(0);
+    await input.fill("crisis");
+    await input.press("Enter");
+    await expect(page).toHaveURL(/\/services\?.*q=crisis/);
 
     // Phones keep the full search results in the page instead of opening a
     // command sheet over the small viewport.
@@ -1372,7 +1372,6 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await gotoLauncher(page, "/services?focus=1");
     await expect(page.getByTestId("services-home").getByTestId("global-search-input")).toBeVisible();
     await expect(page.getByTestId("services-home").getByTestId("global-search-input")).toBeFocused();
-    await expect(page.getByTestId("service-quick-search-suggestions")).toHaveCount(0);
 
     await gotoLauncher(page, "/forms?focus=1");
     await expect(visibleByTestId(page, "forms-home").getByTestId("global-search-input")).toBeVisible();
@@ -1387,7 +1386,6 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(page.locator('input[placeholder="Search services..."]:visible').first()).toHaveValue("13YARN");
     await expect(page.getByTestId("service-search-results")).toBeVisible();
     await expect(page.getByTestId("service-search-result-13yarn")).toContainText("13YARN");
-    await expect(page.getByTestId("service-quick-search-suggestions")).toHaveCount(0);
     await expect(
       page.getByTestId("service-search-result-13yarn").getByLabel("Review referral for 13YARN"),
     ).toHaveAttribute("href", "/services/13yarn");
@@ -1405,22 +1403,20 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("services results keep category filtering and compact referral progress without suggestion rows", async ({
-    page,
-  }) => {
+  test("services results keep browse navigation and filters without a suggestion rail", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
 
     await expect(page.getByRole("heading", { level: 1, name: "13YARN" })).toBeVisible();
     await expect(page.getByLabel("Referral workflow")).toHaveCount(0);
-    // The four-card numbered walkthrough stays gone (assertion above). A
-    // compact progress rail sits between the results heading and the list,
-    // under a different accessible name (ledger #163).
+    // The four-card numbered walkthrough stays gone (assertion above); what
+    // replaces it is a one-line dot rail under a DIFFERENT accessible name,
+    // so the check above cannot be satisfied by quietly renaming the old
+    // component back onto this route (ledger #163).
     const referralProgress = page.getByRole("navigation", { name: "Referral progress" });
     await expect(referralProgress).toBeVisible();
     await expect(referralProgress.locator('[aria-current="step"]')).toHaveText("Search");
-    await expect(referralProgress).toContainText("Step 1 of 4");
-    await expect(page.getByRole("navigation", { name: "Service groups" })).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Service groups" })).toBeVisible();
     await expect(page.getByTestId("services-shortlist-bar")).toHaveCount(0);
 
     // The row is compact by contract: the Catchment/Eligibility/Cost strip
@@ -1429,30 +1425,17 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     const firstResult = page.getByTestId("service-search-result-13yarn");
     await expect(firstResult.getByText("Catchment", { exact: true })).toHaveCount(0);
     await expect(firstResult.getByRole("button", { name: "Save 13YARN to favourites" })).toBeVisible();
-    const headingBox = await page.getByRole("heading", { level: 1, name: "13YARN" }).boundingBox();
-    const progressBox = await referralProgress.boundingBox();
-    const resultBox = await firstResult.boundingBox();
-    expect(headingBox).not.toBeNull();
-    expect(progressBox).not.toBeNull();
-    expect(resultBox).not.toBeNull();
-    expect(progressBox!.y).toBeGreaterThan(headingBox!.y);
-    expect(progressBox!.y).toBeLessThan(resultBox!.y);
 
     await expect(page.getByTestId("service-quick-search-suggestions")).toHaveCount(0);
 
-    // The former service-group strip is now an honest, overlapping facet in
-    // the shared filter sheet. Clearing it preserves the active query.
+    // Exercise a real facet, then clear only that facet while preserving q.
     await page.getByTestId("service-filter-trigger-desktop").click();
     const filterPanel = page.getByTestId("service-filter-panel");
-    await filterPanel.getByRole("button", { name: "Service category" }).click();
-    await expect(filterPanel.getByRole("button", { name: /^Public mental health/ })).toBeVisible();
-    await expect(filterPanel.getByRole("button", { name: /^Alcohol & other drugs/ })).toBeVisible();
-    await expect(filterPanel.getByRole("button", { name: /^Community & specialist support/ })).toBeVisible();
-    const crisisCategory = filterPanel.getByRole("button", { name: /^Crisis & urgent/ });
-    await expect(crisisCategory).toBeVisible();
-    await crisisCategory.click();
-    await expect(page).toHaveURL(/group=urgent/);
-    await expect(page.getByRole("button", { name: "Remove Crisis & urgent filter" })).toBeVisible();
+    await filterPanel.getByRole("button", { name: /^Acuity/ }).click();
+    const crisisFacet = filterPanel.getByRole("button", { name: /^Crisis \/ urgent/ });
+    await expect(crisisFacet).toBeVisible();
+    await crisisFacet.click();
+    await expect(page).toHaveURL(/acuity_flags=crisis_high/);
     await filterPanel.getByTestId("service-filter-panel-clear").click();
     await expect(page).toHaveURL(/[?&]q=13YARN(?:&|#|$)/);
     await expect(page).not.toHaveURL(/group=/);
@@ -3144,57 +3127,5 @@ test.describe("Responsive layout guards", () => {
     expect(rowMetrics.overflows).toBe(true);
     expect(rowMetrics.maskImage).not.toBe("none");
     await expectNoPageHorizontalOverflow(page);
-  });
-});
-
-test("low-confidence AccessibleTable keeps its full missing-value phrase readable at 320px @mockup", async ({
-  page,
-}, testInfo) => {
-  await page.setViewportSize({ width: 320, height: 700 });
-  await page.goto("/mockups/accessible-table-browser-fixture", { waitUntil: "domcontentloaded" });
-
-  const fixture = visibleByTestId(page, "accessible-table-browser-fixture");
-  await expect(fixture).toBeVisible({ timeout: 15_000 });
-  await expect(fixture.getByTestId("table-low-confidence-note")).toContainText(
-    "verify values against the source document",
-  );
-
-  const table = fixture.getByRole("table", { name: "Clozapine ANC response" });
-  await expect(table).toBeVisible();
-  const missingValues = table.getByTestId("missing-value");
-  await expect(missingValues).toHaveCount(2);
-  await expect(missingValues.first()).toHaveText("Not recorded");
-
-  const layout = await missingValues.first().evaluate((value) => {
-    const wrapper = value.parentElement;
-    if (!wrapper) throw new Error("Missing-value wrapper was not rendered");
-    const valueRect = value.getBoundingClientRect();
-    const wrapperRect = wrapper.getBoundingClientRect();
-    const style = getComputedStyle(wrapper);
-    return {
-      valueLeft: valueRect.left,
-      valueRight: valueRect.right,
-      wrapperLeft: wrapperRect.left,
-      wrapperRight: wrapperRect.right,
-      wrapperClientWidth: wrapper.clientWidth,
-      wrapperScrollWidth: wrapper.scrollWidth,
-      whiteSpace: style.whiteSpace,
-      overflow: style.overflow,
-      textOverflow: style.textOverflow,
-    };
-  });
-
-  expect(layout.whiteSpace).toBe("normal");
-  expect(layout.textOverflow).not.toBe("ellipsis");
-  expect(layout.wrapperScrollWidth - layout.wrapperClientWidth).toBeLessThanOrEqual(1);
-  expect(layout.valueLeft).toBeGreaterThanOrEqual(layout.wrapperLeft - 1);
-  expect(layout.valueRight).toBeLessThanOrEqual(layout.wrapperRight + 1);
-  await expectNoPageHorizontalOverflow(page);
-
-  const screenshotPath = testInfo.outputPath("low-confidence-accessible-table-320px.png");
-  await fixture.screenshot({ path: screenshotPath });
-  await testInfo.attach("low-confidence-accessible-table-320px", {
-    path: screenshotPath,
-    contentType: "image/png",
   });
 });

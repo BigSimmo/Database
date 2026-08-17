@@ -256,7 +256,7 @@ describe("favourites auth gate DOM", () => {
   it("keeps Tools Saved workflows available when Favourites access is granted", () => {
     render(<ApplicationsLauncherWorkspace canAccessFavourites={true} />);
 
-    expect(screen.getByRole("radio", { name: "Saved" })).toBeVisible();
+    expect(screen.getByRole("radio", { name: "Saved (1)" })).toBeVisible();
     expect(screen.getByTestId("tool-shortcut-favourites")).toBeVisible();
     expect(
       toolCatalogRecordsForSession({ authenticated: true, demoMode: false }).some((t) => t.id === "favourites"),

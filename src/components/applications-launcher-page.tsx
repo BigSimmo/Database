@@ -54,6 +54,12 @@ type LauncherFilter = "all" | LauncherArea | "more";
 
 type LauncherApp = ToolCatalogRecord & { icon: LucideIcon };
 
+function launcherAppMatchesFilter(app: LauncherApp, filter: LauncherFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "more") return app.area === "coordination" || app.area === "saved";
+  return app.area === filter;
+}
+
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
@@ -382,10 +388,12 @@ function FilterTabs({
   activeFilter,
   onFilterChange,
   canAccessFavourites,
+  filterCounts,
 }: {
   activeFilter: LauncherFilter;
   onFilterChange: (filter: LauncherFilter) => void;
   canAccessFavourites: boolean;
+  filterCounts: Readonly<Record<string, number>>;
 }) {
   const desktopFilters = desktopFiltersForSession(canAccessFavourites);
   const filterPanelId = useId();
@@ -395,7 +403,11 @@ function FilterTabs({
   // One array for the desktop rail and the phone sheet. The categories partition
   // the tool list, so this is a lens at both breakpoints — the rail used to say
   // many-of-N with `aria-pressed` while the sheet said one-of-N.
-  const launcherFilterOptions = desktopFilters.map((filter) => ({ value: filter.id, label: filter.label }));
+  const launcherFilterOptions = desktopFilters.map((filter) => ({
+    value: filter.id,
+    label: filter.label,
+    hint: String(filterCounts[filter.id] ?? 0),
+  }));
   return (
     <>
       <div className="hidden sm:block">
@@ -446,6 +458,10 @@ function FilterTabs({
                   onFilterChange("all");
                 }
           }
+          summary={{
+            count: filterCounts[resolvedFilter] ?? 0,
+            noun: (filterCounts[resolvedFilter] ?? 0) === 1 ? "tool" : "tools",
+          }}
         />
       </div>
     </>
@@ -757,16 +773,29 @@ export function ApplicationsLauncherWorkspace({
   const selectedId = detailOpen || selection.queryKey === normalizedQuery ? selection.id : queryDerivedId;
   const effectiveFilter: LauncherFilter = activeFilter === "saved" && !canAccessFavourites ? "all" : activeFilter;
 
+  const queryMatchedApps = useMemo(
+    () =>
+      launcherApps.filter(
+        (app) =>
+          !normalizedQuery ||
+          [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, areaLabels[app.area], ...app.keywords]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(normalizedQuery),
+      ),
+    [launcherApps, normalizedQuery],
+  );
+  const filterCounts = Object.fromEntries(
+    desktopFilters.map((filter) => [
+      filter.id,
+      queryMatchedApps.filter((app) => launcherAppMatchesFilter(app, filter.id)).length,
+    ]),
+  );
+
   const filteredApps = useMemo(() => {
     return launcherApps.filter((app) => {
-      const matchesFilter =
-        effectiveFilter === "all"
-          ? true
-          : effectiveFilter === "more"
-            ? app.area === "coordination" || app.area === "saved"
-            : effectiveFilter === "saved"
-              ? app.area === "saved"
-              : app.area === effectiveFilter;
+      const matchesFilter = launcherAppMatchesFilter(app, effectiveFilter);
       const matchesQuery =
         !normalizedQuery ||
         [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, areaLabels[app.area], ...app.keywords]
@@ -882,6 +911,7 @@ export function ApplicationsLauncherWorkspace({
                 activeFilter={effectiveFilter}
                 onFilterChange={setActiveFilter}
                 canAccessFavourites={canAccessFavourites}
+                filterCounts={filterCounts}
               />
             }
           />
@@ -895,6 +925,7 @@ export function ApplicationsLauncherWorkspace({
                 activeFilter={effectiveFilter}
                 onFilterChange={setActiveFilter}
                 canAccessFavourites={canAccessFavourites}
+                filterCounts={filterCounts}
               />
               <p className="hidden min-h-10 items-center rounded-lg px-1 text-xs font-bold text-[color:var(--text-muted)] lg:inline-flex">
                 Sorted A to Z
