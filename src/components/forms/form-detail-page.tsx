@@ -1044,7 +1044,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="inline-flex h-5 shrink-0 items-center rounded-md bg-[color:var(--clinical-accent-soft)] px-1.5 text-3xs font-bold uppercase leading-none tracking-label text-[color:var(--clinical-accent)]">
-                      {formShortTitle(form)}
+                      {`Form ${formCode(form)}`}
                     </span>
                     {details?.availability === "downloadable" ? (
                       <span className="text-2xs font-semibold uppercase leading-none text-[color:var(--text-muted)]">
@@ -1053,7 +1053,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                     ) : null}
                   </div>
                   <h2 className="mt-1 truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                    {displayText(form.title, formShortTitle(form))}
+                    {displayText(form.title, `Form ${formCode(form)}`)}
                   </h2>
                   <p className={cn("mt-0.5 truncate text-xs", textMuted)}>
                     {displayText(form.source?.label, "Official form")}
@@ -1065,7 +1065,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               </span>
               <span
                 className={cn(
-                  "hidden min-h-7 items-center rounded-md border px-2 text-xs font-semibold shadow-[var(--shadow-inset)] sm:inline-flex",
+                  "hidden min-h-7 items-center rounded-full border px-2 text-xs font-semibold shadow-[var(--shadow-inset)] sm:inline-flex",
                   details?.officialPdfPasswordProtected ? toneWarning : toneNeutral,
                 )}
               >
@@ -1074,7 +1074,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               <div className="flex items-center gap-2 sm:hidden">
                 <span
                   className={cn(
-                    "inline-flex min-h-6 items-center rounded-md border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)]",
+                    "inline-flex min-h-6 items-center rounded-full border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)]",
                     details?.officialPdfPasswordProtected ? toneWarning : toneNeutral,
                   )}
                 >
