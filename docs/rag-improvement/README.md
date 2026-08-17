@@ -257,7 +257,22 @@ As PDF PR 1: dashboard questions first (stage timeout rate, fallback rate, candi
 distribution, p50/p95 stage latency); map to existing Sentry/answer-telemetry fields; add
 `RAG_TELEMETRY_EXTENDED` (typed in `src/lib/env.ts`, default `false`) only for proven gaps;
 unit tests assert canaries never appear in emitted objects. Much of this is shared with
-Track A1's instrumentation — build once. Phoenix decision record: **deferred**.
+Track A1's instrumentation — build once.
+
+**Delivered by packet S5 (2026-08-17):** the assessment found three of the four dashboard
+questions fully answerable from the fields PR #1899 and earlier instrumentation already
+persist to `rag_queries.metadata`; the single proven gap was `verification_latency_ms`
+(measured into `latencyTimings`, dropped at the persistence boundary). It ships behind
+`RAG_TELEMETRY_EXTENDED` through the allow-listed numeric projection in
+`src/lib/rag/rag-answer-telemetry-metadata.ts`, with canary-absence tests in
+`tests/rag-telemetry-canary-absence.test.ts`.
+
+**Phoenix decision record — closed 2026-08-17: deferred.** `src/instrumentation.ts` and
+`src/lib/observability/agent-monitoring.ts` already trace without content capture; the B1
+assessment showed the named dashboard questions answerable from existing fields plus one
+flag-gated addition; a second tracing vendor would add a data-processing route (Gate A)
+before proving value. Revisit only if a dashboard question becomes unanswerable from
+`rag_queries.metadata` plus the existing Sentry surface.
 
 ### B2 — Offline adversarial regression harness
 
@@ -268,6 +283,16 @@ deterministic assertion functions with their own tests, fed by B0 fixtures. New 
 only; fails closed on missing fixture, network attempt, or budget breach. If Promptfoo's
 dependency footprint proves heavy, a plain Vitest harness over the same fixtures is an
 acceptable substitute — the fixtures and assertions are the asset, not the runner.
+
+**Delivered by packet S5 (2026-08-17) as the plain-Vitest substitute** (no dependency
+change; a Promptfoo experiment would be its own PR): `eval:rag:adversarial:offline` runs
+`scripts/check-rag-adversarial-fixtures.mjs` then `tests/rag-adversarial-harness.test.ts`
+over the 24 B0 cases with a stubbed-throwing `fetch`, a per-case Supabase round-trip
+ceiling, and canary-absence assertions on every persisted telemetry row. CI runs it in the
+`safety` job only when `rag_eval_changed` is true; `verify:pr-local` selects it for the
+same scope. Three fixture expectations diverge from current pipeline behaviour and are
+pinned in the harness's self-expiring `KNOWN_DIVERGENCES` register rather than being
+recalibrated away.
 
 ### B3 — Docling lab benchmark (isolated)
 
@@ -349,7 +374,9 @@ work packets, the live status table, checklists, and paste-ready prompts.
 npm run format                      # and COMMIT the result before push
 npm run test:focused -- --files <changed source + tests>
 npm run check:rag:fixtures          # existing golden/snapshot validator
+npm run check:rag:adversarial-fixtures  # adversarial fixture contract (B0)
 npm run eval:rag:offline            # offline RAG suite (Track A PRs)
+npm run eval:rag:adversarial:offline    # offline adversarial harness (B2, RAG-surface PRs)
 npm run verify:pr-local -- --dry-run --files <paths>   # then run selected gate
 npm run check:production-readiness  # domain changes (env flags, answer path)
 ```

@@ -417,6 +417,13 @@ jobs:
         if: needs.changes.outputs.rag_eval_changed == 'true'
         run: npm run eval:rag:offline
 
+      # Packet B2: the adversarial regression harness runs only for RAG-surface
+      # PRs — fixture validation first, then the offline Vitest harness; fails
+      # closed on missing fixture, network attempt, or round-trip budget breach.
+      - name: Offline RAG adversarial regression harness
+        if: needs.changes.outputs.rag_eval_changed == 'true'
+        run: npm run eval:rag:adversarial:offline
+
   coverage:
     name: Unit coverage
     needs: changes
