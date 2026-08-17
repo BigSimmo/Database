@@ -288,7 +288,9 @@ describe("shared-search route ownership", () => {
 
   it("routes a submitted shared-composer search to the selected mode's own surface", () => {
     const dashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
-    const ask = dashboardSource.slice(dashboardSource.indexOf("async function ask("));
+    const ask = sourceFrom(dashboardSource, "async function ask(", {
+      label: "ClinicalDashboard async function ask",
+    });
 
     // Before this branch existed, every mode except documents/prescribing fell
     // through to an in-place executeSearch. That was only safe while `/` plus a

@@ -15,6 +15,7 @@ import {
   isSourceBoundCommunityHomeVisitRequirementsQuery,
   retainCitedExtractiveFallbackEvidence,
 } from "@/lib/rag/rag-extractive-answer";
+import { MEDICATION_DOSE_RISK_STRONG_ROUTE_REASON } from "@/lib/rag/rag-routing";
 import type { RagQueryClass, RetrievalConfidenceGateStatus, SearchResult } from "@/lib/types";
 
 /**
@@ -300,8 +301,8 @@ export function hasValidatedGenericLaiManagementExtractiveAnswer(args: {
   if (
     !genericLaiManagementQuery ||
     args.queryClass !== "medication_dose_risk" ||
-    args.route.mode !== "fast" ||
-    args.route.reason !== "clinical_fast_grounded_synthesis" ||
+    args.route.mode !== "strong" ||
+    args.route.reason !== MEDICATION_DOSE_RISK_STRONG_ROUTE_REASON ||
     !args.sourceBacked
   ) {
     return false;
@@ -337,8 +338,8 @@ export function hasValidatedAgitationArousalTypoDosingExtractiveAnswer(args: {
   if (
     normalizedQuery !== validatedAgitationArousalTypoDosingQuery ||
     args.queryClass !== "medication_dose_risk" ||
-    args.route.mode !== "fast" ||
-    args.route.reason !== "clinical_fast_grounded_synthesis" ||
+    args.route.mode !== "strong" ||
+    args.route.reason !== MEDICATION_DOSE_RISK_STRONG_ROUTE_REASON ||
     args.gateStatus !== "passed" ||
     !args.sourceBacked
   ) {

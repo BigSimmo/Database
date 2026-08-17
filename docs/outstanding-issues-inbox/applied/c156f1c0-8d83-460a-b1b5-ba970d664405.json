@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c156f1c0-8d83-460a-b1b5-ba970d664405",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "eval-canary.yml is post-merge only (repository_dispatch + Sunday cron, no ref input) — record this in docs/rag-behaviour so sessions stop expecting a branch canary",
+    "detail": ".github/workflows/eval-canary.yml triggers on repository_dispatch type eval-canary and schedule cron 0 18 * * 0; it always loads the default branch and has no workflow_dispatch or ref input, so a canary can only ever measure main. Consequence for the RAG programme: 'canary pair' means latest green run on main before the merge -> a dispatch after the merge (gh api repos/BigSimmo/Database/dispatches -f event_type=eval-canary), compared with npm run eval:retrieval:compare -- <baseline.json> <post.json> --fail-on-regression on the eval-canary-output artifacts. Recorded correctly for S1 (baseline run 31964560921 -> post run 32025082010, zero regressions). Next: add one paragraph to docs/rag-behaviour/safeguards.md canary protocol; no workflow change.",
+    "source": "RAG programme coordinator, S1 PR #2022 residuals and #212 handover follow-ups, 2026-08-17",
+    "issueUlid": "01M07SS7D3TYJ0XPNKTBCWS5KV"
+  }
+}

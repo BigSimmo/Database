@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "38e53f36-b48f-4607-b5a0-56efde6dbb3b",
+  "createdOn": "2026-08-17",
+  "action": "cancel",
+  "payload": {
+    "requestId": "6602201c-14f2-46e9-9407-36e56efe13d5",
+    "reason": "Replaced in PR #2037 by a single #212 closure request that also carries tranche 3's row correction, resolving the multiple-pending-mutations conflict."
+  }
+}
