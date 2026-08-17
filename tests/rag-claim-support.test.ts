@@ -106,6 +106,32 @@ describe("deterministic claim support", () => {
     ]);
   });
 
+  it("supports a claim restating a source sentence split by a PDF visual line wrap (#231)", () => {
+    // Measured live 2026-08-17: the EMHS lithium guideline's starting-dose bullet wraps
+    // mid-sentence, so segment-splitting on raw newlines separated 500 mg/over-65 from
+    // 250 mg and a verbatim-faithful high-risk claim read as unsupported.
+    const wrappedDoseBullet = source(
+      "wrapped-dose-bullet",
+      [
+        "Dosage and administration",
+        "",
+        "• The usual oral starting dose for adults is 500 mg nocte and for patients over 65 years it",
+        "is 250 mg nocte.",
+        "• Dose should be titrated against target serum levels.",
+      ].join("\n"),
+      { title: "Lithium Clinical Guideline(EMHS)", file_name: "Lithium Clinical Guideline(EMHS).pdf" },
+    );
+    const input = answer(
+      "The usual oral starting dose for adults is 500 mg nocte and for patients over 65 years it is 250 mg nocte.",
+      [wrappedDoseBullet],
+    );
+
+    const { claims } = assessClaimSupport(input);
+    expect(claims).toHaveLength(1);
+    expect(claims[0]?.supportStatus).toBe("direct");
+    expect(claims[0]?.supportingChunkIds).toEqual(["wrapped-dose-bullet"]);
+  });
+
   it("keeps a wrapped escalation recipient in the directly supporting source segment", () => {
     const wrappedRule = source(
       "wrapped-escalation-rule",
