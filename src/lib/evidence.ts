@@ -491,7 +491,7 @@ const THRESHOLD_PARAMETERS: ThresholdParameter[] = [
   {
     key: "lithium",
     label: "Lithium serum level",
-    pattern: /\b(?:lithium(?: serum)? levels?|serum lithium|li\+? levels?)\b/i,
+    pattern: /\b(?:lithium(?: serum)? levels?|serum lithium|li\+?\s*(?:serum )?levels?)\b/i,
   },
   {
     key: "qtc",
@@ -510,15 +510,122 @@ const THRESHOLD_PARAMETERS: ThresholdParameter[] = [
     label: "Renal function (eGFR/CrCl)",
     pattern: /\b(?:egfr|crcl|creatinine clearance|glomerular filtration rate)\b/i,
   },
+  {
+    key: "potassium",
+    label: "Serum potassium",
+    pattern: /\b(?:potassium|serum potassium|k\+?\s*(?:level|concentration)?)\b/i,
+  },
+  {
+    key: "sodium",
+    label: "Serum sodium",
+    pattern: /\b(?:sodium|serum sodium|na\+?\s*(?:level|concentration)?)\b/i,
+  },
+  {
+    key: "tsh",
+    label: "TSH (thyroid stimulating hormone)",
+    pattern: /\b(?:tsh|thyroid stimulating hormone|thyrotropin)\b/i,
+  },
+  {
+    key: "valproate_level",
+    label: "Valproate serum level",
+    pattern: /\b(?:valproate|valproic acid|epilim|depakote)(?:\s+serum)?\s+levels?\b/i,
+  },
+  {
+    key: "carbamazepine_level",
+    label: "Carbamazepine serum level",
+    pattern: /\b(?:carbamazepine|tegretol)(?:\s+serum)?\s+levels?\b/i,
+  },
+  {
+    key: "lamotrigine_dose",
+    label: "Lamotrigine dose",
+    pattern: /\b(?:lamotrigine|lamictal)(?:\s+dose)?\b/i,
+  },
+  {
+    key: "lithium_dose",
+    label: "Lithium dose",
+    pattern: /\blithium\s+dose\b/i,
+  },
+  {
+    key: "systolic_bp",
+    label: "Systolic blood pressure (SBP)",
+    pattern: /\b(?:systolic\s+(?:bp|blood pressure)|sbp)\b/i,
+  },
+  {
+    key: "diastolic_bp",
+    label: "Diastolic blood pressure (DBP)",
+    pattern: /\b(?:diastolic\s+(?:bp|blood pressure)|dbp)\b/i,
+  },
+  {
+    key: "heart_rate",
+    label: "Heart rate / pulse",
+    pattern: /\b(?:heart rate|pulse|pulse rate|hr)\b/i,
+  },
+  {
+    key: "alt_ast",
+    label: "Liver transaminases (ALT/AST)",
+    pattern: /\b(?:alt|ast|alanine aminotransferase|aspartate aminotransferase)\b/i,
+  },
 ];
 
 const THRESHOLD_COMPARATOR_PATTERN =
-  "<|>|≤|≥|<=|>=|less than|greater than|below|above|under|over|lower than|higher than|fall(?:s|ing)? below|drops? below|exceeds?";
+  "<|>|≤|≥|<=|>=|less than|greater than|below|above|under|over|lower than|higher than|fall(?:s|ing)? below|drops? below|dropped below|exceed(?:s|ed|ing)?";
+
+const PARAMETER_NAMES_SPAN = [
+  "anc",
+  "absolute neutrophil count",
+  "neutrophils?",
+  "wbc",
+  "white (?:blood )?cell(?: count)?",
+  "leu[ck]ocytes?",
+  "platelets?",
+  "lithium(?:\\s+serum)?\\s+levels?",
+  "serum lithium",
+  "li\\+?\\s*(?:serum\\s+)?levels?",
+  `lithium(?:\\s+dose)?(?=[^.\\n;]{0,40}?(?:${THRESHOLD_COMPARATOR_PATTERN})\\s*\\d+(?:\\.\\d+)?\\s*mg\\b)`,
+  "qtc",
+  "qt interval",
+  "clozapine dose",
+  `clozapine(?=[^.\\n;]{0,40}?(?:${THRESHOLD_COMPARATOR_PATTERN})\\s*\\d+(?:\\.\\d+)?\\s*mg\\b)`,
+  "egfr",
+  "crcl",
+  "creatinine clearance",
+  "glomerular filtration rate",
+  "potassium",
+  "serum potassium",
+  "k\\+?(?:\\s*(?:level|concentration))?",
+  "sodium",
+  "serum sodium",
+  "na\\+?(?:\\s*(?:level|concentration))?",
+  "tsh",
+  "thyroid stimulating hormone",
+  "thyrotropin",
+  "valproate(?:\\s+serum)?\\s+levels?",
+  "valproic acid(?:\\s+serum)?\\s+levels?",
+  "epilim(?:\\s+serum)?\\s+levels?",
+  "depakote(?:\\s+serum)?\\s+levels?",
+  "carbamazepine(?:\\s+serum)?\\s+levels?",
+  "tegretol(?:\\s+serum)?\\s+levels?",
+  "lamotrigine dose",
+  "lamictal dose",
+  `lamotrigine(?=[^.\\n;]{0,40}?(?:${THRESHOLD_COMPARATOR_PATTERN})\\s*\\d+(?:\\.\\d+)?\\s*mg\\b)`,
+  "systolic (?:bp|blood pressure)",
+  "sbp",
+  "diastolic (?:bp|blood pressure)",
+  "dbp",
+  "heart rate",
+  "pulse rate",
+  "pulse",
+  "hr",
+  "alt",
+  "ast",
+  "alanine aminotransferase",
+  "aspartate aminotransferase",
+].join("|");
 
 // A threshold parameter within a short window of a comparator and a numeric value.
 // Group 1 = parameter, group 2 = comparator phrase, group 3 = number.
 const THRESHOLD_SPAN_PATTERN = new RegExp(
-  `\\b(anc|absolute neutrophil count|neutrophils?|wbc|white (?:blood )?cell(?: count)?|leu[ck]ocytes?|platelets?|lithium(?: serum)? levels?|serum lithium|li\\+? levels?|qtc|qt interval|clozapine dose|clozapine(?=[^.\\n;]{0,40}?(?:${THRESHOLD_COMPARATOR_PATTERN})\\s*\\d+(?:\\.\\d+)?\\s*mg\\b)|egfr|crcl|creatinine clearance|glomerular filtration rate)\\b[^.\\n;]{0,48}?(${THRESHOLD_COMPARATOR_PATTERN})\\s*(\\d+(?:\\.\\d+)?)`,
+  `\\b(${PARAMETER_NAMES_SPAN})\\b[^.\\n;]{0,48}?(${THRESHOLD_COMPARATOR_PATTERN})\\s*(\\d+(?:\\.\\d+)?)`,
   "gi",
 );
 
@@ -526,35 +633,40 @@ type ThresholdComparator = "lt" | "lte" | "gt" | "gte" | "unknown";
 
 function normalizeThresholdComparator(raw: string | undefined): ThresholdComparator {
   if (!raw) return "unknown";
-  const token = raw.toLowerCase();
+  const token = raw.toLowerCase().trim();
   if (
     token === "<" ||
+    token === "<=" ||
+    token === "≤" ||
     token === "less than" ||
     token === "below" ||
     token === "under" ||
     token === "lower than" ||
+    token === "fall below" ||
     token === "falls below" ||
     token === "falling below" ||
     token === "drop below" ||
-    token === "drops below"
+    token === "drops below" ||
+    token === "dropped below"
   ) {
+    if (token === "≤" || token === "<=") return "lte";
     return "lt";
-  }
-  if (token === "≤" || token === "<=") {
-    return "lte";
   }
   if (
     token === ">" ||
+    token === ">=" ||
+    token === "≥" ||
     token === "greater than" ||
     token === "above" ||
     token === "over" ||
     token === "higher than" ||
-    token === "exceeds"
+    token === "exceed" ||
+    token === "exceeds" ||
+    token === "exceeded" ||
+    token === "exceeding"
   ) {
+    if (token === "≥" || token === ">=") return "gte";
     return "gt";
-  }
-  if (token === "≥" || token === ">=") {
-    return "gte";
   }
   return "unknown";
 }

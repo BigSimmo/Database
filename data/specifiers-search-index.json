@@ -5,41 +5,103 @@
     "contentVersion": "DSM-5-TR / ICD-11 aide-memoire dataset with Australian coding-context note",
     "lastUpdated": "2026-05-09",
     "reviewStatus": "Pending qualified clinician review",
+    "reviewOwner": "Unassigned",
+    "reviewCadence": "Review after DSM/ICD updates and at least annually",
     "scope": "Quick-reference aide-memoire for diagnostic specifiers and clinical notes. It is not a diagnostic instrument, substitute manual, treatment guide, billing/coding authority, or Australian ICD-11 implementation guide.",
     "disclaimer": "Use with formal DSM-5-TR materials, current WHO ICD-11 materials, Australian ICD-10-AM/ACHI/ACS requirements where relevant, local governance, and qualified clinical judgement.",
     "scopeWarning": "This is diagnostic specifier aide-memoire content, not psychotherapy, treatment, prescribing, billing, or diagnostic-manual content.",
     "stats": {
       "categories": 20,
-      "disorders": 131,
-      "groups": 218,
-      "specifierItems": 585,
+      "disorders": 133,
+      "groups": 221,
+      "specifierItems": 588,
       "universalSpecifiers": 18,
-      "itemsWithDefinitions": 71,
-      "itemsPendingClinicianReview": 585
+      "itemsWithDefinitions": 73,
+      "itemsPendingClinicianReview": 588
     },
-    "sourceVerified": 71
+    "sourceVerified": 73
   },
   "categories": [
-    { "id": "ndv", "name": "1. Neurodevelopmental" },
-    { "id": "psy", "name": "2. Schizophrenia Spectrum" },
-    { "id": "bip", "name": "3. Bipolar & Related" },
-    { "id": "dep", "name": "4. Depressive Disorders" },
-    { "id": "anx", "name": "5. Anxiety Disorders" },
-    { "id": "ocd", "name": "6. Obsessive-Compulsive" },
-    { "id": "trm", "name": "7. Trauma & Stressor" },
-    { "id": "dis", "name": "8. Dissociative Disorders" },
-    { "id": "som", "name": "9. Somatic Symptom" },
-    { "id": "eat", "name": "10. Feeding & Eating" },
-    { "id": "eli", "name": "11. Elimination Disorders" },
-    { "id": "slp", "name": "12. Sleep-Wake Disorders" },
-    { "id": "sxd", "name": "13. Sexual Dysfunctions" },
-    { "id": "gen", "name": "14. Gender Dysphoria" },
-    { "id": "imp", "name": "15. Disruptive & Impulse" },
-    { "id": "sub", "name": "16. Substance & Addictive" },
-    { "id": "ncg", "name": "17. Neurocognitive" },
-    { "id": "per", "name": "18. Personality Disorders" },
-    { "id": "par", "name": "19. Paraphilic Disorders" },
-    { "id": "icd", "name": "20. ICD-11 Specifics" }
+    {
+      "id": "ndv",
+      "name": "1. Neurodevelopmental"
+    },
+    {
+      "id": "psy",
+      "name": "2. Schizophrenia Spectrum"
+    },
+    {
+      "id": "bip",
+      "name": "3. Bipolar & Related"
+    },
+    {
+      "id": "dep",
+      "name": "4. Depressive Disorders"
+    },
+    {
+      "id": "anx",
+      "name": "5. Anxiety Disorders"
+    },
+    {
+      "id": "ocd",
+      "name": "6. Obsessive-Compulsive"
+    },
+    {
+      "id": "trm",
+      "name": "7. Trauma & Stressor"
+    },
+    {
+      "id": "dis",
+      "name": "8. Dissociative Disorders"
+    },
+    {
+      "id": "som",
+      "name": "9. Somatic Symptom"
+    },
+    {
+      "id": "eat",
+      "name": "10. Feeding & Eating"
+    },
+    {
+      "id": "eli",
+      "name": "11. Elimination Disorders"
+    },
+    {
+      "id": "slp",
+      "name": "12. Sleep-Wake Disorders"
+    },
+    {
+      "id": "sxd",
+      "name": "13. Sexual Dysfunctions"
+    },
+    {
+      "id": "gen",
+      "name": "14. Gender Dysphoria"
+    },
+    {
+      "id": "imp",
+      "name": "15. Disruptive & Impulse"
+    },
+    {
+      "id": "sub",
+      "name": "16. Substance & Addictive"
+    },
+    {
+      "id": "ncg",
+      "name": "17. Neurocognitive"
+    },
+    {
+      "id": "per",
+      "name": "18. Personality Disorders"
+    },
+    {
+      "id": "par",
+      "name": "19. Paraphilic Disorders"
+    },
+    {
+      "id": "icd",
+      "name": "20. ICD-11 Specifics"
+    }
   ],
   "items": [
     {
@@ -2884,6 +2946,28 @@
       "slug": "specifier-dis-trance-disorder-icd-11-severity-current-severity",
       "label": "Current severity",
       "disorder": "Trance Disorder (ICD-11)",
+      "categoryId": "dis",
+      "category": "8. Dissociative Disorders",
+      "group": "Severity",
+      "src": "source-needs-formal-review",
+      "def": "needs-manual-or-clinician-verification",
+      "meaning": ""
+    },
+    {
+      "slug": "specifier-dis-possession-trance-disorder-icd-11-features-with-without-possession",
+      "label": "Possession trance is a separate ICD-11 diagnosis (6B63)",
+      "disorder": "Possession Trance Disorder (ICD-11)",
+      "categoryId": "dis",
+      "category": "8. Dissociative Disorders",
+      "group": "Features",
+      "src": "source-verified",
+      "def": "defined",
+      "meaning": ""
+    },
+    {
+      "slug": "specifier-dis-possession-trance-disorder-icd-11-severity-current-severity",
+      "label": "Current severity",
+      "disorder": "Possession Trance Disorder (ICD-11)",
       "categoryId": "dis",
       "category": "8. Dissociative Disorders",
       "group": "Severity",
@@ -6401,17 +6485,6 @@
       "meaning": ""
     },
     {
-      "slug": "specifier-icd-trance-disorder-features-with-without-possession",
-      "label": "Possession trance is a separate ICD-11 diagnosis (6B63)",
-      "disorder": "Trance Disorder",
-      "categoryId": "icd",
-      "category": "20. ICD-11 Specifics",
-      "group": "Features",
-      "src": "source-verified",
-      "def": "defined",
-      "meaning": ""
-    },
-    {
       "slug": "specifier-icd-olfactory-reference-disorder-insight-with-good-or-fair-insight",
       "label": "With good or fair insight",
       "disorder": "Olfactory Reference Disorder",
@@ -6473,6 +6546,28 @@
       "categoryId": "icd",
       "category": "20. ICD-11 Specifics",
       "group": "Classification",
+      "src": "source-verified",
+      "def": "defined",
+      "meaning": ""
+    },
+    {
+      "slug": "specifier-icd-trance-disorder-features-with-without-possession",
+      "label": "Possession trance is a separate ICD-11 diagnosis (6B63)",
+      "disorder": "Trance Disorder",
+      "categoryId": "icd",
+      "category": "20. ICD-11 Specifics",
+      "group": "Features",
+      "src": "source-verified",
+      "def": "defined",
+      "meaning": ""
+    },
+    {
+      "slug": "specifier-icd-possession-trance-disorder-features-with-without-possession",
+      "label": "Possession trance is a separate ICD-11 diagnosis (6B63)",
+      "disorder": "Possession Trance Disorder",
+      "categoryId": "icd",
+      "category": "20. ICD-11 Specifics",
+      "group": "Features",
       "src": "source-verified",
       "def": "defined",
       "meaning": ""

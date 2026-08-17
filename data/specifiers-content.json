@@ -15,12 +15,12 @@
   "scopeWarning": "This is diagnostic specifier aide-memoire content, not psychotherapy, treatment, prescribing, billing, or diagnostic-manual content.",
   "stats": {
     "categories": 20,
-    "disorders": 131,
-    "groups": 218,
-    "specifierItems": 585,
+    "disorders": 133,
+    "groups": 221,
+    "specifierItems": 588,
     "universalSpecifiers": 18,
-    "itemsWithDefinitions": 71,
-    "itemsPendingClinicianReview": 585
+    "itemsWithDefinitions": 73,
+    "itemsPendingClinicianReview": 588
   },
   "authoritativeSources": [
     {
@@ -5607,6 +5607,56 @@
                   "review": {
                     "rowKey": "specifier:dis:trance-disorder-icd-11:severity:current-severity",
                     "contentHash": "744755f1",
+                    "sourceVerificationStatus": "source-needs-formal-review",
+                    "clinicianReviewStatus": "clinician-review-pending",
+                    "changedSinceReview": true
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Possession Trance Disorder (ICD-11)",
+          "icd11Context": "ICD-11: 6B63 Possession trance disorder is a separate diagnosis in which identity is replaced by an external identity, spirit, or power.",
+          "groups": [
+            {
+              "label": "Features",
+              "items": [
+                {
+                  "label": "Possession trance is a separate ICD-11 diagnosis (6B63)",
+                  "definition": {
+                    "meaning": "In ICD-11, trance disorder (6B62) and possession trance disorder (6B63) are two distinct diagnoses — not a with/without specifier: 6B62 is a dissociative trance without a replacing identity, and 6B63 is a trance in which identity is replaced by an external identity, spirit, or power. Record the appropriate diagnosis rather than a possession qualifier.",
+                    "clinicalNote": null,
+                    "sourceFamily": "WHO ICD-11 CDDR/MMS",
+                    "status": "defined"
+                  },
+                  "definitionStatus": "defined",
+                  "review": {
+                    "rowKey": "specifier:dis:possession-trance-disorder-icd-11:features:with-without-possession",
+                    "contentHash": "8645b648",
+                    "sourceVerificationStatus": "source-verified",
+                    "clinicianReviewStatus": "clinician-review-pending",
+                    "changedSinceReview": false
+                  }
+                }
+              ]
+            },
+            {
+              "label": "Severity",
+              "items": [
+                {
+                  "label": "Current severity",
+                  "definition": {
+                    "meaning": "Pending clinician verification — confirm this specifier against current DSM-5-TR / ICD-11 materials.",
+                    "clinicalNote": "Auto-generated definition withheld pending qualified clinician review.",
+                    "sourceFamily": "Best-effort DSM-derived clinical anchor pending manual verification",
+                    "status": "needs-manual-or-clinician-verification"
+                  },
+                  "definitionStatus": "needs-manual-or-clinician-verification",
+                  "review": {
+                    "rowKey": "specifier:dis:possession-trance-disorder-icd-11:severity:current-severity",
+                    "contentHash": "744755f2",
                     "sourceVerificationStatus": "source-needs-formal-review",
                     "clinicianReviewStatus": "clinician-review-pending",
                     "changedSinceReview": true
@@ -11970,34 +12020,6 @@
           ]
         },
         {
-          "name": "Trance Disorder",
-          "icd11Context": "ICD-11: 6B62 Trance disorder is a dissociative state without a replacing external identity; the possession form is the separate diagnosis 6B63 Possession trance disorder, not a with/without specifier.",
-          "groups": [
-            {
-              "label": "Features",
-              "items": [
-                {
-                  "label": "Possession trance is a separate ICD-11 diagnosis (6B63)",
-                  "definition": {
-                    "meaning": "In ICD-11, trance disorder (6B62) and possession trance disorder (6B63) are two distinct diagnoses — not a with/without specifier: 6B62 is a dissociative trance without a replacing identity, and 6B63 is a trance in which identity is replaced by an external identity, spirit, or power. Record the appropriate diagnosis rather than a possession qualifier.",
-                    "clinicalNote": null,
-                    "sourceFamily": "WHO ICD-11 CDDR/MMS",
-                    "status": "defined"
-                  },
-                  "definitionStatus": "defined",
-                  "review": {
-                    "rowKey": "specifier:icd:trance-disorder:features:with-without-possession",
-                    "contentHash": "8645b648",
-                    "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        {
           "name": "Olfactory Reference Disorder",
           "icd11Context": "ICD-11 / DSM-5-TR Sec III: Preoccupation with emitting a foul body odour.",
           "groups": [
@@ -12128,6 +12150,62 @@
                   "review": {
                     "rowKey": "specifier:icd:gender-incongruence:classification:reclassified-to-conditions-related-to-sexual-health-not-mental-disorders",
                     "contentHash": "d087543d",
+                    "sourceVerificationStatus": "source-verified",
+                    "clinicianReviewStatus": "clinician-review-pending",
+                    "changedSinceReview": false
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Trance Disorder",
+          "icd11Context": "ICD-11: 6B62 Trance disorder is a dissociative state without a replacing external identity; the possession form is the separate diagnosis 6B63 Possession trance disorder, not a with/without specifier.",
+          "groups": [
+            {
+              "label": "Features",
+              "items": [
+                {
+                  "label": "Possession trance is a separate ICD-11 diagnosis (6B63)",
+                  "definition": {
+                    "meaning": "In ICD-11, trance disorder (6B62) and possession trance disorder (6B63) are two distinct diagnoses — not a with/without specifier: 6B62 is a dissociative trance without a replacing identity, and 6B63 is a trance in which identity is replaced by an external identity, spirit, or power. Record the appropriate diagnosis rather than a possession qualifier.",
+                    "clinicalNote": null,
+                    "sourceFamily": "WHO ICD-11 CDDR/MMS",
+                    "status": "defined"
+                  },
+                  "definitionStatus": "defined",
+                  "review": {
+                    "rowKey": "specifier:icd:trance-disorder:features:with-without-possession",
+                    "contentHash": "8645b648",
+                    "sourceVerificationStatus": "source-verified",
+                    "clinicianReviewStatus": "clinician-review-pending",
+                    "changedSinceReview": false
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Possession Trance Disorder",
+          "icd11Context": "ICD-11: 6B63 Possession trance disorder is a separate diagnosis in which identity is replaced by an external identity, spirit, or power.",
+          "groups": [
+            {
+              "label": "Features",
+              "items": [
+                {
+                  "label": "Possession trance is a separate ICD-11 diagnosis (6B63)",
+                  "definition": {
+                    "meaning": "In ICD-11, trance disorder (6B62) and possession trance disorder (6B63) are two distinct diagnoses — not a with/without specifier: 6B62 is a dissociative trance without a replacing identity, and 6B63 is a trance in which identity is replaced by an external identity, spirit, or power. Record the appropriate diagnosis rather than a possession qualifier.",
+                    "clinicalNote": null,
+                    "sourceFamily": "WHO ICD-11 CDDR/MMS",
+                    "status": "defined"
+                  },
+                  "definitionStatus": "defined",
+                  "review": {
+                    "rowKey": "specifier:icd:possession-trance-disorder:features:with-without-possession",
+                    "contentHash": "8645b649",
                     "sourceVerificationStatus": "source-verified",
                     "clinicianReviewStatus": "clinician-review-pending",
                     "changedSinceReview": false
