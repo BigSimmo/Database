@@ -1,0 +1,10 @@
+# Direct Python dependencies for the isolated Docling lab (docs/rag-improvement/README.md §B3).
+# Regenerate the hashed lock after changing this file:
+#   npm run generate:docling-lab-lock        (requires Python 3.11 — the lab image interpreter)
+#
+# The CPU-only torch index keeps multi-GB CUDA wheels out of the sandbox image; the
+# lab benchmarks extraction on CPU exactly as the worker would run it.
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+docling==2.120.2
+PyMuPDF==1.28.0
