@@ -120,7 +120,7 @@ export function selectedScripts(scope, extended) {
   // Full offline RAG contracts remain mandatory for retrieval/answer surfaces.
   // Other executable changes retain the cheap fixture-integrity guard, while
   // recognised docs and workflow-only changes avoid an unrelated RAG scan.
-  if (scope.rag_eval_changed) add("eval:rag:offline");
+  if (scope.rag_eval_changed) add("eval:rag:offline", "eval:rag:adversarial:offline");
   else if (scope.static_heavy_changed) add("check:rag:fixtures");
   // `data/medication-interaction-index.json` is generated from the medication
   // snapshot plus the curated lexicon, and the UI reads it to decide whether a
@@ -229,6 +229,7 @@ function selfTest() {
     ...commonScripts,
     ...staticHeavyScripts,
     "eval:rag:offline",
+    "eval:rag:adversarial:offline",
     "check:medication-interactions",
     "check:medication-lexicon-report",
   ]);
