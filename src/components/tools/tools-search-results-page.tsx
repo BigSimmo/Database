@@ -2,18 +2,12 @@
 
 import Link from "next/link";
 import {
-  Brain,
+  BadgeCheck,
   ChevronRight,
   ClipboardList,
-  FileCheck2,
-  FileText,
-  Grid2X2,
   Palette,
-  Pill,
   Search,
   ShieldCheck,
-  Star,
-  Users,
   Waves,
   type LucideIcon,
 } from "lucide-react";
@@ -28,11 +22,13 @@ import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favouri
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { CategoryIconTile } from "@/components/category-icon-tile";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { cn, controlBase, floatingControl } from "@/components/ui-primitives";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
 import { normalizeSearchText } from "@/lib/catalog-search";
+import { toolIdentity } from "@/lib/category-identity";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { useAuthSession } from "@/lib/supabase/client";
 import {
@@ -45,16 +41,12 @@ import {
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
-const iconByToolId: Record<string, LucideIcon> = {
-  "clinical-kb-search": Search,
-  differentials: Brain,
-  "medication-prescribing": Pill,
-  "risk-safety": ShieldCheck,
-  documents: FileText,
-  services: Users,
-  forms: FileCheck2,
-  favourites: Star,
-};
+// A partial second copy of the launcher's icon map used to live here: 8 of the
+// 13 tools, with a `?? Grid2X2` fallback that silently gave `guidelines`,
+// `care-plans`, `safety-plan`, `calculators` and `monitoring` a generic grid
+// glyph on this page while the launcher showed them a real one. Identity now
+// comes from `src/lib/category-identity.ts`, where the record is exhaustive by
+// type, so the partial copy cannot come back.
 
 const filterOptions = [
   { id: "all", label: "All tools" },
@@ -72,18 +64,15 @@ function subscribeNoop() {
   return () => undefined;
 }
 
+/**
+ * The tile was hardcoded to `--type-source` for every tool, so the whole results
+ * list read as one purple family while the launcher grouped the same tools into
+ * five. It now takes the area accent, matching both the launcher and the filter
+ * chips above the list.
+ */
 function ToolIcon({ tool, large = false }: { tool: ToolCatalogRecord; large?: boolean }) {
-  const Icon = iconByToolId[tool.id] ?? Grid2X2;
-  return (
-    <span
-      className={cn(
-        "grid shrink-0 place-items-center rounded-xl border border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)] shadow-[var(--shadow-inset)] forced-colors:border",
-        large ? "h-14 w-14" : "h-tap w-tap",
-      )}
-    >
-      <Icon className={large ? "h-7 w-7" : "h-5 w-5"} aria-hidden="true" />
-    </span>
-  );
+  const identity = toolIdentity(tool.id, tool.area);
+  return <CategoryIconTile icon={identity.icon} accent={identity.accent} size={large ? "md" : "sm"} />;
 }
 
 function ToolChips({ tool }: { tool: ToolCatalogRecord }) {
@@ -91,7 +80,7 @@ function ToolChips({ tool }: { tool: ToolCatalogRecord }) {
     <span className="flex flex-wrap gap-1.5">
       {tool.sourceBacked ? (
         <span className="inline-flex min-h-7 items-center gap-1 rounded-full border border-[color:var(--success-border)] bg-[color:var(--success-soft)] px-2.5 text-2xs font-bold text-[color:var(--success)] forced-colors:border">
-          <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+          <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
           Source-backed
         </span>
       ) : null}
