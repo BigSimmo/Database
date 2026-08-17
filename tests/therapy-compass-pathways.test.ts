@@ -219,7 +219,7 @@ describe("Therapy Compass catalogue clinical labelling", () => {
       ["full catalogue", therapies],
     ] as const) {
       const withModality = records
-        .filter((therapy: Record<string, unknown>) => "modality" in therapy && therapy.modality != null)
+        .filter((therapy: Record<string, unknown>) => "modality" in therapy)
         .map((therapy: Record<string, unknown>) => `${therapy.name ?? therapy.slug}`);
       expect(withModality, `${label}: modality must not be present`).toEqual([]);
     }
