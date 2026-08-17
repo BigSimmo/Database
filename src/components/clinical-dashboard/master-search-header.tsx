@@ -2401,6 +2401,7 @@ export function MasterSearchHeader({
           portal
           mobilePlacement="bottom"
           mobileSize="content"
+          mobileHeaderSafeArea="padding"
           testId="app-mode-menu-sheet"
           contentClassName="max-h-[calc(100dvh-0.75rem)] rounded-t-3xl bg-[color:var(--surface-lux)] sm:max-w-md sm:rounded-2xl"
           bodyClassName="bg-[color:var(--surface-lux)] px-2.5 pb-2 pt-0.5"

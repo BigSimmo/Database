@@ -1467,6 +1467,13 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               testId="favourites-filter-panel"
               title="Filter favourites"
               description="Combine sets, item types, pinned status and source support. Recently used remains a view choice."
+              chromeResetKey={[
+                activeQuery,
+                Array.from(effectiveSelectedSetIds).sort().join(","),
+                Array.from(selectedTypeIds).sort().join(","),
+                String(pinnedOnly),
+                String(sourceBackedOnly),
+              ].join("|")}
               groups={filterGroups}
               onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
               summary={{ count: filteredItems.length, noun: filteredItems.length === 1 ? "favourite" : "favourites" }}

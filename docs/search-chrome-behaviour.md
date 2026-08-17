@@ -7,7 +7,7 @@ This repo uses one shared search experience across the global shell, dashboard r
 | Page state                                     | Composer placement                                                          | Reserve owner                                                                  |
 | ---------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | Answer home / standalone mode homes            | In-flow hero composer on phones and larger breakpoints                      | Page content; no fixed phone dock reserve                                      |
-| Tools directory (`/tools`, no submitted query) | In-flow composer above the all-tools results directory                      | Page content; no fixed phone dock reserve                                      |
+| Tools directory (`/tools`, no submitted query) | Compact bottom dock on phones; in-flow hero composer from `sm`              | Shell dock reserve on phones; page content from `sm`                           |
 | Submitted/search-result views                  | Compact bottom dock on phones; in normal page flow on tablets and desktops  | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
 | Answer result view                             | Overlaid glass header plus answer composer dock                             | Dashboard `#main-content` top/bottom reserves                                  |
 | Document detail/source routes                  | `DocumentViewer` floating composer                                          | `DocumentViewer` content padding                                               |
