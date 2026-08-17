@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "632c50f9-6e6a-4247-8b75-11572137e579",
+  "createdOn": "2026-08-17",
+  "action": "done",
+  "payload": {
+    "id": "#6BG9X2",
+    "outcome": "Fixed in PR #2052 (packet S1c): R2 descriptive-norm disjunct in normativeDirectiveActions (digit-anchored, descriptiveContext-guarded, adversarial negatives for care-record prose, unrelated imperatives, and incidental norm-adjacent action words) and R3 adjacent atom-free-segment topic lending confined to the overlap clause with all other gates single-segment. Measured offline before loosening: 87 -> 78 sole-overlap rejections (46 -> 42 unique), zero protective fixture flips across the 613-test offline corpus; discriminating negatives pin cross-bullet dose mis-binding, non-adjacent synthesis, and alien-topic claims. Post-merge canary pair owner-approved. Note: request file emitted via the repo inbox schema because issues:done rejects ULID display ids (issueRowFingerprint is numeric-only)."
+  }
+}
