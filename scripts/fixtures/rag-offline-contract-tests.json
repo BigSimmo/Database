@@ -22,5 +22,6 @@
   "tests/privacy-ui.test.ts",
   "tests/rag-round-trip-budget.test.ts",
   "tests/search-round-trip-budget.test.ts",
-  "tests/search-route-round-trip-budget.test.ts"
+  "tests/search-route-round-trip-budget.test.ts",
+  "tests/rag-adversarial-fixtures.test.ts"
 ]
