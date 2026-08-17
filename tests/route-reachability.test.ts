@@ -482,18 +482,18 @@ for (const entries of Object.values(modeSecondaryNavigationRegistry)) {
 }
 
 // Therapy Compass owns a self-contained route family whose fixed screens are
-// navigated via a local `screenHref(screen)` builder (`go*()` → router.push),
+// navigated via the shared `therapyScreenHref(screen)` builder (`go*()` → router.push),
 // so the sub-route paths never appear as literals a static scan could see. Read
 // the family's reserved segments straight from the source of truth so new screens
-// are picked up automatically. See src/components/therapy-compass/bindings.tsx.
-const tcBindingsSrc = readFileSync(path.join(srcRoot, "components/therapy-compass/bindings.tsx"), "utf8");
-const tcBaseMatch = tcBindingsSrc.match(/const BASE = "([^"]+)"/);
-const tcReservedMatch = tcBindingsSrc.match(/RESERVED_SEGMENTS = new Set\(\[([^\]]*)]\)/);
+// are picked up automatically. See src/lib/therapy-compass-navigation.ts.
+const tcNavigationSrc = readFileSync(path.join(srcRoot, "lib/therapy-compass-navigation.ts"), "utf8");
+const tcBaseMatch = tcNavigationSrc.match(/THERAPY_COMPASS_BASE = "([^"]+)"/);
+const tcReservedMatch = tcNavigationSrc.match(/THERAPY_RESERVED_ROUTE_SEGMENTS = \[([^\]]*)]/);
 // Fail loudly if the source shape changed: a silent `?? default` / empty fallback
 // would drop every reserved Therapy Compass route from the guard without notice.
 if (!tcBaseMatch || !tcReservedMatch) {
   throw new Error(
-    "route-reachability: could not parse BASE / RESERVED_SEGMENTS from therapy-compass/bindings.tsx — " +
+    "route-reachability: could not parse Therapy base / reserved routes from therapy-compass-navigation.ts — " +
       "update this parser to match the current source so reserved routes stay covered.",
   );
 }

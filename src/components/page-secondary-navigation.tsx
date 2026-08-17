@@ -38,10 +38,6 @@ export function PageSecondaryNavigation({
   const locallyOwnedInformationNavigation = hasLocalInformationPageNavigation(pathname);
   const activeId = activeModeSecondaryNavigationId(modeId, pathname);
 
-  // Therapy Compass owns both its workflow bindings and its dynamic detail
-  // sections inside TcProvider; rendering the shell registry as well would
-  // duplicate the bar and discard its URL/state-aware action bindings.
-  if (pathname === "/therapy-compass" || pathname.startsWith("/therapy-compass/")) return null;
   if (locallyOwnedInformationNavigation) return null;
   // A mode with no registered destinations gets no bar and no landmark. The
   // seven that used to register a lone `action` entry each rendered one

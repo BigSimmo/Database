@@ -246,6 +246,7 @@ describe("header addon slot ownership", () => {
       "src/components/services/service-detail-page.tsx",
       "src/components/specifiers/specifier-map-nav-header.tsx",
       "src/components/specifiers/specifier-nav-header.tsx",
+      "src/components/therapy-compass/therapy-record-nav-header.tsx",
     ]);
   });
 
