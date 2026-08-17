@@ -736,4 +736,102 @@ describe("outstanding-issues inbox", () => {
     expect(() => applyRequest(stale, done)).toThrow(/stale|no longer open/);
     expect(() => applyRequest(stale, update)).toThrow(/stale|no longer open/);
   });
+
+  it("rejects done requests targeting archived or nonexistent issues", () => {
+    const ledger = [
+      "<!-- issues:next-id=2 -->",
+      "",
+      "## Recommended execution queue",
+      "",
+      "<!-- prettier-ignore -->",
+      "",
+      "| Order | ID(s) |",
+      "| --- | --- |",
+      "| 1 | `#001` |",
+      "",
+      "## Open items",
+      "",
+      "<!-- prettier-ignore -->",
+      "",
+      "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| #001 | P2 | issue | open task | detail | source | 2026-01-01 |",
+      "",
+      "## Resolved / archive",
+      "",
+      "<!-- prettier-ignore -->",
+      "",
+      "| ID | Type | Summary | Outcome | Resolved |",
+      "| ---- | ---- | ---- | ---- | ---- |",
+      "| #000 | issue | archived task | resolved | 2026-01-01 |",
+      "",
+    ].join("\n");
+
+    const doneArchived = {
+      version: 1,
+      id: "22222222-2222-4222-8222-222222222222",
+      createdOn: "2026-08-14",
+      action: "done",
+      payload: { id: "#000", outcome: "trying to resolve archived" },
+    };
+    expect(() => applyRequest(ledger, doneArchived)).toThrow(/#000 is already archived/);
+
+    const doneMissing = {
+      version: 1,
+      id: "33333333-3333-4333-8333-333333333333",
+      createdOn: "2026-08-14",
+      action: "done",
+      payload: { id: "#999", outcome: "trying to resolve missing" },
+    };
+    expect(() => applyRequest(ledger, doneMissing)).toThrow(/#999 is not in/);
+  });
+
+  it("rejects update requests targeting archived or nonexistent issues", () => {
+    const ledger = [
+      "<!-- issues:next-id=2 -->",
+      "",
+      "## Recommended execution queue",
+      "",
+      "<!-- prettier-ignore -->",
+      "",
+      "| Order | ID(s) |",
+      "| --- | --- |",
+      "| 1 | `#001` |",
+      "",
+      "## Open items",
+      "",
+      "<!-- prettier-ignore -->",
+      "",
+      "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| #001 | P2 | issue | open task | detail | source | 2026-01-01 |",
+      "",
+      "## Resolved / archive",
+      "",
+      "<!-- prettier-ignore -->",
+      "",
+      "| ID | Type | Summary | Outcome | Resolved |",
+      "| ---- | ---- | ---- | ---- | ---- |",
+      "| #000 | issue | archived task | resolved | 2026-01-01 |",
+      "",
+    ].join("\n");
+
+    const updateArchived = {
+      version: 1,
+      id: "44444444-4444-4444-8444-444444444444",
+      createdOn: "2026-08-14",
+      action: "update",
+      payload: { id: "#000", detail: "trying to update archived" },
+    };
+    expect(() => applyRequest(ledger, updateArchived)).toThrow(/#000 is archived/);
+
+    const updateMissing = {
+      version: 1,
+      id: "55555555-5555-4555-8555-555555555555",
+      createdOn: "2026-08-14",
+      action: "update",
+      payload: { id: "#999", detail: "trying to update missing" },
+    };
+    expect(() => applyRequest(ledger, updateMissing)).toThrow(/#999 is not in/);
+  });
 });
