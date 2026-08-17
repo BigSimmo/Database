@@ -3311,6 +3311,7 @@ export function ClinicalDashboard({
         onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
         onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
+        onOpenSearch={focusComposerInput}
         showAccountLibrary={favouritesAccessible}
       />
       <PhoneFooterLayerFrame
@@ -4128,6 +4129,7 @@ export function ClinicalDashboard({
           onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
           onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
           onPrefetchApplications={prefetchApplications}
+          onOpenSearch={focusComposerInput}
           showAccountLibrary={favouritesAccessible}
         />
       </PhoneFooterLayerFrame>
