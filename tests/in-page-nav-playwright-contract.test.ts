@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import { sourceSegment } from "./helpers/source-contract";
+
 /**
  * Guards the Production UI failures that blocked PR #1781:
  *
@@ -20,9 +22,11 @@ const IN_PAGE_NAV_HEADER = "src/components/in-page-nav/in-page-nav-header.tsx";
 describe("in-page-nav Playwright contract", () => {
   it("prescribing smoke asserts the aria-label back name on both desktop and phone", () => {
     const source = readFileSync(UI_SMOKE, "utf8");
-    const prescribingBlock = source.slice(
-      source.indexOf('test("prescribing workflow uses in-app medication routes'),
-      source.indexOf('test("tablet document chrome keeps one new-chat action'),
+    const prescribingBlock = sourceSegment(
+      source,
+      'test("prescribing workflow uses in-app medication routes',
+      'test("tablet document chrome keeps one new-chat action',
+      { label: "prescribing smoke" },
     );
 
     expect(prescribingBlock).toContain('name: "Back to medications"');
@@ -36,9 +40,11 @@ describe("in-page-nav Playwright contract", () => {
     // Medications exact inside medication-page-*; the back control lives in
     // MedicationNavHeader with aria-label "Back to medications".
     const source = readFileSync(UI_SMOKE, "utf8");
-    const quickLinksBlock = source.slice(
-      source.indexOf('test("answer results surface cross-mode quick links"'),
-      source.indexOf('test("answer mode keeps prior turns visible for follow-up questions"'),
+    const quickLinksBlock = sourceSegment(
+      source,
+      'test("answer results surface cross-mode quick links"',
+      'test("answer mode keeps prior turns visible for follow-up questions"',
+      { label: "answer cross-mode quick-links smoke" },
     );
 
     expect(quickLinksBlock).toContain('name: "Back to medications"');

@@ -368,9 +368,38 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   "patient-details-fab__button--active": "patient details dock pill, populated state — no effect contract yet (#094)",
   "patient-details-fab__count": "patient details count badge — no effect contract yet (#094)",
   "medication-mobile-result": "prescribing phone results — no effect contract yet (#094)",
-  "pwa-install-sheet": "install sheet — presence covered by ui-pwa, effect not contracted",
   "search-band-count": "count weight/colour; the zero-result state needs a deterministic empty fixture first",
   "search-band-rule": "gradient divider — forced-colors fallback covered by ui-accessibility",
+
+  // PWA notices. `ui-pwa` deterministically raises the browser install event
+  // and covers the sheet's geometry, reachability, short-viewport scrolling,
+  // composer clearance, reduced motion, and forced-colors fallbacks. These
+  // component effects are not yet individually asserted by the general
+  // computed-style journey.
+  "pwa-action-primary": "PWA primary action — target geometry covered by ui-pwa; effect not contracted yet (#094)",
+  "pwa-action-secondary": "PWA secondary action — target geometry covered by ui-pwa; effect not contracted yet (#094)",
+  "pwa-connection-restored": "PWA connectivity-recovery notice — no deterministic effect contract yet (#094)",
+  "pwa-install-benefits":
+    "PWA benefit list — install-sheet journey covered by ui-pwa; effect not contracted yet (#094)",
+  "pwa-install-body": "PWA install body — install-sheet journey covered by ui-pwa; effect not contracted yet (#094)",
+  "pwa-install-copy": "PWA install copy — install-sheet journey covered by ui-pwa; effect not contracted yet (#094)",
+  "pwa-install-compact-copy":
+    "PWA compact phone proposition — visibility and geometry covered across target widths by ui-pwa",
+  "pwa-install-dismiss": "PWA install dismissal — target geometry covered by ui-pwa; effect not contracted yet (#094)",
+  "pwa-install-grip":
+    "PWA phone-sheet grip — responsive sheet journey covered by ui-pwa; effect not contracted yet (#094)",
+  "pwa-install-header":
+    "PWA install header — install-sheet journey covered by ui-pwa; effect not contracted yet (#094)",
+  "pwa-install-native-sheet":
+    "selector scope for browser-native install prompts; descendant compact-card effects are covered by ui-pwa",
+  "pwa-install-steps":
+    "PWA manual-install steps — install-sheet journey covered by ui-pwa; effect not contracted yet (#094)",
+  "pwa-install-support":
+    "PWA install support copy — install-sheet journey covered by ui-pwa; effect not contracted yet (#094)",
+  "pwa-install-tagline":
+    "PWA install tagline — install-sheet journey covered by ui-pwa; effect not contracted yet (#094)",
+  "pwa-notice-card":
+    "PWA notice card — motion and forced-colors fallbacks covered by ui-pwa; effect not contracted yet (#094)",
 
   // Selector scopes, not effects. `.mode-nav` carries the density-profile/query
   // container context, while `.mode-nav__more` scopes the overflow slot's rules.

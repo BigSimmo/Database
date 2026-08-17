@@ -52,6 +52,9 @@ export const sharedHomePresentation = {
   tools: {
     title: "Clinical Tools",
   },
+  calculators: {
+    title: "Clinical Calculators",
+  },
   "therapy-compass": {
     title: "Therapy Compass",
   },

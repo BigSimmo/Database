@@ -146,6 +146,21 @@ async function openComposer(page: Page, href = "/?mode=documents&focus=1") {
 test.beforeEach(stubZeroTouchPoints);
 
 test.describe("universal search typeahead", () => {
+  test("keeps calculator command suggestions local", async ({ page }) => {
+    let universalRequestCount = 0;
+    await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+      universalRequestCount += 1;
+      await route.fulfill({ status: 204 });
+    });
+
+    const input = await openComposer(page, "/calculators?focus=1");
+    await input.fill("depression");
+    await expect(page.getByRole("option", { name: /depression severity.*PHQ-9/i })).toBeVisible();
+    await page.waitForTimeout(500);
+
+    expect(universalRequestCount).toBe(0);
+  });
+
   test("shows grouped cross-entity results while typing", async ({ page }) => {
     await mockUniversalSearch(page);
     const input = await openComposer(page);

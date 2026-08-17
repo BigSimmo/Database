@@ -132,10 +132,8 @@ describe("PwaLifecycle", () => {
 
     Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
     fireEvent.offline(window);
-    expect(await screen.findByRole("region", { name: "You appear to be offline" })).toBeInTheDocument();
-    expect(
-      screen.getByText(/clinical search, answers, private documents, uploads, and account data require a connection/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "You’re offline" })).toBeInTheDocument();
+    expect(screen.getByText("Clinical search and private features need a connection.")).toBeInTheDocument();
 
     Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
     fireEvent.online(window);
@@ -148,16 +146,16 @@ describe("PwaLifecycle", () => {
 
     Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
     fireEvent.offline(window);
-    expect(await screen.findByRole("region", { name: "You appear to be offline" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "You’re offline" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Dismiss offline notice" }));
-    expect(screen.queryByRole("region", { name: "You appear to be offline" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "You’re offline" })).not.toBeInTheDocument();
 
     Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
     fireEvent.online(window);
     Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
     fireEvent.offline(window);
-    expect(await screen.findByRole("region", { name: "You appear to be offline" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "You’re offline" })).toBeInTheDocument();
   });
 
   it("shows install UI only after browser eligibility and invokes the deferred prompt from a user action", async () => {
@@ -168,6 +166,15 @@ describe("PwaLifecycle", () => {
     const prompt = dispatchInstallEligibility();
     const installRegion = await screen.findByRole("region", { name: "Install Clinical KB" });
     expect(installRegion).toBeInTheDocument();
+    expect(installRegion).toHaveTextContent("Clinical guidelines on your home screen.");
+    expect(installRegion).toHaveTextContent(
+      "Open it from your device like an app. Private clinical features still require a connection.",
+    );
+    expect(installRegion).toHaveTextContent("Free · No app store · Takes a few seconds");
+    expect(screen.getByRole("list", { name: "Install benefits" })).toHaveTextContent(
+      "Quick accessApp-like launchFamiliar workspace",
+    );
+    expect(screen.getByRole("button", { name: "Dismiss install prompt" })).toHaveTextContent("Dismiss");
 
     await user.click(screen.getByRole("button", { name: "Install app" }));
     expect(prompt).toHaveBeenCalledTimes(1);
@@ -181,12 +188,12 @@ describe("PwaLifecycle", () => {
     const user = userEvent.setup();
     render(<PwaLifecycle />);
 
-    expect(await screen.findByText("An update is ready")).toBeInTheDocument();
+    expect(await screen.findByText("Update available")).toBeInTheDocument();
     dispatchInstallEligibility();
     expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument();
     expect(waitingWorker.postMessage).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "Refresh now" }));
+    await user.click(screen.getByRole("button", { name: "Reload" }));
     expect(waitingWorker.postMessage).toHaveBeenCalledWith({ type: "SKIP_WAITING" });
   });
 
@@ -200,8 +207,9 @@ describe("PwaLifecycle", () => {
       container.dispatchEvent(new Event("controllerchange"));
     });
 
-    expect(await screen.findByRole("region", { name: "An update is ready" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Refresh now" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Update available" })).toBeInTheDocument();
+    expect(screen.getByText("Reload when convenient to use the latest version.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Later" })).toBeInTheDocument();
   });
 
@@ -215,7 +223,7 @@ describe("PwaLifecycle", () => {
       container.dispatchEvent(new Event("controllerchange"));
     });
 
-    expect(screen.queryByRole("region", { name: "An update is ready" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Update available" })).not.toBeInTheDocument();
   });
 
   it("shows the one-time iOS Add to Home Screen hint and honours its dismissal window", async () => {
@@ -229,8 +237,12 @@ describe("PwaLifecycle", () => {
       const { unmount } = render(<PwaLifecycle />);
 
       const hint = await screen.findByRole("region", { name: "Install Clinical KB" });
-      expect(hint).toHaveTextContent(/tap Share, then Add to Home Screen/i);
-      expect(hint).toHaveTextContent(/still require a connection/i);
+      expect(hint).toHaveTextContent("In Safari, tap Share, then Add to Home Screen.");
+      expect(hint).toHaveTextContent("Private clinical features still require a connection.");
+      expect(screen.getByRole("list", { name: "Add Clinical KB to your Home Screen" })).toHaveTextContent(
+        "1. Tap Share2. Add to Home Screen",
+      );
+      expect(screen.queryByRole("button", { name: "Install app" })).not.toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "Not now" }));
       await waitFor(() =>

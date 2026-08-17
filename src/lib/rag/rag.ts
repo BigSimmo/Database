@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
 import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-diagnostics";
+import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
 import { answerInstructions } from "@/lib/rag/rag-answer-instructions";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
 import {
@@ -2093,7 +2094,8 @@ export async function searchChunksWithTelemetry(
   // A1: the embedding-field, index-unit, and chunk-hybrid RPCs each depend only on the
   // already-computed query embedding and have no data dependency on one another, so run
   // them concurrently instead of as three sequential Supabase round-trips. The two helper
-  // functions swallow their own RPC errors and resolve to [], so Promise.all cannot reject.
+  // functions resolve their own RPC errors and logged row-shape mismatches to [], so Promise.all
+  // cannot reject when an optional signal layer drifts.
   throwIfAborted(args.signal);
   const parallelRpcStartedAt = Date.now();
   const [embeddingFieldResult, indexUnitResult, hybridResult] = await Promise.all([
@@ -2179,13 +2181,17 @@ export async function searchChunksWithTelemetry(
 
   const { data: hybridData, error: hybridError } = hybridResult;
   if (hybridError) recordHybridRpcError(telemetry, "match_document_chunks_hybrid", hybridError);
-  telemetry.vector_candidate_count = hybridData?.length ?? 0;
-  recordRetrievalLayer(telemetry, "hybrid_vector", hybridData?.length ?? 0, {
+  // On a hybrid RPC error `hybridData` is null, so this validates an empty array and the
+  // existing hybrid-error -> vector-fallback path below is reached unchanged.
+  const hybridRows = hybridData ?? [];
+  assertRetrievalRows(hybridRows, "match_document_chunks_hybrid");
+  telemetry.vector_candidate_count = hybridRows.length;
+  recordRetrievalLayer(telemetry, "hybrid_vector", hybridRows.length, {
     latencyMs: hybridResult.latencyMs,
-    topScore: layerTopScore((hybridData ?? []) as SearchResult[]),
+    topScore: layerTopScore(hybridRows),
   });
   const vectorCandidates = mergeSearchResults(
-    mergeSearchResults((hybridData ?? []) as SearchResult[], embeddingFieldCandidates),
+    mergeSearchResults(hybridRows, embeddingFieldCandidates),
     indexUnitCandidates,
   );
 
@@ -2257,7 +2263,9 @@ export async function searchChunksWithTelemetry(
       );
 
       if (error) throw new Error(error.message);
-      return (data ?? []) as SearchResult[];
+      const rows = data ?? [];
+      assertRetrievalRows(rows, "match_document_chunks");
+      return rows;
     }),
   ).catch((error) => {
     if (!args.forceEmbedding && textFastResults.length > 0) return [] as SearchResult[][];
@@ -4304,15 +4312,7 @@ export async function summarizeDocument(documentId: string, ownerId?: string, op
     } satisfies RagAnswer;
   }
 
-  const documentMetadata = (document as { metadata?: unknown }).metadata;
-  const results = committedChunks.map((chunk) => ({
-    ...chunk,
-    title: document.title,
-    file_name: document.file_name,
-    source_metadata: normalizeOptionalSourceMetadata(documentMetadata),
-    similarity: 1,
-    images: [],
-  })) as SearchResult[];
+  const results = buildDocumentSummaryResults(committedChunks, document);
 
   const summaryInstructions = `Summarize a clinical document for practical psychiatric use in Perth, Australia.
 Use only the excerpts provided. Use a layered response: make the answer field a plain high-yield clinical paragraph,

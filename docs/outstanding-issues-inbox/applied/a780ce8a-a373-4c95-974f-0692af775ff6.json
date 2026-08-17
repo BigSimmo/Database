@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "a780ce8a-a373-4c95-974f-0692af775ff6",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#313",
+    "outcome": "Closed 2026-08-14 by PR #1944. scripts/check-ledger-write-discipline.mjs now reads git status for the paths it governs (docs/outstanding-issues.md, docs/branch-review-ledger.md, and docs/outstanding-issues-inbox/ including applied/) and refuses to report any verdict while one of them is dirty, naming each offending path and its status. Fixed as the row asked — the check was right, it just was not being asked the right question — rather than by relaxing the discipline. Two things only surfaced by running it: the module git() helper trims its output, which ate the leading space of porcelain's \" M path\" status field and shifted every path by one character so the guard silently never fired (the refusal now reads porcelain untrimmed, and tests/ledger-write-discipline.test.ts pins that specific shift); and scripts/guard-push.mjs:899 invokes this gate with an explicit committed --head at a moment when the tree is legitimately dirty, so the refusal fires only when head resolves to the default HEAD, leaving pre-push and clean CI unaffected. No override env var: both callers are unaffected by construction, so an escape hatch would only reopen the hole. Self-test extended with the dirty-tree case plus 9 focused tests. NOT addressed here, still open: the row's related contributing factor that node scripts/outstanding-issues.mjs done and npm run issues:done are different tools with nothing at the call site saying so."
+  }
+}

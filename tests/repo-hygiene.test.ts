@@ -641,7 +641,15 @@ describe("outstanding-issues inbox", () => {
       payload: { pri: "P2", type: "issue", summary: "queued" },
     };
     expect(validateRequest(add)).toEqual([]);
+    const currentAdd = {
+      ...add,
+      version: 2,
+      payload: { ...add.payload, issueUlid: "0000000000ABCDEF0000000000" },
+    };
+    expect(validateRequest(currentAdd)).toEqual([]);
+    expect(validateRequest({ ...currentAdd, payload: { ...currentAdd.payload, issueUlid: "bad" } })).not.toEqual([]);
     expect(validateRequest({ ...add, action: "done", payload: { outcome: "no id" } })).not.toEqual([]);
+    expect(validateRequest({ ...add, action: "done", payload: { id: "#ABCDEF", outcome: "done" } })).toEqual([]);
 
     const ledger = [
       "<!-- issues:next-id=2 -->",
@@ -671,7 +679,9 @@ describe("outstanding-issues inbox", () => {
       "| #000 | issue | old | done | 2026-01-01 |",
       "",
     ].join("\n");
-    expect(applyRequest(ledger, add)).toContain("| #002 | P2 | issue | queued |");
+    const applied = applyRequest(ledger, currentAdd);
+    expect(applied).toContain("| #ABCDEF <!-- issue-ulid:0000000000ABCDEF0000000000 --> | P2 | issue | queued |");
+    expect(applied).toContain("<!-- issues:next-id=2 -->");
   });
 
   it("rejects stale done/update requests when the row hash changed after queueing", () => {

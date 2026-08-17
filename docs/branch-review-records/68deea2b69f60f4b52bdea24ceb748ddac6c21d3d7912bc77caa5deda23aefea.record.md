@@ -1,0 +1,1 @@
+| 2026-08-15 | claude/ledger-review-triage-yi63ao | 6cd9a8547714543aee7b6864c2b7c427309bc4c2 | PR #1977 base sync | Merged main 6f7b7deefaf7e0cd062b748f18fc6ca8988093f6 into the reviewed PR head; merge tree was clean. | git merge-tree --write-tree exact-head main: clean; git diff --check; ledger guards. |

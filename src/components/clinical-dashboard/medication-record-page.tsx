@@ -185,7 +185,10 @@ function SectionCard({ section }: { section: MedicationSection }) {
   return (
     <details
       className="group scroll-mt-16 border-b border-[color:var(--border)] last:border-b-0"
-      open={section.type === "summary" || section.type === "dose"}
+      // The category switcher already limits how much content is on screen.
+      // Open every card on arrival so switching category reveals its complete
+      // reference at once; native details still lets readers fold a card back.
+      open
     >
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 text-left [&::-webkit-details-marker]:hidden">
         <span className="flex min-w-0 items-center gap-2.5">
