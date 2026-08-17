@@ -1,0 +1,58 @@
+{
+  "recordVersion": "docling-lab-gate-b.v1",
+  "status": "template",
+  "note": "Machine-readable Gate B decision record template. The owner copies this file, agrees the thresholds BEFORE dispatching a benchmark run, then fills gates from that run's aggregate report. Validation: node eval/docling/report/build-report.mjs --validate-only (template mode) or --validate-record <copy> --final (owner-filled). Human template: docs/rag-improvement/gate-b-decision-record.md.",
+  "preAgreedThresholds": {
+    "agreedBeforeRun": false,
+    "parseSuccessNonInferiorityMarginPp": null,
+    "numericExactnessNonInferiorityMarginPp": null,
+    "tableHeavyCellF1ImprovementTargetPp": null,
+    "resourceCeilings": "eval/docling/report/lab-config.json (sandbox + outputCaps) at the run's commit_sha"
+  },
+  "reportKey": {
+    "commit_sha": "pending_owner_run",
+    "dataset_version": "pending_owner_run",
+    "eval_config_version": "pending_owner_run",
+    "model_version": "pending_owner_run",
+    "embedding_version": "pending_owner_run",
+    "index_version": "pending_owner_run"
+  },
+  "gates": [
+    {
+      "id": "parse_success",
+      "caseCount": 36,
+      "status": "pending_owner_run",
+      "blockedReason": "No owner-dispatched benchmark run has been recorded; the harness ships without a verdict by design (HANDOVER S6)."
+    },
+    {
+      "id": "resource_bounds",
+      "caseCount": 46,
+      "status": "pending_owner_run",
+      "blockedReason": "No owner-dispatched benchmark run has been recorded; the harness ships without a verdict by design (HANDOVER S6)."
+    },
+    {
+      "id": "table_precision_recall",
+      "caseCount": 12,
+      "status": "pending_owner_run",
+      "blockedReason": "No owner-dispatched benchmark run has been recorded; the harness ships without a verdict by design (HANDOVER S6)."
+    },
+    {
+      "id": "numeric_exactness",
+      "caseCount": 36,
+      "status": "pending_owner_run",
+      "blockedReason": "No owner-dispatched benchmark run has been recorded; the harness ships without a verdict by design (HANDOVER S6)."
+    },
+    {
+      "id": "hostile_containment",
+      "caseCount": 10,
+      "status": "pending_owner_run",
+      "blockedReason": "No owner-dispatched benchmark run has been recorded; the harness ships without a verdict by design (HANDOVER S6)."
+    }
+  ],
+  "decision": {
+    "outcome": "pending_owner_run",
+    "ownerSignoff": null,
+    "date": null,
+    "consequence": "Gate B pass authorises packet B4 (worker shadow mode) design only; fail or deferred leaves the worker untouched and the lab in place."
+  }
+}
