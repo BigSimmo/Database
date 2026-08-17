@@ -14,7 +14,7 @@ so two reports can be compared without guessing what changed between them.
 
 | Field                 | This baseline                                                  | Where it comes from                                                         |
 | --------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `commit_sha`          | `78fe906b8f30e54112d2e33d3d2d09c62c1c4beb`                     | `git rev-parse HEAD` of the evaluated tree. Full 40 characters, enforced.   |
+| `commit_sha`          | `181c847b82fe651b3ce583ed228da5009abf12e4`                     | `git rev-parse HEAD` of the evaluated tree. Full 40 characters, enforced.   |
 | `dataset_version`     | `rag-adversarial-cases.v1`                                     | The fixture dataset's own `datasetVersion`; cross-checked against the file. |
 | `eval_config_version` | `rag-eval-config-v1`                                           | Bumped by hand whenever a case list, threshold, or gate semantic changes.   |
 | `model_version`       | `answer=gpt-5.6-terra; fast=gpt-5.6-terra; strong=gpt-5.6-sol` | The resolved answer-model defaults in `src/lib/env.ts`.                     |

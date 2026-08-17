@@ -4,7 +4,7 @@
   "promptVersion": "clinical-rag-answer-v18",
   "semanticRerankEnabled": false,
   "reportKey": {
-    "commit_sha": "78fe906b8f30e54112d2e33d3d2d09c62c1c4beb",
+    "commit_sha": "181c847b82fe651b3ce583ed228da5009abf12e4",
     "dataset_version": "rag-adversarial-cases.v1",
     "eval_config_version": "rag-eval-config-v1",
     "model_version": "answer=gpt-5.6-terra; fast=gpt-5.6-terra; strong=gpt-5.6-sol",
@@ -38,14 +38,14 @@
       "caseCount": 24,
       "status": "recorded",
       "result": "24 offline contract suites, 597 tests passed; golden fixture validation 36 cases / 24 suites.",
-      "evidence": "npm run eval:rag:offline on this branch over 78fe906b8f30e54112d2e33d3d2d09c62c1c4beb, 2026-08-17: 'Test Files 24 passed (24) / Tests 597 passed (597)'. The 24th suite is tests/rag-adversarial-fixtures.test.ts, added by this packet; the same command reported 23 suites / 583 tests before it."
+      "evidence": "npm run eval:rag:offline on this branch over 181c847b82fe651b3ce583ed228da5009abf12e4, 2026-08-17: 'Test Files 24 passed (24) / Tests 597 passed (597)'. The 24th suite is tests/rag-adversarial-fixtures.test.ts, added by this packet; the same command reported 23 suites / 583 tests before it."
     },
     {
       "id": "adversarial_fixtures",
       "caseCount": 24,
       "status": "recorded",
       "result": "24 synthetic cases across 8 categories, 6 registered canaries, report canary-free.",
-      "evidence": "npm run check:rag:adversarial-fixtures at 78fe906b8f30e54112d2e33d3d2d09c62c1c4beb, 2026-08-17."
+      "evidence": "npm run check:rag:adversarial-fixtures at 181c847b82fe651b3ce583ed228da5009abf12e4, 2026-08-17."
     }
   ]
 }
