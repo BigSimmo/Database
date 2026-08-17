@@ -116,6 +116,9 @@ test-output.txt
 /sample-documents/
 /tmp/
 
+# docling lab run output (generated fixtures, raw measurements, reports)
+/eval/docling/out/
+
 # python
 __pycache__/
 .pytest_cache/
