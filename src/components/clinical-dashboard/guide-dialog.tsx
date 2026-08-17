@@ -18,6 +18,7 @@ import {
   PlayCircle,
   RotateCcw,
   Search,
+  Send,
   ShieldCheck,
   SlidersHorizontal,
   X,
@@ -50,6 +51,7 @@ import {
   chatComposerIconButton,
   chatComposerInput,
   chatComposerShellBase,
+  chatSendButton,
   cn,
   eyebrowText,
   floatingControl,
@@ -87,7 +89,10 @@ function GuideSearch({
     <form
       role="search"
       aria-label="Search guide content"
-      onSubmit={(event) => event.preventDefault()}
+      onSubmit={(event) => {
+        event.preventDefault();
+        inputRef.current?.blur();
+      }}
       data-guide-universal-search
       className="mx-auto w-full max-w-3xl"
     >
@@ -125,6 +130,14 @@ function GuideSearch({
             <X aria-hidden="true" className="size-icon-md" />
           </button>
         ) : null}
+        <span className="answer-footer-search-divider" aria-hidden="true" />
+        <button
+          type="submit"
+          className={cn(chatSendButton, "answer-footer-search-send")}
+          aria-label="Submit guide search"
+        >
+          <Send aria-hidden="true" className="size-icon-lg" />
+        </button>
       </div>
     </form>
   );
