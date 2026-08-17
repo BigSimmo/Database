@@ -177,10 +177,66 @@ export const TOOL_AREA_LABEL: Record<ToolCatalogArea, string> = {
   saved: "Saved",
 };
 
+/**
+ * Factsheet categories.
+ *
+ * The union is declared here rather than imported from the factsheets module so
+ * `lib` never depends on `components`; `factsheets-data.ts` re-exports it, so
+ * there is still only one definition.
+ *
+ * These four were the only per-category accents in the product, and two of them
+ * were built from SEMANTIC tokens: Therapies on `--success-text` and Tests &
+ * procedures on `--warning-text`. A category is a family of content; a semantic
+ * tone is a claim about safety. Painting an entire factsheet category in
+ * warning-amber asserts caution about content nothing has reviewed, and it spends
+ * a colour the badge system needs to mean "pause, check, adjust". All four now
+ * sit on non-semantic identity triads, which also makes them mutually distinct —
+ * Medications previously used the product accent, so it was the same blue as
+ * every selection and focus ring on the page.
+ */
+export type FactsheetCategoryKey = "Medications" | "Conditions" | "Therapies" | "Tests & procedures";
+
+export const FACTSHEET_CATEGORY_IDENTITY: Record<FactsheetCategoryKey, CategoryIdentity> = {
+  Medications: { icon: "pill", accent: "form" },
+  Conditions: { icon: "brainCircuit", accent: "source" },
+  Therapies: { icon: "chat", accent: "service" },
+  "Tests & procedures": { icon: "clipboardList", accent: "table" },
+};
+
 export type CategoryIdentity = {
   icon: CategoryIconKey;
   accent: CategoryAccent;
 };
+
+/**
+ * The CSS custom properties a category accent resolves to.
+ *
+ * Prefer `data-category-accent` on the element and plain `var(--cat-accent)` in
+ * the class string. This exists for the call sites that must pass a colour as a
+ * value — a `linear-gradient` stop, a `color-mix` argument — where an attribute
+ * cannot reach.
+ */
+const TYPE_ACCENTS: readonly CategoryAccent[] = ["document", "table", "search", "source", "service", "form"];
+
+export function categoryAccentVars(accent: CategoryAccent): {
+  accent: string;
+  soft: string;
+  border: string;
+} {
+  if (accent === "clinical") {
+    return {
+      accent: "var(--clinical-accent)",
+      soft: "var(--clinical-accent-soft)",
+      border: "var(--clinical-accent-border)",
+    };
+  }
+  const family = TYPE_ACCENTS.includes(accent) ? "type" : "tone";
+  return {
+    accent: `var(--${family}-${accent})`,
+    soft: `var(--${family}-${accent}-soft)`,
+    border: `var(--${family}-${accent}-border)`,
+  };
+}
 
 /** Resolve a tool's full identity in one call. */
 export function toolIdentity(id: ToolCatalogId, area: ToolCatalogArea): CategoryIdentity {
