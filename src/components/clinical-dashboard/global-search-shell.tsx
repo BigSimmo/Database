@@ -64,6 +64,7 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
+import { focusComposerInput } from "@/components/clinical-dashboard/focus-composer-input";
 
 // Namespaced mode homes share this client shell but never render the dashboard
 // body — keep ClinicalDashboard out of their parse/eval path until `/` needs it.
@@ -825,6 +826,7 @@ function GlobalStandaloneSearchShellBody({
               onPrefetchSettings={loadSettingsDialog}
               onPrefetchAccount={prefetchAccountDialog}
               onPrefetchApplications={prefetchApplications}
+              onOpenSearch={() => focusComposerInput(inputRef)}
             />
           </div>
         </div>
@@ -1049,6 +1051,7 @@ function GlobalStandaloneSearchShellBody({
         onPrefetchSettings={loadSettingsDialog}
         onPrefetchAccount={prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
+        onOpenSearch={() => focusComposerInput(inputRef)}
       />
     </div>
   );
