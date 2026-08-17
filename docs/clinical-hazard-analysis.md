@@ -117,6 +117,22 @@ _Pathway: coverage/confidence/trust gating. Note: the **coverage gate** (`evalua
 | **H5d** | Hardcoded clozapine / patient-property branches in the coverage gate use looser accept criteria than the generic path ([`rag.ts:3726`](../src/lib/rag/rag.ts)) — inconsistent strictness per drug.                                                                                                                                                                                                                                      | Low–Medium             | Medium | downstream gates apply uniformly                                                                                                        | none asserts cross-drug parity                        | Per-drug literals in a safety-adjacent gate.                                                     |
 | **H5e** | Out-of-order response painting the wrong answer under a new question — **controlled**: a monotonic `searchRequestSeqRef` guards every state write incl. streamed progress ([`ClinicalDashboard.tsx`](../src/components/ClinicalDashboard.tsx), audit M10).                                                                                                                                                                              | High (if it regressed) | Low    | request-id guard                                                                                                                        | none (client React logic)                             | Minor: superseded stream has no `AbortController` (resource hygiene only).                       |
 
+**H5a update (2026-08-17, coordinator review):** the fast-path half of H5a is now partially
+mitigated — `deriveConfidence` (`src/lib/rag/rag-answer-support.ts`) computes
+`strongestNonSynthetic` by excluding rows tagged `similarity_origin: "synthetic_text"` and
+gates `"high"` on that value, so title-match synthetic scores no longer reach "high" on their
+own. The **live residual** is a different, untagged path: `buildDocumentSummaryResults`
+(`src/lib/rag/rag-row-contracts.ts`) stamps `similarity: 1` on document-summary rows with no
+origin tag; its only caller is the document-summary route in `rag.ts`, never the general
+answer path. **Owner decision 2026-08-17 — Option B:** add a distinct provenance value
+(`"document_context"`) to the `similarity_origin` union and stamp it on those rows, keep the
+confidence derivation unchanged (on the summary route the "query" is the document itself and
+citation support is still verified by the same pipeline), pin the behaviour with tests, and
+keep telemetry's `synthetic_similarity_count` from counting it. Option A (tag as
+`synthetic_text` so summaries cap at "medium") was considered and rejected as a label
+downgrade without a measured safety gain. Implementation packet: `docs/rag-improvement/HANDOVER.md`
+§G1 (no retrieval behaviour change; no canary).
+
 ### H6 — Adversarial / corrupted document content changes the answer
 
 _Pathway: uploaded document text → model context → answer. Detailed in the companion threat model; summarized here as a hazard._
