@@ -176,14 +176,17 @@ Always a fresh owner ask, every single time:
 
 - **Done (2026-08-17):** #1895, #1899, #1908 (2026-08-13); **#2022 S1** (squash `2bd146eed`);
   **#2024 D1** (`78fe906b8`); **#2035 S1b** (merge `92f7618c0`); **#2036 S4** (`f5b093291`);
-  **#2037 #212 T4** (`1726537b7`); **#2045 R0 reconcile** (28 requests; #212 closed). Canary
+  **#2037 #212 T4** (`1726537b7`); **#2045 R0 reconcile** (28 requests; #212 closed); **#2048 D2** (S1d packet); **#2056 S5** (merge `093f9340c`: B1 `verification_latency_ms` behind `RAG_TELEMETRY_EXTENDED`, B2 `eval:rag:adversarial:offline` with 3 self-expiring divergence pins). Canary
   pairs: S1 baseline 32025082010 → S1b post 32039841070, recall 1.0/1.0, zero per-case rr
   regressions, answer gate 45/45. The first S1b post run (32038751592) was red on one non-golden
   case; root-caused to the finalizer gap-recovery hole → packet S1d, not S1b.
 - **Owner decisions:** R1 before S2; governance Option B; S1d lands before S2.
 - **Wave 1 (dispatch now, parallel, disjoint files):** S1c (`rag-claim-support.ts`), S1d
   (`rag-extractive-answer.ts` finalizer / `rag.ts` fast-failure block), G1 (`types.ts`,
-  `answer-stream-contract.ts`, `rag-row-contracts.ts`), S5 (harness/telemetry), S6 (`eval/docling/`).
+  `answer-stream-contract.ts`, `rag-row-contracts.ts`), S6 (`eval/docling/`). S5 is merged.
+  S5 follow-ups queued as inbox requests: three adversarial divergence pins
+  (`cite-mismatched-attribution`, `scope-other-owner-document`, `scope-guessed-chunk-id`) and
+  the owner decision on enabling `RAG_TELEMETRY_EXTENDED` in production.
   Prompts: HANDOVER §7. Merge order for the RAG-behaviour ones: S1c and S1d each get their own
   canary pair; merge one, run its canary, then the next.
 - **Wave 2:** S2 (+S2b) after S1c and S1d canaries are green. **Wave 3:** S3; S7+ owner decisions.
