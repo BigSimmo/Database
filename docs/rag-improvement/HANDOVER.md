@@ -39,19 +39,19 @@ generation-quality verdict on fallback`), merged 2026-08-13 — structured
 
 ## 2. Status table — update in every programme PR
 
-| Packet   | Scope                                           | Branch                                           | PR    | State                  | Canary / evidence refs |
-| -------- | ----------------------------------------------- | ------------------------------------------------ | ----- | ---------------------- | ---------------------- |
-| Guide    | Programme guide                                 | `claude/rag-plan-review-guide-vhrls9`            | #1895 | Merged 2026-08-13      | docs-only              |
-| Handover | Multi-session handover                          | `claude/rag-plan-review-guide-vhrls9`            | #1908 | Open — this PR         | docs-only              |
-| S0       | A1 phase 1: structured fallback diagnostics     | `claude/lithium-generation-quality-debug-ji1vce` | #1899 | Merged 2026-08-13      | offline 93/93 focused  |
-| S1       | A1 phase 2: evidence-chosen mitigation          | `claude/rag-a1-mitigation-<suffix>`              | —     | Not started            | —                      |
-| S2       | A2: composition menu                            | `claude/rag-a2-composition-<suffix>`             | —     | Blocked on S1 evidence | —                      |
-| S2b      | A3: moderate length (if separate review needed) | `claude/rag-a3-length-<suffix>`                  | —     | Blocked on S2          | —                      |
-| S3       | A4: follow-up suggestion refinement             | `claude/rag-a4-follow-ups-<suffix>`              | —     | Blocked on S2 + S2b    | —                      |
-| S4       | B0: adversarial fixtures + baseline + register  | `claude/rag-b0-adversarial-fixtures-<suffix>`    | —     | Ready (parallel-safe)  | —                      |
-| S5       | B1+B2: telemetry assessment + offline harness   | `claude/rag-b1-b2-harness-<suffix>`              | —     | Blocked on S4          | —                      |
-| S6       | B3: Docling lab benchmark                       | `claude/rag-b3-docling-lab-<suffix>`             | —     | Blocked on S4          | —                      |
-| S7+      | B4 shadow / B5 Ragas / B6 reranker / B7 DSPy    | —                                                | —     | Gated — owner decision | —                      |
+| Packet   | Scope                                           | Branch                                           | PR    | State                                            | Canary / evidence refs                                                                                                                |
+| -------- | ----------------------------------------------- | ------------------------------------------------ | ----- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Guide    | Programme guide                                 | `claude/rag-plan-review-guide-vhrls9`            | #1895 | Merged 2026-08-13                                | docs-only                                                                                                                             |
+| Handover | Multi-session handover                          | `claude/rag-plan-review-guide-vhrls9`            | #1908 | Open — this PR                                   | docs-only                                                                                                                             |
+| S0       | A1 phase 1: structured fallback diagnostics     | `claude/lithium-generation-quality-debug-ji1vce` | #1899 | Merged 2026-08-13                                | offline 93/93 focused                                                                                                                 |
+| S1       | A1 phase 2: evidence-chosen mitigation          | `claude/s1-rag-mitigation-231-86c182`            | TBD   | PR open — rung 1 verification-faithfulness fixes | 8 pre-fix + 5 post-fix live probes 2026-08-17; offline 583/583; rung-2 measurement in `docs/audit/live-drift-forensics-2026-08.md` §5 |
+| S2       | A2: composition menu                            | `claude/rag-a2-composition-<suffix>`             | —     | Blocked on S1 evidence                           | —                                                                                                                                     |
+| S2b      | A3: moderate length (if separate review needed) | `claude/rag-a3-length-<suffix>`                  | —     | Blocked on S2                                    | —                                                                                                                                     |
+| S3       | A4: follow-up suggestion refinement             | `claude/rag-a4-follow-ups-<suffix>`              | —     | Blocked on S2 + S2b                              | —                                                                                                                                     |
+| S4       | B0: adversarial fixtures + baseline + register  | `claude/rag-b0-adversarial-fixtures-<suffix>`    | —     | Ready (parallel-safe)                            | —                                                                                                                                     |
+| S5       | B1+B2: telemetry assessment + offline harness   | `claude/rag-b1-b2-harness-<suffix>`              | —     | Blocked on S4                                    | —                                                                                                                                     |
+| S6       | B3: Docling lab benchmark                       | `claude/rag-b3-docling-lab-<suffix>`             | —     | Blocked on S4                                    | —                                                                                                                                     |
+| S7+      | B4 shadow / B5 Ragas / B6 reranker / B7 DSPy    | —                                                | —     | Gated — owner decision                           | —                                                                                                                                     |
 
 Update rule: the session that opens a packet's PR edits its row (branch, PR number,
 state) in the same PR. A later session updating another packet may also correct stale rows
@@ -65,6 +65,12 @@ owner merges) and never at watching CI.
 
 ### S1 — A1 phase 2: choose and implement the mitigation from evidence (`#231`)
 
+- **Evidence update (2026-08-14 incident):** the mitigation ladder's rung 2 (pre-generation
+  latency) has a live measurement — `supabase_rpc_latency_ms` 31,610 ms from two dropped
+  trigram indexes, restored the same day (now 1,535 ms text / 8,519 ms hybrid). See
+  `docs/audit/live-drift-forensics-2026-08.md` (Phases 1.3 and 5) for the before/after
+  probes; any rung-2 reasoning must start from that file, not from the pre-incident
+  assumption that retrieval latency was healthy.
 - **Precondition:** PR #1899 merged; its diagnostics available. If live
   `generation_quality_gate:*` distributions exist in `rag_queries.metadata`, ask the owner
   for the aggregate counts (reading live Supabase is provider-gated — do not query it
