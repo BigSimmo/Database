@@ -104,7 +104,10 @@ describe("ToggleSwitch", () => {
   it("requires a name when operable", async () => {
     const onToggle = vi.fn();
     render(<ToggleSwitch enabled={false} onToggle={onToggle} aria-label="Pregnancy" />);
-    await userEvent.click(screen.getByRole("switch", { name: "Pregnancy" }));
+    const toggle = screen.getByRole("switch", { name: "Pregnancy" });
+    expect(toggle.className).toMatch(/min-h-tap/);
+    expect(toggle.className).toMatch(/min-w-tap/);
+    await userEvent.click(toggle);
     expect(onToggle).toHaveBeenCalledOnce();
   });
 
