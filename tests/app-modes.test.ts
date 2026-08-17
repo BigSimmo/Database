@@ -187,6 +187,14 @@ describe("app mode search contract", () => {
     );
   });
 
+  it("routes Therapy searches as a first-class local catalogue", () => {
+    const config = appModeSearchConfig("therapy-compass");
+    expect(isSearchableAppMode("therapy-compass")).toBe(true);
+    expect(config.kind).toBe("therapies");
+    expect(config.resultKind).toBe("therapies");
+    expect(appModeHomeHref("therapy-compass", { query: "CBT", run: true })).toBe("/therapy-compass/search?q=CBT&run=1");
+  });
+
   it("keeps source-library shortcut searches in their active mode family", () => {
     expect(appModeCanUseSourceLibraryShortcut("answer")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("tools")).toBe(false);
@@ -308,7 +316,7 @@ describe("app mode search contract", () => {
     expect(isAppModeVisible("prescribing", "production")).toBe(true);
     expect(isAppModeVisible("tools", "production")).toBe(true);
     expect(isAppModeVisible("calculators", "production")).toBe(true);
-    expect(isAppModeVisible("therapy-compass", "production")).toBe(true);
+    expect(isAppModeVisible("therapy-compass", "production")).toBe(false);
     expect(isAppModeVisible("factsheets", "production")).toBe(true);
     expect(productionModes).not.toContain("evidence");
     expect(productionModes).toContain("services");
@@ -321,7 +329,7 @@ describe("app mode search contract", () => {
     expect(productionModes).toContain("prescribing");
     expect(productionModes).toContain("tools");
     expect(productionModes).toContain("calculators");
-    expect(productionModes).toContain("therapy-compass");
+    expect(productionModes).not.toContain("therapy-compass");
     expect(productionModes).toContain("factsheets");
     expect(developmentModes).toEqual(
       expect.arrayContaining([
@@ -344,15 +352,12 @@ describe("app mode search contract", () => {
     expect(developmentModes).not.toContain("evidence");
   });
 
-  it("surfaces Therapy Compass in production discovery after clinician sign-off", () => {
-    // The re-curated therapy pathways have qualified-clinician sign-off, so the
-    // devOnly gate is removed and Therapy is a first-class mode: visible in the
-    // production sidebar and MODE dropdown as well as the dev switcher.
+  it("keeps Therapy Compass behind clinical review in production", () => {
     expect(isAppModeId("therapy-compass")).toBe(true);
     expect(isAppModeVisible("therapy-compass", "development")).toBe(true);
-    expect(isAppModeVisible("therapy-compass", "production")).toBe(true);
+    expect(isAppModeVisible("therapy-compass", "production")).toBe(false);
     expect(visibleAppModeDefinitions("development").map((mode) => mode.id)).toContain("therapy-compass");
-    expect(visibleAppModeDefinitions("production").map((mode) => mode.id)).toContain("therapy-compass");
+    expect(visibleAppModeDefinitions("production").map((mode) => mode.id)).not.toContain("therapy-compass");
   });
 
   it("gates Favourites mode to authenticated or demo sessions", () => {
@@ -408,8 +413,7 @@ describe("app mode search contract", () => {
       differentials: "/differentials?q=clozapine&run=1",
       specifiers: "/specifiers?q=clozapine&run=1",
       formulation: "/formulation?q=clozapine&run=1",
-      // Therapy resolves to its home, which server-redirects to /therapy-compass/search.
-      "therapy-compass": "/therapy-compass?q=clozapine&run=1",
+      "therapy-compass": "/therapy-compass/search?q=clozapine&run=1",
       // Tools has no search route by design: it filters its launcher in place.
       tools: "/tools?q=clozapine&run=1",
       calculators: "/calculators?q=clozapine&run=1",

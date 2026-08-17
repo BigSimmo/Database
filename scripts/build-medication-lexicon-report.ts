@@ -212,9 +212,10 @@ async function main(): Promise<void> {
     }
     if (missed.length === 0) {
       lines.push(
-        "- **Missed class members** — no catalogue drug whose own class or subclass names a term's phrase was" +
-          " left out of that term. Where a class resolves to a single drug, that is the catalogue holding one" +
-          " such drug, not a narrow selector.",
+        "- **Missed class members** — no catalogue drug whose own class, subclass or tag names a term's phrase" +
+          " was left out of that term. Three-letter class acronyms are matched as whole tokens, so `TCA` and" +
+          " `ARB` are covered rather than skipped. Where a class resolves to a single drug, that is the" +
+          " catalogue holding one such drug, not a narrow selector.",
       );
     }
     lines.push("");
@@ -422,8 +423,27 @@ function substringDriven(term: LexiconTerm): boolean {
  *
  * A clean run is worth as much as a hit here: it is what turns "`arbs` resolves
  * to one drug — is the selector too narrow?" into "the catalogue holds one ARB".
+ *
+ * That cuts both ways, which is why this had two blind spots worth naming. A
+ * printed "checked, nothing found" that could not have found anything is worse
+ * than no line at all, because it retires the question.
+ *
+ * 1. The old `stem.length < 4` bail silently disabled the whole check for any
+ *    three-letter class acronym. `tcas`, `arbs` and `ppis` are the three, and
+ *    `tcas`/`arbs` have no surface long enough to carry them, so neither could
+ *    ever report — which is how Dosulepin, subclass `TCA`, sat outside that term's
+ *    20 CRITICAL/HIGH rows unreported. The floor is now 3, the shortest stem any
+ *    real surface produces.
+ *
+ *    Deliberately still a PREFIX match, not a whole-token one. The leading `\b`
+ *    already stops `arb` reaching inside `Carbapenem` — the trap `substringTraps`
+ *    exists for — so anchoring the tail buys no safety, and it would newly MISS a
+ *    subclass spelled `TCAs`, which is the dangerous direction.
+ * 2. The haystack read only `class` and `subclass`, never `tag`. Celecoxib and
+ *    Parecoxib are `COX-2 Inhibitor` by subclass but `NSAID` by tag, so the
+ *    catalogue does call them NSAIDs — in the one field this check ignored.
  */
-function missedClassMembers(
+export function missedClassMembers(
   terms: readonly LexiconTerm[],
   expansions: Map<string, string[]>,
   records: readonly MedicationRecord[],
@@ -435,11 +455,11 @@ function missedClassMembers(
     const missed: string[] = [];
     for (const record of records) {
       if (selected.has(record.slug) || denied.has(record.slug)) continue;
-      const haystack = `${record.class ?? ""} ${record.subclass ?? ""}`.toLowerCase();
+      const haystack = `${record.class ?? ""} ${record.subclass ?? ""} ${record.tag ?? ""}`.toLowerCase();
       const hit = term.surfaces.some((surface) => {
         // Compare singular stems so "NSAIDs" matches a subclass reading "NSAID".
         const stem = surface.toLowerCase().replace(/s$/, "");
-        if (stem.length < 4) return false;
+        if (stem.length < 3) return false;
         return new RegExp(`\\b${stem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(haystack);
       });
       if (hit) missed.push(`${record.name} (${record.subclass ?? record.class})`);

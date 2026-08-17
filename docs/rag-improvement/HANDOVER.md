@@ -1,11 +1,13 @@
 # RAG improvement programme — multi-session handover
 
-**Status:** maintained handover ledger (2026-08-13). This is the context file every cloud
+**Status:** maintained handover ledger (2026-08-17). This is the context file every cloud
 session implementing the programme reads first. The design authority is
 [README.md](README.md) in this directory; the protected-surface rules live in
 `docs/rag-behaviour/`. This file adds what the guide deliberately does not carry: current
 programme state, the per-session work packets, the paste-ready prompts, and the status table
-each session must update.
+each session must update. The coordinator-side layer — who dispatches sessions, merges their
+PRs, and approves canaries, plus the babysit playbook — lives in
+[COORDINATION.md](COORDINATION.md).
 
 **How to use this file (for the agent reading it at session start):**
 
@@ -20,7 +22,7 @@ each session must update.
 
 ---
 
-## 1. Programme state snapshot (as of 2026-08-13)
+## 1. Programme state snapshot (as of 2026-08-17)
 
 - **Landed:** the reviewed/updated programme guide (`docs/rag-improvement/README.md`,
   PR #1895, merged 2026-08-13).
@@ -29,29 +31,59 @@ generation-quality verdict on fallback`), merged 2026-08-13 — structured
   `GenerationQualityError` diagnostics, `generation_quality_gate:*` retry reasons, fallback
   metadata, and the provider-safe `scripts/probe-generation-quality.ts` probe. Sessions S1+
   must treat that content as existing code. Do not re-implement it.
+- **Landed:** **A1 phase 2 (S1) was PR #2022**, merged 2026-08-17 as squash `2bd146eed` —
+  ladder rung 1. On healthy retrieval latency, generation-quality gates still dominated
+  source-only fallbacks (eight owner-approved live probes; the decisive sertraline case
+  generated in 3.9 s and still fell back), so route budgets stayed untouched. Two
+  text-normalisation artefacts were fixed: markdown-emphasis atom splitting
+  (`foldMarkdownEmphasis` in `src/lib/answer-verification.ts`) and PDF visual-wrap
+  claim-segment fragmentation (`reflowBoundedSourceLines(..., { requireContinuationStart })`
+  in `src/lib/rag/rag-source-segmentation.ts`, used by `src/lib/rag/rag-claim-support.ts`).
+  Post-merge canary pair: baseline run 31964560921 (`8f8d111ab`) → post run 32025082010
+  (`2bd146eed`), document/content recall 1.0/1.0, zero per-case rr regressions, answer gate
+  45/45. **Residuals recorded, not fixed:** R1 unbudgeted strong escalation
+  (`fast_unsupported_retry_strong` launches strong generation into the fast route's leftover
+  ~10–13 s; now the dominant lithium fallback mode as `provider_timeout`) → packet S1b; R2
+  directive-normativity strictness (`normativeDirectiveActions` lacks "usual / recommended …
+  dose is …" phrasing) and R3 topic-overlap dilution → packet S1c.
+- **Owner decisions 2026-08-17:** (1) **R1 before S2** — A2/A3 add answer length, and length
+  under the still-unbudgeted strong retry pushes more dosing queries into `provider_timeout`,
+  not fewer; (2) **governance Option B** for the document-summary `similarity: 1` question
+  (see G1 below): add a provenance tag, keep the confidence label, no canary.
+- **Sibling stream sharing `src/lib/rag/**`:** ledger `#212` runtime row contracts. T1 (PR
+  #1946, `rag.ts`), T2 (PR #1981, `rag-candidate-sources.ts`) and T3 (PR #2023,
+  `src/app/api/**`, squash `440a34f71`) are merged; the RAG surface is complete for that
+  defect class. T4 (`worker/main.ts`) is its own PR. Any RAG-surface packet here must not
+  re-touch the row-contract helpers in `src/lib/rag/rag-row-contracts.ts` except G1.
 - **Key issue refs:** `#231` (source-only degradation with healthy retrieval — A1), `#001`
   (semantic rerank stays off — constrains B6), `#100` (perceived latency / no token
-  streaming — constrains A1), `#292` (check open PRs before acting on a queued item).
+  streaming — constrains A1), `#292` (check open PRs before acting on a queued item), `#212`
+  (row contracts), `#324` / `#330` (verify landing by content after squash merges).
 - **Decisive constraint from #231:** the 35–40 s route-budget probes were tested and
   rejected — generation completed inside the deadline and still failed the quality gate.
   Never "fix" A1 by raising `answerRouteBudgetMs` without new evidence that directly rebuts
-  that recorded result.
+  that recorded result. S1's evidence (2026-08-17) re-confirmed it.
 
 ## 2. Status table — update in every programme PR
 
-| Packet   | Scope                                           | Branch                                           | PR    | State                  | Canary / evidence refs |
-| -------- | ----------------------------------------------- | ------------------------------------------------ | ----- | ---------------------- | ---------------------- |
-| Guide    | Programme guide                                 | `claude/rag-plan-review-guide-vhrls9`            | #1895 | Merged 2026-08-13      | docs-only              |
-| Handover | Multi-session handover                          | `claude/rag-plan-review-guide-vhrls9`            | #1908 | Open — this PR         | docs-only              |
-| S0       | A1 phase 1: structured fallback diagnostics     | `claude/lithium-generation-quality-debug-ji1vce` | #1899 | Merged 2026-08-13      | offline 93/93 focused  |
-| S1       | A1 phase 2: evidence-chosen mitigation          | `claude/rag-a1-mitigation-<suffix>`              | —     | Not started            | —                      |
-| S2       | A2: composition menu                            | `claude/rag-a2-composition-<suffix>`             | —     | Blocked on S1 evidence | —                      |
-| S2b      | A3: moderate length (if separate review needed) | `claude/rag-a3-length-<suffix>`                  | —     | Blocked on S2          | —                      |
-| S3       | A4: follow-up suggestion refinement             | `claude/rag-a4-follow-ups-<suffix>`              | —     | Blocked on S2 + S2b    | —                      |
-| S4       | B0: adversarial fixtures + baseline + register  | `claude/rag-b0-adversarial-fixtures-<suffix>`    | —     | Ready (parallel-safe)  | —                      |
-| S5       | B1+B2: telemetry assessment + offline harness   | `claude/rag-b1-b2-harness-<suffix>`              | —     | Blocked on S4          | —                      |
-| S6       | B3: Docling lab benchmark                       | `claude/rag-b3-docling-lab-<suffix>`             | —     | Blocked on S4          | —                      |
-| S7+      | B4 shadow / B5 Ragas / B6 reranker / B7 DSPy    | —                                                | —     | Gated — owner decision | —                      |
+| Packet     | Scope                                                                                                           | Branch                                           | PR                    | State                                                     | Canary / evidence refs                                                                                                                                                                                                                                                                      |
+| ---------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Guide      | Programme guide                                                                                                 | `claude/rag-plan-review-guide-vhrls9`            | #1895                 | Merged 2026-08-13                                         | docs-only                                                                                                                                                                                                                                                                                   |
+| Handover   | Multi-session handover + coordination                                                                           | `claude/rag-plan-review-guide-vhrls9`            | #1908 / #2024         | Merged 2026-08-13; coordination layer PR #2024            | docs-only                                                                                                                                                                                                                                                                                   |
+| S0         | A1 phase 1: structured fallback diagnostics                                                                     | `claude/lithium-generation-quality-debug-ji1vce` | #1899                 | Merged 2026-08-13                                         | offline 93/93 focused                                                                                                                                                                                                                                                                       |
+| S1         | A1 phase 2: rung-1 verification-faithfulness fixes                                                              | `claude/s1-rag-mitigation-231-86c182`            | #2022                 | Merged 2026-08-17 (squash `2bd146eed`, landed by content) | 8 pre-fix + 5 post-fix live probes 2026-08-17; offline 583/583; canary pair run 31964560921 (baseline `8f8d111ab`) -> run 32025082010 (`2bd146eed`): recall 1.0/1.0, zero per-case rr regressions, answer gate 45/45; rung-2 measurement in `docs/audit/live-drift-forensics-2026-08.md` §5 |
+| S1b        | A1 rung 3 (R1): pre-deadline strong routing for dosing class                                                    | `claude/s1b-rag-dosing-routing-6u1mik`           | #2035                 | Merged 2026-08-17 (PR #2035, merge `92f7618`)             | canary pair pending: baseline run 32025082010 (`2bd146eed`) -> post-merge dispatch (owner-approved); offline 586/586 + verify:pr-local heavy scope green                                                                                                                                    |
+| S1c        | A1 residuals R2 + R3: claim-support strictness                                                                  | `claude/rag-a1-r2-r3-claim-support-<suffix>`     | —                     | Blocked on S1b + its canary                               | needs canary pair                                                                                                                                                                                                                                                                           |
+| G1         | Governance: provenance tag for document-summary rows (Option B)                                                 | `claude/rag-g1-document-context-origin-<suffix>` | —                     | Ready — disjoint; owner decided Option B 2026-08-17       | no canary (no behaviour change)                                                                                                                                                                                                                                                             |
+| S2         | A2 (+A3): composition menu + moderate length                                                                    | `claude/rag-a2-composition-<suffix>`             | —                     | Blocked on S1b + S1c                                      | canary pair + `eval:answer-quality` + Gate E                                                                                                                                                                                                                                                |
+| S2b        | A3: moderate length (if separate review needed)                                                                 | `claude/rag-a3-length-<suffix>`                  | —                     | Blocked on S2                                             | —                                                                                                                                                                                                                                                                                           |
+| S3         | A4: follow-up suggestion refinement                                                                             | `claude/rag-a4-follow-ups-<suffix>`              | —                     | Blocked on S2 + S2b                                       | —                                                                                                                                                                                                                                                                                           |
+| S4         | B0: adversarial fixtures + baseline + register                                                                  | `claude/packet-s4-adversarial-fixtures-5ho5tp`   | #2036                 | PR open 2026-08-17 — awaiting owner merge                 | Offline only: `check:rag:adversarial-fixtures` 24 cases / 8 categories / 6 canaries; `eval:rag:offline` 24 suites, 597 tests. Baseline `scripts/fixtures/rag-adversarial-baseline.v1.json` marks the three provider-backed gates `pending_owner_run`                                        |
+| S5         | B1+B2: telemetry assessment + offline harness                                                                   | `claude/rag-b1-b2-harness-<suffix>`              | —                     | Blocked on S4                                             | —                                                                                                                                                                                                                                                                                           |
+| S6         | B3: Docling lab benchmark                                                                                       | `claude/rag-b3-docling-lab-<suffix>`             | —                     | Blocked on S4                                             | —                                                                                                                                                                                                                                                                                           |
+| S7+        | B4 shadow / B5 Ragas / B6 reranker / B7 DSPy                                                                    | —                                                | —                     | Gated — owner decision                                    | —                                                                                                                                                                                                                                                                                           |
+| #212 T1–T3 | Runtime row contracts (rag.ts, rag-candidate-sources.ts, src/app/api) — sibling stream sharing `src/lib/rag/**` | —                                                | #1946 / #1981 / #2023 | Merged (T3 squash `440a34f71` 2026-08-17)                 | see the #212 ledger row; RAG surface complete for the cast class                                                                                                                                                                                                                            |
+| #212 T4    | Runtime row contracts: `worker/main.ts` (11 casts) — sibling stream                                             | `claude/ledger-212-tranche-4-worker-q3y6i4`      | #2037                 | PR open 2026-08-17                                        | Governance Preflight complete; audit: 1 inbound cast (claim rows, per-row fail-soft) + 2 read-back param casts contracted, 9 outbound/interop left; closes #212 (inbox `done` queued in the PR)                                                                                             |
 
 Update rule: the session that opens a packet's PR edits its row (branch, PR number,
 state) in the same PR. A later session updating another packet may also correct stale rows
@@ -65,6 +97,12 @@ owner merges) and never at watching CI.
 
 ### S1 — A1 phase 2: choose and implement the mitigation from evidence (`#231`)
 
+- **Evidence update (2026-08-14 incident):** the mitigation ladder's rung 2 (pre-generation
+  latency) has a live measurement — `supabase_rpc_latency_ms` 31,610 ms from two dropped
+  trigram indexes, restored the same day (now 1,535 ms text / 8,519 ms hybrid). See
+  `docs/audit/live-drift-forensics-2026-08.md` (Phases 1.3 and 5) for the before/after
+  probes; any rung-2 reasoning must start from that file, not from the pre-incident
+  assumption that retrieval latency was healthy.
 - **Precondition:** PR #1899 merged; its diagnostics available. If live
   `generation_quality_gate:*` distributions exist in `rag_queries.metadata`, ask the owner
   for the aggregate counts (reading live Supabase is provider-gated — do not query it
@@ -87,6 +125,66 @@ owner merges) and never at watching CI.
   behaviour changes.
 - **Done:** PR open with the mitigation, its evidence trail (which gate reasons dominated,
   why this rung of the ladder), and a fallback-rate non-inferiority argument.
+
+### S1b — A1 rung 3 (R1): route the dosing class to the strong route before the deadline
+
+- **Precondition:** S1 merged (PR #2022, `2bd146eed`) and its canary pair green. Owner decision
+  2026-08-17: R1 lands before S2. Check the open PR list for a routing PR first (`#292`).
+- **Evidence:** S1's post-fix probes left "Lithium dosing?" 4/4 source-only, 3/4 as
+  `provider_timeout`: `fast_unsupported_retry_strong` launches a strong generation into the
+  fast route's leftover ~10–13 s and only the truncation self-heal is
+  `deadlineAllowsGenerationRetry`-gated. The fix is routing, not budget.
+- **Work:** in `chooseAnswerRoute` (`src/lib/rag/rag-routing.ts`) route the dosing /
+  `medication_dose_risk` class (and `drug_dosing` only if evidence supports) to the strong
+  route **before** the route deadline is created. Do not change
+  `shouldRetryWithStrongAfterFast` as the fix; do not touch `answerRouteBudgetMs`,
+  `OPENAI_ANSWER_TIMEOUT_MS`, any quality gate, or fallback caching. Non-dosing classes keep
+  their routing unchanged and the PR must argue that explicitly.
+- **Files:** `src/lib/rag/rag-routing.ts`, targeted tests. `rag.ts` has a 4,362-line
+  no-growth budget — extract, never raise.
+- **Gates:** focused vitest on routing, `eval:rag:offline`, `check:rag:fixtures`,
+  `check:production-readiness` (answer routing changed), `verify:pr-local`; `RAG impact:
+behaviour change — canary pair <latest green baseline> -> <post-merge dispatch>` (owner
+  approves the dispatch); Clinical Governance Preflight. Live probes only with owner approval
+  and always `node --env-file=.env.local scripts/run-tsx.mjs scripts/probe-generation-quality.ts "<query>"`.
+- **Done:** PR open with the routing diff, offline proof, and the fallback-rate
+  non-inferiority argument for non-dosing classes.
+
+### S1c — A1 residuals R2 + R3: claim-support strictness
+
+- **Precondition:** S1b merged and its canary green (keeps canary attribution clean).
+- **Work:** R2 — add a `normativeDirectiveActions` pattern in `src/lib/rag/rag-claim-support.ts`
+  for guideline phrasing "usual / recommended … dose is …" so imperative claims ("start
+  lithium at 500 mg nocte") verify against descriptive norms, with adversarial negatives
+  proving unrelated imperatives still fail. R3 — a claim synthesising two adjacent source
+  bullets fails the ≥50 % single-segment topic-overlap requirement even when every atom
+  matches; **measure** how often before loosening anything, and loosen only with a
+  discriminating negative test. Both reproduce offline on the EMHS lithium chunk.
+- **Hard boundaries:** no grounding-gate weakening beyond the two named artefacts; no
+  retrieval/ranking edit; no budget change.
+- **Gates:** as S1b; `RAG impact: behaviour change — canary pair …`; Clinical Governance
+  Preflight; `check:production-readiness`.
+
+### G1 — governance decision: provenance tag for document-summary rows (Option B)
+
+- **Decision (owner, 2026-08-17):** `buildDocumentSummaryResults`
+  (`src/lib/rag/rag-row-contracts.ts`) stamps `similarity: 1` on document-summary rows with
+  no `similarity_origin`; its only caller is the document-summary route in `rag.ts`, never
+  the general answer path; `deriveConfidence` (`src/lib/rag/rag-answer-support.ts`) excludes
+  only `"synthetic_text"` from `strongestNonSynthetic`. On the summary route the "query" is
+  the document itself and citation support is still verified by the same pipeline, so the
+  "high" label stays. Option A (tag as `synthetic_text` → summaries cap at "medium") is
+  recorded as rejected.
+- **Work:** add a new origin value (proposed `"document_context"`) to the
+  `similarity_origin` union in `src/lib/types.ts` and to `src/lib/answer-stream-contract.ts`;
+  stamp it in `buildDocumentSummaryResults`; leave `deriveConfidence` unchanged and pin it
+  with tests (tagged doc-summary rows still reach "high"; `synthetic_text` rows still do
+  not); `rag.ts` `synthetic_similarity_count` must not count the new value; update
+  `docs/clinical-hazard-analysis.md` H5a.
+- **Gates:** focused vitest, `eval:rag:offline`, `check:rag:fixtures`, `verify:pr-local`;
+  `RAG impact: no retrieval behaviour change — provenance tag only; confidence derivation
+unchanged, pinned by test`; Clinical Governance Preflight. No canary.
+- **Precondition:** none — disjoint from S1b/S1c/T4; may run in parallel.
 
 ### S2 — A2 composition, with a separately reviewable A3 length fallback
 
@@ -244,6 +342,41 @@ inside the session.
 > in order; do not change route budgets without evidence rebutting #231's recorded stop
 > condition. No provider-backed commands or live canary dispatches without asking me first.
 > Finish at an open PR with ledger append and an updated HANDOVER status row, then stop.
+
+**S1b (A1 rung 3 — R1 routing):**
+
+> Implement packet S1b from `docs/rag-improvement/HANDOVER.md` in BigSimmo/Database: route the
+> dosing / `medication_dose_risk` class to the strong route in `chooseAnswerRoute`
+> (`src/lib/rag/rag-routing.ts`) before the route deadline is created, per README §A1 ladder
+> rung 3 and S1's recorded residual R1. Read the S1b packet, README §A1, and
+> `docs/rag-behaviour/` first — protected surface; flag RAG impact in your first message. Do
+> not change route budgets, quality gates, or `shouldRetryWithStrongAfterFast`. Reproduce
+> routing offline with focused tests; ask me before any live probe (probe needs
+> `node --env-file=.env.local`). Gates: focused vitest, `eval:rag:offline`,
+> `check:rag:fixtures`, `check:production-readiness`, `verify:pr-local` — paste decisive
+> lines; `npm run format` and commit before push. PR: full template, `RAG impact: behaviour
+change — canary pair …`, Clinical Governance Preflight, non-inferiority argument for
+> non-dosing classes. Ledger append, HANDOVER S1b row, stop at the open PR. Handoff for the
+> next chat: produce the tailored S1c prompt.
+
+**S1c (R2 + R3):**
+
+> Implement packet S1c from `docs/rag-improvement/HANDOVER.md` in BigSimmo/Database: the
+> `normativeDirectiveActions` phrasing pattern (R2) and the measured topic-overlap decision
+> (R3) in `src/lib/rag/rag-claim-support.ts`, with adversarial negatives. Protected surface —
+> flag RAG impact first. No grounding-gate weakening beyond the two named artefacts, no
+> retrieval edit, no budget change. Gates and PR body as S1b. Stop at the open PR.
+
+**G1 (governance Option B):**
+
+> Implement packet G1 from `docs/rag-improvement/HANDOVER.md` in BigSimmo/Database: add the
+> `similarity_origin` value `"document_context"` to the union in `src/lib/types.ts` and to
+> `src/lib/answer-stream-contract.ts`, stamp it in `buildDocumentSummaryResults`
+> (`src/lib/rag/rag-row-contracts.ts`), keep `deriveConfidence` unchanged and pin it with
+> discriminating tests, keep `synthetic_similarity_count` from counting it, and update
+> `docs/clinical-hazard-analysis.md` H5a with the decision. Protected surface — flag RAG
+> impact first; `RAG impact: no retrieval behaviour change — provenance tag only`. Clinical
+> Governance Preflight. No canary. Stop at the open PR.
 
 **S2 (A2 + A3):**
 

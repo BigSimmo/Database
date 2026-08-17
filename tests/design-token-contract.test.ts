@@ -1,7 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
+
+import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 /**
  * Invariants of the Clinical Sky token system in `src/app/globals.css`.
@@ -173,7 +175,8 @@ describe("elevation ladder", () => {
   it("keeps the retired --shadow-tight token deleted across the tracked tree", () => {
     const tracked = execFileSync("git", ["ls-files", "src"], { encoding: "utf8" })
       .split("\n")
-      .filter((file) => /\.(tsx?|css)$/.test(file));
+      .filter((file) => /\.(tsx?|css)$/.test(file))
+      .filter((file) => existsSync(new URL(`../${file}`, import.meta.url)));
 
     const survivors = tracked.flatMap((file) => {
       const source = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
@@ -215,14 +218,22 @@ describe("elevation ladder", () => {
   });
 
   it("flattens the ladder itself under forced colors, not only the role aliases", () => {
-    const forced = globals.slice(globals.indexOf("@media (forced-colors: active)"));
+    const forced = sourceFrom(
+      globals,
+      "@media (forced-colors: active) {\n  :root,\n  .dark {\n    --background: Canvas;",
+      {
+        label: "globals.css theme forced-colors block",
+      },
+    );
     for (const tier of ["--e1", "--e2", "--e3", "--e4"]) {
       expect(forced, `${tier} must be neutralised in forced-colors mode`).toContain(`${tier}: none;`);
     }
   });
 
   it("pins the complete v2 forced-colors selector group", () => {
-    const forced = v2Stylesheet.slice(v2Stylesheet.indexOf("@media (forced-colors: active)"));
+    const forced = sourceFrom(v2Stylesheet, "@media (forced-colors: active)", {
+      label: "v2 forced-colors block",
+    });
     expect(forced).toMatch(/\.ckb-v2\.ckb-v2,\s+\.dark \.ckb-v2\.ckb-v2,\s+\.ckb-v2\.dark\.ckb-v2\s*\{/);
   });
 });
@@ -328,7 +339,9 @@ describe("disabled and pre-paint values", () => {
     // APP_THEME_COLORS paints before any stylesheet loads; a drift here is a
     // flash of the wrong page colour and a mismatched browser chrome bar.
     const theme = readFileSync(new URL("../src/lib/theme.ts", import.meta.url), "utf8");
-    const appThemeColors = theme.slice(theme.indexOf("export const APP_THEME_COLORS"));
+    const appThemeColors = sourceFrom(theme, "export const APP_THEME_COLORS", {
+      label: "theme.ts export const APP_THEME_COLORS",
+    });
     expect(appThemeColors).toContain(`light: "${colourOf(v2Light, "--background")}"`);
     expect(appThemeColors).toContain(`dark: "${colourOf(v2Dark, "--background")}"`);
   });
@@ -381,7 +394,8 @@ describe("type scale floor", () => {
     // arrival. Mockups are NOT exempt here — a dead class breaks them too.
     const tracked = execFileSync("git", ["ls-files", "src"], { encoding: "utf8" })
       .split("\n")
-      .filter((file) => /\.(tsx?|css)$/.test(file));
+      .filter((file) => /\.(tsx?|css)$/.test(file))
+      .filter((file) => existsSync(new URL(`../${file}`, import.meta.url)));
 
     const orphans = tracked.flatMap((file) => {
       const source = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
@@ -420,6 +434,7 @@ describe("leading vocabulary", () => {
     const production = execFileSync("git", ["ls-files", "src"], { encoding: "utf8" })
       .split("\n")
       .filter((file) => /\.(tsx?|css)$/.test(file))
+      .filter((file) => existsSync(new URL(`../${file}`, import.meta.url)))
       .filter((file) => !/mockup/i.test(file));
 
     const offenders = production.flatMap((file) => {
@@ -448,8 +463,9 @@ describe("focus ring", () => {
     // stack a second affordance AND replace whatever resting elevation the
     // control had, since a blanket rule cannot know it. tests/ui-smoke.spec.ts
     // asserts the rendered consequence; this asserts the rule itself.
-    const rule = globals.slice(globals.indexOf(':where(button, a, summary, input[type="checkbox"]'));
-    const body = rule.slice(0, rule.indexOf("}"));
+    const body = sourceSegment(globals, ':where(button, a, summary, input[type="checkbox"]', "}", {
+      label: "shared focus rule body",
+    });
     expect(body).toContain("outline: 2px solid var(--focus)");
     expect(body, "the shared focus rule must not paint a box-shadow").not.toContain("box-shadow");
   });
