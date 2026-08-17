@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
 import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-diagnostics";
+import { answerLatencyMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
 import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
 import { answerInstructions } from "@/lib/rag/rag-answer-instructions";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
@@ -3910,9 +3911,7 @@ ${qualityRetryInstruction}`
           retrieval_strategy: search.telemetry.retrieval_strategy,
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
-          search_latency_ms: searchLatencyMs,
-          generation_latency_ms: generationLatencyMs,
-          total_latency_ms: answer.latencyTimings?.total_latency_ms ?? Date.now() - startedAt,
+          ...answerLatencyMetadata(searchLatencyMs, generationLatencyMs, answer.latencyTimings, startedAt),
           openai_request_ids: openAIRequestIds,
           openai_usage: answer.openAIUsage ?? null,
           evidence_summary: answer.evidenceSummary,
@@ -4282,9 +4281,7 @@ ${qualityRetryInstruction}`
           retrieval_strategy: "generation_fallback",
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
-          search_latency_ms: searchLatencyMs,
-          generation_latency_ms: generationLatencyMs,
-          total_latency_ms: fallbackAnswer.latencyTimings?.total_latency_ms ?? Date.now() - startedAt,
+          ...answerLatencyMetadata(searchLatencyMs, generationLatencyMs, fallbackAnswer.latencyTimings, startedAt),
           openai_request_ids: fallbackAnswer.openAIRequestIds,
           openai_usage: fallbackAnswer.openAIUsage,
           evidence_summary: fallbackAnswer.evidenceSummary,

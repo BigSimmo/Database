@@ -1,0 +1,28 @@
+{
+  "labConfigVersion": "docling-lab-config-v1",
+  "reportKeySources": {
+    "eval_config_version": "docling-lab-config-v1",
+    "model_version": "answer=gpt-5.6-terra; fast=gpt-5.6-terra; strong=gpt-5.6-sol",
+    "embedding_version": "text-embedding-3-small@1536"
+  },
+  "extractorVersions": {
+    "legacy": "src/lib/extractors/document.ts + worker/python/extract_pdf_assets.py (pymupdf==1.28.0, worker/python/requirements.txt)",
+    "docling": "docling==2.120.2 (eval/docling/requirements.txt)"
+  },
+  "sandbox": {
+    "cpus": 2,
+    "memoryBytes": 6442450944,
+    "pidsLimit": 256,
+    "tmpfsBytes": 1073741824,
+    "networking": "none",
+    "user": "non-root",
+    "perDocumentWallClockSeconds": 120,
+    "hostilePerDocumentWallClockSeconds": 60,
+    "runWallClockSeconds": 3600
+  },
+  "outputCaps": {
+    "perDocumentTextBytes": 67108864,
+    "totalRawBytes": 536870912,
+    "reportBytes": 1048576
+  }
+}
