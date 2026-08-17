@@ -53,16 +53,14 @@ and explicitly not a result for this tree.
 **To complete the baseline:** with owner approval, dispatch the `eval-canary` pair at the merge
 commit, then flip each pending gate to `recorded` with its run id, and update `commit_sha`.
 
-## 3. Open discrepancy — the answer gate denominator
+## 3. Resolved discrepancy — the answer gate denominator is 44
 
-`HANDOVER.md` §1 records "answer gate 45/45" for canary run `32025082010` at `2bd146eed`.
-`src/lib/rag/rag-eval-cases.ts` defines **44** `ragEvalCases`, both at `2bd146eed` and at this
-baseline commit, and `scripts/eval-rag.ts` reports its rates over `results.length`. The two do
-not reconcile, and this record does not guess which is right: the gate is recorded as 44 cases
-with the discrepancy stated.
-
-Reconcile it against run `32025082010`'s own report before treating either number as the
-baseline. Packet S5 is the natural place, since its harness consumes this record.
+Reconciled by packet S5 (2026-08-17) against run `32025082010`'s own report (job
+`95372702769`): the report prints `## Answer Metrics | Cases | 44 |`, `Failing Answer
+Cases — None`, and its per-case diagnostics table lists exactly 44 rows — matching the 44
+`ragEvalCases` in `src/lib/rag/rag-eval-cases.ts` at both `2bd146eed` and this baseline
+commit. `HANDOVER.md`'s original "45/45" was a transcription error and has been corrected
+to 44/44. The gate denominator recorded here (44) stands.
 
 ## 4. Related
 
