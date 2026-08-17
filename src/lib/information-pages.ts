@@ -4,8 +4,8 @@
  * the floating composer on read-focused routes.
  *
  * Basic chrome for these pages lives in `src/components/information-page-shell.tsx`.
- * Intentional opt-outs from that shell (different product chrome): document viewer,
- * therapy-compass CSS workspace, differentials presentation workflow.
+ * Intentional opt-outs from that shell (different product chrome): document viewer
+ * and the differentials presentation workflow.
  */
 
 export type InformationPageMode =
@@ -81,5 +81,6 @@ export const informationPageShellModes = [
   "specifiers",
   "formulation",
   "factsheets",
+  "therapy-compass",
   "dsm",
 ] as const satisfies readonly InformationPageMode[];

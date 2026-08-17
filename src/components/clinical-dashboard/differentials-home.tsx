@@ -23,7 +23,10 @@ import {
 } from "lucide-react";
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  SearchResultsHeaderBand,
+  type AppliedFilterChip,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
@@ -34,7 +37,6 @@ import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/univ
 import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
 import { useResultSort } from "@/components/use-result-sort";
 import { Chip as DesignChip } from "@/components/ui/chip";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
@@ -831,6 +833,17 @@ function SearchResultsView({
     () => sortResultItems(relevanceResults, sortValue, (result) => result.title),
     [relevanceResults, sortValue],
   );
+  const appliedFilters: AppliedFilterChip[] =
+    kindFilter === "all"
+      ? []
+      : [
+          {
+            id: "result-type",
+            groupLabel: "Show",
+            valueLabel: kindFilter === "presentation" ? "Presentations" : "Diagnoses",
+            onRemove: () => setKindFilter("all"),
+          },
+        ];
   // Keep the feature card inside the active result type while preserving the
   // relevance winner when the visible list is presented alphabetically.
   const best = relevanceResults[0] ?? null;
@@ -949,6 +962,8 @@ function SearchResultsView({
         }
         sortValue={sortValue}
         onSortChange={setSortValue}
+        appliedFilters={appliedFilters}
+        onClearFilters={kindFilter === "all" ? undefined : () => setKindFilter("all")}
         filterLabel="Filter differential result type"
         // A compact badged trigger, so it shares the count line.
         mobileControlsPlacement="inline"
@@ -963,11 +978,13 @@ function SearchResultsView({
           />
         }
         filterControls={
-          <SegmentedControl
-            value={kindFilter}
-            onChange={setKindFilter}
-            options={kindFilterOptions}
-            label="Result type"
+          <ResultFilterTrigger
+            panelId={filterPanelId}
+            testId="differential-filter-trigger-desktop"
+            title="Filter differentials"
+            open={filterOpen}
+            activeCount={kindFilter === "all" ? 0 : 1}
+            onToggle={() => setFilterOpen((current) => !current)}
           />
         }
       />
@@ -989,7 +1006,10 @@ function SearchResultsView({
           }),
         ]}
         onClearAll={kindFilter === "all" ? undefined : () => setKindFilter("all")}
-        footerNote={`${visibleResults.length} showing`}
+        summary={{
+          count: visibleResults.length,
+          noun: visibleResults.length === 1 ? "result" : "results",
+        }}
       />
       {catalogLoading ? (
         <div className="grid gap-2" aria-hidden data-testid="differentials-results-loading">

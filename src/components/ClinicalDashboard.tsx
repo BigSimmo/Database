@@ -55,6 +55,7 @@ import {
 import { useAuthSession } from "@/lib/supabase/client";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
+import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
 import * as SidebarDialogs from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
@@ -2187,7 +2188,7 @@ export function ClinicalDashboard({
     if (searchMode === "documents" && trimmedQuery) {
       rememberRecentQuery(trimmedQuery);
       autoRunSearchSignatureRef.current = searchSubmissionSignature(searchMode, trimmedQuery, navigationContext);
-      window.history.pushState(
+      window.history[replaceExistingAnswer ? "replaceState" : "pushState"](
         null,
         "",
         documentsSearchHref({
@@ -3217,6 +3218,7 @@ export function ClinicalDashboard({
   const handleCrossModeSearch = useEventCallback(crossModeSearch);
   const handleDocumentTagSearch = useEventCallback(handleTagSearch);
   const handleScopeFiltersChange = useScopeFilterRelax(query, queryMode, setScopeFilters, ask);
+  const handleDocumentFiltersApply = useApplyFilters(query, queryMode, setScopeFilters, setSelectedDocumentIds, askRef);
   const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
   const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
   const handleDocumentsDrawerOpenChange = useEventCallback((nextOpen: boolean) => {
@@ -3762,6 +3764,8 @@ export function ClinicalDashboard({
                         onTagSearch={handleDocumentTagSearch}
                         scopeFilters={searchMode === "documents" ? scopeFilters : null}
                         onScopeFiltersChange={searchMode === "documents" ? handleScopeFiltersChange : undefined}
+                        selectedDocumentIds={searchMode === "documents" ? selectedDocumentIds : []}
+                        onDocumentFiltersApply={searchMode === "documents" ? handleDocumentFiltersApply : undefined}
                         showHome={searchMode === "documents" && !modeSearchSubmitted}
                         desktopComposerSlotId={desktopHomeComposerSlotId}
                       />

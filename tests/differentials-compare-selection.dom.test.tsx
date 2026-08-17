@@ -144,7 +144,13 @@ describe("DifferentialsHome compare selection URL handoff", () => {
     });
 
     await act(async () => {
+      screen.getByTestId("differential-filter-trigger-phone").click();
+    });
+    await act(async () => {
       screen.getByRole("radio", { name: "Presentations (0)" }).click();
+    });
+    await act(async () => {
+      screen.getByTestId("differential-filter-panel-done").click();
     });
 
     expect(screen.getByTestId("differentials-filter-empty-results")).toBeVisible();

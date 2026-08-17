@@ -32,7 +32,7 @@ const dashboardResultComposerSlotSource = read(
 const composerSlotSource = read("src/lib/mode-home-composer.ts");
 const phoneHeaderPortalSource = read("src/components/clinical-dashboard/phone-header-collapse-portal.tsx");
 const phoneFooterPortalSource = read("src/components/clinical-dashboard/phone-footer-layer-portal.tsx");
-const therapyNavSource = read("src/components/therapy-compass/nav.tsx");
+const registryModeNavSource = read("src/components/mode-nav/registry-mode-nav.tsx");
 const modeNavSource = read("src/components/mode-nav/mode-nav.tsx");
 const modeNavPortalSource = read("src/components/mode-nav/mode-nav-portal.tsx");
 const documentViewerSource = read("src/components/DocumentViewer.tsx");
@@ -349,9 +349,9 @@ describe("shared header hide/reveal wiring", () => {
     // negatively alone, a `nav.tsx` that had dropped navigation entirely would
     // still pass. Therapy never names the portal itself — it delegates to
     // `ModeNav` — so the positive half of the assertion has to follow that hop.
-    expect(therapyNavSource).toContain("<ModeNav ");
+    expect(registryModeNavSource).toContain("<ModeNav");
     expect(modeNavSource).toContain("<ModeNavHeaderPortal>{bar}</ModeNavHeaderPortal>");
-    expect(therapyNavSource).not.toContain("PhoneHeaderCollapsePortal");
+    expect(registryModeNavSource).not.toContain("PhoneHeaderCollapsePortal");
     expect(modeNavPortalSource).toContain("phoneHeaderCollapseAddonSlotId");
     expect(modeNavPortalSource).toContain("createPortal(children, host)");
     expect(documentViewerSource).toContain("<PhoneHeaderCollapsePortal>");
