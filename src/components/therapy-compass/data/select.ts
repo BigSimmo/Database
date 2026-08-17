@@ -195,7 +195,6 @@ export function relatedTherapies(all: Therapy[], therapy: Therapy, n = 4): Thera
     if (t.category === therapy.category) s += 5;
     const shared = t.tags.filter((tag) => therapy.tags.includes(tag)).length;
     s += shared * 2;
-    if (t.modality && t.modality === therapy.modality) s += 1;
     return { t, s };
   });
   scored.sort((a, b) => b.s - a.s || a.t.name.localeCompare(b.t.name));
@@ -236,7 +235,7 @@ export const RECOMMEND_CONSTRAINTS: RecommendConstraint[] = [
   {
     key: "skills",
     label: "Skills",
-    match: (t) => lc(`${t.tags.join(" ")} ${t.modality}`).match(/skill|dbt|cbt|behav/) != null,
+    match: (t) => lc(t.tags.join(" ")).match(/skill|dbt|cbt|behav/) != null,
   },
   {
     key: "psychoeducation",

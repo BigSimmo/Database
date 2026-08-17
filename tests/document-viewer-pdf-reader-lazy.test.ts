@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
+import { sourceFrom } from "./helpers/source-contract";
+
 const viewerSource = readFileSync(
   fileURLToPath(new URL("../src/components/DocumentViewer.tsx", import.meta.url)),
   "utf8",
@@ -39,7 +41,9 @@ describe("DocumentViewer PDF reader loading", () => {
       'import { PdfPreviewLoading } from "@/components/document-viewer/pdf-preview-loading"',
     );
 
-    const canvasBlock = readersLazySource.slice(readersLazySource.indexOf("export const PdfCanvasViewer = dynamic("));
+    const canvasBlock = sourceFrom(readersLazySource, "export const PdfCanvasViewer = dynamic(", {
+      label: "PdfCanvasViewer dynamic declaration",
+    });
     expect(canvasBlock).toContain("ssr: false");
     expect(canvasBlock).toContain("loading: () => <PdfPreviewLoading />");
   });
