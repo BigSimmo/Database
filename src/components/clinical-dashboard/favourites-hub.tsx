@@ -15,6 +15,7 @@ import {
   panelSubtle,
   primaryControl,
 } from "@/components/ui-primitives";
+import { MissingValue } from "@/components/ui/missing-value";
 import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 import {
   favouriteItems,
@@ -205,13 +206,13 @@ export function FavouritesHub({
           {[
             {
               label: "Items",
-              value: libraryCountsTrusted ? String(itemCount) : "—",
+              value: libraryCountsTrusted ? String(itemCount) : <MissingValue reason="unknown" density="cell" />,
               icon: Heart,
               countBearing: true,
             },
             {
               label: "Sets",
-              value: libraryCountsTrusted ? String(setCount) : "—",
+              value: libraryCountsTrusted ? String(setCount) : <MissingValue reason="unknown" density="cell" />,
               icon: Folder,
               countBearing: true,
             },

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import { pageContainer } from "@/components/ui-primitives";
+import { MissingValue } from "@/components/ui/missing-value";
 
 import { useTcBindings } from "../bindings";
 import { commandControl, outlineControl, therapyBtn } from "../controls";
@@ -127,10 +128,16 @@ export function RecommendScreen() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-[1px] bg-[color:var(--border)] border border-[color:var(--border)] rounded-lg overflow-hidden">
-              <MatchCell eyebrow="WHAT IT TREATS" text={top.bestUsedFor || top.indications || "—"} />
+              <MatchCell
+                eyebrow="WHAT IT TREATS"
+                text={top.bestUsedFor || top.indications || <MissingValue reason="not_recorded" />}
+              />
               <MatchCell
                 eyebrow="HOW IT HELPS"
-                text={summarise(top.mechanism, 1) || summarise(top.clinicalSummary, 1) || "—"}
+                text={
+                  summarise(top.mechanism, 1) ||
+                  summarise(top.clinicalSummary, 1) || <MissingValue reason="not_recorded" />
+                }
               />
               <MatchCell
                 eyebrow="WHERE TO START"
@@ -187,8 +194,17 @@ export function RecommendScreen() {
                     ))}
                   </div>
                 </div>
-                <ColMini eyebrow="TREATS" text={summarise(top === t ? "" : t.bestUsedFor, 1) || t.bestUsedFor || "—"} />
-                <ColMini eyebrow="FIRST STEP" text={t.timeRequired || t.setting || "—"} />
+                <ColMini
+                  eyebrow="TREATS"
+                  text={
+                    summarise(top === t ? "" : t.bestUsedFor, 1) ||
+                    t.bestUsedFor || <MissingValue reason="not_recorded" />
+                  }
+                />
+                <ColMini
+                  eyebrow="FIRST STEP"
+                  text={t.timeRequired || t.setting || <MissingValue reason="not_recorded" />}
+                />
                 <div className="flex gap-1.5">
                   <button
                     type="button"
@@ -231,7 +247,7 @@ function MatchCell({
   children,
 }: {
   eyebrow: string;
-  text: string;
+  text: ReactNode;
   tone?: "accent";
   children?: ReactNode;
 }) {
@@ -249,7 +265,7 @@ function MatchCell({
   );
 }
 
-function ColMini({ eyebrow, text }: { eyebrow: string; text: string }) {
+function ColMini({ eyebrow, text }: { eyebrow: string; text: ReactNode }) {
   return (
     <div className="min-w-0">
       <div className="text-3xs font-bold tracking-label text-[color:var(--text-muted)] mb-1">{eyebrow}</div>

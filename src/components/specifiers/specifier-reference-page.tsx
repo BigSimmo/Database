@@ -12,6 +12,7 @@ import {
   Tags,
 } from "lucide-react";
 
+import { MissingValue } from "@/components/ui/missing-value";
 import {
   CategoryTag,
   DiagnosisChips,
@@ -256,12 +257,19 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
                 <p className={eyebrowText}>Review status</p>
               </div>
               <dl className="divide-y divide-[color:var(--border)]">
-                {[
-                  ["Source", sourceStatusLabel[item.review.sourceVerificationStatus]],
-                  ["Clinician review", "Pending qualified review"],
-                  ["Source family", item.definition?.sourceFamily ?? item.review.sourceFamily ?? "—"],
-                  ["Content hash", item.review.contentHash],
-                ].map(([label, body]) => (
+                {(
+                  [
+                    ["Source", sourceStatusLabel[item.review.sourceVerificationStatus]],
+                    ["Clinician review", "Pending qualified review"],
+                    [
+                      "Source family",
+                      item.definition?.sourceFamily ?? item.review.sourceFamily ?? (
+                        <MissingValue reason="not_recorded" density="cell" />
+                      ),
+                    ],
+                    ["Content hash", item.review.contentHash],
+                  ] as Array<[string, ReactNode]>
+                ).map(([label, body]) => (
                   <div key={label} className="px-4 py-3">
                     <dt className="text-xs font-extrabold text-[color:var(--text-heading)]">{label}</dt>
                     <dd className="mt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{body}</dd>

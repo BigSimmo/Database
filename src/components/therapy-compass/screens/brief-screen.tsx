@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
+import { MissingValue } from "@/components/ui/missing-value";
 import { Tabs } from "@/components/ui/tabs";
 import { BrowserPrintButton, PrintOutput } from "@/components/ui/print-output";
 import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
@@ -198,8 +199,14 @@ export function BriefScreen() {
                     </button>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-[1px] bg-[color:var(--border)] border border-[color:var(--border)] rounded-lg overflow-hidden">
-                    <MetaCell eyebrow="GOAL" text={t.bestUsedFor || t.indications || "—"} />
-                    <MetaCell eyebrow="FIRST STEP" text={steps[0] || summarise(durationText, 1) || "—"} />
+                    <MetaCell
+                      eyebrow="GOAL"
+                      text={t.bestUsedFor || t.indications || <MissingValue reason="not_recorded" />}
+                    />
+                    <MetaCell
+                      eyebrow="FIRST STEP"
+                      text={steps[0] || summarise(durationText, 1) || <MissingValue reason="not_recorded" />}
+                    />
                     <MetaCell
                       eyebrow="CAUTIONS"
                       tone="warning"
@@ -332,7 +339,7 @@ export function BriefScreen() {
   );
 }
 
-function MetaCell({ eyebrow, text, tone }: { eyebrow: string; text: string; tone?: "warning" }) {
+function MetaCell({ eyebrow, text, tone }: { eyebrow: string; text: ReactNode; tone?: "warning" }) {
   return (
     <div
       className={`rounded-lg p-3 ${tone === "warning" ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : "bg-[color:var(--surface-inset)]"}`}

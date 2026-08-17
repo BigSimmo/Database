@@ -1,6 +1,7 @@
 "use client";
 
 import { cn, textMuted } from "@/components/ui-primitives";
+import { MissingValue } from "@/components/ui/missing-value";
 import type { ImageRow } from "@/components/document-viewer/types";
 
 /**
@@ -56,7 +57,7 @@ export function DocumentImageFilmstrip({
             )}
           >
             <span className={cn("nums shrink-0", isActive ? undefined : textMuted)}>
-              {page === null ? "—" : `p.${page}`}
+              {page === null ? <MissingValue reason="unknown" density="cell" /> : `p.${page}`}
             </span>
             <span className="max-w-[9rem] truncate">{shortLabel}</span>
           </button>

@@ -214,7 +214,8 @@
         "src/components/DocumentManagementActions.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/auth-panel.tsx",
-        "src/components/clinical-dashboard/search-results-header-band.tsx"
+        "src/components/clinical-dashboard/search-results-header-band.tsx",
+        "src/components/ui/error-state.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -715,8 +716,8 @@
       "source": "src/components/ui/error-state.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
-      "productImportFiles": [],
+      "directImportFiles": ["src/components/clinical-dashboard/search-results-header-band.tsx"],
+      "productImportFiles": ["src/components/clinical-dashboard/search-results-header-band.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -736,8 +737,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -1044,11 +1045,25 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
+        "src/components/clinical-dashboard/favourites-hub.tsx",
+        "src/components/document-viewer/document-image-filmstrip.tsx",
+        "src/components/specifiers/specifier-reference-page.tsx",
+        "src/components/therapy-compass/screens/brief-screen.tsx",
+        "src/components/therapy-compass/screens/compare-screen.tsx",
+        "src/components/therapy-compass/screens/recommend-screen.tsx",
+        "src/components/therapy-compass/ui.tsx",
         "src/components/ui/answer-card.tsx",
         "src/components/ui/date-display.tsx"
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
+        "src/components/clinical-dashboard/favourites-hub.tsx",
+        "src/components/document-viewer/document-image-filmstrip.tsx",
+        "src/components/specifiers/specifier-reference-page.tsx",
+        "src/components/therapy-compass/screens/brief-screen.tsx",
+        "src/components/therapy-compass/screens/compare-screen.tsx",
+        "src/components/therapy-compass/screens/recommend-screen.tsx",
+        "src/components/therapy-compass/ui.tsx",
         "src/components/ui/answer-card.tsx",
         "src/components/ui/date-display.tsx"
       ],
@@ -2781,7 +2796,7 @@
         {
           "file": "src/components/therapy-compass/ui.tsx",
           "exists": true,
-          "imports": ["Chip", "LoadingPanel"],
+          "imports": ["Chip", "LoadingPanel", "MissingValue"],
           "importedFamilies": ["controls", "feedback"],
           "literalCkbV2": false,
           "dynamicCkbV2": false,
@@ -3181,8 +3196,8 @@
         {
           "file": "src/components/clinical-dashboard/search-results-header-band.tsx",
           "exists": true,
-          "imports": ["AsyncButton"],
-          "importedFamilies": ["controls"],
+          "imports": ["AsyncButton", "ErrorState"],
+          "importedFamilies": ["controls", "feedback"],
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
@@ -3432,7 +3447,7 @@
   "summary": {
     "registeredComponentCount": 54,
     "previewCount": 54,
-    "productImportedComponentCount": 33,
+    "productImportedComponentCount": 34,
     "rootCount": 59,
     "productionRouteCount": 51,
     "nextUiEntryCount": 103

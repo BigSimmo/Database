@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
 import { AsyncButton, cn } from "@/components/ui-primitives";
+import { ErrorState } from "@/components/ui/error-state";
 import { appModeSearchConfig, type AppModeId } from "@/lib/app-modes";
 import { readResultSort, type ResultSortValue } from "@/lib/result-sort";
 
@@ -223,13 +224,6 @@ export function SearchResultsHeaderBand({
   // word, which would mangle the acronym in "DSM diagnoses".
   const searchConfig = appModeSearchConfig(modeId);
   const resultNoun = searchConfig?.resultHeading?.replace(/ matches$/i, "s") ?? "Results";
-  const resolvedFaultTitle =
-    faultTitle ?? (resolvedStatus === "unauthorized" ? "Sign in to continue" : `${resultNoun} could not be loaded`);
-  const resolvedFaultBody =
-    faultBody ??
-    (resolvedStatus === "unauthorized"
-      ? "Your session has expired. Sign in again to run this search."
-      : "The search could not be completed. Try again shortly.");
   const [retrying, setRetrying] = useState(false);
   const retry = async () => {
     if (!onRetry) return;
@@ -688,37 +682,17 @@ export function SearchResultsHeaderBand({
           singular role queries in jsdom and Playwright still resolve to exactly
           one node each. */}
       {faulted ? (
-        <div
-          role="alert"
-          data-testid="search-query-ribbon-fault"
-          className="search-band-fault-panel border-t border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-3 text-center sm:px-4"
-        >
-          <p className="search-band-fault text-[color:var(--warning)]">{resolvedFaultTitle}</p>
-          <p className="search-band-count-word mt-0.5 text-[color:var(--warning)]">{resolvedFaultBody}</p>
-          {/* Wrapping is load-bearing: differentials passes Retry plus two
-              "Browse …" links, and the band root is `overflow-hidden`, so on a
-              narrow phone a non-wrapping row clips the trailing action away
-              rather than pushing it to a second line. */}
-          {onRetry || faultAction ? (
-            <div className="mt-2.5 flex flex-wrap justify-center gap-2">
-              {onRetry ? (
-                <AsyncButton
-                  type="button"
-                  busy={retrying}
-                  busyLabel="Retrying…"
-                  onClick={retry}
-                  className={cn(
-                    "inline-flex min-h-tap shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-[color:var(--text-muted)] search-band-ghost hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
-                    focusRing,
-                  )}
-                >
-                  Retry
-                </AsyncButton>
-              ) : null}
-              {faultAction}
-            </div>
-          ) : null}
-        </div>
+        <ErrorState
+          reason={resolvedStatus === "unauthorized" ? "unauthorized" : "request_failed"}
+          subject={resultNoun}
+          title={faultTitle}
+          body={faultBody}
+          onRetry={onRetry}
+          actions={faultAction}
+          density="inline"
+          testId="search-query-ribbon-fault"
+          className="search-band-fault-panel"
+        />
       ) : null}
     </section>
   );

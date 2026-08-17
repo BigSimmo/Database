@@ -3,6 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 
 import { pageContainer } from "@/components/ui-primitives";
+import { MissingValue } from "@/components/ui/missing-value";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Tabs } from "@/components/ui/tabs";
 
@@ -35,7 +36,7 @@ type Row = {
   icon: (p: { size?: number; strokeWidth?: number }) => ReactNode;
   tone?: "warning";
   priority?: boolean;
-  get: (t: Therapy) => string;
+  get: (t: Therapy) => ReactNode;
 };
 
 const ROWS: Row[] = [
@@ -52,17 +53,32 @@ const ROWS: Row[] = [
     label: "Best fit",
     icon: CrosshairIcon,
     priority: true,
-    get: (t) => t.bestUsedFor || t.targetSymptoms || "—",
+    get: (t) => t.bestUsedFor || t.targetSymptoms || <MissingValue reason="not_recorded" />,
   },
   {
     key: "first",
     label: "What to do first",
     icon: PlayIcon,
-    get: (t) => parseSteps(t.deliverySteps)[0] || summarise(t.mechanism, 1) || "—",
+    get: (t) => parseSteps(t.deliverySteps)[0] || summarise(t.mechanism, 1) || <MissingValue reason="not_recorded" />,
   },
-  { key: "time", label: "Time required", icon: ClockIcon, get: (t) => t.timeRequired || t.sessionLength || "—" },
-  { key: "setting", label: "Setting", icon: ShieldIcon, get: (t) => t.setting || t.patientPopulation || "—" },
-  { key: "complexity", label: "Clinician skill / complexity", icon: ScaleIcon, get: (t) => t.complexity || "—" },
+  {
+    key: "time",
+    label: "Time required",
+    icon: ClockIcon,
+    get: (t) => t.timeRequired || t.sessionLength || <MissingValue reason="not_recorded" />,
+  },
+  {
+    key: "setting",
+    label: "Setting",
+    icon: ShieldIcon,
+    get: (t) => t.setting || t.patientPopulation || <MissingValue reason="not_recorded" />,
+  },
+  {
+    key: "complexity",
+    label: "Clinician skill / complexity",
+    icon: ScaleIcon,
+    get: (t) => t.complexity || <MissingValue reason="not_recorded" />,
+  },
   {
     key: "evidence",
     label: "Evidence level",
@@ -91,7 +107,10 @@ export function CompareScreen() {
       [
         `Therapy comparison — ${items.map((t) => t.name).join(" vs ")}`,
         "",
-        ...ROWS.map((r) => `${r.label}: ${items.map((t) => r.get(t)).join("  |  ")}`),
+        ...ROWS.map(
+          (r) =>
+            `${r.label}: ${items.map((t) => (typeof r.get(t) === "string" ? (r.get(t) as string) : "Not recorded")).join("  |  ")}`,
+        ),
       ].join("\n"),
       "set",
     );
@@ -187,7 +206,11 @@ export function CompareScreen() {
             <div className="py-5 px-[22px]">
               <div className="text-base-minus font-semibold text-[color:var(--text-heading)]">Decision summary</div>
             </div>
-            <SummaryCell label="SHORTEST DELIVERY" value={shortestDelivery(items)?.name ?? "—"} accent />
+            <SummaryCell
+              label="SHORTEST DELIVERY"
+              value={shortestDelivery(items)?.name ?? <MissingValue reason="not_recorded" />}
+              accent
+            />
             <SummaryCell
               label="SOURCE STATUS"
               value={`${needsReviewCount(items)} of ${items.length} need review`}
@@ -303,7 +326,7 @@ function SummaryCell({
   warn,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   accent?: boolean;
   warn?: boolean;
 }) {

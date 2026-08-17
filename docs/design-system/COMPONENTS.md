@@ -955,7 +955,7 @@ tests to run.
 
 Registered public components: 54
 Components with a valid design-sync preview: 54
-Components with product imports: 33
+Components with product imports: 34
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -964,7 +964,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AccessibleTable`        | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `AnswerCard`             | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `AnswerFooter`           | answer   | yes   | yes                | no                    | yes            | no                 |               0 |
-| `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
+| `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `Checkbox`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
@@ -978,7 +978,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `DoseLine`               | answer   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `DownloadLink`           | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `EmptyState`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              13 |
-| `ErrorState`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
+| `ErrorState`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `ErrorSummary`           | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ExternalTextLink`       | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `FieldError`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
@@ -988,7 +988,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
 | `LinkAction`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
-| `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
+| `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
 | `OverlayRoot`            | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Pagination`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |

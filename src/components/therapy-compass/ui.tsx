@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { Chip, type ChipAppearance } from "@/components/ui/chip";
+import { MissingValue } from "@/components/ui/missing-value";
 import {
   cn,
   EmptyState as SharedEmptyState,
@@ -199,7 +200,9 @@ export function Meter({ value, label }: { value: number | null; label: string })
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex items-center justify-between gap-2">
         <span className="text-2xs text-[color:var(--text-muted)]">{label}</span>
-        <span className="text-2xs font-semibold text-[color:var(--text-muted)]">{value == null ? "—" : `${v}%`}</span>
+        <span className="text-2xs font-semibold text-[color:var(--text-muted)]">
+          {value == null ? <MissingValue reason="not_recorded" density="cell" /> : `${v}%`}
+        </span>
       </div>
       <span
         role={value == null ? undefined : "meter"}
