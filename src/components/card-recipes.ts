@@ -82,6 +82,17 @@ export const cardInteractive = cn(
 export const cardSelected = "border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] shadow-[var(--e2)]";
 
 /**
+ * Selected state for a card whose subject is genuinely a safety concern.
+ *
+ * This is the narrow, legitimate use of the semantic palette on a card: not
+ * "this card belongs to the safety family" — that is identity, and identity
+ * uses `cardSelected` — but "the thing you have selected is the safety tool".
+ * Reach for it only where a semantic tone would be correct on a badge.
+ */
+export const cardSelectedDanger =
+  "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] shadow-[var(--e2)]";
+
+/**
  * Optional 3px category edge along the top of a card.
  *
  * The factsheet cards did this with an inline `style={{ borderTopColor }}`,

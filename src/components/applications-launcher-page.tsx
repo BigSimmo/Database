@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { type FormEvent, useId, useMemo, useState } from "react";
 
+import { cardInteractive, cardSelected, cardSelectedDanger, focusRing } from "@/components/card-recipes";
 import { CategoryIconTile } from "@/components/category-icon-tile";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { ModeHomeHero } from "@/components/mode-home-template";
@@ -29,7 +30,7 @@ import {
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { cn, EmptyState } from "@/components/ui-primitives";
+import { cn, EmptyState, eyebrowText } from "@/components/ui-primitives";
 import { Chip, type ChipStatusTone } from "@/components/ui/chip";
 import { Sheet } from "@/components/ui/sheet";
 import { TOOL_AREA_LABEL, toolIdentity } from "@/lib/category-identity";
@@ -59,9 +60,6 @@ function launcherAppMatchesFilter(app: LauncherApp, filter: LauncherFilter): boo
   if (filter === "more") return app.area === "coordination" || app.area === "saved";
   return app.area === filter;
 }
-
-const focusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 const areaLabels = TOOL_AREA_LABEL;
 
@@ -431,92 +429,107 @@ function FilterTabs({
   );
 }
 
+/**
+ * One tool card at two densities.
+ *
+ * `ToolCard` and `MobileToolRow` used to be separate components rendering the
+ * same content, and they had already drifted: different resting elevation
+ * (`--shadow-card` against `--shadow-inset`), different selected tint (`/50`
+ * against `/55`), and a hover lift on one but not the other. They keep their
+ * two test ids — `ui-smoke` and `ui-tools` target both, and `ui-smoke` is a
+ * blocking suite at zero retries — but there is now one implementation.
+ *
+ * The `Details` affordance is gone. It was a `<span>` painted as a solid accent
+ * button *inside* the card's own `<button>`: it read as a nested control while
+ * being announced as nothing, it was the loudest element on the card, and since
+ * every card carried an identical one it distinguished nothing. The card is the
+ * control; a chevron on the decoration tier says so without competing with the
+ * title. It takes the category accent on hover, so the affordance points back at
+ * the card's own family rather than at the product blue.
+ */
 function ToolCard({
   app,
   selected,
   onSelect,
+  density = "card",
 }: {
   app: LauncherApp;
   selected: boolean;
   onSelect: (id: ToolCatalogId) => void;
+  density?: "card" | "row";
 }) {
+  const identity = toolIdentity(app.id, app.area);
+  const row = density === "row";
   return (
     <button
       type="button"
       aria-haspopup="dialog"
       aria-label={`View details for ${app.title}`}
-      data-testid={`application-card-${app.id}`}
+      data-testid={`application-${row ? "row" : "card"}-${app.id}`}
+      data-category-accent={identity.accent}
       onClick={() => onSelect(app.id)}
       className={cn(
-        "group grid min-h-[9.25rem] grid-cols-[auto_minmax(0,1fr)_auto] gap-4 rounded-lg border bg-[color:var(--surface-lux)] p-4 text-left shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)] motion-reduce:hover:translate-y-0",
-        selected
-          ? app.id === "risk-safety"
-            ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/45"
-            : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/50"
-          : "border-[color:var(--border)]",
-        focusRing,
+        cardInteractive,
+        "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] text-left",
+        row ? "min-h-tap items-center gap-3 p-3" : "items-start gap-4 p-4",
+        // `risk-safety` keeps a danger-toned SELECTED state. Selection is a real
+        // state, unlike the permanent red tile this card used to carry, where
+        // the loudest colour in the system described a navigation target.
+        selected && (app.id === "risk-safety" ? cardSelectedDanger : cardSelected),
       )}
     >
-      <ToolIcon app={app} size="md" />
+      <ToolIcon app={app} size={row ? "sm" : "md"} />
       <span className="min-w-0">
-        <span className="block text-base font-extrabold leading-5 text-[color:var(--text-heading)]">{app.title}</span>
-        <span className="mt-2 block text-sm font-medium leading-5 text-[color:var(--text-muted)] [overflow-wrap:anywhere]">
+        {/* Size carries the hierarchy, not weight. `font-extrabold` at
+            `text-base` put the card title at the same visual weight as the
+            section heading above it, so a grid of cards read as a wall of
+            headings. */}
+        <span
+          className={cn(
+            "block font-semibold text-[color:var(--text-heading)]",
+            row ? "truncate text-sm leading-5" : "text-lg leading-6",
+          )}
+        >
+          {app.title}
+        </span>
+        <span
+          className={cn(
+            "block font-medium text-[color:var(--text-muted)] [overflow-wrap:anywhere]",
+            row ? "mt-0.5 text-xs leading-4" : "mt-1 text-sm leading-5",
+          )}
+        >
           {app.description}
         </span>
-        <span className="mt-3 block text-xs font-bold text-[color:var(--text-heading)]">
-          Best for: <span className="font-medium text-[color:var(--text-muted)]">{app.bestFor}</span>
-        </span>
-        <span className="mt-3 block">
-          <ToolChips app={app} />
-        </span>
+        {row ? null : (
+          <>
+            {/* "Best for:" was a bold inline run inside the body copy, which
+                gave a label the same emphasis as the clinical text it labels.
+                It is a kicker, so it uses the shared eyebrow recipe. */}
+            <span className="mt-3 block">
+              <span className={eyebrowText}>Best for</span>
+              <span className="mt-0.5 block text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                {app.bestFor}
+              </span>
+            </span>
+            <span className="mt-3 block">
+              <ToolChips app={app} />
+            </span>
+          </>
+        )}
       </span>
-      <span className="self-end rounded-lg bg-[color:var(--clinical-accent)] px-3 py-2 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
-        Details
-        <ChevronRight className="ml-1 inline h-3.5 w-3.5" aria-hidden />
-      </span>
+      <ChevronRight
+        className={cn(
+          "size-icon-lg shrink-0 text-[color:var(--decoration-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--cat-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0",
+          row ? "self-center" : "self-start",
+        )}
+        aria-hidden
+      />
     </button>
   );
 }
 
-function MobileToolRow({
-  app,
-  selected,
-  onSelect,
-}: {
-  app: LauncherApp;
-  selected: boolean;
-  onSelect: (id: ToolCatalogId) => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-haspopup="dialog"
-      aria-label={`View details for ${app.title}`}
-      data-testid={`application-row-${app.id}`}
-      onClick={() => onSelect(app.id)}
-      className={cn(
-        "grid min-h-[5.25rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-[color:var(--surface-lux)] px-3 py-3 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)]",
-        selected
-          ? app.id === "risk-safety"
-            ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/45"
-            : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/55"
-          : "border-[color:var(--border)]",
-        focusRing,
-      )}
-    >
-      <ToolIcon app={app} size="sm" />
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-extrabold text-[color:var(--text-heading)]">{app.title}</span>
-        <span className="mt-1 block text-xs font-medium leading-4 text-[color:var(--text-muted)] [overflow-wrap:anywhere]">
-          {app.description}
-        </span>
-      </span>
-      <span className="inline-flex min-h-9 items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3 text-2xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
-        Details
-        <ChevronRight className="ml-1 h-3 w-3" aria-hidden />
-      </span>
-    </button>
-  );
+function MobileToolRow(props: { app: LauncherApp; selected: boolean; onSelect: (id: ToolCatalogId) => void }) {
+  return <ToolCard {...props} density="row" />;
 }
 
 function DetailSection({
