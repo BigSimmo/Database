@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   findInstalledChromiumBinary,
+  listInstalledBrowserRevisions,
   listInstalledChromiumRevisions,
   playwrightBrowserRevisionCheck,
+  readExpectedBrowserRevisions,
   readExpectedChromiumRevision,
   resolveDefaultManagedBrowsersRoot,
 } from "../scripts/check-playwright-browser-revision.mjs";
@@ -15,6 +17,31 @@ describe("check-playwright-browser-revision", () => {
     const expected = readExpectedChromiumRevision(process.cwd());
     expect(expected.ok).toBe(true);
     expect(expected.revision).toMatch(/^\d+$/);
+  });
+
+  it("reads all browser revisions from the installed playwright-core browsers.json (#312)", () => {
+    const expected = readExpectedBrowserRevisions(process.cwd());
+    expect(expected.ok).toBe(true);
+    if (expected.ok) {
+      expect(expected.revisions.chromium).toMatch(/^\d+$/);
+      expect(expected.revisions.firefox).toMatch(/^\d+$/);
+      expect(expected.revisions.webkit).toMatch(/^\d+$/);
+    }
+  });
+
+  it("lists installed browser revisions across families (#312)", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "pw-multi-browsers-"));
+    try {
+      mkdirSync(path.join(root, "chromium_headless_shell-1234"), { recursive: true });
+      mkdirSync(path.join(root, "firefox-1538"), { recursive: true });
+      mkdirSync(path.join(root, "webkit-2336"), { recursive: true });
+
+      expect(listInstalledBrowserRevisions(root, "chromium")).toEqual(["1234"]);
+      expect(listInstalledBrowserRevisions(root, "firefox")).toEqual(["1538"]);
+      expect(listInstalledBrowserRevisions(root, "webkit")).toEqual(["2336"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
   });
 
   it("fails closed (#312) when no browsers root — forced or default — has a matching binary on disk", () => {
@@ -307,17 +334,19 @@ describe("check-playwright-browser-revision", () => {
       expect(directoryResult.ok).toBe(false);
       expect(directoryResult.status).toBe("binary-missing");
 
-      rmSync(binary, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-      writeFileSync(binary, "", { mode: 0o644 });
-      const nonExecutableResult = playwrightBrowserRevisionCheck({
-        projectRoot,
-        env: { NODE_ENV: "test" },
-        defaultManagedBrowsersRoot: root,
-        platform: "linux",
-        architecture: "x64",
-      });
-      expect(nonExecutableResult.ok).toBe(false);
-      expect(nonExecutableResult.status).toBe("binary-missing");
+      if (process.platform !== "win32") {
+        rmSync(binary, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+        writeFileSync(binary, "", { mode: 0o644 });
+        const nonExecutableResult = playwrightBrowserRevisionCheck({
+          projectRoot,
+          env: { NODE_ENV: "test" },
+          defaultManagedBrowsersRoot: root,
+          platform: "linux",
+          architecture: "x64",
+        });
+        expect(nonExecutableResult.ok).toBe(false);
+        expect(nonExecutableResult.status).toBe("binary-missing");
+      }
     } finally {
       rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
       rmSync(projectRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });

@@ -69,12 +69,44 @@ export function readExpectedChromiumRevision(projectRoot = process.cwd()) {
   return { ok: true, revision: String(chromium.revision), browsersJsonPath };
 }
 
+/**
+ * @param {string} [projectRoot]
+ * @returns {{ ok: true, revisions: Record<string, string>, browsersJsonPath: string } | { ok: false, reason: string }}
+ */
+export function readExpectedBrowserRevisions(projectRoot = process.cwd()) {
+  const browsersJsonPath = path.join(projectRoot, "node_modules", "playwright-core", "browsers.json");
+  if (!existsSync(browsersJsonPath)) {
+    return { ok: false, reason: `playwright-core browsers.json missing at ${browsersJsonPath}` };
+  }
+  let payload;
+  try {
+    payload = JSON.parse(readFileSync(browsersJsonPath, "utf8"));
+  } catch {
+    return { ok: false, reason: `playwright-core browsers.json is malformed at ${browsersJsonPath}` };
+  }
+  /** @type {Record<string, string>} */
+  const revisions = {};
+  for (const name of ["chromium", "firefox", "webkit"]) {
+    const entry = (payload.browsers ?? []).find((b) => b.name === name);
+    if (entry?.revision) {
+      revisions[name] = String(entry.revision);
+    }
+  }
+  return { ok: true, revisions, browsersJsonPath };
+}
+
 export function listInstalledChromiumRevisions(browsersRoot) {
+  return listInstalledBrowserRevisions(browsersRoot, "chromium");
+}
+
+export function listInstalledBrowserRevisions(browsersRoot, browserName = "chromium") {
   if (!browsersRoot || !existsSync(browsersRoot)) return [];
   const revisions = new Set();
+  const pattern =
+    browserName === "chromium" ? /^(?:chromium|chromium_headless_shell)-(\d+)$/ : new RegExp(`^${browserName}-(\\d+)$`);
   for (const entry of readdirSync(browsersRoot, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
-    const match = /^(?:chromium|chromium_headless_shell)-(\d+)$/.exec(entry.name);
+    const match = pattern.exec(entry.name);
     if (match) revisions.add(match[1]);
   }
   return [...revisions].sort();
@@ -127,7 +159,9 @@ export function resolvePlaywrightBrowsersRoot({
 export function isLaunchableFile(filePath, platform = process.platform) {
   try {
     if (!statSync(filePath).isFile()) return false;
-    if (platform !== "win32") accessSync(filePath, constants.X_OK);
+    if (platform !== "win32" && process.platform !== "win32") {
+      accessSync(filePath, constants.X_OK);
+    }
     return true;
   } catch {
     return false;
@@ -161,6 +195,22 @@ export function findInstalledChromiumBinary(
 }
 
 /**
+ * @typedef {{
+ *   expectedRevision: string,
+ *   installedRevisions: string[],
+ *   installed: boolean,
+ * }} BrowserFamilySummary
+ *
+ * @typedef {{
+ *   ok: boolean,
+ *   status: string,
+ *   message: string,
+ *   expectedRevision?: string | null,
+ *   installedRevisions?: string[],
+ *   binaryPath?: string,
+ *   allBrowsers?: Record<string, BrowserFamilySummary>,
+ * }} PlaywrightRevisionCheckResult
+ *
  * @param {{
  *   projectRoot?: string,
  *   env?: NodeJS.ProcessEnv,
@@ -170,6 +220,7 @@ export function findInstalledChromiumBinary(
  *   architecture?: string,
  *   workingDirectory?: string,
  * }} [options]
+ * @returns {PlaywrightRevisionCheckResult}
  */
 export function playwrightBrowserRevisionCheck(options = {}) {
   const projectRoot = options.projectRoot ?? process.cwd();
@@ -216,6 +267,19 @@ export function playwrightBrowserRevisionCheck(options = {}) {
     architecture,
   });
 
+  const allExpected = readExpectedBrowserRevisions(projectRoot);
+  const allBrowsersSummary = {};
+  if (allExpected.ok && allExpected.revisions) {
+    for (const [name, rev] of Object.entries(allExpected.revisions)) {
+      const inst = listInstalledBrowserRevisions(browsersRoot, name);
+      allBrowsersSummary[name] = {
+        expectedRevision: rev,
+        installedRevisions: inst,
+        installed: inst.includes(rev),
+      };
+    }
+  }
+
   if (revisionDirectoryPresent && binaryPath) {
     return {
       ok: true,
@@ -226,6 +290,7 @@ export function playwrightBrowserRevisionCheck(options = {}) {
       expectedRevision: expected.revision,
       installedRevisions: installed,
       binaryPath,
+      allBrowsers: allBrowsersSummary,
     };
   }
 
@@ -242,6 +307,7 @@ export function playwrightBrowserRevisionCheck(options = {}) {
       ].join(" "),
       expectedRevision: expected.revision,
       installedRevisions: installed,
+      allBrowsers: allBrowsersSummary,
     };
   }
 
@@ -266,15 +332,20 @@ export function playwrightBrowserRevisionCheck(options = {}) {
     ].join(" "),
     expectedRevision: expected.revision,
     installedRevisions: installed,
+    allBrowsers: allBrowsersSummary,
   };
 }
 
 function parseArgs(args) {
-  const options = { json: false, root: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..") };
+  const options = { json: false, all: false, root: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..") };
   for (let index = 0; index < args.length; index += 1) {
     const token = args[index];
     if (token === "--json") {
       options.json = true;
+      continue;
+    }
+    if (token === "--all") {
+      options.all = true;
       continue;
     }
     if (token === "--root") {
@@ -285,7 +356,7 @@ function parseArgs(args) {
       continue;
     }
     if (token === "--help" || token === "-h") {
-      console.log("Usage: npm run check:playwright-browser-revision -- [--json] [--root directory]");
+      console.log("Usage: npm run check:playwright-browser-revision -- [--json] [--all] [--root directory]");
       process.exit(0);
     }
     throw new Error(`Unknown option: ${token}`);
@@ -304,8 +375,24 @@ if (isDirectRun()) {
     console.log(JSON.stringify(result, null, 2));
   } else if (result.ok) {
     console.log(`Playwright browser revision check OK (${result.status}): ${result.message}`);
+    if (options.all && result.allBrowsers) {
+      console.log("Browser family status:");
+      for (const [name, summary] of Object.entries(result.allBrowsers)) {
+        console.log(
+          `  - ${name}: expected ${summary.expectedRevision}, installed: [${summary.installedRevisions.join(", ")}] (${summary.installed ? "present" : "missing"})`,
+        );
+      }
+    }
   } else {
     console.error(`Playwright browser revision check FAILED (${result.status}): ${result.message}`);
+    if (options.all && result.allBrowsers) {
+      console.error("Browser family status:");
+      for (const [name, summary] of Object.entries(result.allBrowsers)) {
+        console.error(
+          `  - ${name}: expected ${summary.expectedRevision}, installed: [${summary.installedRevisions.join(", ")}] (${summary.installed ? "present" : "missing"})`,
+        );
+      }
+    }
   }
   process.exit(result.ok ? 0 : 1);
 }
