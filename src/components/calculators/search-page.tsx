@@ -374,7 +374,8 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
       .filter((domain) => selectedDomains.has(domain))
       .map((domain) => ({
         id: `domain-${domain}`,
-        label: `Clinical domain: ${domainLabels[domain]}`,
+        groupLabel: "Clinical domain",
+        valueLabel: domainLabels[domain],
         onRemove: () => toggleDomain(domain),
       })),
     ...(progress === "all"
@@ -382,7 +383,8 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
       : [
           {
             id: `progress-${progress}`,
-            label: `Session progress: ${optionLabel(progressOptions, progress)}`,
+            groupLabel: "Session progress",
+            valueLabel: optionLabel(progressOptions, progress),
             onRemove: () => setProgress("all"),
           },
         ]),
@@ -391,7 +393,8 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
       : [
           {
             id: `time-${time}`,
-            label: `Completion time: ${optionLabel(timeOptions, time)}`,
+            groupLabel: "Completion time",
+            valueLabel: optionLabel(timeOptions, time),
             onRemove: () => setTime("all"),
           },
         ]),
@@ -446,7 +449,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
               description="Choose any clinical domains, then narrow by session progress and completion time."
               groups={[domainGroup, progressGroup, timeGroup]}
               onClearAll={activeFilterCount > 0 ? clearFilters : undefined}
-              footerNote={`${results.length} showing`}
+              summary={{ count: results.length, noun: results.length === 1 ? "calculator" : "calculators" }}
               chromeResetKey={query}
             />
           </>

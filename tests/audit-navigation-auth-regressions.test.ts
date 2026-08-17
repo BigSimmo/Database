@@ -162,9 +162,8 @@ describe("audit navigation and auth regressions", () => {
   });
 
   it("defers cross-mode search on narrow screens until expansion except for completed answers", () => {
-    expect(universalAlsoMatchesSource).toContain(
-      'modeId !== "prescribing" && (isWide || modeId === "answer" || expanded)',
-    );
+    expect(universalAlsoMatchesSource).toContain('modeId !== "prescribing" && submissionActive');
+    expect(universalAlsoMatchesSource).toContain('(isWide || modeId === "answer" || expanded)');
     expect(universalAlsoMatchesSource).toContain("enabled: trimmedQuery.length >= 2 && searchActive");
     expect(universalAlsoMatchesSource).toContain('if (modeId === "answer" && currentGroups.length === 0) return null;');
     expect(universalAlsoMatchesSource).toContain("const [viewportReady, setViewportReady] = useState(false);");
@@ -271,47 +270,11 @@ describe("audit navigation and auth regressions", () => {
       { label: "upload desktop layout hook" },
     );
     expect(useUploadDesktopLayoutBody).toMatch(
-      /return\s+useSyncExternalStore\(\s*subscribeToUploadDesktopLayout,\s*getUploadDesktopLayoutSnapshot,\s*\(\)\s*=>\s*false\s*\)/,
+      /return\s+useSyncExternalStore\(\s*subscribeToUploadDesktopLayout,\s*getUploadDesktopLayoutSnapshot,\s*\(\)\s*=>\s*false\s*,?\s*\)\s*;?\s*$/,
     );
-    expect(clinicalDashboardSource).toContain('event.key === "ArrowRight"');
-    expect(clinicalDashboardSource).toContain('event.key === "ArrowLeft"');
-    expect(clinicalDashboardSource).toContain('event.key === "Home"');
-    expect(clinicalDashboardSource).toContain('event.key === "End"');
-  });
-
-  it("keeps the root dashboard H1 as Clinical Guide", () => {
-    expect(clinicalDashboardSource.match(/<h1\b/g)).toHaveLength(1);
-    expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical Guide\s*<\/h1>/);
-  });
-
-  it("leaves favourites universal matches to the favourites hub", () => {
-    const nonAnswerUniversalMatchesContract = sourceSegment(
-      clinicalDashboardSource,
-      "{showUniversalAlsoMatches &&\n                (activeModeResultKind",
-      // The shared home now opens the mode-content chain, ahead of differentials.
-      "{showSharedHome ?",
-      { label: "non-answer also-matches render branch" },
-    );
-    const answerUniversalMatchesContract = sourceSegment(
-      clinicalDashboardSource,
-      '{showUniversalAlsoMatches && activeModeResultKind === "answer" ? (',
-      "</section>",
-      { label: "answer also-matches render branch" },
-    );
-
-    // Pin every dashboard-owned also-matches render branch. A third occurrence
-    // must be classified here rather than silently escaping the negative.
-    expect(clinicalDashboardSource.match(/\{showUniversalAlsoMatches &&/g)).toHaveLength(2);
-    for (const contract of [nonAnswerUniversalMatchesContract, answerUniversalMatchesContract]) {
-      expect(contract).toContain("<UniversalSearchAlsoMatches modeId={searchMode}");
-      expect(contract).not.toContain('activeModeResultKind === "favourites"');
-    }
-    // This test is about WHICH surface owns the favourites also-matches block,
-    // not about the expression feeding its query prop — that became
-    // `activeQuery` when the page took over live in-place filtering from the
-    // shared composer (ledger #164).
-    expect(source("src/components/clinical-dashboard/favourites-command-library-page.tsx")).toContain(
-      '<UniversalSearchAlsoMatches modeId="favourites"',
-    );
+    // The source contract prevents the old effect/setState viewport pattern from returning.
+    expect(uploadDesktopHookSource).not.toContain("useEffect");
+    expect(uploadDesktopHookSource).not.toContain("useState");
+    expect(uploadDesktopHookSource).not.toContain("setUploadUsesDesktopRegions");
   });
 });

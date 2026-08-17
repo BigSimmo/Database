@@ -8887,7 +8887,7 @@ create table if not exists public.user_favourites (
   created_at timestamptz not null default now(),
   primary key (user_id, content_type, content_key),
   constraint user_favourites_content_type_check
-    check (content_type in ('service', 'form', 'differential')),
+    check (content_type in ('service', 'form', 'differential', 'therapy')),
   constraint user_favourites_content_key_check
     check (content_key = btrim(content_key) and char_length(content_key) between 1 and 180)
 );
