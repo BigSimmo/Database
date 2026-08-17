@@ -81,6 +81,23 @@ function syncThemeColorMetadata(theme: ResolvedTheme) {
   }
 }
 
+// The pending transition timer must not outlive the document. A jsdom test file
+// that switches theme can finish inside this 200ms window, and the unguarded
+// callback then threw `ReferenceError: document is not defined` — an unhandled
+// error that fails the entire Vitest run even when every test passed (seen on
+// `tests/sidebar-production.dom.test.tsx` in the Unit coverage job, where the
+// coverage instrumentation widened the window). Tracking one handle also stops
+// rapid Light -> Dark -> Auto switching from stacking a timer per change, where
+// an early callback could clear the class while a later transition was still
+// running.
+let themeTransitionTimer: number | null = null;
+
+function endThemeTransition() {
+  themeTransitionTimer = null;
+  if (typeof document === "undefined") return;
+  document.documentElement.classList.remove("theme-transitioning");
+}
+
 function applyResolvedTheme(theme: ResolvedTheme) {
   const isCurrentlyDark = document.documentElement.classList.contains("dark");
   const willBeDark = theme === "dark";
@@ -89,9 +106,8 @@ function applyResolvedTheme(theme: ResolvedTheme) {
     document.documentElement.classList.add("theme-transitioning");
     document.documentElement.classList.toggle("dark", willBeDark);
     syncThemeColorMetadata(theme);
-    window.setTimeout(() => {
-      document.documentElement.classList.remove("theme-transitioning");
-    }, 200);
+    if (themeTransitionTimer !== null) window.clearTimeout(themeTransitionTimer);
+    themeTransitionTimer = window.setTimeout(endThemeTransition, 200);
   } else {
     syncThemeColorMetadata(theme);
   }
