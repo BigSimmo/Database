@@ -1,4 +1,5 @@
 import {
+  BookMarked,
   BookOpenCheck,
   BookOpenText,
   BrainCircuit,
@@ -51,6 +52,7 @@ const categoryIcons: Record<CategoryIconKey, LucideIcon> = {
   calculator: Calculator,
   compass: Compass,
   bookOpenText: BookOpenText,
+  bookMarked: BookMarked,
   search: Search,
   scrollText: ScrollText,
   shieldCheck: ShieldCheck,
