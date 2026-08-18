@@ -50,11 +50,59 @@ test.describe("Ward Flow coordinator screen", () => {
   // no home on the coordinator screen and these stay fixme so the gap is visible in the runner
   // (not just in a ledger row) rather than silently dropped.
 
-  // Implemented when the shortlist region stops being a placeholder — Task 5/7.
-  test.fixme("queue selection drives the explainable shortlist", () => {});
+  // The shortlist region is still a placeholder (Task 7 builds the real explainable shortlist),
+  // but its placeholder text already names the selected movement, so the wiring this test is
+  // actually about — a queue click driving `selectedMovementId` through to that region, and a
+  // second click moving the selection rather than adding to it — is real Task 5 behaviour with
+  // a real home, not a gap. Task 7 replaces the shortlist body without touching this contract.
+  test("queue selection drives the explainable shortlist", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+    await expect(shortlist).toContainText("Select a movement");
+
+    const rows = queue.locator('[data-testid^="ward-queue-row-"]');
+    const firstRow = rows.first();
+    const firstId = (await firstRow.getAttribute("data-testid"))?.replace("ward-queue-row-", "");
+    await firstRow.click();
+    await expect(firstRow).toHaveAttribute("aria-pressed", "true");
+    await expect(shortlist).toContainText(String(firstId));
+
+    // A second selection replaces the first rather than accumulating.
+    const secondRow = rows.nth(1);
+    const secondId = (await secondRow.getAttribute("data-testid"))?.replace("ward-queue-row-", "");
+    await secondRow.click();
+    await expect(secondRow).toHaveAttribute("aria-pressed", "true");
+    await expect(firstRow).toHaveAttribute("aria-pressed", "false");
+    await expect(shortlist).toContainText(String(secondId));
+  });
 
   // Implemented when the exceptions drawer is built out — Task 8.
   test.fixme("the exceptions drawer drives movement selection", () => {});
+
+  test("orders by clinical tier first and labels the score as operational, not clinical", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const tiers = await queue
+      .locator('[data-testid^="ward-queue-row-"] [data-tier]')
+      .evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-tier"))));
+    expect(tiers).toEqual([...tiers].sort((a, b) => a - b));
+
+    // The score must never read as clinical severity.
+    await expect(queue).toContainText("Operational");
+    await expect(queue).not.toContainText("Severity");
+    await expect(queue).not.toContainText("Acuity");
+
+    // Selecting a movement drives the rest of the screen.
+    await queue.locator('[data-testid^="ward-queue-row-"]').first().click();
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+    const selectedId = await queue.locator('[aria-pressed="true"]').getAttribute("data-testid");
+    await expect(shortlist).toContainText(String(selectedId).replace("ward-queue-row-", ""));
+  });
 
   test("ranks emergency departments worst first and filters the queue when one is chosen", async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1100 });

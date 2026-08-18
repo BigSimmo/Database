@@ -1469,7 +1469,8 @@
         "tests/eval-process-safety.test.ts",
         "tests/ui-formulation.spec.ts",
         "tests/ui-smoke.spec.ts",
-        "tests/ui-v2-components.dom.test.tsx"
+        "tests/ui-v2-components.dom.test.tsx",
+        "tests/ui-ward-coordinator.spec.ts"
       ],
       "baseline": {
         "targetLayer": "v2",

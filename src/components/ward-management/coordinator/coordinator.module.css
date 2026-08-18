@@ -343,6 +343,41 @@
   line-height: var(--co-leading-body);
 }
 
+/*
+ * The tier badge is a pill rather than plain text so it reads as a distinct field at a glance,
+ * not a continuation of the id line above it — with 16 tier-1, 13 tier-2 and 12 tier-3 open
+ * movements, a coordinator scans this field on nearly every row (Task 5 ruling 2).
+ * `justify-self: start` keeps the pill sized to its own text rather than stretching across the
+ * full 14rem row width the way an ordinary grid item would.
+ */
+.queueRow .queueTier,
+.queueRowSelected .queueTier {
+  justify-self: start;
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--surface-subtle);
+  padding: 0 var(--co-space-8);
+  font-weight: 650;
+}
+
+/* Overrides the plain-span colour above: the operational score is the number a coordinator
+   reads off this row, so it gets heading weight rather than the muted metadata tone. */
+.queueRow .queueScore,
+.queueRowSelected .queueScore {
+  color: var(--text-heading);
+  font-weight: 700;
+}
+
+/*
+ * The one line on this row a coordinator must not miss (Task 5 ruling — WF-001 ranks above
+ * WF-006 despite waiting 6 hours less because its Form 1A deadline has already passed). Danger
+ * tone, same token pair `pressureBreach` uses on the pressure strip for the same reason.
+ */
+.queueRow .queueLegalBreach,
+.queueRowSelected .queueLegalBreach {
+  color: var(--danger-text);
+  font-weight: 700;
+}
+
 .diagramRegion,
 .shortlistRegion {
   display: flex;
