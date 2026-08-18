@@ -81,6 +81,12 @@ function syncThemeColorMetadata(theme: ResolvedTheme) {
   }
 }
 
+// The transition class comes off on a short timer. Track the pending timer so a
+// rapid second toggle replaces it instead of stacking removals, and bail out if
+// it fires after the owning environment is gone — a leaked firing after DOM test
+// teardown ("document is not defined") intermittently failed Unit coverage.
+let themeTransitionTimer: ReturnType<typeof setTimeout> | null = null;
+
 function applyResolvedTheme(theme: ResolvedTheme) {
   const isCurrentlyDark = document.documentElement.classList.contains("dark");
   const willBeDark = theme === "dark";
@@ -89,7 +95,10 @@ function applyResolvedTheme(theme: ResolvedTheme) {
     document.documentElement.classList.add("theme-transitioning");
     document.documentElement.classList.toggle("dark", willBeDark);
     syncThemeColorMetadata(theme);
-    window.setTimeout(() => {
+    if (themeTransitionTimer !== null) clearTimeout(themeTransitionTimer);
+    themeTransitionTimer = setTimeout(() => {
+      themeTransitionTimer = null;
+      if (typeof document === "undefined") return;
       document.documentElement.classList.remove("theme-transitioning");
     }, 200);
   } else {

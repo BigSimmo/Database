@@ -57,6 +57,11 @@
   --measure: 68ch; /* prose measure - never wider */
   --header-h: 4rem; /* 64 */
 
+  /* Responsive breakpoint tokens - standard named scale (Task #336) */
+  --bp-phone: 640px;
+  --bp-tablet: 768px;
+  --bp-desktop: 1024px;
+
   /* Type - 7 steps, each with its own line-height and tracking */
   --text-xs: 0.75rem;
   --text-xs-lh: 1rem;
@@ -182,8 +187,10 @@
   --ease-chrome-reveal: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* `:not([data-motion="full"])` keeps this in step with the in-app Motion
+   preference, which can opt back in to animation over the OS setting. */
 @media (prefers-reduced-motion: reduce) {
-  .ckb-v2.ckb-v2 {
+  html:not([data-motion="full"]) .ckb-v2.ckb-v2 {
     --duration-instant: 0ms;
     --duration-fast: 0ms;
     --duration-quick: 0ms;

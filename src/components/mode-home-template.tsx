@@ -99,7 +99,7 @@ export function ModeHomeHero({
       >
         <Heading
           id={`${testId ?? "mode-home"}-title`}
-          className="text-balance text-hero font-extrabold leading-display tracking-normal text-[color:var(--text-heading)]"
+          className="text-balance text-hero font-semibold leading-display tracking-normal text-[color:var(--text-heading)]"
         >
           {title}
         </Heading>

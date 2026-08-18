@@ -18,7 +18,6 @@ import {
 import { useMemo, useState, useDeferredValue } from "react";
 
 import {
-  FormulationBreadcrumbs,
   FormulationPageShell,
   FormulationSafetyNote,
   MechanismDomainChips,
@@ -280,8 +279,6 @@ export function FormulationBuilderPage({
 
   return (
     <FormulationPageShell>
-      <FormulationBreadcrumbs current="Build formulation" />
-
       <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">
         <p className={eyebrowText}>Formulation builder</p>
         <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
