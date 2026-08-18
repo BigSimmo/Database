@@ -45,7 +45,7 @@ const sourceMetadataSchema = z
   .record(z.string(), z.unknown(), {
     message: "source_metadata must be a JSON object",
   })
-  .nullable();
+  .nullish();
 
 const retrievalRowSchema = z.looseObject({
   id: z.string().min(1),

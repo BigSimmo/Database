@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "0a33bfad-4040-43f8-8c73-eb1dd9b812cc",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#311",
+    "outcome": "Derived ledger loss-detector promoted into scripts/audit-merge-loss.mjs",
+    "baseRowFingerprint": "92916cfdc4381a4470e27ba951db1696c12fd1d187865df7995dbddbab689c5a"
+  }
+}
