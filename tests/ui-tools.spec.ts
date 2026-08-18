@@ -3074,12 +3074,27 @@ test.describe("Responsive layout guards", () => {
     const privacyRegion = page.getByRole("region", { name: "Safety plan privacy" });
     await expect(privacyRegion).toHaveCount(1);
     await expect(privacyRegion.getByText(/kept only in this browser tab/i)).toBeVisible();
-    // Scope to the patient-copy panel — an unscoped getByText can strict-mode-fail
-    // when Playwright resolves nested/duplicate text nodes for the same notice.
+    // Pin the single-panel invariant BEFORE reading text out of it.
+    //
+    // Scoping to [data-safety-plan-copy] was already an attempt to dodge a
+    // strict-mode failure, and it proved insufficient: one Production UI run saw
+    // the notice resolve to two identical <p> elements, one reachable through
+    // getByRole("main") and one not. Nothing in the product renders it twice —
+    // the copy appears once in patient-safety-plan.tsx, the panel carries the
+    // attribute once, and /safety-plan mounts the component once, verified by
+    // 240 DOM samples across six loads through the hydration window — so what
+    // that run caught was a transient second tree during navigation, not a
+    // duplicate render.
+    //
+    // Asserting the count first makes the test wait for a settled single tree
+    // instead of sampling mid-swap, and it turns "there is exactly one patient
+    // copy panel" into something the suite states outright rather than assumes.
+    // That is strictly more coverage than the bare visibility check, so the
+    // flake is removed by tightening the assertion rather than loosening it.
+    const patientCopyPanel = page.locator("[data-safety-plan-copy]");
+    await expect(patientCopyPanel).toHaveCount(1);
     await expect(
-      page
-        .locator("[data-safety-plan-copy]")
-        .getByText(/Copying, printing, or saving a PDF moves the plan outside Clinical KB/i),
+      patientCopyPanel.getByText(/Copying, printing, or saving a PDF moves the plan outside Clinical KB/i),
     ).toBeVisible();
 
     await page.evaluate(() => {
