@@ -163,6 +163,21 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["prescribing", "dsm", "documents"],
     remoteSearchEnabled: false,
   },
+  dictionary: {
+    // Every example is an entry that exists in the local catalogue
+    // (src/lib/dictionary-data.ts), so the ticket never advertises a term the
+    // search cannot resolve.
+    examples: ["mental state examination", "auditory hallucination", "ACT"],
+    suggestions: [
+      { text: "mental state examination", meta: "MSE" },
+      { text: "auditory hallucination", meta: "Psychosis and perception" },
+      { text: "ACT", meta: "Abbreviation" },
+    ],
+    crossModes: ["dsm", "documents", "answer"],
+    // Dictionary owns a local static catalogue — see the mode definition in
+    // src/lib/app-modes.ts — so the command panel must not query the remote index.
+    remoteSearchEnabled: false,
+  },
 };
 
 export function searchCommandSurfaceConfig(modeId: AppModeId): SearchCommandSurfaceConfig | null {
