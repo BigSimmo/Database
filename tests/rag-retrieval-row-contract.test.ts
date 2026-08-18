@@ -130,9 +130,26 @@ describe("retrieval row shape contract", () => {
     );
   });
 
+  it.each([
+    ["array", [1, 2, 3]],
+    ["string", "invalid-string-metadata"],
+    ["number", 12345],
+    ["boolean", true],
+  ])("rejects non-object JSON structure for source_metadata (%s)", (_type, invalidMetadata) => {
+    let thrown: RetrievalRowShapeError | null = null;
+    try {
+      assertRetrievalRows([hybridRow({ source_metadata: invalidMetadata })], "match_document_chunks_hybrid");
+    } catch (error) {
+      thrown = error as RetrievalRowShapeError;
+    }
+    expect(thrown).toBeInstanceOf(RetrievalRowShapeError);
+    expect(thrown?.message).toContain("source_metadata");
+  });
+
   it("accepts absent or null scores, which downstream already coalesces to 0", () => {
     expect(() => assertRetrievalRows([withoutColumn("text_rank")], "match_document_chunks")).not.toThrow();
     expect(() => assertRetrievalRows([hybridRow({ rrf_score: null })], "match_document_chunks")).not.toThrow();
+    expect(() => assertRetrievalRows([hybridRow({ source_metadata: null })], "match_document_chunks")).not.toThrow();
     expect(() => assertRetrievalRows([], "match_document_chunks")).not.toThrow();
   });
 

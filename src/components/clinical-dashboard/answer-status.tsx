@@ -12,7 +12,7 @@ import {
 import { useClientTime } from "@/lib/use-client-time";
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
-import { ModeHomeTemplate } from "@/components/mode-home-template";
+import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import type { AppModeId } from "@/lib/app-modes";
@@ -94,11 +94,12 @@ export function SharedHomeEmptyState({
               icon={History}
             />
           )}
-          {/* No privacy link here: the composer's PrivacyInputNotice is the
-              single site-wide notice, so the hero footer must not repeat it. */}
-          {/* Pre-query copy must describe what the search does, not assert that
-              every indexed source is verified/current (PT-06): validation status
-              varies per document and is surfaced on the results themselves. */}
+          {modeId === "answer" ? (
+            <ModeHomeVerificationFooter
+              label="Clinical decision support"
+              body="Verify against cited sources before clinical use"
+            />
+          ) : null}
         </div>
       }
     />

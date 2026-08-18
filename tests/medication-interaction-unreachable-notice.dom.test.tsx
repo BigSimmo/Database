@@ -39,20 +39,20 @@ beforeEach(() => {
 
 describe("unreachable-counterparty notice", () => {
   it("says so when an entered medication is outside the resolved interaction graph", () => {
-    // Cephalexin is one of 35 catalogue drugs outside every resolved edge.
-    renderConsiderations(["cephalexin"]);
+    // Zolpidem is one of 20 catalogue drugs outside every resolved edge.
+    renderConsiderations(["zolpidem"]);
 
     const notice = screen.getByText(NOTICE);
-    expect(notice.textContent).toMatch(/Cephalexin/);
+    expect(notice.textContent).toMatch(/Zolpidem/);
     // The wording has to deny the inference, not merely report the gap.
     expect(notice.textContent).toMatch(/not evidence of safety/i);
   });
 
   it("names every uncovered medication, not just the first", () => {
-    renderConsiderations(["cephalexin", "lactulose"]);
+    renderConsiderations(["zolpidem", "finasteride"]);
     const notice = screen.getByText(NOTICE);
-    expect(notice.textContent).toMatch(/Cephalexin/);
-    expect(notice.textContent).toMatch(/Lactulose/);
+    expect(notice.textContent).toMatch(/Zolpidem/);
+    expect(notice.textContent).toMatch(/Finasteride/);
     expect(notice.textContent).toMatch(/they were/);
   });
 
@@ -64,7 +64,7 @@ describe("unreachable-counterparty notice", () => {
   it("does not present an empty interaction block as clear when a drug is uncheckable", () => {
     // The failure this exists for: zero interactions rendered as a green
     // "No interaction found" with nothing qualifying it.
-    renderConsiderations(["cephalexin"]);
+    renderConsiderations(["zolpidem"]);
     expect(screen.getByText(/No interaction found between this medication/i)).toBeInTheDocument();
     expect(screen.getByText(NOTICE)).toBeInTheDocument();
   });
