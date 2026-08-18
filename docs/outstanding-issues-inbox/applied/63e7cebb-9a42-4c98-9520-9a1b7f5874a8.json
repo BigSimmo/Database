@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "63e7cebb-9a42-4c98-9520-9a1b7f5874a8",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Adversarial divergence (S5 harness pin): scope-guessed-chunk-id — review fallback returns a grounded source pointer echoing the query instead of refusing",
+    "detail": "Pinned in tests/rag-adversarial-harness.test.ts KNOWN_DIVERGENCES (self-expiring). Observed shape: grounded true, cited [syn-scope-guess-a], and the guessed (never-retrieved) chunk id syn-not-retrieved-zzz is never resolved into content — the no-read invariant holds — but the review fallback returns a grounded source pointer that echoes the query text rather than refusing the guessed-id request. Fixture: scripts/fixtures/rag-adversarial-cases.v1.json case scope-guessed-chunk-id (category scope_or_tenant). Next: decide whether a query naming an unretrieved chunk id should refuse rather than fall back to a source pointer (RAG-surface change; own PR; harness pin flips; canary pair). Stop: do not delete the pin without the behaviour change.",
+    "source": "RAG programme coordinator, packet S5 (PR #2056) follow-ups, 2026-08-17",
+    "issueUlid": "01M08C1A7XNTAV3DNZ50RZ2C05"
+  }
+}

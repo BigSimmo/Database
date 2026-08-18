@@ -32,25 +32,28 @@ function notifyListeners() {
   }
 }
 
+// Single shared storage handler at module level to avoid O(N²) callbacks when
+// multiple subscribers are active (each per-subscriber handler would call
+// notifyListeners(), firing all listeners N times per storage event).
+let sharedStorageListenerAttached = false;
+function ensureSharedStorageListener() {
+  if (sharedStorageListenerAttached || typeof window === "undefined") return;
+  sharedStorageListenerAttached = true;
+  window.addEventListener("storage", (event: StorageEvent) => {
+    if (
+      event.key === DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY ||
+      event.key === DATABASE_FAVOURITES_PINNED_STORAGE_KEY
+    ) {
+      inMemoryLastOpened = null;
+      inMemoryPinned = null;
+      notifyListeners();
+    }
+  });
+}
+
 export function subscribeFavouritesStorage(listener: () => void): () => void {
+  ensureSharedStorageListener();
   listeners.add(listener);
-  if (typeof window !== "undefined") {
-    const handleStorage = (event: StorageEvent) => {
-      if (
-        event.key === DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY ||
-        event.key === DATABASE_FAVOURITES_PINNED_STORAGE_KEY
-      ) {
-        inMemoryLastOpened = null;
-        inMemoryPinned = null;
-        notifyListeners();
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => {
-      listeners.delete(listener);
-      window.removeEventListener("storage", handleStorage);
-    };
-  }
   return () => {
     listeners.delete(listener);
   };

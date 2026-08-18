@@ -54,6 +54,7 @@ import {
 } from "@/lib/rag/rag-answer-text";
 import { cloneAnswer } from "@/lib/rag/rag-cache";
 import { ragProviderMode } from "@/lib/rag/rag-provider";
+import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import {
   isLowYieldClinicalText,
   normalizeInlineBulletGlyphs,
@@ -3786,6 +3787,78 @@ function applyProviderLabels(answer: RagAnswer): RagAnswer {
   };
 }
 
+/**
+ * Fast-route final-gate gap recovery: when a grounded, cited, low-confidence fast
+ * model answer over strong routine retrieval is only gap-like phrasing, rebuild a
+ * deterministic source-backed answer from the evidence it already cites instead of
+ * shipping a citation-free evidence gap. Mirrors the rag.ts generation-fallback
+ * recovery, which handles the thrown variants of the same failure — today, model
+ * phrasing alone decides which of the two branches a gap-shaped fast answer takes.
+ * Returns null to keep the gap terminal: genuinely empty retrieval, strong-route
+ * gaps, and comparison/dose/threshold classes (whose fallbacks need dedicated
+ * single-chunk handling) never recover here. The rebuilt candidate is routingMode
+ * "extractive", so the re-entrant validation finalize cannot re-trigger this
+ * fast-gated recovery.
+ */
+function recoverFinalGateGapExtractively(
+  answer: RagAnswer,
+  query: string,
+  queryClass: RagQueryClass,
+  gapReason: string,
+): RagAnswer | null {
+  if (answer.routingMode !== "fast") return null;
+  if (!answer.routingReason?.includes("strong_routine_retrieval")) return null;
+  if ((answer.sources?.length ?? 0) === 0) return null;
+  if (queryClass === "comparison" || queryClass === "medication_dose_risk" || queryClass === "table_threshold") {
+    return null;
+  }
+  // Band-coherence source conflicts already have a throw-based recovery in rag.ts.
+  if (answer.routingReason.includes("numeric_band_coherence_gate_source_conflict")) return null;
+  const recoveryRouteReason = [
+    answer.routingReason,
+    `generation_fallback:${gapReason}`,
+    "source_backed_extractive_fallback",
+    `final_quality_gate_source_backed_recovery:${gapReason}`,
+  ].join("; ");
+  const candidate = buildExtractiveAnswer({
+    query,
+    queryClass,
+    results: answer.sources,
+    quoteCards: answer.quoteCards ?? [],
+    documentBreakdown: answer.documentBreakdown ?? [],
+    evidenceSummary: answer.evidenceSummary,
+    sourceCoverage: answer.sourceCoverage,
+    conflictsOrGaps: answer.conflictsOrGaps ?? [],
+    visualEvidence: answer.visualEvidence ?? [],
+    bestSource: answer.bestSource ?? null,
+    smartPanel: answer.smartPanel,
+    relatedDocuments: answer.relatedDocuments ?? [],
+    routeReason: recoveryRouteReason,
+    timings: answer.latencyTimings,
+  });
+  if (!candidate.grounded || candidate.confidence === "unsupported" || candidate.citations.length === 0) return null;
+  if (isBareCrossReferenceAnswer(candidate.answer ?? "")) return null;
+  const smartApiPlan = buildSmartRagApiPlan({
+    query,
+    queryClass,
+    results: candidate.sources,
+    routeMode: "extractive",
+    routeReason: candidate.routingReason,
+    conflictsOrGaps: candidate.conflictsOrGaps ?? [],
+  });
+  const merged: RagAnswer = {
+    ...answer,
+    ...candidate,
+    modelUsed: null,
+    supportedClaims: undefined,
+    evidenceAssessments: undefined,
+    smartApiPlan,
+    responseMode: smartApiPlan.displayMode,
+  };
+  if (!isSafeExtractiveFallbackCandidate(merged, query, queryClass)) return null;
+  return merged;
+}
+
 // Public wrapper: runs quality finalization, then stamps provider/quality labels so the UI can
 // disclose source-only (lower-quality) answers and verify-against-sources guidance.
 /** Finalize rag answer quality. */
@@ -3826,8 +3899,12 @@ function finalizeRagAnswerQualityCore(answer: RagAnswer, query: string, queryCla
   const existingGapAnswer =
     gapLikeAnswer && (!answer.grounded || answer.routingMode === "strong" || answer.confidence === "low");
   if (existingGapAnswer) {
-    const gapAnswer = finalQualityGapAnswer(query, queryClass);
     const gapReason = answer.modelUsed ? "provider_source_gap" : "source_gap";
+    const recovered = recoverFinalGateGapExtractively(answer, query, queryClass, gapReason);
+    // Terminates: the recovered answer is routingMode "extractive", so the fast-gated
+    // recovery cannot re-fire on this re-run.
+    if (recovered) return finalizeRagAnswerQualityCore(recovered, query, queryClass);
+    const gapAnswer = finalQualityGapAnswer(query, queryClass);
     return {
       ...answer,
       answer: gapAnswer,

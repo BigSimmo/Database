@@ -29,19 +29,20 @@ import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn, EmptyState, ignoreUnavailableActivation } from "@/components/ui-primitives";
 import { Chip, type ChipAppearance } from "@/components/ui/chip";
 import {
-  formatLastOpened,
-  loadFavouriteLastOpened,
-  loadFavouritePinnedIds,
-  recordFavouriteOpened,
-  subscribeFavouritesStorage,
-} from "@/components/favourites/favourites-storage";
-import {
   favouriteItems as prototypeFavouriteItems,
   favouriteSets as prototypeFavouriteSets,
   favouriteTabs,
   type FavouriteItem as PrototypeFavouriteItem,
 } from "@/components/clinical-dashboard/favourites-prototype-data";
 import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
+import {
+  formatLastOpened,
+  lastOpenedScore,
+  loadFavouriteLastOpened,
+  loadFavouritePinnedIds,
+  recordFavouriteOpened,
+  subscribeFavouritesStorage,
+} from "@/components/favourites/favourites-storage";
 import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
@@ -119,8 +120,6 @@ const lastUsedByItemId: Record<string, string> = {
   "qt-prolongation-quote": "Mon 11:03",
 };
 
-const pinnedItemIds = new Set(["acamprosate-renal-screen", "lithium-monitoring-guideline"]);
-
 const typeByPrototypeType: Record<PrototypeFavouriteItem["type"], FavouriteType> = {
   medications: "Medication",
   documents: "Document",
@@ -195,17 +194,13 @@ async function copyFavouriteCitation(item: FavouriteItem): Promise<boolean> {
 
 function toCommandItem(
   item: PrototypeFavouriteItem,
-  lastOpenedMap?: Record<string, number>,
-  pinnedIds?: Set<string>,
+  lastOpenedMap: Record<string, number>,
+  pinnedIds: ReadonlySet<string>,
 ): FavouriteItem {
   const type =
     item.type === "sources" && item.primaryAction === "Run"
       ? "Saved search"
       : (typeByPrototypeType[item.type] ?? "Source");
-  const lastOpenedTimestamp = lastOpenedMap?.[item.id];
-  const lastUsed = lastOpenedTimestamp ? formatLastOpened(lastOpenedTimestamp) : (lastUsedByItemId[item.id] ?? "Saved");
-  const pinned = pinnedIds ? pinnedIds.has(item.id) : pinnedItemIds.has(item.id);
-
   return {
     id: item.id,
     title: item.title,
@@ -214,11 +209,14 @@ function toCommandItem(
     tabId: item.type,
     set: item.set || (item.type === "services" ? "Saved services" : item.type === "forms" ? "Saved forms" : "Unsorted"),
     evidence: item.sourceMeta,
-    lastUsed,
+    lastUsed:
+      lastOpenedMap[item.id] !== undefined
+        ? formatLastOpened(lastOpenedMap[item.id])
+        : (lastUsedByItemId[item.id] ?? "Saved"),
     action: item.primaryAction,
     href: item.href,
     icon: item.icon ?? fallbackIconByType[item.type],
-    pinned,
+    pinned: pinnedIds.has(item.id),
   };
 }
 
@@ -1124,9 +1122,9 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const lastOpenedMap = useSyncExternalStore(
     subscribeFavouritesStorage,
     loadFavouriteLastOpened,
-    loadFavouriteLastOpened,
+    () => ({}) as Record<string, number>,
   );
-  const pinnedIds = useSyncExternalStore(subscribeFavouritesStorage, loadFavouritePinnedIds, loadFavouritePinnedIds);
+  const pinnedIds = useSyncExternalStore(subscribeFavouritesStorage, loadFavouritePinnedIds, () => new Set<string>());
   const items = useMemo(
     () =>
       [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map((item) =>
@@ -1186,7 +1184,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const recentItems = useMemo(
     () =>
       [...items]
-        .sort((first, second) => lastUsedScore(second.lastUsed) - lastUsedScore(first.lastUsed))
+        .sort((first, second) => lastOpenedScore(second.lastUsed) - lastOpenedScore(first.lastUsed))
         .slice(0, recentPreviewLimit),
     [items],
   );

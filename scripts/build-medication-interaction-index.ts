@@ -242,6 +242,10 @@ function main(): void {
           }
           for (const { surface, slug } of drugSurfaces) {
             if (slug === record.slug || !mentions(segment, surface)) continue;
+            // Exclude same-name duplicates (e.g. warfarin-vka / warfarin-anticoagulant
+            // both surface as "warfarin" — matching the alternate slug would produce a
+            // false self-interaction when both records are on the patient list).
+            if ((nameBySlug.get(slug) ?? slug) === record.name) continue;
             if (!segmentCounterparties.has(slug)) {
               segmentCounterparties.set(slug, { slug, name: nameBySlug.get(slug) ?? slug, via: surface });
             }

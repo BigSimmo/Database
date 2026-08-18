@@ -340,6 +340,56 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer).not.toMatch(/^No current source/i);
   });
 
+  it("recovers a grounded low-confidence cited source-gap phrasing at the final quality gate without a strong retry", async () => {
+    // The S1d shape: grounded, cited, confidence "low", substantive lead misses
+    // providerSourceGapLeadPattern, hedged body matches the finalizer's broad
+    // gap-like regex ("do not provide specific") and survives sanitizeAnswerText.
+    // It passes every in-loop fast-failure screen and used to collapse to a
+    // citation-free evidence_gap in finalizeRagAnswerQualityCore.
+    const dischargeSources = [
+      source({
+        id: "discharge-planning-start",
+        document_id: "discharge-guidance",
+        title: "Admission to Discharge for Mental Health Inpatients (NMHS)",
+        file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+        section_heading: "Discharge planning",
+        content:
+          "Clinicians will actively plan effective and timely discharge from the beginning of admission and review the plan throughout the inpatient stay.",
+      }),
+      source({
+        id: "discharge-documentation",
+        document_id: "discharge-guidance",
+        title: "Admission to Discharge for Mental Health Inpatients (NMHS)",
+        file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+        section_heading: "Discharge documentation",
+        content:
+          "The discharge plan must document ongoing care arrangements, communicate the plan with the consumer, and identify follow-up responsibilities.",
+      }),
+    ];
+    const answer = await answerFromTextSources("Summarize the discharge guidance", dischargeSources, {
+      answer:
+        "Discharge planning begins at admission and the plan is reviewed during the inpatient stay. The discharge documents do not provide specific timing details.",
+      grounded: true,
+      confidence: "low",
+      answerSections: [],
+      citations: [{ chunk_id: "discharge-planning-start" }, { chunk_id: "discharge-documentation" }],
+      quoteCards: [],
+      conflictsOrGaps: [],
+    });
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("generation_fallback:provider_source_gap");
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
+    expect(answer.routingReason).toContain("final_quality_gate_source_backed_recovery:provider_source_gap");
+    expect(answer.routingReason).not.toMatch(/final_quality_gate:/);
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.length).toBeGreaterThan(0);
+    expect(answer.answer).not.toMatch(/do not provide specific/i);
+    expect(answer.latencyTimings?.answer_retry_reasons ?? []).not.toContain("fast_source_gap_retry_strong");
+    expect(answer.latencyTimings?.answer_retry_reasons ?? []).not.toContain("fast_unsupported_retry_strong");
+    expect(answer.latencyTimings?.answer_retry_reasons ?? []).not.toContain("fast_quality_retry_strong");
+  });
+
   it("keeps provider-failed complex comparisons on the source-attributed comparison fallback", async () => {
     const comparisonFact = (documentId: string, chunkId: string, value: string) => ({
       id: `${documentId}-threshold`,
@@ -2027,6 +2077,9 @@ describe("RAG structured-output fallback", () => {
     expect(answerCalls[0]?.[2].instructions).toContain("Within one named scale and source");
     expect(answerCalls[0]?.[2].instructions).toContain("cite the smallest sufficient directly supporting chunk set");
     expect(answerInput).toContain("answer_plan.intent: clinical_synthesis");
+    // Packet S2: the composition menu rides in the interpreted-task block. A monitoring
+    // question classifies medication_dose_risk with a `general` heuristic intent → dosing menu.
+    expect(answerInput).toContain("related_information_menu: monitoring_timing — monitoring schedule and levels;");
     expect(answerInput).toContain("answer_plan.route_mode: strong");
     expect(answerInput).toContain("answer_plan.model_strategy: strong_model_then_quality_gate");
     expect(answerInput).toContain("answer_plan.source_policy: required_citations");

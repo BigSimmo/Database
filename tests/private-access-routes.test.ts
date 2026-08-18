@@ -1234,6 +1234,196 @@ describe("private document API access", () => {
     expect(client.storageMocks.createSignedUrl).not.toHaveBeenCalled();
   });
 
+  /*
+   * Batch sibling of the five `/api/images/[id]/signed-url` cases above.
+   * `/api/images/signed-urls` mints up to 100 signed URLs per call and carries its
+   * OWN owner-scope and committed-generation implementation. `check:owner-scope-api`
+   * cannot cover the real protection here: `document_images` has no `owner_id`
+   * column, so the only thing keeping another owner's image out of the response is
+   * the `documentMap` join filter in the handler. These cases pin that filter.
+   */
+  const otherImageId = "44444444-4444-4444-8444-444444444444";
+
+  function signedUrlsRequest(imageIds: string[], authenticated = true) {
+    const init: RequestInit = {
+      method: "POST",
+      body: JSON.stringify({ imageIds }),
+      headers: { "content-type": "application/json" },
+    };
+    return authenticated
+      ? authenticatedRequest("/api/images/signed-urls", init)
+      : request("/api/images/signed-urls", init);
+  }
+
+  /** Two images on two documents with different owners, plus owner-scoped document reads. */
+  function createBatchImageMock(options: { imageGeneration?: string; documentGeneration?: string } = {}) {
+    const imageGeneration = options.imageGeneration ?? "generation-a";
+    const documentGeneration = options.documentGeneration ?? "generation-a";
+    return createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        const requested = call.inFilters.find((filter) => filter.column === "id")?.values ?? [];
+        return ok(
+          [
+            {
+              id: imageId,
+              document_id: documentId,
+              storage_path: `${userId}/images/${imageId}.png`,
+              mime_type: "image/png",
+              caption: "Owned image",
+              metadata: { index_generation_id: imageGeneration },
+            },
+            {
+              id: otherImageId,
+              document_id: otherDocumentId,
+              storage_path: `${otherUserId}/images/${otherImageId}.png`,
+              mime_type: "image/png",
+              caption: "Other owner's image",
+              metadata: { index_generation_id: imageGeneration },
+            },
+          ].filter((image) => requested.includes(image.id)),
+        );
+      }
+      if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
+        // Only the caller's own document comes back from an owner-scoped read.
+        return ok([{ id: documentId, metadata: { index_generation_id: documentGeneration } }]);
+      }
+      return ok([]);
+    });
+  }
+
+  it("signs a batch of images whose parent documents are owned", async () => {
+    const client = createBatchImageMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest([imageId]));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.urls).toMatchObject({
+      [imageId]: { url: `https://signed.local/${userId}/images/${imageId}.png`, mimeType: "image/png" },
+    });
+    expect(client.storageMocks.createSignedUrls).toHaveBeenCalledWith([`${userId}/images/${imageId}.png`], 600);
+  });
+
+  it("omits images whose parent document belongs to another user", async () => {
+    const client = createBatchImageMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest([otherImageId]));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.urls).toEqual({});
+    expect(client.storageMocks.createSignedUrls).not.toHaveBeenCalled();
+  });
+
+  it("signs only the owned image when a batch mixes owners", async () => {
+    // The batch-specific leak: one unowned id riding along with an owned one must
+    // not inherit the owned document's access.
+    const client = createBatchImageMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest([imageId, otherImageId]));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(Object.keys(body.urls as Record<string, unknown>)).toEqual([imageId]);
+    expect(client.storageMocks.createSignedUrls).toHaveBeenCalledWith([`${userId}/images/${imageId}.png`], 600);
+  });
+
+  it("scopes the batch document read to the caller", async () => {
+    const client = createBatchImageMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    await POST(signedUrlsRequest([imageId]));
+
+    const documentReads = client.calls.filter((call) => call.table === "documents");
+    expect(documentReads.length).toBeGreaterThan(0);
+    expect(documentReads.every((call) => matchesOwnerReadScope(call, userId))).toBe(true);
+  });
+
+  it("restricts an anonymous batch to public documents", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        return ok([
+          {
+            id: imageId,
+            document_id: documentId,
+            storage_path: `${userId}/images/${imageId}.png`,
+            mime_type: "image/png",
+            caption: "Owned image",
+            metadata: { index_generation_id: "generation-a" },
+          },
+        ]);
+      }
+      // No public document matches, so an anonymous caller gets nothing.
+      if (call.table === "documents" && matchesOwnerReadScope(call)) return ok([]);
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest([imageId], false));
+
+    expect(response.status).toBe(200);
+    expect(await payload(response)).toEqual({ urls: {} });
+    expect(client.storageMocks.createSignedUrls).not.toHaveBeenCalled();
+  });
+
+  it("omits batch images from an uncommitted replacement generation", async () => {
+    const client = createBatchImageMock({ imageGeneration: "generation-new", documentGeneration: "generation-old" });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest([imageId]));
+
+    expect(response.status).toBe(200);
+    expect(await payload(response)).toEqual({ urls: {} });
+    expect(client.storageMocks.createSignedUrls).not.toHaveBeenCalled();
+  });
+
+  it("returns an empty map for an empty batch without touching storage", async () => {
+    const client = createBatchImageMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest([]));
+
+    expect(response.status).toBe(200);
+    expect(await payload(response)).toEqual({ urls: {} });
+    expect(client.storageMocks.createSignedUrls).not.toHaveBeenCalled();
+  });
+
+  it("rejects a batch of non-uuid image ids before querying", async () => {
+    const client = createBatchImageMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest(["not-a-uuid"]));
+
+    expect(response.status).toBe(400);
+    expect(client.storageMocks.createSignedUrls).not.toHaveBeenCalled();
+  });
+
+  it("rejects a batch larger than the documented maximum", async () => {
+    const client = createBatchImageMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const tooMany = Array.from(
+      { length: 101 },
+      (_, index) => `55555555-5555-4555-8555-${String(index).padStart(12, "0")}`,
+    );
+    const response = await POST(signedUrlsRequest(tooMany));
+
+    expect(response.status).toBe(400);
+    expect(client.storageMocks.createSignedUrls).not.toHaveBeenCalled();
+  });
+
   it("rejects anonymous uploads without touching storage", async () => {
     const client = createSupabaseMock();
     mockRuntime(client);

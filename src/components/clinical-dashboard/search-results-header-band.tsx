@@ -802,7 +802,7 @@ export function ResultSortControl({
  * floor from `sm`, exactly like the filter controls.
  */
 const emptyStateAction =
-  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:text-[color:var(--text)] sm:min-h-10";
+  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-3 text-xs font-semibold text-[color:var(--text-muted)] hover:text-[color:var(--text)] sm:min-h-10";
 
 export function SearchResultsEmptyState({
   modeId,
@@ -978,7 +978,7 @@ export function SearchResultsEmptyState({
           <Search className="h-5 w-5" aria-hidden />
         )}
       </span>
-      <Title className="mt-3 text-sm font-extrabold text-[color:var(--text-heading)]">{emptyTitle}</Title>
+      <Title className="mt-3 text-sm font-semibold text-[color:var(--text-heading)]">{emptyTitle}</Title>
       <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">{emptyBody}</p>
       {!filtered ? (
         <div aria-live="polite" className="sr-only">
@@ -999,7 +999,7 @@ export function SearchResultsEmptyState({
               onClick={lastFilter.onRemove}
               data-testid="search-results-empty-remove-filter"
               className={cn(
-                "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]",
+                "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)] sm:min-h-9",
                 focusRing,
               )}
             >

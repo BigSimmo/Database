@@ -75,6 +75,28 @@ describe("retrieval row shape contract", () => {
     });
   });
 
+  // G1 governance pin (docs/clinical-hazard-analysis.md H5a; owner decision 2026-08-17).
+  // The `similarity: 1` above is a constant, not a measured cosine — on this route the
+  // document IS the query. Leaving it untagged is what let a fabricated 1.0 look identical
+  // to a perfect vector match; the tag makes the provenance legible without changing the
+  // confidence label (`deriveConfidence` excludes only "synthetic_text", pinned in
+  // tests/rag-score.test.ts).
+  it("tags the constant document-summary similarity with its own provenance value", () => {
+    const rows = buildDocumentSummaryResults([hybridRow({ similarity: 0.2 }), hybridRow({ id: "second-chunk" })], {
+      title: "Current title",
+      file_name: "current.pdf",
+      metadata: {},
+    });
+
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.similarity).toBe(1);
+      expect(row.similarity_origin).toBe("document_context");
+      // Not "synthetic_text": that value caps confidence at "medium" (rejected Option A).
+      expect(row.similarity_origin).not.toBe("synthetic_text");
+    }
+  });
+
   it("preserves unknown columns so an RPC version difference is not data loss", () => {
     const rows: unknown = [hybridRow({ document_labels: [{ id: "l1" }], a_future_column: 42 })];
 
@@ -108,9 +130,26 @@ describe("retrieval row shape contract", () => {
     );
   });
 
+  it.each([
+    ["array", [1, 2, 3]],
+    ["string", "invalid-string-metadata"],
+    ["number", 12345],
+    ["boolean", true],
+  ])("rejects non-object JSON structure for source_metadata (%s)", (_type, invalidMetadata) => {
+    let thrown: RetrievalRowShapeError | null = null;
+    try {
+      assertRetrievalRows([hybridRow({ source_metadata: invalidMetadata })], "match_document_chunks_hybrid");
+    } catch (error) {
+      thrown = error as RetrievalRowShapeError;
+    }
+    expect(thrown).toBeInstanceOf(RetrievalRowShapeError);
+    expect(thrown?.message).toContain("source_metadata");
+  });
+
   it("accepts absent or null scores, which downstream already coalesces to 0", () => {
     expect(() => assertRetrievalRows([withoutColumn("text_rank")], "match_document_chunks")).not.toThrow();
     expect(() => assertRetrievalRows([hybridRow({ rrf_score: null })], "match_document_chunks")).not.toThrow();
+    expect(() => assertRetrievalRows([hybridRow({ source_metadata: null })], "match_document_chunks")).not.toThrow();
     expect(() => assertRetrievalRows([], "match_document_chunks")).not.toThrow();
   });
 

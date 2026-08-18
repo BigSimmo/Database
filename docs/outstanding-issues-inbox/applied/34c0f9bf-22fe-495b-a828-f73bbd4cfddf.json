@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "34c0f9bf-22fe-495b-a828-f73bbd4cfddf",
+  "createdOn": "2026-08-17",
+  "action": "done",
+  "payload": {
+    "id": "#0MSNT8",
+    "outcome": "Implemented as packet G1 on branch claude/g1-rag-document-context-qn9ubx. Every element of the queued Option B scope landed: document_context added to the similarity_origin union in src/lib/types.ts and to src/lib/answer-stream-contract.ts (as an allow-set, so the union and the stream validator cannot drift), stamped in buildDocumentSummaryResults (src/lib/rag/rag-row-contracts.ts), deriveConfidence left unchanged, rag.ts synthetic_similarity_count left counting only synthetic_text, and docs/clinical-hazard-analysis.md H5a updated to mark the decision implemented. Four discriminating pins, each mutation-checked against the change it exists to catch: summary rows carry the tag (tests/rag-retrieval-row-contract.test.ts); two document_context citations at >= 0.82 still yield high while the identical scores tagged synthetic_text still yield medium, and the telemetry counter ignores the new value (tests/rag-score.test.ts); the stream validator accepts every declared union member with a compile-time exhaustiveness guard (tests/answer-incremental-delivery.test.ts). Gates: vitest 58/58 across the five touched suites, full unit 642 files / 6879 passed, eval:rag:offline 36 golden cases / 603 tests, check:rag:fixtures, verify:pr-local all 18 stages green. No canary per the decision. HANDOVER status row updated. Closes the paired governance question row #J912J9.",
+    "baseRowFingerprint": "5d3f833d9e969448a55703d05c2423ccd92eb9176410abf285825e88bcc0daec"
+  }
+}

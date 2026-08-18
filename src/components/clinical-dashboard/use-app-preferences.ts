@@ -15,6 +15,7 @@ export {
   DENSITY_OPTIONS,
   JURISDICTION_OPTIONS,
   LANDING_OPTIONS,
+  MOTION_OPTIONS,
   normalizePreferences,
   POPULATION_OPTIONS,
 } from "@/lib/account-preferences";
@@ -118,10 +119,13 @@ export function applyPreferenceSideEffects(preferences: AppPreferences) {
   } else {
     root.setAttribute("data-density", preferences.density);
   }
-  if (preferences.motion === "reduced") {
-    root.setAttribute("data-motion", "reduced");
-  } else {
+  // "system" is the absence of the attribute, so the CSS falls through to plain
+  // prefers-reduced-motion. "reduced"/"full" are explicit overrides in either
+  // direction and both need to reach the stylesheet.
+  if (preferences.motion === "system") {
     root.removeAttribute("data-motion");
+  } else {
+    root.setAttribute("data-motion", preferences.motion);
   }
 }
 

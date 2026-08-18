@@ -962,7 +962,10 @@ async function expectMobileSettingsLayout(settings: Locator) {
   expect(controlBox!.x).toBeGreaterThanOrEqual(rowBox!.x);
   expect(controlBox!.x + controlBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width);
 
-  for (const groupLabel of ["Answer style", "Appearance", "Interface density", "Default landing view"]) {
+  // "Motion" joined this list on 2026-08-17: it became a three-option segmented
+  // control (System / Reduced / Full) so an OS Reduce Motion request can be
+  // explicitly overridden in-app, replacing the old boolean switch.
+  for (const groupLabel of ["Answer style", "Appearance", "Interface density", "Default landing view", "Motion"]) {
     const row = settings.getByTestId(`settings-row-${groupLabel.toLowerCase().replaceAll(" ", "-")}`);
     const radios = row.getByRole("radiogroup", { name: groupLabel }).getByRole("radio");
     const radioBoxes = await radios.evaluateAll((elements) =>
@@ -989,7 +992,12 @@ async function expectMobileSettingsLayout(settings: Locator) {
     expect(radioBoxes[1].x + radioBoxes[1].width).toBeLessThanOrEqual(radioBoxes[2].x);
   }
 
-  const switchBox = await settings.getByTestId("settings-row-reduce-motion").getByRole("switch").boundingBox();
+  // A switch row still has to hold the 48px tap target; "Recent searches on home"
+  // is the nearest remaining boolean now that Motion is a segmented control.
+  const switchBox = await settings
+    .getByTestId("settings-row-recent-searches-on-home")
+    .getByRole("switch")
+    .boundingBox();
   expect(switchBox).not.toBeNull();
   expect(switchBox!.width).toBeGreaterThanOrEqual(48);
   expect(switchBox!.height).toBeGreaterThanOrEqual(48);
@@ -4878,7 +4886,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(passages.nth(0)).toHaveJSProperty("open", false);
 
     await clickSectionNav(/High-yield summary/);
-    await expect(summary).toHaveJSProperty("open", true);
+    // At this 390px viewport the rail's high-yield-summary disclosure is
+    // hidden (superseded by the in-flow DocumentClinicalSummary card), so
+    // there is nothing for the exclusive accordion to open here —
+    // jumpToDocumentSection scrolls to the visible copy instead.
+    await expect(page.locator("#source-summary-card")).toBeInViewport();
+    await expect(summary).toHaveJSProperty("open", false);
     await expect(indexedText).toHaveJSProperty("open", false);
 
     await openImagesDisclosure();

@@ -40,7 +40,8 @@
 // visible row by row in review.
 
 import { readFileSync, writeFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { ISSUES_PATH, checkIssues, parseIssues } from "./check-outstanding-issues.mjs";
 import { allocateDisplayId, displayIdForUlid, issueIdCell, issueIdCitations, issueUlid } from "./issue-id.mjs";
@@ -492,7 +493,8 @@ function main() {
   }
 
   const [command, positional] = argv;
-  const markdown = readFileSync(ISSUES_PATH, "utf8");
+  const issuesFile = path.resolve(process.cwd(), ISSUES_PATH);
+  const markdown = readFileSync(issuesFile, "utf8");
   let next;
 
   try {
@@ -524,12 +526,15 @@ function main() {
     return;
   }
 
-  writeFileSync(ISSUES_PATH, next, "utf8");
+  writeFileSync(issuesFile, next, "utf8");
   const parsed = parseIssues(next);
   const open = parsed.rows.filter((r) => r.table === "open").length;
   const archived = parsed.rows.filter((r) => r.table === "archive").length;
   console.log(`${ISSUES_PATH} updated: ${open} open, ${archived} archived, collision-free id allocation enabled.`);
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const invokedDirectly =
+  process.argv[1] &&
+  (import.meta.url === pathToFileURL(process.argv[1]).href ||
+    fileURLToPath(import.meta.url) === path.resolve(process.argv[1]));
 if (invokedDirectly) main();

@@ -737,6 +737,62 @@ describe("outstanding-issues inbox", () => {
     expect(() => applyRequest(stale, update)).toThrow(/stale|no longer open/);
   });
 
+  it("fingerprints and closes ULID-display-id rows minted by reconcile", () => {
+    // Reconcile mints rows whose display id is the ULID's chars 10-16, not a
+    // legacy number. issues:done must be able to fingerprint and close them.
+    const ledger = [
+      "# Outstanding issues",
+      "",
+      "<!-- next-issue-id: 2 -->",
+      "",
+      "## Recommended execution queue",
+      "",
+      "<!-- prettier-ignore -->",
+      "",
+      "| Order | ID(s) |",
+      "| --- | --- |",
+      "| 1 | `#001` |",
+      "",
+      "## Open items",
+      "",
+      "<!-- prettier-ignore -->",
+      "",
+      "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| #001 | P2 | issue | original summary | original detail | source | 2026-01-01 |",
+      "| #6BG9X2 <!-- issue-ulid:01M07SS71R6BG9X2VAGXMM1A1G --> | P2 | task | reconciled summary | reconciled detail | source | 2026-08-17 |",
+      "",
+      "## Resolved / archive",
+      "",
+      "<!-- prettier-ignore -->",
+      "",
+      "| ID | Type | Summary | Outcome | Resolved |",
+      "| ---- | ---- | ---- | ---- | ---- |",
+      "| #000 | issue | old | done | 2026-01-01 |",
+      "",
+    ].join("\n");
+
+    const fingerprint = issueRowFingerprint(ledger, "#6BG9X2");
+    expect(fingerprint).not.toBeNull();
+    expect(issueRowFingerprint(ledger, "#000")).toBeNull();
+    expect(issueRowFingerprint(ledger, "#ZZZZZZ")).toBeNull();
+
+    const done = {
+      version: 2,
+      id: "99999999-9999-4999-8999-999999999999",
+      createdOn: "2026-08-17",
+      action: "done",
+      payload: { id: "#6BG9X2", outcome: "closed by test", baseRowFingerprint: fingerprint },
+    };
+    expect(validateRequest(done)).toEqual([]);
+    const applied = applyRequest(ledger, done);
+    expect(applied).not.toContain("| #6BG9X2 <!-- issue-ulid:01M07SS71R6BG9X2VAGXMM1A1G --> | P2 |");
+    expect(applied.slice(applied.indexOf("## Resolved / archive"))).toContain("closed by test");
+
+    const stale = ledger.replace("reconciled summary", "mutated summary");
+    expect(() => applyRequest(stale, done)).toThrow(/stale|no longer open/);
+  });
+
   it("rejects done requests targeting archived or nonexistent issues", () => {
     const ledger = [
       "<!-- issues:next-id=2 -->",

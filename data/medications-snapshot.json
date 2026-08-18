@@ -44153,17 +44153,6 @@
               "severity": "danger",
               "note": "Inferred from existing decision-section wording; review before clinical use."
             }
-          },
-          {
-            "key": "Hepatic Impairment",
-            "val": "HIGH — Coagulation factors are made in the liver. Liver failure exponentially increases warfarin sensitivity.",
-            "tags": [],
-            "patient": {
-              "factors": ["hepatic"],
-              "action": "contraindication",
-              "severity": "danger",
-              "note": "Inferred from existing decision-section wording; review before clinical use."
-            }
           }
         ]
       },
@@ -44173,12 +44162,12 @@
         "rows": [
           {
             "key": "Pharmacokinetic",
-            "val": "CRITICAL — **CYP2C9** Inhibitors (Fluconazole, Metronidazole, Amiodarone, Bactrim). These will massively spike Warfarin levels, shooting the INR to 8+ and causing fatal bleeding. Dose must be halved preemptively.",
+            "val": "CRITICAL — **CYP2C9** inhibitors (Amiodarone, Metronidazole, Fluconazole, Bactrim) massively spike INR and cause bleeding. You MUST halve the warfarin dose if starting these.",
             "tags": []
           },
           {
             "key": "Pharmacokinetic",
-            "val": "CRITICAL — **CYP2C9** Inducers (Carbamazepine, Rifampicin, St John's Wort). These destroy Warfarin, dropping the INR to 1.0 and causing massive strokes.",
+            "val": "CRITICAL — **CYP2C9** inducers (Carbamazepine, Rifampicin, St John's Wort). These destroy Warfarin, dropping the INR to 1.0 and causing massive strokes.",
             "tags": []
           },
           {
@@ -44188,7 +44177,7 @@
           },
           {
             "key": "Dietary",
-            "val": "HIGH — Leafy green vegetables (Spinach, Broccoli) contain high Vitamin K, directly canceling out Warfarin. Patients must maintain a consistent, unchanging diet.",
+            "val": "HIGH — Leafy greens (broccoli, spinach) contain high Vitamin K and reverse the drug's effect. Diet must be consistent.",
             "tags": []
           }
         ]
@@ -44364,7 +44353,7 @@
       },
       {
         "label": "Key Interactions",
-        "value": "**CYP2C9** Inhibitors (Fluconazole, Metronidazole, Amiodarone, Bactrim). These will massively spike Warfarin levels, shooting the INR to 8+ and causing fatal bleeding. Dose must be halved preemptively.  **CYP2C9** Inducers (Carbamazepine, Rifampicin, St John's Wort). These destroy Warfarin, dropping the INR to 1.0 and causing massive strokes.  NSAIDs, Aspirin, SSRIs (increase bleeding risk without changing INR).  Leafy green vegetables (Spinach, Broccoli) contain high Vitamin K, directly canceling out Warfarin. Patients must maintain a consistent, unchanging diet."
+        "value": "**CYP2C9** inhibitors (Amiodarone, Metronidazole, Fluconazole, Bactrim) massively spike INR and cause bleeding. You MUST halve the warfarin dose if starting these.  **CYP2C9** inducers (Carbamazepine, Rifampicin, St John's Wort). These destroy Warfarin, dropping the INR to 1.0 and causing massive strokes.  NSAIDs, Aspirin, SSRIs (increase bleeding risk without changing INR).  Leafy greens (broccoli, spinach) contain high Vitamin K and reverse the drug's effect. Diet must be consistent."
       },
       {
         "label": "Monitoring",
@@ -44373,6 +44362,383 @@
       {
         "label": "Clinical Pearl",
         "value": "Because Warfarin depletes Protein C (an anti-clotting factor) faster than it depletes the actual clotting factors, it makes the patient hyper-coagulable for the first 3 days. You MUST 'bridge' them with an injectable blood thinner (like Enoxaparin or Heparin) for the first 5 days until the INR hits 2.0, or they will clot."
+      }
+    ]
+  },
+  {
+    "slug": "warfarin-anticoagulant",
+    "name": "Warfarin",
+    "class": "Anticoagulant",
+    "subclass": "Vitamin K Antagonist",
+    "category": "Haematology - Anticoagulants & Haemostatics",
+    "accent": "#0284c7",
+    "tag": "ANTICOAGULANT",
+    "schedule": "S4",
+    "stats": [
+      {
+        "label": "Target INR",
+        "value": "2.0 - 3.0",
+        "cls": "accent",
+        "flag": "accent"
+      },
+      {
+        "label": "Half-life",
+        "value": "40 h",
+        "cls": "",
+        "flag": ""
+      },
+      {
+        "label": "Bleeding Risk",
+        "value": "CRITICAL",
+        "cls": "hi",
+        "flag": "hi"
+      },
+      {
+        "label": "Interactions",
+        "value": "VERY HIGH",
+        "cls": "hi",
+        "flag": "warn"
+      }
+    ],
+    "sections": [
+      {
+        "title": "Rapid Summary",
+        "type": "summary",
+        "rows": [
+          {
+            "key": "Overview",
+            "val": "The original oral anticoagulant. A Vitamin K antagonist with an extremely narrow therapeutic window, volatile kinetics, and hundreds of drug interactions.",
+            "tags": []
+          },
+          {
+            "key": "Maximum Dose",
+            "val": "Titrated entirely based on INR results.",
+            "tags": []
+          },
+          {
+            "key": "Clinical Focus",
+            "val": "The only oral anticoagulant approved for mechanical heart valves or moderate-to-severe mitral stenosis.",
+            "tags": []
+          },
+          {
+            "key": "Bottom Line",
+            "val": "Warfarin is the only oral anticoagulant for mechanical heart valves and valvular AF, but requires meticulous INR monitoring and has extensive drug and dietary interactions.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Risk Profile",
+        "type": "risk",
+        "rows": [
+          {
+            "key": "Haematological",
+            "val": "CRITICAL — Fatal haemorrhage (intracranial, GI).",
+            "tags": []
+          },
+          {
+            "key": "Dermatological",
+            "val": "HIGH — Warfarin-induced skin necrosis (rare, occurs in the first few days due to rapid depletion of Protein C, causing paradoxical micro-clotting).",
+            "tags": []
+          },
+          {
+            "key": "Other",
+            "val": "LOW — Purple toe syndrome.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Dosing & Administration",
+        "type": "dose",
+        "rows": [
+          {
+            "key": "Initiation",
+            "val": "Start **PO** 5 mg **OD** (at 16:00). Check INR daily. Adjust dose using a validated nomogram.",
+            "tags": []
+          },
+          {
+            "key": "Maintenance",
+            "val": "**PO** 1-10 mg **OD**. Guided entirely by INR (Target 2.0-3.0 for most, 2.5-3.5 for mechanical valves).",
+            "tags": []
+          },
+          {
+            "key": "Elderly / Frail",
+            "val": "Start at 2.5 mg or lower. Extremely sensitive.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Formulation & Access",
+        "type": "form",
+        "rows": [
+          {
+            "key": "Brand Names",
+            "val": "Coumadin, Marevan (Do NOT interchange brands without intense INR monitoring).",
+            "tags": []
+          },
+          {
+            "key": "Oral Routes",
+            "val": "Tablets (1 mg, 2 mg, 3 mg, 5 mg).",
+            "tags": []
+          },
+          {
+            "key": "Prescribing & PBS",
+            "val": "Unrestricted General Benefit (S4).",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Indications & Use",
+        "type": "ind",
+        "rows": [
+          {
+            "key": "Primary",
+            "val": "Mechanical heart valves, AF with valvular disease, VTE/PE.",
+            "tags": ["PBS", "TGA"]
+          },
+          {
+            "key": "Clinical Place",
+            "val": "Superseded by DOACs for standard AF/VTE, but remains absolute mandatory therapy for metallic heart valves and antiphospholipid syndrome.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Contraindications & Populations",
+        "type": "contra",
+        "rows": [
+          {
+            "key": "Absolute",
+            "val": "CRITICAL — High fall risk, active bleeding, severe non-compliance.",
+            "tags": []
+          },
+          {
+            "key": "Pregnancy",
+            "val": "ABSOLUTE — **Pregnancy** Category D. Teratogenic (fetal warfarin syndrome). Must switch to LMWH.",
+            "tags": [],
+            "patient": {
+              "factors": ["pregnancy"],
+              "action": "contraindication",
+              "severity": "danger",
+              "note": "Inferred from existing decision-section wording; review before clinical use."
+            }
+          },
+          {
+            "key": "Hepatic Impairment",
+            "val": "HIGH — Coagulation factors are made in the liver. Liver failure exponentially increases warfarin sensitivity.",
+            "tags": [],
+            "patient": {
+              "factors": ["hepatic"],
+              "action": "contraindication",
+              "severity": "danger",
+              "note": "Inferred from existing decision-section wording; review before clinical use."
+            }
+          }
+        ]
+      },
+      {
+        "title": "Key Interactions",
+        "type": "inter",
+        "rows": [
+          {
+            "key": "Pharmacokinetic",
+            "val": "CRITICAL — **CYP2C9** inhibitors (Amiodarone, Metronidazole, Fluconazole, Bactrim) massively spike INR and cause bleeding. You MUST halve the warfarin dose if starting these.",
+            "tags": []
+          },
+          {
+            "key": "Pharmacokinetic",
+            "val": "CRITICAL — **CYP2C9** inducers (Carbamazepine, Rifampicin, St John's Wort). These destroy Warfarin, dropping the INR to 1.0 and causing massive strokes.",
+            "tags": []
+          },
+          {
+            "key": "Pharmacodynamic",
+            "val": "HIGH — NSAIDs, Aspirin, SSRIs (increase bleeding risk without changing INR).",
+            "tags": []
+          },
+          {
+            "key": "Dietary",
+            "val": "HIGH — Leafy greens (broccoli, spinach) contain high Vitamin K and reverse the drug's effect. Diet must be consistent.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Monitoring & Cautions",
+        "type": "mon",
+        "rows": [
+          {
+            "key": "Laboratory",
+            "val": "MANDATORY — Strict, lifelong **INR** monitoring.",
+            "tags": []
+          },
+          {
+            "key": "Bedside",
+            "val": "Assess for bruising, bleeding gums, melaena, haematuria.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Clinical Pearls",
+        "type": "pearl",
+        "rows": [
+          {
+            "key": "The Reversal Agent",
+            "val": "If a patient on Warfarin has a life-threatening bleed, Vitamin K IV alone is too slow. You MUST give Prothrombinex-VF (Factor II, IX, X) immediately alongside Vitamin K to restore clotting factors.",
+            "tags": []
+          },
+          {
+            "key": "The Protein C Paradox",
+            "val": "Warfarin initially depletes Protein C (a natural anticoagulant) faster than it depletes clotting factors. This creates a hypercoagulable state for 48 hours. Patients must be 'bridged' with Enoxaparin to prevent massive clotting during initiation.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Mechanism & Pharmacokinetics",
+        "type": "evid",
+        "rows": [
+          {
+            "key": "Mechanism",
+            "val": "Inhibits Vitamin K Epoxide Reductase (VKORC1). Halts the hepatic synthesis of Vitamin K-dependent clotting factors (II, VII, IX, X) and Proteins C & S.",
+            "tags": []
+          },
+          {
+            "key": "Onset",
+            "val": "36-72 hours (Requires a bridging anticoagulant like Heparin/Enoxaparin initially).",
+            "tags": []
+          },
+          {
+            "key": "Duration",
+            "val": "2-5 Days.",
+            "tags": []
+          },
+          {
+            "key": "Half-life",
+            "val": "40 hours.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Special Populations",
+        "type": "spec",
+        "rows": [
+          {
+            "key": "Elderly / Frail",
+            "val": "HIGH — Dramatically increased sensitivity to Warfarin anticoagulant effects. Start at 1-2 mg **OD** and titrate to a lower **INR** target (2.0-2.5). Risk of fatal intracranial haemorrhage from trivial falls is significantly elevated.",
+            "tags": [],
+            "patient": {
+              "factors": ["elderly"],
+              "action": "dose-adjust",
+              "severity": "caution",
+              "match": {
+                "age": {
+                  "gte": 65
+                }
+              },
+              "note": "Inferred from existing decision-section wording; review before clinical use."
+            }
+          },
+          {
+            "key": "Renal Impairment",
+            "val": "MANDATORY — Monitor **INR** more frequently as renal function declines. The active S-warfarin isomer clearance is altered. Any infection causing dehydration can cause an **INR** spike.",
+            "tags": [],
+            "patient": {
+              "factors": ["renal"],
+              "action": "dose-adjust",
+              "severity": "caution",
+              "match": {
+                "egfr": {
+                  "lt": 60
+                }
+              },
+              "note": "Inferred from existing decision-section wording; review before clinical use."
+            }
+          },
+          {
+            "key": "Pregnancy",
+            "val": "CRITICAL — **Pregnancy** Category D. Warfarin embryopathy (nasal hypoplasia, limb defects) in first trimester. CNS anomalies and fetal haemorrhage at any stage. Must switch to LMWH (Enoxaparin) during pregnancy. Continue LMWH peripartum.",
+            "tags": [],
+            "patient": {
+              "factors": ["pregnancy"],
+              "action": "caution",
+              "severity": "caution",
+              "note": "Inferred from existing decision-section wording; review before clinical use."
+            }
+          },
+          {
+            "key": "Paediatric",
+            "val": "MANDATORY — Paediatric dosing is highly variable and weight-based. Always use a dedicated paediatric anticoagulation service. Target INR range differs by indication.",
+            "tags": [],
+            "patient": {
+              "factors": ["paediatric"],
+              "action": "dose-adjust",
+              "severity": "caution",
+              "match": {
+                "age": {
+                  "lt": 18
+                }
+              },
+              "note": "Inferred from existing decision-section wording; review before clinical use."
+            }
+          }
+        ]
+      },
+      {
+        "title": "Sources",
+        "type": "src",
+        "rows": [
+          {
+            "key": "Source Review",
+            "val": "Source Check - MAREVAN/COUMADIN ARTG/PI, TGA oral anticoagulant safety update, and PBS search checked 2026-05-13 for high-risk opioid/general batch appraisal: identity/access, indication, dosing, contraindications/populations, interactions, monitoring, pregnancy/lactation, patient-context metadata, and source-row status."
+          }
+        ]
+      }
+    ],
+    "quick": [
+      {
+        "label": "Class & Role",
+        "value": "Vitamin K Antagonist — The original oral anticoagulant."
+      },
+      {
+        "label": "Route / Formulation",
+        "value": "Tablets (1 mg, 2 mg, 3 mg, 5 mg). (Coumadin, Marevan (Do NOT interchange brands without intense INR monitoring).)"
+      },
+      {
+        "label": "Usual Dose & Max",
+        "value": "Start **PO** 5 mg **OD** (at 16:00). Check INR daily. Adjust dose using a validated nomogram. Titrated entirely based on INR results."
+      },
+      {
+        "label": "Key Indication Doses",
+        "value": "Initiation: Start **PO** 5 mg **OD** (at 16:00). Check INR daily. Adjust dose using a validated nomogram.  Maintenance: **PO** 1-10 mg **OD**. Guided entirely by INR (Target 2.0-3.0 for most, 2.5-3.5 for mechanical valves).  Elderly / Frail: Start at 2.5 mg or lower. Extremely sensitive."
+      },
+      {
+        "label": "Best Uses",
+        "value": "Warfarin is the only oral anticoagulant for mechanical heart valves and valvular AF, but requires meticulous INR monitoring and has extensive drug and dietary interactions."
+      },
+      {
+        "label": "Avoid / Cautions",
+        "value": "High fall risk, active bleeding, severe non-compliance. **Pregnancy** Category D. Teratogenic (fetal warfarin syndrome). Must switch to LMWH."
+      },
+      {
+        "label": "Key Risks",
+        "value": "Haematological: Fatal haemorrhage (intracranial, GI).  Dermatological: Warfarin-induced skin necrosis (rare, occurs in the first few days due to rapid depletion of Protein C, causing paradoxical micro-clotting).  Other: Purple toe syndrome."
+      },
+      {
+        "label": "Key Interactions",
+        "value": "**CYP2C9** inhibitors (Amiodarone, Metronidazole, Fluconazole, Bactrim) massively spike INR and cause bleeding. You MUST halve the warfarin dose if starting these.  **CYP2C9** inducers (Carbamazepine, Rifampicin, St John's Wort). These destroy Warfarin, dropping the INR to 1.0 and causing massive strokes.  NSAIDs, Aspirin, SSRIs (increase bleeding risk without changing INR).  Leafy greens (broccoli, spinach) contain high Vitamin K and reverse the drug's effect. Diet must be consistent."
+      },
+      {
+        "label": "Monitoring",
+        "value": "Strict, lifelong **INR** monitoring.  Assess for bruising, bleeding gums, melaena, haematuria."
+      },
+      {
+        "label": "Clinical Pearl",
+        "value": "If a patient on Warfarin has a life-threatening bleed, Vitamin K IV alone is too slow. You MUST give Prothrombinex-VF (Factor II, IX, X) immediately alongside Vitamin K to restore clotting factors."
       }
     ]
   },

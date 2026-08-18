@@ -54,6 +54,7 @@ import {
   DocumentBadge,
   documentActionClass,
 } from "@/components/clinical-dashboard/document-ui";
+import { useBatchSignedImageUrls } from "@/components/clinical-dashboard/use-batch-signed-urls";
 import { useSignedImageUrl } from "@/components/clinical-dashboard/use-signed-image-url";
 import {
   cn,
@@ -914,6 +915,11 @@ function DocumentSearchResultsPanelImpl({
   }
   const visibleCount = Math.min(visibleCountState.count, sortedMatches.length);
   const renderedMatches = sortedMatches.slice(0, visibleCount);
+  const coverImageIds = useMemo(
+    () => renderedMatches.map((doc) => doc.coverImageId).filter((id): id is string => Boolean(id)),
+    [renderedMatches],
+  );
+  useBatchSignedImageUrls(coverImageIds);
   const hasMoreMatches = visibleCount < sortedMatches.length;
   const recordMatchCount = recordMatches.length;
   const shouldShowHome = showHome || !trimmedQuery;

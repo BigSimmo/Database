@@ -40,7 +40,7 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     id: "opioids",
     surfaces: ["opioids", "opioid", "opioid analgesia", "opiates", "full agonists"],
     kind: "catalogue",
-    select: { subclassIncludes: ["Opioid"], denySlugs: ["naltrexone", "naloxone", "loperamide"] },
+    select: { subclassIncludes: ["Opioid"], denySlugs: ["naltrexone", "naloxone"] },
   },
   { id: "ssris", surfaces: ["ssris", "ssri"], kind: "catalogue", select: { subclassIncludes: ["SSRI"] } },
   { id: "snris", surfaces: ["snris", "snri"], kind: "catalogue", select: { subclassIncludes: ["SNRI"] } },
@@ -67,7 +67,7 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     kind: "catalogue",
     select: { classes: ["Antipsychotic", "LAI Antipsychotic"] },
   },
-  { id: "nsaids", surfaces: ["nsaids", "nsaid"], kind: "catalogue", select: { subclassIncludes: ["NSAID"] } },
+  { id: "nsaids", surfaces: ["nsaids", "nsaid"], kind: "catalogue", select: { subclassIncludes: ["NSAID", "COX-2"] } },
   {
     id: "beta-blockers",
     surfaces: ["beta-blockers", "beta blockers", "beta-blocker", "beta blocker", "non-selective beta-blockers"],
@@ -204,18 +204,86 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     kind: "catalogue",
     select: { slugs: ["lithium-carbonate-ir-sr"] },
   },
-  // No `z-drugs` term. It existed until the review sheet showed it firing on
-  // zero catalogue rows: nothing in the corpus says "Z-drugs", "zolpidem-type
-  // hypnotics" or even "hypnotics". Keeping a term that can never match implied
-  // z-drug coverage the tool does not have.
-  //
-  // Zolpidem and zopiclone ARE reachable in the catalogue, but they are named
-  // only through "CNS depressants" (10 rows) and "sedatives" (2 rows), both of
-  // which are deliberately `mechanism` terms — unenumerable, so those rows stay
-  // unresolved and the medication holds at grey rather than green. Enumerating
-  // them would turn a fail-safe grey into a confident red across a large and
-  // ill-defined class, which is a clinical decision, not a lexicon edit.
-  // Recorded in the review sheet's coverage section instead.
+  {
+    id: "calcium-channel-blockers",
+    surfaces: [
+      "calcium channel blockers",
+      "calcium channel blocker",
+      "ccbs",
+      "ccb",
+      "non-dhp ccbs",
+      "dhp calcium channel blockers",
+    ],
+    kind: "catalogue",
+    select: { subclassIncludes: ["Calcium Channel Blocker", "CCB"] },
+  },
+  {
+    id: "cephalosporins",
+    surfaces: ["cephalosporins", "cephalosporin"],
+    kind: "catalogue",
+    select: { subclassIncludes: ["Cephalosporin"] },
+  },
+  {
+    id: "penicillins",
+    surfaces: ["penicillins", "penicillin"],
+    kind: "catalogue",
+    select: {
+      slugs: [
+        "amoxicillin",
+        "amoxicillin-clavulanate",
+        "benzathine-benzylpenicillin",
+        "dicloxacillin",
+        "flucloxacillin",
+        "phenoxymethylpenicillin",
+        "piperacillin-tazobactam",
+      ],
+    },
+  },
+  {
+    id: "oral-contraceptives",
+    surfaces: ["oral contraceptives", "oral contraceptive", "combined oral contraceptive pill", "cocp", "ocps", "ocp"],
+    kind: "catalogue",
+    select: { slugs: ["ethinylestradiol", "levonorgestrel", "medroxyprogesterone"] },
+  },
+  {
+    id: "fibrates",
+    surfaces: ["fibrates", "fibrate"],
+    kind: "catalogue",
+    select: { subclassIncludes: ["Fibrate"] },
+  },
+  {
+    id: "immunosuppressants",
+    surfaces: ["immunosuppressants", "immunosuppressant"],
+    kind: "catalogue",
+    select: { slugs: ["methotrexate"] },
+  },
+  {
+    id: "nrt",
+    surfaces: ["transdermal nrt", "nicotine transdermal systems", "nicotine patches"],
+    kind: "catalogue",
+    select: {
+      slugs: [
+        "nicotine-gum",
+        "nicotine-inhalator",
+        "nicotine-lozenge",
+        "nicotine-mouth-spray",
+        "nicotine-patch",
+        "nicotine-sublingual-tablet",
+      ],
+    },
+  },
+  {
+    id: "antibiotics",
+    surfaces: ["antibiotics", "antibiotic", "oral antibiotics", "broad-spectrum antibiotics"],
+    kind: "catalogue",
+    select: { classes: ["Antibiotic"] },
+  },
+  {
+    id: "sulfonylureas",
+    surfaces: ["sulfonylureas", "sulfonylurea"],
+    kind: "catalogue",
+    select: { subclassIncludes: ["Sulfonylurea"] },
+  },
 ];
 
 const NON_CATALOGUE_TERMS: LexiconTerm[] = [
@@ -321,6 +389,60 @@ const NON_CATALOGUE_TERMS: LexiconTerm[] = [
     id: "serotonergic",
     surfaces: ["serotonergic drugs", "serotonergic agents", "other serotonergics"],
     kind: "mechanism",
+  },
+  {
+    id: "bile-acid-sequestrants",
+    surfaces: ["bile acid sequestrants", "cholestyramine"],
+    kind: "external",
+    note: "Bile acid sequestrants (e.g. Cholestyramine); not stocked in catalogue.",
+  },
+  {
+    id: "retinoids",
+    surfaces: ["isotretinoin", "acitretin"],
+    kind: "external",
+    note: "Systemic retinoids; outside current catalogue.",
+  },
+  {
+    id: "orlistat",
+    surfaces: ["orlistat"],
+    kind: "external",
+    note: "Lipase inhibitor; outside catalogue.",
+  },
+  {
+    id: "anaesthetics",
+    surfaces: ["anaesthetic agents", "anaesthetics", "anaesthetic", "neuromuscular blocking agents"],
+    kind: "external",
+    note: "Hospital-only surgical anaesthetics and neuromuscular blockers.",
+  },
+  {
+    id: "laiv",
+    surfaces: ["live attenuated influenza vaccine", "laiv"],
+    kind: "external",
+    note: "Live attenuated influenza vaccine, not prescribable drug.",
+  },
+  {
+    id: "barrier-contraception",
+    surfaces: ["condoms", "latex condoms", "diaphragms"],
+    kind: "nonDrug",
+    note: "Barrier contraception methods damaged by oil-based formulations.",
+  },
+  {
+    id: "liquid-paraffin",
+    surfaces: ["liquid paraffin", "mineral oil laxatives"],
+    kind: "external",
+    note: "Mineral oil laxative; outside catalogue.",
+  },
+  {
+    id: "iv-calcium-solutions",
+    surfaces: ["iv calcium solutions", "hartmann's", "plasmalyte"],
+    kind: "nonDrug",
+    note: "Intravenous electrolyte infusion solutions, not prescribable drugs.",
+  },
+  {
+    id: "oral-absorption",
+    surfaces: ["concomitant oral medications", "rapidly acting oral medications"],
+    kind: "mechanism",
+    note: "General absorption delay / transit-time alteration for oral formulations.",
   },
 ];
 

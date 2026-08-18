@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "48e960d3-36e0-4be0-af16-7959d62b1907",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "1505ba13-1b2a-47c9-b6cc-03b060f7a878",
+    "reason": "Superseded by 993a1c72-96bd-4e48-b1a4-3ea3b603acac (this PR): #336's decision is now made and recorded in GATES.md/DECISIONS.md, replacing the earlier 'stays open' flag."
+  }
+}

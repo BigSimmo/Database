@@ -61,6 +61,7 @@ import {
 import { buildEvidencePreviewProgress, type VerifiedUnit } from "@/lib/answer-preview";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
 import { selectModelContextResults, summarizeAustralianSourceSelection } from "@/lib/rag/rag-context-selection";
+import { relatedInformationMenuLine } from "@/lib/rag/answer-composition";
 export {
   capPerDocumentCrowding,
   selectModelContextResults,
@@ -340,7 +341,7 @@ const answerJsonOutputSchema = {
       type: "array",
       description:
         "Second-layer structured support. Add only distinct source-backed modules that improve scanability, such as actions, monitoring, medication/dose, thresholds, comparison, cautions, documentation, or source gaps.",
-      maxItems: 5,
+      maxItems: 6,
       items: {
         type: "object",
         additionalProperties: false,
@@ -537,8 +538,8 @@ function provenanceLayerKeys(result: SearchResult) {
   return layers;
 }
 
-/** Record search score telemetry. */
-function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchResult[]) {
+/** Record search score telemetry. Exported for `tests/rag-score.test.ts`; not a route surface. */
+export function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchResult[]) {
   if (!results.length) {
     telemetry.top_score = 0;
     telemetry.second_top_score = 0;
@@ -570,6 +571,7 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
   telemetry.score_spread = Number(Math.max(0, telemetry.top_score - telemetry.second_top_score).toFixed(4));
   telemetry.score_distinct_documents = new Set(results.map((result) => result.document_id)).size;
   telemetry.retrieval_candidate_count = results.length;
+  // Strict equality, deliberately: "document_context" rows carry the constant 1 with no match strength to inflate; counting them here would mix two populations and make the RC9 signal unreadable. Pinned by tests/rag-score.test.ts.
   telemetry.synthetic_similarity_count = results.filter(
     (result) => result.similarity_origin === "synthetic_text",
   ).length;
@@ -3208,6 +3210,7 @@ async function answerQuestionWithScopeUncoalesced(
           ? "simple direct question: answer only the definition or direct fact requested; do not broaden into management unless asked"
           : "use the question wording to decide the necessary clinical scope"
       }`,
+      relatedInformationMenuLine(queryClass, queryAnalysis.intent),
       `display_mode: ${smartApiPlan.displayMode}`,
       `route: ${route.mode} (${route.reason})`,
       `answer_plan.intent: ${smartApiPlan.answerPlan.intent}`,

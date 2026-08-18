@@ -47,6 +47,10 @@ const answerSectionKinds = new Set([
   "verification",
 ]);
 const answerSectionSupportLevels = new Set(["direct", "partial", "nearby", "unsupported"]);
+// Mirrors the `similarity_origin` union in `types.ts`. Kept as an allow-set rather than a
+// chain of `!==` comparisons so adding a provenance value there cannot silently leave the
+// streamed preview rejecting a payload the `final` response accepts.
+const similarityOriginValues = new Set(["cosine", "synthetic_text", "document_context"]);
 const citationProvenanceValues = new Set([
   "model_selected",
   "section_selected",
@@ -165,8 +169,7 @@ function isClientSource(value: unknown): value is SearchResult {
   if (
     "similarity_origin" in value &&
     value.similarity_origin !== undefined &&
-    value.similarity_origin !== "cosine" &&
-    value.similarity_origin !== "synthetic_text"
+    !similarityOriginValues.has(value.similarity_origin as string)
   ) {
     return false;
   }

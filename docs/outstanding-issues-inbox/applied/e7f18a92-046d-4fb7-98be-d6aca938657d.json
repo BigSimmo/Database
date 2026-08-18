@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e7f18a92-046d-4fb7-98be-d6aca938657d",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Playwright runs the whole suite with reducedMotion:\"reduce\", so no gate reflects the default user configuration",
+    "detail": "playwright.config.ts:61 sets contextOptions: { reducedMotion: \"reduce\" } suite-wide, and every motion assertion has to opt out per-test via page.emulateMedia({ reducedMotion: \"no-preference\" }). That inversion is why three consecutive PRs (#1974, #1989, #1995) shipped green while a physical iPhone with OS Reduce Motion on showed a frozen, blank answer-progress panel: the suite never exercised the reported configuration. PR #2046 added tests/ui-phone-motion.spec.ts to cover that one surface, but the suite-wide default remains inverted for every other motion behaviour. Next: decide whether the suite default should be no-preference with reduce opted into per-test (the safer direction), or keep the current default and add a contract test that fails when a motion assertion has no explicit emulateMedia call.",
+    "source": "PR #2046 phone/PWA answer-progress animation defect, 2026-08-17",
+    "issueUlid": "01M085TT0575JA0P5H0386V0JB"
+  }
+}

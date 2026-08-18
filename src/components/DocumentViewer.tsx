@@ -1315,10 +1315,20 @@ export function DocumentViewer({
         data-phone-scroll-owner={activeScrollOwner}
         data-phone-footer-owner={readyDocument ? "document-viewer" : "none"}
         data-phone-composer-reserve={
-          composerScrollHidden ? "0rem" : "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))"
+          composerScrollHidden ? "0.75rem" : "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))"
         }
         data-phone-chrome-transition={reserveTransitioning ? "active" : "idle"}
         data-document-view={compactView ? "condensed" : "full"}
+        // Hidden state releases the composer's own 9rem clearance, but keeps a
+        // small resting gap (0.75rem — the same figure the floating pill itself
+        // uses for its bottom clearance, .floating-composer-edge) so the last
+        // card never paints flush against the physical bottom edge once the pill
+        // is gone. Reported by a user whose last card sat with zero clearance at
+        // the true end of scroll. `data-reserve-hidden-pad` keeps that baseline
+        // out of the hide/reveal collapse-budget math (readChromeCollapseMetrics
+        // in use-hide-on-scroll.ts), which otherwise would treat it as space the
+        // hide would still release.
+        data-reserve-hidden-pad="0.75rem"
         className={cn(
           // Base `grid-cols-1` for the same reason as the rail grid: without an
           // explicit track this is an implicit `auto` column sized by its items'
@@ -1326,10 +1336,11 @@ export function DocumentViewer({
           // whole page past the viewport and get clipped by `overflow-x: clip`.
           "mx-auto grid max-w-[1440px] grid-cols-1 gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
           // The visible fixed composer needs endpoint clearance. Once hidden,
-          // remove all artificial clearance so Safari can paint document content
-          // beneath its translucent toolbar instead of showing a blank band.
+          // release the composer-height clearance so Safari can paint document
+          // content beneath its translucent toolbar instead of showing a blank
+          // band — but keep a small 0.75rem resting pad (see comment above).
           composerScrollHidden
-            ? "max-sm:pb-0"
+            ? "max-sm:pb-3"
             : "max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))] max-sm:[--phone-focus-bottom-clearance:calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]",
         )}
       >
@@ -1403,7 +1414,7 @@ export function DocumentViewer({
             past the PDF. */}
         {readyDocument ? (
           <div
-            id="source-summary"
+            id="source-summary-card"
             className="min-w-0 max-sm:order-2 lg:col-span-2 scroll-mt-[var(--document-anchor-offset,6rem)]"
           >
             <DocumentClinicalSummary

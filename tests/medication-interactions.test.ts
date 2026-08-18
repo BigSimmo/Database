@@ -59,10 +59,10 @@ describe("evaluateMedicationInteractions", () => {
     // The mirror of the missing-data guard, and the half that was missing. A
     // patient on a drug the corpus never mentions produced zero interactions,
     // zero unresolved rows, and a confident green — silence presented as an
-    // all-clear. Cephalexin is one of 35 such drugs.
-    const result = evaluateMedicationInteractions("sertraline", ["cephalexin"]);
+    // all-clear. Zolpidem is one of 20 such drugs.
+    const result = evaluateMedicationInteractions("sertraline", ["zolpidem"]);
     expect(result.interactions).toHaveLength(0);
-    expect(result.unreachableCounterparties).toEqual(["cephalexin"]);
+    expect(result.unreachableCounterparties).toEqual(["zolpidem"]);
 
     const verdict = composeMedicationVerdict({
       considerationTone: null,
@@ -83,7 +83,7 @@ describe("evaluateMedicationInteractions", () => {
     const result = evaluateMedicationInteractions("sertraline", ["ibuprofen"]);
     expect(result.unreachableCounterparties).toEqual([]);
     expect(isUnreachableCounterparty("ibuprofen")).toBe(false);
-    expect(isUnreachableCounterparty("cephalexin")).toBe(true);
+    expect(isUnreachableCounterparty("zolpidem")).toBe(true);
   });
 
   it("counts a source-only medication as a reachable interaction endpoint", () => {

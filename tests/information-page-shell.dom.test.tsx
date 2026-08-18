@@ -16,6 +16,8 @@ describe("isInformationPage", () => {
     expect(isInformationPage("/specifiers/with-anxious-distress")).toBe(true);
     expect(isInformationPage("/formulation/avoidance")).toBe(true);
     expect(isInformationPage("/factsheets/ssri-start")).toBe(true);
+    expect(isInformationPage("/dictionary/auditory-hallucination")).toBe(true);
+    expect(isInformationPage("/dictionary/topics/psychosis-and-perception")).toBe(true);
     expect(isInformationPage("/dsm/diagnoses/mdd")).toBe(true);
     expect(isInformationPage("/differentials/diagnoses/delirium")).toBe(true);
     expect(isInformationPage("/documents/abc")).toBe(true);
@@ -27,6 +29,8 @@ describe("isInformationPage", () => {
     expect(isInformationPage("/specifiers/builder")).toBe(false);
     expect(isInformationPage("/formulation/compare")).toBe(false);
     expect(isInformationPage("/factsheets/search")).toBe(false);
+    expect(isInformationPage("/dictionary/search")).toBe(false);
+    expect(isInformationPage("/dictionary/topics")).toBe(false);
     expect(isInformationPage("/documents/search")).toBe(false);
     expect(isInformationPage("/therapy-compass/search")).toBe(false);
   });

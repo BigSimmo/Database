@@ -19,10 +19,11 @@ import type { SearchResult } from "@/lib/types";
  *
  * - **Strict on the ranking, citation, and evidence fields.** Every required field except
  *   `source_metadata` is `not null` in `supabase/schema.sql`, so requiring it cannot reject a
- *   row that works today. `source_metadata` is the exception: `documents.metadata` is bare
- *   `jsonb`, which permits arrays and scalars, so pinning it to an object is guaranteed by the
- *   data rather than by a constraint. Measured 2026-08-15, all 2851 live documents are
- *   objects; a `check (jsonb_typeof(metadata) = 'object')` would make that structural.
+ *   row that works today. `source_metadata` is the exception: `documents.metadata` is `not null`
+ *   `jsonb default '{}'::jsonb` without a `check (jsonb_typeof(metadata) = 'object')` constraint,
+ *   so bare `jsonb` in postgres permits arrays and scalars. Pinning it to an object via this
+ *   contract guarantees structural object validation at runtime rather than relying solely on
+ *   database column constraints. Measured 2026-08-15, all 2851 live documents are objects.
  *   The four score fields are `.nullish()` — absent or
  *   null already flows through the downstream `?? 0` handling unchanged — but a *string where
  *   a number belongs* is rejected, which is precisely the silent-misranking case this exists
@@ -40,6 +41,12 @@ const retrievalImageSchema = z.looseObject({
   caption: z.string(),
 });
 
+const sourceMetadataSchema = z
+  .record(z.string(), z.unknown(), {
+    message: "source_metadata must be a JSON object",
+  })
+  .nullable();
+
 const retrievalRowSchema = z.looseObject({
   id: z.string().min(1),
   document_id: z.string().min(1),
@@ -50,7 +57,7 @@ const retrievalRowSchema = z.looseObject({
   section_heading: z.string().nullable(),
   content: z.string(),
   image_ids: z.array(z.string()),
-  source_metadata: z.record(z.string(), z.unknown()).nullable(),
+  source_metadata: sourceMetadataSchema,
   images: z.array(retrievalImageSchema),
   similarity: z.number().nullish(),
   text_rank: z.number().nullish(),
@@ -183,7 +190,23 @@ export function assertIndexUnitRows(rows: unknown, rpc: string): asserts rows is
   assertRowsAgainst(z.array(indexUnitRowSchema), rows, rpc);
 }
 
-/** Build and validate the locally retrieved rows used as document-summary context. */
+/**
+ * Build and validate the locally retrieved rows used as document-summary context.
+ *
+ * `similarity: 1` here is a constant, not a measured cosine: `summarizeDocument` loads every
+ * committed chunk of one document, so there is no query to score against — the document IS the
+ * query. The `similarity_origin: "document_context"` tag makes that provenance explicit rather
+ * than leaving a fabricated 1.0 indistinguishable from a perfect vector match (H5a live
+ * residual, `docs/clinical-hazard-analysis.md`; owner decision 2026-08-17, Option B).
+ *
+ * The tag is deliberately NOT `"synthetic_text"`. That value marks scores imputed from lexical
+ * or structural match strength on the general answer path, where a title hit can masquerade as
+ * semantic evidence; `deriveConfidence` (`rag-answer-support.ts`) therefore excludes it from the
+ * "high" bar. This route has no match strength to inflate and its citations are verified by the
+ * same grounding pipeline, so the confidence derivation is unchanged and the "high" label stays.
+ * Reusing `"synthetic_text"` here would silently cap every document summary at "medium" —
+ * recorded as rejected Option A. `tests/rag-score.test.ts` pins both halves of that split.
+ */
 export function buildDocumentSummaryResults(
   chunks: unknown[],
   document: { title: string; file_name: string; metadata?: unknown },
@@ -194,6 +217,7 @@ export function buildDocumentSummaryResults(
     file_name: document.file_name,
     source_metadata: normalizeOptionalSourceMetadata(document.metadata),
     similarity: 1,
+    similarity_origin: "document_context" as const,
     images: [],
   }));
   assertRetrievalRows(results, "document_summary_context");
