@@ -30,7 +30,7 @@ export type CatalogueToolbarSortProps = {
 
 export type CatalogueToolbarFilterTriggerProps = {
   open?: boolean;
-  onToggle?: () => void;
+  onToggle: () => void;
   activeCount?: number;
   label?: string;
   panelId?: string;
@@ -218,13 +218,13 @@ export function CatalogueToolbar({
               className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-0.5 text-xs font-semibold text-[color:var(--clinical-accent)]"
             >
               <span>
-                <span className="opacity-75">{chip.groupLabel}: </span>
+                {chip.groupLabel ? <span className="opacity-75">{chip.groupLabel}: </span> : null}
                 {chip.valueLabel}
               </span>
               <button
                 type="button"
                 onClick={chip.onRemove}
-                aria-label={`Remove filter ${chip.groupLabel}: ${chip.valueLabel}`}
+                aria-label={`Remove filter ${chip.accessibleLabel ?? (chip.groupLabel ? `${chip.groupLabel}: ${chip.valueLabel}` : chip.valueLabel)}`}
                 className="grid h-4 w-4 place-items-center rounded-full text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-contrast)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
               >
                 <X className="h-3 w-3" aria-hidden />
