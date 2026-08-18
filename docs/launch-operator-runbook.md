@@ -152,13 +152,29 @@ no scale-to-zero, Railway health `/api/health/ready`. I'll prep the Railway serv
   Full build/run/verify recipe + the required env and secrets:
   [worker-deploy-runbook.md](worker-deploy-runbook.md).
 - **Registry seed (prod)** 🧑 — `npm run registry:seed -- --owner-id <prod-owner-uuid> --write --confirm`
-  (+ `differentials:seed` for the slug-retitle prune). Until seeded, Services/Forms show empty.
+  (+ `npm run differentials:seed` for the slug-retitle prune). Until seeded, Services/Forms show empty.
 - **Auth connection cap** 🧑 — before the first vertical scale-up, switch Supabase auth from the 10-absolute
   cap to **percentage-based** allocation in the dashboard ([capacity-review.md](audit/capacity-review.md) §3).
   Not settable via SQL/MCP.
 - **Observability wiring** 🧑 — once host metrics exist, wire the warn/page SLO thresholds
   ([observability-slos.md](observability-slos.md) §2) into a real alert channel; confirm the nightly eval
   canary is green from `main` (one `workflow_dispatch` run).
+
+## 7. Environment post-restore recovery controls (#326)
+
+Following a Supabase database restore or disaster recovery failover, verify all 5 environment-owned controls before admitting production traffic:
+
+1. **API Secrets & Keys Parity:** Confirm `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, and `RAG_QUERY_HASH_SECRET` match the restored project environment.
+2. **Webhook Endpoint & Signature Verification:** Confirm Railway webhook destinations and Supabase Database Webhook triggers are active and matching HMAC secrets.
+3. **Authentication & Connection Limits:** Validate auth rate limits and connection pool percentage allocation in the Supabase Dashboard.
+4. **Cron Job Schedule Registration:** Verify pg_cron extensions and scheduled maintenance jobs (cache retention, query log sweeps) are active.
+5. **Storage Bucket Policies:** Confirm private document storage buckets (`documents`, `document-images`) have active RLS policies preventing unauthenticated public reads.
+
+## 8. Operational notes & diagnostics (#248, #305, #315)
+
+- **Search-Health Indexes (#248):** Ensure migration `20260705180000_search_schema_health.sql` is active on live and all 20 required indexes are present.
+- **Canary Latency & Cost Boundaries (#305):** Retrieval latency p90 SLO is ≤ 20s. Canary cost metrics provide lower-bound estimates without cache warmup.
+- **UI Smoke Reporter Stranding (#315):** When debugging rare UI smoke test timeouts, inspect reporter stranding in Playwright hooks rather than assuming layout regressions.
 
 ---
 
