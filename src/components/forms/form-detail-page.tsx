@@ -1042,22 +1042,45 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   <FileText className="size-icon-md sm:size-icon-lg" aria-hidden />
                 </span>
                 <div className="min-w-0">
-                  <h2 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                    {formShortTitle(form)}
-                    {details?.availability === "downloadable" ? ".pdf" : ""}
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex h-5 shrink-0 items-center rounded-md bg-[color:var(--clinical-accent-soft)] px-1.5 text-3xs font-bold uppercase leading-none tracking-label text-[color:var(--clinical-accent)]">
+                      {`Form ${formCode(form)}`}
+                    </span>
+                    {details?.availability === "downloadable" ? (
+                      <span className="text-2xs font-semibold uppercase leading-none text-[color:var(--text-muted)]">
+                        PDF
+                      </span>
+                    ) : null}
+                  </div>
+                  <h2 className="mt-1 truncate text-sm font-semibold text-[color:var(--text-heading)]">
+                    {displayText(form.title, `Form ${formCode(form)}`)}
                   </h2>
-                  <p className={cn("mt-0.5 text-xs", textMuted)}>{displayText(form.source?.label, "Official form")}</p>
+                  <p className={cn("mt-0.5 truncate text-xs", textMuted)}>
+                    {displayText(form.source?.label, "Official form")}
+                  </p>
                 </div>
               </div>
               <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
                 {displayText(form.source?.status, "Source status pending")}
               </span>
-              <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
+              <span
+                className={cn(
+                  "hidden min-h-7 items-center rounded-full border px-2 text-xs font-semibold shadow-[var(--shadow-inset)] sm:inline-flex",
+                  details?.officialPdfPasswordProtected ? toneWarning : toneNeutral,
+                )}
+              >
                 {details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}
               </span>
-              <div className="flex items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:hidden">
-                <span>{details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}</span>
-                <ChevronRight className="h-4 w-4" aria-hidden />
+              <div className="flex items-center gap-2 sm:hidden">
+                <span
+                  className={cn(
+                    "inline-flex min-h-6 items-center rounded-full border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)]",
+                    details?.officialPdfPasswordProtected ? toneWarning : toneNeutral,
+                  )}
+                >
+                  {details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}
+                </span>
+                <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
               </div>
               {form.source?.url || details?.localPdfPath ? (
                 <div className="hidden items-center gap-3 sm:flex">
