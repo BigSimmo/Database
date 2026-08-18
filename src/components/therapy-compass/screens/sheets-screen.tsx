@@ -1,16 +1,18 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import { ChevronDown, Scale, Search } from "lucide-react";
 
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { BrowserPrintButton, PrintOutput } from "@/components/ui/print-output";
+import { cardSurface } from "@/components/card-recipes";
+import { PageHeader } from "@/components/ui/page-header";
 import { ToggleSwitch } from "@/components/ui-primitives";
 import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "../bindings";
 import { parseSteps, searchTherapies } from "../data/select";
-import { ChevronDownIcon, ScaleIcon, SearchIcon } from "../icons";
 import { LoadingState } from "../ui";
 import { therapyBtn } from "../controls";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
@@ -41,24 +43,22 @@ export function SheetsScreen() {
       />
       <InformationPageShell testId="therapy-sheet-page" gap={false}>
         <section data-screen-label="Patient sheet">
-          <div data-therapy-no-print className="flex items-start justify-between gap-5 mb-5 flex-wrap">
-            <div>
-              <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
-                Patient Sheet Builder
-              </h1>
-              <p className="m-0 text-sm text-[color:var(--text-muted)]">
-                Design, personalise and print a plain-language handout from a source-grounded record.
-              </p>
-            </div>
-            <div className="max-sm:flex-wrap flex gap-2.5">
-              <BrowserPrintButton label="Print / PDF" />
-            </div>
+          {/* `data-therapy-no-print` stays on a wrapper: a bare `data-*` attribute
+              cannot be passed to a component (see the `testId` note in
+              `ui/button.tsx`). */}
+          <div data-therapy-no-print>
+            <PageHeader
+              className="mb-5"
+              title="Patient Sheet Builder"
+              description="Design, personalise and print a plain-language handout from a source-grounded record."
+              actions={<BrowserPrintButton label="Print / PDF" />}
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-[340px_minmax(0,_1fr)] gap-5 items-start">
             {/* BUILDER */}
             <div className="max-sm:static max-sm:top-auto flex flex-col gap-4 sticky top-[84px]">
-              <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] py-[18px] px-5">
+              <div className={`${cardSurface} py-[18px] px-5`}>
                 <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mb-3">Therapy</div>
                 <TherapyPicker />
                 <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mt-[18px] mx-0 mb-2.5">
@@ -81,7 +81,7 @@ export function SheetsScreen() {
                 />
               </div>
 
-              <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] py-[18px] px-5">
+              <div className={`${cardSurface} py-[18px] px-5`}>
                 <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mb-1.5">Sections</div>
                 <p className="mt-0 mx-0 mb-3.5 text-xs text-[color:var(--text-muted)]">
                   Toggle what appears on the sheet.
@@ -130,7 +130,7 @@ export function SheetsScreen() {
                 </div>
               </div>
 
-              <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] py-[18px] px-5">
+              <div className={`${cardSurface} py-[18px] px-5`}>
                 <div className="flex items-center justify-between gap-3">
                   <span>
                     <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">
@@ -163,7 +163,7 @@ export function SheetsScreen() {
                 <div className="max-sm:flex-wrap flex items-center justify-between border-b-2 border-b-[color:var(--tc-paper-accent-strong)] pb-4 mb-6">
                   <div className="flex items-center gap-[11px]">
                     <span className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-[color:var(--tc-paper-accent-background)] text-[color:var(--tc-paper-accent)]">
-                      <ScaleIcon size={20} strokeWidth={1.6} />
+                      <Scale aria-hidden="true" size={20} strokeWidth={1.6} />
                     </span>
                     <span className="text-sm-minus font-semibold text-[color:var(--tc-paper-muted)] tracking-normal">
                       Therapy · Patient information
@@ -338,17 +338,23 @@ function TherapyPicker() {
         onClick={() => setOpen((v) => !v)}
       >
         <span className="flex items-center gap-[9px] min-w-0">
-          <ScaleIcon size={16} className="text-[color:var(--clinical-accent)] flex-none" />
+          <Scale aria-hidden="true" size={16} className="text-[color:var(--clinical-accent)] flex-none" />
           <span className="overflow-hidden text-ellipsis whitespace-nowrap">
             {b.selectedTherapy?.name ?? "Choose a therapy"}
           </span>
         </span>
-        <ChevronDownIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)] flex-none" />
+        <ChevronDown
+          aria-hidden="true"
+          size={15}
+          strokeWidth={1.8}
+          className="text-[color:var(--decoration-soft)] flex-none"
+        />
       </button>
       {open ? (
         <div className="absolute z-[30] top-[52px] left-0 right-0 bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-hover)] overflow-hidden">
           <label className="relative flex items-center p-2 border-b border-[color:var(--border)]">
-            <SearchIcon
+            <Search
+              aria-hidden="true"
               size={15}
               strokeWidth={1.8}
               className="absolute left-[18px] text-[color:var(--decoration-soft)]"
