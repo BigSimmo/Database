@@ -17,13 +17,12 @@ import {
   ModeHomeMain,
   ModeHomeStatusNotice,
   ModeHomeTemplate,
-  ModeHomeVerificationFooter,
   type ModeHomeAction,
   type ModeHomePill,
 } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-registry-records";
+import { useRegistryRecords } from "@/lib/use-registry-records";
 
 // The default form slug is computed server-side (app/forms/page.tsx) and passed
 // as a prop: a direct `@/lib/forms` value import here would compile the full
@@ -84,7 +83,6 @@ const commonTasks: ModeHomePill[] = [
 export function FormsHomePage({ defaultFormSlug = null }: { defaultFormSlug?: string | null }) {
   const taskCards = buildTaskCards(defaultFormSlug);
   const registry = useRegistryRecords("form", { view: "summary" });
-  const verifiedCount = countVerifiedRegistryRecords(registry);
   const registryReady = registry.status === "ready" || registry.status === "refetching";
   const hasRegistryRecords = registryReady && registry.total > 0;
   const registryNotice =
@@ -133,18 +131,7 @@ export function FormsHomePage({ defaultFormSlug = null }: { defaultFormSlug?: st
         actions={hasRegistryRecords ? taskCards : []}
         pillsTitle="Browse by type"
         pills={hasRegistryRecords ? commonTasks : []}
-        footer={
-          hasRegistryRecords ? (
-            <ModeHomeVerificationFooter
-              label="Source catalogue reviewed"
-              body="Official-source MHA 2014 forms · verify before use"
-              verifiedCount={verifiedCount}
-              totalCount={registry.total}
-            />
-          ) : (
-            registryNotice
-          )
-        }
+        footer={hasRegistryRecords ? null : registryNotice}
       />
     </ModeHomeMain>
   );
