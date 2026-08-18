@@ -331,7 +331,11 @@ visible reasons and a human confirms or overrides.
 - **Design spec:** `docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md`
 - **Glossary:** `docs/ward-management-context.md` · **Decisions:** `docs/ward-management-decisions.md`
 - **Route/role map:** `docs/ward-management-mode-map.md`
-- **Fixtures:** `src/components/ward-management/synthetic-fixtures.ts` — sites, units, movements
+- **Model:** `src/components/ward-management/ward-clock.ts` (the only module that reads the
+  wall clock), `ward-model.ts` (domain types only), `ward-eligibility.ts` (the eight
+  placement gates), `ward-sites.ts` (17 sites, 8 emergency departments, 22 units),
+  `ward-movements.ts` (48 movements, 6 bed releases), `ward-derivations.ts` (shared pure UI
+  derivations)
 - **Surfaces:** `ward-management-console.tsx` (command), `ward-management-modes.tsx` (mode
   workspaces), `ward-management-network.tsx` (network diagram), `ward-management-navigation.tsx`
 - **Tests:** `tests/ward-management.test.ts`, `tests/ui-ward-management.spec.ts`

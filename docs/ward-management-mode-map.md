@@ -1,5 +1,12 @@
 # Ward Flow mode map
 
+**Superseded:** the nine-mode strip this document describes is superseded by the role-first
+structure (flow coordinator, ED, ward, transport officer, specialist boards) set out in
+[`docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md`](./superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md).
+That design has not been built yet — Phase 2 is what actually retires these modes — so this
+document still describes the routes as they exist today. Read the design spec for where the
+product is headed; read this document for what is currently live.
+
 **Status:** Synthetic product wireframe. The routes below model a WA mental-health patient-flow coordination layer; they do not claim to reproduce an internal WA Health system or current allocation policy.
 
 ## Operating model
