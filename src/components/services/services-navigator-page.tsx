@@ -441,8 +441,15 @@ export function ServicesNavigatorPage() {
   // without discarding the query. Gated on the UNFACETED result set so the
   // segment does not flicker away as facets are applied — narrowing with
   // facets only ever makes "catalogue > results" more true, never less.
+  // Apply the group selection to the full catalogue so that scope=all also
+  // honours the group facet — without this, switching to "All services" while
+  // a group is selected would show unfiltered results and an inconsistent count.
+  const groupedAllRecords = useMemo(
+    () => searchableRecords.filter((service) => serviceMatchesCoreGroupSelection(service, activeGroupSelection)),
+    [activeGroupSelection, searchableRecords],
+  );
   const showResultScope = searchableRecords.length > groupedMatches.length;
-  const facetBaseMatches = resultScope === "all" ? searchableRecords : groupedMatches;
+  const facetBaseMatches = resultScope === "all" ? groupedAllRecords : groupedMatches;
   const facetedMatches = useMemo(
     () => filterServicesByFacets(facetBaseMatches, facetSelection, substanceLens),
     [facetBaseMatches, facetSelection, substanceLens],
@@ -458,8 +465,8 @@ export function ServicesNavigatorPage() {
     [groupedMatches, facetSelection, substanceLens],
   );
   const allScopedCount = useMemo(
-    () => filterServicesByFacets(searchableRecords, facetSelection, substanceLens).length,
-    [searchableRecords, facetSelection, substanceLens],
+    () => filterServicesByFacets(groupedAllRecords, facetSelection, substanceLens).length,
+    [groupedAllRecords, facetSelection, substanceLens],
   );
   const activeFilterCount =
     serviceFacetSelectionSize(facetSelection) +
