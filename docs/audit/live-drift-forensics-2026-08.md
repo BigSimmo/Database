@@ -216,7 +216,7 @@ _2026-08-18, owner-authorized staging window ("I authorize mutation of the STAGI
 (Clinical KB Staging) only"). Target `Clinical KB Staging`, ref `ikoiolksxqxfxgiyqpnu`, via the
 Supabase MCP connector. Production `sjrfecxgysukkwxsowpy` was never a target: the only production
 interaction in this window was `list_projects`, and the target ref was restated on every call.
-Replay is **complete**; `check:drift` against staging is **blocked** on a credential — see 2.3._
+Replay is **complete**. `check:drift` against staging has now **run** and is **red with 19 findings** — see 2.3._
 
 ### 2.0 Connector and pre-flight
 
@@ -319,34 +319,104 @@ single element. Version, name, and text are exact — only the array arity diffe
 inspects `cardinality(statements)` will see it, and it is worth normalising if a future tool depends
 on per-statement granularity.
 
-### 2.3 `check:drift` against staging — blocked, with half the blocker fixed here
+### 2.3 `check:drift` against staging — RUN, and red: the chain does not reproduce `schema.sql`
 
-Two independent obstacles. One is fixed in this PR; one is an operator credential.
+**Blocker cleared.** `check:drift` previously could not target staging at all.
+`scripts/check-drift.ts` passed only three of the five identity keys to
+`checkSupabaseProjectConfig`, dropping `SUPABASE_STAGING_PROJECT_REF` and
+`SUPABASE_STAGING_PROJECT_NAME`; with those absent `resolveStagingProject`
+(`src/lib/supabase/project.ts:95-97`) returns `null`, `expected` falls back to production, and any
+staging URL is rejected. Fixed here by forwarding both keys, mirroring
+`scripts/check-supabase-project.ts:6-15`. Proven against the same env before and after:
 
-**Obstacle 1 (fixed here).** `check:drift` could not target staging at all.
-`scripts/check-drift.ts` called `checkSupabaseProjectConfig` with only three of the five identity
-keys, dropping `SUPABASE_STAGING_PROJECT_REF` and `SUPABASE_STAGING_PROJECT_NAME`. With those
-absent, `resolveStagingProject` (`src/lib/supabase/project.ts:95-97`) returns `null`, `expected`
-falls back to production, and any staging URL fails as a mismatch — even though `requireServerEnv()`
-on the line above is already staging-aware and `scripts/check-supabase-project.ts:6-15` passes all
-five. This PR forwards the two keys. It is a latent blocker for every future staging drift check,
-not a Phase 2 artifact.
+```
+AFTER FIX  -> ready    | environment: staging    | expected: ikoiolksxqxfxgiyqpnu
+BEFORE FIX -> mismatch | environment: production | expected: sjrfecxgysukkwxsowpy
+```
 
-**Obstacle 2 (open — operator action).** `check:drift` reaches the database as `service_role` over
-PostgREST, and no staging service-role key exists in this environment. The Supabase MCP connector
-cannot supply one (publishable keys only), and the repository's only `.env.local` holds
-**production** values — running the gate with it would have targeted production, which this window
-forbids, so it was not run. Capturing the snapshot through the connector instead was considered and
-rejected: it would have meant adding a snapshot-input bypass flag to a gate script.
+**Result: 19 unexpected drift rows, exit 1.** Staging carries the complete, byte-verified migration
+chain, so this is not staging being stale — it is the committed chain and `supabase/schema.sql`
+disagreeing:
 
-**To finish.** An operator sets, locally and uncommitted:
-`NEXT_PUBLIC_SUPABASE_URL=https://ikoiolksxqxfxgiyqpnu.supabase.co`, `SUPABASE_PROJECT_REF` and
-`SUPABASE_STAGING_PROJECT_REF` = `ikoiolksxqxfxgiyqpnu`, `SUPABASE_PROJECT_NAME` and
-`SUPABASE_STAGING_PROJECT_NAME` = `Clinical KB Staging`, plus the staging `sb_secret_…` service-role
-key; then `npm run check:drift`. Expect the first run **not** to be clean: the manifest is generated
-from a from-scratch replay of `supabase/schema.sql`, not of the migration chain, so this comparison
-asks the stronger question "do the 194 migrations and `schema.sql` agree?", and
-`supabase/drift-allowlist.json` is empty, so every divergence fails rather than warns.
+```
+Drift manifest: generated 2026-08-16T14:37:41.042Z from schema.sql 365e3368a47b…
+Compared 6 extensions, 38 tables, 1 views, 93 functions, 210 indexes, 48 policies,
+170 constraints, 26 triggers, 2 storage_buckets against live.
+
+UNEXPECTED DRIFT (19):
+```
+
+The 19 decompose into four groups.
+
+**(a) Seven `match_*` `def_hash` mismatches — `SET work_mem`, non-behavioural, and `schema.sql` is
+the stale side.** `20260724000000_optimize_rpc_work_mem` applies `SET work_mem = '64MB'` to eight
+`match_*` functions. `pg_get_functiondef` renders function `SET` attributes, and
+`schema_drift_snapshot()`'s `def_hash` strips comments and whitespace but **not** `SET` clauses — so
+a function carrying `work_mem` cannot hash-match one that does not.
+
+Measured, offline and decisive: `grep -c work_mem supabase/schema.sql` returns **0**, and the only
+migration mentioning it is `20260724000000`. After the full replay staging has **7** functions
+carrying `work_mem`, and those 7 are exactly the 7 mismatching here:
+`match_document_chunks_hybrid`, `match_document_chunks_text`,
+`match_document_embedding_fields_hybrid`, `match_document_index_units_hybrid`,
+`match_document_lookup_chunks_text`, `match_document_memory_cards_hybrid`,
+`match_document_memory_cards_hybrid_v2`. The eighth work_mem target,
+`match_document_table_facts_text`, **does not appear in the drift list** — because
+`20260724120000` re-created it without restating `work_mem` (finding 3 above) and it therefore
+matches `schema.sql`. The exception proves the mechanism.
+
+This is a planner memory setting: it affects latency, not row content or ordering. The correct
+disposition is to update `supabase/schema.sql` and regenerate `drift-manifest.json` — **a repo-side
+fix, not a production deploy.**
+
+**Bearing on `#316`/Phase 1.2 — recorded, not acted on.** `#316` carries this as an untested
+hypothesis about production's 10 mismatched RPCs. It is now measured on staging for 7 of them, from
+the committed chain alone, with no production call. It does **not** close Phase 1.2: production
+reports 10, staging 7, and the residual — `match_document_table_facts_text` plus the two `_v2`
+outliers `match_document_chunks_text_v2` and `match_document_index_units_hybrid_v2` — is not
+explained by this mechanism and still needs its own diff. Phase 1.2 owns that; `#316` was not
+updated from here.
+
+**(b) Eight objects `schema.sql` declares that no migration creates.** Verified by grepping every
+migration for both `create` and `drop` of each name: there is **no** creating migration and **no**
+dropping migration. They exist only in `schema.sql`.
+
+| Object                                                    | Kind    |
+| --------------------------------------------------------- | ------- |
+| `document_embedding_fields_meta_rag_indexing_version_idx` | index   |
+| `document_embedding_fields_owner_document_created_idx`    | index   |
+| `document_embedding_fields_owner_id_idx`                  | index   |
+| `document_embedding_fields_search_tsv_chunk_gin_idx`      | index   |
+| `document_embedding_fields_source_chunk_id_idx`           | index   |
+| `documents_status_idx`                                    | index   |
+| `documents.documents_updated_at`                          | trigger |
+| `ingestion_jobs.ingestion_jobs_updated_at`                | trigger |
+
+(The `ingestion_jobs_updated_at` string does appear in `20260712170500`, but as
+`ingestion_jobs_updated_at_idx`, a different object.) Five of these are on
+`document_embedding_fields`, a retrieval-path table, and two are `set_updated_at` triggers whose
+absence would silently stop `updated_at` maintenance on `documents` and `ingestion_jobs` in any
+environment built from migrations alone.
+
+**(c) Three table column-set mismatches:** `document_chunks`, `rag_visual_eval_cases`,
+`rag_visual_eval_runs`. The truncated diff needs per-column expansion before classification; not
+attempted here.
+
+**(d) One index definition mismatch:** `document_chunks_content_trgm_idx` — `def_hash`
+manifest `8499c3d3…` vs live `c3db2960…`. Note this is one of the two trigram indexes restored on
+production in the 2026-08-14 incident window, so its canonical definition is worth confirming
+against what was actually built there.
+
+**What this means for the programme.** `check:drift`'s expected side is generated from
+`supabase/schema.sql`, not from the migration chain, and this run is the first end-to-end evidence
+that the two disagree in 19 places. Until they are reconciled, a production drift finding cannot be
+assumed to mean "production drifted" — for at least the seven work_mem functions the opposite is
+true, and `schema.sql` is wrong. That materially changes how Phase 3's classifications should be
+read, and it is an argument for reconciling `schema.sql` to the chain **before** spending a
+production window.
+
+None of it was fixed here: this is a docs/evidence PR, and every disposition above is either
+repo-side work for another change or Phase 1.2/3 territory.
 
 ### 2.4 Findings from the clean replay
 
