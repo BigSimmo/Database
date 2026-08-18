@@ -1569,6 +1569,101 @@ shortfall.
 index proof) are all discharged. Remaining `#316` work is the `migration_history` block, which is
 `#Q5JHBJ`, and Phase 5's after-measurements.
 
+#### Step 8 — the guard caught a real chain defect on the Supabase preview branch
+
+The `20260819100200` trigram guard **failed CI on PR #2151**, and it was right to. The Supabase
+Preview check (an ephemeral preview branch database, project `jgzqdaalxnfmiadmpnib` — neither
+production nor staging) builds from the migration chain alone and reported:
+
+```
+ERROR: The retrieval-critical trigram indexes restored on 2026-08-14 are not present in canonical
+form; ... Missing: (none); Invalid: (none); Mismatched: document_chunks_content_trgm_idx (SQLSTATE P0001)
+At statement: 3
+```
+
+**Root cause — the first creator wins, and every later one is a no-op.** Three renderings of this
+index exist in the repository and the chain permanently produces the oldest:
+
+| Migration           | Expression                                                               | Effect on a fresh replay       |
+| ------------------- | ------------------------------------------------------------------------ | ------------------------------ |
+| `20260606000000:11` | `lower(coalesce(section_heading,'') \|\| ' ' \|\| content)`              | **creates it — this one wins** |
+| `20260622000000:13` | `lower(coalesce(section_heading,'') \|\| ' ' \|\| coalesce(content,''))` | `if not exists` → **no-op**    |
+| `20260705180000:11` | identical to `20260622000000` = `schema.sql:743` = **canonical**         | `if not exists` → **no-op**    |
+
+`grep -c "drop index.*document_chunks_content_trgm_idx" supabase/migrations/` returns **zero** — no
+migration ever drops it, so the two correct definitions can never take effect. Any database built
+from migrations alone therefore carries the 2026-06-06 form while `schema.sql`, the drift manifest
+and production carry the `coalesce(content,'')` form. The difference is not cosmetic: the older
+expression evaluates to NULL for any row with NULL `content`, so those chunks are absent from the
+trigram index entirely.
+
+**This was already visible and was mis-scoped as staging-only.** §3.3(d) found exactly this and
+recorded it as "a chain-stale residual on staging only", repaired by hand in the staging window. It
+is not staging-only — it is every environment built from the chain: `supabase db reset`, a
+disaster-recovery replay, CI's `Migration replay` job, and the preview branch. The hand-repair fixed
+the symptom on one database; the chain kept producing the wrong index. The Phase 4.4 guard is what
+turned a silent, environment-specific divergence into a loud, reproducible CI failure — which is
+precisely the behaviour the guard-migration contract exists to buy.
+
+**Fix: `20260819100150_reconcile_chain_stale_content_trgm_index.sql`**, ordered between the Batch B
+guard (`100100`) and the trigram guard (`100200`) so a fresh replay is canonical before it is
+validated. It is deliberately conditional, and will never run a write-blocking index build on a
+populated hosted database:
+
+| Situation                       | Behaviour                                                                        |
+| ------------------------------- | -------------------------------------------------------------------------------- |
+| already canonical               | early `return` — no lock, no DDL (production and staging today)                  |
+| wrong form, table **empty**     | `drop index` + `create index` in canonical form (preview, `db reset`, DR replay) |
+| wrong form, table **populated** | `raise exception` telling the operator to rebuild concurrently out of band first |
+
+**Proof, run locally against the same scratch Postgres image the manifest generator uses, replaying
+the whole chain in order (the local stand-in for CI's `Migration replay` and the preview branch):**
+
+```
+# with the fix removed — reproduces the CI failure exactly
+FAILED at 20260819100200_restore_search_health_trigram_indexes.sql:
+ERROR:  The retrieval-critical trigram indexes ... Mismatched: document_chunks_content_trgm_idx
+Applied 201/203.
+
+# with the fix in place
+Applied 204/204.
+document_chunks_content_trgm_idx after full chain replay:
+  CREATE INDEX document_chunks_content_trgm_idx ON public.document_chunks USING gin (lower(((COALESCE(section_heading, ''::text) || ' '::text) || COALESCE(content, ''::text))) gin_trgm_ops)
+RESULT: CANONICAL — matches schema.sql / manifest / production
+```
+
+**No-op path proven separately**, because this migration must eventually run against a populated
+production table. Re-running it on an already-canonical database left the index **OID unchanged**
+(`18657` → `18657` in the scratch replay), meaning no rebuild and no lock, and the `100200` guard
+still passed afterwards.
+
+**Applied to both hosted tiers, and the no-op verified on production itself.** The CLI refused the
+first push with `LegacyDbPushMissingRemoteError` — "Found local migration files to be inserted
+before the last migration on remote database" — because `100150` sorts before the already-applied
+`100200`/`100300`. That is the documented out-of-order case and its documented flag; the pending set
+was confirmed to be exactly this one file before using it:
+
+```
+$ supabase db push --linked --project-ref sjrfecxgysukkwxsowpy --skip-vault --include-all --yes
+Applying migration 20260819100150_reconcile_chain_stale_content_trgm_index.sql...
+```
+
+Production `document_chunks_content_trgm_idx` **OID `1491258` before and `1491258` after**, identical
+`pg_get_indexdef`, `search_schema_health() ok true` — the early-return branch, confirmed on the real
+70,120-row table rather than inferred. Staging took the same migration by the §2.2 Phase 2 method
+(`md5 aa2d6edef30a1ef73924c74c0a9216a3`, matches the repo file), reaching **204** history rows with
+`no_statements 0` and its corpus untouched; the staging drift comparison is still **green, zero
+unexpected drift**.
+
+`schema.sql` and `drift-manifest.json` are deliberately **unchanged** by this fix: the mirror already
+declared the canonical form, and it was the chain that disagreed with it. Nothing to re-mirror, and
+the manifest sha still matches.
+
+**Ordering note for future sessions.** `20260819100150` is intentionally out of order relative to
+`100200`/`100300`, which were applied first. Any future `supabase db push` that legitimately needs to
+insert a version before the remote tip must pass `--include-all`, and must confirm the pending set
+first — the flag applies _every_ locally-absent version, not just the intended one.
+
 ## Phase 5 — Measure and close the loop
 
 _Partially run 2026-08-14 (incident scope); full close-out still requires the remaining phases._
