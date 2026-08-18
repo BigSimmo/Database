@@ -6,26 +6,31 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { elapsedLabel } from "@/components/ward-management/ward-derivations";
 import { ClinicalRail, WardModeNavigation } from "@/components/ward-management/ward-management-navigation";
 import { wardMovements } from "@/components/ward-management/ward-movements";
-import { edPressure } from "@/components/ward-management/ward-pressure";
 import { queueOrder } from "@/components/ward-management/ward-priority";
-import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+import { allEmergencyDepartments, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 import styles from "./coordinator.module.css";
+import { PressureStrip } from "./pressure-strip";
 
 /**
- * Task 3 shell: five landmark regions, all present and all stubbed with the
- * real synthetic counts (`edPressure` returns 8 departments, `queueOrder`
- * returns 41 open movements) so the layout is judged against real volume
- * rather than three placeholder rows. Each region's content is built out by
- * a later task inside this frame.
+ * Task 3 shell: five landmark regions, all present and stubbed with real synthetic volume
+ * (`edPressure` returns 8 departments, `queueOrder` returns 41 open movements) so the layout is
+ * judged against real volume rather than three placeholder rows. Task 4 builds out the pressure
+ * strip region and the queue's department filter; the remaining regions are built by later tasks.
  */
 export function CoordinatorScreen() {
   const [selectedMovementId, setSelectedMovementId] = useState<string | undefined>(undefined);
   const [selectedUnitId, setSelectedUnitId] = useState<string | undefined>(undefined);
+  const [selectedEdId, setSelectedEdId] = useState<string | undefined>(undefined);
   const [exceptionsOpen, setExceptionsOpen] = useState(false);
 
-  const pressure = edPressure(NOW_ANCHOR);
-  const queue = queueOrder(wardMovements, NOW_ANCHOR);
+  // A one-line filter, not a derivation: it keys on a field the model already carries
+  // (`Movement.originEdId`), so it belongs here rather than in a ward-*.ts module.
+  const filteredMovements = selectedEdId
+    ? wardMovements.filter((movement) => movement.originEdId === selectedEdId)
+    : wardMovements;
+  const queue = queueOrder(filteredMovements, NOW_ANCHOR);
+  const selectedEd = selectedEdId ? allEmergencyDepartments().find((ed) => ed.id === selectedEdId) : undefined;
 
   return (
     <div className={styles.screen} data-testid="ward-coordinator">
@@ -44,35 +49,31 @@ export function CoordinatorScreen() {
         </div>
 
         <div className={styles.body}>
-          <section className={styles.pressureStrip} aria-label="Emergency department pressure">
-            <header className={styles.regionHeader}>
-              <h2>Emergency department pressure</h2>
-              <span className={styles.regionCount}>{pressure.length} departments</span>
-            </header>
-            <ul className={styles.pressureList}>
-              {pressure.map((entry) => (
-                <li key={entry.ed.id} className={styles.pressureChip}>
-                  <strong>{entry.ed.name}</strong>
-                  <span>
-                    {entry.waiting} waiting · {entry.longestWaitMinutes} min longest wait
-                  </span>
-                  {entry.breaching > 0 ? (
-                    <span className={styles.pressureBreach}>{entry.breaching} breaching</span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </section>
+          <PressureStrip now={NOW_ANCHOR} selectedEdId={selectedEdId} onSelectEd={setSelectedEdId} />
 
           <div className={styles.regionGrid} data-testid="ward-coordinator-region-grid">
             <section className={styles.queueRegion} aria-label="Priority queue">
               <header className={styles.regionHeader}>
                 <h2>Priority queue</h2>
                 <span className={styles.regionCount}>{queue.length} open movements</span>
+                {selectedEd ? (
+                  <p className={styles.filterNotice}>
+                    <span>
+                      Filtered to {selectedEd.siteCode} — {selectedEd.name}
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.clearSelectionButton}
+                      onClick={() => setSelectedEdId(undefined)}
+                    >
+                      Clear filter
+                    </button>
+                  </p>
+                ) : null}
               </header>
               <ul className={styles.queueList}>
                 {queue.map((movement) => (
-                  <li key={movement.id}>
+                  <li key={movement.id} data-testid={`ward-queue-row-${movement.id}`}>
                     <button
                       type="button"
                       className={movement.id === selectedMovementId ? styles.queueRowSelected : styles.queueRow}

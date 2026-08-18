@@ -151,33 +151,81 @@
   font-weight: 650;
 }
 
+/*
+ * Grid, not the old flex/overflow-x strip: a fixed per-card min-width plus `overflow-x: auto`
+ * fit about five and a half of eight departments at 1600px and sliced the sixth mid-word behind
+ * a scroller (Task 4 ruling 1 — every department must be visible at once at that width, since
+ * the strip's only job is a one-second read). `auto-fit` sizes eight columns comfortably at
+ * 1600px and wraps onto more rows as the region narrows, without ever clipping a card.
+ */
 .pressureList {
-  display: flex;
+  display: grid;
   min-width: 0;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   gap: var(--co-space-8);
-  overflow-x: auto;
 }
 
-.pressureChip {
+.pressureCard,
+.pressureCardSelected {
   display: grid;
-  min-width: 12rem;
-  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--co-space-48);
+  align-content: start;
   gap: var(--co-space-2);
   border: 0.0625rem solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--co-space-8) var(--co-space-10);
   background: var(--surface-subtle);
+  color: var(--text);
+  text-align: left;
 }
 
-.pressureChip strong {
+.pressureCard:hover {
+  background: var(--surface);
+}
+
+.pressureCardSelected {
+  border-color: var(--clinical-accent-border);
+  background: var(--clinical-accent-soft);
+  box-shadow: var(--shadow-inset);
+}
+
+/*
+ * The worst department leads the list by data (breach count beats wait length beats volume —
+ * see `edPressure`), but ordering alone reads as arbitrary at a glance. A department with a
+ * breached legal deadline gets the danger tint regardless of selection state, so the reason it
+ * leads is visible on the card itself, not just implied by its position (Task 4 ruling — "the
+ * worst card must say why it is worst").
+ */
+.pressureCard[data-breaching="true"],
+.pressureCardSelected[data-breaching="true"] {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+
+.pressureSiteCode {
   overflow: hidden;
   color: var(--text-heading);
   font-size: var(--text-2xs);
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.pressureChip span {
+.pressureStats {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--co-leading-body);
+}
+
+.filterNotice {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--co-space-8);
+  margin: 0;
   color: var(--text-muted);
   font-size: var(--text-3xs);
   line-height: var(--co-leading-body);
