@@ -100,7 +100,7 @@ function rowValueText(value: ReactNode): string | null {
     return text || null;
   }
   if (isValidElement<{ children?: ReactNode; reason?: MissingValueReason }>(value)) {
-    if (value.type === MissingValue) return missingValuePhrase(value.props.reason as MissingValueReason);
+    if (value.type === MissingValue) return missingValuePhrase(value.props.reason ?? "unknown");
     return rowValueText(value.props.children);
   }
   return null;
