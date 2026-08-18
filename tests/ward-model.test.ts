@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { DECLINE_REASONS, MOVEMENT_STAGES, PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 import { allEmergencyDepartments, allUnits, siteByCode, wardSites } from "../src/components/ward-management/ward-sites";
+import { requiresAuthorisedDestination } from "../src/components/ward-management/ward-eligibility";
+import { bedReleases, movementById, wardMovements } from "../src/components/ward-management/ward-movements";
 
 describe("ward model constants", () => {
   it("carries the seven stages in pathway order", () => {
@@ -72,5 +74,84 @@ describe("ward sites", () => {
     expect(allUnits().some((unit) => !unit.authorised)).toBe(true);
     expect(wardSites.some((site) => site.service === "Private")).toBe(true);
     expect(wardSites.some((site) => site.service === "WACHS")).toBe(true);
+  });
+});
+
+const NOW_ANCHOR = 10 * 60 + 42;
+
+describe("ward movements", () => {
+  it("runs at realistic pressure, not comfortable pressure", () => {
+    expect(wardMovements.length).toBeGreaterThanOrEqual(40);
+    expect(wardMovements.length).toBeLessThanOrEqual(60);
+    const eds = new Set(wardMovements.map((movement) => movement.originEdId));
+    expect(eds.size).toBe(8);
+  });
+
+  it("gives every movement an emergency department it is actually sitting in", () => {
+    for (const movement of wardMovements) {
+      expect(movement.originEdId, `${movement.id} has no origin`).toBeTruthy();
+    }
+  });
+
+  it("carries no patient identity beyond sex", () => {
+    for (const movement of wardMovements) {
+      expect(movement.id).toMatch(/^WF-\d{3}$/);
+      expect(movement).not.toHaveProperty("name");
+      expect(movement).not.toHaveProperty("dateOfBirth");
+      expect(movement).not.toHaveProperty("mrn");
+      expect(movement).not.toHaveProperty("address");
+      expect(movement).not.toHaveProperty("diagnosis");
+      expect(movement).not.toHaveProperty("clinicalHistory");
+    }
+  });
+
+  it("never exceeds the parallel referral cap", () => {
+    for (const movement of wardMovements) {
+      expect(movement.referredUnitIds.length).toBeLessThanOrEqual(PARALLEL_REFERRAL_CAP);
+    }
+  });
+
+  it("never leaves an open movement without an owner", () => {
+    for (const movement of wardMovements) {
+      if (movement.closure) continue;
+      expect(movement.owner.length, `${movement.id} is ownerless`).toBeGreaterThan(0);
+    }
+  });
+
+  it("gives every non-voluntary movement a legal form with a deadline", () => {
+    for (const movement of wardMovements) {
+      if (!requiresAuthorisedDestination(movement.legalStatus)) continue;
+      expect(movement.legalForm, `${movement.id} has no legal form`).toBeDefined();
+    }
+  });
+
+  it("includes the states the old fixture could not express", () => {
+    expect(wardMovements.some((movement) => movement.stage === "accepted_awaiting_bed")).toBe(true);
+    expect(wardMovements.some((movement) => movement.declines.length >= 3)).toBe(true);
+    expect(wardMovements.some((movement) => movement.statusChanges.length > 0)).toBe(true);
+    expect(wardMovements.some((movement) => movement.closure?.outcome === "did_not_proceed")).toBe(true);
+    expect(wardMovements.some((movement) => (movement.legalForm?.dueAt ?? Infinity) < NOW_ANCHOR)).toBe(true);
+  });
+
+  it("never records a decline against a unit that is also a live referral", () => {
+    for (const movement of wardMovements) {
+      for (const decline of movement.declines) {
+        expect(movement.referredUnitIds).not.toContain(decline.unitId);
+      }
+    }
+  });
+
+  it("flags bed releases without any departing-patient detail", () => {
+    expect(bedReleases.length).toBeGreaterThan(4);
+    for (const release of bedReleases) {
+      expect(release.id).toMatch(/^WR-\d{3}$/);
+      expect(release).not.toHaveProperty("name");
+      expect(release).not.toHaveProperty("mrn");
+      expect(release).not.toHaveProperty("diagnosis");
+    }
+  });
+
+  it("returns undefined for an unknown movement rather than a different patient", () => {
+    expect(movementById("WF-999")).toBeUndefined();
   });
 });
