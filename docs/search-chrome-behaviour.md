@@ -47,6 +47,11 @@ Two consequences worth keeping:
   patient-details dock addons take, and the compact 5rem scrim would end mid-row.
 - The footer wrapper is the dock element, so its children need `relative z-10` to paint
   above the scrim.
+- The band's glass and the addon pill are proven in a **browser**, not by class presence:
+  `tests/guide-centre-chrome.spec.ts` asserts the painted background, border, flush
+  geometry and scrim, plus the pill's rendered border/radius/alpha. jsdom cannot evaluate
+  the `max-sm:` media query, and tailwind-merge keeps both the base and the variant
+  utility, so stylesheet order — not the class list — decides which one wins.
 - The tour action is a dock **addon**, so on phones it takes the addon-pill treatment the
   other two addons use — `patient-details-fab__button` and Compare's quiet
   `--empty` state: an outlined translucent pill, never a filled primary control. A filled
