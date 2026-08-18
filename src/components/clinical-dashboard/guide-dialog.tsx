@@ -143,6 +143,30 @@ function GuideSearch({
   );
 }
 
+/**
+ * The tour action is a dock ADDON on phones, so it takes the shared addon-pill
+ * treatment the other two dock addons use — `Patient details`
+ * (`patient-details-fab__button`) and Compare's quiet state
+ * (`differentials-mobile-compare-fab__button--empty`): a rounded pill on
+ * `--border-strong` over a translucent `--surface`, never a filled slab.
+ *
+ * A filled control there defeats the dock. The band behind it is deliberately
+ * transparent so page content reads through the scrim; dropping an opaque
+ * primary button on top puts back a smaller version of the exact cover this
+ * footer was converted to a dock to remove.
+ *
+ * From `sm` the footer is a real Sheet band again, the addon framing no longer
+ * applies, and the primary treatment is the correct one for the guide's main
+ * call to action — so every override here is `max-sm:`.
+ */
+const guideTourAction = cn(
+  primaryControl,
+  "max-sm:rounded-full max-sm:border max-sm:border-[color:var(--border-strong)]",
+  "max-sm:bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] max-sm:text-[color:var(--text-heading)]",
+  "max-sm:font-extrabold max-sm:shadow-[var(--e3)]",
+  "max-sm:hover:bg-[color-mix(in_srgb,var(--surface-subtle)_92%,transparent)] max-sm:hover:shadow-[var(--e3)]",
+);
+
 function GuideTopNavigation({ view, onNavigate }: { view: GuideView; onNavigate: (view: GuideView) => void }) {
   const items: ReadonlyArray<{ view: GuideView; label: string; icon: LucideIcon }> = [
     { view: "home", label: "Guide home", icon: BookOpen },
@@ -822,13 +846,13 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
               >
                 Exit tour
               </button>
-              <button type="button" onClick={continueTour} className={cn(primaryControl, "px-3 sm:px-5")}>
+              <button type="button" onClick={continueTour} className={cn(guideTourAction, "px-3 sm:px-5")}>
                 {tourStepIndex === guideTourSteps.length - 1 ? "Complete tour" : "Continue"}
                 <ChevronRight aria-hidden="true" className="size-icon-md" />
               </button>
             </>
           ) : view === "tour" && tourComplete ? (
-            <button type="button" onClick={() => navigate("home")} className={primaryControl}>
+            <button type="button" onClick={() => navigate("home")} className={guideTourAction}>
               Return to Guide home
             </button>
           ) : (
@@ -857,7 +881,7 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
                   <HelpCircle aria-hidden="true" className="size-icon-md" /> Ask a question
                 </button>
               )}
-              <button type="button" onClick={() => navigate("tour")} className={cn(primaryControl, "px-3 sm:px-5")}>
+              <button type="button" onClick={() => navigate("tour")} className={cn(guideTourAction, "px-3 sm:px-5")}>
                 <PlayCircle aria-hidden="true" className="size-icon-md" />
                 {tourPrimaryLabel}
               </button>

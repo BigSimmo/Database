@@ -40,6 +40,12 @@ Two consequences worth keeping:
   patient-details dock addons take, and the compact 5rem scrim would end mid-row.
 - The footer wrapper is the dock element, so its children need `relative z-10` to paint
   above the scrim.
+- The tour action is a dock **addon**, so on phones it takes the addon-pill treatment the
+  other two addons use — `patient-details-fab__button` and Compare's quiet
+  `--empty` state: an outlined translucent pill, never a filled primary control. A filled
+  button there puts back a smaller version of the cover the dock conversion removed,
+  because the band behind it is transparent by design. Those overrides are `max-sm:`
+  only; from `sm` the footer is a real band and the primary treatment is correct.
 
 ## Default in-page navigation template
 

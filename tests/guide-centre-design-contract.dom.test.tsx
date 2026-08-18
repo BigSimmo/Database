@@ -52,3 +52,34 @@ it("gives the Guide footer the shared phone composer dock chrome", () => {
   expect(backdrop).not.toBeNull();
   expect(backdrop).toHaveClass("sm:hidden");
 });
+
+/**
+ * Inside the dock the tour action is an ADDON, and every dock addon in this repo
+ * is an outlined translucent pill — `Patient details`
+ * (`patient-details-fab__button`) and Compare's quiet state. A filled primary
+ * control there puts back a smaller version of the opaque cover the dock
+ * conversion removed, because the band behind it is deliberately transparent.
+ * From `sm` the footer is a real band and the primary treatment is correct.
+ */
+it("renders the Guide tour action as a dock addon pill on phones only", () => {
+  render(<GuideDialog open onClose={vi.fn()} />);
+
+  const dialog = screen.getByRole("dialog", { name: "Clinical KB guide" });
+  const row = dialog.querySelector<HTMLElement>("[data-guide-tour-action-row]");
+  expect(row).not.toBeNull();
+
+  const action = row?.querySelector<HTMLElement>("button:last-of-type");
+  expect(action).not.toBeNull();
+
+  // Addon framing, phone-scoped.
+  expect(action).toHaveClass(
+    "max-sm:rounded-full",
+    "max-sm:border",
+    "max-sm:border-[color:var(--border-strong)]",
+    "max-sm:bg-[color-mix(in_srgb,var(--surface)_92%,transparent)]",
+    "max-sm:shadow-[var(--e3)]",
+  );
+
+  // The sm+ primary treatment is still the base, not replaced.
+  expect(action).toHaveClass("bg-[color:var(--command)]", "text-[color:var(--command-contrast)]");
+});
