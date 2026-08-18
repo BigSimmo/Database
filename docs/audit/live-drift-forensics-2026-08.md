@@ -404,10 +404,275 @@ inventory widens what that pairing has to explain; it does not by itself attribu
 
 ## Phase 2 — Staging parity rehearsal
 
-_Not yet run. Requires an approved staging window; production stays read-only._
+_2026-08-18, owner-authorized staging window ("I authorize mutation of the STAGING Supabase tier
+(Clinical KB Staging) only"). Target `Clinical KB Staging`, ref `ikoiolksxqxfxgiyqpnu`, via the
+Supabase MCP connector. Production `sjrfecxgysukkwxsowpy` was never a target: the only production
+interaction in this window was `list_projects`, and the target ref was restated on every call.
+Replay is **complete**. `check:drift` against staging has now **run** and is **red with 19 findings** — see 2.3._
 
-_Pending._ Migration-replay tail, any migration that misbehaved on clean replay (a finding in its
-own right), and the green `check:drift` output against staging.
+### 2.0 Connector and pre-flight
+
+`list_projects` returned both projects; staging is `ACTIVE_HEALTHY`, Postgres 17.6,
+`ap-southeast-2`. The connector is write-capable and connects as `current_user = postgres`, which
+is the role hosted migrations target, so `check:migration-role` discipline is preserved.
+
+Pre-flight checks the replay depended on, all green before any write:
+
+| Check                                                     | Result                                                           |
+| --------------------------------------------------------- | ---------------------------------------------------------------- |
+| `vector`, `pg_trgm`, `uuid-ossp` namespace                | all in `extensions` (not `public`)                               |
+| `pg_has_role(current_user,'postgres','MEMBER')`           | `true` — the seven default-privilege asserts can pass            |
+| `default_privileges_status('postgres','public')->>'safe'` | `true`                                                           |
+| `schema_drift_snapshot()` / `search_schema_health()`      | both present (178 KB snapshot, 200 index rows, 87 function rows) |
+| `documents` / `document_chunks` row counts                | `0` / `0` — staging idle and empty, before and after             |
+
+`pg_net` and `pg_cron` are **not** installed on staging. That did not block the replay (see 2.4)
+but it does mean the six retention/purge cron jobs are silently unscheduled there — a parity gap to
+record, not a replay failure.
+
+### 2.1 Before-gap: 28 versions, not 26
+
+Re-measured at the start of the window, as `#056` and `docs/staging-setup.md` both instruct. Staging
+held **166** rows in `supabase_migrations.schema_migrations`, latest `20260719055623`, with **zero**
+`statements IS NULL` rows. The repository holds **194** migration files. The gap was therefore
+**28**: **ten earlier history holes** plus **eighteen** versions after `20260719055623` — not the 26
+(ten + sixteen) recorded on 2026-08-17. The two-version increase is `main` advancing while staging
+stood still, exactly the widening the ledger predicted.
+
+The exact missing chain, in version order:
+
+```
+20260713110000_historical_version_placeholder
+20260713120000_historical_version_placeholder
+20260713121000_historical_version_placeholder
+20260713122000_historical_version_placeholder
+20260717133000_historical_version_placeholder
+20260717161000_assert_postgres_default_privileges
+20260717173000_reassert_postgres_default_privileges
+20260718223000_historical_version_placeholder
+20260719053532_repair_postgres_default_privileges
+20260719053533_enforce_public_title_word_scope
+20260719064735_user_account_data_and_admin_uploads
+20260719070000_align_existing_acls
+20260720170000_add_documents_owner_updated_at_indexed_idx
+20260722110000_explicit_document_title_words_backend_policy
+20260722190000_bind_publication_approval_to_reviewed_state
+20260723150000_document_change_ingestion_webhook
+20260724000000_optimize_rpc_work_mem
+20260724060000_atomic_reindex_agent_guard
+20260724120000_table_facts_plpgsql_execute
+20260724130000_explicit_base_match_rpc_execute_grants
+20260724130100_fix_invoke_ingestion_worker_url_to_guc
+20260724130200_create_uploaded_document_with_ingestion_job
+20260725000000_audit_security_remediation
+20260727010000_bmj_third_party_source_attestation
+20260731150000_db_query_perf_rate_limit_and_image_indexes
+20260804110240_restore_rag_search_health_indexes
+20260814150000_add_therapy_favourites
+20260814151000_validate_therapy_favourites_content_type
+```
+
+### 2.2 Replay: mechanism, faithfulness proof, and result
+
+**Mechanism.** `SUPABASE_ACCESS_TOKEN` is still absent (`#183`) and the staging database password is
+operator-only, so `supabase db push --linked --include-all` was unavailable. MCP `apply_migration`
+was rejected as the substitute because it stamps a connector-generated version, which
+`docs/staging-setup.md` explicitly forbids ("do not replay the missing chain through a helper that
+records new timestamps"). Each migration was therefore applied through `execute_sql` as a single
+implicit transaction that runs the file body verbatim and then writes its own history row carrying
+the repository's exact version and name — the same row `supabase db push` would have written.
+
+**Faithfulness proof.** Every applied row was read back and its `md5(statements[1])` compared
+against `md5sum` of the repository file. **All 28 match byte-for-byte**, so the replayed text is
+provably the committed text under the repository's own versions:
+
+```
+=== md5 mismatches (empty = all 28 byte-identical) ===
+ALL 28 MATCH
+```
+
+**Result.** Full parity, verified in both directions:
+
+```
+repo files: 194   staging rows: 194
+--- in repo, missing from staging ---
+--- in staging, not in repo ---
+--- (both empty = full parity) ---
+```
+
+`total_rows 194 · latest_version 20260814151000 · no_statements 0` — staging still carries **zero**
+`statements IS NULL` rows, so the replay introduced none of the history-repair signal Phase 6.1 is
+being built to police. `documents` and `document_chunks` remain `0`: no production clinical document
+was copied and no ingestion worker was started.
+
+**Deviation to record.** The Supabase CLI splits a migration into one array element per statement
+(pre-existing staging rows carry 10–19 elements each); these 28 rows store the whole file as a
+single element. Version, name, and text are exact — only the array arity differs. Anything that
+inspects `cardinality(statements)` will see it, and it is worth normalising if a future tool depends
+on per-statement granularity.
+
+### 2.3 `check:drift` against staging — RUN, and red: the chain does not reproduce `schema.sql`
+
+**Blocker cleared.** `check:drift` previously could not target staging at all.
+`scripts/check-drift.ts` passed only three of the five identity keys to
+`checkSupabaseProjectConfig`, dropping `SUPABASE_STAGING_PROJECT_REF` and
+`SUPABASE_STAGING_PROJECT_NAME`; with those absent `resolveStagingProject`
+(`src/lib/supabase/project.ts:95-97`) returns `null`, `expected` falls back to production, and any
+staging URL is rejected. Fixed here by forwarding both keys, mirroring
+`scripts/check-supabase-project.ts:6-15`. Proven against the same env before and after:
+
+```
+AFTER FIX  -> ready    | environment: staging    | expected: ikoiolksxqxfxgiyqpnu
+BEFORE FIX -> mismatch | environment: production | expected: sjrfecxgysukkwxsowpy
+```
+
+**Result: 19 unexpected drift rows, exit 1.** Staging carries the complete, byte-verified migration
+chain, so this is not staging being stale — it is the committed chain and `supabase/schema.sql`
+disagreeing:
+
+```
+Drift manifest: generated 2026-08-16T14:37:41.042Z from schema.sql 365e3368a47b…
+Compared 6 extensions, 38 tables, 1 views, 93 functions, 210 indexes, 48 policies,
+170 constraints, 26 triggers, 2 storage_buckets against live.
+
+UNEXPECTED DRIFT (19):
+```
+
+The 19 decompose into four groups.
+
+**(a) Seven `match_*` `def_hash` mismatches — `SET work_mem`, non-behavioural, and `schema.sql` is
+the stale side.** `20260724000000_optimize_rpc_work_mem` applies `SET work_mem = '64MB'` to eight
+`match_*` functions. `pg_get_functiondef` renders function `SET` attributes, and
+`schema_drift_snapshot()`'s `def_hash` strips comments and whitespace but **not** `SET` clauses — so
+a function carrying `work_mem` cannot hash-match one that does not.
+
+Measured, offline and decisive: `grep -c work_mem supabase/schema.sql` returns **0**, and the only
+migration mentioning it is `20260724000000`. After the full replay staging has **7** functions
+carrying `work_mem`, and those 7 are exactly the 7 mismatching here:
+`match_document_chunks_hybrid`, `match_document_chunks_text`,
+`match_document_embedding_fields_hybrid`, `match_document_index_units_hybrid`,
+`match_document_lookup_chunks_text`, `match_document_memory_cards_hybrid`,
+`match_document_memory_cards_hybrid_v2`. The eighth work_mem target,
+`match_document_table_facts_text`, **does not appear in the drift list** — because
+`20260724120000` re-created it without restating `work_mem` (finding 3 above) and it therefore
+matches `schema.sql`. The exception proves the mechanism.
+
+This is a planner memory setting: it affects latency, not row content or ordering. The correct
+disposition is to update `supabase/schema.sql` and regenerate `drift-manifest.json` — **a repo-side
+fix, not a production deploy.**
+
+**Bearing on `#316`/Phase 1.2 — recorded, not acted on.** `#316` carries this as an untested
+hypothesis about production's 10 mismatched RPCs. It is now measured on staging for 7 of them, from
+the committed chain alone, with no production call. It does **not** close Phase 1.2: production
+reports 10, staging 7, and the residual — `match_document_table_facts_text` plus the two `_v2`
+outliers `match_document_chunks_text_v2` and `match_document_index_units_hybrid_v2` — is not
+explained by this mechanism and still needs its own diff. Phase 1.2 owns that; `#316` was not
+updated from here.
+
+**(b) Eight objects `schema.sql` declares that no migration creates.** Verified by grepping every
+migration for both `create` and `drop` of each name: there is **no** creating migration and **no**
+dropping migration. They exist only in `schema.sql`.
+
+| Object                                                    | Kind    |
+| --------------------------------------------------------- | ------- |
+| `document_embedding_fields_meta_rag_indexing_version_idx` | index   |
+| `document_embedding_fields_owner_document_created_idx`    | index   |
+| `document_embedding_fields_owner_id_idx`                  | index   |
+| `document_embedding_fields_search_tsv_chunk_gin_idx`      | index   |
+| `document_embedding_fields_source_chunk_id_idx`           | index   |
+| `documents_status_idx`                                    | index   |
+| `documents.documents_updated_at`                          | trigger |
+| `ingestion_jobs.ingestion_jobs_updated_at`                | trigger |
+
+(The `ingestion_jobs_updated_at` string does appear in `20260712170500`, but as
+`ingestion_jobs_updated_at_idx`, a different object.) Five of these are on
+`document_embedding_fields`, a retrieval-path table, and two are `set_updated_at` triggers whose
+absence would silently stop `updated_at` maintenance on `documents` and `ingestion_jobs` in any
+environment built from migrations alone.
+
+**(c) Three table column-set mismatches:** `document_chunks`, `rag_visual_eval_cases`,
+`rag_visual_eval_runs`. The truncated diff needs per-column expansion before classification; not
+attempted here.
+
+**(d) One index definition mismatch:** `document_chunks_content_trgm_idx` — `def_hash`
+manifest `8499c3d3…` vs live `c3db2960…`. Note this is one of the two trigram indexes restored on
+production in the 2026-08-14 incident window, so its canonical definition is worth confirming
+against what was actually built there.
+
+**What this means for the programme.** `check:drift`'s expected side is generated from
+`supabase/schema.sql`, not from the migration chain, and this run is the first end-to-end evidence
+that the two disagree in 19 places. Until they are reconciled, a production drift finding cannot be
+assumed to mean "production drifted" — for at least the seven work_mem functions the opposite is
+true, and `schema.sql` is wrong. That materially changes how Phase 3's classifications should be
+read, and it is an argument for reconciling `schema.sql` to the chain **before** spending a
+production window.
+
+None of it was fixed here: this is a docs/evidence PR, and every disposition above is either
+repo-side work for another change or Phase 1.2/3 territory.
+
+### 2.4 Findings from the clean replay
+
+Each is a finding in its own right, per the phase's definition of done. **No migration raised an
+error, and no migration file was edited.**
+
+1. **The `20260804110240` guard passed with no prebuild — and that is evidence about production.**
+   All four indexes it validates (`document_labels_label_trgm_idx`,
+   `document_summaries_summary_trgm_idx`, `document_index_units_owner_chunk_type_idx`,
+   `rag_retrieval_logs_miss_idx`) already existed on staging, `indisvalid` and `indisready`, with
+   matching definitions — created by `20260705180000` and dropped by no later migration. So did
+   `documents_title_trgm_idx` and `document_chunks_content_trgm_idx`. Staging replayed the same
+   chain production ran and **kept** the indexes production lost. That is direct evidence the
+   production loss was not caused by the committed chain, narrowing `#248` / `#316` attribution
+   toward an out-of-band drop. Recorded as Phase 2 evidence only — `#316` is owned by the
+   concurrent Phase 1.2 session and was deliberately not updated from here.
+
+2. **A version-order inversion exists in the committed chain, and a plain replay handles it wrong.**
+   The repository carries two near-identical copies of four migrations:
+   `20260717161000`/`20260717173000`/`20260719053532`/`20260719053533`, re-issued as
+   `20260719055541`/`055555`/`055609`/`055623`. Staging had applied only the later set, so applying
+   the earlier set in version order re-ran older `create or replace function` bodies **on top of**
+   newer ones. The pairs differ only in whitespace except `20260719053533`, whose `raise … hint`
+   names `20260719053532` where the newer names `20260719055609`. After the four earlier versions
+   landed, the four later bodies were re-executed from staging's own recorded statements — no
+   history rows added — so the end state equals a from-scratch ordered replay, and
+   `default_privileges_status('postgres','public')->>'safe'` is `true` afterwards. A plain
+   `supabase db push --include-all` would **not** do this and would leave the older bodies live.
+
+3. **`20260724120000` silently drops the `work_mem` setting `20260724000000` applies.**
+   `20260724000000_optimize_rpc_work_mem` sets `work_mem = '64MB'` on eight `match_*` functions.
+   Later in chain order, `20260724120000_table_facts_plpgsql_execute` re-creates
+   `match_document_table_facts_text` declaring only `set search_path` and `set plan_cache_mode`, and
+   `CREATE OR REPLACE FUNCTION` resets any config option the new definition does not restate.
+   Measured on staging after the full replay: **7** functions carry `work_mem`, not 8, and
+   `match_document_table_facts_text` is the one that does not. This matters to the Phase 1.2
+   dossier, whose recorded hypothesis assumes that migration leaves eight functions with `work_mem`;
+   on a clean chain replay it leaves seven. Not acted on here — protected RAG surface, and `#316`
+   belongs to the other session.
+
+4. **`20260724130100` ships a literal `[REDACTED]` placeholder in executable SQL — already
+   remediated in-chain.** The committed blob contains `'[REDACTED]'` twice where a base URL belongs:
+   as the `alter database … set app.ingestion_worker_base_url` value, and as the
+   `invoke_ingestion_worker()` fallback. Confirmed against `git show HEAD:` and not an output mask —
+   sibling migrations render the real project ref through the same tooling. The next migration,
+   `20260725000000_audit_security_remediation`, exists precisely to correct it and says so, while
+   instructing that the applied blob must not be edited. A clean replay therefore self-heals and the
+   correct action is none.
+
+5. **A faithful replay points staging's worker GUC at the production project.** `20260725000000`
+   runs `alter database … set app.ingestion_worker_base_url` to the production URL, and its
+   `insufficient_privilege` guard does not fire here because the connector is `postgres`. The
+   setting is database-level, so it applies to new connections. It is inert on staging three times
+   over — `pg_net` is not installed, the vault secret `cron_ingestion_jwt` is absent (the function
+   raises `Missing Vault secret` first), and no `pg_cron` schedule exists — but it is a live
+   cross-environment pointer the moment any of those changes. **Do not seed `cron_ingestion_jwt`,
+   `indexing_v3_agent_secret`, or `ingestion_webhook_secret` into staging's vault.** By contrast
+   `20260723150000`'s document-change webhook is safe by construction: it has no production fallback
+   and returns early when `app.ingestion_webhook_base_url` is unset, which it is.
+
+6. **Platform-dependent objects applied cleanly despite absent extensions.** `20260723150000` and
+   `20260724130100` reference `net.http_post` and `vault.decrypted_secrets` from inside PL/pgSQL
+   bodies, which Postgres does not resolve at `CREATE FUNCTION` time, so both applied without
+   `pg_net` installed. They fail only when called.
 
 ## Phase 3 — RPC reconciliation
 

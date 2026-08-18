@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "6697868a-cc70-48e3-ad6f-598ff4031110",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "a1c319d6-a098-460b-8b42-6794ca6690fd",
+    "reason": "Superseded before push: the queued detail recorded check:drift against staging as blocked on a missing service-role key. The key was supplied, the gate ran, and it is red with 19 findings, so that status is wrong. Replaced by a corrected update request in the same PR."
+  }
+}
