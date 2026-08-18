@@ -225,10 +225,17 @@ describe("Therapy Compass responsive contract", () => {
   });
 
   it("uses complete toggle semantics and preserves full-size control hit targets", () => {
-    expect(briefSource).toContain('<Tabs\n            label="Brief intervention duration"');
-    expect(compareSource).toContain('<Tabs\n            label="Comparison fields"');
-    expect(compareSource).toContain('<SegmentedControl\n            label="Comparison density"');
-    expect(sheetsSource).toContain('<SegmentedControl\n                  label="Reading level and tone"');
+    // Indentation is not the contract. These used to pin the exact leading
+    // whitespace of each opening tag, so moving the density control into a
+    // `PageHeader` `actions` slot — which re-indents it and changes nothing
+    // else — failed an assertion about toggle semantics. `openingTagWith` is
+    // the stronger condition: it proves the element really is that component
+    // AND carries the labelling attribute, and unlike a raw substring it
+    // cannot be satisfied by matching prose elsewhere in the file.
+    expect(openingTagWith(briefSource, "Tabs", ['label="Brief intervention duration"'])).toBeTruthy();
+    expect(openingTagWith(compareSource, "Tabs", ['label="Comparison fields"'])).toBeTruthy();
+    expect(openingTagWith(compareSource, "SegmentedControl", ['label="Comparison density"'])).toBeTruthy();
+    expect(openingTagWith(sheetsSource, "SegmentedControl", ['label="Reading level and tone"'])).toBeTruthy();
 
     const pickerTriggerTag = openingTagWith(sheetsSource, "button", ["aria-expanded={open}"]);
     expect(pickerTriggerTag).toBeTruthy();

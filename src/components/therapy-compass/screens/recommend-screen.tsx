@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { ArrowRight, Check, Copy, Search, Shield, Sparkles } from "lucide-react";
 
 import { cardSurface } from "@/components/card-recipes";
+import { PageHeader } from "@/components/ui/page-header";
 import { pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
 
@@ -40,12 +41,11 @@ export function RecommendScreen() {
 
   return (
     <section data-screen-label="Recommend" className={pageContainer}>
-      <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
-        Recommend Tool
-      </h1>
-      <p className="mt-0 mx-0 mb-[22px] text-sm text-[color:var(--text-muted)]">
-        Refine a clinical question with setting, time and caution constraints.
-      </p>
+      <PageHeader
+        className="mb-[22px]"
+        title="Recommend Tool"
+        description="Refine a clinical question with setting, time and caution constraints."
+      />
 
       <div className={`${cardSurface} py-[22px] px-6 mb-[22px]`}>
         <label htmlFor="tc-rec-q" className="block text-xs font-semibold text-[color:var(--text-heading)] mb-[9px]">

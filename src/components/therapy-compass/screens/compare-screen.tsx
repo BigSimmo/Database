@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { cardSurface } from "@/components/card-recipes";
+import { PageHeader } from "@/components/ui/page-header";
 import { pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -103,44 +104,45 @@ export function CompareScreen() {
 
   return (
     <section data-screen-label="Compare" className={pageContainer}>
-      <div className="flex items-start justify-between gap-5 mb-1.5 flex-wrap">
-        <div>
-          <div className="flex items-baseline gap-3 flex-wrap">
-            <h1 className="m-0 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
-              Therapy Comparison
-            </h1>
-            <span className="text-sm-minus font-semibold text-[color:var(--clinical-accent-hover)] bg-[color:var(--clinical-accent-soft)] py-[3px] px-2.5 rounded-md">
-              {items.length} of 4 selected
-            </span>
-          </div>
-          <p className="mt-1.5 mx-0 mb-0 text-sm text-[color:var(--text-muted)]">
-            Compare fit, cautions, delivery and evidence without losing source context.
-          </p>
-        </div>
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <SegmentedControl
-            label="Comparison density"
-            value={b.density}
-            onChange={(value) => (value === "dense" ? b.setDense() : b.setComfortable())}
-            options={[
-              { value: "comfortable", label: "Comfortable" },
-              { value: "dense", label: "Dense" },
-            ]}
-            className="w-auto"
-          />
-          <Button
-            variant="secondary"
-            icon={copied === "set" ? Check : Copy}
-            onClick={copySet}
-            disabled={items.length < 2}
-          >
-            {copied === "set" ? "Copied" : "Copy set"}
-          </Button>
-          <Button variant="secondary" onClick={b.clearCompare} disabled={items.length === 0}>
-            Clear
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        className="mb-1.5"
+        title="Therapy Comparison"
+        description="Compare fit, cautions, delivery and evidence without losing source context."
+        // The selection count moves from beside the title to `meta`, the slot
+        // documented for exactly this. It was baseline-aligned with the `<h1>`,
+        // which is not something `PageHeader` offers — and should not, since a
+        // count that grows cannot share a line with a title that wraps.
+        meta={
+          <span className="text-sm-minus font-semibold text-[color:var(--clinical-accent-hover)] bg-[color:var(--clinical-accent-soft)] py-[3px] px-2.5 rounded-md">
+            {items.length} of 4 selected
+          </span>
+        }
+        actions={
+          <>
+            <SegmentedControl
+              label="Comparison density"
+              value={b.density}
+              onChange={(value) => (value === "dense" ? b.setDense() : b.setComfortable())}
+              options={[
+                { value: "comfortable", label: "Comfortable" },
+                { value: "dense", label: "Dense" },
+              ]}
+              className="w-auto"
+            />
+            <Button
+              variant="secondary"
+              icon={copied === "set" ? Check : Copy}
+              onClick={copySet}
+              disabled={items.length < 2}
+            >
+              {copied === "set" ? "Copied" : "Copy set"}
+            </Button>
+            <Button variant="secondary" onClick={b.clearCompare} disabled={items.length === 0}>
+              Clear
+            </Button>
+          </>
+        }
+      />
 
       <div className="flex gap-3 my-[18px] mx-0 flex-wrap items-center">
         <AddPicker />

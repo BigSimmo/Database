@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Check, Copy, ExternalLink, FileText, Search, TriangleAlert } from "lucide-react";
 
 import { cardSurface } from "@/components/card-recipes";
+import { PageHeader } from "@/components/ui/page-header";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
@@ -75,34 +76,31 @@ export function BriefScreen() {
       />
       <InformationPageShell testId="therapy-brief-page" gap={false}>
         <section data-screen-label="Brief">
-          <div className="flex items-start justify-between gap-5 mb-5 flex-wrap">
-            <div>
-              <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
-                Brief Intervention
-              </h1>
-              <p className="m-0 text-sm text-[color:var(--text-muted)]">
-                Fast scripts and steps drawn from each record&rsquo;s delivery fields.
-              </p>
-            </div>
-            <div className="max-sm:flex-wrap flex gap-2.5">
-              <BrowserPrintButton label="Print brief" />
-              <Button
-                variant="secondary"
-                icon={FileText}
-                // `aria-disabled` rather than `disabled`: "no patient handout" is a
-                // reason the reader needs, and a natively disabled button leaves the
-                // tab order, so keyboard users never reach the title that carries it.
-                onClick={() => {
-                  if (!t.patientSheetAvailable) return;
-                  b.openSheet(t.slug);
-                }}
-                aria-disabled={t.patientSheetAvailable ? undefined : true}
-                title={t.patientSheetAvailable ? undefined : "This intervention has no patient handout"}
-              >
-                {t.patientSheetAvailable ? "Create handout" : "Handout unavailable"}
-              </Button>
-            </div>
-          </div>
+          <PageHeader
+            className="mb-5"
+            title="Brief Intervention"
+            description="Fast scripts and steps drawn from each record’s delivery fields."
+            actions={
+              <>
+                <BrowserPrintButton label="Print brief" />
+                <Button
+                  variant="secondary"
+                  icon={FileText}
+                  // `aria-disabled` rather than `disabled`: "no patient handout" is a
+                  // reason the reader needs, and a natively disabled button leaves the
+                  // tab order, so keyboard users never reach the title that carries it.
+                  onClick={() => {
+                    if (!t.patientSheetAvailable) return;
+                    b.openSheet(t.slug);
+                  }}
+                  aria-disabled={t.patientSheetAvailable ? undefined : true}
+                  title={t.patientSheetAvailable ? undefined : "This intervention has no patient handout"}
+                >
+                  {t.patientSheetAvailable ? "Create handout" : "Handout unavailable"}
+                </Button>
+              </>
+            }
+          />
 
           <Tabs
             label="Brief intervention duration"

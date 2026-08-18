@@ -7,6 +7,7 @@ import { InformationPageFooter, InformationPageShell } from "@/components/inform
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { BrowserPrintButton, PrintOutput } from "@/components/ui/print-output";
 import { cardSurface } from "@/components/card-recipes";
+import { PageHeader } from "@/components/ui/page-header";
 import { ToggleSwitch } from "@/components/ui-primitives";
 import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
 
@@ -42,18 +43,16 @@ export function SheetsScreen() {
       />
       <InformationPageShell testId="therapy-sheet-page" gap={false}>
         <section data-screen-label="Patient sheet">
-          <div data-therapy-no-print className="flex items-start justify-between gap-5 mb-5 flex-wrap">
-            <div>
-              <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
-                Patient Sheet Builder
-              </h1>
-              <p className="m-0 text-sm text-[color:var(--text-muted)]">
-                Design, personalise and print a plain-language handout from a source-grounded record.
-              </p>
-            </div>
-            <div className="max-sm:flex-wrap flex gap-2.5">
-              <BrowserPrintButton label="Print / PDF" />
-            </div>
+          {/* `data-therapy-no-print` stays on a wrapper: a bare `data-*` attribute
+              cannot be passed to a component (see the `testId` note in
+              `ui/button.tsx`). */}
+          <div data-therapy-no-print>
+            <PageHeader
+              className="mb-5"
+              title="Patient Sheet Builder"
+              description="Design, personalise and print a plain-language handout from a source-grounded record."
+              actions={<BrowserPrintButton label="Print / PDF" />}
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-[340px_minmax(0,_1fr)] gap-5 items-start">

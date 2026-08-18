@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { ExternalLink, ShieldCheck, TriangleAlert } from "lucide-react";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
 
@@ -46,20 +47,20 @@ export function OtherScreen() {
 
   return (
     <section data-screen-label="Review Queue" className={pageContainer}>
-      <div className="flex items-start justify-between gap-5 mb-1.5 flex-wrap">
-        <div>
-          <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
-            Review Queue
-          </h1>
-          <p className="mt-0 mx-0 mb-[22px] text-sm text-[color:var(--text-muted)]">
-            Records awaiting source and clinical review, lowest review-completeness first.
-          </p>
-        </div>
-        <span className="inline-flex items-center gap-2 h-[40px] py-0 px-3.5 border border-[color:var(--warning-border)] rounded-lg bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] text-sm-minus font-semibold">
-          <TriangleAlert aria-hidden="true" size={16} strokeWidth={1.8} />
-          {b.reviewCount} to review
-        </span>
-      </div>
+      <PageHeader
+        className="mb-[22px]"
+        title="Review Queue"
+        description="Records awaiting source and clinical review, lowest review-completeness first."
+        // A count, not a control: `meta` is the documented slot for status
+        // chips and counts, so it renders under the description rather than in
+        // the actions column it used to share with nothing else.
+        meta={
+          <span className="inline-flex items-center gap-2 h-[40px] py-0 px-3.5 border border-[color:var(--warning-border)] rounded-lg bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] text-sm-minus font-semibold">
+            <TriangleAlert aria-hidden="true" size={16} strokeWidth={1.8} />
+            {b.reviewCount} to review
+          </span>
+        }
+      />
 
       <div className="flex flex-col gap-3">
         {queue.map((t) => (

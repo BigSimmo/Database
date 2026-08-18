@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { ChevronRight, Copy, FileText, ListChecks, Scale, TriangleAlert, Waypoints } from "lucide-react";
 
 import { cardSurface } from "@/components/card-recipes";
+import { PageHeader } from "@/components/ui/page-header";
 import { pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
 
@@ -40,21 +41,16 @@ export function PathwaysScreen() {
 
   return (
     <section data-screen-label="Pathways" className={pageContainer}>
-      <div className="flex items-start justify-between gap-5 mb-[22px] flex-wrap">
-        <div>
-          <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
-            Clinical Pathways
-          </h1>
-          <p className="m-0 text-sm text-[color:var(--text-muted)]">
-            Problem-based workflows generated from imported therapy records.
-          </p>
-        </div>
-        <div className="max-sm:flex-wrap flex gap-2.5">
+      <PageHeader
+        className="mb-[22px]"
+        title="Clinical Pathways"
+        description="Problem-based workflows generated from imported therapy records."
+        actions={
           <Button variant="secondary" icon={ListChecks} onClick={b.goReview}>
             Review queue
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className={`${cardSurface} grid grid-cols-1 sm:grid-cols-[320px_minmax(0,_1fr)] gap-4 overflow-hidden`}>
         {/* pathway list */}
