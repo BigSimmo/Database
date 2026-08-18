@@ -54,10 +54,3 @@ export const card =
   "rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]";
 
 export const heroCard = cn(card, "border-l-[3px] border-l-[color:var(--clinical-accent)]");
-
-export const flexControl = "min-w-[150px] flex-1";
-
-export const compactControl = "px-[13px] text-xs";
-
-/** Shared hover wash for list rows. */
-export const therapyRow = "transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)]";

@@ -44,7 +44,7 @@ const TONE_TEXT: Record<Tone, string> = {
   accent: "text-[color:var(--clinical-accent-hover)]",
 };
 
-export function tagTone(tag: string): Tone {
+function tagTone(tag: string): Tone {
   const t = tag.toLowerCase();
   if (/(cbt|act|dbt|behavioural)/.test(t)) return "purple";
   if (/(crisis|risk|trauma|psychosis)/.test(t)) return "info";
@@ -183,10 +183,6 @@ export function EmptyState({
 }
 
 // ---- small building blocks ---------------------------------------------
-
-export function SectionHeading({ children }: { children: ReactNode }) {
-  return <div className="text-base-minus font-semibold text-[color:var(--text-heading)]">{children}</div>;
-}
 
 export function Eyebrow({ children, tone = "neutral" }: { children: ReactNode; tone?: Tone }) {
   return <span className={cn("text-2xs font-bold tracking-eyebrow", TONE_TEXT[tone])}>{children}</span>;
