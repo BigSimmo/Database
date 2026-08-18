@@ -223,7 +223,8 @@ describe("content and services audit regressions", () => {
     expect(normalizedFormDetailSource).toContain("href={form.source.url}");
     expect(normalizedFormDetailSource).toContain('target="_blank"');
     expect(normalizedFormDetailSource).toContain('rel="noopener noreferrer"');
-    expect(normalizedFormDetailSource).toContain("inline-flex min-h-10");
+    expect(normalizedFormDetailSource).toContain("inline-flex min-h-tap");
+    expect(normalizedFormDetailSource).toContain("sm:min-h-10");
     expect(formDetailSource).toContain("Source link pending");
     expect(formDetailSource).toContain("Official");
   });
