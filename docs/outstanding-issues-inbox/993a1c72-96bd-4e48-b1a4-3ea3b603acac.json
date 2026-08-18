@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "993a1c72-96bd-4e48-b1a4-3ea3b603acac",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#336",
+    "outcome": "DECIDED AND RECORDED 18 August 2026. Chose (a): responsive breakpoint windows stay raw min-[…]/max-[…] everywhere; no --breakpoint-* @theme tokens added. Decision and full rationale recorded in docs/design-system/GATES.md §3 (prohibition-table row) and new §3b (18 Aug 2026), covering all nine current call sites (result-filter-control.tsx, search-heading-mockups.tsx x3, diagnosis-map-panel.tsx, factsheets-search-page.tsx, search-results-header-band.tsx, factsheets-compact-view-mockups.tsx). Docs-only change; no migration performed, per the row's own stop rule.",
+    "baseRowFingerprint": "757b5240cff62bd5071d12e4f2ada7e7c3faebb8018843b45a8675913b7442d9"
+  }
+}

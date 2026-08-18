@@ -176,6 +176,43 @@ acceptance, product restyling, or v2 root activation.
 
 ---
 
+## C7 · `mode-home-template.tsx` and `search-results-header-band.tsx` stay outside the `PageHeader` vocabulary (18 August 2026, `#222`)
+
+**Chose.** Neither file converges onto `PageHeader`. Both are recorded here as permanently
+declined conversions rather than left as an open question for the next reader to re-derive.
+
+- `mode-home-template.tsx`'s `ModeHomeHero` is a centred, `text-center`/`items-center`/
+  `justify-center` display hero on the fluid `text-hero` token, and it is the slot the
+  in-flow phone composer sits directly beneath (`desktopComposerSlotId` /
+  `DesktopComposerPortalSlot` render immediately after it). `PageHeader` is a left-aligned
+  title stack. Converting the hero would be a visual redesign of all thirteen mode homes
+  (`src/lib/app-modes.ts`) and risks colliding with the "one composer per page" contract in
+  `docs/search-chrome-behaviour.md` — out of proportion to a header-vocabulary convergence.
+- `search-results-header-band.tsx` is a results spine carrying live status
+  (`role="status"`), result counts, and applied-filter chips — not a page-title stack.
+  `tests/search-results-header-band.dom.test.tsx` pins its current shape and stays
+  unconverted.
+
+**Already converged, separately from this decision.** `ModeHomeStatusNotice` (also in
+`mode-home-template.tsx`) delegates to the DS `EmptyState` (PR #1842, ledger `#221`) — that
+was always a different conversion from the `PageHeader` question this row asks, and it is
+done. `DsmPageHeader`, `InformationPageHeader`, and `InformationPageBreadcrumbs` converged
+onto `PageHeader`/`Breadcrumb` in the same wave (PR-J, Builder A). This decision closes only
+the two files that wave explicitly declined.
+
+**Rejected.** Converging either file to force header-surface uniformity. Both declines have a
+structural reason tied to a different contract (composer placement; results-spine semantics),
+not inertia — forcing the conversion would fix a vocabulary inconsistency by breaking a
+different, more load-bearing one.
+
+**Why.** `#222` asked for exactly this: a decision on whether either file is in scope at all,
+recorded so a later session does not re-derive the same two options. `PageHeader`
+vocabulary now permanently excludes these two call sites; a future redesign of mode-home
+hero layout or the results spine is a separate, explicitly-scoped change, not a header
+convergence.
+
+---
+
 ## Q&A record — clinical inputs (31 July 2026)
 
 | #   | Question                                               | Answer                                                  | Design consequence                                                                                                                                                                                                                                                           |
