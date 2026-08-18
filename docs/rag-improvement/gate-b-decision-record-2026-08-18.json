@@ -1,7 +1,7 @@
 {
   "recordVersion": "docling-lab-gate-b.v1",
-  "status": "deferred",
-  "note": "Owner-run Gate B decision record for the Docling lab benchmark (packet S6b). Thresholds were agreed and committed BEFORE dispatching the benchmark run, per docs/rag-improvement/gate-b-decision-record.md §3. Gates are pending until the owner-approved dispatch of .github/workflows/docling-lab.yml completes and its aggregate report artifact is read back. Human twin: docs/rag-improvement/gate-b-decision-record-2026-08-18.md. Validate: node eval/docling/report/build-report.mjs --validate-record docs/rag-improvement/gate-b-decision-record-2026-08-18.json --final.",
+  "status": "pass",
+  "note": "Owner-run Gate B decision record for the Docling lab benchmark (packet S6b). Thresholds were agreed and committed BEFORE any benchmark dispatch (branch commit 6d05c07525e9bc30b43edd0eaeda279a57ae607b, 2026-08-18). The recorded evidence run is workflow run 32176604314 (artifact docling-lab-report-32176604314) at commit 8a923787c81e4256d4e22e45eed65ccb26f5fba8 — the first run in the dispatch chain whose docling pass is a valid measurement; see runHistory. Human twin: docs/rag-improvement/gate-b-decision-record-2026-08-18.md. Validate: node eval/docling/report/build-report.mjs --validate-record docs/rag-improvement/gate-b-decision-record-2026-08-18.json --final.",
   "preAgreedThresholds": {
     "agreedBeforeRun": true,
     "parseSuccessNonInferiorityMarginPp": 0,
@@ -11,50 +11,96 @@
     "resourceCeilings": "eval/docling/report/lab-config.json (sandbox + outputCaps) at the run's commit_sha"
   },
   "reportKey": {
-    "commit_sha": "0216f18e97c224ce9bf50799ba8c4837909e781f",
+    "commit_sha": "8a923787c81e4256d4e22e45eed65ccb26f5fba8",
     "dataset_version": "docling-lab-fixtures.v1",
     "eval_config_version": "docling-lab-config-v1",
     "model_version": "answer=gpt-5.6-terra; fast=gpt-5.6-terra; strong=gpt-5.6-sol",
     "embedding_version": "text-embedding-3-small@1536",
     "index_version": "20260818113000_forward_codify_hybrid_owner_matches_bodies"
   },
-  "reportKeyNote": "Pre-dispatch expected values (origin/main tip at threshold-agreement time); every field is confirmed or corrected verbatim from the run artifact's stamped reportKey after the run. model_version, embedding_version, and index_version are programme-wide comparability qualifiers not exercised by this extraction benchmark — no model, embedding, or database call occurs inside the sandbox.",
+  "reportKeyNote": "Copied verbatim from the run artifact's stamped reportKey. model_version, embedding_version, and index_version are programme-wide comparability qualifiers not exercised by this extraction benchmark — no model, embedding, or database call occurs inside the sandbox.",
+  "qualifiers": {
+    "extractorVersions": {
+      "legacy": "src/lib/extractors/document.ts + worker/python/extract_pdf_assets.py (pymupdf==1.28.0, worker/python/requirements.txt)",
+      "docling": "docling==2.120.2 (eval/docling/requirements.txt)"
+    },
+    "workflowRunUrl": "https://github.com/BigSimmo/Database/actions/runs/32176604314",
+    "artifactName": "docling-lab-report-32176604314",
+    "doclingPhaseEnvironment": "TORCHDYNAMO_DISABLE=1 (eager mode; the sandbox image ships no C++ toolchain for torch.compile — eval/docling/harness/entry.sh)"
+  },
+  "runHistory": [
+    {
+      "runId": "32164356999",
+      "commit": "0216f18e97c224ce9bf50799ba8c4837909e781f",
+      "outcome": "infrastructure failure — docker build: pip --require-hashes refused torch's setuptools>=77.0.3 runtime requirement (lock generated without --allow-unsafe); fixed by 779af80"
+    },
+    {
+      "runId": "32165911181",
+      "commit": "779af8094827d9cd8ad32d3d164ca2b0c5fe6e4e",
+      "outcome": "infrastructure failure — docling model prefetch: rapidocr imports cv2, slim base lacked libGL.so.1/glib; fixed by 958a70d"
+    },
+    {
+      "runId": "32166445937",
+      "commit": "958a70d90b373ee45d26645f4cc1cddf492209d0",
+      "outcome": "workflow green but not a valid docling measurement — all 46 docling documents errored uniformly; cause locked in never-uploaded raw output; diagnostic error surface added by c66faf8"
+    },
+    {
+      "runId": "32171549648",
+      "commit": "c66faf89072011dc3307b86bcc2be8425e1cbaff",
+      "outcome": "diagnostic run — named the failure: InvalidCxxCompiler (torch.compile needs a C++ compiler the sandbox image deliberately lacks); fixed by 6c6e80e (TORCHDYNAMO_DISABLE=1)"
+    },
+    {
+      "runId": "32174653778",
+      "commit": "6c6e80ea1cdc31865f01c8c8e8aac06b40cb55b6",
+      "outcome": "first valid docling pass — parse 36/36, table F1 parity, hostile clean, resources in bounds; numeric exactness scored -25 to -62.5pp purely because docling's markdown export HTML-escapes comparators ('>= 1.4 mmol/L' as '&gt;= 1.4 mmol/L') and the scorer did not unescape; values verified intact locally; scorer made escape-neutral by 8a92378"
+    },
+    {
+      "runId": "32176604314",
+      "commit": "8a923787c81e4256d4e22e45eed65ccb26f5fba8",
+      "outcome": "recorded evidence run — all five gates pass under the pre-agreed thresholds"
+    }
+  ],
   "gates": [
     {
       "id": "parse_success",
       "caseCount": 36,
-      "status": "pending_owner_run",
-      "blockedReason": "Thresholds agreed and committed 2026-08-18 ahead of the owner-approved dispatch of docling-lab.yml; run not yet completed. Pass rule: comparison.perStratum[*].parseSuccessDeltaPp >= 0 in every stratum."
+      "status": "recorded",
+      "result": "PASS — docling 36/36 and legacy 36/36; comparison.perStratum[*].parseSuccessDeltaPp = 0 in all six strata (rule: >= 0, margin 0 pp)",
+      "evidence": "https://github.com/BigSimmo/Database/actions/runs/32176604314 artifact docling-lab-report-32176604314"
     },
     {
       "id": "resource_bounds",
       "caseCount": 46,
-      "status": "pending_owner_run",
-      "blockedReason": "Thresholds agreed and committed 2026-08-18 ahead of the owner-approved dispatch of docling-lab.yml; run not yet completed. Pass rule: run completes within the lab-config ceilings and docling incurs no resource-bound failure legacy avoids."
+      "status": "recorded",
+      "result": "PASS — no timeout, signal kill, or output-cap breach on any of 46 documents for either engine; docling max wallClockMsP95 12,558 ms (cap 120,000 ms; hostile cap 60,000 ms), max peakRssBytesMax 1,504,313,344 bytes (~1.40 GiB, cgroup cap 6 GiB), run completed inside the 3,600 s cap, report 1,285 bytes (cap 1 MiB)",
+      "evidence": "https://github.com/BigSimmo/Database/actions/runs/32176604314 artifact docling-lab-report-32176604314"
     },
     {
       "id": "table_precision_recall",
       "caseCount": 12,
-      "status": "pending_owner_run",
-      "blockedReason": "Thresholds agreed and committed 2026-08-18 ahead of the owner-approved dispatch of docling-lab.yml; run not yet completed. Pass rule: tableCellF1DeltaPp >= 0 on table_simple and table_heavy; improvement leg is table_heavy delta >= 0 (owner-agreed parity-at-ceiling target)."
+      "status": "recorded",
+      "result": "PASS — tableCellPrecision/Recall/F1 = 1.0 for both engines on table_simple and table_heavy; tableCellF1DeltaPp = 0 on both (non-inferiority rule: >= 0); table-heavy improvement leg met at the pre-agreed 0 pp parity-at-ceiling target — the v1 corpus gives legacy F1 1.0, so no improvement was demonstrable by construction (fixtures.v2 follow-up queued)",
+      "evidence": "https://github.com/BigSimmo/Database/actions/runs/32176604314 artifact docling-lab-report-32176604314"
     },
     {
       "id": "numeric_exactness",
       "caseCount": 36,
-      "status": "pending_owner_run",
-      "blockedReason": "Thresholds agreed and committed 2026-08-18 ahead of the owner-approved dispatch of docling-lab.yml; run not yet completed. Pass rule: comparison.perStratum[*].assertionCoverageDeltaPp >= 0 in every stratum."
+      "status": "recorded",
+      "result": "PASS — docling 162/162 and legacy 162/162 dose/unit/comparator assertions found; comparison.perStratum[*].assertionCoverageDeltaPp = 0 in all six strata (rule: >= 0, margin 0 pp); scored escape-neutrally (html.unescape in score.py normalise) so entity-encoded comparators compare by value",
+      "evidence": "https://github.com/BigSimmo/Database/actions/runs/32176604314 artifact docling-lab-report-32176604314"
     },
     {
       "id": "hostile_containment",
       "caseCount": 10,
-      "status": "pending_owner_run",
-      "blockedReason": "Thresholds agreed and committed 2026-08-18 ahead of the owner-approved dispatch of docling-lab.yml; run not yet completed. Pass rule (hard safety gate): comparison.hostile canaryEchoTotal 0, crashArtifactTotal 0, containedDeltaCount >= 0."
+      "status": "recorded",
+      "result": "PASS — docling containedCount 10/10 and legacy 10/10; containedDeltaCount 0 (rule: >= 0), crashArtifactTotal 0 (rule: = 0), canaryEchoTotal 0 (rule: = 0); every hostile failure was a clean bounded error within its per-document limit",
+      "evidence": "https://github.com/BigSimmo/Database/actions/runs/32176604314 artifact docling-lab-report-32176604314"
     }
   ],
   "decision": {
-    "outcome": "pending_owner_run",
-    "ownerSignoff": null,
-    "date": null,
-    "consequence": "Pass authorises designing packet B4 (WORKER_DOCUMENT_EXTRACTOR_MODE=legacy|shadow, worker shadow mode) only, with the v1 table-ceiling caveat explicit; fail or deferred leaves the worker untouched and the lab in place."
+    "outcome": "pass",
+    "ownerSignoff": "Thresholds, every dispatch (six approvals), and the parity-at-ceiling table target were explicitly owner-approved in the S6b session on 2026-08-18; final countersign is the owner's review/merge of the packet S6b pull request.",
+    "date": "2026-08-18",
+    "consequence": "Gate B pass authorises DESIGNING packet B4 (WORKER_DOCUMENT_EXTRACTOR_MODE=legacy|shadow worker shadow mode) only, with two explicit caveats carried forward: (1) the table-heavy improvement leg was satisfied at parity-on-ceiling, not by a demonstrated gain — a docling-lab-fixtures.v2 hardness corpus is queued before any promotion beyond shadow design leans on a table-quality argument; (2) docling ran in eager mode (TORCHDYNAMO_DISABLE=1) at ~9-19 s per document on 2 CPUs versus legacy's ~1 s — shadow-cohort sizing must budget for that. The worker remains untouched; the ingestion-worker-reviewer subagent reviews the B4 PR."
   }
 }
