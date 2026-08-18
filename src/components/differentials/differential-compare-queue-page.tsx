@@ -81,28 +81,20 @@ export function DifferentialCompareQueuePage({
       <div className="mx-auto grid w-full max-w-4xl gap-5 sm:gap-6">
         <section className="overflow-hidden rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2)]">
           <div className="h-1 bg-[color:var(--clinical-accent)]" aria-hidden />
-          <div className="p-5 sm:p-8">
-            <div className="flex items-start gap-4 sm:gap-5">
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] ">
-                <ListChecks className="h-5 w-5" aria-hidden />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
-                  Compare queue
+          <div className="flex items-center gap-4 p-5 sm:gap-5 sm:p-8">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+              <ListChecks className="h-5 w-5" aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-3xl font-bold leading-tight text-[color:var(--text-heading)] sm:text-4xl">
+                {items.length} {items.length === 1 ? "diagnosis" : "diagnoses"} selected
+              </h1>
+              {trimmedQuery ? (
+                <p className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-[color:var(--clinical-accent)]">
+                  <Search className="h-4 w-4 shrink-0" aria-hidden />
+                  <span className="truncate">{trimmedQuery}</span>
                 </p>
-                <h1 className="mt-1 text-3xl font-bold leading-tight text-[color:var(--text-heading)] sm:text-4xl">
-                  {items.length} {items.length === 1 ? "diagnosis" : "diagnoses"} selected
-                </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)] sm:text-base">
-                  Review your shortlist, then open a side-by-side workspace to distinguish the diagnoses.
-                </p>
-                {trimmedQuery ? (
-                  <p className="mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 py-1.5 text-xs font-bold text-[color:var(--clinical-accent)]">
-                    <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    <span className="truncate">Search: {trimmedQuery}</span>
-                  </p>
-                ) : null}
-              </div>
+              ) : null}
             </div>
           </div>
         </section>
