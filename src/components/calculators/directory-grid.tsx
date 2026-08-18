@@ -3,7 +3,9 @@
 import { BookOpen, Calculator, ChevronDown, Clock3, Info, ListChecks, Search, ShieldCheck, Sigma } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { cardSelected, cardSurface } from "@/components/card-recipes";
 import { cn } from "@/components/ui-primitives";
+import { CALCULATOR_DOMAIN_ACCENT } from "@/lib/category-identity";
 
 import {
   calculators,
@@ -103,11 +105,11 @@ function CalculatorCard({
 
   return (
     <article
+      data-category-accent={CALCULATOR_DOMAIN_ACCENT[calc.domain]}
       className={cn(
-        "grid min-w-0 content-start gap-3 rounded-lg border bg-[color:var(--surface)] p-4 transition",
-        open
-          ? "col-span-full border-[color:var(--clinical-accent-border)] shadow-[var(--shadow-soft)]"
-          : "border-[color:var(--border)] shadow-[var(--shadow-inset)] hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
+        cardSurface,
+        "grid min-w-0 content-start gap-3 p-4 transition motion-reduce:transition-none",
+        open ? cn("col-span-full", cardSelected) : "hover:border-[color:var(--cat-border)] hover:shadow-[var(--e3)]",
       )}
     >
       <button
@@ -119,14 +121,11 @@ function CalculatorCard({
           focusRing,
         )}
       >
-        <span
-          className={cn(
-            "grid size-10 shrink-0 place-items-center rounded-md border shadow-[var(--shadow-inset)]",
-            open
-              ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-              : "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-          )}
-        >
+        {/* The tile was grey until the card opened, so a closed directory was
+            five domains rendered identically; the domain was findable only by
+            reading the chip. It now carries the domain accent at rest, which is
+            what the chip beside it has always said in words. */}
+        <span className="grid size-10 shrink-0 place-items-center rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] text-[color:var(--cat-accent)] shadow-[var(--shadow-inset)] forced-colors:border">
           <Icon className="size-icon-lg" aria-hidden="true" />
         </span>
         <span className="min-w-0">
