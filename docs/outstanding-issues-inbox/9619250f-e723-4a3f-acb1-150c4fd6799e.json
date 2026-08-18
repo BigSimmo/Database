@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "9619250f-e723-4a3f-acb1-150c4fd6799e",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#332",
+    "outcome": "Verified mode-nav icon glyphs are standardized on size-icon-md (16px) on design system icon scale",
+    "baseRowFingerprint": "57763f184e69ad53f41ab4a72aa4de3f7c3e7b61acca50af250ef8471d07bbe2"
+  }
+}

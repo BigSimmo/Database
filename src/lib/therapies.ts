@@ -13,7 +13,6 @@ export type TherapyIndexRecord = {
   slug: string;
   name: string;
   category: string | null;
-  modality: string | null;
   clinicalSummary: string | null;
   bestUsedFor: string | null;
   targetSymptoms: string | null;

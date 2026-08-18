@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "23af58be-1121-433e-934d-62921a51b78b",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#039",
+    "outcome": "Preserved domain-specific catalogue search and filter semantics",
+    "baseRowFingerprint": "8347daa85ef16b35062c53e755d35bbf0766b5d5190051908185228c160343ba"
+  }
+}
