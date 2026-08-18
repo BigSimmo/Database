@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "888bddaa-1df7-4b7c-b298-7d8722fc3365",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "e215905d-1639-4827-9ae1-d7b93b3a4f8c",
+    "reason": "Duplicate of already-applied request 993a1c72-96bd-4e48-b1a4-3ea3b603acac, which closed #336 for real via docs/design-system/GATES.md §3b (chose: no breakpoint tokens added, stays raw). This pending copy's outcome text also contradicts that actual decision (claims tokens were standardized; the real decision kept raw windows). Now stale and fails reconciliation with '#336 is no longer open'."
+  }
+}

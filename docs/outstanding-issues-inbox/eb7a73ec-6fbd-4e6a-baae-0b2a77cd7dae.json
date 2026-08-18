@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "eb7a73ec-6fbd-4e6a-baae-0b2a77cd7dae",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#340",
+    "outcome": "Confirmed production search-chrome contract is authoritative for query vs count weighting",
+    "baseRowFingerprint": "2ec310b5d3653ef0d626f29b55d7bb688696a084b1ecbb645ea8a6fabf7d107f"
+  }
+}

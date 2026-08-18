@@ -38,6 +38,7 @@ export type DocumentDetailImage = {
   ocrTextDensity?: number | null;
   structuredExtractionConfidence?: number | null;
   retainedForDocumentView?: boolean | null;
+  bbox?: [number, number, number, number] | null;
 };
 
 export type DocumentDetailTableFact = {
