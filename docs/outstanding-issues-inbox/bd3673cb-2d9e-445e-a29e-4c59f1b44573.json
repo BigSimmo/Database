@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "bd3673cb-2d9e-445e-a29e-4c59f1b44573",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#098",
+    "outcome": "Offline search route round-trip budget test harness landed in tests/search-route-round-trip-budget.test.ts",
+    "baseRowFingerprint": "e487546b32cbfa97f154f6d651465d3f3a8aaa9104b3376d57cc3ba20003eb96"
+  }
+}

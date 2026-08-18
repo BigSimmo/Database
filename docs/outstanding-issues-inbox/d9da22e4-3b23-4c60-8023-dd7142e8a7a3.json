@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d9da22e4-3b23-4c60-8023-dd7142e8a7a3",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#195",
+    "outcome": "Configured GitHub Ruleset on main requiring PR approvals, linear history, restrict deletions, and PR required + Gitleaks status checks",
+    "baseRowFingerprint": "068d25131470e44507f60e94e85e0832a51cf402d280921c7c01ad762ac61a32"
+  }
+}

@@ -84,6 +84,7 @@ export const CATEGORY_ICON_KEYS = [
   "calculator",
   "compass",
   "bookOpenText",
+  "bookMarked",
   "search",
   "scrollText",
   "shieldCheck",
@@ -118,6 +119,7 @@ export const APP_MODE_ICON: Record<AppModeId, CategoryIconKey> = {
   calculators: "calculator",
   "therapy-compass": "compass",
   factsheets: "bookOpenText",
+  dictionary: "bookMarked",
 };
 
 /**
@@ -134,6 +136,7 @@ export const TOOL_ICON: Record<ToolCatalogId, CategoryIconKey> = {
   "clinical-kb-search": "search",
   differentials: "brainCircuit",
   documents: "fileText",
+  "clinical-dictionary": "bookMarked",
   guidelines: "scrollText",
   "risk-safety": "shieldCheck",
   "medication-prescribing": "pill",

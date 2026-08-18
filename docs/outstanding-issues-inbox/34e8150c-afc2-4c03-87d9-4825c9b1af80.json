@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "34e8150c-afc2-4c03-87d9-4825c9b1af80",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "a3797cb9-af3b-4111-9d93-118974601cc8",
+    "reason": "Duplicate of the false Warfarin-merge claim reverted from this branch's code (see docs/branch-review-records/c74114b8f66aa5078cf48a7157a710a37d8f6aa30b6e62c1624f0e6fe73ff93e.record.md). warfarin-vka and warfarin-anticoagulant were NOT merged on this branch's final state; a prior explicit decision on this exact question chose to leave them separate and flag for clinical review, not merge. This request asserts a completed action that did not happen."
+  }
+}

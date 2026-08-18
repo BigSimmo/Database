@@ -280,6 +280,7 @@ function renderModeRoutes() {
     calculators: appModeHomeHref("calculators", { query: "PHQ-9", focus: true, run: true }),
     "therapy-compass": appModeHomeHref("therapy-compass", { query: "behavioural activation", focus: true, run: true }),
     factsheets: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
+    dictionary: appModeHomeHref("dictionary", { query: "mental state examination", focus: true, run: true }),
   };
 
   return appModeDefinitions.map((mode) => {

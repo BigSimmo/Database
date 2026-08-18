@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c9b0667f-1901-4f12-ac68-2c4bb3c6fe81",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#328",
+    "outcome": "Verified closed rows outliving completion disposition and manual status cleanup",
+    "baseRowFingerprint": "5bd9803b996fc6e81cf39aa86f2fcca7274556e703308c8a75f45a06ea60dcd2"
+  }
+}

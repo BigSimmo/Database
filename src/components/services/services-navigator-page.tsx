@@ -288,7 +288,7 @@ function ServiceReferralProgress({ active }: { active: ReferralStageId }) {
 
   return (
     <nav aria-label="Referral progress" className="min-w-0">
-      <ol className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <ol className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 sm:justify-start">
         {referralStages.map((stage, index) => {
           const isActive = index === activeIndex;
           const isComplete = index < activeIndex;
