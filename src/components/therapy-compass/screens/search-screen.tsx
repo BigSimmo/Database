@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { X } from "lucide-react";
 
 import {
   SearchResultsEmptyState,
@@ -18,7 +19,6 @@ import { pageContainer } from "@/components/ui-primitives";
 import { useTcBindings } from "../bindings";
 import { matchesAvailability, matchesTopics } from "../data/select";
 import { therapyBtn } from "../controls";
-import { XIcon } from "../icons";
 import { LoadingState } from "../ui";
 import { ResultCard } from "../therapy-card";
 
@@ -194,7 +194,7 @@ export function SearchScreen() {
                 // the query, deleting the search the reader is looking at.
                 onClick={b.clearSearchFilters}
               >
-                <XIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
+                <X aria-hidden="true" size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
                 Clear
               </button>
             ) : null}
