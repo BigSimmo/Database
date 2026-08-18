@@ -5,22 +5,20 @@ export const DATABASE_FAVOURITES_PINNED_STORAGE_KEY = "database:favourites:pinne
 
 const DEFAULT_PINNED_ITEM_IDS = ["acamprosate-renal-screen", "lithium-monitoring-guideline"];
 
-// Initial baseline offsets for demo prototype items before user interactions
+// Initial baseline offsets for items before user interactions (honest absence per #339)
 function getDefaultInitialTimestamps(): Record<string, number> {
-  const now = Date.now();
-  const dayMs = 24 * 60 * 60 * 1000;
-  return {
-    "acamprosate-renal-screen": now - 15 * 60 * 1000, // 15 mins ago (today)
-    "lithium-monitoring-guideline": now - 35 * 60 * 1000, // 35 mins ago (today)
-    "renal-dose-search": now - 55 * 60 * 1000, // 55 mins ago (today)
-    "clozapine-monitoring-table": now - dayMs - 2 * 60 * 60 * 1000, // yesterday
-    "qt-prolongation-quote": now - 3 * dayMs, // earlier this week
-  };
+  return {};
 }
 
 let inMemoryLastOpened: Record<string, number> | null = null;
 let inMemoryPinned: Set<string> | null = null;
 const listeners = new Set<() => void>();
+
+export function resetFavouritesStorageForTesting(): void {
+  inMemoryLastOpened = null;
+  inMemoryPinned = null;
+  listeners.clear();
+}
 
 function notifyListeners() {
   for (const listener of listeners) {
@@ -69,7 +67,7 @@ export function loadFavouriteLastOpened(): Record<string, number> {
     const raw = localStorage.getItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (typeof parsed === "object" && parsed !== null) {
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
         const result: Record<string, number> = { ...getDefaultInitialTimestamps(), ...parsed };
         inMemoryLastOpened = result;
         return result;
@@ -145,12 +143,24 @@ export function toggleFavouritePinnedId(itemId: string): Set<string> {
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export function formatLastOpened(timestampOrLabel: number | string | undefined): string {
-  if (timestampOrLabel === undefined || timestampOrLabel === null) {
+export function formatLastOpened(timestampOrLabel: number | string | undefined | null): string {
+  if (
+    timestampOrLabel === undefined ||
+    timestampOrLabel === null ||
+    timestampOrLabel === 0 ||
+    timestampOrLabel === ""
+  ) {
     return "Saved";
   }
   if (typeof timestampOrLabel === "string") {
-    return timestampOrLabel;
+    const trimmed = timestampOrLabel.trim();
+    return trimmed ? timestampOrLabel : "Saved";
+  }
+
+  if (typeof timestampOrLabel === "number") {
+    if (!Number.isFinite(timestampOrLabel) || timestampOrLabel <= 0) {
+      return "Saved";
+    }
   }
 
   const date = new Date(timestampOrLabel);
@@ -179,13 +189,17 @@ export function formatLastOpened(timestampOrLabel: number | string | undefined):
   return `${date.getDate()} ${monthNames[date.getMonth()]}`;
 }
 
-export function lastOpenedScore(lastUsed: string | number | undefined): number {
+export function lastOpenedScore(lastUsed: string | number | undefined | null): number {
+  if (lastUsed === undefined || lastUsed === null || lastUsed === 0 || lastUsed === "") {
+    return 0;
+  }
   if (typeof lastUsed === "number") {
+    if (!Number.isFinite(lastUsed) || lastUsed <= 0) return 0;
     return lastUsed;
   }
-  if (!lastUsed) return 0;
 
-  const lower = lastUsed.toLowerCase();
+  const lower = lastUsed.toLowerCase().trim();
+  if (!lower) return 0;
   if (lower.startsWith("today")) {
     const timeMatch = lastUsed.match(/(\d{1,2}):(\d{2})/);
     if (timeMatch) return 1_000_000_000_000 + Number(timeMatch[1]) * 60 + Number(timeMatch[2]);

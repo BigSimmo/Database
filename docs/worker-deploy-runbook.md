@@ -215,6 +215,22 @@ the client publishable key (build-time, app bundle only) or
 
 ---
 
+## 4. Troubleshooting & environment notes
+
+- **Strict Node 24 web container engines (#334):** Package manifests enforce
+  strict Node 24 (`>=24.15.0 <25`) and npm 11 engines. If a web container
+  environment boots with Node 22 on `PATH`, `npm ci` fails `EBADENGINE` before
+  work starts. Do not drop engine-strict; export `/opt/node24/bin` at the front of
+  `PATH` to satisfy repository engine contracts before running `npm ci` or building
+  the worker:
+
+  ```bash
+  export PATH="/opt/node24/bin:$PATH"
+  node -v # must report v24.x
+  ```
+
+---
+
 ## Rollback
 
 Redeploy the previous image tag. The worker holds no durable local state; all

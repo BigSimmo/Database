@@ -10,18 +10,20 @@ import {
   loadFavouriteLastOpened,
   loadFavouritePinnedIds,
   recordFavouriteOpened,
+  resetFavouritesStorageForTesting,
   toggleFavouritePinnedId,
 } from "@/components/favourites/favourites-storage";
 
 describe("favourites storage, timestamps and pinning", () => {
   beforeEach(() => {
     localStorage.clear();
+    resetFavouritesStorageForTesting();
   });
 
-  it("loads default seed timestamps and records real timestamp when item is opened", () => {
+  it("enforces honest absence initially and records real timestamp when item is opened", () => {
     const initial = loadFavouriteLastOpened();
-    expect(initial["acamprosate-renal-screen"]).toBeDefined();
-    expect(typeof initial["acamprosate-renal-screen"]).toBe("number");
+    expect(initial["acamprosate-renal-screen"]).toBeUndefined();
+    expect(Object.keys(initial)).toHaveLength(0);
 
     const customTime = Date.now() + 5000;
     recordFavouriteOpened("test-item-1", customTime);
@@ -33,6 +35,12 @@ describe("favourites storage, timestamps and pinning", () => {
     expect(storedRaw).not.toBeNull();
     const parsed = JSON.parse(storedRaw!);
     expect(parsed["test-item-1"]).toBe(customTime);
+  });
+
+  it("safely ignores array payloads in last-opened storage and falls back to honest absence", () => {
+    localStorage.setItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY, JSON.stringify(["invalid", "array"]));
+    const loaded = loadFavouriteLastOpened();
+    expect(loaded).toEqual({});
   });
 
   it("loads default pinned IDs and allows toggling pinning state with localStorage persistence", () => {
@@ -64,6 +72,7 @@ describe("favourites storage, timestamps and pinning", () => {
     expect(formattedYesterday).toMatch(/^Yesterday \d{2}:\d{2}$/);
 
     expect(formatLastOpened(undefined)).toBe("Saved");
+    expect(formatLastOpened(0)).toBe("Saved");
     expect(formatLastOpened("Today 08:44")).toBe("Today 08:44");
   });
 
@@ -75,5 +84,7 @@ describe("favourites storage, timestamps and pinning", () => {
     expect(lastOpenedScore("Today 10:00")).toBeGreaterThan(lastOpenedScore("Yesterday 10:00"));
     expect(lastOpenedScore("Yesterday 10:00")).toBeGreaterThan(lastOpenedScore("Mon 10:00"));
     expect(lastOpenedScore("Saved")).toBe(1000);
+    expect(lastOpenedScore(0)).toBe(0);
+    expect(lastOpenedScore(undefined)).toBe(0);
   });
 });
