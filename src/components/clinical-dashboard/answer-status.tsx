@@ -16,7 +16,13 @@ import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import type { AppModeId } from "@/lib/app-modes";
-import { answerLoading, copyButton, sharedHomeEmptyState, sharedHomePresentation } from "@/lib/ui-copy";
+import {
+  answerLoading,
+  copyButton,
+  sharedHomeEmptyState,
+  sharedHomePresentation,
+  type SharedHomePresentation,
+} from "@/lib/ui-copy";
 
 export function CopyButton({
   label,
@@ -69,12 +75,16 @@ export function SharedHomeEmptyState({
     onSelectRecent && preferences.showRecentOnHome
       ? recentQueries.filter((entry) => entry.trim().length > 0).slice(0, 5)
       : [];
-  const presentation = sharedHomePresentation[modeId];
+  // Annotated: `sharedHomePresentation` is `as const`, so indexing it with the
+  // AppModeId union yields a union of entry shapes and `verification` (optional)
+  // would not resolve on the members that omit it.
+  const presentation: SharedHomePresentation = sharedHomePresentation[modeId];
 
   return (
     <ModeHomeTemplate
       testId="shared-home-empty-state"
       title={presentation.title}
+      subtitle={presentation.subtitle}
       icon={appModeIcons[modeId]}
       headingLevel={2}
       stabilizePhoneCopy
@@ -94,12 +104,23 @@ export function SharedHomeEmptyState({
               icon={History}
             />
           )}
-          {modeId === "answer" ? (
-            <ModeHomeVerificationFooter
-              label="Clinical decision support"
-              body="Verify against cited sources before clinical use"
-            />
-          ) : null}
+          {/* Every mode that carries a review-before-use caveat shows it here,
+              not just Answer: the mode pill never leaves `/`, so this page is
+              the only home a clinician sees for most modes.
+
+              The reserve is on the wrapper, which renders for every mode —
+              including the modes with no caveat. Sized on the slot rather than
+              the caveat, it holds the centred column's height constant so
+              switching modes cannot move the composer (see
+              --mode-home-verification-reserve in globals.css). */}
+          <div className="max-sm:min-h-[var(--mode-home-verification-reserve)]">
+            {presentation.verification ? (
+              <ModeHomeVerificationFooter
+                label={presentation.verification.label}
+                body={presentation.verification.body}
+              />
+            ) : null}
+          </div>
         </div>
       }
     />
