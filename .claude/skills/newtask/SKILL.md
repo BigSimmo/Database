@@ -5,9 +5,11 @@ description: Bootstrap a clean session for new work in this repo — create a fr
 
 # newtask — start a clean, current working copy
 
-This repo moves fast and shares ~40 worktrees and one stash stack, so starting work on a
+This repo moves fast and shares ~50 worktrees and one stash stack, so starting work on a
 stale base or a cold worktree is the default failure. This skill sets up an isolated,
-current worktree so new work starts clean.
+current worktree so new work starts clean. That count is not stable trivia — it was 48 on
+2026-08-18 and reached 50 during a single session, because nothing reclaims a worktree
+whose branch has landed. See the cleanup note at the end.
 
 ## Before you start
 

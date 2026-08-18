@@ -43,4 +43,23 @@ esac
 
 echo "[issues] ${why} Anything this session discovered but has not written down is about to be summarised away: unresolved follow-ups, deferrals, known risks, and work you decided NOT to do and why. Record them now with /issues add … (or /issues capture for a sweep) — docs/outstanding-issues.md is the only memory that survives a context reset. Requests land as immutable files under docs/outstanding-issues-inbox/; they are not committed unless you are explicitly asked to commit."
 
+# Self-verification, because the KNOWN LIMIT above cannot be resolved by reading code.
+# Whether the platform injects this hook's stdout into model context is not something the
+# repo can determine — the installed CLI ships a compiled binary with no inspectable
+# bundle. What the repo CAN do is make the question answerable instead of permanently open:
+# append one line per firing to a log outside the worktree, so after the next compaction
+# `cat "$(git rev-parse --absolute-git-dir)/claude-precompact.log"` says whether the hook
+# ran at all. If lines appear but the reminder never reached the model, the limit is real
+# and the SessionStart backstop is doing the work; if no lines appear, the registration is
+# wrong. Either answer is actionable; "unverified" is not.
+#
+# Kept under the git dir, never the worktree, so it can never be staged or committed.
+log_dir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
+if [ -n "$log_dir" ] && [ -d "$log_dir" ]; then
+  printf '%s precompact trigger=%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)" \
+    "${trigger:-unknown}" \
+    >>"$log_dir/claude-precompact.log" 2>/dev/null || true
+fi
+
 exit 0
