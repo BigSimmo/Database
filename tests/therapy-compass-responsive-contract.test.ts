@@ -262,7 +262,17 @@ describe("clinical accent contrast contract", () => {
       expect(source).not.toMatch(/background:var\(--clinical-accent\);color:#(?:fff|ffffff)/i);
       expect(source).not.toMatch(/bg-\[color:var\(--clinical-accent\)\][^"\n]*\btext-white\b/);
     }
-    expect(controlsSource).toContain("text-[color:var(--clinical-accent-contrast)]");
+    // This used to assert that `controls.ts` paired its accent fill with the
+    // semantic contrast token, which was `accentControl`'s job. That recipe is
+    // gone: therapy's filled action is the shared `Button` on the `--command`
+    // triplet, per COMPONENTS.md section 9.1, whose token list does not include
+    // `--clinical-accent`. So the requirement is now the stronger one — no accent
+    // fill in `controls.ts` at all — and the pairing is asserted where the accent
+    // fill actually survives, on `IconTile` in `ui.tsx`.
+    expect(controlsSource).not.toContain("bg-[color:var(--clinical-accent)]");
+    expect(read(`${therapyPath}/ui.tsx`)).toContain(
+      "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]",
+    );
     expect(homeSource).toContain("ModeHomeTemplate");
     expect(homeSource).not.toMatch(/background:var\(--clinical-accent\);color:#(?:fff|ffffff)/i);
     expect(homeSource).not.toMatch(/bg-\[color:var\(--clinical-accent\)\][^"\n]*\btext-white\b/);

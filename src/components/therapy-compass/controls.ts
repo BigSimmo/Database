@@ -31,12 +31,6 @@ const controlBase = cn(
   therapyBtn,
 );
 
-export const accentControl = cn(
-  controlBase,
-  "border-0 bg-[color:var(--clinical-accent)] px-[18px] text-[color:var(--clinical-accent-contrast)]",
-  "hover:not-aria-disabled:enabled:bg-[color:var(--clinical-accent-hover)] hover:not-aria-disabled:enabled:shadow-[var(--shadow-hover)]",
-);
-
 export const commandControl = cn(
   controlBase,
   "gap-[9px] border-0 bg-[color:var(--command)] px-5 text-sm text-[color:var(--command-contrast)] shadow-[var(--e1)]",

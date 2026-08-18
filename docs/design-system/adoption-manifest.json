@@ -280,12 +280,16 @@
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/therapy-compass/therapy-card.tsx",
+        "src/components/therapy-compass/workspace.tsx",
         "src/components/ui/confirm-dialog.tsx",
         "src/components/ui/print-output.tsx"
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/therapy-compass/therapy-card.tsx",
+        "src/components/therapy-compass/workspace.tsx",
         "src/components/ui/print-output.tsx"
       ],
       "designSync": {
@@ -298,6 +302,7 @@
         "tests/accessible-table.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
+        "tests/therapy-compass-responsive-contract.test.ts",
         "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {

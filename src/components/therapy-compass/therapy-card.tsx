@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import {
   ChevronRight,
   Clock,
@@ -13,16 +13,33 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { cn, ignoreUnavailableActivation } from "@/components/ui-primitives";
+
 import { useTcBindings } from "./bindings";
 import { cardPreviewText, prioritiseTherapyTags, summarise } from "./data/select";
 import type { Therapy } from "./data/types";
-import { accentControl, iconControl, outlineControl, therapyBtn } from "./controls";
+import { iconControl, therapyBtn } from "./controls";
 import { Eyebrow, IconTile, TagRow } from "./ui";
 import { useTherapyFavourite } from "./use-therapy-favourite";
+
+/**
+ * A result list has N cards, so none of their actions is "the" primary action on
+ * the surface. All three are `secondary`; the filled `--command` slot that
+ * COMPONENTS.md section 9.1 allows once per surface is left for the page, not
+ * spent N times over. `size="sm"` keeps the label step the card had while
+ * `controlBase` holds the 48px tap floor.
+ */
+const cardActionButton = "min-w-0 px-2 text-xs sm:px-4 sm:text-sm-minus";
+
+/** Selected encoding for the compare toggle, which `secondary` does not carry. */
+const cardActionPressed =
+  "aria-pressed:border-[color:var(--clinical-accent)] aria-pressed:text-[color:var(--clinical-accent-hover)]";
 
 /** Large search-result card with why-matched / avoid / best-fit columns. */
 export function ResultCard({ therapy }: { therapy: Therapy }) {
   const b = useTcBindings();
+  const sheetUnavailableId = useId();
   const { notice, saved, toggleFavourite } = useTherapyFavourite(therapy.slug);
   const inCompare = b.isInCompare(therapy.slug);
   const subtitle =
@@ -101,42 +118,51 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         </p>
       ) : null}
       <div data-therapy-result-actions className="grid grid-cols-3 gap-2 px-4 py-3.5 sm:px-5 sm:pb-4 md:pt-0">
-        <button
-          type="button"
-          className={`${therapyBtn} ${accentControl} w-full min-w-0 px-2 text-xs sm:px-[18px] sm:text-sm-minus`}
+        <Button
+          variant="secondary"
+          size="sm"
+          block
+          className={cardActionButton}
+          icon={ExternalLink}
           onClick={() => b.open(therapy.slug)}
           aria-label="Open record"
         >
-          <ExternalLink aria-hidden="true" size={16} strokeWidth={1.8} />
           <span className="max-sm:hidden">Open record</span>
           <span className="sm:hidden">Open</span>
-        </button>
-        <button
-          type="button"
-          className={`${therapyBtn} ${outlineControl} w-full min-w-0 px-2 text-xs sm:px-4 sm:text-sm-minus`}
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          block
+          className={cn(cardActionButton, cardActionPressed)}
+          icon={Scale}
           onClick={() => b.toggleCompare(therapy.slug)}
           aria-pressed={inCompare}
           aria-label={inCompare ? "In compare" : "Compare"}
         >
-          <Scale aria-hidden="true" size={16} />
           <span className="max-sm:hidden">{inCompare ? "In compare" : "Compare"}</span>
           <span className="sm:hidden">{inCompare ? "Added" : "Compare"}</span>
-        </button>
-        <button
-          type="button"
-          className={`${therapyBtn} ${outlineControl} w-full min-w-0 px-2 text-xs sm:px-4 sm:text-sm-minus`}
-          onClick={() => {
-            if (!therapy.patientSheetAvailable) return;
-            b.openSheet(therapy.slug);
-          }}
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          block
+          className={cardActionButton}
+          icon={FileText}
+          onClick={therapy.patientSheetAvailable ? () => b.openSheet(therapy.slug) : ignoreUnavailableActivation}
           aria-disabled={therapy.patientSheetAvailable ? undefined : true}
+          aria-describedby={therapy.patientSheetAvailable ? undefined : sheetUnavailableId}
           title={therapy.patientSheetAvailable ? undefined : "This record has no patient sheet"}
           aria-label={sheetLabel}
         >
-          <FileText aria-hidden="true" size={16} />
           <span className="max-sm:hidden">{sheetLabel}</span>
           <span className="sm:hidden">{sheetShort}</span>
-        </button>
+        </Button>
+        {therapy.patientSheetAvailable ? null : (
+          <span id={sheetUnavailableId} className="sr-only">
+            This record has no patient sheet.
+          </span>
+        )}
       </div>
     </article>
   );

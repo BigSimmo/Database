@@ -3,13 +3,13 @@
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { Button } from "@/components/ui/button";
 import { ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { cn, pageContainer } from "@/components/ui-primitives";
 import { isInformationPage } from "@/lib/information-pages";
 
 import { TcProvider, useTcBindings } from "./bindings";
-import { accentControl, therapyBtn } from "./controls";
 
 function TherapyCompassFooter() {
   return (
@@ -32,18 +32,15 @@ function TherapyCompassDataError() {
       <p className="m-0 mb-4 leading-normal text-[color:var(--text-muted)]">
         The therapy catalogue is unavailable. No results are being shown as a substitute.
       </p>
-      <button
-        type="button"
-        className={`${therapyBtn} ${accentControl}`}
-        onClick={b.retryData}
-        // Native `disabled` alone: retry-while-loading is transient, not an
-        // unavailability with a reason to announce, so the browser semantics are
-        // the right ones. The `aria-disabled` that used to sit beside it changed
-        // nothing — the native attribute wins on focus either way.
-        disabled={b.loading}
-      >
-        {b.loading ? "Retrying…" : "Retry"}
-      </button>
+      {/* The one action on this surface, so it takes the single filled `--command`
+          slot (COMPONENTS.md section 9.1). `busy` supersedes the hand-rolled
+          label swap: it disables the control, announces `aria-busy`, and shows a
+          spinner, which the previous `disabled` + ternary did not. Retry-while-
+          loading is transient inertness, which is what `busy`/`disabled` encode —
+          not an unavailability with a reason, which would need `aria-disabled`. */}
+      <Button variant="primary" onClick={b.retryData} busy={b.loading} busyLabel="Retrying…">
+        Retry
+      </Button>
     </section>
   );
 }
