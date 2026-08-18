@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "1779e516-039a-455c-af91-8705a2bdf82d",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#ND10QT",
+    "outcome": "Cancelled as a duplicate of #343, which is still open and carries the actionable follow-up (make the source_metadata pin structural via a check constraint or loosen the pin). PR #2121 (2026-08-18) restored the strict source_metadata presence pin on retrieval rows; #343 is the row that tracks the remaining structural fix.",
+    "baseRowFingerprint": "ff8db937fb5e1c8ee31ae0119f3d0af52ea856f66c13a1ad43ff4827becea780"
+  }
+}
