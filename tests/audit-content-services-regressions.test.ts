@@ -159,7 +159,11 @@ describe("content and services audit regressions", () => {
       /Number, pathway, clock|Maker, clock, copies|Browse pathways|Before, current, parallel, after|starter set of MHA 2014 forms|follow a pathway/,
     );
     expect(formsHomeSource).toContain("local confirmation");
-    expect(formsHomeSource).toContain("Source catalogue reviewed");
+    // The "Source catalogue reviewed · Official-source MHA 2014 forms · verify
+    // before use" line was removed with every other mode-home caveat footer, so
+    // the home must not carry it (or a replacement) under the composer.
+    expect(formsHomeSource).not.toContain("Source catalogue reviewed");
+    expect(formsHomeSource).not.toContain("ModeHomeVerificationFooter");
   });
 
   it("does not render negative or text-only source statuses as verified", () => {

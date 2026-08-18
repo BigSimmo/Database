@@ -144,7 +144,10 @@ describe("Therapy Compass responsive contract", () => {
     // the final row 961px, wrapped one pill, and produced desktop CLS 0.126.
     expect(modeHomeTemplateSource).not.toContain("sm:gap-2.5");
     expect(homeSource).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
-    expect(homeSource).toContain("ModeHomeVerificationFooter");
+    // The caveat footer under the composer was removed from every mode home.
+    // Therapy keeps its own page-bottom footer, but workspace.tsx renders that
+    // with `showFooter={!isHome}`, so it must never reappear on the home screen.
+    expect(homeSource).not.toContain("ModeHomeVerificationFooter");
     expect(responsiveStackCount(detailSource)).toBeGreaterThanOrEqual(1);
     expect(detailSource).toContain("max-sm:static");
     expect(responsiveStackCount(compareSource)).toBeGreaterThanOrEqual(1);

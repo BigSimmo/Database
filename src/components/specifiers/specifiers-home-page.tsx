@@ -6,7 +6,7 @@ import { useId, useMemo, useState } from "react";
 import { ArrowRight, ChevronRight, GitCompareArrows, ListChecks, Search, Tags } from "lucide-react";
 
 import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
-import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
 import {
   SearchResultsHeaderBand,
   type AppliedFilterChip,
@@ -120,15 +120,7 @@ function SpecifiersHome() {
             <ChevronRight className="h-3.5 w-3.5" aria-hidden />
           </Link>
         }
-        footer={
-          <div className="grid gap-3">
-            <SpecifierPathwayStrip />
-            <ModeHomeVerificationFooter
-              label="Diagnostic decision support"
-              body="Review criteria and exclusions before documenting"
-            />
-          </div>
-        }
+        footer={<SpecifierPathwayStrip />}
       />
     </ModeHomeMain>
   );
