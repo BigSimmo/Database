@@ -326,6 +326,96 @@ describe("captured RAG eval cases", () => {
     expect(scores.every((score) => score.score === 1)).toBe(true);
   });
 
+  describe("readability: fragmentation and length are scored independently", () => {
+    // Packet S2 (#2097, dda4956ff, prompt clinical-rag-answer-v19) moved the answer field to
+    // 60-110 words and sections to three-to-six. The old scorer conflated fragmentation and a flat
+    // 220-word ceiling into one boolean with one reason ("fragmented or too long"), so a correctly
+    // shaped v19 answer could fail for length and be indistinguishable from the fragmentation
+    // regression the metric exists to catch. These tests pin the split.
+    const qualityCase = answerQualityEvalCases.find((item) => item.id === "quality-discharge-documentation")!;
+
+    function readabilityOf(text: string, sections: RagAnswer["answerSections"] = []) {
+      const answer = {
+        answer: text,
+        grounded: true,
+        confidence: "high",
+        citations: [],
+        sources: [],
+        routingMode: "fast",
+        queryClass: "document_lookup",
+        answerSections: sections,
+      } satisfies RagAnswer;
+      return scoreAnswerQualityEvalCase(qualityCase, answer).find((score) => score.metric === "readability")!;
+    }
+
+    // Clean clinical prose with no fragmentation artefacts: no run-together digit lists, no
+    // "? monitoring" break, no glued-together heading token.
+    const cleanSentence =
+      "Review the admission record and confirm the responsible consultant has documented the current plan. ";
+
+    it("scores a long but clean v19-shaped answer as readable", () => {
+      // ~110-word answer plus six sections, the maximum shape prompt v19 asks for. Comfortably over
+      // the retired 220-word ceiling, comfortably under the derived 900-word contract ceiling.
+      const answerField = cleanSentence.repeat(8);
+      const sections = Array.from({ length: 6 }, (_, index) => ({
+        heading: `Section ${String.fromCharCode(65 + index)}`,
+        kind: "required_actions" as const,
+        supportLevel: "direct" as const,
+        body: cleanSentence.repeat(5),
+        citation_chunk_ids: [],
+      })) satisfies RagAnswer["answerSections"];
+
+      const score = readabilityOf(answerField, sections);
+      const wordCount = [answerField, ...sections.map((section) => `${section.heading}: ${section.body}`)]
+        .join(" ")
+        .split(/\s+/)
+        .filter(Boolean).length;
+
+      // Guard the guard: this fixture must actually exercise the regression it claims to.
+      expect(wordCount).toBeGreaterThan(220);
+      expect(wordCount).toBeLessThan(900);
+      expect(score.score).toBe(1);
+      expect(score.reason).toBe("readable");
+    });
+
+    it("still fails a genuinely fragmented answer, and names fragmentation as the reason", () => {
+      const score = readabilityOf(
+        "Clozapine monitoring anyMANAGEMENT of the neutrophil result follows the escalation pathway.",
+      );
+
+      expect(score.score).toBe(0);
+      expect(score.reason).toContain("fragmented");
+      // Distinguishable from the length failure by the reason alone.
+      expect(score.reason).not.toContain("too long");
+      expect(score.reason).not.toContain("too short");
+    });
+
+    it("still fails a runaway-length answer, and names length as the reason", () => {
+      const score = readabilityOf(cleanSentence.repeat(80));
+
+      expect(score.score).toBe(0);
+      expect(score.reason).toContain("too long");
+      // Distinguishable from the fragmentation failure by the reason alone.
+      expect(score.reason).not.toContain("fragmented");
+    });
+
+    it("still fails an empty-stub answer as too short", () => {
+      const score = readabilityOf("No source.");
+
+      expect(score.score).toBe(0);
+      expect(score.reason).toContain("too short");
+      expect(score.reason).not.toContain("fragmented");
+    });
+
+    it("reports both reasons when an answer is fragmented AND over length", () => {
+      const score = readabilityOf(`anyMANAGEMENT ${cleanSentence.repeat(80)}`);
+
+      expect(score.score).toBe(0);
+      expect(score.reason).toContain("fragmented");
+      expect(score.reason).toContain("too long");
+    });
+  });
+
   describe("scoreAnswerTargeting (structural per-intent targeting)", () => {
     const doseCase = {
       id: "t-dose",
