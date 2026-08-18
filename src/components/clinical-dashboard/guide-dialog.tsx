@@ -789,93 +789,100 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
         ? "Review guided tour"
         : "Resume guided tour";
   const footer = (
-    <div
-      data-guide-mobile-footer
-      aria-hidden={chromeHidden}
-      inert={chromeHidden || undefined}
-      className="mx-auto grid w-full max-w-3xl min-w-0 gap-2.5"
-    >
-      <div data-guide-tour-action-row className="flex min-w-0 items-center justify-center gap-2">
-        {view === "tour" && !tourComplete ? (
-          <>
-            <button
-              type="button"
-              onClick={() => {
-                setTourStepIndex((index) => Math.max(0, index - 1));
-                focusPageStart();
-              }}
-              disabled={tourStepIndex === 0}
-              className={cn(floatingControl, "hidden px-3 sm:inline-flex")}
-            >
-              <ChevronLeft aria-hidden="true" className="size-icon-md" /> Previous
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("home")}
-              className="hidden min-h-tap rounded-lg px-3 text-sm font-semibold text-[color:var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex sm:items-center"
-            >
-              Exit tour
-            </button>
-            <button type="button" onClick={continueTour} className={cn(primaryControl, "px-3 sm:px-5")}>
-              {tourStepIndex === guideTourSteps.length - 1 ? "Complete tour" : "Continue"}
-              <ChevronRight aria-hidden="true" className="size-icon-md" />
-            </button>
-          </>
-        ) : view === "tour" && tourComplete ? (
-          <button type="button" onClick={() => navigate("home")} className={primaryControl}>
-            Return to Guide home
-          </button>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => navigate("topics")}
-              className="hidden min-h-tap rounded-lg px-3 text-sm font-semibold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex sm:items-center"
-            >
-              Browse all topics
-            </button>
-            {view === "topic" || view === "topics" ? (
+    <>
+      {/* Same localized glass the shared phone dock paints: the footer band itself
+          stays transparent and this scrim tints only around the pill, tapering to
+          zero at the physical edge. Without it the Sheet's opaque footer surface
+          reads as a slab covering the content behind the composer. */}
+      <div className="answer-footer-search-backdrop sm:hidden" aria-hidden="true" />
+      <div
+        data-guide-mobile-footer
+        aria-hidden={chromeHidden}
+        inert={chromeHidden || undefined}
+        className="relative z-10 mx-auto grid w-full max-w-3xl min-w-0 gap-2.5"
+      >
+        <div data-guide-tour-action-row className="flex min-w-0 items-center justify-center gap-2">
+          {view === "tour" && !tourComplete ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setTourStepIndex((index) => Math.max(0, index - 1));
+                  focusPageStart();
+                }}
+                disabled={tourStepIndex === 0}
+                className={cn(floatingControl, "hidden px-3 sm:inline-flex")}
+              >
+                <ChevronLeft aria-hidden="true" className="size-icon-md" /> Previous
+              </button>
               <button
                 type="button"
                 onClick={() => navigate("home")}
-                className={cn(floatingControl, "hidden sm:inline-flex")}
+                className="hidden min-h-tap rounded-lg px-3 text-sm font-semibold text-[color:var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex sm:items-center"
               >
-                Guide home
+                Exit tour
               </button>
-            ) : (
+              <button type="button" onClick={continueTour} className={cn(primaryControl, "px-3 sm:px-5")}>
+                {tourStepIndex === guideTourSteps.length - 1 ? "Complete tour" : "Continue"}
+                <ChevronRight aria-hidden="true" className="size-icon-md" />
+              </button>
+            </>
+          ) : view === "tour" && tourComplete ? (
+            <button type="button" onClick={() => navigate("home")} className={primaryControl}>
+              Return to Guide home
+            </button>
+          ) : (
+            <>
               <button
                 type="button"
-                onClick={() => openTopic("ask-better-questions")}
-                className={cn(floatingControl, "hidden sm:inline-flex")}
+                onClick={() => navigate("topics")}
+                className="hidden min-h-tap rounded-lg px-3 text-sm font-semibold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex sm:items-center"
               >
-                <HelpCircle aria-hidden="true" className="size-icon-md" /> Ask a question
+                Browse all topics
               </button>
-            )}
-            <button type="button" onClick={() => navigate("tour")} className={cn(primaryControl, "px-3 sm:px-5")}>
-              <PlayCircle aria-hidden="true" className="size-icon-md" />
-              {tourPrimaryLabel}
-            </button>
-          </>
-        )}
+              {view === "topic" || view === "topics" ? (
+                <button
+                  type="button"
+                  onClick={() => navigate("home")}
+                  className={cn(floatingControl, "hidden sm:inline-flex")}
+                >
+                  Guide home
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openTopic("ask-better-questions")}
+                  className={cn(floatingControl, "hidden sm:inline-flex")}
+                >
+                  <HelpCircle aria-hidden="true" className="size-icon-md" /> Ask a question
+                </button>
+              )}
+              <button type="button" onClick={() => navigate("tour")} className={cn(primaryControl, "px-3 sm:px-5")}>
+                <PlayCircle aria-hidden="true" className="size-icon-md" />
+                {tourPrimaryLabel}
+              </button>
+            </>
+          )}
+        </div>
+        <GuideSearch
+          query={query}
+          inputRef={searchInputRef}
+          onFocusChange={setSearchFocused}
+          onQueryChange={(nextQuery) => {
+            setQuery(nextQuery);
+            if (nextQuery.trim()) {
+              window.requestAnimationFrame(() => {
+                if (scrollBodyRef.current) scrollBodyRef.current.scrollTop = 0;
+                chromeScrollHide.reset();
+              });
+            }
+          }}
+        />
+        <p className={cn("hidden items-center justify-center gap-2 text-xs sm:flex", textMuted)}>
+          <ShieldCheck aria-hidden="true" className="size-icon-md shrink-0" /> Demo content only · Do not enter PHI
+        </p>
       </div>
-      <GuideSearch
-        query={query}
-        inputRef={searchInputRef}
-        onFocusChange={setSearchFocused}
-        onQueryChange={(nextQuery) => {
-          setQuery(nextQuery);
-          if (nextQuery.trim()) {
-            window.requestAnimationFrame(() => {
-              if (scrollBodyRef.current) scrollBodyRef.current.scrollTop = 0;
-              chromeScrollHide.reset();
-            });
-          }
-        }}
-      />
-      <p className={cn("hidden items-center justify-center gap-2 text-xs sm:flex", textMuted)}>
-        <ShieldCheck aria-hidden="true" className="size-icon-md shrink-0" /> Demo content only · Do not enter PHI
-      </p>
-    </div>
+    </>
   );
 
   const hasSearch = query.trim().length > 0;
@@ -909,7 +916,17 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
       mobilePlacement="fullscreen"
       footer={footer}
       footerClassName={cn(
-        "absolute inset-x-0 bottom-0 z-30 border-t border-[color:var(--border)] bg-[color:var(--surface-raised)] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[var(--e4)] transition-[transform,opacity] duration-[var(--duration-moderate)] motion-reduce:transition-none sm:static sm:p-4 sm:shadow-none",
+        // Phones use the SHARED edge-to-edge dock chrome, not a Sheet footer band:
+        // `.answer-footer-search-dock.answer-footer-search-edge` (globals.css) owns
+        // the flush left/right/bottom geometry, the safe-area padding and the
+        // transparent background, exactly as every other phone composer does. The
+        // border/surface/elevation below are therefore sm+ only — on phones they
+        // painted an opaque slab across the content behind the composer. The dock
+        // stays on the DEFAULT scrim height, not `document-mobile-search-compact`:
+        // the tour action row sits above the pill here, the same shape the
+        // differentials/patient-details dock addons take.
+        "answer-footer-search-dock answer-footer-search-edge",
+        "absolute inset-x-0 bottom-0 z-30 border-t-0 bg-transparent p-0 shadow-none transition-[transform,opacity] duration-[var(--duration-moderate)] motion-reduce:transition-none sm:static sm:border-t sm:border-[color:var(--border)] sm:bg-[color:var(--surface-raised)] sm:p-4",
         chromeHidden &&
           "pointer-events-none translate-y-full opacity-0 sm:pointer-events-auto sm:translate-y-0 sm:opacity-100",
       )}
