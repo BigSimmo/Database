@@ -166,11 +166,11 @@
     {
       "name": "AnswerFooter",
       "family": "answer",
-      "source": "src/components/ui/answer-card.tsx",
+      "source": "src/components/answer/AnswerFooter.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
-      "productImportFiles": [],
+      "directImportFiles": ["src/components/ui/answer-card.tsx"],
+      "productImportFiles": ["src/components/ui/answer-card.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -193,8 +193,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -590,7 +590,7 @@
     {
       "name": "DoseLine",
       "family": "answer",
-      "source": "src/components/ui/answer-card.tsx",
+      "source": "src/components/ui/dose-line.tsx",
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [],
@@ -3441,7 +3441,7 @@
   "summary": {
     "registeredComponentCount": 54,
     "previewCount": 54,
-    "productImportedComponentCount": 33,
+    "productImportedComponentCount": 34,
     "rootCount": 59,
     "productionRouteCount": 51,
     "nextUiEntryCount": 103
