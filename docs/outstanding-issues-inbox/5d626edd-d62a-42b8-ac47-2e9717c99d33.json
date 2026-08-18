@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5d626edd-d62a-42b8-ac47-2e9717c99d33",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "Nothing schedules a bundle-budget baseline refresh, so accumulated growth fails whichever unrelated PR lands last",
+    "detail": "The production baseline sat at ca788d41 (2026-08-13) untouched while main grew +8.03% by 2026-08-18, leaving ~2 points of headroom. PR #2096 (Dictionary) then failed Build at +10.5% for 2.7 points of its own weight. Re-baselined once in docs/evidence/bundle-budget-production-rebaseline-2026-08-18.md, but the same squeeze recurs unless a refresh has an owner or a trigger: options are a scheduled job that re-measures and opens a PR, a drift warning threshold below the failure threshold, or recording the baseline commit distance in the check output so staleness is visible before it blocks someone.",
+    "source": "PR review of #2095/#2096, 2026-08-18",
+    "issueUlid": "01M09SPZ4QQSHHGK3QG194ARKD"
+  }
+}

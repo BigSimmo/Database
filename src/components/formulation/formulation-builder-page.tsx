@@ -18,16 +18,15 @@ import {
 import { useMemo, useState, useDeferredValue } from "react";
 
 import {
-  FormulationBreadcrumbs,
   FormulationPageShell,
   FormulationSafetyNote,
   MechanismDomainChips,
   SessionPrivacyNote,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
-import { Select } from "@/components/ui/select";
-import { TextField } from "@/components/ui/text-field";
+import { CatalogueToolbar } from "@/components/ui/catalogue-toolbar";
 import { cn, eyebrowText } from "@/components/ui-primitives";
+
 import {
   findFormulationMechanism,
   formulationDomains,
@@ -280,8 +279,6 @@ export function FormulationBuilderPage({
 
   return (
     <FormulationPageShell>
-      <FormulationBreadcrumbs current="Build formulation" />
-
       <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">
         <p className={eyebrowText}>Formulation builder</p>
         <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
@@ -354,31 +351,31 @@ export function FormulationBuilderPage({
                   </div>
                 )}
 
-                <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_14rem]">
-                  {/* Kept as a text input, not a `SearchField`: this filters the
-                      mechanism list in place and never submits, so it is not a
-                      second page composer (docs/search-chrome-behaviour.md). */}
-                  <TextField
-                    label="Search formulation mechanisms"
-                    hideLabel
-                    icon={Search}
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Search mechanisms or patient language..."
-                    className="font-semibold"
-                  />
-                  <Select
-                    label="Filter mechanisms by domain"
-                    hideLabel
-                    value={domain}
-                    onChange={(event) => setDomain(event.target.value)}
-                    className="font-semibold"
-                    options={[
+                <CatalogueToolbar
+                  search={{
+                    query,
+                    onQueryChange: setQuery,
+                    placeholder: "Search mechanisms or patient language...",
+                    label: "Search formulation mechanisms",
+                  }}
+                  sort={{
+                    value: domain,
+                    onChange: setDomain,
+                    label: "Filter mechanisms by domain",
+                    options: [
                       { value: "all", label: "All domains" },
                       ...formulationDomains.map((item) => ({ value: item, label: item })),
-                    ]}
-                  />
-                </div>
+                    ],
+                  }}
+                  appliedFilters={
+                    domain !== "all"
+                      ? [{ id: "domain", groupLabel: "Domain", valueLabel: domain, onRemove: () => setDomain("all") }]
+                      : []
+                  }
+                  onClearFilters={domain !== "all" ? () => setDomain("all") : undefined}
+                  matchCount={visibleMechanisms.length}
+                  noun="mechanism"
+                />
 
                 <div className="grid gap-2 sm:grid-cols-2" aria-label="Available mechanisms">
                   {visibleMechanisms.map((mechanism) => {

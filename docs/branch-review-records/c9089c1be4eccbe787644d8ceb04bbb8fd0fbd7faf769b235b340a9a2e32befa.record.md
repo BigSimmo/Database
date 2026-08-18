@@ -1,0 +1,1 @@
+| 2026-08-18 | claude/services-navigation-removal-7bnknn | ba279bdd0b2fdc5d4dfa2c88dd30d57ee94be330 | src/components/services/services-navigator-page.tsx (referral progress stepper phone centering) | PR #2103 opened — verify:pr-local complete (7091 tests, build, lint, typecheck, RAG fixtures, medication checks all passed) | verify:pr-local |

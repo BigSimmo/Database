@@ -4,6 +4,30 @@ const maxDocumentIds = 25;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type StoredPrivateSearchScope = { version: 1; ownerId: string; documentIds: string[]; expiresAt: number };
+
+function parseStoredPrivateSearchScope(raw: string): StoredPrivateSearchScope | null {
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof json !== "object" || json === null) return null;
+  const value = json as Partial<StoredPrivateSearchScope>;
+  if (value.version !== 1) return null;
+  if (typeof value.ownerId !== "string" || value.ownerId.length === 0) return null;
+  if (
+    !Array.isArray(value.documentIds) ||
+    value.documentIds.length === 0 ||
+    value.documentIds.length > maxDocumentIds ||
+    value.documentIds.some((id) => typeof id !== "string" || !uuidPattern.test(id))
+  ) {
+    return null;
+  }
+  if (typeof value.expiresAt !== "number" || !Number.isFinite(value.expiresAt)) return null;
+  return { version: 1, ownerId: value.ownerId, documentIds: value.documentIds, expiresAt: value.expiresAt };
+}
+
 export type PrivateSearchScopeRestore =
   | { kind: "restored"; documentIds: string[] }
   | { kind: "unavailable"; reason: "missing" | "invalid" | "expired" | "wrong_owner" };
@@ -48,15 +72,8 @@ export function restorePrivateSearchScope(
   const raw = storage.getItem(key);
   if (!raw) return { kind: "unavailable", reason: "missing" };
   try {
-    const value = JSON.parse(raw) as Partial<StoredPrivateSearchScope>;
-    if (
-      value.version !== 1 ||
-      !Array.isArray(value.documentIds) ||
-      value.documentIds.length === 0 ||
-      value.documentIds.length > maxDocumentIds ||
-      value.documentIds.some((id) => typeof id !== "string" || !uuidPattern.test(id)) ||
-      typeof value.expiresAt !== "number"
-    ) {
+    const value = parseStoredPrivateSearchScope(raw);
+    if (!value) {
       storage.removeItem(key);
       return { kind: "unavailable", reason: "invalid" };
     }

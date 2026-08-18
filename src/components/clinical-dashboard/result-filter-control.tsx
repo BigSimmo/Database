@@ -479,7 +479,12 @@ export function ResultFilterFacetChips({
   const panelId = idPrefix;
   const groupLabelId = `${panelId}-${group.id}-label`;
   const visibleOptions = options ?? group.options;
-  const renderOptions = (items: ReadonlyArray<ResultFilterOption<string>>) =>
+  const isDenseList =
+    !group.optionSections &&
+    ((group.options.length >= 6 && group.options.length <= 20) ||
+      (visibleOptions.length >= 6 && visibleOptions.length <= 20));
+
+  const renderOptions = (items: ReadonlyArray<ResultFilterOption<string>>, isDense: boolean = isDenseList) =>
     items.map((option) => {
       const selected = group.selected.has(option.value);
       const deadEnd = Boolean(option.disabled) && !selected;
@@ -497,7 +502,9 @@ export function ResultFilterFacetChips({
             group.onToggle(option.value);
           }}
           className={cn(
-            "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-10 sm:gap-1 sm:px-2",
+            isDense
+              ? "flex min-h-tap w-full min-w-0 items-center justify-between gap-2.5 rounded-lg border px-3 py-2 text-left text-xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-9 sm:py-1.5"
+              : "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-10 sm:gap-1 sm:px-2",
             "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             selected
               ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
@@ -506,19 +513,25 @@ export function ResultFilterFacetChips({
                 : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
           )}
         >
-          <span
-            aria-hidden
-            className={cn(
-              "grid size-icon-sm shrink-0 place-items-center rounded-xs border transition-colors",
-              selected
-                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--surface)]"
-                : "border-[color:var(--border-strong)] bg-[color:var(--surface)]",
-            )}
-          >
-            {selected ? <Check aria-hidden="true" className="h-2.5 w-2.5" strokeWidth={3.5} /> : null}
-          </span>
-          <span className="truncate">{option.label}</span>
-          {option.hint ? <span className="nums text-[color:var(--text-muted)]">{option.hint}</span> : null}
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              aria-hidden
+              className={cn(
+                "grid size-icon-sm shrink-0 place-items-center rounded-xs border transition-colors",
+                selected
+                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--surface)]"
+                  : "border-[color:var(--border-strong)] bg-[color:var(--surface)]",
+              )}
+            >
+              {selected ? <Check aria-hidden="true" className="h-2.5 w-2.5" strokeWidth={3.5} /> : null}
+            </span>
+            <span className="truncate">{option.label}</span>
+          </div>
+          {option.hint ? (
+            <span className="nums shrink-0 text-right text-xs font-bold tabular-nums text-[color:var(--text-muted)]">
+              {option.hint}
+            </span>
+          ) : null}
           {deadEnd ? (
             <span id={deadEndDescId} className="sr-only">
               No matches with your current filters.
@@ -583,12 +596,18 @@ export function ResultFilterFacetChips({
         hidden={disclosure ? !disclosure.open : false}
         role="group"
         aria-labelledby={groupLabelId}
-        className={cn("pb-2.5", group.optionSections ? "grid gap-3" : "flex flex-wrap gap-2 sm:gap-1.5")}
+        className={cn(
+          "pb-2.5",
+          group.optionSections ? "grid gap-3" : isDenseList ? "grid gap-1" : "flex flex-wrap gap-2 sm:gap-1.5",
+        )}
       >
         {group.optionSections
           ? group.optionSections.map((section) => {
               const sectionOptions = visibleOptions.filter((option) => section.optionValues.includes(option.value));
               if (sectionOptions.length === 0) return null;
+              const sectionDense =
+                (section.optionValues.length >= 6 && section.optionValues.length <= 20) ||
+                (sectionOptions.length >= 6 && sectionOptions.length <= 20);
               return (
                 <section key={section.id} className="grid gap-1.5 rounded-lg bg-[color:var(--surface-subtle)] p-2.5">
                   <div className="min-w-0">
@@ -599,11 +618,13 @@ export function ResultFilterFacetChips({
                       </p>
                     ) : null}
                   </div>
-                  <div className="flex flex-wrap gap-2 sm:gap-1.5">{renderOptions(sectionOptions)}</div>
+                  <div className={cn(sectionDense ? "grid gap-1" : "flex flex-wrap gap-2 sm:gap-1.5")}>
+                    {renderOptions(sectionOptions, sectionDense)}
+                  </div>
                 </section>
               );
             })
-          : renderOptions(visibleOptions)}
+          : renderOptions(visibleOptions, isDenseList)}
       </div>
     </section>
   );

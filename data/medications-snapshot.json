@@ -44162,17 +44162,22 @@
         "rows": [
           {
             "key": "Pharmacokinetic",
-            "val": "CRITICAL — **CYP2C9** Inhibitors (Fluconazole, Metronidazole, Amiodarone, Bactrim). These will massively spike Warfarin levels, shooting the INR to 8+ and causing fatal bleeding. Dose must be halved preemptively.",
+            "val": "CRITICAL — **CYP2C9** inhibitors (Amiodarone, Metronidazole, Fluconazole, Bactrim) massively spike INR and cause bleeding. You MUST halve the warfarin dose if starting these.",
             "tags": []
           },
           {
             "key": "Pharmacokinetic",
-            "val": "CRITICAL — **CYP2C9** Inducers (Carbamazepine, Rifampicin, St John's Wort). These destroy Warfarin, dropping the INR to 1.0 and causing massive strokes.",
+            "val": "CRITICAL — **CYP2C9** inducers (Carbamazepine, Rifampicin, St John's Wort). These destroy Warfarin, dropping the INR to 1.0 and causing massive strokes.",
+            "tags": []
+          },
+          {
+            "key": "Pharmacodynamic",
+            "val": "HIGH — NSAIDs, Aspirin, SSRIs (increase bleeding risk without changing INR).",
             "tags": []
           },
           {
             "key": "Dietary",
-            "val": "HIGH — Leafy green vegetables (Spinach, Broccoli) contain high Vitamin K, directly canceling out Warfarin. Patients must maintain a consistent, unchanging diet.",
+            "val": "HIGH — Leafy greens (broccoli, spinach) contain high Vitamin K and reverse the drug's effect. Diet must be consistent.",
             "tags": []
           }
         ]
@@ -44348,7 +44353,7 @@
       },
       {
         "label": "Key Interactions",
-        "value": "**CYP2C9** Inhibitors (Fluconazole, Metronidazole, Amiodarone, Bactrim). These will massively spike Warfarin levels, shooting the INR to 8+ and causing fatal bleeding. Dose must be halved preemptively.  **CYP2C9** Inducers (Carbamazepine, Rifampicin, St John's Wort). These destroy Warfarin, dropping the INR to 1.0 and causing massive strokes.  Leafy green vegetables (Spinach, Broccoli) contain high Vitamin K, directly canceling out Warfarin. Patients must maintain a consistent, unchanging diet."
+        "value": "**CYP2C9** inhibitors (Amiodarone, Metronidazole, Fluconazole, Bactrim) massively spike INR and cause bleeding. You MUST halve the warfarin dose if starting these.  **CYP2C9** inducers (Carbamazepine, Rifampicin, St John's Wort). These destroy Warfarin, dropping the INR to 1.0 and causing massive strokes.  NSAIDs, Aspirin, SSRIs (increase bleeding risk without changing INR).  Leafy greens (broccoli, spinach) contain high Vitamin K and reverse the drug's effect. Diet must be consistent."
       },
       {
         "label": "Monitoring",
@@ -44544,6 +44549,11 @@
             "tags": []
           },
           {
+            "key": "Pharmacokinetic",
+            "val": "CRITICAL — **CYP2C9** inducers (Carbamazepine, Rifampicin, St John's Wort). These destroy Warfarin, dropping the INR to 1.0 and causing massive strokes.",
+            "tags": []
+          },
+          {
             "key": "Pharmacodynamic",
             "val": "HIGH — NSAIDs, Aspirin, SSRIs (increase bleeding risk without changing INR).",
             "tags": []
@@ -44720,7 +44730,7 @@
       },
       {
         "label": "Key Interactions",
-        "value": "**CYP2C9** inhibitors (Amiodarone, Metronidazole, Fluconazole, Bactrim) massively spike INR and cause bleeding. You MUST halve the warfarin dose if starting these.  NSAIDs, Aspirin, SSRIs (increase bleeding risk without changing INR).  Leafy greens (broccoli, spinach) contain high Vitamin K and reverse the drug's effect. Diet must be consistent."
+        "value": "**CYP2C9** inhibitors (Amiodarone, Metronidazole, Fluconazole, Bactrim) massively spike INR and cause bleeding. You MUST halve the warfarin dose if starting these.  **CYP2C9** inducers (Carbamazepine, Rifampicin, St John's Wort). These destroy Warfarin, dropping the INR to 1.0 and causing massive strokes.  NSAIDs, Aspirin, SSRIs (increase bleeding risk without changing INR).  Leafy greens (broccoli, spinach) contain high Vitamin K and reverse the drug's effect. Diet must be consistent."
       },
       {
         "label": "Monitoring",

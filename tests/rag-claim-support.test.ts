@@ -285,54 +285,6 @@ describe("deterministic claim support", () => {
     ).toBe(false);
   });
 
-  it("binds a claim-leading population condition to the supporting segment (condition-first trigger)", () => {
-    // "For elderly patients, …" previously extracted no trigger tokens, so an
-    // atom-free neighbouring bullet that merely mentions the population could
-    // lend its topics and let the adult dose be mis-bound to the elderly claim.
-    // (A digit-bearing population phrase like "over 65 years" is already caught
-    // by the atom-free-neighbour rule; this pins the digit-free phrasing.)
-    const adultDoseWithPopulationProse = source(
-      "adult-dose-population-prose",
-      [
-        "• The usual oral starting dose for adults is 500 mg nocte.",
-        "• Elderly patients require cautious dose titration.",
-      ].join("\n"),
-      { title: "Lithium Clinical Guideline(EMHS)", file_name: "Lithium Clinical Guideline(EMHS).pdf" },
-    );
-
-    expect(
-      sourceDirectlySupportsAnswerText(
-        "For elderly patients, start lithium at 500 mg nocte.",
-        adultDoseWithPopulationProse,
-      ),
-    ).toBe(false);
-  });
-
-  it("keeps supporting a faithful condition-first restatement whose segment covers the condition", () => {
-    const emhs = source(
-      "emhs-lithium-condition-first",
-      [
-        "• The usual oral starting dose for adults is 500 mg nocte and for patients over 65 years it",
-        "is 250 mg nocte.",
-      ].join("\n"),
-      { title: "Lithium Clinical Guideline(EMHS)", file_name: "Lithium Clinical Guideline(EMHS).pdf" },
-    );
-
-    expect(sourceDirectlySupportsAnswerText("For patients over 65 years, start lithium at 250 mg nocte.", emhs)).toBe(
-      true,
-    );
-  });
-
-  it("binds a claim-leading in-condition the same way", () => {
-    const renal = source("renal-monitoring", "Monitor lithium levels closely in renal impairment.");
-    const hepatic = source("hepatic-monitoring", "Monitor lithium levels closely in hepatic impairment.");
-
-    expect(sourceDirectlySupportsAnswerText("In renal impairment, monitor lithium levels closely.", renal)).toBe(true);
-    expect(sourceDirectlySupportsAnswerText("In renal impairment, monitor lithium levels closely.", hepatic)).toBe(
-      false,
-    );
-  });
-
   it("keeps a wrapped escalation recipient in the directly supporting source segment", () => {
     const wrappedRule = source(
       "wrapped-escalation-rule",

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "a727ac1a-1d72-41bd-88f9-76945528bc97",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "ci-change-scope rag_eval_changed regex misses src/lib/rag/** (post-#994 layout), so a src/lib/rag-only PR skips eval:rag:adversarial:offline and the RAG eval CI job",
+    "detail": "scripts/ci-change-scope.mjs:290 matches only src/lib/rag.ts and src/lib/rag-*.ts (the pre-#994 layout); src/lib/rag/rag.ts, src/lib/rag/rag-answer-instructions.ts, src/lib/rag/answer-composition.ts do not set rag_eval_changed=true. verify-pr-local.mjs:123-124 then selects only check:rag:fixtures and ci.yml:413-425 skips the safety/RAG eval job. Packet S2 (2026-08-18) was covered only because it also touched tests/answer-*.test.ts and scripts/fixtures/*. Fix: add a src/lib/rag/ prefix (or /^src\\/lib\\/rag\\//) to ragEvalPatterns with a scope test proving src/lib/rag/rag.ts alone trips rag_eval_changed; workflow/policy scope, own PR (operational-risk classifier), never bundled with a RAG behaviour change.",
+    "source": "packet S2 review, docs/rag-improvement/HANDOVER.md",
+    "issueUlid": "01M09QHKD3SDQSFDZJB25ZJCCS"
+  }
+}

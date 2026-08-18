@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "a42b6382-9e7c-4633-9180-c86d03ad0bf1",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "PR template carries no RAG impact: guidance although pr-policy hard-blocks RAG-surface PRs without the line",
+    "detail": ".github/pull_request_template.md has zero occurrences of 'RAG impact', yet scripts/pr-policy.mjs ragImpactDeclared (lines 238-245) hard-blocks any PR touching a RAG-ranking-surface path unless the body carries a line matching 'RAG impact: <detail>' with 'no ... behaviour change' or 'canary' and at least 12 characters. The authoring rule lives only in the pr-policy error string and AGENTS.md. Recommendation: add a commented placeholder line under ## Risk and rollout (or a dedicated ## RAG impact stanza) in the template with both canonical forms, so the exact-format contract is visible where the body is written; guard with the existing pr-policy self-test.",
+    "source": "session 2026-08-18 Phase 3 repo-side codification (PR #2106)",
+    "issueUlid": "01M0A3CDWM5JK9FMW032CEPGGN"
+  }
+}

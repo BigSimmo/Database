@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3565972b-02c2-4ad8-b899-3fbde0d54725",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Advisory UI mockup spec 'phone filter sheet follows the shared local-filter behavior' fails on main",
+    "detail": "tests/ui-tools-search-mode-mockup.spec.ts:188 fails at line 198 waiting for '2 showing' inside [data-testid=tools-search-filter-sheet] after searching 'Safety' at 390px. Reproduced locally under --project=chromium-mockups on BOTH claude/card-review-optimize-h0pidc and origin/main (dc7e518), so it is pre-existing and NOT caused by the card branch — attribution was checked before any fix was attempted. It surfaced now only because the ui-advisory lane fires on advisory_ui_changed (a mockup surface changed or the flake ledger is non-empty) and had been skipped on every earlier run of that PR. It is non-blocking: ui-advisory carries continue-on-error true and is absent from pr-required's needs list in ci.yml, and verify:ui excludes @mockup via --grep-invert, which is why a 429-pass local run never touched it. Next: open the trace at test-results/ui-tools-search-mode-mocku-b6163-hared-local-filter-behavior-chromium-mockups/trace.zip and decide whether the expected count of 2 is stale against the current tools catalogue or the facet hint genuinely miscounts; the mockup renders the production ToolsSearchResultsPage, so a real miscount would affect /tools too. Stop: do not change the expected number to match observed output without establishing which is correct.",
+    "source": "session 2026-08-18; PR #2060 Advisory UI run 32090358678; reproduced on origin/main dc7e518",
+    "issueUlid": "01M09C8ZY74TBHS81EN8DBS9WF"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "ab28efcb-2fb5-45e6-983d-9db6e508420e",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "ff207c2c-8ed0-4e4b-bd75-797eb397c1f1",
+    "reason": "False claim. Both the loperamide exclusion and the lexicon sign-off were reverted from this branch's final state (see docs/branch-review-records/c74114b8f66aa5078cf48a7157a710a37d8f6aa30b6e62c1624f0e6fe73ff93e.record.md): the sign-off was fabricated (self-asserted APPROVED contradicting the file's own UNREVIEWED banner, no named reviewer), and src/lib/medication-interaction-lexicon.ts now exactly matches main with zero diff. Neither action in this outcome actually happened in the branch as merged."
+  }
+}

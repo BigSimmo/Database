@@ -61,6 +61,7 @@ import {
 import { buildEvidencePreviewProgress, type VerifiedUnit } from "@/lib/answer-preview";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
 import { selectModelContextResults, summarizeAustralianSourceSelection } from "@/lib/rag/rag-context-selection";
+import { relatedInformationMenuLine } from "@/lib/rag/answer-composition";
 export {
   capPerDocumentCrowding,
   selectModelContextResults,
@@ -340,7 +341,7 @@ const answerJsonOutputSchema = {
       type: "array",
       description:
         "Second-layer structured support. Add only distinct source-backed modules that improve scanability, such as actions, monitoring, medication/dose, thresholds, comparison, cautions, documentation, or source gaps.",
-      maxItems: 5,
+      maxItems: 6,
       items: {
         type: "object",
         additionalProperties: false,
@@ -3209,6 +3210,7 @@ async function answerQuestionWithScopeUncoalesced(
           ? "simple direct question: answer only the definition or direct fact requested; do not broaden into management unless asked"
           : "use the question wording to decide the necessary clinical scope"
       }`,
+      relatedInformationMenuLine(queryClass, queryAnalysis.intent),
       `display_mode: ${smartApiPlan.displayMode}`,
       `route: ${route.mode} (${route.reason})`,
       `answer_plan.intent: ${smartApiPlan.answerPlan.intent}`,

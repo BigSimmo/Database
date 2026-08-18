@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "2cc88eb7-c5e7-49f9-a93e-40410e081e7b",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "8c1f1977-d0ef-44a0-b862-c63fac4ac210",
+    "reason": "duplicate of already-applied request 4302ff5b-582a-4204-94bf-d554c953900f, which closed #222 for real via DECISIONS.md C7; this pending copy is now stale and fails reconciliation with '#222 is no longer open'"
+  }
+}

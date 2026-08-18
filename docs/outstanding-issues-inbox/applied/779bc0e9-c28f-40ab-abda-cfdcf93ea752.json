@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "779bc0e9-c28f-40ab-abda-cfdcf93ea752",
+  "createdOn": "2026-08-18",
+  "action": "update",
+  "payload": {
+    "id": "#321",
+    "detail": "PR #2072 merged into main 2026-08-18 citing this row (differentials compare page / filmstrip / DocumentViewer control alignment), but its changed-files list never touched any of those files. Entirely unaddressed by this merge despite being cited in the PR title. Stays open.",
+    "baseRowFingerprint": "b1b6db157f9d95ca18ab31ba8ccc709dc28cf603838d599b19f1b694f88b4ac5"
+  }
+}

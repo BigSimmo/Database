@@ -3,7 +3,6 @@ export type TherapyRankable = {
   aliases: string[];
   tags: string[];
   category?: string | null;
-  modality?: string | null;
   bestUsedFor?: string | null;
   targetSymptoms?: string | null;
   clinicalSummary?: string | null;
@@ -35,7 +34,6 @@ export function scoreTherapyCandidate(record: TherapyRankable, query: string): n
     [
       record.name,
       record.category,
-      record.modality,
       record.bestUsedFor,
       record.targetSymptoms,
       record.clinicalSummary,

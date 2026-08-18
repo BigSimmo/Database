@@ -236,6 +236,8 @@ describe("header addon slot ownership", () => {
     expect(claimants.sort()).toEqual([
       "src/components/DocumentViewer.tsx",
       "src/components/clinical-dashboard/medication-nav-header.tsx",
+      "src/components/dictionary/dictionary-catalogue-pages.tsx",
+      "src/components/dictionary/dictionary-term-page.tsx",
       "src/components/differentials/differential-detail-page.tsx",
       "src/components/differentials/differential-presentation-workflow-page.tsx",
       "src/components/dsm/dsm-diagnosis-nav-header.tsx",
@@ -244,7 +246,6 @@ describe("header addon slot ownership", () => {
       "src/components/forms/form-detail-page.tsx",
       "src/components/formulation/formulation-nav-header.tsx",
       "src/components/services/service-detail-page.tsx",
-      "src/components/specifiers/specifier-map-nav-header.tsx",
       "src/components/specifiers/specifier-nav-header.tsx",
       "src/components/therapy-compass/therapy-record-nav-header.tsx",
     ]);

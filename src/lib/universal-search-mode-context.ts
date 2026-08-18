@@ -22,6 +22,7 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   // Factsheets searches its own local patient-information library, not a
   // cross-entity search domain, so it declares no preferred universal domains.
   factsheets: [],
+  dictionary: ["dictionary"],
 };
 
 const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {
@@ -35,6 +36,7 @@ const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {
   formulation: "formulation",
   dsm: "dsm",
   therapies: "therapy-compass",
+  dictionary: "dictionary",
   tools: "tools",
 };
 
