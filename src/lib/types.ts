@@ -348,7 +348,17 @@ export type SearchResult = {
   // signals (document-lookup, memory-card, table-facts fast paths) rather than a real cosine.
   // Coverage/threshold gates are calibrated for cosine values; this tag lets telemetry measure
   // how often synthetic scores cross those gates before any recalibration.
-  similarity_origin?: "cosine" | "synthetic_text";
+  //
+  // "document_context" marks the constant `similarity: 1` that `buildDocumentSummaryResults`
+  // (`rag/rag-row-contracts.ts`) stamps on document-summary rows. It is NOT a measured cosine
+  // either, but it is also not the same hazard as "synthetic_text": that route's only caller is
+  // `summarizeDocument`, where the "query" IS the document, so every committed chunk is context
+  // by construction rather than by a match score. Owner decision 2026-08-17 (Option B,
+  // `docs/clinical-hazard-analysis.md` H5a) keeps the confidence derivation unchanged and adds
+  // this value purely so the provenance is legible to telemetry, review, and future gating —
+  // `deriveConfidence` deliberately excludes only "synthetic_text", pinned by
+  // `tests/rag-score.test.ts`.
+  similarity_origin?: "cosine" | "synthetic_text" | "document_context";
   text_rank?: number;
   hybrid_score?: number;
   // Lexical/keyword relevance (0-1) for text-only fallback rows. This is NOT a
