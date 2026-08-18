@@ -43,6 +43,22 @@ Some document-search mockups include live handoff routes (for example `document-
 - Full three-direction study: [`/mockups/privacy-page-directions`](../src/app/mockups/privacy-page-directions/page.tsx)
 - Static comps: [`public/mockups/privacy-page-redesign-2026-08/`](../public/mockups/privacy-page-redesign-2026-08/README.md)
 
+## Dictionary Browse header study (2026-08-18)
+
+Runnable study at [`/mockups/dictionary-browse-header`](../src/app/mockups/dictionary-browse-header/page.tsx). The
+brief was to drop the description line under **Browse terms** and the orphaned A–Z / Z–A sort pill that floats on its
+own row, then rebuild the header for the phone. All three directions move sort into the Filters sheet, where the other
+modes already keep it; they differ in how much letter navigation stays on screen.
+
+| Direction                   | Phone chrome before a result | Trade-off                                                     |
+| --------------------------- | ---------------------------- | ------------------------------------------------------------- |
+| 01 Compact title bar        | 2 bands                      | Keeps both browse views explicit; least vertical saving       |
+| 02 Fused letter rail (rec.) | 2 bands                      | Abbreviations becomes a rail chip rather than a separate view |
+| 03 Index rail + jump sheet  | 1 band                       | Edge rail is a fine-motor target; jump sheet is the a11y path |
+
+The current header is rendered side by side at the top of the page for comparison. Shared mockup chrome is suppressed
+because each frame draws its own top bar, mode nav and composer.
+
 ## Phone Choose mode sheet YES comps
 
 Runnable study at [`/mockups/phone-mode-sheet-yes`](../src/app/mockups/phone-mode-sheet-yes/page.tsx): design review of the shipping phone mode sheet plus **YES 01 perfected** (sectioned clinical list — shipping recommendation) and YES 02 (icon deck alternate). Shared mockup chrome is suppressed so only the in-frame sheet is judged.

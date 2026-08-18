@@ -24,6 +24,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isStandaloneDocumentFlow = pathname === "/mockups/document-search";
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
   const isSearchHeadingMockup = pathname === "/mockups/search-heading";
+  // Draws its own phone/desktop frames with a top bar, mode nav and composer in
+  // every frame, because the header under study sits directly beneath them.
+  const isDictionaryBrowseHeaderMockup = pathname === "/mockups/dictionary-browse-header";
   // Renders the results header inside its own device frames; the shared composer
   // would read as a second, real search bar over the study.
   const isSearchRefineAdaptiveMockup = pathname === "/mockups/search-refine-adaptive";
@@ -122,7 +125,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPinnedPlusMenuMockup &&
         !isPhoneModeSheetYesMockup &&
         !isSidebarLiveMockup &&
-        !isCaringContactMockup
+        !isCaringContactMockup &&
+        !isDictionaryBrowseHeaderMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -144,7 +148,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPinnedPlusMenuMockup &&
         !isPhoneModeSheetYesMockup &&
         !isSidebarLiveMockup &&
-        !isCaringContactMockup
+        !isCaringContactMockup &&
+        !isDictionaryBrowseHeaderMockup
       }
     >
       {children}
