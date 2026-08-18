@@ -16,12 +16,12 @@ then the plan for the phase being executed.
 Branch `codex/ward-management-design`, worktree
 `C:/Users/joshs/.codex/worktrees/ward-management-design/Database`. Nothing pushed. No PR.
 
-| Phase                                      | Plan                                                                                                       | State                                                |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| 1 — the model                              | [`plans/2026-08-18-ward-flow-phase-1-model.md`](./superpowers/plans/2026-08-18-ward-flow-phase-1-model.md) | Tasks 1–5 complete; Task 6 in fix rounds; 7–8 queued |
-| 2 — coordinator screen                     | not written                                                                                                | Next to plan                                         |
-| 3 — ED, ward and transport officer screens | not written                                                                                                |                                                      |
-| 4 — specialist boards and escalation       | not written                                                                                                |                                                      |
+| Phase                                      | Plan                                                                                                       | State                                                                            |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 1 — the model                              | [`plans/2026-08-18-ward-flow-phase-1-model.md`](./superpowers/plans/2026-08-18-ward-flow-phase-1-model.md) | **Complete.** All 8 tasks reviewed; whole-branch review clean after one fix wave |
+| 2 — coordinator screen                     | not written                                                                                                | Next to plan                                                                     |
+| 3 — ED, ward and transport officer screens | not written                                                                                                |                                                                                  |
+| 4 — specialist boards and escalation       | not written                                                                                                |                                                                                  |
 
 Phase boundaries are in §18 of the spec.
 
@@ -128,3 +128,80 @@ task alone. Phases 2–4 are all screens. Suggested:
 - A single review seat for screen-only tasks carrying no logic.
 - Batched dispatches for mechanical route files — four thin route components are one dispatch.
 - A screenshot pass per screen task, reviewed by the owner, not only by a subagent.
+
+## Phase 1 closing state
+
+All eight tasks complete and reviewed. The final whole-branch review found 1 Critical and 10
+Important defects that the eight per-task reviews structurally could not see, because each looked
+at one task's diff. One fix wave closed all of them plus four previously-deferred items, and the
+scoped re-review verdicted it clean.
+
+**What the final review caught, and why it matters.** The per-task reviews were not lax — they
+found real defects and forced two fix rounds on the migration alone. But interaction defects only
+appear when the whole thing is read together:
+
+- **Every eligibility gate rendered with a green tick, including failures.** Two clicks on the
+  constellation produced "✓ SJGS Adult Open is not authorised under the Mental Health Act". The
+  console rendered the same verdict correctly; only the modes surface did not consult `gate.pass`.
+  A green check beside the Act's authorisation gate is the most damaging thing this product can
+  display, and no single task's review had both surfaces in view.
+- **The five-state bed grid did not reconcile on 10 of 22 units** — `held` and `blocked` were
+  counted twice, because `occupied` was derived from `empty`. Three different reconciliation
+  readings existed across the code and the tests. The test now asserts through `unitCapacity`
+  itself, so the UI formula is what is checked.
+- **"48 open movements" counted six arrived and one closed record** — the direct descendant of the
+  old fixture's hardcoded 84-against-14, now derived but still mislabelled.
+- **Nine movements rendered as `-1:-14`** in the audit timeline, because generated `openedAt`
+  values go negative and `formatInstant` did not wrap.
+- **Six bed-release blockers carried departing-patient detail** — tribunal, NDIS, family pickup,
+  aged care — against the spec's "no detail whatsoever about the departing patient". The guard
+  test checked for forbidden _properties_ and never read the free text.
+
+## Findings parked at the close, with rulings
+
+No second fix wave follows a final review, so these are adjudicated rather than fixed.
+
+**The Playwright negative assertion for the gate-icon fix is vacuous.**
+`tests/ui-ward-management.spec.ts` asserts `svg.lucide-check-circle-2` has count 0, but
+lucide-react emits `lucide-circle-check` for `CheckCircle2` — the asserted class is never rendered
+by any icon, so that half passes regardless. _Ruling: parked, not fixed._ The companion assertion
+in the same test (`svg.lucide-circle-alert`, count 1) uses the correct class and does fail against
+the pre-fix code, so Critical 1 remains genuinely covered. Correct the selector when Phase 2 next
+touches that spec. _Cost if wrong: a dead assertion sits beside a live one._
+
+**Two eligibility detail-string tests do not discriminate pre- from post-fix behaviour.** They
+compare calls with different inputs, which produced different strings under the old formula too.
+_Ruling: parked._ The production fix genuinely adds verdict-stating language and was verified
+directly; only the regression tests are weak. _Cost if wrong: the strings could regress silently._
+
+**`handover_ready` generated movements carry no `acceptedUnitId` or transport.** That stage was
+not among the four the finding named. _Ruling: accepted as correct._ Every surface shows absence
+rather than a fabricated value — TransportView simply omits them, the decision dock says "No
+destination selected" — which is the governing principle of the wave. _Cost if wrong: a movement
+staged "handover ready" with no recorded acceptance looks odd on close reading._
+
+**Still parked from earlier, unchanged:** `clockState` boundary values untested (implementation
+verified correct by reading it); the `DECLINE_REASONS` `toContain` assertion; `inboxAction`'s
+coupling to id prefixes built in another module; the `.score` and `.aiBadge` CSS class names that
+survive from the deleted scoring concept; `wallClockNow` exported but unused (Phase 2 is its
+intended consumer); and `Candidate.rank`'s implied ordinality — `eligibleCandidates` sorts only on
+the eligibility boolean, so numbered column headers overstate what the ordering means.
+
+## Phase 1 verification, independently confirmed at the closing head
+
+`tsc --noEmit` exit 0 · 50 unit tests passing across 5 files · design-system contract passing with
+no ratchet increase · `npm run lint` genuinely executed (no admission-busy skip) with 0 problems ·
+Chromium `ui-ward-management` 6/6.
+
+Not run, deliberately: `verify:ui`, `verify:release`, and every provider-backed gate. Nothing has
+been pushed and no PR exists.
+
+## Two traps that make a green result untrustworthy in this repo
+
+**`npm run lint` can exit 0 without running,** printing `DATABASE_HEAVY_RUN_ADMISSION_BUSY` when
+another heavyweight command holds the lock.
+
+**A bare `npx playwright test` is rejected** by the repo's config guard ("Playwright requires a
+runner-owned local server") — and a backgrounded wrapper still reported exit 0 while the run never
+happened. `PLAYWRIGHT_BASE_URL=http://localhost:3718 npx playwright test …` is the working
+invocation. Read the output, never the exit code.
