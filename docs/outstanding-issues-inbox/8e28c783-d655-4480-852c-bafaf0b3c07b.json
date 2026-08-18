@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "8e28c783-d655-4480-852c-bafaf0b3c07b",
+  "createdOn": "2026-08-18",
+  "action": "update",
+  "payload": {
+    "id": "#322",
+    "detail": "PR #2069 (gemini/clinical-medication-graph-dedup) is open and targets this row. As of 2026-08-18 it reconciles both Warfarin catalogue records to carry the same interaction row set (the row's core ask), but its own new coverage test (tests/medication-interaction-lexicon-coverage.test.ts) still fails: the two duplicate records don't cross-resolve each other by name. That's a content/authoring decision (cross-link vs. merge-to-one-canonical-record) left for clinical/authoring review, not yet fixed. Stays open pending that PR landing correctly — flagging so a future session doesn't open a duplicate PR for the same dedup (see #292).",
+    "baseRowFingerprint": "3ff5c10503f0942a5b38f3f7e3a770308493c08ee3e64d686a9668978f0b033a"
+  }
+}
