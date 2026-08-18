@@ -72,6 +72,11 @@
  * New overlays go through components/ui/sheet.tsx rather than a new layer.
  */
 @theme {
+  /* Named responsive breakpoint tokens (Task #336) */
+  --breakpoint-phone: 640px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop: 1024px;
+
   /* Radius ladder: 4 · 6 · 10 · 12 · 16 · 20 — the 4px grid with two deliberate
      half-steps. `sm` is 6px, for chips and pills that read as too heavy at 8.
      `md` is 10px because it is the control rung, and it is the one value the v2
@@ -277,6 +282,11 @@
 
 /* Theme tokens */
 :root {
+  /* Named responsive breakpoint tokens (Task #336) */
+  --bp-phone: 640px;
+  --bp-tablet: 768px;
+  --bp-desktop: 1024px;
+
   /* Layout constraints */
   --content-max-width: 1440px;
   --rail-width: 480px;
