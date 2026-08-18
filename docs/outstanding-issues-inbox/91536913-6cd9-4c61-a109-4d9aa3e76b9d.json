@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "91536913-6cd9-4c61-a109-4d9aa3e76b9d",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Shared search chrome fails axe landmark rules on every mode: composer content sits outside any landmark and the universal header renders a second banner",
+    "detail": "An axe sweep of the six Dictionary routes at 1440px (2026-08-18, PR #2114) found two violations that are not Dictionary's: `region` (3 nodes — the composer label, the `#answer-composer-privacy-warning` span, and the privacy link, all outside any landmark) and `landmark-no-duplicate-banner` + `landmark-unique` on detail routes, where the global `#search` universal header renders a second banner landmark beside the app header. Both are moderate impact, both reproduce on routes that branch never touched (/dictionary/browse, /dictionary/compare), and both live in shared chrome — master-search-header / global-search-shell — so they affect all 13 modes, not one. Repo axe gates only fail on critical/serious, which is why this has never gone red. Next: wrap the composer privacy row in the composer's own landmark (or give it `role=\"group\"` with a label) and decide which of the two headers keeps `banner`; then widen tests/ui-accessibility.spec.ts to assert the landmark rules, not just critical/serious. Deliberately out of scope for PR #2114 — a shared-chrome change under a Dictionary PR is the wrong blast radius.",
+    "source": "Session 2026-08-18, PR #2114 axe sweep; @axe-core/playwright wcag2a+wcag2aa+wcag21a+wcag21aa+best-practice at 1440x900",
+    "issueUlid": "01M0AGQ074WJDQ0X6HCNKBS335"
+  }
+}
