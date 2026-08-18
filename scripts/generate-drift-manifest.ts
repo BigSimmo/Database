@@ -13,7 +13,10 @@ import { fileURLToPath } from "node:url";
  *
  * Requires Docker. Never touches the live project. Run this whenever
  * supabase/schema.sql changes — the manifest embeds schema.sql's sha256 and
- * both check:drift and tests/supabase-schema.test.ts fail while it is stale.
+ * both check:drift and tests/drift-detection.test.ts fail while it is stale.
+ * The replay has no supabase_migrations schema, so the manifest's
+ * migration_history is always empty with probe 'no_history_table' — that
+ * category is compared live-vs-allowlist, never against this manifest.
  *
  * Flags:
  *   --keep        leave the container running (for inspection / DR rehearsal)
