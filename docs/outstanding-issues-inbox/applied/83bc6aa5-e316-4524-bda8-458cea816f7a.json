@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "83bc6aa5-e316-4524-bda8-458cea816f7a",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Phone screenshots and DOM measurements taken before the phone chrome stack settles misreport every offset below it",
+    "detail": "The phone header stack (.phone-sticky-header-stack) is position:fixed and mounts collapsed, and the page reserve max-sm:pt-[var(--phone-overlay-chrome-h)] resolves to the settled height only after mount. A Playwright screenshot or evaluate() run at networkidle can therefore read main at y=72 with the mode-nav rail overlapping it, when the settled layout has main at y=121 with no overlap at all. Measured on /dictionary/browse 2026-08-18: unsettled h1 y=88 (appears hidden behind the rail), settled y=161, and the same page before and after a header redesign both settled to y=161 — i.e. the apparent overlap was pure measurement artefact. This cost a wrong diagnosis and a reverted 'fix' that padded the header to clear a rail that was never covering it. Fix is a documented settle wait (waitForTimeout ~1200ms, or better a wait on the stack's settled height) in the phone verification recipe in docs/testing.md, so the next person measuring phone chrome does not repeat it. Cheap, docs-only.",
+    "source": "Dictionary browse header rebuild, PR #2143, 2026-08-18",
+    "issueUlid": "01M0BEKZWBXPY409BJF44CPRF0"
+  }
+}
