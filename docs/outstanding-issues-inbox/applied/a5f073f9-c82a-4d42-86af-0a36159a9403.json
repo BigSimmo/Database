@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "a5f073f9-c82a-4d42-86af-0a36159a9403",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "The serialized issues:reconcile operation has no interlock, and two reconcile PRs were open simultaneously on 2026-08-18",
+    "detail": "AGENTS.md requires npm run issues:reconcile to run from ONE deliberately serialized fresh-base branch, but nothing enforces that: the reconciler's own guards (stale base, dirty canonical file, cross-worktree lock) are all local to a single machine and cannot see a second reconcile branch already pushed. On 2026-08-18 two were open at once — PR #2110/#2119 (claude/issues-reconcile-20260818, 'reconcile 74 queued requests') and PR #2120 (claude/issues-reconcile-2026-08-18-evening, 88 requests). Both merged. It only came out clean by luck of ordering: #2120 merged first and had already applied a superset of the 74, so GitHub's squash of #2119 collapsed to a 1-line review record and the canonical ledger was left correct (verified after the fact on main 4575cf57: 365 rows, 48 open, 0 pending, 339 applied, check:outstanding-issues and check:ledger-write-discipline both green). Had #2119 merged first, #2120's recorded transaction would no longer have equalled the canonical diff and check:ledger-write-discipline would have gone red on a branch that must never be synced from main — the documented recovery is to close the PR and redo the whole reconcile from a fresh base. Next: give the reconcile path a cheap pre-flight interlock rather than relying on operator discipline — e.g. have issues:reconcile refuse (or loudly warn) when git ls-remote --heads origin shows another unmerged branch carrying inbox renames under docs/outstanding-issues-inbox/applied/, which needs no provider tooling beyond a remote ref listing and no GitHub API call. Related to #292 (duplicate concurrent work) but distinct: this is a serialization invariant on a single canonical file, not two sessions building the same feature.",
+    "source": "session 2026-08-18 evening reconcile; PRs #2119 and #2120 both open and merged same day",
+    "issueUlid": "01M0AHM1XDEH9VA63ZZAT9XPH3"
+  }
+}

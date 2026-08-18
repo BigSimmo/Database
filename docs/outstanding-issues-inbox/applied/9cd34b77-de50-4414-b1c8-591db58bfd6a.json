@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "9cd34b77-de50-4414-b1c8-591db58bfd6a",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#317",
+    "outcome": "Service record facet metadata preservation verified in test fixtures",
+    "baseRowFingerprint": "cd9e341c933c56a663d47c05741e081363efb09f80b9046824a9a5cf4c2608dd"
+  }
+}
