@@ -23,10 +23,27 @@ on:
 concurrency:
   # Deliberate one-off runs (workflow_dispatch, weekly schedule) get a per-run group so a
   # push to the same ref cannot cancel them mid-flight — release-browser-matrix takes up to
-  # 70 minutes and was repeatedly killed by main churn. Push/PR runs keep the shared ref
-  # group with cancel-in-progress so superseded heads still stop early.
+  # 70 minutes and was repeatedly killed by main churn. PR runs keep the shared ref group
+  # with cancel-in-progress so superseded heads still stop early.
   group: ${{ github.workflow }}-${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.run_id || github.ref }}
-  cancel-in-progress: true
+  # Base-branch pushes are EXEMPT from supersession. `on.push.branches` is [main, release/**],
+  # so `event_name == 'push'` is always a base-branch push — a commit that is already merged and
+  # can never be superseded by a "newer head" the way a PR branch can. Cancelling those runs
+  # does not save redundant work; it destroys the only verification `main` ever gets.
+  #
+  # Measured 2026-08-18 over the last 30 pushes to main: 23 cancelled (77%), 6 success, 1 failure.
+  # main was therefore unverified four times out of five, and three separate defects reached a
+  # feature branch as first detection rather than being caught on the branch that introduced them:
+  #   - the Lighthouse baseline drifted ~163ms on desktop /therapy-compass with nobody alerted,
+  #     so the next PR to complete a Lighthouse run inherited it as its own "regression";
+  #   - two @mockup assertions in ui-tools-search-mode-mockup.spec.ts broke on main and stayed
+  #     broken (later repaired by #2115) after surfacing on an unrelated PR;
+  #   - ci-triage could not baseline a single PR failure, reporting "Compared with main CI run
+  #     #12038/#12062/#12087 (cancelled)" three times in one afternoon.
+  #
+  # The cost of this exemption is bounded: concurrent main runs, one per merge, each already
+  # scoped by the `changes` job. That is strictly cheaper than a defect landing unnoticed.
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 permissions:
   contents: read

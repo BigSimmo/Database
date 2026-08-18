@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "74c53285-5573-467b-8981-3c5fa85d741d",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#265",
+    "outcome": "Design system gates 2, 4, 7, and 8 migrated to blocking status",
+    "baseRowFingerprint": "ddadbf4dbfa996ad261615ab5b697a797684ad5f4a214641b4983b14036e4b9c"
+  }
+}

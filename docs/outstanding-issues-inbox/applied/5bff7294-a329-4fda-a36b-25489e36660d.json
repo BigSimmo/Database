@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "5bff7294-a329-4fda-a36b-25489e36660d",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "22946f19-6197-408e-b154-142d226a2743",
+    "reason": "Stale: baseRowFingerprint no longer matches the current #316 row content (row has moved since this request was authored). Reissuing its content as a fresh update request below, since the content itself is accurate and is the more complete of the two pending #316 requests (the other, 10e480da, was already cancelled by the original batch's 8b0650ed)."
+  }
+}

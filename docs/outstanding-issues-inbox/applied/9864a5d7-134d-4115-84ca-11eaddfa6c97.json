@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "9864a5d7-134d-4115-84ca-11eaddfa6c97",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "rec",
+    "summary": "PR churn has exhausted the review-bot budget, so PRs are now landing with no automated review at all",
+    "detail": "CodeRabbit on PR #2113: '101 included PR reviews in the past 7 days; at that activity level, included reviews refill at 1 review per hour. Your organization has reached its usage spending cap.' The Codex connector reported its own usage limit on the same PR. Net effect: #2113 received ZERO automated review, and so will subsequent PRs until the cap resets or credits are added. AGENTS.md 'PR bundling' already measured the CI half of this cost on 2026-07-30 (437 PR-triggered runs over ~3 days, ~40% cancelled mid-run, ~12 Production-UI-hours burned on runs that never completed). This is the second bill for the same behaviour and the more dangerous one, because CI waste is money while missing review is undetected defects — and the PRs most likely to need review are the ones landing during a churn spike. The bundling rule exists as prose in AGENTS.md and is evidently not binding; the newtask skill also asks the question in prose. Decide whether it gets a gate. Note the repo has already learned this lesson once in a different area: .claude/hooks/pr-handoff-stop.sh states in its own header that 'prose rules in AGENTS.md have not held, a denied tool call does.' Next: decide between (a) a push/PR-creation gate that refuses a new branch when an open PR of the same scope exists, (b) raising the bot spending cap, or (c) accepting unreviewed merges deliberately rather than by accident. Stop rule: do not weaken any required check to compensate for missing bot review.",
+    "source": "CodeRabbit + Codex connector comments on PR #2113, 2026-08-18; AGENTS.md 'PR bundling (reduce one-task-one-PR churn)'",
+    "issueUlid": "01M0ACDDJQCCZ4HB9R4TK678FX"
+  }
+}

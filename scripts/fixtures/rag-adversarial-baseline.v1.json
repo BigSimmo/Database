@@ -6,7 +6,7 @@
   "reportKey": {
     "commit_sha": "b7aa925f0ae19e89a9f0acf842b4a80d84083fb5",
     "dataset_version": "rag-adversarial-cases.v1",
-    "eval_config_version": "rag-eval-config-v1",
+    "eval_config_version": "rag-eval-config-v2",
     "model_version": "answer=gpt-5.6-terra; fast=gpt-5.6-terra; strong=gpt-5.6-sol",
     "embedding_version": "text-embedding-3-small@1536",
     "index_version": "20260818090000_schema_drift_snapshot_history_probe"
@@ -31,7 +31,7 @@
       "caseCount": 30,
       "status": "pending_owner_run",
       "blockedReason": "npm run eval:answer-quality over answerQualityEvalCases is a provider-backed OpenAI/Supabase evaluation requiring explicit owner approval per run. Requested (not executed) by packet S2 as the Gate E before/after comparison.",
-      "priorRun": "No before/after comparison has been recorded. Note for the S2 comparison: scoreAnswerQualityEvalCase's readability metric caps answer + section text at 220 words (src/lib/rag/rag-eval-cases.ts), which the S2 length targets can exceed by design; readability=0 flags driven only by total length are a metric artefact to adjudicate, not a regression."
+      "priorRun": "No before/after comparison has been recorded. The 220-word readability confound noted at eval_config_version rag-eval-config-v1 is resolved: scoreAnswerQualityEvalCase now scores fragmentation and length as two independent checks with separate reasons, and the length ceiling is derived from the v19 contract (110-word answer target + 6 sections at the schema heading/body maxima) rather than the pre-S2 flat 220. A readability=0 flag now names which check failed, so length and fragmentation no longer have to be adjudicated apart by hand. This gate semantic change is why the key reads rag-eval-config-v2; the first run under v2 has no v1-comparable readability rate."
     },
     {
       "id": "offline_contract",
