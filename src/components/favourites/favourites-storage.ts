@@ -165,7 +165,7 @@ export function formatLastOpened(timestampOrLabel: number | string | undefined |
   }
 
   const date = new Date(timestampOrLabel);
-  if (Number.isNaN(date.getTime())) {
+  if (Number.isNaN(date.getTime()) || timestampOrLabel < 0) {
     return "Saved";
   }
 
