@@ -15,6 +15,7 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
   "formulation",
   "therapy-compass",
   "factsheets",
+  "dictionary",
   "tools",
   "calculators",
 ]);
@@ -33,6 +34,7 @@ const standaloneModeHomePaths = new Set<string>([
   "/specifiers",
   "/formulation",
   "/factsheets",
+  "/dictionary",
   "/therapy-compass",
   "/tools",
   "/calculators",
@@ -78,6 +80,7 @@ const alwaysStandaloneShellPathPrefixes = [
   "/specifiers",
   "/formulation",
   "/factsheets",
+  "/dictionary",
   "/therapy-compass",
   "/medications",
   "/calculators",

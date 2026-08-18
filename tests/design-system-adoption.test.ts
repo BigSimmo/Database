@@ -1238,9 +1238,9 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    // 51: Presentations catalogue page plus a real Compare page (no longer a
-    // route-handler redirect) on top of Documents/Medication mode homes.
-    expect(manifest.routeCoverage.discovered).toHaveLength(51);
+    // 59: the previous 51 production pages plus the eight-route Dictionary
+    // surface, including its shared mode home and governed detail routes.
+    expect(manifest.routeCoverage.discovered).toHaveLength(59);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);
