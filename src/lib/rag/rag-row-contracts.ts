@@ -41,11 +41,17 @@ const retrievalImageSchema = z.looseObject({
   caption: z.string(),
 });
 
+// Deliberately `.nullable()`, not `.nullish()`: the key must be PRESENT (object or null).
+// This is the one field pinned stricter than the rest so an RPC whose column set drifts
+// (source_metadata dropped from the SELECT) fails loudly as RetrievalRowShapeError instead
+// of silently degrading every citation to "unknown" governance defaults. Tranche 1 decision
+// (PR #1946, "throw on mismatch"); PR #2107 loosened it to `.nullish()` and this PR
+// restores it. See docs/outstanding-issues.md #343 for the constraint-backing follow-up.
 const sourceMetadataSchema = z
   .record(z.string(), z.unknown(), {
     message: "source_metadata must be a JSON object",
   })
-  .nullish();
+  .nullable();
 
 const retrievalRowSchema = z.looseObject({
   id: z.string().min(1),
