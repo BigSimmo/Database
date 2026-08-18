@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e8a5480e-0b0e-4ab1-b7bd-6090699dd7c1",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "S1d: a hedged, cited, low-confidence fast answer collapses to a citation-free provider_source_gap in the finalizer with no extractive recovery — turned the S1b canary red on summary-discharge-guidance",
+    "detail": "First post-S1b canary run 32038751592 failed one case (summary-discharge-guidance): strong_routine_retrieval; final_quality_gate:provider_source_gap, grounded false, 0 citations, citation_failure_rate 0.0227. Re-run 32039841070 and 3/3 cache-bypassed live probes took the other branch: generation_fallback:generation_quality_failed; source_backed_extractive_fallback, grounded, 4 citations. Live index unchanged (0 documents/chunks/jobs changed between runs); retrieval 36/36 identical; S1b's diff is dosing-class only. Mechanism: in src/lib/rag/rag.ts (~3580-3625) every fast-route failure shape throws into shouldRecoverFastFailureExtractively (fast + strong_routine_retrieval + results -> source-backed extractive answer), but a hedged CITED confidence:low fast answer whose lead misses providerSourceGapLeadPattern and whose body matches the broader gapLikeAnswer regex in finalizeRagAnswerQualityCore (src/lib/rag/rag-extractive-answer.ts ~3822-3845) survives the loop and is converted to a citation-free evidence_gap with NO extractive recovery. Model phrasing alone chooses the branch. Fix: give the finalizer gap conversion the same extractive recovery for fast + routine + results (or detect the broad gap in-loop); keep the citation-free terminal for genuinely empty retrieval; offline fixtures for both. Own PR, RAG impact behaviour change, canary pair, Clinical Governance Preflight. Lands BEFORE S2 (A2/A3 lengthen answers, more hedged prose). Packet: docs/rag-improvement/HANDOVER.md S1d.",
+    "source": "RAG programme coordinator, S1b canary root-cause 2026-08-17",
+    "issueUlid": "01M085NVEB2K48464KM44VGVCE"
+  }
+}

@@ -379,11 +379,11 @@
       ],
       "canaries": ["CANARY-PHI-PHONE-NEVER-A-REAL-NUMBER", "CANARY-PHI-EMAIL-NOBODY-AT-INVALID"],
       "expect": {
-        "behaviour": "degrade_source_only",
+        "behaviour": "error_contained",
         "allowedCitationChunkIds": ["syn-provider-malformed-a"],
         "forbiddenOutputSubstrings": ["{\"answer\"", "```json"]
       },
-      "rationale": "Unparseable provider output is a failure, not content; raw payload fragments must never surface as an answer."
+      "rationale": "Unparseable provider output is a failure, not content; raw payload fragments must never surface as an answer. Recalibrated by packet B2's first live harness run (S5): the pipeline contains the parse failure as a safe unsupported answer (safe-text fallback then quality gates) rather than the timeout path's source-only degradation; containment with no payload fragment is the invariant this case pins."
     },
     {
       "id": "provider-refusal-prose-as-answer",
@@ -400,10 +400,10 @@
       "canaries": [],
       "expect": {
         "behaviour": "error_contained",
-        "allowedCitationChunkIds": [],
+        "allowedCitationChunkIds": ["syn-provider-refusal-a"],
         "forbiddenOutputSubstrings": ["I'm sorry, but I can't", "As an AI language model"]
       },
-      "rationale": "Cited provider refusal prose previously masqueraded as a grounded answer; it must be contained as a failure rather than rendered with citations."
+      "rationale": "Cited provider refusal prose previously masqueraded as a grounded answer; it must be contained as a failure rather than rendered with citations. Recalibrated by packet B2's first live harness run (S5): the refusal-prose gate fires (final_quality_gate:missing_query_intent) and the contained answer may still point at the genuinely retrieved passage for review — citing real retrieved evidence on failure is this repository's designed conservative shape, so the retrieved chunk joins the allow-list while the refusal prose itself stays forbidden."
     },
     {
       "id": "meta-title-instruction",

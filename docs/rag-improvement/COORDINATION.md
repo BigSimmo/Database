@@ -67,13 +67,13 @@ their status row, and stop. They never merge, never watch CI, never dispatch can
 **Wave plan** (Track A is strictly consecutive — shared files and evidence dependencies;
 Track B is the parallel lane):
 
-| Wave | Dispatch (one fresh chat per task)                                                                | Gate to the next wave                                             |
-| ---- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| 0    | **D1** (this docs PR) + **S4** + **S1b** + **#212 T4** in parallel; **C1** post-S1 canary (done)  | D1 merged (unblocks R0); S1b merged + canary green (unblocks S1c) |
-| 1    | **R0** `issues:reconcile` (serialized) + **G1** (any time, disjoint) + **S1c** (after S1b canary) | S1c merged + canary green                                         |
-| 2    | **S2** (+S2b if split) + **S5** + **S6** (S5/S6 after S4 merges)                                  | S2 merged + canary pair + `eval:answer-quality` + Gate E          |
-| 3    | **S3** + #212 closure                                                                             | S3 merged                                                         |
-| 4    | S7+ only after explicit owner decisions (Gate B verdict, experiment appetite)                     | —                                                                 |
+| Wave | Dispatch (one fresh chat per task)                                                                                                                                        | Gate to the next wave                                             |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 0    | **D1** (this docs PR) + **S4** + **S1b** + **#212 T4** in parallel; **C1** post-S1 canary (done)                                                                          | D1 merged (unblocks R0); S1b merged + canary green (unblocks S1c) |
+| 1    | **S1c** + **S1d** + **G1** + **S5** + **S6** in parallel (disjoint files); S1c and S1d merged one at a time, each with its own canary pair (R0 reconcile landed as #2045) | S1c and S1d merged + canaries green                               |
+| 2    | **S2** (+S2b if split) + **S5** + **S6** (S5/S6 after S4 merges)                                                                                                          | S2 merged + canary pair + `eval:answer-quality` + Gate E          |
+| 3    | **S3** + #212 closure                                                                                                                                                     | S3 merged                                                         |
+| 4    | S7+ only after explicit owner decisions (Gate B verdict, experiment appetite)                                                                                             | —                                                                 |
 
 Waves 1–2 of the original plan (S1 + S4, then S2 + S5 + S6) were re-cut on 2026-08-17 after S1
 landed: the owner chose **R1 before S2** (S1's residual R1 explains most remaining lithium
@@ -174,17 +174,22 @@ Always a fresh owner ask, every single time:
 
 ## 7. Current state and next actions (update on change)
 
-- **Done:** PR #1895 (guide), PR #1899 (A1 phase 1), PR #1908 (worker handover) — merged
-  2026-08-13. **PR #2022 (S1)** merged 2026-08-17 as squash `2bd146eed`, landing verified by
-  content; canary pair baseline run 31964560921 (`8f8d111ab`) → post run 32025082010
-  (`2bd146eed`): recall 1.0/1.0, zero per-case rr regressions, answer gate 45/45. Sibling
-  `#212` T3 (PR #2023) merged as `440a34f71`.
-- **Owner decisions 2026-08-17:** R1 before S2; governance Option B.
-- **Next (Wave 0):** dispatch S4, S1b and #212 T4 as three fresh chats; merge this docs PR;
-  then R0 reconcile. G1 may start any time. Prompts: HANDOVER §7 (S1b, S1c, G1, S4) and the
-  #212 handover artifact (T4).
-- **Waiting on owner:** merges as PRs open; S1b's canary approval when it merges; later S2's
-  canary + `eval:answer-quality` + Gate E.
+- **Done (2026-08-17):** #1895, #1899, #1908 (2026-08-13); **#2022 S1** (squash `2bd146eed`);
+  **#2024 D1** (`78fe906b8`); **#2035 S1b** (merge `92f7618c0`); **#2036 S4** (`f5b093291`);
+  **#2037 #212 T4** (`1726537b7`); **#2045 R0 reconcile** (28 requests; #212 closed); **#2048 D2** (S1d packet); **#2056 S5** (merge `093f9340c`: B1 `verification_latency_ms` behind `RAG_TELEMETRY_EXTENDED`, B2 `eval:rag:adversarial:offline` with 3 self-expiring divergence pins). Canary
+  pairs: S1 baseline 32025082010 → S1b post 32039841070, recall 1.0/1.0, zero per-case rr
+  regressions, answer gate 44/44. The first S1b post run (32038751592) was red on one non-golden
+  case; root-caused to the finalizer gap-recovery hole → packet S1d, not S1b.
+- **Owner decisions:** R1 before S2; governance Option B; S1d lands before S2.
+- **Wave 1 status:** S1c (#2052 + follow-ups #2063/#2065) merged, canary pair green
+  (32049952885 → 32052479537); S1d (#2054, merge `0bbd64fbc`) merged, **canary pending owner
+  approval**; S6 (#2057) merged. **Still to dispatch: G1** (`types.ts`,
+  `answer-stream-contract.ts`, `rag-row-contracts.ts`; no canary). S5 follow-ups queued as
+  inbox requests: three adversarial divergence pins (`cite-mismatched-attribution`,
+  `scope-other-owner-document`, `scope-guessed-chunk-id`) and the owner decision on enabling
+  `RAG_TELEMETRY_EXTENDED` in production.
+- **Wave 2:** S2 (+S2b) once the S1d canary pair is green (S1c pair already green). **Wave 3:** S3; S7+ owner decisions.
+- **Waiting on owner:** merges as PRs open; canary approvals for S1c, S1d, S2.
 - **Live board (artifact, owner-private):** RAG Master Plan v2 —
   `https://claude.ai/code/artifact/d5dba709-0df3-40e3-8a45-15997231533d`.
 

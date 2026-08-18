@@ -40,6 +40,7 @@ import {
   DENSITY_OPTIONS,
   JURISDICTION_OPTIONS,
   LANDING_OPTIONS,
+  MOTION_OPTIONS,
   POPULATION_OPTIONS,
   useAppPreferences,
 } from "@/components/clinical-dashboard/use-app-preferences";
@@ -881,12 +882,21 @@ export function SettingsDialog({
                     options={LANDING_OPTIONS}
                   />
                 </SettingsField>
-                <SettingsToggleField
+                <SettingsField
                   icon={Sparkles}
-                  label="Reduce motion"
-                  checked={preferences.motion === "reduced"}
-                  onChange={(checked) => setPreference("motion", checked ? "reduced" : "system")}
-                />
+                  label="Motion"
+                  labelId="settings-motion-label"
+                  description="System follows your device's Reduce Motion setting. Full keeps loading animations running even when your device asks to reduce motion."
+                  stacked
+                >
+                  <SegmentedControl
+                    ariaLabelledBy="settings-motion-label"
+                    layout="equal"
+                    value={preferences.motion}
+                    onChange={(value) => setPreference("motion", value)}
+                    options={MOTION_OPTIONS}
+                  />
+                </SettingsField>
               </SettingsGroup>
             </SettingsSection>
 

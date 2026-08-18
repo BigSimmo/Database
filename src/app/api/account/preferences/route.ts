@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 const preferencesSchema = z
   .object({
     density: z.enum(["comfortable", "compact", "spacious"]),
-    motion: z.enum(["system", "reduced"]),
+    motion: z.enum(["system", "reduced", "full"]),
     jurisdiction: z.enum(["wa", "nsw", "vic", "qld", "sa", "tas", "act", "nt", "national"]),
     population: z.enum(["adults", "older-adults", "adolescents", "all"]),
     answerStyle: z.enum(["conservative", "balanced", "comprehensive"]),

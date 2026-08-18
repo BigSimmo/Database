@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c68dae81-559c-45ad-af70-f1b0334a49c3",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Physical iPhone acceptance owed for the answer-progress motion fix (Safari + installed PWA, Motion=Full)",
+    "detail": "PR #2046 fixed the reported defect (OS Reduce Motion froze every animation and set the ECG trace to opacity:0) and added a Motion preference whose \"full\" value opts back in over the OS setting. All executed browser evidence ran on Chromium 1194 in a Cloud container — the repo's own verify:ui gate could not run because check:playwright-browser-revision reports the known #255 drift (expects 1234). Playwright WebKit is not the iOS engine either. Acceptance: on the physical iPhone, in Safari and as the installed PWA, with Settings > Motion set to Full, confirm the ECG strip visibly travels and the current-step spinner rotates; with Motion left on System, confirm the trace stays visible and static rather than blank. Failure to confirm means the defect class is unclosed, which is exactly how #1974/#1989/#1995 were each declared fixed. Relates to #255, #280.",
+    "source": "PR #2046 phone/PWA answer-progress animation defect, 2026-08-17",
+    "issueUlid": "01M085VNVZS4K1GA5Y6P6B49D6"
+  }
+}
