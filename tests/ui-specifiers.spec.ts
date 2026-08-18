@@ -122,7 +122,7 @@ test("searches clinical language without provenance fields and carries a result 
 
 test("keeps mobile search, filters, results, and the fixed composer usable", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await gotoApp(page, "/specifiers?q=returns+every+winter&run=1");
+  await gotoApp(page, "/specifiers/search?q=returns+every+winter&run=1");
 
   const queryRibbon = page.getByTestId("search-query-ribbon");
   await expect(queryRibbon.getByRole("heading", { level: 1, name: "returns every winter" })).toBeVisible();

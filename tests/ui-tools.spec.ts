@@ -2667,7 +2667,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(queue.getByRole("link", { name: "Wernicke encephalopathy", exact: true })).toBeVisible();
     await expect(page.getByTestId("differential-compare-edit-selection")).toHaveAttribute(
       "href",
-      /\/differentials\?.*ids=wernicke-encephalopathy/,
+      /\/differentials\/search\?.*ids=wernicke-encephalopathy/,
     );
     await expect(page.getByTestId("differential-compare-open")).toBeVisible();
 
@@ -2943,7 +2943,9 @@ test.describe("Clinical KB service detail page", () => {
     await page.keyboard.press("Escape");
 
     await page.getByRole("link", { name: "Back to services" }).click();
-    await expect(page).toHaveURL(/\/services(?:\?|$)/);
+    // "/services" is a consolidated mode path: consolidatedModeHomeTarget redirects
+    // the bare path onto the shared home rather than rendering a standalone page.
+    await expect(page).toHaveURL(/\?mode=services(?:&|$)/);
   });
 });
 
