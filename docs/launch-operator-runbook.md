@@ -175,7 +175,7 @@ Following a Supabase database restore or disaster recovery failover, verify all 
 
 ## 8. Operational notes & diagnostics (#248, #305, #315, #102)
 
-- **Search-Health Indexes (#248):** Ensure migration `20260705180000_reconcile_search_health_indexes.sql` is active on live and all 20 required indexes are present.
+- **Search-Health Indexes (#248):** Ensure migration `20260705180000_reconcile_search_health_indexes.sql` is active on live and `search_schema_health()` reports `ok: true` with no `missing` entries (`npm run check:indexing`) — treat its `required_indexes` list as the recovery criterion, not a fixed count, since later migrations extend it.
 - **Concurrent Document Index Recipe (#102):** When applying additive document index optimizations on a busy database (`documents_title_bare_trgm_idx`, `documents_file_name_bare_trgm_idx`, and `documents_status_id_idx`), pre-create indexes concurrently (`CREATE INDEX CONCURRENTLY IF NOT EXISTS`) before applying the committed migration and registering in `search_schema_health()` to avoid write lock contention. Validate each index with `pg_index.indisvalid`. Note that bare-column trigrams and composite `(status, id)` indexes on the RAG path are canary-gated due to unordered `LIMIT 12` selection in candidate retrieval ([operator-apply-performance-latency-remediation.md](operator-apply-performance-latency-remediation.md)).
 - **Canary Latency & Cost Boundaries (#305):** Retrieval latency p90 SLO is ≤ 20s. Canary cost metrics provide lower-bound estimates without cache warmup.
 - **UI Smoke Reporter Stranding (#315):** When debugging rare UI smoke test timeouts, inspect reporter stranding in Playwright hooks rather than assuming layout regressions.

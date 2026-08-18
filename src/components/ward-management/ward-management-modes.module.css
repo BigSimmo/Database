@@ -1,0 +1,1384 @@
+.modeShell {
+  --ward-blue: var(--clinical-accent);
+  --ward-blue-soft: var(--clinical-accent-soft);
+  --ward-blue-border: var(--clinical-accent-border);
+  --ward-canvas: var(--surface);
+  --ward-chrome: var(--surface-chrome);
+  --ward-subtle: var(--surface-subtle);
+  --ward-border: var(--border);
+  --ward-border-strong: var(--border-strong);
+  --ward-text: var(--text);
+  --ward-heading: var(--text-heading);
+  --ward-muted: var(--text-muted);
+  --ward-success: var(--success-text);
+  --ward-success-soft: var(--success-bg);
+  --ward-warning: var(--warning-text);
+  --ward-warning-soft: var(--warning-bg);
+  --ward-danger: var(--danger-text);
+  --ward-danger-soft: var(--danger-bg);
+  --ward-space-2: 0.125rem;
+  --ward-space-3: 0.1875rem;
+  --ward-space-4: 0.25rem;
+  --ward-space-6: 0.375rem;
+  --ward-space-7: 0.4375rem;
+  --ward-space-8: 0.5rem;
+  --ward-space-10: 0.625rem;
+  --ward-space-12: 0.75rem;
+  --ward-space-14: 0.875rem;
+  --ward-space-16: 1rem;
+  --ward-space-20: 1.25rem;
+  --ward-leading-compact: 1;
+  --ward-leading-tight: 1.2;
+  --ward-leading-body: 1.4;
+  --ward-leading-relaxed: 1.45;
+  --ward-leading-prose: 1.5;
+  --ward-radius-round: 50%;
+  --ward-z-base: 1;
+  --ward-z-phone: 20;
+  display: grid;
+  height: 100dvh;
+  min-height: 44rem;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  grid-template-rows: 4rem auto minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--ward-canvas);
+  color: var(--ward-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.modeHeader {
+  grid-column: 2;
+  grid-row: 1;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--ward-space-16);
+  border-bottom: 0.0625rem solid var(--ward-border);
+  padding: 0 var(--ward-space-20);
+}
+
+.modeIdentity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--ward-space-16);
+}
+
+.modeIdentity span:first-child {
+  min-width: 8rem;
+  padding-right: var(--ward-space-16);
+  border-right: 0.0625rem solid var(--ward-border);
+}
+
+.modeIdentity strong,
+.modeIdentity small {
+  display: block;
+}
+
+.modeIdentity strong {
+  color: var(--ward-heading);
+  font-size: var(--text-lg);
+  line-height: var(--ward-leading-tight);
+}
+
+.modeIdentity small {
+  overflow: hidden;
+  color: var(--ward-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modeTitle h1 {
+  color: var(--ward-heading);
+  font-size: var(--text-lg);
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  line-height: var(--ward-leading-tight);
+}
+
+.modeTitle p {
+  margin-top: 0.125rem;
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+}
+
+.roleSelect {
+  display: flex;
+  height: 2.5rem;
+  align-items: center;
+  gap: var(--ward-space-8);
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--ward-space-12);
+  background: var(--ward-canvas);
+  color: var(--ward-heading);
+}
+
+.roleSelect svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--ward-blue);
+}
+
+.roleSelect select {
+  min-width: 9rem;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: var(--text-xs);
+  font-weight: 650;
+  outline: 0;
+}
+
+.headerMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--ward-space-12);
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.prototypeBadge,
+.aiBadge,
+.statusGood,
+.statusWarning,
+.statusDanger,
+.statusNeutral {
+  display: inline-flex;
+  min-height: 1.5rem;
+  align-items: center;
+  gap: var(--ward-space-6);
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-pill, 9999px);
+  padding: var(--ward-space-3) var(--ward-space-8);
+  font-size: var(--text-3xs);
+  font-weight: 680;
+  line-height: var(--ward-leading-compact);
+}
+
+.prototypeBadge,
+.aiBadge {
+  border-color: var(--ward-blue-border);
+  background: var(--ward-blue-soft);
+  color: var(--ward-blue);
+}
+
+.aiBadge svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.statusGood {
+  border-color: color-mix(in srgb, var(--ward-success) 34%, var(--ward-border));
+  background: var(--ward-success-soft);
+  color: var(--ward-success);
+}
+
+.statusWarning {
+  border-color: color-mix(in srgb, var(--ward-warning) 38%, var(--ward-border));
+  background: var(--ward-warning-soft);
+  color: var(--ward-warning);
+}
+
+.statusDanger {
+  border-color: color-mix(in srgb, var(--ward-danger) 34%, var(--ward-border));
+  background: var(--ward-danger-soft);
+  color: var(--ward-danger);
+}
+
+.statusNeutral {
+  color: var(--ward-muted);
+}
+
+.modeNavigation {
+  display: flex;
+  min-width: 0;
+  min-height: 2.75rem;
+  align-items: stretch;
+  gap: var(--ward-space-2);
+  overflow-x: auto;
+  border-bottom: 0.0625rem solid var(--ward-border);
+  background: var(--ward-chrome);
+  padding: var(--ward-space-4) var(--ward-space-16);
+  scrollbar-width: thin;
+}
+
+.modeShell > .modeNavigation {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.modeLink,
+.modeLinkActive {
+  display: inline-flex;
+  min-width: max-content;
+  align-items: center;
+  gap: var(--ward-space-7);
+  border: 0.0625rem solid transparent;
+  border-radius: var(--radius-md);
+  padding: 0 var(--ward-space-12);
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+  font-weight: 650;
+}
+
+.modeLink:hover {
+  border-color: var(--ward-border);
+  background: var(--ward-canvas);
+  color: var(--ward-heading);
+}
+
+.modeLinkActive {
+  border-color: var(--ward-blue-border);
+  background: var(--ward-blue-soft);
+  color: var(--ward-blue);
+  box-shadow: var(--shadow-inset);
+}
+
+.modeLink svg,
+.modeLinkActive svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.modeShortLabel {
+  display: none;
+}
+
+.modeContent {
+  grid-column: 2;
+  grid-row: 3;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--ward-space-8);
+  overflow: auto;
+  padding: var(--ward-space-12);
+  background: var(--ward-subtle);
+}
+
+.roleFocus {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: var(--ward-space-10);
+  border: 0.0625rem solid var(--ward-blue-border);
+  border-radius: var(--radius-md);
+  background: var(--ward-blue-soft);
+  padding: var(--ward-space-6) var(--ward-space-12);
+  color: var(--ward-blue);
+  font-size: var(--text-2xs);
+}
+
+.roleFocus strong {
+  color: var(--ward-heading);
+}
+
+.roleFocus span {
+  color: var(--ward-muted);
+}
+
+.pageGrid,
+.constellationGrid {
+  display: grid;
+  min-height: 100%;
+  gap: var(--ward-space-10);
+}
+
+.pageGrid {
+  grid-template-columns: minmax(34rem, 1.55fr) minmax(19rem, 0.75fr);
+}
+
+.constellationGrid {
+  grid-template-columns: 14rem minmax(38rem, 1fr) 22rem;
+}
+
+.panel,
+.panelInset,
+.regionCluster,
+.summaryCard,
+.stageColumn,
+.exceptionRow,
+.transportRow,
+.governanceCard {
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-lg);
+  background: var(--ward-canvas);
+  box-shadow: var(--e0);
+}
+
+.panel {
+  min-width: 0;
+  padding: var(--ward-space-14);
+}
+
+.panelHeader,
+.sectionHeader,
+.rowTop,
+.decisionHeader {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ward-space-12);
+}
+
+.panelHeader {
+  margin-bottom: 0.75rem;
+}
+
+.panelHeader h2,
+.sectionHeader h2 {
+  color: var(--ward-heading);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.panelHeader p,
+.sectionHeader p {
+  margin-top: 0.125rem;
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+}
+
+.compactQueue {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.queueList,
+.dataList,
+.exceptionList,
+.transportList {
+  display: grid;
+  min-height: 0;
+  gap: var(--ward-space-6);
+  overflow: auto;
+}
+
+.queueRow,
+.queueRowSelected {
+  display: grid;
+  min-width: 0;
+  gap: var(--ward-space-6);
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-md);
+  padding: var(--ward-space-10);
+  background: var(--ward-canvas);
+  color: var(--ward-text);
+  text-align: left;
+}
+
+.queueRow:hover {
+  background: var(--ward-subtle);
+}
+
+.queueRowSelected {
+  border-color: var(--ward-blue-border);
+  background: var(--ward-blue-soft);
+  box-shadow: var(--shadow-inset);
+}
+
+.rowTop strong {
+  color: var(--ward-heading);
+  font-size: var(--text-xs);
+}
+
+.rowMeta,
+.microCopy {
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--ward-leading-body);
+}
+
+.score {
+  color: var(--ward-success);
+  font-size: var(--text-xs);
+  font-weight: 750;
+}
+
+.networkCanvas {
+  display: grid;
+  min-width: 0;
+  min-height: 38rem;
+  grid-template-columns: repeat(2, minmax(15rem, 1fr));
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: var(--ward-space-10);
+}
+
+.regionCluster {
+  min-width: 0;
+  padding: var(--ward-space-12);
+}
+
+.regionCluster:nth-of-type(3) {
+  grid-column: 1;
+  grid-row: 3;
+}
+
+.regionCluster:nth-of-type(4) {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+.regionCluster header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ward-space-8);
+  margin-bottom: 0.5rem;
+}
+
+.regionTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--ward-space-8);
+  color: var(--ward-heading);
+}
+
+.regionTitle svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--ward-blue);
+}
+
+.regionCluster header small {
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+}
+
+.hospitalChipGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ward-space-6);
+}
+
+.hospitalChip,
+.hospitalChipSelected {
+  display: grid;
+  min-width: 0;
+  gap: var(--ward-space-4);
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-md);
+  padding: var(--ward-space-8);
+  background: var(--ward-canvas);
+  color: var(--ward-text);
+  text-align: left;
+}
+
+.hospitalChipSelected {
+  border-color: var(--ward-blue);
+  background: var(--ward-blue-soft);
+  box-shadow: var(--shadow-inset);
+}
+
+.hospitalChip strong,
+.hospitalChipSelected strong {
+  overflow: hidden;
+  color: var(--ward-heading);
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hospitalState {
+  display: flex;
+  align-items: center;
+  gap: var(--ward-space-4);
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+}
+
+.hospitalState b {
+  color: var(--ward-success);
+}
+
+.flowHub {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: grid;
+  min-height: 7.25rem;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--ward-space-12);
+  border: 0.0625rem solid var(--ward-blue-border);
+  border-radius: var(--radius-lg);
+  background: var(--ward-blue-soft);
+  padding: var(--ward-space-12) var(--ward-space-16);
+  color: var(--ward-blue);
+}
+
+.flowHub > div:nth-child(2) {
+  min-width: 11rem;
+  text-align: center;
+}
+
+.flowHub strong,
+.flowHub span {
+  display: block;
+}
+
+.flowHub strong {
+  color: var(--ward-heading);
+  font-size: var(--text-sm);
+}
+
+.flowHub span {
+  margin-top: 0.25rem;
+  font-size: var(--text-3xs);
+}
+
+.routeSignal {
+  display: flex;
+  align-items: center;
+  gap: var(--ward-space-6);
+  color: var(--ward-blue);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+}
+
+.routeSignal:last-child {
+  justify-content: flex-end;
+}
+
+.routeSignal svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+}
+
+.decisionPanel {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--ward-space-12);
+}
+
+.decisionHeader h2 {
+  color: var(--ward-heading);
+  font-size: var(--text-sm);
+}
+
+.patientFacts,
+.reasonList,
+.auditList,
+.sourceList {
+  display: grid;
+  gap: var(--ward-space-8);
+}
+
+.patientFacts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.patientFacts div,
+.factorRow {
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-md);
+  padding: var(--ward-space-8);
+}
+
+.patientFacts dt,
+.factorRow span,
+.candidateRow small {
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+}
+
+.patientFacts dd {
+  margin-top: 0.125rem;
+  color: var(--ward-heading);
+  font-size: var(--text-2xs);
+  font-weight: 650;
+}
+
+.candidateTable {
+  display: grid;
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.candidateRow,
+.candidateRowSelected {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ward-space-8);
+  border: 0;
+  border-bottom: 0.0625rem solid var(--ward-border);
+  background: var(--ward-canvas);
+  padding: var(--ward-space-10);
+  color: var(--ward-text);
+  text-align: left;
+}
+
+.candidateRow:last-child,
+.candidateRowSelected:last-child {
+  border-bottom: 0;
+}
+
+.candidateRowSelected {
+  background: var(--ward-blue-soft);
+}
+
+.candidateRank {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--ward-subtle);
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+  font-weight: 750;
+}
+
+.candidateRowSelected .candidateRank {
+  background: var(--ward-blue);
+  color: var(--ward-canvas);
+}
+
+.candidateRow strong,
+.candidateRowSelected strong {
+  display: block;
+  color: var(--ward-heading);
+  font-size: var(--text-2xs);
+}
+
+.primaryButton,
+.secondaryButton {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ward-space-8);
+  border: 0.0625rem solid var(--ward-blue);
+  border-radius: var(--radius-md);
+  padding: 0 var(--ward-space-14);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.primaryButton {
+  background: var(--ward-blue);
+  color: var(--ward-canvas);
+}
+
+.secondaryButton {
+  border-color: var(--ward-border);
+  background: var(--ward-canvas);
+  color: var(--ward-heading);
+}
+
+.buttonRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--ward-space-8);
+  margin-top: auto;
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-2xs);
+}
+
+.dataTable th,
+.dataTable td {
+  border-bottom: 0.0625rem solid var(--ward-border);
+  padding: var(--ward-space-10) var(--ward-space-8);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.dataTable th {
+  position: sticky;
+  top: 0;
+  z-index: var(--ward-z-base);
+  background: var(--ward-chrome);
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.dataTable tbody tr {
+  cursor: pointer;
+}
+
+.dataTable tbody tr:hover,
+.dataTable tbody tr[data-selected="true"] {
+  background: var(--ward-blue-soft);
+}
+
+.capacitySummary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--ward-space-8);
+  margin-bottom: 0.75rem;
+}
+
+.summaryCard {
+  padding: var(--ward-space-12);
+}
+
+.summaryCard span,
+.summaryCard small {
+  display: block;
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+}
+
+.summaryCard strong {
+  display: block;
+  margin: 0.25rem 0 0.125rem;
+  color: var(--ward-heading);
+  font-size: var(--text-xl);
+}
+
+.bedStates {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(3rem, 1fr));
+  gap: var(--ward-space-4);
+}
+
+.bedStates span {
+  display: grid;
+  min-height: 2.75rem;
+  place-items: center;
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-sm);
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+}
+
+.bedStates strong {
+  display: block;
+  color: var(--ward-heading);
+  font-size: var(--text-xs);
+}
+
+.stageBoard {
+  display: grid;
+  min-width: 68rem;
+  grid-template-columns: repeat(6, minmax(10rem, 1fr));
+  gap: var(--ward-space-8);
+}
+
+.stageColumn {
+  display: flex;
+  min-height: 32rem;
+  flex-direction: column;
+  gap: var(--ward-space-8);
+  padding: var(--ward-space-10);
+}
+
+.stageColumn header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ward-space-6);
+  border-bottom: 0.0625rem solid var(--ward-border);
+  padding-bottom: var(--ward-space-8);
+}
+
+.stageColumn h2 {
+  color: var(--ward-heading);
+  font-size: var(--text-2xs);
+}
+
+.stageColumn header strong {
+  color: var(--ward-blue);
+  font-size: var(--text-sm);
+}
+
+.movementCard {
+  display: grid;
+  gap: var(--ward-space-6);
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-md);
+  padding: var(--ward-space-10);
+  background: var(--ward-canvas);
+}
+
+.movementCard strong {
+  color: var(--ward-heading);
+  font-size: var(--text-2xs);
+}
+
+.exceptionRow,
+.transportRow {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1.4fr) minmax(9rem, 0.7fr) auto;
+  align-items: center;
+  gap: var(--ward-space-12);
+  padding: var(--ward-space-12);
+}
+
+.exceptionRow > svg,
+.transportRow > svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--ward-warning);
+}
+
+.exceptionRow strong,
+.transportRow strong {
+  display: block;
+  color: var(--ward-heading);
+  font-size: var(--text-xs);
+}
+
+.exceptionRow small,
+.transportRow small {
+  display: block;
+  margin-top: 0.125rem;
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+}
+
+.assuranceGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ward-space-10);
+}
+
+.governanceLowerGrid {
+  margin-top: 0.625rem;
+}
+
+.governanceCard {
+  padding: var(--ward-space-14);
+}
+
+.governanceCard svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--ward-blue);
+}
+
+.governanceCard h2 {
+  margin-top: 0.75rem;
+  color: var(--ward-heading);
+  font-size: var(--text-sm);
+}
+
+.governanceCard p {
+  margin-top: 0.375rem;
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-prose);
+}
+
+.auditList li,
+.sourceList li,
+.reasonList li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ward-space-8);
+  border-bottom: 0.0625rem solid var(--ward-border);
+  padding: var(--ward-space-8) 0;
+  color: var(--ward-text);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-relaxed);
+}
+
+.reasonList svg,
+.auditList svg,
+.sourceList svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  margin-top: 0.125rem;
+  color: var(--ward-success);
+}
+
+.sourceList a {
+  color: var(--ward-blue);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.notice {
+  margin-top: 0.75rem;
+  border-left: 0.1875rem solid var(--ward-blue);
+  background: var(--ward-blue-soft);
+  padding: var(--ward-space-10) var(--ward-space-12);
+  color: var(--ward-text);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-prose);
+}
+
+@media (max-width: 78rem) {
+  .headerMeta > span:not(.prototypeBadge) {
+    display: none;
+  }
+
+  .constellationGrid {
+    grid-template-columns: 12rem minmax(32rem, 1fr) 19rem;
+  }
+
+  .modeLink,
+  .modeLinkActive {
+    padding-inline: var(--ward-space-10);
+  }
+}
+
+@media (max-width: 62rem) {
+  .modeShell {
+    grid-template-columns: 4rem minmax(0, 1fr);
+  }
+
+  .modeHeader,
+  .modeShell > .modeNavigation,
+  .modeContent {
+    display: block;
+    grid-column: 2;
+  }
+
+  .roleFocus {
+    display: grid;
+    gap: var(--ward-space-2);
+    margin-bottom: 0.5rem;
+  }
+
+  .modeHeader {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .headerMeta {
+    display: none;
+  }
+
+  .modeIdentity span:first-child {
+    display: none;
+  }
+
+  .constellationGrid,
+  .pageGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .constellationGrid {
+    min-width: 48rem;
+  }
+
+  .compactQueue,
+  .decisionPanel {
+    min-height: 24rem;
+  }
+
+  .assuranceGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 40rem) {
+  .modeShell {
+    display: block;
+    min-height: 100dvh;
+    height: auto;
+    overflow: visible;
+  }
+
+  .modeShell > aside {
+    display: none;
+  }
+
+  .modeHeader {
+    position: sticky;
+    top: 0;
+    z-index: var(--ward-z-phone);
+    display: grid;
+    min-height: 4.25rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: var(--ward-space-8) var(--ward-space-12);
+    background: var(--ward-canvas);
+  }
+
+  .modeTitle p {
+    display: none;
+  }
+
+  .roleSelect {
+    width: 2.75rem;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .roleSelect select {
+    position: absolute;
+    width: 2.75rem;
+    min-width: 0;
+    height: 2.75rem;
+    opacity: 0;
+  }
+
+  .modeShell > .modeNavigation {
+    position: sticky;
+    top: 4.25rem;
+    z-index: calc(var(--ward-z-phone) - 1);
+    min-height: 3.25rem;
+    padding-inline: var(--ward-space-8);
+  }
+
+  .modeLink,
+  .modeLinkActive {
+    min-width: 4.25rem;
+    min-height: 2.75rem;
+    justify-content: center;
+    padding: 0 var(--ward-space-8);
+  }
+
+  .modeLabel {
+    display: none;
+  }
+
+  .modeShortLabel {
+    display: inline;
+  }
+
+  .modeContent {
+    min-height: calc(100dvh - 7.5rem);
+    overflow: visible;
+    padding: var(--ward-space-8);
+  }
+
+  .pageGrid,
+  .constellationGrid {
+    display: block;
+    min-width: 0;
+  }
+
+  .pageGrid > *,
+  .constellationGrid > * {
+    margin-bottom: 0.5rem;
+  }
+
+  .networkCanvas {
+    min-width: 42rem;
+    min-height: 36rem;
+  }
+
+  .panel:has(.networkCanvas) {
+    overflow-x: auto;
+  }
+
+  .capacitySummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dataTable {
+    min-width: 48rem;
+  }
+
+  .panel:has(.dataTable),
+  .panel:has(.stageBoard) {
+    overflow-x: auto;
+  }
+
+  .exceptionRow,
+  .transportRow {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .exceptionRow > :nth-child(n + 3),
+  .transportRow > :nth-child(n + 3) {
+    grid-column: 2;
+  }
+
+  .assuranceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .patientFacts {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modeShell * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .modeLinkActive,
+  .queueRowSelected,
+  .hospitalChipSelected,
+  .candidateRowSelected,
+  .primaryButton {
+    border: 0.125rem solid Highlight;
+  }
+}
+
+.networkLayout {
+  display: grid;
+  min-height: 100%;
+  gap: var(--ward-space-10);
+  grid-template-columns: minmax(34rem, 1.6fr) minmax(20rem, 0.7fr);
+}
+
+.networkDiagram {
+  position: relative;
+  min-height: 30rem;
+  height: 100%;
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-lg);
+  background: var(--ward-subtle);
+}
+
+.networkEdges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.networkEdge,
+.networkEdgeEscalated {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.networkEdge {
+  stroke: var(--ward-border-strong);
+  stroke-width: 0.0625rem;
+}
+
+.networkEdgeEscalated {
+  stroke: var(--ward-warning);
+  stroke-width: 0.125rem;
+  stroke-dasharray: 0.25rem 0.1875rem;
+}
+
+.networkEdge[data-dimmed="true"],
+.networkEdgeEscalated[data-dimmed="true"] {
+  opacity: 0.18;
+}
+
+.networkHub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  width: 9.5rem;
+  justify-items: center;
+  gap: var(--ward-space-2);
+  transform: translate(-50%, -50%);
+  border: 0.0625rem solid var(--ward-blue-border);
+  border-radius: var(--radius-md);
+  background: var(--ward-canvas);
+  padding: var(--ward-space-8);
+  color: var(--ward-blue);
+  text-align: center;
+}
+
+.networkHub svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.networkHub strong {
+  color: var(--ward-heading);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.networkHub span {
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--ward-leading-tight);
+}
+
+.networkAnchor {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: var(--radius-sm);
+  background: var(--ward-canvas);
+  padding: var(--ward-space-2) var(--ward-space-6);
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.networkNodes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.networkNode {
+  position: absolute;
+  pointer-events: auto;
+  display: grid;
+  width: 3.25rem;
+  min-height: 3.25rem;
+  place-content: center;
+  justify-items: center;
+  gap: var(--ward-space-2);
+  transform: translate(-50%, -50%);
+  border: 0.125rem solid var(--ward-border-strong);
+  border-radius: var(--ward-radius-round);
+  background: var(--ward-canvas);
+  color: var(--ward-heading);
+}
+
+.networkNode strong {
+  font-size: var(--text-sm);
+  line-height: var(--ward-leading-compact);
+}
+
+.networkNode span {
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.networkNode[data-band="critical"] {
+  border-color: var(--ward-danger);
+  background: var(--ward-danger-soft);
+  color: var(--ward-danger);
+}
+
+.networkNode[data-band="tight"] {
+  border-color: var(--ward-warning);
+  background: var(--ward-warning-soft);
+  color: var(--ward-warning);
+}
+
+.networkNode[data-band="moderate"] {
+  border-color: var(--ward-blue-border);
+  background: var(--ward-blue-soft);
+  color: var(--ward-blue);
+}
+
+.networkNode[data-band="open"] {
+  border-color: var(--ward-success);
+  background: var(--ward-success-soft);
+  color: var(--ward-success);
+}
+
+.networkNode[aria-pressed="true"] {
+  box-shadow: var(--e2);
+  outline: 0.1875rem solid var(--ward-blue);
+  outline-offset: 0.125rem;
+}
+
+.networkLegend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ward-space-12);
+  padding-top: var(--ward-space-10);
+}
+
+.networkLegendGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ward-space-12);
+}
+
+.networkLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ward-space-6);
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+  font-weight: 600;
+}
+
+.networkSwatch {
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 0.125rem solid var(--ward-border-strong);
+  border-radius: var(--ward-radius-round);
+}
+
+.networkSwatch[data-band="critical"] {
+  border-color: var(--ward-danger);
+  background: var(--ward-danger-soft);
+}
+
+.networkSwatch[data-band="tight"] {
+  border-color: var(--ward-warning);
+  background: var(--ward-warning-soft);
+}
+
+.networkSwatch[data-band="moderate"] {
+  border-color: var(--ward-blue-border);
+  background: var(--ward-blue-soft);
+}
+
+.networkSwatch[data-band="open"] {
+  border-color: var(--ward-success);
+  background: var(--ward-success-soft);
+}
+
+.networkSwatchLine,
+.networkSwatchLineEscalated {
+  width: 1.25rem;
+  height: 0;
+}
+
+.networkSwatchLine {
+  border-top: 0.0625rem solid var(--ward-border-strong);
+}
+
+.networkSwatchLineEscalated {
+  border-top: 0.125rem dashed var(--ward-warning);
+}
+
+.networkDetail {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ward-space-10);
+  overflow-y: auto;
+}
+
+.networkDetailHeading {
+  color: var(--ward-heading);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.networkRouteList {
+  display: grid;
+  gap: var(--ward-space-8);
+  list-style: none;
+}
+
+.networkRouteLink {
+  display: grid;
+  gap: var(--ward-space-4);
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-md);
+  padding: var(--ward-space-10);
+}
+
+@media (max-width: 68rem) {
+  .networkLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

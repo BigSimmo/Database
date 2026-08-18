@@ -7,6 +7,8 @@ import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template"
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { therapyHrefWithSearchParams, therapyScreenHref } from "@/lib/therapy-compass-navigation";
 
+import { TherapyReviewNotice } from "../therapy-review-notice";
+
 import { THERAPY_CATALOGUE_SUMMARY } from "../data/generated-assets";
 
 const SUGGESTIONS = [
@@ -28,6 +30,10 @@ export function HomeScreen() {
 
   return (
     <ModeHomeMain testId="therapy-compass-home" contentAlign="startOnPhone">
+      {/* Above the hero, not in the footer: the catalogue-wide review caveat is
+          the first thing a reader of this library needs, and the quiet footer
+          line is not load-bearing enough to carry it alone. */}
+      <TherapyReviewNotice className="mb-3 sm:mb-4" />
       <ModeHomeTemplate
         testId="therapy-compass"
         title="Therapy"
