@@ -491,7 +491,7 @@ const THRESHOLD_PARAMETERS: ThresholdParameter[] = [
   {
     key: "lithium",
     label: "Lithium serum level",
-    pattern: /\b(?:lithium(?: serum)? levels?|serum lithium|li\+?\s*(?:serum )?levels?)\b/i,
+    pattern: /\b(?:lithium(?:\s+serum)?\s+levels?|serum\s+lithium|li\+?\s*(?:serum\s+)?levels?)\b/i,
   },
   {
     key: "qtc",
@@ -543,7 +543,9 @@ const THRESHOLD_PARAMETERS: ThresholdParameter[] = [
   {
     key: "lithium_dose",
     label: "Lithium dose",
-    pattern: /\blithium\s+dose\b/i,
+    // Bare "lithium" is also accepted here because the span matcher already required a
+    // nearby mg cue; this mirrors the clozapine_dose pattern.
+    pattern: /\blithium(?:\s+dose)?\b/i,
   },
   {
     key: "systolic_bp",
