@@ -16,6 +16,7 @@ describe("tools catalog", () => {
       "documents",
       "medication-prescribing",
       "services",
+      "ward-management",
       "forms",
       "calculators",
     ]) {
@@ -25,6 +26,12 @@ describe("tools catalog", () => {
 
   it("links calculators to the production calculators page", () => {
     expect(toolCatalogRecordById("calculators").href).toBe("/calculators");
+  });
+
+  it("links Ward Flow to its production workspace", () => {
+    const wardFlow = toolCatalogRecordById("ward-management");
+    expect(wardFlow.href).toBe("/ward-management");
+    expect(wardFlow.sourceBacked).toBe(false);
   });
 
   it("ranks title matches above keyword-only matches", () => {

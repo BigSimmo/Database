@@ -1238,9 +1238,11 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    // 59: the previous 51 production pages plus the eight-route Dictionary
-    // surface, including its shared mode home and governed detail routes.
-    expect(manifest.routeCoverage.discovered).toHaveLength(59);
+    // 69: the previous 59 production pages (51 plus the eight-route Dictionary
+    // surface) plus the ten-route Ward Flow synthetic patient-flow prototype
+    // (mode home, six workspace routes, governance, transport, and the
+    // per-patient detail route).
+    expect(manifest.routeCoverage.discovered).toHaveLength(69);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);
