@@ -59,6 +59,26 @@ modes already keep it; they differ in how much letter navigation stays on screen
 The current header is rendered side by side at the top of the page for comparison. Shared mockup chrome is suppressed
 because each frame draws its own top bar, mode nav and composer.
 
+## Dictionary Browse header, round two (2026-08-18)
+
+Runnable study at [`/mockups/dictionary-browse-header-compact`](../src/app/mockups/dictionary-browse-header-compact/page.tsx),
+a follow-up to the round-one study above. Every version replaces the 27-chip horizontal letter rail with a **letter
+dropdown on phones** and moves **Abbreviations out of the header into the Filters sheet** beside sort.
+
+| Version                        | Phone chrome | Trade-off                                                           |
+| ------------------------------ | ------------ | ------------------------------------------------------------------- |
+| 01 Title bar + letter dropdown | 2 rows       | Title still costs a row the mode nav already implies                |
+| 02 Single fused row (rec.)     | 1 row        | An active filter chip costs the row its title and count at 390 px   |
+| 03 Slim toolbar, title retired | 1 slim bar   | Phone loses its visual page title; depends on the mode nav above it |
+
+Demoting a view switch into a sheet hides state, so each version surfaces an active **Abbreviations** chip beside the
+letter control. Without it the header would claim 96 terms while listing 24 abbreviations.
+
+Note for anyone extending these: the mockup stylesheet only emits Tailwind classes that some source actually uses, and
+no production file uses a bare `grid-cols-6` (only `xl:grid-cols-6`). The 26-letter pickers therefore pin
+`gridTemplateColumns` inline rather than depending on class generation — a bare `grid-cols-6` silently collapses them
+to one column.
+
 ## Phone Choose mode sheet YES comps
 
 Runnable study at [`/mockups/phone-mode-sheet-yes`](../src/app/mockups/phone-mode-sheet-yes/page.tsx): design review of the shipping phone mode sheet plus **YES 01 perfected** (sectioned clinical list — shipping recommendation) and YES 02 (icon deck alternate). Shared mockup chrome is suppressed so only the in-frame sheet is judged.

@@ -28,21 +28,21 @@ import { cn } from "@/components/ui-primitives";
  * where the other modes already keep it.
  * ------------------------------------------------------------------ */
 
-const focusRing =
+export const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
-const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+export const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 type Direction = "titlebar" | "rail" | "index";
 
-type SampleEntry = {
+export type SampleEntry = {
   term: string;
   kind: string;
   alias?: string;
   definition: string;
 };
 
-const sampleEntries: readonly SampleEntry[] = [
+export const sampleEntries: readonly SampleEntry[] = [
   {
     term: "Acceptance and commitment therapy",
     kind: "Therapy",
@@ -108,7 +108,7 @@ const directions: ReadonlyArray<{
 
 /* ---------------------------- shared bits ---------------------------- */
 
-function ResultRow({ entry }: { entry: SampleEntry }) {
+export function ResultRow({ entry }: { entry: SampleEntry }) {
   return (
     <article className="grid min-w-0 grid-cols-[0.1875rem_minmax(0,1fr)] border-b border-[color:var(--border)] bg-[color:var(--surface)] last:border-b-0">
       <span className="bg-[color:var(--clinical-accent)]" aria-hidden="true" />
@@ -203,7 +203,7 @@ function FilterButton({ count, labelled = false, onOpen }: { count: number; labe
   );
 }
 
-function CountPill({ children }: { children: React.ReactNode }) {
+export function CountPill({ children }: { children: React.ReactNode }) {
   return (
     <span className="nums shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-2 py-0.5 text-2xs font-extrabold text-[color:var(--text-muted)]">
       {children}
@@ -413,7 +413,7 @@ function JumpSheet({
             Abbreviations
           </button>
         </div>
-        <div className="grid grid-cols-6 gap-1.5">
+        <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
           {letters.map((value) => (
             <button
               key={value}
@@ -477,7 +477,7 @@ function IndexRail({
 
 /* ------------------------------ device frames ------------------------------ */
 
-function PhoneChrome() {
+export function PhoneChrome() {
   return (
     <>
       <div className="flex items-center gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2">
@@ -518,7 +518,7 @@ function PhoneChrome() {
   );
 }
 
-function PhoneComposer() {
+export function PhoneComposer() {
   return (
     <div className="absolute inset-x-0 bottom-0 z-30 border-t border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2">
       <div className="flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2">
@@ -530,7 +530,7 @@ function PhoneComposer() {
   );
 }
 
-function PhoneFrame({
+export function PhoneFrame({
   children,
   label,
   overlay,
@@ -555,7 +555,7 @@ function PhoneFrame({
   );
 }
 
-function DesktopFrame({
+export function DesktopFrame({
   children,
   label,
   overlay,
