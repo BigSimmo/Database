@@ -1043,19 +1043,19 @@ export function SettingsDialog({
                 note="In-progress surfaces, reachable only in development builds. Not clinical content."
               >
                 <div className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
-                  <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Caring Contact</p>
+                  <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Development page</p>
                   <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    Linked prototype of the caring-contacts workflow. Synthetic data only — no patient record, message
-                    or schedule here is real.
+                    Index of the surfaces being built, including the Caring Contact prototype. Synthetic data only — no
+                    patient record, message or schedule on them is real.
                   </p>
                   <Link
-                    href="/mockups/caring-contacts"
+                    href="/mockups/development"
                     onClick={onClose}
                     className={cn(floatingControl, "mt-3 min-h-10 w-full gap-2 text-sm")}
-                    data-testid="settings-row-caring-contact-prototype"
+                    data-testid="settings-row-development-page"
                   >
                     <FlaskConical aria-hidden="true" className="h-4 w-4" />
-                    Open Caring Contact prototype
+                    Open Development page
                     <span className="ml-auto text-xs font-semibold text-[color:var(--text-muted)]">Temporary</span>
                   </Link>
                 </div>
