@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 /**
@@ -139,7 +139,15 @@ describe("session-start hook", () => {
 
     expect(result.status, `hook exited ${result.status}: ${result.stderr}`).toBe(0);
     const written = readFileSync(envFile, "utf8");
-    expect(written).toContain(join(home, ".node24", `node-v${NODE_VERSION}-linux-x64`, "bin"));
+    // Compare the path tail, not the absolute path. `home` comes from mkdtempSync(tmpdir()),
+    // which on Windows is `C:\Users\…\AppData\Local\Temp\session-start-home-XXXX`, while the
+    // hook runs under Git Bash and writes the POSIX view of the same directory — `/tmp/
+    // session-start-home-XXXX`. Asserting the joined Windows path therefore failed on every
+    // Windows run regardless of the diff under test, which made the whole file look red
+    // locally and trained readers to wave it through. The unique mkdtemp basename still
+    // pins this to *this* test's HOME, so the assertion loses no strength.
+    const expectedTail = [basename(home), ".node24", `node-v${NODE_VERSION}-linux-x64`, "bin"].join("/");
+    expect(written.replace(/\\/g, "/")).toContain(expectedTail);
     expect(written).toContain("export PATH=");
     // The manual-run advice belongs only to the manual-run branch.
     expect(result.stdout).not.toContain("CLAUDE_ENV_FILE is unset");
