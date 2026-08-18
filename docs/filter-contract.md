@@ -116,17 +116,16 @@ corpus of that size, and it stays.
 
 ## 5. Density is a function of option count
 
-Facet groups only. Density scales with option and group volume across three tiers:
+Facet groups only. Density scales with option and group volume across two tiers:
 
-| Options / Groups            | Renderer                                                                               |
-| --------------------------- | -------------------------------------------------------------------------------------- |
-| ≤ 5 options                 | chips, single row / wrapping chips                                                     |
-| 6–20 options                | dense full-width vertical list with right-aligned count column and group headings      |
-| > 3 groups, or > 20 options | list/chips plus find-a-filter and collapse-by-default, every group behind a disclosure |
+| Options / Groups              | Renderer                                                                   |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| ≤ 20 options (and ≤ 3 groups) | wrapping chips                                                             |
+| > 20 options, or > 3 groups   | dense vertical list with search filter and collapse-by-default disclosures |
 
-`ResultFilterSheet` computes the threshold across facet groups. Facet groups containing 6–20 options
-render as compact full-width rows with a right-aligned count column for fast scanning. When a sheet
-exceeds 3 groups or 20 total options, it additionally adds find-a-filter and collapse-by-default chrome.
+`ResultFilterSheet` computes the threshold across facet groups. Facet groups containing up to 20 total options
+across ≤ 3 groups render as wrapping chips for fast touch scanning. When a filter sheet
+exceeds 3 groups or 20 total options, it renders as a dense list and additionally adds find-a-filter and collapse-by-default chrome.
 
 Collapse rules, when they apply: groups start collapsed; a group holding a selection opens
 itself; an explicit user collapse beats that; an active needle forces every matched group open

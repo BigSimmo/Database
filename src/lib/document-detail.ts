@@ -15,6 +15,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError } from "@/lib/supabase/auth";
 import { parseRouteParams } from "@/lib/validation/params";
 import { optionalQueryString, optionalUuidQuery, queryInteger } from "@/lib/validation/query";
+import { normalizeImageBbox } from "@/lib/image-filtering";
 import type { ApiRateLimitResult } from "@/lib/api-rate-limit";
 import type { ClinicalDocument } from "@/lib/types";
 import type {
@@ -156,6 +157,7 @@ function withImageTableMetadata<T extends { metadata?: unknown }>(image: T) {
     ocrTextDensity: metadataNumber(metadata, "ocr_text_density"),
     structuredExtractionConfidence: metadataNumber(metadata, "structured_extraction_confidence"),
     retainedForDocumentView: metadataBoolean(metadata, "retained_for_document_view"),
+    bbox: normalizeImageBbox((image as { bbox?: unknown }).bbox),
   };
 }
 

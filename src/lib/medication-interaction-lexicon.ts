@@ -40,7 +40,7 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     id: "opioids",
     surfaces: ["opioids", "opioid", "opioid analgesia", "opiates", "full agonists"],
     kind: "catalogue",
-    select: { subclassIncludes: ["Opioid"], denySlugs: ["naltrexone", "naloxone"] },
+    select: { subclassIncludes: ["Opioid"], denySlugs: ["naltrexone", "naloxone", "loperamide"] },
   },
   { id: "ssris", surfaces: ["ssris", "ssri"], kind: "catalogue", select: { subclassIncludes: ["SSRI"] } },
   { id: "snris", surfaces: ["snris", "snri"], kind: "catalogue", select: { subclassIncludes: ["SNRI"] } },

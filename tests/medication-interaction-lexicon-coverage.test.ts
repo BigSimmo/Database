@@ -61,13 +61,12 @@ describe("interaction lexicon coverage", () => {
     // mechanism class had been checked. Fewer resolved rows there means more
     // medications held at grey — a tightening, not a loss.
     //
-    // So: a drop is only acceptable alongside a deliberate semantics change,
-    // recorded here and in the PR. Track raw drug-matching separately, which
-    // rose 381 → 417 over the same period and is the number that must never
-    // fall without explanation.
-    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(362);
-    expect(index.stats.rowsWithCatalogueTarget).toBeGreaterThanOrEqual(422);
-    expect(index.sourceRowCount).toBeGreaterThanOrEqual(523);
+    // Rose to 362 with dosulepin inclusion, then fell 362 → 360 (source count 523 → 521)
+    // when duplicate Warfarin records (warfarin-vka and warfarin-anticoagulant) were
+    // reconciled and merged into a single canonical Warfarin record with combined rows.
+    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(360);
+    expect(index.stats.rowsWithCatalogueTarget).toBeGreaterThanOrEqual(420);
+    expect(index.sourceRowCount).toBeGreaterThanOrEqual(521);
   });
 
   it("keeps every unresolved row visible rather than dropping it", () => {
@@ -361,27 +360,17 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
     expect(dead).toEqual([]);
   });
 
-  it("keeps the divergent duplicate Warfarin records visible", () => {
-    // The catalogue holds two records named "Warfarin" whose interaction rows
-    // have nothing in common, so which one a clinician opens changes which
-    // warnings they see. That is a catalogue defect, not a lexicon one, and it
-    // is deliberately left unpatched pending a clinical decision — but it must
-    // not become invisible. If someone reconciles the records, this test goes
-    // red and the review sheet's flag can be retired with it.
-    const duplicates = records.filter((record) => record.name === "Warfarin");
-    expect(duplicates.map((record) => record.slug).sort()).toEqual(["warfarin-anticoagulant", "warfarin-vka"]);
+  it("reconciles Warfarin into a single unified catalogue record", () => {
+    const recordsWithName = records.filter((record) => record.name === "Warfarin");
+    expect(recordsWithName.map((record) => record.slug)).toEqual(["warfarin-vka"]);
 
-    const rowSet = (slug: string) =>
-      new Set(
-        (
-          records.find((record) => record.slug === slug)?.sections.find((section) => section.type === "inter")?.rows ??
-          []
-        ).map((row) => `${row.key}::${row.val}`),
-      );
-    const [a, b] = [rowSet("warfarin-vka"), rowSet("warfarin-anticoagulant")];
-    expect(a.size).toBeGreaterThan(0);
-    expect(b.size).toBeGreaterThan(0);
-    expect([...a].filter((row) => b.has(row))).toEqual([]);
+    const warfarin = recordsWithName[0];
+    const interRows = warfarin.sections.find((section) => section.type === "inter")?.rows ?? [];
+    expect(interRows.length).toBe(4);
+    expect(interRows.some((row) => row.val.includes("CYP2C9") && row.val.includes("Inhibitors"))).toBe(true);
+    expect(interRows.some((row) => row.val.includes("CYP2C9") && row.val.includes("Inducers"))).toBe(true);
+    expect(interRows.some((row) => row.val.includes("NSAIDs") && row.val.includes("SSRIs"))).toBe(true);
+    expect(interRows.some((row) => row.val.includes("Vitamin K"))).toBe(true);
   });
 
   it("resolves beta blockers across both catalogue spellings", () => {
