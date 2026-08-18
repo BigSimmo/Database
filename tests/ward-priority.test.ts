@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { operationalScore, queueOrder } from "../src/components/ward-management/ward-priority";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
+import { isOpen } from "../src/components/ward-management/ward-derivations";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 import type { Movement } from "../src/components/ward-management/ward-model";
 
@@ -65,6 +66,38 @@ describe("operational score", () => {
       expect(factors.find((factor) => factor.label === "Active blocker")).toBeUndefined();
     }
   });
+
+  it("does not report a blocker for a value that only happens to start with 'None'", () => {
+    const base = movementById("WF-001");
+    const realBlocker: Movement = { ...base, blocker: "None of the secure units can take him" };
+    const { factors } = operationalScore(realBlocker, NOW_ANCHOR);
+    expect(factors.find((factor) => factor.label === "Active blocker")).toBeDefined();
+  });
+
+  it("states the decline count without a self-contradictory fraction against the parallel cap", () => {
+    const movement = movementById("WF-009");
+    const { factors } = operationalScore(movement, NOW_ANCHOR);
+    const declineFactor = factors.find((factor) => factor.label === "Destinations declined");
+    expect(declineFactor).toBeDefined();
+    expect(declineFactor?.detail).not.toContain(" of 3");
+    expect(declineFactor?.detail).toContain("5");
+  });
+
+  it("does not claim a transport delay for a movement already en route", () => {
+    for (const movement of wardMovements) {
+      if (movement.transport?.enRouteAt === undefined) continue;
+      const { factors } = operationalScore(movement, NOW_ANCHOR);
+      expect(factors.find((factor) => factor.label === "Transport delay")).toBeUndefined();
+    }
+  });
+
+  it("still claims a transport delay for a movement accepted but not yet departed", () => {
+    for (const id of ["WF-005", "WF-015"]) {
+      const movement = movementById(id);
+      const { factors } = operationalScore(movement, NOW_ANCHOR);
+      expect(factors.find((factor) => factor.label === "Transport delay")).toBeDefined();
+    }
+  });
 });
 
 describe("queue order", () => {
@@ -87,6 +120,6 @@ describe("queue order", () => {
   it("excludes closed and arrived movements", () => {
     const ordered = queueOrder(wardMovements, NOW_ANCHOR);
     expect(ordered.every((movement) => !movement.closure && movement.stage !== "arrived")).toBe(true);
-    expect(ordered.length).toBeLessThan(wardMovements.length);
+    expect(ordered.length).toBe(wardMovements.filter(isOpen).length);
   });
 });
