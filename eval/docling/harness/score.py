@@ -35,6 +35,7 @@ file's shape is not trusted as a leak boundary.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import re
 from collections import Counter
@@ -44,7 +45,12 @@ TEXT_STRATA = {"text_simple", "layout_multicolumn", "table_simple", "table_heavy
 
 
 def normalise(text: str) -> str:
-    return " ".join(text.replace("\\|", "|").split()).lower()
+    # Escape-neutral like the existing `\|` handling: docling's markdown export
+    # HTML-escapes angle brackets, so a comparator assertion like '>= 1.4 mmol/L'
+    # surfaces as '&gt;= 1.4 mmol/L' — the value intact, only entity-encoded.
+    # Run 32174653778 scored those as missing (-25 to -62.5pp per stratum) purely
+    # on this encoding difference; exactness compares values, not escaping.
+    return " ".join(html.unescape(text.replace("\\|", "|")).split()).lower()
 
 
 def percentile(values: list[int], fraction: float) -> int:

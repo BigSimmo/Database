@@ -125,6 +125,40 @@ def run_one(cmd: list[str], timeout_seconds: int, cwd: Path) -> dict:
     }
 
 
+def collect_canary_tokens(manifest: dict) -> list[str]:
+    tokens = []
+    for entry in manifest.get("canaryRegistry", []):
+        token = entry.get("token") if isinstance(entry, dict) else entry
+        if isinstance(token, str) and token:
+            tokens.append(token)
+    return tokens
+
+
+def sanitised_error_summary(result_path: Path, canary_tokens: list[str]) -> str | None:
+    """Bounded, canary-redacted error description for the per-doc progress line.
+
+    The workflow log is a reportable sink, so this prints only the runner's
+    recorded exception name/message — never stream tails or extracted text —
+    with every registered canary token redacted and the whole line truncated.
+    Diagnosing run 32166445937 (all 46 docling docs uniformly `error` with the
+    cause locked inside never-uploaded raw output) required exactly this.
+    """
+    if not result_path.exists():
+        return None
+    try:
+        payload = json.loads(result_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    error = payload.get("error")
+    if not isinstance(error, dict):
+        return None
+    name = str(error.get("name", ""))[:80]
+    message = " ".join(str(error.get("message", "")).split())
+    for token in canary_tokens:
+        message = message.replace(token, "[CANARY]")
+    return f"{name}: {message[:200]}" if name or message else None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--engine", required=True, choices=["legacy", "docling"])
@@ -141,6 +175,7 @@ def main() -> None:
     config = json.loads(Path(args.config).read_text(encoding="utf-8"))
     sandbox = config["sandbox"]
     caps = config["outputCaps"]
+    canary_tokens = collect_canary_tokens(manifest)
     os.environ.setdefault("LAB_PER_DOC_TEXT_BYTES", str(caps["perDocumentTextBytes"]))
 
     documents = [
@@ -190,11 +225,15 @@ def main() -> None:
         record["resultBytes"] = result_bytes
         record["resultPath"] = str(result_path.relative_to(results_dir.parent)) if result_bytes > 0 else None
         per_doc.append(record)
-        print(
+        line = (
             f"run_corpus[{args.engine}] {doc['id']}: {record['exitReason']} "
-            f"{record['wallClockMs']}ms rss={record['peakRssBytes'] // (1024 * 1024)}MB",
-            flush=True,
+            f"{record['wallClockMs']}ms rss={record['peakRssBytes'] // (1024 * 1024)}MB"
         )
+        if record["exitReason"] not in ("completed",):
+            summary = sanitised_error_summary(result_path, canary_tokens)
+            if summary:
+                line += f" [{summary}]"
+        print(line, flush=True)
 
     Path(args.out).write_text(
         json.dumps(
