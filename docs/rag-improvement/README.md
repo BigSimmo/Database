@@ -373,6 +373,10 @@ work packets, the live status table, checklists, and paste-ready prompts.
 | 9     | B5/B6 Ragas/reranker                            | conditional                     | No until separately promoted              |
 | 10    | B7 DSPy                                         | ≥100 labelled cases             | No until separately promoted              |
 
+Cross-links: `#231` cross-links to `docs/database-remediation-plan.md` Phase 5.2 (re-test after
+the trigram-index restore) — satisfied by S1's healthy-latency probes 2026-08-17; `#316` Phase
+1.2 found the RPC divergence attribute-only.
+
 ## 6. Verification commands (per PR, smallest first)
 
 ```bash
@@ -387,7 +391,9 @@ npm run check:production-readiness  # domain changes (env flags, answer path)
 ```
 
 Live canary pairs fire only via the `eval-canary` repository dispatch with explicit owner
-approval per run; regression → single-commit revert + confirmation run.
+approval per run; regression → single-commit revert + confirmation run. See
+`docs/rag-behaviour/safeguards.md` § the eval-canary pair protocol for the exact trigger
+mechanics (dispatch/cron-only, no `ref` input) and the comparison command.
 
 ## 7. Rollback map
 

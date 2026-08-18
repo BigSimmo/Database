@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "b8861f66-fda9-40d6-bd3b-682b2c5d214c",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#DP6M3G",
+    "outcome": "Landed as packet S1b PR #2035 (merge 92f7618c0), canary pair 32025082010 -> 32039841070 green; medication_dose_risk routes to the strong route before the deadline. Evidence: docs/rag-improvement/HANDOVER.md packet table row S1b + section \"S1b — A1 rung 3\"; docs/rag-improvement/COORDINATION.md section 7 canary pair list.",
+    "baseRowFingerprint": "2a532446db2f363847e1a5f3523dcd6634f8df89055bcd659cdc5d52d2342a7b"
+  }
+}
