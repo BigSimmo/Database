@@ -155,9 +155,9 @@ export function CatalogueToolbar({
                 <button
                   type="button"
                   data-testid={filterTrigger.testId ?? "catalogue-filter-trigger"}
-                  aria-expanded={filterTrigger.open}
+                  aria-expanded={filterTrigger.open ?? false}
                   aria-controls={filterTrigger.panelId}
-                  disabled={filterTrigger.disabled}
+                  disabled={filterTrigger.disabled ?? !filterTrigger.onToggle}
                   onClick={filterTrigger.onToggle}
                   className={cn(
                     "inline-flex min-h-tap items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold transition",

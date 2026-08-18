@@ -90,6 +90,23 @@ describe("CatalogueToolbar DOM and Interactions", () => {
     expect(onToggleFilter).toHaveBeenCalledTimes(1);
   });
 
+  it("defaults the filter trigger to collapsed and disabled when no toggle handler is provided", async () => {
+    render(
+      <CatalogueToolbar
+        filterTrigger={{
+          activeCount: 1,
+        }}
+      />,
+    );
+
+    const trigger = screen.getByTestId("catalogue-filter-trigger");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger).toBeDisabled();
+
+    await userEvent.click(trigger);
+    expect(trigger).toBeDisabled();
+  });
+
   it("renders active filter chips and handles remove and clear-all callbacks", async () => {
     const onRemoveDomain = vi.fn();
     const onRemoveScope = vi.fn();
