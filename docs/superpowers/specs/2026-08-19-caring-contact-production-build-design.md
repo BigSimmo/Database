@@ -31,18 +31,18 @@ will not need rebuilding. That is what this document specifies.
 
 ## 2. Decision-lock revisions — 19 August 2026
 
-The Approved decision lock of 15 August 2026 remains binding except for the following nine revisions.
+The Approved decision lock of 15 August 2026 remains binding except for the following ten revisions.
 Each records its reasoning so a later reviewer re-opens it deliberately rather than by accident.
 
 ### 2.1 Replies receive an automated non-monitored response
 
-**Was:** "Use a non-receiving sender. Callback receives, stores, analyses and displays no replies."
+**Was:** "Use a non-receiving sender. Caring Contacts receives, stores, analyses and displays no replies."
 
 **Now:** patient-visible messages originate from a **receiving-capable dedicated number**. Any inbound
 message triggers an immediate automated response naming the programme line and its hours, one approved
 crisis-support contact, and emergency direction. Inbound content is **discarded at the provider boundary
-and never persisted, transmitted to Callback, displayed, logged, counted per patient, or analysed**.
-Callback still has no inbox, no thread, no reply workflow, and no per-patient reply signal.
+and never persisted, transmitted to Caring Contacts, displayed, logged, counted per patient, or analysed**.
+Caring Contacts still has no inbox, no thread, no reply workflow, and no per-patient reply signal.
 
 **Reasoning:** a non-receiving sender leaves a distressed patient who replies with either a carrier error
 or complete silence, immediately after a message from a mental-health team. Silence is the worst
@@ -162,6 +162,25 @@ timestamp and purpose. No other export, download, or bulk extract exists.
 require a filed document, and an unscoped later exception is more dangerous than a bounded one written
 now. The prohibition otherwise stands.
 
+### 2.10 The service is renamed from `Callback` to Caring Contacts
+
+**Was:** the workspace was named `Callback` throughout the rollout plan, the coordination spec and the
+prototype shell header. No document recorded a reason for the choice.
+
+**Now:** the service is named **Caring Contacts**, matching the intervention's established name and the
+repository's existing `caring-contacts` module naming. The proposed `callback-worker/` directory becomes
+`caring-contact-worker/`.
+
+**Reasoning:** `Callback` names a promise the service explicitly does not keep. It never calls back, never
+receives a reply and never responds. A patient told they had been enrolled in `Callback` could reasonably
+expect a telephone call, which is the same expectation-mismatch hazard as the silent-reply problem
+corrected in §2.1. A name should not have to be explained away in the first line of a patient-facing
+script.
+
+**Consequences:** 41 occurrences renamed across the rollout plan, the coordination spec, this document and
+the prototype shell header. No test asserted the old name. Any external material already carrying
+`Callback` needs updating.
+
 ## 3. Architecture
 
 ### 3.1 The sealed domain layer
@@ -230,7 +249,7 @@ schema runs against a local Postgres instance so development is never blocked.
 
 All domain functions take an injected clock; no domain module reads ambient time. Sign-in is a
 **non-production role switcher** (coordinator, team lead, auditor) rather than real credentials: the
-decision lock requires WA Health enterprise sign-on and states that no Callback-local credentials exist,
+decision lock requires WA Health enterprise sign-on and states that no Caring Contacts-local credentials exist,
 so building a login would violate it, and the permission and auditor surfaces cannot be demonstrated
 without role switching.
 
@@ -251,7 +270,7 @@ Each is demanded by a rule already in the decision lock and currently has no sur
 | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Service safety stop**                 | A confirmed wrong-recipient message, duplicate send, unauthorised content, material privacy/security incident or loss of audit integrity immediately pauses the entire pilot | Service-wide halt of all sending across every patient and team, with a categorised reason and acting person. Restart requires recorded joint approval from the incident lead, privacy/security owner and clinical programme lead; the interface must not permit single-person restart. A service-state banner is visible everywhere while active. |
 | **Pathway authoring and dual approval** | A clinical programme lead and a lived-experience representative both approve new or materially changed pathway/message versions                                              | Draft, review, dual approval with named approvers and timestamps, publication, retirement, immutable version snapshots. Active plans keep their snapshot; an urgent safety retirement pauses affected future contacts for explicit review.                                                                                                        |
-| **Provider reconciliation**             | Staff perform manual provider reconciliation when an outage, discrepancy or suspected incident occurs                                                                        | Callback's expected dispatch record beside reported provider status for a bounded window; explicit resolution of each discrepancy; never automatically resends an uncertain contact.                                                                                                                                                              |
+| **Provider reconciliation**             | Staff perform manual provider reconciliation when an outage, discrepancy or suspected incident occurs                                                                        | Caring Contacts's expected dispatch record beside reported provider status for a bounded window; explicit resolution of each discrepancy; never automatically resends an uncertain contact.                                                                                                                                                       |
 | **Auditor access trail**                | Clinicians see episode-relevant history; privacy/security auditors see the complete access trail                                                                             | Role-gated, read-only, filterable view of every search, view, decision, mutation, write-back and administrative access.                                                                                                                                                                                                                           |
 | **Workload and queue monitor**          | The pilot has no numeric cap, so workload monitoring and stopping rules are mandatory                                                                                        | Queue age, unclaimed work against the 60-minute escalation, active plans per coordinator, exception backlog age. Operational only; never ranks clinicians.                                                                                                                                                                                        |
 | **Notification preferences**            | Alerts contain no patient identifiers and require authentication                                                                                                             | Per-user opt-in by alert class, with a preview demonstrating the identifier-free alert body.                                                                                                                                                                                                                                                      |
@@ -427,22 +446,37 @@ done, and committed separately so any single piece can be reverted while the pul
 
 ## 14. Open register — recorded, not solved
 
-None blocks this build; all block a real-patient pilot.
+None blocks this build; all block a real-patient pilot. Severity, controls and status for the clinical
+items live in the [hazard log](../../caring-contacts/hazard-log.md).
 
-| Item                                                          | Owner                               | Note                                                                                                                                                                                                                                |
-| ------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Aboriginal health and cultural safety review                  | Aboriginal health governance        | Required before any real patient; a culturally appropriate pathway is separate approved work.                                                                                                                                       |
-| Hosting: Railway has no Australian region                     | Josh, then a sponsoring service     | The app tier runs in Singapore; the decision lock requires Australian residency for data, backups, logs and provider processing. A real-patient deployment needs a separately contracted Australian PHI-capable environment.        |
-| Provisioning the dedicated caring-contact Supabase project    | Josh                                | Creating the project, its plan and cost, and the first hosted migration each need confirmation at the time. Sydney region. Synthetic data only. Development proceeds against local Postgres until it exists.                        |
-| A shareable hosted demo instance                              | Josh                                | The dedicated Supabase project makes the data shareable; serving the application to someone else is a further decision, since the app tier would still run outside Australia. Acceptable for synthetic data, not for real patients. |
-| Staff supervision and vicarious distress                      | Clinical programme lead             | Coordinators carry a caseload of recent suicidal crises; no supervision model exists.                                                                                                                                               |
-| Wrong-recipient contact runbook                               | Service                             | What happens when an unconnected person receives a message and rings the programme line.                                                                                                                                            |
-| Death during the programme: notification and team support     | Clinical programme lead             | Cancellation is mechanical; who is told, and what support the coordinator receives, is unspecified.                                                                                                                                 |
-| Equity limitation: people without a patient-controlled mobile | Josh, for the governance submission | Eligibility systematically excludes some of the most marginalised patients. State it rather than be asked.                                                                                                                          |
-| Provider inbound auto-response privacy position (§2.1)        | Privacy review                      | Inbound content transits the provider even though it is never retained.                                                                                                                                                             |
-| Retention figure                                              | Records officer                     | Seven years is a working assumption only.                                                                                                                                                                                           |
-| Sponsor case, costing and demonstration                       | Josh                                | No artefact yet addresses a clinical director rather than an engineer.                                                                                                                                                              |
-| Physical iPhone Safari and installed-PWA acceptance           | Josh                                | Chromium evidence cannot close it.                                                                                                                                                                                                  |
+| Item                                                          | Owner                               | Note                                                                                                                                                                                                                                          |
+| ------------------------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Named clinical safety officer                                 | Josh, then the sponsoring service   | Nobody owns clinical risk for the service. Hazard **H-00**.                                                                                                                                                                                   |
+| Lived-experience review of the message set                    | Josh                                | Never done. The [message review pack](../../caring-contacts/message-review-pack.md) is ready to run. Hazard **H-04**.                                                                                                                         |
+| Patient-visible reply wording is now inaccurate               | Josh, then dual approval            | §2.1 makes "Replies are not received, stored, analysed or monitored" untrue. The constant must change before any demonstration.                                                                                                               |
+| Aboriginal health and cultural safety review                  | Aboriginal health governance        | Required before any real patient; a culturally appropriate pathway is separate approved work. Hazard **H-05**.                                                                                                                                |
+| Hospital referral feed feasibility                            | Josh                                | Unconfirmed, and the largest programme risk. Questions, fallback and who to ask in [referral feasibility](../../caring-contacts/referral-feasibility.md). Hazard **H-44**.                                                                    |
+| Hosting: Railway has no Australian region                     | Josh, then a sponsoring service     | The app tier runs in Singapore; the decision lock requires Australian residency for data, backups, logs and provider processing. A real-patient deployment needs a separately contracted Australian PHI-capable environment. Hazard **H-36**. |
+| Provisioning the dedicated caring-contact Supabase project    | Josh                                | Creating the project, its plan and cost, and the first hosted migration each need confirmation at the time. Sydney region. Synthetic data only. Development proceeds against local Postgres until it exists.                                  |
+| A shareable hosted demo instance                              | Josh                                | The dedicated database makes the data shareable; serving the application to someone else is a further decision, since the app tier would still run outside Australia. Acceptable for synthetic data, not for real patients.                   |
+| Staff supervision and vicarious distress                      | Clinical programme lead             | Coordinators carry a caseload of recent suicidal crises; no supervision model exists. Hazard **H-43**.                                                                                                                                        |
+| Wrong-recipient contact runbook                               | Service                             | What happens when an unconnected person receives a message and rings the programme line. Hazard **H-13**.                                                                                                                                     |
+| Death during the programme: notification and team support     | Clinical programme lead             | Cancellation is mechanical; who is told, and what support the coordinator receives, is unspecified. Hazard **H-14**.                                                                                                                          |
+| Equity limitation: people without a patient-controlled mobile | Josh, for the governance submission | Eligibility systematically excludes some of the most marginalised patients. State it rather than be asked. Hazard **H-15**.                                                                                                                   |
+| Provider inbound auto-response privacy position (§2.1)        | Privacy review                      | Inbound content transits the provider even though it is never retained. Hazard **H-35**.                                                                                                                                                      |
+| Retention figure                                              | Records officer                     | Seven years is a working assumption only. Hazard **H-34**.                                                                                                                                                                                    |
+| Sponsor case and costing                                      | Josh                                | Partly addressed by the [evidence brief](../../caring-contacts/evidence-brief.md), whose citations are unverified, and the [demonstration script](../../caring-contacts/demo-script.md). Costing is still absent.                             |
+| Physical iPhone Safari and installed-PWA acceptance           | Josh                                | Chromium evidence cannot close it.                                                                                                                                                                                                            |
+
+## 14a. Companion documents
+
+| Document                                                              | Purpose                                                                                          |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [hazard log](../../caring-contacts/hazard-log.md)                     | Every clinical, privacy and operational hazard with severity, controls, status and owner.        |
+| [evidence brief](../../caring-contacts/evidence-brief.md)             | The honest evidence position for a sponsor, including the null trials. **Citations unverified.** |
+| [referral feasibility](../../caring-contacts/referral-feasibility.md) | Questions to ask about the hospital referral feed, who to ask, and the manual fallback.          |
+| [message review pack](../../caring-contacts/message-review-pack.md)   | How to run the lived-experience review, and the reply-wording correction it must settle.         |
+| [demonstration script](../../caring-contacts/demo-script.md)          | The five-minute path through the built system.                                                   |
 
 ## 15. Approval boundary
 
