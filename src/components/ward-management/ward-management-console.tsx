@@ -516,11 +516,7 @@ function DecisionDock({
           {patient.legalForm ? `${patient.legalForm.label} (${patient.legalForm.code})` : "No legal form required"}
         </span>
         <span>
-          {transportReady(patient.transport) ? (
-            <CheckCircle2 aria-hidden="true" />
-          ) : (
-            <CircleAlert aria-hidden="true" />
-          )}{" "}
+          {transportReady(patient.transport) ? <CheckCircle2 aria-hidden="true" /> : <CircleAlert aria-hidden="true" />}{" "}
           {transportStatusLabel(patient.transport)}
         </span>
         {displayedUnit ? (
