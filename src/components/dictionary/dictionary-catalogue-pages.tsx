@@ -259,13 +259,18 @@ export function DictionarySearchPage() {
               })}
             </section>
           ) : (
-            <div className="px-4 py-12 text-center">
+            // The empty state wears the same card as the result list. Bare on
+            // the page background it read as a rendering failure rather than an
+            // answer, and the advice named a filter even when none was applied.
+            <div className="border-y border-[color:var(--border)] px-4 py-12 text-center sm:rounded-xl sm:border-x sm:bg-[color:var(--surface)]">
               <Search className="mx-auto size-icon-xl text-[color:var(--decoration-soft)]" aria-hidden="true" />
               <h2 className="mt-3 text-lg font-extrabold text-[color:var(--text-heading)]">
                 No matching dictionary entries
               </h2>
-              <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-                Keep the search term and remove a filter, or try a broader term.
+              <p className="mx-auto mt-1 max-w-md text-sm text-[color:var(--text-muted)]">
+                {activeCount
+                  ? "Keep the search term and remove a filter, or try a broader term."
+                  : "Try a broader term, check the spelling, or browse the catalogue A–Z."}
               </p>
               {activeCount ? (
                 <button
@@ -275,7 +280,15 @@ export function DictionarySearchPage() {
                 >
                   Clear filters
                 </button>
-              ) : null}
+              ) : (
+                <Link
+                  href="/dictionary/browse"
+                  className="mt-4 inline-flex min-h-tap items-center gap-1.5 rounded-lg px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+                >
+                  Browse all terms
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              )}
             </div>
           )}
         </div>
@@ -348,9 +361,6 @@ export function DictionaryBrowsePage() {
           <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
             Browse terms
           </h1>
-          <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-            Scan the same source-linked result system by letter or abbreviation.
-          </p>
         </header>
         <div className="border-y border-[color:var(--border)] bg-[color:var(--surface)]">
           <div className="mx-auto grid w-full max-w-[76rem] gap-3 px-4 py-3 sm:px-6">
@@ -388,7 +398,10 @@ export function DictionaryBrowsePage() {
               <button
                 type="button"
                 onClick={() => setOne("sort", sort === "az" ? "za" : "az", "az")}
-                className="ml-auto inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text-muted)] sm:min-h-10"
+                // `sm:ml-auto`, not `ml-auto`: on a phone the toolbar wraps and the
+                // pushed-right sort control landed alone on a second line, hanging
+                // off the right edge instead of reading as part of the group.
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text-muted)] sm:ml-auto sm:min-h-10"
               >
                 {sort === "az" ? "A–Z" : "Z–A"}
                 <ChevronDown className="h-4 w-4" aria-hidden="true" />
@@ -472,6 +485,14 @@ export function DictionaryTopicsPage() {
     .filter((kind): kind is DictionaryEntryKind => dictionaryEntryKinds.includes(kind as DictionaryEntryKind));
   const sort = searchParams.get("sort") === "za" ? "za" : "az";
   const [filterOpen, setFilterOpen] = useState(false);
+  // Clears both narrowing inputs: `kind` from the filter sheet and a `q` carried
+  // in from a deep link. Either one alone can empty the list, so a Clear that
+  // only dropped `kind` would leave a `?q=` visitor stuck on an empty page.
+  const clearTopicFilters = () =>
+    replace((next) => {
+      next.delete("kind");
+      next.delete("q");
+    });
   const visible = dictionaryTopics
     .filter((topic) => topicMatches(topic.slug, query, kinds))
     .sort((a, b) => (sort === "az" ? a.title.localeCompare(b.title) : b.title.localeCompare(a.title)));
@@ -488,7 +509,9 @@ export function DictionaryTopicsPage() {
     <>
       <InformationPageShell width="bleed" gap={false} testId="dictionary-topics-main">
         <div className="mx-auto grid w-full max-w-[76rem] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:py-8">
-          <main className="min-w-0">
+          {/* A `div`, not a `main`: `InformationPageShell` already renders the
+              route's `<main>`, and a nested one is a duplicate landmark. */}
+          <div className="min-w-0">
             <header>
               <p className="text-xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
                 Governed collections
@@ -558,6 +581,30 @@ export function DictionaryTopicsPage() {
                   </Link>
                 );
               })}
+              {/* Reachable from a `?kind=`/`?q=` deep link. Without this the
+                  section collapsed to a bare rule under "0 collections". */}
+              {visible.length ? null : (
+                <div className="px-4 py-12 text-center">
+                  <Layers3 className="mx-auto size-icon-xl text-[color:var(--decoration-soft)]" aria-hidden="true" />
+                  <h2 className="mt-3 text-lg font-extrabold text-[color:var(--text-heading)]">
+                    No matching collections
+                  </h2>
+                  <p className="mx-auto mt-1 max-w-md text-sm text-[color:var(--text-muted)]">
+                    {kinds.length
+                      ? "No governed collection carries a term of that kind."
+                      : "Nothing in the governed collections matches that search."}
+                  </p>
+                  {kinds.length || query ? (
+                    <button
+                      type="button"
+                      onClick={clearTopicFilters}
+                      className="mt-4 min-h-tap rounded-lg px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+                    >
+                      Show all collections
+                    </button>
+                  ) : null}
+                </div>
+              )}
             </section>
             <div className="mt-3 grid border-y border-[color:var(--border)] lg:hidden">
               <DisclosureLink
@@ -571,7 +618,7 @@ export function DictionaryTopicsPage() {
                 href="/dictionary/compare"
               />
             </div>
-          </main>
+          </div>
           <aside className="hidden border-l border-[color:var(--border)] pl-6 lg:block">
             <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">Browse by kind</h2>
             <div className="mt-2 grid">
@@ -617,7 +664,7 @@ export function DictionaryTopicsPage() {
         testId="dictionary-topic-filters"
         title="Filter topics"
         groups={groups}
-        onClearAll={kinds.length ? () => replace((next) => next.delete("kind")) : undefined}
+        onClearAll={kinds.length ? clearTopicFilters : undefined}
         summary={{ count: visible.length, noun: visible.length === 1 ? "topic" : "topics" }}
         onApply={() => setFilterOpen(false)}
       />
@@ -715,7 +762,7 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
       />
       <InformationPageShell width="bleed" gap={false} testId="dictionary-topic-detail-main">
         <div className="mx-auto grid w-full max-w-[76rem] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:py-8">
-          <main id="dictionary-topic-terms" className="min-w-0 scroll-mt-page-section">
+          <div id="dictionary-topic-terms" className="min-w-0 scroll-mt-page-section">
             <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
               {topic.title}
             </h1>
@@ -825,7 +872,7 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
                 </div>
               </details>
             </div>
-          </main>
+          </div>
           <aside
             id="dictionary-topic-details-desktop"
             aria-label="Collection details"
