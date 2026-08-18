@@ -6,13 +6,12 @@ import {
   ModeHomeMain,
   ModeHomeStatusNotice,
   ModeHomeTemplate,
-  ModeHomeVerificationFooter,
   type ModeHomeAction,
   type ModeHomePill,
 } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-registry-records";
+import { useRegistryRecords } from "@/lib/use-registry-records";
 
 // The default service slug is computed server-side (app/services/page.tsx) and
 // passed as a prop: a direct `@/lib/services` value import here would compile
@@ -91,7 +90,6 @@ const commonPathways: ModeHomePill[] = [
 export function ServicesHomePage({ defaultServiceSlug = null }: { defaultServiceSlug?: string | null }) {
   const taskCards = buildTaskCards(defaultServiceSlug);
   const registry = useRegistryRecords("service", { view: "summary" });
-  const verifiedCount = countVerifiedRegistryRecords(registry);
   const registryReady = registry.status === "ready" || registry.status === "refetching";
   const hasRegistryRecords = registryReady && registry.total > 0;
   const registryNotice =
@@ -142,18 +140,7 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
         actions={hasRegistryRecords ? taskCards : []}
         pillsTitle="Browse by need"
         pills={hasRegistryRecords ? commonPathways : []}
-        footer={
-          hasRegistryRecords ? (
-            <ModeHomeVerificationFooter
-              label="Referral fit"
-              body="Need, catchment, eligibility and route"
-              verifiedCount={verifiedCount}
-              totalCount={registry.total}
-            />
-          ) : (
-            registryNotice
-          )
-        }
+        footer={hasRegistryRecords ? null : registryNotice}
       />
     </ModeHomeMain>
   );
