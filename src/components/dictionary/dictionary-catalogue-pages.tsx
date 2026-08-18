@@ -131,12 +131,16 @@ export function DictionarySearchPage() {
     }),
     resultFilterFacetGroup({
       id: "sources",
-      label: "Source organisation",
+      // Labelled by the source's own title, not its organisation: five of the
+      // twelve sources are published by Healthdirect Australia, so an
+      // organisation label rendered five identical options that each filtered to
+      // a different single document.
+      label: "Source",
       selected: new Set(filters.sources),
       options: dictionarySources.map((source) => ({
         value: source.id,
-        label: source.organisation,
-        searchText: source.title,
+        label: source.title,
+        searchText: `${source.title} ${source.organisation}`,
         hint: String(searchDictionary({ ...filters, sources: [source.id] }).length),
       })),
       onToggle: (value) => toggleMany("source", value),
@@ -159,7 +163,7 @@ export function DictionarySearchPage() {
     ...filters.sources.map((sourceId) => ({
       id: `source-${sourceId}`,
       groupLabel: "Source",
-      valueLabel: dictionarySources.find((source) => source.id === sourceId)?.organisation ?? sourceId,
+      valueLabel: dictionarySources.find((source) => source.id === sourceId)?.title ?? sourceId,
       onRemove: () => toggleMany("source", sourceId),
     })),
   ];

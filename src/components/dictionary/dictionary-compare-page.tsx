@@ -29,7 +29,7 @@ import {
   findDictionaryEntry,
   searchDictionary,
 } from "@/lib/dictionary";
-import { type DictionaryEntry } from "@/lib/dictionary-data";
+import { dictionarySource, type DictionaryEntry } from "@/lib/dictionary-data";
 import { type DictionarySearchHit } from "@/lib/dictionary";
 
 type TargetSide = "a" | "b";
@@ -57,6 +57,10 @@ export function DictionaryComparePage({ a, b }: { a: DictionaryEntry | null; b: 
     return () => media.removeEventListener("change", update);
   }, []);
   const pair = a && b ? dictionaryComparisonPair(a.slug, b.slug) : null;
+  const pairSources = (pair?.sourceRefs ?? []).flatMap((reference) => {
+    const source = dictionarySource(reference.sourceId);
+    return source ? [source] : [];
+  });
   const pickerHits = useMemo(
     () =>
       searchDictionary({
@@ -209,10 +213,28 @@ export function DictionaryComparePage({ a, b }: { a: DictionaryEntry | null; b: 
                   <strong className="text-[color:var(--info)]">B · {shortName(b)}</strong>
                   <span className="mt-1 block">{b.comparison.purpose}.</span>
                 </p>
-                <p className="sm:col-start-2 sm:col-span-2 text-xs font-semibold text-[color:var(--text-muted)]">
-                  {pair?.summary ??
-                    "No curated relationship summary is published for this pair; the stored fields below are aligned without interpretation."}
-                </p>
+                <div className="sm:col-start-2 sm:col-span-2">
+                  <p className="text-xs font-semibold text-[color:var(--text-muted)]">
+                    {pair?.summary ??
+                      "No curated relationship summary is published for this pair; the stored fields below are aligned without interpretation."}
+                  </p>
+                  {pairSources.length ? (
+                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[color:var(--text-muted)]">
+                      <span className="font-semibold">Relationship source{pairSources.length === 1 ? "" : "s"}:</span>
+                      {pairSources.map((source) => (
+                        <Link
+                          key={source.id}
+                          href={source.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline decoration-dotted underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                        >
+                          {source.title}
+                        </Link>
+                      ))}
+                    </p>
+                  ) : null}
+                </div>
               </section>
 
               <div className="mt-4 hidden sm:block">
@@ -232,8 +254,14 @@ export function DictionaryComparePage({ a, b }: { a: DictionaryEntry | null; b: 
                 </span>
                 <span aria-hidden="true">·</span>
                 <span>
-                  {new Set([...a.sourceRefs, ...b.sourceRefs].map((reference) => reference.sourceId)).size} covered
-                  sources
+                  {
+                    new Set(
+                      [...a.sourceRefs, ...b.sourceRefs, ...(pair?.sourceRefs ?? [])].map(
+                        (reference) => reference.sourceId,
+                      ),
+                    ).size
+                  }{" "}
+                  covered sources
                 </span>
               </div>
             </div>
