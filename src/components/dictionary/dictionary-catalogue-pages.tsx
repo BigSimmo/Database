@@ -361,9 +361,6 @@ export function DictionaryBrowsePage() {
           <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
             Browse terms
           </h1>
-          <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-            Scan the same source-linked result system by letter or abbreviation.
-          </p>
         </header>
         <div className="border-y border-[color:var(--border)] bg-[color:var(--surface)]">
           <div className="mx-auto grid w-full max-w-[76rem] gap-3 px-4 py-3 sm:px-6">
@@ -401,7 +398,10 @@ export function DictionaryBrowsePage() {
               <button
                 type="button"
                 onClick={() => setOne("sort", sort === "az" ? "za" : "az", "az")}
-                className="ml-auto inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text-muted)] sm:min-h-10"
+                // `sm:ml-auto`, not `ml-auto`: on a phone the toolbar wraps and the
+                // pushed-right sort control landed alone on a second line, hanging
+                // off the right edge instead of reading as part of the group.
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text-muted)] sm:ml-auto sm:min-h-10"
               >
                 {sort === "az" ? "A–Z" : "Z–A"}
                 <ChevronDown className="h-4 w-4" aria-hidden="true" />
