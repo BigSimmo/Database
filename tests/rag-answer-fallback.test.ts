@@ -2077,6 +2077,9 @@ describe("RAG structured-output fallback", () => {
     expect(answerCalls[0]?.[2].instructions).toContain("Within one named scale and source");
     expect(answerCalls[0]?.[2].instructions).toContain("cite the smallest sufficient directly supporting chunk set");
     expect(answerInput).toContain("answer_plan.intent: clinical_synthesis");
+    // Packet S2: the composition menu rides in the interpreted-task block. A monitoring
+    // question classifies medication_dose_risk with a `general` heuristic intent → dosing menu.
+    expect(answerInput).toContain("related_information_menu: monitoring_timing — monitoring schedule and levels;");
     expect(answerInput).toContain("answer_plan.route_mode: strong");
     expect(answerInput).toContain("answer_plan.model_strategy: strong_model_then_quality_gate");
     expect(answerInput).toContain("answer_plan.source_policy: required_citations");
