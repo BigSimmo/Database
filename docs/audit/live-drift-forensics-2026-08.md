@@ -61,8 +61,9 @@ Outstanding for the operator: add `SUPABASE_ACCESS_TOKEN` to environment secrets
 ## Phase 1 — Read-only forensics
 
 _Partially run 2026-08-14 in an owner-authorized incident window, then extended the same day in a
-read-only connector session. 1.2 is enumerated and noise-separated but its per-function diff hunks,
-the remaining index sizing, and the dashboard audit-history pairing remain pending._
+read-only connector session. **1.2 was completed 2026-08-18** in a second read-only connector
+session (all ten RPC mismatches classified — see the dated block in §1.2). The remaining index
+sizing (§1.3) and the dashboard audit-history pairing (§1.1) remain pending._
 
 ### 1.1 Migration-history fingerprint
 
@@ -145,6 +146,197 @@ extra, because the manifest stores `public.fn(extensions.vector,…)` and the li
 `fn(vector,…)`. That is a join failure, not a finding. Normalize both sides (strip the `public.`
 prefix, fold `extensions.vector` → `vector`) before comparing, then test each surviving mismatch
 against the qualification variants before calling it divergence.
+
+#### 1.2 completion — 2026-08-18 (owner-authorized read-only connector session)
+
+**Session note.** Supabase MCP connector, `list_projects` verified the target before the first
+query: `sjrfecxgysukkwxsowpy` = `Clinical KB Database` (ACTIVE_HEALTHY, Postgres 17.6.1.127).
+Every `execute_sql` call passed that ref literally; the sibling `Clinical KB Staging`
+(`ikoiolksxqxfxgiyqpnu`) was never targeted. Session role `postgres`. Four statements were run,
+all `SELECT` (one preceded by `set local search_path to ''` inside the same implicit transaction);
+**no INSERT/UPDATE/DELETE/DDL**. Captured 2026-08-17 16:28–16:29 UTC and 2026-08-18 04:07 UTC.
+Open-PR check (`#292`) before starting: no open PR touched this section, `supabase/migrations/**`,
+`schema.sql`, or `src/lib/rag/**`. No RPC, migration, or `src/lib/rag/**` file was edited.
+
+**Result in one line: all ten are classified. Every one of the ten is an attribute-only difference —
+the live definition carries a `SET work_mem TO '…'` clause that the manifest's source
+(`supabase/schema.sql`) does not — and stripping exactly that one line from the live definition
+reproduces the manifest `def_hash` byte-for-byte for all ten.** Bodies, signatures, return shapes,
+volatility, `search_path`/`plan_cache_mode` clauses and ACLs are identical to the repo. Zero of
+the ten is a body divergence; zero is repo-ahead; none remains UNCLASSIFIED.
+
+**Normalization rule used (quoted, not assumed).** The manifest is produced by
+`scripts/generate-drift-manifest.ts` (lines 185–192): it replays `supabase/schema.sql` into a
+scratch Supabase Postgres container and calls `public.schema_drift_snapshot()`; there is no
+JS-side normalization, so **manifest = `schema.sql` mirror, hashed by the same SQL rule that hashes
+live**. That rule is `supabase/migrations/20260706200000_schema_drift_snapshot.sql:89` (the only
+migration that defines the function; it runs `security definer set search_path to ''`):
+
+```sql
+md5(regexp_replace(regexp_replace(regexp_replace(pg_get_functiondef(p.oid), '/\*.*?\*/', '', 'gs'), '--[^\n]*', '', 'g'), '\s+', '', 'g'))
+```
+
+It strips block comments, `--` line comments and all whitespace, and nothing else — `SET`
+attributes rendered by `pg_get_functiondef` **are** hashed. `check:drift` compares functions on
+`def_hash` and `acl` (`scripts/check-drift.ts:68`); ACLs were equal for all ten
+(`{postgres=X/postgres, service_role=X/postgres}` on both sides).
+
+**Repo-side facts that make the hypothesis testable.** `grep -n work_mem supabase/schema.sql`
+returns **zero** hits. `supabase/migrations/20260724000000_optimize_rpc_work_mem.sql` is the only
+migration mentioning `work_mem`; it runs `ALTER FUNCTION … SET work_mem = '64MB'` on exactly eight
+of the ten (all except `match_document_chunks_text_v2` and `match_document_index_units_hybrid_v2`).
+
+**Query 1 — live hashes as the drift check computes them** (16:28:35 UTC), so the comparison uses
+the RPC's own pinned rendering rather than a session's:
+
+```sql
+select f->>'signature', f->>'def_hash', f->'acl'
+from jsonb_array_elements(public.schema_drift_snapshot()->'functions') f
+where f->>'signature' like 'public.match_document%' order by 1;
+```
+
+The ten live hashes equal, line for line, the `live=` values in issue #1963's 2026-08-17 findings
+block (e.g. `match_document_chunks_text` `d135c628720cb8a4d86c2ade4cd3b26a`).
+
+**Query 2 — the one query for all ten** (16:29:04 UTC): `set local search_path to '';` then a
+`SELECT` of `p.oid::regprocedure::text`, `p.proconfig`, `exists(… c like 'work_mem=%')`,
+`exists(… c like 'plan_cache_mode=%')`, the normalization expression above applied to
+`pg_get_functiondef(p.oid)` as `raw_hash`, and `pg_get_functiondef(p.oid)` itself, from
+`pg_catalog.pg_proc` where `pronamespace = 'public'::regnamespace` and `proname in (<the ten>)`.
+Acceptance check before trusting any variant: `raw_hash` equalled Query 1's live `def_hash` for
+**all ten**, proving the fetched text is exactly the text the drift RPC hashed.
+
+**Query 3 — hash variants over the same text**, computed in SQL with the identical expression (so
+Postgres ARE semantics decide, not a JS re-implementation): as-is; minus the `SET work_mem TO
+'…'` line; minus `SET plan_cache_mode …`; minus both; with `work_mem` rewritten to `'64MB'`; with a
+`plan_cache_mode` line added. Outcome: `no_workmem_match = true` for **10/10**; `asis`, `no_pcm`
+and `add_pcm` matched for 0/10. (`no_workmem_no_pcm` also matched for the six that carry no
+`plan_cache_mode`, which is the same fact.) The `work_mem → '64MB'` variant reproduces the live
+hash for the six whose live value is already 64MB and a third, different hash for the four at
+128MB — i.e. those four are not "the repo's 64MB rendered differently".
+
+**Query 4 — migration history** (04:07 UTC) for the interacting versions, plus any row whose
+recorded statements mention `work_mem`:
+
+| version          | name                                     | `no_statements` | `stmt_count` | statements mentioning `work_mem` |
+| ---------------- | ---------------------------------------- | --------------- | -----------: | -------------------------------: |
+| `20260701140631` | `codify_live_retrieval_rpcs`             | false           |            1 |                                0 |
+| `20260711120000` | `retrieval_fn_plan_cache_mode`           | false           |            4 |                                0 |
+| `20260713020000` | `owner_plus_public_retrieval`            | false           |           37 |                                0 |
+| `20260714110000` | `promote_documents_index_generation_id`  | false           |           17 |                                0 |
+| `20260717160000` | `optimize_owner_public_retrieval`        | false           |           12 |                                0 |
+| `20260717162000` | `bound_versioned_retrieval_match_count`  | false           |            6 |                                0 |
+| `20260724000000` | `optimize_rpc_work_mem`                  | false           |            9 |                            **8** |
+| `20260724120000` | `table_facts_plpgsql_execute`            | false           |            3 |                                0 |
+| `20260724130000` | `explicit_base_match_rpc_execute_grants` | false           |            1 |                                0 |
+
+`20260724000000` is the **only** recorded migration touching `work_mem`, and it records eight
+`64MB` statements — so no recorded history produces a `128MB` value, a `work_mem` on either `_v2`,
+or a `work_mem` on `match_document_table_facts_text` after `20260724120000` re-created it (a
+`CREATE OR REPLACE FUNCTION` replaces the whole config-item set; a clean replay of the recorded
+chain leaves that function without `work_mem`). Live `proconfig` order on `table_facts_text` is
+`[search_path, plan_cache_mode, work_mem]` — the recreate's two clauses followed by an appended
+`ALTER … SET work_mem` — which is direct evidence that `work_mem` was re-applied to it **after**
+`20260724120000`, outside recorded history.
+
+**Per-function table.** "Repo chain" = what a clean replay of `supabase/migrations/**` produces;
+"mirror" = `supabase/schema.sql` (the manifest source). Manifest/live hashes are those of Query 1
+and `supabase/drift-manifest.json` (`generated_at 2026-08-16T14:37:41Z`); "hash outcome" is the
+Query 3 variant that reproduced the manifest hash exactly.
+
+| Function (live signature, `search_path ''` rendering)                                                       | Live `SET work_mem` | Live `plan_cache_mode` | Repo chain `work_mem`                         | Mirror `work_mem` | Hash outcome                                                         | Classification                                                                                                                      |
+| ----------------------------------------------------------------------------------------------------------- | ------------------- | ---------------------- | --------------------------------------------- | ----------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `match_document_chunks_text(text,integer,uuid[],uuid)`                                                      | yes — `64MB`        | no                     | `64MB` (20260724000000)                       | none              | strip `SET work_mem` → `0e662039807813b400e685d7307d7929` = manifest | **mirror-stale, attribute-only** (live = repo chain; `schema.sql` omits the clause)                                                 |
+| `match_document_lookup_chunks_text(text,uuid[],integer,uuid)`                                               | yes — `64MB`        | no                     | `64MB` (20260724000000)                       | none              | strip → `989281557ff4877f8eae5c9a32a3ef8c` = manifest                | **mirror-stale, attribute-only**                                                                                                    |
+| `match_document_memory_cards_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)`           | yes — `64MB`        | yes                    | `64MB` (20260724000000)                       | none              | strip → `1a937f133f5cb6e6d59a5b00311ec685` = manifest                | **mirror-stale, attribute-only**                                                                                                    |
+| `match_document_memory_cards_hybrid_v2(extensions.vector,text,integer,double precision,uuid[],uuid)`        | yes — `64MB`        | no                     | `64MB` (20260724000000)                       | none              | strip → `0534ad140950e83128b3434caa5ffd32` = manifest                | **mirror-stale, attribute-only**                                                                                                    |
+| `match_document_table_facts_text(text,integer,uuid[],uuid)`                                                 | yes — `64MB`        | yes                    | **none** (dropped by 20260724120000 recreate) | none              | strip → `f68e03ca96f8403d171509a59a769682` = manifest                | **live-ahead, attribute-only** (`64MB` re-applied live after the recreate; matches 20260724000000's intent, not the replayed chain) |
+| `match_document_chunks_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)`                 | yes — **`128MB`**   | no                     | `64MB` (20260724000000)                       | none              | strip → `b5dfaa5e0d6b27ad0c7cfc89711953cb` = manifest                | **live-ahead, attribute-only** (value raised live; no recorded migration sets 128MB)                                                |
+| `match_document_embedding_fields_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)`       | yes — **`128MB`**   | yes                    | `64MB` (20260724000000)                       | none              | strip → `a2d97503e95af88097557029e0ea7836` = manifest                | **live-ahead, attribute-only**                                                                                                      |
+| `match_document_index_units_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)`            | yes — **`128MB`**   | yes                    | `64MB` (20260724000000)                       | none              | strip → `2e8810a1ec9927aba7c1f04fd18287d1` = manifest                | **live-ahead, attribute-only**                                                                                                      |
+| `match_document_chunks_text_v2(text,integer,uuid[],uuid,boolean)`                                           | yes — `64MB`        | no                     | **none**                                      | none              | strip → `3d99483e01a5c93374408b9e585d3962` = manifest                | **live-ahead, attribute-only** (no migration ever set it)                                                                           |
+| `match_document_index_units_hybrid_v2(extensions.vector,text,integer,double precision,uuid[],uuid,boolean)` | yes — **`128MB`**   | no                     | **none**                                      | none              | strip → `b72c524f3be13ec1a950cc30e922ec78` = manifest                | **live-ahead, attribute-only** (no migration ever set it)                                                                           |
+
+**Decisive hunk (identical shape for all ten; shown for the two `_v2` outliers the hypothesis did
+not cover).** Live `pg_get_functiondef` vs the repo's canonical body — for both `_v2`s the newest
+migration carrying an actual `create or replace function … as $$ … $$` body is
+`20260717162000_bound_versioned_retrieval_match_count.sql` (not the newer files that merely mention
+them), and `schema.sql:7761` / `:7943` carry the same body — differs only in the header:
+
+```diff
+ CREATE OR REPLACE FUNCTION public.match_document_chunks_text_v2(query_text text, match_count integer DEFAULT 12, document_filters uuid[] DEFAULT NULL::uuid[], owner_filter uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid, include_public boolean DEFAULT true)
+  RETURNS TABLE(id uuid, document_id uuid, title text, … lexical_score double precision, images jsonb)
+  LANGUAGE sql
+  STABLE
+  SET search_path TO 'public', 'extensions', 'pg_temp'
++ SET work_mem TO '64MB'
+ AS $function$
+   select *
+   from public.match_document_chunks_text_scoped($1, least(greatest(coalesce($2, 12), 1), 96), $3, $4, $5);
+ $function$
+```
+
+```diff
+ CREATE OR REPLACE FUNCTION public.match_document_index_units_hybrid_v2(query_embedding extensions.vector, query_text text, match_count integer DEFAULT 24, min_similarity double precision DEFAULT 0.1, document_filters uuid[] DEFAULT NULL::uuid[], owner_filter uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid, include_public boolean DEFAULT true)
+  RETURNS TABLE(id uuid, document_id uuid, … hybrid_score double precision, metadata jsonb)
+  LANGUAGE sql
+  STABLE
+  SET search_path TO 'public', 'extensions', 'pg_temp'
++ SET work_mem TO '128MB'
+ AS $function$
+   select *
+   from public.match_document_index_units_hybrid_scoped($1, $2, least(greatest(coalesce($3, 24), 1), 96), $4, $5, $6, $7);
+ $function$
+```
+
+For the eight hypothesis functions the hunk is the same single `+ SET work_mem TO '64MB'` /
+`'128MB'` line under the existing `SET search_path` (and, where present, `SET plan_cache_mode`)
+clauses; the `$function$ … $function$` bodies are unchanged. The Query 3 exact-hash reproduction is
+the proof that nothing else differs — a body edit anywhere would have broken it.
+
+**What this means for Phase 3 (owner decisions flagged, not asserted).**
+
+- **Zero repo-ahead entries.** No live function is behind the repo. So the plan's repo-ahead rule
+  (eval-canary pair around a deploy) has **no** trigger from this dossier.
+- **Four mirror-stale entries** (`chunks_text`, `lookup_chunks_text`, `memory_cards_hybrid`,
+  `memory_cards_hybrid_v2`): live already equals the recorded migration chain. Remedy is entirely
+  repo-side — add the `SET work_mem = '64MB'` clause to their `schema.sql` definitions and regenerate
+  `drift-manifest.json` (`npm run drift:manifest`, Docker). **No hosted change.** Phase 3 may
+  execute these now.
+- **Six live-ahead, attribute-only entries** (`table_facts_text` 64MB; `chunks_hybrid`,
+  `embedding_fields_hybrid`, `index_units_hybrid`, `index_units_hybrid_v2` 128MB; `chunks_text_v2`
+  64MB): the live value has no recorded migration. The plan's live-ahead remedy — codify the live
+  attribute in a new migration (`ALTER FUNCTION … SET work_mem = '<live value>'`, ordered after
+  every recreate of that function) plus the `schema.sql` mirror, PR body `RAG impact: no retrieval
+behaviour change — codifying already-live attribute` — needs **no hosted change** either, because
+  the migration would be marked applied against a state that already matches. Phase 3 may execute
+  these once the owner confirms the live values are the intended ones. **Owner decision:** keep
+  128MB on the four (codify as-is), or standardise to the recorded 64MB (that direction _is_ a
+  hosted change and should carry at least a before/after latency measurement).
+- **Canary exemption — flagged, not asserted.** `work_mem` is a planner/executor memory setting; it
+  changes which plan runs (hash vs sort, spill vs in-memory) and therefore latency, not the SQL
+  result set. The result set is fully determined by each RPC's `ORDER BY … LIMIT`, so answer
+  content and ranking are unaffected **except** that rows with exactly equal sort keys can surface
+  in a different order under a different plan. The recommendation is that codify-as-live (no hosted
+  change) proceeds without an eval-canary, and that any hosted change of a live value is treated
+  as latency-only but confirmed by the Phase 5 `EXPLAIN` re-run rather than an eval dispatch. This
+  exemption is the owner's to grant.
+- **Nothing remains escalated as UNCLASSIFIED from 1.2.** The residual open question is
+  provenance, not classification: who set 128MB / the `_v2` values and when. That pairs with the
+  §1.1 dashboard audit-history action already owed to the owner.
+
+**Playbook correction (recorded here; the playbook itself was not edited).** The trap list says
+`20260724120000_table_facts_plpgsql_execute.sql` contains zero `create or replace function`. It
+contains one, at line 9, and it is the newest canonical body for `match_document_table_facts_text`
+— which is exactly why that function's `work_mem` was reset on a clean replay. The trap's lesson
+(the newest _mention_ is often not the definition) still stands for `20260724130000`.
+
+**Method note for the next reader.** Rendering matters twice: `regprocedure` and `format_type`
+qualify `extensions.vector` only when the session `search_path` excludes `extensions`, and
+`schema_drift_snapshot()` pins `search_path` to `''`. Prefixing the fetch with
+`set local search_path to ''` in the same implicit transaction (multi-statement `execute_sql`)
+made the fetched text hash-identical to the RPC's own output on the first attempt; verify that
+equality before trusting any derived variant.
 
 ### 1.3 Index inventory, sizing, and EXPLAIN baselines
 
