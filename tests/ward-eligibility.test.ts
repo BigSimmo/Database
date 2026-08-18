@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { eligibility, requiresAuthorisedDestination } from "../src/components/ward-management/ward-eligibility";
-import type { Movement, Unit } from "../src/components/ward-management/ward-model";
+import type { LegalStatus, Movement, Unit } from "../src/components/ward-management/ward-model";
 
 const NOW = 10 * 60 + 42;
 
@@ -65,8 +65,9 @@ describe("authorisation", () => {
 
   it("treats unknown-status movements as requiring authorisation, failing safe", () => {
     const verdict = eligibility(
-      // @ts-expect-error deliberately malformed to prove conservative failure
-      movement({ legalStatus: undefined }),
+      // A movement whose legal status never arrived. Cast deliberately: the point of the
+      // test is the runtime fail-safe, not the type system.
+      movement({ legalStatus: undefined as unknown as LegalStatus }),
       unit({ authorised: false }),
       NOW,
     );
