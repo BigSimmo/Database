@@ -158,6 +158,13 @@
  * the strip's only job is a one-second read). `auto-fit` sizes eight columns comfortably at
  * 1600px and wraps onto more rows as the region narrows, without ever clipping a card.
  */
+.pressureRule {
+  margin: 0 0 var(--co-space-8);
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--co-leading-body);
+}
+
 .pressureList {
   display: grid;
   min-width: 0;
@@ -188,7 +195,24 @@
 .pressureCardSelected {
   border-color: var(--clinical-accent-border);
   background: var(--clinical-accent-soft);
+  /*
+   * `outline` rather than another border/background/box-shadow property: the breaching rule
+   * below sets border-color and background on `.pressureCardSelected[data-breaching]` too (a
+   * breaching card is always danger-tinted, selected or not), which fully overrides those two
+   * properties here regardless of selector order. `outline` is never touched by that rule, so
+   * it survives on a selected+breaching card — previously the only surviving difference there
+   * was a 1px inset shadow, which forced-colors flattens to `none`, leaving zero visible
+   * difference between selected and unselected on any breaching card (Task 4 review Important
+   * 4). `outline-offset: -0.125rem` draws it just inside the border so it doesn't add to the
+   * card's footprint in the grid.
+   */
+  outline: 0.125rem solid var(--clinical-accent-border);
+  outline-offset: -0.125rem;
   box-shadow: var(--shadow-inset);
+}
+
+.pressureCardSelected:hover {
+  outline-width: 0.1875rem;
 }
 
 /*
@@ -196,10 +220,11 @@
  * see `edPressure`), but ordering alone reads as arbitrary at a glance. A department with a
  * breached legal deadline gets the danger tint regardless of selection state, so the reason it
  * leads is visible on the card itself, not just implied by its position (Task 4 ruling — "the
- * worst card must say why it is worst").
+ * worst card must say why it is worst"). `data-breaching` is always the real numeric count
+ * (never a boolean), so this matches any non-zero count rather than one hard-coded sentinel.
  */
-.pressureCard[data-breaching="true"],
-.pressureCardSelected[data-breaching="true"] {
+.pressureCard:not([data-breaching="0"]),
+.pressureCardSelected:not([data-breaching="0"]) {
   border-color: var(--danger-border);
   background: var(--danger-bg);
 }
@@ -383,5 +408,17 @@
 @media (forced-colors: active) {
   .queueRowSelected {
     border: 0.125rem solid Highlight;
+  }
+
+  /*
+   * The system palette forced-colors substitutes for `--clinical-accent-border` and
+   * `--danger-border` can render close enough to each other that the outline alone (still an
+   * author-specified colour subject to the same substitution) risks blending into a breaching
+   * card's forced border too. Pin it explicitly to `Highlight` so the selected state stays
+   * legible even when every other colour on the card has been flattened to the system palette
+   * (Task 4 review Important 4).
+   */
+  .pressureCardSelected {
+    outline-color: Highlight;
   }
 }

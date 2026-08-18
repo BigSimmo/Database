@@ -3,6 +3,13 @@ import { expect, test, type Page } from "playwright/test";
 async function gotoCoordinator(page: Page) {
   await page.goto("/ward-management", { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("ward-coordinator")).toBeVisible({ timeout: 15_000 });
+  // The console is visible from the first paint, but this dev environment settles the route
+  // shortly after (a second same-URL navigation event follows the first). A click issued in
+  // that window can be lost even though every element is already visible and stable, so wait
+  // for network activity to quiesce — the one reliable, non-arbitrary signal available here —
+  // before the first interaction. Mirrors `gotoWardFlow` in ui-ward-management.spec.ts (Task 4
+  // review Important 6: a retry loop around the click was masking this instead of fixing it).
+  await page.waitForLoadState("networkidle");
 }
 
 /**
@@ -62,35 +69,50 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(worst).toContainText("waiting");
     await expect(worst).toContainText("longest");
 
-    // Choosing one filters the queue to that department and says so.
-    //
-    // The click itself is retried, not just the assertion after it: a click landing before
-    // React attaches the card's handler is swallowed silently (same "unhydrated first click"
-    // race documented on the app-mode trigger in ui-smoke.spec.ts), so asserting the filter
-    // once flakes on that race rather than on a real regression. `--repeat-each=3` reproduced
-    // it 2 of 3 runs with a bare `.click()` here, even with this test run alone.
+    // The rendered sequence itself is non-increasing on the two keys `edPressure` ranks by.
+    // Asserting only that card 1 "contains some text" (above) stays true even if the rows were
+    // reversed — this pins the ordering property instead (Task 4 review Important 1). It reads
+    // the actual numeric sort keys off `data-breaching`/`data-longest-minutes` rather than
+    // hard-coding "PEEL is first", so it keeps validating the rule if the fixture data changes.
+    const sortKeys = await cards.evaluateAll((nodes) =>
+      nodes.map((node) => ({
+        breaching: Number(node.getAttribute("data-breaching")),
+        longestMinutes: Number(node.getAttribute("data-longest-minutes")),
+      })),
+    );
+    for (let i = 1; i < sortKeys.length; i++) {
+      const prev = sortKeys[i - 1];
+      const curr = sortKeys[i];
+      const doesNotOutrankPrevious =
+        curr.breaching < prev.breaching ||
+        (curr.breaching === prev.breaching && curr.longestMinutes <= prev.longestMinutes);
+      expect(
+        doesNotOutrankPrevious,
+        `card ${i} ${JSON.stringify(curr)} must not rank above card ${i - 1} ${JSON.stringify(prev)}`,
+      ).toBe(true);
+    }
+
+    // Choosing one filters the queue to that department and says so — and to exactly that
+    // department's own movements, not merely to some smaller set of the same rough size. A
+    // filter that names the clicked department while quietly showing a different one's patients
+    // is worse than no filter, and `after < before` alone cannot tell the two apart (Task 4
+    // review Important 2).
+    const worstEdId = (await worst.getAttribute("data-testid"))?.replace("ward-ed-", "");
+    const worstWaiting = Number(await worst.getAttribute("data-waiting"));
     const queue = page.getByRole("region", { name: "Priority queue" });
     const before = await queue.locator('[data-testid^="ward-queue-row-"]').count();
-    await expect(async () => {
-      if (
-        await queue
-          .getByText("Filtered to", { exact: false })
-          .isVisible()
-          .catch(() => false)
-      )
-        return;
-      await worst.click();
-      await expect(queue).toContainText("Filtered to", { timeout: 2_000 });
-    }).toPass({ timeout: 15_000 });
-    const after = await queue.locator('[data-testid^="ward-queue-row-"]').count();
-    expect(after).toBeLessThan(before);
+    await worst.click();
+    await expect(queue).toContainText("Filtered to");
+    const rows = queue.locator('[data-testid^="ward-queue-row-"]');
+    await expect(rows).toHaveCount(worstWaiting);
+    const originIds = await rows.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-origin-ed")));
+    for (const originId of originIds) {
+      expect(originId).toBe(worstEdId);
+    }
+    expect(worstWaiting).toBeLessThan(before);
 
-    // And clearing restores it — same retry, for the same reason, on the clear click.
-    const clearFilter = queue.getByRole("button", { name: /Clear filter/ });
-    await expect(async () => {
-      if ((await queue.locator('[data-testid^="ward-queue-row-"]').count()) === before) return;
-      await clearFilter.click();
-      await expect(queue.locator('[data-testid^="ward-queue-row-"]')).toHaveCount(before, { timeout: 2_000 });
-    }).toPass({ timeout: 15_000 });
+    // And clearing restores it.
+    await queue.getByRole("button", { name: /Clear filter/ }).click();
+    await expect(queue.locator('[data-testid^="ward-queue-row-"]')).toHaveCount(before);
   });
 });

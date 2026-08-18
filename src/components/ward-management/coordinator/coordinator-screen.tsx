@@ -24,13 +24,17 @@ export function CoordinatorScreen() {
   const [selectedEdId, setSelectedEdId] = useState<string | undefined>(undefined);
   const [exceptionsOpen, setExceptionsOpen] = useState(false);
 
+  const selectedEd = selectedEdId ? allEmergencyDepartments().find((ed) => ed.id === selectedEdId) : undefined;
+  // A `selectedEdId` this lookup cannot name must not leave the queue silently filtered with no
+  // notice and no Clear control (Task 4 review Minor 8) — fall back to "nothing selected" rather
+  // than substituting a record or keeping a filter active that can't be described on screen.
+  const activeEdId = selectedEd?.id;
   // A one-line filter, not a derivation: it keys on a field the model already carries
   // (`Movement.originEdId`), so it belongs here rather than in a ward-*.ts module.
-  const filteredMovements = selectedEdId
-    ? wardMovements.filter((movement) => movement.originEdId === selectedEdId)
+  const filteredMovements = activeEdId
+    ? wardMovements.filter((movement) => movement.originEdId === activeEdId)
     : wardMovements;
   const queue = queueOrder(filteredMovements, NOW_ANCHOR);
-  const selectedEd = selectedEdId ? allEmergencyDepartments().find((ed) => ed.id === selectedEdId) : undefined;
 
   return (
     <div className={styles.screen} data-testid="ward-coordinator">
@@ -73,7 +77,11 @@ export function CoordinatorScreen() {
               </header>
               <ul className={styles.queueList}>
                 {queue.map((movement) => (
-                  <li key={movement.id} data-testid={`ward-queue-row-${movement.id}`}>
+                  <li
+                    key={movement.id}
+                    data-testid={`ward-queue-row-${movement.id}`}
+                    data-origin-ed={movement.originEdId}
+                  >
                     <button
                       type="button"
                       className={movement.id === selectedMovementId ? styles.queueRowSelected : styles.queueRow}
