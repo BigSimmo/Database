@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  Activity,
   Brain,
   ChevronRight,
   ClipboardList,
@@ -42,6 +43,7 @@ const iconByToolId: Record<string, LucideIcon> = {
   "risk-safety": ShieldCheck,
   documents: FileText,
   services: Users,
+  "ward-management": Activity,
   forms: FileCheck2,
 };
 

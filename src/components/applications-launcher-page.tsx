@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  Activity,
   Brain,
   Calculator,
   ChevronRight,
@@ -98,6 +99,7 @@ const launcherIconById: Record<string, LucideIcon> = {
   "risk-safety": ShieldCheck,
   "medication-prescribing": Pill,
   services: Users,
+  "ward-management": Activity,
   forms: FileCheck2,
   "care-plans": ClipboardCheck,
   "safety-plan": ClipboardList,
