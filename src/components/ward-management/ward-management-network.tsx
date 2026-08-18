@@ -4,15 +4,21 @@ import Link from "next/link";
 import { ChevronDown, ChevronLeft, ChevronRight, Info, Network, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
-  movementStages,
-  wardHospitalByCode,
-  wardHospitals,
-  wardPatients,
-  wardRegions,
-  type WardHospital,
-  type WardPatient,
-} from "@/components/ward-management/synthetic-fixtures";
+  eligibleCandidates,
+  elapsedLabel,
+  movementHealthService,
+  movementStageSummary,
+  stageCopy,
+  transportStatusLabel,
+  unitCapacity,
+  wardServiceOrder,
+} from "@/components/ward-management/ward-management-console";
+import { formatInstant } from "@/components/ward-management/ward-clock";
+import type { HealthService, Movement, Unit } from "@/components/ward-management/ward-model";
+import { wardMovements } from "@/components/ward-management/ward-movements";
+import { NOW_ANCHOR, allUnits, siteByCode, unitById } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-network.module.css";
 
@@ -25,106 +31,106 @@ const bedStateCopy: Record<BedStateKey, { label: string; detail: string }> = {
   blocked: { label: "Blocked", detail: "Not available" },
 };
 
-/** Left column carries North then Country; right column carries East then South. */
-const columnRegions = {
-  left: ["North", "Country"] as const,
-  right: ["East", "South"] as const,
+/** Left column carries the WA country service; right column carries the three metro services. */
+const columnServices: { left: readonly HealthService[]; right: readonly HealthService[] } = {
+  left: ["North Metro", "WACHS"],
+  right: ["East Metro", "South Metro", "Private"],
 };
 
 type Connector = { id: string; path: string; kind: "demand" | "route" };
+type Candidate = { unit: Unit; rank: number; etaLabel: string; verdict: ReturnType<typeof eligibility> };
 
-function capabilityLabel(hospital: WardHospital) {
-  const cohorts = hospital.cohorts.map((cohort) => (cohort === "Older adult" ? "Older" : cohort)).join("/");
-  return `${hospital.settings.join(" / ")} · ${cohorts}`;
+function capabilityLabel(unit: Unit) {
+  const cohortLabel = unit.cohort === "Older adult" ? "Older" : unit.cohort;
+  return `${unit.security} · ${cohortLabel}`;
 }
 
-function candidatesFor(patient: WardPatient) {
-  return [
-    {
-      hospital: wardHospitalByCode(patient.destinationCode),
-      score: patient.score,
-      etaLabel: patient.transport,
-      rank: 1,
-    },
-    ...patient.alternatives.map((alternative, index) => ({
-      hospital: wardHospitalByCode(alternative.hospitalCode),
-      score: alternative.score,
-      etaLabel: alternative.etaLabel ?? "Re-book required",
-      rank: index + 2,
-    })),
-  ];
+function candidatesFor(patient: Movement): Candidate[] {
+  return eligibleCandidates(patient, NOW_ANCHOR, 3).map((candidate, index) => ({
+    unit: candidate.unit,
+    verdict: candidate.verdict,
+    rank: index + 1,
+    etaLabel: index === 0 ? transportStatusLabel(patient.transport) : "Not yet booked",
+  }));
 }
 
-function catchmentFit(patient: WardPatient, hospital: WardHospital) {
-  if (hospital.region === patient.catchment) return { label: "Best", tone: "good" as const };
-  if (hospital.service === "WACHS" && patient.catchment === "Country") return { label: "Good", tone: "good" as const };
+function catchmentFit(patient: Movement, unit: Unit) {
+  const unitService = siteByCode(unit.siteCode)?.service;
+  if (unitService && unitService === movementHealthService(patient)) return { label: "Best", tone: "good" as const };
   return { label: "Escalation", tone: "warning" as const };
 }
 
-function settingFit(patient: WardPatient, hospital: WardHospital) {
-  const setting = hospital.settings.includes(patient.setting);
-  const cohort = hospital.cohorts.includes(patient.cohort);
-  if (setting && cohort) return { label: "Exact match", tone: "good" as const };
-  if (setting || cohort) return { label: "Partial match", tone: "warning" as const };
+function settingFit(patient: Movement, unit: Unit) {
+  const verdict = eligibility(patient, unit, NOW_ANCHOR);
+  const cohortOk = verdict.gates.find((gate) => gate.gate === "cohort")?.pass ?? false;
+  const securityOk = verdict.gates.find((gate) => gate.gate === "security")?.pass ?? false;
+  if (cohortOk && securityOk) return { label: "Exact match", tone: "good" as const };
+  if (cohortOk || securityOk) return { label: "Partial match", tone: "warning" as const };
   return { label: "Not eligible", tone: "danger" as const };
 }
 
-function BedStateChips({ hospital, showTime }: { hospital: WardHospital; showTime?: boolean }) {
+function transportTone(etaLabel: string) {
+  return /requested|awaiting|not yet/i.test(etaLabel) ? "warning" : "good";
+}
+
+function BedStateChips({ unit, showTime }: { unit: Unit; showTime?: boolean }) {
+  const capacity = unitCapacity(unit);
   return (
     <span className={styles.bedChips}>
       {(Object.keys(bedStateCopy) as BedStateKey[]).map((key) => (
         <span className={styles.bedChip} data-state={key} key={key} title={bedStateCopy[key].detail}>
-          {hospital[key]}
+          {capacity[key]}
         </span>
       ))}
-      {showTime ? <span className={styles.bedTime}>{hospital.lastConfirmed}</span> : null}
+      {showTime ? <span className={styles.bedTime}>{formatInstant(unit.allocatable.confirmedAt)}</span> : null}
     </span>
   );
 }
 
 function ServiceCard({
-  hospital,
+  unit,
   routed,
   selected,
   onSelect,
   registerRef,
 }: {
-  hospital: WardHospital;
+  unit: Unit;
   routed: boolean;
   selected: boolean;
   onSelect: () => void;
-  registerRef: (code: string, node: HTMLButtonElement | null) => void;
+  registerRef: (id: string, node: HTMLButtonElement | null) => void;
 }) {
+  const capacity = unitCapacity(unit);
   return (
     <button
       type="button"
-      ref={(node) => registerRef(hospital.code, node)}
+      ref={(node) => registerRef(unit.id, node)}
       onClick={onSelect}
       aria-pressed={selected}
       data-routed={routed ? "true" : undefined}
-      data-testid={`ward-network-card-${hospital.code}`}
+      data-testid={`ward-network-card-${unit.id}`}
       className={styles.serviceCard}
-      aria-label={`${hospital.name}. ${capabilityLabel(hospital)}. ${hospital.available} ready, ${hospital.held} held, ${hospital.potential} potential, ${hospital.blocked} blocked, of ${hospital.beds} beds. Confirmed ${hospital.lastConfirmed}.`}
+      aria-label={`${unit.name}. ${capabilityLabel(unit)}. ${capacity.available} ready, ${capacity.held} held, ${capacity.potential} potential, ${capacity.blocked} blocked, of ${unit.beds} beds. Confirmed ${formatInstant(unit.allocatable.confirmedAt)}.`}
     >
-      <span className={styles.serviceName}>{hospital.name}</span>
-      <span className={styles.serviceCapability}>{capabilityLabel(hospital)}</span>
-      <BedStateChips hospital={hospital} showTime />
+      <span className={styles.serviceName}>{unit.name}</span>
+      <span className={styles.serviceCapability}>{capabilityLabel(unit)}</span>
+      <BedStateChips unit={unit} showTime />
     </button>
   );
 }
 
 export function WardNetworkWorkspace() {
-  const [selectedPatientId, setSelectedPatientId] = useState(wardPatients[0].id);
-  const [selectedCode, setSelectedCode] = useState<string | null>(null);
+  const [selectedPatientId, setSelectedPatientId] = useState(wardMovements[0].id);
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [factorsOpen, setFactorsOpen] = useState(false);
   const [shortlistOpen, setShortlistOpen] = useState(true);
 
   const patient = useMemo(
-    () => wardPatients.find((candidate) => candidate.id === selectedPatientId) ?? wardPatients[0],
+    () => wardMovements.find((candidate) => candidate.id === selectedPatientId) ?? wardMovements[0],
     [selectedPatientId],
   );
   const candidates = useMemo(() => candidatesFor(patient), [patient]);
-  const routedCodes = useMemo(() => new Set(candidates.map((candidate) => candidate.hospital.code)), [candidates]);
+  const routedIds = useMemo(() => new Set(candidates.map((candidate) => candidate.unit.id)), [candidates]);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const hubRef = useRef<HTMLDivElement | null>(null);
@@ -132,11 +138,11 @@ export function WardNetworkWorkspace() {
   const cardRefs = useRef(new Map<string, HTMLButtonElement | null>());
   const [connectors, setConnectors] = useState<Connector[]>([]);
 
-  const registerCard = useCallback((code: string, node: HTMLButtonElement | null) => {
-    cardRefs.current.set(code, node);
+  const registerCard = useCallback((id: string, node: HTMLButtonElement | null) => {
+    cardRefs.current.set(id, node);
   }, []);
-  const registerCluster = useCallback((region: string, node: HTMLElement | null) => {
-    clusterRefs.current.set(region, node);
+  const registerCluster = useCallback((service: string, node: HTMLElement | null) => {
+    clusterRefs.current.set(service, node);
   }, []);
 
   const measure = useCallback(() => {
@@ -155,23 +161,24 @@ export function WardNetworkWorkspace() {
       return `M ${from.x} ${from.y} H ${trunk} V ${to.y} H ${to.x}`;
     };
 
-    for (const region of wardRegions) {
-      const node = clusterRefs.current.get(region);
+    for (const service of wardServiceOrder) {
+      const node = clusterRefs.current.get(service);
       if (!node) continue;
       const box = node.getBoundingClientRect();
-      const onLeft = (columnRegions.left as readonly string[]).includes(region);
+      const onLeft = (columnServices.left as readonly string[]).includes(service);
       const from = { x: (onLeft ? box.right : box.left) - base.left, y: box.top - base.top + box.height / 2 };
-      next.push({ id: `demand-${region}`, path: elbow(from, onLeft ? hubLeft : hubRight), kind: "demand" });
+      next.push({ id: `demand-${service}`, path: elbow(from, onLeft ? hubLeft : hubRight), kind: "demand" });
     }
 
     for (const candidate of candidates) {
-      const node = cardRefs.current.get(candidate.hospital.code);
+      const node = cardRefs.current.get(candidate.unit.id);
       if (!node) continue;
       const box = node.getBoundingClientRect();
-      const onLeft = (columnRegions.left as readonly string[]).includes(candidate.hospital.region);
+      const service = siteByCode(candidate.unit.siteCode)?.service;
+      const onLeft = service ? (columnServices.left as readonly string[]).includes(service) : true;
       const to = { x: (onLeft ? box.right : box.left) - base.left, y: box.top - base.top + box.height / 2 };
       next.push({
-        id: `route-${candidate.hospital.code}`,
+        id: `route-${candidate.unit.id}`,
         path: elbow(onLeft ? hubLeft : hubRight, to),
         kind: "route",
       });
@@ -196,8 +203,9 @@ export function WardNetworkWorkspace() {
     };
   }, [measure]);
 
-  const detail = selectedCode ? wardHospitalByCode(selectedCode) : null;
-  const openMovements = movementStages.reduce((sum, stage) => sum + stage.count, 0);
+  const detail = selectedUnitId ? unitById(selectedUnitId) : null;
+  const openMovements = movementStageSummary.reduce((sum, stage) => sum + stage.count, 0);
+  const primary = candidates[0];
 
   return (
     <div
@@ -206,7 +214,7 @@ export function WardNetworkWorkspace() {
       data-shortlist={shortlistOpen ? "open" : "collapsed"}
     >
       <section className={styles.pipeline} aria-label="Movement pipeline">
-        {movementStages.map((stage, index) => (
+        {movementStageSummary.map((stage, index) => (
           <span className={styles.pipelineStage} key={stage.id}>
             <span className={styles.pipelineLabel}>
               {index + 1} {stage.label}
@@ -220,16 +228,16 @@ export function WardNetworkWorkspace() {
         <section className={styles.queuePanel} aria-label="Priority queue">
           <header className={styles.panelHeader}>
             <h2>Priority queue</h2>
-            <span className={styles.count}>{wardPatients.length}</span>
+            <span className={styles.count}>{wardMovements.length}</span>
           </header>
           <div className={styles.queueList}>
-            {wardPatients.map((candidate) => (
+            {wardMovements.map((candidate) => (
               <button
                 type="button"
                 key={candidate.id}
                 onClick={() => {
                   setSelectedPatientId(candidate.id);
-                  setSelectedCode(null);
+                  setSelectedUnitId(null);
                 }}
                 aria-pressed={candidate.id === patient.id}
                 data-testid={`ward-network-queue-${candidate.id}`}
@@ -237,16 +245,16 @@ export function WardNetworkWorkspace() {
               >
                 <span className={styles.queueTop}>
                   <strong>{candidate.id}</strong>
-                  <span className={styles.elapsed}>{candidate.elapsed}</span>
+                  <span className={styles.elapsed}>{elapsedLabel(candidate, NOW_ANCHOR)}</span>
                 </span>
                 <span className={styles.queueMeta}>
                   <span className={styles.tier} data-tier={candidate.urgency}>
                     {candidate.urgency}
                   </span>
-                  {candidate.cohort} · {candidate.setting} ward
+                  {candidate.cohort} · {candidate.security} ward
                 </span>
                 <span className={styles.queueMeta}>
-                  {candidate.catchment} catchment · {candidate.voluntaryStatus}
+                  {movementHealthService(candidate) ?? "Unknown"} · {candidate.legalStatus}
                 </span>
               </button>
             ))}
@@ -296,32 +304,32 @@ export function WardNetworkWorkspace() {
 
             {(["left", "right"] as const).map((side) => (
               <div className={styles.column} data-side={side} key={side}>
-                {columnRegions[side].map((region) => (
+                {columnServices[side].map((service) => (
                   <section
                     className={styles.cluster}
-                    key={region}
-                    ref={(node) => registerCluster(region, node)}
-                    aria-labelledby={`ward-network-${region}`}
+                    key={service}
+                    ref={(node) => registerCluster(service, node)}
+                    aria-labelledby={`ward-network-${service}`}
                   >
                     <header className={styles.clusterHeader}>
-                      <strong id={`ward-network-${region}`}>{region.toUpperCase()}</strong>
+                      <strong id={`ward-network-${service}`}>{service.toUpperCase()}</strong>
                       <span>
-                        {wardHospitals
-                          .filter((hospital) => hospital.region === region)
-                          .reduce((sum, hospital) => sum + hospital.available, 0)}{" "}
+                        {allUnits()
+                          .filter((unit) => siteByCode(unit.siteCode)?.service === service)
+                          .reduce((sum, unit) => sum + unit.allocatable.value, 0)}{" "}
                         ready
                       </span>
                     </header>
                     <div className={styles.clusterCards}>
-                      {wardHospitals
-                        .filter((hospital) => hospital.region === region)
-                        .map((hospital) => (
+                      {allUnits()
+                        .filter((unit) => siteByCode(unit.siteCode)?.service === service)
+                        .map((unit) => (
                           <ServiceCard
-                            key={hospital.id}
-                            hospital={hospital}
-                            routed={routedCodes.has(hospital.code)}
-                            selected={detail?.code === hospital.code}
-                            onSelect={() => setSelectedCode(detail?.code === hospital.code ? null : hospital.code)}
+                            key={unit.id}
+                            unit={unit}
+                            routed={routedIds.has(unit.id)}
+                            selected={detail?.id === unit.id}
+                            onSelect={() => setSelectedUnitId(detail?.id === unit.id ? null : unit.id)}
                             registerRef={registerCard}
                           />
                         ))}
@@ -355,7 +363,7 @@ export function WardNetworkWorkspace() {
             </span>
             <span className={styles.legendItem}>
               <i className={styles.legendDemand} aria-hidden="true" />
-              <b>Demand</b> Catchment into statewide flow
+              <b>Demand</b> Health service into statewide flow
             </span>
           </footer>
         </section>
@@ -370,13 +378,14 @@ export function WardNetworkWorkspace() {
             <span className={styles.tier} data-tier={patient.urgency}>
               {patient.urgency}
             </span>
-            {patient.cohort} · {patient.setting} ward · {patient.catchment} catchment
+            {patient.cohort} · {patient.security} ward · {movementHealthService(patient) ?? "Unknown"} service
           </p>
           <p className={styles.patientSubLine}>
-            {patient.voluntaryStatus} · {patient.legalDetail}
+            {patient.legalStatus} ·{" "}
+            {patient.legalForm ? `${patient.legalForm.label} (${patient.legalForm.code})` : "No legal form required"}
           </p>
           <p className={styles.patientSubLine}>
-            {patient.referralStatus} · waiting {patient.elapsed}
+            {stageCopy[patient.stage].label} · waiting {elapsedLabel(patient, NOW_ANCHOR)}
           </p>
 
           <div className={styles.tableScroll}>
@@ -387,8 +396,8 @@ export function WardNetworkWorkspace() {
                     <span className="sr-only">Comparison factor</span>
                   </th>
                   {candidates.map((candidate) => (
-                    <th scope="col" key={candidate.hospital.code}>
-                      {candidate.rank} {candidate.hospital.name}
+                    <th scope="col" key={candidate.unit.id}>
+                      {candidate.rank} {candidate.unit.name}
                     </th>
                   ))}
                 </tr>
@@ -397,9 +406,9 @@ export function WardNetworkWorkspace() {
                 <tr>
                   <th scope="row">Catchment fit</th>
                   {candidates.map((candidate) => {
-                    const fit = catchmentFit(patient, candidate.hospital);
+                    const fit = catchmentFit(patient, candidate.unit);
                     return (
-                      <td key={candidate.hospital.code} data-tone={fit.tone}>
+                      <td key={candidate.unit.id} data-tone={fit.tone}>
                         {fit.label}
                       </td>
                     );
@@ -408,9 +417,9 @@ export function WardNetworkWorkspace() {
                 <tr>
                   <th scope="row">Open/secure fit</th>
                   {candidates.map((candidate) => {
-                    const fit = settingFit(patient, candidate.hospital);
+                    const fit = settingFit(patient, candidate.unit);
                     return (
-                      <td key={candidate.hospital.code} data-tone={fit.tone}>
+                      <td key={candidate.unit.id} data-tone={fit.tone}>
                         {fit.label}
                       </td>
                     );
@@ -419,27 +428,26 @@ export function WardNetworkWorkspace() {
                 <tr>
                   <th scope="row">Current bed state</th>
                   {candidates.map((candidate) => (
-                    <td key={candidate.hospital.code}>
-                      <BedStateChips hospital={candidate.hospital} />
+                    <td key={candidate.unit.id}>
+                      <BedStateChips unit={candidate.unit} />
                     </td>
                   ))}
                 </tr>
                 <tr>
                   <th scope="row">Transport state</th>
                   {candidates.map((candidate) => (
-                    <td
-                      key={candidate.hospital.code}
-                      data-tone={/delay/i.test(candidate.etaLabel) ? "warning" : "good"}
-                    >
+                    <td key={candidate.unit.id} data-tone={transportTone(candidate.etaLabel)}>
                       {candidate.etaLabel}
                     </td>
                   ))}
                 </tr>
                 <tr>
-                  <th scope="row">Operational score</th>
+                  <th scope="row">Eligibility</th>
                   {candidates.map((candidate) => (
-                    <td key={candidate.hospital.code}>
-                      <strong>{candidate.score}</strong>
+                    <td key={candidate.unit.id}>
+                      <strong>
+                        {candidate.verdict.gates.filter((gate) => gate.pass).length}/{candidate.verdict.gates.length}
+                      </strong>
                     </td>
                   ))}
                 </tr>
@@ -451,8 +459,7 @@ export function WardNetworkWorkspace() {
             <span className={styles.tier} data-tier={patient.urgency}>
               {patient.urgency}
             </span>
-            <b>Urgency tier leads.</b> The operational score only orders movements inside a tier. It is not clinical
-            severity.
+            <b>Urgency tier leads.</b> Eligibility only orders candidates inside a tier. It is not clinical severity.
           </p>
 
           <button
@@ -461,13 +468,13 @@ export function WardNetworkWorkspace() {
             aria-expanded={factorsOpen}
             onClick={() => setFactorsOpen((open) => !open)}
           >
-            Scoring factors ({patient.recommendationReasons.length})
+            Eligibility gates ({primary ? primary.verdict.gates.length : 0})
             <ChevronDown aria-hidden="true" data-open={factorsOpen ? "true" : undefined} />
           </button>
-          {factorsOpen ? (
+          {factorsOpen && primary ? (
             <ul className={styles.factorList}>
-              {patient.recommendationReasons.map((reason) => (
-                <li key={reason}>{reason}</li>
+              {primary.verdict.gates.map((gate) => (
+                <li key={gate.gate}>{gate.detail}</li>
               ))}
             </ul>
           ) : null}
@@ -487,12 +494,13 @@ export function WardNetworkWorkspace() {
             <section className={styles.detailBlock} aria-label="Selected service detail">
               <h3>{detail.name}</h3>
               <p>
-                {detail.service} · {capabilityLabel(detail)} · confirmed {detail.lastConfirmed}
+                {siteByCode(detail.siteCode)?.service ?? "Unknown service"} · {capabilityLabel(detail)} · confirmed{" "}
+                {formatInstant(detail.allocatable.confirmedAt)}
               </p>
-              <BedStateChips hospital={detail} />
+              <BedStateChips unit={detail} />
               <p className={styles.detailMeta}>
-                {detail.occupied} occupied of {detail.beds} beds. Potential beds are a subset of occupied and are not
-                allocatable yet.
+                {unitCapacity(detail).occupied} occupied of {detail.beds} beds. Potential beds are a subset of occupied
+                and are not allocatable yet.
               </p>
             </section>
           ) : null}

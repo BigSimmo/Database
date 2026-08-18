@@ -1,13 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import {
-  movementStages,
-  operationalPriorityScore,
-  wardHospitals,
-  wardPatientById,
-  wardPatients,
-} from "../src/components/ward-management/synthetic-fixtures";
+import { MOVEMENT_STAGES, PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
+import { movementById, wardMovements } from "../src/components/ward-management/ward-movements";
+import { allUnits } from "../src/components/ward-management/ward-sites";
 import { toolCatalogRecordById } from "../src/lib/tools-catalog";
 
 /**
@@ -49,56 +45,61 @@ describe("Ward Flow synthetic prototype", () => {
     }
   });
 
-  it("uses only synthetic operational patient identifiers and minimised fields", () => {
-    expect(wardPatients).toHaveLength(14);
-    for (const patient of wardPatients) {
-      expect(patient.id).toMatch(/^WF-\d{3}$/);
-      expect(patient).not.toHaveProperty("name");
-      expect(patient).not.toHaveProperty("dateOfBirth");
-      expect(patient).not.toHaveProperty("mrn");
-      expect(patient).not.toHaveProperty("address");
-      expect(patient).not.toHaveProperty("diagnosis");
-      expect(patient).not.toHaveProperty("clinicalHistory");
+  it("uses only synthetic operational movement identifiers and minimised fields", () => {
+    expect(wardMovements).toHaveLength(48);
+    for (const movement of wardMovements) {
+      expect(movement.id).toMatch(/^WF-\d{3}$/);
+      expect(movement).not.toHaveProperty("name");
+      expect(movement).not.toHaveProperty("dateOfBirth");
+      expect(movement).not.toHaveProperty("mrn");
+      expect(movement).not.toHaveProperty("address");
+      expect(movement).not.toHaveProperty("diagnosis");
+      expect(movement).not.toHaveProperty("clinicalHistory");
     }
   });
 
-  it("keeps human urgency separate from the explainable operational score", () => {
-    for (const patient of wardPatients) {
-      expect([1, 2, 3]).toContain(patient.urgency);
-      expect(patient.score).toBeGreaterThanOrEqual(0);
-      expect(patient.score).toBeLessThanOrEqual(100);
-      expect(operationalPriorityScore(patient)).toBeLessThanOrEqual(patient.score);
-      expect(patient.recommendationReasons.length).toBeGreaterThan(0);
-      expect(patient.alternatives.length).toBeGreaterThan(0);
+  it("keeps human urgency tiers within range and referrals within the parallel-referral cap", () => {
+    for (const movement of wardMovements) {
+      expect([1, 2, 3]).toContain(movement.urgency);
+      expect(movement.referredUnitIds.length).toBeLessThanOrEqual(PARALLEL_REFERRAL_CAP);
     }
   });
 
-  it("models the approved six movement stages and five bed states", () => {
-    expect(movementStages.map((stage) => stage.id)).toEqual([
+  it("models the approved seven movement stages, counts derived from the movements themselves", () => {
+    expect([...MOVEMENT_STAGES]).toEqual([
       "placement_requested",
       "destination_review",
+      "accepted_awaiting_bed",
       "bed_held",
       "handover_ready",
       "moving",
       "arrived",
     ]);
-    for (const hospital of wardHospitals) {
-      expect(hospital).toEqual(
+    const total = MOVEMENT_STAGES.reduce(
+      (sum, stage) => sum + wardMovements.filter((movement) => movement.stage === stage).length,
+      0,
+    );
+    expect(total).toBe(wardMovements.length);
+  });
+
+  it("models units with a real five-figure capacity picture, not a single available count", () => {
+    for (const unit of allUnits()) {
+      expect(unit).toEqual(
         expect.objectContaining({
-          available: expect.any(Number),
+          beds: expect.any(Number),
           held: expect.any(Number),
-          potential: expect.any(Number),
           blocked: expect.any(Number),
-          occupied: expect.any(Number),
-          lastConfirmed: expect.stringMatching(/^\d{2}:\d{2}$/),
+          empty: expect.objectContaining({ value: expect.any(Number), confirmedAt: expect.any(Number) }),
+          allocatable: expect.objectContaining({ value: expect.any(Number), confirmedAt: expect.any(Number) }),
         }),
       );
     }
   });
 
   it("preserves plain-language legal status and form readiness", () => {
-    const referredPatient = wardPatientById("WF-198");
-    expect(referredPatient.voluntaryStatus).toBe("Referred for psychiatric examination");
-    expect(referredPatient.legalDetail).toContain("Form 1A");
+    const referredMovement = movementById("WF-001");
+    expect(referredMovement?.legalStatus).toBe("Referred for psychiatric examination");
+    expect(referredMovement?.legalForm?.code).toBe("1A");
+    expect(referredMovement?.legalForm?.label).toBe("Referral for examination");
   });
 });

@@ -54,7 +54,9 @@ export function eligibility(movement: Movement, unit: Unit, now: Instant): Eligi
     {
       gate: "specialling",
       pass: !movement.specialling || unit.speciallingCapacity > 0,
-      detail: movement.specialling ? `${unit.speciallingCapacity} specialling slots available` : "No specialling required",
+      detail: movement.specialling
+        ? `${unit.speciallingCapacity} specialling slots available`
+        : "No specialling required",
     },
     {
       gate: "prior_decline",

@@ -25,30 +25,36 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
-  movementStages,
-  operationalPriorityScore,
-  wardHospitalByCode,
-  wardHospitals,
-  wardPatients,
-  wardRegions,
-  type WardPatient,
+  buildActionInbox,
+  candidateReason,
+  destinationUnit,
+  eligibleCandidates,
+  elapsedLabel,
+  movementHealthService,
+  movementStageSummary,
+  movementTimeline,
+  roleLabels,
+  roleTaskLabel,
+  stageCopy,
+  unitCapacity,
+  wardServiceOrder,
+  type InboxItem,
   type WardRole,
-} from "@/components/ward-management/synthetic-fixtures";
+} from "@/components/ward-management/ward-management-console";
 import { WardNetworkWorkspace } from "@/components/ward-management/ward-management-network";
 import {
   ClinicalRail,
   WardModeNavigation,
   type WardMode,
 } from "@/components/ward-management/ward-management-navigation";
+import { formatInstant } from "@/components/ward-management/ward-clock";
+import type { Movement, Unit } from "@/components/ward-management/ward-model";
+import { wardMovements } from "@/components/ward-management/ward-movements";
+import { NOW_ANCHOR, allUnits, siteByCode } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-modes.module.css";
-
-const roleLabels: Record<WardRole, string> = {
-  flow: "Flow coordinator",
-  ed: "ED mental health",
-  ward: "Ward manager",
-};
 
 const roleFocusCopy: Record<WardRole, { title: string; detail: string }> = {
   flow: {
@@ -75,54 +81,35 @@ const modeCopy: Record<WardMode, { title: string; description: string }> = {
     title: "Network diagram",
     description: "Services as nodes · movements as routes · fill shows bed pressure",
   },
-  queue: { title: "Priority queue", description: "Human urgency first · operational score within tier" },
+  queue: { title: "Priority queue", description: "Human urgency first · eligibility within tier" },
   capacity: { title: "Capacity", description: "Ward-confirmed state, capability and freshness" },
-  movements: { title: "Movements", description: "Six-stage patient movement board" },
+  movements: { title: "Movements", description: "Seven-stage patient movement board" },
   exceptions: { title: "Action inbox", description: "Owned exceptions, deadlines and stale state" },
   transport: { title: "Transport", description: "Legal, document, booking and handover readiness" },
-  governance: { title: "Governance", description: "AI assurance, audit and synthetic data boundary" },
+  governance: { title: "Governance", description: "Assurance, audit and synthetic data boundary" },
 };
 
-const exceptions = [
-  {
-    patientId: "WF-198",
-    title: "Destination review overdue",
-    timing: "1h 12m overdue",
-    owner: "Flow coordinator",
-    action: "Escalate destination response",
-    tone: "danger" as const,
-  },
-  {
-    patientId: "WF-204",
-    title: "Bed hold expires",
-    timing: "18 min remaining",
-    owner: "Ward manager",
-    action: "Confirm handover or release hold",
-    tone: "warning" as const,
-  },
-  {
-    patientId: "WF-201",
-    title: "Transport delayed",
-    timing: "ETA +90 min",
-    owner: "ED mental health",
-    action: "Review provider and escalation",
-    tone: "warning" as const,
-  },
-  {
-    patientId: "WF-209",
-    title: "Country transfer escalation",
-    timing: "Provider response pending",
-    owner: "WACHS MHPF",
-    action: "Confirm metro destination pathway",
-    tone: "neutral" as const,
-  },
-];
+/** Same role-ordering rule as the command console: human urgency order stays, role just re-sorts by owner. */
+function sortByRole(movements: Movement[], role: WardRole) {
+  if (role === "flow") return movements;
+  if (role === "ed")
+    return [...movements].sort((a, b) => Number(b.owner.includes("ED")) - Number(a.owner.includes("ED")));
+  return [...movements].sort((a, b) => Number(b.owner.includes("Ward")) - Number(a.owner.includes("Ward")));
+}
 
 function toneClass(tone: "good" | "warning" | "danger" | "neutral") {
   if (tone === "good") return styles.statusGood;
   if (tone === "warning") return styles.statusWarning;
   if (tone === "danger") return styles.statusDanger;
   return styles.statusNeutral;
+}
+
+/** A short, honest action phrase for each real inbox category. */
+function inboxAction(item: InboxItem) {
+  if (item.id.startsWith("legal-")) return "Escalate legal timing";
+  if (item.id.startsWith("declines-")) return "Expand destination search";
+  if (item.id.startsWith("transport-")) return "Follow up transport provider";
+  return "Review movement";
 }
 
 function ModeHeader({
@@ -161,7 +148,7 @@ function ModeHeader({
       </label>
       <div className={styles.headerMeta}>
         <span className={styles.prototypeBadge}>Synthetic prototype</span>
-        <span>Updated 10:42</span>
+        <span>Updated {formatInstant(NOW_ANCHOR)}</span>
         <span>15 Aug 2026 · WA</span>
       </div>
     </header>
@@ -173,16 +160,16 @@ function CompactQueue({
   selected,
   onSelect,
 }: {
-  patients: WardPatient[];
-  selected: WardPatient;
-  onSelect: (patient: WardPatient) => void;
+  patients: Movement[];
+  selected: Movement;
+  onSelect: (patient: Movement) => void;
 }) {
   return (
     <section className={`${styles.panel} ${styles.compactQueue}`} aria-label="Priority queue">
       <header className={styles.panelHeader}>
         <div>
           <h2>Priority queue</h2>
-          <p>Tier first · AI orders within tier</p>
+          <p>Tier first · eligibility orders within tier</p>
         </div>
         <span className={styles.statusNeutral}>{patients.length}</span>
       </header>
@@ -204,10 +191,10 @@ function CompactQueue({
               >
                 P{patient.urgency}
               </span>
-              <span className={styles.score}>{patient.score}%</span>
             </span>
             <span className={styles.rowMeta}>
-              {patient.elapsed} · {patient.cohort} {patient.setting} · {patient.catchment}
+              {elapsedLabel(patient, NOW_ANCHOR)} · {patient.cohort} {patient.security} ·{" "}
+              {movementHealthService(patient) ?? "Unknown service"}
             </span>
             <span className={styles.rowMeta}>{patient.blocker}</span>
           </button>
@@ -217,15 +204,8 @@ function CompactQueue({
   );
 }
 
-function HospitalChip({
-  hospital,
-  selected,
-  onSelect,
-}: {
-  hospital: (typeof wardHospitals)[number];
-  selected: boolean;
-  onSelect: () => void;
-}) {
+function HospitalChip({ unit, selected, onSelect }: { unit: Unit; selected: boolean; onSelect: () => void }) {
+  const capacity = unitCapacity(unit);
   return (
     <button
       type="button"
@@ -233,16 +213,16 @@ function HospitalChip({
       aria-pressed={selected}
       className={selected ? styles.hospitalChipSelected : styles.hospitalChip}
     >
-      <strong>{hospital.code === "SCG" ? "SCGH" : hospital.name}</strong>
+      <strong>{unit.name}</strong>
       <span className={styles.hospitalState}>
-        <b>{hospital.available}</b> available · {hospital.held} held · {hospital.potential} potential
+        <b>{capacity.available}</b> available · {capacity.held} held · {capacity.potential} potential
       </span>
-      <span className={styles.hospitalState}>Confirmed {hospital.lastConfirmed}</span>
+      <span className={styles.hospitalState}>Confirmed {formatInstant(unit.allocatable.confirmedAt)}</span>
     </button>
   );
 }
 
-function NetworkCanvas({ selectedCode, onSelect }: { selectedCode: string; onSelect: (code: string) => void }) {
+function NetworkCanvas({ selectedId, onSelect }: { selectedId: string | undefined; onSelect: (id: string) => void }) {
   return (
     <section className={styles.panel} aria-label="Statewide operational network">
       <header className={styles.panelHeader}>
@@ -253,25 +233,25 @@ function NetworkCanvas({ selectedCode, onSelect }: { selectedCode: string; onSel
         <span className={styles.prototypeBadge}>Not geographic</span>
       </header>
       <div className={styles.networkCanvas}>
-        {wardRegions.map((region) => {
-          const hospitals = wardHospitals.filter((hospital) => hospital.region === region);
-          const available = hospitals.reduce((total, hospital) => total + hospital.available, 0);
+        {wardServiceOrder.map((service) => {
+          const units = allUnits().filter((unit) => siteByCode(unit.siteCode)?.service === service);
+          const available = units.reduce((total, unit) => total + unit.allocatable.value, 0);
           return (
-            <section className={styles.regionCluster} key={region} aria-labelledby={`constellation-${region}`}>
+            <section className={styles.regionCluster} key={service} aria-labelledby={`constellation-${service}`}>
               <header>
                 <span className={styles.regionTitle}>
                   <Building2 aria-hidden="true" />
-                  <strong id={`constellation-${region}`}>{region}</strong>
+                  <strong id={`constellation-${service}`}>{service}</strong>
                 </span>
                 <small>{available} available now</small>
               </header>
               <div className={styles.hospitalChipGrid}>
-                {hospitals.map((hospital) => (
+                {units.map((unit) => (
                   <HospitalChip
-                    key={hospital.id}
-                    hospital={hospital}
-                    selected={selectedCode === hospital.code}
-                    onSelect={() => onSelect(hospital.code)}
+                    key={unit.id}
+                    unit={unit}
+                    selected={selectedId === unit.id}
+                    onSelect={() => onSelect(unit.id)}
                   />
                 ))}
               </div>
@@ -280,7 +260,7 @@ function NetworkCanvas({ selectedCode, onSelect }: { selectedCode: string; onSel
         })}
         <section className={styles.flowHub} aria-label="Statewide flow coordination hub">
           <div className={styles.routeSignal}>
-            North / Country demand <ArrowRight aria-hidden="true" />
+            North / country demand <ArrowRight aria-hidden="true" />
           </div>
           <div>
             <Route aria-hidden="true" />
@@ -288,7 +268,7 @@ function NetworkCanvas({ selectedCode, onSelect }: { selectedCode: string; onSel
             <span>Coordinated visibility, escalation and placement</span>
           </div>
           <div className={styles.routeSignal}>
-            <ArrowRight aria-hidden="true" /> Selected route to South
+            <ArrowRight aria-hidden="true" /> Selected route to south
           </div>
         </section>
       </div>
@@ -299,38 +279,24 @@ function NetworkCanvas({ selectedCode, onSelect }: { selectedCode: string; onSel
 function DecisionPanel({
   patient,
   role,
-  selectedCode,
-  onSelectCode,
+  selectedId,
+  onSelectId,
 }: {
-  patient: WardPatient;
+  patient: Movement;
   role: WardRole;
-  selectedCode: string;
-  onSelectCode: (code: string) => void;
+  selectedId: string | undefined;
+  onSelectId: (id: string) => void;
 }) {
   const [confirmed, setConfirmed] = useState(false);
-  const candidates = useMemo(
-    () => [
-      {
-        hospital: wardHospitalByCode(patient.destinationCode),
-        score: patient.score,
-        reason: "Best eligible operational fit",
-      },
-      ...patient.alternatives.map((alternative) => ({
-        hospital: wardHospitalByCode(alternative.hospitalCode),
-        score: alternative.score,
-        reason: alternative.reason,
-      })),
-    ],
-    [patient],
-  );
-  const selected = candidates.find((candidate) => candidate.hospital.code === selectedCode) ?? candidates[0];
+  const candidates = useMemo(() => eligibleCandidates(patient, NOW_ANCHOR, 3), [patient]);
+  const selected = candidates.find((candidate) => candidate.unit.id === selectedId) ?? candidates[0];
 
   return (
     <aside className={`${styles.panel} ${styles.decisionPanel}`} aria-label={`AI best-fit review for ${patient.id}`}>
       <header className={styles.decisionHeader}>
         <div>
           <span className={styles.aiBadge}>
-            <Sparkles aria-hidden="true" /> AI best fit
+            <Sparkles aria-hidden="true" /> Eligibility check
           </span>
           <h2>{patient.id}</h2>
         </div>
@@ -339,23 +305,26 @@ function DecisionPanel({
 
       <dl className={styles.patientFacts}>
         <div>
-          <dt>Catchment</dt>
-          <dd>{patient.catchment}</dd>
+          <dt>Health service</dt>
+          <dd>{movementHealthService(patient) ?? "Unknown"}</dd>
         </div>
         <div>
           <dt>Required setting</dt>
           <dd>
-            {patient.cohort} · {patient.setting}
+            {patient.cohort} · {patient.security}
           </dd>
         </div>
         <div>
           <dt>Legal state</dt>
-          <dd>{patient.voluntaryStatus}</dd>
+          <dd>{patient.legalStatus}</dd>
         </div>
         <div>
-          <dt>Wait / priority</dt>
+          <dt>Wait / eligibility</dt>
           <dd>
-            {patient.elapsed} · {operationalPriorityScore(patient)}
+            {elapsedLabel(patient, NOW_ANCHOR)}
+            {selected
+              ? ` · ${selected.verdict.gates.filter((gate) => gate.pass).length}/${selected.verdict.gates.length}`
+              : ""}
           </dd>
         </div>
       </dl>
@@ -364,95 +333,83 @@ function DecisionPanel({
         {candidates.map((candidate, index) => (
           <button
             type="button"
-            key={candidate.hospital.code}
+            key={candidate.unit.id}
             onClick={() => {
-              onSelectCode(candidate.hospital.code);
+              onSelectId(candidate.unit.id);
               setConfirmed(false);
             }}
-            aria-pressed={selected.hospital.code === candidate.hospital.code}
-            className={
-              selected.hospital.code === candidate.hospital.code ? styles.candidateRowSelected : styles.candidateRow
-            }
+            aria-pressed={selected?.unit.id === candidate.unit.id}
+            className={selected?.unit.id === candidate.unit.id ? styles.candidateRowSelected : styles.candidateRow}
           >
             <span className={styles.candidateRank}>{index + 1}</span>
             <span>
-              <strong>{candidate.hospital.name}</strong>
-              <small>{candidate.reason}</small>
+              <strong>{candidate.unit.name}</strong>
+              <small>{candidateReason(candidate.verdict)}</small>
             </span>
-            <span className={styles.score}>{candidate.score}%</span>
+            <span className={styles.score}>{candidate.verdict.eligible ? "Eligible" : "Not eligible"}</span>
           </button>
         ))}
       </div>
 
-      <ul className={styles.reasonList}>
-        {patient.recommendationReasons.slice(0, 4).map((reason) => (
-          <li key={reason}>
-            <CheckCircle2 aria-hidden="true" /> {reason}
-          </li>
-        ))}
-      </ul>
+      {selected ? (
+        <ul className={styles.reasonList}>
+          {selected.verdict.gates.slice(0, 4).map((gate) => (
+            <li key={gate.gate}>
+              <CheckCircle2 aria-hidden="true" /> {gate.detail}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       <div className={styles.buttonRow}>
-        <button type="button" onClick={() => setConfirmed(true)} className={styles.primaryButton}>
+        <button type="button" onClick={() => setConfirmed(true)} className={styles.primaryButton} disabled={!selected}>
           {confirmed ? <Check aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />}
-          {confirmed
-            ? "Match confirmed"
-            : role === "ed"
-              ? "Confirm ED readiness"
-              : role === "ward"
-                ? "Accept & hold bed"
-                : "Review & confirm"}
+          {confirmed ? "Match confirmed" : roleTaskLabel[role]}
         </button>
         <Link className={styles.secondaryButton} href={`/ward-management/patients/${patient.id}`}>
           Full record <ArrowRight aria-hidden="true" />
         </Link>
       </div>
-      <p className={styles.microCopy}>AI proposes · authorised human confirms or overrides · no automatic allocation</p>
+      <p className={styles.microCopy}>
+        Eligibility computed automatically · authorised human confirms or overrides · no automatic allocation
+      </p>
     </aside>
   );
 }
 
 function ConstellationView({ role }: { role: WardRole }) {
-  const [selectedPatient, setSelectedPatient] = useState(wardPatients[0]);
-  const [selectedCode, setSelectedCode] = useState(selectedPatient.destinationCode);
-  const rolePatients = useMemo(() => {
-    if (role === "flow") return wardPatients;
-    if (role === "ed")
-      return [...wardPatients].sort((a, b) => Number(b.owner.includes("ED")) - Number(a.owner.includes("ED")));
-    return [...wardPatients].sort((a, b) => Number(b.owner.includes("Ward")) - Number(a.owner.includes("Ward")));
-  }, [role]);
+  const [selectedPatient, setSelectedPatient] = useState(wardMovements[0]);
+  const [selectedId, setSelectedId] = useState(
+    destinationUnit(wardMovements[0])?.id ?? eligibleCandidates(wardMovements[0], NOW_ANCHOR)[0]?.unit.id,
+  );
+  const rolePatients = useMemo(() => sortByRole(wardMovements, role), [role]);
 
-  function selectPatient(patient: WardPatient) {
+  function selectPatient(patient: Movement) {
     setSelectedPatient(patient);
-    setSelectedCode(patient.destinationCode);
+    setSelectedId(destinationUnit(patient)?.id ?? eligibleCandidates(patient, NOW_ANCHOR)[0]?.unit.id);
   }
 
   return (
     <div className={styles.constellationGrid} data-testid="ward-constellation">
       <CompactQueue patients={rolePatients} selected={selectedPatient} onSelect={selectPatient} />
-      <NetworkCanvas selectedCode={selectedCode} onSelect={setSelectedCode} />
-      <DecisionPanel patient={selectedPatient} role={role} selectedCode={selectedCode} onSelectCode={setSelectedCode} />
+      <NetworkCanvas selectedId={selectedId} onSelect={setSelectedId} />
+      <DecisionPanel patient={selectedPatient} role={role} selectedId={selectedId} onSelectId={setSelectedId} />
     </div>
   );
 }
 
 function QueueView({ role }: { role: WardRole }) {
-  const [selected, setSelected] = useState(wardPatients[0]);
-  const rolePatients = useMemo(() => {
-    if (role === "flow") return wardPatients;
-    if (role === "ed")
-      return [...wardPatients].sort((a, b) => Number(b.owner.includes("ED")) - Number(a.owner.includes("ED")));
-    return [...wardPatients].sort((a, b) => Number(b.owner.includes("Ward")) - Number(a.owner.includes("Ward")));
-  }, [role]);
+  const [selected, setSelected] = useState(wardMovements[0]);
+  const rolePatients = useMemo(() => sortByRole(wardMovements, role), [role]);
   return (
     <div className={styles.pageGrid} data-testid="ward-queue-view">
       <section className={styles.panel}>
         <header className={styles.panelHeader}>
           <div>
             <h2>Placement-ready movements</h2>
-            <p>Human tier remains primary. Operational score explains ordering within tier.</p>
+            <p>Human tier remains primary. Eligibility explains ordering within tier.</p>
           </div>
-          <span className={styles.prototypeBadge}>{wardPatients.length} synthetic records</span>
+          <span className={styles.prototypeBadge}>{wardMovements.length} synthetic records</span>
         </header>
         <table className={styles.dataTable}>
           <thead>
@@ -461,49 +418,56 @@ function QueueView({ role }: { role: WardRole }) {
               <th>Priority</th>
               <th>Wait</th>
               <th>Need</th>
-              <th>Catchment</th>
-              <th>Referral / blocker</th>
-              <th>AI fit</th>
+              <th>Health service</th>
+              <th>Blocker</th>
+              <th>Top candidate</th>
             </tr>
           </thead>
           <tbody>
-            {rolePatients.map((patient) => (
-              <tr key={patient.id} data-selected={selected.id === patient.id}>
-                <td>
-                  <button type="button" onClick={() => setSelected(patient)} className={styles.secondaryButton}>
-                    {patient.id}
-                  </button>
-                </td>
-                <td>P{patient.urgency}</td>
-                <td>{patient.elapsed}</td>
-                <td>
-                  {patient.cohort} · {patient.setting}
-                </td>
-                <td>{patient.catchment}</td>
-                <td>{patient.blocker}</td>
-                <td className={styles.score}>{patient.score}%</td>
-              </tr>
-            ))}
+            {rolePatients.map((patient) => {
+              const top = eligibleCandidates(patient, NOW_ANCHOR, 1)[0];
+              return (
+                <tr key={patient.id} data-selected={selected.id === patient.id}>
+                  <td>
+                    <button type="button" onClick={() => setSelected(patient)} className={styles.secondaryButton}>
+                      {patient.id}
+                    </button>
+                  </td>
+                  <td>P{patient.urgency}</td>
+                  <td>{elapsedLabel(patient, NOW_ANCHOR)}</td>
+                  <td>
+                    {patient.cohort} · {patient.security}
+                  </td>
+                  <td>{movementHealthService(patient) ?? "Unknown"}</td>
+                  <td>{patient.blocker}</td>
+                  <td className={styles.score}>
+                    {top ? (top.verdict.eligible ? top.unit.name : "None eligible") : "None eligible"}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </section>
       <DecisionPanel
         patient={selected}
         role={role}
-        selectedCode={selected.destinationCode}
-        onSelectCode={() => undefined}
+        selectedId={destinationUnit(selected)?.id ?? eligibleCandidates(selected, NOW_ANCHOR)[0]?.unit.id}
+        onSelectId={() => undefined}
       />
     </div>
   );
 }
 
 function CapacityView() {
+  const units = allUnits();
+  const capacities = units.map((unit) => ({ unit, capacity: unitCapacity(unit) }));
   const totals = {
-    available: wardHospitals.reduce((sum, hospital) => sum + hospital.available, 0),
-    held: wardHospitals.reduce((sum, hospital) => sum + hospital.held, 0),
-    potential: wardHospitals.reduce((sum, hospital) => sum + hospital.potential, 0),
-    blocked: wardHospitals.reduce((sum, hospital) => sum + hospital.blocked, 0),
-    occupied: wardHospitals.reduce((sum, hospital) => sum + hospital.occupied, 0),
+    available: capacities.reduce((sum, entry) => sum + entry.capacity.available, 0),
+    held: capacities.reduce((sum, entry) => sum + entry.capacity.held, 0),
+    potential: capacities.reduce((sum, entry) => sum + entry.capacity.potential, 0),
+    blocked: capacities.reduce((sum, entry) => sum + entry.capacity.blocked, 0),
+    occupied: capacities.reduce((sum, entry) => sum + entry.capacity.occupied, 0),
   };
   return (
     <section className={styles.panel} data-testid="ward-capacity-view">
@@ -519,55 +483,60 @@ function CapacityView() {
           <article className={styles.summaryCard} key={label}>
             <span>{label.replace(/^./, (character) => character.toUpperCase())}</span>
             <strong>{value}</strong>
-            <small>Across 16 synthetic services</small>
+            <small>Across {units.length} synthetic units</small>
           </article>
         ))}
       </div>
       <table className={styles.dataTable}>
         <thead>
           <tr>
-            <th>Service</th>
-            <th>Region</th>
+            <th>Unit</th>
+            <th>Health service</th>
             <th>Capability cue</th>
             <th>Five bed states</th>
             <th>Freshness</th>
           </tr>
         </thead>
         <tbody>
-          {wardHospitals.map((hospital) => (
-            <tr key={hospital.id}>
-              <td>
-                <strong>{hospital.name}</strong>
-                <div className={styles.microCopy}>{hospital.beds} total beds</div>
-              </td>
-              <td>{hospital.region}</td>
-              <td>Adult / older adult · open / secure review</td>
-              <td>
-                <div className={styles.bedStates}>
-                  <span>
-                    <strong>{hospital.available}</strong>Now
+          {capacities.map(({ unit, capacity }) => {
+            const fresh = NOW_ANCHOR - unit.allocatable.confirmedAt <= unit.allocatable.staleAfterMinutes;
+            return (
+              <tr key={unit.id}>
+                <td>
+                  <strong>{unit.name}</strong>
+                  <div className={styles.microCopy}>{unit.beds} total beds</div>
+                </td>
+                <td>{siteByCode(unit.siteCode)?.service ?? "Unknown"}</td>
+                <td>
+                  {unit.cohort} · {unit.security} {unit.authorised ? "" : "· not MHA-authorised"}
+                </td>
+                <td>
+                  <div className={styles.bedStates}>
+                    <span>
+                      <strong>{capacity.available}</strong>Now
+                    </span>
+                    <span>
+                      <strong>{capacity.held}</strong>Held
+                    </span>
+                    <span>
+                      <strong>{capacity.potential}</strong>Potential
+                    </span>
+                    <span>
+                      <strong>{capacity.blocked}</strong>Blocked
+                    </span>
+                    <span>
+                      <strong>{capacity.occupied}</strong>Occupied
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  <span className={fresh ? styles.statusGood : styles.statusWarning}>
+                    {fresh ? "Current" : "Review soon"} · {formatInstant(unit.allocatable.confirmedAt)}
                   </span>
-                  <span>
-                    <strong>{hospital.held}</strong>Held
-                  </span>
-                  <span>
-                    <strong>{hospital.potential}</strong>Potential
-                  </span>
-                  <span>
-                    <strong>{hospital.blocked}</strong>Blocked
-                  </span>
-                  <span>
-                    <strong>{hospital.occupied}</strong>Occupied
-                  </span>
-                </div>
-              </td>
-              <td>
-                <span className={hospital.lastConfirmed < "10:28" ? styles.statusWarning : styles.statusGood}>
-                  {hospital.lastConfirmed < "10:28" ? "Review soon" : "Current"} · {hospital.lastConfirmed}
-                </span>
-              </td>
-            </tr>
-          ))}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       <p className={styles.notice}>
@@ -589,13 +558,13 @@ function MovementsView() {
         <span className={styles.prototypeBadge}>Shared record · role-owned actions</span>
       </header>
       <div className={styles.stageBoard}>
-        {movementStages.map((stage) => (
+        {movementStageSummary.map((stage) => (
           <section className={styles.stageColumn} key={stage.id} aria-labelledby={`movement-${stage.id}`}>
             <header>
               <h2 id={`movement-${stage.id}`}>{stage.label}</h2>
               <strong>{stage.count}</strong>
             </header>
-            {wardPatients
+            {wardMovements
               .filter((patient) => patient.stage === stage.id)
               .slice(0, 4)
               .map((patient) => (
@@ -605,7 +574,8 @@ function MovementsView() {
                     <span className={toneClass(patient.urgency === 1 ? "danger" : "neutral")}>P{patient.urgency}</span>
                   </span>
                   <span className={styles.rowMeta}>
-                    {patient.elapsed} · {patient.catchment} · {patient.setting}
+                    {elapsedLabel(patient, NOW_ANCHOR)} · {movementHealthService(patient) ?? "Unknown"} ·{" "}
+                    {patient.security}
                   </span>
                   <span className={styles.rowMeta}>{patient.owner}</span>
                 </Link>
@@ -618,6 +588,8 @@ function MovementsView() {
 }
 
 function ExceptionsView() {
+  const items = buildActionInbox(wardMovements, NOW_ANCHOR);
+  const overdue = items.filter((item) => item.tone === "danger").length;
   return (
     <div className={styles.pageGrid} data-testid="ward-exceptions-view">
       <section className={styles.panel}>
@@ -626,23 +598,23 @@ function ExceptionsView() {
             <h2>Action exceptions</h2>
             <p>Only items with an owner and required next action appear here.</p>
           </div>
-          <span className={styles.statusDanger}>1 overdue</span>
+          <span className={styles.statusDanger}>{overdue} overdue</span>
         </header>
         <div className={styles.exceptionList}>
-          {exceptions.map((item) => (
-            <article className={styles.exceptionRow} key={`${item.patientId}-${item.title}`}>
+          {items.map((item) => (
+            <article className={styles.exceptionRow} key={item.id}>
               <CircleAlert aria-hidden="true" />
               <div>
                 <strong>{item.title}</strong>
                 <small>
-                  {item.patientId} · {item.action}
+                  {item.movementId} · {inboxAction(item)}
                 </small>
               </div>
               <div>
-                <span className={toneClass(item.tone)}>{item.timing}</span>
+                <span className={toneClass(item.tone)}>{item.detail}</span>
                 <small>{item.owner}</small>
               </div>
-              <Link className={styles.secondaryButton} href={`/ward-management/patients/${item.patientId}`}>
+              <Link className={styles.secondaryButton} href={`/ward-management/patients/${item.movementId}`}>
                 Open <ArrowRight aria-hidden="true" />
               </Link>
             </article>
@@ -658,12 +630,10 @@ function ExceptionsView() {
         </header>
         <ul className={styles.reasonList}>
           {[
-            "Unanswered destination review",
-            "Expiring legal timing",
-            "Expiring bed hold",
-            "Delayed transport",
+            "Legal timing breached",
+            "Every parallel referral declined",
+            "Transport accepted but not yet en route",
             "Stale ward capacity state",
-            "Newly available higher-fit destination",
           ].map((rule) => (
             <li key={rule}>
               <CheckCircle2 aria-hidden="true" /> {rule}
@@ -676,7 +646,9 @@ function ExceptionsView() {
 }
 
 function TransportView() {
-  const transportPatients = wardPatients.filter((patient) => patient.stage !== "arrived").slice(0, 8);
+  const transportPatients = wardMovements
+    .filter((patient) => patient.stage !== "arrived" && patient.transport)
+    .slice(0, 8);
   return (
     <div className={styles.pageGrid} data-testid="ward-transport-view">
       <section className={styles.panel}>
@@ -689,20 +661,33 @@ function TransportView() {
         </header>
         <div className={styles.transportList}>
           {transportPatients.map((patient) => {
-            const delayed =
-              patient.transport.toLowerCase().includes("delay") || patient.transport.toLowerCase().includes("pending");
+            const stalled =
+              patient.transport?.acceptedAt !== undefined &&
+              patient.transport.enRouteAt === undefined &&
+              patient.transport.cancelledAt === undefined;
             return (
               <article className={styles.transportRow} key={patient.id}>
                 <Truck aria-hidden="true" />
                 <div>
                   <strong>{patient.id}</strong>
                   <small>
-                    {patient.catchment} · {patient.voluntaryStatus}
+                    {movementHealthService(patient) ?? "Unknown"} · {patient.legalStatus}
                   </small>
                 </div>
                 <div>
-                  <span className={delayed ? styles.statusWarning : styles.statusGood}>{patient.transport}</span>
-                  <small>{patient.legalDetail}</small>
+                  <span className={stalled ? styles.statusWarning : styles.statusGood}>
+                    {patient.transport ? `${patient.transport.provider}: ` : ""}
+                    {patient.transport?.enRouteAt !== undefined
+                      ? "En route"
+                      : patient.transport?.acceptedAt !== undefined
+                        ? "Accepted, awaiting departure"
+                        : "Requested"}
+                  </span>
+                  <small>
+                    {patient.legalForm
+                      ? `${patient.legalForm.label} (${patient.legalForm.code})`
+                      : "No legal form required"}
+                  </small>
                 </div>
                 <Link className={styles.secondaryButton} href={`/ward-management/patients/${patient.id}`}>
                   Review <ArrowRight aria-hidden="true" />
@@ -755,6 +740,8 @@ function GovernanceView() {
       "https://www.health.wa.gov.au/about-us/policy-frameworks/digital-health/mandatory-requirements/artificial-intelligence-policy",
     ],
   ];
+  const sample = wardMovements[0];
+  const timeline = movementTimeline(sample);
   return (
     <div data-testid="ward-governance-view">
       <section className={styles.assuranceGrid}>
@@ -785,7 +772,7 @@ function GovernanceView() {
         <article className={styles.governanceCard}>
           <Scale aria-hidden="true" />
           <h2>Contestable outcome</h2>
-          <p>Users can select an alternative, record an override reason and see which factor changed the ordering.</p>
+          <p>Users can select an alternative, record an override reason and see which gate changed the ordering.</p>
         </article>
         <article className={styles.governanceCard}>
           <Fingerprint aria-hidden="true" />
@@ -809,23 +796,22 @@ function GovernanceView() {
           <header className={styles.panelHeader}>
             <div>
               <h2>Synthetic decision audit</h2>
-              <p>Representative review trail for WF-204</p>
+              <p>Representative review trail for {sample.id}</p>
             </div>
           </header>
           <ol className={styles.auditList}>
-            <li>
-              <CheckCircle2 aria-hidden="true" /> 10:42 · operational shortlist recalculated after ward capacity
-              confirmation
-            </li>
-            <li>
-              <Clock3 aria-hidden="true" /> 10:40 · FSH capacity confirmed by ward manager
-            </li>
-            <li>
-              <FileClock aria-hidden="true" /> 10:18 · destination review created by flow coordinator
-            </li>
-            <li>
-              <CalendarDays aria-hidden="true" /> 09:55 · referral sent by ED mental health team
-            </li>
+            {timeline.map((event, index) => (
+              <li key={`${event.at}-${index}`}>
+                {index === 0 ? (
+                  <FileClock aria-hidden="true" />
+                ) : index % 2 === 0 ? (
+                  <Clock3 aria-hidden="true" />
+                ) : (
+                  <CalendarDays aria-hidden="true" />
+                )}{" "}
+                {formatInstant(event.at)} · {event.label}
+              </li>
+            ))}
           </ol>
         </section>
         <aside className={styles.panel}>

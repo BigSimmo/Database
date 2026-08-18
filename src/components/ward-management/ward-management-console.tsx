@@ -23,67 +23,82 @@ import {
   Truck,
   UserRound,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
 import {
-  movementStages,
-  operationalPriorityScore,
-  wardHospitalByCode,
-  wardHospitals,
-  wardPatientById,
-  wardPatients,
-  wardRegions,
+  formatInstant,
+  formatRemaining,
+  minutesUntil,
+  clockState,
+  type Instant,
+} from "@/components/ward-management/ward-clock";
+import { eligibility, type EligibilityVerdict } from "@/components/ward-management/ward-eligibility";
+import {
+  MOVEMENT_STAGES,
+  PARALLEL_REFERRAL_CAP,
+  type HealthService,
+  type Movement,
   type MovementStage,
-  type WardPatient,
-  type WardRole,
-} from "@/components/ward-management/synthetic-fixtures";
+  type TransportJob,
+  type Unit,
+} from "@/components/ward-management/ward-model";
+import { bedReleases, movementById, wardMovements } from "@/components/ward-management/ward-movements";
 import { ClinicalRail, WardModeNavigation } from "@/components/ward-management/ward-management-navigation";
+import {
+  NOW_ANCHOR,
+  allEmergencyDepartments,
+  allUnits,
+  siteByCode,
+  unitById,
+} from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management.module.css";
+
+/** UI-only role concept; not part of the domain model. */
+export type WardRole = "flow" | "ed" | "ward";
+
+export const stageCopy: Record<MovementStage, { label: string; shortLabel: string }> = {
+  placement_requested: { label: "Placement requested", shortLabel: "Requested" },
+  destination_review: { label: "Destination review", shortLabel: "Review" },
+  accepted_awaiting_bed: { label: "Accepted, awaiting bed", shortLabel: "Accepted" },
+  bed_held: { label: "Bed held", shortLabel: "Held" },
+  handover_ready: { label: "Handover ready", shortLabel: "Ready" },
+  moving: { label: "Moving", shortLabel: "Moving" },
+  arrived: { label: "Arrived", shortLabel: "Arrived" },
+};
 
 const stageIcons = {
   placement_requested: FileCheck2,
   destination_review: Search,
+  accepted_awaiting_bed: BedSingle,
   bed_held: CalendarDays,
   handover_ready: ShieldCheck,
   moving: Truck,
   arrived: CheckCircle2,
-} satisfies Record<MovementStage, typeof Search>;
+} satisfies Record<MovementStage, LucideIcon>;
 
-const roleLabels: Record<WardRole, string> = {
+/** Counts are derived from `wardMovements` so the pipeline strip can never advertise a
+ * count no other surface can show. */
+export function stageSummaries(movements: Movement[]) {
+  return MOVEMENT_STAGES.map((id) => ({
+    id,
+    ...stageCopy[id],
+    count: movements.filter((movement) => movement.stage === id).length,
+  }));
+}
+
+export const movementStageSummary = stageSummaries(wardMovements);
+
+export const wardServiceOrder: HealthService[] = ["North Metro", "East Metro", "South Metro", "WACHS", "Private"];
+
+export const roleLabels: Record<WardRole, string> = {
   flow: "Flow coordinator",
   ed: "ED mental health",
   ward: "Ward manager",
 };
-
-const actionInbox = [
-  {
-    id: "destination-overdue",
-    tone: "danger",
-    icon: CircleAlert,
-    title: "Review overdue",
-    detail: "WF-198 · 1h 12m",
-    owner: "Flow coordinator",
-  },
-  {
-    id: "hold-expiry",
-    tone: "warning",
-    icon: Clock3,
-    title: "Hold expires",
-    detail: "WF-204 · 11:00",
-    owner: "Ward manager",
-  },
-  {
-    id: "transport-delay",
-    tone: "warning",
-    icon: Truck,
-    title: "Transport delayed",
-    detail: "WF-201 · ETA +90m",
-    owner: "ED mental health",
-  },
-] as const;
 
 const roleQueueHint: Record<WardRole, string> = {
   flow: "Tier first · AI within tier",
@@ -91,18 +106,131 @@ const roleQueueHint: Record<WardRole, string> = {
   ward: "Capacity and acceptance tasks",
 };
 
-const roleTaskLabel: Record<WardRole, string> = {
+export const roleTaskLabel: Record<WardRole, string> = {
   flow: "Review & confirm",
   ed: "Confirm ED readiness",
   ward: "Accept and hold bed",
 };
 
-function stageLabel(stage: MovementStage) {
-  return movementStages.find((item) => item.id === stage)?.label ?? stage;
+/** The health service that owns the ED a movement originated in — the real catchment. */
+export function movementHealthService(movement: Movement): HealthService | undefined {
+  const ed = allEmergencyDepartments().find((candidate) => candidate.id === movement.originEdId);
+  return ed ? siteByCode(ed.siteCode)?.service : undefined;
 }
 
-function shortHospitalName(name: string) {
-  return name.replace("Sir Charles Gairdner", "SCGH").replace("Fiona Stanley", "FSH").replace("Royal Perth", "RPH");
+/** Duration since the movement opened, using only ward-clock exports. */
+export function elapsedLabel(movement: Movement, now: Instant) {
+  return formatRemaining(minutesUntil(movement.openedAt, now));
+}
+
+/** The unit a movement is currently heading to, if any. Never falls back to a different unit. */
+export function destinationUnit(movement: Movement): Unit | undefined {
+  const id = movement.acceptedUnitId ?? movement.referredUnitIds[0];
+  return id ? unitById(id) : undefined;
+}
+
+export function unitSiteCode(unit: Unit) {
+  return siteByCode(unit.siteCode)?.code ?? unit.siteCode;
+}
+
+export function transportStatusLabel(transport: TransportJob | undefined) {
+  if (!transport) return "Not yet requested";
+  if (transport.cancelledAt !== undefined) return "Cancelled";
+  if (transport.arrivedAt !== undefined) return "Arrived";
+  if (transport.collectedAt !== undefined) return "Collected";
+  if (transport.enRouteAt !== undefined) return "En route";
+  if (transport.acceptedAt !== undefined) return `${transport.provider} accepted, awaiting departure`;
+  return `${transport.provider} requested`;
+}
+
+/** The five-state bed grid, built entirely from real unit and bed-release fields. */
+export function unitCapacity(unit: Unit) {
+  return {
+    available: unit.allocatable.value,
+    held: unit.held,
+    potential: bedReleases.filter((release) => release.unitId === unit.id).length,
+    blocked: unit.blocked,
+    occupied: Math.max(unit.beds - unit.empty.value, 0),
+  };
+}
+
+/** Cohort-matching units ranked eligible-first, using the real eligibility gates. */
+export function eligibleCandidates(movement: Movement, now: Instant, limit = 3) {
+  return allUnits()
+    .filter((unit) => unit.cohort === movement.cohort)
+    .map((unit) => ({ unit, verdict: eligibility(movement, unit, now) }))
+    .sort((a, b) => Number(b.verdict.eligible) - Number(a.verdict.eligible))
+    .slice(0, limit);
+}
+
+export function candidateReason(verdict: EligibilityVerdict) {
+  if (verdict.eligible) return "Eligible now";
+  const failed = verdict.gates.find((gate) => !gate.pass);
+  return failed ? failed.detail : "Not eligible";
+}
+
+export type InboxTone = "danger" | "warning";
+export type InboxItem = {
+  id: string;
+  tone: InboxTone;
+  icon: LucideIcon;
+  title: string;
+  detail: string;
+  owner: string;
+  movementId: string;
+};
+
+/** Every item here is computed from real movement fields — nothing is authored. */
+export function buildActionInbox(movements: Movement[], now: Instant): InboxItem[] {
+  const items: InboxItem[] = [];
+
+  const breachedLegal = movements.find(
+    (movement) => movement.legalForm && clockState(movement.legalForm.dueAt, now) === "breached",
+  );
+  if (breachedLegal?.legalForm) {
+    items.push({
+      id: `legal-${breachedLegal.id}`,
+      tone: "danger",
+      icon: CircleAlert,
+      title: "Legal timing breached",
+      detail: `${breachedLegal.id} · ${formatRemaining(minutesUntil(breachedLegal.legalForm.dueAt, now))}`,
+      owner: breachedLegal.owner,
+      movementId: breachedLegal.id,
+    });
+  }
+
+  const exhaustedReferrals = movements.find((movement) => movement.declines.length >= PARALLEL_REFERRAL_CAP);
+  if (exhaustedReferrals) {
+    items.push({
+      id: `declines-${exhaustedReferrals.id}`,
+      tone: "danger",
+      icon: CircleAlert,
+      title: "No eligible destination left",
+      detail: `${exhaustedReferrals.id} · ${exhaustedReferrals.declines.length} declines`,
+      owner: exhaustedReferrals.owner,
+      movementId: exhaustedReferrals.id,
+    });
+  }
+
+  const stalledTransport = movements.find(
+    (movement) =>
+      movement.transport?.acceptedAt !== undefined &&
+      movement.transport.enRouteAt === undefined &&
+      movement.transport.cancelledAt === undefined,
+  );
+  if (stalledTransport?.transport) {
+    items.push({
+      id: `transport-${stalledTransport.id}`,
+      tone: "warning",
+      icon: Truck,
+      title: "Transport awaiting departure",
+      detail: `${stalledTransport.id} · accepted ${formatInstant(stalledTransport.transport.acceptedAt as Instant)}`,
+      owner: stalledTransport.owner,
+      movementId: stalledTransport.id,
+    });
+  }
+
+  return items;
 }
 
 function QueueBadge({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "danger" }) {
@@ -115,11 +243,13 @@ function PatientQueueItem({
   selected,
   onSelect,
 }: {
-  patient: WardPatient;
+  patient: Movement;
   position?: number;
   selected: boolean;
   onSelect: () => void;
 }) {
+  const destination = destinationUnit(patient);
+  const service = movementHealthService(patient);
   return (
     <button
       type="button"
@@ -132,17 +262,16 @@ function PatientQueueItem({
         {position ? <span className={styles.queuePosition}>{position}</span> : null}
         <strong>{patient.id}</strong>
         <QueueBadge tone={patient.urgency === 1 ? "danger" : "neutral"}>P{patient.urgency}</QueueBadge>
-        <span className={styles.elapsed}>{patient.elapsed}</span>
-        <span className={styles.destinationCode}>{patient.destinationCode}</span>
+        <span className={styles.elapsed}>{elapsedLabel(patient, NOW_ANCHOR)}</span>
+        <span className={styles.destinationCode}>{destination ? unitSiteCode(destination) : "No destination"}</span>
       </span>
       <span className={styles.patientBadges}>
         <QueueBadge>{patient.cohort}</QueueBadge>
-        <QueueBadge>{patient.setting}</QueueBadge>
-        <QueueBadge>{patient.catchment}</QueueBadge>
-        <strong>{patient.score}%</strong>
+        <QueueBadge>{patient.security}</QueueBadge>
+        <QueueBadge>{service ?? "Unknown service"}</QueueBadge>
       </span>
       <span className={styles.patientMeta}>
-        {patient.voluntaryStatus} <span aria-hidden="true">·</span> {patient.referralStatus}
+        {patient.legalStatus} <span aria-hidden="true">·</span> {stageCopy[patient.stage].label}
       </span>
     </button>
   );
@@ -166,38 +295,31 @@ function CapacityLine({
   );
 }
 
-function HospitalNode({
-  hospital,
-  selected,
-  onSelect,
-}: {
-  hospital: (typeof wardHospitals)[number];
-  selected: boolean;
-  onSelect: () => void;
-}) {
+function HospitalNode({ unit, selected, onSelect }: { unit: Unit; selected: boolean; onSelect: () => void }) {
+  const capacity = unitCapacity(unit);
   return (
     <button
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
       className={selected ? styles.hospitalNodeSelected : styles.hospitalNode}
-      data-testid={`ward-hospital-${hospital.code}`}
+      data-testid={`ward-unit-${unit.id}`}
     >
       <span className={styles.hospitalHeading}>
         <span>
-          <strong>{["SCGH", "RPH", "FSH"].includes(hospital.code) ? hospital.code : hospital.name}</strong>
-          <small>{hospital.beds} beds</small>
+          <strong>{unit.name}</strong>
+          <small>{unit.beds} beds</small>
         </span>
         <ArrowRight aria-hidden="true" />
       </span>
       <span className={styles.capacityGrid}>
-        <CapacityLine state="available" count={hospital.available} label="Available" />
-        <CapacityLine state="held" count={hospital.held} label="Held" />
-        <CapacityLine state="potential" count={hospital.potential} label="Potential" />
-        <CapacityLine state="blocked" count={hospital.blocked} label="Blocked" />
-        <CapacityLine state="occupied" count={hospital.occupied} label="Occupied" />
+        <CapacityLine state="available" count={capacity.available} label="Available" />
+        <CapacityLine state="held" count={capacity.held} label="Held" />
+        <CapacityLine state="potential" count={capacity.potential} label="Potential" />
+        <CapacityLine state="blocked" count={capacity.blocked} label="Blocked" />
+        <CapacityLine state="occupied" count={capacity.occupied} label="Occupied" />
       </span>
-      <span className={styles.lastConfirmed}>Last confirmed&nbsp; {hospital.lastConfirmed}</span>
+      <span className={styles.lastConfirmed}>Last confirmed&nbsp; {formatInstant(unit.allocatable.confirmedAt)}</span>
     </button>
   );
 }
@@ -211,11 +333,11 @@ function QueuePanel({
   onSelectPatient,
 }: {
   role: WardRole;
-  patients: WardPatient[];
-  selectedPatient: WardPatient;
+  patients: Movement[];
+  selectedPatient: Movement;
   collapsed: boolean;
   onCollapse: () => void;
-  onSelectPatient: (patient: WardPatient) => void;
+  onSelectPatient: (patient: Movement) => void;
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   if (collapsed) {
@@ -238,7 +360,7 @@ function QueuePanel({
               type="button"
               key={patient.id}
               onClick={() => onSelectPatient(patient)}
-              aria-label={`Select ${patient.id}, priority ${patient.urgency}, score ${patient.score}`}
+              aria-label={`Select ${patient.id}, priority ${patient.urgency}`}
               aria-pressed={patient.id === selectedPatient.id}
               className={patient.id === selectedPatient.id ? styles.priorityMarkerSelected : styles.priorityMarker}
             >
@@ -284,7 +406,7 @@ function QueuePanel({
           <div id="ward-queue-filters" className={styles.filterSummary}>
             <span>Urgency tier</span>
             <span>Longest wait</span>
-            <span>All catchments</span>
+            <span>All health services</span>
           </div>
         ) : null}
       </header>
@@ -318,10 +440,10 @@ function QueuePanel({
   );
 }
 
-function ActionInbox({ onOpen }: { onOpen: (item: (typeof actionInbox)[number] | null) => void }) {
+function ActionInbox({ items, onOpen }: { items: InboxItem[]; onOpen: (item: InboxItem | null) => void }) {
   return (
     <section className={styles.actionInbox} aria-label="Action inbox">
-      {actionInbox.map((item) => {
+      {items.map((item) => {
         const Icon = item.icon;
         return (
           <button type="button" key={item.id} onClick={() => onOpen(item)} className={styles.inboxItem}>
@@ -350,7 +472,7 @@ function MovementPipeline({
 }) {
   return (
     <nav className={styles.movementPipeline} aria-label="Patient movement stages">
-      {movementStages.map((stage, index) => {
+      {movementStageSummary.map((stage, index) => {
         const Icon = stageIcons[stage.id];
         const active = stage.id === activeStage;
         return (
@@ -368,7 +490,9 @@ function MovementPipeline({
                 <b>{stage.count}</b>
               </span>
             </button>
-            {index < movementStages.length - 1 ? <ArrowRight className={styles.stageArrow} aria-hidden="true" /> : null}
+            {index < movementStageSummary.length - 1 ? (
+              <ArrowRight className={styles.stageArrow} aria-hidden="true" />
+            ) : null}
           </div>
         );
       })}
@@ -377,11 +501,11 @@ function MovementPipeline({
 }
 
 function WardNetwork({
-  selectedHospitalCode,
-  onSelectHospital,
+  selectedUnitId,
+  onSelectUnit,
 }: {
-  selectedHospitalCode: string;
-  onSelectHospital: (code: string) => void;
+  selectedUnitId: string | undefined;
+  onSelectUnit: (id: string) => void;
 }) {
   return (
     <section className={styles.networkPanel} aria-labelledby="network-heading">
@@ -389,12 +513,12 @@ function WardNetwork({
         WA psychiatry bed network
       </h2>
       <div className={styles.regionGrid}>
-        {wardRegions.map((region) => {
-          const hospitals = wardHospitals.filter((hospital) => hospital.region === region);
-          const totalBeds = hospitals.reduce((sum, hospital) => sum + hospital.beds, 0);
-          const totalAvailable = hospitals.reduce((sum, hospital) => sum + hospital.available, 0);
+        {wardServiceOrder.map((service) => {
+          const units = allUnits().filter((unit) => siteByCode(unit.siteCode)?.service === service);
+          const totalBeds = units.reduce((sum, unit) => sum + unit.beds, 0);
+          const totalAvailable = units.reduce((sum, unit) => sum + unit.allocatable.value, 0);
           return (
-            <section className={styles.regionColumn} key={region} aria-labelledby={`region-${region}`}>
+            <section className={styles.regionColumn} key={service} aria-labelledby={`network-service-${service}`}>
               <header className={styles.regionHeading}>
                 <span className={styles.regionIcon}>
                   <Building2 aria-hidden="true" />
@@ -402,18 +526,18 @@ function WardNetwork({
                 <span className={styles.networkLine} aria-hidden="true">
                   <ArrowRight aria-hidden="true" />
                 </span>
-                <h3 id={`region-${region}`}>{region}</h3>
+                <h3 id={`network-service-${service}`}>{service}</h3>
                 <p>
                   <strong>{totalBeds}</strong> beds <span>·</span> <b>{totalAvailable}</b> available
                 </p>
               </header>
               <div className={styles.hospitalList}>
-                {hospitals.map((hospital) => (
+                {units.map((unit) => (
                   <HospitalNode
-                    key={hospital.id}
-                    hospital={hospital}
-                    selected={selectedHospitalCode === hospital.code}
-                    onSelect={() => onSelectHospital(hospital.code)}
+                    key={unit.id}
+                    unit={unit}
+                    selected={selectedUnitId === unit.id}
+                    onSelect={() => onSelectUnit(unit.id)}
                   />
                 ))}
               </div>
@@ -428,7 +552,8 @@ function WardNetwork({
         <CapacityLine state="blocked" count={0} label="Blocked · unavailable" />
         <CapacityLine state="occupied" count={0} label="Occupied · no bed" />
         <span className={styles.catchmentRule}>
-          <CircleAlert aria-hidden="true" /> Local catchment first <span>·</span> statewide escalation when required
+          <CircleAlert aria-hidden="true" /> Local health service first <span>·</span> statewide escalation when
+          required
         </span>
       </footer>
     </section>
@@ -438,23 +563,26 @@ function WardNetwork({
 function DecisionDock({
   patient,
   role,
-  selectedHospitalCode,
+  selectedUnitId,
   confirmed,
   onConfirm,
   onClose,
-  onSelectHospital,
+  onSelectUnit,
 }: {
-  patient: WardPatient;
+  patient: Movement;
   role: WardRole;
-  selectedHospitalCode: string;
+  selectedUnitId: string | undefined;
   confirmed: boolean;
   onConfirm: () => void;
   onClose: () => void;
-  onSelectHospital: (code: string) => void;
+  onSelectUnit: (id: string) => void;
 }) {
-  const destination = wardHospitalByCode(selectedHospitalCode);
-  const recommendationSelected =
-    destination.code.startsWith(patient.destinationCode) || patient.destinationCode.startsWith(destination.code);
+  const destination = selectedUnitId ? unitById(selectedUnitId) : undefined;
+  const verdict = destination ? eligibility(patient, destination, NOW_ANCHOR) : undefined;
+  const gatesPassed = verdict ? verdict.gates.filter((gate) => gate.pass).length : 0;
+  const candidates = useMemo(() => eligibleCandidates(patient, NOW_ANCHOR), [patient]);
+  const alternatives = candidates.filter((candidate) => candidate.unit.id !== destination?.id).slice(0, 2);
+
   return (
     <section className={styles.decisionDock} aria-label={`AI destination review for ${patient.id}`}>
       <button type="button" onClick={onClose} className={styles.closeDock} aria-label="Close patient decision panel">
@@ -464,31 +592,32 @@ function DecisionDock({
         <p>
           <strong>{patient.id}</strong>
           <span>·</span>
-          {stageLabel(patient.stage)}
+          {stageCopy[patient.stage].label}
         </p>
         <span className={styles.aiLabel}>
-          <Sparkles aria-hidden="true" /> AI best fit
+          <Sparkles aria-hidden="true" /> Eligibility check
         </span>
         <h3>
-          {shortHospitalName(destination.name)}{" "}
+          {destination ? destination.name : "No destination selected"}{" "}
           <span>
-            {patient.cohort} {patient.setting}
-          </span>{" "}
-          <b>· {recommendationSelected ? patient.score : Math.max(patient.score - 8, 0)}%</b>
+            {patient.cohort} {patient.security}
+          </span>
         </h3>
       </div>
       <div className={styles.matchReasons}>
         <span>
-          <MapPin aria-hidden="true" /> {patient.catchment} catchment
+          <MapPin aria-hidden="true" /> {movementHealthService(patient) ?? "Unknown service"}
         </span>
         <span>
-          <UserRound aria-hidden="true" /> Exact {patient.cohort} {patient.setting} fit
+          <UserRound aria-hidden="true" /> Exact {patient.cohort} {patient.security} fit
         </span>
+        {destination ? (
+          <span>
+            <BedSingle aria-hidden="true" /> {destination.allocatable.value} beds available
+          </span>
+        ) : null}
         <span>
-          <BedSingle aria-hidden="true" /> {destination.available} beds available
-        </span>
-        <span>
-          <Truck aria-hidden="true" /> {patient.transport}
+          <Truck aria-hidden="true" /> {transportStatusLabel(patient.transport)}
         </span>
         <button type="button" onClick={() => document.getElementById("match-explanation")?.scrollIntoView()}>
           Why this match? <ChevronDown aria-hidden="true" />
@@ -496,37 +625,46 @@ function DecisionDock({
       </div>
       <div className={styles.prioritySummary}>
         <p>
-          Priority <strong>{operationalPriorityScore(patient)}</strong>
-          <span>·</span>Tier <strong>{patient.urgency}</strong>
+          {verdict ? (
+            <>
+              Eligibility <strong>{gatesPassed}</strong>/<strong>{verdict.gates.length}</strong>
+              <span>·</span>
+            </>
+          ) : null}
+          Tier <strong>{patient.urgency}</strong>
         </p>
         <span>Alternatives</span>
-        {patient.alternatives.slice(0, 2).map((alternative) => (
-          <button
-            type="button"
-            key={alternative.hospitalCode}
-            onClick={() => onSelectHospital(alternative.hospitalCode)}
-          >
-            {alternative.hospitalName} <strong>{alternative.score}%</strong>
+        {alternatives.map((candidate) => (
+          <button type="button" key={candidate.unit.id} onClick={() => onSelectUnit(candidate.unit.id)}>
+            {candidate.unit.name} <strong>{candidate.verdict.eligible ? "Eligible" : "Not eligible"}</strong>
           </button>
         ))}
       </div>
       <div className={styles.readiness}>
         <strong>Readiness</strong>
         <span>
-          <CheckCircle2 aria-hidden="true" /> Forms ready
+          <CheckCircle2 aria-hidden="true" />{" "}
+          {patient.legalForm ? `${patient.legalForm.label} (${patient.legalForm.code})` : "No legal form required"}
         </span>
         <span>
-          <CheckCircle2 aria-hidden="true" /> Transport ready
+          <CheckCircle2 aria-hidden="true" /> {transportStatusLabel(patient.transport)}
         </span>
+        {destination ? (
+          <span>
+            <CheckCircle2 aria-hidden="true" /> Confirmed {formatInstant(destination.allocatable.confirmedAt)}
+          </span>
+        ) : null}
         <span>
-          <CheckCircle2 aria-hidden="true" /> Confirmed {destination.lastConfirmed}
-        </span>
-        <span>
-          <CheckCircle2 aria-hidden="true" /> {patient.blocker === "No blocker" ? "No blocker" : "Blocker visible"}
+          <CircleAlert aria-hidden="true" /> {patient.blocker}
         </span>
       </div>
       <div className={styles.decisionActions}>
-        <button type="button" onClick={onConfirm} className={confirmed ? styles.confirmedButton : styles.confirmButton}>
+        <button
+          type="button"
+          onClick={onConfirm}
+          className={confirmed ? styles.confirmedButton : styles.confirmButton}
+          disabled={!destination}
+        >
           {confirmed ? <Check aria-hidden="true" /> : null}
           {confirmed ? "Confirmed" : roleTaskLabel[role]}
         </button>
@@ -535,7 +673,7 @@ function DecisionDock({
         </Link>
       </div>
       <p className={styles.aiBoundary}>
-        AI proposes <span>·</span> coordinator confirms <span>·</span> operational score, not clinical severity
+        Eligibility checked automatically <span>·</span> coordinator confirms <span>·</span> not clinical severity
       </p>
     </section>
   );
@@ -543,32 +681,35 @@ function DecisionDock({
 
 export function WardManagementConsole() {
   const [role, setRole] = useState<WardRole>("flow");
-  const [selectedPatient, setSelectedPatient] = useState<WardPatient>(wardPatients[0]);
-  const [selectedHospitalCode, setSelectedHospitalCode] = useState(wardPatients[0].destinationCode);
+  const [selectedPatient, setSelectedPatient] = useState<Movement>(wardMovements[0]);
+  const [selectedUnitId, setSelectedUnitId] = useState<string | undefined>(
+    destinationUnit(wardMovements[0])?.id ?? eligibleCandidates(wardMovements[0], NOW_ANCHOR)[0]?.unit.id,
+  );
   const [queueCollapsed, setQueueCollapsed] = useState(false);
-  const [activeStage, setActiveStage] = useState<MovementStage>("destination_review");
+  const [activeStage, setActiveStage] = useState<MovementStage>(wardMovements[0].stage);
   const [decisionOpen, setDecisionOpen] = useState(true);
   const [confirmedPatientId, setConfirmedPatientId] = useState<string | null>(null);
   const [inboxOpen, setInboxOpen] = useState(false);
-  const [selectedInboxItem, setSelectedInboxItem] = useState<(typeof actionInbox)[number] | null>(actionInbox[0]);
+  const actionInbox = useMemo(() => buildActionInbox(wardMovements, NOW_ANCHOR), []);
+  const [selectedInboxItem, setSelectedInboxItem] = useState<InboxItem | null>(actionInbox[0] ?? null);
 
   const rolePatients = useMemo(() => {
-    if (role === "flow") return wardPatients;
+    if (role === "flow") return wardMovements;
     if (role === "ed")
-      return [...wardPatients].sort((a, b) => Number(b.owner.includes("ED")) - Number(a.owner.includes("ED")));
-    return [...wardPatients].sort((a, b) => Number(b.owner.includes("Ward")) - Number(a.owner.includes("Ward")));
+      return [...wardMovements].sort((a, b) => Number(b.owner.includes("ED")) - Number(a.owner.includes("ED")));
+    return [...wardMovements].sort((a, b) => Number(b.owner.includes("Ward")) - Number(a.owner.includes("Ward")));
   }, [role]);
 
-  function selectPatient(patient: WardPatient) {
+  function selectPatient(patient: Movement) {
     const rolePatient = rolePatients.find((candidate) => candidate.id === patient.id) ?? patient;
     setSelectedPatient(rolePatient);
-    setSelectedHospitalCode(rolePatient.destinationCode);
+    setSelectedUnitId(destinationUnit(rolePatient)?.id ?? eligibleCandidates(rolePatient, NOW_ANCHOR)[0]?.unit.id);
     setActiveStage(rolePatient.stage);
     setDecisionOpen(true);
     setConfirmedPatientId(null);
   }
 
-  function openInbox(item: (typeof actionInbox)[number] | null) {
+  function openInbox(item: InboxItem | null) {
     setSelectedInboxItem(item);
     setInboxOpen(true);
   }
@@ -605,7 +746,7 @@ export function WardManagementConsole() {
         <div className={styles.headerMeta}>
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <span>
-            <Clock3 aria-hidden="true" /> Updated 10:42
+            <Clock3 aria-hidden="true" /> Updated {formatInstant(NOW_ANCHOR)}
           </span>
           <span>
             <CalendarDays aria-hidden="true" /> 15 Aug 2026
@@ -627,12 +768,12 @@ export function WardManagementConsole() {
 
       <main id="main-content" className={styles.commandMain}>
         <WardModeNavigation active="command" />
-        <ActionInbox onOpen={openInbox} />
+        <ActionInbox items={actionInbox} onOpen={openInbox} />
         <MovementPipeline activeStage={activeStage} onStageChange={setActiveStage} />
         <WardNetwork
-          selectedHospitalCode={selectedHospitalCode}
-          onSelectHospital={(code) => {
-            setSelectedHospitalCode(code);
+          selectedUnitId={selectedUnitId}
+          onSelectUnit={(id) => {
+            setSelectedUnitId(id);
             setDecisionOpen(true);
             setConfirmedPatientId(null);
           }}
@@ -641,18 +782,18 @@ export function WardManagementConsole() {
           <DecisionDock
             patient={selectedPatient}
             role={role}
-            selectedHospitalCode={selectedHospitalCode}
+            selectedUnitId={selectedUnitId}
             confirmed={confirmedPatientId === selectedPatient.id}
             onConfirm={() => setConfirmedPatientId(selectedPatient.id)}
             onClose={() => setDecisionOpen(false)}
-            onSelectHospital={(code) => {
-              setSelectedHospitalCode(code);
+            onSelectUnit={(id) => {
+              setSelectedUnitId(id);
               setConfirmedPatientId(null);
             }}
           />
         ) : (
           <button type="button" onClick={() => setDecisionOpen(true)} className={styles.reopenDecision}>
-            <Sparkles aria-hidden="true" /> Review AI match for {selectedPatient.id}
+            <Sparkles aria-hidden="true" /> Review destination for {selectedPatient.id}
           </button>
         )}
         <span className="sr-only" aria-live="polite">
@@ -683,8 +824,8 @@ export function WardManagementConsole() {
               <button
                 type="button"
                 onClick={() => {
-                  const patientId = selectedInboxItem.detail.split(" · ")[0];
-                  selectPatient(wardPatientById(patientId));
+                  const target = movementById(selectedInboxItem.movementId);
+                  if (target) selectPatient(target);
                   setInboxOpen(false);
                 }}
               >
@@ -708,11 +849,42 @@ export function WardManagementConsole() {
 }
 
 export function WardPatientWorkspace({ patientId }: { patientId: string }) {
-  const patient = wardPatientById(patientId);
-  const destination = wardHospitalByCode(patient.destinationCode);
+  const patient = movementById(patientId);
   const [confirmed, setConfirmed] = useState(false);
   const [activeSection, setActiveSection] = useState<"overview" | "legal" | "transport" | "timeline">("overview");
-  const [activeStage, setActiveStage] = useState<MovementStage>(patient.stage);
+  const [activeStage, setActiveStage] = useState<MovementStage>(patient?.stage ?? MOVEMENT_STAGES[0]);
+
+  if (!patient) {
+    return (
+      <div className={styles.patientWorkspace} data-testid="ward-patient-workspace">
+        <ClinicalRail />
+        <header className={styles.workspaceHeader}>
+          <Link href="/ward-management" aria-label="Back to Ward Flow">
+            <ArrowLeft aria-hidden="true" />
+          </Link>
+          <div>
+            <span>Ward Flow</span>
+            <h1>Movement not found</h1>
+          </div>
+          <span className={styles.prototypeBadge}>Synthetic prototype</span>
+        </header>
+        <main id="main-content" className={styles.workspaceMain}>
+          <p className={styles.governanceNote}>
+            No synthetic movement matches &ldquo;{patientId}&rdquo;. It may have arrived and closed, or the id is
+            incorrect.
+          </p>
+        </main>
+      </div>
+    );
+  }
+
+  const destination = destinationUnit(patient);
+  const verdict = destination ? eligibility(patient, destination, NOW_ANCHOR) : undefined;
+  const gatesPassed = verdict ? verdict.gates.filter((gate) => gate.pass).length : 0;
+  const candidates = eligibleCandidates(patient, NOW_ANCHOR).filter(
+    (candidate) => candidate.unit.id !== destination?.id,
+  );
+  const timeline = movementTimeline(patient);
 
   return (
     <div className={styles.patientWorkspace} data-testid="ward-patient-workspace">
@@ -731,22 +903,23 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
         <section className={styles.workspaceSummary}>
           <div>
             <span className={styles.aiLabel}>
-              <Sparkles aria-hidden="true" /> AI best fit
+              <Sparkles aria-hidden="true" /> Eligibility check
             </span>
-            <h2>{destination.name}</h2>
+            <h2>{destination ? destination.name : "No destination selected"}</h2>
             <p>
-              {patient.catchment} catchment · {patient.cohort} {patient.setting} · {patient.score}% operational fit
+              {movementHealthService(patient) ?? "Unknown service"} · {patient.cohort} {patient.security}
             </p>
           </div>
           <div className={styles.workspaceScore}>
-            <span>Operational priority</span>
-            <strong>{operationalPriorityScore(patient)}</strong>
+            <span>Eligibility</span>
+            <strong>{verdict ? `${gatesPassed}/${verdict.gates.length}` : "—"}</strong>
             <small>Tier {patient.urgency} leads</small>
           </div>
           <button
             type="button"
             onClick={() => setConfirmed(true)}
             className={confirmed ? styles.confirmedButton : styles.confirmButton}
+            disabled={!destination}
           >
             {confirmed ? <Check aria-hidden="true" /> : null}
             {confirmed ? "Destination confirmed" : "Review & confirm"}
@@ -780,7 +953,7 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
             <dl className={styles.factList}>
               <div>
                 <dt>Current stage</dt>
-                <dd>{stageLabel(patient.stage)}</dd>
+                <dd>{stageCopy[patient.stage].label}</dd>
               </div>
               <div>
                 <dt>Owner</dt>
@@ -788,20 +961,20 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
               </div>
               <div>
                 <dt>Referral</dt>
-                <dd>{patient.referredTo}</dd>
+                <dd>{destination ? destination.name : `${patient.referredUnitIds.length} referred`}</dd>
               </div>
               <div>
                 <dt>Response</dt>
-                <dd>{patient.referralStatus}</dd>
+                <dd>{patient.blocker}</dd>
               </div>
               <div>
-                <dt>Catchment</dt>
-                <dd>{patient.catchment}</dd>
+                <dt>Health service</dt>
+                <dd>{movementHealthService(patient) ?? "Unknown"}</dd>
               </div>
               <div>
                 <dt>Setting</dt>
                 <dd>
-                  {patient.cohort} · {patient.setting}
+                  {patient.cohort} · {patient.security}
                 </dd>
               </div>
             </dl>
@@ -809,21 +982,25 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
 
           <section id="match-explanation">
             <h2>Why this match</h2>
-            <ul className={styles.reasonList}>
-              {patient.recommendationReasons.map((reason) => (
-                <li key={reason}>
-                  <CheckCircle2 aria-hidden="true" /> {reason}
-                </li>
-              ))}
-            </ul>
+            {verdict ? (
+              <ul className={styles.reasonList}>
+                {verdict.gates.map((gate) => (
+                  <li key={gate.gate}>
+                    {gate.pass ? <CheckCircle2 aria-hidden="true" /> : <CircleAlert aria-hidden="true" />} {gate.detail}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>Select a destination to see eligibility checks.</p>
+            )}
             <h3>Alternatives</h3>
-            {patient.alternatives.map((alternative) => (
-              <div className={styles.alternativeRow} key={alternative.hospitalCode}>
+            {candidates.map((candidate) => (
+              <div className={styles.alternativeRow} key={candidate.unit.id}>
                 <span>
-                  <strong>{alternative.hospitalName}</strong>
-                  <small>{alternative.reason}</small>
+                  <strong>{candidate.unit.name}</strong>
+                  <small>{candidateReason(candidate.verdict)}</small>
                 </span>
-                <b>{alternative.score}%</b>
+                <b>{candidate.verdict.eligible ? "Eligible" : "Not eligible"}</b>
               </div>
             ))}
           </section>
@@ -835,21 +1012,23 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
                 <FileCheck2 aria-hidden="true" />
                 <span>
                   <strong>Legal status</strong>
-                  {patient.voluntaryStatus}
+                  {patient.legalStatus}
                 </span>
               </li>
               <li>
                 <ShieldCheck aria-hidden="true" />
                 <span>
                   <strong>Form readiness</strong>
-                  {patient.legalDetail}
+                  {patient.legalForm
+                    ? `${patient.legalForm.label} (${patient.legalForm.code}) · due ${formatInstant(patient.legalForm.dueAt)}`
+                    : "No legal form required"}
                 </span>
               </li>
               <li>
                 <Truck aria-hidden="true" />
                 <span>
                   <strong>Transport</strong>
-                  {patient.transport}
+                  {transportStatusLabel(patient.transport)}
                 </span>
               </li>
               <li>
@@ -866,14 +1045,18 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
         {activeSection === "legal" ? (
           <section className={styles.contextPanel}>
             <h2>Legal and forms</h2>
-            <p>{patient.voluntaryStatus}</p>
-            <p>{patient.legalDetail}</p>
+            <p>{patient.legalStatus}</p>
+            <p>
+              {patient.legalForm
+                ? `${patient.legalForm.label} (${patient.legalForm.code}) · due ${formatInstant(patient.legalForm.dueAt)}`
+                : "No Mental Health Act transport form required"}
+            </p>
           </section>
         ) : null}
         {activeSection === "transport" ? (
           <section className={styles.contextPanel}>
             <h2>Transport chain</h2>
-            <p>{patient.transport}</p>
+            <p>{transportStatusLabel(patient.transport)}</p>
             <p>
               Provider, ETA, risk documentation and legal-form readiness are visible here; dispatch and live vehicle
               tracking are not part of this prototype.
@@ -884,29 +1067,19 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
           <section className={styles.contextPanel}>
             <h2>Synthetic audit timeline</h2>
             <ol className={styles.timeline}>
-              <li>
-                <time>10:40</time>
-                <span>Ward capacity confirmed by ward manager</span>
-              </li>
-              <li>
-                <time>10:18</time>
-                <span>AI shortlist recalculated after availability update</span>
-              </li>
-              <li>
-                <time>09:55</time>
-                <span>Referral sent to {patient.destinationName}</span>
-              </li>
-              <li>
-                <time>09:42</time>
-                <span>Movement record created by ED mental health team</span>
-              </li>
+              {timeline.map((event, index) => (
+                <li key={`${event.at}-${index}`}>
+                  <time>{formatInstant(event.at)}</time>
+                  <span>{event.label}</span>
+                </li>
+              ))}
             </ol>
           </section>
         ) : null}
 
         <p className={styles.governanceNote}>
-          Synthetic prototype only. AI proposes an explainable operational fit; an authorised human confirms every
-          destination. This score is not clinical severity.
+          Synthetic prototype only. Eligibility is checked automatically; an authorised human confirms every
+          destination. This is not clinical severity.
         </p>
         <span className="sr-only" aria-live="polite">
           {confirmed ? `Destination confirmed for ${patient.id}` : ""}
@@ -914,4 +1087,31 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
       </main>
     </div>
   );
+}
+
+/** A real, per-movement audit trail built from actual fields — never generic flavour text. */
+export function movementTimeline(movement: Movement) {
+  const events: Array<{ at: Instant; label: string }> = [{ at: movement.openedAt, label: "Movement opened" }];
+  for (const change of movement.statusChanges) {
+    events.push({ at: change.at, label: `Legal status changed: ${change.from} → ${change.to} (${change.by})` });
+  }
+  for (const decline of movement.declines) {
+    events.push({ at: decline.at, label: `Declined by referral: ${decline.reason.replace(/_/g, " ")}` });
+  }
+  if (movement.transport?.acceptedAt !== undefined) {
+    events.push({ at: movement.transport.acceptedAt, label: `Transport accepted by ${movement.transport.provider}` });
+  }
+  if (movement.transport?.enRouteAt !== undefined) {
+    events.push({ at: movement.transport.enRouteAt, label: "Transport en route" });
+  }
+  if (movement.transport?.collectedAt !== undefined) {
+    events.push({ at: movement.transport.collectedAt, label: "Patient collected" });
+  }
+  if (movement.transport?.arrivedAt !== undefined) {
+    events.push({ at: movement.transport.arrivedAt, label: "Arrived at destination" });
+  }
+  if (movement.closure) {
+    events.push({ at: movement.closure.at, label: movement.closure.reason });
+  }
+  return events.sort((a, b) => a.at - b.at);
 }
