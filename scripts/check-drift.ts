@@ -339,6 +339,12 @@ async function main() {
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
       SUPABASE_PROJECT_REF: process.env.SUPABASE_PROJECT_REF,
       SUPABASE_PROJECT_NAME: process.env.SUPABASE_PROJECT_NAME,
+      // Staging declarations must be forwarded, or resolveStagingProject() sees
+      // none and every ref is compared against production. check:supabase-project
+      // already passes all five keys; this check must match it so an approved
+      // staging window can run the same drift comparison.
+      SUPABASE_STAGING_PROJECT_REF: process.env.SUPABASE_STAGING_PROJECT_REF,
+      SUPABASE_STAGING_PROJECT_NAME: process.env.SUPABASE_STAGING_PROJECT_NAME,
     },
     { requireMetadata: false },
   );
