@@ -999,7 +999,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `RetrievalStateBanner`   | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `SafeBoldText`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `SearchField`            | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
+| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
 | `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              25 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
