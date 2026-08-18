@@ -23,5 +23,6 @@
   "tests/rag-round-trip-budget.test.ts",
   "tests/search-round-trip-budget.test.ts",
   "tests/search-route-round-trip-budget.test.ts",
-  "tests/rag-adversarial-fixtures.test.ts"
+  "tests/rag-adversarial-fixtures.test.ts",
+  "tests/answer-composition.test.ts"
 ]
