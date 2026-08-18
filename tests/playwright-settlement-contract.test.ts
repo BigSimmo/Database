@@ -14,8 +14,10 @@ import { describe, expect, it } from "vitest";
 const ROUTE_COVERAGE = "tests/ui-route-coverage.spec.ts";
 
 const PAGE_ROOT_TEST_IDS = [
-  "dsm-home-main",
-  "dsm-home-compare",
+  // `dsm-home-main` and `dsm-home-compare` left this list with the DSM detailed
+  // home: `/dsm` redirects onto the shared home, so the route proves
+  // `shared-home-empty-state` instead and Compare is reached from the mode nav.
+  "shared-home-empty-state",
   "dsm-comparison-page",
   "dsm-differential-considerations-page",
   "search-query-ribbon",

@@ -61,10 +61,12 @@ test.beforeEach(async ({ page }) => {
 test("searches clinical language without provenance fields and carries a result into wording", async ({
   page,
 }, testInfo) => {
-  await gotoApp(page, "/specifiers");
+  // `/specifiers` is a 307 onto the shared home now; going there directly keeps
+  // the test on the surface it is actually asserting about.
+  await gotoApp(page, "/?mode=specifiers");
 
-  await expect(page.getByRole("heading", { name: "Specifiers", exact: true })).toBeVisible();
-  await expect(page.getByTestId("specifiers-home")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Diagnostic Specifiers", exact: true })).toBeVisible();
+  await expect(page.getByTestId("shared-home-empty-state")).toBeVisible();
 
   const search = page.getByTestId("global-search-input").filter({ visible: true }).first();
   await expect(search).toHaveAccessibleName(
@@ -73,7 +75,9 @@ test("searches clinical language without provenance fields and carries a result 
   await search.fill("depressed but racing thoughts");
   await page.getByRole("button", { name: "Find matching psychiatric specifiers" }).click();
 
-  await expect(page).toHaveURL(/\/specifiers\?.*q=depressed(?:\+|%20)but(?:\+|%20)racing(?:\+|%20)thoughts.*run=1/);
+  await expect(page).toHaveURL(
+    /\/specifiers\/search\?.*q=depressed(?:\+|%20)but(?:\+|%20)racing(?:\+|%20)thoughts.*run=1/,
+  );
   const queryRibbon = page.getByTestId("search-query-ribbon");
   await expect(queryRibbon.getByRole("heading", { level: 1, name: "depressed but racing thoughts" })).toBeVisible();
   await expect(queryRibbon.getByRole("group", { name: "Filter specifier results" })).toBeVisible();

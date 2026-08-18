@@ -484,6 +484,17 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "calculators",
 ]);
 
+/**
+ * Modes whose submitted searches render at `<href>/search` rather than the bare path.
+ *
+ * Every consolidated mode is here by necessity: its bare path redirects, so a
+ * submitted query routed back at it would bounce through that redirect and loop
+ * (pinned by tests/consolidated-mode-home-redirect.test.ts). Therapy is here for
+ * the older reason the set existed at all — its workspace owns a dedicated search
+ * screen alongside a home it still renders itself.
+ */
+const dedicatedSearchRouteModes = new Set<AppModeId>([...consolidatedModeHomeModeIds, "therapy-compass"]);
+
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {
   const mode = appModeDefinition(modeId);
   const query = options.query?.trim();
@@ -512,7 +523,7 @@ export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOpti
     // shared home: routing a submitted query back to the bare path would bounce
     // through that redirect and return here, an infinite loop
     // (tests/app-modes.test.ts pins the no-loop property for every mode).
-    const namespacedHref = query && consolidatedModeHomeModeIds.has(modeId) ? `${mode.href}/search` : mode.href;
+    const namespacedHref = query && dedicatedSearchRouteModes.has(modeId) ? `${mode.href}/search` : mode.href;
     return suffix ? `${namespacedHref}?${suffix}` : namespacedHref;
   }
 

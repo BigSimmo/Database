@@ -84,6 +84,7 @@ import {
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import {
   isAlwaysStandaloneShellPath,
+  isDashboardOwnedModeHomePath,
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
@@ -231,7 +232,7 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
           // Dashboard-owned mode homes (`/documents`) mount ClinicalDashboard with
           // nothing submitted. Keystroke drafts must not auto-run there — same
           // contract as bare `/` — or every composer edit fires `/api/search`.
-          autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
+          autoRunSearch={pathname === "/" || isDashboardOwnedModeHomePath(pathname) ? hasSubmittedModeSearch : true}
         />
       </SettingsStateProvider>
     );

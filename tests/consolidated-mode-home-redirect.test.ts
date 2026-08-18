@@ -21,12 +21,22 @@ describe("consolidated mode home redirects", () => {
     expect(target("/specifiers")).toBe("/?mode=specifiers");
     expect(target("/formulation")).toBe("/?mode=formulation");
     expect(target("/differentials")).toBe("/?mode=differentials");
-    expect(target("/therapy-compass")).toBe("/?mode=therapy-compass");
-    expect(target("/documents")).toBe("/?mode=documents");
   });
 
   it("leaves every other path alone", () => {
-    for (const pathname of ["/", "/favourites", "/tools", "/medications", "/mockups/dsm-home-detailed"]) {
+    for (const pathname of [
+      "/",
+      "/favourites",
+      "/tools",
+      "/medications",
+      // Documents is dashboard-owned: the shell paints a real Documents home there.
+      "/documents",
+      // Therapy is devOnly and the shared home hides devOnly modes in production,
+      // so it keeps a home of its own rather than redirecting into one that would
+      // silently show Answer instead.
+      "/therapy-compass",
+      "/mockups/dsm-home-detailed",
+    ]) {
       expect(target(pathname)).toBeNull();
       expect(isConsolidatedModeHomePath(pathname)).toBe(false);
     }
@@ -49,7 +59,6 @@ describe("consolidated mode home redirects", () => {
       "/services/search",
       "/forms/search",
       "/calculators/search",
-      "/therapy-compass/search",
     ]) {
       expect(target(pathname)).toBeNull();
       expect(isConsolidatedModeHomePath(pathname)).toBe(false);
@@ -71,6 +80,18 @@ describe("consolidated mode home redirects", () => {
     expect(target("/differentials", "q=acute&run=1&queryMode=compare_guidance&scope.medications=lithium")).toBe(
       "/differentials/search?q=acute&run=1&queryMode=compare_guidance&scope.medications=lithium&mode=differentials",
     );
+  });
+
+  /*
+   * `query` is the legacy alias for `q` on several of these paths. Treating it as
+   * "no query" here read `/services?q=%20&query=13YARN&run=1` as unsubmitted and
+   * dropped an old deep link onto the home, where it found nothing.
+   */
+  it("counts the legacy query alias as a submitted search", () => {
+    expect(target("/services", "q=%20&query=13YARN&run=1")).toBe(
+      "/services/search?q=+&query=13YARN&run=1&mode=services",
+    );
+    expect(target("/services", "query=13YARN&run=1")).toBe("/services/search?query=13YARN&run=1&mode=services");
   });
 
   /*

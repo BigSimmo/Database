@@ -3,6 +3,19 @@ import type { AppModeId } from "@/lib/app-modes";
 /**
  * Bare mode paths that no longer render a home of their own.
  *
+ * Therapy and Documents are deliberately absent. Documents is dashboard-owned:
+ * the shell mounts ClinicalDashboard for that pathname, so `/documents` renders
+ * a real Documents home — browse, recent documents and the document-search empty
+ * state — exactly as `/medications` renders the prescribing workspace. Its page
+ * component being an empty fragment says nothing about what the route paints.
+ *
+ * Therapy is deliberately absent. It is `devOnly` (app-modes.ts) pending
+ * qualified-clinician sign-off on its catalogue, so the shared home falls back
+ * to Answer for it in production — while `/therapy-compass` itself still
+ * renders. Consolidating it therefore removed Therapy from production
+ * altogether; measured against a production build, `/?mode=therapy-compass`
+ * came back as mode Answer. It keeps its own home until that gate lifts.
+ *
  * Every mode shares one lightweight home at `/?mode=<id>`, whose per-mode copy
  * lives in `sharedHomePresentation` (src/lib/ui-copy.ts). These paths stay so
  * bookmarks, the sitemap and external deep links keep resolving; they forward
@@ -22,13 +35,6 @@ const consolidatedModeHomePaths = {
   "/specifiers": "specifiers",
   "/formulation": "formulation",
   "/differentials": "differentials",
-  "/therapy-compass": "therapy-compass",
-  // Documents renders nothing of its own — its page component was an empty
-  // fragment and ClinicalDashboard supplied the body — so the bare path showed a
-  // query-less "Document matches / Loading document results" shell where the
-  // shared home shows the mode's actual hero. Its sub-routes (`/documents/search`,
-  // `/documents/[id]`, `/documents/source/*`) are real surfaces and stay.
-  "/documents": "documents",
 } as const satisfies Record<string, AppModeId>;
 
 type ConsolidatedModeHomePath = keyof typeof consolidatedModeHomePaths;
@@ -81,7 +87,11 @@ export function consolidatedModeHomeTarget(pathname: string, search: URLSearchPa
   const params = new URLSearchParams(search);
   params.set("mode", modeId);
 
-  const query = params.get("q")?.trim() ?? "";
+  // `query` is the legacy alias several of these paths accepted before `q`. It
+  // has to count as a query here too, or `/services?q=%20&query=13YARN&run=1`
+  // reads as unsubmitted and lands on the home — the old deep link silently
+  // stops finding anything. The search routes canonicalise it back to `q`.
+  const query = (params.get("q")?.trim() || params.get("query")?.trim()) ?? "";
   const submitted = query.length > 0 && params.get("run") === "1";
   // `pathname` is the key that resolved `modeId`, and every consolidated mode's
   // route namespace is that same path — so this is the mode's own search route,

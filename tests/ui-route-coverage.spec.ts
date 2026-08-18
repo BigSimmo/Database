@@ -374,6 +374,9 @@ test.describe("previously uncovered production routes", () => {
     await expect(page.getByRole("heading", { name: "Therapy Comparison", level: 1 })).toBeVisible();
   });
 
+  // `/dsm` redirects onto the shared home, so the route this proves is the shared
+  // one with DSM preselected. Comparison moved with it: the Compare action was on
+  // the retired detailed home, and its live entry point is the DSM mode nav.
   test("DSM home renders responsively and opens comparison", async ({ page }) => {
     await proveRenderedRoute(
       page,
@@ -382,12 +385,15 @@ test.describe("previously uncovered production routes", () => {
         // Scope to the visible owner: Next streaming can leave a hidden duplicate
         // page root (#093), and bare getByTestId then fails Playwright strict mode
         // (Production UI shard 2 on PR #1729).
-        await expect(visibleByTestId(currentPage, "dsm-home-main")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "DSM-5 Diagnosis", level: 1 })).toBeVisible();
+        await expect(visibleByTestId(currentPage, "shared-home-empty-state")).toBeVisible();
+        await expect(currentPage.getByRole("heading", { name: "DSM-5 Diagnosis", level: 2 })).toBeVisible();
       },
       async (currentPage) => {
-        const compare = visibleByTestId(currentPage, "dsm-home-compare");
-        await expect(compare).toBeEnabled();
+        await currentPage.goto("/dsm/search?q=major+depressive&run=1", { waitUntil: "domcontentloaded" });
+        const compare = currentPage
+          .getByRole("navigation", { name: "DSM-5 Diagnosis pages" })
+          .getByRole("link", { name: "Compare", exact: true });
+        await expect(compare).toBeVisible();
         await compare.click();
         await expect(currentPage).toHaveURL(/\/dsm\/compare$/);
         await expect(currentPage.getByRole("heading", { name: "Compare DSM diagnoses", level: 1 })).toBeVisible();

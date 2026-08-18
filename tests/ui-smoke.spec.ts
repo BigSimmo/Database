@@ -808,10 +808,13 @@ async function openMobileClinicalGuideMenu(page: Page) {
       .evaluateAll((links) => links.map((link) => ({ name: link.textContent, href: link.getAttribute("href") }))),
   ).toEqual([
     { name: "Answer", href: "/?mode=answer" },
+    // Services links at the shared home directly: pointing a pinned entry at its
+    // old bare path would spend a 307 arriving in the same place. Documents and
+    // Medication still own real homes, so they keep their routes.
     { name: "Documents", href: "/documents" },
-    { name: "Services", href: "/services" },
+    { name: "Services", href: "/?mode=services" },
     { name: "Medication", href: "/medications" },
-    { name: "Factsheets", href: "/factsheets" },
+    { name: "Factsheets", href: "/?mode=factsheets" },
     { name: "Tools", href: "/tools" },
   ]);
   await expect(navigation.getByRole("button", { name: "More modes" })).toBeVisible();
@@ -1356,9 +1359,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/documents" },
-      { name: "Services", href: "/services" },
+      { name: "Services", href: "/?mode=services" },
       { name: "Medication", href: "/medications" },
-      { name: "Factsheets", href: "/factsheets" },
+      { name: "Factsheets", href: "/?mode=factsheets" },
       { name: "Tools", href: "/tools" },
     ]);
     expect(
@@ -3276,7 +3279,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
 
     await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1&run=1");
-    await expect(page).toHaveURL(/\/differentials\?q=acute\+confusion&focus=1&run=1$/);
+    await expect(page).toHaveURL(/\/differentials\/search\?q=acute\+confusion&focus=1&run=1$/);
     // Submitted differentials deep links resolve to the standalone results
     // surface (`autoRunSearch`), not the mode-home template. Production
     // hydration can briefly overlap the outgoing server tree and the settled
@@ -3313,7 +3316,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
     // The breadcrumb row went with the in-page header: its back control is the
     // one route out to the mode home, and a breadcrumb under it is a second.
-    await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/dsm");
+    // The one route out of a record is the mode home, which is the shared home now.
+    await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/?mode=dsm");
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -3384,7 +3388,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=specifiers&q=anxious+distress&focus=1&run=1");
 
     // /?mode=specifiers → /specifiers (Specifiers is its own mode, distinct from Formulation)
-    await expect(page).toHaveURL(/\/specifiers\?q=anxious\+distress&focus=1&run=1$/);
+    await expect(page).toHaveURL(/\/specifiers\/search\?q=anxious\+distress&focus=1&run=1$/);
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { level: 1, name: "anxious distress" })).toBeVisible();
     await expect(queryRibbon.getByRole("group", { name: "Filter specifier results" })).toBeVisible();
@@ -3395,7 +3399,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=formulation&q=I+keep+going+over+it&focus=1&run=1");
 
-    await expect(page).toHaveURL(/\/formulation\?q=I\+keep\+going\+over\+it&focus=1&run=1$/);
+    await expect(page).toHaveURL(/\/formulation\/search\?q=I\+keep\+going\+over\+it&focus=1&run=1$/);
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { level: 1, name: "I keep going over it" })).toBeVisible();
     await expect(queryRibbon.getByRole("group", { name: "Filter formulation mechanisms" })).toBeVisible();
