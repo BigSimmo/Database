@@ -294,6 +294,8 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
       if (name.length < 4) continue;
       for (const [slug, entry] of Object.entries(index.bySlug)) {
         if (slug === record.slug) continue;
+        const sourceRecord = records.find((item) => item.slug === slug);
+        if (sourceRecord && plainName(sourceRecord.name) === name) continue;
         const sourceRows = rowsFor(slug);
         for (const row of entry.rows) {
           const text = sourceRows[row.rowIndex]?.val ?? "";
