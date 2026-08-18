@@ -20,8 +20,16 @@ export function parseGuideProgress(value: string | null): GuideProgress {
   if (!value) return emptyGuideProgress;
   try {
     const parsed = JSON.parse(value) as Record<string, unknown>;
-    if (parsed.version !== 1 || !Array.isArray(parsed.completedStepIds)) return emptyGuideProgress;
-    const completedStepIdsRaw = parsed.completedStepIds;
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      parsed.version !== 1 ||
+      !Array.isArray(parsed.completedStepIds) ||
+      parsed.completedStepIds.some((id) => typeof id !== "string")
+    ) {
+      return emptyGuideProgress;
+    }
+    const completedStepIdsRaw = parsed.completedStepIds as unknown[];
     const completedStepIds = guideTourStepIds.filter((id) => completedStepIdsRaw.includes(id));
     const lastStepId =
       typeof parsed.lastStepId === "string" && guideTourStepIdSet.has(parsed.lastStepId)

@@ -504,7 +504,13 @@ for (const footerCase of standalonePageOwnedFooterRoutes) {
         .toBe(0);
       await expect
         .poll(async () => (await readPageOwnedFooterGeometry(footer, footerCase.reserveSelector)).reservePaddingBottom)
-        .toBeLessThanOrEqual(1);
+        // DocumentViewer's own content reserve (document composer case) keeps a
+        // small 0.75rem/12px resting pad even once hidden — see the matching
+        // comment on `document-viewer-content` in DocumentViewer.tsx — so the
+        // last card never paints flush against the physical bottom edge. Allow
+        // that, with a little slack, while still catching a regression back
+        // toward the full ~9rem visible-state clearance.
+        .toBeLessThanOrEqual(13);
 
       const hidden = await readPageOwnedFooterGeometry(footer, footerCase.reserveSelector);
       expect(hidden.footerPointerEvents, "hidden footer cannot retain an interactive edge layer").toBe("none");

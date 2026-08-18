@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
 import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-diagnostics";
+import { answerLatencyMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
 import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
 import { answerInstructions } from "@/lib/rag/rag-answer-instructions";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
@@ -536,8 +537,8 @@ function provenanceLayerKeys(result: SearchResult) {
   return layers;
 }
 
-/** Record search score telemetry. */
-function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchResult[]) {
+/** Record search score telemetry. Exported for `tests/rag-score.test.ts`; not a route surface. */
+export function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchResult[]) {
   if (!results.length) {
     telemetry.top_score = 0;
     telemetry.second_top_score = 0;
@@ -569,6 +570,7 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
   telemetry.score_spread = Number(Math.max(0, telemetry.top_score - telemetry.second_top_score).toFixed(4));
   telemetry.score_distinct_documents = new Set(results.map((result) => result.document_id)).size;
   telemetry.retrieval_candidate_count = results.length;
+  // Strict equality, deliberately: "document_context" rows carry the constant 1 with no match strength to inflate; counting them here would mix two populations and make the RC9 signal unreadable. Pinned by tests/rag-score.test.ts.
   telemetry.synthetic_similarity_count = results.filter(
     (result) => result.similarity_origin === "synthetic_text",
   ).length;
@@ -3905,9 +3907,7 @@ ${qualityRetryInstruction}`
           retrieval_strategy: search.telemetry.retrieval_strategy,
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
-          search_latency_ms: searchLatencyMs,
-          generation_latency_ms: generationLatencyMs,
-          total_latency_ms: answer.latencyTimings?.total_latency_ms ?? Date.now() - startedAt,
+          ...answerLatencyMetadata(searchLatencyMs, generationLatencyMs, answer.latencyTimings, startedAt),
           openai_request_ids: openAIRequestIds,
           openai_usage: answer.openAIUsage ?? null,
           evidence_summary: answer.evidenceSummary,
@@ -4277,9 +4277,7 @@ ${qualityRetryInstruction}`
           retrieval_strategy: "generation_fallback",
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
-          search_latency_ms: searchLatencyMs,
-          generation_latency_ms: generationLatencyMs,
-          total_latency_ms: fallbackAnswer.latencyTimings?.total_latency_ms ?? Date.now() - startedAt,
+          ...answerLatencyMetadata(searchLatencyMs, generationLatencyMs, fallbackAnswer.latencyTimings, startedAt),
           openai_request_ids: fallbackAnswer.openAIRequestIds,
           openai_usage: fallbackAnswer.openAIUsage,
           evidence_summary: fallbackAnswer.evidenceSummary,
