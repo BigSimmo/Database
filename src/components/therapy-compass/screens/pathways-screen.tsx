@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
+import { ChevronRight, Copy, FileText, ListChecks, Scale, TriangleAlert, Waypoints } from "lucide-react";
 
 import { pageContainer } from "@/components/ui-primitives";
 
 import { useTcBindings } from "../bindings";
 import { commandControl, outlineControl, therapyBtn } from "../controls";
 import type { Therapy } from "../data/types";
-import { AlertIcon, ChecklistIcon, ChevronRightIcon, CopyIcon, FileTextIcon, PathwayIcon, ScaleIcon } from "../icons";
 import { LoadingState } from "../ui";
 
 export function PathwaysScreen() {
@@ -43,7 +43,7 @@ export function PathwaysScreen() {
         </div>
         <div className="max-sm:flex-wrap flex gap-2.5">
           <button type="button" className={`${therapyBtn} ${outlineControl}`} onClick={b.goReview}>
-            <ChecklistIcon size={16} />
+            <ListChecks aria-hidden="true" size={16} />
             Review queue
           </button>
         </div>
@@ -65,7 +65,7 @@ export function PathwaysScreen() {
                   aria-pressed={active}
                 >
                   <span className="inline-flex h-[38px] w-[38px] flex-none items-center justify-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                    <PathwayIcon size={20} strokeWidth={1.6} />
+                    <Waypoints aria-hidden="true" size={20} strokeWidth={1.6} />
                   </span>
                   <span className="flex-1 min-w-0">
                     <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{p.name}</span>
@@ -94,7 +94,7 @@ export function PathwaysScreen() {
         <div className="py-[22px] px-6 min-w-0">
           <div className="flex items-start gap-3.5 mb-5">
             <span className="inline-flex items-center justify-center w-[46px] h-[46px] rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] flex-none">
-              <PathwayIcon size={24} strokeWidth={1.5} />
+              <Waypoints aria-hidden="true" size={24} strokeWidth={1.5} />
             </span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -102,7 +102,7 @@ export function PathwaysScreen() {
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${pathway.reviewStatus === "reviewed" ? "border-[color:var(--success-border)] bg-[color:var(--success-bg)] text-[color:var(--success-text)]" : "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"}`}
                 >
-                  <AlertIcon size={14} strokeWidth={1.8} />
+                  <TriangleAlert aria-hidden="true" size={14} strokeWidth={1.8} />
                   {pathway.reviewStatus === "reviewed" ? "Reviewed" : "Needs review"}
                 </span>
               </div>
@@ -111,7 +111,12 @@ export function PathwaysScreen() {
                   "A source-linked workflow for reviewing therapy options, delivery constraints and cautions before choosing a next step."}
               </p>
               <div className="flex items-center gap-1.5 text-xs text-[color:var(--text-muted)]">
-                <PathwayIcon size={14} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
+                <Waypoints
+                  aria-hidden="true"
+                  size={14}
+                  strokeWidth={1.8}
+                  className="text-[color:var(--decoration-soft)]"
+                />
                 {pathway.steps.length} linked therapy steps
               </div>
             </div>
@@ -130,7 +135,7 @@ export function PathwaysScreen() {
                   </span>
                   <div className="transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex-1 min-w-0 flex items-center gap-3.5 py-3.5 px-4 border border-[color:var(--border)] rounded-lg bg-[color:var(--surface)]">
                     <span className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] flex-none">
-                      <ScaleIcon size={17} strokeWidth={1.6} />
+                      <Scale aria-hidden="true" size={17} strokeWidth={1.6} />
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm-minus font-semibold text-[color:var(--text-heading)]">
@@ -152,7 +157,8 @@ export function PathwaysScreen() {
                         Open record
                       </button>
                     ) : (
-                      <ChevronRightIcon
+                      <ChevronRight
+                        aria-hidden="true"
                         size={16}
                         strokeWidth={1.8}
                         className="text-[color:var(--decoration-soft)] flex-none"
@@ -167,7 +173,12 @@ export function PathwaysScreen() {
       </div>
 
       <div className="flex items-center gap-[18px] mt-5 py-[18px] px-[22px] bg-[color:var(--warning-bg)] border border-[color:var(--warning-border)] rounded-xl flex-wrap">
-        <AlertIcon size={22} strokeWidth={1.8} className="text-[color:var(--warning-text)] flex-none" />
+        <TriangleAlert
+          aria-hidden="true"
+          size={22}
+          strokeWidth={1.8}
+          className="text-[color:var(--warning-text)] flex-none"
+        />
         <div className="flex-1 min-w-[200px]">
           <div className="text-sm-minus font-semibold text-[color:var(--warning-text)]">
             Clinical caution — decision support generated from imported records.
@@ -183,7 +194,7 @@ export function PathwaysScreen() {
             className={`${therapyBtn} flex items-center gap-[7px] h-[40px] py-0 px-3.5 border border-[color:var(--warning-border)] rounded-md bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus font-semibold cursor-pointer`}
             onClick={copyPathway}
           >
-            <CopyIcon size={15} />
+            <Copy aria-hidden="true" size={15} />
             Copy pathway
           </button>
           <button
@@ -192,7 +203,7 @@ export function PathwaysScreen() {
             onClick={() => firstLinkedSlug && b.openSheet(firstLinkedSlug)}
             disabled={!firstLinkedSlug}
           >
-            <FileTextIcon size={15} />
+            <FileText aria-hidden="true" size={15} />
             {firstLinkedSlug ? "Patient sheet" : "Patient sheet unavailable"}
           </button>
         </div>

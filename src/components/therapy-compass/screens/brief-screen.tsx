@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Check, Copy, ExternalLink, FileText, Search, TriangleAlert } from "lucide-react";
 
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { Tabs } from "@/components/ui/tabs";
@@ -10,7 +11,6 @@ import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
 import { useTcBindings } from "../bindings";
 import { commandControl, outlineControl, therapyBtn } from "../controls";
 import { parseSteps, summarise } from "../data/select";
-import { AlertIcon, CheckIcon, CopyIcon, ExternalLinkIcon, FileTextIcon, SearchIcon } from "../icons";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
@@ -97,7 +97,7 @@ export function BriefScreen() {
                 aria-disabled={t.patientSheetAvailable ? undefined : true}
                 title={t.patientSheetAvailable ? undefined : "This intervention has no patient handout"}
               >
-                <FileTextIcon size={16} />
+                <FileText aria-hidden="true" size={16} />
                 {t.patientSheetAvailable ? "Create handout" : "Handout unavailable"}
               </button>
             </div>
@@ -121,7 +121,8 @@ export function BriefScreen() {
               {/* records list */}
               <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] p-4">
                 <label className="relative flex items-center mb-3">
-                  <SearchIcon
+                  <Search
+                    aria-hidden="true"
                     size={16}
                     strokeWidth={1.8}
                     className="absolute left-[12px] text-[color:var(--decoration-soft)]"
@@ -153,7 +154,8 @@ export function BriefScreen() {
                             {x.bestUsedFor ?? x.category}
                           </span>
                         </span>
-                        <AlertIcon
+                        <TriangleAlert
+                          aria-hidden="true"
                           size={15}
                           strokeWidth={1.8}
                           className={
@@ -194,7 +196,7 @@ export function BriefScreen() {
                       onClick={() => b.open(t.slug)}
                     >
                       Open full record
-                      <ExternalLinkIcon size={14} strokeWidth={1.7} />
+                      <ExternalLink aria-hidden="true" size={14} strokeWidth={1.7} />
                     </button>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-[1px] bg-[color:var(--border)] border border-[color:var(--border)] rounded-lg overflow-hidden">
@@ -235,7 +237,11 @@ export function BriefScreen() {
                                 onClick={() => copy(step, `step-${i}`)}
                                 title="Copy step"
                               >
-                                {copied === `step-${i}` ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
+                                {copied === `step-${i}` ? (
+                                  <Check aria-hidden="true" size={14} />
+                                ) : (
+                                  <Copy aria-hidden="true" size={14} />
+                                )}
                               </button>
                             </div>
                           </div>
@@ -285,7 +291,8 @@ export function BriefScreen() {
                       ))}
                     </div>
                     <div className="flex items-start gap-[9px] py-[13px] px-3.5 bg-[color:var(--warning-bg)] border border-[color:var(--warning-border)] rounded-lg">
-                      <AlertIcon
+                      <TriangleAlert
+                        aria-hidden="true"
                         size={17}
                         strokeWidth={1.8}
                         className="text-[color:var(--warning-text)] flex-none mt-[1px]"
@@ -303,7 +310,11 @@ export function BriefScreen() {
                     className={`${therapyBtn} ${outlineControl}`}
                     onClick={() => copy(interventionText, "intervention")}
                   >
-                    {copied === "intervention" ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
+                    {copied === "intervention" ? (
+                      <Check aria-hidden="true" size={16} />
+                    ) : (
+                      <Copy aria-hidden="true" size={16} />
+                    )}
                     {copied === "intervention" ? "Copied" : "Copy intervention"}
                   </button>
                   <button
@@ -316,7 +327,7 @@ export function BriefScreen() {
                     aria-disabled={t.patientSheetAvailable ? undefined : true}
                     title={t.patientSheetAvailable ? undefined : "This intervention has no patient sheet"}
                   >
-                    <FileTextIcon size={16} />
+                    <FileText aria-hidden="true" size={16} />
                     {t.patientSheetAvailable ? "Open patient sheet" : "Patient sheet unavailable"}
                   </button>
                 </div>

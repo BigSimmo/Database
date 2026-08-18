@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import { ChevronDown, Scale, Search } from "lucide-react";
 
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -10,7 +11,6 @@ import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "../bindings";
 import { parseSteps, searchTherapies } from "../data/select";
-import { ChevronDownIcon, ScaleIcon, SearchIcon } from "../icons";
 import { LoadingState } from "../ui";
 import { therapyBtn } from "../controls";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
@@ -163,7 +163,7 @@ export function SheetsScreen() {
                 <div className="max-sm:flex-wrap flex items-center justify-between border-b-2 border-b-[color:var(--tc-paper-accent-strong)] pb-4 mb-6">
                   <div className="flex items-center gap-[11px]">
                     <span className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-[color:var(--tc-paper-accent-background)] text-[color:var(--tc-paper-accent)]">
-                      <ScaleIcon size={20} strokeWidth={1.6} />
+                      <Scale aria-hidden="true" size={20} strokeWidth={1.6} />
                     </span>
                     <span className="text-sm-minus font-semibold text-[color:var(--tc-paper-muted)] tracking-normal">
                       Therapy · Patient information
@@ -338,17 +338,23 @@ function TherapyPicker() {
         onClick={() => setOpen((v) => !v)}
       >
         <span className="flex items-center gap-[9px] min-w-0">
-          <ScaleIcon size={16} className="text-[color:var(--clinical-accent)] flex-none" />
+          <Scale aria-hidden="true" size={16} className="text-[color:var(--clinical-accent)] flex-none" />
           <span className="overflow-hidden text-ellipsis whitespace-nowrap">
             {b.selectedTherapy?.name ?? "Choose a therapy"}
           </span>
         </span>
-        <ChevronDownIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)] flex-none" />
+        <ChevronDown
+          aria-hidden="true"
+          size={15}
+          strokeWidth={1.8}
+          className="text-[color:var(--decoration-soft)] flex-none"
+        />
       </button>
       {open ? (
         <div className="absolute z-[30] top-[52px] left-0 right-0 bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-hover)] overflow-hidden">
           <label className="relative flex items-center p-2 border-b border-[color:var(--border)]">
-            <SearchIcon
+            <Search
+              aria-hidden="true"
               size={15}
               strokeWidth={1.8}
               className="absolute left-[18px] text-[color:var(--decoration-soft)]"

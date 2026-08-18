@@ -1,13 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { ArrowRight, Check, Copy, Search, Shield, Sparkles } from "lucide-react";
 
 import { pageContainer } from "@/components/ui-primitives";
 
 import { useTcBindings } from "../bindings";
 import { commandControl, outlineControl, therapyBtn } from "../controls";
 import { RECOMMEND_CONSTRAINTS, summarise } from "../data/select";
-import { ArrowRightIcon, CheckIcon, CopyIcon, SearchIcon, ShieldIcon, SparkleIcon } from "../icons";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
 
@@ -94,11 +94,11 @@ export function RecommendScreen() {
             onClick={copyShortlist}
             disabled={!ranked.length}
           >
-            {copied === "shortlist" ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
+            {copied === "shortlist" ? <Check aria-hidden="true" size={16} /> : <Copy aria-hidden="true" size={16} />}
             {copied === "shortlist" ? "Copied" : "Copy shortlist"}
           </button>
           <button type="button" className={`${therapyBtn} ${commandControl}`} onClick={b.goSearch}>
-            <SearchIcon size={16} strokeWidth={1.9} />
+            <Search aria-hidden="true" size={16} strokeWidth={1.9} />
             Refine in search
           </button>
         </div>
@@ -112,7 +112,7 @@ export function RecommendScreen() {
           <div className="bg-[color:var(--surface)] border border-[color:var(--border)] border-l-[3px] border-l-[color:var(--clinical-accent)] rounded-xl shadow-[var(--shadow-soft)] py-[22px] px-6 mb-[26px]">
             <div className="flex items-start gap-3.5 mb-[18px]">
               <span className="inline-flex items-center justify-center w-[40px] h-[40px] rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] flex-none">
-                <SparkleIcon size={20} strokeWidth={1.7} />
+                <Sparkles aria-hidden="true" size={20} strokeWidth={1.7} />
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2.5 flex-wrap mb-[5px]">
@@ -215,7 +215,7 @@ export function RecommendScreen() {
           </div>
 
           <div className="flex items-center gap-2 mt-[18px] text-xs text-[color:var(--text-muted)]">
-            <ShieldIcon size={15} className="text-[color:var(--decoration-soft)]" />
+            <Shield aria-hidden="true" size={15} className="text-[color:var(--decoration-soft)]" />
             Ranking is source-grounded and advisory. Confirm fit, cautions and review status before clinical use.
           </div>
         </>
@@ -240,7 +240,7 @@ function MatchCell({
       className={`bg-[color:var(--surface)] p-3.5 [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-[color:var(--text-muted)]${tone === "accent" ? " bg-[color:var(--clinical-accent-soft)]" : ""}`}
     >
       <div className="mb-2 flex items-center gap-1.5 text-2xs font-bold tracking-eyebrow">
-        <ArrowRightIcon size={13} strokeWidth={1.9} />
+        <ArrowRight aria-hidden="true" size={13} strokeWidth={1.9} />
         {eyebrow}
       </div>
       <p>{text}</p>

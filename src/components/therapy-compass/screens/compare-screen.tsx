@@ -1,6 +1,21 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
+import {
+  Check,
+  CirclePlay,
+  Clock,
+  Copy,
+  Info,
+  Plus,
+  Scale,
+  Search,
+  Shield,
+  Target,
+  TriangleAlert,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 
 import { pageContainer } from "@/components/ui-primitives";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -12,27 +27,13 @@ import { useTcBindings } from "../bindings";
 import { commandControl, outlineControl, therapyBtn } from "../controls";
 import { needsReviewCount, parseSteps, searchTherapies, shortestDelivery, summarise } from "../data/select";
 import type { Therapy } from "../data/types";
-import {
-  AlertIcon,
-  CheckIcon,
-  ClockIcon,
-  CopyIcon,
-  CrosshairIcon,
-  InfoIcon,
-  PlayIcon,
-  PlusIcon,
-  ScaleIcon,
-  SearchIcon,
-  ShieldIcon,
-  XIcon,
-} from "../icons";
 import { EmptyState } from "../ui";
 import { useClipboard } from "../use-clipboard";
 
 type Row = {
   key: string;
   label: string;
-  icon: (p: { size?: number; strokeWidth?: number }) => ReactNode;
+  icon: LucideIcon;
   tone?: "warning";
   priority?: boolean;
   get: (t: Therapy) => string;
@@ -42,7 +43,7 @@ const ROWS: Row[] = [
   {
     key: "avoid",
     label: "When not to use",
-    icon: AlertIcon,
+    icon: TriangleAlert,
     tone: "warning",
     priority: true,
     get: (t) => summarise(t.contraindicationsOrCautions, 1) || "Check source before use.",
@@ -50,23 +51,23 @@ const ROWS: Row[] = [
   {
     key: "fit",
     label: "Best fit",
-    icon: CrosshairIcon,
+    icon: Target,
     priority: true,
     get: (t) => t.bestUsedFor || t.targetSymptoms || "—",
   },
   {
     key: "first",
     label: "What to do first",
-    icon: PlayIcon,
+    icon: CirclePlay,
     get: (t) => parseSteps(t.deliverySteps)[0] || summarise(t.mechanism, 1) || "—",
   },
-  { key: "time", label: "Time required", icon: ClockIcon, get: (t) => t.timeRequired || t.sessionLength || "—" },
-  { key: "setting", label: "Setting", icon: ShieldIcon, get: (t) => t.setting || t.patientPopulation || "—" },
-  { key: "complexity", label: "Clinician skill / complexity", icon: ScaleIcon, get: (t) => t.complexity || "—" },
+  { key: "time", label: "Time required", icon: Clock, get: (t) => t.timeRequired || t.sessionLength || "—" },
+  { key: "setting", label: "Setting", icon: Shield, get: (t) => t.setting || t.patientPopulation || "—" },
+  { key: "complexity", label: "Clinician skill / complexity", icon: Scale, get: (t) => t.complexity || "—" },
   {
     key: "evidence",
     label: "Evidence level",
-    icon: ShieldIcon,
+    icon: Shield,
     tone: "warning",
     priority: true,
     get: (t) => t.evidenceLevel || (t.reviewStatus === "reviewed" ? "Reviewed" : "Source review required"),
@@ -131,7 +132,7 @@ export function CompareScreen() {
             onClick={copySet}
             disabled={items.length < 2}
           >
-            {copied === "set" ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
+            {copied === "set" ? <Check aria-hidden="true" size={16} /> : <Copy aria-hidden="true" size={16} />}
             {copied === "set" ? "Copied" : "Copy set"}
           </button>
           <button
@@ -152,7 +153,7 @@ export function CompareScreen() {
             key={t.slug}
             className="flex items-center gap-2 h-[46px] pt-0 pr-2 pb-0 pl-3.5 border border-[color:var(--border)] rounded-lg bg-[color:var(--surface)] shadow-[var(--e1)]"
           >
-            <ScaleIcon size={15} className="text-[color:var(--decoration-soft)]" />
+            <Scale aria-hidden="true" size={15} className="text-[color:var(--decoration-soft)]" />
             <span className="text-sm-minus font-semibold text-[color:var(--text-heading)] max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap">
               {t.name}
             </span>
@@ -162,7 +163,7 @@ export function CompareScreen() {
               onClick={() => b.removeCompare(t.slug)}
               title={`Remove ${t.name}`}
             >
-              <XIcon size={15} strokeWidth={1.9} />
+              <X aria-hidden="true" size={15} strokeWidth={1.9} />
             </button>
           </span>
         ))}
@@ -170,12 +171,12 @@ export function CompareScreen() {
 
       {items.length < 2 ? (
         <EmptyState
-          icon={ScaleIcon}
+          icon={Scale}
           title={items.length === 0 ? "Add therapies to compare" : "Add one more therapy"}
           body="Pick two to four therapies — from search results, a therapy record, or the add box above — to compare fit, cautions, delivery and evidence side by side."
           action={
             <button type="button" className={`${therapyBtn} ${commandControl}`} onClick={b.goSearch}>
-              <SearchIcon size={16} strokeWidth={1.9} />
+              <Search aria-hidden="true" size={16} strokeWidth={1.9} />
               Find therapies to compare
             </button>
           }
@@ -235,7 +236,7 @@ export function CompareScreen() {
                         className="min-w-[160px] border-l border-[color:var(--border)] px-5 py-3.5 align-top"
                       >
                         <div className="flex items-center gap-[7px]">
-                          <ScaleIcon size={15} className="text-[color:var(--decoration-soft)]" />
+                          <Scale aria-hidden="true" size={15} className="text-[color:var(--decoration-soft)]" />
                           <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
                         </div>
                         <div
@@ -286,7 +287,7 @@ export function CompareScreen() {
               </table>
             </div>
             <div className="flex items-center gap-2 mt-4 text-xs text-[color:var(--text-muted)]">
-              <InfoIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
+              <Info aria-hidden="true" size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
               Comparisons are source-grounded. Review status reflects the latest source checks.
             </div>
           </Tabs>
@@ -331,7 +332,12 @@ function AddPicker() {
   return (
     <div className="relative flex-1 min-w-[260px]">
       <label className="relative flex items-center">
-        <SearchIcon size={17} strokeWidth={1.8} className="absolute left-[14px] text-[color:var(--decoration-soft)]" />
+        <Search
+          aria-hidden="true"
+          size={17}
+          strokeWidth={1.8}
+          className="absolute left-[14px] text-[color:var(--decoration-soft)]"
+        />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -355,7 +361,7 @@ function AddPicker() {
                 setQ("");
               }}
             >
-              <PlusIcon size={15} className="text-[color:var(--clinical-accent)] flex-none" />
+              <Plus aria-hidden="true" size={15} className="text-[color:var(--clinical-accent)] flex-none" />
               <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
             </button>
           ))}

@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
+import { ExternalLink, ShieldCheck, TriangleAlert } from "lucide-react";
 
 import { pageContainer } from "@/components/ui-primitives";
 
 import { useTcBindings } from "../bindings";
 import { commandControl, outlineControl, therapyBtn } from "../controls";
-import { AlertIcon, ExternalLinkIcon, ShieldCheckIcon } from "../icons";
 import { LoadingState, Meter } from "../ui";
 
 export function OtherScreen() {
@@ -23,7 +23,7 @@ export function OtherScreen() {
     return (
       <section className="max-w-[720px] my-[60px] mx-auto text-center">
         <span className="inline-flex items-center justify-center w-[64px] h-[64px] rounded-xl bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] mb-5">
-          <ShieldCheckIcon size={30} strokeWidth={1.6} />
+          <ShieldCheck aria-hidden="true" size={30} strokeWidth={1.6} />
         </span>
         <h1 className="mt-0 mx-0 mb-2 text-2xl font-semibold text-[color:var(--text-heading)]">{b.otherLabel}</h1>
         <p className="mt-0 mx-0 mb-[22px] text-sm text-[color:var(--text-muted)]">
@@ -56,7 +56,7 @@ export function OtherScreen() {
           </p>
         </div>
         <span className="inline-flex items-center gap-2 h-[40px] py-0 px-3.5 border border-[color:var(--warning-border)] rounded-lg bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] text-sm-minus font-semibold">
-          <AlertIcon size={16} strokeWidth={1.8} />
+          <TriangleAlert aria-hidden="true" size={16} strokeWidth={1.8} />
           {b.reviewCount} to review
         </span>
       </div>
@@ -77,7 +77,7 @@ export function OtherScreen() {
             <Meter value={t.indexCompleteness} label="Index" />
             <Meter value={t.reviewCompleteness} label="Review" />
             <button type="button" className={`${therapyBtn} ${outlineControl}`} onClick={() => b.open(t.slug)}>
-              <ExternalLinkIcon size={15} strokeWidth={1.7} />
+              <ExternalLink aria-hidden="true" size={15} strokeWidth={1.7} />
               Open
             </button>
           </div>

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ShieldCheck, TriangleAlert, type LucideIcon } from "lucide-react";
 
 import { Chip, type ChipAppearance } from "@/components/ui/chip";
 import {
@@ -10,7 +11,6 @@ import {
   toneWarning,
 } from "@/components/ui-primitives";
 
-import { AlertIcon, ShieldCheckIcon } from "./icons";
 import { reviewStatusMeta } from "./data/select";
 
 // ---- tag pill -----------------------------------------------------------
@@ -112,7 +112,7 @@ export function TagRow({
 export function StatusBadge({ status }: { status: string }) {
   const meta = reviewStatusMeta(status);
   const tone = meta.tone === "success" ? "success" : meta.tone === "warning" ? "warning" : "neutral";
-  const Icon = meta.tone === "success" ? ShieldCheckIcon : AlertIcon;
+  const Icon = meta.tone === "success" ? ShieldCheck : TriangleAlert;
   return (
     <span
       className={cn(
@@ -120,7 +120,7 @@ export function StatusBadge({ status }: { status: string }) {
         TONE_SURFACE[tone],
       )}
     >
-      <Icon size={14} strokeWidth={1.9} />
+      <Icon size={14} strokeWidth={1.9} aria-hidden="true" />
       {meta.label}
     </span>
   );
@@ -133,7 +133,7 @@ export function IconTile({
   size = 44,
   variant = "accent",
 }: {
-  icon: (p: { size?: number }) => ReactNode;
+  icon: LucideIcon;
   size?: number;
   variant?: "accent" | "soft";
 }) {
@@ -147,7 +147,7 @@ export function IconTile({
           : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
       )}
     >
-      <Icon size={Math.round(size * 0.5)} />
+      <Icon size={Math.round(size * 0.5)} aria-hidden="true" />
     </span>
   );
 }
@@ -164,7 +164,7 @@ export function EmptyState({
   body,
   action,
 }: {
-  icon: (p: { size?: number }) => ReactNode;
+  icon: LucideIcon;
   title: string;
   body: string;
   action?: ReactNode;
@@ -174,7 +174,7 @@ export function EmptyState({
       title={title}
       body={body}
       actions={action}
-      iconNode={<Icon size={26} />}
+      iconNode={<Icon size={26} aria-hidden="true" />}
       align="center"
       live="polite"
       centeredTreatment="clinical"
