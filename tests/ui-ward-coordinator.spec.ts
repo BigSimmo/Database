@@ -1,6 +1,7 @@
-import { expect, test, type Page } from "playwright/test";
+import { expect, test, type Locator, type Page } from "playwright/test";
 
-import { eligibleCandidates } from "@/components/ward-management/ward-derivations";
+import { candidateReason, eligibleCandidates } from "@/components/ward-management/ward-derivations";
+import type { Movement } from "@/components/ward-management/ward-model";
 import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
 import { movementById } from "@/components/ward-management/ward-movements";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
@@ -15,6 +16,53 @@ async function gotoCoordinator(page: Page) {
   // before the first interaction. Mirrors `gotoWardFlow` in ui-ward-management.spec.ts (Task 4
   // review Important 6: a retry loop around the click was masking this instead of fixing it).
   await page.waitForLoadState("networkidle");
+}
+
+/**
+ * Resolves a movement id off a real, currently-rendered queue row rather than trusting whatever
+ * the test author expected to be there — the same reasoning `movementById` itself documents
+ * (never fall back to a different record on a miss).
+ */
+function requireMovement(movementId: string | undefined | null): Movement {
+  const movement = movementId ? movementById(movementId) : undefined;
+  if (!movement) throw new Error(`Fixture is missing movement ${String(movementId)}`);
+  return movement;
+}
+
+/**
+ * Pins the diagram's routed set to the SELECTED MOVEMENT'S OWN shortlist identity — not merely
+ * its size. `eligibleCandidates` is computed independently here, against the same real fixture
+ * the app renders against, so a hard-coded routed set of the wrong units (or the brief's own
+ * tautological `toHaveCount(await routed.count())`, which compares a value to itself and passes
+ * at any count including zero) both fail this. Called for two different movements with two
+ * different shortlists in the main diagram test (review Important 3 — a single-movement proof
+ * only rules out a hard-coded set that happens to match that one movement).
+ *
+ * Also asserts route connectors are counted and distinguished from demand connectors via
+ * `data-connector-kind` (review Important 4) — deleting every route connector while leaving the
+ * demand connectors alone must turn this red, proven manually against the pre-fix component
+ * before this assertion was accepted (see the task report).
+ */
+async function assertRoutedMatchesShortlist(diagram: Locator, movementId: string) {
+  const movement = requireMovement(movementId);
+  const shortlist = eligibleCandidates(movement, NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
+  const expectedUnitIds = shortlist.map((candidate) => candidate.unit.id).sort();
+
+  const routed = diagram.locator('[data-routed="true"]');
+  const routedCount = await routed.count();
+  expect(routedCount, `${movementId}: routed count`).toBeGreaterThan(0);
+  expect(routedCount, `${movementId}: routed count vs PARALLEL_REFERRAL_CAP`).toBeLessThanOrEqual(
+    PARALLEL_REFERRAL_CAP,
+  );
+  const routedUnitIds = (await routed.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-testid"))))
+    .map((testId) => String(testId).replace("ward-diagram-unit-", ""))
+    .sort();
+  expect(routedUnitIds, `${movementId}: routed unit identity`).toEqual(expectedUnitIds);
+
+  const routeConnectors = diagram.locator('svg path[data-connector-kind="route"]');
+  await expect(routeConnectors, `${movementId}: route connector count`).toHaveCount(routedCount);
+
+  return { movement, shortlist };
 }
 
 /**
@@ -223,38 +271,135 @@ test.describe("Ward Flow coordinator screen", () => {
     // Connector paths are drawn by a client layout effect — this is the hydration signal.
     await expect(diagram.locator("svg path[marker-end]").first()).toBeAttached({ timeout: 15_000 });
 
+    // Every one of the 22 fixture units renders as its own node regardless of selection — a unit
+    // whose service-group lookup silently fails must not just vanish from the count (review
+    // Minor 6; `flow-diagram.tsx` renders an explicit "Unresolved health service" anomaly card
+    // for exactly that case rather than dropping the unit).
+    await expect(diagram.locator('[data-testid^="ward-diagram-unit-"]')).toHaveCount(22);
+
+    // Demand connectors (department → hub) exist regardless of selection, always eight. No
+    // movement is selected yet, so there must be zero route connectors — proving the two kinds
+    // are distinguished by `data-connector-kind`, not merely by an incidental class name (review
+    // Important 4).
+    await expect(diagram.locator('svg path[data-connector-kind="demand"]')).toHaveCount(8);
+    await expect(diagram.locator('svg path[data-connector-kind="route"]')).toHaveCount(0);
+
     const firstRow = page
       .getByRole("region", { name: "Priority queue" })
       .locator('[data-testid^="ward-queue-row-"]')
       .first();
     const movementId = (await firstRow.getAttribute("data-testid"))?.replace("ward-queue-row-", "");
+    expect(movementId, "the first queue row must carry a real movement id").toBeTruthy();
     await firstRow.click();
 
-    // The brief's own assertion (`toHaveCount(await routed.count())`) compares a value to
-    // itself and passes at any count, including zero — it is a tautology, not a check. This
-    // instead pins the routed set to the selected movement's OWN shortlist identity, computed
-    // independently here from the same real fixture the app renders against, not merely its
-    // size (a hard-coded three routed nodes of the wrong units would still satisfy a bare
-    // count check).
-    const movement = movementId ? movementById(movementId) : undefined;
-    expect(movement, `queue row did not resolve to a real movement (id: ${movementId})`).toBeDefined();
-    if (!movement) throw new Error("unreachable — asserted above");
-    const shortlist = eligibleCandidates(movement, NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
-    const expectedUnitIds = shortlist.map((candidate) => candidate.unit.id).sort();
-
-    const routed = diagram.locator('[data-routed="true"]');
-    const routedCount = await routed.count();
-    expect(routedCount).toBeGreaterThan(0);
-    expect(routedCount).toBeLessThanOrEqual(PARALLEL_REFERRAL_CAP);
-    const routedUnitIds = (await routed.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-testid"))))
-      .map((testId) => String(testId).replace("ward-diagram-unit-", ""))
-      .sort();
-    expect(routedUnitIds).toEqual(expectedUnitIds);
+    const { movement } = await assertRoutedMatchesShortlist(diagram, String(movementId));
 
     // The origin department is marked, and it is the selected movement's own — not merely
     // some department, which a hard-coded card would also satisfy.
     const origin = diagram.locator('[data-origin="true"]');
     await expect(origin).toHaveCount(1);
     await expect(origin).toHaveAttribute("data-testid", `ward-diagram-ed-${movement.originEdId}`);
+
+    // Review Important 3: the identity assertion above must hold for more than the one movement
+    // that happens to be queue row 1. WF-009 has an entirely different shortlist (proven
+    // separately, in the ineligible-routes test below, to also be an entirely different
+    // eligibility outcome) — a hard-coded routed set that coincidentally matched row 1's
+    // shortlist would fail here instead of passing by coincidence.
+    await page.getByRole("region", { name: "Priority queue" }).locator('[data-testid="ward-queue-row-WF-009"]').click();
+    await assertRoutedMatchesShortlist(diagram, "WF-009");
+  });
+
+  test("marks an ineligible shortlisted unit as not currently placeable, not as a routed destination", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const diagram = page.getByRole("region", { name: "Statewide flow" });
+    await expect(diagram.locator("svg path[marker-end]").first()).toBeAttached({ timeout: 15_000 });
+
+    const movement = requireMovement("WF-009");
+    const shortlist = eligibleCandidates(movement, NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
+    // This test's whole premise is a shortlist with ZERO eligible candidates — WF-009 has been
+    // declined by five units, and its nearest three (by cohort, since `eligibleCandidates` sorts
+    // eligible-first but never filters) are all ineligible: two already declined it, one fails
+    // the security gate. If the fixture ever changes so this stops being true, the assertions
+    // below must fail loudly here rather than vacuously pass on an empty or partially-eligible
+    // set.
+    expect(shortlist.length).toBeGreaterThan(0);
+    expect(shortlist.every((candidate) => !candidate.verdict.eligible)).toBe(true);
+
+    await page.getByRole("region", { name: "Priority queue" }).locator('[data-testid="ward-queue-row-WF-009"]').click();
+
+    // Every routed node is marked not-eligible on the node itself...
+    const routed = diagram.locator('[data-routed="true"]');
+    await expect(routed).toHaveCount(shortlist.length);
+    const eligibleFlags = await routed.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-eligible")));
+    for (const flag of eligibleFlags) {
+      expect(flag).toBe("false");
+    }
+
+    // ...and states its own specific reason as real text (never colour alone — must survive
+    // forced-colors — and never a generic "not eligible", proving `candidateReason(verdict)`
+    // actually reaches the DOM for each unit, not just a shared placeholder).
+    for (const candidate of shortlist) {
+      const node = diagram.locator(`[data-testid="ward-diagram-unit-${candidate.unit.id}"]`);
+      await expect(node).toContainText(candidateReason(candidate.verdict));
+    }
+
+    // The connector lines themselves are marked ineligible too, so the arrow cannot read as an
+    // endorsement the node's own text denies.
+    const routeConnectors = diagram.locator('svg path[data-connector-kind="route"]');
+    await expect(routeConnectors).toHaveCount(shortlist.length);
+    const connectorFlags = await routeConnectors.evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute("data-eligible")),
+    );
+    for (const flag of connectorFlags) {
+      expect(flag).toBe("false");
+    }
+
+    // The hub states the true eligible count — zero — never the shortlist size framed as routes.
+    await expect(diagram).toContainText(`no eligible destination; ${shortlist.length} nearest, all excluded`);
+  });
+
+  test("distinguishes an accepted destination from an outstanding referral, and shows every parallel referral", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const diagram = page.getByRole("region", { name: "Statewide flow" });
+    await expect(diagram.locator("svg path[marker-end]").first()).toBeAttached({ timeout: 15_000 });
+    const queue = page.getByRole("region", { name: "Priority queue" });
+
+    // WF-017 has an outstanding referral to BTY Adult Secure and no acceptance yet —
+    // `destinationUnit`'s single conflated field (`acceptedUnitId ?? referredUnitIds[0]`) used
+    // to badge this "Current recorded destination", which reads as an acceptance that has not
+    // happened (review Important 2).
+    await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
+    const bty = diagram.locator('[data-testid="ward-diagram-unit-bty-adult-secure"]');
+    await expect(bty).toHaveAttribute("data-referred", "true");
+    await expect(bty).not.toHaveAttribute("data-accepted", "true");
+    await expect(bty).toContainText("Outstanding referral");
+    await expect(bty).not.toContainText("Accepted destination");
+
+    // WF-013 carries two parallel referrals — both must be visible, not only
+    // `referredUnitIds[0]`.
+    await queue.locator('[data-testid="ward-queue-row-WF-013"]').click();
+    await expect(diagram.locator('[data-testid="ward-diagram-unit-bty-older-adult"]')).toHaveAttribute(
+      "data-referred",
+      "true",
+    );
+    await expect(diagram.locator('[data-testid="ward-diagram-unit-gry-older-adult"]')).toHaveAttribute(
+      "data-referred",
+      "true",
+    );
+
+    // WF-003 has an actual acceptance — a different fact, with a different badge.
+    await queue.locator('[data-testid="ward-queue-row-WF-003"]').click();
+    const accepted = diagram.locator('[data-testid="ward-diagram-unit-rph-adult-secure"]');
+    await expect(accepted).toHaveAttribute("data-accepted", "true");
+    await expect(accepted).toContainText("Accepted destination");
+    await expect(accepted).not.toContainText("Outstanding referral");
   });
 });

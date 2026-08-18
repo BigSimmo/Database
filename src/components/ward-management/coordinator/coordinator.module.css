@@ -274,10 +274,25 @@
  * real phone composition (hiding the diagram, one-tap confirm); this only keeps the frame from
  * breaking in the meantime.
  */
+/*
+ * `align-self: start` (rather than the grid default `stretch`) is load-bearing for the diagram's
+ * own `min-height` floor below to actually work. Without it, `.body`'s `minmax(0, 1fr)` row
+ * force-stretches this grid to a fixed, viewport-derived height, and when `.diagramRegion`'s
+ * explicit floor exceeds that fixed budget, CSS Grid's row-sizing algorithm satisfies it by
+ * squeezing the SIBLING rows that have no floor of their own — measured: the priority queue's
+ * list collapsed to zero visible rows (its own `overflow-y: auto` absorbing the entire deficit)
+ * at 1280x900, breaking the queue's click target along with it (Controller finding 8 follow-up).
+ * `align-self: start` instead lets this grid size to its own natural content height — including
+ * every row's own explicit minimum — and overflow `.body`'s box when that natural height is
+ * taller than the viewport, which `.body`'s own `overflow: auto` (declared above) already
+ * reveals via one ordinary page-level scrollbar. No sibling is squeezed below its own minimum to
+ * pay for another row's floor.
+ */
 .regionGrid {
   display: grid;
   min-width: 0;
   min-height: 0;
+  align-self: start;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--co-space-10);
 }
@@ -285,14 +300,53 @@
 @media (min-width: 90rem) {
   .regionGrid {
     grid-template-columns: 14rem minmax(38rem, 1fr) 23rem;
+    /*
+     * Restores the ORIGINAL `stretch` (the grid default; `align-self: start` above is what
+     * overrides it) — at this width the three regions share one row, and stretch-then-squeeze
+     * is what already gave every region (queue's own internal scroll included) a sensible,
+     * viewport-proportional height before this task touched anything, exactly as Controller
+     * finding 8's own 1600x1100 screenshot showed working. Content-sizing (`start`) is only
+     * needed below this width, where the region grid switches to separate stacked rows and
+     * `.diagramRegion`'s floor would otherwise steal space from a sibling that shares no row
+     * with it — see that override's own comment. Verified empirically: applying `start`
+     * unscoped here let `.queueRegion`'s now-uncapped natural height (41 unclamped rows,
+     * ~4300px) become the shared row's height, stretching every column to match it.
+     */
+    align-self: stretch;
   }
 }
 
+/*
+ * `max-height` here is what makes `.queueList`'s own `overflow-y: auto` below actually engage
+ * now that `.regionGrid` sizes to its own content (`align-self: start`, above) rather than being
+ * force-stretched to a fixed, viewport-derived height. Before that change, this region's compact,
+ * internally-scrolling card relied entirely on the OUTER grid squeeze to give it a bounded box —
+ * with that squeeze gone (deliberately, so the diagram's own floor below can be honoured without
+ * stealing this region's space), this needs its own explicit cap to keep behaving the same way,
+ * rather than growing to show all 41 movements unclamped.
+ */
 .queueRegion {
   display: flex;
   min-height: 0;
+  max-height: 26rem;
   flex-direction: column;
   padding: var(--co-space-12);
+}
+
+/*
+ * The 26rem cap above exists only to keep the STACKED layout's page length sane (see its own
+ * comment). At >=90rem the three regions share one row instead, and `.queueRegion` should
+ * stretch to fill whatever height that shared row naturally ends up being — its own long-standing
+ * behaviour, unchanged since Task 5 — not stay pinned to a fixed cap regardless of how much room
+ * the row actually has. This rule must stay AFTER the base `.queueRegion` rule above: CSS resolves
+ * two equal-specificity declarations of the same property by source order, not by which one sits
+ * inside a media query, so placing this earlier let the unconditional 26rem cap win even at wide
+ * viewports (found and fixed while verifying this task's own review fix empirically).
+ */
+@media (min-width: 90rem) {
+  .queueRegion {
+    max-height: none;
+  }
 }
 
 /* The 14rem queue column is too narrow for "Priority queue" and the open-movement count to
@@ -392,14 +446,57 @@
 }
 
 /*
- * The flow diagram's canvas. `position: relative` is the positioning root every connector
- * coordinate in `flow-diagram.tsx` is measured against (`getBoundingClientRect()` minus this
- * box's own `left`/`top`) — move this rule's positioning scheme and every connector goes wrong.
- * No `overflow` is set here on purpose: with 22 units the canvas can grow taller than the
- * region's own box, and rather than clip it or give the canvas its own independent scroll
- * (which would desync connectors from nodes on every scroll tick, not just on resize), the
- * overflow is left visible so `.body`'s own `overflow: auto` (see above) reveals it with one
- * page-level scrollbar — the same mechanism that already carries the rest of this shell.
+ * Controller finding 8: the region grid's row-sizing algorithm treats a `min-height: 0` item as
+ * free to squeeze toward zero when the grid's own available height is tight — that is what let
+ * this region collapse to 208px at 1280x900. This override applies to the diagram only (later in
+ * source, same specificity as the shared selector above, so it wins for `.diagramRegion` without
+ * touching `.shortlistRegion`), giving the whole region — header plus the `.diagramScroll` panel
+ * below it — a floor the grid squeeze cannot compress past.
+ */
+.diagramRegion {
+  min-height: 32rem;
+}
+
+/*
+ * Controller finding 8: the region grid squeezes `.diagramRegion` to fit whatever share of
+ * `.body`'s available height the grid's row-sizing algorithm allocates it — measured 208px for
+ * ~1080px of content at 1280x900, an unusable letterbox for a common laptop width. This scroll
+ * wrapper gives the diagram its own bounded, independently-scrolling box instead: a real
+ * `min-height` floor the outer grid squeeze cannot compress past, plus `overflow-y: auto` so
+ * whatever height it ends up with beyond that floor, the excess scrolls cleanly rather than
+ * clipping or spilling into whatever sits below it in the grid.
+ *
+ * Deliberately a SEPARATE element from `.diagramCanvas`, not `overflow-y: auto` on the canvas
+ * itself. `.diagramCanvas` is the positioning root for the absolutely-positioned connector
+ * `<svg>` (`inset: 0`, sized to the canvas's own padding box). If the canvas itself scrolled,
+ * that padding box would only be as tall as the visible slice, and the svg would size to that
+ * slice rather than the full scrollable content — misaligning every connector the moment the
+ * user scrolls. With the scroll boundary here instead, `.diagramCanvas` (svg and every node
+ * together) is ordinary in-flow content inside this scroller: scrolling moves the whole block as
+ * one rigid unit, so the svg and the nodes it draws lines between never drift apart.
+ */
+/*
+ * Deliberately NOT `flex: 1 1 auto`. A flex-grow item asks to "fill the flex container's
+ * available height" — but `.diagramRegion`'s own height is itself resolved from ITS content
+ * (via `.regionGrid`'s `align-self: start`, above), so "available height" has no independent
+ * value to grow toward: it circularly depends on how tall this element decides to be. Verified
+ * empirically — with `flex: 1 1 auto` here, `.diagramRegion` inflated to several thousand pixels
+ * at 1600x1100 (and dragged the stretch-aligned `.queueRegion` up with it) rather than the
+ * ~1400px its real content actually needs. Plain intrinsic sizing (`min-height` as a floor,
+ * content grows it further when taller) has no such loop.
+ */
+.diagramScroll {
+  min-height: 30rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/*
+ * `position: relative` is the positioning root every connector coordinate in
+ * `flow-diagram.tsx` is measured against (`getBoundingClientRect()` minus this box's own
+ * `left`/`top`) — move this rule's positioning scheme and every connector goes wrong. No
+ * `overflow` is set here — see `.diagramScroll` above for why the scroll boundary lives one
+ * level up instead.
  */
 .diagramCanvas {
   position: relative;
@@ -421,7 +518,8 @@
 }
 
 .diagramConnectorDemand,
-.diagramConnectorRoute {
+.diagramConnectorRouteEligible,
+.diagramConnectorRouteIneligible {
   fill: none;
   vector-effect: non-scaling-stroke;
 }
@@ -431,17 +529,33 @@
   stroke-width: 0.0625rem;
 }
 
-.diagramConnectorRoute {
+.diagramConnectorRouteEligible {
   stroke: var(--clinical-accent);
   stroke-width: 0.125rem;
+}
+
+/*
+ * `eligibleCandidates` sorts eligible-first but never filters, so a shortlisted unit can still
+ * fail a gate (Critical 1 — already declined, wrong security tier, stale capacity, ...). This
+ * line must never look like the eligible route above: dashed, and danger-toned rather than
+ * accent-toned, so the arrow itself does not read as an endorsement of a route the data denies.
+ */
+.diagramConnectorRouteIneligible {
+  stroke: var(--danger-text);
+  stroke-width: 0.125rem;
+  stroke-dasharray: 6 4;
 }
 
 .diagramArrowDemand {
   fill: var(--border-strong);
 }
 
-.diagramArrowRoute {
+.diagramArrowRouteEligible {
   fill: var(--clinical-accent);
+}
+
+.diagramArrowRouteIneligible {
+  fill: var(--danger-text);
 }
 
 /*
@@ -645,9 +759,20 @@
   box-shadow: var(--shadow-inset);
 }
 
-.diagramUnit[data-routed="true"],
-.diagramUnitSelected[data-routed="true"] {
+.diagramUnit[data-routed="true"][data-eligible="true"],
+.diagramUnitSelected[data-routed="true"][data-eligible="true"] {
   outline: 0.125rem solid var(--clinical-accent-border);
+  outline-offset: -0.125rem;
+}
+
+/*
+ * Review Critical 1: a routed-but-ineligible node must not share the accent outline above — that
+ * reads as the same kind of endorsement the connector line and hub wording were also fixed to
+ * stop giving it. Dashed and danger-toned instead, matching the ineligible connector line.
+ */
+.diagramUnit[data-routed="true"][data-eligible="false"],
+.diagramUnitSelected[data-routed="true"][data-eligible="false"] {
+  outline: 0.125rem dashed var(--danger-border);
   outline-offset: -0.125rem;
 }
 
@@ -721,7 +846,14 @@
   font-weight: 700;
 }
 
-.diagramDestinationBadge {
+/*
+ * Every shortlisted node's real eligibility, in text — never colour alone, so it survives
+ * forced-colors, and never conveyed only by the connector's own colour (review Important 5:
+ * routed state was previously invisible to a screen reader, carried only by an outline colour
+ * plus an aria-hidden svg). `candidateReason(verdict)` supplies the exact wording either way:
+ * "Eligible now", or the specific failing gate's own detail text.
+ */
+.diagramEligibleBadge {
   justify-self: start;
   border-radius: var(--radius-pill, 9999px);
   background: var(--clinical-accent-soft);
@@ -729,6 +861,66 @@
   color: var(--clinical-accent);
   font-size: var(--text-3xs);
   font-weight: 700;
+}
+
+/*
+ * Review Critical 1: a shortlisted unit that fails a gate (already declined, wrong security
+ * tier, stale capacity, ...) must never read as a viable route. Danger-toned and textual, paired
+ * with the dashed `.diagramConnectorRouteIneligible` line — colour is never the only signal.
+ */
+.diagramIneligibleBadge {
+  justify-self: start;
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--danger-bg);
+  padding: 0 var(--co-space-6);
+  color: var(--danger-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+}
+
+/*
+ * Review Important 2: an accepted bed and an outstanding referral are different facts a
+ * coordinator acts on differently — `destinationUnit`'s single conflated field used to badge
+ * both the same way (and only the first of a movement's parallel referrals). Two distinct badges
+ * instead, one per unit that actually carries that fact.
+ */
+.diagramAcceptedBadge {
+  justify-self: start;
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--success-bg);
+  padding: 0 var(--co-space-6);
+  color: var(--success-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+}
+
+.diagramReferredBadge {
+  justify-self: start;
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--warning-bg);
+  padding: 0 var(--co-space-6);
+  color: var(--warning-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+}
+
+/*
+ * Review Minor 6: a unit whose `siteByCode` lookup misses would otherwise vanish from every
+ * service group with nothing on screen accounting for it. Rendered as an explicit anomaly
+ * instead — never a normal actionable node (no button, no click handler), so it cannot be
+ * mistaken for a real routing candidate.
+ */
+.diagramUnplacedUnit {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: var(--co-space-2);
+  border: 0.0625rem dashed var(--danger-border);
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
+  padding: var(--co-space-8) var(--co-space-10);
+  color: var(--text);
+  text-align: left;
 }
 
 .shortlistColumn {
@@ -810,8 +1002,10 @@
   }
 
   .diagramEdCard[data-origin="true"],
-  .diagramUnit[data-routed="true"],
-  .diagramUnitSelected[data-routed="true"] {
+  .diagramUnit[data-routed="true"][data-eligible="true"],
+  .diagramUnitSelected[data-routed="true"][data-eligible="true"],
+  .diagramUnit[data-routed="true"][data-eligible="false"],
+  .diagramUnitSelected[data-routed="true"][data-eligible="false"] {
     outline-color: Highlight;
   }
 }
