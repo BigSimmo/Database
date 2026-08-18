@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { ContextualBackLink } from "@/components/contextual-back-link";
 import { Sheet } from "@/components/ui/sheet";
 import { clockState, formatInstant } from "@/components/ward-management/ward-clock";
 import { eligibility } from "@/components/ward-management/ward-eligibility";
@@ -729,9 +730,9 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
       <div className={styles.patientWorkspace} data-testid="ward-patient-workspace">
         <ClinicalRail />
         <header className={styles.workspaceHeader}>
-          <Link href="/ward-management" aria-label="Back to Ward Flow">
+          <ContextualBackLink fallbackHref="/ward-management" aria-label="Back to Ward Flow">
             <ArrowLeft aria-hidden="true" />
-          </Link>
+          </ContextualBackLink>
           <div>
             <span>Ward Flow</span>
             <h1>Movement not found</h1>
@@ -762,9 +763,9 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
     <div className={styles.patientWorkspace} data-testid="ward-patient-workspace">
       <ClinicalRail />
       <header className={styles.workspaceHeader}>
-        <Link href="/ward-management" aria-label="Back to Ward Flow">
+        <ContextualBackLink fallbackHref="/ward-management" aria-label="Back to Ward Flow">
           <ArrowLeft aria-hidden="true" />
-        </Link>
+        </ContextualBackLink>
         <div>
           <span>Ward Flow</span>
           <h1>{patient.id} movement workspace</h1>
