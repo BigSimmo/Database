@@ -90,11 +90,16 @@ this plan:
   (`src/lib/rag/rag-second-stage.ts`) → `chooseAnswerRoute` (`src/lib/rag/rag-routing.ts`) →
   fast/strong generation (reasoning-effort routing, not different models) → numeric
   verification, claim support, citation sanitisation → render policy trust ladder.
-- **Answer shape today:** the `answer` field is prompted to 1–3 sentences (~35–75 words);
-  `answerSections` carries 0–1 sections for simple facts, 2–5 for complex questions. The
-  prompt (`answerInstructions`, `rag.ts:3150`) and the "Interpreted clinical task" block
-  built by `buildAnswerInput` already carry `intent`, `query_class`, `answer_focus`,
-  `answer_scope`, and the full `answer_plan.*` fields.
+- **Answer shape today (post-S2, prompt `clinical-rag-answer-v19`, 2026-08-18):** the
+  `answer` field is prompted to 2–4 sentences (~60–110 words) for complex questions, with the
+  narrow-question rule verbatim (a definition, one threshold, a single dose, or a yes/no stays
+  1–3 sentences, ~35–75 words); `answerSections` carries 0–1 sections for simple facts, 3–6
+  for complex questions when the excerpts support them (schema `maxItems` 6). The prompt
+  (`answerInstructions`, `src/lib/rag/rag-answer-instructions.ts`) and the "Interpreted
+  clinical task" block built by `buildAnswerInput` carry `intent`, `query_class`,
+  `answer_focus`, `answer_scope`, the A2 `related_information_menu` line
+  (`src/lib/rag/answer-composition.ts`), and the full `answer_plan.*` fields. Before S2 the
+  targets were 1–3 sentences / 35–75 words and 2–5 sections.
 - **Budgets:** `unsupported 0 / extractive 12s / fast 25s / strong 35s`; a
   truncation self-heal retries with `strongRetryMaxOutputTokens`. Source-only fallback
   (`source_backed_review_fallback`) fires on quality-gate failure, ungrounded extractive
