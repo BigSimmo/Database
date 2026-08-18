@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "8bfa1d6f-e8ae-496b-9ad1-15c1ba718831",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Five independent SectionHeading implementations exist across modes with no shared recipe",
+    "detail": "clinical-dashboard/dashboard-shell.tsx:17, clinical-dashboard/search-pins-menu.tsx:97, formulation/formulation-ui.tsx:81, specifiers/specifier-ui.tsx:237, plus a fifth in therapy-compass/ui.tsx deleted unreferenced in 7d2c84a11. Same shape as the problem card-recipes.ts solved for cards, but spanning four modes. Two of the five already share an identical {eyebrow, title, body} signature - the natural shared contract. Stop rule: do not fold these into ui-primitives.tsx; COMPONENTS.md section 0.4 lists it as over-budget and slated to split.",
+    "issueUlid": "01M0AD3SBBZF006GJ5MJW1E4BB"
+  }
+}

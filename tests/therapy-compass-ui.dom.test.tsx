@@ -1,15 +1,14 @@
 import { render, screen } from "@testing-library/react";
+import { Search } from "lucide-react";
 import { describe, expect, it } from "vitest";
 
 import { EmptyState } from "@/components/therapy-compass/ui";
 
 describe("Therapy Compass shared state delegates", () => {
   it("preserves the neutral surface, clinical icon treatment, and compact action spacing", () => {
-    const Icon = ({ size }: { size?: number }) => <span data-testid="therapy-empty-icon" data-size={size} />;
-
     render(
       <EmptyState
-        icon={Icon}
+        icon={Search}
         title="No therapy matches"
         body="Try a broader term."
         action={<button type="button">Clear filters</button>}
@@ -19,8 +18,12 @@ describe("Therapy Compass shared state delegates", () => {
     const state = screen.getByRole("status");
     expect(state).toHaveClass("bg-[color:var(--surface)]");
     expect(state).not.toHaveClass("bg-[color:var(--info-soft)]");
-    const icon = screen.getByTestId("therapy-empty-icon");
-    expect(icon).toHaveAttribute("data-size", "26");
+    // The icon is now a real lucide glyph, so the size contract is read off the
+    // rendered <svg> rather than a stub's data attribute.
+    const icon = state.querySelector("svg");
+    if (!icon) throw new Error("expected the empty-state glyph to render");
+    expect(icon).toHaveAttribute("width", "26");
+    expect(icon).toHaveAttribute("aria-hidden", "true");
     expect(icon.parentElement).toHaveClass(
       "h-13",
       "w-13",

@@ -29,9 +29,17 @@ const otherSource = read(`${therapyPath}/screens/other-screen.tsx`);
 /**
  * A fixed multi-column grid must collapse to a single column on phones via
  * Tailwind's mobile-first `grid-cols-1` + `sm:grid-cols-*`.
+ *
+ * Both className spellings count. This used to read only `className="…"`, so a
+ * grid written as `className={`${cardSurface} grid-cols-1 sm:grid-cols-…`}` was
+ * invisible to the check — not failing it, simply never counted. Adopting the
+ * shared `cardSurface` recipe moved several of these grids to the template form
+ * and exposed the hole: the compare grid still stacked on phones exactly as
+ * before, and the count silently fell to zero. Matching both forms is the
+ * stronger condition, because it measures the reflow rather than the quoting.
  */
 function responsiveStackCount(source: string) {
-  return source.match(/className="[^"]*\bgrid-cols-1\b[^"]*\bsm:grid-cols-/g)?.length ?? 0;
+  return source.match(/className=(?:"|\{`)[^"`]*\bgrid-cols-1\b[^"`]*\bsm:grid-cols-/g)?.length ?? 0;
 }
 
 function openingTagWith(source: string, tagName: string, attributes: string[]) {
@@ -217,10 +225,17 @@ describe("Therapy Compass responsive contract", () => {
   });
 
   it("uses complete toggle semantics and preserves full-size control hit targets", () => {
-    expect(briefSource).toContain('<Tabs\n            label="Brief intervention duration"');
-    expect(compareSource).toContain('<Tabs\n            label="Comparison fields"');
-    expect(compareSource).toContain('<SegmentedControl\n            label="Comparison density"');
-    expect(sheetsSource).toContain('<SegmentedControl\n                  label="Reading level and tone"');
+    // Indentation is not the contract. These used to pin the exact leading
+    // whitespace of each opening tag, so moving the density control into a
+    // `PageHeader` `actions` slot — which re-indents it and changes nothing
+    // else — failed an assertion about toggle semantics. `openingTagWith` is
+    // the stronger condition: it proves the element really is that component
+    // AND carries the labelling attribute, and unlike a raw substring it
+    // cannot be satisfied by matching prose elsewhere in the file.
+    expect(openingTagWith(briefSource, "Tabs", ['label="Brief intervention duration"'])).toBeTruthy();
+    expect(openingTagWith(compareSource, "Tabs", ['label="Comparison fields"'])).toBeTruthy();
+    expect(openingTagWith(compareSource, "SegmentedControl", ['label="Comparison density"'])).toBeTruthy();
+    expect(openingTagWith(sheetsSource, "SegmentedControl", ['label="Reading level and tone"'])).toBeTruthy();
 
     const pickerTriggerTag = openingTagWith(sheetsSource, "button", ["aria-expanded={open}"]);
     expect(pickerTriggerTag).toBeTruthy();
@@ -262,7 +277,17 @@ describe("clinical accent contrast contract", () => {
       expect(source).not.toMatch(/background:var\(--clinical-accent\);color:#(?:fff|ffffff)/i);
       expect(source).not.toMatch(/bg-\[color:var\(--clinical-accent\)\][^"\n]*\btext-white\b/);
     }
-    expect(controlsSource).toContain("text-[color:var(--clinical-accent-contrast)]");
+    // This used to assert that `controls.ts` paired its accent fill with the
+    // semantic contrast token, which was `accentControl`'s job. That recipe is
+    // gone: therapy's filled action is the shared `Button` on the `--command`
+    // triplet, per COMPONENTS.md section 9.1, whose token list does not include
+    // `--clinical-accent`. So the requirement is now the stronger one — no accent
+    // fill in `controls.ts` at all — and the pairing is asserted where the accent
+    // fill actually survives, on `IconTile` in `ui.tsx`.
+    expect(controlsSource).not.toContain("bg-[color:var(--clinical-accent)]");
+    expect(read(`${therapyPath}/ui.tsx`)).toContain(
+      "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]",
+    );
     expect(homeSource).toContain("ModeHomeTemplate");
     expect(homeSource).not.toMatch(/background:var\(--clinical-accent\);color:#(?:fff|ffffff)/i);
     expect(homeSource).not.toMatch(/bg-\[color:var\(--clinical-accent\)\][^"\n]*\btext-white\b/);
