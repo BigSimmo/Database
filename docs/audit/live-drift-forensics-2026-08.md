@@ -829,14 +829,176 @@ with it. The §2.3 reading stands: until `schema.sql` is reconciled to the chain
 finding cannot be assumed to mean "production drifted". Every disposition remains repo-side work for
 Phase 3, and none of it was touched here.
 
-## Phase 3 — RPC reconciliation
+## Phase 3 — RPC reconciliation (reframed: repo-side codification, no production deploy)
 
-_Not yet run. Requires an approved production window, plus a separate canary approval per
-repo-ahead RPC._
+_2026-08-18 (repo-side session; owner decisions D1 codify-as-live and D2 canary exemption in force;
+no production access; two read-only `SELECT`s against staging `ikoiolksxqxfxgiyqpnu` for the (c)
+triage only, authorised in-session, `list_projects` verified the ref first). This supersedes the
+playbook's Phase 3 prompt, which assumed repo-ahead canaries the §1.2 dossier ruled out. **No
+function body changed.** `#292` open-PR check before starting: no open PR touched `schema.sql`,
+`supabase/migrations/**`, `drift-manifest.json` or `scripts/check-drift.ts`._
 
-_Pending._ Per-RPC outcome against the Phase 1.2 classification, the migration that codified each
-live-ahead body, and eval-canary evidence (36/36, recall 1.0, zero per-case rr regressions) for any
-behaviour-changing deploy.
+### 3.1 `SET work_mem` codified on all ten RPCs — zero function mismatches, proven offline
+
+`supabase/schema.sql` now carries `set work_mem = '<live value>'` as the last `set` clause of each
+of the ten definitions (both the legacy lowercase and the effective uppercase blocks for
+`match_document_chunks_hybrid` and `match_document_table_facts_text`, which `schema.sql` defines
+twice; the later block wins on replay). New migration
+`20260818110000_codify_live_rpc_work_mem.sql` runs one `ALTER FUNCTION … SET work_mem = '…'` per
+function, versioned after every `create or replace` of each (newest bodies `20260701140631`,
+`20260714110000`, `20260717162000`, `20260724120000`), so a clean chain replay ends with the
+attribute present in live's `[search_path, (plan_cache_mode), work_mem]` proconfig order. The four
+duplicate migration pairs (§2.4 finding 2) do not touch the ten. Idempotent on production.
+
+**Decisive proof.** `npm run drift:manifest` (Docker replay of the edited `schema.sql`, 75 s,
+`generated_at 2026-08-18T08:30:22Z`) yields a `def_hash` for every one of the ten that is
+**byte-identical to the live production hash** captured in issue #1963's findings block (Actions
+run `32051068106`, 2026-08-17 — the same values §1.2 Query 1 recorded):
+
+| Function                                 | `work_mem` | Migration setting it                                        | `schema.sql` lines (post-edit)  | new manifest `def_hash` = live `def_hash` |
+| ---------------------------------------- | ---------- | ----------------------------------------------------------- | ------------------------------- | ----------------------------------------- |
+| `match_document_chunks_hybrid`           | 128MB      | `20260818110000` (was 64MB in `20260724000000`)             | 2772 (legacy), 6588 (effective) | `5902c39286335c07714e498ea31513a0`        |
+| `match_document_embedding_fields_hybrid` | 128MB      | `20260818110000` (was 64MB in `20260724000000`)             | 4292                            | `bb975485ee3a5776bce4abdc2e3a3cbd`        |
+| `match_document_index_units_hybrid`      | 128MB      | `20260818110000` (was 64MB in `20260724000000`)             | 5501                            | `d0e277a2f3067f49463b85ac84b33276`        |
+| `match_document_index_units_hybrid_v2`   | 128MB      | `20260818110000` (never set before)                         | 8006                            | `05ddb8f73fac7751a2256aa15c1122e2`        |
+| `match_document_chunks_text`             | 64MB       | `20260724000000`, re-asserted by `20260818110000`           | 3845                            | `d135c628720cb8a4d86c2ade4cd3b26a`        |
+| `match_document_chunks_text_v2`          | 64MB       | `20260818110000` (never set before)                         | 7822                            | `3639b2442bac7b2e7b18ad322a395acb`        |
+| `match_document_lookup_chunks_text`      | 64MB       | `20260724000000`, re-asserted by `20260818110000`           | 4002                            | `c1ede773fc0498e32bc3b4aa7262b32c`        |
+| `match_document_memory_cards_hybrid`     | 64MB       | `20260724000000`, re-asserted by `20260818110000`           | 3096                            | `9079b928ee56fd7846e280d10ba1d27c`        |
+| `match_document_memory_cards_hybrid_v2`  | 64MB       | `20260724000000`, re-asserted by `20260818110000`           | 2982                            | `ab87a18bea57612db83428c24c425825`        |
+| `match_document_table_facts_text`        | 64MB       | `20260818110000` (dropped by the `20260724120000` recreate) | 4190 (legacy), 6676 (effective) | `0ef9a5dfbde03fe6d48d9223e245aa69`        |
+
+10/10 equal. Because `check:drift` compares functions on `def_hash` + `acl` and ACLs were already
+equal (§1.2), the next production live-drift run will report **zero `match_*` function mismatches**
+once this migration runs in a production window. That window must run `supabase db push` (or
+equivalent verbatim execution of the ten idempotent `ALTER FUNCTION` statements) — not
+`supabase migration repair --status applied` or any other history-only mark-applied path. Per
+AGENTS.md "Supabase project safety", a mark-applied version requires a fail-fast validation guard
+migration shipped in the same change (the `20260804110240` pattern); this PR ships no such guard,
+so `migration repair` on this version is out of scope for the coordinator.
+Eval-canary: none dispatched (D2 — planner memory, latency-only; no live eval in this task).
+
+### 3.2 Eight never-created objects — codified verbatim (`20260818111000`)
+
+`20260818111000_codify_schema_only_indexes_and_triggers.sql` creates, verbatim from `schema.sql`
+(lines 678, 763–776, 1073–1081) with `create index if not exists` / `drop trigger if exists` +
+`create trigger` semantics, the five `document_embedding_fields_*` indexes
+(`owner_id_idx`, `owner_document_created_idx`, `source_chunk_id_idx`,
+`meta_rag_indexing_version_idx`, `search_tsv_chunk_gin_idx`), `documents_status_idx`, and the
+`documents_updated_at` / `ingestion_jobs_updated_at` triggers on `public.set_updated_at()`.
+Verified against `#102`'s list (`documents_title_bare_trgm_idx`, `documents_file_name_bare_trgm_idx`,
+`documents_status_id_idx`): **disjoint** — `documents_status_idx` is the existing single-column index
+`#102` proposes to supplement, not one of its objects. All eight already exist on production
+(the 2026-08-14 live-drift run listed none of them as `missing_live` and reported no trigger drift),
+so the migration is a no-op there.
+
+**Monitoring decision (forced by `tests/search-health-index-coverage.test.ts`):** all six indexes
+were already on `supabase/search-health-unmonitored-indexes.json` (five `accepted-unmonitored`,
+`document_embedding_fields_search_tsv_chunk_gin_idx` a `monitor-candidate`); they **stay on the
+unmonitored list** and `search_schema_health()` `required_indexes` is not changed here — that is a
+runtime-probe redefinition with its own migration and belongs to Phase 4.4. Their `reason` strings
+were refreshed to cite `20260818111000` (they had said "never by a migration"). The test's
+migration-vs-manifest disagreement count drops by six.
+
+### 3.3 Triage of the four remaining staging findings
+
+**(c) `document_chunks` — CHAIN-stale, one column.** Read-only staging
+`schema_drift_snapshot()->'tables'` for the three tables, diffed per column against the manifest
+offline (`check:drift`'s own 240-char clip hides the column; see note below):
+
+```
+== document_chunks
+  column only in manifest: token_estimate {"default":"0","not_null":true,"type":"integer"}
+```
+
+`token_estimate integer not null default 0` is `schema.sql:309`, is written by
+`src/lib/chunking.ts:624` and `src/lib/registry-corpus.ts:224`, required by
+`src/lib/supabase/database.types.ts:305`, and present on production (2026-08-14 live-drift: no table
+drift ⇒ production = manifest = `schema.sql`); `grep -rn token_estimate supabase/migrations` returns
+**zero** hits. Fixed in the chain by `20260818112000_reconcile_chain_stale_table_columns.sql`
+(`add column if not exists`, catalog-only on PG 11+, no-op on production). Owner-approved in-session.
+
+**(c) `rag_visual_eval_cases` / `rag_visual_eval_runs` — CHAIN-stale, `id` default binding.**
+`schema.sql:5909–5942` is byte-identical to `20260705230000:231–264`, so the mismatch is not
+textual. The staging diff is exactly:
+
+```
+== rag_visual_eval_cases   column differs: id   manifest default "gen_random_uuid()"   staging default "extensions.gen_random_uuid()"
+== rag_visual_eval_runs    column differs: id   manifest default "gen_random_uuid()"   staging default "extensions.gen_random_uuid()"
+```
+
+Decisive hunk: `20260705230000_reconcile_live_database_drift.sql:6` opens with
+`set search_path = public, extensions, pg_catalog;` — `pg_catalog` **last** — so its bare
+`default gen_random_uuid()` bound to pgcrypto's `extensions.gen_random_uuid()`, whereas
+`schema.sql:10` (`set search_path = public, extensions;`, `pg_catalog` implicitly first) and
+production bind the core `pg_catalog.gen_random_uuid()`. Both generate v4 UUIDs (no behavioural
+difference) but it is a real OID mismatch in the column set. `schema.sql` is the correct side and is
+unchanged; `20260818112000` rebinds both defaults to `pg_catalog.gen_random_uuid()` (no-op on
+production). `indexing_v3_agent_jobs.id` also renders `extensions.gen_random_uuid()` on staging but
+`schema.sql:5653` declares it that way explicitly, so chain, mirror and live already agree — not
+touched. Nothing from (c) remains UNCLASSIFIED.
+
+**(d) `document_chunks_content_trgm_idx` — production's restored definition IS canonical; no
+escalation.** Three definitions exist in the repo; the drift `def_hash` is
+`md5(regexp_replace(pg_get_indexdef(oid), '\s+', '', 'g'))` (`20260706200000:105`), computed
+offline for both renderings:
+
+| Source                                                                                       | Expression                                                                 | normalized `pg_get_indexdef` md5                  |
+| -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------- |
+| `20260606000000:11` (original creator, `if not exists`)                                      | `lower(coalesce(section_heading, '') \|\| ' ' \|\| content)`               | `c3db29603d9760b6a50f5ea23d58e4a8` = **staging**  |
+| `schema.sql:743` = `20260622000000:13` = `20260705180000:11` = production restore (§Phase 4) | `lower(coalesce(section_heading, '') \|\| ' ' \|\| coalesce(content, ''))` | `8499c3d35fc205ab0f7237031eee7926` = **manifest** |
+
+Canonical = the `coalesce(content, '')` form, which is what production carries since 2026-08-14
+(§Phase 4 pasted the post-build `pg_indexes` definition verbatim). Staging carries the 2026-06-06
+form because every later creator uses `if not exists` and no migration drops it — a chain-stale
+residual on staging only. **Not fixed here**: the repair on any populated database is a concurrent
+rebuild plus the Phase 4.4 fail-fast guard migration (the `20260804110240` pattern still names
+four other indexes only); on staging it is a drop-and-recreate in the next staging window. Named as
+the one expected residual for the staging proof.
+
+**Tooling note recorded for `#316`.** `scripts/check-drift.ts:192` clips each side of a
+`columns` diff to 240 characters of an alphabetised multi-kB JSON array, so a single late-alphabet
+column (`token_estimate`) never appears in the message and the two prefixes print identical. The
+finding fires but does not name the column; per-column expansion needed the raw snapshot.
+
+### 3.4 Gates
+
+- `npm run drift:manifest` — `Replay complete in 75s`, `Wrote supabase/drift-manifest.json`; the
+  ten `def_hash` values above.
+- `npm run check:migration-role` — `Hosted migration-role guard passed: active hosted SQL/tooling uses postgres and immutable applied history is unchanged.`
+- `npx vitest run tests/supabase-schema.test.ts tests/drift-detection.test.ts tests/migration-history-guards.test.ts tests/search-health-index-coverage.test.ts tests/retrieval-access-scope.test.ts tests/migration-history-placeholders.test.ts tests/hosted-migration-role-guard.test.ts tests/guard-push.test.ts` — `Test Files 8 passed (8) · Tests 149 passed (149)`.
+- `npm run verify:pr-local` — see the PR body for the pasted line (the two Windows-environmental
+  failures `tests/session-start-hook.test.ts` / `tests/worker-observability.test.ts` are the only
+  expected red set on this host).
+
+### 3.5 Staging proof — BLOCKED (not run)
+
+The staging apply of `20260818110000`/`111000`/`112000` was gated on the Phase 2 re-measure
+(`main` ≥ 195 migrations, `20260818090000` applied to staging). At `main` `4551b6e4d` this file's §2
+carries **no "Re-measure" subsection** and no open PR adds one, so per instruction the staging step
+was **not** started: no `execute_sql` DDL, no `schema_migrations` row, no `check:drift` run against
+staging in this session. When unblocked, the method is Phase 2's: `execute_sql` running each file
+verbatim in one implicit transaction plus an explicit md5-matched history row carrying the repo
+version and name (never `apply_migration`), ref verified before every call; expected result: zero
+`match_*` function mismatches, zero never-created objects, zero table column-set mismatches, and
+exactly one named residual — `document_chunks_content_trgm_idx` (`c3db2960…` vs `8499c3d3…`, 3.3 d).
+
+### 3.6 Production window (NOT authorised in this task — for the coordinator)
+
+Live state already matches for everything in this phase, so applying each migration is a no-op on
+production. The window must still run `supabase db push` (verbatim execution of each migration's
+statements) — **not** `supabase migration repair --status applied` or any other mark-applied-only
+path. None of the three Phase 3 migrations ships a validation guard, so per AGENTS.md "Supabase
+project safety" none of them is eligible for history repair; only real execution is authorised here.
+
+| Migration                                                | Effect on production                                       |
+| -------------------------------------------------------- | ---------------------------------------------------------- |
+| `20260818090000_schema_drift_snapshot_history_probe`     | **real change** — `schema_drift_snapshot()` v2 (Phase 6.1) |
+| `20260818110000_codify_live_rpc_work_mem`                | no-op — the ten `work_mem` values already match (3.1)      |
+| `20260818111000_codify_schema_only_indexes_and_triggers` | no-op — all eight objects already exist (3.2)              |
+| `20260818112000_reconcile_chain_stale_table_columns`     | no-op — column and both defaults already as declared (3.3) |
+
+One window covers all four via `db push`; none needs a canary (D2) and none builds an index.
 
 ## Phase 4 — Index restoration
 
