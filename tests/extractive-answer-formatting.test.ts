@@ -350,6 +350,129 @@ describe("provider source-gap lifecycle", () => {
       }),
     ).toBe(false);
   });
+
+  const dischargeChunks = [
+    figureChunk({
+      id: "discharge-planning-start",
+      document_id: "discharge-guidance",
+      title: "Admission to Discharge for Mental Health Inpatients (NMHS)",
+      file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+      page_number: 4,
+      section_heading: "Discharge planning",
+      content:
+        "Clinicians will actively plan effective and timely discharge from the beginning of admission and review the plan throughout the inpatient stay.",
+      similarity: 0.97,
+      hybrid_score: 0.97,
+    }),
+    figureChunk({
+      id: "discharge-documentation",
+      document_id: "discharge-guidance",
+      title: "Admission to Discharge for Mental Health Inpatients (NMHS)",
+      file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+      page_number: 5,
+      section_heading: "Discharge documentation",
+      content:
+        "The discharge plan must document ongoing care arrangements, communicate the plan with the consumer, and identify follow-up responsibilities.",
+      similarity: 0.97,
+      hybrid_score: 0.97,
+    }),
+  ];
+
+  // The S1d defect shape: a hedged, cited, grounded, low-confidence fast answer whose
+  // lead misses providerSourceGapLeadPattern but whose body matches the finalizer's
+  // broad gap-like regex ("do not provide specific") and survives sanitizeAnswerText.
+  const hedgedGapLikeFastAnswer = (overrides: Partial<RagAnswer> = {}): RagAnswer =>
+    ({
+      answer:
+        "Discharge planning begins at admission and the plan is reviewed during the inpatient stay. The discharge documents do not provide specific timing details.",
+      grounded: true,
+      confidence: "low",
+      citations: dischargeChunks.map((chunk) => citationFromResult(chunk)),
+      sources: dischargeChunks,
+      answerSections: [],
+      quoteCards: [],
+      bestSource: null,
+      routingReason: "strong_routine_retrieval",
+      routingMode: "fast",
+      modelUsed: "gpt-test",
+      queryClass: "broad_summary",
+      ...overrides,
+    }) as RagAnswer;
+  const dischargeQuery = "Summarize the discharge guidance";
+
+  it("rebuilds a source-backed extractive answer when a cited low-confidence fast answer is only gap-like phrasing", () => {
+    const answer = finalizeRagAnswerQuality(hedgedGapLikeFastAnswer(), dischargeQuery, "broad_summary");
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(answer.citations.length).toBeGreaterThan(0);
+    expect(answer.responseMode).toBeDefined();
+    expect(answer.responseMode).not.toBe("evidence_gap");
+    expect(answer.answer).not.toMatch(/do not provide specific/i);
+    expect(answer.routingReason).toContain("generation_fallback:provider_source_gap");
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
+    expect(answer.routingReason).toContain("final_quality_gate_source_backed_recovery:provider_source_gap");
+    expect(answer.routingReason).not.toMatch(/final_quality_gate:/);
+    expect(answer.modelUsed).toBeNull();
+    expect(answer.answerQualityTier).toBe("source_only");
+  });
+
+  it("keeps a zero-source fast gap-like answer terminal", () => {
+    const answer = finalizeRagAnswerQuality(
+      hedgedGapLikeFastAnswer({ sources: [], citations: [] }),
+      dischargeQuery,
+      "broad_summary",
+    );
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
+    expect(answer.citations).toEqual([]);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.routingReason).toContain("final_quality_gate:provider_source_gap");
+  });
+
+  it("keeps a strong-route gap-like answer terminal", () => {
+    const answer = finalizeRagAnswerQuality(
+      hedgedGapLikeFastAnswer({ routingMode: "strong" }),
+      dischargeQuery,
+      "broad_summary",
+    );
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
+    expect(answer.citations).toEqual([]);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.routingReason).toContain("final_quality_gate:provider_source_gap");
+  });
+
+  it("keeps a comparison-class gap-like answer terminal", () => {
+    const answer = finalizeRagAnswerQuality(
+      hedgedGapLikeFastAnswer({ queryClass: "comparison" }),
+      dischargeQuery,
+      "comparison",
+    );
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
+    expect(answer.citations).toEqual([]);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.routingReason).toContain("final_quality_gate:provider_source_gap");
+  });
+
+  it("does not recover outside strong routine retrieval", () => {
+    const answer = finalizeRagAnswerQuality(
+      hedgedGapLikeFastAnswer({ routingReason: "retrieval_gap_or_conflict" }),
+      dischargeQuery,
+      "broad_summary",
+    );
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
+    expect(answer.citations).toEqual([]);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.routingReason).toContain("final_quality_gate:provider_source_gap");
+  });
 });
 
 describe("extractive malformed-fragment signatures", () => {
