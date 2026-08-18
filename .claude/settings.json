@@ -1,19 +1,139 @@
 {
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./.env.*.local)",
+      "Read(./.env.production)",
+      "Read(./.env.staging)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__deploy_edge_function",
+      "mcp__supabase__create_project",
+      "mcp__supabase__create_branch",
+      "mcp__supabase__delete_branch",
+      "mcp__supabase__merge_branch",
+      "mcp__supabase__reset_branch",
+      "mcp__supabase__rebase_branch",
+      "mcp__supabase__pause_project",
+      "mcp__supabase__restore_project"
+    ],
+    "ask": [
+      "Bash(npm run eval:*)",
+      "Bash(npm run test:live)",
+      "Bash(npm run test:live:*)",
+      "Bash(npm run test:cross-tenant:staging)",
+      "Bash(npm run verify:release)",
+      "Bash(npm run verify:release:*)",
+      "Bash(npm run check:supabase-project)",
+      "Bash(npm run check:production-readiness)",
+      "Bash(npm run check:production-readiness:*)",
+      "Bash(npm run check:github-shell-access:live)",
+      "Bash(npm run sync:pr-branches)",
+      "Bash(npm run sync:pr-branches:*)",
+      "Bash(npm run reindex)",
+      "Bash(npm run reindex:*)",
+      "Bash(npm run import:docs)",
+      "Bash(npm run import:docs:*)",
+      "Bash(npm run enrich:*)",
+      "Bash(npm run classify:documents)",
+      "Bash(npm run governance:release)",
+      "Bash(npm run audit:source-governance:release)",
+      "Bash(gh api:*)",
+      "Bash(git push:*)",
+      "Bash(git fetch:*)",
+      "Bash(railway:*)",
+      "mcp__railway__set-variables",
+      "mcp__railway__redeploy",
+      "mcp__railway__create-deployment",
+      "mcp__railway__accept-deploy",
+      "mcp__railway__update-service",
+      "mcp__railway__create-service",
+      "mcp__railway__create-project",
+      "mcp__railway__set-feature-flag",
+      "mcp__railway__delete-feature-flag",
+      "mcp__railway__generate-domain",
+      "mcp__railway__railway-agent"
+    ],
+    "allow": [
+      "Bash(npm run lint)",
+      "Bash(npm run lint:internal)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run typecheck:source)",
+      "Bash(npm run format)",
+      "Bash(npm run format:check)",
+      "Bash(npm run format:changed)",
+      "Bash(npm run test)",
+      "Bash(npm run test:focused)",
+      "Bash(npm run test:focused --*)",
+      "Bash(npm run verify:cheap)",
+      "Bash(npm run verify:pr-local)",
+      "Bash(npm run verify:pr-local --*)",
+      "Bash(npm run verify:phone-chrome)",
+      "Bash(npm run ensure)",
+      "Bash(npm run skills)",
+      "Bash(npm run docs:check-index)",
+      "Bash(npm run docs:check-inventory)",
+      "Bash(npm run docs:check-links)",
+      "Bash(npm run docs:check-scripts)",
+      "Bash(npm run docs:update)",
+      "Bash(npm run sitemap:check)",
+      "Bash(npm run sitemap:update)",
+      "Bash(npm run check:base-freshness)",
+      "Bash(npm run check:runtime)",
+      "Bash(npm run check:installed-lock-parity)",
+      "Bash(npm run check:skills)",
+      "Bash(npm run check:gate-manifest)",
+      "Bash(npm run check:pr-policy)",
+      "Bash(npm run check:ci-scope)",
+      "Bash(npm run check:branch-review-ledger)",
+      "Bash(npm run check:outstanding-issues)",
+      "Bash(npm run check:ledger-write-discipline)",
+      "Bash(npm run ledger:lookup --*)",
+      "Bash(npm run issues:report --*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git merge-base:*)",
+      "Bash(git worktree list:*)",
+      "Bash(node scripts/check-base-freshness.mjs:*)",
+      "Bash(node scripts/clean-worktree.mjs:*)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"",
+            "timeout": 900
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/check-base-freshness.mjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/check-base-freshness.mjs\" --hook",
+            "timeout": 30
           },
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/issues-surface.sh\""
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/issues-surface.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/precompact-issues-capture.sh\"",
+            "timeout": 15
           }
         ]
       }
@@ -24,7 +144,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pr-handoff-stop.sh\" post"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pr-handoff-stop.sh\" post",
+            "timeout": 15
           }
         ]
       }
@@ -35,7 +156,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pr-handoff-stop.sh\" pre"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pr-handoff-stop.sh\" pre",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/push-format-guard.sh\"",
+            "timeout": 180
           }
         ]
       }
