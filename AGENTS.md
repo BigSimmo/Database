@@ -694,42 +694,53 @@ Record one immutable review record per PR touched with `npm run ledger:append` (
 
 <!-- END:run-pr-shortcut -->
 
-## Stop when the pull request is open
+## Babysit the pull request, then stop
 
-Opening the PR is the end of the session's handoff, not the start of a supervision
-shift. A session that stays attached to its own PR — polling `gh pr checks`, watching
-workflow runs, re-running failed jobs, syncing the branch from `main` again, replying to
-review bots, or scheduling a wake-up/monitor/loop against it — spends a long tail of
-usage on work the user has not asked for. Claude Code on the web is the worst case: the
-cloud session keeps running after the PR exists, so nothing naturally ends the loop.
+Opening the PR is the handoff, but walking away the instant it exists is not useful
+either — a required check that goes red ninety seconds later is still this session's to
+fix, and this is the cheapest moment to fix it. So the session gets a **budget**, not a
+ban: after the PR is created, follow its CI for **30 minutes**, then stop.
 
-After the PR is created — by `gh pr create` or a GitHub MCP `create_pull_request` tool —
-and a PR URL comes back:
+Inside that budget, following the PR is ordinary work:
 
-- Finish only what the handoff itself still owes: the `npm run ledger:append` row, and
-  the PR URL plus a short summary reported to the user. Then **stop**.
-- Do not follow the PR. CI results, review-bot findings, branch drift, and the merge
-  itself are the user's call, and a later session (or an explicit `Run PR` sweep) is
-  where that work belongs.
-- A failing check discovered _before_ you stopped is still worth reporting in that final
-  summary — reporting it is not the same as staying to fix it.
+- Read checks, workflow runs, and job logs; re-run a failed job; sync the branch from
+  `main` when it is behind but the merge tree is clean.
+- Fix what this change broke and push the fix. The smallest correct gate still applies to
+  every fix before it is pushed.
+- Look on a **slow cadence** — roughly five minutes between checks, and wait with
+  `ScheduleWakeup` or `Monitor` rather than polling tightly. Prefer a terminal-event wait
+  over repeated log reads; never stream logs minute-by-minute.
+- **Stop as soon as CI settles.** A green run ends the babysit; so does a failure that is
+  not this change's to fix (a known flake, an unrelated red on `main`, an infrastructure
+  outage). Say which it was.
+
+When the 30 minutes are up, or CI settles, whichever comes first:
+
+- Record the `npm run ledger:append` row if it is still owed.
+- Give the user the PR URL, a short summary, and **plainly where CI stands** — green, red
+  with the failing check named, or still running.
+- Then stop. The merge, review-bot findings, and anything still unresolved are the user's
+  call, and a later session (or an explicit `Run PR` sweep) is where that work belongs.
+
+Never park a cron job on the PR. A cron entry outlives the session, so nothing can stop it
+afterwards — that is the unbounded loop this budget exists to prevent, and it is denied for
+the whole session regardless of how much budget is left.
 
 Enforcement: `.claude/hooks/pr-handoff-stop.sh` (registered in `.claude/settings.json`)
-drops a session-scoped marker when a PR-creating call — `gh pr create` or any
-`create_pull_request` MCP tool — returns a real PR URL. For the rest of that session it
-then denies three things:
+drops a session-scoped marker, stamped with the open time, when a PR-creating call — `gh pr
+create` or any `create_pull_request` MCP tool — returns a real PR URL. It then measures the
+budget from that stamp:
 
-- **Shell polling** — `gh pr checks|status|view|diff|list|comment|review`, `gh run watch|view|list|rerun|download`,
-  `gh api …actions/runs|check-runs|check-suites|/pulls/`, and `sync:pr-branches`.
-- **GitHub MCP PR/CI tools** — anything whose tool name carries `pull_request`,
-  `workflow_run`, `workflow_job`, `check_run`, `check_suite`, `job_log`, or
-  `update_branch`, so a connector is not a way around the shell rule.
-- **Loop machinery** — `Monitor`, `ScheduleWakeup`, and `CronCreate`, which is how a
-  session parks itself on a PR without running a single command.
+- **Inside the budget** — shell polling (`gh pr checks|status|view|…`, `gh run …`,
+  `gh api …actions/runs`, `sync:pr-branches`), GitHub MCP PR/CI tools, `Monitor`, and
+  `ScheduleWakeup` all pass. Only `CronCreate` is denied.
+- **Past the budget** — all of those are denied, so the session reports and stops rather
+  than drifting into an open-ended supervision shift.
 
 Committing, pushing, ledger appends, and PR create/merge (`gh pr merge`,
-`merge_pull_request`) stay allowed. Unlock only on an explicit user ask: prefix a shell
-command with `CLAUDE_ALLOW_PR_FOLLOW=1`, or delete the marker the deny message names.
+`merge_pull_request`) stay allowed throughout. The budget is `CLAUDE_PR_BABYSIT_BUDGET_MINUTES`
+(default 30, clamped to 1..240). To keep watching past it on an explicit user ask, prefix a
+shell command with `CLAUDE_ALLOW_PR_FOLLOW=1`, or delete the marker the deny message names.
 Sessions that never create a PR are untouched, so `Run PR` sweeps, `pr-ci-fix` work, and
 review sessions on someone else's PR still function normally.
 
