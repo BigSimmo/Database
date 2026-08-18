@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "654217d2-416b-4de8-a847-6e2812c3653d",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Three Therapy Compass h1 elements still sit outside PageHeader, and the patient-sheet builder renders two of them at once",
+    "detail": "Stage D converted six therapy page headers to the shared PageHeader. Three h1 elements were deliberately left. (1) detail-screen.tsx:88 is the therapy record name inside the hero card, interleaved with an aria-live notice, aliases and a TagRow that PageHeader has no slots for - and PageHeader renders a <header>, which globals.css hides unconditionally under @media print, so adopting it would delete the record name from a printed therapy record. (2) sheets-screen.tsx:178 is the contentEditable title of the generated patient handout on --tc-paper-ink tokens; it is document content, not page chrome. (3) other-screen.tsx:28 is the centred placeholder hero, already at text-2xl. Consequence worth fixing: sheets-screen now renders the PageHeader h1 and the paper h1 simultaneously, so that page has two h1 elements - pre-existing, not introduced here, and the likely fix is demoting the paper title to h2 since the builder page is the document. Stop rule: do not solve (1) by adding a print exception for <header>; the element-name print rule is documented as transitional and must not be extended.",
+    "issueUlid": "01M0AF9GB3D6G8TCE6EPRNJAF0"
+  }
+}

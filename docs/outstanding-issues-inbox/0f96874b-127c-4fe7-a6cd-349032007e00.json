@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "0f96874b-127c-4fe7-a6cd-349032007e00",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Confirm D:\\.npm-cache is a registered Dev Drive trusted cache, or Defender is scanning every npm ci",
+    "detail": "The repo lives on a Windows Dev Drive (D:, ReFS, 50 GB) and npm config get cache resolves to D:\\.npm-cache, which is correctly on the same volume. Whether that path is registered as a Dev Drive TRUSTED cache is unverified: 'fsutil devdrv query D:' returns 'Failed to open the volume. Error 5: Access is denied' without elevation, and the non-elevated registry fallback (HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem, FilterAttachModeOnDevDrive and DevDriveTrustSetting) reads empty. If it is not registered, Microsoft Defender real-time scanning runs over every npm ci — and this machine performs a lot of them: 21 D: worktrees each carry their own ~0.89 GB / 51,735-file node_modules, because npm extracts fresh copies rather than hardlinking from cache (ReFS does support hardlinks here, probed directly, but npm does not use them). Next: from an ELEVATED prompt run 'fsutil devdrv query D:' and, if the cache is not listed as trusted, 'fsutil devdrv trust D:\\.npm-cache'. Cheap, one-off, no code change. Not blocking anything.",
+    "source": "session 2026-08-18; fsutil Error 5 without elevation",
+    "issueUlid": "01M0ACEE5B6SMMB4SCK225BG40"
+  }
+}

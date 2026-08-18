@@ -113,6 +113,9 @@ export function identifyMergedWorktrees(
     isMergedFn = () => false,
     statusFn = () => "",
     aheadCountFn = () => 0,
+    // Raw `baseRef..branch` count, used for REPORTING only — never as a gate. See the note at
+    // the ahead check below for why the two counters have to be reported separately.
+    rawAheadCountFn = null,
     existsFn = existsSync,
     mainPath = null,
     currentPath = null,
@@ -152,15 +155,30 @@ export function identifyMergedWorktrees(
     const status = statusFn(wt.path);
     if (typeof status !== "string" || status.trim() !== "") continue;
 
-    // Belt-and-braces against the ancestor test: refs move underneath long-lived worktrees,
-    // and a non-numeric answer (git failed) must fail closed rather than read as zero.
+    // Under the ANCESTOR test this is belt-and-braces: refs move underneath long-lived
+    // worktrees, and a non-numeric answer (git failed) must fail closed rather than read as
+    // zero. Under the SQUASH test it is not a second opinion at all — `gitAheadUnlandedCount`
+    // returns 0 for any branch the squash test just accepted, so the check is satisfied by
+    // construction and can only fire on a candidate that was already skipped. It is kept
+    // because it is the real gate in ancestor mode, not because it adds anything in squash mode.
     const ahead = aheadCountFn(wt.branch, baseRef);
     if (!Number.isFinite(ahead) || ahead !== 0) continue;
+
+    // Report the RAW count alongside it. A squash-merged branch keeps its original commits
+    // forever, so it stays genuinely ahead of the base — 3, 4, even 19 commits — while the
+    // unlanded count is 0. Printing a bare "0 commits ahead" therefore stated something the
+    // reader could disprove in one `git rev-list` and made the whole line look untrustworthy.
+    // Observed 2026-08-18 reviewing a real fleet: every squash candidate read "0 commits
+    // ahead" while being ahead by 3 to 19.
+    const rawAhead = (rawAheadCountFn ?? aheadCountFn)(wt.branch, baseRef);
+    const aheadNote = Number.isFinite(rawAhead) && rawAhead !== ahead ? `${rawAhead} ahead of ${baseRef}, ` : "";
 
     merged.push({
       ...wt,
       mergedInto: baseRef,
-      reason: `branch merged into ${baseRef}; clean tree; 0 commits ahead${wt.head ? ` (tip ${wt.head.slice(0, 9)})` : ""}`,
+      aheadUnlanded: ahead,
+      aheadRaw: Number.isFinite(rawAhead) ? rawAhead : null,
+      reason: `branch merged into ${baseRef}; clean tree; ${aheadNote}0 unlanded commits${wt.head ? ` (tip ${wt.head.slice(0, 9)})` : ""}`,
     });
   }
   return merged;
@@ -750,6 +768,7 @@ export function runMergedWorktreeReport(options = {}) {
     isMergedFn: squashed ? gitBranchSquashMerged : gitBranchIsAncestor,
     statusFn: gitWorktreeStatus,
     aheadCountFn: squashed ? gitAheadUnlandedCount : gitAheadCount,
+    rawAheadCountFn: gitAheadCount,
     existsFn: existsSync,
     currentPath,
     baseRef,
