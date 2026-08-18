@@ -9,11 +9,14 @@ import { useTcBindings } from "../bindings";
 import { commandControl, outlineControl, therapyBtn } from "../controls";
 import type { Therapy } from "../data/types";
 import { LoadingState } from "../ui";
+import { useClipboard } from "../use-clipboard";
 
 export function PathwaysScreen() {
   const b = useTcBindings();
   const bySlug = useMemo(() => new Map(b.therapies.map((t) => [t.slug, t])), [b.therapies]);
   const pathway = b.selectedPathway;
+  // Called before the early return below, because it is a hook.
+  const { copied, copy } = useClipboard();
 
   if (b.loading || !pathway) return <LoadingState label="Loading pathways…" />;
 
@@ -21,13 +24,16 @@ export function PathwaysScreen() {
     pathway.steps
       .map((step) => (step.therapySlug ? bySlug.get(step.therapySlug) : undefined))
       .find((therapy) => therapy?.patientSheetAvailable)?.slug ?? null;
+  // Every other copy affordance in this mode goes through `useClipboard` ->
+  // `@/lib/copy-to-clipboard`. This one reached for `navigator.clipboard`
+  // directly, so it had no fallback path, treated a rejected write as success,
+  // and gave the reader no confirmation that anything had been copied.
   const copyPathway = () => {
-    if (typeof navigator === "undefined" || !navigator.clipboard) return;
     const lines = pathway.steps.map((st, i) => {
       const name = (st.therapySlug ? bySlug.get(st.therapySlug)?.name : null) ?? st.label ?? "Step";
       return `${i + 1}. ${name}${st.description ? ` — ${st.description}` : ""}`;
     });
-    void navigator.clipboard.writeText(`${pathway.name}\n\n${lines.join("\n")}`);
+    copy(`${pathway.name}\n\n${lines.join("\n")}`, "pathway");
   };
 
   return (
@@ -195,7 +201,7 @@ export function PathwaysScreen() {
             onClick={copyPathway}
           >
             <Copy aria-hidden="true" size={15} />
-            Copy pathway
+            {copied === "pathway" ? "Copied" : "Copy pathway"}
           </button>
           <button
             type="button"
