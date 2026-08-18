@@ -116,17 +116,17 @@ corpus of that size, and it stays.
 
 ## 5. Density is a function of option count
 
-Facet groups only. Two states, not three: the shared renderer uses the same threshold for its
-find-a-filter field and collapse-by-default disclosures.
+Facet groups only. Density scales with option and group volume across three tiers:
 
-| Options                     | Renderer                                                                                 |
-| --------------------------- | ---------------------------------------------------------------------------------------- |
-| ≤ 3 groups and ≤ 20 options | chips, single row where they fit (unchanged from before this section)                    |
-| > 3 groups, or > 20 options | chips plus find-a-filter and collapse-by-default, every group behind a disclosure header |
+| Options / Groups            | Renderer                                                                               |
+| --------------------------- | -------------------------------------------------------------------------------------- |
+| ≤ 5 options                 | chips, single row / wrapping chips                                                     |
+| 6–20 options                | dense full-width vertical list with right-aligned count column and group headings      |
+| > 3 groups, or > 20 options | list/chips plus find-a-filter and collapse-by-default, every group behind a disclosure |
 
-`ResultFilterSheet` computes the threshold once across all facet groups. The option-count limb
-catches a small number of very large groups, while the group-count limb covers services' six
-facet groups. Below the threshold every group renders as before.
+`ResultFilterSheet` computes the threshold across facet groups. Facet groups containing 6–20 options
+render as compact full-width rows with a right-aligned count column for fast scanning. When a sheet
+exceeds 3 groups or 20 total options, it additionally adds find-a-filter and collapse-by-default chrome.
 
 Collapse rules, when they apply: groups start collapsed; a group holding a selection opens
 itself; an explicit user collapse beats that; an active needle forces every matched group open
