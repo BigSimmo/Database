@@ -75,6 +75,28 @@ describe("retrieval row shape contract", () => {
     });
   });
 
+  // G1 governance pin (docs/clinical-hazard-analysis.md H5a; owner decision 2026-08-17).
+  // The `similarity: 1` above is a constant, not a measured cosine — on this route the
+  // document IS the query. Leaving it untagged is what let a fabricated 1.0 look identical
+  // to a perfect vector match; the tag makes the provenance legible without changing the
+  // confidence label (`deriveConfidence` excludes only "synthetic_text", pinned in
+  // tests/rag-score.test.ts).
+  it("tags the constant document-summary similarity with its own provenance value", () => {
+    const rows = buildDocumentSummaryResults([hybridRow({ similarity: 0.2 }), hybridRow({ id: "second-chunk" })], {
+      title: "Current title",
+      file_name: "current.pdf",
+      metadata: {},
+    });
+
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.similarity).toBe(1);
+      expect(row.similarity_origin).toBe("document_context");
+      // Not "synthetic_text": that value caps confidence at "medium" (rejected Option A).
+      expect(row.similarity_origin).not.toBe("synthetic_text");
+    }
+  });
+
   it("preserves unknown columns so an RPC version difference is not data loss", () => {
     const rows: unknown = [hybridRow({ document_labels: [{ id: "l1" }], a_future_column: 42 })];
 
