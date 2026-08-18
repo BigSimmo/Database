@@ -627,7 +627,7 @@ export const factsheets: Factsheet[] = [
 
 const bySlug = new Map(factsheets.map((sheet) => [sheet.slug, sheet]));
 
-/** Sheets shown on the home "Start with a factsheet" grid, in curated order. */
+/** Curated slugs worth promoting elsewhere (e.g. related-content surfaces); kept in order. */
 export const featuredFactsheetSlugs = ["sertraline", "depression", "gad", "ssri", "cbt", "lithium-monitoring"];
 
 const relatedMap: Record<string, string[]> = {
@@ -647,10 +647,6 @@ export function findFactsheet(slug: string): Factsheet | undefined {
 
 export function factsheetSlugs(): string[] {
   return factsheets.map((sheet) => sheet.slug);
-}
-
-export function featuredFactsheets(): Factsheet[] {
-  return featuredFactsheetSlugs.map((slug) => bySlug.get(slug)).filter((sheet): sheet is Factsheet => Boolean(sheet));
 }
 
 /** Server-driven filter for the search page: optional query + optional category. */
@@ -678,11 +674,6 @@ export function sameTopicFactsheets(slug: string): Factsheet[] {
   const sheet = bySlug.get(slug);
   if (!sheet) return [];
   return factsheets.filter((entry) => entry.category === sheet.category && entry.slug !== sheet.slug);
-}
-
-/** Count of sheets per category, for the home browse pills. */
-export function categoryCount(category: FactsheetCategory): number {
-  return factsheets.filter((sheet) => sheet.category === category).length;
 }
 
 // ---- Print + table-of-contents projections -------------------------------------------------
