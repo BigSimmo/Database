@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "35826a8b-8ebf-4b19-8319-7ee229d028ca",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#SDQSFD",
+    "outcome": "Fixed in this PR: scripts/ci-change-scope.mjs ragEvalPatterns now carries the directory prefix /^src\\/lib\\/rag\\//, so a PR touching only the post-#994 src/lib/rag/** subtree sets rag_eval_changed=true and selects eval:rag:offline plus eval:rag:adversarial:offline in both verify:pr-local and the CI safety/RAG eval job. Legacy src/lib/rag.ts and src/lib/rag-*.ts patterns kept unchanged. Change-scope self-test extended with three positive cases (src/lib/rag/rag.ts, src/lib/rag/answer-composition.ts, src/lib/rag/rag-claim-support.ts) and the file's first negative rag_eval_changed assertion (src/lib/app-modes.ts stays false). No workflow edit needed: ci.yml and verify-pr-local.mjs both consume the classifier output rather than duplicating the regex. Note: the row proposed src/lib/answer-follow-up.ts as the negative case, but it is already rag_eval_changed=true via the pre-existing answer(-*)?.ts alternation and was deliberately left that way.",
+    "baseRowFingerprint": "5e7063d22140d3557fcdc986fbd112aa9a678485263a9a4ea9b53ba5598e43e7"
+  }
+}

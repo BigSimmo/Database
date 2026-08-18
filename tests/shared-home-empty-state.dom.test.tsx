@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { SharedHomeEmptyState } from "@/components/clinical-dashboard/answer-status";
 import { appModeIds, type AppModeId } from "@/lib/app-modes";
-import { sharedHomePresentation } from "@/lib/ui-copy";
+import { sharedHomePresentation, type SharedHomePresentation } from "@/lib/ui-copy";
 
 const escapeForRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -14,81 +14,97 @@ const expectedPresentations = [
   {
     modeId: "answer",
     title: "Clinical Answers",
+    subtitle: "Ask a clinical question or search your documents.",
     iconClass: "lucide-sparkles",
   },
   {
     modeId: "documents",
     title: "Clinical Documents",
+    subtitle: "Open, browse, and continue reading your clinical sources.",
     iconClass: "lucide-file-text",
   },
   {
     modeId: "services",
     title: "Clinical Services",
+    subtitle: "Search by need, catchment, or route.",
     iconClass: "lucide-route",
   },
   {
     modeId: "forms",
     title: "Clinical Forms",
+    subtitle: "The WA MHA 2014 forms register.",
     iconClass: "lucide-file-pen-line",
   },
   {
     modeId: "favourites",
     title: "Clinical Favourites",
+    subtitle: "Saved notes, sources, and sets.",
     iconClass: "lucide-heart",
   },
   {
     modeId: "differentials",
     title: "Differential Diagnosis",
+    subtitle: "Match your catalogue to your library.",
     iconClass: "lucide-brain-circuit",
   },
   {
     modeId: "dsm",
     title: "DSM-5 Diagnosis",
+    subtitle: "Criteria, specifiers, and comparisons.",
     iconClass: "lucide-book-open-check",
   },
   {
     modeId: "specifiers",
     title: "Diagnostic Specifiers",
+    subtitle: "Check specifier fit and exclusions.",
     iconClass: "lucide-tags",
   },
   {
     modeId: "formulation",
     title: "Clinical Formulation",
+    subtitle: "Build a formulation from the evidence.",
     iconClass: "lucide-network",
   },
   {
     modeId: "prescribing",
     title: "Medication Guidance",
+    subtitle: "Medication dosing and safety.",
     iconClass: "lucide-pill",
   },
   {
     modeId: "tools",
     title: "Clinical Tools",
+    subtitle: "Clinical tools and applications.",
     iconClass: "lucide-wrench",
   },
   {
     modeId: "calculators",
     title: "Clinical Calculators",
+    subtitle: "Validated psychiatry scores with the indication, items, and next actions in one place.",
     iconClass: "lucide-calculator",
   },
   {
     modeId: "therapy-compass",
     title: "Therapy Compass",
+    subtitle: "Source-grounded therapy records.",
     iconClass: "lucide-compass",
   },
   {
     modeId: "factsheets",
     title: "Patient Factsheets",
+    subtitle: "Plain-language patient handouts.",
     iconClass: "lucide-book-open-text",
   },
   {
     modeId: "dictionary",
     title: "Clinical Dictionary",
+    subtitle: "Source-governed psychiatric terms, abbreviations, and distinctions.",
     iconClass: "lucide-book-marked",
   },
 ] as const satisfies ReadonlyArray<{
   modeId: AppModeId;
   title: string;
+  subtitle: string;
   iconClass: string;
 }>;
 
@@ -97,17 +113,31 @@ describe("SharedHomeEmptyState", () => {
     expect(expectedPresentations.map(({ modeId }) => modeId)).toEqual(appModeIds);
   });
 
-  it.each(expectedPresentations)("renders the canonical $modeId presentation", ({ modeId, title, iconClass }) => {
-    const { container } = render(<SharedHomeEmptyState modeId={modeId} />);
+  it.each(expectedPresentations)(
+    "renders the canonical $modeId presentation",
+    ({ modeId, title, subtitle, iconClass }) => {
+      const { container } = render(<SharedHomeEmptyState modeId={modeId} />);
 
-    expect(screen.getByTestId("shared-home-empty-state")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: title })).toBeInTheDocument();
-    expect(container.querySelector("h2 + p")).not.toBeInTheDocument();
+      expect(screen.getByTestId("shared-home-empty-state")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 2, name: title })).toBeInTheDocument();
+      // `/` is the only home most modes have, so it carries the mode's own
+      // subtitle rather than a bare title. The copy-reserve band below is sized
+      // for exactly this title/subtitle pair.
+      expect(container.querySelector("h2 + p")).toHaveTextContent(subtitle);
 
-    const icon = container.querySelector(".mode-home-icon svg");
-    expect(icon).toHaveClass(iconClass);
-    expect(icon).toHaveAttribute("aria-hidden", "true");
-  });
+      const icon = container.querySelector(".mode-home-icon svg");
+      expect(icon).toHaveClass(iconClass);
+      expect(icon).toHaveAttribute("aria-hidden", "true");
+
+      // A mode carrying a review-before-use caveat must show it here; a mode
+      // without one must not gain filler text.
+      const presentation: SharedHomePresentation = sharedHomePresentation[modeId];
+      const verification = presentation.verification;
+      if (verification) {
+        expect(screen.getByText(verification.body)).toBeInTheDocument();
+      }
+    },
+  );
 
   it("reserves the phone copy height once on the pair, never on each half", () => {
     const { container } = render(<SharedHomeEmptyState modeId="answer" />);
@@ -116,7 +146,7 @@ describe("SharedHomeEmptyState", () => {
     const copyWrapper = heading.parentElement;
 
     expect(copyWrapper).not.toBeNull();
-    expect(copyWrapper?.children).toHaveLength(1);
+    expect(copyWrapper?.children).toHaveLength(2);
 
     // The reserve belongs to the wrapping pair. Keep it on the pair wrapper
     // rather than on each element individually.
