@@ -171,7 +171,12 @@ export function prototypeReducer(
         activeTeamId: action.teamId,
         lastOutcome: {
           kind: "success",
-          message: "Active synthetic team changed and patient context cleared. No external action occurred.",
+          // Says only what happens. The prototype's fixture is a single
+          // synthetic patient (`SYN-PATIENT-001`, fixed by type), so there is no
+          // second team's patient context to clear and claiming otherwise
+          // described an isolation behaviour the prototype does not implement.
+          message:
+            "Active synthetic team changed. The one synthetic patient record is unchanged. No external action occurred.",
         },
       };
     }

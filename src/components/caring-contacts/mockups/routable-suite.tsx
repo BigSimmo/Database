@@ -341,9 +341,23 @@ export function CaringContactRouteSurface({
     closeOverlay();
   }
 
+  // Track whether the current scenario came from the URL. Without this the lens
+  // was one-way: `?scenario=offline` engaged the mutation guard, and following an
+  // ordinary link to a URL with no `scenario` left the guard engaged while the
+  // visible scenario notice disappeared. Only a query-derived scenario is reset,
+  // so a scenario toggled by hand on the system-states screen is left alone.
+  const queryScenarioRef = useRef<CaringContactScenario | null>(null);
   useEffect(() => {
-    if (queryParams.has("scenario") && state.scenario !== scenario) {
-      dispatch({ type: "apply-scenario", scenario });
+    if (queryParams.has("scenario")) {
+      queryScenarioRef.current = scenario;
+      if (state.scenario !== scenario) dispatch({ type: "apply-scenario", scenario });
+      return;
+    }
+    if (queryScenarioRef.current === null) return;
+    const wasQueryDerived = state.scenario === queryScenarioRef.current;
+    queryScenarioRef.current = null;
+    if (wasQueryDerived && state.scenario !== "normal") {
+      dispatch({ type: "apply-scenario", scenario: "normal" });
     }
   }, [dispatch, queryParams, scenario, state.scenario]);
 

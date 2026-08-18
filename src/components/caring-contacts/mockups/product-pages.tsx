@@ -23,6 +23,8 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -39,6 +41,7 @@ import {
   syntheticTeamMembers,
   syntheticTemplates,
 } from "./fixtures";
+import { CARING_CONTACT_MOCKUP_ROUTES } from "./routes";
 import {
   MessagePreviewCard,
   OneWayBoundary,
@@ -974,7 +977,7 @@ export function ScheduleProductPage({
               >
                 <span className="block text-xs font-medium">{day}</span>
                 <span className="mt-1 block text-base font-semibold tabular-nums">{dateLabel}</span>
-                <span className="hidden text-[0.625rem] text-[color:var(--text-muted)] sm:block">{month}</span>
+                <span className="hidden text-3xs text-[color:var(--text-muted)] sm:block">{month}</span>
                 <span className="mt-1 block text-xs text-[color:var(--text-muted)]">{count}</span>
               </button>
             );
@@ -1088,9 +1091,22 @@ const governedLibraryRecords = [
   },
 ] as const;
 
+// The routed governed record. `/templates/[pathwayId]` accepts only this id
+// (its `generateStaticParams` emits it and every other id 404s), so it is the one
+// record whose detail view has a URL of its own.
+const ROUTED_LIBRARY_RECORD_ID = "SYN-PATHWAY-001";
+
 export function TemplatesProductPage({ onOpenOverlay }: { onOpenOverlay?: (overlayId: string) => void }) {
+  const pathname = usePathname();
+  // Honour the route when the detail URL is open. Without this the pathway id in
+  // `/templates/SYN-PATHWAY-001` was decorative: the page rendered the library
+  // with its own local selection regardless of which record the URL named.
+  const routedRecordId = pathname?.startsWith(`${CARING_CONTACT_MOCKUP_ROUTES.templates}/`)
+    ? pathname.slice(`${CARING_CONTACT_MOCKUP_ROUTES.templates}/`.length).split("/")[0]
+    : null;
   const [selectedRecordId, setSelectedRecordId] = useState(governedLibraryRecords[0].id);
-  const selectedRecord = governedLibraryRecords.find(({ id }) => id === selectedRecordId) ?? governedLibraryRecords[0];
+  const effectiveRecordId = routedRecordId ?? selectedRecordId;
+  const selectedRecord = governedLibraryRecords.find(({ id }) => id === effectiveRecordId) ?? governedLibraryRecords[0];
   const selectedIsCurrent = selectedRecord.lifecycle === "Current" && selectedRecord.approval === "Locally approved";
   const approvalDate =
     selectedRecord.lifecycle === "Pending"
@@ -1163,11 +1179,21 @@ export function TemplatesProductPage({ onOpenOverlay }: { onOpenOverlay?: (overl
             title={selectedRecord.name}
             description={`${selectedRecord.kind} · ${selectedRecord.version}`}
             action={
-              <StatusChip
-                tone={selectedIsCurrent ? "success" : selectedRecord.lifecycle === "Pending" ? "warning" : "neutral"}
-              >
-                {selectedRecord.lifecycle}
-              </StatusChip>
+              <span className="flex items-center gap-2">
+                {selectedRecord.id === ROUTED_LIBRARY_RECORD_ID && !routedRecordId ? (
+                  <Link
+                    href={`${CARING_CONTACT_MOCKUP_ROUTES.templates}/${selectedRecord.id}`}
+                    className="inline-flex min-h-tap items-center rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] underline decoration-dotted underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  >
+                    Open governed record
+                  </Link>
+                ) : null}
+                <StatusChip
+                  tone={selectedIsCurrent ? "success" : selectedRecord.lifecycle === "Pending" ? "warning" : "neutral"}
+                >
+                  {selectedRecord.lifecycle}
+                </StatusChip>
+              </span>
             }
           />
           <dl className="grid gap-px border-t border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-2">
