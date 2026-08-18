@@ -175,7 +175,7 @@ describe("Caring Contact governance contracts", () => {
 
     expect(screen.getByText("Selected version unavailable for activation", { exact: true })).toBeInTheDocument();
     expect(screen.getByText("Activation unavailable", { exact: true })).toBeInTheDocument();
-    expect(screen.getByText(/Pathway version is retired/i)).toBeInTheDocument();
+    expect(screen.getByText(/Pathway version is not current\. Lifecycle: Retired\./i)).toBeInTheDocument();
     expect(screen.getByText(/select a current, locally approved pathway version/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Activate 10-contact plan" })).toHaveAttribute("aria-disabled", "true");
   });

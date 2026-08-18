@@ -57,6 +57,21 @@ const FIXTURE_AUDIT = [
   },
 ] as const;
 
+// The scenario is a view of the four blocking flags, not an independent field.
+// Setting it from one flag alone let "normal" appear while another blocker was
+// still engaged, so the scenario notice contradicted the mutation guard.
+function scenarioForFlags(state: CaringContactPrototypeState): CaringContactScenario {
+  if (!state.connectivity.online) return "offline";
+  if (!state.permission.available) return "permission-unavailable";
+  if (!state.authentication.authenticated) return "expired-session";
+  if (state.versionConflict.active) return "version-conflict";
+  return "normal";
+}
+
+function withDerivedScenario(state: CaringContactPrototypeState): CaringContactPrototypeState {
+  return { ...state, scenario: scenarioForFlags(state) };
+}
+
 function scenarioFlags(scenario: CaringContactScenario) {
   return {
     online: scenario !== "offline",
@@ -144,25 +159,13 @@ export function prototypeReducer(
         "Plan reassigned in synthetic prototype",
       );
     case "set-connectivity":
-      return { ...state, connectivity: { online: action.online }, scenario: action.online ? "normal" : "offline" };
+      return withDerivedScenario({ ...state, connectivity: { online: action.online } });
     case "set-permission":
-      return {
-        ...state,
-        permission: { available: action.available },
-        scenario: action.available ? "normal" : "permission-unavailable",
-      };
+      return withDerivedScenario({ ...state, permission: { available: action.available } });
     case "set-authentication":
-      return {
-        ...state,
-        authentication: { authenticated: action.authenticated },
-        scenario: action.authenticated ? "normal" : "expired-session",
-      };
+      return withDerivedScenario({ ...state, authentication: { authenticated: action.authenticated } });
     case "set-version-conflict":
-      return {
-        ...state,
-        versionConflict: { active: action.active },
-        scenario: action.active ? "version-conflict" : "normal",
-      };
+      return withDerivedScenario({ ...state, versionConflict: { active: action.active } });
     case "set-team": {
       const blocked = getPrototypeMutationBlockReason(state);
       if (blocked) return { ...state, lastOutcome: { kind: "blocked", message: blocked } };

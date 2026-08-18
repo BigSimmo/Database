@@ -9,7 +9,7 @@ import { announce } from "@/components/ui/live-announcer";
 import { Sheet } from "@/components/ui/sheet";
 
 import { ROWAN_SELECTED_SENDING_PREFERENCE } from "./fixtures";
-import { PATIENT_VISIBLE_NO_REPLY_NOTICE } from "./personalisation-screen";
+import { EXACT_MESSAGE_GSM7, PATIENT_VISIBLE_NO_REPLY_NOTICE } from "./personalisation-screen";
 
 export type OverlayPhoneModality = "bottom-sheet" | "full-screen-stage" | "session-gate" | "status-banner";
 export type OverlayDesktopModality = "dialog" | "inspection-drawer" | "session-gate" | "status-banner";
@@ -82,7 +82,7 @@ export const completionOverlayDefinitions = [
     label: "Message preview",
     title: "Preview exact patient-visible message",
     summary: "The fully substituted message is visible exactly as the patient would receive it.",
-    content: `GSM-7 · 272 septets · 2 of 2 SMS segments · ${PATIENT_VISIBLE_NO_REPLY_NOTICE}.`,
+    content: `GSM-7 · ${EXACT_MESSAGE_GSM7.septets} septets · ${EXACT_MESSAGE_GSM7.segments} of 2 SMS segments · ${PATIENT_VISIBLE_NO_REPLY_NOTICE}.`,
     decision: "Return to personalisation",
     availability: "Read only",
     mutatesState: false,

@@ -279,7 +279,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-AU", {
 });
 
 export function ScheduleList({ limit }: { limit?: number }) {
-  const contacts = limit ? syntheticPlannedContacts.slice(0, limit) : syntheticPlannedContacts;
+  const contacts = limit === undefined ? syntheticPlannedContacts : syntheticPlannedContacts.slice(0, limit);
   return (
     <ol aria-label="Caring-contact schedule" className="divide-y divide-[color:var(--border)]">
       {contacts.map((contact) => (

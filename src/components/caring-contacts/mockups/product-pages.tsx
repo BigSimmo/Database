@@ -1104,9 +1104,14 @@ export function TemplatesProductPage({ onOpenOverlay }: { onOpenOverlay?: (overl
   const routedRecordId = pathname?.startsWith(`${CARING_CONTACT_MOCKUP_ROUTES.templates}/`)
     ? pathname.slice(`${CARING_CONTACT_MOCKUP_ROUTES.templates}/`.length).split("/")[0]
     : null;
-  const [selectedRecordId, setSelectedRecordId] = useState(governedLibraryRecords[0].id);
-  const effectiveRecordId = routedRecordId ?? selectedRecordId;
-  const selectedRecord = governedLibraryRecords.find(({ id }) => id === effectiveRecordId) ?? governedLibraryRecords[0];
+  // The route seeds the selection rather than winning every render: the detail URL
+  // opens on the record it names, and the library buttons still work from there.
+  // Preferring the route on each render left those buttons reporting aria-pressed
+  // while ignoring the click.
+  const [selectedRecordId, setSelectedRecordId] = useState(
+    () => governedLibraryRecords.find(({ id }) => id === routedRecordId)?.id ?? governedLibraryRecords[0].id,
+  );
+  const selectedRecord = governedLibraryRecords.find(({ id }) => id === selectedRecordId) ?? governedLibraryRecords[0];
   const selectedIsCurrent = selectedRecord.lifecycle === "Current" && selectedRecord.approval === "Locally approved";
   const approvalDate =
     selectedRecord.lifecycle === "Pending"

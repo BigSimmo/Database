@@ -59,7 +59,7 @@ function blockersForVersion(label: "Pathway" | "Message", version: SyntheticPath
   const blockers: ActivationBlocker[] = [];
   if (version.lifecycle !== "Current") {
     blockers.push({
-      reason: `${label} version is retired.`,
+      reason: `${label} version is not current. Lifecycle: ${version.lifecycle}.`,
       remedy: `Select a current, locally approved ${label.toLowerCase()} version with complete two-person approval evidence.`,
     });
   }
