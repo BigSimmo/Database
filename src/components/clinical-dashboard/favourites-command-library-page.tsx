@@ -1122,13 +1122,9 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const lastOpenedMap = useSyncExternalStore(
     subscribeFavouritesStorage,
     loadFavouriteLastOpened,
-    () => ({} as Record<string, number>),
+    () => ({}) as Record<string, number>,
   );
-  const pinnedIds = useSyncExternalStore(
-    subscribeFavouritesStorage,
-    loadFavouritePinnedIds,
-    () => new Set<string>(),
-  );
+  const pinnedIds = useSyncExternalStore(subscribeFavouritesStorage, loadFavouritePinnedIds, () => new Set<string>());
   const items = useMemo(
     () =>
       [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map((item) =>
