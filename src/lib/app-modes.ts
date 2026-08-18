@@ -368,10 +368,19 @@ export const appModeDefinitions = [
     label: "Therapy",
     description: "Source-grounded therapy decision support",
     href: "/therapy-compass",
-    // Keep Therapy available for local clinical review while its catalogue is
-    // awaiting qualified-clinician sign-off. Removing this gate requires the
-    // catalogue review-status contract to prove production-ready records.
-    devOnly: true,
+    // Therapy was production-gated while its catalogue awaited qualified-clinician
+    // sign-off. The owner lifted that gate on 2026-08-18 with the catalogue still
+    // unreviewed — a deliberate, informed decision for a private clinical
+    // reference tool, taken knowing all 205 records are `needs_review`.
+    //
+    // The records were NOT relabelled to buy this: `reviewStatus` still reads
+    // `needs_review`, and the per-record signals that say so — the "Needs source
+    // review" search badge, the "(Awaiting source review.)" metadata suffix, and
+    // `StatusBadge` on the record — are now the only thing standing between an
+    // unreviewed record and a clinical decision. `tests/therapy-ranking.test.ts`
+    // pins them, and that pin replaced the old "hidden in production" assertion
+    // rather than deleting it. See `HIDE_UNREVIEWED_IN_PRODUCTION` in
+    // `src/lib/therapies.ts` for the matching record-level switch.
     search: {
       kind: "therapies",
       // The longer phrase became the late portal's LCP element on Therapy Home.

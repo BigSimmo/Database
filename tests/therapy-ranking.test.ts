@@ -1,13 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { EMPTY_SEARCH, searchTherapies } from "@/components/therapy-compass/data/select";
+import { EMPTY_SEARCH, reviewStatusMeta, searchTherapies } from "@/components/therapy-compass/data/select";
 import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
 import type { Therapy } from "@/components/therapy-compass/data/types";
 import { rankTherapyCandidates, scoreTherapyCandidate } from "@/lib/therapy-ranking";
 import {
   findTherapyRecord,
   searchTherapyRecords,
+  therapyNeedsReview,
   therapyRecords,
   therapyRecordsForEnvironment,
   therapySlugs,
@@ -50,12 +51,51 @@ describe("shared Therapy ranker", () => {
     expect(rankTherapyCandidates(records, "CBT")[0]?.record.name).toBe("Cognitive behavioural therapy");
   });
 
-  it("excludes unreviewed Therapy content from production discovery and routes", () => {
+  /**
+   * Was "excludes unreviewed Therapy content from production discovery and
+   * routes". That assertion is now false by decision, not by accident: the owner
+   * lifted the production review gate on 2026-08-18 with all 205 records still
+   * `needs_review`, so production serves them.
+   *
+   * Replaced rather than deleted, and with the stronger requirement. While the
+   * gate stood, hiding the content WAS the protection and nothing needed to say
+   * "unreviewed" out loud. Now that the content ships, the only thing between an
+   * unreviewed record and a clinical decision is that every surface still says
+   * so — so that is what gets pinned, on the real catalogue rather than fixtures.
+   *
+   * If someone re-arms `HIDE_UNREVIEWED_IN_PRODUCTION`, the first three
+   * assertions fail loudly and this comment is where they should look.
+   */
+  it("serves the catalogue in production and never drops the unreviewed marking", () => {
     expect(therapyRecords.length).toBeGreaterThan(0);
-    expect(therapyRecordsForEnvironment("production")).toEqual([]);
-    expect(searchTherapyRecords("CBT", "production")).toEqual([]);
-    expect(therapySlugs("production")).toEqual([]);
-    expect(findTherapyRecord(therapyRecords[0].slug, "production")).toBeUndefined();
+    expect(therapyRecordsForEnvironment("production")).toHaveLength(therapyRecords.length);
+    expect(therapySlugs("production")).toHaveLength(therapyRecords.length);
+    expect(findTherapyRecord(therapyRecords[0].slug, "production")).toBeDefined();
+    expect(searchTherapyRecords("CBT", "production").length).toBeGreaterThan(0);
+
+    // The marking itself. `reviewStatus` must stay honest — relabelling records
+    // as reviewed would be a false clinical attestation, not a product change.
+    const unreviewed = therapyRecords.filter((record) => record.reviewStatus !== "reviewed");
+    expect(unreviewed.length).toBeGreaterThan(0);
+    expect(therapyNeedsReview(unreviewed[0])).toBe(true);
+
+    // Every reader-facing channel that carries it, so none can be dropped
+    // silently: the record badge, the universal-search badge, and the route
+    // metadata description.
+    expect(reviewStatusMeta(unreviewed[0].reviewStatus)).toEqual({
+      label: "Needs source review",
+      tone: "warning",
+    });
+    expect(readFileSync("src/lib/universal-search.ts", "utf8")).toContain(
+      'badge: therapyNeedsReview(record) ? "Needs source review"',
+    );
+    expect(readFileSync("src/app/(search-app)/therapy-compass/[slug]/page.tsx", "utf8")).toContain(
+      "Awaiting source review.",
+    );
+    // Tone alone is not a channel — `StatusBadge` pairs it with a glyph.
+    expect(readFileSync("src/components/therapy-compass/ui.tsx", "utf8")).toContain(
+      'const Icon = meta.tone === "success" ? ShieldCheck : TriangleAlert;',
+    );
   });
 
   it.each([

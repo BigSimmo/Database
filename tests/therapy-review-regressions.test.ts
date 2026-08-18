@@ -29,14 +29,35 @@ describe("Therapy review regression contracts", () => {
     );
   });
 
-  it("keeps Therapy unavailable in production until clinical review is complete", () => {
+  /**
+   * Was "keeps Therapy unavailable in production until clinical review is
+   * complete". The owner lifted that gate on 2026-08-18 with the catalogue still
+   * unreviewed, so the old name now describes a state the product deliberately
+   * does not hold.
+   *
+   * The machinery is asserted to still EXIST rather than being torn out, which
+   * is the point of keeping this test. `devOnly` was removed from the mode and
+   * `HIDE_UNREVIEWED_IN_PRODUCTION` is `false`, but the generic route guard,
+   * the record filter and `therapyNeedsReview` all remain wired — so re-arming
+   * the gate after sign-off is a two-line edit, not a rebuild. A future change
+   * that deletes the mechanism outright fails here.
+   */
+  it("keeps the Therapy review gate re-armable after its deliberate lifting", () => {
     const layout = source("src/app/(search-app)/therapy-compass/layout.tsx");
     const modes = source("src/lib/app-modes.ts");
     const therapies = source("src/lib/therapies.ts");
 
+    // The route guard is generic over `devOnly`, so it self-disarmed when the
+    // flag came off and did not need editing. It must stay for the next mode.
     expect(layout).toContain('isAppModeVisible("therapy-compass", "production")');
     expect(layout).toContain("notFound()");
-    expect(modes).toMatch(/id: "therapy-compass"[\s\S]*?devOnly: true/);
+
+    // Therapy is no longer dev-only, and the reason is recorded at the site.
+    expect(modes).not.toMatch(/id: "therapy-compass"[\s\S]{0,600}?devOnly: true/);
+    expect(modes).toContain("HIDE_UNREVIEWED_IN_PRODUCTION");
+
+    // The record-level filter survives, switched off by one named constant.
+    expect(therapies).toContain("const HIDE_UNREVIEWED_IN_PRODUCTION = false;");
     expect(therapies).toContain('environment === "production"');
     expect(therapies).toContain("therapyNeedsReview(record)");
   });

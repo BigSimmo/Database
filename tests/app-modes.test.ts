@@ -316,7 +316,10 @@ describe("app mode search contract", () => {
     expect(isAppModeVisible("prescribing", "production")).toBe(true);
     expect(isAppModeVisible("tools", "production")).toBe(true);
     expect(isAppModeVisible("calculators", "production")).toBe(true);
-    expect(isAppModeVisible("therapy-compass", "production")).toBe(false);
+    // Therapy joined the production modes on 2026-08-18 when the owner lifted its
+    // clinical-review gate. Asserted `true` rather than dropped, so a silent
+    // re-hiding still fails a test.
+    expect(isAppModeVisible("therapy-compass", "production")).toBe(true);
     expect(isAppModeVisible("factsheets", "production")).toBe(true);
     expect(productionModes).not.toContain("evidence");
     expect(productionModes).toContain("services");
@@ -329,7 +332,7 @@ describe("app mode search contract", () => {
     expect(productionModes).toContain("prescribing");
     expect(productionModes).toContain("tools");
     expect(productionModes).toContain("calculators");
-    expect(productionModes).not.toContain("therapy-compass");
+    expect(productionModes).toContain("therapy-compass");
     expect(productionModes).toContain("factsheets");
     expect(developmentModes).toEqual(
       expect.arrayContaining([
@@ -352,12 +355,19 @@ describe("app mode search contract", () => {
     expect(developmentModes).not.toContain("evidence");
   });
 
-  it("keeps Therapy Compass behind clinical review in production", () => {
+  // Was "keeps Therapy Compass behind clinical review in production". The owner
+  // lifted that gate on 2026-08-18 with the catalogue still unreviewed, so the
+  // old assertion is untrue rather than merely unenforced. Inverted rather than
+  // removed: Therapy is now an ordinary production mode in both environments,
+  // and an accidental return of `devOnly` fails here. The clinical-review
+  // property it used to protect did not vanish — it moved to the per-record
+  // signals pinned in `tests/therapy-ranking.test.ts`.
+  it("exposes Therapy Compass as an ordinary production mode", () => {
     expect(isAppModeId("therapy-compass")).toBe(true);
     expect(isAppModeVisible("therapy-compass", "development")).toBe(true);
-    expect(isAppModeVisible("therapy-compass", "production")).toBe(false);
+    expect(isAppModeVisible("therapy-compass", "production")).toBe(true);
     expect(visibleAppModeDefinitions("development").map((mode) => mode.id)).toContain("therapy-compass");
-    expect(visibleAppModeDefinitions("production").map((mode) => mode.id)).not.toContain("therapy-compass");
+    expect(visibleAppModeDefinitions("production").map((mode) => mode.id)).toContain("therapy-compass");
   });
 
   it("gates Favourites mode to authenticated or demo sessions", () => {

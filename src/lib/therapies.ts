@@ -32,9 +32,34 @@ function defaultTherapyEnvironment(): string | undefined {
   return process.env.PLAYWRIGHT_OFFLINE_MODE === "true" ? "development" : process.env.NODE_ENV;
 }
 
+/**
+ * Whether production withholds therapy records that have not completed clinical
+ * review.
+ *
+ * Was implicitly `true`: production filtered every record whose `reviewStatus`
+ * was not `reviewed`, which — with the whole catalogue unreviewed — meant an
+ * empty library, and `devOnly` on the mode hid the entrance entirely. The owner
+ * lifted both on 2026-08-18, deliberately and with the numbers in hand: 205
+ * records, 0 reviewed, 1435 unticked checklist items.
+ *
+ * Written as a named constant rather than deleting the filter, for three
+ * reasons. Re-arming the gate is a one-word edit if that decision is revisited;
+ * the condition stays greppable, so "why is unreviewed content live?" has an
+ * answer at the point of the decision; and `therapyNeedsReview` keeps its
+ * meaning for every caller that still surfaces review state to the reader —
+ * which, now that this filter is off, is the only remaining protection.
+ *
+ * Nothing here changes a record's data. `reviewStatus` is still `needs_review`,
+ * because the alternative — relabelling records as reviewed — would have been a
+ * false clinical attestation rather than a product decision.
+ */
+const HIDE_UNREVIEWED_IN_PRODUCTION = false;
+
 /** Production may expose only records that have completed clinical review. */
 export function therapyRecordsForEnvironment(environment = defaultTherapyEnvironment()): TherapyIndexRecord[] {
-  return environment === "production" ? therapyRecords.filter((record) => !therapyNeedsReview(record)) : therapyRecords;
+  return HIDE_UNREVIEWED_IN_PRODUCTION && environment === "production"
+    ? therapyRecords.filter((record) => !therapyNeedsReview(record))
+    : therapyRecords;
 }
 
 export function findTherapyRecord(
@@ -42,7 +67,10 @@ export function findTherapyRecord(
   environment = defaultTherapyEnvironment(),
 ): TherapyIndexRecord | undefined {
   const record = bySlug.get(slug);
-  return record && (environment !== "production" || !therapyNeedsReview(record)) ? record : undefined;
+  if (!record) return undefined;
+  return !HIDE_UNREVIEWED_IN_PRODUCTION || environment !== "production" || !therapyNeedsReview(record)
+    ? record
+    : undefined;
 }
 
 export function therapyRecordExists(slug: string, environment = defaultTherapyEnvironment()): boolean {
