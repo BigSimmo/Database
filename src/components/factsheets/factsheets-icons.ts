@@ -1,7 +1,5 @@
 import {
   Activity,
-  BrainCircuit,
-  ClipboardList,
   CloudRain,
   Droplet,
   HeartPulse,
@@ -15,7 +13,7 @@ import {
 } from "lucide-react";
 import { createElement } from "react";
 
-import type { FactsheetCategory, FactsheetIconKey } from "@/components/factsheets/factsheets-data";
+import type { FactsheetIconKey } from "@/components/factsheets/factsheets-data";
 
 /** Stable icon-key → Lucide component map for per-sheet icons. */
 const factsheetIcons: Record<FactsheetIconKey, LucideIcon> = {
@@ -32,22 +30,10 @@ const factsheetIcons: Record<FactsheetIconKey, LucideIcon> = {
   droplet: Droplet,
 };
 
-/** Category browse icons for the home topic pills. */
-const factsheetCategoryIcons: Record<FactsheetCategory, LucideIcon> = {
-  Medications: Pill,
-  Conditions: BrainCircuit,
-  Therapies: MessagesSquare,
-  "Tests & procedures": ClipboardList,
-};
-
 /**
  * Render a Lucide glyph without binding a capitalised component to a render-body
  * local (which `react-hooks/static-components` forbids).
  */
 export function factsheetGlyph(icon: FactsheetIconKey, className: string) {
   return createElement(factsheetIcons[icon], { className, "aria-hidden": "true" });
-}
-
-export function factsheetCategoryGlyph(category: FactsheetCategory, className: string) {
-  return createElement(factsheetCategoryIcons[category], { className, "aria-hidden": "true" });
 }
