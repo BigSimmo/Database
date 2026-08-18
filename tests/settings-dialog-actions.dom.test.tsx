@@ -101,16 +101,16 @@ describe("SettingsDialog — destructive and account actions", () => {
   // built. It is gated to development builds, matching `mockupsEnabled()`, and the
   // rail must not advertise a section the body does not render. The route is a
   // mockup, so the entry navigates through <Link> and closes the sheet behind it.
-  it("opens the Caring Contact prototype from a gated Development section", () => {
+  it("opens the Development page from a gated Development section", () => {
     renderDialog();
     const development = document.querySelector('[data-settings-section="development"]');
     expect(development).not.toBeNull();
     expect(development).toHaveTextContent("Development");
     expect(development).toHaveTextContent("Synthetic data only");
 
-    const prototypeLink = screen.getByTestId("settings-row-caring-contact-prototype");
-    expect(prototypeLink).toHaveAttribute("href", "/mockups/caring-contacts");
-    expect(prototypeLink).toHaveTextContent("Open Caring Contact prototype");
+    const prototypeLink = screen.getByTestId("settings-row-development-page");
+    expect(prototypeLink).toHaveAttribute("href", "/mockups/development");
+    expect(prototypeLink).toHaveTextContent("Open Development page");
     expect(prototypeLink).toHaveTextContent("Temporary");
     expect(development?.contains(prototypeLink)).toBe(true);
 
