@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "bddd1154-6786-4762-a35b-4dd85d935755",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#035",
+    "outcome": "Confirmed clinical conflict detection remains focused on high-risk dose, frequency, and duration parameters",
+    "baseRowFingerprint": "60c56423b8dd2f5af8c3df6eba09f1e0d0b773214be6aa73dff94e0e20e7ae90"
+  }
+}

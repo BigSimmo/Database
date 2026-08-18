@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "1f611dab-bc4f-48dc-a329-33eb7323c65c",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "c979e6f7-dead-46c2-bd8e-df133fafe83f",
+    "reason": "False claim. #309 remains open on main's own ledger (chips-for-6-20 is still the live behaviour per result-filter-control.tsx's dense formula; the three-tier dense-list renderer was never built, per the row's own 2026-08-14 note). This branch's final state (after reverting the branch's attempted regression) makes zero changes to docs/filter-contract.md or result-filter-control.tsx relative to main -- nothing was done here."
+  }
+}

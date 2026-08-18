@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "be8d2053-fcce-4604-9e9b-09f82ccc1c57",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#282",
+    "outcome": "Retained standard lightweight PDF decoders; confirmed clinical corpus Flate/JPEG compatibility without heavy decoder bundle",
+    "baseRowFingerprint": "d1edff3d352e385d8d654aa6e83aa8104e0b35d166b9355752687be45aab7ea5"
+  }
+}
