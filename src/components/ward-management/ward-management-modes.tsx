@@ -32,6 +32,7 @@ import {
   destinationUnit,
   eligibleCandidates,
   elapsedLabel,
+  isOpen,
   movementHealthService,
   movementStageSummary,
   movementTimeline,
@@ -356,11 +357,16 @@ function DecisionPanel({
 
       {selected ? (
         <ul className={styles.reasonList}>
-          {selected.verdict.gates.slice(0, 4).map((gate) => (
-            <li key={gate.gate}>
-              <CheckCircle2 aria-hidden="true" /> {gate.detail}
-            </li>
-          ))}
+          {/* Failing gates sort first so a fixed slice can never hide the one reason a
+              movement isn't eligible — see Task 6 Critical 1 (whole-branch review). */}
+          {[...selected.verdict.gates]
+            .sort((a, b) => Number(a.pass) - Number(b.pass))
+            .slice(0, 4)
+            .map((gate) => (
+              <li key={gate.gate}>
+                {gate.pass ? <CheckCircle2 aria-hidden="true" /> : <CircleAlert aria-hidden="true" />} {gate.detail}
+              </li>
+            ))}
         </ul>
       ) : offShortlistUnit && offShortlistVerdict ? (
         <>
@@ -368,11 +374,14 @@ function DecisionPanel({
             {offShortlistUnit.name} is not in {patient.id}&rsquo;s eligible shortlist.
           </p>
           <ul className={styles.reasonList}>
-            {offShortlistVerdict.gates.slice(0, 4).map((gate) => (
-              <li key={gate.gate}>
-                <CheckCircle2 aria-hidden="true" /> {gate.detail}
-              </li>
-            ))}
+            {[...offShortlistVerdict.gates]
+              .sort((a, b) => Number(a.pass) - Number(b.pass))
+              .slice(0, 4)
+              .map((gate) => (
+                <li key={gate.gate}>
+                  {gate.pass ? <CheckCircle2 aria-hidden="true" /> : <CircleAlert aria-hidden="true" />} {gate.detail}
+                </li>
+              ))}
           </ul>
         </>
       ) : null}
@@ -416,7 +425,7 @@ function ConstellationView({ role }: { role: WardRole }) {
 
 function QueueView({ role }: { role: WardRole }) {
   const [selected, setSelected] = useState(wardMovements[0]);
-  const rolePatients = useMemo(() => sortByRole(wardMovements, role), [role]);
+  const rolePatients = useMemo(() => sortByRole(wardMovements, role).filter(isOpen), [role]);
   return (
     <div className={styles.pageGrid} data-testid="ward-queue-view">
       <section className={styles.panel}>
@@ -425,7 +434,7 @@ function QueueView({ role }: { role: WardRole }) {
             <h2>Placement-ready movements</h2>
             <p>Human tier remains primary. Eligibility explains ordering within tier.</p>
           </div>
-          <span className={styles.prototypeBadge}>{wardMovements.length} synthetic records</span>
+          <span className={styles.prototypeBadge}>{rolePatients.length} synthetic records</span>
         </header>
         <table className={styles.dataTable}>
           <thead>
@@ -645,16 +654,13 @@ function ExceptionsView() {
           </div>
         </header>
         <ul className={styles.reasonList}>
-          {[
-            "Legal timing breached",
-            "Every parallel referral declined",
-            "Transport accepted but not yet en route",
-            "Stale ward capacity state",
-          ].map((rule) => (
-            <li key={rule}>
-              <CheckCircle2 aria-hidden="true" /> {rule}
-            </li>
-          ))}
+          {["Legal timing breached", "Every parallel referral declined", "Transport accepted but not yet en route"].map(
+            (rule) => (
+              <li key={rule}>
+                <CheckCircle2 aria-hidden="true" /> {rule}
+              </li>
+            ),
+          )}
         </ul>
       </aside>
     </div>

@@ -68,7 +68,12 @@ export const roleTaskLabel: Record<WardRole, string> = {
   ward: "Accept and hold bed",
 };
 
-/** The health service that owns the ED a movement originated in — the real catchment. */
+/**
+ * The health service that owns the ED a movement originated in. This is the origin service,
+ * not the patient's catchment — catchment is determined by where a patient lives, not where
+ * they presented (see the glossary and Accepted ADR 3). `Movement` has no catchment field;
+ * adding one is Phase 2 model work, not a derivation this module can safely invent.
+ */
 export function movementHealthService(movement: Movement): HealthService | undefined {
   const ed = allEmergencyDepartments().find((candidate) => candidate.id === movement.originEdId);
   return ed ? siteByCode(ed.siteCode)?.service : undefined;
@@ -81,6 +86,17 @@ export function movementHealthService(movement: Movement): HealthService | undef
  */
 export function elapsedLabel(movement: Movement, now: Instant) {
   return formatElapsed(minutesUntil(now, movement.openedAt));
+}
+
+/**
+ * A movement is open while it is still travelling through the pathway. Per spec §7, arrival
+ * closes the record and the patient leaves the system — so a movement is closed once it
+ * carries a `closure` (whatever the outcome) or has reached the `arrived` stage, and open
+ * counts/tables must never include it. `closure` is checked independently of `stage` because
+ * a movement can close before ever reaching `arrived` (e.g. self-discharge from ED).
+ */
+export function isOpen(movement: Movement): boolean {
+  return !movement.closure && movement.stage !== "arrived";
 }
 
 /**
@@ -108,14 +124,31 @@ export function transportStatusLabel(transport: TransportJob | undefined) {
   return `${transport.provider} requested`;
 }
 
-/** The five-state bed grid, built entirely from real unit and bed-release fields. */
+/**
+ * The five-state bed grid, built entirely from real unit and bed-release fields.
+ *
+ * The glossary requires every bed to carry exactly one of the five states, so this must
+ * partition `unit.beds` exactly: `available + held + blocked + occupied === unit.beds`.
+ * `available` and `held` are both drawn from within the physically-empty pool (`unit.empty`)
+ * — `available` is the ward-confirmed allocatable subset, and whatever empty capacity is not
+ * yet confirmed allocatable is `held` rather than silently uncounted. `blocked` is drawn from
+ * within the non-empty remainder, with whatever is left over being `occupied`. Both splits
+ * are clamped so authored data that already over- or under-counts (e.g. a stale `unit.held`
+ * literal that no longer fits once `available` is subtracted) can never push the total past
+ * `unit.beds` or leave a bed unaccounted for.
+ */
 export function unitCapacity(unit: Unit) {
+  const available = Math.min(unit.allocatable.value, unit.empty.value);
+  const held = Math.max(unit.empty.value - available, 0);
+  const notEmpty = Math.max(unit.beds - unit.empty.value, 0);
+  const blocked = Math.min(Math.max(unit.blocked, 0), notEmpty);
+  const occupied = Math.max(notEmpty - blocked, 0);
   return {
-    available: unit.allocatable.value,
-    held: unit.held,
+    available,
+    held,
     potential: bedReleases.filter((release) => release.unitId === unit.id).length,
-    blocked: unit.blocked,
-    occupied: Math.max(unit.beds - unit.empty.value, 0),
+    blocked,
+    occupied,
   };
 }
 
@@ -175,13 +208,16 @@ export function buildActionInbox(movements: Movement[], now: Instant): InboxItem
     });
   }
 
+  // This only detects that three parallel referrals were declined, not that the network is
+  // actually exhausted — a movement can hit the cap with eligible units still untried. Name
+  // it for what it measures rather than implying a broader search than was actually run.
   const exhaustedReferrals = movements.find((movement) => movement.declines.length >= PARALLEL_REFERRAL_CAP);
   if (exhaustedReferrals) {
     items.push({
       id: `declines-${exhaustedReferrals.id}`,
       tone: "danger",
       icon: CircleAlert,
-      title: "No eligible destination left",
+      title: "Parallel referral cap reached",
       detail: `${exhaustedReferrals.id} · ${exhaustedReferrals.declines.length} declines`,
       owner: exhaustedReferrals.owner,
       movementId: exhaustedReferrals.id,

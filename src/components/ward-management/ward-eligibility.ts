@@ -17,6 +17,12 @@ function capacityIsFresh(unit: Unit, now: Instant) {
   return now - unit.allocatable.confirmedAt <= unit.allocatable.staleAfterMinutes;
 }
 
+/** "a unit" vs "an older adult unit" — the only two cohort/security values start with a
+ * vowel or a consonant, so this is a plain vowel check rather than a lookup table. */
+function article(word: string) {
+  return /^[aeiou]/i.test(word) ? "an" : "a";
+}
+
 export function eligibility(movement: Movement, unit: Unit, now: Instant): EligibilityVerdict {
   const authorisationNeeded = requiresAuthorisedDestination(movement.legalStatus);
   const declined = movement.declines.some((decline) => decline.unitId === unit.id);
@@ -36,12 +42,18 @@ export function eligibility(movement: Movement, unit: Unit, now: Instant): Eligi
     {
       gate: "cohort",
       pass: unit.cohort === movement.cohort,
-      detail: `${unit.cohort} unit for a ${movement.cohort.toLowerCase()} movement`,
+      detail:
+        unit.cohort === movement.cohort
+          ? `${unit.cohort} unit matches ${article(movement.cohort)} ${movement.cohort.toLowerCase()} movement`
+          : `${unit.cohort} unit does not match ${article(movement.cohort)} ${movement.cohort.toLowerCase()} movement`,
     },
     {
       gate: "security",
       pass: movement.security === "Open" || unit.security === "Secure",
-      detail: `${unit.security} ward for a ${movement.security.toLowerCase()} requirement`,
+      detail:
+        movement.security === "Open" || unit.security === "Secure"
+          ? `${unit.security} ward meets ${article(movement.security)} ${movement.security.toLowerCase()} requirement`
+          : `${unit.security} ward does not meet ${article(movement.security)} ${movement.security.toLowerCase()} requirement`,
     },
     {
       gate: "sex_mix",

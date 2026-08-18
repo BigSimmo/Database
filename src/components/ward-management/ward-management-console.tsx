@@ -28,7 +28,7 @@ import {
 import { useMemo, useState } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
-import { formatInstant } from "@/components/ward-management/ward-clock";
+import { clockState, formatInstant } from "@/components/ward-management/ward-clock";
 import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
   buildActionInbox,
@@ -49,7 +49,13 @@ import {
   type InboxItem,
   type WardRole,
 } from "@/components/ward-management/ward-derivations";
-import { MOVEMENT_STAGES, type Movement, type MovementStage, type Unit } from "@/components/ward-management/ward-model";
+import {
+  MOVEMENT_STAGES,
+  type Movement,
+  type MovementStage,
+  type TransportJob,
+  type Unit,
+} from "@/components/ward-management/ward-model";
 import { movementById, wardMovements } from "@/components/ward-management/ward-movements";
 import { ClinicalRail, WardModeNavigation } from "@/components/ward-management/ward-management-navigation";
 import { NOW_ANCHOR, allUnits, siteByCode, unitById } from "@/components/ward-management/ward-sites";
@@ -67,7 +73,7 @@ const stageIcons = {
 } satisfies Record<MovementStage, LucideIcon>;
 
 const roleQueueHint: Record<WardRole, string> = {
-  flow: "Tier first · AI within tier",
+  flow: "Tier first · eligibility within tier",
   ed: "Readiness and referral tasks",
   ward: "Capacity and acceptance tasks",
 };
@@ -399,6 +405,16 @@ function WardNetwork({
   );
 }
 
+/** A transport job only counts as ready once it has actually moved, not merely been
+ * requested or accepted — "requested"/"accepted, awaiting departure"/"cancelled" all still
+ * need a coordinator's attention, the same as no transport job at all. */
+function transportReady(transport: TransportJob | undefined) {
+  return (
+    transport !== undefined &&
+    (transport.enRouteAt !== undefined || transport.collectedAt !== undefined || transport.arrivedAt !== undefined)
+  );
+}
+
 function DecisionDock({
   patient,
   role,
@@ -447,7 +463,10 @@ function DecisionDock({
           </span>
         </h3>
         {isSuggested ? (
-          <p className={styles.governanceNote}>Not yet referred to this unit — showing an eligible candidate.</p>
+          <p className={styles.governanceNote}>
+            Not yet referred to this unit —{" "}
+            {verdict?.eligible ? "showing an eligible candidate." : "this candidate is not currently eligible."}
+          </p>
         ) : null}
       </div>
       <div className={styles.matchReasons}>
@@ -489,11 +508,20 @@ function DecisionDock({
       <div className={styles.readiness}>
         <strong>Readiness</strong>
         <span>
-          <CheckCircle2 aria-hidden="true" />{" "}
+          {!patient.legalForm || clockState(patient.legalForm.dueAt, NOW_ANCHOR) !== "breached" ? (
+            <CheckCircle2 aria-hidden="true" />
+          ) : (
+            <CircleAlert aria-hidden="true" />
+          )}{" "}
           {patient.legalForm ? `${patient.legalForm.label} (${patient.legalForm.code})` : "No legal form required"}
         </span>
         <span>
-          <CheckCircle2 aria-hidden="true" /> {transportStatusLabel(patient.transport)}
+          {transportReady(patient.transport) ? (
+            <CheckCircle2 aria-hidden="true" />
+          ) : (
+            <CircleAlert aria-hidden="true" />
+          )}{" "}
+          {transportStatusLabel(patient.transport)}
         </span>
         {displayedUnit ? (
           <span>

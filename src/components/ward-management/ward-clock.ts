@@ -46,8 +46,14 @@ export function formatElapsed(minutes: number) {
   return `${splitDuration(Math.max(minutes, 0))} waiting`;
 }
 
+/**
+ * A synthetic movement can be authored with a negative instant (e.g. `openedAt` computed
+ * before the day began) — this must still render as a valid wall-clock time rather than
+ * `-1:-14`, so wrap into the 0–1439 range before splitting into hours and minutes.
+ */
 export function formatInstant(instant: Instant) {
-  const hours = Math.floor(instant / 60) % 24;
-  const minutes = instant % 60;
+  const wrapped = ((instant % 1440) + 1440) % 1440;
+  const hours = Math.floor(wrapped / 60);
+  const minutes = wrapped % 60;
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }

@@ -28,10 +28,10 @@ in (see decision 1).
 A destination is _proposed_ (system suggestion), _requested_ (referral sent), _accepted_
 (receiving ward has agreed) or _declined_. Proposed is not requested.
 
-**Stage** — where the movement sits in the six-step pathway: placement requested,
-destination review, bed held, handover ready, moving, arrived. Stages are sequential and a
-movement occupies exactly one. Escalation and blockers are attributes of a movement at any
-stage, never additional stages.
+**Stage** — where the movement sits in the seven-step pathway: placement requested,
+destination review, accepted awaiting bed, bed held, handover ready, moving, arrived. Stages
+are sequential and a movement occupies exactly one. Escalation and blockers are attributes of
+a movement at any stage, never additional stages.
 
 **Blocker** — the single named thing preventing the movement advancing to the next stage.
 A movement has at most one active blocker. "No blocker" is a real value and means the next
@@ -117,9 +117,10 @@ always has an expiry. An expired hold is an exception, never a silent release.
 Every displayed capacity figure carries its freshness. Capacity older than the agreed
 threshold becomes an exception rather than continuing to display as available.
 
-**Release forecast** — the receiving ward's expectation of which beds will free up and when.
-The supply side of flow. Not yet modelled, and the primary lever a ward manager actually
-holds.
+**Release forecast** — the receiving ward's expectation of which beds will free up and when,
+modelled as a bed release carrying an expected time, a confidence tier (confirmed, likely,
+possible), and a unit-side blocker — never any detail about the departing patient. The
+supply side of flow, and the primary lever a ward manager actually holds.
 
 ## Priority
 

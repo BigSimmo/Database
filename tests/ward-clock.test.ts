@@ -35,6 +35,14 @@ describe("ward clock", () => {
     expect(formatInstant(9 * 60 + 5)).toBe("09:05");
   });
 
+  it("wraps a negative instant into a valid wall-clock time instead of printing -1:-14", () => {
+    // A synthetic movement can be authored with openedAt before the day began; the audit
+    // timeline must still render a real time, not a negative fragment.
+    expect(formatInstant(-14)).toBe("23:46");
+    expect(formatInstant(-1440)).toBe("00:00");
+    expect(formatInstant(-310)).toBe("18:50");
+  });
+
   it("formats an elapsed duration as a wait, never as a breach", () => {
     // A movement opened 95 minutes ago: minutesUntil(now, openedAt) = now - openedAt.
     expect(formatElapsed(minutesUntil(NOW, NOW - 95))).toBe("1h 35m waiting");

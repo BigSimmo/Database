@@ -1,6 +1,6 @@
 import { MOVEMENT_STAGES } from "@/components/ward-management/ward-model";
-import type { BedRelease, Movement, MovementStage } from "@/components/ward-management/ward-model";
-import { NOW_ANCHOR, allEmergencyDepartments } from "@/components/ward-management/ward-sites";
+import type { BedRelease, Cohort, Movement, MovementStage, Security } from "@/components/ward-management/ward-model";
+import { NOW_ANCHOR, allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
 
 /**
  * Hand-authored movements covering the states volume alone cannot guarantee: three declines
@@ -215,7 +215,23 @@ const seededMovements: Movement[] = [
         reason: "bed_held_for_earlier_referral",
         note: "Bed already held against an earlier referral",
       },
+      {
+        unitId: "fsh-adult-secure",
+        at: NOW_ANCHOR - 15,
+        reason: "specialling_unavailable",
+        note: "No specialling capacity available at referral time",
+      },
+      {
+        unitId: "rgh-adult-secure",
+        at: NOW_ANCHOR - 5,
+        reason: "capability_mismatch",
+        note: "Ward composition unsuitable for this referral",
+      },
     ],
+    // Every authorised secure adult unit in the network has now either declined this
+    // referral or fails an eligibility gate on its own (Broome has zero allocatable beds;
+    // SJGS Adult Secure is not MHA-authorised) — the search really is exhausted, not just
+    // capped at three parallel referrals.
     blocker: "No secure adult bed available across the network",
   },
   {
@@ -412,6 +428,67 @@ const seededMovements: Movement[] = [
 ];
 
 /**
+ * A deterministic destination for a generated movement. Prefers an exact cohort+security
+ * match (the normal case); falls back to a cohort-only match, then to any unit, so the
+ * synthetic model — which has no secure older-adult unit anywhere in the network — never
+ * throws for a combination it cannot satisfy exactly. `index` is the only varying input, so
+ * the pick is stable across runs.
+ */
+function fallbackUnitId(cohort: Cohort, security: Security, index: number): string {
+  const units = allUnits();
+  const exact = units.filter((unit) => unit.cohort === cohort && unit.security === security);
+  const sameCohort = units.filter((unit) => unit.cohort === cohort);
+  const pool = exact.length > 0 ? exact : sameCohort.length > 0 ? sameCohort : units;
+  return pool[index % pool.length].id;
+}
+
+/**
+ * Stage-dependent fields a generated movement needs to not contradict its own `stage` — the
+ * same fields the hand-authored `seededMovements` above always carry together. Kept as a
+ * switch, rather than folded into the field literals below, so each stage's requirement
+ * reads as one block instead of being scattered across independent index checks.
+ */
+function stageFields(
+  stage: MovementStage,
+  cohort: Cohort,
+  security: Security,
+  index: number,
+): Pick<Movement, "acceptedUnitId" | "transport" | "closure"> {
+  switch (stage) {
+    case "accepted_awaiting_bed":
+    case "bed_held":
+      return { acceptedUnitId: fallbackUnitId(cohort, security, index) };
+    case "moving": {
+      const acceptedAt = NOW_ANCHOR - (40 + (index % 15));
+      return {
+        acceptedUnitId: fallbackUnitId(cohort, security, index),
+        transport: {
+          id: `TR-${1300 + index}`,
+          provider: "St John WA",
+          escortRequired: index % 2 === 0,
+          acceptedAt,
+          enRouteAt: acceptedAt + (10 + (index % 10)),
+        },
+      };
+    }
+    case "arrived": {
+      const acceptedUnitId = fallbackUnitId(cohort, security, index);
+      const unitName = allUnits().find((unit) => unit.id === acceptedUnitId)?.name ?? acceptedUnitId;
+      return {
+        acceptedUnitId,
+        closure: {
+          at: NOW_ANCHOR - (index % 10),
+          outcome: "arrived",
+          reason: `Handover complete at ${unitName}`,
+        },
+      };
+    }
+    default:
+      return {};
+  }
+}
+
+/**
  * Routine movements filling out a busy metro night. Deterministic — index drives every
  * varying field — so screenshots and tests never shift between runs.
  */
@@ -420,16 +497,18 @@ function routineMovements(count: number, startIndex: number): Movement[] {
   return Array.from({ length: count }, (_, offset) => {
     const index = startIndex + offset;
     const ed = eds[index % eds.length];
-    const cohort = index % 4 === 0 ? "Older adult" : "Adult";
+    const cohort: Cohort = index % 4 === 0 ? "Older adult" : "Adult";
+    const security: Security = index % 7 === 0 ? "Secure" : "Open";
     const sex = index % 2 === 0 ? "Female" : "Male";
     const urgency = ((index % 3) + 1) as 1 | 2 | 3;
+    const stage = MOVEMENT_STAGES[index % MOVEMENT_STAGES.length];
     return {
       id: `WF-${String(index).padStart(3, "0")}`,
       originEdId: ed.id,
       openedAt: NOW_ANCHOR - (60 + ((index * 37) % 900)),
       urgency,
       cohort,
-      security: index % 7 === 0 ? "Secure" : "Open",
+      security,
       sex,
       specialling: index % 11 === 0,
       legalStatus: index % 3 === 0 ? "Referred for psychiatric examination" : "Voluntary",
@@ -443,11 +522,12 @@ function routineMovements(count: number, startIndex: number): Movement[] {
             }
           : undefined,
       statusChanges: [],
-      stage: MOVEMENT_STAGES[index % MOVEMENT_STAGES.length],
+      stage,
       owner: index % 2 === 0 ? "Flow coordinator" : "ED mental health team",
       referredUnitIds: [],
       declines: [],
       blocker: index % 5 === 0 ? "Awaiting destination response" : "No blocker",
+      ...stageFields(stage, cohort, security, index),
     } satisfies Movement;
   });
 }
@@ -473,7 +553,7 @@ export const bedReleases: BedRelease[] = [
     unitId: "rph-adult-secure",
     expectedAt: NOW_ANCHOR + 45,
     confidence: "confirmed",
-    blocker: "Discharge order signed, awaiting transport to residential care",
+    blocker: "Bed clean pending",
     confirmedAt: NOW_ANCHOR - 10,
     confirmedBy: "NUM RPH Adult Secure",
   },
@@ -482,7 +562,7 @@ export const bedReleases: BedRelease[] = [
     unitId: "scgh-adult-open",
     expectedAt: NOW_ANCHOR + 90,
     confidence: "likely",
-    blocker: "Case conference scheduled to confirm discharge readiness",
+    blocker: "Awaiting bed-management confirmation",
     confirmedAt: NOW_ANCHOR - 25,
     confirmedBy: "NUM SCGH Adult Open",
   },
@@ -491,7 +571,7 @@ export const bedReleases: BedRelease[] = [
     unitId: "fsh-older-adult",
     expectedAt: NOW_ANCHOR + 180,
     confidence: "possible",
-    blocker: "Awaiting residential aged care placement offer",
+    blocker: "Awaiting external placement confirmation",
     confirmedAt: NOW_ANCHOR - 60,
     confirmedBy: "NUM FSH Older Adult",
   },
@@ -500,7 +580,7 @@ export const bedReleases: BedRelease[] = [
     unitId: "fre-adult-open",
     expectedAt: NOW_ANCHOR + 30,
     confidence: "confirmed",
-    blocker: "Patient packed, awaiting family pickup",
+    blocker: "Awaiting pharmacy",
     confirmedAt: NOW_ANCHOR - 5,
     confirmedBy: "NUM FRE Adult Open",
   },
@@ -509,7 +589,7 @@ export const bedReleases: BedRelease[] = [
     unitId: "bty-adult-secure",
     expectedAt: NOW_ANCHOR + 120,
     confidence: "likely",
-    blocker: "Tribunal hearing outcome pending",
+    blocker: "Pending case review outcome",
     confirmedAt: NOW_ANCHOR - 35,
     confirmedBy: "NUM BTY Adult Secure",
   },
@@ -518,7 +598,7 @@ export const bedReleases: BedRelease[] = [
     unitId: "gry-older-adult",
     expectedAt: NOW_ANCHOR + 240,
     confidence: "possible",
-    blocker: "Awaiting NDIS support coordinator response",
+    blocker: "Awaiting external service coordination",
     confirmedAt: NOW_ANCHOR - 80,
     confirmedBy: "NUM Graylands Older Adult",
   },

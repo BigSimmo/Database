@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DECLINE_REASONS, MOVEMENT_STAGES, PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 import { allEmergencyDepartments, allUnits, siteByCode, wardSites } from "../src/components/ward-management/ward-sites";
 import { requiresAuthorisedDestination } from "../src/components/ward-management/ward-eligibility";
+import { isOpen, unitCapacity } from "../src/components/ward-management/ward-derivations";
 import { bedReleases, movementById, wardMovements } from "../src/components/ward-management/ward-movements";
 
 describe("ward model constants", () => {
@@ -51,16 +52,22 @@ describe("ward sites", () => {
     expect(siteByCode("PEEL")?.units).toHaveLength(0);
   });
 
-  it("accounts for every bed in every unit", () => {
+  it("accounts for every bed in every unit exactly once across the five-state grid", () => {
+    // The single source of truth for the five-state bed grid is `unitCapacity` — this is the
+    // only invariant every unit must satisfy: available + held + blocked + occupied === beds,
+    // with none of the four negative. A previous version of this test asserted a third,
+    // divergent reading (`occupants + empty + blocked === beds`) that put held beds nowhere
+    // and let the real UI formula double-count them without failing.
     for (const unit of allUnits()) {
-      expect(unit.allocatable.value, `${unit.id} claims more allocatable than empty`).toBeLessThanOrEqual(
-        unit.empty.value,
-      );
-      expect(unit.held + unit.blocked + unit.empty.value, `${unit.id} exceeds its bed count`).toBeLessThanOrEqual(
-        unit.beds,
-      );
-      const occupants = unit.sexMix.Female + unit.sexMix.Male;
-      expect(occupants + unit.empty.value + unit.blocked, `${unit.id} occupancy does not reconcile`).toBe(unit.beds);
+      const capacity = unitCapacity(unit);
+      expect(capacity.available, `${unit.id} available is negative`).toBeGreaterThanOrEqual(0);
+      expect(capacity.held, `${unit.id} held is negative`).toBeGreaterThanOrEqual(0);
+      expect(capacity.blocked, `${unit.id} blocked is negative`).toBeGreaterThanOrEqual(0);
+      expect(capacity.occupied, `${unit.id} occupied is negative`).toBeGreaterThanOrEqual(0);
+      expect(
+        capacity.available + capacity.held + capacity.blocked + capacity.occupied,
+        `${unit.id} five-state grid does not reconcile to its bed count`,
+      ).toBe(unit.beds);
     }
   });
 
@@ -143,15 +150,53 @@ describe("ward movements", () => {
 
   it("flags bed releases without any departing-patient detail", () => {
     expect(bedReleases.length).toBeGreaterThan(4);
+    // A bed release "carries no detail whatsoever about the departing patient" (spec §4) —
+    // checking for absent properties alone previously missed free-text `blocker` strings that
+    // named a patient's legal status, disability, family member, or discharge destination.
+    const forbiddenSubstrings = ["patient", "family", "tribunal", "ndis", "aged care", "discharge order"];
     for (const release of bedReleases) {
       expect(release.id).toMatch(/^WR-\d{3}$/);
       expect(release).not.toHaveProperty("name");
       expect(release).not.toHaveProperty("mrn");
       expect(release).not.toHaveProperty("diagnosis");
+      const blockerLower = release.blocker.toLowerCase();
+      for (const forbidden of forbiddenSubstrings) {
+        expect(
+          blockerLower.includes(forbidden),
+          `${release.id} blocker "${release.blocker}" mentions "${forbidden}"`,
+        ).toBe(false);
+      }
     }
   });
 
   it("returns undefined for an unknown movement rather than a different patient", () => {
     expect(movementById("WF-999")).toBeUndefined();
+  });
+
+  it("closes every movement that is arrived or did-not-proceed, and leaves every other movement open", () => {
+    for (const movement of wardMovements) {
+      const shouldBeOpen = !movement.closure && movement.stage !== "arrived";
+      expect(isOpen(movement), `${movement.id} open/closed disagrees with its own fields`).toBe(shouldBeOpen);
+    }
+    // The dataset must actually exercise both branches, or this test proves nothing.
+    expect(wardMovements.some((movement) => isOpen(movement))).toBe(true);
+    expect(wardMovements.some((movement) => !isOpen(movement))).toBe(true);
+  });
+
+  it("gives every generated movement the fields its own stage implies", () => {
+    // The hand-authored seeded movements always keep acceptedUnitId/transport/closure
+    // consistent with their stage; the generated routine movements must too, or a movement
+    // can render as "Moving" with no transport job anywhere in the app.
+    for (const movement of wardMovements) {
+      if (movement.stage === "accepted_awaiting_bed" || movement.stage === "bed_held") {
+        expect(movement.acceptedUnitId, `${movement.id} is ${movement.stage} with no accepted unit`).toBeDefined();
+      }
+      if (movement.stage === "moving") {
+        expect(movement.transport?.enRouteAt, `${movement.id} is moving with no transport en route`).toBeDefined();
+      }
+      if (movement.stage === "arrived") {
+        expect(movement.closure, `${movement.id} is arrived with no closure`).toBeDefined();
+      }
+    }
   });
 });

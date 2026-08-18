@@ -78,7 +78,28 @@ describe("authorisation", () => {
 describe("clinical and operational gates", () => {
   it("refuses a cohort mismatch", () => {
     const verdict = eligibility(movement({ cohort: "Older adult" }), unit({ cohort: "Adult" }), NOW);
-    expect(verdict.gates.find((gate) => gate.gate === "cohort")?.pass).toBe(false);
+    const cohortGate = verdict.gates.find((gate) => gate.gate === "cohort");
+    expect(cohortGate?.pass).toBe(false);
+    // Grammar: "an older adult movement", never "a older adult movement".
+    expect(cohortGate?.detail).toContain("an older adult movement");
+  });
+
+  it("gives the cohort gate a different detail string on pass than on fail", () => {
+    const failing = eligibility(movement({ cohort: "Older adult" }), unit({ cohort: "Adult" }), NOW);
+    const passing = eligibility(movement({ cohort: "Adult" }), unit({ cohort: "Adult" }), NOW);
+    const failDetail = failing.gates.find((gate) => gate.gate === "cohort")?.detail;
+    const passDetail = passing.gates.find((gate) => gate.gate === "cohort")?.detail;
+    expect(failDetail).not.toBe(passDetail);
+  });
+
+  it("gives the security gate a different detail string on pass than on fail", () => {
+    const failing = eligibility(movement({ security: "Secure" }), unit({ security: "Open" }), NOW);
+    const passing = eligibility(movement({ security: "Open" }), unit({ security: "Open" }), NOW);
+    const failGate = failing.gates.find((gate) => gate.gate === "security");
+    const passGate = passing.gates.find((gate) => gate.gate === "security");
+    expect(failGate?.pass).toBe(false);
+    expect(passGate?.pass).toBe(true);
+    expect(failGate?.detail).not.toBe(passGate?.detail);
   });
 
   it("refuses when the ward cannot staff the required specialling", () => {

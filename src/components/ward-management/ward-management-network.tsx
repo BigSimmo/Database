@@ -10,6 +10,7 @@ import {
   destinationUnit,
   eligibleCandidates,
   elapsedLabel,
+  isOpen,
   movementHealthService,
   movementStageSummary,
   stageCopy,
@@ -60,7 +61,14 @@ function candidatesFor(patient: Movement): Candidate[] {
   }));
 }
 
-function catchmentFit(patient: Movement, unit: Unit) {
+/**
+ * Compares the candidate unit's health service against the *origin ED's* health service —
+ * this is NOT catchment. Catchment is where the patient lives, not where they presented, and
+ * `Movement` has no catchment field (see the doc comment on `movementHealthService` and the
+ * glossary's Catchment entry). Naming this `catchmentFit` previously collapsed exactly the
+ * distinction Accepted ADR 3 exists to keep separate.
+ */
+function originServiceFit(patient: Movement, unit: Unit) {
   const unitService = siteByCode(unit.siteCode)?.service;
   if (unitService && unitService === movementHealthService(patient)) return { label: "Best", tone: "good" as const };
   return { label: "Escalation", tone: "warning" as const };
@@ -214,7 +222,9 @@ export function WardNetworkWorkspace() {
   }, [measure]);
 
   const detail = selectedUnitId ? unitById(selectedUnitId) : null;
-  const openMovements = movementStageSummary.reduce((sum, stage) => sum + stage.count, 0);
+  // Arrived and self-discharged movements have left the pathway (spec §7), so this must not
+  // be the raw stage-count sum — that includes them and overstates live demand.
+  const openMovements = wardMovements.filter(isOpen).length;
   const primary = candidates[0];
 
   if (!patient) {
@@ -422,9 +432,9 @@ export function WardNetworkWorkspace() {
               </thead>
               <tbody>
                 <tr>
-                  <th scope="row">Catchment fit</th>
+                  <th scope="row">Same health service as origin</th>
                   {candidates.map((candidate) => {
-                    const fit = catchmentFit(patient, candidate.unit);
+                    const fit = originServiceFit(patient, candidate.unit);
                     return (
                       <td key={candidate.unit.id} data-tone={fit.tone}>
                         {fit.label}

@@ -106,6 +106,14 @@ test.describe("Ward Flow command view", () => {
     await expect(wf001Decision).toContainText("FSH Older Adult");
     await expect(wf001Decision).toContainText("is not in");
     await expect(wf001Decision).toContainText("eligible shortlist");
+    // FSH Older Adult fails the cohort gate against WF-001 (an Adult movement) — this must
+    // render as a failure, never a green tick regardless of where in the gate list it sits
+    // (whole-branch review Critical 1). Matching on text alone would pass even with the bug
+    // present, since only the icon was wrong, so this asserts the failing icon directly.
+    const cohortFailureRow = wf001Decision.locator("li", { hasText: "does not match an adult movement" });
+    await expect(cohortFailureRow).toBeVisible();
+    await expect(cohortFailureRow.locator("svg.lucide-circle-alert")).toHaveCount(1);
+    await expect(cohortFailureRow.locator("svg.lucide-check-circle-2")).toHaveCount(0);
 
     await constellation.getByRole("button", { name: /2\. WF-002/ }).click();
     const review = page.getByLabel("AI best-fit review for WF-002");
@@ -174,7 +182,10 @@ test.describe("Ward Flow command view", () => {
     await network.getByTestId("ward-network-queue-WF-002").click();
     await expect(shortlist).toContainText("WF-002");
     await expect(network.getByTestId("ward-network-card-fre-older-adult")).toHaveAttribute("data-routed", "true");
-    await expect(shortlist.getByRole("row", { name: /Catchment fit/ })).toContainText("Escalation");
+    // This row compares health services against the *origin* ED, not the patient's catchment
+    // (catchment is where a patient lives, not where they presented) — named for what it
+    // actually measures rather than implying a judgement the model cannot make yet.
+    await expect(shortlist.getByRole("row", { name: /Same health service as origin/ })).toContainText("Escalation");
 
     // A service card opens its own detail block.
     await network.getByTestId("ward-network-card-fre-older-adult").click();
