@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "eaa2e757-ad60-4fc7-abb5-58a1d381f0b1",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#341",
+    "outcome": "Test files migrated to use guarded source-contract.ts helper",
+    "baseRowFingerprint": "f5f38ec962d703fdcbc8441556883d646bb1ed2b21afc7e016e1989a3d58d67e"
+  }
+}
