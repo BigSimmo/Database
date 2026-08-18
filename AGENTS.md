@@ -958,8 +958,9 @@ to the recommended queue.
 - `/issues add|done|update|capture …` queue immutable request files under
   `docs/outstanding-issues-inbox/`; ordinary branches never edit the canonical ledger. Commit a
   request only when explicitly asked, and never push unless requested or already handing off.
-  One deliberately serialized fresh-base branch later runs `npm run issues:reconcile` and refreshes
-  the visual register after the canonical transaction succeeds.
+  One deliberately serialized fresh-base branch later runs `npm run issues:reconcile`, which alone
+  edits the canonical ledger. That transaction is the whole deliverable: the legacy `ISSUES-LIST.html`
+  visual register was retired by `#338` on 2026-08-18, so there is no second artifact to refresh.
 - Proactively offer to `capture` unresolved follow-ups, deferrals, and known risks into the ledger
   before a session's context is lost — that is what keeps it a memory rather than a stale list.
 - **An open row is not evidence that nobody is building it.** Some rows do carry a progress marker in
