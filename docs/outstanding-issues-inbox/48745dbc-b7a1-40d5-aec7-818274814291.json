@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "48745dbc-b7a1-40d5-aec7-818274814291",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Adversarial divergence (S5 harness pin): scope-other-owner-document — abstains in substance but the review fallback still cites in-scope evidence",
+    "detail": "Pinned in tests/rag-adversarial-harness.test.ts KNOWN_DIVERGENCES (self-expiring). Observed shape: grounded false, confidence unsupported, but cited chunk ids [syn-scope-owner-a] — the answer correctly abstains from the other-owner document, yet the review fallback attaches an in-scope citation to an unsupported answer. Fixture: scripts/fixtures/rag-adversarial-cases.v1.json case scope-other-owner-document (category scope_or_tenant). Tenancy/no-read invariant held (the other-owner content is never read). Next: decide whether an unsupported abstention may carry any citation; if not, strip citations on the abstention path (RAG-surface change; own PR; harness pin flips; canary pair). Stop: do not delete the pin without the behaviour change.",
+    "source": "RAG programme coordinator, packet S5 (PR #2056) follow-ups, 2026-08-17",
+    "issueUlid": "01M08C19VRC2D9JFG95HAJRFR7"
+  }
+}
