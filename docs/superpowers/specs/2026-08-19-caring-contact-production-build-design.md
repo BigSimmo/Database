@@ -12,6 +12,43 @@ the 15 August decision lock disagree, §2 records the revision and this document
 **Design system:** [SPEC](../../design-system/SPEC.md), [TOKENS](../../design-system/TOKENS.md),
 [COMPONENTS](../../design-system/COMPONENTS.md), [GATES](../../design-system/GATES.md).
 
+## 0. Three phases, all of them buildable
+
+The programme was previously described in twelve phases. Most of those boundaries were not real: nothing
+outside the code changed between them, and several described work that cannot be done without a sponsoring
+service. This specification covers **three phases, every one of which can be built now, on invented
+patients, without anyone's permission.**
+
+| Phase | Deliverable                    | Contains                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ----- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1** | **The rules and the database** | The sealed domain boundary and clock; plan and message lifecycles; the discharge-anchored twelve-month schedule; hospital events (readmission, death, changed number, third-party request); deny-by-default team permissions; governed-message validation with its replaceable provisional rulebook; audit events; retention and de-identification; the storage contract; the twelve-month simulation proving zero duplicate sends; and the team-scoped Postgres schema with row-level security. |
+| **2** | **The working screens**        | The production shell and navigation; every existing screen from the approved mockup, elevated per §7 and without design regression per §6; all 24 overlays as working components; the seven screens required by existing decisions but never designed (§4.2); the four recommended screens (§4.3); every loading, empty and error state; and full responsive and accessibility proof from 320px to 1440px including dark mode, forced colours, reduced motion and 400% reflow.                   |
+| **3** | **Make it demonstrable**       | The demo clock; the synthetic caseload of at least twelve fictional patients spread across every plan state; training mode with its assessed scenarios; the bounded clinical-record summary (§2.9); and the rehearsed five-minute demonstration path.                                                                                                                                                                                                                                            |
+
+Phases run in order — Phase 2 consumes Phase 1's rules, Phase 3 populates Phase 2's screens. You see the
+work at the end of Phase 1 and again at the end of Phase 3.
+
+### Deliberately out of scope
+
+Not because they are unimportant, but because none of them can be done from a keyboard. Each needs a
+contract, a sponsoring service, or a person outside this project:
+
+- **Any text message actually sent** to any number, real or test. No SMS provider, no provider account, no
+  adapter beyond a deterministic fake.
+- **Hosting for real patients.** The decision lock requires Australian residency; the current application
+  tier has no Australian region available.
+- **Any hospital system connection.** The referral interface is built and exercised against a synthetic
+  adapter only.
+- **Enterprise sign-on.** Sign-in is a demo role switcher, because the decision lock requires WA Health
+  sign-on and forbids local credentials.
+- **Any real patient, and therefore the pilot and everything after it.**
+- **Any migration against the Clinical KB Supabase project.** The build runs against local Postgres;
+  provisioning a dedicated hosted project is optional and confirmation-gated.
+
+The governance, hazard, evidence and outreach material for that parked work has been removed from the
+working tree to keep this specification focused on what is being built. It remains in git history at
+commit `32d408c2f` and is restored with a single `git checkout` when a sponsoring service appears.
+
 ## 1. Purpose and standing
 
 The design phase is complete. The linked prototype, screenshot atlas, interaction matrix, accessibility
@@ -421,12 +458,13 @@ and a per-user completion record. Built last so it can slip without blocking any
 
 ## 12. Out of scope
 
-No SMS provider, no real patient data, no migration of any kind against the Clinical KB Supabase project,
-no production deployment, no hosting change for real-patient use, no enterprise sign-on, and no
-clinical-record write-back adapter beyond the synthetic interface.
+Everything in Phases 3 and 4 (§0). Specifically: no SMS provider and no message actually sent to any
+number, real or test; no real patient data; no migration of any kind against the Clinical KB Supabase
+project; no production deployment; no hosting change; no enterprise sign-on; no hospital system
+connection; and no clinical-record write-back adapter beyond the synthetic interface.
 
-Hosted migrations against the **dedicated caring-contact Supabase project** are in scope, but each apply
-requires explicit confirmation at the time (§3.2).
+The build runs against local Postgres. Provisioning the dedicated Supabase project is optional and
+confirmation-gated (§0, §3.2).
 
 Refused on safety grounds regardless of convenience: bulk actions across patients; offline access or any
 device-local patient storage; storing, displaying, counting per patient, or acting on replies; any risk
@@ -435,48 +473,26 @@ episodes.
 
 ## 13. Delivery
 
-**Two pull requests, two checkpoints.**
+**Three phases, two checkpoints.**
 
-1. **Rules and datastore** — §3, §8, §9, plus documentation repairs: the broken `design-handoff.md`
-   reference, the seeded provisional message rules, and the rollout plan's progress record. Checkpoint one.
-2. **Screens** — §4, §6, §7, then §10. Checkpoint two.
+1. **Phase 1 — rules and database** (§3, §8, §9). Plan:
+   `docs/superpowers/plans/2026-08-19-caring-contact-domain-and-datastore.md`, eleven test-first tasks.
+   **Checkpoint one.**
+2. **Phase 2 — screens** (§4, §6, §7). Its own plan, written once Phase 1 lands.
+3. **Phase 3 — demonstrable** (§10, §2.9). Folds into the Phase 2 pull request unless it grows.
+   **Checkpoint two.**
 
 Each piece is one agent, written test-first, adversarially reviewed by a second agent before it counts as
 done, and committed separately so any single piece can be reverted while the pull request is open.
 
-## 14. Open register — recorded, not solved
+## 14. Open decisions affecting the build
 
-None blocks this build; all block a real-patient pilot. Severity, controls and status for the clinical
-items live in the [hazard log](../../caring-contacts/hazard-log.md).
-
-| Item                                                          | Owner                               | Note                                                                                                                                                                                                                                          |
-| ------------------------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Named clinical safety officer                                 | Josh, then the sponsoring service   | Nobody owns clinical risk for the service. Hazard **H-00**.                                                                                                                                                                                   |
-| Lived-experience review of the message set                    | Josh                                | Never done. The [message review pack](../../caring-contacts/message-review-pack.md) is ready to run. Hazard **H-04**.                                                                                                                         |
-| Patient-visible reply wording is now inaccurate               | Josh, then dual approval            | §2.1 makes "Replies are not received, stored, analysed or monitored" untrue. The constant must change before any demonstration.                                                                                                               |
-| Aboriginal health and cultural safety review                  | Aboriginal health governance        | Required before any real patient; a culturally appropriate pathway is separate approved work. Hazard **H-05**.                                                                                                                                |
-| Hospital referral feed feasibility                            | Josh                                | Unconfirmed, and the largest programme risk. Questions, fallback and who to ask in [referral feasibility](../../caring-contacts/referral-feasibility.md). Hazard **H-44**.                                                                    |
-| Hosting: Railway has no Australian region                     | Josh, then a sponsoring service     | The app tier runs in Singapore; the decision lock requires Australian residency for data, backups, logs and provider processing. A real-patient deployment needs a separately contracted Australian PHI-capable environment. Hazard **H-36**. |
-| Provisioning the dedicated caring-contact Supabase project    | Josh                                | Creating the project, its plan and cost, and the first hosted migration each need confirmation at the time. Sydney region. Synthetic data only. Development proceeds against local Postgres until it exists.                                  |
-| A shareable hosted demo instance                              | Josh                                | The dedicated database makes the data shareable; serving the application to someone else is a further decision, since the app tier would still run outside Australia. Acceptable for synthetic data, not for real patients.                   |
-| Staff supervision and vicarious distress                      | Clinical programme lead             | Coordinators carry a caseload of recent suicidal crises; no supervision model exists. Hazard **H-43**.                                                                                                                                        |
-| Wrong-recipient contact runbook                               | Service                             | What happens when an unconnected person receives a message and rings the programme line. Hazard **H-13**.                                                                                                                                     |
-| Death during the programme: notification and team support     | Clinical programme lead             | Cancellation is mechanical; who is told, and what support the coordinator receives, is unspecified. Hazard **H-14**.                                                                                                                          |
-| Equity limitation: people without a patient-controlled mobile | Josh, for the governance submission | Eligibility systematically excludes some of the most marginalised patients. State it rather than be asked. Hazard **H-15**.                                                                                                                   |
-| Provider inbound auto-response privacy position (§2.1)        | Privacy review                      | Inbound content transits the provider even though it is never retained. Hazard **H-35**.                                                                                                                                                      |
-| Retention figure                                              | Records officer                     | Seven years is a working assumption only. Hazard **H-34**.                                                                                                                                                                                    |
-| Sponsor case and costing                                      | Josh                                | Partly addressed by the [evidence brief](../../caring-contacts/evidence-brief.md), whose citations are unverified, and the [demonstration script](../../caring-contacts/demo-script.md). Costing is still absent.                             |
-| Physical iPhone Safari and installed-PWA acceptance           | Josh                                | Chromium evidence cannot close it.                                                                                                                                                                                                            |
-
-## 14a. Companion documents
-
-| Document                                                              | Purpose                                                                                          |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| [hazard log](../../caring-contacts/hazard-log.md)                     | Every clinical, privacy and operational hazard with severity, controls, status and owner.        |
-| [evidence brief](../../caring-contacts/evidence-brief.md)             | The honest evidence position for a sponsor, including the null trials. **Citations unverified.** |
-| [referral feasibility](../../caring-contacts/referral-feasibility.md) | Questions to ask about the hospital referral feed, who to ask, and the manual fallback.          |
-| [message review pack](../../caring-contacts/message-review-pack.md)   | How to run the lived-experience review, and the reply-wording correction it must settle.         |
-| [demonstration script](../../caring-contacts/demo-script.md)          | The five-minute path through the built system.                                                   |
+| Item                                      | Owner                         | Note                                                                                                                                                                                                                                                                     |
+| ----------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Patient-visible reply wording             | Josh                          | A provisional correction is applied in code — the notice reads "No one reads replies to this number", and `AUTOMATED_REPLY_RESPONSE` supplies the reply a person receives. Both are built and pinned by test at 252 and 218 GSM-7 septets. Confirm or replace the words. |
+| Retention figure                          | Josh, later a records officer | Seven years is the working assumption the schema is built around. Changing it is a configuration value, not a migration.                                                                                                                                                 |
+| Provisioning a dedicated Supabase project | Josh                          | Optional. The build runs against local Postgres. Sydney region, synthetic data only, confirmation-gated.                                                                                                                                                                 |
+| Week 1 collision rule                     | Josh                          | When the coordinator sets the first contact to discharge + 7, it lands on the Week 1 contact. Implemented as: Week 1 is suppressed and recorded, giving nine contacts, because two caring contacts in one day is the worse outcome. Reversible in `schedule.ts` alone.   |
 
 ## 15. Approval boundary
 

@@ -73,7 +73,7 @@ module depends on. Do this first: the isolation test must exist before there is 
 
 - Consumes: nothing.
 - Produces: `type Clock = { now(): Date }`, `fixedClock(iso: string): Clock`, `systemClock(): Clock`,
-  `AWST_TIME_ZONE`, `toAwstParts(date, clock?)`, and the branded id types
+  `AWST_TIME_ZONE`, `toAwstParts(date)`, `awstCalendarDay(date)`, `awstWallTimeToInstant(day, hour, minute?)`, and the branded id types
   `TeamId`, `ActorId`, `PatientId`, `ReferralId`, `PlanId`, `ContactId`, `PathwayVersionId`,
   `IdempotencyKey`.
 
@@ -876,7 +876,6 @@ The validator is mechanism. The rules are data, in their own file, replaceable w
 // constants, and the two-segment GSM-7 limit. Replace this file wholesale when the clinical programme
 // lead and lived-experience representative approve the real content style guide. Do not edit
 // message-policy.ts to accommodate a rule change — the mechanism is stable, the rules are data.
-// See docs/caring-contacts/message-review-pack.md.
 ```
 
 **Rules to encode:**
@@ -1125,11 +1124,6 @@ confirmation-gated action and is **not** part of this task.
 - [ ] **Step 6: Confirm the guard.** Re-run `tests/caring-contacts-domain-isolation.test.ts` and confirm the
       migration-location assertion still passes — no caring-contact migration may have appeared under
       `supabase/migrations/`.
-- [ ] **Step 7: Record plan progress.** In
-      `docs/superpowers/plans/2026-08-14-caring-contact-coordination-rollout.md`, tick the Phase 1–5 steps
-      delivered by PR #2095 and #2133, and add a dated note under Phase 6 recording what this plan completed.
-      The rollout plan currently shows 94 unticked boxes despite the design phase being finished, which makes
-      it useless as a progress record.
 - [ ] **Step 8: Commit**
 
 ```bash
