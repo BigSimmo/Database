@@ -81,22 +81,11 @@ function syncThemeColorMetadata(theme: ResolvedTheme) {
   }
 }
 
-// The pending transition timer must not outlive the document. A jsdom test file
-// that switches theme can finish inside this 200ms window, and the unguarded
-// callback then threw `ReferenceError: document is not defined` — an unhandled
-// error that fails the entire Vitest run even when every test passed (seen on
-// `tests/sidebar-production.dom.test.tsx` in the Unit coverage job, where the
-// coverage instrumentation widened the window). Tracking one handle also stops
-// rapid Light -> Dark -> Auto switching from stacking a timer per change, where
-// an early callback could clear the class while a later transition was still
-// running.
+// The transition class comes off on a short timer. Track the pending timer so a
+// rapid second toggle replaces it instead of stacking removals, and bail out if
+// it fires after the owning environment is gone — a leaked firing after DOM test
+// teardown ("document is not defined") intermittently failed Unit coverage.
 let themeTransitionTimer: ReturnType<typeof setTimeout> | null = null;
-
-function endThemeTransition() {
-  themeTransitionTimer = null;
-  if (typeof document === "undefined") return;
-  document.documentElement.classList.remove("theme-transitioning");
-}
 
 function applyResolvedTheme(theme: ResolvedTheme) {
   const isCurrentlyDark = document.documentElement.classList.contains("dark");
@@ -107,7 +96,11 @@ function applyResolvedTheme(theme: ResolvedTheme) {
     document.documentElement.classList.toggle("dark", willBeDark);
     syncThemeColorMetadata(theme);
     if (themeTransitionTimer !== null) clearTimeout(themeTransitionTimer);
-    themeTransitionTimer = setTimeout(endThemeTransition, 200);
+    themeTransitionTimer = setTimeout(() => {
+      themeTransitionTimer = null;
+      if (typeof document === "undefined") return;
+      document.documentElement.classList.remove("theme-transitioning");
+    }, 200);
   } else {
     syncThemeColorMetadata(theme);
   }
