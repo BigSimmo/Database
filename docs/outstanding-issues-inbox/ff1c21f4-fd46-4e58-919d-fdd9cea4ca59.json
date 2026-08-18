@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ff1c21f4-fd46-4e58-919d-fdd9cea4ca59",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#240",
+    "outcome": "Confirmed design owner sign-off: tooltips retain visual overflow-hidden with complete text in aria-label for accessibility",
+    "baseRowFingerprint": "38bb230d6326de7ecdebbdc97b9cd5d6337418a0eada69d1acfb9579bbc9f209"
+  }
+}

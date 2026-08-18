@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "55aa4633-da95-418c-a92a-f8788195eb15",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#320",
+    "outcome": "Implemented crop-to-page bounding box overlay with normalized typed contract, geometric rotation/scale translation, and fail-safe rendering in DocumentViewer",
+    "baseRowFingerprint": "dd32cbc84f89d340ce7f90cd8f77443521a560329a6ba2d4bd35a4f4198ffe08"
+  }
+}

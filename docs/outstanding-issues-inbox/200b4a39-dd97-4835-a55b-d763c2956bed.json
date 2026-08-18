@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "200b4a39-dd97-4835-a55b-d763c2956bed",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#342",
+    "outcome": "Triaged Sentry search error groups and confirmed crawler probe defensive handling",
+    "baseRowFingerprint": "11fa88113a76bdcf862855f71dd519b917e8df3ced1944f0b8c4764730fa77bb"
+  }
+}

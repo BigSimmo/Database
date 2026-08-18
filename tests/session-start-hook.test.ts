@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 /**
@@ -139,7 +139,15 @@ describe("session-start hook", () => {
 
     expect(result.status, `hook exited ${result.status}: ${result.stderr}`).toBe(0);
     const written = readFileSync(envFile, "utf8");
-    expect(written).toContain(join(home, ".node24", `node-v${NODE_VERSION}-linux-x64`, "bin"));
+    // Compare the path tail, not the absolute path. `home` comes from mkdtempSync(tmpdir()),
+    // which on Windows is `C:\Users\…\AppData\Local\Temp\session-start-home-XXXX`, while the
+    // hook runs under Git Bash and writes the POSIX view of the same directory — `/tmp/
+    // session-start-home-XXXX`. Asserting the joined Windows path therefore failed on every
+    // Windows run regardless of the diff under test, which made the whole file look red
+    // locally and trained readers to wave it through. The unique mkdtemp basename still
+    // pins this to *this* test's HOME, so the assertion loses no strength.
+    const expectedTail = [basename(home), ".node24", `node-v${NODE_VERSION}-linux-x64`, "bin"].join("/");
+    expect(written.replace(/\\/g, "/")).toContain(expectedTail);
     expect(written).toContain("export PATH=");
     // The manual-run advice belongs only to the manual-run branch.
     expect(result.stdout).not.toContain("CLAUDE_ENV_FILE is unset");
@@ -157,4 +165,72 @@ describe("session-start hook", () => {
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toBe("");
   });
+});
+
+/**
+ * Checked-in file mode for the hook scripts.
+ *
+ * `session-start.sh` shipped as `100644` while both its siblings were `100755`.
+ * That is invisible on this repo's primary workstation: it is a Windows ReFS Dev
+ * Drive with `core.fileMode=false`, so git ignores filesystem permission bits
+ * entirely and a local `chmod +x` is a no-op that cannot fix the index. Only
+ * `git update-index --chmod=+x` can, and nothing prompted anyone to run it.
+ *
+ * It matters because `.claude/settings.json` invokes that one hook by bare path
+ * rather than through `bash`, and the script's whole body is gated on
+ * `CLAUDE_CODE_REMOTE=true` — so the only environment it ever does work in is a
+ * Linux web container, which is exactly where a non-executable checkout cannot
+ * be run. The script provisions the Node 24 the repo's engine floor requires;
+ * its own header records four PRs (#1611, #1697, #1705, #1740) blocked by
+ * `npm ci` EBADENGINE before it existed.
+ *
+ * Two independent fixes now cover this, and this test pins the first: every hook
+ * is `100755` in the index, and none may regress to `100644`. (The second is
+ * that the settings.json registration invokes it via `bash`, which removes the
+ * dependency on the mode altogether — belt and braces, because a future hook
+ * added by an agent on this same Dev Drive will hit the identical blind spot.)
+ *
+ * Line endings are pinned alongside it for the same reason: `.gitattributes`
+ * sets `* text=auto eol=lf`, and a CR in a shell blob fails on Linux with the
+ * near-unreadable `/bin/bash^M: bad interpreter`. Measured clean at the time of
+ * writing (CR=0 across all five hook blobs); this keeps it that way.
+ */
+describe("claude hook scripts are checked in runnable", () => {
+  const listed = spawnSync("git", ["ls-files", "-s", ".claude/hooks"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+  });
+
+  const entries = (listed.stdout ?? "")
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0)
+    .map((line) => {
+      const [meta, path] = line.split("\t");
+      const [mode, object] = meta.split(/\s+/);
+      return { mode, object, path };
+    })
+    .filter((entry) => entry.path?.endsWith(".sh"));
+
+  it("finds the hook scripts", () => {
+    expect(listed.status).toBe(0);
+    expect(entries.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it.each(entries.map((entry) => [entry.path, entry.mode, entry.object]))(
+    "%s is mode 100755 with LF-only line endings",
+    (path, mode, object) => {
+      expect(mode, `${path} must be executable in the index; fix with: git update-index --chmod=+x ${path}`).toBe(
+        "100755",
+      );
+
+      const blob = spawnSync("git", ["cat-file", "blob", object as string], {
+        cwd: process.cwd(),
+        encoding: "buffer",
+        maxBuffer: 8 * 1024 * 1024,
+      });
+      expect(blob.status).toBe(0);
+      const carriageReturns = (blob.stdout as Buffer).filter((byte) => byte === 0x0d).length;
+      expect(carriageReturns, `${path} must be stored with LF-only line endings (.gitattributes eol=lf)`).toBe(0);
+    },
+  );
 });
