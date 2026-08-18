@@ -1,6 +1,6 @@
 import { BookOpen, GitCompareArrows, LibraryBig, List, Quote, Tags } from "lucide-react";
 
-import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { dictionaryEntries, dictionaryTopics } from "@/lib/dictionary-data";
 
@@ -63,12 +63,6 @@ export function DictionaryHomePage() {
           },
           { label: "Source governance", shortLabel: "Sources", href: "/dictionary/sources", tone: "info" },
         ]}
-        footer={
-          <ModeHomeVerificationFooter
-            label="Source-checked reference terminology"
-            body="Not patient-specific guidance"
-          />
-        }
       />
     </ModeHomeMain>
   );

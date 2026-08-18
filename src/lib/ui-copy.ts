@@ -121,10 +121,6 @@ export const sharedHomePresentation = {
   calculators: {
     title: "Clinical Calculators",
     subtitle: "Validated psychiatry scores with the indication, items, and next actions in one place.",
-    verification: {
-      label: "Source-cited scoring",
-      body: "Scores support clinical judgement and never replace a full assessment. Nothing entered here is stored.",
-    },
   },
   "therapy-compass": {
     title: "Therapy Compass",
@@ -137,18 +133,10 @@ export const sharedHomePresentation = {
   factsheets: {
     title: "Patient Factsheets",
     subtitle: "Plain-language patient handouts.",
-    verification: {
-      label: "Demonstration patient information",
-      body: "Connect only governance-approved content before publication",
-    },
   },
   dictionary: {
     title: "Clinical Dictionary",
     subtitle: "Source-governed psychiatric terms, abbreviations, and distinctions.",
-    verification: {
-      label: "Source-checked reference terminology",
-      body: "Not patient-specific guidance",
-    },
   },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 
