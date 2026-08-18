@@ -5,8 +5,7 @@ export const DATABASE_FAVOURITES_PINNED_STORAGE_KEY = "database:favourites:pinne
 
 const DEFAULT_PINNED_ITEM_IDS = ["acamprosate-renal-screen", "lithium-monitoring-guideline"];
 
-// Initial baseline timestamps: honest absence for unopened items.
-// Ledger task #339: do not fabricate timestamps for items that have never been opened.
+// Initial baseline offsets for items before user interactions (honest absence per #339)
 function getDefaultInitialTimestamps(): Record<string, number> {
   return {};
 }
@@ -18,6 +17,7 @@ const listeners = new Set<() => void>();
 export function resetFavouritesStorageForTesting(): void {
   inMemoryLastOpened = null;
   inMemoryPinned = null;
+  sharedStorageListenerAttached = false;
   listeners.clear();
 }
 
@@ -144,12 +144,24 @@ export function toggleFavouritePinnedId(itemId: string): Set<string> {
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export function formatLastOpened(timestampOrLabel: number | string | undefined): string {
-  if (timestampOrLabel === undefined || timestampOrLabel === null || timestampOrLabel === 0) {
+export function formatLastOpened(timestampOrLabel: number | string | undefined | null): string {
+  if (
+    timestampOrLabel === undefined ||
+    timestampOrLabel === null ||
+    timestampOrLabel === 0 ||
+    timestampOrLabel === ""
+  ) {
     return "Saved";
   }
   if (typeof timestampOrLabel === "string") {
-    return timestampOrLabel;
+    const trimmed = timestampOrLabel.trim();
+    return trimmed ? timestampOrLabel : "Saved";
+  }
+
+  if (typeof timestampOrLabel === "number") {
+    if (!Number.isFinite(timestampOrLabel) || timestampOrLabel <= 0) {
+      return "Saved";
+    }
   }
 
   const date = new Date(timestampOrLabel);
@@ -178,14 +190,20 @@ export function formatLastOpened(timestampOrLabel: number | string | undefined):
   return `${date.getDate()} ${monthNames[date.getMonth()]}`;
 }
 
-export function lastOpenedScore(lastUsed: string | number | undefined): number {
+export function lastOpenedScore(lastUsed: string | number | undefined | null): number {
+  if (lastUsed === undefined || lastUsed === null || lastUsed === 0 || lastUsed === "") {
+    return 0;
+  }
   if (typeof lastUsed === "number") {
-    if (Number.isNaN(lastUsed) || !Number.isFinite(lastUsed) || lastUsed <= 0) return 0;
+    if (!Number.isFinite(lastUsed) || lastUsed <= 0) return 0;
     return lastUsed;
   }
-  if (!lastUsed) return 0;
+  if (typeof lastUsed !== "string") {
+    return 0;
+  }
 
-  const lower = lastUsed.toLowerCase();
+  const lower = lastUsed.toLowerCase().trim();
+  if (!lower) return 0;
   if (lower.startsWith("today")) {
     const timeMatch = lastUsed.match(/(\d{1,2}):(\d{2})/);
     if (timeMatch) return 1_000_000_000_000 + Number(timeMatch[1]) * 60 + Number(timeMatch[2]);

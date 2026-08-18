@@ -215,21 +215,18 @@ the client publishable key (build-time, app bundle only) or
 
 ---
 
-## 4. Troubleshooting & Environment Notes
+## 4. Troubleshooting & environment notes
 
-### Web Container Strict Node 24 Engines (#334)
-
-When executing worker builds, validation scripts (`dist/worker/validate-runtime.mjs`), or maintenance commands inside cloud web containers (such as Claude Code web containers), the environment may default to Node 22 on `PATH` with no preinstalled `node_modules`.
-
-Because repository manifests strictly enforce Node 24 (`>=24.15.0 <25` and npm 11.x via `engine-strict`), running `npm ci` will immediately fail with `notsup / EBADENGINE`.
-
-- **Do NOT bypass engine checks:** Never drop `engine-strict`, relax the package engines field, or pass `--force`/`--legacy-peer-deps`.
-- **Resolution:** Ensure Node 24 is installed (e.g. provisioned to `/opt/node24`) and prepend it to `PATH` before invoking npm or repo scripts:
+- **Strict Node 24 web container engines (#334):** Package manifests enforce
+  strict Node 24 (`>=24.15.0 <25`) and npm 11 engines. If a web container
+  environment boots with Node 22 on `PATH`, `npm ci` fails `EBADENGINE` before
+  work starts. Do not drop engine-strict; export `/opt/node24/bin` at the front of
+  `PATH` to satisfy repository engine contracts before running `npm ci` or building
+  the worker:
 
   ```bash
   export PATH="/opt/node24/bin:$PATH"
-  node -v   # must report v24.x
-  npm ci --include=dev
+  node -v # must report v24.x
   ```
 
 ---

@@ -11,6 +11,7 @@ import {
   loadFavouritePinnedIds,
   recordFavouriteOpened,
   resetFavouritesStorageForTesting,
+  subscribeFavouritesStorage,
   toggleFavouritePinnedId,
 } from "@/components/favourites/favourites-storage";
 
@@ -20,7 +21,7 @@ describe("favourites storage, timestamps and pinning", () => {
     resetFavouritesStorageForTesting();
   });
 
-  it("un-opened items have no timestamps (honest absence), while opened items record real timestamps", () => {
+  it("enforces honest absence initially and records real timestamp when item is opened", () => {
     const initial = loadFavouriteLastOpened();
     expect(initial["acamprosate-renal-screen"]).toBeUndefined();
     expect(initial["lithium-monitoring-guideline"]).toBeUndefined();
@@ -55,6 +56,36 @@ describe("favourites storage, timestamps and pinning", () => {
     expect(storedRaw).not.toBeNull();
     const parsed = JSON.parse(storedRaw!);
     expect(parsed["test-item-1"]).toBe(customTime);
+  });
+
+  it("safely ignores array payloads in last-opened storage and falls back to honest absence", () => {
+    localStorage.setItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY, JSON.stringify(["invalid", "array"]));
+    const loaded = loadFavouriteLastOpened();
+    expect(loaded).toEqual({});
+  });
+
+  it("resets in-memory cache and listeners when resetFavouritesStorageForTesting is invoked", () => {
+    let listenerCalled = false;
+    const unsubscribe = subscribeFavouritesStorage(() => {
+      listenerCalled = true;
+    });
+
+    recordFavouriteOpened("item-before-reset", 12345);
+    expect(loadFavouriteLastOpened()["item-before-reset"]).toBe(12345);
+    expect(listenerCalled).toBe(true);
+
+    listenerCalled = false;
+    resetFavouritesStorageForTesting();
+
+    // After reset, inMemoryLastOpened is cleared; if localStorage is also cleared, it returns honest absence ({})
+    localStorage.clear();
+    expect(loadFavouriteLastOpened()).toEqual({});
+
+    // Also verify listeners were cleared by resetFavouritesStorageForTesting
+    recordFavouriteOpened("item-after-reset", 67890);
+    expect(listenerCalled).toBe(false);
+
+    unsubscribe();
   });
 
   it("loads default pinned IDs and allows toggling pinning state with localStorage persistence", () => {
@@ -114,5 +145,10 @@ describe("favourites storage, timestamps and pinning", () => {
     expect(Number.isNaN(lastOpenedScore(NaN))).toBe(false);
 
     expect(lastOpenedScore("Saved")).toBeGreaterThan(lastOpenedScore(undefined));
+
+    // SEC-M1: Corrupted or non-string/non-number inputs must safely return 0 without throwing TypeError
+    expect(lastOpenedScore({} as unknown as string)).toBe(0);
+    expect(lastOpenedScore(true as unknown as string)).toBe(0);
+    expect(lastOpenedScore(["invalid"] as unknown as string)).toBe(0);
   });
 });

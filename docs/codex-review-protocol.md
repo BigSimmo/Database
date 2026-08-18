@@ -13,27 +13,13 @@ Use this protocol for every Codex review, audit, bug hunt, PR review, release-re
 - Route automatic repair only for high-risk paths, at least 10 changed non-test source files, at least 300 changed non-test source lines, or an explicit `codex-review` label. `skip-codex-review` always opts out, including when both labels are present. Small low-risk, docs-only, test-only, and generated-only changes should not receive the automatic repair request.
 - Ready PRs must pass the trusted `PR policy` metadata check. It reads only the base-branch policy implementation, never executes PR code, and requires concrete verification plus risk/rollback evidence for high-risk changes.
 
-## Review Bot Quota Conservation (Inbox 9864a5d7)
+## Review Bot Quota Conservation (Inbox `9864a5d7`)
 
-High PR churn and unbounded automated review loops can rapidly exhaust organization review-bot spending caps (such as CodeRabbit and Codex connector usage quotas), causing subsequent PRs to land with zero automated review.
+PR churn and unthrottled reviews quickly exhaust review-bot spending caps and rate limits (e.g., CodeRabbit and Codex connector allowances; see Inbox `9864a5d7`). When quotas are exhausted, PRs land with zero automated review, increasing defect risk during churn spikes. To protect review-bot budget:
 
-To conserve review quotas and ensure automated reviews remain available for high-risk changes, follow these standing rules:
-
-1. **Strict SHA Throttling & Ledger Checking:**
-   - Always run `npm run ledger:lookup -- <branch-or-ref> --scope "<scope>"` before starting a review.
-   - If the verdict is `ALREADY REVIEWED`, skip the review pass entirely. Never rerun automated reviews against unchanged commit SHAs.
-   - Do not trigger bot reviews for purely administrative commits, documentation-only edits, ledger appends, or formatting/whitespace adjustments.
-
-2. **Single Pass per Pull Request Head:**
-   - Automated review bots must perform at most one review pass per PR head.
-   - Automated repair or resolution tasks must not trigger secondary review passes in an infinite loop. Subsequent passes require explicit human request.
-
-3. **PR Bundling & Scope Qualification:**
-   - Bundle related fixes into coherent PRs rather than opening rapid streams of single-commit / single-task PRs that multiply review triggers and CI queue congestion.
-   - Low-risk, test-only, generated-only, or doc-only PRs should explicitly include the `skip-codex-review` label or opt out of heavy bot sweeps.
-
-4. **Safety Invariant on Quota Exhaustion:**
-   - If bot review quotas are exhausted and a PR receives no bot feedback, **never weaken required local verification, PR policy checks, or security gates** to compensate. Rely on mandatory local verification (`npm run verify:pr-local`) and human review.
+- **Skip repeat passes on unchanged SHAs**: Never re-review a commit, branch, or PR head whose HEAD SHA and scope have already been reviewed. Automated routines, babysit sweeps, and CI jobs must check prior review records and skip repeat reviews when the tree has not changed.
+- **Resolve SHAs via `npm run ledger:lookup`**: Always verify review state using `npm run ledger:lookup -- <branch-or-ref> --scope "<scope>"`. It resolves the full 40-character commit SHA, matches against live rows, archives (`docs/archive/branch-review-ledger-*.md`), and immutable records (`docs/branch-review-records/*.record.md`), and prints an explicit `ALREADY REVIEWED` or `NOT REVIEWED at this HEAD` verdict. Never scan or eyeball ledger tables manually.
+- **Enforce a single review pass per PR head (#328)**: Automated review is strictly limited to one pass per PR HEAD. Intermediate repair commits, formatting adjustments, or routine base syncs do not authorize automatic re-reviews without explicit human approval. Prevent review row thrashing or rows outliving completion (#328) by immediately appending an immutable record with `npm run ledger:append` upon completing a review.
 
 ## Review Output
 
