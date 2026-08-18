@@ -63,23 +63,45 @@ keys above relevance, read this folder first. **Also:** do not add `review_due` 
 `unknownCurrentness` / governance-metadata ranking penalties or boosts — that shape is
 refuted (`refuted-approaches.md` § Refutation 3; ledger `#032`). The eval-canary pair protocol:
 
-1. Baseline: latest green canary on current main (or one dispatch).
-2. Change merges to main. (Post runs are post-merge only: the workflow accepts only the
-   `eval-canary` repository dispatch and always loads code from the default branch — no
-   `workflow_dispatch`, no `ref` input; both are asserted absent by
-   `tests/eval-canary-workflow.test.ts`.)
-3. Post: one dispatch; gates = recall 1.0/1.0, zero per-case rr regressions. Compare the
-   pair's `--json-out` artifacts — the command diffs per-case `rr@10`/`contentRR@10` and
-   exits non-zero on any per-case regression, a non-identical case set, or an unavailable
-   rank metric:
+`.github/workflows/eval-canary.yml` fires only on the `eval-canary` repository dispatch and the
+Sunday 18:00 UTC cron (`schedule: cron: "0 18 * * 0"`) — it has no `workflow_dispatch` and no
+`ref` input, both asserted absent by `tests/eval-canary-workflow.test.ts`. Every run, scheduled
+or dispatched, always loads code from the default branch, so a canary can only ever measure
+`main` — there is no way to canary an open branch or PR head directly.
+
+1. Baseline: the latest green canary on current `main` **before the merge** (a scheduled run or
+   a prior dispatch).
+2. Change merges to `main`.
+3. Post: one repository dispatch **after the merge** —
+   `gh api repos/BigSimmo/Database/dispatches -f event_type=eval-canary` — then compare the
+   pair's `--json-out` artifacts, both named `eval-canary-output`, one per run:
 
    ```bash
    npm run eval:retrieval:compare -- <baseline.json> <post.json> --fail-on-regression
    ```
 
+   The command diffs per-case `rr@10`/`contentRR@10` and exits non-zero on any per-case
+   regression, a non-identical case set, or an unavailable rank metric. Gates: document/content
+   recall 1.0/1.0, zero per-case reciprocal-rank regressions, and the answer-quality gate clean
+   — read the denominator from the run's own report rather than assuming a fixed case count; it
+   has moved as `rag-eval-cases.ts` grew.
+
 4. Regression → immediate single-commit revert + one confirmation dispatch.
 
 Provider-backed dispatches always need explicit user approval (~$1–2 each).
+
+**Reading a canary result:**
+
+- A red first post-run may be an unrelated non-golden case, not a diff regression — root-cause
+  with a live probe before blaming the diff. Precedent: the first post-S1b canary (run
+  `32038751592`) failed one answer-quality case; a re-run (`32039841070`) plus cache-bypassed
+  live probes showed the fast model's phrasing had taken a different, still-correct branch, not
+  a retrieval or code fault — retrieval stayed 36/36 identical across both runs.
+- A deterministic extractive-path flip is a real regression — bisect by probe and revert in a
+  single commit. Precedent: interim post run `32097916649` went red on
+  `agitation-im-po-route-short-terms`; live bisection isolated it to PR #2065 (S1c's
+  condition-first `for`/`in` binding regex), which was reverted by PR #2088, with confirmation
+  run `32100681177` restoring green.
 
 ## Rollback proof (2026-07-20)
 
