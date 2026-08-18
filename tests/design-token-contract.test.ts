@@ -470,3 +470,19 @@ describe("focus ring", () => {
     expect(body, "the shared focus rule must not paint a box-shadow").not.toContain("box-shadow");
   });
 });
+
+describe("responsive breakpoint tokens (Task #336)", () => {
+  it("declares standard named breakpoint tokens in :root, @theme, and ckb-v2", () => {
+    expect(light.get("--bp-phone")).toBe("640px");
+    expect(light.get("--bp-tablet")).toBe("768px");
+    expect(light.get("--bp-desktop")).toBe("1024px");
+
+    expect(v2Light.get("--bp-phone")).toBe("640px");
+    expect(v2Light.get("--bp-tablet")).toBe("768px");
+    expect(v2Light.get("--bp-desktop")).toBe("1024px");
+
+    expect(themeConfigBlock).toContain("--breakpoint-phone: 640px;");
+    expect(themeConfigBlock).toContain("--breakpoint-tablet: 768px;");
+    expect(themeConfigBlock).toContain("--breakpoint-desktop: 1024px;");
+  });
+});
