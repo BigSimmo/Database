@@ -21,9 +21,9 @@
 import type { AuditEvent } from "./audit";
 import type { Clock } from "./clock";
 import type { HospitalStatusEvent, PlanException, PlanIncident, WithdrawalOrigin } from "./hospital-events";
-import type { IdempotencyKey, PathwayVersionId, PatientId, PlanId, ReferralId } from "./ids";
-import type { Contact, Plan, PlanState, SendingPreference, TransitionResult } from "./model";
-import type { Actor } from "./permissions";
+import type { ContactId, IdempotencyKey, PathwayVersionId, PatientId, PlanId, ReferralId } from "./ids";
+import type { Contact, Plan, PlanState, ProviderStatus, SendingPreference, TransitionResult } from "./model";
+import type { CaringContactActor } from "./permissions";
 import type { Episode, EpisodeState } from "./episode";
 import type { PlannedContact } from "./schedule";
 
@@ -50,11 +50,15 @@ export type EpisodePatientDetail = Pick<
   "patientName" | "patientMobileNumber" | "patientIdentifiers" | "culturalIdentity"
 >;
 
-/** Every mutating call is attributed to an actor and keyed for replay. */
-export type WriteContext = { actor: Actor; idempotencyKey: IdempotencyKey };
+/**
+ * Every mutating call is attributed to an actor and keyed for replay. The actor may be a person or
+ * the dispatcher: a provider status has no human author, and an unattributable write is not one
+ * this layer accepts.
+ */
+export type WriteContext = { actor: CaringContactActor; idempotencyKey: IdempotencyKey };
 
 /** Every read is attributed to an actor, which is what scopes it to a team. */
-export type ReadContext = { actor: Actor };
+export type ReadContext = { actor: CaringContactActor };
 
 /**
  * Named refusals this layer adds on top of the domain reasons it passes through unchanged
@@ -71,6 +75,14 @@ export const REPOSITORY_REFUSALS = Object.freeze({
   duplicateActivePlan: "duplicate-active-plan",
   planAlreadyExists: "plan-already-exists",
   idempotencyKeyReused: "idempotency-key-reused-for-a-different-write",
+  /**
+   * A dispatch may only START while the plan is active. Deliberately checked at the start of a
+   * dispatch and nowhere else: once a contact is `processing` the send is committed, and a plan
+   * change arriving mid-flight must resolve that one contact rather than strand it in a state the
+   * contact lifecycle has no exit from. A death is not carried by this refusal at all -- it cancels
+   * every unsent contact outright, so the refusal there is `contact-terminal`.
+   */
+  contactDispatchRequiresActivePlan: "contact-dispatch-requires-active-plan",
 } as const);
 
 export type RepositoryRefusal = (typeof REPOSITORY_REFUSALS)[keyof typeof REPOSITORY_REFUSALS];
@@ -133,6 +145,14 @@ export type HospitalStatusOutcome = {
  */
 export type AuditSink = { record(event: AuditEvent): void | Promise<void> };
 
+/**
+ * A contact-status write. It states the contact version it expected for the same reason a plan
+ * write does: two dispatchers racing the same contact must not both believe they started it.
+ */
+export type ContactStatusInput = { planId: PlanId; contactId: ContactId; expectedContactVersion: number };
+
+export type ContactProviderStatusInput = ContactStatusInput & { status: ProviderStatus };
+
 export type RepositoryOptions = { auditSink?: AuditSink };
 
 export interface CaringContactRepository {
@@ -145,6 +165,20 @@ export interface CaringContactRepository {
     input: HospitalStatusInput,
     context: WriteContext,
   ): Promise<TransitionResult<HospitalStatusOutcome>>;
+
+  /**
+   * The dispatch path. Four separate writes rather than one, because each is a distinct fact with
+   * its own audit record: the send was begun, the message left, the provider said what happened,
+   * or the window closed without a send. Every one of them is a system-actor capability; no human
+   * role is granted any of them, so a delivery receipt cannot be written by hand.
+   */
+  startContactDispatch(input: ContactStatusInput, context: WriteContext): Promise<TransitionResult<StoredContact>>;
+  recordContactSent(input: ContactStatusInput, context: WriteContext): Promise<TransitionResult<StoredContact>>;
+  recordContactProviderStatus(
+    input: ContactProviderStatusInput,
+    context: WriteContext,
+  ): Promise<TransitionResult<StoredContact>>;
+  recordContactMissed(input: ContactStatusInput, context: WriteContext): Promise<TransitionResult<StoredContact>>;
 
   /** Null for a plan that does not exist AND for one belonging to another team. */
   getPlan(planId: PlanId, context: ReadContext): Promise<PlanRecord | null>;

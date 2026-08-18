@@ -5,18 +5,24 @@ import { actorId, teamId } from "@/lib/caring-contacts/ids";
 import {
   ALL_ACTIONS,
   ROLE_ACTIONS,
+  SYSTEM_ROLE_ACTIONS,
   UNGRANTED_ACTIONS,
+  actorRoleNames,
   canApproveOwnAuthoredVersion,
   canPerformCaringContactAction,
+  isSystemActor,
   type Actor,
   type CaringContactAction,
   type CaringContactRole,
+  type CaringContactSystemRole,
   type Resource,
+  type SystemActor,
 } from "@/lib/caring-contacts/permissions";
 
 const TEAM_A = teamId("TEAM-A");
 const TEAM_B = teamId("TEAM-B");
 const ROLES: readonly CaringContactRole[] = ["coordinator", "teamLead", "auditor"];
+const SYSTEM_ROLES: readonly CaringContactSystemRole[] = ["contactDispatcher"];
 
 const resourceIn = (team = TEAM_A): Resource => ({ teamId: team });
 
@@ -24,6 +30,12 @@ const actorWith = (roles: readonly CaringContactRole[], team = TEAM_A): Actor =>
   id: actorId("ACTOR-1"),
   teamId: team,
   roles,
+});
+
+const dispatcherIn = (team = TEAM_A): SystemActor => ({
+  id: actorId("SYSTEM-DISPATCHER"),
+  teamId: team,
+  systemRole: "contactDispatcher",
 });
 
 // ---------------------------------------------------------------------------
@@ -272,26 +284,115 @@ describe("rule 7: an actor with no roles is denied everything", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Rule 8 — the system actor writes contact status and nothing else
+// ---------------------------------------------------------------------------
+
+const CONTACT_STATUS_ACTIONS: readonly CaringContactAction[] = [
+  "startContactDispatch",
+  "recordContactSent",
+  "recordContactProviderStatus",
+  "recordContactMissed",
+];
+
+describe("rule 8: a system actor holds exactly the contact-status actions", () => {
+  it.each(CONTACT_STATUS_ACTIONS)("allows %s to the dispatcher", (action) => {
+    expect(canPerformCaringContactAction(dispatcherIn(), action, resourceIn())).toEqual({ allowed: true });
+  });
+
+  it("denies the dispatcher every action outside the contact-status set", () => {
+    const dispatcher = dispatcherIn();
+    for (const action of ALL_ACTIONS) {
+      if (CONTACT_STATUS_ACTIONS.includes(action)) continue;
+      expect(canPerformCaringContactAction(dispatcher, action, resourceIn())).toEqual({
+        allowed: false,
+        reason: "action-not-granted",
+      });
+    }
+  });
+
+  it("denies the dispatcher the three that matter most: activating, withdrawing, and approving", () => {
+    const dispatcher = dispatcherIn();
+    for (const action of ["activatePlan", "withdrawPlan", "approvePathwayVersion"] as const) {
+      expect(canPerformCaringContactAction(dispatcher, action, resourceIn())).toEqual({
+        allowed: false,
+        reason: "action-not-granted",
+      });
+    }
+  });
+
+  it("checks team scope for a system actor before anything else", () => {
+    expect(canPerformCaringContactAction(dispatcherIn(TEAM_A), "recordContactSent", resourceIn(TEAM_B))).toEqual({
+      allowed: false,
+      reason: "cross-team-denied",
+    });
+  });
+
+  it.each(ROLES)("denies every contact-status action to human role %s", (role) => {
+    const actor = actorWith([role]);
+    for (const action of CONTACT_STATUS_ACTIONS) {
+      expect(canPerformCaringContactAction(actor, action, resourceIn())).toEqual({
+        allowed: false,
+        reason: "action-not-granted",
+      });
+    }
+  });
+
+  it("ignores human roles smuggled onto a system actor", () => {
+    const smuggled = {
+      ...dispatcherIn(),
+      roles: ["teamLead"] as readonly CaringContactRole[],
+    } as unknown as SystemActor;
+
+    expect(isSystemActor(smuggled)).toBe(true);
+    expect(canPerformCaringContactAction(smuggled, "withdrawPlan", resourceIn())).toEqual({
+      allowed: false,
+      reason: "action-not-granted",
+    });
+    expect(canPerformCaringContactAction(smuggled, "recordContactSent", resourceIn())).toEqual({ allowed: true });
+  });
+
+  it("names the system role, not a human role, for the audit trail", () => {
+    expect(actorRoleNames(dispatcherIn())).toEqual(["contactDispatcher"]);
+    expect(actorRoleNames(actorWith(["coordinator"]))).toEqual(["coordinator"]);
+    expect(isSystemActor(actorWith(["coordinator"]))).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Table-driven completeness: no action can silently default to allowed
 // ---------------------------------------------------------------------------
 
 describe("every CaringContactAction is explicitly classified", () => {
-  it.each(ALL_ACTIONS)("%s is granted to at least one role, or explicitly listed as ungranted", (action) => {
+  it.each(ALL_ACTIONS)("%s is granted to a human role, a system role, or listed as ungranted", (action) => {
     const grantedToSomeRole = ROLES.some((role) => ROLE_ACTIONS[role].includes(action));
+    const grantedToSomeSystemRole = SYSTEM_ROLES.some((role) => SYSTEM_ROLE_ACTIONS[role].includes(action));
     const explicitlyUngranted = UNGRANTED_ACTIONS.includes(action);
-    expect(grantedToSomeRole || explicitlyUngranted).toBe(true);
+    expect(grantedToSomeRole || grantedToSomeSystemRole || explicitlyUngranted).toBe(true);
   });
 
   it("has no action that is both granted and marked ungranted", () => {
-    const grantedActions = new Set(ROLES.flatMap((role) => ROLE_ACTIONS[role]));
+    const grantedActions = new Set([
+      ...ROLES.flatMap((role) => ROLE_ACTIONS[role]),
+      ...SYSTEM_ROLES.flatMap((role) => SYSTEM_ROLE_ACTIONS[role]),
+    ]);
     for (const action of UNGRANTED_ACTIONS) {
       expect(grantedActions.has(action)).toBe(false);
+    }
+  });
+
+  it("keeps the human and system grant tables disjoint", () => {
+    const humanActions = new Set(ROLES.flatMap((role) => ROLE_ACTIONS[role]));
+    const systemActions = SYSTEM_ROLES.flatMap((role) => SYSTEM_ROLE_ACTIONS[role]);
+    expect(systemActions.length).toBeGreaterThan(0);
+    for (const action of systemActions) {
+      expect(humanActions.has(action)).toBe(false);
     }
   });
 
   it("covers every action in ALL_ACTIONS with no leftovers on either side", () => {
     const covered = new Set<CaringContactAction>([
       ...ROLES.flatMap((role) => ROLE_ACTIONS[role]),
+      ...SYSTEM_ROLES.flatMap((role) => SYSTEM_ROLE_ACTIONS[role]),
       ...UNGRANTED_ACTIONS,
     ]);
     expect([...covered].sort()).toEqual([...ALL_ACTIONS].sort());

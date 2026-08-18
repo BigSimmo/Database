@@ -22,12 +22,19 @@ import { applyHospitalStatusEvent, applyWithdrawalRequest, sendableContacts } fr
 import { contactId } from "./ids";
 import type { PlanId, TeamId } from "./ids";
 import { applyContactTransition, applyPlanTransition } from "./model";
-import type { Contact, ContactState, Plan, PlanState, TransitionResult } from "./model";
-import { canPerformCaringContactAction, type Actor, type CaringContactAction } from "./permissions";
+import type { Contact, ContactAction, ContactState, Plan, PlanState, TransitionResult } from "./model";
+import {
+  actorRoleNames,
+  canPerformCaringContactAction,
+  type CaringContactAction,
+  type CaringContactActor,
+} from "./permissions";
 import {
   REPOSITORY_REFUSALS,
   contactIdentifierFor,
   type CaringContactRepository,
+  type ContactProviderStatusInput,
+  type ContactStatusInput,
   type CreatePlanInput,
   type HospitalStatusInput,
   type HospitalStatusOutcome,
@@ -76,6 +83,8 @@ type WriteSpec<T> = {
   context: WriteContext;
   auditAction: string;
   objectId: string;
+  /** What the audit event says was acted on. Defaults to the plan. */
+  objectType?: string;
   stage: () => TransitionResult<StagedWrite<T>>;
 };
 
@@ -169,7 +178,7 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
     return result;
   }
 
-  function mayRead(actor: Actor, action: CaringContactAction, resourceTeamId: TeamId): boolean {
+  function mayRead(actor: CaringContactActor, action: CaringContactAction, resourceTeamId: TeamId): boolean {
     return canPerformCaringContactAction(actor, action, { teamId: resourceTeamId }).allowed;
   }
 
@@ -206,10 +215,10 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
       const event = buildAuditEvent(
         {
           actorId: actor.id,
-          actorRoles: actor.roles,
+          actorRoles: actorRoleNames(actor),
           teamId: actor.teamId,
           action: spec.auditAction,
-          objectType: "plan",
+          objectType: spec.objectType ?? "plan",
           objectId: spec.objectId,
           outcome,
           idempotencyKey,
@@ -232,7 +241,7 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
   /** Resolves an existing plan for a write: team scope first, then capability, then version. */
   function resolveForWrite(
     input: PlanLifecycleInput,
-    actor: Actor,
+    actor: CaringContactActor,
     action: CaringContactAction,
   ): TransitionResult<StoredPlan> {
     const stored = plans.get(input.planId);
@@ -258,6 +267,68 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
       completedAt: reachedTerminal ? clock.now() : stored.completedAt,
       outcome: outcomeFor(plan.state),
     };
+  }
+
+  /** Resolves one stored contact for a write: team scope, capability, then the contact's version. */
+  function resolveContactForWrite(
+    input: ContactStatusInput,
+    actor: CaringContactActor,
+    action: CaringContactAction,
+  ): TransitionResult<{ stored: StoredPlan; index: number }> {
+    const stored = plans.get(input.planId);
+    if (!stored || stored.plan.teamId !== actor.teamId) {
+      return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
+    }
+    if (!canPerformCaringContactAction(actor, action, { teamId: stored.plan.teamId }).allowed) {
+      return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+    }
+    const index = stored.contacts.findIndex((entry) => entry.contact.id === input.contactId);
+    if (index < 0) return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
+    if (stored.contacts[index].contact.version !== input.expectedContactVersion) {
+      return { ok: false, reason: REPOSITORY_REFUSALS.staleVersion };
+    }
+    return { ok: true, value: { stored, index } };
+  }
+
+  /**
+   * The one path every contact-status write takes. `requiresActivePlan` is true only for the write
+   * that BEGINS a dispatch: a plan change that lands while a contact is already `processing` must
+   * let that one contact finish, because the contact lifecycle has no exit from `processing` other
+   * than sending, and a contact stranded there would be neither sent nor accounted for.
+   */
+  function contactStatusWrite(
+    method: string,
+    permission: CaringContactAction,
+    input: ContactStatusInput,
+    action: ContactAction,
+    context: WriteContext,
+    requiresActivePlan: boolean,
+  ): Promise<TransitionResult<StoredContact>> {
+    return runWrite<StoredContact>({
+      method,
+      input,
+      context,
+      auditAction: method,
+      objectType: "contact",
+      objectId: input.contactId,
+      stage: () => {
+        const resolved = resolveContactForWrite(input, context.actor, permission);
+        if (!resolved.ok) return resolved;
+        const { stored, index } = resolved.value;
+
+        if (requiresActivePlan && stored.plan.state !== "active") {
+          return { ok: false, reason: REPOSITORY_REFUSALS.contactDispatchRequiresActivePlan };
+        }
+
+        const moved = applyContactTransition(stored.contacts[index].contact, action);
+        if (!moved.ok) return moved;
+
+        const contacts = [...stored.contacts];
+        contacts[index] = { contact: moved.value, planned: contacts[index].planned };
+        const nextPlan: StoredPlan = { ...stored, contacts };
+        return { ok: true, value: { value: cloneStoredContact(contacts[index]), nextPlan } };
+      },
+    });
   }
 
   function lifecycleWrite(
@@ -420,6 +491,45 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
           return { ok: true, value: { value, nextPlan } };
         },
       });
+    },
+
+    async startContactDispatch(input: ContactStatusInput, context: WriteContext) {
+      return contactStatusWrite(
+        "startContactDispatch",
+        "startContactDispatch",
+        input,
+        { type: "startProcessing" },
+        context,
+        true,
+      );
+    },
+
+    async recordContactSent(input: ContactStatusInput, context: WriteContext) {
+      return contactStatusWrite("recordContactSent", "recordContactSent", input, { type: "markSent" }, context, false);
+    },
+
+    async recordContactProviderStatus(input: ContactProviderStatusInput, context: WriteContext) {
+      return contactStatusWrite(
+        "recordContactProviderStatus",
+        "recordContactProviderStatus",
+        input,
+        { type: "providerStatus", status: input.status },
+        context,
+        false,
+      );
+    },
+
+    async recordContactMissed(input: ContactStatusInput, context: WriteContext) {
+      // Not gated on an active plan: a window that closed while the plan was paused still has to be
+      // recorded as missed, and recording it sends nothing.
+      return contactStatusWrite(
+        "recordContactMissed",
+        "recordContactMissed",
+        input,
+        { type: "markMissed" },
+        context,
+        false,
+      );
     },
 
     async getPlan(planId: PlanId, context: ReadContext) {

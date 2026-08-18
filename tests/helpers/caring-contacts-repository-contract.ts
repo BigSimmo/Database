@@ -20,7 +20,7 @@ import {
   referralId,
   teamId,
 } from "@/lib/caring-contacts/ids";
-import type { Actor, CaringContactRole } from "@/lib/caring-contacts/permissions";
+import type { Actor, CaringContactActor, CaringContactRole, SystemActor } from "@/lib/caring-contacts/permissions";
 import {
   REPOSITORY_REFUSALS,
   type AuditSink,
@@ -53,6 +53,13 @@ const AUDITOR_A = actorWith("ACTOR-3", "TEAM-NORTH", ["auditor"]);
 const COORDINATOR_B = actorWith("ACTOR-4", "TEAM-SOUTH", ["coordinator"]);
 const ROLELESS_A = actorWith("ACTOR-5", "TEAM-NORTH", []);
 
+/** The non-human actor that writes contact status. It holds no human capability at all. */
+const DISPATCHER_A: SystemActor = {
+  id: actorId("SYSTEM-DISPATCHER"),
+  teamId: teamId("TEAM-NORTH"),
+  systemRole: "contactDispatcher",
+};
+
 const PATIENT_DETAIL: EpisodePatientDetail = {
   patientName: "Jordan Nguyen",
   patientMobileNumber: "+61 491 570 156",
@@ -60,7 +67,7 @@ const PATIENT_DETAIL: EpisodePatientDetail = {
   culturalIdentity: null,
 };
 
-function writeContext(actor: Actor, key: string): WriteContext {
+function writeContext(actor: CaringContactActor, key: string): WriteContext {
   return { actor, idempotencyKey: idempotencyKey(key) };
 }
 
@@ -520,6 +527,124 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
 
         expect(refused).toEqual({ ok: false, reason: "third-party-withdrawal-refused" });
         expect((await store.getPlan(PLAN_ID, { actor: COORDINATOR_A }))?.plan.state).toBe("active");
+      });
+    });
+
+    describe("contact status is written by the dispatcher, and only by the dispatcher", () => {
+      /** The first sendable contact of an active plan, with the version a write must state. */
+      async function firstSendable(store: CaringContactRepository) {
+        const sendable = await store.listSendableContacts(PLAN_ID, { actor: COORDINATOR_A });
+        return sendable[0];
+      }
+
+      it("carries a contact through dispatch, so the episode's sent and delivered counts can move off zero", async () => {
+        const { store } = await storeWithActivePlan();
+        const target = await firstSendable(store);
+
+        const processing = unwrap(
+          await store.startContactDispatch(
+            { planId: PLAN_ID, contactId: target.contact.id, expectedContactVersion: target.contact.version },
+            writeContext(DISPATCHER_A, "key-dispatch"),
+          ),
+        );
+        expect(processing.contact.state).toBe("processing");
+
+        const sent = unwrap(
+          await store.recordContactSent(
+            { planId: PLAN_ID, contactId: target.contact.id, expectedContactVersion: processing.contact.version },
+            writeContext(DISPATCHER_A, "key-sent"),
+          ),
+        );
+        expect(sent.contact.state).toBe("sent");
+
+        const delivered = unwrap(
+          await store.recordContactProviderStatus(
+            {
+              planId: PLAN_ID,
+              contactId: target.contact.id,
+              expectedContactVersion: sent.contact.version,
+              status: "delivered",
+            },
+            writeContext(DISPATCHER_A, "key-status"),
+          ),
+        );
+        expect(delivered.contact.state).toBe("delivered");
+
+        const episode = await store.getEpisode(PLAN_ID, { actor: TEAM_LEAD_A });
+        expect(episode?.counts.contactsSent).toBe(1);
+        expect(episode?.counts.contactsDelivered).toBe(1);
+        // ...and the contact is out of the sendable list, so it cannot be dispatched twice.
+        expect(
+          (await store.listSendableContacts(PLAN_ID, { actor: COORDINATOR_A })).map((s) => s.contact.id),
+        ).not.toContain(target.contact.id);
+      });
+
+      it("refuses a human actor writing a delivery receipt by hand", async () => {
+        const { store } = await storeWithActivePlan();
+        const target = await firstSendable(store);
+
+        for (const actor of [COORDINATOR_A, TEAM_LEAD_A, AUDITOR_A]) {
+          const refused = await store.startContactDispatch(
+            { planId: PLAN_ID, contactId: target.contact.id, expectedContactVersion: target.contact.version },
+            writeContext(actor, `key-human-${actor.id}`),
+          );
+          expect(refused).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.permissionDenied });
+        }
+      });
+
+      it("refuses to begin a dispatch unless the plan is active", async () => {
+        const { store } = await storeWithActivePlan();
+        const target = await firstSendable(store);
+        await store.pausePlan({ planId: PLAN_ID, expectedVersion: 2 }, writeContext(COORDINATOR_A, "key-pause"));
+
+        const refused = await store.startContactDispatch(
+          { planId: PLAN_ID, contactId: target.contact.id, expectedContactVersion: target.contact.version },
+          writeContext(DISPATCHER_A, "key-dispatch"),
+        );
+        expect(refused).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.contactDispatchRequiresActivePlan });
+      });
+
+      it("refuses a contact-status write that states a stale contact version", async () => {
+        const { store } = await storeWithActivePlan();
+        const target = await firstSendable(store);
+        await store.startContactDispatch(
+          { planId: PLAN_ID, contactId: target.contact.id, expectedContactVersion: target.contact.version },
+          writeContext(DISPATCHER_A, "key-dispatch"),
+        );
+
+        const refused = await store.recordContactSent(
+          { planId: PLAN_ID, contactId: target.contact.id, expectedContactVersion: target.contact.version },
+          writeContext(DISPATCHER_A, "key-sent"),
+        );
+        expect(refused).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.staleVersion });
+      });
+
+      it("appends one audit event per contact-status write, naming the contact and the system role", async () => {
+        const { store } = await storeWithActivePlan();
+        const target = await firstSendable(store);
+        const before = (await auditTrail(store)).length;
+
+        await store.startContactDispatch(
+          { planId: PLAN_ID, contactId: target.contact.id, expectedContactVersion: target.contact.version },
+          writeContext(DISPATCHER_A, "key-dispatch"),
+        );
+
+        const trail = await auditTrail(store);
+        expect(trail).toHaveLength(before + 1);
+        const event = trail[trail.length - 1];
+        expect(event.action).toBe("startContactDispatch");
+        expect(event.objectType).toBe("contact");
+        expect(event.objectId).toBe(target.contact.id);
+        expect(event.actorRoles).toEqual(["contactDispatcher"]);
+        expect(event.outcome).toBe("allowed");
+      });
+
+      it("gives the dispatcher no read access at all", async () => {
+        const { store } = await storeWithActivePlan();
+        expect(await store.getPlan(PLAN_ID, { actor: DISPATCHER_A })).toBeNull();
+        expect(await store.listSendableContacts(PLAN_ID, { actor: DISPATCHER_A })).toEqual([]);
+        expect(await store.listAuditEvents({ actor: DISPATCHER_A })).toEqual([]);
+        expect(await store.getEpisode(PLAN_ID, { actor: DISPATCHER_A })).toBeNull();
       });
     });
 

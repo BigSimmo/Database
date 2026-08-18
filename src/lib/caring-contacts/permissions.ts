@@ -3,6 +3,18 @@ import type { ActorId, TeamId } from "./ids";
 
 export type CaringContactRole = "coordinator" | "teamLead" | "auditor";
 
+/**
+ * Roles held by software, not by a person. A system actor exists because a contact's provider
+ * status (sent, delivered, not delivered, number invalid) is written by the dispatcher and by
+ * nothing else: there is no human in that loop, and without a non-human actor those writes had no
+ * attributable author at all -- which is why `Episode.counts.contactsSent` could only ever be 0.
+ *
+ * It is deliberately a separate union from `CaringContactRole` rather than a fourth role: the two
+ * grant tables never overlap (pinned by a test), so a system actor can never acquire a human
+ * capability by having a role list extended, and a human can never fabricate a delivery receipt.
+ */
+export type CaringContactSystemRole = "contactDispatcher";
+
 export type CaringContactAction =
   | "viewReferral"
   | "acceptReferral"
@@ -19,9 +31,20 @@ export type CaringContactAction =
   | "viewAccessTrail"
   | "triggerServiceSafetyStop"
   | "approveServiceRestart"
-  | "generateClinicalRecordSummary";
+  | "generateClinicalRecordSummary"
+  | "startContactDispatch"
+  | "recordContactSent"
+  | "recordContactProviderStatus"
+  | "recordContactMissed";
 
 export type Actor = { id: ActorId; teamId: TeamId; roles: readonly CaringContactRole[] };
+
+/** Software acting on its own: one system role, never a list, and never a human role alongside it. */
+export type SystemActor = { id: ActorId; teamId: TeamId; systemRole: CaringContactSystemRole };
+
+/** Anything that can be attributed a caring-contact action. Every capability check takes this. */
+export type CaringContactActor = Actor | SystemActor;
+
 export type Resource = { teamId: TeamId };
 export type CapabilityDecision = { allowed: true } | { allowed: false; reason: string };
 
@@ -46,16 +69,21 @@ const ACTION_REGISTRY: Record<CaringContactAction, true> = {
   triggerServiceSafetyStop: true,
   approveServiceRestart: true,
   generateClinicalRecordSummary: true,
+  startContactDispatch: true,
+  recordContactSent: true,
+  recordContactProviderStatus: true,
+  recordContactMissed: true,
 };
 
 export const ALL_ACTIONS: readonly CaringContactAction[] = Object.freeze(
   Object.keys(ACTION_REGISTRY) as CaringContactAction[],
 );
 
-// Actions deliberately granted to no role. Kept as an explicit registry (rather than left
-// implicit) so that every action in CaringContactAction must be classified either here or
-// in ROLE_ACTIONS -- a new action that is added to the type but forgotten here fails the
-// table-driven completeness test instead of silently defaulting to allowed.
+// Actions deliberately granted to no role at all, human or system. Kept as an explicit
+// registry (rather than left implicit) so that every action in CaringContactAction must be
+// classified here, in ROLE_ACTIONS, or in SYSTEM_ROLE_ACTIONS -- a new action that is added
+// to the type but forgotten fails the table-driven completeness test instead of silently
+// defaulting to allowed.
 export const UNGRANTED_ACTIONS: readonly CaringContactAction[] = Object.freeze([]);
 
 const COORDINATOR_ACTIONS: readonly CaringContactAction[] = Object.freeze([
@@ -102,21 +130,56 @@ export const ROLE_ACTIONS: Readonly<Record<CaringContactRole, readonly CaringCon
   auditor: AUDITOR_ACTIONS,
 });
 
+// Exactly the four contact-status writes the dispatcher performs, and nothing else. It cannot
+// activate, pause, resume, withdraw, reassign, move a date, author or approve a pathway version,
+// read the access trail, stop the service, or generate a clinical record summary. Recording that a
+// message went out is the only authority software has in this domain.
+const CONTACT_DISPATCHER_ACTIONS: readonly CaringContactAction[] = Object.freeze([
+  "startContactDispatch",
+  "recordContactSent",
+  "recordContactProviderStatus",
+  "recordContactMissed",
+]);
+
+export const SYSTEM_ROLE_ACTIONS: Readonly<Record<CaringContactSystemRole, readonly CaringContactAction[]>> =
+  Object.freeze({
+    contactDispatcher: CONTACT_DISPATCHER_ACTIONS,
+  });
+
+/**
+ * True for a system actor. An object carrying `systemRole` is treated as system-only even if it
+ * also carries a `roles` array, so smuggling human roles onto a dispatcher grants nothing.
+ */
+export function isSystemActor(actor: CaringContactActor): actor is SystemActor {
+  return typeof (actor as Partial<SystemActor>).systemRole === "string";
+}
+
+/** The role names to attribute an action to, for the audit trail. Never patient data. */
+export function actorRoleNames(actor: CaringContactActor): readonly string[] {
+  return isSystemActor(actor) ? [actor.systemRole] : actor.roles;
+}
+
 /**
  * Deny-by-default capability check. Order matters:
  * 1. Team scope is checked first, so a cross-team actor learns only that the team is
  *    wrong -- never which actions exist for their role.
- * 2. An actor with no roles at all is refused with a distinct reason.
- * 3. Otherwise the action must be explicitly granted to at least one of the actor's
+ * 2. A system actor is answered from SYSTEM_ROLE_ACTIONS alone -- its human roles, if any
+ *    were smuggled onto the object, are never consulted.
+ * 3. An actor with no roles at all is refused with a distinct reason.
+ * 4. Otherwise the action must be explicitly granted to at least one of the actor's
  *    roles in the frozen ROLE_ACTIONS map, or it is denied.
  */
 export function canPerformCaringContactAction(
-  actor: Actor,
+  actor: CaringContactActor,
   action: CaringContactAction,
   resource: Resource,
 ): CapabilityDecision {
   if (resource.teamId !== actor.teamId) {
     return { allowed: false, reason: "cross-team-denied" };
+  }
+  if (isSystemActor(actor)) {
+    const granted = (SYSTEM_ROLE_ACTIONS[actor.systemRole] ?? []).includes(action);
+    return granted ? { allowed: true } : { allowed: false, reason: "action-not-granted" };
   }
   if (actor.roles.length === 0) {
     return { allowed: false, reason: "no-roles" };
