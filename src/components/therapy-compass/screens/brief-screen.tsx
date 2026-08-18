@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Check, Copy, ExternalLink, FileText, Search, TriangleAlert } from "lucide-react";
 
+import { cardSurface } from "@/components/card-recipes";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
@@ -119,7 +120,7 @@ export function BriefScreen() {
           >
             <div className="grid grid-cols-1 sm:grid-cols-[300px_minmax(0,_1fr)] gap-4 items-start">
               {/* records list */}
-              <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] p-4">
+              <div className={`${cardSurface} p-4`}>
                 <label className="relative flex items-center mb-3">
                   <Search
                     aria-hidden="true"
@@ -178,7 +179,7 @@ export function BriefScreen() {
                 className="flex flex-col gap-4 min-w-0"
                 provenance={`Source: ${t.name} Therapy record · ${durationLabel} intervention · Review status: ${t.reviewStatus === "reviewed" ? "reviewed" : "source review required"}`}
               >
-                <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] py-[22px] px-6">
+                <div className={`${cardSurface} py-[22px] px-6`}>
                   <div className="flex items-center justify-between gap-3 mb-[18px] flex-wrap">
                     <div className="flex items-center gap-3 flex-wrap">
                       <h2 className="m-0 text-lg font-semibold text-[color:var(--text-heading)]">{t.name}</h2>
@@ -217,7 +218,7 @@ export function BriefScreen() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-[1.6fr_1fr] gap-4 items-start">
-                  <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] py-5 px-[22px] min-w-0">
+                  <div className={`${cardSurface} py-5 px-[22px] min-w-0`}>
                     <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-4">
                       {durationLabel} delivery
                     </div>
@@ -277,7 +278,7 @@ export function BriefScreen() {
                     ) : null}
                   </div>
 
-                  <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] py-5 px-[22px]">
+                  <div className={`${cardSurface} py-5 px-[22px]`}>
                     <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-3.5">
                       Before use
                     </div>

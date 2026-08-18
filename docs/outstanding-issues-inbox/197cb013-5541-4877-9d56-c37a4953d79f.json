@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "197cb013-5541-4877-9d56-c37a4953d79f",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "One hand-drawn SVG checkmark survived the Therapy Compass lucide sweep",
+    "detail": "recommend-screen.tsx:75 still inlines a 7-line hand-drawn <svg> tick inside the QUICK CONSTRAINTS pills; commit 7ce820f2c converted the other 32 glyphs in therapy-compass/** to lucide-react and deleted icons.tsx. It is a one-line swap to lucide Check, which the same file already imports for its copy buttons. Left out of the B3 Button conversion deliberately to keep that diff purely mechanical. Stop rule: it is cosmetic only - the pill's pressed state is already carried by aria-pressed plus border and text tokens, so nothing is colour-only while this waits.",
+    "issueUlid": "01M0ADWJHYTAQKCNFSXW52CDSG"
+  }
+}

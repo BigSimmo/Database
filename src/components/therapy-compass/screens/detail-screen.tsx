@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { cardSurface } from "@/components/card-recipes";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { Button } from "@/components/ui/button";
 import { cn, SourceDesignationBadge, SourceStatusBadge } from "@/components/ui-primitives";
@@ -25,7 +26,7 @@ import { therapyScreenHref } from "@/lib/therapy-compass-navigation";
 import { therapySourceMetadata } from "@/lib/therapy-source-governance";
 
 import { useTcBindings } from "../bindings";
-import { card, controlPressed, favouritePressed, heroCard, therapyBtn } from "../controls";
+import { controlPressed, favouritePressed, heroCard, therapyBtn } from "../controls";
 import { complexityLabel, parseSteps, summarise } from "../data/select";
 import type { Therapy } from "../data/types";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
@@ -136,7 +137,7 @@ export function DetailScreen() {
               </div>
 
               {/* BODY */}
-              <div className={`${card} px-6 py-1.5`}>
+              <div className={`${cardSurface} px-6 py-1.5`}>
                 {t.mechanism ? <BodyRow icon={Target} title="How it works" body={t.mechanism} /> : null}
                 <BodyRow icon={User} title="When to use" body={t.indications || t.bestUsedFor} />
                 {steps.length ? (
@@ -188,7 +189,7 @@ export function DetailScreen() {
 
             {/* RIGHT RAIL */}
             <div className="max-sm:static max-sm:top-auto flex flex-col gap-4 sticky top-[calc(var(--shell-header-h)+1rem)]">
-              <div className={`${card} p-5`}>
+              <div className={`${cardSurface} p-5`}>
                 <div className="text-sm font-semibold text-[color:var(--text-heading)] mb-3.5">At a glance</div>
                 <div className="flex flex-col gap-[15px]">
                   <GlanceRow icon={Compass} title="Target symptoms" body={t.targetSymptoms || t.patientPopulation} />
@@ -206,7 +207,7 @@ export function DetailScreen() {
               </div>
 
               {b.relatedForSelected.length ? (
-                <div className={`${card} p-5`}>
+                <div className={`${cardSurface} p-5`}>
                   <div className="text-sm font-semibold text-[color:var(--text-heading)] mb-2">Related therapies</div>
                   <div className="flex flex-col">
                     {b.relatedForSelected.map((r, i, arr) => (

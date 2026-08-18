@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { cardSurface } from "@/components/card-recipes";
 import { pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -178,7 +179,7 @@ export function CompareScreen() {
       ) : (
         <>
           {/* decision summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-[1.1fr_1fr_1fr] bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] overflow-hidden mb-5">
+          <div className={`${cardSurface} grid grid-cols-1 sm:grid-cols-[1.1fr_1fr_1fr] overflow-hidden mb-5`}>
             <div className="py-5 px-[22px]">
               <div className="text-base-minus font-semibold text-[color:var(--text-heading)]">Decision summary</div>
             </div>

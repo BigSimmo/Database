@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { ChevronRight, Copy, FileText, ListChecks, Scale, TriangleAlert, Waypoints } from "lucide-react";
 
+import { cardSurface } from "@/components/card-recipes";
 import { pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
 
@@ -55,7 +56,7 @@ export function PathwaysScreen() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-[320px_minmax(0,_1fr)] gap-4 bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] overflow-hidden">
+      <div className={`${cardSurface} grid grid-cols-1 sm:grid-cols-[320px_minmax(0,_1fr)] gap-4 overflow-hidden`}>
         {/* pathway list */}
         <div className="therapy-pathway-list border-r border-[color:var(--border)] p-[18px]">
           <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-3.5">Pathways</div>

@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { cardSurface } from "@/components/card-recipes";
 import { Button } from "@/components/ui/button";
 import { cn, ignoreUnavailableActivation } from "@/components/ui-primitives";
 
@@ -62,10 +63,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
   const sheetShort = therapy.patientSheetAvailable ? "Sheet" : "No sheet";
 
   return (
-    <article
-      data-therapy-result-card
-      className="relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
-    >
+    <article data-therapy-result-card className={cn(cardSurface, "relative overflow-hidden")}>
       {/*
         Icon-only action. The accessible name is the `sr-only` label rather than an
         `aria-label`, because `Button` already renders its children into the one

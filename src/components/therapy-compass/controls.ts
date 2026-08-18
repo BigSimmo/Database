@@ -1,4 +1,4 @@
-import { focusRing } from "@/components/card-recipes";
+import { cardSurface, focusRing } from "@/components/card-recipes";
 import { cn } from "@/components/ui-primitives";
 
 /**
@@ -52,7 +52,22 @@ export const controlPressed =
  */
 export const favouritePressed = cn(controlPressed, "aria-pressed:[&_svg]:fill-current");
 
-export const card =
-  "rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]";
+/**
+ * Prominence edge for therapy's two hero cards — the record hero on
+ * `detail-screen` and the top-match panel on `recommend-screen`.
+ *
+ * Deliberately NOT `cardAccentEdge`. That recipe is the *category* edge: it
+ * replaced the factsheet cards' inline `borderTopColor` and answers "which
+ * family does this card belong to". This edge answers a different question —
+ * "this is the principal panel on the screen" — and a therapy screen has only
+ * one category to begin with, so the top edge would say nothing the page does
+ * not already say. The side is the only thing therapy keeps; the colour comes
+ * through the shared `--cat-accent`, which `:root` aliases to
+ * `--clinical-accent`, so this renders exactly as the private token did while
+ * remaining remappable per category, per theme and under forced colors.
+ *
+ * The two hero cards used to be two independent literals. They are one now.
+ */
+export const heroAccentEdge = "border-l-[3px] border-l-[color:var(--cat-accent)]";
 
-export const heroCard = cn(card, "border-l-[3px] border-l-[color:var(--clinical-accent)]");
+export const heroCard = cn(cardSurface, heroAccentEdge);

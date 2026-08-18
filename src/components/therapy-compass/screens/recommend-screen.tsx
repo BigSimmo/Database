@@ -3,11 +3,12 @@
 import type { ReactNode } from "react";
 import { ArrowRight, Check, Copy, Search, Shield, Sparkles } from "lucide-react";
 
+import { cardSurface } from "@/components/card-recipes";
 import { pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
 
 import { useTcBindings } from "../bindings";
-import { therapyBtn } from "../controls";
+import { heroCard, therapyBtn } from "../controls";
 import { RECOMMEND_CONSTRAINTS, summarise } from "../data/select";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
@@ -46,7 +47,7 @@ export function RecommendScreen() {
         Refine a clinical question with setting, time and caution constraints.
       </p>
 
-      <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] py-[22px] px-6 mb-[22px]">
+      <div className={`${cardSurface} py-[22px] px-6 mb-[22px]`}>
         <label htmlFor="tc-rec-q" className="block text-xs font-semibold text-[color:var(--text-heading)] mb-[9px]">
           What do you need help choosing?
         </label>
@@ -108,7 +109,7 @@ export function RecommendScreen() {
       ) : (
         <>
           {/* top match */}
-          <div className="bg-[color:var(--surface)] border border-[color:var(--border)] border-l-[3px] border-l-[color:var(--clinical-accent)] rounded-xl shadow-[var(--shadow-soft)] py-[22px] px-6 mb-[26px]">
+          <div className={`${heroCard} py-[22px] px-6 mb-[26px]`}>
             <div className="flex items-start gap-3.5 mb-[18px]">
               <span className="inline-flex items-center justify-center w-[40px] h-[40px] rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] flex-none">
                 <Sparkles aria-hidden="true" size={20} strokeWidth={1.7} />
