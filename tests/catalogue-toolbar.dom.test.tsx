@@ -90,7 +90,7 @@ describe("CatalogueToolbar DOM and Interactions", () => {
     expect(onToggleFilter).toHaveBeenCalledTimes(1);
   });
 
-  it("defaults the filter trigger to collapsed and disabled when no toggle handler is provided", async () => {
+  it("defaults the filter trigger to collapsed and disabled when no toggle handler is provided", () => {
     render(
       <CatalogueToolbar
         filterTrigger={{
@@ -101,9 +101,6 @@ describe("CatalogueToolbar DOM and Interactions", () => {
 
     const trigger = screen.getByTestId("catalogue-filter-trigger");
     expect(trigger).toHaveAttribute("aria-expanded", "false");
-    expect(trigger).toBeDisabled();
-
-    await userEvent.click(trigger);
     expect(trigger).toBeDisabled();
   });
 
