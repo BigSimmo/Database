@@ -59,7 +59,13 @@ export function resolveBboxOverlayStyle({
     normW = maxX - minX;
     normH = maxY - minY;
   } else {
-    if (!pageGeometry || pageGeometry.width <= 0 || pageGeometry.height <= 0) {
+    if (
+      !pageGeometry ||
+      !Number.isFinite(pageGeometry.width) ||
+      !Number.isFinite(pageGeometry.height) ||
+      pageGeometry.width <= 0 ||
+      pageGeometry.height <= 0
+    ) {
       return null;
     }
     normX = minX / pageGeometry.width;
