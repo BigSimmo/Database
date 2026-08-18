@@ -833,7 +833,8 @@ Phase 3, and none of it was touched here.
 
 _2026-08-18 (repo-side session; owner decisions D1 codify-as-live and D2 canary exemption in force;
 no production access; two read-only `SELECT`s against staging `ikoiolksxqxfxgiyqpnu` for the (c)
-triage only, authorised in-session, `list_projects` verified the ref first). This supersedes the
+triage, then — once the §2.5 re-measure merged — the authorised staging apply in 3.5; `list_projects`
+verified the ref first and the project id was passed literally on every call). This supersedes the
 playbook's Phase 3 prompt, which assumed repo-ahead canaries the §1.2 dossier ruled out. **No
 function body changed.** `#292` open-PR check before starting: no open PR touched `schema.sql`,
 `supabase/migrations/**`, `drift-manifest.json` or `scripts/check-drift.ts`._
@@ -971,17 +972,87 @@ finding fires but does not name the column; per-column expansion needed the raw 
   failures `tests/session-start-hook.test.ts` / `tests/worker-observability.test.ts` are the only
   expected red set on this host).
 
-### 3.5 Staging proof — BLOCKED (not run)
+### 3.5 Staging proof — RUN for the three migrations; a fourth authored from what it found
 
-The staging apply of `20260818110000`/`111000`/`112000` was gated on the Phase 2 re-measure
-(`main` ≥ 195 migrations, `20260818090000` applied to staging). At `main` `4551b6e4d` this file's §2
-carries **no "Re-measure" subsection** and no open PR adds one, so per instruction the staging step
-was **not** started: no `execute_sql` DDL, no `schema_migrations` row, no `check:drift` run against
-staging in this session. When unblocked, the method is Phase 2's: `execute_sql` running each file
-verbatim in one implicit transaction plus an explicit md5-matched history row carrying the repo
-version and name (never `apply_migration`), ref verified before every call; expected result: zero
-`match_*` function mismatches, zero never-created objects, zero table column-set mismatches, and
-exactly one named residual — `document_chunks_content_trgm_idx` (`c3db2960…` vs `8499c3d3…`, 3.3 d).
+_The gate opened when the Phase 2 re-measure (§2.5, PR #2104) merged onto `main` (`f19cf8f60`).
+Owner-authorised staging window (original Phase 3 authorisation), target `Clinical KB Staging`
+`ikoiolksxqxfxgiyqpnu` via the Supabase MCP connector; `list_projects` verified the ref and the
+project id was passed literally on every call; production `sjrfecxgysukkwxsowpy` was never a
+target. Pre-flight before the first write: `current_user postgres`, `total_rows 195`,
+`latest_version 20260818090000`, `no_statements 0`, `documents 0`, `document_chunks 0`, none of the
+three versions present._
+
+**Apply, by the §2.2 method** (each file's content verbatim through `execute_sql`, then an explicit
+`schema_migrations` row carrying the repository version and name in the same call; `apply_migration`
+not used). Faithfulness proof read back from staging — all three md5-identical to the repository files:
+
+```
+version 20260818110000 · name codify_live_rpc_work_mem                  · stmt_count 1 · bytes 3987 · md5 dd5c8c9ea07c17f76a5f219814f8f19d = repo
+version 20260818111000 · name codify_schema_only_indexes_and_triggers   · stmt_count 1 · bytes 3470 · md5 9d02d14e14d7ea07bf257e2dc99adaa6 = repo
+version 20260818112000 · name reconcile_chain_stale_table_columns       · stmt_count 1 · bytes 2631 · md5 ea5f9c6931f85b81613082b4b6fd6a6e = repo
+```
+
+**Drift comparison.** The local env has no staging service-role key, so instead of `check:drift`'s
+network path the comparison was reproduced offline with the same rules: staging returned, per
+object, `md5(<compared fields as jsonb>::text)` for exactly `check-drift.ts`'s `categoryKeys` /
+`comparedFields`, and the manifest side was rendered in PostgreSQL jsonb text form and hashed
+locally (harness in the session scratchpad; 590 of 594 objects hash-equal, which validates the
+renderer). Result against the regenerated manifest (`generated 2026-08-18T08:30:22Z from
+schema.sql 87ac9fc4849e…`; staging `snapshot_version 2`, `migration_history_probe ok`, 0 history
+rows):
+
+```
+Compared 6 extensions, 38 tables, 1 views, 93 functions, 210 indexes, 48 policies, 170 constraints, 26 triggers, 2 storage_buckets against staging.
+UNEXPECTED DRIFT (4):
+  ! [functions] mismatch public.match_document_embedding_fields_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)
+  ! [functions] mismatch public.match_document_index_units_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)
+  ! [functions] mismatch public.match_document_memory_cards_hybrid_v2(extensions.vector,text,integer,double precision,uuid[],uuid)
+  ! [indexes] mismatch document_chunks_content_trgm_idx
+```
+
+Against §2.5's 19: the 8 never-created objects are **gone**, the 3 table column-set mismatches are
+**gone**, and 4 of the 7 `work_mem` function mismatches are **gone** (`chunks_hybrid`,
+`chunks_text`, `lookup_chunks_text`, `memory_cards_hybrid` now hash-equal). The trgm index is the
+one residual 3.3 (d) predicted. **Three functions still mismatch, and that is a finding, not
+`work_mem`:** their ACLs and `proconfig` (values and order) now equal the manifest exactly, and
+`memory_cards_hybrid_v2`'s staging hash `5e792e26…` is unchanged from §2.5 even though its
+`work_mem` was already 64MB — so the difference is in the body. `pg_get_functiondef` on staging
+shows the decisive hunk for all three:
+
+```diff
+-      and public.retrieval_owner_matches(owner_filter, d.owner_id)      -- schema.sql = production
++      and (owner_filter is null or d.owner_id = owner_filter)           -- staging (chain-built)
+```
+
+Provenance: `20260712000000_forward_codify_retrieval_owner_matches.sql` recorded that all eight
+primary retrieval RPCs on live already gate ownership through the fail-closed, sentinel-aware
+`retrieval_owner_matches`, and left the byte-perfect body codification to an owner step; later
+migrations (`20260712171500`, `20260714110000`, `20260724120000`) codified five, but
+`match_document_embedding_fields_hybrid`, `match_document_index_units_hybrid` and
+`match_document_memory_cards_hybrid_v2` were never re-created from live — their newest committed
+body is still `20260701140631` with the legacy predicate. §2.3/§2.5 could not see this because the
+`work_mem` diff sat on top of it. **Classification: chain-stale body (production and `schema.sql`
+agree — 3.1 proved manifest hash = live hash for all three); not a production tenancy hole; a
+reproducibility hole for any migrations-only environment.** Per the plan's live-ahead remedy,
+`20260818113000_forward_codify_hybrid_owner_matches_bodies.sql` re-creates the three from
+`schema.sql` verbatim (every `SET` clause restated so proconfig is preserved; ACLs untouched by
+`CREATE OR REPLACE`; identical text on production ⇒ no-op). Its staging apply was **not** executed
+in this session — the tool-permission classifier declined the hosted `CREATE OR REPLACE` of protected
+retrieval RPCs, and per the escalation rule it stops there rather than working around it. Expected
+result once applied: those three hashes equal the manifest (`bb975485…`, `d0e277a2…`, `ab87a18b…`),
+leaving `document_chunks_content_trgm_idx` as the single residual.
+
+Staging after this window: 198 rows in `schema_migrations`, `no_statements 0`, `documents` /
+`document_chunks` still `0`, no vault secret seeded.
+
+**Deviation to record (found after PR #2106 merged).** Before the squash-merge, `20260818111000`
+and `20260818112000` gained a `set local lock_timeout = '5s'; set local statement_timeout = '30s';`
+preamble on the PR branch, so the text now on `main` (`22585b9e…`, `ec154770…`) differs from the
+text staging recorded and executed (`9d02d14e…`, `ea5f9c69…`; `20260818110000` is unchanged,
+`dd5c8c9e…`). The executed DDL is identical — the preamble is transaction-local timeouts only — so
+staging's object state equals what `main` produces; but the md5-faithfulness proof above no longer
+holds for those two history rows. Either refresh the two rows' `statements` to the merged text in
+the next staging window, or accept the note; nothing on production is affected.
 
 ### 3.6 Production window (NOT authorised in this task — for the coordinator)
 
@@ -991,14 +1062,16 @@ statements) — **not** `supabase migration repair --status applied` or any othe
 path. None of the three Phase 3 migrations ships a validation guard, so per AGENTS.md "Supabase
 project safety" none of them is eligible for history repair; only real execution is authorised here.
 
-| Migration                                                | Effect on production                                       |
-| -------------------------------------------------------- | ---------------------------------------------------------- |
-| `20260818090000_schema_drift_snapshot_history_probe`     | **real change** — `schema_drift_snapshot()` v2 (Phase 6.1) |
-| `20260818110000_codify_live_rpc_work_mem`                | no-op — the ten `work_mem` values already match (3.1)      |
-| `20260818111000_codify_schema_only_indexes_and_triggers` | no-op — all eight objects already exist (3.2)              |
-| `20260818112000_reconcile_chain_stale_table_columns`     | no-op — column and both defaults already as declared (3.3) |
+| Migration                                                   | Effect on production                                          |
+| ----------------------------------------------------------- | ------------------------------------------------------------- |
+| `20260818090000_schema_drift_snapshot_history_probe`        | **real change** — `schema_drift_snapshot()` v2 (Phase 6.1)    |
+| `20260818110000_codify_live_rpc_work_mem`                   | no-op — the ten `work_mem` values already match (3.1)         |
+| `20260818111000_codify_schema_only_indexes_and_triggers`    | no-op — all eight objects already exist (3.2)                 |
+| `20260818112000_reconcile_chain_stale_table_columns`        | no-op — column and both defaults already as declared (3.3)    |
+| `20260818113000_forward_codify_hybrid_owner_matches_bodies` | no-op — identical to the live bodies (3.5; hash proof in 3.1) |
 
-One window covers all four via `db push`; none needs a canary (D2) and none builds an index.
+One window covers all five via `db push`; none needs a canary (D2), none builds an index, none
+changes a body that production does not already run.
 
 ## Phase 4 — Index restoration
 
