@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "25e8c062-8fa0-46be-844a-03245fc9857b",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "pr-policy classifies the switch controlling whether unreviewed clinical content reaches production as clinicalRisk false, so no governance preflight is enforced",
+    "detail": "Found 2026-08-18 on PRs #2145 and #2150, both of which removed the Therapy production gate. classifyPullRequestFiles in scripts/pr-policy.mjs returned clinicalRisk false for a diff touching src/lib/app-modes.ts and src/lib/therapies.ts - the exact two modules deciding whether 205 clinically-unreviewed therapy records are reachable by users in production. Its clinicalRiskPatterns match src/lib/ only when the filename contains auth, permission, privacy, security, rag, retriev, rank, search, answer, clinical, citation, source, document, upload or download; app-modes and therapies match none. The data patterns (src/data, data, public/therapy-compass-data) match the records themselves but not the code gating their reachability. Both PRs completed a governance preflight voluntarily, which is exactly the fragility: the next such change may not. Consider matching on reachability/exposure surfaces, or treating any diff that changes an app-mode devOnly flag or a review-status filter as clinical-risk. Stop rule: do not widen the patterns so far that ordinary UI work trips the preflight - the classifier comment already warns that presentation files are not clinical-risk merely for living under a clinically-named directory, and that judgement is correct.",
+    "issueUlid": "01M0B6JK3WP5542X784CMAJ002"
+  }
+}

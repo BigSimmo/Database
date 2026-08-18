@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "77c314b4-f2d8-4682-a08e-0f34de180f5e",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "CI change-scope reports UI_CHANGED false for changes that alter which modes render, so Production UI is skipped on user-facing work",
+    "detail": "Found 2026-08-18 on PR #2145. The CI run recorded UI_CHANGED false, UI_RESULT skipped and UI_FAST_RESULT skipped for a diff that removed devOnly from the therapy-compass mode and switched off the production record filter - a change that alters which modes appear in the shell for every user. Production UI therefore never ran. The uiPatterns in scripts/pr-policy.mjs and the equivalent scope detection in scripts/ci-change-scope.mjs match src/app/ (non-api), src/components/, src/styles/, public/, tests/ui-*.spec.ts and playwright config; the diff touched only src/lib/app-modes.ts, src/lib/therapies.ts and unit tests, so nothing matched. PR #2150 supersedes that change and adds a visible component, and would still not trip the classifier for its src/lib half. Browser coverage for both was supplied only by a local verify:ui run (447 passed), which no policy required. Consider treating src/lib/app-modes.ts as UI scope, since it is the mode registry the shell renders from, and auditing which other src/lib modules feed rendering. Stop rule: do not make all of src/lib UI scope - that would run a 20-minute Chromium gate on every library change and reintroduce the cancellation waste documented in docs/testing.md.",
+    "issueUlid": "01M0B6K3Y20HFDWD4T5SVZGC1P"
+  }
+}
