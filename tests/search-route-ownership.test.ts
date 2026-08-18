@@ -9,7 +9,6 @@ import { consolidatedModeHomeModeIds } from "@/lib/consolidated-mode-home-redire
 import {
   isAlwaysStandaloneShellPath,
   isDashboardModeHref,
-  isDashboardOwnedModeHomePath,
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
@@ -59,7 +58,7 @@ describe("shared-search route ownership", () => {
   });
 
   it("classifies standalone mode homes from pathname alone", () => {
-    for (const pathname of ["/favourites", "/tools", "/documents", "/medications"]) {
+    for (const pathname of ["/favourites", "/tools", "/medications"]) {
       expect(isStandaloneModeHomePath(pathname)).toBe(true);
     }
     expect(isStandaloneModeHomePath("/")).toBe(false);
@@ -78,10 +77,14 @@ describe("shared-search route ownership", () => {
    */
   it("does not claim composer ownership for consolidated mode homes", () => {
     for (const modeId of consolidatedModeHomeModeIds) {
-      const pathname = `/${modeId}`;
-      expect(isStandaloneModeHomePath(pathname)).toBe(false);
-      // The namespace still needs the standalone shell for its own sub-routes.
-      expect(isAlwaysStandaloneShellPath(pathname)).toBe(true);
+      expect(isStandaloneModeHomePath(`/${modeId}`)).toBe(false);
+    }
+    // Nine of the ten namespaces still need the standalone shell for their own
+    // sub-routes. Documents is the exception in both directions: its sub-routes
+    // (`/documents/search`, the viewer) are dashboard-rendered, which is exactly
+    // why it was never in `alwaysStandaloneShellPathPrefixes` to begin with.
+    for (const modeId of consolidatedModeHomeModeIds) {
+      expect(isAlwaysStandaloneShellPath(`/${modeId}`)).toBe(modeId !== "documents");
     }
   });
 
@@ -306,22 +309,21 @@ describe("shared-search route ownership", () => {
     );
   });
 
-  it("keeps unsubmitted dashboard-owned mode homes from auto-running composer drafts", () => {
+  it("keeps the unsubmitted shared home from auto-running composer drafts", () => {
     const shellSource = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
       "utf8",
     );
-    // `/documents` mounts ClinicalDashboard with nothing submitted. autoRunSearch
-    // must stay gated on run=1 there — otherwise every keystroke fires search.
-    expect(shellSource).toMatch(
-      /autoRunSearch=\{\s*pathname === "\/" \|\| isDashboardOwnedModeHomePath\(pathname\) \? hasSubmittedModeSearch : true\s*\}/,
-    );
-    expect(isDashboardOwnedModeHomePath("/documents")).toBe(true);
-    expect(isDashboardOwnedModeHomePath("/medications")).toBe(false);
-    expect(isDashboardOwnedModeHomePath("/")).toBe(false);
+    // `/` mounts ClinicalDashboard with nothing submitted. autoRunSearch must stay
+    // gated on run=1 there — otherwise every keystroke fires a search.
+    expect(shellSource).toMatch(/autoRunSearch=\{\s*pathname === "\/" \? hasSubmittedModeSearch : true\s*\}/);
+    // `/documents` was the one other path that needed this gate. It redirects to
+    // the shared home now, so the dashboard never renders an unsubmitted mode home
+    // anywhere but `/` — which is why the separate path set could go.
     expect(
       shouldRenderClinicalDashboard({ hasSubmittedSearch: false, mode: "documents", pathname: "/documents" }),
-    ).toBe(true);
+    ).toBe(false);
+    expect(shouldRenderClinicalDashboard({ hasSubmittedSearch: false, mode: "documents", pathname: "/" })).toBe(true);
     // `/medications` is always-standalone; the dashboard gate never sees it.
     expect(isAlwaysStandaloneShellPath("/medications")).toBe(true);
   });

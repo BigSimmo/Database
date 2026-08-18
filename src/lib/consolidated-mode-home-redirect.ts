@@ -23,6 +23,12 @@ const consolidatedModeHomePaths = {
   "/formulation": "formulation",
   "/differentials": "differentials",
   "/therapy-compass": "therapy-compass",
+  // Documents renders nothing of its own — its page component was an empty
+  // fragment and ClinicalDashboard supplied the body — so the bare path showed a
+  // query-less "Document matches / Loading document results" shell where the
+  // shared home shows the mode's actual hero. Its sub-routes (`/documents/search`,
+  // `/documents/[id]`, `/documents/source/*`) are real surfaces and stay.
+  "/documents": "documents",
 } as const satisfies Record<string, AppModeId>;
 
 type ConsolidatedModeHomePath = keyof typeof consolidatedModeHomePaths;

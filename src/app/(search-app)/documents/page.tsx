@@ -1,21 +1,20 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { DocumentsHomeClient } from "./documents-home-client";
-
-export const metadata: Metadata = {
-  title: "Documents - Clinical KB",
-  description: "Browse indexed clinical sources, recent documents, and source PDFs.",
-};
+import { appModeSelectionHref } from "@/lib/app-modes";
 
 /**
- * The Documents mode home.
+ * `Documents` has no home page of its own any more.
  *
- * `/` is the single shared home for every mode — the mode pill retargets the
- * composer rather than navigating — so Documents needs a home of its own, the same
- * way /dsm, /services and /tools do. The body comes from ClinicalDashboard, which
- * the shared shell mounts for this pathname (see `shouldRenderClinicalDashboard`);
- * this route is the content slot, mirroring the root `home-page-client.tsx`.
+ * Every mode shares one lightweight home at `/?mode=<id>`, whose per-mode copy
+ * lives in `sharedHomePresentation` (src/lib/ui-copy.ts). This path stays so
+ * bookmarks and external deep links keep resolving, and forwards to that shared
+ * home. Submitted searches render at `/documents/search`; the proxy carries the
+ * query across, so a deep link never lands here without one.
+ *
+ * Nothing is preserved under `/mockups` for this one, unlike the other
+ * consolidated modes: this route's component was an empty fragment and the body
+ * came from ClinicalDashboard, so there was no detailed page to keep.
  */
 export default function DocumentsHomeRoute() {
-  return <DocumentsHomeClient />;
+  redirect(appModeSelectionHref("documents"));
 }

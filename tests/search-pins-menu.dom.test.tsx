@@ -70,7 +70,7 @@ describe("SearchPinsMenu", () => {
     renderMenu({ onModeSelect });
 
     await user.click(screen.getByRole("button", { name: "Open Ward essentials pin, 3 destinations" }));
-    expect(screen.getByRole("link", { name: "Documents" })).toHaveAttribute("href", "/documents");
+    expect(screen.getByRole("link", { name: "Documents" })).toHaveAttribute("href", "/?mode=documents");
     expect(screen.getByRole("link", { name: "Medications" })).toHaveAttribute("href", "/medications");
     expect(onModeSelect).not.toHaveBeenCalled();
   });
