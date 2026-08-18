@@ -10,16 +10,21 @@ describe("Therapy PR unblocking contracts", () => {
     expect(source).toContain('import("@/lib/therapies")');
   });
 
-  it("keeps the production content gate while allowing isolated offline UI verification", () => {
+  // The Therapy production content gate is gone (see tests/app-modes.test.ts and
+  // tests/therapy-review-regressions.test.ts). Its PLAYWRIGHT_OFFLINE_MODE bypass
+  // existed only to let offline UI verification reach the gated route, so it must
+  // go with it: a bypass left behind an absent gate is how a half-restored gate
+  // ends up passing locally and 404ing in production.
+  it("retires the offline bypass along with the Therapy production content gate", () => {
     const layoutSource = read("src/app/(search-app)/therapy-compass/layout.tsx");
     const therapiesSource = read("src/lib/therapies.ts");
 
-    expect(layoutSource).toContain('process.env.PLAYWRIGHT_OFFLINE_MODE === "true"');
-    expect(layoutSource).toContain("!offlineReviewBuild");
-    expect(layoutSource).toContain("notFound()");
+    expect(layoutSource).not.toContain("PLAYWRIGHT_OFFLINE_MODE");
+    expect(layoutSource).not.toContain("offlineReviewBuild");
+    expect(layoutSource).not.toContain("notFound()");
     expect(layoutSource).not.toContain("NEXT_PUBLIC_DEMO_MODE");
-    expect(therapiesSource).toContain('process.env.PLAYWRIGHT_OFFLINE_MODE === "true" ? "development"');
-    expect(therapiesSource).toContain('environment === "production"');
+    expect(therapiesSource).not.toContain("PLAYWRIGHT_OFFLINE_MODE");
+    expect(therapiesSource).not.toContain('environment === "production"');
   });
 
   it("canonicalises hidden shared-home modes instead of retaining impossible URL state", () => {

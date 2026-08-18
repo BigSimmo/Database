@@ -64,34 +64,36 @@ Smaller top-level directories that are easy to miss:
 - **Home:** `src/app/(search-app)/page.tsx` — dashboard rendered by shell
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
 - **Modes (15):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, calculators, Therapy, Factsheets, Dictionary
+  - **Therapy review disclosure.** Therapy was `devOnly` while its 205-record catalogue awaited qualified-clinician sign-off. That hid the mode from production navigation, 404'd `/therapy-compass` in the route layout, and made `therapyRecordsForEnvironment` filter every record out — so all 205 detail/brief/sheet routes and every universal-search therapy hit 404'd for real users while working locally. The owner's decision (2026-08-19) replaced the gate with disclosure: reachability is no longer conditioned on review status anywhere, and the caveat is stated instead — catalogue-wide by `TherapyReviewNotice` above the Therapy home hero (counts from the generated `THERAPY_CATALOGUE_SUMMARY.needsReviewCount`, kept in step by the index generator's check mode), and per record by the `reviewStatus` badge on every card, detail page, brief, sheet, comparison, pathway, and universal-search result. `therapyNeedsReview` survives as the label source only. Pinned by `tests/app-modes.test.ts` (reachability), `tests/therapy-review-regressions.test.ts` (the notice and the per-record badges), and `tests/therapy-pr-unblocking-contract.test.ts` (the retired `PLAYWRIGHT_OFFLINE_MODE` bypass that existed only to reach the gated route).
 
 ### Product pages (`src/app/`)
 
-| Route                                                                                                     | File                                                                                      |
-| --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `/`                                                                                                       | `src/app/(search-app)/page.tsx`                                                           |
-| Shared mode-home route group (`/(search-app)`)                                                            | `src/app/(search-app)/`                                                                   |
-| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                       | `src/app/(search-app)/` shared shell group                                                |
-| `/applications`                                                                                           | `src/app/applications/route.ts`                                                           |
-| `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                              | `src/app/(search-app)/differentials/`                                                     |
-| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                            | `src/app/(search-app)/dsm/`                                                               |
-| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                      | `src/app/(search-app)/documents/`                                                         |
-| `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                 | `src/app/(search-app)/factsheets/`                                                        |
-| `/dictionary`, Search, Browse, Topics, Definition, Compare, Sources                                       | `src/app/(search-app)/dictionary/`                                                        |
-| `/favourites`                                                                                             | `src/app/(search-app)/favourites/page.tsx`                                                |
-| `/forms`, `/forms/[slug]`                                                                                 | `src/app/(search-app)/forms/`                                                             |
-| `/medications`, `/medications/[slug]`                                                                     | `src/app/(search-app)/medications/`                                                       |
-| `/privacy`                                                                                                | `src/app/privacy/page.tsx` → `privacy-quiet-signal-page.tsx` + `privacy-page-content.tsx` |
-| `/reference/colour-coding`                                                                                | `src/app/reference/`                                                                      |
-| `/safety-plan`                                                                                            | `src/app/safety-plan/page.tsx`                                                            |
-| `/calculators`                                                                                            | `src/app/(search-app)/calculators/page.tsx`                                               |
-| `/services`, `/services/[slug]`                                                                           | `src/app/(search-app)/services/`                                                          |
-| `/therapy-compass`                                                                                        | `src/app/(search-app)/therapy-compass/`                                                   |
-| `/tools`                                                                                                  | `src/app/(search-app)/tools/`                                                             |
-| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`      | `src/app/(search-app)/specifiers/`                                                        |
-| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map` | `src/app/(search-app)/formulation/`                                                       |
-| `/mockups/*`                                                                                              | `src/app/mockups/` (404 in production)                                                    |
-| `/auth/callback`                                                                                          | `src/app/auth/callback/route.ts`                                                          |
+| Route                                                                                                                                                      | File                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `/`                                                                                                                                                        | `src/app/(search-app)/page.tsx`                                                           |
+| Shared mode-home route group (`/(search-app)`)                                                                                                             | `src/app/(search-app)/`                                                                   |
+| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                                                                        | `src/app/(search-app)/` shared shell group                                                |
+| `/applications`                                                                                                                                            | `src/app/applications/route.ts`                                                           |
+| `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                                                               | `src/app/(search-app)/differentials/`                                                     |
+| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                             | `src/app/(search-app)/dsm/`                                                               |
+| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                                                                       | `src/app/(search-app)/documents/`                                                         |
+| `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                                                                  | `src/app/(search-app)/factsheets/`                                                        |
+| `/dictionary`, Search, Browse, Topics, Definition, Compare, Sources                                                                                        | `src/app/(search-app)/dictionary/`                                                        |
+| `/favourites`                                                                                                                                              | `src/app/(search-app)/favourites/page.tsx`                                                |
+| `/forms`, `/forms/[slug]`                                                                                                                                  | `src/app/(search-app)/forms/`                                                             |
+| `/medications`, `/medications/[slug]`                                                                                                                      | `src/app/(search-app)/medications/`                                                       |
+| `/privacy`                                                                                                                                                 | `src/app/privacy/page.tsx` → `privacy-quiet-signal-page.tsx` + `privacy-page-content.tsx` |
+| `/reference/colour-coding`                                                                                                                                 | `src/app/reference/`                                                                      |
+| `/safety-plan`                                                                                                                                             | `src/app/safety-plan/page.tsx`                                                            |
+| `/calculators`                                                                                                                                             | `src/app/(search-app)/calculators/page.tsx`                                               |
+| `/services`, `/services/[slug]`                                                                                                                            | `src/app/(search-app)/services/`                                                          |
+| `/therapy-compass`                                                                                                                                         | `src/app/(search-app)/therapy-compass/`                                                   |
+| `/tools`                                                                                                                                                   | `src/app/(search-app)/tools/`                                                             |
+| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`                                                       | `src/app/(search-app)/specifiers/`                                                        |
+| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map`                                                  | `src/app/(search-app)/formulation/`                                                       |
+| `/ward-management`, `/constellation`, `/network`, `/queue`, `/capacity`, `/movements`, `/exceptions`, `/transport`, `/governance`, `/patients/[patientId]` | `src/app/ward-management/` — Ward Flow synthetic patient-flow prototype                   |
+| `/mockups/*`                                                                                                                                               | `src/app/mockups/` (404 in production)                                                    |
+| `/auth/callback`                                                                                                                                           | `src/app/auth/callback/route.ts`                                                          |
 
 ### API routes (`src/app/api/`)
 
@@ -322,6 +324,25 @@ sequenceDiagram
 - Answer mode: grounded Q&A with PDF-linked citations
 - Registry modes: services, forms, medications, differentials; Formulation is a local mechanism and structured-draft workspace
 - Demo mode: synthetic data when Supabase unavailable (`demo-data.ts`, `isDemoMode()` in `env.ts`)
+
+### Ward Flow (`src/app/ward-management/`, `src/components/ward-management/`)
+
+Synthetic prototype for WA metro psychiatry patient flow: getting a patient from an emergency
+department to an inpatient psychiatric bed. Offline and fixture-backed — no provider calls, no
+persistence, no patient-identifiable data. Advisory only: the system proposes destinations with
+visible reasons and a human confirms or overrides.
+
+- **Design spec:** `docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md`
+- **Glossary:** `docs/ward-management-context.md` · **Decisions:** `docs/ward-management-decisions.md`
+- **Route/role map:** `docs/ward-management-mode-map.md`
+- **Model:** `src/components/ward-management/ward-clock.ts` (the only module that reads the
+  wall clock), `ward-model.ts` (domain types only), `ward-eligibility.ts` (the eight
+  placement gates), `ward-sites.ts` (17 sites, 8 emergency departments, 22 units),
+  `ward-movements.ts` (48 movements, 6 bed releases), `ward-derivations.ts` (shared pure UI
+  derivations)
+- **Surfaces:** `ward-management-console.tsx` (command), `ward-management-modes.tsx` (mode
+  workspaces), `ward-management-network.tsx` (network diagram), `ward-management-navigation.tsx`
+- **Tests:** `tests/ward-management.test.ts`, `tests/ui-ward-management.spec.ts`
 
 ### Global search composer placement rules
 

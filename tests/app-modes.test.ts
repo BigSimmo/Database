@@ -316,7 +316,7 @@ describe("app mode search contract", () => {
     expect(isAppModeVisible("prescribing", "production")).toBe(true);
     expect(isAppModeVisible("tools", "production")).toBe(true);
     expect(isAppModeVisible("calculators", "production")).toBe(true);
-    expect(isAppModeVisible("therapy-compass", "production")).toBe(false);
+    expect(isAppModeVisible("therapy-compass", "production")).toBe(true);
     expect(isAppModeVisible("factsheets", "production")).toBe(true);
     expect(productionModes).not.toContain("evidence");
     expect(productionModes).toContain("services");
@@ -329,7 +329,7 @@ describe("app mode search contract", () => {
     expect(productionModes).toContain("prescribing");
     expect(productionModes).toContain("tools");
     expect(productionModes).toContain("calculators");
-    expect(productionModes).not.toContain("therapy-compass");
+    expect(productionModes).toContain("therapy-compass");
     expect(productionModes).toContain("factsheets");
     expect(developmentModes).toEqual(
       expect.arrayContaining([
@@ -352,12 +352,16 @@ describe("app mode search contract", () => {
     expect(developmentModes).not.toContain("evidence");
   });
 
-  it("keeps Therapy Compass behind clinical review in production", () => {
+  // Therapy was `devOnly` while its catalogue awaited clinician sign-off, which
+  // hid the mode and 404'd all 205 records for real users. The owner's decision
+  // is to ship it with its review state disclosed instead, so production and
+  // development must now agree — a re-added `devOnly: true` fails here.
+  it("keeps Therapy reachable in production with its review state disclosed, not hidden", () => {
     expect(isAppModeId("therapy-compass")).toBe(true);
     expect(isAppModeVisible("therapy-compass", "development")).toBe(true);
-    expect(isAppModeVisible("therapy-compass", "production")).toBe(false);
+    expect(isAppModeVisible("therapy-compass", "production")).toBe(true);
     expect(visibleAppModeDefinitions("development").map((mode) => mode.id)).toContain("therapy-compass");
-    expect(visibleAppModeDefinitions("production").map((mode) => mode.id)).not.toContain("therapy-compass");
+    expect(visibleAppModeDefinitions("production").map((mode) => mode.id)).toContain("therapy-compass");
   });
 
   it("gates Favourites mode to authenticated or demo sessions", () => {

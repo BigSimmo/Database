@@ -33,7 +33,8 @@ export type ToolCatalogId =
   | "safety-plan"
   | "calculators"
   | "monitoring"
-  | "favourites";
+  | "favourites"
+  | "ward-management";
 
 export type ToolCatalogRecord = {
   id: ToolCatalogId;
@@ -208,6 +209,46 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     checkFirst: ["Eligibility", "Referral route", "Service source status"],
     neededInput: ["Patient location or catchment", "Clinical need", "Urgency and pathway requirements"],
     output: "Referral pathway, eligibility notes, service record, and source link.",
+  },
+  {
+    id: "ward-management",
+    title: "Ward Flow",
+    mobileTitle: "Ward Flow",
+    description: "Coordinate synthetic psychiatry demand, bed capacity, referrals, and patient movement across WA.",
+    bestFor: "Statewide mental-health patient flow",
+    detail:
+      "Review a synthetic priority queue, scan current ward capacity, inspect explainable destination matches, and confirm the next owned movement action.",
+    href: "/ward-management",
+    area: "coordination",
+    status: "ready",
+    sourceBacked: false,
+    highYield: true,
+    actionLabel: "Coordinate",
+    keywords: [
+      "ward",
+      "ward flow",
+      "bed management",
+      "bed availability",
+      "psychiatry",
+      "patient flow",
+      "hospital coordination",
+      "ED transfer",
+      "catchment",
+      "MHPF",
+      "WACHS",
+    ],
+    checkFirst: [
+      "Human urgency tier and elapsed wait",
+      "Catchment and required ward setting",
+      "Legal, handover, and transport readiness",
+      "Last-confirmed ward capacity",
+    ],
+    neededInput: [
+      "Synthetic movement identifier",
+      "Cohort, catchment, and open or secure setting",
+      "Referral, legal, and transport status",
+    ],
+    output: "An explainable destination shortlist and human-confirmed patient movement plan.",
   },
   {
     id: "forms",

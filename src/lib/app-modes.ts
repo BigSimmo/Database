@@ -369,10 +369,13 @@ export const appModeDefinitions = [
     label: "Therapy",
     description: "Source-grounded therapy decision support",
     href: "/therapy-compass",
-    // Keep Therapy available for local clinical review while its catalogue is
-    // awaiting qualified-clinician sign-off. Removing this gate requires the
-    // catalogue review-status contract to prove production-ready records.
-    devOnly: true,
+    // Therapy ships in production with its review state disclosed rather than
+    // hidden. It was previously `devOnly`, which 404'd the route and every
+    // record for real users; the owner's decision is that a catalogue labelled
+    // "needs source review" on the library notice, every result card and every
+    // record page is more useful — and no less honest — than an absent mode.
+    // Per-record sign-off is still tracked by `therapyNeedsReview` and surfaced
+    // everywhere the record appears; it no longer gates reachability.
     search: {
       kind: "therapies",
       // The longer phrase became the late portal's LCP element on Therapy Home.

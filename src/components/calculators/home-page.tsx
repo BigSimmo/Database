@@ -1,6 +1,6 @@
 import { Calculator, CloudRain, GlassWater, Search, Zap } from "lucide-react";
 
-import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 
@@ -46,12 +46,6 @@ export function CalculatorsHomePage() {
           href: calculatorSearchHref(label),
           icon: Search,
         }))}
-        footer={
-          <ModeHomeVerificationFooter
-            label="Source-cited scoring"
-            body="Scores support clinical judgement and never replace a full assessment. Nothing entered here is stored."
-          />
-        }
       />
     </ModeHomeMain>
   );
