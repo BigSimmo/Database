@@ -203,6 +203,37 @@ describe("CI cache safety", () => {
     expect(releaseHeader).toContain("needs.changes.outputs.lockfile_changed == 'true'");
     expect(releaseHeader).toContain("startsWith(github.ref, 'refs/heads/release/')");
   });
+
+  /*
+   * Base-branch pushes must never be cancelled by a later merge.
+   *
+   * `cancel-in-progress: true` is correct for a PR branch, where a newer head genuinely
+   * supersedes the work in flight. It is wrong for `main`: that commit is already merged and
+   * nothing supersedes it, so cancelling does not skip redundant work — it throws away the only
+   * verification `main` receives. Measured 2026-08-18 across the last 30 pushes to main, 23 were
+   * cancelled (77%) and only 6 completed, which is how a ~163ms Lighthouse drift on
+   * desktop /therapy-compass and two broken @mockup assertions both reached feature branches as
+   * first detection, and why ci-triage kept reporting a cancelled main run as its baseline.
+   *
+   * A blanket `true` here reads as a harmless cost control and is not one, so it is pinned with
+   * its own case rather than left to review.
+   */
+  it("never cancels an in-flight run for a base-branch push", () => {
+    const concurrency = sourceSegment(workflow, "concurrency:", "permissions:", {
+      label: "workflow concurrency block",
+    });
+
+    expect(concurrency).toContain("cancel-in-progress: ${{ github.event_name != 'push' }}");
+    expect(concurrency).not.toContain("cancel-in-progress: true");
+
+    // `on.push.branches` is what makes `event_name == 'push'` mean "base branch" — if a push
+    // trigger is ever widened to feature branches, this exemption silently stops being scoped
+    // and every branch keeps its superseded runs alive.
+    const pushTrigger = sourceSegment(workflow, "  push:", "  pull_request:", {
+      label: "workflow push trigger",
+    });
+    expect(pushTrigger).toContain('branches: [main, "release/**"]');
+  });
 });
 
 /*

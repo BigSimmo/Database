@@ -1,31 +1,34 @@
 "use client";
 
 import type { ReactNode } from "react";
+import {
+  ChevronRight,
+  Clock,
+  Compass,
+  Database,
+  FileText,
+  Heart,
+  Info,
+  ListChecks,
+  Scale,
+  Shield,
+  Target,
+  TriangleAlert,
+  User,
+  type LucideIcon,
+} from "lucide-react";
 
+import { cardSurface } from "@/components/card-recipes";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
-import { SourceDesignationBadge, SourceStatusBadge } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
+import { cn, SourceDesignationBadge, SourceStatusBadge } from "@/components/ui-primitives";
 import { therapyScreenHref } from "@/lib/therapy-compass-navigation";
 import { therapySourceMetadata } from "@/lib/therapy-source-governance";
 
 import { useTcBindings } from "../bindings";
-import { card, heroCard, outlineControl, therapyBtn } from "../controls";
+import { controlPressed, favouritePressed, heroCard, therapyBtn } from "../controls";
 import { complexityLabel, parseSteps, summarise } from "../data/select";
 import type { Therapy } from "../data/types";
-import {
-  AlertIcon,
-  ChecklistIcon,
-  ChevronRightIcon,
-  ClockIcon,
-  CompassIcon,
-  CrosshairIcon,
-  DatabaseIcon,
-  FileTextIcon,
-  InfoIcon,
-  HeartIcon,
-  PersonIcon,
-  ScaleIcon,
-  ShieldIcon,
-} from "../icons";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
 import { Eyebrow, LoadingState, StatusBadge, TagRow } from "../ui";
 import { useTherapyFavourite } from "../use-therapy-favourite";
@@ -60,15 +63,16 @@ export function DetailScreen() {
                       {complexityLabel(t.complexity)}
                     </span>
                   ) : null}
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${outlineControl} ml-auto px-3 text-xs`}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={Heart}
+                    className={cn("ml-auto", favouritePressed)}
                     aria-pressed={saved}
                     onClick={() => void toggleFavourite()}
                   >
-                    <HeartIcon size={15} className={saved ? "fill-current" : undefined} />
                     {saved ? "Saved" : "Save"}
-                  </button>
+                  </Button>
                 </div>
                 <p
                   role="status"
@@ -102,19 +106,19 @@ export function DetailScreen() {
               {/* QUICK TILES */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <Tile
-                  icon={ShieldIcon}
+                  icon={Shield}
                   eyebrow="USE WHEN"
                   tone="accent"
                   text={summarise(t.bestUsedFor || t.indications, 1) || "See clinical record."}
                 />
                 <Tile
-                  icon={AlertIcon}
+                  icon={TriangleAlert}
                   eyebrow="AVOID / MODIFY"
                   tone="warning"
                   text={summarise(t.contraindicationsOrCautions, 1) || "Confirm suitability against source before use."}
                 />
                 <Tile
-                  icon={ClockIcon}
+                  icon={Clock}
                   eyebrow="DELIVERY"
                   tone="info"
                   text={
@@ -123,7 +127,7 @@ export function DetailScreen() {
                   }
                 />
                 <Tile
-                  icon={InfoIcon}
+                  icon={Info}
                   eyebrow="EVIDENCE / SOURCE"
                   tone="muted"
                   text={
@@ -133,12 +137,12 @@ export function DetailScreen() {
               </div>
 
               {/* BODY */}
-              <div className={`${card} px-6 py-1.5`}>
-                {t.mechanism ? <BodyRow icon={CrosshairIcon} title="How it works" body={t.mechanism} /> : null}
-                <BodyRow icon={PersonIcon} title="When to use" body={t.indications || t.bestUsedFor} />
+              <div className={`${cardSurface} px-6 py-1.5`}>
+                {t.mechanism ? <BodyRow icon={Target} title="How it works" body={t.mechanism} /> : null}
+                <BodyRow icon={User} title="When to use" body={t.indications || t.bestUsedFor} />
                 {steps.length ? (
                   <BodyRow
-                    icon={FileTextIcon}
+                    icon={FileText}
                     title="How to deliver it"
                     body={
                       <ol className="mt-1.5 mx-0 mb-0 pl-5">
@@ -151,7 +155,7 @@ export function DetailScreen() {
                     }
                   />
                 ) : (
-                  <BodyRow icon={FileTextIcon} title="How to deliver it" body={t.deliverySteps} />
+                  <BodyRow icon={FileText} title="How to deliver it" body={t.deliverySteps} />
                 )}
                 <SafetyRow therapy={t} />
               </div>
@@ -159,58 +163,43 @@ export function DetailScreen() {
               {/* ACTIONS */}
               <div className="flex flex-wrap gap-2.5">
                 {t.patientSheetAvailable ? (
-                  <button
-                    type="button"
-                    className={`${therapyBtn} inline-flex items-center gap-[9px] h-[46px] py-0 px-5 border-0 rounded-lg bg-[color:var(--command)] text-[color:var(--command-contrast)] text-sm font-semibold shadow-[var(--e1)] cursor-pointer`}
-                    onClick={() => b.openSheet(t.slug)}
-                  >
-                    <FileTextIcon size={17} />
+                  <Button variant="primary" size="lg" icon={FileText} onClick={() => b.openSheet(t.slug)}>
                     Generate patient sheet
-                  </button>
+                  </Button>
                 ) : null}
-                <button
-                  type="button"
-                  className={`${therapyBtn} ${outlineControl}`}
+                <Button
+                  variant="secondary"
+                  icon={Scale}
+                  className={controlPressed}
                   onClick={() => b.toggleCompare(t.slug)}
                   aria-pressed={b.isInCompare(t.slug)}
                 >
-                  <ScaleIcon size={17} />
                   {b.isInCompare(t.slug) ? "In compare" : "Compare"}
-                </button>
+                </Button>
                 {t.briefInterventionAvailable ? (
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${outlineControl} px-5`}
-                    onClick={() => b.openBrief(t.slug)}
-                  >
-                    <ClockIcon size={17} />
+                  <Button variant="secondary" size="lg" icon={Clock} onClick={() => b.openBrief(t.slug)}>
                     Brief intervention
-                  </button>
+                  </Button>
                 ) : null}
-                <button type="button" className={`${therapyBtn} ${outlineControl} px-5`} onClick={b.goReview}>
-                  <ChecklistIcon size={17} />
+                <Button variant="secondary" size="lg" icon={ListChecks} onClick={b.goReview}>
                   Review checklist
-                </button>
+                </Button>
               </div>
             </div>
 
             {/* RIGHT RAIL */}
             <div className="max-sm:static max-sm:top-auto flex flex-col gap-4 sticky top-[calc(var(--shell-header-h)+1rem)]">
-              <div className={`${card} p-5`}>
+              <div className={`${cardSurface} p-5`}>
                 <div className="text-sm font-semibold text-[color:var(--text-heading)] mb-3.5">At a glance</div>
                 <div className="flex flex-col gap-[15px]">
+                  <GlanceRow icon={Compass} title="Target symptoms" body={t.targetSymptoms || t.patientPopulation} />
                   <GlanceRow
-                    icon={CompassIcon}
-                    title="Target symptoms"
-                    body={t.targetSymptoms || t.patientPopulation}
-                  />
-                  <GlanceRow
-                    icon={ClockIcon}
+                    icon={Clock}
                     title="Time & setting"
                     body={[t.timeRequired, t.setting].filter(Boolean).join(" · ")}
                   />
                   <GlanceRow
-                    icon={ScaleIcon}
+                    icon={Scale}
                     title="Complexity / population"
                     body={[t.complexity, t.patientPopulation].filter(Boolean).join(" — ")}
                   />
@@ -218,7 +207,7 @@ export function DetailScreen() {
               </div>
 
               {b.relatedForSelected.length ? (
-                <div className={`${card} p-5`}>
+                <div className={`${cardSurface} p-5`}>
                   <div className="text-sm font-semibold text-[color:var(--text-heading)] mb-2">Related therapies</div>
                   <div className="flex flex-col">
                     {b.relatedForSelected.map((r, i, arr) => (
@@ -236,7 +225,8 @@ export function DetailScreen() {
                             {r.bestUsedFor ?? r.category}
                           </span>
                         </span>
-                        <ChevronRightIcon
+                        <ChevronRight
+                          aria-hidden="true"
                           size={15}
                           strokeWidth={1.8}
                           className="text-[color:var(--decoration-soft)] flex-none"
@@ -249,7 +239,7 @@ export function DetailScreen() {
 
               <div className="bg-[color:var(--surface-subtle)] border border-[color:var(--border)] rounded-xl py-[18px] px-5">
                 <div className="flex items-center gap-2 text-sm-minus font-semibold text-[color:var(--text-heading)] mb-2.5">
-                  <DatabaseIcon size={16} className="text-[color:var(--warning-text)]" />
+                  <Database aria-hidden="true" size={16} className="text-[color:var(--warning-text)]" />
                   Source provenance
                 </div>
                 <div className="text-xs text-[color:var(--text-muted)] leading-normal">
@@ -307,7 +297,7 @@ function Tile({
   tone,
   text,
 }: {
-  icon: (p: { size?: number; strokeWidth?: number }) => ReactNode;
+  icon: LucideIcon;
   eyebrow: string;
   tone: "accent" | "warning" | "info" | "muted";
   text: string;
@@ -317,7 +307,7 @@ function Tile({
       className={`rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-[17px] py-4 text-[color:var(--text-muted)] [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-inherit ${tone === "accent" ? "border-[color:var(--clinical-accent-border)]" : tone === "warning" ? "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : tone === "info" ? "border-[color:var(--info-border)] bg-[color:var(--info-bg)] text-[color:var(--info-text)]" : ""}`}
     >
       <div className="mb-2 flex items-center gap-[7px]">
-        <Icon size={15} strokeWidth={1.9} />
+        <Icon size={15} strokeWidth={1.9} aria-hidden="true" />
         <Eyebrow tone={tone === "muted" ? "neutral" : tone}>{eyebrow}</Eyebrow>
       </div>
       <p>{text}</p>
@@ -325,20 +315,12 @@ function Tile({
   );
 }
 
-function BodyRow({
-  icon: Icon,
-  title,
-  body,
-}: {
-  icon: (p: { size?: number }) => ReactNode;
-  title: string;
-  body: ReactNode;
-}) {
+function BodyRow({ icon: Icon, title, body }: { icon: LucideIcon; title: string; body: ReactNode }) {
   if (!body) return null;
   return (
     <div className="flex gap-3.5 py-5 px-0 border-b border-[color:var(--border)]">
       <span className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] flex-none">
-        <Icon size={17} />
+        <Icon size={17} aria-hidden="true" />
       </span>
       <div className="min-w-0">
         <div className="text-sm font-semibold text-[color:var(--text-heading)] mb-[5px]">{title}</div>
@@ -362,7 +344,7 @@ function SafetyRow({ therapy }: { therapy: Therapy }) {
   return (
     <div className="flex gap-3.5 py-5 px-1 bg-[color:var(--warning-bg)] my-0 mx-[-18px] rounded-lg">
       <span className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-[color:var(--surface)] text-[color:var(--warning-text)] flex-none ml-3.5">
-        <AlertIcon size={17} />
+        <TriangleAlert aria-hidden="true" size={17} />
       </span>
       <div className="pr-3.5">
         <div className="text-sm font-semibold text-[color:var(--warning-text)] mb-[5px]">Safety &amp; cautions</div>
@@ -372,20 +354,12 @@ function SafetyRow({ therapy }: { therapy: Therapy }) {
   );
 }
 
-function GlanceRow({
-  icon: Icon,
-  title,
-  body,
-}: {
-  icon: (p: { size?: number; strokeWidth?: number }) => ReactNode;
-  title: string;
-  body: string | null;
-}) {
+function GlanceRow({ icon: Icon, title, body }: { icon: LucideIcon; title: string; body: string | null }) {
   if (!body) return null;
   return (
     <div className="flex gap-3">
       <span className="inline-flex items-center justify-center w-[32px] h-[32px] rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] flex-none">
-        <Icon size={16} strokeWidth={1.8} />
+        <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
       </span>
       <div className="min-w-0">
         <div className="text-xs font-semibold text-[color:var(--text-heading)] mb-0.5">{title}</div>
