@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "56f6b76a-23f5-42aa-a53f-4a4eda7b3931",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#118",
+    "outcome": "Lighthouse CI regression gating active across all 10 route cells with pinned HeadlessChrome/151",
+    "baseRowFingerprint": "3b0de22755a139ea53da42c26c1a6f72cbf75537dd0c75d0ef76faad668fc83e"
+  }
+}
