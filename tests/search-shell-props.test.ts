@@ -46,6 +46,18 @@ describe("searchShellPropsForPathname", () => {
     expect(searchShellPropsForPathname("/")).toEqual({ initialMode: "answer" });
   });
 
+  it("keeps the composer on dictionary search surfaces and drops it on the governance page", () => {
+    expect(searchShellPropsForPathname("/dictionary/search")).toEqual({
+      initialMode: "dictionary",
+      desktopSearchPlacement: "hero",
+    });
+    expect(searchShellPropsForPathname("/dictionary/sources")).toEqual({
+      initialMode: "dictionary",
+      desktopSearchPlacement: "hero",
+      searchComposerVisible: false,
+    });
+  });
+
   it("assigns calculator home and results search to the shared shell", () => {
     expect(searchShellPropsForPathname("/calculators")).toEqual({
       initialMode: "calculators",
