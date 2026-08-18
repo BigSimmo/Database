@@ -53,6 +53,15 @@ where created_at > now() - interval '24 hours'
 group by 1;
 ```
 
+### Database latency — Sentry production DB span SLO (#183)
+
+Sentry metric alert criteria for production database query span duration. Guards against unindexed queries, table locks, RPC latency spikes, and connection pool exhaustion:
+
+- **Metric:** `transaction.duration` / span duration for `span.op:db` spans in environment `production`.
+- **SLO:** p95 ≤ 500 ms over a 5-minute rolling evaluation window.
+- **Warn / Alert:** p95 > 500 ms over 5 minutes.
+- **Operational context:** Sustained breaches indicate Postgres RPC regression (such as unindexed embedding comparisons or table scans) or lock contention. Investigate via Supabase database insights, query performance metrics, and `search_schema_health()`. Requires `SENTRY_AUTH_TOKEN` for programmatic alert provisioning (#183).
+
 ### Quality — source-gap rate
 
 Share of answered queries whose confidence collapsed to a gap
