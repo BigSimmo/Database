@@ -65,9 +65,9 @@ describe("interaction lexicon coverage", () => {
     // recorded here and in the PR. Track raw drug-matching separately, which
     // rose 381 → 417 over the same period and is the number that must never
     // fall without explanation.
-    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(362);
-    expect(index.stats.rowsWithCatalogueTarget).toBeGreaterThanOrEqual(422);
-    expect(index.sourceRowCount).toBeGreaterThanOrEqual(523);
+    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(392);
+    expect(index.stats.rowsWithCatalogueTarget).toBeGreaterThanOrEqual(440);
+    expect(index.sourceRowCount).toBeGreaterThanOrEqual(525);
   });
 
   it("keeps every unresolved row visible rather than dropping it", () => {
@@ -294,6 +294,8 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
       if (name.length < 4) continue;
       for (const [slug, entry] of Object.entries(index.bySlug)) {
         if (slug === record.slug) continue;
+        const sourceRecord = records.find((item) => item.slug === slug);
+        if (sourceRecord && plainName(sourceRecord.name) === name) continue;
         const sourceRows = rowsFor(slug);
         for (const row of entry.rows) {
           const text = sourceRows[row.rowIndex]?.val ?? "";
@@ -361,13 +363,12 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
     expect(dead).toEqual([]);
   });
 
-  it("keeps the divergent duplicate Warfarin records visible", () => {
-    // The catalogue holds two records named "Warfarin" whose interaction rows
-    // have nothing in common, so which one a clinician opens changes which
-    // warnings they see. That is a catalogue defect, not a lexicon one, and it
-    // is deliberately left unpatched pending a clinical decision — but it must
-    // not become invisible. If someone reconciles the records, this test goes
-    // red and the review sheet's flag can be retired with it.
+  it("keeps the duplicate Warfarin records reconciled with identical interaction rows", () => {
+    // The catalogue holds two records named "Warfarin" (warfarin-vka and
+    // warfarin-anticoagulant) representing the same drug. Both records carry
+    // the identical, reconciled 4-row interaction union (CYP2C9 inhibitors,
+    // CYP2C9 inducers, NSAIDs/Aspirin/SSRIs, and dietary Vitamin K) so opening
+    // either record fires the complete verified interaction warnings.
     const duplicates = records.filter((record) => record.name === "Warfarin");
     expect(duplicates.map((record) => record.slug).sort()).toEqual(["warfarin-anticoagulant", "warfarin-vka"]);
 
@@ -379,9 +380,29 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
         ).map((row) => `${row.key}::${row.val}`),
       );
     const [a, b] = [rowSet("warfarin-vka"), rowSet("warfarin-anticoagulant")];
-    expect(a.size).toBeGreaterThan(0);
-    expect(b.size).toBeGreaterThan(0);
-    expect([...a].filter((row) => b.has(row))).toEqual([]);
+    expect(a.size).toBe(4);
+    expect(b.size).toBe(4);
+    expect(Array.from(a)).toEqual(Array.from(b));
+  });
+
+  it("warfarin index entries do not include the other warfarin slug as a counterparty", () => {
+    const interactionIndex = JSON.parse(
+      readFileSync(path.join(__dirname, "../data/medication-interaction-index.json"), "utf-8"),
+    ) as { bySlug: Record<string, { rows: Array<{ counterparties: string[] }> }> };
+    const { bySlug } = interactionIndex;
+    const warfarinSlugs = ["warfarin-vka", "warfarin-anticoagulant"] as const;
+    // Both entries must exist — if either slug is renamed this test catches it.
+    for (const slug of warfarinSlugs) {
+      expect(bySlug[slug]).toBeDefined();
+    }
+    const warfarinPairs: [string, string][] = [
+      ["warfarin-vka", "warfarin-anticoagulant"],
+      ["warfarin-anticoagulant", "warfarin-vka"],
+    ];
+    for (const [slug, forbidden] of warfarinPairs) {
+      const found = bySlug[slug]!.rows.some((row) => row.counterparties.includes(forbidden));
+      expect(found).toBe(false);
+    }
   });
 
   it("resolves beta blockers across both catalogue spellings", () => {

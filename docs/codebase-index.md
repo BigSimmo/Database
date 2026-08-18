@@ -148,11 +148,11 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 
 ### Source governance and metadata
 
-| Module                                                                         | Role                             |
-| ------------------------------------------------------------------------------ | -------------------------------- |
-| `source-metadata.ts`, `source-governance.ts`, `source-text-sanitizer.ts`       | Source provenance and governance |
-| `document-label-governance.ts`, `document-tags.ts`, `document-organization.ts` | Labels and organization          |
-| `table-review.ts`, `accessible-table-normalization.ts`                         | Table facts                      |
+| Module                                                                                                                 | Role                                             |
+| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `source-metadata.ts`, `source-governance.ts`, `source-text-sanitizer.ts`                                               | Source provenance and governance                 |
+| `documents/` (`is-public-document.ts`), `document-label-governance.ts`, `document-tags.ts`, `document-organization.ts` | Labels, organization, and public boundary checks |
+| `table-review.ts`, `accessible-table-normalization.ts`                                                                 | Table facts                                      |
 
 ### Supabase, auth, env
 
