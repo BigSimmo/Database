@@ -1,9 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import { elapsedLabel } from "../src/components/ward-management/ward-derivations";
 import { MOVEMENT_STAGES, PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 import { movementById, wardMovements } from "../src/components/ward-management/ward-movements";
-import { allUnits } from "../src/components/ward-management/ward-sites";
+import { NOW_ANCHOR, allUnits } from "../src/components/ward-management/ward-sites";
 import { toolCatalogRecordById } from "../src/lib/tools-catalog";
 
 /**
@@ -101,5 +102,15 @@ describe("Ward Flow synthetic prototype", () => {
     expect(referredMovement?.legalStatus).toBe("Referred for psychiatric examination");
     expect(referredMovement?.legalForm?.code).toBe("1A");
     expect(referredMovement?.legalForm?.label).toBe("Referral for examination");
+  });
+
+  it("labels how long a movement has been waiting, not how overdue it is", () => {
+    // WF-001 opened 95 minutes before NOW_ANCHOR — this exercises elapsedLabel itself
+    // (not just formatElapsed) so a future transposition of its minutesUntil arguments
+    // back to the original bug (minutesUntil(movement.openedAt, now), which yields a
+    // negative/clamped duration) fails this assertion.
+    const movement = movementById("WF-001");
+    expect(movement).toBeDefined();
+    expect(elapsedLabel(movement!, NOW_ANCHOR)).toBe("1h 35m waiting");
   });
 });

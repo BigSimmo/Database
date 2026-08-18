@@ -447,7 +447,7 @@ function DecisionDock({
           </span>
         </h3>
         {isSuggested ? (
-          <p className={styles.governanceNote}>Not yet referred to this unit — showing the top eligible candidate.</p>
+          <p className={styles.governanceNote}>Not yet referred to this unit — showing an eligible candidate.</p>
         ) : null}
       </div>
       <div className={styles.matchReasons}>
