@@ -5,7 +5,6 @@ import { ArrowRight, CheckCircle2, GitCompareArrows, Network, Waypoints } from "
 import { useState } from "react";
 
 import {
-  FormulationBreadcrumbs,
   FormulationPageShell,
   FormulationSafetyNote,
   MechanismDomainChips,
@@ -22,8 +21,6 @@ export function FormulationMapPage({ initialId }: { initialId?: string }) {
 
   return (
     <FormulationPageShell>
-      <FormulationBreadcrumbs current="Mechanism map" />
-
       <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">
         <p className={eyebrowText}>Formulation architecture</p>
         <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">

@@ -13,6 +13,8 @@
  * patient information before treating sheets as locally approved.
  */
 
+import { categoryAccentVars, FACTSHEET_CATEGORY_IDENTITY, type FactsheetCategoryKey } from "@/lib/category-identity";
+
 /**
  * Demonstration/governance status shown on-screen and preserved in the printed /
  * exported take-away, so a handout is never mistaken for approved local patient
@@ -21,7 +23,11 @@
 export const FACTSHEET_DEMO_NOTICE =
   "Demonstration content — not clinician-approved. Governance-approved patient information must replace it before any clinical use or sharing.";
 
-export type FactsheetCategory = "Medications" | "Conditions" | "Therapies" | "Tests & procedures";
+/**
+ * Re-exported from the shared category registry so the accent map and this
+ * module cannot drift over what the four categories are.
+ */
+export type FactsheetCategory = FactsheetCategoryKey;
 
 export type FactsheetIconKey =
   | "capsule"
@@ -130,34 +136,32 @@ export type FactsheetTheme = {
   hero: string;
 };
 
+/**
+ * Derived from `FACTSHEET_CATEGORY_IDENTITY` rather than hand-written per case.
+ *
+ * The previous table drew two of its four accents from the SEMANTIC palette —
+ * Therapies on `--success-text`/`--success-bg` and Tests & procedures on
+ * `--warning-text`/`--warning-bg`. Those tokens carry meaning: the six-tone
+ * badge system uses warning for "pause, check, adjust, review" and success for
+ * a passed check. Painting a whole category in them asserted a safety judgement
+ * about content nothing had reviewed, and it did so on the loudest surface the
+ * factsheet has — the hero band. `docs/clinical-badge-system-guide.md` puts it
+ * the other way round: meaning drives the colour, never the colour the meaning.
+ *
+ * Medications also moves off `--clinical-accent`. It was the same blue as every
+ * selection state, focus ring and evidence marker on the page, so the largest
+ * category was the one with no identity of its own.
+ *
+ * The shape is unchanged, so the ~20 call sites that pass these as inline style
+ * values are untouched.
+ */
 export function categoryTheme(category: FactsheetCategory): FactsheetTheme {
-  switch (category) {
-    case "Conditions":
-      return {
-        accent: "var(--tone-indigo)",
-        soft: "color-mix(in srgb, var(--tone-indigo) 12%, var(--surface))",
-        hero: "linear-gradient(135deg, color-mix(in srgb, var(--tone-indigo) 12%, var(--surface)) 0%, var(--surface) 68%)",
-      };
-    case "Therapies":
-      return {
-        accent: "var(--success-text)",
-        soft: "var(--success-bg)",
-        hero: "linear-gradient(135deg, var(--success-bg) 0%, var(--surface) 68%)",
-      };
-    case "Tests & procedures":
-      return {
-        accent: "var(--warning-text)",
-        soft: "var(--warning-bg)",
-        hero: "linear-gradient(135deg, var(--warning-bg) 0%, var(--surface) 68%)",
-      };
-    case "Medications":
-    default:
-      return {
-        accent: "var(--clinical-accent)",
-        soft: "var(--clinical-accent-soft)",
-        hero: "linear-gradient(135deg, var(--clinical-accent-soft) 0%, var(--surface) 68%)",
-      };
-  }
+  const vars = categoryAccentVars(FACTSHEET_CATEGORY_IDENTITY[category].accent);
+  return {
+    accent: vars.accent,
+    soft: vars.soft,
+    hero: `linear-gradient(135deg, ${vars.soft} 0%, var(--surface) 68%)`,
+  };
 }
 
 const SOURCES: Record<string, FactsheetSource[]> = {

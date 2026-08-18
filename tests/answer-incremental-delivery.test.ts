@@ -102,6 +102,36 @@ describe("verified-unit stream contract (#100 Phase 0)", () => {
     expect(isDeliverableVerifiedUnit({ ...previewUnit(), selectedContextCount: 1.5 })).toBe(false);
   });
 
+  // G1 (docs/clinical-hazard-analysis.md H5a). The streamed preview must accept exactly the
+  // `similarity_origin` union in types.ts. If the union grows and this allow-set does not, the
+  // preview silently rejects a payload `final` accepts — the client then falls back to the
+  // slow path with no error anyone sees.
+  it("accepts every declared similarity_origin value and nothing else", () => {
+    const declaredOrigins = ["cosine", "synthetic_text", "document_context"] as const;
+    // Compile-time exhaustiveness: adding a member to the union without listing it here makes
+    // `Unlisted` something other than `never`, and this annotation stops typechecking. Without
+    // it the runtime loop below would keep passing while silently skipping the new value.
+    type Unlisted = Exclude<NonNullable<SearchResult["similarity_origin"]>, (typeof declaredOrigins)[number]>;
+    const everyOriginListed: [Unlisted] extends [never] ? true : never = true;
+    expect(everyOriginListed).toBe(true);
+
+    for (const origin of declaredOrigins) {
+      expect(
+        isDeliverableVerifiedUnit({
+          ...previewUnit(),
+          sources: [trimSourceForClient(makeSource({ similarity_origin: origin }))],
+        }),
+      ).toBe(true);
+    }
+
+    expect(
+      isDeliverableVerifiedUnit({
+        ...previewUnit(),
+        sources: [trimSourceForClient(makeSource({ similarity_origin: "made_up_origin" as never }))],
+      }),
+    ).toBe(false);
+  });
+
   it("rejects raw server fields at the stream boundary", () => {
     expect(
       isDeliverableVerifiedUnit({

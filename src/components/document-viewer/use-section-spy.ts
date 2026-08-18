@@ -10,6 +10,10 @@ import type { DocumentSection } from "@/components/document-viewer/section-index
  */
 const sectionAnchorAliases: Record<string, string[]> = {
   "source-evidence": ["source-evidence-rail"],
+  // The rail's document-profile disclosure owns the canonical anchor (the spy
+  // treats it as an exclusive-accordion member), while the in-flow clinical
+  // summary card above the PDF is its phone/tablet copy.
+  "source-summary": ["source-summary-card"],
 };
 
 /**

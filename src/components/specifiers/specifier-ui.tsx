@@ -2,13 +2,18 @@ import Link from "next/link";
 import type { ComponentType, CSSProperties, ReactNode } from "react";
 import { ArrowRight, Bookmark, CheckCircle2, ChevronsUpDown, Info, Minus, ShieldAlert, Tags } from "lucide-react";
 
+import { cardSurface } from "@/components/card-recipes";
 import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import type { SpecifierRecord } from "@/lib/specifiers";
 import type { SpecifierSourceStatus } from "@/lib/specifiers-search-index";
 
-export const specifierCard =
-  "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]";
+/**
+ * Was a private copy of the same string `formulation-ui.tsx` also carried,
+ * byte-identical in both. Kept as a named export so the mode's call sites read
+ * as intended rather than incidental, but the definition is now shared.
+ */
+export const specifierCard = cardSurface;
 
 export function SpecifierPageShell({ children, className }: { children: ReactNode; className?: string }) {
   return <InformationPageShell className={className}>{children}</InformationPageShell>;
