@@ -3,9 +3,10 @@
 Companion to [`database-remediation-plan.md`](database-remediation-plan.md) (the plan of record —
 read it first in every session). This playbook exists so the work can be executed across **many
 separate chat sessions**: each phase below carries the full context a fresh session needs and a
-ready-to-paste prompt. Tracking anchor: the queued P1 ledger item titled “Live DB is missing 21
-repo-defined indexes and 10 retrieval RPC bodies diverge”. After inbox reconciliation, resolve its
-numeric ID by exact title before updating it; never assume an ID.
+ready-to-paste prompt. Tracking anchor: the queued P1 ledger item titled “Live DB has 20 currently
+missing repo-defined indexes and 10 retrieval RPC bodies diverge; weekly live-drift has been red
+since 2026-07-26 with no routing”. After inbox reconciliation, resolve its numeric ID by exact title
+before updating it; never assume an ID.
 
 ---
 
@@ -37,10 +38,25 @@ supersedes the 2026-08-09 run `31330856982` the plan was originally written agai
 - Drift-failure routing is **live**: a failed run creates or updates the pinned issue
   "Live drift check failing" (currently **#1963**) and a green run closes it.
 
-**Phase status.** Phase 0 complete. Phase 1 partial — 1.1 and 1.3 done in the owner-authorised
-incident window, **1.2 (RPC dossier) outstanding and gating Phase 3**. Phase 4 partial — two
-indexes restored, ~20 remain. **Next: complete Phase 1.2, then the Phase 2 staging-parity
-rehearsal; only then may an appropriately approved Phase 3 proceed.**
+**Phase status** (2026-08-18). The live board is
+[`database-remediation-coordination.md`](database-remediation-coordination.md); update that first —
+this is a pointer, not a second source of truth.
+
+Phase 0 complete. **Phase 1 complete** — 1.1 (`20260705180000` was not mark-applied; the dashboard
+audit-history pairing is still owner action, so `#248` stays open), 1.2 (PR #2087: all ten
+mismatches are attribute-only `SET work_mem`, zero body divergence, zero repo-ahead, zero
+UNCLASSIFIED), 1.3 whole-schema done with the remaining index sizing folded into Phase 5.
+**Phase 2 complete** — PR #2093: staging at full migration parity, and `check:drift` against staging
+**red with 19 items**, which is the finding the phase existed to produce rather than a failure of it;
+a re-measure is owed once staging carries `20260818090000`. **Phase 6 repo-side complete** — its
+migration deploy is still owed. Phase 4 partial (2 restored, 20 missing, 2 unexpected
+undispositioned). Phase 5 partial. Phase 7 not started.
+
+**Phase 3 is next, and it has been reframed.** Because 1.2 found zero repo-ahead bodies it is now
+repo-side work needing **no eval canary** — materially different from the prompt further down this
+file, which still assumes per-RPC canary approvals. Read the reframing and the outstanding owner
+decisions in [`database-remediation-coordination.md`](database-remediation-coordination.md) before
+dispatching it; do not execute the Phase 3 prompt below as written.
 
 **Before starting any phase, check the open-PR list for the surface** (`#292`). Phase 0 was built
 twice independently on 2026-08-14; a duplicate in Phase 3 or 4 wastes an approved production window
