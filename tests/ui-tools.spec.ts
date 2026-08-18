@@ -2667,7 +2667,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(queue.getByRole("link", { name: "Wernicke encephalopathy", exact: true })).toBeVisible();
     await expect(page.getByTestId("differential-compare-edit-selection")).toHaveAttribute(
       "href",
-      /\/differentials\?.*ids=wernicke-encephalopathy/,
+      /\/differentials\/search\?.*ids=wernicke-encephalopathy/,
     );
     await expect(page.getByTestId("differential-compare-open")).toBeVisible();
 
@@ -2732,7 +2732,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     const mobileComparison = page.getByLabel("Mobile differential comparison");
     const editSelection = mobileComparison.getByRole("link", { name: "Edit" });
     await expect(editSelection).toBeVisible();
-    await expect(editSelection).toHaveAttribute("href", /\/differentials\?.*ids=wernicke-encephalopathy/);
+    await expect(editSelection).toHaveAttribute("href", /\/differentials\/search\?.*ids=wernicke-encephalopathy/);
     await expect(mobileComparison.getByText("Wernicke encephalopathy", { exact: true }).first()).toBeVisible();
     const languageControl = page.getByRole("button", { name: "Language and region settings (coming soon)" });
     await expect(languageControl).toBeVisible();

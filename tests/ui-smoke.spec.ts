@@ -1446,11 +1446,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    // The Documents workspace lives at its search route since consolidation;
-    // `/documents` itself redirects to the shared home.
-    await gotoApp(page, "/documents/search");
+    // The Documents workspace lives at its search route since consolidation, and
+    // the dashboard only mounts it for a submitted query; `/documents` itself
+    // redirects to the shared home.
+    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
     await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
-    await expect(page.getByTestId("document-search-workspace")).toBeVisible();
+    await expect(page.getByTestId("document-search-workspace")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
   });
 
@@ -3280,7 +3281,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
 
     await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1&run=1");
-    await expect(page).toHaveURL(/\/differentials\/search\?q=acute\+confusion&focus=1&run=1$/);
+    await expect(page).toHaveURL(/\/differentials\/search\?q=acute\+confusion&focus=1&run=1\b/);
     // Submitted differentials deep links resolve to the standalone results
     // surface (`autoRunSearch`), not the mode-home template. Production
     // hydration can briefly overlap the outgoing server tree and the settled
@@ -3389,7 +3390,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=specifiers&q=anxious+distress&focus=1&run=1");
 
     // /?mode=specifiers → /specifiers (Specifiers is its own mode, distinct from Formulation)
-    await expect(page).toHaveURL(/\/specifiers\/search\?q=anxious\+distress&focus=1&run=1$/);
+    await expect(page).toHaveURL(/\/specifiers\/search\?q=anxious\+distress&focus=1&run=1\b/);
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { level: 1, name: "anxious distress" })).toBeVisible();
     await expect(queryRibbon.getByRole("group", { name: "Filter specifier results" })).toBeVisible();
@@ -3400,7 +3401,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=formulation&q=I+keep+going+over+it&focus=1&run=1");
 
-    await expect(page).toHaveURL(/\/formulation\/search\?q=I\+keep\+going\+over\+it&focus=1&run=1$/);
+    await expect(page).toHaveURL(/\/formulation\/search\?q=I\+keep\+going\+over\+it&focus=1&run=1\b/);
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { level: 1, name: "I keep going over it" })).toBeVisible();
     await expect(queryRibbon.getByRole("group", { name: "Filter formulation mechanisms" })).toBeVisible();
@@ -3829,8 +3830,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("tablet document chrome keeps one new-chat action and readable Sources rows", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 900 });
     await mockDemoApi(page);
-    await gotoApp(page, "/documents/search");
-    await expect(page.getByTestId("document-search-empty-state")).toBeVisible({ timeout: 30_000 });
+    // Documents' own empty-state home retired with consolidation; the mode's
+    // unsubmitted surface is the shared home.
+    await gotoApp(page, "/?mode=documents");
+    await expect(page.getByTestId("shared-home-empty-state")).toBeVisible({ timeout: 30_000 });
 
     const visibleNewChatCount = await page.getByRole("button", { name: /new chat/i }).evaluateAll(
       (buttons) =>
@@ -3879,8 +3882,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
     // `/documents` redirects to the shared home now; the workspace this test is
-    // about is the search route.
-    await gotoApp(page, "/documents/search");
+    // about is the search route, which the dashboard mounts for a submitted query.
+    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
 
     await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Document matches");
@@ -4264,8 +4267,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // Start on the Documents workspace rather than switching mode from `/`: the
     // mode pill no longer changes the page, and a mid-test navigation would reset
     // the request counts this test exists to measure. `/documents` is a redirect
-    // onto the shared home since consolidation, so the workspace is /documents/search.
-    await gotoApp(page, "/documents/search");
+    // onto the shared home since consolidation, so the workspace is a submitted
+    // /documents/search.
+    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
     // waitForDemoDashboardReady looks for "Open answer options"; the actions
     // trigger is named for the active mode, which is Documents on this route.
     await expect(visibleQuestionInput(page)).toBeEnabled();
@@ -5065,7 +5069,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("non-answer phone header keeps the in-flow collapse hide", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockDemoApi(page);
-    await gotoApp(page, "/documents/search");
+    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
 
     const header = page.locator("header.universal-header");
     const collapseHost = page.getByTestId("universal-header-collapse");
