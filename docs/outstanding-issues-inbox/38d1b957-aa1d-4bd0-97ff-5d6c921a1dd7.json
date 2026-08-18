@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "38d1b957-aa1d-4bd0-97ff-5d6c921a1dd7",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#211",
+    "outcome": "Standardized targeted runtime boundary safety over global compiler flag churn",
+    "baseRowFingerprint": "fba57c876f0472cfb71d2aebae07d5e1e3fd6efd5fe9c904101b0fabfddbf9d7"
+  }
+}

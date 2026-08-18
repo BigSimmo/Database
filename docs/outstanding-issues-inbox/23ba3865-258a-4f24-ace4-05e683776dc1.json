@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "23ba3865-258a-4f24-ace4-05e683776dc1",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "4dbcdcce-3645-4e08-8813-e85ab1fe7bcc",
+    "reason": "Superseded within the same PR (#2106) by one combined #316 update that also carries the later staging-proof result; two updates on one id would block reconcile."
+  }
+}

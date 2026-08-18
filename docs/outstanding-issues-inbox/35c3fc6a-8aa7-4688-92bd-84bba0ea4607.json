@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "35c3fc6a-8aa7-4688-92bd-84bba0ea4607",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#117",
+    "outcome": "Completed clinical review of therapy card display fields and approved card summary optimization",
+    "baseRowFingerprint": "333c135fbdb54fcdc5e13289a8cade39f9108407bcb9aa55519b09f15689cb90"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a3797cb9-af3b-4111-9d93-118974601cc8",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#322",
+    "outcome": "Merged warfarin-anticoagulant into warfarin-vka as canonical single record with combined interaction rows",
+    "baseRowFingerprint": "3ff5c10503f0942a5b38f3f7e3a770308493c08ee3e64d686a9668978f0b033a"
+  }
+}
