@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useId } from "react";
 import {
   Activity,
   BedSingle,
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { BrandMark } from "@/components/clinical-dashboard/brand";
+import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 
 import shellStyles from "./ward-management.module.css";
 import modeStyles from "./ward-management-modes.module.css";
@@ -62,6 +64,28 @@ function RailLink({
   );
 }
 
+function RailPlaceholder({ label, children }: { label: string; children: React.ReactNode }) {
+  const unavailableId = useId();
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={label}
+        title={`${label} — coming soon`}
+        aria-disabled="true"
+        aria-describedby={unavailableId}
+        onClick={ignoreUnavailableActivation}
+        className={shellStyles.railLink}
+      >
+        {children}
+      </button>
+      <span id={unavailableId} className="sr-only">
+        {label} is not available in this prototype yet.
+      </span>
+    </>
+  );
+}
+
 export function ClinicalRail() {
   return (
     <aside className={shellStyles.clinicalRail} aria-label="Clinical KB">
@@ -93,12 +117,12 @@ export function ClinicalRail() {
         </RailLink>
       </nav>
       <div className={shellStyles.railBottom}>
-        <RailLink href="/?mode=answer" label="Favourites">
+        <RailLink href="/favourites" label="Favourites">
           <HeartPulse aria-hidden="true" />
         </RailLink>
-        <RailLink href="/tools" label="Settings">
+        <RailPlaceholder label="Settings">
           <Settings aria-hidden="true" />
-        </RailLink>
+        </RailPlaceholder>
         <span className={shellStyles.avatar} aria-label="Guest workspace">
           G
         </span>
