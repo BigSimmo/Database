@@ -12,13 +12,14 @@ import styles from "./coordinator.module.css";
 import { FlowDiagram } from "./flow-diagram";
 import { PressureStrip } from "./pressure-strip";
 import { PriorityQueue } from "./priority-queue";
+import { ShortlistPanel } from "./shortlist-panel";
 
 /**
  * Task 3 shell: five landmark regions, all present and stubbed with real synthetic volume
  * (`edPressure` returns 8 departments, `queueOrder` returns 41 open movements) so the layout is
  * judged against real volume rather than three placeholder rows. Task 4 built out the pressure
  * strip and the queue's department filter; Task 5 built the real `PriorityQueue`; Task 6 built
- * the real `FlowDiagram`. The explainable shortlist is built by a later task.
+ * the real `FlowDiagram`; Task 7 built the real `ShortlistPanel`.
  */
 export function CoordinatorScreen() {
   const [selectedMovementId, setSelectedMovementId] = useState<string | undefined>(undefined);
@@ -98,11 +99,12 @@ export function CoordinatorScreen() {
                 <header className={styles.regionHeader}>
                   <h2>Explainable shortlist</h2>
                 </header>
-                <p className={styles.placeholder}>
-                  {selectedMovementId
-                    ? `Shortlist for ${selectedMovementId}. Built in a later task.`
-                    : "Select a movement from the priority queue to see its explainable shortlist."}
-                </p>
+                <ShortlistPanel
+                  movement={selectedMovement}
+                  now={NOW_ANCHOR}
+                  selectedUnitId={selectedUnitId}
+                  onSelectUnit={(unitId) => setSelectedUnitId((current) => (current === unitId ? undefined : unitId))}
+                />
               </aside>
             </div>
           </div>

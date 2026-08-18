@@ -402,4 +402,80 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(accepted).toContainText("Accepted destination");
     await expect(accepted).not.toContainText("Outstanding referral");
   });
+
+  /**
+   * Task 7's own controller finding: the whole-branch review found a green tick rendered beside
+   * "SJGS Adult Open is not authorised under the Mental Health Act". This test pins the fix at the
+   * DOM level, not just at the derivation level (`ward-eligibility.test.ts` already proves the
+   * gate logic itself).
+   *
+   * The brief's own draft of this test clicks queue row 1 (WF-017) and only conditionally checks
+   * a failing gate's icon (`if (await failing.count())`) — but WF-017's default candidate
+   * (`rph-adult-secure`) passes all eight gates, so that conditional block would silently skip on
+   * this fixture, exactly the "test that cannot fail" shape Phase 1 shipped once already. WF-009
+   * (queue row 2, declined by five units, whose own nearest three candidates are all ineligible —
+   * see `ward-derivations.ts`) is used instead to guarantee a failing gate is actually on screen
+   * (Ruling 3), and the confirm journey is walked end to end rather than merely checking a button
+   * is visible (Ruling 4).
+   */
+  test("shows a failing gate as a failure and never auto-allocates", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+
+    // WF-017 (queue row 1): every gate row states its own verdict in text, not only by icon, and
+    // all eight gates are rendered — never a `.slice()`.
+    await queue.locator('[data-testid^="ward-queue-row-"]').first().click();
+    const wf017Gates = shortlist.locator('[data-testid^="ward-gate-"]');
+    await expect(wf017Gates).toHaveCount(8);
+    for (const gate of await wf017Gates.all()) {
+      const pass = await gate.getAttribute("data-pass");
+      await expect(gate).toContainText(pass === "true" ? "Met" : "Not met");
+    }
+
+    // Nothing is allocated until a human confirms — before any candidate selection or click.
+    await expect(shortlist).toContainText("No automatic allocation");
+    await expect(shortlist).not.toContainText("Confirmed by a human coordinator");
+    await expect(shortlist).not.toContainText("Overridden by a human coordinator");
+    await expect(shortlist.getByRole("button", { name: /Confirm/ })).toBeVisible();
+
+    // WF-009 (queue row 2): guaranteed to surface a failing gate on its default candidate, unlike
+    // WF-017 above — this is the unconditional proof the brief's own guarded assertion could skip.
+    await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
+    const wf009Gates = shortlist.locator('[data-testid^="ward-gate-"]');
+    await expect(wf009Gates).toHaveCount(8);
+    for (const gate of await wf009Gates.all()) {
+      const pass = await gate.getAttribute("data-pass");
+      await expect(gate).toContainText(pass === "true" ? "Met" : "Not met");
+    }
+
+    // A failing gate never renders the success icon. Note the selector: lucide-react emits
+    // `lucide-circle-check` for `CheckCircle2`, not `lucide-check-circle-2` — the class Phase 1
+    // asserted on, which could never fail regardless of what the icon actually was. Paired with a
+    // present-icon assertion on the same row so this cannot pass merely because both icons are
+    // absent (Ruling 3).
+    const failing = shortlist.locator('[data-testid^="ward-gate-"][data-pass="false"]');
+    await expect(failing.first()).toBeVisible();
+    await expect(failing.first().locator("svg.lucide-circle-check")).toHaveCount(0);
+    await expect(failing.first().locator("svg.lucide-circle-alert")).toHaveCount(1);
+
+    // Selecting an ineligible candidate (WF-009's default) leaves confirming unavailable, with
+    // the reason stated rather than the control silently vanishing.
+    const confirmButton = shortlist.getByRole("button", { name: /Confirm/ });
+    await expect(confirmButton).toHaveAttribute("aria-disabled", "true");
+    await expect(shortlist).not.toContainText("Confirmed by a human coordinator");
+
+    // Selecting WF-017's own eligible candidate makes confirming available, and confirming
+    // records a real human confirmation on screen — never an automatic allocation triggered by
+    // merely selecting a row.
+    await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
+    await shortlist.locator('[data-testid="ward-shortlist-candidate-rph-adult-secure"]').click();
+    await expect(confirmButton).not.toHaveAttribute("aria-disabled", "true");
+    await expect(shortlist).not.toContainText("Confirmed by a human coordinator");
+    await confirmButton.click();
+    await expect(shortlist).toContainText("Confirmed by a human coordinator");
+    await expect(shortlist).toContainText("RPH Adult Secure");
+  });
 });
