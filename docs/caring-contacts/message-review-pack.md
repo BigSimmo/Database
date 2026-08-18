@@ -17,32 +17,41 @@ what goes to that gate.
 
 ---
 
-## 1. A correction that must be made first
+## 1. A provisional correction already applied — confirm or replace it
 
 The reply decision of 19 August (production build specification §2.1) changed what happens when someone
 replies: messages now come from a number that can receive, an automated response is sent immediately, and
 the reply content is discarded without ever being stored or read.
 
-The current message text says:
+The wording in use until 19 August was:
 
 > Replies are not received, stored, analysed or monitored
 
-Under the new design the first clause is **no longer true** — replies are received by the number, then
-discarded. Continuing to use this wording would be telling patients something inaccurate about a safety
-boundary, which is precisely the kind of error this programme cannot afford.
+Under the new design the first clause was **no longer true** — replies are received by the number, then
+discarded. A **provisional replacement has been applied in code** so that nothing inaccurate about a safety
+boundary remains in the prototype:
 
-The replacement wording is a clinical decision, not an engineering one, and is the first thing this review
-should settle. The requirement is that it be **true**, **plain**, and **not discouraging** to someone who
-is struggling. Candidate direction, for the group to react to rather than adopt: something conveying that
-nobody reads replies to this number, followed immediately by where someone _is_ available.
+> No one reads replies to this number
+
+This is provisional and explicitly not clinically approved. Confirming it, softening it, or replacing it is
+the first job of this review. The requirement is that it be **true**, **plain**, and **not discouraging** to
+someone who is struggling.
+
+The **automated reply** itself is new content that also needs your view. Its current provisional text:
+
+> This number is not read. Your message has not been seen by anyone and has not been kept. To talk to
+> someone, call \<programme line\>, 9 am–6 pm every day. In an emergency call 000. \<Crisis line\>: \<number\>.
+
+Ask the group directly whether this reads as honest or as a door closing. It is the message a person
+receives at the moment they reached out, which makes it the highest-stakes sentence in the whole service.
 
 ## 2. The current message, in full
 
 The approved patient-visible text as it stands, with fictional details:
 
-> Hi Rowan, Alex from Example Aftercare Team is thinking of you. This is a one-way message. Replies are not
-> received, stored, analysed or monitored. For timing changes call \<programme line\>, 9 am–6 pm. In an
-> emergency call 000. Fictional Support Line: \<crisis contact\>. — Alex
+> Hi Rowan, Alex from Example Aftercare Team is thinking of you. This is a one-way message. No one reads
+> replies to this number. For timing changes call \<programme line\>, 9 am–6 pm. In an emergency call 000.
+> Fictional Support Line: \<crisis contact\>. — Alex
 
 This is the **first** message, which by policy carries the complete support information. Later messages
 keep a short boundary statement and the programme contact, and are correspondingly shorter. Every message
@@ -94,7 +103,8 @@ belongs in the hazard log or the decision register, not lost in a wording note.
 ## 5. What happens to the output
 
 1. Required changes are made to the message set.
-2. The corrected reply-boundary wording (§1) is settled and the constant updated in code.
+2. The reply-boundary wording and the automated reply (§1) are confirmed or replaced, and the constants
+   updated in code.
 3. Findings that change policy rather than wording become dated decision-lock revisions.
 4. The revised set goes to the formal dual approval — clinical programme lead plus lived-experience
    representative — which is a separate, recorded gate.
