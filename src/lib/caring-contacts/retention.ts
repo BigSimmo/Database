@@ -20,50 +20,20 @@
 import type { AuditEvent, AuditOutcome } from "./audit";
 import { awstCalendarDay } from "./clock";
 import type { Clock } from "./clock";
-import type { ActorId, PathwayVersionId, TeamId } from "./ids";
+import type { DeidentifiedEpisode, Episode, EpisodeState } from "./episode";
+import type { ActorId } from "./ids";
 
 export type RetentionPolicy = { years: number };
 
 /** The one hard-coded retention period in this domain. Callers may override it per call. */
 export const DEFAULT_RETENTION_POLICY: RetentionPolicy = Object.freeze({ years: 7 });
 
-export type EpisodeState = "draft" | "active" | "paused" | "withdrawn" | "cancelled" | "completed";
+// The episode shape moved to ./episode so the datastore can project one without importing this
+// policy module, which the sibling guard in tests/caring-contacts-retention.test.ts forbids. It is
+// re-exported here unchanged, so every existing import of these names still resolves.
+export type { DeidentifiedEpisode, Episode, EpisodeCounts, EpisodePlanDates, EpisodeState } from "./episode";
 
 const TERMINAL_EPISODE_STATES: readonly EpisodeState[] = Object.freeze(["withdrawn", "cancelled", "completed"]);
-
-export type EpisodeCounts = {
-  contactsScheduled: number;
-  contactsSent: number;
-  contactsDelivered: number;
-};
-
-export type EpisodePlanDates = {
-  dischargeAt: Date;
-  /** The instant the episode reached its terminal state; null while it is still open. */
-  completedAt: Date | null;
-};
-
-export type Episode = {
-  state: EpisodeState;
-  patientName: string;
-  patientMobileNumber: string;
-  patientIdentifiers: readonly string[];
-  culturalIdentity: string | null;
-  planDates: EpisodePlanDates;
-  pathwayVersionId: PathwayVersionId;
-  teamId: TeamId;
-  outcome: string;
-  counts: EpisodeCounts;
-};
-
-export type DeidentifiedEpisode = {
-  state: EpisodeState;
-  planDates: EpisodePlanDates;
-  pathwayVersionId: PathwayVersionId;
-  teamId: TeamId;
-  outcome: string;
-  counts: EpisodeCounts;
-};
 
 function isLeapYear(year: number): boolean {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
