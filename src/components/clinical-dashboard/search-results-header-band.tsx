@@ -964,24 +964,65 @@ export function SearchResultsEmptyState({
   ].filter(Boolean);
 
   return (
-    <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center shadow-[var(--shadow-inset)]">
+    <div className="relative overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-left shadow-[var(--shadow-inset)]">
+      {/* The state mark, carrying the same vocabulary as the band's own lead:
+          the stroke *count* — not the hue — is what separates a degraded search
+          from a healthy one, because `--clinical-accent` resolves to LinkText
+          under forced colors while `--warning` resolves to CanvasText, and hue
+          alone would render "filtered" and "could not complete" identically.
+          Utilities rather than an unlayered class: `.search-band-lead` is
+          unlayered precisely so it can beat Tailwind's utilities layer, and this
+          mark has no utility to beat — adding a class here would enlarge the
+          inventory `style-contract-registry` polices for nothing. `box-content`
+          + `w-0` makes the border the entire width. Exactly one width class per
+          branch: two would both emit `border-left-width` and the winner would be
+          stylesheet order rather than the branch. */}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute inset-y-0 left-0 box-content w-0",
+          degraded
+            ? "border-l-[6px] border-double border-l-[color:var(--warning)]"
+            : filtered
+              ? "border-l-[3px] border-solid border-l-[color:var(--clinical-accent)]"
+              : "border-l-[3px] border-solid border-l-[color:var(--border-strong)]",
+          "forced-colors:border-l-[color:CanvasText]",
+        )}
+      />
       {/* Visible copy is never inside the live region: a region that mounts
           already populated is silent in most screen readers, and wrapping the
           visible tree would flash empty for a frame. The sr-only live region
           below is populated after mount (query-only) or omitted (filtered).
           NOT `role="status"`: the band already owns that role on every search
           route and a second one makes singular `getByRole("status")` ambiguous. */}
-      <span className="mx-auto grid h-tap w-tap place-items-center rounded-full bg-[color:var(--surface)] text-[color:var(--text-muted)]">
-        {degraded ? (
-          <CircleAlert className="h-5 w-5" aria-hidden />
-        ) : filtered ? (
-          <Funnel className="h-5 w-5" aria-hidden />
-        ) : (
-          <Search className="h-5 w-5" aria-hidden />
-        )}
-      </span>
-      <Title className="mt-3 text-sm font-semibold text-[color:var(--text-heading)]">{emptyTitle}</Title>
-      <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">{emptyBody}</p>
+      {/* The glyph sits beside the heading rather than inside it: a 48px tinted
+          disc above centred copy is a container the icon vocabulary does not
+          have, and putting the SVG inside `Title` would put a node inside the
+          accessible name that every heading assertion resolves. */}
+      <div className="flex items-start gap-2.5">
+        <span
+          className={cn(
+            "mt-px shrink-0",
+            degraded
+              ? "text-[color:var(--warning)]"
+              : filtered
+                ? "text-[color:var(--clinical-accent)]"
+                : "text-[color:var(--text-muted)]",
+          )}
+        >
+          {degraded ? (
+            <CircleAlert className="h-4 w-4" aria-hidden />
+          ) : filtered ? (
+            <Funnel className="h-4 w-4" aria-hidden />
+          ) : (
+            <Search className="h-4 w-4" aria-hidden />
+          )}
+        </span>
+        <div className="min-w-0">
+          <Title className="text-sm font-semibold text-[color:var(--text-heading)]">{emptyTitle}</Title>
+          <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">{emptyBody}</p>
+        </div>
+      </div>
       {!filtered ? (
         <div aria-live="polite" className="sr-only">
           {liveMessage}
@@ -993,7 +1034,7 @@ export function SearchResultsEmptyState({
           own action, which is also the fix for the single button that said
           "Clear filters" and called `clearSearch`. */}
       {filtered ? (
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+        <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
           {lastFilter ? (
             <button
               key={lastFilter.id}
@@ -1001,7 +1042,11 @@ export function SearchResultsEmptyState({
               onClick={lastFilter.onRemove}
               data-testid="search-results-empty-remove-filter"
               className={cn(
-                "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)] sm:min-h-9",
+                // `sm:min-h-10`, not `sm:min-h-9`: the desktop floor in this file
+                // is 40px — `emptyStateAction` above and every shelf control use
+                // it — and this is the control the filtered path leads with. The
+                // phone floor was already correct.
+                "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)] sm:min-h-10",
                 focusRing,
               )}
             >
@@ -1024,10 +1069,10 @@ export function SearchResultsEmptyState({
       {secondary.length > 0 ? (
         <div
           className={cn(
-            "flex flex-wrap items-center justify-center gap-1.5",
+            "flex flex-wrap items-center gap-1.5",
             // Demoted below a rule once relaxing is on offer: an example query is
             // a different search, and the reader has not finished this one.
-            filtered ? "mt-3.5 border-t border-[color:var(--border)] pt-3.5" : "mt-3",
+            filtered ? "mt-3.5 border-t border-[color:var(--border)] pt-3.5" : "mt-3.5",
           )}
         >
           {secondary}
