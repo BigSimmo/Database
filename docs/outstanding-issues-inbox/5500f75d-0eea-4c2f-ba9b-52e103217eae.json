@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5500f75d-0eea-4c2f-ba9b-52e103217eae",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "scripts/probe-generation-quality.ts prints no answer text, so a blinded Gate E before/after read cannot come from probes",
+    "detail": "The probe reports structured generation_quality_gate_reasons only, by design, and never the answer text itself. That makes it impossible to produce a blinded before/after Gate E (answer-quality) read from probe output alone. Needs an owner-approved answer-text capture mode added to the probe, or a manual read of the app's rendered answer, before any future packet can close a blinded Gate E comparison this way.",
+    "source": "scripts/probe-generation-quality.ts; #231 investigation, session 2026-08-18",
+    "issueUlid": "01M0AKBJ99E0N0QC00MGF8Z1QD"
+  }
+}

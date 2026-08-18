@@ -18,7 +18,7 @@ so two reports can be compared without guessing what changed between them.
 | --------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | `commit_sha`          | `b7aa925f0ae19e89a9f0acf842b4a80d84083fb5`                     | `git rev-parse HEAD` of the evaluated tree. Full 40 characters, enforced.   |
 | `dataset_version`     | `rag-adversarial-cases.v1`                                     | The fixture dataset's own `datasetVersion`; cross-checked against the file. |
-| `eval_config_version` | `rag-eval-config-v1`                                           | Bumped by hand whenever a case list, threshold, or gate semantic changes.   |
+| `eval_config_version` | `rag-eval-config-v2`                                           | Bumped by hand whenever a case list, threshold, or gate semantic changes.   |
 | `model_version`       | `answer=gpt-5.6-terra; fast=gpt-5.6-terra; strong=gpt-5.6-sol` | The resolved answer-model defaults in `src/lib/env.ts`.                     |
 | `embedding_version`   | `text-embedding-3-small@1536`                                  | `OPENAI_EMBEDDING_MODEL` and `EMBEDDING_DIMENSIONS` in `src/lib/env.ts`.    |
 | `index_version`       | `20260818090000_schema_drift_snapshot_history_probe`           | The latest applied migration — the index shape the retrieval RPCs run on.   |
@@ -74,12 +74,44 @@ commit `b7aa925f0ae19e89a9f0acf842b4a80d84083fb5`. Offline gates were re-run at 
 the three provider-backed gates stay `pending_owner_run`, carrying run `32100681177` at
 `4ea310e48` (prompt v18) as `priorRun` — that run is the baseline half of the S2 canary pair.
 
-One caveat travels with the `answer_quality` gate: `scoreAnswerQualityEvalCase`
-(`src/lib/rag/rag-eval-cases.ts`) scores readability over the answer **plus every section
-body** with a 220-word ceiling. The S2 targets can exceed that by design, so a readability=0
-flag caused only by total length is a metric artefact to adjudicate (raise the ceiling with an
-`eval_config_version` bump, or accept), not evidence of a regression. The scorer was left
-untouched in S2 so the before/after comparison runs under one definition.
+One caveat travelled with the `answer_quality` gate at `rag-eval-config-v1`:
+`scoreAnswerQualityEvalCase` (`src/lib/rag/rag-eval-cases.ts`) scored readability over the
+answer **plus every section body** as a single boolean combining a fragmentation regex with a
+flat 220-word ceiling, under one reason string ("fragmented or too long"). The S2 targets can
+exceed 220 by design, so a readability=0 flag caused only by total length was a metric artefact
+to adjudicate, not evidence of a regression — and it was not separable from the fragmentation
+regression the metric exists to catch. The scorer was deliberately left untouched in S2 so the
+before/after comparison ran under one definition.
+
+## 4a. Readability metric split (2026-08-18, `rag-eval-config-v2`)
+
+That caveat is now resolved, and the resolution is the reason this record reads
+`rag-eval-config-v2`. `scoreAnswerQualityEvalCase` keeps the five metric keys — `readability`
+still reports as one score, because `AnswerQualityMetric` is a closed union consumed by
+`scripts/eval-answer-quality.ts` as a total `Record<AnswerQualityMetric, number>` — but it now
+evaluates two independent checks under that key and reports whichever failed:
+
+- **Fragmentation** — the existing `fragmentPattern`, unchanged in both pattern and effect.
+- **Length** — `>= 5` words (the empty/stub floor, unchanged) and `<= 900` words.
+
+The 900-word ceiling is derived from the v19 contract rather than raised by judgement: the
+answer field's stated upper target is 110 words (`rag-answer-instructions.ts`), sections are
+capped at 6 (`answerSections.maxItems` in `rag.ts`, matching the prompt's "three to six"), and
+each section can carry a 48-character heading plus a 600-character body (both schema maxima in
+`rag.ts`). At a deliberately low 5 characters per word — chosen so the conversion overstates the
+word ceiling and the bound can never fail a well-formed answer — that is
+110 + 6 x (648 / 5) = 887.6, rounded up to 900.
+
+This is a contract ceiling, not a style ceiling: conciseness is enforced by the prompt and
+measured by `scoreAnswerTargeting`. An answer above 900 words could not have come from a
+schema-conformant generation, so the bound still catches runaway duplication and the
+deterministic composition paths (`rag-extractive-answer.ts`, `rag-comparison.ts`) that build a
+`RagAnswer` in code without the JSON schema.
+
+Consequence for comparisons: a `readability` rate recorded under `rag-eval-config-v1` is not
+comparable to one recorded under `v2`. No retrieval, ranking, selection, or generation
+behaviour changed — this is an evaluation-scorer change only, so it carries no canary
+requirement of its own.
 
 ## 5. Related
 

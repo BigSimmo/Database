@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5899581b-dc23-486d-a6da-e456c5c5f3bc",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#TYJ0XP",
+    "outcome": "Recorded in docs/rag-behaviour/safeguards.md (eval-canary dispatch/cron-only trigger, gh api dispatch command, denominator caveat, S1b/S1d + #2065/#2088 lessons) and docs/rag-improvement/README.md §5/§6 cross-links; PR opened from claude/eval-canary-protocol-docs-01bb49 at 3e9905d0a.",
+    "baseRowFingerprint": "27208bbb65830782e093bb6677d42aa887b9bf46066d810a83eee48af67138c2"
+  }
+}
