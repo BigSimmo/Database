@@ -91,7 +91,9 @@ export function DictionaryTermPage({ entry }: { entry: DictionaryEntry }) {
 
       <InformationPageShell width="bleed" gap={false} testId="dictionary-term-main">
         <div className="mx-auto grid w-full max-w-[78rem] lg:grid-cols-[minmax(0,1fr)_19rem]">
-          <main className="min-w-0 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+          {/* A `div`, not a `main`: `InformationPageShell` already renders the
+              route's `<main>`, and a nested one is a duplicate landmark. */}
+          <div className="min-w-0 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-[color:var(--text-muted)]">
               <span>{dictionaryKindLabel(entry.kind)}</span>
               <span aria-hidden="true">·</span>
@@ -288,7 +290,7 @@ export function DictionaryTermPage({ entry }: { entry: DictionaryEntry }) {
                 </div>
               </EntrySection>
             </div>
-          </main>
+          </div>
 
           <aside aria-label="Entry details" className="hidden border-l border-[color:var(--border)] px-6 py-7 lg:block">
             <h2 className="text-xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
