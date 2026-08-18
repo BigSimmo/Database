@@ -62,7 +62,15 @@ export function useBatchSignedImageUrls(imageIds: string[], enabled = true) {
     return () => {
       controller.abort();
     };
-  }, [enabled, imageIds, authorizationHeader, authIdentity, markSessionExpired, registerAuthRequest, isAuthEpochCurrent]);
+  }, [
+    enabled,
+    imageIds,
+    authorizationHeader,
+    authIdentity,
+    markSessionExpired,
+    registerAuthRequest,
+    isAuthEpochCurrent,
+  ]);
 
   return { version };
 }
