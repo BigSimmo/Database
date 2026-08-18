@@ -5,9 +5,11 @@ description: Bootstrap a clean session for new work in this repo — create a fr
 
 # newtask — start a clean, current working copy
 
-This repo moves fast and shares ~40 worktrees and one stash stack, so starting work on a
+This repo moves fast and shares ~50 worktrees and one stash stack, so starting work on a
 stale base or a cold worktree is the default failure. This skill sets up an isolated,
-current worktree so new work starts clean.
+current worktree so new work starts clean. That count is not stable trivia — it was 48 on
+2026-08-18 and reached 50 during a single session, because nothing reclaims a worktree
+whose branch has landed. See the cleanup note at the end.
 
 ## Before you start
 
@@ -45,15 +47,36 @@ almost always has a pushed branch named after it. Report which check you used. O
 
 1. **Sync main.** `git fetch --quiet origin main`.
 2. **Create an isolated worktree** off the latest main (never reuse another session's
-   checkout, and never switch the main checkout's branch):
+   checkout, and never switch the main checkout's branch). Put it under the project's
+   own worktree root on the **D: Dev Drive**, which is where every Claude Code worktree
+   already lives — not `../wt-<slug>`, which lands outside the project tree, and never
+   under `C:\Users\…`:
+
    ```bash
-   git worktree add -b claude/<task-slug> ../wt-<task-slug> origin/main
+   git worktree add -b claude/<task-slug> D:/Repos/Database/.claude/worktrees/<task-slug> origin/main
    ```
+
    Use a short, descriptive `<task-slug>`.
+
+   **Check free space first — this is a real constraint, not a formality.** `D:` is a
+   50 GB ReFS Dev Drive that was 51% full on 2026-08-18, and each worktree's
+   `node_modules` costs ~0.9 GB (measured 51,735 files / 0.89 GB). ReFS supports
+   hardlinks, but npm extracts fresh copies rather than linking from the cache, so
+   nothing is shared:
+
+   ```bash
+   df -h /d | tail -1
+   ```
+
+   Under ~5 GB free, reclaim space before starting: `node scripts/clean-worktree.mjs --merged`
+   lists worktrees whose branch already landed. Worktrees under `C:\Users\joshs\.codex\`
+   and `C:\Users\joshs\.gemini\` belong to Codex and Antigravity sessions — leave them
+   alone and do not count them.
+
 3. **Install deps in the new worktree** (worktrees do NOT share `node_modules`; a cold
    worktree fails `vitest`/`tsc`). `npm ci` keeps the lockfile untouched:
    ```bash
-   cd ../wt-<task-slug> && npm ci --no-audit --no-fund
+   cd D:/Repos/Database/.claude/worktrees/<task-slug> && npm ci --no-audit --no-fund
    ```
    `postinstall` installs the pre-push guards automatically.
 4. **Confirm the base is current:** `node scripts/check-base-freshness.mjs` — expect
@@ -68,3 +91,8 @@ almost always has a pushed branch named after it. Report which check you used. O
   throwaway worktree or a patch file instead.
 - Do the work on the `claude/<task-slug>` branch; commit only your own paths.
 - When done, hand off with the `handoff` skill.
+- **Worktrees are not free and nothing reclaims them automatically.** `npm run clean:worktree`
+  only prunes worktrees whose directory is already missing or that git has marked prunable —
+  a merged branch whose directory still exists is never a candidate, which is how 48
+  accumulated. After the PR lands, `prlanded` should offer removal; otherwise run
+  `node scripts/clean-worktree.mjs --merged` periodically and remove what it lists.
