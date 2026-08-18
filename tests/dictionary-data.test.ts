@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  browseDictionary,
   dictionaryAliasSenses,
+  dictionaryBrowseLetter,
   dictionaryCatalogueIssues,
   dictionaryCompareHref,
   dictionaryComparisonPair,
@@ -94,5 +96,28 @@ describe("clinical dictionary catalogue", () => {
       /MSE/,
     );
     expect(dictionaryComparisonPair("affect", "delirium")).toBeNull();
+  });
+
+  it("files every browse hit under the letter the alphabetical index offers", () => {
+    // The browse header derives its selectable letters from
+    // `dictionaryBrowseLetter` and offers the rest inert. If the two ever
+    // disagreed the index would strand the reader on an empty page, which is the
+    // failure this pins: for both views, a letter the helper reports must return
+    // results, and a letter it does not report must return none.
+    for (const view of ["az", "abbreviations"] as const) {
+      const all = browseDictionary({ view, letter: "all", topics: [], kinds: [], sort: "az" });
+      expect(all.length).toBeGreaterThan(0);
+      const available = new Set(all.map(dictionaryBrowseLetter));
+      for (const letter of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+        const hits = browseDictionary({ view, letter, topics: [], kinds: [], sort: "az" });
+        expect(hits.length > 0).toBe(available.has(letter));
+      }
+      // Every hit accounted for exactly once across the per-letter partition.
+      const partitioned = [...available].reduce(
+        (total, letter) => total + browseDictionary({ view, letter, topics: [], kinds: [], sort: "az" }).length,
+        0,
+      );
+      expect(partitioned).toBe(all.length);
+    }
   });
 });
