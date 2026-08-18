@@ -141,15 +141,7 @@ const fallbackIconByType: Record<PrototypeFavouriteItem["type"], LucideIcon> = {
 };
 
 function lastUsedScore(lastUsed: string): number {
-  const lower = lastUsed.toLowerCase();
-  if (lower.startsWith("today")) {
-    const timeMatch = lastUsed.match(/(\d{1,2}):(\d{2})/);
-    if (timeMatch) return 100_000 + Number(timeMatch[1]) * 60 + Number(timeMatch[2]);
-    return 100_000;
-  }
-  if (lower.startsWith("yesterday")) return 50_000;
-  if (lower.startsWith("mon")) return 10_000;
-  return 1_000;
+  return lastOpenedScore(lastUsed);
 }
 
 function isSourceBacked(item: FavouriteItem): boolean {

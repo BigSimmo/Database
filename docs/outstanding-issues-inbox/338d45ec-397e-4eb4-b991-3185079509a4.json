@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "338d45ec-397e-4eb4-b991-3185079509a4",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "therapyBtn still dresses 30 raw controls across 8 therapy files with no shared equivalent",
+    "detail": "Measured 2026-08-18 on main at adf93a75. src/components/therapy-compass/controls.ts exports therapyBtn, used at 30 call sites across therapy-card.tsx (2), detail-screen (2), pathways-screen (4), compare-screen (3), search-screen (2), sheets-screen (8), recommend-screen (6) and brief-screen (3). PR #2122 deleted the three button recipes it sat beside (commandControl, outlineControl, iconControl) and converted their 19 call sites to the shared Button, but deliberately kept therapyBtn: its remaining consumers are list rows, disclosure headers, section toggles and chips - controls that are not Buttons in the design-system sense, so forcing them onto the Button variants would have been wrong. The gap is that nothing shared covers them either, so therapy carries its own focus ring, hover lift and dual disabled encoding (native disabled plus aria-disabled) while every other mode hand-rolls or omits equivalents. Worth deciding whether the design system should own an interactive-row or quiet-control recipe, which would serve more than therapy - the same question card-recipes.ts answered for cards. Note therapyBtn already composes the shared focusRing from card-recipes.ts, so the focus contract is not forked; what is local is the hover/press motion and the disabled encoding. Stop rule: do not resolve this by converting the 30 sites to Button variants - that was considered and rejected during #2122 because a list row is not a button, and it would put button chrome on card-like surfaces.",
+    "issueUlid": "01M0BC5VWSVTEW3WBG12P6WNRG"
+  }
+}

@@ -10,18 +10,21 @@ import {
   loadFavouriteLastOpened,
   loadFavouritePinnedIds,
   recordFavouriteOpened,
+  resetFavouritesStorageForTesting,
+  subscribeFavouritesStorage,
   toggleFavouritePinnedId,
 } from "@/components/favourites/favourites-storage";
 
 describe("favourites storage, timestamps and pinning", () => {
   beforeEach(() => {
     localStorage.clear();
+    resetFavouritesStorageForTesting();
   });
 
-  it("loads default seed timestamps and records real timestamp when item is opened", () => {
+  it("enforces honest absence initially and records real timestamp when item is opened", () => {
     const initial = loadFavouriteLastOpened();
-    expect(initial["acamprosate-renal-screen"]).toBeDefined();
-    expect(typeof initial["acamprosate-renal-screen"]).toBe("number");
+    expect(initial["acamprosate-renal-screen"]).toBeUndefined();
+    expect(Object.keys(initial)).toHaveLength(0);
 
     const customTime = Date.now() + 5000;
     recordFavouriteOpened("test-item-1", customTime);
@@ -33,6 +36,36 @@ describe("favourites storage, timestamps and pinning", () => {
     expect(storedRaw).not.toBeNull();
     const parsed = JSON.parse(storedRaw!);
     expect(parsed["test-item-1"]).toBe(customTime);
+  });
+
+  it("safely ignores array payloads in last-opened storage and falls back to honest absence", () => {
+    localStorage.setItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY, JSON.stringify(["invalid", "array"]));
+    const loaded = loadFavouriteLastOpened();
+    expect(loaded).toEqual({});
+  });
+
+  it("resets in-memory cache and listeners when resetFavouritesStorageForTesting is invoked", () => {
+    let listenerCalled = false;
+    const unsubscribe = subscribeFavouritesStorage(() => {
+      listenerCalled = true;
+    });
+
+    recordFavouriteOpened("item-before-reset", 12345);
+    expect(loadFavouriteLastOpened()["item-before-reset"]).toBe(12345);
+    expect(listenerCalled).toBe(true);
+
+    listenerCalled = false;
+    resetFavouritesStorageForTesting();
+
+    // After reset, inMemoryLastOpened is cleared; if localStorage is also cleared, it returns honest absence ({})
+    localStorage.clear();
+    expect(loadFavouriteLastOpened()).toEqual({});
+
+    // Also verify listeners were cleared by resetFavouritesStorageForTesting
+    recordFavouriteOpened("item-after-reset", 67890);
+    expect(listenerCalled).toBe(false);
+
+    unsubscribe();
   });
 
   it("loads default pinned IDs and allows toggling pinning state with localStorage persistence", () => {
@@ -64,6 +97,7 @@ describe("favourites storage, timestamps and pinning", () => {
     expect(formattedYesterday).toMatch(/^Yesterday \d{2}:\d{2}$/);
 
     expect(formatLastOpened(undefined)).toBe("Saved");
+    expect(formatLastOpened(0)).toBe("Saved");
     expect(formatLastOpened("Today 08:44")).toBe("Today 08:44");
   });
 
@@ -75,5 +109,11 @@ describe("favourites storage, timestamps and pinning", () => {
     expect(lastOpenedScore("Today 10:00")).toBeGreaterThan(lastOpenedScore("Yesterday 10:00"));
     expect(lastOpenedScore("Yesterday 10:00")).toBeGreaterThan(lastOpenedScore("Mon 10:00"));
     expect(lastOpenedScore("Saved")).toBe(1000);
+    expect(lastOpenedScore(0)).toBe(0);
+    expect(lastOpenedScore(undefined)).toBe(0);
+    // SEC-M1: Corrupted or non-string/non-number inputs must safely return 0 without throwing TypeError
+    expect(lastOpenedScore({} as unknown as string)).toBe(0);
+    expect(lastOpenedScore(true as unknown as string)).toBe(0);
+    expect(lastOpenedScore(["invalid"] as unknown as string)).toBe(0);
   });
 });
