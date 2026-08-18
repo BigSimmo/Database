@@ -1,15 +1,16 @@
 "use client";
 
-import { clockState } from "@/components/ward-management/ward-clock";
+import { clockState, type Instant } from "@/components/ward-management/ward-clock";
 import { elapsedLabel } from "@/components/ward-management/ward-derivations";
 import type { Movement } from "@/components/ward-management/ward-model";
 import { operationalScore } from "@/components/ward-management/ward-priority";
-import { allEmergencyDepartments, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
 
 import styles from "./coordinator.module.css";
 
 type PriorityQueueProps = {
   movements: Movement[];
+  now: Instant;
   selectedId: string | undefined;
   onSelect: (movementId: string) => void;
   filterEdId: string | undefined;
@@ -38,12 +39,15 @@ const TIER_QUALIFIER: Record<Movement["urgency"], string> = {
  * one. The origin department renders as `siteCode` (e.g. "RPH"), never `ed.name`, which runs to
  * 50 characters on this fixture and would blow out the column on its own.
  */
-export function PriorityQueue({ movements, selectedId, onSelect, filterEdId, onClearFilter }: PriorityQueueProps) {
+export function PriorityQueue({ movements, now, selectedId, onSelect, filterEdId, onClearFilter }: PriorityQueueProps) {
+  // Built once per render rather than called once per row (41 calls) — every row below reads
+  // the same fixed department list, so a single lookup map replaces 41 redundant scans.
+  const edsById = new Map(allEmergencyDepartments().map((ed) => [ed.id, ed]));
   // A one-line lookup keyed on a field the model already carries (`filterEdId`) — the same
   // reasoning `coordinator-screen.tsx` uses for its own ED lookup — not a derivation that
   // belongs in a ward-*.ts module. If the id it was given cannot be resolved, say so rather than
   // silently dropping the filter notice or naming the wrong department.
-  const filterEd = filterEdId ? allEmergencyDepartments().find((ed) => ed.id === filterEdId) : undefined;
+  const filterEd = filterEdId ? edsById.get(filterEdId) : undefined;
 
   return (
     <section className={styles.queueRegion} aria-label="Priority queue">
@@ -67,15 +71,18 @@ export function PriorityQueue({ movements, selectedId, onSelect, filterEdId, onC
           // Same one-line lookup reasoning as `filterEd` above, keyed on
           // `Movement.originEdId`. An unresolved id renders as an explicit absence, never a
           // substituted department (Task 5 ruling 1).
-          const originEd = allEmergencyDepartments().find((ed) => ed.id === movement.originEdId);
-          const originLabel = originEd ? originEd.siteCode : "Unknown ED";
-          const { score, factors } = operationalScore(movement, NOW_ANCHOR);
+          const originEd = edsById.get(movement.originEdId);
+          // Unlabelled, "Secure · JHC" reads as a destination on a screen whose whole purpose is
+          // finding one — JHC is where the patient currently is, not where they are going
+          // (display-honesty rule; Task 5 review Minor 5). "from" makes the direction explicit.
+          const originLabel = originEd ? `from ${originEd.siteCode}` : "from an unknown ED";
+          const { score, factors } = operationalScore(movement, now);
           // `clockState` (not the presence of a factor) is the source of truth for "is this
           // breached" — the factor list is scoped to Task 7's expandable shortlist, not this
           // row, but a breached statutory deadline is the one thing this row must never let a
           // coordinator miss, so it always renders here regardless of what Task 7 later shows.
           const legalBreached =
-            movement.legalForm !== undefined && clockState(movement.legalForm.dueAt, NOW_ANCHOR) === "breached";
+            movement.legalForm !== undefined && clockState(movement.legalForm.dueAt, now) === "breached";
           const legalFactor = factors.find((factor) => factor.label === "Statutory timing");
 
           return (
@@ -84,6 +91,7 @@ export function PriorityQueue({ movements, selectedId, onSelect, filterEdId, onC
                 type="button"
                 data-testid={`ward-queue-row-${movement.id}`}
                 data-origin-ed={movement.originEdId}
+                data-score={score}
                 className={selected ? styles.queueRowSelected : styles.queueRow}
                 aria-pressed={selected}
                 onClick={() => onSelect(movement.id)}
@@ -92,7 +100,7 @@ export function PriorityQueue({ movements, selectedId, onSelect, filterEdId, onC
                 <span className={styles.queueTier} data-tier={movement.urgency}>
                   Tier {movement.urgency} · {TIER_QUALIFIER[movement.urgency]}
                 </span>
-                <span>{elapsedLabel(movement, NOW_ANCHOR)}</span>
+                <span>{elapsedLabel(movement, now)}</span>
                 <span>
                   {movement.cohort} · {movement.security} · {originLabel}
                 </span>

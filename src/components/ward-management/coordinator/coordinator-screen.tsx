@@ -59,6 +59,7 @@ export function CoordinatorScreen() {
           <div className={styles.regionGrid} data-testid="ward-coordinator-region-grid">
             <PriorityQueue
               movements={queue}
+              now={NOW_ANCHOR}
               selectedId={selectedMovementId}
               onSelect={setSelectedMovementId}
               filterEdId={activeEdId}

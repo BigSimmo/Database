@@ -87,18 +87,63 @@ test.describe("Ward Flow coordinator screen", () => {
     await gotoCoordinator(page);
 
     const queue = page.getByRole("region", { name: "Priority queue" });
-    const tiers = await queue
-      .locator('[data-testid^="ward-queue-row-"] [data-tier]')
+    const rows = queue.locator('[data-testid^="ward-queue-row-"]');
+    const rowCount = await rows.count();
+
+    // A queue that renders zero rows must not be able to satisfy the ordering assertion below
+    // by absence — `expect([]).toEqual([])` would otherwise pass silently if the tier badge
+    // were ever removed from the row (Task 5 review Important 1). Pin the collected tier list
+    // to the same length as the rendered rows, and require at least one row to exist.
+    const tiers = await rows
+      .locator("[data-tier]")
       .evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-tier"))));
+    expect(rowCount).toBeGreaterThan(0);
+    expect(tiers).toHaveLength(rowCount);
     expect(tiers).toEqual([...tiers].sort((a, b) => a - b));
+
+    // Within a tier, the operational score must be non-increasing — the queue's core claim
+    // (Task 5 review Important 2). This reads the property off `data-score`, not a hard-coded
+    // fixture value, so it still holds if the fixture data changes; inverting the tiebreak
+    // comparator in `queueOrder` must turn this red.
+    const rowKeys = await rows.evaluateAll((nodes) =>
+      nodes.map((node) => ({
+        tier: Number(node.querySelector("[data-tier]")?.getAttribute("data-tier")),
+        score: Number(node.getAttribute("data-score")),
+      })),
+    );
+    for (let i = 1; i < rowKeys.length; i++) {
+      const prev = rowKeys[i - 1];
+      const curr = rowKeys[i];
+      if (curr.tier === prev.tier) {
+        expect(
+          curr.score,
+          `row ${i} (tier ${curr.tier}, score ${curr.score}) must not outrank row ${i - 1} (score ${prev.score})`,
+        ).toBeLessThanOrEqual(prev.score);
+      }
+    }
 
     // The score must never read as clinical severity.
     await expect(queue).toContainText("Operational");
     await expect(queue).not.toContainText("Severity");
     await expect(queue).not.toContainText("Acuity");
 
+    // The rendered score is the derived one, not a constant or a stale placeholder (Task 5
+    // review Important 3) — compare the first row against itself rather than importing the
+    // derivation into this spec.
+    const firstRow = rows.first();
+    const firstRowScore = await firstRow.getAttribute("data-score");
+    await expect(firstRow).toContainText(`Operational ${firstRowScore}`);
+
+    // The breach line is the row a coordinator must not miss, and it must be able to vanish
+    // silently for neither direction (Task 5 review Important 3): WF-017 (first row) has a
+    // passed Form 2A deadline and must show the breach line; WF-009 (second row) has an
+    // unbreached deadline and must not.
+    await expect(firstRow).toContainText("passed its deadline");
+    const secondRow = rows.nth(1);
+    await expect(secondRow).not.toContainText("passed its deadline");
+
     // Selecting a movement drives the rest of the screen.
-    await queue.locator('[data-testid^="ward-queue-row-"]').first().click();
+    await firstRow.click();
     const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
     const selectedId = await queue.locator('[aria-pressed="true"]').getAttribute("data-testid");
     await expect(shortlist).toContainText(String(selectedId).replace("ward-queue-row-", ""));
