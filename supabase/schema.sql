@@ -3181,7 +3181,15 @@ declare
     'document_index_units_document_idx',
     'rag_retrieval_logs_owner_created_idx',
     'rag_retrieval_logs_miss_idx',
-    'rag_retrieval_logs_strategy_idx'
+    'rag_retrieval_logs_strategy_idx',
+    'documents_search_idx',
+    'documents_registry_projection_lookup_idx',
+    'document_chunks_anchor_idx',
+    'document_embedding_fields_search_tsv_chunk_gin_idx',
+    'document_index_units_heading_path_idx',
+    'document_index_units_search_idx',
+    'document_index_units_terms_idx',
+    'document_memory_cards_search_idx'
   ];
   -- Verified live equivalents: same table/column intent, different migration-era name.
   index_aliases constant jsonb := jsonb_build_object(

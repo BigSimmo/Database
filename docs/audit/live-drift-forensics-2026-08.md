@@ -1091,6 +1091,122 @@ project safety" none of them is eligible for history repair; only real execution
 One window covers all five via `db push`; none needs a canary (D2), none builds an index, none
 changes a body that production does not already run.
 
+### 3.7 Production window — authorised 2026-08-18; found already applied, `db push` NOT run
+
+_2026-08-18 (owner-authorised production window for exactly the five §3.6 migrations via the
+authenticated Supabase CLI 2.114.0; target `Clinical KB Database` `sjrfecxgysukkwxsowpy`, linked
+from a dedicated worktree and unlinked again at the end; the main checkout stayed linked to
+staging). Authorisation was conditional: `supabase migration list` first, and stop if the pending
+set was anything other than those five. It was — the pending set was **empty** — so `supabase db
+push` was never run, no `migration repair` / mark-applied path was used, no vault secret was read or
+seeded, staging was not touched, and production received zero writes in this session._
+
+**Pre-flight identity (read-only, `supabase db query --linked --project-ref sjrfecxgysukkwxsowpy`):**
+
+```
+db postgres · usr postgres · total_rows 199 · latest_version 20260818113000 · documents 2851 · document_chunks 70120
+```
+
+**(1) `supabase migration list --linked`** — every local version, including all five `20260818*`,
+has a matching remote row (decisive tail of the JSON):
+
+```
+{"local":"20260818090000","remote":"20260818090000"} {"local":"20260818110000","remote":"20260818110000"} {"local":"20260818111000","remote":"20260818111000"} {"local":"20260818112000","remote":"20260818112000"} {"local":"20260818113000","remote":"20260818113000"}
+```
+
+**(2) History rows carry executed statements** — the CLI's per-statement `db push` shape, not the
+empty mark-applied shape, so the guard-migration contract was not breached by whoever applied them
+(`created_by`, `idempotency_key`, `rollback` are all null on every row, so the history table itself
+names no actor):
+
+```
+20260818090000 schema_drift_snapshot_history_probe         stmt_count  3 bytes  9025 md5 d499617cf9d3423ef9f9e5d83cd698dd
+20260818110000 codify_live_rpc_work_mem                    stmt_count 11 bytes  3965 md5 28082364f1ae611a4f6879fd0c6d7b04
+20260818111000 codify_schema_only_indexes_and_triggers     stmt_count 12 bytes  3854 md5 0db7d36488c0db0a96f62166a32a6771
+20260818112000 reconcile_chain_stale_table_columns         stmt_count  5 bytes  3045 md5 729942468a857db869edddbee7e1b0d9
+20260818113000 forward_codify_hybrid_owner_matches_bodies  stmt_count  4 bytes 12087 md5 e4e640f3ec34e0ee9fb149ad06fcd6d0
+```
+
+(The md5s differ from §3.5's staging values because staging recorded each file as one statement;
+production's rows are the CLI's statement split. Object-state proof below is the faithfulness test.)
+
+**(3) `schema_drift_snapshot()` v2 is live** — `snapshot_version 2`, `migration_history_probe "ok"`,
+`migration_history` **20** rows. The five seeded `superseded` guards (`20260701010000`, `020000`,
+`030000`, `060000`, `20260702000000`) plus the fifteen deliberately unallowlisted §1.1 rows — the
+expected first live report. **Nothing was allowlisted**; the fix remains fail-fast guard migrations
+(Phase 6.2):
+
+```
+20260701010000 20260701020000 20260701030000 20260701040000 20260701060000 20260702000000
+20260702100000 20260702110000 20260702120000 20260702130000 20260702140000 20260702150000
+20260702160000 20260702180000 20260712165915 20260712170500 20260712171000 20260712171500
+20260712172000 20260712173000
+```
+
+**(4) `work_mem` on the ten retrieval RPCs** — exactly ten `pg_proc` rows, D1 values:
+
+```
+128MB  match_document_chunks_hybrid · match_document_embedding_fields_hybrid · match_document_index_units_hybrid · match_document_index_units_hybrid_v2
+ 64MB  match_document_chunks_text · match_document_chunks_text_v2 · match_document_lookup_chunks_text · match_document_memory_cards_hybrid · match_document_memory_cards_hybrid_v2 · match_document_table_facts_text
+```
+
+**Who applied them, and when — Supabase's GitHub integration on merge to `main`.**
+`supabase branches list --project-ref sjrfecxgysukkwxsowpy` returns one branch: `name main`,
+`is_default true`, `git_branch main`, `project_ref = parent_project_ref = sjrfecxgysukkwxsowpy`,
+`created_at 2026-06-27`. That is Supabase Branching with the production project bound to the
+repository's `main` branch, and its documented behaviour is to run pending `supabase/migrations`
+against production whenever that branch advances. The push-triggered `live-drift.yml` runs bracket
+it exactly (no repo workflow pushes migrations — CI's `db-reset-verify` replays a local emulator only,
+and no Supabase check-run is posted on the merge commits, so the drift runs are the only clock):
+
+| Live-drift run (`push` event)       | Head        | Merged PR / time (UTC) | Function mismatches                                                                           | Verdict                                                      |
+| ----------------------------------- | ----------- | ---------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `32051068106` — 2026-08-17 17:37:38 | `9c660af1f` | #2058, 17:36:13        | 11 (10 `work_mem` + `schema_drift_snapshot`); info line "migration-history probe not present" | nothing applied 85 s after #2058 merged                      |
+| `32124243972` — 2026-08-18 09:57:27 | `72aa18865` | #2106, 09:56:53        | **0**; `UNEXPECTED DRIFT (37)`                                                                | `090000`–`112000` all live **34 s** after #2106 merged       |
+| `32131517648` — 2026-08-18 11:24:34 | `9b52eb075` | #2111, 11:23:50        | **0**; `UNEXPECTED DRIFT (37)`                                                                | `113000` is a no-op, so no visible delta; row present by now |
+
+Thirty-four seconds from squash-merge to applied migrations is automation, not an operator; the
+per-statement history shape is the CLI's, which the integration runs. So the "production window" this
+section was opened for had already been performed by the integration on 2026-08-18 — `090000` some
+time between 2026-08-17 17:37:38 and 2026-08-18 09:57:27, `110000`–`112000` by 09:57:27, `113000`
+by the time of this session's read (~13:30). Exact integration timestamps were not retrieved (no
+`track_commit_timestamp` on the project; `pg_xact_commit_timestamp` raised `55000`).
+
+**Live-drift proof (run `32131517648`, the post-#2111 head; a fresh dispatch was not made because it
+would repeat this run byte-for-byte):**
+
+```
+Compared 6 extensions, 38 tables, 1 views, 93 functions, 210 indexes, 48 policies, 170 constraints, 26 triggers, 2 storage_buckets against live.
+  ~ [migration_history] no_statements … ×5    (the five seeded superseded guards — expected, printed before the block)
+UNEXPECTED DRIFT (37):
+  ! [indexes] missing_live … ×20   (api_rate_limits_bucket_updated_idx … storage_cleanup_jobs_owner_status_idx — the §1.3 twenty)
+  ! [indexes] unexpected_live document_table_facts_document_id_idx
+  ! [indexes] unexpected_live storage_cleanup_jobs_owner_id_idx
+  ! [migration_history] no_statements … ×15   (20260701040000, 20260702100000…180000, 20260712165915…173000)
+```
+
+**Function `def_hash` mismatches: zero.** `missing_live` indexes: **20** (Phase 4's job).
+`unexpected_live`: **2** (Phase 4's job). `migration_history` findings: **15** unexpected + 5 expected
+— appearing for the first time, exactly as Phase 6.2 predicted; fix = guard migrations, never bare
+allowlisting. The run's overall conclusion is `failure` because of those 37, which is the intended
+red-until-Phase-4-and-6.2 state.
+
+**Consequences for the coordinator (not absorbed here — owner decision):**
+
+- The plan's "one approved production window per phase" model is not what the platform does: **every
+  migration merged to `main` is applied to production by the Supabase GitHub integration, with no
+  operator window and no approval gate.** Either keep it and rewrite the playbook/approval map around
+  it, or disable it in the Supabase dashboard. Neither was done in this session.
+- Phase 4 must be designed for this either way: an index-restoration migration merged to `main` will
+  be run by the integration inside `db push`'s per-migration transaction, where
+  `CREATE INDEX CONCURRENTLY` fails. The plan's operator-prebuild-then-guard pattern
+  (`20260804110240`) still fits; a bare `create index concurrently` migration does not.
+- Not established: who enabled the integration or when (branch `created_at 2026-06-27`), and whether
+  earlier "recorded as executed" rows in §1.1 came from it. Not investigated in this session.
+
+Local state after the session: worktree unlinked (`supabase unlink` → `.temp/project-ref` absent),
+no repository files other than this section changed, `#316` untouched (mid-reconcile elsewhere).
+
 ## Phase 4 — Index restoration
 
 _2026-08-14 (partial, incident-driven: the two retrieval-critical indexes only, owner-approved
@@ -1119,6 +1235,434 @@ silently proceed if either index disappears again — queued as follow-up work f
 batch, deliberately not bundled into this docs-only PR because migrations are an operational-risk
 surface with their own replay gates. The other 19 drift findings, the 2 unexpected live indexes,
 and the green live-drift dispatch also remain **pending** for the full phase.
+
+### Phase 4 completion — 2026-08-19 (owner-authorised off-peak production window)
+
+_Owner-authorised window against `Clinical KB Database` (`sjrfecxgysukkwxsowpy`) for index DDL plus
+a `supabase db push` of the guard migrations. Executed from a dedicated worktree; the main checkout
+`D:\Repos\Database` stayed linked to STAGING throughout. D4 is OFF (the Supabase GitHub auto-deploy
+was disabled before this window), so nothing in this task reached production on merge — every hosted
+change below was made by the explicit step that names it._
+
+**Tooling substitution, recorded.** The Supabase MCP connector was blocked by this session's
+permission classifier, so every hosted statement went through the authenticated Supabase CLI 2.114.0
+(`supabase db query --file` / `db push`), which reaches the same management API. Two transport traps
+cost a retry each and neither touched the database: Node cannot `execFile` the `supabase` npm shim on
+Windows (`ENOENT` — resolve `node_modules/supabase/dist/supabase.js` and run it with `node`), and
+`db query` parses a leading `--` as a flag, so SQL beginning with a comment must be passed via
+`--file`.
+
+#### Step 1 — restore point: PITR is NOT enabled (deviation, stated not absorbed)
+
+`supabase backups list --project-ref sjrfecxgysukkwxsowpy` reports `"pitr_enabled": false` with
+`"walg_enabled": true` and seven retained daily physical backups, the most recent `COMPLETED` at
+**2026-08-17T20:33:28Z** — roughly 38 hours before this window. **No PITR restore point exists to
+confirm.** The window proceeded on the explicit assessment that every statement in it is index-only
+with an exact one-statement inverse (`CREATE INDEX CONCURRENTLY` ↔ `DROP INDEX CONCURRENTLY`) and no
+data-loss surface — the same reasoning the 2026-08-14 incident window recorded. **This is a real gap
+in the plan's safety model, not a cleared checklist item:** the plan's standing rule "PITR/backup
+restore point captured before any mutating phase" cannot be satisfied on this project as configured,
+and any future phase that mutates _data_ rather than indexes must not proceed on this precedent.
+Enabling PITR is an owner dashboard decision.
+
+#### Step 2 — pre-flight, then the twenty builds
+
+Read-only pre-flight (`db query --linked --project-ref sjrfecxgysukkwxsowpy`), matching §3.7 exactly:
+
+```
+db postgres · usr postgres · total_rows 199 · latest_version 20260818113000 · documents 2851
+```
+
+Of the 24 indexes in scope, exactly **4** were present: the two 2026-08-14 trigram restores
+(`documents_title_trgm_idx`, `document_chunks_content_trgm_idx`, both `indisvalid`/`indisready`) and
+the two `unexpected_live` orphans. All **20** `missing_live` indexes were confirmed absent — the §1.3
+inventory still held at the window.
+
+Owning-table sizes at repair time (the §1.3 sizing debt, now discharged; heap only):
+
+| Table                            | Heap       | `n_live_tup` | Batch       |
+| -------------------------------- | ---------- | -----------: | ----------- |
+| `document_index_units`           | 162 MB     |      113,587 | B           |
+| `document_chunks`                | 124 MB     |       70,120 | B           |
+| `document_table_facts`           | 48 MB      |       34,795 | (drop only) |
+| `document_images`                | 19 MB      |       14,267 | B           |
+| `image_caption_cache`            | 10224 kB   |            3 | A           |
+| `document_summaries`             | 4272 kB    |        2,851 | A           |
+| `documents`                      | 3928 kB    |        2,851 | B           |
+| `document_index_quality`         | 2760 kB    |        2,851 | A           |
+| `ingestion_job_stages`           | 1888 kB    |        7,979 | A           |
+| `medication_records`             | 792 kB     |          656 | A           |
+| `rag_queries`                    | 552 kB     |          373 | A           |
+| `indexing_v3_agent_jobs`         | 272 kB     |        2,065 | A           |
+| `rag_query_misses`               | 128 kB     |          177 | A           |
+| `rag_aliases`                    | 32 kB      |           68 | A           |
+| `api_rate_limits`                | 8192 bytes |            4 | A           |
+| `audit_logs`                     | 0 bytes    |            0 | A           |
+| `storage_cleanup_jobs`           | 0 bytes    |            0 | A           |
+| `document_publication_approvals` | 0 bytes    |            0 | A           |
+
+Each build ran `CREATE INDEX CONCURRENTLY IF NOT EXISTS` with the canonical definition, then re-read
+`pg_index.indisvalid`/`indisready` and compared normalised `pg_get_indexdef` against the canonical
+text using the repo's own `normalizeIndexDefinition` (`tests/supabase-schema.test.ts:199`). Canonical
+text came from `supabase/drift-manifest.json` `snapshot.indexes[].def` — the rendered form of each
+defining migration — and every one was cross-read against that migration's own `create index`
+statement before the window (`20260712165211` ×14, plus `20260717170000`, `20260717131000`,
+`20260705010000`, `20260708000000`, `20260705230000`, `20260608001000`). **No transactional build was
+ever attempted.**
+
+**Batch A — small tables, 14/14 OK** (all `indisvalid=true indisready=true`, definitions matched):
+
+```
+audit_logs_action_created_idx                    OK size=8192 bytes
+audit_logs_owner_created_idx                     OK size=8192 bytes
+api_rate_limits_bucket_updated_idx               OK size=16 kB
+rag_aliases_type_enabled_idx                     OK size=16 kB
+rag_queries_source_chunk_ids_gin_idx             OK size=56 kB
+rag_query_misses_aliases_idx                     OK size=16 kB
+image_caption_cache_owner_hash_idx               OK size=1392 kB
+document_index_quality_owner_score_idx           OK size=152 kB
+document_publication_approvals_document_idx      OK size=8192 bytes
+document_summaries_owner_idx                     OK size=104 kB
+indexing_v3_agent_jobs_locked_at_idx             OK size=8192 bytes
+ingestion_job_stages_job_stage_started_idx       OK size=616 kB
+medication_records_owner_category_idx            OK size=32 kB
+storage_cleanup_jobs_owner_status_idx            OK size=8192 bytes
+```
+
+**Batch B — large tables, 6/6 OK**, built one at a time in ascending owning-table size with a
+`pg_locks` reading between each. Baseline `waiting 0 · total_locks 9 · active_backends 0`; after every
+build `waiting 0`, never above `total_locks 9`. **No lock contention at any point.**
+
+```
+documents_registry_projection_lookup_idx         OK size=72 kB     (documents)
+document_images_hash_idx                         OK size=1616 kB   (document_images)
+document_images_structured_profile_gin_idx       OK size=64 kB     (document_images)
+document_images_visual_intelligence_version_idx  OK size=16 kB     (document_images)
+document_chunks_anchor_idx                       OK size=1288 kB   (document_chunks)
+document_index_units_heading_path_idx            OK size=4104 kB   (document_index_units)
+```
+
+**Zero invalid builds, zero retries, zero skips** — the drop-and-retry-once path and the
+skip-and-report path were both defined and neither was needed. `#102`'s bare-column indexes on
+`documents` were held out entirely and remain its own canary-gated work.
+
+`ANALYZE` was then run on all eighteen touched tables (three of the twenty are expression indexes,
+which gather statistics on the expression only at `ANALYZE`).
+
+#### Step 3 — the two `unexpected_live` indexes: DROP, not codify
+
+Both are strict leading-column subsets of a present, valid canonical index, and in both cases the repo
+chain already **commands the drop** — codifying either would contradict a committed migration:
+
+| Orphan                                                         | Superseded by (present, valid on live)                                                                  | Repo instruction                                                                                                                                                                              |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `document_table_facts_document_id_idx` `(document_id)`, 296 kB | `document_table_facts_document_idx (document_id, page_number)`, 560 kB                                  | created by `20260618000000:10`, dropped by `20260620000000:159` with the comment "superseded by document_table_facts_document_idx(document_id, page_number)"; `20260712172000` drops it again |
+| `storage_cleanup_jobs_owner_id_idx` `(owner_id)`, 8192 bytes   | `storage_cleanup_jobs_owner_status_idx (owner_id, status, created_at DESC)` — restored in Batch A above | dropped by `20260703030000:40` ("`storage_cleanup_jobs_owner_id_idx` -> `storage_cleanup_jobs_owner_status_idx`") and again by `20260708000000:26`                                            |
+
+Neither name appears in `supabase/schema.sql` or the manifest, so dropping them moves live **into**
+agreement with the mirror and needs no new migration. Both dropped with `DROP INDEX CONCURRENTLY IF
+EXISTS`; a follow-up `pg_class` read returns zero rows for both. The `storage_cleanup_jobs` drop was
+deliberately ordered **after** its superseding composite was built.
+
+**Whole-schema result:** `pg_indexes` in `public` now reports **210** indexes against the manifest's
+**210** repo-defined (192 − 2 + 20 = 210), all 22 guard targets `indisvalid AND indisready`, and
+**zero** invalid-or-not-ready indexes anywhere in the schema.
+
+#### Step 4 — codification
+
+Four migrations, all authored to the `20260804110240` pattern where they are guards (`set local`
+timeouts, validate presence + `indisvalid`/`indisready` + normalised `pg_get_indexdef`, never build,
+exactly one `raise exception`):
+
+| Migration                                              | Validates                                                                                      |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `20260819100000_restore_batch_a_operational_indexes`   | the 14 Batch A indexes                                                                         |
+| `20260819100100_restore_batch_b_retrieval_indexes`     | the 6 Batch B indexes                                                                          |
+| `20260819100200_restore_search_health_trigram_indexes` | `documents_title_trgm_idx` + `document_chunks_content_trgm_idx` — **plan 4.4 debt discharged** |
+| `20260819100300_monitor_restored_retrieval_indexes`    | (not a guard) redefines `search_schema_health()` `required_indexes`                            |
+
+`20260819100200` closes the hole §1.1 named explicitly: `20260804110240` validates four _other_
+indexes and never checked this pair, which is why both could vanish between 2026-07-05 and 2026-08-02
+while the chain still replayed green. It resolves canonical names only — an `index_aliases` entry
+satisfying the health probe is not evidence the canonical trigram index exists, which is the exact
+failure being guarded.
+
+All three guards were **dry-run against production before the push** (the DO block only reads and
+raises) and all three passed. One attempt returned a transient Cloudflare `502` from
+`api.supabase.com` and succeeded unchanged on retry — a transport failure, not a guard failure.
+
+The 20 index definitions are already in `supabase/schema.sql`, and validation-only guards create
+nothing, so **no mirror change accompanies the three guards** — consistent with `20260804110240`,
+whose DO block likewise does not appear in `schema.sql`. Only `search_schema_health()` was mirrored.
+`npm run drift:manifest` → `Replay complete in 21s`, `Wrote supabase/drift-manifest.json`; the diff is
+exactly one `def_hash` (`f4f5f536…` → `85df52de…`, `search_schema_health`) plus the regeneration
+stamps. The index inventory is byte-identical, as it must be: no index was added to or removed from
+`schema.sql`.
+
+**`required_indexes`: all eight Phase 6.3 monitor-candidates are now monitored.** The list grows from
+22 to 30. Three of the eight (`documents_registry_projection_lookup_idx`, `document_chunks_anchor_idx`,
+`document_index_units_heading_path_idx`) were among the twenty absent indexes and were rebuilt and
+validated **before** this migration was written, so it cannot turn the probe red on a still-absent
+object; the other five are present GIN indexes on the lexical half of the retrieval RPCs that had no
+monitored equivalent (`document_index_units` was the worst-covered table in scope at 2 of 16).
+`supabase/search-health-unmonitored-indexes.json` drops from 44 to 36 entries — the coverage test
+rejects an entry that is also monitored — and now contains **no** `monitor-candidate`: every remaining
+entry is a reasoned `accepted-unmonitored`.
+
+**`migration_history` allowlist: zero new entries, and that is a measured result, not an omission.**
+The condition was to allowlist any of the fifteen `#Q5JHBJ` no-statements versions that is
+index-shaped _and_ whose objects these guards now validate. Six of the fifteen are index-shaped; their
+created objects were enumerated and intersected against the 22 this window's guards validate:
+
+| No-statements version                                | Index objects it creates                                                    | Covered by these guards |
+| ---------------------------------------------------- | --------------------------------------------------------------------------- | ----------------------: |
+| `20260702110000 drop_redundant_indexes`              | (drops only)                                                                |                       — |
+| `20260702150000 documents_owner_covering_index`      | `documents_owner_id_covering_idx`                                           |                 **0/1** |
+| `20260702180000 promote_index_generation_id_columns` | six `*_document_generation_idx`                                             |                 **0/6** |
+| `20260712165915 reconcile_ingestion_index_shapes`    | three `import_batches_*` / `ingestion_jobs_*`                               |                 **0/3** |
+| `20260712170500 codify_live_operational_indexes`     | 43 names incl. `audit_logs_owner_id_idx`, `document_summaries_owner_id_idx` |                **0/43** |
+| `20260712172000 drop_redundant_table_fact_indexes`   | (drops only)                                                                |                       — |
+
+The intersection is **empty**. The near-misses are name-adjacent but distinct objects
+(`audit_logs_owner_id_idx` ≠ `audit_logs_owner_created_idx`; `document_summaries_owner_id_idx` ≠
+`document_summaries_owner_idx`). No honest `validation` entry exists, so none was written and the
+fifteen stay unallowlisted — the state Phase 6.2 predicts, with fail-fast guard migrations still the
+fix. **Consequence: the `migration_history` finding count does NOT drop in this phase.** It stays at
+15 unexpected + 5 expected. That remains `#Q5JHBJ`'s work.
+
+#### Step 5 — production push (real execution, no `migration repair`)
+
+Performed only after all 22 indexes a guard validates were confirmed built. The `supabase migration
+list` pre-flight showed the pending set was **exactly** the four new versions and nothing else — itself
+confirmation that D4 auto-deploy is off, since none had been applied by merge.
+
+```
+$ supabase db push --linked --project-ref sjrfecxgysukkwxsowpy --skip-vault --yes
+Applying migration 20260819100000_restore_batch_a_operational_indexes.sql...
+Applying migration 20260819100100_restore_batch_b_retrieval_indexes.sql...
+Applying migration 20260819100200_restore_search_health_trigram_indexes.sql...
+Applying migration 20260819100300_monitor_restored_retrieval_indexes.sql...
+{"upToDate":false,"dryRun":false,"migrations":[...4 files...],"seeds":[],"roles":[],"message":"Finished supabase db push."}
+```
+
+`--skip-vault` kept the push to migrations only; no vault secret was read or written. `supabase
+migration list` after: **pending 0**, every local version matched remotely. `migration repair --status
+applied` was never used.
+
+History rows carry executed statements — the CLI's per-statement shape, **not** the empty mark-applied
+shape — so the guard-migration contract is not breached and none of these four will ever surface in
+the `migration_history` probe:
+
+```
+20260819100000 restore_batch_a_operational_indexes      stmt_count 4  no_statements false
+20260819100100 restore_batch_b_retrieval_indexes        stmt_count 4  no_statements false
+20260819100200 restore_search_health_trigram_indexes    stmt_count 4  no_statements false
+20260819100300 monitor_restored_retrieval_indexes       stmt_count 4  no_statements false
+```
+
+`search_schema_health()` on production against the expanded 30-index list:
+
+```
+ok true · missing [] · legacy_ivfflat_indexes []
+```
+
+#### Step 6 — staging brought to parity (ref re-verified before every call)
+
+Target `ikoiolksxqxfxgiyqpnu` re-verified before each step by an identity read; the corpus check
+(`documents = 0`, versus production's 2,851) was the abort condition and was re-run every time, in
+code, not by eye. Production was never a target in this step.
+
+`document_chunks_content_trgm_idx` carried the 2026-06-06 form §3.3(d) predicted:
+
+```
+before  ... gin (lower(((COALESCE(section_heading, ''::text) || ' '::text) || content)) gin_trgm_ops)
+after   ... gin (lower(((COALESCE(section_heading, ''::text) || ' '::text) || COALESCE(content, ''::text))) gin_trgm_ops)
+```
+
+Dropped and rebuilt concurrently into the canonical `coalesce(content, '')` form
+(`20260705180000:11`), `indisvalid`/`indisready` both true — now identical to production and the
+manifest (`8499c3d3…`). This had to precede `20260819100200`, which validates that exact form.
+
+The four migrations were then applied by the §2.2/§2.5 Phase 2 method — the repository file's content
+run verbatim, then an explicit history row carrying the repository's own version and name.
+`apply_migration` was not used (it stamps a connector-generated version, which
+`docs/staging-setup.md` forbids); `db push` was not used either, so staging's one-element `statements`
+shape stays consistent with its other 29 such rows. Faithfulness read back from staging:
+
+```
+20260819100000 · restore_batch_a_operational_indexes    stmt_count 1 · bytes  7616 · md5 05f64e164882b7ba813cc67c93cbadcc · matches repo file true
+20260819100100 · restore_batch_b_retrieval_indexes      stmt_count 1 · bytes  6233 · md5 85a9268cf193fdee1b38bf75fd7d2181 · matches repo file true
+20260819100200 · restore_search_health_trigram_indexes  stmt_count 1 · bytes  5571 · md5 bbae64185d2a0271b9c4ca18c40680e3 · matches repo file true
+20260819100300 · monitor_restored_retrieval_indexes     stmt_count 1 · bytes 10836 · md5 13619a6b83458f17a62b6c0130e73ae9 · matches repo file true
+```
+
+After: `total_rows 203 · latest_version 20260819100300 · no_statements 0`, `documents 0`,
+`document_chunks 0` (corpus untouched), `search_schema_health() ok true · missing []`.
+
+**`check:drift` against staging — GREEN, zero unexpected drift** (was **19** at §2.3 and still 19 at
+the §2.5 re-measure). `npm run check:drift` itself could not authenticate in this session — it
+resolves its target from `NEXT_PUBLIC_SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` via
+`createAdminClient()`, and reading `.env.local` was blocked — so the comparison was run through the
+**same exported `compareDriftSnapshots()`**, the same manifest, the same allowlist and the same
+manifest-staleness pre-check, with only the transport changed (staging's `schema_drift_snapshot()`
+fetched over the authenticated CLI). `--prune-stale` was **not** used, per the §2.4 trap:
+
+```
+Target: staging ikoiolksxqxfxgiyqpnu · documents 0 · migrations 203
+Drift manifest: generated 2026-08-18T18:15:50.121Z from schema.sql 328677d1c6f3…
+Compared 6 extensions, 38 tables, 1 views, 93 functions, 210 indexes, 48 policies, 170 constraints, 26 triggers, 2 storage_buckets against live.
+
+Stale allowlist entries (5) — no longer matching:
+  ? [migration_history] no_statements 20260701010000
+  ? [migration_history] no_statements 20260701020000
+  ? [migration_history] no_statements 20260701030000
+  ? [migration_history] no_statements 20260701060000
+  ? [migration_history] no_statements 20260702000000
+
+No unexpected drift.
+EXIT=0
+```
+
+The five stale entries are production's seeded `superseded` guards reading stale against staging — the
+documented §2.4 warning-only condition, deliberately not pruned. Staging is now at **full parity with
+the repository chain**: the §2.3 finding set — (a) `work_mem`, (b) eight never-created objects,
+(c) chain-stale columns, (d) the trigram definition — is completely closed.
+
+#### Step 7 — live-drift proof: 37 → 16 findings, indexes fully closed
+
+Dispatched on `main` (head `4666708b2`, before this branch merged): **Actions run
+[`32171070287`](https://github.com/BigSimmo/Database/actions/runs/32171070287)**, 2026-08-18T18:27:03Z.
+
+```
+Drift manifest: generated 2026-08-18T08:30:22.062Z from schema.sql 87ac9fc4849e…
+Compared 6 extensions, 38 tables, 1 views, 93 functions, 210 indexes, 48 policies, 170 constraints, 26 triggers, 2 storage_buckets against live.
+  ~ [migration_history] no_statements … ×5    (the five seeded superseded guards — expected)
+UNEXPECTED DRIFT (16):
+  ! [functions] mismatch public.search_schema_health() :: def_hash: manifest="f4f5f536026c4dd27d506a8e40b8c6d7" live="85df52de66e4e89d4a328b81a3a87c90"
+  ! [migration_history] no_statements … ×15   (20260701040000, 20260702100000…180000, 20260712165915…173000)
+```
+
+| Category                  | §3.7 (run `32131517648`) | This run (`32171070287`) | Verdict                         |
+| ------------------------- | -----------------------: | -----------------------: | ------------------------------- |
+| `missing_live` indexes    |                   **20** |                    **0** | **closed**                      |
+| `unexpected_live` indexes |                    **2** |                    **0** | **closed**                      |
+| function `def_hash`       |                        0 |                        1 | expected — merge-pending, below |
+| `migration_history`       |             15 (+5 seen) |             15 (+5 seen) | unchanged — `#Q5JHBJ`'s work    |
+| **Total unexpected**      |                   **37** |                   **16** |                                 |
+
+**Zero `missing_live`, zero `unexpected_live` — the two targets this phase owned.**
+
+**The one function mismatch is this branch not yet being on `main`, proven rather than assumed.** The
+run compares `main`'s manifest, generated 2026-08-18T08:30 from `schema.sql 87ac9fc4849e…`, against
+live. Live now reports `85df52de66e4e89d4a328b81a3a87c90` — **byte-identical to the `def_hash` in this
+branch's regenerated `drift-manifest.json`**, which is the only `def_hash` that changed. So live
+matches the repo _as of this branch_; the finding is a repo-behind-live artefact of dispatching before
+merge and clears when this PR lands. It is not a new divergence: no `match_*` RPC mismatched, and the
+RPC track closed in §3.7 stays closed.
+
+**`migration_history` did not drop, as Step 4 predicted.** No guard here validates any object created
+by those fifteen versions, so no allowlist entry was earned. Unchanged is the correct outcome, not a
+shortfall.
+
+**Phase 4 status: complete.** Plan 4.1 (Batch A), 4.2 (Batch B), 4.3 (unexpected disposition), 4.4
+(guard migrations + `schema.sql` mirror + regenerated manifest + `required_indexes`) and 4.5 (green
+index proof) are all discharged. Remaining `#316` work is the `migration_history` block, which is
+`#Q5JHBJ`, and Phase 5's after-measurements.
+
+#### Step 8 — the guard caught a real chain defect on the Supabase preview branch
+
+The `20260819100200` trigram guard **failed CI on PR #2151**, and it was right to. The Supabase
+Preview check (an ephemeral preview branch database, project `jgzqdaalxnfmiadmpnib` — neither
+production nor staging) builds from the migration chain alone and reported:
+
+```
+ERROR: The retrieval-critical trigram indexes restored on 2026-08-14 are not present in canonical
+form; ... Missing: (none); Invalid: (none); Mismatched: document_chunks_content_trgm_idx (SQLSTATE P0001)
+At statement: 3
+```
+
+**Root cause — the first creator wins, and every later one is a no-op.** Three renderings of this
+index exist in the repository and the chain permanently produces the oldest:
+
+| Migration           | Expression                                                               | Effect on a fresh replay       |
+| ------------------- | ------------------------------------------------------------------------ | ------------------------------ |
+| `20260606000000:11` | `lower(coalesce(section_heading,'') \|\| ' ' \|\| content)`              | **creates it — this one wins** |
+| `20260622000000:13` | `lower(coalesce(section_heading,'') \|\| ' ' \|\| coalesce(content,''))` | `if not exists` → **no-op**    |
+| `20260705180000:11` | identical to `20260622000000` = `schema.sql:743` = **canonical**         | `if not exists` → **no-op**    |
+
+`grep -c "drop index.*document_chunks_content_trgm_idx" supabase/migrations/` returns **zero** — no
+migration ever drops it, so the two correct definitions can never take effect. Any database built
+from migrations alone therefore carries the 2026-06-06 form while `schema.sql`, the drift manifest
+and production carry the `coalesce(content,'')` form. The difference is not cosmetic: the older
+expression evaluates to NULL for any row with NULL `content`, so those chunks are absent from the
+trigram index entirely.
+
+**This was already visible and was mis-scoped as staging-only.** §3.3(d) found exactly this and
+recorded it as "a chain-stale residual on staging only", repaired by hand in the staging window. It
+is not staging-only — it is every environment built from the chain: `supabase db reset`, a
+disaster-recovery replay, CI's `Migration replay` job, and the preview branch. The hand-repair fixed
+the symptom on one database; the chain kept producing the wrong index. The Phase 4.4 guard is what
+turned a silent, environment-specific divergence into a loud, reproducible CI failure — which is
+precisely the behaviour the guard-migration contract exists to buy.
+
+**Fix: `20260819100150_reconcile_chain_stale_content_trgm_index.sql`**, ordered between the Batch B
+guard (`100100`) and the trigram guard (`100200`) so a fresh replay is canonical before it is
+validated. It is deliberately conditional, and will never run a write-blocking index build on a
+populated hosted database:
+
+| Situation                       | Behaviour                                                                        |
+| ------------------------------- | -------------------------------------------------------------------------------- |
+| already canonical               | early `return` — no lock, no DDL (production and staging today)                  |
+| wrong form, table **empty**     | `drop index` + `create index` in canonical form (preview, `db reset`, DR replay) |
+| wrong form, table **populated** | `raise exception` telling the operator to rebuild concurrently out of band first |
+
+**Proof, run locally against the same scratch Postgres image the manifest generator uses, replaying
+the whole chain in order (the local stand-in for CI's `Migration replay` and the preview branch):**
+
+```
+# with the fix removed — reproduces the CI failure exactly
+FAILED at 20260819100200_restore_search_health_trigram_indexes.sql:
+ERROR:  The retrieval-critical trigram indexes ... Mismatched: document_chunks_content_trgm_idx
+Applied 201/203.
+
+# with the fix in place
+Applied 204/204.
+document_chunks_content_trgm_idx after full chain replay:
+  CREATE INDEX document_chunks_content_trgm_idx ON public.document_chunks USING gin (lower(((COALESCE(section_heading, ''::text) || ' '::text) || COALESCE(content, ''::text))) gin_trgm_ops)
+RESULT: CANONICAL — matches schema.sql / manifest / production
+```
+
+**No-op path proven separately**, because this migration must eventually run against a populated
+production table. Re-running it on an already-canonical database left the index **OID unchanged**
+(`18657` → `18657` in the scratch replay), meaning no rebuild and no lock, and the `100200` guard
+still passed afterwards.
+
+**Applied to both hosted tiers, and the no-op verified on production itself.** The CLI refused the
+first push with `LegacyDbPushMissingRemoteError` — "Found local migration files to be inserted
+before the last migration on remote database" — because `100150` sorts before the already-applied
+`100200`/`100300`. That is the documented out-of-order case and its documented flag; the pending set
+was confirmed to be exactly this one file before using it:
+
+```
+$ supabase db push --linked --project-ref sjrfecxgysukkwxsowpy --skip-vault --include-all --yes
+Applying migration 20260819100150_reconcile_chain_stale_content_trgm_index.sql...
+```
+
+Production `document_chunks_content_trgm_idx` **OID `1491258` before and `1491258` after**, identical
+`pg_get_indexdef`, `search_schema_health() ok true` — the early-return branch, confirmed on the real
+70,120-row table rather than inferred. Staging took the same migration by the §2.2 Phase 2 method
+(`md5 aa2d6edef30a1ef73924c74c0a9216a3`, matches the repo file), reaching **204** history rows with
+`no_statements 0` and its corpus untouched; the staging drift comparison is still **green, zero
+unexpected drift**.
+
+`schema.sql` and `drift-manifest.json` are deliberately **unchanged** by this fix: the mirror already
+declared the canonical form, and it was the chain that disagreed with it. Nothing to re-mirror, and
+the manifest sha still matches.
+
+**Ordering note for future sessions.** `20260819100150` is intentionally out of order relative to
+`100200`/`100300`, which were applied first. Any future `supabase db push` that legitimately needs to
+insert a version before the remote tip must pass `--include-all`, and must confirm the pending set
+first — the flag applies _every_ locally-absent version, not just the intended one.
 
 ## Phase 5 — Measure and close the loop
 

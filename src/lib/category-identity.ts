@@ -95,6 +95,7 @@ export const CATEGORY_ICON_KEYS = [
   "waves",
   "star",
   "chat",
+  "activity",
 ] as const;
 
 export type CategoryIconKey = (typeof CATEGORY_ICON_KEYS)[number];
@@ -147,6 +148,7 @@ export const TOOL_ICON: Record<ToolCatalogId, CategoryIconKey> = {
   calculators: "calculator",
   monitoring: "waves",
   favourites: "star",
+  "ward-management": "activity",
 };
 
 /**

@@ -4,17 +4,60 @@ This repo uses one shared search experience across the global shell, dashboard r
 
 ## Page ownership model
 
-| Page state                                     | Composer placement                                                          | Reserve owner                                                                  |
-| ---------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Answer home / standalone mode homes            | In-flow hero composer on phones and larger breakpoints                      | Page content; no fixed phone dock reserve                                      |
-| Tools directory (`/tools`, no submitted query) | Compact bottom dock on phones; in-flow hero composer from `sm`              | Shell dock reserve on phones; page content from `sm`                           |
-| Submitted/search-result views                  | Compact bottom dock on phones; in normal page flow on tablets and desktops  | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
-| Answer result view                             | Overlaid glass header plus answer composer dock                             | Dashboard `#main-content` top/bottom reserves                                  |
-| Document detail/source routes                  | `DocumentViewer` floating composer                                          | `DocumentViewer` content padding                                               |
-| Document section navigation                    | Header row disclosure (phone sheet) + rail index card at `lg`               | None — adds no chrome and no reserve                                           |
-| Record page breadcrumb header                  | Same header row without the disclosure or track; view mode inline from `sm` | None — portals into the phone collapse row, sticky at `sm+`                    |
-| Calculators (`/calculators`)                   | In-flow hero composer at home; shared compact dock after submission         | Page content at home; shell reserve for submitted results                      |
-| Info/detail pages with no composer             | No fixed composer                                                           | Idle shell padding only                                                        |
+| Page state                                          | Composer placement                                                                  | Reserve owner                                                                  |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Shared home (`/`, any mode) / standalone mode homes | In-flow hero composer on phones and larger breakpoints                              | Page content; no fixed phone dock reserve                                      |
+| Tools directory (`/tools`, no submitted query)      | Compact bottom dock on phones; in-flow hero composer from `sm`                      | Shell dock reserve on phones; page content from `sm`                           |
+| Submitted/search-result views                       | Compact bottom dock on phones; in normal page flow on tablets and desktops          | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
+| Answer result view                                  | Overlaid glass header plus answer composer dock                                     | Dashboard `#main-content` top/bottom reserves                                  |
+| Document detail/source routes                       | `DocumentViewer` floating composer                                                  | `DocumentViewer` content padding                                               |
+| Document section navigation                         | Header row disclosure (phone sheet) + rail index card at `lg`                       | None — adds no chrome and no reserve                                           |
+| Record page breadcrumb header                       | Same header row without the disclosure or track; view mode inline from `sm`         | None — portals into the phone collapse row, sticky at `sm+`                    |
+| Calculators (`/calculators`)                        | In-flow hero composer at home; shared compact dock after submission                 | Page content at home; shell reserve for submitted results                      |
+| Info/detail pages with no composer                  | No fixed composer                                                                   | Idle shell padding only                                                        |
+| Guide Centre dialog (`GuideDialog`)                 | Shared edge-to-edge phone dock inside the Sheet footer; Sheet footer band from `sm` | `[data-guide-content]` bottom pad (`guide-search-dock` reserve owner)          |
+
+The Tools row is scoped to the **mounted Tools directory**, not to `resultKind: "tools"`. Factsheets,
+Dictionary and Therapy Compass borrow that result kind purely as a benign search kind, and on the
+shared home they render the same short `SharedHomeEmptyState` as every other mode — so they take the
+shared-home row above. `shouldShowSharedHome` already excludes `mode=tools`, which is why
+`showSharedHome` is the correct opt-back-in for `heroComposerBreakpoint` and `centeredModeHome` in
+`ClinicalDashboard.tsx`.
+
+### The Guide Centre footer is a dock, not a footer band
+
+`GuideDialog` renders its search composer through the shared `Sheet` footer slot, and
+`Sheet` always wraps that slot in `border-t border-[color:var(--border)] p-3 sm:p-4`
+(`src/components/ui/sheet.tsx`). On phones that band is the wrong chrome: an opaque
+`--surface-raised` slab with a hard top border reads as a cover over the content behind
+the composer, which is exactly what every other phone composer avoids.
+
+So the guide footer carries `answer-footer-search-dock answer-footer-search-edge` and
+renders one `.answer-footer-search-backdrop` child, the same pair the shell dock uses.
+`globals.css` then owns the phone geometry — flush `left/right/bottom: 0`, safe-area
+padding, `background: transparent` — and the scrim tints only around the pill before
+tapering to zero at the physical edge. The band's own border, surface and elevation are
+`sm:` only, and the scrim is `sm:hidden`, so the tablet/desktop dialog footer is
+unchanged.
+
+Two consequences worth keeping:
+
+- The dock stays on the **default** scrim height, not `document-mobile-search-compact`:
+  the tour action row sits above the pill, the same shape the differentials-compare and
+  patient-details dock addons take, and the compact 5rem scrim would end mid-row.
+- The footer wrapper is the dock element, so its children need `relative z-10` to paint
+  above the scrim.
+- The band's glass and the addon pill are proven in a **browser**, not by class presence:
+  `tests/guide-centre-chrome.spec.ts` asserts the painted background, border, flush
+  geometry and scrim, plus the pill's rendered border/radius/alpha. jsdom cannot evaluate
+  the `max-sm:` media query, and tailwind-merge keeps both the base and the variant
+  utility, so stylesheet order — not the class list — decides which one wins.
+- The tour action is a dock **addon**, so on phones it takes the addon-pill treatment the
+  other two addons use — `patient-details-fab__button` and Compare's quiet
+  `--empty` state: an outlined translucent pill, never a filled primary control. A filled
+  button there puts back a smaller version of the cover the dock conversion removed,
+  because the band behind it is transparent by design. Those overrides are `max-sm:`
+  only; from `sm` the footer is a real band and the primary treatment is correct.
 
 ## Default in-page navigation template
 

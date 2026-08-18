@@ -933,7 +933,16 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     const specifiersModeButton = page.getByRole("button", { name: "Mode Specifiers" });
     await expect(specifiersModeButton).toBeFocused();
     await expect(sharedHome.getByRole("heading", { level: 2, name: "Diagnostic Specifiers" })).toBeVisible();
-    await expect(sharedHome.locator("p")).toHaveCount(1);
+    // The shared home carries the mode's own subtitle, so pin the copy itself
+    // rather than a paragraph count that moves with the design. No mode home
+    // carries a caveat line under the composer any more.
+    await expect(sharedHome.getByText("Check specifier fit and exclusions.", { exact: true })).toBeVisible();
+    // Asserted absent rather than simply deleted: this is the browser-level half
+    // of the no-caveat contract, which the structural half in
+    // tests/mode-home-no-caveat-footer.test.ts cannot provide.
+    await expect(
+      sharedHome.getByText("Review criteria and exclusions before documenting", { exact: true }),
+    ).toHaveCount(0);
     await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-tags\b/);
     await expect(visibleGlobalSearchInput(page)).toHaveAttribute(
       "placeholder",
@@ -1001,6 +1010,12 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       { path: "/differentials", testId: "differentials-home" },
       { path: "/factsheets", testId: "factsheets-home-main" },
       { path: "/favourites", testId: "favourites-hub" },
+      // The shared home at `/` is where the mode pill actually lands, so it gets
+      // the same hero treatment for every mode. These two borrow
+      // `resultKind: "tools"` as a benign search kind and used to inherit the
+      // Tools dock exception here, losing the hero pill, ticker and privacy line.
+      { path: "/?mode=factsheets", testId: "shared-home-empty-state" },
+      { path: "/?mode=dictionary", testId: "shared-home-empty-state" },
       // /tools is the documented exception: phones use the shared footer dock
       // instead of the in-flow hero pill (docs/search-chrome-behaviour.md).
     ] as const) {
@@ -1126,13 +1141,12 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       await expect(heading).toBeVisible();
       const headingFontSize = await heading.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
       const subtitle = heading.locator("xpath=following-sibling::p[1]");
-      let subtitleFontSize: number | null = null;
-      if (home.testId === "shared-home-empty-state") {
-        await expect(subtitle).toHaveCount(0);
-      } else {
-        await expect(subtitle).toBeVisible();
-        subtitleFontSize = await subtitle.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
-      }
+      // The shared home carries a per-mode subtitle like every standalone mode
+      // home, so it takes the same sizing assertions rather than opting out.
+      await expect(subtitle).toBeVisible();
+      const subtitleFontSize: number = await subtitle.evaluate((el) =>
+        Number.parseFloat(getComputedStyle(el).fontSize),
+      );
       const expectedTypeSizes = await page.evaluate(() => {
         const resolveFontSize = (token: string) => {
           const probe = document.createElement("span");
@@ -1158,9 +1172,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       expect(metrics.iconWidth).toBe(48);
       expect(metrics.iconHeight).toBe(48);
       expect(metrics.headingFontSize).toBeCloseTo(expectedTypeSizes.hero, 1);
-      if (subtitleFontSize !== null) {
-        expect(subtitleFontSize).toBeCloseTo(expectedTypeSizes.subtitle, 1);
-      }
+      expect(subtitleFontSize).toBeCloseTo(expectedTypeSizes.subtitle, 1);
 
       await expectNoPageHorizontalOverflow(page);
     });

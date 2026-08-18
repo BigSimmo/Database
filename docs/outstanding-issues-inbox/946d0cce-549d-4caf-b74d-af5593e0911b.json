@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "946d0cce-549d-4caf-b74d-af5593e0911b",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "b048dbdd-7672-4e47-82e2-2211495e40c6",
+    "reason": "Cancelled by its own author to resolve a two-pending-mutations collision on #316. Its content is carried forward unchanged into the merged replacement queued in this same batch, which additionally carries the RPC-track closure and D4 finding from the concurrently queued 7a93a5a2 so neither session's result is lost."
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "07867a60-274a-4350-a564-2fed480ff997",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Point-in-time recovery is OFF on the live Supabase project, so the remediation plan's 'restore point before any mutating phase' rule cannot be met",
+    "detail": "Measured 2026-08-19 during the Phase 4 production window (forensics section 'Phase 4 completion', step 1). `supabase backups list --project-ref sjrfecxgysukkwxsowpy` returns pitr_enabled false, walg_enabled true, and seven retained daily physical backups, most recent COMPLETED 2026-08-17T20:33:28Z -- roughly 38 hours before that window opened. CONSEQUENCE: the recovery-point objective for the live clinical corpus (2851 documents, 70120 chunks) is up to ~24 hours, and the database-remediation plan's standing rule 'PITR/backup restore point captured before any mutating phase' CANNOT be satisfied on this project as currently configured. Phase 4 proceeded anyway and said so: every statement in it was index-only with an exact one-statement inverse (CREATE INDEX CONCURRENTLY <-> DROP INDEX CONCURRENTLY) and no data-loss surface, the same reasoning the 2026-08-14 incident window recorded. That reasoning does NOT generalise. Any future window that mutates DATA rather than indexes -- #022's BMJ attestation hosted apply, #036's public_corpus marker migration, #191's ACL consolidation, #057's restore/soak drill, or any reindex or backfill -- must not proceed on this precedent while the only restore point is a day-old physical backup. DECISION REQUIRED FROM THE OWNER, and it is dashboard plus billing work no agent can do: either enable PITR on the Supabase project (Database settings -> Add-ons -> Point in Time Recovery; it is a paid add-on, so this is a cost decision as well as a safety one), or deliberately accept the ~24h RPO and amend the plan's standing rule to say so, so that future sessions stop treating an unsatisfiable checklist item as if it had been met. Whichever is chosen, record it, because the current state is that the rule reads as satisfied by default when nobody checks. Consider re-grading this row to P1 if a ~24-hour worst-case data loss on the clinical corpus is judged unacceptable; it is filed P2 because the exposure is a deliberate platform configuration rather than a regression, and no data loss has occurred. Related: #057 (restore/rollback drill -- its value is limited while PITR is off), #188 and #196-#200 (DR codification).",
+    "source": "Phase 4 production window 2026-08-19; docs/audit/live-drift-forensics-2026-08.md 'Phase 4 completion' step 1; PR #2151",
+    "issueUlid": "01M0B4V6S21K6T35KEB130CXJB"
+  }
+}

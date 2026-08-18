@@ -12,11 +12,17 @@ import {
 import { useClientTime } from "@/lib/use-client-time";
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
-import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeTemplate } from "@/components/mode-home-template";
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import type { AppModeId } from "@/lib/app-modes";
-import { answerLoading, copyButton, sharedHomeEmptyState, sharedHomePresentation } from "@/lib/ui-copy";
+import {
+  answerLoading,
+  copyButton,
+  sharedHomeEmptyState,
+  sharedHomePresentation,
+  type SharedHomePresentation,
+} from "@/lib/ui-copy";
 
 export function CopyButton({
   label,
@@ -69,12 +75,13 @@ export function SharedHomeEmptyState({
     onSelectRecent && preferences.showRecentOnHome
       ? recentQueries.filter((entry) => entry.trim().length > 0).slice(0, 5)
       : [];
-  const presentation = sharedHomePresentation[modeId];
+  const presentation: SharedHomePresentation = sharedHomePresentation[modeId];
 
   return (
     <ModeHomeTemplate
       testId="shared-home-empty-state"
       title={presentation.title}
+      subtitle={presentation.subtitle}
       icon={appModeIcons[modeId]}
       headingLevel={2}
       stabilizePhoneCopy
@@ -94,12 +101,6 @@ export function SharedHomeEmptyState({
               icon={History}
             />
           )}
-          {modeId === "answer" ? (
-            <ModeHomeVerificationFooter
-              label="Clinical decision support"
-              body="Verify against cited sources before clinical use"
-            />
-          ) : null}
         </div>
       }
     />

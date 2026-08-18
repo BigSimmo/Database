@@ -206,25 +206,16 @@ export function ModeHomeMain({
 }
 
 // One quiet line of text. Deliberately no icon and no accent colour: a shield
-// (and especially a ShieldCheck) reads as "verified", which several of these
-// footers must not assert — validation status varies per document and is
-// surfaced on the results themselves. Hierarchy comes from weight alone, so the
-// label half (capability) carries the emphasis rather than the body half (caveat).
+// (and especially a ShieldCheck) reads as "verified", which this footer must not
+// assert — validation status varies per document and is surfaced on the results
+// themselves. Hierarchy comes from weight alone, so the label half (capability)
+// carries the emphasis rather than the body half (caveat).
 //
-// Modes whose footer said only what the mode does, with no caveat, no longer
-// render this at all; the remaining call sites are the ones whose `body` is a
-// genuine review-before-use instruction.
-export function ModeHomeVerificationFooter({
-  label,
-  body,
-  verifiedCount,
-  totalCount,
-}: {
-  label: string;
-  body: string;
-  verifiedCount?: number;
-  totalCount?: number;
-}) {
+// No mode home renders this any more: the line under the composer was removed
+// from every home page. The sole remaining call site is the therapy-compass
+// page footer, which sits at the bottom of the sub-routes and is explicitly not
+// rendered on the therapy home (`showFooter={!isHome}` in workspace.tsx).
+export function ModeHomeVerificationFooter({ label, body }: { label: string; body: string }) {
   return (
     <p className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 pt-0.5 text-2xs leading-4 text-[color:var(--text-muted)] sm:pt-1">
       {/* The separator is bound to the label as one non-breaking flex item.
@@ -238,11 +229,6 @@ export function ModeHomeVerificationFooter({
         </span>
       </span>
       <span>{body}</span>
-      {typeof verifiedCount === "number" && typeof totalCount === "number" ? (
-        <span className="sr-only">
-          {verifiedCount} of {totalCount} records are locally verified.
-        </span>
-      ) : null}
     </p>
   );
 }

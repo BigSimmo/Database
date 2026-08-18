@@ -16,53 +16,78 @@ import type { AppModeId } from "@/lib/app-modes";
 
 export type SharedHomePresentation = {
   title: string;
+  subtitle: string;
 };
 
+/**
+ * Per-mode copy for the one shared home at `/`.
+ *
+ * `/` is the single home page for every mode — the mode pill retargets the
+ * composer rather than navigating (see `appModeSelectionHref`), so this table is
+ * the *only* thing that changes between modes on that page. Each entry mirrors
+ * the mode's own standalone home (`*-home-page.tsx`) so a clinician sees the
+ * same words whichever door they came through.
+ */
 export const sharedHomePresentation = {
   answer: {
     title: "Clinical Answers",
+    subtitle: "Ask a clinical question or search your documents.",
   },
   documents: {
     title: "Clinical Documents",
+    subtitle: "Open, browse, and continue reading your clinical sources.",
   },
   services: {
     title: "Clinical Services",
+    subtitle: "Search by need, catchment, or route.",
   },
   forms: {
     title: "Clinical Forms",
+    subtitle: "The WA MHA 2014 forms register.",
   },
   favourites: {
     title: "Clinical Favourites",
+    subtitle: "Saved notes, sources, and sets.",
   },
   differentials: {
     title: "Differential Diagnosis",
+    subtitle: "Match your catalogue to your library.",
   },
   dsm: {
     title: "DSM-5 Diagnosis",
+    subtitle: "Criteria, specifiers, and comparisons.",
   },
   specifiers: {
     title: "Diagnostic Specifiers",
+    subtitle: "Check specifier fit and exclusions.",
   },
   formulation: {
     title: "Clinical Formulation",
+    subtitle: "Build a formulation from the evidence.",
   },
   prescribing: {
     title: "Medication Guidance",
+    subtitle: "Medication dosing and safety.",
   },
   tools: {
     title: "Clinical Tools",
+    subtitle: "Clinical tools and applications.",
   },
   calculators: {
     title: "Clinical Calculators",
+    subtitle: "Validated psychiatry scores with the indication, items, and next actions in one place.",
   },
   "therapy-compass": {
     title: "Therapy Compass",
+    subtitle: "Source-grounded therapy records.",
   },
   factsheets: {
     title: "Patient Factsheets",
+    subtitle: "Plain-language patient handouts.",
   },
   dictionary: {
     title: "Clinical Dictionary",
+    subtitle: "Source-governed psychiatric terms, abbreviations, and distinctions.",
   },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 
