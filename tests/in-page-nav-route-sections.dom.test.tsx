@@ -280,7 +280,7 @@ describe("in-page navigation section contracts", () => {
     expect(routes).toHaveLength(13);
   });
 
-  it("keeps the specifier map header and role buttons synchronized during ordinary scrolling", async () => {
+  it("keeps the specifier map jump cards synchronized during ordinary scrolling", async () => {
     class TestIntersectionObserver {
       readonly root = null;
       readonly rootMargin = "";
@@ -328,14 +328,13 @@ describe("in-page navigation section contracts", () => {
 
     try {
       render(<SpecifierMapPage />);
-      await waitFor(() => expect(screen.getByTestId("specifier-map-section-trigger")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByTestId("specifier-map-jump-episode-features")).toBeInTheDocument());
 
       scrollY = 160;
       fireEvent.scroll(window);
 
       await waitFor(() => {
         expect(screen.getByTestId("specifier-map-jump-course-onset")).toHaveAttribute("aria-current", "true");
-        expect(screen.getByTestId("specifier-map-section-trigger")).toHaveTextContent("Course and onset");
       });
     } finally {
       clientRectsSpy.mockRestore();
