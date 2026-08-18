@@ -183,6 +183,21 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 | `app-modes.ts`, `document-flow-routes.ts`, `local-project-identity.ts`, `local-server-utils.mjs`                       | Routing and project identity                                                                                                                                             |
 | `tailwind-merge.ts`                                                                                                    | The `extendTailwindMerge` config behind `cn()` — declares this repo's custom `@theme` scales so twMerge does not misclassify them (`docs/design-system/TOKENS.md`)       |
 
+### Caring Contacts (isolated module)
+
+`src/lib/caring-contacts/` is a self-contained domain directory for a separate clinical
+module (suicide-prevention caring-contact outreach), kept deliberately walled off from the
+rest of `src/lib/`. Files here may only use standard library, third-party packages, and
+relative imports within the directory — no `@/components`, `@/app`, other `@/lib/*` module,
+Supabase, OpenAI, or Next.js imports. `tests/caring-contacts-domain-isolation.test.ts`
+enforces the boundary by scanning every file in the directory for forbidden or
+directory-escaping imports.
+
+| Module     | Role                                                                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `clock.ts` | Injectable `Clock` (`fixedClock`/`systemClock`) plus `Australia/Perth` (AWST, no DST) wall-time helpers used by the rest of the module                  |
+| `ids.ts`   | Branded identifier types and constructors (`TeamId`, `ActorId`, `PatientId`, `ReferralId`, `PlanId`, `ContactId`, `PathwayVersionId`, `IdempotencyKey`) |
+
 ---
 
 ## Supabase
