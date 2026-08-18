@@ -10,7 +10,7 @@
 //   * every send instant falls inside the approved 09:00-18:00 AWST window.
 //
 // Pure and deterministic: the same input always yields byte-identical output.
-import { awstCalendarDay, awstWallTimeToInstant } from "./clock";
+import { awstCalendarDay, awstWallTimeToInstant, toAwstParts } from "./clock";
 import type { MessageType, SendingPreference } from "./model";
 
 export type ScheduleInput = {
@@ -47,6 +47,24 @@ for (const hour of Object.values(SEND_HOUR_BY_PREFERENCE)) {
   if (hour < EARLIEST_SEND_HOUR || hour >= LATEST_SEND_HOUR_EXCLUSIVE) {
     throw new Error(`caring-contacts schedule: send hour ${hour} falls outside the approved 09:00-18:00 AWST window`);
   }
+}
+
+/**
+ * The approved window, published so a caller does not have to restate it. It is the same pair of
+ * constants the load-time assertion above enforces -- exported, not duplicated -- because anything
+ * that decides whether a send is still allowed (a retry, for instance) is deciding it against this
+ * window, and a second copy of these numbers is how the two would drift apart.
+ */
+export const APPROVED_SEND_WINDOW = Object.freeze({
+  earliestHour: EARLIEST_SEND_HOUR,
+  latestHourExclusive: LATEST_SEND_HOUR_EXCLUSIVE,
+});
+
+/** True when `instant` falls inside the approved AWST send window of its own calendar day. */
+export function isWithinApprovedSendWindow(instant: Date): boolean {
+  if (!(instant instanceof Date) || Number.isNaN(instant.getTime())) return false;
+  const { hour } = toAwstParts(instant);
+  return hour >= APPROVED_SEND_WINDOW.earliestHour && hour < APPROVED_SEND_WINDOW.latestHourExclusive;
 }
 
 const WEEK_ONE_OFFSET_DAYS = 7;
