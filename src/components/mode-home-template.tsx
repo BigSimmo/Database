@@ -140,8 +140,16 @@ export function ModeHomeHero({
 export type ModeHomeMainAlign = "center" | "start" | "startOnPhone";
 
 const MODE_HOME_MAIN_ALIGN_CLASS: Record<ModeHomeMainAlign, string> = {
-  // Short empty homes — centre in the visible canvas.
-  center: "justify-center pt-[clamp(1.25rem,4vh,2.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)]",
+  // Short empty homes — centre in the visible canvas. `justify-center` alone
+  // has no visible effect on phone: `<main>`'s immediate parent
+  // (`mobile-composer-reserve-pad` in GlobalSearchShell) is a plain block
+  // element, not a flex container, so `<main>`'s `flex-1` never fires there
+  // and the box shrinks to its own content height instead of stretching to
+  // fill the viewport — there is nothing to centre within. The sm+ rule
+  // already carries an explicit `min-h` for the same reason; mirror it below
+  // sm so short phone content actually centres instead of pinning to the top.
+  center:
+    "max-sm:min-h-[calc(100dvh-var(--shell-header-h))] justify-center pt-[clamp(1.25rem,4vh,2.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)]",
   // Tall results / content — keep the top reachable on every breakpoint.
   start: "justify-start pt-3 sm:pt-4",
   // Content-rich homes that still fit after sm — top-align on phone only.
