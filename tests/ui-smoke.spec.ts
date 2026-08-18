@@ -808,10 +808,9 @@ async function openMobileClinicalGuideMenu(page: Page) {
       .evaluateAll((links) => links.map((link) => ({ name: link.textContent, href: link.getAttribute("href") }))),
   ).toEqual([
     { name: "Answer", href: "/?mode=answer" },
-    // Services links at the shared home directly: pointing a pinned entry at its
-    // old bare path would spend a 307 arriving in the same place. Documents and
-    // Medication still own real homes, so they keep their routes.
-    { name: "Documents", href: "/documents" },
+    // Consolidated modes link at the shared home directly. Pointing a pinned
+    // entry at its old bare path would spend a 307 arriving in the same place.
+    { name: "Documents", href: "/?mode=documents" },
     { name: "Services", href: "/?mode=services" },
     { name: "Medication", href: "/medications" },
     { name: "Factsheets", href: "/?mode=factsheets" },
@@ -1358,7 +1357,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         ),
     ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
-      { name: "Documents", href: "/documents" },
+      { name: "Documents", href: "/?mode=documents" },
       { name: "Services", href: "/?mode=services" },
       { name: "Medication", href: "/medications" },
       { name: "Factsheets", href: "/?mode=factsheets" },
@@ -1402,7 +1401,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     for (const route of [
       { path: "/?mode=answer", label: "Answer" },
-      { path: "/documents", label: "Documents" },
+      { path: "/?mode=documents", label: "Documents" },
       { path: "/favourites", label: "Favourites" },
       { path: "/medications", label: "Medication" },
       { path: "/tools", label: "Tools" },
@@ -1447,7 +1446,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    await gotoApp(page, "/documents");
+    // The Documents workspace lives at its search route since consolidation;
+    // `/documents` itself redirects to the shared home.
+    await gotoApp(page, "/documents/search");
     await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
     await expect(page.getByTestId("document-search-workspace")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
@@ -3828,7 +3829,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("tablet document chrome keeps one new-chat action and readable Sources rows", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 900 });
     await mockDemoApi(page);
-    await gotoApp(page, "/documents");
+    await gotoApp(page, "/documents/search");
     await expect(page.getByTestId("document-search-empty-state")).toBeVisible({ timeout: 30_000 });
 
     const visibleNewChatCount = await page.getByRole("button", { name: /new chat/i }).evaluateAll(
@@ -3877,9 +3878,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("document search mode lists matching documents and result actions @critical", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
-    // `/` is the shared home for every mode now, so the Documents home lives at
-    // its own route — reached from the sidebar, like every other mode home.
-    await gotoApp(page, "/documents");
+    // `/documents` redirects to the shared home now; the workspace this test is
+    // about is the search route.
+    await gotoApp(page, "/documents/search");
 
     await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Document matches");
@@ -4260,10 +4261,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
       if (pathname === "/api/ingestion/quality") requestCounts.quality += 1;
     });
 
-    // Start on the Documents home rather than switching mode from `/`: the mode
-    // pill no longer changes the page, and a mid-test navigation would reset the
-    // request counts this test exists to measure.
-    await gotoApp(page, "/documents");
+    // Start on the Documents workspace rather than switching mode from `/`: the
+    // mode pill no longer changes the page, and a mid-test navigation would reset
+    // the request counts this test exists to measure. `/documents` is a redirect
+    // onto the shared home since consolidation, so the workspace is /documents/search.
+    await gotoApp(page, "/documents/search");
     // waitForDemoDashboardReady looks for "Open answer options"; the actions
     // trigger is named for the active mode, which is Documents on this route.
     await expect(visibleQuestionInput(page)).toBeEnabled();
@@ -5063,7 +5065,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("non-answer phone header keeps the in-flow collapse hide", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockDemoApi(page);
-    await gotoApp(page, "/documents");
+    await gotoApp(page, "/documents/search");
 
     const header = page.locator("header.universal-header");
     const collapseHost = page.getByTestId("universal-header-collapse");

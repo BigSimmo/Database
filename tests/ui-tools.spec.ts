@@ -1018,7 +1018,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       { path: "/?mode=dictionary", testId: "shared-home-empty-state" },
       // Still route-owned homes, and still held to the same contract.
       { path: "/favourites", testId: "favourites-hub" },
-      { path: "/therapy-compass", testId: "therapy-home-main" },
+      { path: "/?mode=therapy-compass", testId: "shared-home-empty-state" },
       // /tools is the documented exception: phones use the shared footer dock
       // instead of the in-flow hero pill (docs/search-chrome-behaviour.md).
     ] as const) {
@@ -1123,7 +1123,11 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     // Consolidated modes share one hero, so each is checked through the shared
     // home its bare path now redirects to. The copy differs per mode, which is
     // what makes more than one row worth running.
-    { path: "/documents", testId: "document-search-empty-state", heroTestId: "document-search-empty-state" },
+    {
+      path: "/?mode=documents",
+      testId: "shared-home-empty-state",
+      heroTestId: "shared-home-empty-state",
+    },
     { path: "/?mode=services", testId: "shared-home-empty-state", heroTestId: "shared-home-empty-state" },
     { path: "/?mode=forms", testId: "shared-home-empty-state", heroTestId: "shared-home-empty-state" },
     {
@@ -1254,7 +1258,12 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
         heading: "Clinical Answers",
         headingLevel: 2,
       },
-      { path: "/documents", testId: "document-search-empty-state", heading: "Documents", headingLevel: 2 },
+      {
+        path: "/?mode=documents",
+        testId: "shared-home-empty-state",
+        heading: "Clinical Documents",
+        headingLevel: 2,
+      },
       {
         path: "/medications",
         testId: "medication-home",

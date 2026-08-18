@@ -249,20 +249,24 @@ test.describe("previously uncovered production routes", () => {
       page,
       "/therapy-compass",
       async (currentPage) => {
+        // `/therapy-compass` redirects onto the shared home, whose per-mode title
+        // is a level-2 heading under the page's sr-only "Clinical Guide" h1.
         await expect(currentPage.getByRole("main")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "Therapy", level: 1, exact: true })).toBeVisible({
+        await expect(currentPage.getByRole("heading", { name: "Therapy", level: 2, exact: true })).toBeVisible({
           timeout: 30_000,
         });
       },
       async (currentPage) => {
-        const search = currentPage
-          .getByRole("region", { name: "Common therapy searches" })
-          .getByRole("button", { name: "Anxiety in outpatient care", exact: true });
-        await expect(search).toBeEnabled();
-        await search.click();
+        // The "Common therapy searches" pills lived on the retired detailed home,
+        // which moved to /mockups when Therapy joined the shared home. The
+        // destination they opened is what this step is really about, so go there:
+        // a submitted therapy search, which is also where the mode nav renders.
+        await currentPage.goto("/therapy-compass/search?q=Anxiety+in+outpatient+care&run=1", {
+          waitUntil: "domcontentloaded",
+        });
         await expect(
           currentPage.getByRole("heading", { name: "Anxiety in outpatient care", level: 1, exact: true }),
-        ).toBeVisible();
+        ).toBeVisible({ timeout: 30_000 });
         await expect(visibleByTestId(currentPage, "search-query-ribbon")).toBeVisible();
         // The common-search pill lands on `/therapy-compass/search`, which is the
         // shared `ModeNav`. It portals into the header collapse host (outside
