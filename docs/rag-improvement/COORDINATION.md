@@ -181,14 +181,14 @@ Always a fresh owner ask, every single time:
   regressions, answer gate 44/44. The first S1b post run (32038751592) was red on one non-golden
   case; root-caused to the finalizer gap-recovery hole → packet S1d, not S1b.
 - **Owner decisions:** R1 before S2; governance Option B; S1d lands before S2.
-- **Wave 1 status:** S1c (#2052 + follow-ups #2063/#2065) merged, canary pair green
-  (32049952885 → 32052479537); S1d (#2054, merge `0bbd64fbc`) merged, **canary pending owner
-  approval**; S6 (#2057) merged. **Still to dispatch: G1** (`types.ts`,
-  `answer-stream-contract.ts`, `rag-row-contracts.ts`; no canary). S5 follow-ups queued as
-  inbox requests: three adversarial divergence pins (`cite-mismatched-attribution`,
-  `scope-other-owner-document`, `scope-guessed-chunk-id`) and the owner decision on enabling
-  `RAG_TELEMETRY_EXTENDED` in production.
-- **Wave 2:** S2 (+S2b) once the S1d canary pair is green (S1c pair already green). **Wave 3:** S3; S7+ owner decisions.
+- **Wave 1 status (2026-08-18):** all packets merged — S1c (#2052; follow-up #2063 kept), S1d
+  (#2054, merge `0bbd64fbc`), G1 (#2053, merge `125e98526`), S6 (#2057). Post-S1d canary run
+  32097916649 (`9904fbda8`) was **red** on `agitation-im-po-route-short-terms` (extractive path,
+  deterministic, 5 → 0 citations); live bisect placed it on the S1c follow-up **#2065**
+  (condition-first `for/in` regex in `rag-claim-support.ts`), not S1d/G1. **Revert PR #2088** is
+  open (probe restores 5 citations; offline 614/614). A confirmation canary follows its merge and
+  becomes the new baseline. Reconcile D4 applied 17 requests (G1/S1c/governance rows closed).
+- **Wave 2:** S2 (+S2b) once the post-#2088 confirmation canary is green. **Wave 3:** S3; S7+ owner decisions.
 - **Waiting on owner:** merges as PRs open; canary approvals for S1c, S1d, S2.
 - **Live board (artifact, owner-private):** RAG Master Plan v2 —
   `https://claude.ai/code/artifact/d5dba709-0df3-40e3-8a45-15997231533d`.

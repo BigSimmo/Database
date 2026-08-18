@@ -7,7 +7,7 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { jsonError, PublicApiError } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { buildServerTimingHeader, type ServerTimingEntry } from "@/lib/server-timing";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -40,6 +40,7 @@ const universalSearchQuerySchema = z.object({
   domains: z
     .string()
     .trim()
+    .max(500)
     .optional()
     .transform((value) => {
       if (!value) return undefined;
@@ -186,6 +187,24 @@ export async function GET(request: Request) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
     }
+    if (error instanceof z.ZodError) {
+      return jsonError(error, 400);
+    }
+    if (error instanceof PublicApiError) {
+      return jsonError(error, error.status);
+    }
+    if (error instanceof SyntaxError || error instanceof URIError || error instanceof TypeError) {
+      return jsonError(new PublicApiError("Invalid universal search query.", 400, { code: "invalid_query" }), 400);
+    }
     return jsonError(error);
   }
+}
+
+export async function POST() {
+  return jsonError(
+    new PublicApiError("Method Not Allowed. Universal search requires a GET request.", 405, {
+      code: "method_not_allowed",
+    }),
+    405,
+  );
 }
