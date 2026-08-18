@@ -72,6 +72,11 @@
  * New overlays go through components/ui/sheet.tsx rather than a new layer.
  */
 @theme {
+  /* Named responsive breakpoint tokens (Task #336) */
+  --breakpoint-phone: 640px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop: 1024px;
+
   /* Radius ladder: 4 · 6 · 10 · 12 · 16 · 20 — the 4px grid with two deliberate
      half-steps. `sm` is 6px, for chips and pills that read as too heavy at 8.
      `md` is 10px because it is the control rung, and it is the one value the v2
@@ -277,6 +282,11 @@
 
 /* Theme tokens */
 :root {
+  /* Named responsive breakpoint tokens (Task #336) */
+  --bp-phone: 640px;
+  --bp-tablet: 768px;
+  --bp-desktop: 1024px;
+
   /* Layout constraints */
   --content-max-width: 1440px;
   --rail-width: 480px;
@@ -794,6 +804,100 @@ body {
   text-rendering: optimizeLegibility;
   overflow-x: clip;
   overscroll-behavior-x: none;
+}
+
+/* Category accent delivery.
+   ------------------------------------------------------------------
+   A card names its category with `data-category-accent`, and reads the colour
+   back through --cat-accent / --cat-soft / --cat-border. Three reasons this is
+   an attribute→variable indirection rather than per-category utility classes:
+
+   1. Tailwind's scanner only sees class strings that appear literally in the
+      source, so `bg-[color:var(--type-${accent}-soft)]` silently produces no
+      CSS. Every consumer here writes the literal `var(--cat-soft)` instead.
+   2. Light, dark AND forced-colors come for free: each value aliases an
+      existing triad that all three themes already remap, so a new category
+      never needs a fourth declaration site to stay legible in high contrast.
+   3. It replaces the inline `style={{ backgroundColor: theme.soft }}` the
+      factsheet cards used, which bypassed the class contract entirely.
+
+   Every accent below resolves to a NON-semantic triad. Nothing here may point
+   at --danger / --warning / --success / --info: those belong to the six-tone
+   badge system, where the colour is the meaning. A category is not a status.
+   Held by tests/design-token-contract.test.ts. */
+[data-category-accent="document"] {
+  --cat-accent: var(--type-document);
+  --cat-soft: var(--type-document-soft);
+  --cat-border: var(--type-document-border);
+}
+
+[data-category-accent="table"] {
+  --cat-accent: var(--type-table);
+  --cat-soft: var(--type-table-soft);
+  --cat-border: var(--type-table-border);
+}
+
+[data-category-accent="search"] {
+  --cat-accent: var(--type-search);
+  --cat-soft: var(--type-search-soft);
+  --cat-border: var(--type-search-border);
+}
+
+[data-category-accent="source"] {
+  --cat-accent: var(--type-source);
+  --cat-soft: var(--type-source-soft);
+  --cat-border: var(--type-source-border);
+}
+
+[data-category-accent="service"] {
+  --cat-accent: var(--type-service);
+  --cat-soft: var(--type-service-soft);
+  --cat-border: var(--type-service-border);
+}
+
+[data-category-accent="form"] {
+  --cat-accent: var(--type-form);
+  --cat-soft: var(--type-form-soft);
+  --cat-border: var(--type-form-border);
+}
+
+[data-category-accent="purple"] {
+  --cat-accent: var(--tone-purple);
+  --cat-soft: var(--tone-purple-soft);
+  --cat-border: var(--tone-purple-border);
+}
+
+[data-category-accent="indigo"] {
+  --cat-accent: var(--tone-indigo);
+  --cat-soft: var(--tone-indigo-soft);
+  --cat-border: var(--tone-indigo-border);
+}
+
+[data-category-accent="rose"] {
+  --cat-accent: var(--tone-rose);
+  --cat-soft: var(--tone-rose-soft);
+  --cat-border: var(--tone-rose-border);
+}
+
+[data-category-accent="slate"] {
+  --cat-accent: var(--tone-slate);
+  --cat-soft: var(--tone-slate-soft);
+  --cat-border: var(--tone-slate-border);
+}
+
+[data-category-accent="clinical"] {
+  --cat-accent: var(--clinical-accent);
+  --cat-soft: var(--clinical-accent-soft);
+  --cat-border: var(--clinical-accent-border);
+}
+
+/* Fallback for a surface that opts into the card recipe without naming a
+   category — the accent collapses to the product accent rather than to an
+   unresolved variable, so an omitted attribute degrades to today's look. */
+:root {
+  --cat-accent: var(--clinical-accent);
+  --cat-soft: var(--clinical-accent-soft);
+  --cat-border: var(--clinical-accent-border);
 }
 
 @layer base {

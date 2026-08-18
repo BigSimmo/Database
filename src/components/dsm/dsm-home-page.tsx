@@ -43,11 +43,26 @@ export function DsmHomePage() {
           },
         ]}
         pillsTitle="Browse categories"
+        // Every one of these five pills used to carry the same `BookOpenCheck`
+        // — the mode's own hero glyph, repeated once per category. A glyph that
+        // is identical across every item in a set distinguishes nothing: it is
+        // the cost of an icon with none of the benefit, and it competes with the
+        // label that is doing the actual work.
+        //
+        // They are deliberately NOT replaced with one glyph per diagnostic
+        // category. Pictograms for DSM-5 chapters are a clinical-content
+        // decision, not a design one, and several would be actively wrong to
+        // guess at: the puzzle piece conventionally reached for on
+        // neurodevelopmental disorders is rejected by many autistic people, and
+        // any glyph chosen for the paraphilic, gender-dysphoria or sexual-
+        // dysfunction chapters risks reading as a judgement about the people
+        // those criteria describe. Without an icon `ModeHomeTemplate` renders a
+        // tone dot, so the pills keep a leading mark and the label plus count
+        // carry the identity.
         pills={featuredCategories.map((category) => ({
           label: `${category.label} · ${category.diagnosis_count}`,
           shortLabel: category.label,
           href: `/dsm/search?category=${category.key}`,
-          icon: BookOpenCheck,
         }))}
         footer={
           <ModeHomeVerificationFooter
