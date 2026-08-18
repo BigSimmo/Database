@@ -87,5 +87,9 @@ export function searchShellPropsForPathname(pathname: string): SearchShellPathPr
     return { initialMode: "factsheets", desktopSearchPlacement: "hero" };
   }
 
+  if (pathname.startsWith("/dictionary")) {
+    return { initialMode: "dictionary", desktopSearchPlacement: "hero" };
+  }
+
   return { initialMode: "answer" };
 }

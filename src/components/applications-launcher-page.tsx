@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   Brain,
+  BookMarked,
   Calculator,
   ChevronRight,
   ClipboardCheck,
@@ -100,6 +101,7 @@ const launcherIconById: Record<string, LucideIcon> = {
   "clinical-kb-search": Search,
   differentials: Brain,
   documents: FileText,
+  "clinical-dictionary": BookMarked,
   guidelines: ShieldCheck,
   "risk-safety": ShieldCheck,
   "medication-prescribing": Pill,

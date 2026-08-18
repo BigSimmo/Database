@@ -104,6 +104,10 @@ const BAND_ROUTE_ALLOWLIST = new Map<string, string>([
     "Factsheets mode home is a catalogue landing; result lists (and the band) live on /factsheets/search.",
   ],
   [
+    "src/app/(search-app)/dictionary/page.tsx",
+    "Dictionary mode home uses the shared in-flow composer; its mixed result list and band live on /dictionary/search.",
+  ],
+  [
     "src/app/(search-app)/therapy-compass/page.tsx",
     "Therapy home is the library landing; the search results band lives on /therapy-compass/search.",
   ],

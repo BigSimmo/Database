@@ -61,6 +61,9 @@ export const sharedHomePresentation = {
   factsheets: {
     title: "Patient Factsheets",
   },
+  dictionary: {
+    title: "Clinical Dictionary",
+  },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 
 export const sharedHomeEmptyState = {

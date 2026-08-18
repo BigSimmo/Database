@@ -558,13 +558,15 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(results).toBeVisible();
     await expect(page.getByTestId("tools-home")).toHaveCount(0);
     await expect(results.getByRole("heading", { level: 1, name: "Compare" })).toBeVisible();
-    await expect(results.getByText("1 tool", { exact: true })).toBeVisible();
+    await expect(results.getByText("2 tools", { exact: true })).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Differentials" }).first()).toBeVisible();
+    await expect(results.getByRole("heading", { level: 2, name: "Clinical Dictionary" }).first()).toBeVisible();
     await expect(results.getByRole("complementary", { name: "Differentials" })).toBeVisible();
 
     const categories = results.getByRole("radiogroup", { name: "Tool category" });
-    await expect(categories.getByRole("radio", { name: "All tools (1)" })).toHaveAttribute("aria-checked", "true");
+    await expect(categories.getByRole("radio", { name: "All tools (2)" })).toHaveAttribute("aria-checked", "true");
     await expect(categories.getByRole("radio", { name: "Assess (1)" })).toBeEnabled();
+    await expect(categories.getByRole("radio", { name: "Evidence (1)" })).toBeEnabled();
     await expect(categories.getByRole("radio", { name: "Treat (0)" })).toBeDisabled();
     await expectNoPageHorizontalOverflow(page);
   });
@@ -583,7 +585,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(filterSheet).toBeVisible();
     await expect(filterSheet.getByRole("radio", { name: /Assess/ })).toHaveAttribute("aria-checked", "false");
     await expect(filterSheet.getByRole("radio", { name: /Treat/ })).toHaveAttribute("aria-disabled", "true");
-    await expect(filterSheet.getByTestId("tools-search-filter-sheet-done")).toHaveText(/View 1 tool/);
+    await expect(filterSheet.getByTestId("tools-search-filter-sheet-done")).toHaveText(/View 2 tools/);
     await filterSheet.getByTestId("tools-search-filter-sheet-done").click();
 
     const details = results.getByRole("button", { name: "View details for Differentials" });

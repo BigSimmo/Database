@@ -114,8 +114,8 @@ const phoneModeGroups = [
   {
     id: "care",
     label: "Care",
-    hint: "Medication, calculators, tools, therapy",
-    modeIds: ["prescribing", "calculators", "tools", "therapy-compass", "factsheets"],
+    hint: "Medication, calculators, reference, therapy",
+    modeIds: ["prescribing", "calculators", "tools", "therapy-compass", "factsheets", "dictionary"],
   },
 ] as const satisfies ReadonlyArray<{
   id: string;
@@ -665,7 +665,9 @@ export function MasterSearchHeader({
                           ? "calculators"
                           : searchMode === "factsheets"
                             ? "factsheets"
-                            : "answer";
+                            : searchMode === "dictionary"
+                              ? "dictionary"
+                              : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
 
@@ -763,6 +765,26 @@ export function MasterSearchHeader({
     if (actionId === "factsheets-browse") {
       onSearchModeChange("factsheets");
       onQueryChange("");
+      return;
+    }
+    if (actionId === "dictionary-search") {
+      router.push(`/dictionary/search${trimmedQuery ? `?q=${encodeURIComponent(trimmedQuery)}` : ""}`);
+      return;
+    }
+    if (actionId === "dictionary-browse") {
+      router.push("/dictionary/browse");
+      return;
+    }
+    if (actionId === "dictionary-topics") {
+      router.push("/dictionary/topics");
+      return;
+    }
+    if (actionId === "dictionary-compare") {
+      router.push("/dictionary/compare");
+      return;
+    }
+    if (actionId === "dictionary-sources") {
+      router.push("/dictionary/sources");
       return;
     }
     if (actionId === "services-search") {

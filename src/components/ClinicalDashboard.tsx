@@ -3665,7 +3665,7 @@ export function ClinicalDashboard({
                 ) : null}
 
                 {showSharedHome ? (
-                  // The one home surface, shared by all 13 modes. It sits above every
+                  // The one home surface, shared by every registered mode. It sits above every
                   // mode-specific branch so picking a mode on `/` changes only its
                   // presentation and composer target; mode-owned content stays behind
                   // its own route (/tools, /favourites, /dsm, …).

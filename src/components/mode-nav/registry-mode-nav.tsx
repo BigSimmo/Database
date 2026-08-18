@@ -2,11 +2,13 @@
 
 import {
   BookOpenText,
+  BookMarked,
   ClipboardList,
   GitCompareArrows,
   ListChecks,
   Network,
   Search,
+  LibraryBig,
   Sparkles,
   Stethoscope,
   Waypoints,
@@ -36,6 +38,7 @@ export const registryModeNavDensityProfiles = {
   differentials: "balanced-four",
   factsheets: "two-item",
   "therapy-compass": "balanced-four",
+  dictionary: "extended",
 } as const satisfies Record<ModeNavAdoptedMode, ModeNavDensityProfile>;
 
 /**
@@ -59,6 +62,8 @@ const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> = {
   // that for its card/list view toggle, and one glyph must not mean two things
   // on the same screen.
   topics: BookOpenText,
+  browse: LibraryBig,
+  sources: BookMarked,
 };
 
 /**

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   Brain,
+  BookMarked,
   ChevronRight,
   ClipboardList,
   FileCheck2,
@@ -51,6 +52,7 @@ const iconByToolId: Record<string, LucideIcon> = {
   "medication-prescribing": Pill,
   "risk-safety": ShieldCheck,
   documents: FileText,
+  "clinical-dictionary": BookMarked,
   services: Users,
   forms: FileCheck2,
   favourites: Star,

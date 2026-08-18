@@ -64,7 +64,8 @@ export type ModeActionSetId =
   | "specifiers"
   | "formulation"
   | "prescribing"
-  | "factsheets";
+  | "factsheets"
+  | "dictionary";
 export type ModeActionPlacement = "up" | "down";
 
 const actionSurfaceId = "daily-actions-sheet";
@@ -142,7 +143,12 @@ export type ModeActionId =
   | "formulation-compare"
   | "formulation-map"
   | "factsheets-search"
-  | "factsheets-browse";
+  | "factsheets-browse"
+  | "dictionary-search"
+  | "dictionary-browse"
+  | "dictionary-topics"
+  | "dictionary-compare"
+  | "dictionary-sources";
 
 export type ModeActionItem = {
   id: ModeActionId;
@@ -362,6 +368,39 @@ const modeActionSets = {
       label: "Browse all sheets",
       description: "Open the full patient-information library",
       icon: BookOpenText,
+    },
+  ],
+  dictionary: [
+    {
+      id: "dictionary-search",
+      label: "Search terms",
+      description: "Find definitions and abbreviations",
+      icon: Search,
+      primary: true,
+    },
+    {
+      id: "dictionary-browse",
+      label: "Browse A–Z",
+      description: "Scan the governed catalogue",
+      icon: BookOpenText,
+    },
+    {
+      id: "dictionary-topics",
+      label: "Browse topics",
+      description: "Open clinical collections",
+      icon: Tags,
+    },
+    {
+      id: "dictionary-compare",
+      label: "Compare terms",
+      description: "Align stored fields",
+      icon: GitCompareArrows,
+    },
+    {
+      id: "dictionary-sources",
+      label: "Sources and review",
+      description: "See governance and coverage",
+      icon: ShieldCheck,
     },
   ],
 } as const satisfies Record<ModeActionSetId, readonly ModeActionItem[]>;

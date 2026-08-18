@@ -27,6 +27,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   calculators: [],
   "therapy-compass": ["Search", "Recommend", "Compare", "Pathways"],
   factsheets: ["Topics", "Search"],
+  dictionary: ["Search", "Browse", "Topics", "Compare", "Sources"],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -44,6 +45,7 @@ const cleanLandingPath: Record<AppModeId, string> = {
   calculators: "/calculators",
   "therapy-compass": "/therapy-compass",
   factsheets: "/factsheets",
+  dictionary: "/dictionary",
 };
 
 /**
@@ -65,9 +67,9 @@ const emptyRegistryModes = [
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
-  it("covers all 14 modes with the approved destinations and no Home item", () => {
+  it("covers all 15 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
-    expect(appModeIds).toHaveLength(14);
+    expect(appModeIds).toHaveLength(15);
 
     for (const modeId of appModeIds) {
       const labels = modeSecondaryNavigationRegistry[modeId].map((item) => item.label);
@@ -247,6 +249,7 @@ describe("mode secondary navigation registry", () => {
     // below only inspects modes with fewer than two. A mode silently losing the
     // bar is the regression this list exists to make impossible.
     expect([...MODE_NAV_ADOPTED_MODES].sort()).toEqual([
+      "dictionary",
       "differentials",
       "dsm",
       "factsheets",

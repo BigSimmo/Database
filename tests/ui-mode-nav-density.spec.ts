@@ -86,6 +86,7 @@ const MODES = [
   { modeId: "formulation", route: "/formulation/compare", items: 4, profile: "compact-four" },
   { modeId: "differentials", route: "/differentials/diagnoses", items: 4, profile: "balanced-four" },
   { modeId: "factsheets", route: "/factsheets/search", items: 2, profile: "two-item" },
+  { modeId: "dictionary", route: "/dictionary/search?q=MSE", items: 5, profile: "extended" },
 ] as const;
 
 function densityPoints(profile: DensityProfile) {

@@ -75,6 +75,13 @@ export const modeSecondaryNavigationRegistry = {
     { id: "topics", label: "Topics", href: appModeHomeHref("factsheets") },
     { id: "search", label: "Search", href: "/factsheets/search" },
   ],
+  dictionary: [
+    { id: "search", label: "Search", href: "/dictionary/search" },
+    { id: "browse", label: "Browse", href: "/dictionary/browse" },
+    { id: "topics", label: "Topics", href: "/dictionary/topics" },
+    { id: "compare", label: "Compare", href: "/dictionary/compare" },
+    { id: "sources", label: "Sources", href: "/dictionary/sources" },
+  ],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
 type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];
@@ -107,6 +114,7 @@ export const MODE_NAV_ADOPTED_MODES = [
   "differentials",
   "factsheets",
   "therapy-compass",
+  "dictionary",
 ] as const satisfies readonly AppModeId[];
 
 export type ModeNavAdoptedMode = (typeof MODE_NAV_ADOPTED_MODES)[number];
@@ -173,6 +181,14 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/therapy-compass/pathways") return "pathways";
     return null;
   }
+  if (modeId === "dictionary") {
+    if (pathname === "/dictionary/search") return "search";
+    if (pathname === "/dictionary/browse") return "browse";
+    if (pathname === "/dictionary/topics" || pathname.startsWith("/dictionary/topics/")) return "topics";
+    if (pathname === "/dictionary/compare") return "compare";
+    if (pathname === "/dictionary/sources") return "sources";
+    return null;
+  }
   // Every mode with destinations has a branch above; the rest register none, so
   // nothing can be current. This used to be
   // `modeSecondaryNavigationRegistry[modeId][0]?.id ?? null`, which existed only
@@ -217,6 +233,15 @@ export function isModeSecondaryNavigationRoute(params: {
   // `hasSubmittedSearch` early return, and Topics is marked current there.
   if (modeId === "factsheets") return pathname === "/factsheets/search";
   if (modeId === "therapy-compass") return pathname !== "/therapy-compass";
+  if (modeId === "dictionary") {
+    return [
+      "/dictionary/search",
+      "/dictionary/browse",
+      "/dictionary/topics",
+      "/dictionary/compare",
+      "/dictionary/sources",
+    ].includes(pathname);
+  }
   return false;
 }
 
@@ -358,6 +383,30 @@ export function modeSecondaryNavigationHref(params: {
       // re-places the composer — a layout jump from clicking where you already are.
       ...(query && currentSearchParams.get("run") === "1" ? ([["run", "1"]] as const) : []),
     ]);
+  }
+
+  if (modeId === "dictionary") {
+    if (itemId === "search") {
+      return navigationHrefWithParams(href, [
+        ...(query ? ([["q", query]] as const) : []),
+        ...currentSearchParams.getAll("topic").map((value) => ["topic", value] as const),
+        ...currentSearchParams.getAll("kind").map((value) => ["kind", value] as const),
+      ]);
+    }
+    if (itemId === "browse") {
+      return navigationHrefWithParams(href, [
+        ...(currentSearchParams.get("view") ? ([["view", currentSearchParams.get("view") ?? ""]] as const) : []),
+        ...(currentSearchParams.get("letter") ? ([["letter", currentSearchParams.get("letter") ?? ""]] as const) : []),
+        ...currentSearchParams.getAll("topic").map((value) => ["topic", value] as const),
+        ...currentSearchParams.getAll("kind").map((value) => ["kind", value] as const),
+      ]);
+    }
+    if (itemId === "compare") {
+      return navigationHrefWithParams(href, [
+        ...(currentSearchParams.get("a") ? ([["a", currentSearchParams.get("a") ?? ""]] as const) : []),
+        ...(currentSearchParams.get("b") ? ([["b", currentSearchParams.get("b") ?? ""]] as const) : []),
+      ]);
+    }
   }
 
   return href;

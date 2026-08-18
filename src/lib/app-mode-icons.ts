@@ -1,6 +1,7 @@
 import {
   BookOpenCheck,
   BookOpenText,
+  BookMarked,
   BrainCircuit,
   Calculator,
   Compass,
@@ -34,4 +35,5 @@ export const appModeIcons: Record<AppModeId, LucideIcon> = {
   calculators: Calculator,
   "therapy-compass": Compass,
   factsheets: BookOpenText,
+  dictionary: BookMarked,
 };
