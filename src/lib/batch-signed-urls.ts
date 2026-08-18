@@ -56,14 +56,14 @@ export async function fetchBatchSignedImageUrls(
   const combinedUrls: Record<string, BatchSignedUrlItem> = {};
   let overallStatus = 200;
 
+  const normalizedHeaders = new Headers(options.headers);
+  normalizedHeaders.set("content-type", "application/json");
+
   const responses = await Promise.all(
     chunks.map(async (chunk) => {
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...options.headers,
-        },
+        headers: normalizedHeaders,
         body: JSON.stringify({ imageIds: chunk }),
         signal: options.signal,
       });

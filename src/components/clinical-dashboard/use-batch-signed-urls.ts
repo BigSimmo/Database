@@ -16,7 +16,8 @@ import { useAuthSession } from "@/lib/supabase/client";
  * network fetches.
  */
 export function useBatchSignedImageUrls(imageIds: string[], enabled = true) {
-  const { authorizationHeader, session, markSessionExpired } = useAuthSession();
+  const { authorizationHeader, session, markSessionExpired, registerAuthRequest, isAuthEpochCurrent } =
+    useAuthSession();
   const authIdentity = session?.user?.id ?? null;
   const [version, setVersion] = useState(0);
 
@@ -30,8 +31,8 @@ export function useBatchSignedImageUrls(imageIds: string[], enabled = true) {
       return;
     }
 
-    let isSubscribed = true;
     const controller = new AbortController();
+    const authRequest = registerAuthRequest(controller);
 
     async function loadBatch() {
       try {
@@ -43,7 +44,7 @@ export function useBatchSignedImageUrls(imageIds: string[], enabled = true) {
           },
         });
 
-        if (isSubscribed && result.status === 200) {
+        if (isAuthEpochCurrent(authRequest.epoch) && result.status === 200) {
           populateBatchSignedUrlsInCache(result.urls);
           setVersion((v) => v + 1);
         }
@@ -51,16 +52,17 @@ export function useBatchSignedImageUrls(imageIds: string[], enabled = true) {
         if ((err as Error)?.name !== "AbortError") {
           // Silent catch for prefetch failure — individual images will fallback to single fetch
         }
+      } finally {
+        authRequest.release();
       }
     }
 
     loadBatch();
 
     return () => {
-      isSubscribed = false;
       controller.abort();
     };
-  }, [enabled, imageIds, authorizationHeader, authIdentity, markSessionExpired]);
+  }, [enabled, imageIds, authorizationHeader, authIdentity, markSessionExpired, registerAuthRequest, isAuthEpochCurrent]);
 
   return { version };
 }
