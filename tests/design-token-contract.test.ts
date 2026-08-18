@@ -470,3 +470,73 @@ describe("focus ring", () => {
     expect(body, "the shared focus rule must not paint a box-shadow").not.toContain("box-shadow");
   });
 });
+
+describe("category accents stay out of the semantic palette", () => {
+  // Identity and status are two different vocabularies sharing one canvas.
+  // `semantic-tone.ts` owns six tones where the colour IS the claim — danger,
+  // warning, success, info and the two neutrals. A category accent says only
+  // "this belongs with those"; it must never borrow a token that says "pause"
+  // or "this passed a check".
+  //
+  // This is not hypothetical: factsheets shipped Therapies on `--success-text`
+  // and Tests & procedures on `--warning-text`, so an entire category of
+  // patient handouts wore caution-amber on its hero band without any review
+  // having produced that judgement.
+  const semanticFamilies = /--(danger|warning|success|info)[\w-]*/g;
+
+  it("resolves every [data-category-accent] rule to a non-semantic triad", () => {
+    const rules = [...globals.matchAll(/\[data-category-accent="([\w-]+)"\]\s*\{([^}]*)\}/g)];
+    expect(rules.length, "no [data-category-accent] rules found in globals.css").toBeGreaterThan(0);
+    for (const [, accent, body] of rules) {
+      const borrowed = body.match(semanticFamilies) ?? [];
+      expect(borrowed, `category accent "${accent}" borrows semantic token(s): ${borrowed.join(", ")}`).toEqual([]);
+      expect(body, `category accent "${accent}" declares no --cat-accent`).toContain("--cat-accent:");
+      expect(body, `category accent "${accent}" declares no --cat-soft`).toContain("--cat-soft:");
+      expect(body, `category accent "${accent}" declares no --cat-border`).toContain("--cat-border:");
+    }
+  });
+
+  // The defect site itself. `categoryTheme` returns raw CSS value strings that
+  // ~20 call sites pass to inline `style`, so a semantic token written here
+  // reaches the page without passing through the `[data-category-accent]` rules
+  // the assertion above guards. It must stay derived from the registry rather
+  // than reacquiring a hand-written per-category table.
+  it("keeps the factsheet category theme derived and off semantic tokens", () => {
+    const source = readFileSync(new URL("../src/components/factsheets/factsheets-data.ts", import.meta.url), "utf8");
+    const block = sourceSegment(source, "export function categoryTheme(", "\n}", {
+      label: "factsheet categoryTheme",
+    });
+    const borrowed = block.match(semanticFamilies) ?? [];
+    expect(borrowed, `categoryTheme returns semantic token(s): ${borrowed.join(", ")}`).toEqual([]);
+    expect(block, "categoryTheme must resolve accents through the shared registry").toContain("categoryAccentVars");
+  });
+
+  // Belt and braces for the type union itself. `CategoryAccent` is what makes a
+  // semantic accent unrepresentable at every call site at once; if a member is
+  // ever added from the status palette, the union stops being the guarantee.
+  it("declares no semantic member on the CategoryAccent union", () => {
+    const source = readFileSync(new URL("../src/lib/category-identity.ts", import.meta.url), "utf8");
+    const union = sourceSegment(source, "export type CategoryAccent =", ";", { label: "CategoryAccent union" });
+    for (const forbidden of ["danger", "warning", "success", "info"]) {
+      expect(union, `CategoryAccent must not offer "${forbidden}" as an identity accent`).not.toContain(
+        `"${forbidden}"`,
+      );
+    }
+  });
+});
+
+describe("responsive breakpoint tokens (Task #336)", () => {
+  it("declares standard named breakpoint tokens in :root, @theme, and ckb-v2", () => {
+    expect(light.get("--bp-phone")).toBe("640px");
+    expect(light.get("--bp-tablet")).toBe("768px");
+    expect(light.get("--bp-desktop")).toBe("1024px");
+
+    expect(v2Light.get("--bp-phone")).toBe("640px");
+    expect(v2Light.get("--bp-tablet")).toBe("768px");
+    expect(v2Light.get("--bp-desktop")).toBe("1024px");
+
+    expect(themeConfigBlock).toContain("--breakpoint-phone: 640px;");
+    expect(themeConfigBlock).toContain("--breakpoint-tablet: 768px;");
+    expect(themeConfigBlock).toContain("--breakpoint-desktop: 1024px;");
+  });
+});

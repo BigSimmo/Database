@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "f6798c46-7f43-4481-8e02-bcac1bf9b262",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Ledger writer self-tests use only legacy numeric ids, which is why a Crockford-id lookup bug survived the ULID migration unnoticed",
+    "detail": "Fixed in PR #2053: issueRowFingerprint (scripts/check-outstanding-issues.mjs) matched only /^#(\\d+)$/ and keyed on entry.number, which is null on ULID-backed rows, so it returned null for every Crockford display locator -- and ledger-inbox.mjs reads a null fingerprint as \"no such row\" and refuses. npm run issues:done and issues:update were therefore unusable for EVERY row minted since the ULID migration, failing with \"#J912J9 is not in Open items\" about a row plainly in Open items. It surfaced only because a session happened to need to close two Crockford-id rows. ROOT CAUSE OF THE SURVIVAL, not of the bug: the self-tests and fixtures in scripts/outstanding-issues.mjs and tests/outstanding-issues-writer.test.ts exercise the writer almost entirely with legacy #005/#006/#013-style ids, so no test ever drove a Crockford id through the fingerprint path. A second, subtler trap sits in the same area and is now pinned but not generally guarded: Crockford's alphabet includes 0-9, so a ULID-derived locator can be ENTIRELY digits (the writer test's own id is #041061) and is indistinguishable from a legacy id by pattern -- branching on id shape rather than resolving against the table silently misses exactly those rows, which is how the first attempt at the fix still returned null. NEXT: add a fixture row with a ULID/Crockford id (ideally an all-digit one) to the shared ledger test fixtures and drive every writer entry point -- addIssue, resolveIssue, updateIssue, issueRowFingerprint, and the ledger-inbox done/update/reconcile paths -- through both id generations, so the next lookup left behind by an id-scheme change fails a test instead of a user's command.",
+    "source": "Packet G1 session 2026-08-17 (PR #2053), discovered while queueing the G1 closures",
+    "issueUlid": "01M09A9WXBDREDWA7KN2EB1JRA"
+  }
+}

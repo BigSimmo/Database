@@ -81,6 +81,11 @@ const expectedPresentations = [
     title: "Patient Factsheets",
     iconClass: "lucide-book-open-text",
   },
+  {
+    modeId: "dictionary",
+    title: "Clinical Dictionary",
+    iconClass: "lucide-book-marked",
+  },
 ] as const satisfies ReadonlyArray<{
   modeId: AppModeId;
   title: string;

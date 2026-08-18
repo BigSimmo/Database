@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "565cf4ff-5aa6-456b-abfc-92c4765049e4",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "check:drift clips table column diffs to 240 chars per side, so a wide-table column drift never names the column",
+    "detail": "scripts/check-drift.ts:192 (fieldDiff) serialises the whole alphabetised columns array of a table and clips each side to 240 characters, so for a wide table such as document_chunks (19 columns, several kB) a single late-alphabet column drift (token_estimate, forensics Phase 3 §3.3) prints two identical prefixes and the finding fires without naming the column. Phase 3 needed a raw schema_drift_snapshot() read and an offline per-column diff to classify three staging table findings. Recommendation: for the columns field, diff per column name (only-in-manifest / only-in-live / differing fields) and print those rows instead of the clipped arrays; keep the clip for other fields. Offline-testable against supabase/drift-manifest.json plus a mutated copy.",
+    "source": "session 2026-08-18 Phase 3 repo-side codification (PR #2106)",
+    "issueUlid": "01M0A3BTJF90EVWZMKG18KDC2S"
+  }
+}

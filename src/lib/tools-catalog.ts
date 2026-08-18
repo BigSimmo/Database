@@ -4,13 +4,39 @@ import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 // Canonical Tools dataset. Previously duplicated between the live launcher
 // (applications-launcher-page.tsx inline array) and the mockup fixtures
 // (tools-page-mockups/tool-fixtures.ts) with divergent fields and two separate filter
-// implementations. Icons are UI concerns and stay in the components (keyed by id).
+// implementations. Icons remain a UI concern, but the glyph and accent chosen for
+// each id now live in one place (`src/lib/category-identity.ts`) rather than in a
+// per-surface map, because two such maps had already drifted apart.
 
 export type ToolCatalogStatus = "ready" | "recent" | "review_due";
 export type ToolCatalogArea = "assessment" | "reference" | "care" | "coordination" | "saved";
 
+/**
+ * The catalogue's id space, named rather than left as `string`.
+ *
+ * This is what makes `Record<ToolCatalogId, …>` in `category-identity.ts`
+ * exhaustive: adding a tool without choosing a glyph fails the typecheck instead
+ * of falling through to a generic placeholder at runtime. `registry-mode-nav.tsx`
+ * makes the same argument for routed nav ids.
+ */
+export type ToolCatalogId =
+  | "clinical-kb-search"
+  | "differentials"
+  | "documents"
+  | "clinical-dictionary"
+  | "guidelines"
+  | "risk-safety"
+  | "medication-prescribing"
+  | "services"
+  | "forms"
+  | "care-plans"
+  | "safety-plan"
+  | "calculators"
+  | "monitoring"
+  | "favourites";
+
 export type ToolCatalogRecord = {
-  id: string;
+  id: ToolCatalogId;
   title: string;
   mobileTitle?: string;
   description: string;
@@ -83,6 +109,25 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     checkFirst: ["Document title or topic", "Local policy scope", "Page, table, or image need"],
     neededInput: ["Source topic", "Optional document name", "Preferred date or local scope"],
     output: "Matching documents, page context, snippets, and source links.",
+  },
+  {
+    id: "clinical-dictionary",
+    title: "Clinical Dictionary",
+    mobileTitle: "Dictionary",
+    description: "Search source-governed psychiatric terms, abbreviations, topics, and distinctions.",
+    bestFor: "Terminology and abbreviation lookup",
+    detail:
+      "Open concise definitions, resolve ambiguous abbreviations, compare terms, and review their direct sources.",
+    href: "/dictionary",
+    area: "reference",
+    status: "ready",
+    sourceBacked: true,
+    highYield: true,
+    actionLabel: "Search",
+    keywords: ["dictionary", "definition", "term", "terminology", "abbreviation", "acronym", "compare"],
+    checkFirst: ["Term or abbreviation", "Clinical topic or context", "Whether a distinction or comparison is needed"],
+    neededInput: ["Term, abbreviation, or topic"],
+    output: "Source-checked definition, related terminology, distinctions, and source links.",
   },
   {
     id: "guidelines",
@@ -302,7 +347,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
   },
 ];
 
-export function toolCatalogRecordById(id: string) {
+export function toolCatalogRecordById(id: string): ToolCatalogRecord {
   return toolCatalogRecords.find((tool) => tool.id === id) ?? toolCatalogRecords[0];
 }
 

@@ -14,9 +14,7 @@ vi.mock("next/navigation", () => ({
 // `EmptyState`, whose title was a `<p>` — so heading navigation silently
 // skipped the state and no test noticed (ledger #224). The heading is the
 // contract now, not the markup that happens to produce it.
-const categories: DsmCategory[] = [
-  { key: "mood", label: "Mood disorders", css_class: "mood", color: "#123456", diagnosis_count: 12 },
-];
+const categories: DsmCategory[] = [{ key: "mood", label: "Mood disorders", diagnosis_count: 12 }];
 
 describe("DsmSearchPage empty state", () => {
   it("keeps a heading on the no-matches state so heading navigation reaches it", () => {
@@ -53,8 +51,6 @@ describe("DsmSearchPage empty state", () => {
     const anxiety = {
       key: "anxiety",
       label: "Anxiety disorders",
-      css_class: "anxiety",
-      color: "#654321",
       diagnosis_count: 8,
     };
     const results: DsmDiagnosisSummary[] = [

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useCallback, useDeferredValue, useId, useMemo, useRef, useState } from "react";
 
+import { cardSelected, cardSurface } from "@/components/card-recipes";
 import { useAccountData } from "@/components/account-data-provider";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
@@ -30,17 +31,17 @@ import {
   resultFilterFacetGroup,
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
-import { ServiceGroupNav } from "@/components/services/service-group-nav";
 import { Chip as DesignChip, type ChipStatusTone } from "@/components/ui/chip";
 import { cn } from "@/components/ui-primitives";
 import { useResultSort } from "@/components/use-result-sort";
 import { compactBestUseTitle } from "@/lib/compact-best-use-title";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import {
-  readServiceCoreGroup,
+  readServiceCoreGroupSelection,
   serviceCoreGroupLabel,
   serviceCoreGroups,
-  serviceMatchesCoreGroup,
+  serviceMatchesCoreGroupSelection,
+  writeServiceCoreGroupSelectionToParams,
   type ServiceCoreGroupId,
 } from "@/lib/service-core-groups";
 import {
@@ -118,10 +119,19 @@ function ServiceCard({
     <article
       data-testid={`service-search-result-${service.slug}`}
       className={cn(
-        "rounded-xl border bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4",
-        selected || showBestFit
-          ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent-border)]/35"
-          : "border-[color:var(--border)]",
+        cardSurface,
+        "p-3 sm:p-4",
+        // One selected encoding, shared with every other card. The old
+        // `ring-1 …/35` was a fourth way of saying "this one" and put an alpha
+        // on a token colour, so what it actually contrasted against depended on
+        // whatever surface sat behind it in each theme.
+        //
+        // The leading tile stays a RANK, not a category glyph: this is a ranked
+        // referral list, the number is what the "Best fit" pill refers to, and
+        // it doubles as the shortlist checkmark. Services also has no single
+        // category axis — records carry facets — so there is nothing honest to
+        // put there instead.
+        (selected || showBestFit) && cardSelected,
       )}
     >
       <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-start gap-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto]">
@@ -278,7 +288,7 @@ function ServiceReferralProgress({ active }: { active: ReferralStageId }) {
 
   return (
     <nav aria-label="Referral progress" className="min-w-0">
-      <ol className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <ol className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 sm:justify-start">
         {referralStages.map((stage, index) => {
           const isActive = index === activeIndex;
           const isComplete = index < activeIndex;
@@ -410,7 +420,7 @@ export function ServicesNavigatorPage() {
   const searchParams = useSearchParams();
   const [sortValue, setSortValue] = useResultSort();
   const urlQuery = searchParams.get("q")?.trim() || searchParams.get("query")?.trim() || "";
-  const activeGroup = readServiceCoreGroup(searchParams.get("group"));
+  const activeGroupSelection = useMemo(() => readServiceCoreGroupSelection(searchParams.get("group")), [searchParams]);
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: urlQuery }));
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : urlQuery;
   const deferredQuery = useDeferredValue(query);
@@ -426,8 +436,8 @@ export function ServicesNavigatorPage() {
     return [];
   }, [deferredQuery, query, searchableRecords]);
   const groupedMatches = useMemo(
-    () => rankedMatches.filter((service) => serviceMatchesCoreGroup(service, activeGroup)),
-    [activeGroup, rankedMatches],
+    () => rankedMatches.filter((service) => serviceMatchesCoreGroupSelection(service, activeGroupSelection)),
+    [activeGroupSelection, rankedMatches],
   );
 
   // Facet selection lives in the URL, alongside `q`/`group`, so a filtered
@@ -441,8 +451,15 @@ export function ServicesNavigatorPage() {
   // without discarding the query. Gated on the UNFACETED result set so the
   // segment does not flicker away as facets are applied — narrowing with
   // facets only ever makes "catalogue > results" more true, never less.
+  // Apply the group selection to the full catalogue so that scope=all also
+  // honours the group facet — without this, switching to "All services" while
+  // a group is selected would show unfiltered results and an inconsistent count.
+  const groupedAllRecords = useMemo(
+    () => searchableRecords.filter((service) => serviceMatchesCoreGroupSelection(service, activeGroupSelection)),
+    [activeGroupSelection, searchableRecords],
+  );
   const showResultScope = searchableRecords.length > groupedMatches.length;
-  const facetBaseMatches = resultScope === "all" ? searchableRecords : groupedMatches;
+  const facetBaseMatches = resultScope === "all" ? groupedAllRecords : groupedMatches;
   const facetedMatches = useMemo(
     () => filterServicesByFacets(facetBaseMatches, facetSelection, substanceLens),
     [facetBaseMatches, facetSelection, substanceLens],
@@ -458,32 +475,51 @@ export function ServicesNavigatorPage() {
     [groupedMatches, facetSelection, substanceLens],
   );
   const allScopedCount = useMemo(
-    () => filterServicesByFacets(searchableRecords, facetSelection, substanceLens).length,
-    [searchableRecords, facetSelection, substanceLens],
+    () => filterServicesByFacets(groupedAllRecords, facetSelection, substanceLens).length,
+    [groupedAllRecords, facetSelection, substanceLens],
   );
   const activeFilterCount =
-    serviceFacetSelectionSize(facetSelection) + (substanceLens === "all" ? 0 : 1) + (resultScope === "all" ? 1 : 0);
+    serviceFacetSelectionSize(facetSelection) +
+    (substanceLens === "all" ? 0 : 1) +
+    (resultScope === "all" ? 1 : 0) +
+    activeGroupSelection.size;
   const relevanceRankMap = useMemo(() => {
     const map = new Map<string, number>();
     rankedMatches.forEach((service, index) => map.set(service.slug, index + 1));
     return map;
   }, [rankedMatches]);
+  // Group-agnostic base for the group facet's own "how many if I also ticked
+  // this" counts — `facetBaseMatches` cannot be reused here because it is
+  // already narrowed by `activeGroupSelection`, which would make every
+  // unselected group option read as a near-empty intersection with the
+  // group(s) already active rather than a true widening count.
+  const coreGroupBaseMatches = resultScope === "all" ? searchableRecords : rankedMatches;
+  const coreGroupFacetedBase = useMemo(
+    () => filterServicesByFacets(coreGroupBaseMatches, facetSelection, substanceLens),
+    [coreGroupBaseMatches, facetSelection, substanceLens],
+  );
   const groupCounts = useMemo(
     () =>
       Object.fromEntries(
-        serviceCoreGroups.map((group) => [
-          group.id,
-          rankedMatches.filter((service) => serviceMatchesCoreGroup(service, group.id)).length,
-        ]),
+        serviceCoreGroups.map((group) => {
+          const candidate = activeGroupSelection.has(group.id)
+            ? activeGroupSelection
+            : new Set([...activeGroupSelection, group.id]);
+          return [
+            group.id,
+            coreGroupFacetedBase.filter((service) => serviceMatchesCoreGroupSelection(service, candidate)).length,
+          ];
+        }),
       ) as Record<ServiceCoreGroupId, number>,
-    [rankedMatches],
+    [activeGroupSelection, coreGroupFacetedBase],
   );
   const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
   const selected = searchableRecords.filter((service) => selectedSlugs.includes(service.slug));
   const [showComparison, setShowComparison] = useState(false);
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
-  const heading = query || (activeGroup ? serviceCoreGroupLabel(activeGroup) : "Browse services");
+  const activeGroupLabel = activeGroupSelection.size === 1 ? serviceCoreGroupLabel([...activeGroupSelection][0]) : null;
+  const heading = query || (activeGroupLabel ?? "Browse services");
   const accountData = useAccountData();
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   // The provider rolls back a failed mutation from its pre-request snapshot.
@@ -584,16 +620,17 @@ export function ServicesNavigatorPage() {
     [updateFilterParams],
   );
 
-  // Never touches `q`/`query`/`group` — docs/filter-contract.md section 6:
-  // clearing filters and clearing a search are different intentions. The
-  // old query-replacing suggestion rail conflated the two (clearing its
-  // choices also replaced the search). It is gone; this reset now changes
-  // only scope and narrowing dimensions.
+  // Never touches `q`/`query` — docs/filter-contract.md section 6: clearing
+  // filters and clearing a search are different intentions. The old
+  // query-replacing suggestion rail conflated the two (clearing its choices
+  // also replaced the search). `group` is now a facet like the rest (folded
+  // out of the standalone browse nav), so it clears here too.
   const clearAllFilters = useCallback(() => {
     updateFilterParams((params) => {
       for (const dimension of serviceFacetDimensions) params.delete(dimension);
       params.delete("substance");
       params.delete("scope");
+      params.delete("group");
     });
   }, [updateFilterParams]);
 
@@ -607,13 +644,26 @@ export function ServicesNavigatorPage() {
     });
   }
 
-  function hrefForGroup(group: ServiceCoreGroupId | null) {
+  // Only ever called with an empty escape from the zero-results state below —
+  // individual group values toggle through `toggleCoreGroupValue` instead.
+  function hrefWithGroupCleared() {
     const params = new URLSearchParams(searchParams.toString());
     params.set("run", "1");
-    if (group) params.set("group", group);
-    else params.delete("group");
+    params.delete("group");
     return `/services?${params.toString()}`;
   }
+
+  const toggleCoreGroupValue = useCallback(
+    (value: ServiceCoreGroupId) => {
+      updateFilterParams((params) => {
+        const current = readServiceCoreGroupSelection(params.get("group"));
+        const next = new Set(current);
+        if (!next.delete(value)) next.add(value);
+        writeServiceCoreGroupSelectionToParams(params, next);
+      });
+    },
+    [updateFilterParams],
+  );
 
   // `substance_flags` is an exact partition (measured 2026-08-12: all 219
   // services carry exactly one of general/aod) — a lens, not a facet. See
@@ -647,6 +697,26 @@ export function ServicesNavigatorPage() {
         onChange: setSubstanceLensValue,
       }),
     [facetBaseMatches, facetSelection, setSubstanceLensValue, substanceLens, substanceOptionValues],
+  );
+
+  // Service categories overlap (see service-core-groups.ts), so this is a
+  // facet — many-of-N, OR within the group — rather than the one-of-N lens
+  // the standalone browse nav it replaces used to be.
+  const coreGroupFacetGroup = useMemo(
+    () =>
+      resultFilterFacetGroup({
+        id: "core-group",
+        label: "Service group",
+        selected: activeGroupSelection,
+        options: serviceCoreGroups.map((group) => ({
+          value: group.id,
+          label: group.label,
+          hint: String(groupCounts[group.id]),
+          disabled: groupCounts[group.id] === 0 && !activeGroupSelection.has(group.id),
+        })),
+        onToggle: toggleCoreGroupValue,
+      }),
+    [activeGroupSelection, groupCounts, toggleCoreGroupValue],
   );
 
   // Keep the option lists and handlers stable while unrelated page state
@@ -707,8 +777,25 @@ export function ServicesNavigatorPage() {
         });
       }
     }
+    for (const value of activeGroupSelection) {
+      chips.push({
+        id: `core-group-${value}`,
+        groupLabel: "Service group",
+        valueLabel: serviceCoreGroupLabel(value),
+        onRemove: () => toggleCoreGroupValue(value),
+      });
+    }
     return chips;
-  }, [facetSelection, resultScope, setResultScopeValue, setSubstanceLensValue, substanceLens, toggleFacetValue]);
+  }, [
+    activeGroupSelection,
+    facetSelection,
+    resultScope,
+    setResultScopeValue,
+    setSubstanceLensValue,
+    substanceLens,
+    toggleCoreGroupValue,
+    toggleFacetValue,
+  ]);
 
   return (
     <SearchResultsLayout
@@ -840,24 +927,16 @@ export function ServicesNavigatorPage() {
             {saveNotice ?? ""}
           </p>
 
-          <section className="grid gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4">
-            <ServiceGroupNav
-              activeGroup={activeGroup}
-              hrefForGroup={hrefForGroup}
-              counts={{ ...groupCounts, all: rankedMatches.length }}
-            />
-          </section>
-
           <ResultFilterSheet
             open={filterOpen}
             onClose={() => setFilterOpen(false)}
             panelId={filterPanelId}
             testId="service-filter-panel"
             title="Filter services"
-            groups={[substanceGroup, ...facetGroups]}
+            groups={[substanceGroup, coreGroupFacetGroup, ...facetGroups]}
             onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
             summary={{ count: displayedMatches.length, noun: displayedMatches.length === 1 ? "service" : "services" }}
-            chromeResetKey={`${deferredQuery}|${activeGroup ?? ""}|${resultScope}`}
+            chromeResetKey={`${deferredQuery}|${[...activeGroupSelection].sort().join(",")}|${resultScope}`}
             scope={
               showResultScope
                 ? {
@@ -912,7 +991,7 @@ export function ServicesNavigatorPage() {
           </p>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
             <Link
-              href={hrefForGroup(null)}
+              href={hrefWithGroupCleared()}
               className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               Show all services

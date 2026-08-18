@@ -406,6 +406,7 @@ describe("app mode search contract", () => {
       documents: "/documents/search?mode=documents&q=clozapine&run=1",
       dsm: "/dsm/search?q=clozapine&run=1",
       factsheets: "/factsheets/search?q=clozapine&run=1",
+      dictionary: "/dictionary/search?q=clozapine&run=1",
       // Same route, submitted branch.
       services: "/services?q=clozapine&run=1",
       forms: "/forms?q=clozapine&run=1",

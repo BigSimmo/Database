@@ -102,10 +102,7 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
               primaryAction: "Open",
               href: `/therapy-compass/${therapy.slug}`,
               icon: appModeIcons["therapy-compass"],
-              keywords: [therapy.name, therapy.category, therapy.modality, ...therapy.tags]
-                .filter(Boolean)
-                .join(" ")
-                .toLowerCase(),
+              keywords: [therapy.name, therapy.category, ...therapy.tags].filter(Boolean).join(" ").toLowerCase(),
             } satisfies FavouriteItem,
           ];
         });

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "9cfd4091-e110-45e6-a25a-d49a941449d9",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "f0230f69-3616-465d-937f-348b0e28023b",
+    "reason": "False claim. Row #283 asks to either wire the batch route into a caller or delete it and its tests -- this branch's final state does neither: src/app/api/images/signed-urls/route.ts was restored byte-identical to main (it was wrongly deleted earlier in this branch's history as 'dead', then reverted because main has since wired a live caller via batch-signed-urls.ts). No wire-or-delete decision was made on this branch; the row's own ask remains unaddressed."
+  }
+}

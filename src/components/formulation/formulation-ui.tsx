@@ -1,18 +1,15 @@
 import type { ReactNode } from "react";
 import { Info, Network, ShieldCheck } from "lucide-react";
 
-import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
+import { cardSurface } from "@/components/card-recipes";
+import { InformationPageShell } from "@/components/information-page-shell";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 
-export const formulationCard =
-  "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]";
+/** Was byte-identical to `specifierCard`; both now name the shared recipe. */
+export const formulationCard = cardSurface;
 
 export function FormulationPageShell({ children, className }: { children: ReactNode; className?: string }) {
   return <InformationPageShell className={className}>{children}</InformationPageShell>;
-}
-
-export function FormulationBreadcrumbs({ current }: { current?: string }) {
-  return <InformationPageBreadcrumbs home={{ label: "Formulation", href: "/formulation" }} current={current} />;
 }
 
 export function MechanismDomainChips({ values, limit }: { values: string[]; limit?: number }) {

@@ -130,6 +130,7 @@ theme-list parity, and remote design-project publication remain separate concern
 | `dark:` colour override                                              | `check:design-system-contract` — `darkColorOverrides`, baseline 0                                                                                      | **implemented-blocking** (7 Aug 2026) — all 3 instances retired; see §4                                                                                                                                                                                                                                                                                    |
 | Truncate a page title, dialog title, drug name or review warning     | —                                                                                                                                                      | **manual**                                                                                                                                                                                                                                                                                                                                                 |
 | Restate a token value in prose                                       | —                                                                                                                                                      | **manual** (eleven divergences came from this; TOKENS.md is the only inventory)                                                                                                                                                                                                                                                                            |
+| Add a named `--breakpoint-*` token for a device-band edge            | —                                                                                                                                                      | **manual** (decided 18 Aug 2026, `#336`) — stay raw `min-[…]`/`max-[…]`; see §3b                                                                                                                                                                                                                                                                           |
 
 ## 3a · Rules added by the perfection pass (31 July, second half)
 
@@ -141,6 +142,41 @@ theme-list parity, and remote design-project publication remain separate concern
 | Per-group token usage rules (TOKENS §7)                                            | Colour-boundary + z + motion lints                       | planned (PR 9) — decoration-on-text tier partially gated today                                      |
 | Per-component contracts (COMPONENTS §9) bind at review; defects map to closing PRs | Review checklist; contract tests land with each named PR | manual until each PR                                                                                |
 | `ui-primitives.tsx` changes require the focused DOM tests                          | `tests/ui-primitives.dom.test.tsx` + `icon-button`       | implemented (run discipline manual)                                                                 |
+
+## 3b · Responsive breakpoint windows stay raw — decided 18 August 2026 (`#336`)
+
+**Chose (a): no `--breakpoint-*` tokens.** The repo defines zero `--breakpoint-*` entries and
+nine call sites hand-write the arbitrary form — `min-[414px]:max-[429px]` at
+`clinical-dashboard/result-filter-control.tsx`, `max-[359px]` at three sites
+(`search-heading-mockups.tsx` ×3, `differentials/diagnosis-map-panel.tsx`), and `max-[389px]`
+at three sites (`factsheets/factsheets-search-page.tsx`,
+`clinical-dashboard/search-results-header-band.tsx`,
+`factsheets/factsheets-compact-view-mockups.tsx`). These stay exactly as raw Tailwind
+arbitrary values. Two of the nine sit in `*-mockups.tsx` files and were already out of gate
+scope; the decision covers all nine uniformly so the answer does not depend on which file a
+future site happens to land in.
+
+**Rejected (b): name them.** Tailwind 4's `--breakpoint-<name>` generates both a `<name>:`
+(min-width) and a `max-<name>:` variant **for every utility in the build**, not just the call
+sites that use it. Three named breakpoints for what is currently nine single-purpose
+consumers would add two global variant families per name to justify one `sr-only` toggle
+each. `max-[429px]` is also inclusive while a generated `max-<bp>:` variant is exclusive, so
+naming the 414–429 window needs _two_ boundary tokens (414px and 430px) to reproduce today's
+behaviour exactly — an easy off-by-one for a later editor to reintroduce.
+
+**Why.** These are per-device band edges with a measured, one-off justification at their own
+call site (fitting a specific label at a specific chip/card width), not a reusable scale the
+way `--spacing-icon-*` or the type-scale steps are — reusability is the property that makes a
+named token cheaper than the value it replaces, and none of these nine sites share a reason
+with any other. Recording the choice here, rather than migrating quietly, is what `#336`
+asked for: the next session that wants to add a tenth `max-[…]:` site can use the same raw
+form without re-deriving whether a token was supposed to exist.
+
+**Stop.** Do not add a `--breakpoint-*` `@theme` entry for a single-consumer device-band
+edge; use the raw `min-[…]`/`max-[…]` form and, if the reason is not obvious from the
+surrounding markup, say why in a comment at the call site. Revisit only if a fourth or later
+consumer genuinely needs the _same_ window (not just a similarly-sized one) — that is the
+point where the scale argument for (b) would start being true.
 
 ## 4 · Recorded verification evidence
 

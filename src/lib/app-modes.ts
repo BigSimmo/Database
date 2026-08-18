@@ -17,6 +17,7 @@ export const appModeIds = [
   "calculators",
   "therapy-compass",
   "factsheets",
+  "dictionary",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -418,6 +419,31 @@ export const appModeDefinitions = [
       badgeLabel: null,
     },
   },
+  {
+    id: "dictionary",
+    label: "Dictionary",
+    description: "Source-governed clinical terms, abbreviations, and related concepts",
+    href: "/dictionary",
+    search: {
+      // Dictionary owns a local static catalogue. The shared composer uses the
+      // benign tools command kind, then appModeHomeHref routes into its results.
+      kind: "tools",
+      placeholder: "Search a term or abbreviation…",
+      inputAriaLabel: "Search clinical terms, abbreviations, and topics",
+      submitIdleLabel: "Terms",
+      submitBusyLabel: "Terms",
+      submitAriaLabel: "Search the clinical dictionary",
+      emptyTitle: "Search the clinical dictionary",
+      readyTitle: "Find a clinical term",
+      progressLabel: "Searching source-linked dictionary entries.",
+      resultKind: "tools",
+      resultHeading: "Dictionary results",
+      resultsSurface: "results-band",
+      statusLabel: "Dictionary",
+      nextStep: "Open a term, browse the catalogue, or compare definitions",
+      badgeLabel: null,
+    },
+  },
 ] as const satisfies readonly AppModeDefinition[];
 
 export function appModeDefinition(modeId: AppModeId) {
@@ -452,6 +478,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "formulation",
   "therapy-compass",
   "factsheets",
+  "dictionary",
   "tools",
   "calculators",
 ]);
@@ -477,9 +504,11 @@ export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOpti
         ? "/dsm/search"
         : query && modeId === "factsheets"
           ? "/factsheets/search"
-          : query && modeId === "therapy-compass"
-            ? "/therapy-compass/search"
-            : mode.href;
+          : query && modeId === "dictionary"
+            ? "/dictionary/search"
+            : query && modeId === "therapy-compass"
+              ? "/therapy-compass/search"
+              : mode.href;
     return suffix ? `${namespacedHref}?${suffix}` : namespacedHref;
   }
 
