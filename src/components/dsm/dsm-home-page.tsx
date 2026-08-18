@@ -1,7 +1,7 @@
 import { BookOpenCheck, GitCompareArrows, ListChecks, Search } from "lucide-react";
 
-import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { dsmCategories, dsmDiagnoses } from "@/lib/dsm";
+import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
+import { dsmCategories } from "@/lib/dsm";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 
 const featuredCategories = dsmCategories
@@ -64,12 +64,6 @@ export function DsmHomePage() {
           shortLabel: category.label,
           href: `/dsm/search?category=${category.key}`,
         }))}
-        footer={
-          <ModeHomeVerificationFooter
-            label={`${dsmDiagnoses.length} diagnoses`}
-            body="Local reference content · Clinical review required"
-          />
-        }
       />
     </ModeHomeMain>
   );
