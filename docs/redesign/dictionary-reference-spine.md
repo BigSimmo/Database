@@ -33,7 +33,7 @@ Dictionary extends the existing app-mode, mode navigation, universal search, sea
 
 ## Content and governance
 
-`src/lib/dictionary-data.ts` is the static governed catalogue. UI counts are derived from its records. Every published entry has direct HTTP(S) source references, source-check dates, a scheduled source review and internal `clinicalApproval: "pending"`. Source checking confirms source support; it does not claim specialist clinical approval.
+`src/lib/dictionary-data.ts` is the static governed catalogue. UI counts are derived from its records. Every published entry has direct HTTP(S) source references, a source-link date, a scheduled source review and internal `clinicalApproval: "pending"`. Source linking records which authoritative document a collection was built from; attribution is at collection level, is not verified sentence by sentence, and never claims specialist clinical approval.
 
 Aliases may map to more than one canonical sense. ACT intentionally resolves to Acceptance and commitment therapy and Assertive community treatment. Curated relationship summaries appear only for explicitly sourced comparison pairs; arbitrary comparison aligns stored fields without interpretation.
 

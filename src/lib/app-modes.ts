@@ -435,7 +435,7 @@ export const appModeDefinitions = [
       submitAriaLabel: "Search the clinical dictionary",
       emptyTitle: "Search the clinical dictionary",
       readyTitle: "Find a clinical term",
-      progressLabel: "Searching source-checked dictionary entries.",
+      progressLabel: "Searching source-linked dictionary entries.",
       resultKind: "tools",
       resultHeading: "Dictionary results",
       resultsSurface: "results-band",

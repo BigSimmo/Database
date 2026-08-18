@@ -143,7 +143,7 @@ export function DictionaryTermPage({ entry }: { entry: DictionaryEntry }) {
                 <span className="grid h-5 w-5 place-items-center rounded-full border border-current">
                   <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden="true" />
                 </span>
-                Source checked
+                Source linked
               </span>
               <span aria-hidden="true">·</span>
               <span>
@@ -262,7 +262,7 @@ export function DictionaryTermPage({ entry }: { entry: DictionaryEntry }) {
                 icon={<BookOpen className="size-icon-sm" aria-hidden="true" />}
                 open={openSections.has("dictionary-related")}
                 onToggle={() => toggleSection("dictionary-related")}
-                summary={`${entry.relatedSlugs.length} governed entries from the same collection`}
+                summary={`${entry.relatedSlugs.length} other entries from the same collection`}
               >
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   {entry.relatedSlugs.map((slug) => {

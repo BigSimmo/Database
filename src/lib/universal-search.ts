@@ -398,7 +398,6 @@ async function searchDictionaryDomain(args: ResolvedSearchArgs): Promise<Univers
     topics: [],
     kinds: [],
     sources: [],
-    updated: "any",
     sort: "relevance",
   })
     .slice(0, args.limitPerDomain)

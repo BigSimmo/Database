@@ -16,7 +16,6 @@ const baseFilters = {
   topics: [],
   kinds: [],
   sources: [],
-  updated: "any" as const,
   sort: "relevance" as const,
 };
 
@@ -30,13 +29,13 @@ describe("clinical dictionary catalogue", () => {
     expect(dictionaryCatalogueIssues()).toEqual([]);
   });
 
-  it("keeps every published entry source checked, approval pending, and fully linked", () => {
+  it("keeps every published entry source linked, approval pending, and fully linked", () => {
     const sourceIds = new Set<string>(dictionarySources.map((source) => source.id));
     const entrySlugs = new Set(dictionaryEntries.map((entry) => entry.slug));
     for (const entry of dictionaryEntries) {
       expect(entry.sourceRefs.length).toBeGreaterThan(0);
       expect(entry.sourceRefs.every((reference) => sourceIds.has(reference.sourceId))).toBe(true);
-      expect(entry.review.status).toBe("source-checked");
+      expect(entry.review.status).toBe("source-linked");
       expect(entry.review.checkedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(entry.review.dueOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(entry.review.clinicalApproval).toBe("pending");
@@ -58,7 +57,7 @@ describe("clinical dictionary catalogue", () => {
     expect(actHits[0]).toMatchObject({ type: "abbreviation", abbreviation: "ACT", senses: { length: 2 } });
   });
 
-  it("uses one predicate for lens counts and topic, kind, source, and updated filters", () => {
+  it("uses one predicate for lens counts and topic, kind and source filters", () => {
     const topic = dictionaryTopics[0]!;
     const topicHits = searchDictionary({ ...baseFilters, view: "definitions", topics: [topic.slug] });
     expect(topicHits).toHaveLength(topic.entrySlugs.length);
@@ -76,14 +75,14 @@ describe("clinical dictionary catalogue", () => {
         (hit) => hit.type === "entry" && hit.entry.sourceRefs.some((reference) => reference.sourceId === source.id),
       ),
     ).toBe(true);
-
-    expect(searchDictionary({ ...baseFilters, view: "definitions", updated: "year" })).toHaveLength(96);
   });
 
   it("normalises invalid URL filters without throwing", () => {
     const filters = parseDictionaryFilters(
       new URLSearchParams("q=MSE&view=bad&topic=missing&kind=bad&source=missing&updated=old&sort=random"),
     );
+    // `updated=old` is deliberately still in the query string: the retired
+    // "recently updated" lens must be ignored, not resurrected.
     expect(filters).toEqual({ ...baseFilters, q: "MSE" });
     expect(dictionaryEntryKinds).not.toContain("bad");
   });

@@ -65,7 +65,6 @@ export function DictionaryComparePage({ a, b }: { a: DictionaryEntry | null; b: 
         topics: [],
         kinds: [],
         sources: [],
-        updated: "any",
         sort: query ? "relevance" : "az",
       })
         .filter((hit): hit is Extract<DictionarySearchHit, { type: "entry" }> => hit.type === "entry")
@@ -113,7 +112,7 @@ export function DictionaryComparePage({ a, b }: { a: DictionaryEntry | null; b: 
                 Compare terms
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-[color:var(--text-muted)]">
-                Align two source-checked entries field by field without generating clinical advice.
+                Align two source-linked entries field by field without generating clinical advice.
               </p>
             </div>
             <div className="hidden flex-wrap gap-2 sm:flex">
@@ -229,7 +228,7 @@ export function DictionaryComparePage({ a, b }: { a: DictionaryEntry | null; b: 
               <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-[color:var(--border)] pt-4 text-xs font-semibold text-[color:var(--text-muted)]">
                 <span className="inline-flex items-center gap-1 text-[color:var(--success)]">
                   <Check className="h-4 w-4" aria-hidden="true" />
-                  Both source checked
+                  Both source linked
                 </span>
                 <span aria-hidden="true">·</span>
                 <span>
@@ -288,7 +287,7 @@ export function DictionaryComparePage({ a, b }: { a: DictionaryEntry | null; b: 
           open={pickerOpen}
           onClose={() => setPickerOpen(false)}
           title="Change comparison"
-          description="Choose two source-checked entries"
+          description="Choose two source-linked entries"
           portal
           placement="responsive-right"
           id="dictionary-compare-picker"
@@ -461,7 +460,7 @@ function sectionValue(sectionId: string, entry: DictionaryEntry) {
   if (sectionId === "context") return entry.comparison.clinicalContext;
   if (sectionId === "relationships")
     return `${entry.aliases.map((alias) => alias.value).join(", ") || "No governed aliases"}. Related: ${entry.relatedSlugs.map((slug) => findDictionaryEntry(slug)?.term ?? slug).join(", ")}.`;
-  return `${dictionaryEntrySources(entry).length} covered ${dictionaryEntrySources(entry).length === 1 ? "source" : "sources"}; source checked ${entry.review.checkedOn}.`;
+  return `${dictionaryEntrySources(entry).length} covered ${dictionaryEntrySources(entry).length === 1 ? "source" : "sources"}; source linked ${entry.review.checkedOn}.`;
 }
 
 function DesktopComparisonSection({

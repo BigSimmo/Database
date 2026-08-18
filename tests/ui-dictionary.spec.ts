@@ -106,7 +106,7 @@ test("uses a readable phone definition and stacked comparison sections", async (
 
   const status = page.getByTestId("dictionary-source-status-summary");
   await expect(status).toBeVisible();
-  await expect(status).toContainText("Source checked");
+  await expect(status).toContainText("Source linked");
   await expect(page.getByRole("complementary", { name: "Entry details" })).toBeHidden();
   const disclosures = page
     .locator(

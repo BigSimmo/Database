@@ -69,28 +69,29 @@ export function DictionarySourcesPage() {
         </header>
 
         <section
-          aria-labelledby="source-checked-heading"
+          aria-labelledby="source-linked-heading"
           className="mt-7 grid gap-4 border-y border-[color:var(--border)] py-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)]"
         >
           <div>
             <h2
-              id="source-checked-heading"
+              id="source-linked-heading"
               className="flex items-center gap-2 text-xl font-extrabold text-[color:var(--text-heading)]"
             >
               <span className="grid h-8 w-8 place-items-center rounded-full border border-[color:var(--success)] text-[color:var(--success)]">
                 <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
               </span>
-              What Source checked means
+              What Source linked means
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-[color:var(--text)]">
-              A source-checked entry has at least one direct authoritative source supporting the published field.
-              Editors have confirmed that the link, organisation and paraphrased wording match the stated source scope.
+              A source-linked entry names the authoritative source published for its collection, so every definition can
+              be read next to the document it came from. The link is recorded at collection level: it has not been
+              verified sentence by sentence against that document, and no clinician has signed off an individual entry.
             </p>
           </div>
           <div className="rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] px-4 py-3 text-sm leading-6 text-[color:var(--text)]">
             <strong className="block text-[color:var(--text-heading)]">It is not specialist clinical approval.</strong>
-            New dictionary wording remains approval pending even after its source has been checked. The dictionary is
-            reference terminology, not patient-specific guidance.
+            Every entry remains approval pending. Read the linked source before relying on any definition clinically.
+            The dictionary is reference terminology, not patient-specific guidance.
           </div>
         </section>
 

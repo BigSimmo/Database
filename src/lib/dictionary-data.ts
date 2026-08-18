@@ -56,7 +56,7 @@ export type DictionaryEntry = {
   distinctions: readonly DictionaryDistinction[];
   relatedSlugs: readonly string[];
   review: {
-    status: "source-checked";
+    status: "source-linked";
     checkedOn: string;
     dueOn: string;
     clinicalApproval: "pending";
@@ -67,7 +67,6 @@ export type DictionaryTopic = {
   slug: string;
   title: string;
   description: string;
-  iconKey: string;
   entrySlugs: readonly string[];
   relatedTopicSlugs: readonly string[];
   curatedComparisons: readonly [string, string][];
@@ -90,7 +89,6 @@ type TopicSeed = {
   slug: string;
   title: string;
   description: string;
-  iconKey: string;
   sourceId: string;
   entries: readonly EntrySeed[];
   related: readonly string[];
@@ -99,7 +97,7 @@ type TopicSeed = {
 
 const ACCESSED_ON = "2026-08-18";
 const REVIEW = {
-  status: "source-checked",
+  status: "source-linked",
   checkedOn: ACCESSED_ON,
   dueOn: "2027-08-18",
   clinicalApproval: "pending",
@@ -219,7 +217,6 @@ const topicSeeds = [
     slug: "assessment-and-measurement",
     title: "Assessment and measurement",
     description: "Assessment concepts, interviews, screening and rating tools used across mental health care.",
-    iconKey: "clipboard",
     sourceId: "nsw-mse-handbook",
     related: ["mental-state-examination-domains", "cognition-and-neuropsychiatry"],
     comparisons: [
@@ -276,7 +273,6 @@ const topicSeeds = [
     slug: "mental-state-examination-domains",
     title: "Mental state examination domains",
     description: "Observable and reported domains commonly organised within a mental state examination.",
-    iconKey: "scan",
     sourceId: "nsw-mental-assessment",
     related: ["assessment-and-measurement", "mood-and-affect", "psychosis-and-perception"],
     comparisons: [["mood", "affect"]],
@@ -315,7 +311,6 @@ const topicSeeds = [
     slug: "mood-and-affect",
     title: "Mood and affect",
     description: "Terms describing reported mood and observed emotional expression.",
-    iconKey: "smile",
     sourceId: "nsw-mental-assessment",
     related: ["mental-state-examination-domains", "conditions-risk-and-safety"],
     comparisons: [["mood", "affect"]],
@@ -366,7 +361,6 @@ const topicSeeds = [
     slug: "psychosis-and-perception",
     title: "Psychosis and perception",
     description: "Psychotic experiences, perceptual phenomena and nearby terms that require careful distinction.",
-    iconKey: "eye",
     sourceId: "healthdirect-psychosis",
     related: ["mental-state-examination-domains", "conditions-risk-and-safety"],
     comparisons: [
@@ -417,7 +411,6 @@ const topicSeeds = [
     slug: "cognition-and-neuropsychiatry",
     title: "Cognition and neuropsychiatry",
     description: "Cognitive functions and syndromes commonly assessed in mental health and general clinical care.",
-    iconKey: "brain",
     sourceId: "nice-delirium",
     related: ["assessment-and-measurement", "conditions-risk-and-safety"],
     comparisons: [["delirium", "dementia"]],
@@ -452,7 +445,6 @@ const topicSeeds = [
     slug: "conditions-risk-and-safety",
     title: "Conditions, risk and safety",
     description: "Common mental health conditions and terms used in safety-focused clinical work.",
-    iconKey: "shield",
     sourceId: "healthdirect-mental-health",
     related: ["mood-and-affect", "anxiety-trauma-and-dissociation"],
     comparisons: [["clinical-assessment", "risk-assessment"]],
@@ -504,7 +496,6 @@ const topicSeeds = [
     slug: "anxiety-trauma-and-dissociation",
     title: "Anxiety, trauma and dissociation",
     description: "Terms for anxiety, trauma-related experiences and disruptions in integration or sense of self.",
-    iconKey: "waves",
     sourceId: "healthdirect-mental-health",
     related: ["conditions-risk-and-safety", "psychological-therapies"],
     comparisons: [["obsession", "intrusive-thought"]],
@@ -555,7 +546,6 @@ const topicSeeds = [
     slug: "substance-use",
     title: "Substance use",
     description: "Terms used to describe substance-related patterns, physiological adaptation and return to use.",
-    iconKey: "droplet",
     sourceId: "aihw-aod-glossary",
     related: ["conditions-risk-and-safety", "community-and-models-of-care"],
     comparisons: [["dependence", "tolerance"]],
@@ -602,7 +592,6 @@ const topicSeeds = [
     slug: "medicines-and-adverse-effects",
     title: "Medicines and adverse effects",
     description: "Psychiatric medicine classes and important movement-related adverse effects.",
-    iconKey: "pill",
     sourceId: "healthdirect-antipsychotics",
     related: ["conditions-risk-and-safety", "mental-state-examination-domains"],
     comparisons: [["akathisia", "psychomotor-activity"]],
@@ -653,7 +642,6 @@ const topicSeeds = [
     slug: "psychological-therapies",
     title: "Psychological therapies",
     description: "Structured psychological approaches used across mental health care.",
-    iconKey: "messages",
     sourceId: "healthdirect-psychotherapy",
     related: ["anxiety-trauma-and-dissociation", "mood-and-affect"],
     comparisons: [["cognitive-behavioural-therapy", "acceptance-and-commitment-therapy"]],
@@ -709,7 +697,6 @@ const topicSeeds = [
     slug: "community-and-models-of-care",
     title: "Community and models of care",
     description: "Service structures and practice approaches used to coordinate mental health care.",
-    iconKey: "users",
     sourceId: "health-recovery-framework",
     related: ["documentation-law-and-ethics", "conditions-risk-and-safety"],
     comparisons: [["case-management", "collaborative-care"]],
@@ -763,7 +750,6 @@ const topicSeeds = [
     slug: "documentation-law-and-ethics",
     title: "Documentation, law and ethics",
     description: "Terms used in decision-making, lawful care, formulation and clinical documentation.",
-    iconKey: "scale",
     sourceId: "health-mental-rights",
     related: ["community-and-models-of-care", "assessment-and-measurement"],
     comparisons: [["clinical-formulation", "risk-assessment"]],
@@ -931,7 +917,6 @@ export const dictionaryTopics: readonly DictionaryTopic[] = topicSeeds.map((topi
   slug: topic.slug,
   title: topic.title,
   description: topic.description,
-  iconKey: topic.iconKey,
   entrySlugs: topicEntrySlugs.get(topic.slug) ?? [],
   relatedTopicSlugs: topic.related,
   curatedComparisons: topic.comparisons,

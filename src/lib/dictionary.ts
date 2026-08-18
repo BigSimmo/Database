@@ -27,7 +27,6 @@ export type DictionarySearchHit =
 
 export type DictionarySearchView = "all" | "definitions" | "abbreviations" | "topics";
 export type DictionarySort = "relevance" | "az";
-export type DictionaryUpdated = "any" | "year" | "six-months";
 
 export type DictionaryFilters = {
   q: string;
@@ -35,12 +34,10 @@ export type DictionaryFilters = {
   topics: readonly string[];
   kinds: readonly DictionaryEntryKind[];
   sources: readonly string[];
-  updated: DictionaryUpdated;
   sort: DictionarySort;
 };
 
 const validSearchViews = new Set<DictionarySearchView>(["all", "definitions", "abbreviations", "topics"]);
-const validUpdated = new Set<DictionaryUpdated>(["any", "year", "six-months"]);
 const validSort = new Set<DictionarySort>(["relevance", "az"]);
 
 export const allDictionaryEntries = [...dictionaryEntries].sort((a, b) => a.term.localeCompare(b.term));
@@ -100,7 +97,6 @@ function valuesFrom(params: URLSearchParams, key: string) {
 
 export function parseDictionaryFilters(params: URLSearchParams): DictionaryFilters {
   const rawView = params.get("view") as DictionarySearchView | null;
-  const rawUpdated = params.get("updated") as DictionaryUpdated | null;
   const rawSort = params.get("sort") as DictionarySort | null;
   return {
     q: (params.get("q") ?? "").trim(),
@@ -108,7 +104,6 @@ export function parseDictionaryFilters(params: URLSearchParams): DictionaryFilte
     topics: uniqueKnown(valuesFrom(params, "topic"), new Set(dictionaryTopics.map((topic) => topic.slug))),
     kinds: uniqueKnown(valuesFrom(params, "kind"), new Set(dictionaryEntryKinds)) as DictionaryEntryKind[],
     sources: uniqueKnown(valuesFrom(params, "source"), new Set(dictionarySources.map((source) => source.id))),
-    updated: rawUpdated && validUpdated.has(rawUpdated) ? rawUpdated : "any",
     sort: rawSort && validSort.has(rawSort) ? rawSort : "relevance",
   };
 }
@@ -119,9 +114,10 @@ function entryPassesFilters(entry: DictionaryEntry, filters: DictionaryFilters) 
   if (filters.sources.length && !entry.sourceRefs.some((reference) => filters.sources.includes(reference.sourceId))) {
     return false;
   }
-  // The catalogue currently has one governed review cohort. Keep the URL lens
-  // explicit and predicate-owned so future cohorts do not need a second filter path.
-  if (filters.updated !== "any" && entry.review.checkedOn < "2025-08-18") return false;
+  // There is deliberately no "recently updated" lens. The catalogue is one
+  // review cohort stamped with a single `checkedOn`, so any date predicate would
+  // either return everything or nothing while still rendering an active filter
+  // chip. Re-add it with a real cutoff when entries carry distinct review dates.
   return true;
 }
 
@@ -237,7 +233,6 @@ export function browseDictionary(params: {
     topics: params.topics,
     kinds: params.kinds,
     sources: [],
-    updated: "any",
     sort: "az",
   };
   let hits = searchDictionary(filters).filter((hit) => {

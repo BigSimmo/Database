@@ -9,7 +9,6 @@ import {
   ResultFilterSheet,
   ResultFilterTrigger,
   resultFilterFacetGroup,
-  resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { DictionaryResultRow } from "@/components/dictionary/dictionary-result-row";
@@ -80,7 +79,7 @@ function useDictionaryUrl() {
 }
 
 function selectedFilterCount(filters: DictionaryFilters) {
-  return filters.topics.length + filters.kinds.length + filters.sources.length + (filters.updated === "any" ? 0 : 1);
+  return filters.topics.length + filters.kinds.length + filters.sources.length;
 }
 
 export function DictionarySearchPage() {
@@ -103,7 +102,7 @@ export function DictionarySearchPage() {
 
   const clearFilters = () =>
     replace((next) => {
-      for (const key of ["topic", "kind", "source", "updated"]) next.delete(key);
+      for (const key of ["topic", "kind", "source"]) next.delete(key);
     });
 
   const groups = [
@@ -142,18 +141,6 @@ export function DictionarySearchPage() {
       })),
       onToggle: (value) => toggleMany("source", value),
     }),
-    resultFilterGroup({
-      id: "updated",
-      label: "Updated",
-      value: filters.updated,
-      note: "one only",
-      options: [
-        { value: "any", label: "Any time" },
-        { value: "six-months", label: "Past 6 months" },
-        { value: "year", label: "Past year" },
-      ],
-      onChange: (value) => setOne("updated", value, "any"),
-    }),
   ];
 
   const appliedFilters = [
@@ -175,16 +162,6 @@ export function DictionarySearchPage() {
       valueLabel: dictionarySources.find((source) => source.id === sourceId)?.organisation ?? sourceId,
       onRemove: () => toggleMany("source", sourceId),
     })),
-    ...(filters.updated === "any"
-      ? []
-      : [
-          {
-            id: "updated",
-            groupLabel: "Updated",
-            valueLabel: filters.updated === "year" ? "Past year" : "Past 6 months",
-            onRemove: () => setOne("updated", "any", "any"),
-          },
-        ]),
   ];
 
   const lensControls = (
@@ -346,7 +323,7 @@ export function DictionaryBrowsePage() {
             Browse terms
           </h1>
           <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-            Scan the same source-checked result system by letter or abbreviation.
+            Scan the same source-linked result system by letter or abbreviation.
           </p>
         </header>
         <div className="border-y border-[color:var(--border)] bg-[color:var(--surface)]">
@@ -431,7 +408,7 @@ export function DictionaryBrowsePage() {
           </section>
         </div>
         <InformationPageFooter>
-          All published entries are source checked · Specialist clinical approval remains pending
+          All published entries link a source · Specialist clinical approval remains pending
         </InformationPageFooter>
       </InformationPageShell>
       <ResultFilterSheet
@@ -726,7 +703,7 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
               <span>{topic.entrySlugs.length} terms</span>
               <span className="inline-flex items-center gap-1 text-[color:var(--success)]">
                 <Check className="h-4 w-4" aria-hidden="true" />
-                Source checked
+                Source linked
               </span>
             </p>
             <div className="mt-5 flex gap-2">

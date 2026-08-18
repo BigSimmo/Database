@@ -178,7 +178,7 @@ function SourceLine({ label }: { label: string }) {
       <span className="grid h-4 w-4 place-items-center rounded-full border border-[color:var(--success)] text-[color:var(--success)]">
         <Check className="h-2.5 w-2.5" strokeWidth={2.5} aria-hidden="true" />
       </span>
-      Source checked<span aria-hidden="true">·</span>
+      Source linked<span aria-hidden="true">·</span>
       {label}
     </span>
   );

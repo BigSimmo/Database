@@ -18,7 +18,7 @@ describe("DictionaryTermPage", () => {
     expect(container.querySelectorAll("h1")).toHaveLength(1);
     expect(screen.getByRole("heading", { level: 1, name: "Auditory hallucination" })).toBeInTheDocument();
     expect(screen.getAllByTestId("dictionary-source-status-summary")).toHaveLength(1);
-    expect(screen.getByTestId("dictionary-source-status-summary")).toHaveTextContent("Source checked");
+    expect(screen.getByTestId("dictionary-source-status-summary")).toHaveTextContent("Source linked");
     expect(screen.getByTestId("dictionary-source-status-summary")).toHaveTextContent("covered source");
   });
 
@@ -36,7 +36,7 @@ describe("DictionaryTermPage", () => {
   it("shows four real related-entry destinations", () => {
     const entry = findDictionaryEntry("auditory-hallucination")!;
     render(<DictionaryTermPage entry={entry} />);
-    const related = screen.getByText("4 governed entries from the same collection").closest("section");
+    const related = screen.getByText("4 other entries from the same collection").closest("section");
     expect(related?.querySelectorAll('a[href^="/dictionary/"]')).toHaveLength(4);
   });
 });
