@@ -78,9 +78,17 @@ against a pinned canonical definition, and only then marks a fail-fast guard mig
 - **The newest migration mentioning a function often does not define it.** These `match_*` functions
   are redefined 2–16 times across migrations, and
   `20260724130000_explicit_base_match_rpc_execute_grants.sql` — the newest file mentioning several of
-  them — contains **zero** `create or replace function`; it only re-asserts grants. Same shape for
-  `20260724120000_table_facts_plpgsql_execute.sql`. Select the latest migration carrying an actual
-  `as $$ … $$` body, not merely a reference.
+  them — contains **zero** `create or replace function`; it only re-asserts grants. (An earlier
+  version of this note said the same of `20260724120000_table_facts_plpgsql_execute.sql`; that was
+  wrong — it **does** re-create `match_document_table_facts_text` at line 9 and is that function's
+  canonical body, which is exactly why a clean replay resets the `work_mem` that `20260724000000`
+  set on it. Corrected by the Phase 1.2 dossier, 2026-08-18.) Select the latest migration carrying
+  an actual `as $$ … $$` body, not merely a reference.
+- **`SET` attributes are part of the function hash.** The drift `def_hash` strips comments and
+  whitespace from `pg_get_functiondef` and nothing else, so `ALTER FUNCTION … SET work_mem` (or
+  `plan_cache_mode`) applied by migration but absent from the `schema.sql` mirror is guaranteed
+  drift with a byte-identical body. All ten Phase 1.2 mismatches were this (forensics §1.2). Test
+  the attribute-strip variant before diffing bodies.
 - **Normalize before joining live functions to the manifest.** Joining manifest signatures to live
   `p.oid::regprocedure::text` reports all 93 functions as simultaneously missing _and_ extra, because
   the manifest stores `public.fn(extensions.vector,…)` while a live session renders `fn(vector,…)`.

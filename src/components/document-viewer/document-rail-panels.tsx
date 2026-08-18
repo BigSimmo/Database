@@ -138,7 +138,7 @@ export function DocumentViewerRail({
           data-testid="high-yield-summary"
           className={cn(
             panel,
-            "group min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] source-print md:col-span-2 lg:col-span-1",
+            "group min-w-0 max-sm:hidden print:block scroll-mt-[var(--document-anchor-offset,6rem)] source-print md:col-span-2 lg:col-span-1",
           )}
         >
           <DocumentSectionSummary

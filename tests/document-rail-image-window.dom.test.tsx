@@ -7,7 +7,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/supabase/client", () => {
   const authorizationHeader = {};
   const markSessionExpired = vi.fn();
-  return { useAuthSession: () => ({ authorizationHeader, markSessionExpired, session: null }) };
+  const registerAuthRequest = vi.fn(() => ({ epoch: 1, release: vi.fn() }));
+  const isAuthEpochCurrent = vi.fn(() => true);
+  return {
+    useAuthSession: () => ({
+      authorizationHeader,
+      markSessionExpired,
+      session: null,
+      registerAuthRequest,
+      isAuthEpochCurrent,
+    }),
+  };
 });
 
 import { DocumentImageList, RAIL_IMAGE_WINDOW } from "@/components/document-viewer/source-panels";

@@ -369,7 +369,9 @@ jobs:
   safety:
     name: Safety and config checks
     needs: changes
-    if: needs.changes.outputs.static_heavy_changed == 'true'
+    # `draft != true` is true on push/schedule/merge_group too, where
+    # `github.event.pull_request` is null — see the ui-advisory note below.
+    if: needs.changes.outputs.static_heavy_changed == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -427,7 +429,7 @@ jobs:
   coverage:
     name: Unit coverage
     needs: changes
-    if: needs.changes.outputs.coverage_changed == 'true'
+    if: needs.changes.outputs.coverage_changed == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -507,7 +509,7 @@ jobs:
   build:
     name: Build
     needs: changes
-    if: needs.changes.outputs.build_changed == 'true'
+    if: needs.changes.outputs.build_changed == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -577,7 +579,8 @@ jobs:
     needs: changes
     if: >
       needs.changes.outputs.ui_changed == 'true' &&
-      (github.event_name == 'pull_request' || github.event_name == 'merge_group')
+      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+      github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -625,7 +628,8 @@ jobs:
     # Start alongside the fail-fast subset. The suites stay disjoint on PR and
     # merge-queue events, and PR required independently demands both results.
     if: >
-      needs.changes.outputs.ui_changed == 'true'
+      needs.changes.outputs.ui_changed == 'true' &&
+      github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
@@ -691,7 +695,8 @@ jobs:
     if: >
       github.event_name == 'pull_request' &&
       needs.changes.outputs.ui_changed == 'true' &&
-      needs.changes.outputs.advisory_ui_changed == 'true'
+      needs.changes.outputs.advisory_ui_changed == 'true' &&
+      github.event.pull_request.draft != true
     continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -956,7 +961,7 @@ jobs:
   db-reset-verify:
     name: Migration replay
     needs: changes
-    if: needs.changes.outputs.db_changed == 'true'
+    if: needs.changes.outputs.db_changed == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -1052,6 +1057,7 @@ jobs:
           DB_CHANGED: ${{ needs.changes.outputs.db_changed }}
           BUILD_CHANGED: ${{ needs.changes.outputs.build_changed }}
           CONTAINER_CHANGED: ${{ needs.changes.outputs.container_changed }}
+          PR_DRAFT: ${{ github.event.pull_request.draft == true }}
           EVENT_NAME: ${{ github.event_name }}
           CHANGES_RESULT: ${{ needs.changes.result }}
           STATIC_RESULT: ${{ needs.static-pr.result }}
@@ -1125,13 +1131,19 @@ jobs:
           require_success "changes" "$CHANGES_RESULT"
           require_success "static-pr" "$STATIC_RESULT"
 
-          if [ "$STATIC_HEAVY_CHANGED" = "true" ]; then
+          # safety/coverage/build/ui-critical*/db-reset-verify additionally skip on draft PRs
+          # (see their own job `if:` conditions) to stop draft pushes from booking a full heavy
+          # CI matrix. PR_DRAFT is folded into the same "was this job in scope" check as the
+          # *_CHANGED flags so a draft PR reports skipped-and-fine here instead of a false
+          # "result was skipped" failure — undrafting fires `ready_for_review`, which reruns the
+          # whole workflow fresh, so this never lets a real failure hide past review.
+          if [ "$STATIC_HEAVY_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
             require_success "safety" "$SAFETY_RESULT"
           else
             require_skipped_or_success "safety" "$SAFETY_RESULT"
           fi
 
-          if [ "$COVERAGE_CHANGED" = "true" ]; then
+          if [ "$COVERAGE_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
             require_success "coverage" "$COVERAGE_RESULT"
           else
             require_skipped_or_success "coverage" "$COVERAGE_RESULT"
@@ -1143,7 +1155,7 @@ jobs:
             require_skipped_or_success "ingestion-sast" "$INGESTION_SAST_RESULT"
           fi
 
-          if [ "$BUILD_CHANGED" = "true" ]; then
+          if [ "$BUILD_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
             require_success "build" "$BUILD_RESULT"
           else
             require_skipped_or_success "build" "$BUILD_RESULT"
@@ -1155,7 +1167,7 @@ jobs:
             require_skipped_or_success "container-images" "$CONTAINER_RESULT"
           fi
 
-          if [ "$UI_CHANGED" = "true" ]; then
+          if [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
             if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; then
               require_success "production-ui-critical" "$UI_FAST_RESULT"
             else
@@ -1169,7 +1181,7 @@ jobs:
 
           require_skipped_or_success "lighthouse-budget" "$LIGHTHOUSE_RESULT"
 
-          if [ "$DB_CHANGED" = "true" ]; then
+          if [ "$DB_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
             require_success "db-reset-verify" "$DB_RESULT"
           else
             require_skipped_or_success "db-reset-verify" "$DB_RESULT"
