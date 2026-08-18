@@ -71,6 +71,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // the three directions restructure that band. Shared chrome above them would read as a second,
   // real header and a second real composer over the study.
   const isToolsSearchDirectionsMockup = pathname === "/mockups/tools-search-directions";
+  // This family draws a complete patient-first operational shell. It is not a
+  // search mode, and fictional patient details must never enter shared search.
+  const isCaringContactMockup =
+    pathname === "/mockups/caring-contacts" || pathname.startsWith("/mockups/caring-contacts/");
 
   return (
     <GlobalMockupSearchShell
@@ -112,7 +116,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
         !isPinnedPlusMenuMockup &&
-        !isPhoneModeSheetYesMockup
+        !isPhoneModeSheetYesMockup &&
+        !isCaringContactMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -132,7 +137,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
         !isPinnedPlusMenuMockup &&
-        !isPhoneModeSheetYesMockup
+        !isPhoneModeSheetYesMockup &&
+        !isCaringContactMockup
       }
     >
       {children}
