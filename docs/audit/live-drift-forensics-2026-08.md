@@ -1036,23 +1036,41 @@ agree — 3.1 proved manifest hash = live hash for all three); not a production 
 reproducibility hole for any migrations-only environment.** Per the plan's live-ahead remedy,
 `20260818113000_forward_codify_hybrid_owner_matches_bodies.sql` re-creates the three from
 `schema.sql` verbatim (every `SET` clause restated so proconfig is preserved; ACLs untouched by
-`CREATE OR REPLACE`; identical text on production ⇒ no-op). Its staging apply was **not** executed
-in this session — the tool-permission classifier declined the hosted `CREATE OR REPLACE` of protected
-retrieval RPCs, and per the escalation rule it stops there rather than working around it. Expected
-result once applied: those three hashes equal the manifest (`bb975485…`, `d0e277a2…`, `ab87a18b…`),
-leaving `document_chunks_content_trgm_idx` as the single residual.
+`CREATE OR REPLACE`; identical text on production ⇒ no-op). Its first staging attempt was declined
+by the tool-permission classifier; **applied in a second owner-authorised window the same day**
+(same method, same target, ref verified): the three hashes now equal the manifest and live —
+`bb975485ee3a5776bce4abdc2e3a3cbd`, `d0e277a2f3067f49463b85ac84b33276`,
+`ab87a18bea57612db83428c24c425825` — and the history row read back `md5 d35c199b19915505ca86663d0be2bf4d
+= repo`.
 
-Staging after this window: 198 rows in `schema_migrations`, `no_statements 0`, `documents` /
+**Deviation found and resolved.** Before PR #2106 was squash-merged, `20260818111000` and
+`20260818112000` gained a `set local lock_timeout = '5s'; set local statement_timeout = '30s';`
+preamble on the PR branch, so the text that reached `main` (`22585b9e…`, `ec154770…`) differed from
+the text staging had recorded and executed (`9d02d14e…`, `ea5f9c69…`; `20260818110000` unchanged,
+`dd5c8c9e…`). The executed DDL is identical (transaction-local timeouts only), so staging's object
+state already equalled what `main` produces; in the second window the two rows' `statements` were
+refreshed to the merged text so the faithfulness proof holds again. Read-back after the window:
+
+```
+20260818110000 codify_live_rpc_work_mem                    stmt_count 1 bytes  3987 md5 dd5c8c9ea07c17f76a5f219814f8f19d = repo
+20260818111000 codify_schema_only_indexes_and_triggers     stmt_count 1 bytes  3875 md5 22585b9eb81becb6c62d94e597b9e172 = repo
+20260818112000 reconcile_chain_stale_table_columns         stmt_count 1 bytes  3062 md5 ec154770ddaee44bcb64d3d2fc4f838a = repo
+20260818113000 forward_codify_hybrid_owner_matches_bodies  stmt_count 1 bytes 12101 md5 d35c199b19915505ca86663d0be2bf4d = repo
+```
+
+**Final staging comparison (same offline reproduction, 594 objects received):**
+
+```
+Compared 6 extensions, 38 tables, 1 views, 93 functions, 210 indexes, 48 policies, 170 constraints, 26 triggers, 2 storage_buckets against staging (snapshot_version 2, probe ok, migration_history rows 0).
+UNEXPECTED DRIFT (1):
+  ! [indexes] mismatch document_chunks_content_trgm_idx
+```
+
+**Zero function mismatches, zero never-created objects, zero table mismatches** — the Phase 3
+target — with the single named residual being the trgm index of 3.3 (d) (staging holds the
+`20260606000000` bare-`content` form `c3db2960…`; canonical `8499c3d3…`), owned by Phase 4.4.
+Staging after the two windows: 199 rows in `schema_migrations`, `no_statements 0`, `documents` /
 `document_chunks` still `0`, no vault secret seeded.
-
-**Deviation to record (found after PR #2106 merged).** Before the squash-merge, `20260818111000`
-and `20260818112000` gained a `set local lock_timeout = '5s'; set local statement_timeout = '30s';`
-preamble on the PR branch, so the text now on `main` (`22585b9e…`, `ec154770…`) differs from the
-text staging recorded and executed (`9d02d14e…`, `ea5f9c69…`; `20260818110000` is unchanged,
-`dd5c8c9e…`). The executed DDL is identical — the preamble is transaction-local timeouts only — so
-staging's object state equals what `main` produces; but the md5-faithfulness proof above no longer
-holds for those two history rows. Either refresh the two rows' `statements` to the merged text in
-the next staging window, or accept the note; nothing on production is affected.
 
 ### 3.6 Production window (NOT authorised in this task — for the coordinator)
 

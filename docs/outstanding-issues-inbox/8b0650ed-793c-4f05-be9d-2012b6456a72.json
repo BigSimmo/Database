@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "8b0650ed-793c-4f05-be9d-2012b6456a72",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "10e480da-b2e3-4e2d-bfc8-15456bf962c1",
+    "reason": "Superseded within PR #2111 by the final #316 update: 20260818113000 has since been applied to staging and the drift residual is down to one."
+  }
+}
