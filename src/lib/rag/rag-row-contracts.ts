@@ -190,7 +190,23 @@ export function assertIndexUnitRows(rows: unknown, rpc: string): asserts rows is
   assertRowsAgainst(z.array(indexUnitRowSchema), rows, rpc);
 }
 
-/** Build and validate the locally retrieved rows used as document-summary context. */
+/**
+ * Build and validate the locally retrieved rows used as document-summary context.
+ *
+ * `similarity: 1` here is a constant, not a measured cosine: `summarizeDocument` loads every
+ * committed chunk of one document, so there is no query to score against — the document IS the
+ * query. The `similarity_origin: "document_context"` tag makes that provenance explicit rather
+ * than leaving a fabricated 1.0 indistinguishable from a perfect vector match (H5a live
+ * residual, `docs/clinical-hazard-analysis.md`; owner decision 2026-08-17, Option B).
+ *
+ * The tag is deliberately NOT `"synthetic_text"`. That value marks scores imputed from lexical
+ * or structural match strength on the general answer path, where a title hit can masquerade as
+ * semantic evidence; `deriveConfidence` (`rag-answer-support.ts`) therefore excludes it from the
+ * "high" bar. This route has no match strength to inflate and its citations are verified by the
+ * same grounding pipeline, so the confidence derivation is unchanged and the "high" label stays.
+ * Reusing `"synthetic_text"` here would silently cap every document summary at "medium" —
+ * recorded as rejected Option A. `tests/rag-score.test.ts` pins both halves of that split.
+ */
 export function buildDocumentSummaryResults(
   chunks: unknown[],
   document: { title: string; file_name: string; metadata?: unknown },
@@ -201,6 +217,7 @@ export function buildDocumentSummaryResults(
     file_name: document.file_name,
     source_metadata: normalizeOptionalSourceMetadata(document.metadata),
     similarity: 1,
+    similarity_origin: "document_context" as const,
     images: [],
   }));
   assertRetrievalRows(results, "document_summary_context");

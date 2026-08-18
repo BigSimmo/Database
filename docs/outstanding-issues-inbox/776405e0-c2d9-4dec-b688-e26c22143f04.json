@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "776405e0-c2d9-4dec-b688-e26c22143f04",
+  "createdOn": "2026-08-17",
+  "action": "cancel",
+  "payload": {
+    "requestId": "e8a5480e-0b0e-4ab1-b7bd-6090699dd7c1",
+    "reason": "S1d implemented: finalizeRagAnswerQualityCore's gap conversion now attempts the same source-backed extractive recovery as the in-loop and outer-catch paths for fast strong_routine_retrieval answers over non-empty results (branch claude/s1d-final-gate-gap-recovery-dxgrn2, HANDOVER §2 S1d row updated in the same PR). No open work remains for this row. If this cancellation loses the race to an earlier reconcile that applied the add, close the materialized row with issues:done citing the same PR."
+  }
+}
