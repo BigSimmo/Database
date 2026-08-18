@@ -23,6 +23,7 @@ export type ToolCatalogId =
   | "clinical-kb-search"
   | "differentials"
   | "documents"
+  | "clinical-dictionary"
   | "guidelines"
   | "risk-safety"
   | "medication-prescribing"
@@ -108,6 +109,25 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     checkFirst: ["Document title or topic", "Local policy scope", "Page, table, or image need"],
     neededInput: ["Source topic", "Optional document name", "Preferred date or local scope"],
     output: "Matching documents, page context, snippets, and source links.",
+  },
+  {
+    id: "clinical-dictionary",
+    title: "Clinical Dictionary",
+    mobileTitle: "Dictionary",
+    description: "Search source-governed psychiatric terms, abbreviations, topics, and distinctions.",
+    bestFor: "Terminology and abbreviation lookup",
+    detail:
+      "Open concise definitions, resolve ambiguous abbreviations, compare terms, and review their direct sources.",
+    href: "/dictionary",
+    area: "reference",
+    status: "ready",
+    sourceBacked: true,
+    highYield: true,
+    actionLabel: "Search",
+    keywords: ["dictionary", "definition", "term", "terminology", "abbreviation", "acronym", "compare"],
+    checkFirst: ["Term or abbreviation", "Clinical topic or context", "Whether a distinction or comparison is needed"],
+    neededInput: ["Term, abbreviation, or topic"],
+    output: "Source-checked definition, related terminology, distinctions, and source links.",
   },
   {
     id: "guidelines",

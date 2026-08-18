@@ -28,7 +28,10 @@ describe("ModeHomeMain alignment contract", () => {
     expect(modeHomeSource).toMatch(/export type ModeHomeMainAlign/);
     expect(modeHomeSource).toMatch(/MODE_HOME_MAIN_ALIGN_CLASS/);
     expect(modeHomeSource).toMatch(/withoutJustifyUtilities/);
-    expect(modeHomeSource).toMatch(/center: "justify-center/);
+    // `\s*` (not a literal space) tolerates Prettier moving a long value onto
+    // its own line — this only asserts the value itself starts with the
+    // right justify-* utility, not source-line adjacency to the key.
+    expect(modeHomeSource).toMatch(/center:\s*"justify-center/);
     expect(modeHomeSource).toMatch(/start: "justify-start/);
     expect(modeHomeSource).toMatch(/startOnPhone: "justify-start/);
     // Must strip responsive/prefixed justify utilities, not only bare ones.
