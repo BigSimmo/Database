@@ -166,11 +166,6 @@ function highRiskTriggerTokens(value: string) {
   const triggerPatterns = [
     /\b(?:when|whenever|if|unless|during|after|before)\b\s*([^,;.!?]+?)(?=\s*,|\s+\b(?:administer|avoid|cease|continue|discontinue|escalate|give|prescribe|start|stop|use|withhold)\b|[;.!?]|$)/gi,
     /\b(?:administer|avoid|cease|continue|discontinue|escalate|give|prescribe|start|stop|use|withhold)\b[^,;.!?]{0,80}?\bfor\b\s*([^,;.!?]+?)(?=\s+\bfor\b|\s*,|[;.!?]|$)/gi,
-    // Condition-first phrasing: a claim-leading "For <population>, <directive> …"
-    // or "In <state>, …" binds its condition exactly like when/if phrasing —
-    // previously this shape extracted no tokens, so the condition never had to
-    // appear in the supporting segment (S1c follow-up).
-    /^\s*(?:for|in)\s+([^,;.!?]{1,60}?)\s*,/gi,
   ];
   for (const pattern of triggerPatterns) {
     for (const match of value.matchAll(pattern)) {
