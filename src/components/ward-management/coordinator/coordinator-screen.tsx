@@ -31,9 +31,10 @@ export function CoordinatorScreen() {
     <div className={styles.screen} data-testid="ward-coordinator">
       <ClinicalRail />
       <div className={styles.main}>
+        <h1 className="sr-only">Ward Flow coordinator</h1>
         <WardModeNavigation active="command" />
 
-        <div className={styles.governanceBanner}>
+        <div className={styles.governanceBanner} data-testid="ward-coordinator-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
             This screen is <strong>not a medical device</strong>. It orders operational placement work only — it never
@@ -63,11 +64,11 @@ export function CoordinatorScreen() {
             </ul>
           </section>
 
-          <div className={styles.regionGrid}>
+          <div className={styles.regionGrid} data-testid="ward-coordinator-region-grid">
             <section className={styles.queueRegion} aria-label="Priority queue">
               <header className={styles.regionHeader}>
                 <h2>Priority queue</h2>
-                <span className={styles.regionCount}>{queue.length} movements</span>
+                <span className={styles.regionCount}>{queue.length} open movements</span>
               </header>
               <ul className={styles.queueList}>
                 {queue.map((movement) => (
@@ -90,6 +91,19 @@ export function CoordinatorScreen() {
             <section className={styles.diagramRegion} aria-label="Statewide flow">
               <header className={styles.regionHeader}>
                 <h2>Statewide flow</h2>
+                {selectedUnitId ? (
+                  // Task 6 renders the real network diagram and calls `setSelectedUnitId` from a
+                  // unit node click; this button is the one interaction this stub owns itself —
+                  // clearing a selection made elsewhere (e.g. from a shortlist row) without
+                  // requiring the not-yet-built diagram to be present.
+                  <button
+                    type="button"
+                    className={styles.clearSelectionButton}
+                    onClick={() => setSelectedUnitId(undefined)}
+                  >
+                    Clear unit selection
+                  </button>
+                ) : null}
               </header>
               <p className={styles.placeholder}>
                 {selectedUnitId
