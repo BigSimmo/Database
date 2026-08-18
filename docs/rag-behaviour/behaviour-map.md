@@ -96,6 +96,12 @@ free real estate for ordering keys (see §2's critical property).
   the post-finalize source-safe gates in `rag.ts` (`claim_support_high_risk_gap`,
   `material_source_governance_gap`, `numeric_band_coherence_gap`, `numeric_faithfulness_gap`)
   and the `finalizeRagAnswerQualityCore` gates.
+- Since 2026-08-17 (S1d) the finalizer's gap conversion first attempts the same
+  source-backed extractive recovery the loop and outer catch use
+  (`recoverFinalGateGapExtractively`): a fast + `strong_routine_retrieval` gap-like answer
+  over non-empty results rebuilds extractively (marker
+  `final_quality_gate_source_backed_recovery:<reason>`); empty-retrieval, strong-route, and
+  comparison/dose/threshold gaps stay terminal as `final_quality_gate:<reason>`.
 - Since 2026-08-12 the quality-gate throw sites raise `GenerationQualityError`
   (`src/lib/rag/rag-generation-quality-diagnostics.ts`) carrying `{stage, gateReason,
 answerShape}` where `answerShape` is provider-safe counts/lengths only — never prose. The
