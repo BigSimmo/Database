@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "51e687a9-406a-4f2e-bb70-f6ba9aebef53",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "d92786de-de31-4118-84cc-0a9098e7f2e0",
+    "reason": "Corrected by follow-up investigation: local Lighthouse reproduction against origin/main (proper CHROME_PATH, matching Chromium build family) shows mobile-root CLS at exactly 0.013/0.013 baseline, and every other measured route/strategy also matches its baseline exactly. There is no code-level CLS regression on main. The repeated CI failures (0.236 vs 0.013) that prompted this request were environmental/CI-infra noise, not a product defect. Do not carry this into the canonical ledger as an open issue."
+  }
+}
