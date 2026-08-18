@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ef42a5e3-33ca-4d1c-87b7-2dbf4f0bea8a",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "eval-canary neuroleptic-side-effect-escalation exceeded its 20 s latency SLO once",
+    "detail": "Run 32111839806 (canary pair 32100681177 -> 32111839806, otherwise green): strong generation took 20.2 s on neuroleptic-side-effect-escalation, flagged as a non-blocking latency advisory. Answer was still grounded via the source-backed extractive fallback. Watch on subsequent canaries; escalate only if it repeats or worsens.",
+    "source": "docs/rag-improvement/HANDOVER.md packet table row S2, canary pair 32100681177 -> 32111839806",
+    "issueUlid": "01M0AKAGVVVKH7N19KEE3W6A04"
+  }
+}
