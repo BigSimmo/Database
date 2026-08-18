@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { appModeIds } from "@/lib/app-modes";
 import {
   commandDropdownCanDisplay,
   commandDropdownMinimumWidthMediaQuery,
@@ -45,6 +46,28 @@ describe("search command surface", () => {
     expect(specifiers?.examples.length).toBeGreaterThan(0);
     expect(specifiers?.suggestions.length).toBeGreaterThan(0);
     expect(specifiers?.crossModes).toContain("formulation");
+  });
+
+  it("covers every app mode, so no mode silently loses the command surface", () => {
+    // `UniversalSearchCommandSurface` early-returns on a null config, which takes
+    // the phone "Try this" ticker, the sm+ rotating hint, the prompt-chip row and
+    // the whole command dropdown with it. therapy-compass shipped in exactly that
+    // state — the single uncovered mode — so pin the whole set rather than the
+    // one mode that happened to be missing.
+    for (const modeId of appModeIds) {
+      const config = searchCommandSurfaceConfig(modeId);
+      expect(config, `${modeId} has no search command surface config`).not.toBeNull();
+      expect(config?.examples.length, `${modeId} has no examples`).toBeGreaterThan(0);
+      expect(config?.suggestions.length, `${modeId} has no suggestions`).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps therapy suggestions local to the generated catalogue", () => {
+    const therapy = searchCommandSurfaceConfig("therapy-compass");
+    expect(therapy?.examples).toContain("trauma-focused CBT");
+    expect(therapy?.crossModes).toContain("documents");
+    // Therapy reads public/therapy-compass-data, not the remote index.
+    expect(therapy?.remoteSearchEnabled).toBe(false);
   });
 
   it("keeps calculator suggestions local while preserving remote typeahead elsewhere", () => {

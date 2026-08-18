@@ -40,8 +40,11 @@ describe("searchShellPropsForPathname", () => {
   });
 
   it("maps therapy and home fallbacks", () => {
+    // Therapy was the one standalone mode home not declaring the hero placement,
+    // which left it on a different composer code path from its twelve peers.
     expect(searchShellPropsForPathname("/therapy-compass/search")).toEqual({
       initialMode: "therapy-compass",
+      desktopSearchPlacement: "hero",
     });
     expect(searchShellPropsForPathname("/")).toEqual({ initialMode: "answer" });
   });
