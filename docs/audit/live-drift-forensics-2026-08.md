@@ -870,7 +870,12 @@ run `32051068106`, 2026-08-17 — the same values §1.2 Query 1 recorded):
 
 10/10 equal. Because `check:drift` compares functions on `def_hash` + `acl` and ACLs were already
 equal (§1.2), the next production live-drift run will report **zero `match_*` function mismatches**
-without any hosted change — the migration only needs to be marked applied in a production window.
+once this migration runs in a production window. That window must run `supabase db push` (or
+equivalent verbatim execution of the ten idempotent `ALTER FUNCTION` statements) — not
+`supabase migration repair --status applied` or any other history-only mark-applied path. Per
+AGENTS.md "Supabase project safety", a mark-applied version requires a fail-fast validation guard
+migration shipped in the same change (the `20260804110240` pattern); this PR ships no such guard,
+so `migration repair` on this version is out of scope for the coordinator.
 Eval-canary: none dispatched (D2 — planner memory, latency-only; no live eval in this task).
 
 ### 3.2 Eight never-created objects — codified verbatim (`20260818111000`)
@@ -980,8 +985,11 @@ exactly one named residual — `document_chunks_content_trgm_idx` (`c3db2960…`
 
 ### 3.6 Production window (NOT authorised in this task — for the coordinator)
 
-Live state already matches for everything in this phase, so the window is mark-applied-by-CLI /
-`db push` of already-true statements, plus the one real change from Phase 6.1:
+Live state already matches for everything in this phase, so applying each migration is a no-op on
+production. The window must still run `supabase db push` (verbatim execution of each migration's
+statements) — **not** `supabase migration repair --status applied` or any other mark-applied-only
+path. None of the three Phase 3 migrations ships a validation guard, so per AGENTS.md "Supabase
+project safety" none of them is eligible for history repair; only real execution is authorised here.
 
 | Migration                                                | Effect on production                                       |
 | -------------------------------------------------------- | ---------------------------------------------------------- |
@@ -990,7 +998,7 @@ Live state already matches for everything in this phase, so the window is mark-a
 | `20260818111000_codify_schema_only_indexes_and_triggers` | no-op — all eight objects already exist (3.2)              |
 | `20260818112000_reconcile_chain_stale_table_columns`     | no-op — column and both defaults already as declared (3.3) |
 
-One window covers all four; none needs a canary (D2) and none builds an index.
+One window covers all four via `db push`; none needs a canary (D2) and none builds an index.
 
 ## Phase 4 — Index restoration
 

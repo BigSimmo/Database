@@ -31,6 +31,15 @@
 --    chain agree with schema.sql. (indexing_v3_agent_jobs.id is NOT touched:
 --    schema.sql itself declares extensions.gen_random_uuid() there, so chain,
 --    mirror and live already agree.)
+--
+-- Timeouts use SET LOCAL so they do not leak into later migrations applied on the
+-- same CLI session connection. document_chunks is a hot ingestion-path table; a
+-- bounded lock_timeout makes the production window fail fast instead of queueing
+-- behind a long-running transaction for the brief ACCESS EXCLUSIVE these
+-- catalog-only ALTER statements take.
+
+set local lock_timeout = '5s';
+set local statement_timeout = '30s';
 
 alter table public.document_chunks
   add column if not exists token_estimate integer not null default 0;

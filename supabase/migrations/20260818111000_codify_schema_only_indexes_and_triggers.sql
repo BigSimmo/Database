@@ -34,6 +34,14 @@
 -- Idempotent on production (sjrfecxgysukkwxsowpy): all eight already exist there
 -- (2026-08-14 live-drift reported no missing_live for these names, and no
 -- unexpected trigger drift), so every statement is a no-op in the production window.
+--
+-- Timeouts use SET LOCAL so they do not leak into later migrations applied on the
+-- same CLI session connection. The trigger DDL below takes ACCESS EXCLUSIVE on
+-- documents and ingestion_jobs (both hot tables); a bounded lock_timeout makes the
+-- production window fail fast instead of queueing behind a long-running transaction.
+
+set local lock_timeout = '5s';
+set local statement_timeout = '30s';
 
 create index if not exists documents_status_idx on public.documents(status);
 
