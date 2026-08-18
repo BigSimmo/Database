@@ -12,7 +12,7 @@ import {
 import { useClientTime } from "@/lib/use-client-time";
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
-import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeTemplate } from "@/components/mode-home-template";
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import type { AppModeId } from "@/lib/app-modes";
@@ -75,9 +75,6 @@ export function SharedHomeEmptyState({
     onSelectRecent && preferences.showRecentOnHome
       ? recentQueries.filter((entry) => entry.trim().length > 0).slice(0, 5)
       : [];
-  // Annotated: `sharedHomePresentation` is `as const`, so indexing it with the
-  // AppModeId union yields a union of entry shapes and `verification` (optional)
-  // would not resolve on the members that omit it.
   const presentation: SharedHomePresentation = sharedHomePresentation[modeId];
 
   return (
@@ -104,23 +101,6 @@ export function SharedHomeEmptyState({
               icon={History}
             />
           )}
-          {/* Every mode that carries a review-before-use caveat shows it here,
-              not just Answer: the mode pill never leaves `/`, so this page is
-              the only home a clinician sees for most modes.
-
-              The reserve is on the wrapper, which renders for every mode —
-              including the modes with no caveat. Sized on the slot rather than
-              the caveat, it holds the centred column's height constant so
-              switching modes cannot move the composer (see
-              --mode-home-verification-reserve in globals.css). */}
-          <div className="max-sm:min-h-[var(--mode-home-verification-reserve)]">
-            {presentation.verification ? (
-              <ModeHomeVerificationFooter
-                label={presentation.verification.label}
-                body={presentation.verification.body}
-              />
-            ) : null}
-          </div>
         </div>
       }
     />
