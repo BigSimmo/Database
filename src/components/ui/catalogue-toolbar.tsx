@@ -74,7 +74,7 @@ function isSortProps(sort: CatalogueToolbarSortProps | ReactNode): sort is Catal
 function isFilterTriggerProps(
   filter: CatalogueToolbarFilterTriggerProps | ReactNode,
 ): filter is CatalogueToolbarFilterTriggerProps {
-  return typeof filter === "object" && filter !== null && ("onToggle" in filter || "activeCount" in filter);
+  return typeof filter === "object" && filter !== null && "onToggle" in filter;
 }
 
 /**
@@ -100,7 +100,7 @@ export function CatalogueToolbar({
 }: CatalogueToolbarProps) {
   const hasAppliedFilters = appliedFilters.length > 0;
   const pluralNoun = noun.endsWith("s") ? noun : `${noun}s`;
-  const singularNoun = noun.endsWith("s") ? noun.slice(0, -1) : noun;
+  const singularNoun = noun;
   const countLabel =
     typeof matchCount === "number" ? `${matchCount} ${matchCount === 1 ? singularNoun : pluralNoun}` : null;
 
