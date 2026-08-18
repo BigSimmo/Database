@@ -14,11 +14,11 @@ import {
   ResultFilterTrigger,
   resultFilterFacetGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
+import { Button } from "@/components/ui/button";
 import { pageContainer } from "@/components/ui-primitives";
 
 import { useTcBindings } from "../bindings";
 import { matchesAvailability, matchesTopics } from "../data/select";
-import { therapyBtn } from "../controls";
 import { LoadingState } from "../ui";
 import { ResultCard } from "../therapy-card";
 
@@ -185,18 +185,15 @@ export function SearchScreen() {
                 produced no observable change at all. A control that advertises an
                 action must perform one. */}
             {activeFilterCount > 0 ? (
-              <button
-                type="button"
-                className={`${therapyBtn} inline-flex items-center gap-2 min-h-tap py-0 px-4 border border-dashed border-[color:var(--border-strong)] rounded-lg bg-transparent text-[color:var(--text-muted)] text-sm-minus font-medium cursor-pointer`}
-                // `clearSearchFilters`, not `clearSearch`. This control is
-                // labelled `Clear` and sits beside the filter chips, so it
-                // reads as "clear these filters" — `clearSearch` also wipes
-                // the query, deleting the search the reader is looking at.
+              <Button
+                variant="toolbar"
+                size="sm"
+                icon={X}
                 onClick={b.clearSearchFilters}
+                className="border-dashed border-[color:var(--border-strong)] bg-transparent font-medium"
               >
-                <X aria-hidden="true" size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
                 Clear
-              </button>
+              </Button>
             ) : null}
           </div>
         }

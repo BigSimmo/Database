@@ -3,7 +3,7 @@ import { Info, Network, ShieldCheck } from "lucide-react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
-import { cn, eyebrowText } from "@/components/ui-primitives";
+import { cn } from "@/components/ui-primitives";
 
 /** Was byte-identical to `specifierCard`; both now name the shared recipe. */
 export const formulationCard = cardSurface;
@@ -78,12 +78,4 @@ export function SessionPrivacyNote() {
   );
 }
 
-export function SectionHeading({ eyebrow, title, body }: { eyebrow?: string; title: string; body?: string }) {
-  return (
-    <header className="grid gap-1.5">
-      {eyebrow ? <p className={eyebrowText}>{eyebrow}</p> : null}
-      <h2 className="text-xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-2xl">{title}</h2>
-      {body ? <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">{body}</p> : null}
-    </header>
-  );
-}
+export { SectionHeading } from "@/components/ui/section-heading";

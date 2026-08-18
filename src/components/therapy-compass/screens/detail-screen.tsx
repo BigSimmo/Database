@@ -21,6 +21,7 @@ import {
 import { cardSurface } from "@/components/card-recipes";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { cn, SourceDesignationBadge, SourceStatusBadge } from "@/components/ui-primitives";
 import { therapyScreenHref } from "@/lib/therapy-compass-navigation";
 import { therapySourceMetadata } from "@/lib/therapy-source-governance";
@@ -55,25 +56,7 @@ export function DetailScreen() {
           <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,_1fr)_344px] gap-[22px] items-start">
             <div className="flex flex-col gap-4 min-w-0">
               {/* HERO */}
-              <div className={`${heroCard} p-6`}>
-                <div className="flex gap-2.5 mb-3.5 flex-wrap items-center">
-                  <StatusBadge status={t.reviewStatus} />
-                  {t.complexity ? (
-                    <span className="text-xs font-semibold py-[5px] px-[11px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] border border-[color:var(--border)]">
-                      {complexityLabel(t.complexity)}
-                    </span>
-                  ) : null}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={Heart}
-                    className={cn("ml-auto", favouritePressed)}
-                    aria-pressed={saved}
-                    onClick={() => void toggleFavourite()}
-                  >
-                    {saved ? "Saved" : "Save"}
-                  </Button>
-                </div>
+              <div className={cn(heroCard, "p-6")}>
                 <p
                   role="status"
                   aria-live="polite"
@@ -85,22 +68,34 @@ export function DetailScreen() {
                 >
                   {notice}
                 </p>
-                <h1 className="mt-0 mx-0 mb-1 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
-                  {t.name}
-                </h1>
-                {t.aliases.length ? (
-                  <div className="text-sm-minus text-[color:var(--text-muted)] mb-3">
-                    Also known as {t.aliases.join(", ")}
-                  </div>
-                ) : (
-                  <div className="text-sm-minus text-[color:var(--text-muted)] mb-3">{t.category}</div>
-                )}
-                {t.clinicalSummary ? (
-                  <p className="mt-0 mx-0 mb-4 text-base-minus leading-normal text-[color:var(--text-muted)] max-w-[64ch]">
-                    {t.clinicalSummary}
-                  </p>
-                ) : null}
-                <TagRow tags={t.tags.length ? t.tags : [t.category]} max={8} />
+                <PageHeader
+                  title={t.name}
+                  eyebrow={t.aliases.length ? `Also known as ${t.aliases.join(", ")}` : t.category}
+                  description={t.clinicalSummary}
+                  actions={
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={Heart}
+                      className={cn("ml-auto", favouritePressed)}
+                      aria-pressed={saved}
+                      onClick={() => void toggleFavourite()}
+                    >
+                      {saved ? "Saved" : "Save"}
+                    </Button>
+                  }
+                  meta={
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <StatusBadge status={t.reviewStatus} />
+                      {t.complexity ? (
+                        <span className="text-xs font-semibold py-[5px] px-[11px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] border border-[color:var(--border)]">
+                          {complexityLabel(t.complexity)}
+                        </span>
+                      ) : null}
+                      <TagRow tags={t.tags.length ? t.tags : [t.category]} max={8} />
+                    </div>
+                  }
+                />
               </div>
 
               {/* QUICK TILES */}
@@ -137,7 +132,7 @@ export function DetailScreen() {
               </div>
 
               {/* BODY */}
-              <div className={`${cardSurface} px-6 py-1.5`}>
+              <div className={cn(cardSurface, "px-6 py-1.5")}>
                 {t.mechanism ? <BodyRow icon={Target} title="How it works" body={t.mechanism} /> : null}
                 <BodyRow icon={User} title="When to use" body={t.indications || t.bestUsedFor} />
                 {steps.length ? (
@@ -189,7 +184,7 @@ export function DetailScreen() {
 
             {/* RIGHT RAIL */}
             <div className="max-sm:static max-sm:top-auto flex flex-col gap-4 sticky top-[calc(var(--shell-header-h)+1rem)]">
-              <div className={`${cardSurface} p-5`}>
+              <div className={cn(cardSurface, "p-5")}>
                 <div className="text-sm font-semibold text-[color:var(--text-heading)] mb-3.5">At a glance</div>
                 <div className="flex flex-col gap-[15px]">
                   <GlanceRow icon={Compass} title="Target symptoms" body={t.targetSymptoms || t.patientPopulation} />
@@ -207,14 +202,18 @@ export function DetailScreen() {
               </div>
 
               {b.relatedForSelected.length ? (
-                <div className={`${cardSurface} p-5`}>
+                <div className={cn(cardSurface, "p-5")}>
                   <div className="text-sm font-semibold text-[color:var(--text-heading)] mb-2">Related therapies</div>
                   <div className="flex flex-col">
                     {b.relatedForSelected.map((r, i, arr) => (
                       <button
                         key={r.slug}
                         type="button"
-                        className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center justify-between gap-2 border-0 bg-transparent px-0 py-[11px] text-left${i < arr.length - 1 ? " border-b border-[color:var(--border)]" : ""}`}
+                        className={cn(
+                          therapyBtn,
+                          "transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center justify-between gap-2 border-0 bg-transparent px-0 py-[11px] text-left",
+                          i < arr.length - 1 && "border-b border-[color:var(--border)]",
+                        )}
                         onClick={() => b.open(r.slug)}
                       >
                         <span className="min-w-0">

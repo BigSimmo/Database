@@ -183,14 +183,74 @@ function contentOf(category: string, o: SnapshotObject): string {
   return canonical(Object.fromEntries(comparedFields[category].map((f) => [f, o[f] ?? null])));
 }
 
-function fieldDiff(category: string, expected: SnapshotObject, actual: SnapshotObject): string {
+export function diffColumns(expected: unknown, actual: unknown): string {
+  if (!Array.isArray(expected) || !Array.isArray(actual)) {
+    return `manifest=${canonical(expected ?? null)} live=${canonical(actual ?? null)}`;
+  }
+
+  const expMap = new Map<string, Record<string, unknown>>();
+  for (const item of expected) {
+    if (item && typeof item === "object" && "name" in item && typeof item.name === "string") {
+      expMap.set(item.name, item as Record<string, unknown>);
+    }
+  }
+
+  const actMap = new Map<string, Record<string, unknown>>();
+  for (const item of actual) {
+    if (item && typeof item === "object" && "name" in item && typeof item.name === "string") {
+      actMap.set(item.name, item as Record<string, unknown>);
+    }
+  }
+
+  const diffs: string[] = [];
+
+  // Check expected columns (missing or modified in live)
+  for (const [name, expCol] of expMap) {
+    const actCol = actMap.get(name);
+    if (!actCol) {
+      diffs.push(`missing_in_live(${name}: ${canonical(expCol)})`);
+    } else {
+      const allKeys = Array.from(new Set([...Object.keys(expCol), ...Object.keys(actCol)])).sort();
+      const propDiffs: string[] = [];
+      for (const k of allKeys) {
+        const eV = canonical(expCol[k] ?? null);
+        const aV = canonical(actCol[k] ?? null);
+        if (eV !== aV) {
+          propDiffs.push(`${k}: manifest=${eV} live=${aV}`);
+        }
+      }
+      if (propDiffs.length > 0) {
+        diffs.push(`modified(${name}: ${propDiffs.join(", ")})`);
+      }
+    }
+  }
+
+  // Check unexpected columns (present in live but not manifest)
+  for (const [name, actCol] of actMap) {
+    if (!expMap.has(name)) {
+      diffs.push(`unexpected_in_live(${name}: ${canonical(actCol)})`);
+    }
+  }
+
+  if (diffs.length === 0) {
+    return `manifest=${canonical(expected)} live=${canonical(actual)}`;
+  }
+
+  return diffs.join("; ");
+}
+
+export function fieldDiff(category: string, expected: SnapshotObject, actual: SnapshotObject): string {
   const parts: string[] = [];
   for (const field of comparedFields[category]) {
     const e = canonical(expected[field] ?? null);
     const a = canonical(actual[field] ?? null);
     if (e !== a) {
-      const clip = (s: string) => (s.length > 240 ? `${s.slice(0, 240)}…` : s);
-      parts.push(`${field}: manifest=${clip(e)} live=${clip(a)}`);
+      if (category === "tables" && field === "columns") {
+        parts.push(`columns: ${diffColumns(expected[field], actual[field])}`);
+      } else {
+        const clip = (s: string) => (s.length > 240 ? `${s.slice(0, 240)}…` : s);
+        parts.push(`${field}: manifest=${clip(e)} live=${clip(a)}`);
+      }
     }
   }
   return parts.join("; ");
@@ -329,7 +389,108 @@ export function compareDriftSnapshots(
   };
 }
 
+export function selfTest(): void {
+  // 1. diffColumns: missing column
+  const expCols = [
+    { name: "id", type: "uuid", not_null: true, default: null, identity: "", generated: "" },
+    { name: "token_estimate", type: "integer", not_null: false, default: null, identity: "", generated: "" },
+  ];
+  const actColsMissing = [{ name: "id", type: "uuid", not_null: true, default: null, identity: "", generated: "" }];
+  const diffMissing = diffColumns(expCols, actColsMissing);
+  if (!diffMissing.includes("missing_in_live(token_estimate:")) {
+    throw new Error(`selfTest failed: diffMissing did not contain missing_in_live(token_estimate:): ${diffMissing}`);
+  }
+
+  // 2. diffColumns: unexpected column
+  const actColsUnexpected = [
+    ...expCols,
+    { name: "extra_col", type: "text", not_null: false, default: null, identity: "", generated: "" },
+  ];
+  const diffUnexpected = diffColumns(expCols, actColsUnexpected);
+  if (!diffUnexpected.includes("unexpected_in_live(extra_col:")) {
+    throw new Error(
+      `selfTest failed: diffUnexpected did not contain unexpected_in_live(extra_col:): ${diffUnexpected}`,
+    );
+  }
+
+  // 3. diffColumns: modified column property (type)
+  const actColsModified = [
+    { name: "id", type: "uuid", not_null: true, default: null, identity: "", generated: "" },
+    { name: "token_estimate", type: "bigint", not_null: false, default: null, identity: "", generated: "" },
+  ];
+  const diffModified = diffColumns(expCols, actColsModified);
+  if (!diffModified.includes('modified(token_estimate: type: manifest="integer" live="bigint")')) {
+    throw new Error(`selfTest failed: diffModified mismatch: ${diffModified}`);
+  }
+
+  // 4. fieldDiff for tables.columns uses diffColumns
+  const tableExp = {
+    name: "document_chunks",
+    rls_enabled: true,
+    rls_forced: false,
+    reloptions: null,
+    acl: ["postgres=arwdDxtm/postgres"],
+    columns: expCols,
+  };
+  const tableAct = {
+    ...tableExp,
+    columns: actColsModified,
+  };
+  const diff = fieldDiff("tables", tableExp, tableAct);
+  if (!diff.startsWith("columns: modified(token_estimate:")) {
+    throw new Error(`selfTest failed: fieldDiff did not start with columns: modified(token_estimate:): ${diff}`);
+  }
+
+  // 5. compareDriftSnapshots with column drift
+  const expectedSnapshot: Snapshot = {
+    extensions: [],
+    tables: [tableExp],
+    views: [],
+    functions: [],
+    indexes: [],
+    policies: [],
+    constraints: [],
+    triggers: [],
+    storage_buckets: [],
+  };
+  const liveSnapshot: Snapshot = {
+    ...expectedSnapshot,
+    tables: [tableAct],
+  };
+  const result = compareDriftSnapshots(expectedSnapshot, liveSnapshot, []);
+  if (result.findings.length !== 1 || result.findings[0].kind !== "mismatch") {
+    throw new Error(
+      `selfTest failed: compareDriftSnapshots expected 1 mismatch finding, got: ${JSON.stringify(result.findings)}`,
+    );
+  }
+  if (!result.findings[0].detail?.includes("modified(token_estimate:")) {
+    throw new Error(`selfTest failed: finding detail missing modified(token_estimate:): ${result.findings[0].detail}`);
+  }
+
+  console.log("check-drift: all offline self-tests passed.");
+}
+
 async function main() {
+  if (process.argv.includes("--help") || process.argv.includes("-h")) {
+    console.log(`check:drift — compares the live database's full schema inventory against the committed expectation derived from supabase/schema.sql.
+
+Usage:
+  node scripts/run-tsx.mjs scripts/check-drift.ts [options]
+  node scripts/check-drift.mjs [options]
+
+Options:
+  --prune-stale  Prune stale entries from supabase/drift-allowlist.json when there is no unexpected drift
+  --self-test    Run offline verification of snapshot comparison and column diff logic
+  --help, -h     Show this help message
+`);
+    return;
+  }
+
+  if (process.argv.includes("--self-test")) {
+    selfTest();
+    return;
+  }
+
   const [{ requireServerEnv }, { createAdminClient }, { checkSupabaseProjectConfig, formatSupabaseProjectCheck }] =
     await Promise.all([import("@/lib/env"), import("@/lib/supabase/admin"), import("@/lib/supabase/project")]);
 

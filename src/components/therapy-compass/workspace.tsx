@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { cn, pageContainer } from "@/components/ui-primitives";
@@ -28,19 +29,15 @@ function TherapyCompassDataError() {
       aria-busy={b.loading}
       className="mx-auto my-10 max-w-2xl rounded-xl border border-[color:var(--danger)] bg-[color:var(--danger-soft)] p-6"
     >
-      <h1 className="m-0 mb-2 text-xl text-[color:var(--text-heading)]">Therapy could not load</h1>
-      <p className="m-0 mb-4 leading-normal text-[color:var(--text-muted)]">
-        The therapy catalogue is unavailable. No results are being shown as a substitute.
-      </p>
-      {/* The one action on this surface, so it takes the single filled `--command`
-          slot (COMPONENTS.md section 9.1). `busy` supersedes the hand-rolled
-          label swap: it disables the control, announces `aria-busy`, and shows a
-          spinner, which the previous `disabled` + ternary did not. Retry-while-
-          loading is transient inertness, which is what `busy`/`disabled` encode —
-          not an unavailability with a reason, which would need `aria-disabled`. */}
-      <Button variant="primary" onClick={b.retryData} busy={b.loading} busyLabel="Retrying…">
-        Retry
-      </Button>
+      <PageHeader
+        title="Therapy could not load"
+        description="The therapy catalogue is unavailable. No results are being shown as a substitute."
+        actions={
+          <Button variant="primary" onClick={b.retryData} busy={b.loading} busyLabel="Retrying…">
+            Retry
+          </Button>
+        }
+      />
     </section>
   );
 }
