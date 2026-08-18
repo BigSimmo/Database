@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "playwright/test";
 
+import { eligibleCandidates } from "@/components/ward-management/ward-derivations";
+import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
+import { movementById } from "@/components/ward-management/ward-movements";
+import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+
 async function gotoCoordinator(page: Page) {
   await page.goto("/ward-management", { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("ward-coordinator")).toBeVisible({ timeout: 15_000 });
@@ -207,5 +212,49 @@ test.describe("Ward Flow coordinator screen", () => {
     // And clearing restores it.
     await queue.getByRole("button", { name: /Clear filter/ }).click();
     await expect(queue.locator('[data-testid^="ward-queue-row-"]')).toHaveCount(before);
+  });
+
+  test("draws the selected movement's routes from its department to its shortlisted units", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const diagram = page.getByRole("region", { name: "Statewide flow" });
+
+    // Connector paths are drawn by a client layout effect — this is the hydration signal.
+    await expect(diagram.locator("svg path[marker-end]").first()).toBeAttached({ timeout: 15_000 });
+
+    const firstRow = page
+      .getByRole("region", { name: "Priority queue" })
+      .locator('[data-testid^="ward-queue-row-"]')
+      .first();
+    const movementId = (await firstRow.getAttribute("data-testid"))?.replace("ward-queue-row-", "");
+    await firstRow.click();
+
+    // The brief's own assertion (`toHaveCount(await routed.count())`) compares a value to
+    // itself and passes at any count, including zero — it is a tautology, not a check. This
+    // instead pins the routed set to the selected movement's OWN shortlist identity, computed
+    // independently here from the same real fixture the app renders against, not merely its
+    // size (a hard-coded three routed nodes of the wrong units would still satisfy a bare
+    // count check).
+    const movement = movementId ? movementById(movementId) : undefined;
+    expect(movement, `queue row did not resolve to a real movement (id: ${movementId})`).toBeDefined();
+    if (!movement) throw new Error("unreachable — asserted above");
+    const shortlist = eligibleCandidates(movement, NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
+    const expectedUnitIds = shortlist.map((candidate) => candidate.unit.id).sort();
+
+    const routed = diagram.locator('[data-routed="true"]');
+    const routedCount = await routed.count();
+    expect(routedCount).toBeGreaterThan(0);
+    expect(routedCount).toBeLessThanOrEqual(PARALLEL_REFERRAL_CAP);
+    const routedUnitIds = (await routed.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-testid"))))
+      .map((testId) => String(testId).replace("ward-diagram-unit-", ""))
+      .sort();
+    expect(routedUnitIds).toEqual(expectedUnitIds);
+
+    // The origin department is marked, and it is the selected movement's own — not merely
+    // some department, which a hard-coded card would also satisfy.
+    const origin = diagram.locator('[data-origin="true"]');
+    await expect(origin).toHaveCount(1);
+    await expect(origin).toHaveAttribute("data-testid", `ward-diagram-ed-${movement.originEdId}`);
   });
 });

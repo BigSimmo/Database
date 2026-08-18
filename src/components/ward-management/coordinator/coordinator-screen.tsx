@@ -4,11 +4,12 @@ import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { ClinicalRail, WardModeNavigation } from "@/components/ward-management/ward-management-navigation";
-import { wardMovements } from "@/components/ward-management/ward-movements";
+import { movementById, wardMovements } from "@/components/ward-management/ward-movements";
 import { queueOrder } from "@/components/ward-management/ward-priority";
 import { allEmergencyDepartments, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 import styles from "./coordinator.module.css";
+import { FlowDiagram } from "./flow-diagram";
 import { PressureStrip } from "./pressure-strip";
 import { PriorityQueue } from "./priority-queue";
 
@@ -16,14 +17,19 @@ import { PriorityQueue } from "./priority-queue";
  * Task 3 shell: five landmark regions, all present and stubbed with real synthetic volume
  * (`edPressure` returns 8 departments, `queueOrder` returns 41 open movements) so the layout is
  * judged against real volume rather than three placeholder rows. Task 4 built out the pressure
- * strip and the queue's department filter; Task 5 built the real `PriorityQueue`. The statewide
- * flow diagram and the explainable shortlist are built by later tasks.
+ * strip and the queue's department filter; Task 5 built the real `PriorityQueue`; Task 6 built
+ * the real `FlowDiagram`. The explainable shortlist is built by a later task.
  */
 export function CoordinatorScreen() {
   const [selectedMovementId, setSelectedMovementId] = useState<string | undefined>(undefined);
   const [selectedUnitId, setSelectedUnitId] = useState<string | undefined>(undefined);
   const [selectedEdId, setSelectedEdId] = useState<string | undefined>(undefined);
   const [exceptionsOpen, setExceptionsOpen] = useState(false);
+
+  // `movementById` returns `undefined` for an id the fixture cannot resolve — the diagram
+  // receiving `undefined` renders the network with nothing routed rather than a guessed
+  // selection (Task 6 conservative-failure rule), so no fallback is threaded through here.
+  const selectedMovement = selectedMovementId ? movementById(selectedMovementId) : undefined;
 
   const selectedEd = selectedEdId ? allEmergencyDepartments().find((ed) => ed.id === selectedEdId) : undefined;
   // A `selectedEdId` this lookup cannot name must not leave the queue silently filtered with no
@@ -70,10 +76,6 @@ export function CoordinatorScreen() {
               <header className={styles.regionHeader}>
                 <h2>Statewide flow</h2>
                 {selectedUnitId ? (
-                  // Task 6 renders the real network diagram and calls `setSelectedUnitId` from a
-                  // unit node click; this button is the one interaction this stub owns itself —
-                  // clearing a selection made elsewhere (e.g. from a shortlist row) without
-                  // requiring the not-yet-built diagram to be present.
                   <button
                     type="button"
                     className={styles.clearSelectionButton}
@@ -83,11 +85,12 @@ export function CoordinatorScreen() {
                   </button>
                 ) : null}
               </header>
-              <p className={styles.placeholder}>
-                {selectedUnitId
-                  ? `Network diagram centred on unit ${selectedUnitId}. Built in a later task.`
-                  : "Network diagram of the hospital network. Built in a later task."}
-              </p>
+              <FlowDiagram
+                movement={selectedMovement}
+                now={NOW_ANCHOR}
+                selectedUnitId={selectedUnitId}
+                onSelectUnit={(unitId) => setSelectedUnitId((current) => (current === unitId ? undefined : unitId))}
+              />
             </section>
 
             <div className={styles.shortlistColumn}>

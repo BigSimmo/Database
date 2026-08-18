@@ -7,6 +7,11 @@
   --co-space-14: 0.875rem;
   --co-space-20: 1.25rem;
   --co-space-48: 3rem;
+  /* Custom-property assignments, not `z-index:` declarations — the design-system contract
+     ratchets raw `z-index:` literals, not the tokens that hold them. Every actual `z-index`
+     declaration in this file reads through `var(--co-z-*)`. */
+  --co-z-connectors: 1;
+  --co-z-nodes: 2;
   --co-leading-compact: 1.1;
   --co-leading-tight: 1.2;
   --co-leading-body: 1.4;
@@ -386,6 +391,346 @@
   padding: var(--co-space-14);
 }
 
+/*
+ * The flow diagram's canvas. `position: relative` is the positioning root every connector
+ * coordinate in `flow-diagram.tsx` is measured against (`getBoundingClientRect()` minus this
+ * box's own `left`/`top`) — move this rule's positioning scheme and every connector goes wrong.
+ * No `overflow` is set here on purpose: with 22 units the canvas can grow taller than the
+ * region's own box, and rather than clip it or give the canvas its own independent scroll
+ * (which would desync connectors from nodes on every scroll tick, not just on resize), the
+ * overflow is left visible so `.body`'s own `overflow: auto` (see above) reveals it with one
+ * page-level scrollbar — the same mechanism that already carries the rest of this shell.
+ */
+.diagramCanvas {
+  position: relative;
+  min-height: 20rem;
+}
+
+/*
+ * Absolutely positioned, `aria-hidden`, `pointer-events: none` — a rendering of relationships
+ * the node buttons already carry in their own `data-*` attributes, never itself a click target.
+ */
+.diagramConnectors {
+  position: absolute;
+  z-index: var(--co-z-connectors);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.diagramConnectorDemand,
+.diagramConnectorRoute {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.diagramConnectorDemand {
+  stroke: var(--border-strong);
+  stroke-width: 0.0625rem;
+}
+
+.diagramConnectorRoute {
+  stroke: var(--clinical-accent);
+  stroke-width: 0.125rem;
+}
+
+.diagramArrowDemand {
+  fill: var(--border-strong);
+}
+
+.diagramArrowRoute {
+  fill: var(--clinical-accent);
+}
+
+/*
+ * Mobile-first, same convention as `.regionGrid` above: one column by default, so the diagram
+ * keeps reflowing without overflow down to 320px (this task's own responsibility — Task 8 owns
+ * hiding the diagram entirely on phones, but until then it must not break the frame). The
+ * three-column layout with departments left, hub centre, units right only turns on at a width
+ * comfortably wider than the three tracks' combined minimum (ruling 1, below).
+ *
+ * Ruling 4 continued: this is the "node container" — `pointer-events: none` here, with
+ * `pointer-events: auto` re-enabled only on the interactive unit buttons inside
+ * `.diagramUnitsColumn`. Without this the container sits on top of everything (it shares the
+ * same stacking area as the connector overlay) and swallows every click meant for a node.
+ */
+.diagramNodes {
+  position: relative;
+  z-index: var(--co-z-nodes);
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--co-space-20);
+  pointer-events: none;
+}
+
+.diagramDepartmentsColumn {
+  grid-column: 1 / 2;
+  min-width: 0;
+}
+
+.diagramHub {
+  grid-column: 1 / 2;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: var(--co-space-2);
+  border: 0.0625rem solid var(--clinical-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: var(--co-space-12) var(--co-space-10);
+  text-align: center;
+  box-shadow: var(--e1);
+}
+
+.diagramHub svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--clinical-accent);
+}
+
+.diagramHub strong {
+  color: var(--clinical-accent);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.diagramHub span {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--co-leading-tight);
+}
+
+.diagramUnitsColumn {
+  grid-column: 1 / 2;
+  min-width: 0;
+}
+
+/*
+ * Ruling 1: the brief's `grid-column: 1 / 2 / 3` is invalid — `grid-column` takes at most two
+ * values. Each of the three tracks is pinned explicitly with the valid `start / end` form
+ * instead (never left to auto-placement, which is what put the hub in the wrong column
+ * previously). `64rem` leaves a comfortable margin over the three tracks' combined minimum
+ * (13 + 10 + 16 = 39rem of column content plus two 1.25rem gaps = 41.5rem) once the region
+ * grid's own chrome (the rail, `.body` padding, `.diagramRegion` padding) is subtracted from
+ * the viewport width — cutting it closer risked overflowing right at the boundary.
+ */
+@media (min-width: 64rem) {
+  .diagramNodes {
+    grid-template-columns: minmax(11rem, 13rem) minmax(9rem, 10rem) minmax(16rem, 1fr);
+  }
+
+  .diagramDepartmentsColumn {
+    grid-column: 1 / 2;
+  }
+
+  .diagramHub {
+    grid-column: 2 / 3;
+  }
+
+  .diagramUnitsColumn {
+    grid-column: 3 / 4;
+  }
+}
+
+.diagramColumnHeading {
+  margin: 0 0 var(--co-space-8);
+  color: var(--text-heading);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.diagramDepartmentsList {
+  display: grid;
+  gap: var(--co-space-8);
+}
+
+.diagramEdCard {
+  display: grid;
+  gap: var(--co-space-2);
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  padding: var(--co-space-8) var(--co-space-10);
+}
+
+.diagramEdCard[data-origin="true"] {
+  border-color: var(--clinical-accent-border);
+  background: var(--clinical-accent-soft);
+  outline: 0.125rem solid var(--clinical-accent-border);
+  outline-offset: -0.125rem;
+}
+
+.diagramEdCode {
+  color: var(--text-heading);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+}
+
+.diagramEdName {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--co-leading-body);
+}
+
+.diagramEdStats {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+}
+
+.diagramOriginBadge {
+  justify-self: start;
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--clinical-accent-soft);
+  padding: 0 var(--co-space-6);
+  color: var(--clinical-accent);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+}
+
+.diagramServiceGroup {
+  display: grid;
+  gap: var(--co-space-6);
+  margin-bottom: var(--co-space-10);
+}
+
+.diagramServiceHeading {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.diagramUnitGrid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--co-space-8);
+}
+
+.diagramUnit,
+.diagramUnitSelected {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--co-space-48);
+  align-content: start;
+  gap: var(--co-space-2);
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: var(--co-space-8) var(--co-space-10);
+  color: var(--text);
+  text-align: left;
+  /* Re-enables clicks on this one interactive node inside the otherwise `pointer-events: none`
+     `.diagramNodes` container (ruling 4). */
+  pointer-events: auto;
+}
+
+.diagramUnit:hover {
+  background: var(--surface-subtle);
+}
+
+.diagramUnitSelected {
+  border-color: var(--clinical-accent-border);
+  background: var(--clinical-accent-soft);
+  box-shadow: var(--shadow-inset);
+}
+
+.diagramUnit[data-routed="true"],
+.diagramUnitSelected[data-routed="true"] {
+  outline: 0.125rem solid var(--clinical-accent-border);
+  outline-offset: -0.125rem;
+}
+
+.diagramUnitName {
+  color: var(--text-heading);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+}
+
+.diagramUnitCapability {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+}
+
+.diagramBedRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--co-space-6);
+}
+
+.diagramBedChip {
+  display: inline-flex;
+  align-items: center;
+  border: 0.0625rem solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  padding: 0 var(--co-space-6);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+}
+
+.diagramBedChip[data-state="available"] {
+  border-color: var(--success-text);
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.diagramBedChip[data-state="held"] {
+  border-color: var(--warning-text);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.diagramBedChip[data-state="blocked"] {
+  border-color: var(--danger-text);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.diagramBedChip[data-state="occupied"] {
+  border-color: var(--border-strong);
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+}
+
+/*
+ * `potential` is drawn from bed releases, never from `unit.beds`, and must never be summed into
+ * the four states above (ruling 3). Dashed styling marks it visually as the separate,
+ * forward-looking figure it is — the same convention the Phase 1 network diagram already uses.
+ */
+.diagramBedChip[data-state="potential"] {
+  border-style: dashed;
+  border-color: var(--clinical-accent);
+  color: var(--clinical-accent);
+}
+
+.diagramUnauthorisedBadge {
+  justify-self: start;
+  color: var(--danger-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+}
+
+.diagramDestinationBadge {
+  justify-self: start;
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--clinical-accent-soft);
+  padding: 0 var(--co-space-6);
+  color: var(--clinical-accent);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+}
+
 .shortlistColumn {
   display: flex;
   min-height: 0;
@@ -454,6 +799,19 @@
    * (Task 4 review Important 4).
    */
   .pressureCardSelected {
+    outline-color: Highlight;
+  }
+
+  /* Same reasoning as `.pressureCardSelected` above, applied to the flow diagram's own selected,
+     origin and routed states — all three currently rely on an author-specified outline colour
+     that forced-colors can otherwise flatten into indistinguishability from the default border. */
+  .diagramUnitSelected {
+    border: 0.125rem solid Highlight;
+  }
+
+  .diagramEdCard[data-origin="true"],
+  .diagramUnit[data-routed="true"],
+  .diagramUnitSelected[data-routed="true"] {
     outline-color: Highlight;
   }
 }
