@@ -298,7 +298,7 @@ describe("Clinical Numerical Threshold Validation", () => {
         makeSearchResult({
           id: "chunk-lam-2",
           document_id: "doc-lam-2",
-          content: "Withhold dose if lamotrigine > 400 mg daily.",
+          content: "Withhold dose if Lamictal > 400 mg daily.",
         }),
       ];
 

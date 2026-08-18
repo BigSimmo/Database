@@ -610,6 +610,7 @@ const PARAMETER_NAMES_SPAN = [
   "lamotrigine dose",
   "lamictal dose",
   `lamotrigine(?=[^.\\n;]{0,40}?(?:${THRESHOLD_COMPARATOR_PATTERN})\\s*\\d+(?:\\.\\d+)?\\s*mg\\b)`,
+  `lamictal(?=[^.\\n;]{0,40}?(?:${THRESHOLD_COMPARATOR_PATTERN})\\s*\\d+(?:\\.\\d+)?\\s*mg\\b)`,
   "systolic (?:bp|blood pressure)",
   "sbp",
   "diastolic (?:bp|blood pressure)",
