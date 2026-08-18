@@ -4,9 +4,10 @@ import type { ReactNode } from "react";
 import { ArrowRight, Check, Copy, Search, Shield, Sparkles } from "lucide-react";
 
 import { pageContainer } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
 
 import { useTcBindings } from "../bindings";
-import { commandControl, outlineControl, therapyBtn } from "../controls";
+import { therapyBtn } from "../controls";
 import { RECOMMEND_CONSTRAINTS, summarise } from "../data/select";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
@@ -88,19 +89,17 @@ export function RecommendScreen() {
           })}
         </div>
         <div className="flex items-center justify-between mt-[18px] gap-3 flex-wrap">
-          <button
-            type="button"
-            className={`${therapyBtn} ${outlineControl}`}
+          <Button
+            variant="secondary"
+            icon={copied === "shortlist" ? Check : Copy}
             onClick={copyShortlist}
             disabled={!ranked.length}
           >
-            {copied === "shortlist" ? <Check aria-hidden="true" size={16} /> : <Copy aria-hidden="true" size={16} />}
             {copied === "shortlist" ? "Copied" : "Copy shortlist"}
-          </button>
-          <button type="button" className={`${therapyBtn} ${commandControl}`} onClick={b.goSearch}>
-            <Search aria-hidden="true" size={16} strokeWidth={1.9} />
+          </Button>
+          <Button variant="primary" icon={Search} onClick={b.goSearch}>
             Refine in search
-          </button>
+          </Button>
         </div>
       </div>
 

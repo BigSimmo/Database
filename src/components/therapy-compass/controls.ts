@@ -3,8 +3,13 @@ import { cn } from "@/components/ui-primitives";
 
 /**
  * Therapy control recipes — token-backed Tailwind only (Clinical White / Sky Graphite).
- * Selected / pressed states use aria-pressed / aria-current so call sites do not need a
- * parallel `tc-is-*` class.
+ *
+ * The three button recipes that used to live here (`commandControl`, `outlineControl`,
+ * `iconControl`) are gone: every action they dressed is now the shared `Button` from
+ * `@/components/ui/button`, per COMPONENTS.md section 9.1. What remains is the affordance
+ * layer for the controls that are *not* buttons in the design-system sense — list rows,
+ * disclosure headers and chips that need therapy's focus/hover behaviour without claiming
+ * a Button variant.
  *
  * Hover states use `hover:not-aria-disabled:enabled:` so unavailable controls stay quiet
  * under BOTH disabled encodings. `:enabled` alone was enough while every unavailable
@@ -26,29 +31,26 @@ export const therapyBtn = cn(
   focusRing,
 );
 
-const controlBase = cn(
-  "inline-flex min-h-tap items-center justify-center gap-2 rounded-md text-sm-minus font-semibold",
-  therapyBtn,
-);
+/**
+ * Selected encoding for genuine `aria-pressed` toggles — the compare toggle, the favourite
+ * and the recommend constraint pills. The shared `secondary` Button variant deliberately
+ * carries no pressed state (most Buttons are not toggles), so a therapy toggle adds this
+ * through `className`. It was previously `cardActionPressed`, private to `therapy-card.tsx`;
+ * four surfaces need it, so it lives with the other therapy control recipes.
+ *
+ * Border AND text both move, and every call site also changes its label ("Compare" →
+ * "In compare"), so the pressed state is never carried by colour alone.
+ */
+export const controlPressed =
+  "aria-pressed:border-[color:var(--clinical-accent)] aria-pressed:text-[color:var(--clinical-accent-hover)]";
 
-export const commandControl = cn(
-  controlBase,
-  "gap-[9px] border-0 bg-[color:var(--command)] px-5 text-sm text-[color:var(--command-contrast)] shadow-[var(--e1)]",
-  "hover:not-aria-disabled:enabled:bg-[color:var(--command-hover)] hover:not-aria-disabled:enabled:shadow-[var(--shadow-hover)]",
-);
-
-export const outlineControl = cn(
-  controlBase,
-  "border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-[color:var(--text)]",
-  "hover:not-aria-disabled:enabled:border-[color:var(--border-strong)] hover:not-aria-disabled:enabled:bg-[color:var(--surface-subtle)] hover:not-aria-disabled:enabled:shadow-[var(--shadow-hover)]",
-  "aria-pressed:border-[color:var(--clinical-accent)] aria-pressed:text-[color:var(--clinical-accent-hover)]",
-);
-
-export const iconControl = cn(
-  therapyBtn,
-  "inline-flex h-tap w-tap items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--decoration-soft)]",
-  "hover:not-aria-disabled:enabled:border-[color:var(--border-strong)] hover:not-aria-disabled:enabled:bg-[color:var(--surface-subtle)] hover:not-aria-disabled:enabled:text-[color:var(--text)]",
-);
+/**
+ * Favourite toggles add a filled glyph on top of `controlPressed`. The fill is a shape
+ * channel, so a saved favourite reads as saved without relying on the accent hue — which
+ * matters most for the icon-only favourite on the result card, where there is no label to
+ * change.
+ */
+export const favouritePressed = cn(controlPressed, "aria-pressed:[&_svg]:fill-current");
 
 export const card =
   "rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]";

@@ -18,13 +18,14 @@ import {
 } from "lucide-react";
 
 import { pageContainer } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Tabs } from "@/components/ui/tabs";
 
 import { THERAPY_MAX_COMPARE } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "../bindings";
-import { commandControl, outlineControl, therapyBtn } from "../controls";
+import { therapyBtn } from "../controls";
 import { needsReviewCount, parseSteps, searchTherapies, shortestDelivery, summarise } from "../data/select";
 import type { Therapy } from "../data/types";
 import { EmptyState } from "../ui";
@@ -126,23 +127,17 @@ export function CompareScreen() {
             ]}
             className="w-auto"
           />
-          <button
-            type="button"
-            className={`${therapyBtn} ${outlineControl}`}
+          <Button
+            variant="secondary"
+            icon={copied === "set" ? Check : Copy}
             onClick={copySet}
             disabled={items.length < 2}
           >
-            {copied === "set" ? <Check aria-hidden="true" size={16} /> : <Copy aria-hidden="true" size={16} />}
             {copied === "set" ? "Copied" : "Copy set"}
-          </button>
-          <button
-            type="button"
-            className={`${therapyBtn} ${outlineControl}`}
-            onClick={b.clearCompare}
-            disabled={items.length === 0}
-          >
+          </Button>
+          <Button variant="secondary" onClick={b.clearCompare} disabled={items.length === 0}>
             Clear
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -175,10 +170,9 @@ export function CompareScreen() {
           title={items.length === 0 ? "Add therapies to compare" : "Add one more therapy"}
           body="Pick two to four therapies — from search results, a therapy record, or the add box above — to compare fit, cautions, delivery and evidence side by side."
           action={
-            <button type="button" className={`${therapyBtn} ${commandControl}`} onClick={b.goSearch}>
-              <Search aria-hidden="true" size={16} strokeWidth={1.9} />
+            <Button variant="primary" icon={Search} onClick={b.goSearch}>
               Find therapies to compare
-            </button>
+            </Button>
           }
         />
       ) : (

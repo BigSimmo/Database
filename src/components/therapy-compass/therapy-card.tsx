@@ -19,7 +19,7 @@ import { cn, ignoreUnavailableActivation } from "@/components/ui-primitives";
 import { useTcBindings } from "./bindings";
 import { cardPreviewText, prioritiseTherapyTags, summarise } from "./data/select";
 import type { Therapy } from "./data/types";
-import { iconControl, therapyBtn } from "./controls";
+import { controlPressed, favouritePressed, therapyBtn } from "./controls";
 import { Eyebrow, IconTile, TagRow } from "./ui";
 import { useTherapyFavourite } from "./use-therapy-favourite";
 
@@ -31,10 +31,6 @@ import { useTherapyFavourite } from "./use-therapy-favourite";
  * `controlBase` holds the 48px tap floor.
  */
 const cardActionButton = "min-w-0 px-2 text-xs sm:px-4 sm:text-sm-minus";
-
-/** Selected encoding for the compare toggle, which `secondary` does not carry. */
-const cardActionPressed =
-  "aria-pressed:border-[color:var(--clinical-accent)] aria-pressed:text-[color:var(--clinical-accent-hover)]";
 
 /** Large search-result card with why-matched / avoid / best-fit columns. */
 export function ResultCard({ therapy }: { therapy: Therapy }) {
@@ -70,20 +66,24 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
       data-therapy-result-card
       className="relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
     >
-      <button
-        type="button"
-        className={`${iconControl} absolute top-3 right-3 z-[10] sm:top-3.5 sm:right-4`}
+      {/*
+        Icon-only action. The accessible name is the `sr-only` label rather than an
+        `aria-label`, because `Button` already renders its children into the one
+        labelling slot — and `gap-0 px-0` collapses the label row so the face stays
+        the square `w-tap` the card corner reserves.
+      */}
+      <Button
+        variant="toolbar"
+        icon={Heart}
+        className={cn("absolute top-3 right-3 z-[10] w-tap gap-0 px-0 sm:top-3.5 sm:right-4", favouritePressed)}
         aria-pressed={saved}
         onClick={() => void toggleFavourite()}
         title={saved ? "Remove from favourites" : "Save therapy to favourites"}
-        aria-label={saved ? `Remove ${therapy.name} from favourites` : `Save ${therapy.name} to favourites`}
       >
-        <Heart
-          aria-hidden="true"
-          size={17}
-          className={saved ? "fill-current text-[color:var(--clinical-accent)]" : undefined}
-        />
-      </button>
+        <span className="sr-only">
+          {saved ? `Remove ${therapy.name} from favourites` : `Save ${therapy.name} to favourites`}
+        </span>
+      </Button>
       <div className="grid grid-cols-1 items-start gap-3 px-4 pt-3.5 md:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)] md:gap-4 md:px-5 md:py-4 md:pr-[calc(1rem+var(--spacing-tap)+0.75rem)]">
         <div data-therapy-result-copy className="min-w-0 pr-[calc(var(--spacing-tap)+0.5rem)] md:pr-0">
           <h3 className="m-0 text-base font-semibold leading-snug tracking-display text-[color:var(--text-heading)]">
@@ -134,7 +134,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
           variant="secondary"
           size="sm"
           block
-          className={cn(cardActionButton, cardActionPressed)}
+          className={cn(cardActionButton, controlPressed)}
           icon={Scale}
           onClick={() => b.toggleCompare(therapy.slug)}
           aria-pressed={inCompare}

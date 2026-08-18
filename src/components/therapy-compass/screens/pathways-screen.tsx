@@ -4,9 +4,10 @@ import { useMemo } from "react";
 import { ChevronRight, Copy, FileText, ListChecks, Scale, TriangleAlert, Waypoints } from "lucide-react";
 
 import { pageContainer } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
 
 import { useTcBindings } from "../bindings";
-import { commandControl, outlineControl, therapyBtn } from "../controls";
+import { therapyBtn } from "../controls";
 import type { Therapy } from "../data/types";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
@@ -48,10 +49,9 @@ export function PathwaysScreen() {
           </p>
         </div>
         <div className="max-sm:flex-wrap flex gap-2.5">
-          <button type="button" className={`${therapyBtn} ${outlineControl}`} onClick={b.goReview}>
-            <ListChecks aria-hidden="true" size={16} />
+          <Button variant="secondary" icon={ListChecks} onClick={b.goReview}>
             Review queue
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -203,15 +203,14 @@ export function PathwaysScreen() {
             <Copy aria-hidden="true" size={15} />
             {copied === "pathway" ? "Copied" : "Copy pathway"}
           </button>
-          <button
-            type="button"
-            className={`${therapyBtn} ${commandControl}`}
+          <Button
+            variant="primary"
+            icon={FileText}
             onClick={() => firstLinkedSlug && b.openSheet(firstLinkedSlug)}
             disabled={!firstLinkedSlug}
           >
-            <FileText aria-hidden="true" size={15} />
             {firstLinkedSlug ? "Patient sheet" : "Patient sheet unavailable"}
-          </button>
+          </Button>
         </div>
       </div>
     </section>

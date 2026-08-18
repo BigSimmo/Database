@@ -4,9 +4,9 @@ import { useMemo } from "react";
 import { ExternalLink, ShieldCheck, TriangleAlert } from "lucide-react";
 
 import { pageContainer } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
 
 import { useTcBindings } from "../bindings";
-import { commandControl, outlineControl, therapyBtn } from "../controls";
 import { LoadingState, Meter } from "../ui";
 
 export function OtherScreen() {
@@ -31,12 +31,12 @@ export function OtherScreen() {
           workspace.
         </p>
         <div className="flex gap-2.5 justify-center flex-wrap">
-          <button type="button" className={`${therapyBtn} ${commandControl}`} onClick={b.goHome}>
+          <Button variant="primary" onClick={b.goHome}>
             Go to Home
-          </button>
-          <button type="button" className={`${therapyBtn} ${outlineControl}`} onClick={b.goSearch}>
+          </Button>
+          <Button variant="secondary" onClick={b.goSearch}>
             Search therapies
-          </button>
+          </Button>
         </div>
       </section>
     );
@@ -76,10 +76,9 @@ export function OtherScreen() {
             <Meter value={t.sourceCompleteness} label="Source" />
             <Meter value={t.indexCompleteness} label="Index" />
             <Meter value={t.reviewCompleteness} label="Review" />
-            <button type="button" className={`${therapyBtn} ${outlineControl}`} onClick={() => b.open(t.slug)}>
-              <ExternalLink aria-hidden="true" size={15} strokeWidth={1.7} />
+            <Button variant="secondary" icon={ExternalLink} onClick={() => b.open(t.slug)}>
               Open
-            </button>
+            </Button>
           </div>
         ))}
       </div>

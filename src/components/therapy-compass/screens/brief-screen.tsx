@@ -4,12 +4,13 @@ import { useMemo, useState } from "react";
 import { Check, Copy, ExternalLink, FileText, Search, TriangleAlert } from "lucide-react";
 
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
+import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
 import { BrowserPrintButton, PrintOutput } from "@/components/ui/print-output";
 import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "../bindings";
-import { commandControl, outlineControl, therapyBtn } from "../controls";
+import { therapyBtn } from "../controls";
 import { parseSteps, summarise } from "../data/select";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
@@ -84,9 +85,9 @@ export function BriefScreen() {
             </div>
             <div className="max-sm:flex-wrap flex gap-2.5">
               <BrowserPrintButton label="Print brief" />
-              <button
-                type="button"
-                className={`${therapyBtn} ${commandControl}`}
+              <Button
+                variant="secondary"
+                icon={FileText}
                 // `aria-disabled` rather than `disabled`: "no patient handout" is a
                 // reason the reader needs, and a natively disabled button leaves the
                 // tab order, so keyboard users never reach the title that carries it.
@@ -97,9 +98,8 @@ export function BriefScreen() {
                 aria-disabled={t.patientSheetAvailable ? undefined : true}
                 title={t.patientSheetAvailable ? undefined : "This intervention has no patient handout"}
               >
-                <FileText aria-hidden="true" size={16} />
                 {t.patientSheetAvailable ? "Create handout" : "Handout unavailable"}
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -189,15 +189,17 @@ export function BriefScreen() {
                         {t.reviewStatus === "reviewed" ? "Reviewed" : "Clinician review required"}
                       </span>
                     </div>
-                    <button
-                      data-print-hide
-                      type="button"
-                      className={`${therapyBtn} ${outlineControl} px-[13px] text-xs`}
-                      onClick={() => b.open(t.slug)}
-                    >
-                      Open full record
-                      <ExternalLink aria-hidden="true" size={14} strokeWidth={1.7} />
-                    </button>
+                    {/*
+                      `data-print-hide` moves to a `display: contents` wrapper: a bare
+                      `data-*` attribute cannot be passed to a component (see the `testId`
+                      note in `ui/button.tsx`), and the wrapper keeps the Button a direct
+                      flex item of this row while the print rule still hides the subtree.
+                    */}
+                    <span data-print-hide className="contents">
+                      <Button variant="secondary" size="sm" trailingIcon={ExternalLink} onClick={() => b.open(t.slug)}>
+                        Open full record
+                      </Button>
+                    </span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-[1px] bg-[color:var(--border)] border border-[color:var(--border)] rounded-lg overflow-hidden">
                     <MetaCell eyebrow="GOAL" text={t.bestUsedFor || t.indications || "—"} />
@@ -305,21 +307,17 @@ export function BriefScreen() {
                 </div>
 
                 <div data-print-hide className="flex gap-2.5 flex-wrap">
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${outlineControl}`}
+                  <Button
+                    variant="secondary"
+                    icon={copied === "intervention" ? Check : Copy}
                     onClick={() => copy(interventionText, "intervention")}
                   >
-                    {copied === "intervention" ? (
-                      <Check aria-hidden="true" size={16} />
-                    ) : (
-                      <Copy aria-hidden="true" size={16} />
-                    )}
                     {copied === "intervention" ? "Copied" : "Copy intervention"}
-                  </button>
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${commandControl} ml-auto`}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    icon={FileText}
+                    className="ml-auto"
                     onClick={() => {
                       if (!t.patientSheetAvailable) return;
                       b.openSheet(t.slug);
@@ -327,9 +325,8 @@ export function BriefScreen() {
                     aria-disabled={t.patientSheetAvailable ? undefined : true}
                     title={t.patientSheetAvailable ? undefined : "This intervention has no patient sheet"}
                   >
-                    <FileText aria-hidden="true" size={16} />
                     {t.patientSheetAvailable ? "Open patient sheet" : "Patient sheet unavailable"}
-                  </button>
+                  </Button>
                 </div>
               </PrintOutput>
             </div>

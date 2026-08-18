@@ -19,12 +19,13 @@ import {
 } from "lucide-react";
 
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
-import { SourceDesignationBadge, SourceStatusBadge } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
+import { cn, SourceDesignationBadge, SourceStatusBadge } from "@/components/ui-primitives";
 import { therapyScreenHref } from "@/lib/therapy-compass-navigation";
 import { therapySourceMetadata } from "@/lib/therapy-source-governance";
 
 import { useTcBindings } from "../bindings";
-import { card, heroCard, outlineControl, therapyBtn } from "../controls";
+import { card, controlPressed, favouritePressed, heroCard, therapyBtn } from "../controls";
 import { complexityLabel, parseSteps, summarise } from "../data/select";
 import type { Therapy } from "../data/types";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
@@ -61,15 +62,16 @@ export function DetailScreen() {
                       {complexityLabel(t.complexity)}
                     </span>
                   ) : null}
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${outlineControl} ml-auto px-3 text-xs`}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={Heart}
+                    className={cn("ml-auto", favouritePressed)}
                     aria-pressed={saved}
                     onClick={() => void toggleFavourite()}
                   >
-                    <Heart aria-hidden="true" size={15} className={saved ? "fill-current" : undefined} />
                     {saved ? "Saved" : "Save"}
-                  </button>
+                  </Button>
                 </div>
                 <p
                   role="status"
@@ -160,38 +162,27 @@ export function DetailScreen() {
               {/* ACTIONS */}
               <div className="flex flex-wrap gap-2.5">
                 {t.patientSheetAvailable ? (
-                  <button
-                    type="button"
-                    className={`${therapyBtn} inline-flex items-center gap-[9px] h-[46px] py-0 px-5 border-0 rounded-lg bg-[color:var(--command)] text-[color:var(--command-contrast)] text-sm font-semibold shadow-[var(--e1)] cursor-pointer`}
-                    onClick={() => b.openSheet(t.slug)}
-                  >
-                    <FileText aria-hidden="true" size={17} />
+                  <Button variant="primary" size="lg" icon={FileText} onClick={() => b.openSheet(t.slug)}>
                     Generate patient sheet
-                  </button>
+                  </Button>
                 ) : null}
-                <button
-                  type="button"
-                  className={`${therapyBtn} ${outlineControl}`}
+                <Button
+                  variant="secondary"
+                  icon={Scale}
+                  className={controlPressed}
                   onClick={() => b.toggleCompare(t.slug)}
                   aria-pressed={b.isInCompare(t.slug)}
                 >
-                  <Scale aria-hidden="true" size={17} />
                   {b.isInCompare(t.slug) ? "In compare" : "Compare"}
-                </button>
+                </Button>
                 {t.briefInterventionAvailable ? (
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${outlineControl} px-5`}
-                    onClick={() => b.openBrief(t.slug)}
-                  >
-                    <Clock aria-hidden="true" size={17} />
+                  <Button variant="secondary" size="lg" icon={Clock} onClick={() => b.openBrief(t.slug)}>
                     Brief intervention
-                  </button>
+                  </Button>
                 ) : null}
-                <button type="button" className={`${therapyBtn} ${outlineControl} px-5`} onClick={b.goReview}>
-                  <ListChecks aria-hidden="true" size={17} />
+                <Button variant="secondary" size="lg" icon={ListChecks} onClick={b.goReview}>
                   Review checklist
-                </button>
+                </Button>
               </div>
             </div>
 
