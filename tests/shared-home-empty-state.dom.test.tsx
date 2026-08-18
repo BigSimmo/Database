@@ -129,13 +129,11 @@ describe("SharedHomeEmptyState", () => {
       expect(icon).toHaveClass(iconClass);
       expect(icon).toHaveAttribute("aria-hidden", "true");
 
-      // A mode carrying a review-before-use caveat must show it here; a mode
-      // without one must not gain filler text.
+      // No mode home carries a caveat line under the composer any more, and no
+      // mode may reintroduce one as filler: the presentation table is exactly a
+      // title and a subtitle.
       const presentation: SharedHomePresentation = sharedHomePresentation[modeId];
-      const verification = presentation.verification;
-      if (verification) {
-        expect(screen.getByText(verification.body)).toBeInTheDocument();
-      }
+      expect(Object.keys(presentation).sort()).toEqual(["subtitle", "title"]);
     },
   );
 
