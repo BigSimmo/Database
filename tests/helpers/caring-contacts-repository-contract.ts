@@ -517,6 +517,42 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         expect(await store.listSendableContacts(PLAN_ID, { actor: COORDINATOR_A })).toHaveLength(10);
       });
 
+      it("records a death as a hospital status event, not as a service safety stop", async () => {
+        const { store } = await storeWithActivePlan();
+        const before = (await auditTrail(store)).length;
+
+        await store.recordHospitalStatusEvent(
+          { planId: PLAN_ID, expectedVersion: 2, event: { type: "death", recordedAt: new Date(NOW) } },
+          writeContext(COORDINATOR_A, "key-death"),
+        );
+
+        const event = (await auditTrail(store))[before];
+        expect(event.action).toBe("recordHospitalStatusEvent:death");
+        expect(event.action).not.toContain("SafetyStop");
+      });
+
+      it("never blocks a recorded death on a permission check, even for an auditor", async () => {
+        const { store } = await storeWithActivePlan();
+
+        // The auditor holds no recordHospitalStatusEvent grant...
+        const readmission = await store.recordHospitalStatusEvent(
+          { planId: PLAN_ID, expectedVersion: 2, event: { type: "readmission" } },
+          writeContext(AUDITOR_A, "key-readmission"),
+        );
+        expect(readmission).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.permissionDenied });
+
+        // ...but a death still gets through, on triggerServiceSafetyStop, because a refusal here
+        // would leave the plan sending to someone who has died.
+        const death = unwrap(
+          await store.recordHospitalStatusEvent(
+            { planId: PLAN_ID, expectedVersion: 2, event: { type: "death", recordedAt: new Date(NOW) } },
+            writeContext(AUDITOR_A, "key-death"),
+          ),
+        );
+        expect(death.record.plan.state).toBe("cancelled");
+        expect(death.contactsCancelled).toBe(10);
+      });
+
       it("refuses a third-party withdrawal by name and leaves the plan alone", async () => {
         const { store } = await storeWithActivePlan();
 

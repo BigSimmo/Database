@@ -29,6 +29,7 @@ export type CaringContactAction =
   | "authorPathwayVersion"
   | "approvePathwayVersion"
   | "viewAccessTrail"
+  | "recordHospitalStatusEvent"
   | "triggerServiceSafetyStop"
   | "approveServiceRestart"
   | "generateClinicalRecordSummary"
@@ -66,6 +67,7 @@ const ACTION_REGISTRY: Record<CaringContactAction, true> = {
   authorPathwayVersion: true,
   approvePathwayVersion: true,
   viewAccessTrail: true,
+  recordHospitalStatusEvent: true,
   triggerServiceSafetyStop: true,
   approveServiceRestart: true,
   generateClinicalRecordSummary: true,
@@ -97,6 +99,7 @@ const COORDINATOR_ACTIONS: readonly CaringContactAction[] = Object.freeze([
   "moveContactWithinDay",
   "authorPathwayVersion",
   "generateClinicalRecordSummary",
+  "recordHospitalStatusEvent",
   "triggerServiceSafetyStop",
 ]);
 
@@ -114,6 +117,7 @@ const TEAM_LEAD_ACTIONS: readonly CaringContactAction[] = Object.freeze([
   "authorPathwayVersion",
   "approvePathwayVersion",
   "generateClinicalRecordSummary",
+  "recordHospitalStatusEvent",
   "triggerServiceSafetyStop",
   "approveServiceRestart",
 ]);
@@ -122,6 +126,12 @@ const TEAM_LEAD_ACTIONS: readonly CaringContactAction[] = Object.freeze([
 // the service must never be blocked by a permission check. Every other action stays
 // outside the auditor's grant (rule 3): the auditor may view the access trail and stop the
 // service, and nothing else.
+//
+// recordHospitalStatusEvent is deliberately NOT here. Recording a readmission, a changed
+// mobile number, or a third-party pause request is a clinical write, and rule 3 confines
+// the auditor to reading. The one hospital event that must never be blocked -- a recorded
+// death -- stays reachable for every role because the store accepts triggerServiceSafetyStop
+// as an alternative capability for that event alone (see in-memory-repository.ts).
 const AUDITOR_ACTIONS: readonly CaringContactAction[] = Object.freeze(["viewAccessTrail", "triggerServiceSafetyStop"]);
 
 export const ROLE_ACTIONS: Readonly<Record<CaringContactRole, readonly CaringContactAction[]>> = Object.freeze({

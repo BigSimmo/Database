@@ -112,6 +112,7 @@ describe("rule 3: auditor is confined to viewAccessTrail", () => {
       "authorPathwayVersion",
       "approvePathwayVersion",
       "approveServiceRestart",
+      "recordHospitalStatusEvent",
     ];
     for (const action of mutations) {
       expect(canPerformCaringContactAction(auditor, action, resourceIn())).toEqual({
@@ -280,6 +281,33 @@ describe("rule 7: an actor with no roles is denied everything", () => {
       allowed: false,
       reason: "cross-team-denied",
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rule 7a — hospital status events are a clinical write, not a service safety stop
+// ---------------------------------------------------------------------------
+
+describe("rule 7a: recordHospitalStatusEvent is a coordinator/teamLead clinical write", () => {
+  it.each(["coordinator", "teamLead"] as const)("allows recordHospitalStatusEvent to %s", (role) => {
+    expect(canPerformCaringContactAction(actorWith([role]), "recordHospitalStatusEvent", resourceIn())).toEqual({
+      allowed: true,
+    });
+  });
+
+  it("denies recordHospitalStatusEvent to the auditor, who stays confined to reading", () => {
+    expect(canPerformCaringContactAction(actorWith(["auditor"]), "recordHospitalStatusEvent", resourceIn())).toEqual({
+      allowed: false,
+      reason: "action-not-granted",
+    });
+  });
+
+  it("still leaves every role holding triggerServiceSafetyStop, which is what keeps a death unblockable", () => {
+    for (const role of ROLES) {
+      expect(canPerformCaringContactAction(actorWith([role]), "triggerServiceSafetyStop", resourceIn())).toEqual({
+        allowed: true,
+      });
+    }
   });
 });
 

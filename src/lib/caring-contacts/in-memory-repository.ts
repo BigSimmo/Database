@@ -238,17 +238,24 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
     });
   }
 
-  /** Resolves an existing plan for a write: team scope first, then capability, then version. */
+  /**
+   * Resolves an existing plan for a write: team scope first, then capability, then version.
+   * `actions` is a list because one write may be reachable by more than one capability -- a
+   * recorded death is the case, and it is a safety property rather than a convenience.
+   */
   function resolveForWrite(
     input: PlanLifecycleInput,
     actor: CaringContactActor,
-    action: CaringContactAction,
+    actions: readonly CaringContactAction[],
   ): TransitionResult<StoredPlan> {
     const stored = plans.get(input.planId);
     if (!stored || stored.plan.teamId !== actor.teamId) {
       return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
     }
-    if (!canPerformCaringContactAction(actor, action, { teamId: stored.plan.teamId }).allowed) {
+    const permitted = actions.some(
+      (action) => canPerformCaringContactAction(actor, action, { teamId: stored.plan.teamId }).allowed,
+    );
+    if (!permitted) {
       return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
     }
     if (stored.plan.version !== input.expectedVersion) {
@@ -345,7 +352,7 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
       auditAction: method,
       objectId: input.planId,
       stage: () => {
-        const resolved = resolveForWrite(input, context.actor, action);
+        const resolved = resolveForWrite(input, context.actor, [action]);
         if (!resolved.ok) return resolved;
         const moved = applyPlanTransition(resolved.value.plan, { type: transition });
         if (!moved.ok) return moved;
@@ -441,7 +448,7 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         auditAction: "withdrawPlan",
         objectId: input.planId,
         stage: () => {
-          const resolved = resolveForWrite(input, context.actor, "withdrawPlan");
+          const resolved = resolveForWrite(input, context.actor, ["withdrawPlan"]);
           if (!resolved.ok) return resolved;
           // The third-party refusal lives in ./hospital-events and is not restated here.
           const withdrawal = applyWithdrawalRequest(resolved.value.plan, { origin: input.origin });
@@ -454,13 +461,17 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
     },
 
     async recordHospitalStatusEvent(input: HospitalStatusInput, context: WriteContext) {
-      // A recorded death and its correction are routed through triggerServiceSafetyStop, the one
-      // capability every role holds, because stopping the service must never be blocked by a
-      // permission check. The pause-type events are ordinary pause capability.
-      const action: CaringContactAction =
+      // Every hospital status event is a recordHospitalStatusEvent: a recorded death is a death in
+      // the trail, not a service safety stop, and it was only ever routed through the stop because
+      // no action covered hospital events at all.
+      //
+      // A death and its correction additionally accept triggerServiceSafetyStop, the one capability
+      // every role holds. That is not a convenience: recording a death must never be blocked by a
+      // permission check, and a refusal here would leave a plan sending to someone who has died.
+      const actions: readonly CaringContactAction[] =
         input.event.type === "death" || input.event.type === "deathCorrection"
-          ? "triggerServiceSafetyStop"
-          : "pausePlan";
+          ? ["recordHospitalStatusEvent", "triggerServiceSafetyStop"]
+          : ["recordHospitalStatusEvent"];
 
       return runWrite<HospitalStatusOutcome>({
         method: "recordHospitalStatusEvent",
@@ -469,7 +480,7 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         auditAction: `recordHospitalStatusEvent:${input.event.type}`,
         objectId: input.planId,
         stage: () => {
-          const resolved = resolveForWrite(input, context.actor, action);
+          const resolved = resolveForWrite(input, context.actor, actions);
           if (!resolved.ok) return resolved;
 
           const applied = applyHospitalStatusEvent(resolved.value.plan, input.event);
