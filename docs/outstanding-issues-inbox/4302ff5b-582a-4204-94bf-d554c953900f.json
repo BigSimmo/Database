@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4302ff5b-582a-4204-94bf-d554c953900f",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#222",
+    "outcome": "DECIDED AND RECORDED 18 August 2026 as DECISIONS.md C7. mode-home-template.tsx and search-results-header-band.tsx are permanently declared outside the PageHeader vocabulary: the mode-home hero is a centred display hero the in-flow composer sits beneath (redesign risk + one-composer-per-page collision), and the results-header band is a status/count/filter spine, not a title stack, pinned by tests/search-results-header-band.dom.test.tsx. Noted separately in the same decision: ModeHomeStatusNotice already converged onto the DS EmptyState via PR #1842 (#221) — a different, already-closed conversion from the PageHeader question this row asked. Docs-only change.",
+    "baseRowFingerprint": "ba6621ae785bf636071d361b64b416ca35d8e6bc893eb6bb1ccef662dae46465"
+  }
+}

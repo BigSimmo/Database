@@ -57,6 +57,25 @@ describe("document image filmstrip page sync", () => {
     expect(onSelectPage).toHaveBeenCalledExactlyOnceWith(2);
   });
 
+  it("keeps a page-unknown chip reachable and inert, never the native disabled attribute", () => {
+    const onSelectPage = vi.fn();
+    const images = [image({ id: "img-3", page_number: null, tableLabel: "Undated appendix table" })];
+
+    render(<DocumentImageFilmstrip images={images} activePage={1} onSelectPage={onSelectPage} />);
+
+    const chip = screen.getByRole("button", { name: /Undated appendix table — page unknown/i });
+
+    // `aria-disabled`, never `disabled`: the native attribute removes the tab
+    // stop, so the reason a keyboard/screen-reader user needs would never be
+    // reached. See docs/wiring-conventions.md.
+    expect(chip).toHaveAttribute("aria-disabled", "true");
+    expect(chip).not.toBeDisabled();
+    expect(chip).toHaveAccessibleDescription("This figure has no recorded page number, so it cannot be jumped to.");
+
+    fireEvent.click(chip);
+    expect(onSelectPage).not.toHaveBeenCalled();
+  });
+
   it("lets DocumentImage page badges jump the PDF without requiring a second signed-URL fetch", () => {
     const onSelectPage = vi.fn();
     render(

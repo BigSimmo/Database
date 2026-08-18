@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d25147c8-3da0-4062-9ce0-356e59a16c63",
+  "createdOn": "2026-08-18",
+  "action": "update",
+  "payload": {
+    "id": "#321",
+    "detail": "PARTIAL 18 August 2026. Of the four follow-up groups: (1) the filmstrip 'Page unknown' control is FIXED — document-image-filmstrip.tsx converted its data-driven disabled state from native disabled to aria-disabled=true + ignoreUnavailableActivation + an sr-only reason, per docs/wiring-conventions.md's stated-reason pattern (settles this one control from #291's follow-up list); tests/document-image-filmstrip.dom.test.tsx gained a focused case (aria-disabled, not natively disabled, accessible description, click is a no-op), vitest run: 3 passed. The other three groups are unchanged and still not single-PR-sized: the six differential comparison page controls remain coupled to its own planned rewrite and pinned density test; DocumentViewer's persistent-access-reason/transient-loading split is a classification design decision, not yet made; the pin-limit control remains a capacity-state judgement call. Stays open for those three.",
+    "baseRowFingerprint": "b1b6db157f9d95ca18ab31ba8ccc709dc28cf603838d599b19f1b694f88b4ac5"
+  }
+}
