@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Info, Network, ShieldCheck } from "lucide-react";
 
-import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
+import { InformationPageShell } from "@/components/information-page-shell";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 
 export const formulationCard =
@@ -9,10 +9,6 @@ export const formulationCard =
 
 export function FormulationPageShell({ children, className }: { children: ReactNode; className?: string }) {
   return <InformationPageShell className={className}>{children}</InformationPageShell>;
-}
-
-export function FormulationBreadcrumbs({ current }: { current?: string }) {
-  return <InformationPageBreadcrumbs home={{ label: "Formulation", href: "/formulation" }} current={current} />;
 }
 
 export function MechanismDomainChips({ values, limit }: { values: string[]; limit?: number }) {
