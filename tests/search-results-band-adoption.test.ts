@@ -89,10 +89,6 @@ const BAND_ROUTE_ALLOWLIST = new Map<string, string>([
     "Composer-driven landing stub with no result list of its own; the band is mounted by document-search-results.tsx inside the dashboard shell.",
   ],
   [
-    "src/app/(search-app)/documents/page.tsx",
-    "Documents mode home is a content slot; the band is mounted by document-search-results.tsx inside the dashboard shell.",
-  ],
-  [
     "src/app/(search-app)/medications/page.tsx",
     "Medication mode home is a content slot; the band is mounted by medication-prescribing-workspace.tsx inside the dashboard shell.",
   ],
@@ -105,14 +101,6 @@ const BAND_ROUTE_ALLOWLIST = new Map<string, string>([
    * Derived from the redirect map rather than listed, so consolidating another
    * mode cannot leave a stale reason behind claiming it still renders a landing.
    */
-  [
-    "src/app/(search-app)/documents/page.tsx",
-    "Documents mode home is a content slot; the band is mounted by document-search-results.tsx inside the dashboard shell.",
-  ],
-  [
-    "src/app/(search-app)/therapy-compass/page.tsx",
-    "Therapy home is the library landing; the search results band lives on /therapy-compass/search. It keeps a home of its own because it is devOnly and the shared home hides devOnly modes in production.",
-  ],
   ...[...consolidatedModeHomeModeIds].map(
     (modeId) =>
       [

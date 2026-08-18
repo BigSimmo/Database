@@ -84,7 +84,6 @@ import {
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import {
   isAlwaysStandaloneShellPath,
-  isDashboardOwnedModeHomePath,
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
@@ -232,7 +231,7 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
           // Dashboard-owned mode homes (`/documents`) mount ClinicalDashboard with
           // nothing submitted. Keystroke drafts must not auto-run there — same
           // contract as bare `/` — or every composer edit fires `/api/search`.
-          autoRunSearch={pathname === "/" || isDashboardOwnedModeHomePath(pathname) ? hasSubmittedModeSearch : true}
+          autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
         />
       </SettingsStateProvider>
     );
@@ -419,9 +418,9 @@ function GlobalStandaloneSearchShellBody({
   const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
   const differentialsCompareAddonActive =
     searchMode === "differentials" &&
-    (pathname === "/differentials/diagnoses" ||
-      pathname === "/differentials/search" ||
-      (pathname === "/differentials" && hasSubmittedModeSearch));
+    // `/differentials` is absent on purpose: it redirects to the shared home, so a
+    // branch naming it can never be true and would only read as live ownership.
+    (pathname === "/differentials/diagnoses" || pathname === "/differentials/search");
   // No shell-owned route claims the Patient details dock addon. `/medications`
   // is a standalone mode home (composer in the hero, no dock to portal into),
   // and `/medications/[slug]` already opens the same sheet from its own nav

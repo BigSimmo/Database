@@ -3,24 +3,19 @@ import type { AppModeId } from "@/lib/app-modes";
 /**
  * Bare mode paths that no longer render a home of their own.
  *
- * Therapy and Documents are deliberately absent. Documents is dashboard-owned:
- * the shell mounts ClinicalDashboard for that pathname, so `/documents` renders
- * a real Documents home — browse, recent documents and the document-search empty
- * state — exactly as `/medications` renders the prescribing workspace. Its page
- * component being an empty fragment says nothing about what the route paints.
- *
- * Therapy is deliberately absent. It is `devOnly` (app-modes.ts) pending
- * qualified-clinician sign-off on its catalogue, so the shared home falls back
- * to Answer for it in production — while `/therapy-compass` itself still
- * renders. Consolidating it therefore removed Therapy from production
- * altogether; measured against a production build, `/?mode=therapy-compass`
- * came back as mode Answer. It keeps its own home until that gate lifts.
- *
  * Every mode shares one lightweight home at `/?mode=<id>`, whose per-mode copy
  * lives in `sharedHomePresentation` (src/lib/ui-copy.ts). These paths stay so
  * bookmarks, the sitemap and external deep links keep resolving; they forward
  * to that shared home instead of rendering a second one. The retired detailed
  * pages are preserved off the live routes under `/mockups/<mode>-home-detailed`.
+ *
+ * Four modes are deliberately absent, because none of them is a duplicate of the
+ * shared home — each is its mode's only functional surface, so folding it in
+ * would delete a feature rather than de-duplicate a page:
+ *   /tools        the launcher (categories, filters, saved)
+ *   /favourites   the hub (Continue, Recent, sets, sort/view)
+ *   /medications  the prescribing workspace (dose/safety/monitoring checks)
+ *   /            the shared home itself
  *
  * Sub-routes are deliberately NOT listed: `/dsm/search`, `/factsheets/[slug]`
  * and friends are real surfaces and must keep rendering themselves.
@@ -35,6 +30,8 @@ const consolidatedModeHomePaths = {
   "/specifiers": "specifiers",
   "/formulation": "formulation",
   "/differentials": "differentials",
+  "/therapy-compass": "therapy-compass",
+  "/documents": "documents",
 } as const satisfies Record<string, AppModeId>;
 
 type ConsolidatedModeHomePath = keyof typeof consolidatedModeHomePaths;

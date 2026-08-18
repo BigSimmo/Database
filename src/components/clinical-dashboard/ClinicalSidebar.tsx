@@ -69,10 +69,7 @@ function accountProfileLabel(identity: SidebarIdentity) {
 
 const sidebarToolItems = [
   { id: "answer", label: "Answer", icon: Sparkles, href: "/?mode=answer" },
-  // Documents and Medication own real homes: the shell mounts ClinicalDashboard
-  // for /documents, so it paints browse and recent documents rather than the
-  // shared hero.
-  { id: "documents", label: "Documents", icon: FileText, href: "/documents" },
+  { id: "documents", label: "Documents", icon: FileText, href: "/?mode=documents" },
   // Every consolidated mode links to the one shared home; their bare paths are now
   // redirects onto it, so pointing a pinned entry at `/services` or `/factsheets`
   // would spend a round trip arriving at the same place.

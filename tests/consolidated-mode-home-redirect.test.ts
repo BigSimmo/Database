@@ -21,22 +21,12 @@ describe("consolidated mode home redirects", () => {
     expect(target("/specifiers")).toBe("/?mode=specifiers");
     expect(target("/formulation")).toBe("/?mode=formulation");
     expect(target("/differentials")).toBe("/?mode=differentials");
+    expect(target("/therapy-compass")).toBe("/?mode=therapy-compass");
+    expect(target("/documents")).toBe("/?mode=documents");
   });
 
   it("leaves every other path alone", () => {
-    for (const pathname of [
-      "/",
-      "/favourites",
-      "/tools",
-      "/medications",
-      // Documents is dashboard-owned: the shell paints a real Documents home there.
-      "/documents",
-      // Therapy is devOnly and the shared home hides devOnly modes in production,
-      // so it keeps a home of its own rather than redirecting into one that would
-      // silently show Answer instead.
-      "/therapy-compass",
-      "/mockups/dsm-home-detailed",
-    ]) {
+    for (const pathname of ["/", "/favourites", "/tools", "/medications", "/mockups/dsm-home-detailed"]) {
       expect(target(pathname)).toBeNull();
       expect(isConsolidatedModeHomePath(pathname)).toBe(false);
     }
