@@ -3061,13 +3061,24 @@ export function ClinicalDashboard({
   // Most mounted mode homes keep the in-flow hero pill on phones. Tools is the
   // deliberate exception: its content-rich directory uses the shared compact
   // footer on phones while retaining the hero composer from sm upward.
-  const heroComposerBreakpoint = showDesktopHomeComposer && activeModeResultKind !== "tools" ? "all" : "sm-up";
+  //
+  // That exception is keyed on the CONTENT being content-rich, so it must not
+  // follow `resultKind` onto the shared home. Factsheets, Dictionary and Therapy
+  // Compass borrow `kind: "tools"` purely as a benign search kind (see the
+  // comments on their `app-modes.ts` entries) and were inheriting the Tools dock
+  // on `/`, where they render the same short SharedHomeEmptyState as every other
+  // mode — no directory, nothing to make room for. `shouldShowSharedHome` already
+  // excludes `mode=tools`, so `showSharedHome` is never the Tools launcher itself.
+  const heroComposerBreakpoint =
+    showDesktopHomeComposer && (showSharedHome || activeModeResultKind !== "tools") ? "all" : "sm-up";
   const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
   const hasMobileBottomSearch = searchMode !== "answer" && !heroOwnsPhoneComposer;
   // Favourites and Tools are content-rich hubs: they share the centred hero but
-  // stay top-aligned so their lists start in a stable position.
+  // stay top-aligned so their lists start in a stable position. On the shared
+  // home neither hub is mounted, so the same short hero centres like the rest.
   const centeredModeHome =
-    showDesktopHomeComposer && activeModeResultKind !== "tools" && activeModeResultKind !== "favourites";
+    showDesktopHomeComposer &&
+    (showSharedHome || (activeModeResultKind !== "tools" && activeModeResultKind !== "favourites"));
   // Short mode homes (centred homes plus the services/forms registry homes)
   // drop the large mobile bottom padding so phones don't get a scrollbar for
   // content that already fits. Result views keep the full clearance.
