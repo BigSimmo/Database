@@ -1,3 +1,4 @@
+import { focusRing } from "@/components/card-recipes";
 import { cn } from "@/components/ui-primitives";
 
 /**
@@ -12,12 +13,11 @@ import { cn } from "@/components/ui-primitives";
  * its `title` is unreachable — see `ignoreUnavailableActivation` in ui-primitives), and
  * such a button *is* `:enabled`, so it would otherwise light up on hover.
  *
- * Focus ring is local (same token string as ui-primitives `searchFocusRing`) because the
- * shared export was renamed away from `focusRing` on main; therapy buttons are not search chrome.
+ * Focus affordance comes from the shared `focusRing` in `card-recipes.ts`. It used to be
+ * redeclared here, justified by the shared export having been "renamed away from `focusRing`
+ * on main" — that was already untrue: `card-recipes.ts` exports it, and the local copy meant a
+ * change to the focus contract had to find this file too.
  */
-const focusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-
 export const therapyBtn = cn(
   "cursor-pointer font-[inherit] transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--duration-quick)]",
   "hover:not-aria-disabled:enabled:-translate-y-px active:not-aria-disabled:enabled:translate-y-px",
@@ -50,24 +50,10 @@ export const outlineControl = cn(
   "aria-pressed:border-[color:var(--clinical-accent)] aria-pressed:text-[color:var(--clinical-accent-hover)]",
 );
 
-export const softControl = cn(
-  controlBase,
-  "border border-[color:var(--border)] bg-[color:var(--surface)] px-4 font-medium text-[color:var(--text-muted)]",
-  "hover:not-aria-disabled:enabled:border-[color:var(--border-strong)] hover:not-aria-disabled:enabled:bg-[color:var(--surface-subtle)] hover:not-aria-disabled:enabled:text-[color:var(--text)] hover:not-aria-disabled:enabled:shadow-[var(--shadow-hover)]",
-  "aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:bg-[color:var(--clinical-accent-soft)] aria-pressed:font-semibold aria-pressed:text-[color:var(--clinical-accent-hover)]",
-  "data-[tone=success]:border-[color:var(--success-border)] data-[tone=success]:bg-[color:var(--success-bg)] data-[tone=success]:font-semibold data-[tone=success]:text-[color:var(--success-text)]",
-);
-
 export const iconControl = cn(
   therapyBtn,
   "inline-flex h-tap w-tap items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--decoration-soft)]",
   "hover:not-aria-disabled:enabled:border-[color:var(--border-strong)] hover:not-aria-disabled:enabled:bg-[color:var(--surface-subtle)] hover:not-aria-disabled:enabled:text-[color:var(--text)]",
-);
-
-export const linkButton = cn(
-  therapyBtn,
-  "border-0 bg-transparent p-0 text-sm-minus font-semibold text-[color:var(--clinical-accent)]",
-  "hover:not-aria-disabled:enabled:text-[color:var(--clinical-accent-hover)] hover:not-aria-disabled:enabled:underline hover:not-aria-disabled:enabled:underline-offset-[3px]",
 );
 
 export const card =
