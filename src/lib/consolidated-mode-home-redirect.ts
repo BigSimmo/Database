@@ -46,7 +46,7 @@ export function consolidatedModeHomeModeId(pathname: string): AppModeId | null {
 }
 
 /**
- * The shared-home URL a consolidated bare path forwards to.
+ * Where a consolidated bare path forwards to.
  *
  * Resolved in the proxy rather than by the page's own `redirect()`, because the
  * `(search-app)` layout streams: Next 16 documents that `redirect()` in a
@@ -56,13 +56,23 @@ export function consolidatedModeHomeModeId(pathname: string): AppModeId | null {
  * a whole second on a primary navigation path. The same reasoning already put
  * the document-source fallbacks in this proxy (issue #024).
  *
- * The incoming query is carried across untouched so a submitted deep link keeps
- * working: `/dsm?q=x&run=1` becomes `/?mode=dsm&q=x&run=1`, which the shared home
- * then resolves onward to `/dsm/search`. That cannot loop, because the onward hop
- * targets the search surface rather than the bare path.
+ * The destination depends on whether the link was submitted, because the bare
+ * path used to serve both roles:
  *
- * `mode` is always overwritten from the pathname, so a crafted `/dsm?mode=…`
- * cannot redirect the visitor to an unrelated mode.
+ * - Unsubmitted (`/dsm`) forwards to the shared home, `/?mode=dsm`.
+ * - Submitted (`/dsm?q=…&run=1`) forwards to the mode's own results surface,
+ *   `/dsm/search?q=…&run=1`, which is exactly where it rendered before.
+ *
+ * Sending a submitted link to the shared home instead is what broke four phone
+ * journeys: the dashboard rendered its own in-place results for some modes and
+ * nothing at all for others, so `/forms?q=transport&run=1` stopped reaching
+ * `FormsSearchResultsPage`. Forwarding straight to `<mode>/search` restores the
+ * pre-consolidation destination for every deep link and bookmark.
+ *
+ * Every other query parameter rides along untouched, so navigation context
+ * (`queryMode`, scope filters, `focus`) survives the hop. `mode` is the one
+ * exception: it is always overwritten from the pathname, so a crafted
+ * `/dsm?mode=…` cannot redirect the visitor to an unrelated mode.
  */
 export function consolidatedModeHomeTarget(pathname: string, search: URLSearchParams): string | null {
   const modeId = consolidatedModeHomeModeId(pathname);
@@ -70,7 +80,13 @@ export function consolidatedModeHomeTarget(pathname: string, search: URLSearchPa
 
   const params = new URLSearchParams(search);
   params.set("mode", modeId);
-  return `/?${params.toString()}`;
+
+  const query = params.get("q")?.trim() ?? "";
+  const submitted = query.length > 0 && params.get("run") === "1";
+  // `pathname` is the key that resolved `modeId`, and every consolidated mode's
+  // route namespace is that same path — so this is the mode's own search route,
+  // never a path built from unvalidated input.
+  return submitted ? `${pathname}/search?${params.toString()}` : `/?${params.toString()}`;
 }
 
 /**

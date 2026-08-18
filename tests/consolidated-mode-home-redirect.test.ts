@@ -57,13 +57,30 @@ describe("consolidated mode home redirects", () => {
   });
 
   /*
-   * A submitted deep link must survive the hop. `/dsm?q=…&run=1` carries its query
-   * to `/?mode=dsm&q=…&run=1`, which the shared home resolves onward to `/dsm/search`.
-   * The onward hop targets the search surface, not the bare path, so this cannot loop.
+   * A submitted deep link goes straight to the mode's own results surface, which
+   * is where the bare path rendered it before consolidation. Routing it to the
+   * shared home instead was a real regression: the dashboard renders its own
+   * in-place results for some modes and nothing for others, so `/forms?q=…&run=1`
+   * stopped reaching FormsSearchResultsPage (caught by verify:phone-chrome).
    */
-  it("carries the incoming query across so submitted deep links still resolve", () => {
-    expect(target("/dsm", "q=panic+disorder&run=1")).toBe("/?q=panic+disorder&run=1&mode=dsm");
+  it("forwards a submitted deep link to the mode's own results surface", () => {
+    expect(target("/dsm", "q=panic+disorder&run=1")).toBe("/dsm/search?q=panic+disorder&run=1&mode=dsm");
+    expect(target("/forms", "q=transport&run=1&focus=1")).toBe("/forms/search?q=transport&run=1&focus=1&mode=forms");
+    // Navigation context rides along, so a scoped or mode-qualified deep link
+    // does not silently lose its filters crossing the hop.
+    expect(target("/differentials", "q=acute&run=1&queryMode=compare_guidance&scope.medications=lithium")).toBe(
+      "/differentials/search?q=acute&run=1&queryMode=compare_guidance&scope.medications=lithium&mode=differentials",
+    );
+  });
+
+  /*
+   * Unsubmitted is the other half: a query alone is a draft, not a search, so it
+   * belongs on the shared home with the composer seeded — same as before.
+   */
+  it("keeps an unsubmitted query on the shared home", () => {
     expect(target("/factsheets", "q=sertraline&focus=1")).toBe("/?q=sertraline&focus=1&mode=factsheets");
+    // `run=1` with a blank query is not a submitted search either.
+    expect(target("/dsm", "q=++&run=1")).toBe("/?q=++&run=1&mode=dsm");
   });
 
   it("overwrites a crafted mode parameter with the one the pathname names", () => {
@@ -71,6 +88,9 @@ describe("consolidated mode home redirects", () => {
     // unrelated mode — a redirect whose destination the query controls.
     expect(target("/dsm", "mode=favourites")).toBe("/?mode=dsm");
     expect(target("/factsheets", "mode=answer&q=x")).toBe("/?mode=factsheets&q=x");
+    // Including on the submitted branch, where the destination path is the
+    // mode's own namespace rather than anything the query could name.
+    expect(target("/dsm", "mode=favourites&q=x&run=1")).toBe("/dsm/search?mode=dsm&q=x&run=1");
   });
 
   it("resolves every consolidated path to a real app mode", () => {
