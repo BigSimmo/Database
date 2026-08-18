@@ -287,7 +287,7 @@ function loadDemoDocumentDetail(rawId: string, query: DocumentDetailQuery): Docu
   const rawPayload = getDemoDocumentPayload(rawId);
   if (!rawPayload) throw new PublicApiError("Demo document not found.", 404);
 
-  const payload = rawPayload as unknown as {
+  const payload = rawPayload as {
     document: ClinicalDocument;
     pages: DocumentDetailPage[];
     images: DocumentDetailImage[];
@@ -296,6 +296,7 @@ function loadDemoDocumentDetail(rawId: string, query: DocumentDetailQuery): Docu
     indexHealth?: DocumentDetailPayload["indexHealth"];
   };
   const allChunks = payload.chunks ?? [];
+
   const selectedChunk = query.chunk ? (allChunks.find((chunk) => chunk.id === query.chunk) ?? null) : null;
   const requestedPage = Math.min(query.page, Math.max(1, payload.document.page_count ?? 1));
   const effectivePage = selectedChunk?.page_number ?? requestedPage;

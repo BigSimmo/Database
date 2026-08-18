@@ -14,6 +14,7 @@ import {
   ResultFilterTrigger,
   resultFilterFacetGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
+import { cardSurface } from "@/components/card-recipes";
 import { cn, codeText, EmptyState, metadataPill, pageContainer, searchFocusRing } from "@/components/ui-primitives";
 import type { DsmCategory, DsmDiagnosisSummary } from "@/lib/dsm";
 import { readResultFilterValues, replaceResultFilterUrl, writeResultFilterValues } from "@/lib/result-filter-url";
@@ -214,7 +215,7 @@ export function DsmSearchPage({
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
             <section
               aria-label="DSM diagnosis results"
-              className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+              className={cn(cardSurface, "overflow-hidden rounded-xl shadow-[var(--e2)]")}
             >
               <div className="flex items-baseline justify-between gap-4 border-b border-[color:var(--border)] px-4 py-4 sm:px-5">
                 <h2 className="text-base font-extrabold text-[color:var(--text-heading)] sm:text-lg">
@@ -240,8 +241,19 @@ export function DsmSearchPage({
                       data-testid="dsm-search-result"
                       className={cn(
                         "group grid grid-cols-[3rem_minmax(0,1fr)_3rem] items-start gap-3.5 px-4 py-4 transition sm:gap-4 sm:px-5 sm:py-5 lg:grid-cols-[3rem_minmax(0,1fr)_10rem_7rem_3rem] lg:items-center lg:gap-3 lg:px-4 xl:grid-cols-[3rem_minmax(14rem,1fr)_10rem_7rem_3rem] xl:gap-4 xl:px-5",
+                        // Rows sit INSIDE the results panel, so they carry no
+                        // elevation of their own (SPEC §4.7: a card inside a
+                        // panel is never heavier than its parent) — only the
+                        // fill changes. `cardSelected` is not used here for the
+                        // same reason: it ships a shadow.
+                        //
+                        // The `/55` alpha it replaces was the last of the four
+                        // selected encodings this branch retired. An alpha on a
+                        // token colour is unreviewable: what it actually
+                        // contrasts against depends on the row stripe behind it,
+                        // which differs per theme.
                         isSelected
-                          ? "bg-[color:var(--clinical-accent-soft)]/55"
+                          ? "bg-[color:var(--clinical-accent-soft)]"
                           : "hover:bg-[color:var(--surface-subtle)]",
                       )}
                     >
@@ -253,7 +265,7 @@ export function DsmSearchPage({
                           isSelected ? "from" : "to"
                         } comparison`}
                         className={cn(
-                          "grid h-12 w-12 place-items-center rounded-xl border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                          "grid h-12 w-12 place-items-center rounded-lg border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                           isSelected
                             ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
                             : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--decoration-soft)] hover:border-[color:var(--clinical-accent)]",
@@ -305,7 +317,7 @@ export function DsmSearchPage({
             </section>
 
             <aside className="grid gap-3 lg:sticky lg:top-20" aria-label="Comparison selection">
-              <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
+              <section className={cn(cardSurface, "rounded-xl p-4")}>
                 <div className="flex items-center gap-2">
                   <GitCompareArrows className="h-5 w-5 text-[color:var(--clinical-accent)]" aria-hidden />
                   <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">Compare diagnoses</h2>
