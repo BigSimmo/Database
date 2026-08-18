@@ -252,3 +252,50 @@ After every phase: update `#312` (`npm run issues:update`), append evidence to
 `docs/audit/live-drift-forensics-2026-08.md`, and record the phase's PR in the normal ledger flow.
 If a session dies mid-phase, the next session re-reads this playbook, the forensics doc, and
 `#312`, and resumes from the last recorded evidence — nothing lives only in chat.
+
+---
+
+## Appendix — exact drift inventory (from live-drift Actions run 31330856982, 2026-08-09)
+
+Recorded here so no session has to re-fetch the Actions logs. Re-verify against the latest run
+before Phase 4 — this is the 2026-08-09 snapshot, not a live query.
+
+**21 `missing_live` indexes:**
+
+| Index                                             | Table                            |
+| ------------------------------------------------- | -------------------------------- |
+| `api_rate_limits_bucket_updated_idx`              | `api_rate_limits`                |
+| `audit_logs_action_created_idx`                   | `audit_logs`                     |
+| `audit_logs_owner_created_idx`                    | `audit_logs`                     |
+| `document_chunks_anchor_idx`                      | `document_chunks`                |
+| `document_chunks_content_trgm_idx`                | `document_chunks`                |
+| `document_images_hash_idx`                        | `document_images`                |
+| `document_images_structured_profile_gin_idx`      | `document_images`                |
+| `document_images_visual_intelligence_version_idx` | `document_images`                |
+| `document_index_quality_owner_score_idx`          | `document_index_quality`         |
+| `document_index_units_heading_path_idx`           | `document_index_units`           |
+| `document_publication_approvals_document_idx`     | `document_publication_approvals` |
+| `document_summaries_owner_idx`                    | `document_summaries`             |
+| `documents_registry_projection_lookup_idx`        | `documents`                      |
+| `documents_title_trgm_idx`                        | `documents`                      |
+| `image_caption_cache_owner_hash_idx`              | `image_caption_cache`            |
+| `indexing_v3_agent_jobs_locked_at_idx`            | `indexing_v3_agent_jobs`         |
+| `ingestion_job_stages_job_stage_started_idx`      | `ingestion_job_stages`           |
+| `medication_records_owner_category_idx`           | `medication_records`             |
+| `rag_aliases_type_enabled_idx`                    | `rag_aliases`                    |
+| `rag_queries_source_chunk_ids_gin_idx`            | `rag_queries`                    |
+| `rag_query_misses_aliases_idx`                    | `rag_query_misses`               |
+
+**2 `unexpected_live` indexes:** `document_table_facts_document_id_idx`,
+`storage_cleanup_jobs_owner_id_idx`.
+
+**10 `match_*` RPCs with `def_hash` mismatches (Phase 1.2 / Phase 3 targets):**
+`match_document_chunks_hybrid`, `match_document_chunks_text`, `match_document_chunks_text_v2`,
+`match_document_embedding_fields_hybrid`, `match_document_index_units_hybrid`,
+`match_document_index_units_hybrid_v2`, `match_document_lookup_chunks_text`,
+`match_document_memory_cards_hybrid`, `match_document_memory_cards_hybrid_v2`,
+`match_document_table_facts_text`.
+
+**Already repaired 2026-08-04 (PR #1614 — do not re-restore):**
+`document_labels_label_trgm_idx`, `document_summaries_summary_trgm_idx`,
+`document_index_units_owner_chunk_type_idx`, `rag_retrieval_logs_miss_idx`.
