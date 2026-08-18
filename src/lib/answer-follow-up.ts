@@ -1,4 +1,5 @@
-import type { RagAnswer } from "@/lib/types";
+import { buildRelatedInformationMenu, type RelatedInformationMenuKey } from "@/lib/rag/answer-composition";
+import type { AnswerSectionKind, RagAnswer } from "@/lib/types";
 
 // Client-side follow-up context for the single-query answer API.
 // The /api/answer/stream schema accepts one query string (max 2000 chars), so
@@ -64,17 +65,288 @@ export function buildAnswerFollowUpQuery(priorQuery: string | undefined, followU
   return `Follow-up to "${trimmedPrior.slice(0, budget)}": ${trimmedFollowUp}`;
 }
 
+// ---------------------------------------------------------------------------
+// Follow-up suggestion chips (RAG improvement programme, packet S3 / README §A4)
+//
+// The chips are deterministic and provider-free, and they are clinical output:
+// a chip names a question this corpus is expected to be able to answer. Three
+// rules make that claim honest, and each is pinned in tests/answer-follow-up.test.ts:
+//
+//   1. Candidates come from the S2 related-information menu
+//      (`buildRelatedInformationMenu`, src/lib/rag/answer-composition.ts) for the
+//      answer's own (queryClass, intent) cell — the same menu the generation
+//      prompt was given. This module READS that menu and never changes it.
+//   2. Evidence gate: a candidate is emitted only when the retrieved evidence the
+//      client actually received mentions its subject matter. The client sees a
+//      bounded ≤900-char snippet per source (trimSourceForClient in
+//      answer-client-payload.ts), so the gate can under-suggest but never
+//      over-suggest — the safe direction for a clinical surface.
+//   3. Already-answered suppression: a menu kind that the answer already emitted
+//      as an `answerSections` entry, or whose concept words are already in the
+//      answer text, is dropped rather than offered back to the reader.
+//
+// Query classes whose menu is "none" (document_lookup, unsupported_or_general)
+// keep the narrow legacy templates — §A2's "stays narrow" rule — but run through
+// the same gate and suppression. When nothing survives, the function returns []
+// and no chip row renders; that is the intended conservative outcome, not a bug.
+// ---------------------------------------------------------------------------
+
 const maxFollowUpSuggestions = 4;
+
+/** Bounded evidence scan: chips must cost nothing measurable inside the render memo. */
+const maxEvidenceSources = 12;
+const maxEvidenceFieldChars = 1200;
+const maxEvidenceQuotes = 8;
 
 function normalizeSuggestionKey(value: string) {
   return value.trim().toLowerCase();
 }
 
-function topicLabel(priorQuery: string, answer: RagAnswer) {
-  const medications = answer.queryAnalysis?.medications ?? [];
-  const medication = medications.find((item) => item.trim());
-  if (medication) return medication.trim();
+/**
+ * One deterministic follow-up candidate.
+ *
+ * `evidenceTerms` are lowercase substrings; at least one must appear in the
+ * retrieved evidence for the candidate to be offered. `answeredTerms` are the
+ * narrow concept words that mark the question as already answered by the answer
+ * body — deliberately a subset of `evidenceTerms`, so a passing mention in a
+ * source does not suppress a question the answer never addressed.
+ */
+type FollowUpTemplate = {
+  kind: AnswerSectionKind;
+  question: (topic: string) => string;
+  evidenceTerms: readonly string[];
+  answeredTerms: readonly string[];
+};
 
+/**
+ * Follow-up phrasing per menu key, index-aligned with that menu's `items` in
+ * src/lib/rag/answer-composition.ts. The alignment (same kind at the same index)
+ * is asserted over all 48 class×intent cells in tests/answer-follow-up.test.ts, so
+ * a future menu edit fails loudly instead of silently dropping a chip.
+ */
+const menuFollowUpTemplates: Record<Exclude<RelatedInformationMenuKey, "none">, readonly FollowUpTemplate[]> = {
+  dosing: [
+    {
+      kind: "monitoring_timing",
+      question: (topic) => `What monitoring is required for ${topic}?`,
+      evidenceTerms: ["monitor", "bloods", "fbc", "ecg", "egfr", "tft", "serum", "level"],
+      answeredTerms: ["monitor"],
+    },
+    {
+      kind: "contraindications_cautions",
+      question: (topic) => `What cautions or contraindications apply to ${topic}?`,
+      evidenceTerms: ["contraindicat", "caution", "avoid", "not recommended", "interaction"],
+      answeredTerms: ["contraindicat", "caution", "avoid"],
+    },
+    {
+      kind: "escalation_risk",
+      question: (topic) => `What should trigger stopping or escalating ${topic}?`,
+      evidenceTerms: ["stop", "withhold", "cease", "discontinu", "escalat", "toxicity"],
+      answeredTerms: ["stop", "withhold", "cease", "discontinu"],
+    },
+    {
+      kind: "medication_dose",
+      question: (topic) => `How is ${topic} dosed in renal or hepatic impairment?`,
+      evidenceTerms: ["renal", "hepatic", "egfr", "creatinine", "liver", "impairment"],
+      answeredTerms: ["renal", "hepatic", "egfr", "creatinine"],
+    },
+  ],
+  escalation: [
+    {
+      kind: "required_actions",
+      question: (topic) => `What immediate actions are required for ${topic}?`,
+      evidenceTerms: ["immediate", "urgent", "stop", "withhold", "seek", "first-line"],
+      answeredTerms: ["immediate", "urgent"],
+    },
+    {
+      kind: "thresholds",
+      question: (topic) => `What thresholds trigger those actions for ${topic}?`,
+      evidenceTerms: ["threshold", "mmol", "exceeds", "above", "below", "score"],
+      answeredTerms: ["threshold", "mmol/l", "cut-off"],
+    },
+    {
+      kind: "escalation_risk",
+      question: (topic) => `Who should be contacted or referred for ${topic}?`,
+      evidenceTerms: ["refer", "contact", "on-call", "consultant", "specialist", "emergency department", "notify"],
+      answeredTerms: ["refer", "contact", "on-call", "notify"],
+    },
+    {
+      kind: "documentation",
+      question: (topic) => `What should I document for ${topic}?`,
+      evidenceTerms: ["document", "record", "chart", "form"],
+      answeredTerms: ["document", "record"],
+    },
+  ],
+  threshold: [
+    {
+      kind: "thresholds",
+      question: (topic) => `What are the adjacent thresholds or bands for ${topic}?`,
+      evidenceTerms: ["threshold", "band", "range", "cut-off", "score", "mmol"],
+      answeredTerms: ["threshold", "band", "range"],
+    },
+    {
+      kind: "required_actions",
+      question: (topic) => `What action is required at each band for ${topic}?`,
+      evidenceTerms: ["action", "repeat", "manage", "treat", "review"],
+      answeredTerms: ["action required", "repeat"],
+    },
+    {
+      kind: "escalation_risk",
+      question: (topic) => `What should trigger escalation for ${topic}?`,
+      evidenceTerms: ["escalat", "urgent", "refer", "senior", "emergency"],
+      answeredTerms: ["escalat"],
+    },
+  ],
+  comparison: [
+    {
+      kind: "comparison",
+      question: (topic) => `Which factors decide between the options for ${topic}?`,
+      evidenceTerms: ["factor", "prefer", "first-line", "choice", "consider"],
+      answeredTerms: ["factor", "prefer"],
+    },
+    {
+      kind: "comparison",
+      question: (topic) => `Where do the sources differ on ${topic}?`,
+      evidenceTerms: ["differ", "versus", "compared", "whereas", "alternative"],
+      answeredTerms: ["differ", "conflict"],
+    },
+    {
+      kind: "required_actions",
+      question: (topic) => `What switching or washout steps apply to ${topic}?`,
+      evidenceTerms: ["switch", "washout", "cross-taper", "taper", "swap"],
+      answeredTerms: ["switch", "washout", "taper"],
+    },
+  ],
+  management: [
+    {
+      kind: "required_actions",
+      question: (topic) => `What is the first-line management for ${topic}?`,
+      evidenceTerms: ["first-line", "first line", "offer", "management", "treat", "initial"],
+      answeredTerms: ["first-line", "first line"],
+    },
+    {
+      kind: "documentation",
+      question: (topic) => `What should I document for ${topic}?`,
+      evidenceTerms: ["document", "record", "chart", "form"],
+      answeredTerms: ["document", "record"],
+    },
+    {
+      kind: "source_gap",
+      question: (topic) => `What does the indexed guidance not cover for ${topic}?`,
+      // Only offered when the answer itself reported a gap or conflict; the
+      // haystack check below is satisfied by that report, not by source prose.
+      evidenceTerms: ["reported_gap"],
+      answeredTerms: [],
+    },
+  ],
+};
+
+/**
+ * The kinds this module answers for each S2 menu key, in menu order. Exported so
+ * tests/answer-follow-up.test.ts can assert index-alignment with
+ * `buildRelatedInformationMenu` across every class×intent cell without reaching
+ * into the template bodies.
+ */
+export const followUpTemplateKindsByMenuKey: Readonly<
+  Record<Exclude<RelatedInformationMenuKey, "none">, readonly AnswerSectionKind[]>
+> = Object.freeze({
+  dosing: menuFollowUpTemplates.dosing.map((template) => template.kind),
+  escalation: menuFollowUpTemplates.escalation.map((template) => template.kind),
+  threshold: menuFollowUpTemplates.threshold.map((template) => template.kind),
+  comparison: menuFollowUpTemplates.comparison.map((template) => template.kind),
+  management: menuFollowUpTemplates.management.map((template) => template.kind),
+});
+
+/**
+ * Candidates for the classes whose S2 menu is deliberately "none". These are the
+ * pre-S3 narrow templates, kept verbatim in phrasing and now evidence-gated.
+ */
+const documentLookupTemplates: readonly FollowUpTemplate[] = [
+  {
+    kind: "required_actions",
+    question: () => "What are the key action points?",
+    evidenceTerms: ["action", "step", "must", "should", "require"],
+    answeredTerms: ["key action"],
+  },
+  {
+    kind: "monitoring_timing",
+    question: () => "What monitoring or follow-up is documented?",
+    evidenceTerms: ["monitor", "follow-up", "review"],
+    answeredTerms: ["monitor", "follow-up"],
+  },
+  {
+    kind: "contraindications_cautions",
+    question: () => "Are there any contraindications noted?",
+    evidenceTerms: ["contraindicat", "caution", "avoid", "not recommended"],
+    answeredTerms: ["contraindicat"],
+  },
+  {
+    kind: "required_actions",
+    question: (topic) => `Summarise the practical steps for ${topic}.`,
+    evidenceTerms: ["step", "procedure", "process", "plan", "must", "should"],
+    answeredTerms: [],
+  },
+];
+
+const generalTemplates: readonly FollowUpTemplate[] = [
+  {
+    kind: "monitoring_timing",
+    question: (topic) => `What monitoring is required for ${topic}?`,
+    evidenceTerms: ["monitor", "review", "level"],
+    answeredTerms: ["monitor"],
+  },
+  {
+    kind: "contraindications_cautions",
+    question: (topic) => `What are the main cautions for ${topic}?`,
+    evidenceTerms: ["caution", "contraindicat", "avoid", "risk", "adverse"],
+    answeredTerms: ["caution", "contraindicat"],
+  },
+  {
+    kind: "documentation",
+    question: (topic) => `What should I document for ${topic}?`,
+    evidenceTerms: ["document", "record", "form"],
+    answeredTerms: ["document", "record"],
+  },
+  {
+    kind: "required_actions",
+    question: () => "What would change the management plan?",
+    evidenceTerms: ["manage", "plan", "treat", "review"],
+    answeredTerms: [],
+  },
+];
+
+function bounded(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.length > maxEvidenceFieldChars ? value.slice(0, maxEvidenceFieldChars) : value;
+}
+
+/**
+ * The retrieved evidence this client actually received, lowercased for substring
+ * matching. Sources carry the bounded client snippet; quote cards and the
+ * server-derived safety findings add the passages the UI already shows. Query
+ * analysis is deliberately excluded — canonical terms are query-derived, so
+ * counting them here would let a query term vouch for corpus coverage it does
+ * not have. They vouch for the SUBJECT only (see `buildSubjectHaystack`).
+ */
+function buildEvidenceHaystack(answer: RagAnswer): string {
+  const parts: string[] = [];
+  for (const source of (answer.sources ?? []).slice(0, maxEvidenceSources)) {
+    parts.push(source.title ?? "", source.section_heading ?? "", bounded(source.retrieval_synopsis ?? source.content));
+  }
+  const quotes = [...(answer.quoteCards ?? []), ...(answer.smartPanel?.quotes ?? [])].slice(0, maxEvidenceQuotes);
+  for (const quote of quotes) parts.push(bounded(quote.quote));
+  for (const warning of answer.safetyWarnings ?? []) parts.push(warning.kind, warning.label, bounded(warning.text));
+  return parts.join(" \n").toLowerCase();
+}
+
+/** Where a suggested subject may legitimately come from: evidence, or the resolved query analysis. */
+function buildSubjectHaystack(answer: RagAnswer, evidenceHaystack: string): string {
+  const analysis = answer.queryAnalysis;
+  const terms = [...(analysis?.medications ?? []), ...(analysis?.canonicalTerms ?? [])];
+  return `${evidenceHaystack} \n${terms.join(" \n").toLowerCase()}`;
+}
+
+function topicLabel(priorQuery: string, answer: RagAnswer) {
   const canonical = answer.queryAnalysis?.canonicalTerms?.filter((term) => term.trim()) ?? [];
   if (canonical.length > 0) {
     const label = canonical.slice(0, 3).join(" ");
@@ -102,82 +374,60 @@ function isShortContinuationQuery(query: string) {
 }
 
 /**
- * Pick the clinical topic embedded in follow-up suggestion chips. Short
- * continuation questions ("what about renal impairment?") should anchor on the
- * thread's opening question, not echo the latest follow-up phrasing.
+ * The thread question a chip's topic should be read from. Short continuation
+ * questions ("what about renal impairment?") anchor on the thread's opening
+ * question, not the latest follow-up phrasing.
  */
-function resolveSuggestionTopicAnchor(latestQuery: string, priorQueries: string[], answer: RagAnswer) {
-  const medications = answer.queryAnalysis?.medications ?? [];
-  const medication = medications.find((item) => item.trim());
-  if (medication) return medication.trim();
+function resolveAnchorQuery(latestQuery: string, priorQueries: string[]) {
+  const trimmedLatest = latestQuery.trim();
+  const firstQuery = priorQueries.map((query) => query.trim()).find(Boolean);
+  if (firstQuery && firstQuery !== trimmedLatest && isShortContinuationQuery(trimmedLatest)) return firstQuery;
+  return trimmedLatest;
+}
 
-  const threadQueries = priorQueries.map((query) => query.trim()).filter(Boolean);
-  const firstQuery = threadQueries[0];
-  if (firstQuery && firstQuery !== latestQuery.trim() && isShortContinuationQuery(latestQuery)) {
-    return firstQuery;
+/**
+ * Prefer a subject the clinician actually named. Medications on the analysis can
+ * be answer-derived rather than asked-for — an agitation question whose answer
+ * lists olanzapine must not produce "…for olanzapine?" chips — so a term that
+ * appears in the anchor question wins, and a bare medication is only the
+ * fallback.
+ */
+function subjectFromAnalysis(anchorQuery: string, answer: RagAnswer): string | null {
+  const normalizedAnchor = anchorQuery.toLowerCase();
+  const medications = (answer.queryAnalysis?.medications ?? []).map((term) => term.trim()).filter(Boolean);
+  const canonical = (answer.queryAnalysis?.canonicalTerms ?? []).map((term) => term.trim()).filter(Boolean);
+  for (const term of [...medications, ...canonical]) {
+    const at = normalizedAnchor.indexOf(term.toLowerCase());
+    if (at < 0) continue;
+    // Read the subject back out of the question so the chip keeps the
+    // clinician's own casing ("ADHD", not the normalised "adhd").
+    return anchorQuery.slice(at, at + term.length);
   }
-  return latestQuery.trim();
+  return medications[0] ?? null;
 }
 
-function medicationFollowUpTemplates(topic: string) {
-  return [
-    "What about renal impairment?",
-    "What monitoring is required?",
-    "What are the elderly dosing considerations?",
-    "What about pregnancy or breastfeeding?",
-    "Are there important drug interactions?",
-    `What cautions apply to ${topic}?`,
-  ];
-}
-
-function thresholdFollowUpTemplates(topic: string) {
-  return [
-    "What should trigger escalation?",
-    "What are the alternative thresholds?",
-    `When should I repeat ${topic}?`,
-    "What monitoring supports this threshold?",
-  ];
-}
-
-function comparisonFollowUpTemplates(topic: string) {
-  return [
-    "Which option is preferred in pregnancy?",
-    "Which option needs less monitoring?",
-    `What are the key differences for ${topic}?`,
-    "When would you choose the alternative?",
-  ];
-}
-
-function genericFollowUpTemplates(topic: string) {
-  return [
-    `What monitoring is required for ${topic}?`,
-    `What are the main cautions for ${topic}?`,
-    `What should I document for ${topic}?`,
-    "What would change the management plan?",
-  ];
-}
-
-function templatesForAnswer(priorQuery: string, answer: RagAnswer) {
-  const topic = topicLabel(priorQuery, answer);
+/**
+ * Which composition menu applies. Class-carrying answers use the S2 menu
+ * verbatim; the query-shape fallbacks only cover answers that reached the client
+ * without a query analysis (cached or degraded payloads).
+ */
+function resolveMenuKey(anchorQuery: string, answer: RagAnswer): RelatedInformationMenuKey {
   const queryClass = answer.queryClass ?? answer.queryAnalysis?.queryClass;
-  if (queryClass === "medication_dose_risk" || /\b(dose|dosing|mg|monitor|medication|drug)\b/i.test(priorQuery)) {
-    return medicationFollowUpTemplates(topic);
+  if (queryClass) {
+    return buildRelatedInformationMenu(queryClass, answer.queryAnalysis?.intent ?? "general").key;
   }
-  if (queryClass === "table_threshold" || /\b(threshold|level|cut[- ]?off|range)\b/i.test(priorQuery)) {
-    return thresholdFollowUpTemplates(topic);
-  }
-  if (queryClass === "comparison" || answer.queryAnalysis?.comparisonIntent) {
-    return comparisonFollowUpTemplates(topic);
-  }
-  if (queryClass === "document_lookup" || answer.queryAnalysis?.documentTitleIntent) {
-    return [
-      "What are the key action points?",
-      "What monitoring or follow-up is documented?",
-      "Are there any contraindications noted?",
-      `Summarise the practical steps for ${topic}.`,
-    ];
-  }
-  return genericFollowUpTemplates(topic);
+  if (answer.queryAnalysis?.comparisonIntent) return "comparison";
+  if (answer.queryAnalysis?.documentTitleIntent) return "none";
+  if (/\b(dose|dosing|mg|monitor|medication|drug)\b/i.test(anchorQuery)) return "dosing";
+  if (/\b(threshold|level|cut[- ]?off|range)\b/i.test(anchorQuery)) return "threshold";
+  return "none";
+}
+
+function templatesForMenuKey(menuKey: RelatedInformationMenuKey, answer: RagAnswer): readonly FollowUpTemplate[] {
+  if (menuKey !== "none") return menuFollowUpTemplates[menuKey];
+  const queryClass = answer.queryClass ?? answer.queryAnalysis?.queryClass;
+  if (queryClass === "document_lookup" || answer.queryAnalysis?.documentTitleIntent) return documentLookupTemplates;
+  return generalTemplates;
 }
 
 function gapFollowUpTemplates(answer: RagAnswer) {
@@ -194,7 +444,12 @@ function gapFollowUpTemplates(answer: RagAnswer) {
 
 /**
  * Build short follow-up question chips for the latest answer turn.
- * Suggestions avoid repeating questions already asked in the thread.
+ *
+ * Candidates come from the S2 composition menu for this answer's class/intent,
+ * must be supported by the retrieved evidence, and are dropped when the answer
+ * already covers them. Returns [] when nothing survives — the chip row then does
+ * not render, which is preferable to naming a question this corpus cannot answer.
+ * Suggestions also avoid repeating questions already asked in the thread.
  */
 export function buildAnswerFollowUpSuggestions(
   priorQuery: string,
@@ -204,18 +459,54 @@ export function buildAnswerFollowUpSuggestions(
   const trimmedPrior = priorQuery.trim();
   if (!trimmedPrior) return [];
 
-  const topicQuery = resolveSuggestionTopicAnchor(trimmedPrior, priorQueries, answer);
+  const anchorQuery = resolveAnchorQuery(trimmedPrior, priorQueries);
+  const evidenceHaystack = buildEvidenceHaystack(answer);
+  const subjectHaystack = buildSubjectHaystack(answer, evidenceHaystack);
+
+  const topic = subjectFromAnalysis(anchorQuery, answer) ?? topicLabel(anchorQuery, answer);
+  const topicSupported = significantTokens(topic).some((token) => subjectHaystack.includes(token));
+
   const seen = new Set(priorQueries.map(normalizeSuggestionKey));
   seen.add(normalizeSuggestionKey(trimmedPrior));
 
   const suggestions: string[] = [];
-  for (const candidate of [...gapFollowUpTemplates(answer), ...templatesForAnswer(topicQuery, answer)]) {
+  const push = (candidate: string) => {
     const normalized = normalizeSuggestionKey(candidate);
-    if (!normalized || seen.has(normalized)) continue;
-    if (suggestions.some((item) => normalizeSuggestionKey(item) === normalized)) continue;
+    if (!normalized || seen.has(normalized)) return;
     suggestions.push(candidate);
     seen.add(normalized);
+  };
+
+  // Reported gaps and conflicts are evidence by construction: the answer itself
+  // said the sources disagree or fall short.
+  for (const gap of gapFollowUpTemplates(answer)) {
     if (suggestions.length >= maxFollowUpSuggestions) break;
+    push(gap);
   }
+  const hasReportedGap = (answer.conflictsOrGaps ?? answer.smartPanel?.conflictsOrGaps ?? []).length > 0;
+  const answerText = (answer.answer ?? "").toLowerCase();
+  const emittedSectionKinds = new Set(
+    (answer.answerSections ?? []).map((section) => section.kind).filter((kind): kind is AnswerSectionKind => !!kind),
+  );
+
+  if (!topicSupported) return suggestions;
+
+  const menuKey = resolveMenuKey(anchorQuery, answer);
+  for (const template of templatesForMenuKey(menuKey, answer)) {
+    if (suggestions.length >= maxFollowUpSuggestions) break;
+    // (2) evidence gate.
+    const supported = template.evidenceTerms.some((term) =>
+      term === "reported_gap" ? hasReportedGap : evidenceHaystack.includes(term),
+    );
+    if (!supported) continue;
+    // (3) already-answered suppression: an emitted section of this kind, the
+    // answer body's own words, or — for the source-gap item — a gap chip that is
+    // already asking the specific question.
+    if (emittedSectionKinds.has(template.kind)) continue;
+    if (template.kind === "source_gap" && suggestions.length > 0) continue;
+    if (template.answeredTerms.some((term) => answerText.includes(term))) continue;
+    push(template.question(topic));
+  }
+
   return suggestions;
 }
