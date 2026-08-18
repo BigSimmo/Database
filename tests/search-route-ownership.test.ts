@@ -62,10 +62,8 @@ describe("shared-search route ownership", () => {
       "/forms",
       "/favourites",
       "/differentials",
-      "/dsm",
       "/specifiers",
       "/formulation",
-      "/factsheets",
       "/therapy-compass",
       "/tools",
       "/calculators",
@@ -77,6 +75,23 @@ describe("shared-search route ownership", () => {
     expect(isStandaloneModeHomePath("/")).toBe(false);
     expect(isStandaloneModeHomePath("/services/crisis")).toBe(false);
     expect(isStandaloneModeHomePath("/dsm/search")).toBe(false);
+  });
+
+  /*
+   * Consolidated modes own no composer at their bare path.
+   *
+   * `/dsm`, `/dictionary` and `/factsheets` no longer render a home of their own —
+   * they redirect onto the one shared home at `/?mode=<id>`, whose composer the
+   * dashboard owns. Claiming standalone ownership for a path that renders nothing
+   * would reserve hero composer geometry on a route that never paints, so these
+   * must classify false while their SUB-routes keep standalone shell treatment.
+   */
+  it("does not claim composer ownership for consolidated mode homes", () => {
+    for (const pathname of ["/dsm", "/dictionary", "/factsheets"]) {
+      expect(isStandaloneModeHomePath(pathname)).toBe(false);
+      // The namespace still needs the standalone shell for its own sub-routes.
+      expect(isAlwaysStandaloneShellPath(pathname)).toBe(true);
+    }
   });
 
   it("marks route-owned namespaced paths as always-standalone shell (no searchParams gate)", () => {

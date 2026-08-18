@@ -73,7 +73,8 @@ const sidebarToolItems = [
   { id: "documents", label: "Documents", icon: FileText, href: "/documents" },
   { id: "services", label: "Services", icon: appModeIcons.services, href: "/services" },
   { id: "prescribing", label: appModeDefinition("prescribing").label, icon: Pill, href: "/medications" },
-  { id: "factsheets", label: "Factsheets", icon: appModeIcons.factsheets, href: "/factsheets" },
+  // Every consolidated mode links to the one shared home; `/factsheets` is now a redirect onto it.
+  { id: "factsheets", label: "Factsheets", icon: appModeIcons.factsheets, href: "/?mode=factsheets" },
   // PT-11: standalone /tools is the canonical entry; /?mode=tools remains a dashboard-mode alias.
   { id: "tools", label: "Tools", icon: Wrench, href: "/tools" },
 ] as const;

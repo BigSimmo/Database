@@ -1,12 +1,18 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { DsmHomePage } from "@/components/dsm/dsm-home-page";
+import { appModeSelectionHref } from "@/lib/app-modes";
 
-export const metadata: Metadata = {
-  title: "DSM-5 Diagnosis | Clinical KB",
-  description: "Search, compare, and review structured DSM diagnosis criteria and differential considerations.",
-};
-
+/**
+ * `DSM-5 Diagnosis` has no home page of its own any more.
+ *
+ * Every mode shares one lightweight home at `/?mode=<id>`, whose per-mode copy
+ * lives in `sharedHomePresentation` (src/lib/ui-copy.ts). This route stays so
+ * bookmarks and external deep links to `/dsm` keep working, and forwards to
+ * that shared home rather than rendering a second one.
+ *
+ * The previous detailed page is preserved, off the live routes, at
+ * `/mockups/dsm-home-detailed`.
+ */
 export default function DsmHomeRoute() {
-  return <DsmHomePage />;
+  redirect(appModeSelectionHref("dsm"));
 }

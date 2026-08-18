@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { consolidatedModeHomeTarget } from "@/lib/consolidated-mode-home-redirect";
 import { documentSourceRedirectTarget, isDocumentSourcePath } from "@/lib/document-source-redirect";
 import { env } from "@/lib/env";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
@@ -101,6 +102,21 @@ export async function proxy(request: NextRequest) {
   // sanitised components of this request's own query, so it cannot become an
   // open redirect. The page remains as a backstop for any request the matcher
   // misses.
+  // Consolidated mode homes: `/dsm`, `/dictionary` and `/factsheets` forward to the
+  // one shared home. Resolved here for the same reason as the document-source
+  // fallbacks below — a page `redirect()` under the streaming `(search-app)` layout
+  // emits a client-side meta refresh (a full second of empty shell) rather than a
+  // 307. The page keeps its own redirect as a backstop for anything this misses.
+  const consolidatedHomeTarget = consolidatedModeHomeTarget(pathname, request.nextUrl.searchParams);
+
+  if (consolidatedHomeTarget) {
+    const url = request.nextUrl.clone();
+    const [targetPathname, targetSearch = ""] = consolidatedHomeTarget.split("?");
+    url.pathname = targetPathname;
+    url.search = targetSearch;
+    return withCsp(NextResponse.redirect(url));
+  }
+
   if (isDocumentSourcePath(pathname)) {
     const url = request.nextUrl.clone();
     const target = documentSourceRedirectTarget(url.searchParams);
