@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "e6761ee5-7931-420f-8fa9-3ef5c9a2d6a7",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "22946f19-6197-408e-b154-142d226a2743",
+    "reason": "Stale: baseRowFingerprint e03db7a3... no longer matches the current #316 row content (the row has moved since this request was authored). Reissuing its content as a fresh update request against the current row below, since the content itself is accurate and is the more complete of the two pending #316 requests."
+  }
+}
