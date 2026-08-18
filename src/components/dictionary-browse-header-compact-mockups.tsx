@@ -48,10 +48,11 @@ const versions: ReadonlyArray<{
     number: "01",
     name: "Title bar + letter dropdown",
     summary:
-      "Keeps a full-size page title, then one sticky toolbar: the letter dropdown takes the width, Filters sits at the end. Desktop keeps the chip rail, which still fits there.",
+      "Keeps a full-size page title, then one sticky toolbar: the alphabetical dropdown takes the width and Filters & sort keeps its full label beside it. Desktop keeps the chip rail, which still fits there.",
     strengths: ["Strongest page identity", "Full-width dropdown target", "Desktop keeps one-tap letters"],
-    cost: "Two bands on phone — the title still costs a row that the mode nav already implies.",
+    cost: "Two bands on phone — the title still costs a row that the mode nav already implies, and an active filter chip adds a third.",
     chrome: "2 rows on phone",
+    recommended: true,
   },
   {
     id: "single",
@@ -62,7 +63,6 @@ const versions: ReadonlyArray<{
     strengths: ["One row, both breakpoints", "Adapts rather than overflows", "Nothing scrolls horizontally"],
     cost: "The letter chip is a smaller target than a full-width control, and at 390 px an active filter chip costs the row its title and count — both stand down to the mode nav until the filter clears.",
     chrome: "1 row on phone",
-    recommended: true,
   },
   {
     id: "toolbar",
@@ -120,6 +120,7 @@ function LetterTrigger({
       type="button"
       onClick={onOpen}
       aria-haspopup="dialog"
+      aria-label={`Alphabetical index — ${value === "All" ? "all letters" : value}`}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
         focusRing,
@@ -127,8 +128,9 @@ function LetterTrigger({
         size === "chip" ? "h-9 px-2.5 text-xs" : "h-11 px-3 text-sm",
       )}
     >
-      <span className={cn("truncate font-extrabold text-[color:var(--clinical-accent)]", grow && "text-left")}>
-        {size === "chip" ? value : value === "All" ? "All letters" : `Letter ${value}`}
+      {size === "chip" ? null : <span className="shrink-0 font-bold text-[color:var(--text-muted)]">Alphabetical</span>}
+      <span className="truncate font-extrabold text-[color:var(--clinical-accent)]">
+        {value === "All" ? "All" : value}
       </span>
       <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
     </button>
@@ -256,7 +258,7 @@ function LetterPicker({
   anchored?: boolean;
 }) {
   return (
-    <SheetShell title="Jump to letter" onClose={onClose} anchored={anchored}>
+    <SheetShell title="Alphabetical index" onClose={onClose} anchored={anchored}>
       <button
         type="button"
         onClick={() => onSelect("All")}
@@ -455,11 +457,17 @@ function VersionHeader({ version, compact, state }: { version: Version; compact:
         </div>
         <div className="sticky top-0 z-10 border-y border-[color:var(--border)] bg-[color:var(--surface)]">
           {compact ? (
-            <div className="flex items-center gap-2 px-4 py-2">
-              <LetterTrigger value={state.letter} onOpen={() => state.setLetterOpen(true)} grow />
-              {state.abbrOnly ? <AbbrChip onClear={() => state.setAbbrOnly(false)} /> : null}
-              <FiltersControl count={state.activeFilters} onOpen={() => state.setFiltersOpen(true)} />
-            </div>
+            <>
+              <div className="flex items-center gap-2 px-4 py-2">
+                <LetterTrigger value={state.letter} onOpen={() => state.setLetterOpen(true)} grow />
+                <FiltersControl count={state.activeFilters} labelled onOpen={() => state.setFiltersOpen(true)} />
+              </div>
+              {state.abbrOnly ? (
+                <div className="flex items-center gap-2 px-4 pb-2">
+                  <AbbrChip onClear={() => state.setAbbrOnly(false)} />
+                </div>
+              ) : null}
+            </>
           ) : (
             <div className="py-2">
               <LetterRailDesktop value={state.letter} onSelect={state.setLetter} />
@@ -595,9 +603,16 @@ export function DictionaryBrowseHeaderCompactMockupsPage() {
             Letters in a dropdown, Abbreviations in Filters
           </h1>
           <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-            Three compact takes on the title-bar direction. All three replace the 27-chip horizontal rail with a letter
-            dropdown on phones and move Abbreviations out of the header into the Filters sheet beside sort. They differ
-            only in how much header survives around those two controls.
+            Three compact takes on the title-bar direction. All three replace the 27-chip horizontal rail with an
+            alphabetical dropdown on phones and move Abbreviations out of the header into the Filters sheet beside sort.
+            They differ only in how much header survives around those two controls.{" "}
+            <strong
+              className="font-extrabold
+            text-[color:var(--text)]"
+            >
+              01 is the selected direction
+            </strong>
+            ; 02 and 03 stay here as the compact alternatives it was chosen over.
           </p>
           <p className="mt-3 max-w-3xl rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 py-2.5 text-sm font-medium text-[color:var(--text)]">
             Every frame is live. Open the letter dropdown, then open Filters and switch to{" "}
@@ -627,7 +642,7 @@ export function DictionaryBrowseHeaderCompactMockupsPage() {
                     </h2>
                     {version.recommended ? (
                       <span className="rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 py-0.5 text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
-                        Recommended
+                        Selected direction
                       </span>
                     ) : null}
                     <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-0.5 text-3xs font-bold text-[color:var(--text-muted)]">
