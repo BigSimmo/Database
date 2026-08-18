@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "8650e564-7835-47b3-a7e2-476f369b9eea",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "a39af37c-b4dd-4e4b-84dc-395d86937615",
+    "reason": "Superseded by 4302ff5b-582a-4204-94bf-d554c953900f (this PR): #222's decision is now made and recorded in DECISIONS.md C7, replacing the earlier 'stays open' flag."
+  }
+}
