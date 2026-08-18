@@ -383,6 +383,23 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
     expect(Array.from(a)).toEqual(Array.from(b));
   });
 
+  it("warfarin index entries do not include the other warfarin slug as a counterparty", () => {
+    const interactionIndex = JSON.parse(
+      readFileSync(path.join(__dirname, "../data/medication-interaction-index.json"), "utf-8"),
+    ) as { bySlug: Record<string, { rows: Array<{ counterparties: string[] }> }> };
+    const { bySlug } = interactionIndex;
+    const warfarinPairs: [string, string][] = [
+      ["warfarin-vka", "warfarin-anticoagulant"],
+      ["warfarin-anticoagulant", "warfarin-vka"],
+    ];
+    for (const [slug, forbidden] of warfarinPairs) {
+      const entry = bySlug[slug];
+      if (!entry) continue;
+      const found = entry.rows.some((row) => row.counterparties.includes(forbidden));
+      expect(found).toBe(false);
+    }
+  });
+
   it("resolves beta blockers across both catalogue spellings", () => {
     const betaBlockers = slugsFor("beta-blockers");
     // "Beta Blocker" (metoprolol) and "Beta-Blocker" (propranolol).
