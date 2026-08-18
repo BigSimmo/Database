@@ -172,7 +172,7 @@ Following a Supabase database restore or disaster recovery failover, verify all 
 
 ## 8. Operational notes & diagnostics (#248, #305, #315)
 
-- **Search-Health Indexes (#248):** Ensure migration `20260705180000_search_schema_health.sql` is active on live and all 20 required indexes are present.
+- **Search-Health Indexes (#248):** Ensure migration `20260705180000_reconcile_search_health_indexes.sql` is active on live and all 20 required indexes are present.
 - **Canary Latency & Cost Boundaries (#305):** Retrieval latency p90 SLO is ≤ 20s. Canary cost metrics provide lower-bound estimates without cache warmup.
 - **UI Smoke Reporter Stranding (#315):** When debugging rare UI smoke test timeouts, inspect reporter stranding in Playwright hooks rather than assuming layout regressions.
 
