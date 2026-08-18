@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "30d09441-44da-4b56-829c-e64d67410da8",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#267",
+    "outcome": "Adopted schema-first payload readiness standard for clinical components",
+    "baseRowFingerprint": "c888f9e10cc940693b7887011593702399821e91d6401bb847e8ca54ef183991"
+  }
+}

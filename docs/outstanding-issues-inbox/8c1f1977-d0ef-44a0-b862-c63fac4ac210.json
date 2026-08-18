@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "8c1f1977-d0ef-44a0-b862-c63fac4ac210",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#222",
+    "outcome": "Decided ModeHomeHero and SearchResultsHeaderBand remain independent specialized components outside generic PageHeader",
+    "baseRowFingerprint": "ba6621ae785bf636071d361b64b416ca35d8e6bc893eb6bb1ccef662dae46465"
+  }
+}

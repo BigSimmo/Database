@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "61f2c254-f636-4fc0-8138-ba450bd66208",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#239",
+    "outcome": "Adopted ResizeObserver quiet-window mobile viewport and sticky header reserve",
+    "baseRowFingerprint": "84b48ed92ba0bd687adb25f793588681a275c2e3a5962df6cf8e62710fc24e59"
+  }
+}
