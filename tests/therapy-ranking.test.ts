@@ -8,8 +8,8 @@ import { rankTherapyCandidates, scoreTherapyCandidate } from "@/lib/therapy-rank
 import {
   findTherapyRecord,
   searchTherapyRecords,
+  therapyNeedsReview,
   therapyRecords,
-  therapyRecordsForEnvironment,
   therapySlugs,
 } from "@/lib/therapies";
 
@@ -50,12 +50,16 @@ describe("shared Therapy ranker", () => {
     expect(rankTherapyCandidates(records, "CBT")[0]?.record.name).toBe("Cognitive behavioural therapy");
   });
 
-  it("excludes unreviewed Therapy content from production discovery and routes", () => {
+  // The inverse of this used to hold: production filtered every unreviewed record
+  // out, which emptied discovery and 404'd all 205 routes. Review status is now a
+  // disclosure, not a reachability gate, so an unreviewed record must resolve.
+  it("keeps unreviewed Therapy content discoverable and routable, flagged rather than dropped", () => {
     expect(therapyRecords.length).toBeGreaterThan(0);
-    expect(therapyRecordsForEnvironment("production")).toEqual([]);
-    expect(searchTherapyRecords("CBT", "production")).toEqual([]);
-    expect(therapySlugs("production")).toEqual([]);
-    expect(findTherapyRecord(therapyRecords[0].slug, "production")).toBeUndefined();
+    const unreviewed = therapyRecords.find(therapyNeedsReview);
+    expect(unreviewed).toBeDefined();
+    expect(therapySlugs()).toContain(unreviewed!.slug);
+    expect(findTherapyRecord(unreviewed!.slug)).toBe(unreviewed);
+    expect(searchTherapyRecords("CBT").length).toBeGreaterThan(0);
   });
 
   it.each([
@@ -74,7 +78,7 @@ describe("shared Therapy ranker", () => {
     const catalogueOrder = searchTherapies(fullTherapyRecords, { ...EMPTY_SEARCH, query })
       .slice(0, 5)
       .map((record) => record.slug);
-    const universalOrder = searchTherapyRecords(query, "development")
+    const universalOrder = searchTherapyRecords(query)
       .slice(0, 5)
       .map(({ record }) => record.slug);
 
@@ -87,6 +91,6 @@ describe("shared Therapy ranker", () => {
     ["DBT", "dialectical-behaviour-therapy-dbt"],
     ["EMDR", "eye-movement-desensitisation-and-reprocessing-emdr"],
   ])("ranks the exact %s alias first", (query, expectedSlug) => {
-    expect(searchTherapyRecords(query, "development")[0]?.record.slug).toBe(expectedSlug);
+    expect(searchTherapyRecords(query)[0]?.record.slug).toBe(expectedSlug);
   });
 });

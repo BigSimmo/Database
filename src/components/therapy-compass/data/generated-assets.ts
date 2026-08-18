@@ -21,6 +21,7 @@ export const THERAPY_CATALOGUE_ASSETS_PREVIOUS = {
 // not download and parse a record projection before its LCP can paint.
 export const THERAPY_CATALOGUE_SUMMARY = {
   totalCount: 205,
+  needsReviewCount: 205,
   defaultBriefSlug: "acceptance-and-commitment-therapy-act",
   defaultSheetSlug: "acceptance-and-commitment-therapy-act",
 } as const;
