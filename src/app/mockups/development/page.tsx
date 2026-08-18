@@ -6,13 +6,14 @@ import { CARING_CONTACT_MOCKUP_ROUTES } from "@/components/caring-contacts/mocku
 
 export const metadata: Metadata = {
   title: "Development · Clinical KB",
-  description: "In-progress surfaces reachable only in development builds.",
+  description: "In-progress surfaces, off by default in a production deploy.",
 };
 
 // The index of what is being built. It lives under /mockups so it inherits the
 // namespace's production gate (`mockupsEnabled()` in the mockups layout) rather
-// than needing a second one, and so it 404s in a production deploy exactly like
-// the surfaces it links to.
+// than needing a second one: always on outside production, and 404 in a
+// production deploy unless that deploy sets NEXT_PUBLIC_MOCKUPS_ENABLED=true —
+// exactly like the surfaces it links to.
 const DEVELOPMENT_SURFACES = [
   {
     id: "caring-contacts",
@@ -42,7 +43,7 @@ export default function DevelopmentIndexPage() {
         <h1 className="text-2xl font-extrabold text-[color:var(--text-heading)] sm:text-3xl">In-progress surfaces</h1>
         <p className="max-w-3xl text-sm leading-6 text-[color:var(--text-muted)]">
           Work being built, reachable from Settings while it is in development. These routes are not part of the
-          clinical product and 404 in a production deploy.
+          clinical product, and a production deploy 404s them unless it explicitly opts in.
         </p>
       </header>
 
