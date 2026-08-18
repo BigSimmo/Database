@@ -176,6 +176,11 @@ Following a Supabase database restore or disaster recovery failover, verify all 
 - **Canary Latency & Cost Boundaries (#305):** Retrieval latency p90 SLO is ≤ 20s. Canary cost metrics provide lower-bound estimates without cache warmup.
 - **UI Smoke Reporter Stranding (#315):** When debugging rare UI smoke test timeouts, inspect reporter stranding in Playwright hooks rather than assuming layout regressions.
 
+## 9. Ledger queue derivation & credential discipline (#327, #042)
+
+- **Ledger Outcome Derivation (#327):** Recommended queue tooling (`issues-surface.sh` and `issues-report.mjs`) dynamically derives row descriptions directly from the cited Detail cell, preventing unrendered dead text in canonical ledger tables.
+- **Credential Fallback Hygiene (#042):** Optional credentials must never fall back silently into anonymous access when invalid or malformed tokens are supplied; authentication checks fail closed with explicit authorization errors.
+
 ---
 
 ## Standing guardrails
