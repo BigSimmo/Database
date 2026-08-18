@@ -1,13 +1,16 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { ArrowRight, Check, Copy, Search, Shield, Sparkles } from "lucide-react";
 
+import { cardSurface } from "@/components/card-recipes";
+import { PageHeader } from "@/components/ui/page-header";
 import { pageContainer } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
 
 import { useTcBindings } from "../bindings";
-import { commandControl, outlineControl, therapyBtn } from "../controls";
+import { heroCard, therapyBtn } from "../controls";
 import { RECOMMEND_CONSTRAINTS, summarise } from "../data/select";
-import { ArrowRightIcon, CheckIcon, CopyIcon, SearchIcon, ShieldIcon, SparkleIcon } from "../icons";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
 
@@ -38,14 +41,13 @@ export function RecommendScreen() {
 
   return (
     <section data-screen-label="Recommend" className={pageContainer}>
-      <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
-        Recommend Tool
-      </h1>
-      <p className="mt-0 mx-0 mb-[22px] text-sm text-[color:var(--text-muted)]">
-        Refine a clinical question with setting, time and caution constraints.
-      </p>
+      <PageHeader
+        className="mb-[22px]"
+        title="Recommend Tool"
+        description="Refine a clinical question with setting, time and caution constraints."
+      />
 
-      <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] py-[22px] px-6 mb-[22px]">
+      <div className={`${cardSurface} py-[22px] px-6 mb-[22px]`}>
         <label htmlFor="tc-rec-q" className="block text-xs font-semibold text-[color:var(--text-heading)] mb-[9px]">
           What do you need help choosing?
         </label>
@@ -88,19 +90,17 @@ export function RecommendScreen() {
           })}
         </div>
         <div className="flex items-center justify-between mt-[18px] gap-3 flex-wrap">
-          <button
-            type="button"
-            className={`${therapyBtn} ${outlineControl}`}
+          <Button
+            variant="secondary"
+            icon={copied === "shortlist" ? Check : Copy}
             onClick={copyShortlist}
             disabled={!ranked.length}
           >
-            {copied === "shortlist" ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
             {copied === "shortlist" ? "Copied" : "Copy shortlist"}
-          </button>
-          <button type="button" className={`${therapyBtn} ${commandControl}`} onClick={b.goSearch}>
-            <SearchIcon size={16} strokeWidth={1.9} />
+          </Button>
+          <Button variant="primary" icon={Search} onClick={b.goSearch}>
             Refine in search
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -109,10 +109,10 @@ export function RecommendScreen() {
       ) : (
         <>
           {/* top match */}
-          <div className="bg-[color:var(--surface)] border border-[color:var(--border)] border-l-[3px] border-l-[color:var(--clinical-accent)] rounded-xl shadow-[var(--shadow-soft)] py-[22px] px-6 mb-[26px]">
+          <div className={`${heroCard} py-[22px] px-6 mb-[26px]`}>
             <div className="flex items-start gap-3.5 mb-[18px]">
               <span className="inline-flex items-center justify-center w-[40px] h-[40px] rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] flex-none">
-                <SparkleIcon size={20} strokeWidth={1.7} />
+                <Sparkles aria-hidden="true" size={20} strokeWidth={1.7} />
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2.5 flex-wrap mb-[5px]">
@@ -215,7 +215,7 @@ export function RecommendScreen() {
           </div>
 
           <div className="flex items-center gap-2 mt-[18px] text-xs text-[color:var(--text-muted)]">
-            <ShieldIcon size={15} className="text-[color:var(--decoration-soft)]" />
+            <Shield aria-hidden="true" size={15} className="text-[color:var(--decoration-soft)]" />
             Ranking is source-grounded and advisory. Confirm fit, cautions and review status before clinical use.
           </div>
         </>
@@ -240,7 +240,7 @@ function MatchCell({
       className={`bg-[color:var(--surface)] p-3.5 [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-[color:var(--text-muted)]${tone === "accent" ? " bg-[color:var(--clinical-accent-soft)]" : ""}`}
     >
       <div className="mb-2 flex items-center gap-1.5 text-2xs font-bold tracking-eyebrow">
-        <ArrowRightIcon size={13} strokeWidth={1.9} />
+        <ArrowRight aria-hidden="true" size={13} strokeWidth={1.9} />
         {eyebrow}
       </div>
       <p>{text}</p>
