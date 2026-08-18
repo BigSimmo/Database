@@ -54,10 +54,16 @@ export default defineConfig({
     baseURL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    // Disable CSS/web animations suite-wide so a click can't land mid-transition
-    // on a moving target (documented races in ui-stress/ui-smoke). The dedicated
-    // reduced-motion a11y spec emulates a per-test mode, so suite-wide settings
-    // remain stable across builds.
+    // Dual-mode motion validation strategy (#75JA0P):
+    // 1. Suite-wide baseline: set contextOptions: { reducedMotion: "reduce" } to
+    //    disable CSS/web animations suite-wide so clicks cannot land mid-transition
+    //    on moving targets (preventing race conditions in ui-stress/ui-smoke).
+    // 2. Dual-mode per-test coverage: motion-sensitive journeys (e.g. ui-phone-motion,
+    //    ui-phone-scroll, answer-progress-ui-smoke, ui-accessibility) explicitly
+    //    exercise both default motion (page.emulateMedia({ reducedMotion: "no-preference" }))
+    //    and reduced motion (page.emulateMedia({ reducedMotion: "reduce" })) to guarantee
+    //    neither default active transitions nor reduced-motion accessibility fallbacks freeze
+    //    or blank out UI elements.
     contextOptions: { reducedMotion: "reduce" },
     // In production builds the PWA worker (public/sw.js) registers in every test,
     // claims the page, and serves every subsequent navigation — bypassing route

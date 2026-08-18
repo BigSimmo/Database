@@ -27,6 +27,10 @@ Complete this section for clinical, data, API, auth/privacy, workflow, dependenc
 - Risk:
 - Rollback:
 - Provider or production effects: None / describe the explicitly authorized effect
+- RAG impact: Required if touching RAG ranking surfaces (`src/lib/rag/`, retrieval RPCs, golden fixtures, ranking tests; see `docs/rag-behaviour/safeguards.md`). Must use one of:
+  - `RAG impact: no retrieval behaviour change — <reason>`
+  - `RAG impact: behaviour change — canary pair <baseline run> -> <post run>`
+  - (Use `RAG impact: none` or omit for non-RAG PRs)
 
 ## Clinical Governance Preflight
 
