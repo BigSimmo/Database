@@ -1042,7 +1042,7 @@ export function SettingsDialog({
                 title="Development"
                 note="In-progress surfaces, reachable only in development builds. Not clinical content."
               >
-                <div className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
+                <div className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
                   <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Caring Contact</p>
                   <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
                     Linked prototype of the caring-contacts workflow. Synthetic data only — no patient record, message
