@@ -324,7 +324,7 @@ const PdfPageSlot = memo(function PdfPageSlot({
             <div
               data-testid="pdf-bbox-highlight"
               aria-hidden="true"
-              className="pointer-events-none absolute z-10 rounded border-2 border-[color:var(--clinical-accent,#2563eb)] bg-[color:var(--clinical-accent,#2563eb)]/15 shadow-[0_0_0_1px_rgba(255,255,255,0.7)] transition-all duration-[var(--duration-moderate,200ms)]"
+              className="pointer-events-none absolute z-10 rounded border-2 border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)]/15 shadow-[var(--glow-primary)]"
               style={{
                 left: overlayStyle.left,
                 top: overlayStyle.top,
