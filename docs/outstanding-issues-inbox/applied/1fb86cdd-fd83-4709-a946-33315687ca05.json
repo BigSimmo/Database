@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "1fb86cdd-fd83-4709-a946-33315687ca05",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#BTVMVK",
+    "outcome": "Cancelled as a duplicate of #342, which is now CLOSED: the Sentry search-route error was triaged and confirmed as crawler probe traffic with defensive handling already in place, resolved 2026-08-18. See #342's resolution row for the triage evidence.",
+    "baseRowFingerprint": "57be4c2cc6304ddd08f32a906409e38dc7bb1f742d11932fda2c57cb7f767e25"
+  }
+}

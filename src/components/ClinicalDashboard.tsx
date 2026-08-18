@@ -3059,15 +3059,17 @@ export function ClinicalDashboard({
   const desktopResultComposerSlotId =
     !desktopHomeComposerSlotId && searchMode !== "answer" ? desktopPageComposerSlotId : undefined;
   // Most mounted mode homes keep the in-flow hero pill on phones. Tools is the
-  // deliberate exception: its content-rich directory uses the shared compact
-  // footer on phones while retaining the hero composer from sm upward.
-  const heroComposerBreakpoint = showDesktopHomeComposer && activeModeResultKind !== "tools" ? "all" : "sm-up";
+  // deliberate exception: its content-rich directory keeps the compact footer.
+  // Modes borrowing `kind: "tools"` (Factsheets, Dictionary, Therapy Compass) opt back in via `showSharedHome`.
+  const heroComposerBreakpoint =
+    showDesktopHomeComposer && (showSharedHome || activeModeResultKind !== "tools") ? "all" : "sm-up";
   const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
   const hasMobileBottomSearch = searchMode !== "answer" && !heroOwnsPhoneComposer;
-  // Favourites and Tools are content-rich hubs: they share the centred hero but
-  // stay top-aligned so their lists start in a stable position.
+  // Favourites and Tools are content-rich hubs that stay top-aligned; the shared
+  // home mounts neither, so it centres like every other mode.
   const centeredModeHome =
-    showDesktopHomeComposer && activeModeResultKind !== "tools" && activeModeResultKind !== "favourites";
+    showDesktopHomeComposer &&
+    (showSharedHome || (activeModeResultKind !== "tools" && activeModeResultKind !== "favourites"));
   // Short mode homes (centred homes plus the services/forms registry homes)
   // drop the large mobile bottom padding so phones don't get a scrollbar for
   // content that already fits. Result views keep the full clearance.

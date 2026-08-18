@@ -1109,6 +1109,24 @@ summary::-webkit-details-marker {
   }
 }
 
+/* Shared-home verification reserve.
+ *
+ * The same jump the copy reserve above prevents, one block lower. On `/` the
+ * mode pill swaps the whole page's copy in place, and each mode's
+ * review-before-use caveat is a different length — measured in Chromium across
+ * every entry in sharedHomePresentation, the footer renders at 0, 18, 36 or
+ * 52px. Because the mode home is vertically centred, that difference moves the
+ * composer: Formulation sat 8px above Specifiers at 320px before this reserve.
+ *
+ * Flat rather than banded, unlike the copy reserve: Calculators' caveat wraps
+ * to three lines at every phone width, so a per-width band would resolve to the
+ * same value three times. 3 line boxes (leading-4) + the footer's own pt-0.5 +
+ * two gap-y-0.5 wrap gaps. Dead space below the shortest caveat costs nothing
+ * visible — it lands inside the centring gap, with no content beneath it. */
+:root {
+  --mode-home-verification-reserve: calc(3 * 1rem + 0.125rem + 2 * 0.125rem);
+}
+
 .mode-home-composer-slot {
   width: min(100%, clamp(19rem, 90vw, 52rem));
   max-width: calc(100vw - 1rem - var(--safe-area-left) - var(--safe-area-right));

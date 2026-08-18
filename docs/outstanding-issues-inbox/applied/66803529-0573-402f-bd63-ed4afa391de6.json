@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "66803529-0573-402f-bd63-ed4afa391de6",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Where the RAG improvement programme board lives, and to check it before starting RAG-surface work",
+    "detail": "The RAG improvement programme board lives at docs/rag-improvement/README.md (design), HANDOVER.md (packet status table + prompts) and COORDINATION.md (coordinator manual). Before starting any RAG-surface item, check that status table AND the open PR list (#292); packets S1-S3, G1, S4-S6 landed 2026-08-17/18; Track A complete.",
+    "source": "docs/rag-improvement/README.md, HANDOVER.md, COORDINATION.md; session 2026-08-18",
+    "issueUlid": "01M0AKCDY7GKFK9VHSVZQFVY6W"
+  }
+}

@@ -119,13 +119,22 @@ describe("mobile composer reserve contract", () => {
     // compact footer while retaining the hero from sm upward. Result/submitted
     // views also use "sm-up"; desktopHomeComposerSlotId is undefined there, so
     // heroOwnsPhoneComposer stays false regardless of the breakpoint value.
+    //
+    // The Tools exception is scoped to the mounted Tools directory: on the shared
+    // home the same short hero renders for every mode, so `showSharedHome` opts
+    // back in. Without it the modes that borrow `resultKind: "tools"` as a benign
+    // search kind (Factsheets, Dictionary, Therapy Compass) inherited the Tools
+    // dock on `/` and lost the hero composer, ticker and privacy notice.
     const dashboard = source("src/components/ClinicalDashboard.tsx");
     const header = source("src/components/clinical-dashboard/master-search-header.tsx");
     expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
     expect(dashboard).toMatch(
-      /const heroComposerBreakpoint =\s*showDesktopHomeComposer && activeModeResultKind !== "tools" \? "all" : "sm-up";/,
+      /const heroComposerBreakpoint =\s*showDesktopHomeComposer && \(showSharedHome \|\| activeModeResultKind !== "tools"\) \? "all" : "sm-up";/,
     );
     expect(dashboard).not.toContain('const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";');
+    expect(dashboard).not.toMatch(
+      /const heroComposerBreakpoint =\s*showDesktopHomeComposer && activeModeResultKind !== "tools" \? "all" : "sm-up";/,
+    );
     expect(dashboard).toContain(
       'const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',
     );
