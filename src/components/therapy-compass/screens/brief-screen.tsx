@@ -142,9 +142,9 @@ export function BriefScreen() {
                       <button
                         key={x.slug}
                         type="button"
-                        className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-left aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:border-l-[3px] aria-pressed:border-l-[color:var(--clinical-accent)] aria-pressed:bg-[color:var(--clinical-accent-soft)]`}
+                        className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-left aria-[current=true]:border-[color:var(--clinical-accent-border)] aria-[current=true]:border-l-[3px] aria-[current=true]:border-l-[color:var(--clinical-accent)] aria-[current=true]:bg-[color:var(--clinical-accent-soft)]`}
                         onClick={() => b.select(x.slug)}
-                        aria-pressed={active}
+                        aria-current={active ? "true" : undefined}
                       >
                         <span className="flex-1 min-w-0">
                           <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">
@@ -233,7 +233,7 @@ export function BriefScreen() {
                               <button
                                 data-print-hide
                                 type="button"
-                                className={`${therapyBtn} inline-flex min-h-tap items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-[color:var(--decoration-soft)] aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:text-[color:var(--clinical-accent)]${copied === `step-${i}` ? " " : ""}`}
+                                className={`${therapyBtn} inline-flex min-h-tap items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-[color:var(--decoration-soft)] aria-[current=true]:border-[color:var(--clinical-accent-border)] aria-pressed:text-[color:var(--clinical-accent)]${copied === `step-${i}` ? " " : ""}`}
                                 onClick={() => copy(step, `step-${i}`)}
                                 title="Copy step"
                               >

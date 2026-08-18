@@ -209,9 +209,9 @@ export function TherapyListItem({
   return (
     <button
       type="button"
-      className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3.5 text-left aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:bg-[color:var(--clinical-accent-soft)]`}
+      className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3.5 text-left aria-[current=true]:border-[color:var(--clinical-accent-border)] aria-[current=true]:bg-[color:var(--clinical-accent-soft)]`}
       onClick={onClick}
-      aria-pressed={active}
+      aria-current={active ? "true" : undefined}
     >
       <IconTile icon={Scale} size={38} variant={active ? "accent" : "soft"} />
       <span className="min-w-0 flex-1">
