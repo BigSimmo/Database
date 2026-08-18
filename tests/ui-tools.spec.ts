@@ -933,12 +933,15 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     const specifiersModeButton = page.getByRole("button", { name: "Mode Specifiers" });
     await expect(specifiersModeButton).toBeFocused();
     await expect(sharedHome.getByRole("heading", { level: 2, name: "Diagnostic Specifiers" })).toBeVisible();
-    // The shared home carries the mode's own subtitle and caveat, so pin the
-    // copy itself rather than a paragraph count that moves with the design.
+    // The shared home carries the mode's own subtitle, so pin the copy itself
+    // rather than a paragraph count that moves with the design.
     await expect(sharedHome.getByText("Check specifier fit and exclusions.", { exact: true })).toBeVisible();
+    // The caveat line that used to sit under the composer is gone from every
+    // mode home. This is the browser-level half of that contract — the
+    // structural half is tests/mode-home-no-caveat-footer.test.ts.
     await expect(
       sharedHome.getByText("Review criteria and exclusions before documenting", { exact: true }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-tags\b/);
     await expect(visibleGlobalSearchInput(page)).toHaveAttribute(
       "placeholder",

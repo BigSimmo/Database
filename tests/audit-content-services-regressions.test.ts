@@ -160,10 +160,11 @@ describe("content and services audit regressions", () => {
     );
     expect(formsHomeSource).toContain("local confirmation");
     // The "Source catalogue reviewed · Official-source MHA 2014 forms · verify
-    // before use" line was removed with every other mode-home caveat footer, so
-    // the home must not carry it (or a replacement) under the composer.
+    // before use" line went with every other mode-home caveat footer. The
+    // enforceable version of that rule lives in tests/mode-home-no-caveat-footer.test.ts,
+    // which pins the footer's call sites structurally; a bare string check here
+    // would pass against a reworded or differently-named replacement.
     expect(formsHomeSource).not.toContain("Source catalogue reviewed");
-    expect(formsHomeSource).not.toContain("ModeHomeVerificationFooter");
   });
 
   it("does not render negative or text-only source statuses as verified", () => {
