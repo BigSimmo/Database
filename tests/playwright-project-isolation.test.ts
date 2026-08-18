@@ -35,6 +35,28 @@ describe("Playwright production-project isolation", () => {
     expect(source).toMatch(/name: ["']chromium-mockups["'],\s+testMatch: mockupSpecPattern,\s+grep: mockupTag,/m);
   });
 
+  it("collects the linked caring-contact prototype only in the advisory mockup project", () => {
+    const source = readFileSync(resolve(process.cwd(), "playwright.config.ts"), "utf8");
+    const productionSpecPattern = configPattern(source, "productionSpecPattern");
+    const mockupSpecPattern = configPattern(source, "mockupSpecPattern");
+    const testMatch = source.match(/testMatch:\s*(\/.*\/),/);
+    expect(testMatch, "playwright.config.ts: could not read the top-level testMatch regex").not.toBeNull();
+    const testMatchPattern = new RegExp(testMatch![1].slice(1, -1));
+    const spec = "tests/ui-caring-contact-mockup.spec.ts";
+
+    expect(existsSync(resolve(process.cwd(), spec)), `${spec} is missing`).toBe(true);
+    expect(testMatchPattern.test(spec), `${spec} is not collected by top-level testMatch`).toBe(true);
+    expect(mockupSpecPattern.test(spec), `${spec} is not collected by chromium-mockups`).toBe(true);
+    expect(productionSpecPattern.test(spec), `${spec} leaked into required production projects`).toBe(false);
+
+    const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as {
+      scripts?: Record<string, string>;
+    };
+    expect(packageJson.scripts?.["test:e2e:caring-contact-mockup"]).toBe(
+      "node scripts/run-playwright.mjs --project=chromium-mockups tests/ui-caring-contact-mockup.spec.ts",
+    );
+  });
+
   /**
    * The phone-scroll coverage is split across sibling spec files so no single
    * file can dominate one `--shard`. That split only holds if every sibling is
