@@ -28,6 +28,17 @@ describe("searchShellPropsForPathname", () => {
     });
   });
 
+  it("keeps tools in the hero from tablet up and uses the shared phone footer", () => {
+    const expectedToolsShell = {
+      initialMode: "tools",
+      desktopSearchPlacement: "hero",
+      mobileHomeComposerPlacement: "footer",
+    } as const;
+
+    expect(searchShellPropsForPathname("/tools")).toEqual(expectedToolsShell);
+    expect(searchShellPropsForPathname("/tools/interaction-checker")).toEqual(expectedToolsShell);
+  });
+
   it("maps therapy and home fallbacks", () => {
     expect(searchShellPropsForPathname("/therapy-compass/search")).toEqual({
       initialMode: "therapy-compass",
@@ -35,10 +46,22 @@ describe("searchShellPropsForPathname", () => {
     expect(searchShellPropsForPathname("/")).toEqual({ initialMode: "answer" });
   });
 
-  it("hides the shell composer on calculators (page-owned)", () => {
-    expect(searchShellPropsForPathname("/calculators")).toEqual({
-      initialMode: "tools",
+  it("keeps the composer on dictionary search surfaces and drops it on the governance page", () => {
+    expect(searchShellPropsForPathname("/dictionary/search")).toEqual({
+      initialMode: "dictionary",
+      desktopSearchPlacement: "hero",
+    });
+    expect(searchShellPropsForPathname("/dictionary/sources")).toEqual({
+      initialMode: "dictionary",
+      desktopSearchPlacement: "hero",
       searchComposerVisible: false,
+    });
+  });
+
+  it("assigns calculator home and results search to the shared shell", () => {
+    expect(searchShellPropsForPathname("/calculators")).toEqual({
+      initialMode: "calculators",
+      desktopSearchPlacement: "hero",
     });
   });
 });

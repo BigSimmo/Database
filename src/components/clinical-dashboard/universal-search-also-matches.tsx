@@ -5,6 +5,7 @@ import { ChevronDown, Layers } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
+import { shouldRunUniversalAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches-state";
 import { useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
@@ -39,6 +40,13 @@ export function UniversalSearchAlsoMatches({
   const { favouritesAccessible } = useFavouritesAccess(auth.status === "authenticated", clientDemoMode);
   const trimmedQuery = query.trim();
   const panelId = useId();
+  // Answer threads can be restored on an unsubmitted shared home. Keep their
+  // prior cross-mode panel tied to a submitted URL rather than the mere
+  // presence of a persisted answer object.
+  const submissionActive = shouldRunUniversalAlsoMatches(
+    modeId,
+    typeof window === "undefined" ? null : window.location.search,
+  );
   // Collapsed by default on phones so this cross-mode panel does not push the
   // primary results down; desktop always shows the grid (see the sm: rules below),
   // so the toggle state only governs the narrow-viewport disclosure.
@@ -67,7 +75,7 @@ export function UniversalSearchAlsoMatches({
   // Prescribing hides this panel entirely (see early return below). Keep the
   // fetch disabled too so wide viewports never fire `/api/search/universal`
   // for results that cannot render.
-  const searchActive = modeId !== "prescribing" && (isWide || modeId === "answer" || expanded);
+  const searchActive = modeId !== "prescribing" && submissionActive && (isWide || modeId === "answer" || expanded);
   const universal = useUniversalSearch({
     query: trimmedQuery,
     enabled: trimmedQuery.length >= 2 && searchActive,
@@ -119,7 +127,7 @@ export function UniversalSearchAlsoMatches({
   // Medication search is already a tightly scoped clinical result surface. Do
   // not add cross-mode suggestions above its prescribing results: they displace
   // the medication count, patient details, and primary matches on phones.
-  if (modeId === "prescribing") return null;
+  if (modeId === "prescribing" || !submissionActive) return null;
   if (!viewportReady || trimmedQuery.length < 2) return null;
   if (modeId === "answer" && currentGroups.length === 0) return null;
   if (isWide && !searchPending && currentGroups.length === 0) return null;

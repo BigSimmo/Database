@@ -20,8 +20,9 @@ the report; record that fetch separately because the report itself performs no p
 ## Trigger
 
 - User types `/issues` (optionally with a subcommand or filter below).
-- User says **`issues list`**: refresh the artifact from the current worktree's
-  `docs/outstanding-issues.md`, then open `C:\Users\joshs\OneDrive\ISSUES-LIST.html` in Codex.
+- User says **`issues list`**: read the queue back from the current worktree's
+  `docs/outstanding-issues.md`. There is no separate artifact to open — see "The canonical
+  ledger is the register" below.
 - User asks to add / close / update / list / capture an outstanding task, recommendation, or issue.
 
 ## Default: `/issues` (read-only)
@@ -102,21 +103,17 @@ part of an ordinary product PR.
 - Respect the repo's RAG/clinical/privacy flagging rules if an item _itself_ touches a protected
   surface — recording it here is fine, but acting on it later still needs the usual gate.
 
-## Refresh the visual register
+## The canonical ledger is the register
 
-`docs/outstanding-issues.md` remains the canonical rendered source. Queueing a request does not
-change it, so do not refresh the visual artifact after `add`, `update`, `done`, `capture`, or a
-ledger sweep. Refresh only after a successful reconciliation or before opening an `issues list`:
+`docs/outstanding-issues.md` is the sole canonical, cross-platform register. Read it directly, or
+through `npm run issues:report -- --json`. There is no second artifact to refresh, and no step of
+this skill produces one.
 
-```powershell
-& 'C:\Users\joshs\.codex\scripts\refresh-issues-list.ps1' -LedgerPath (Join-Path (Get-Location) 'docs\outstanding-issues.md')
-```
-
-Require the decisive `ISSUES_LIST_UPDATED` line. The stable artifact is
-`C:\Users\joshs\OneDrive\ISSUES-LIST.html`. If refresh fails, do not undo a valid ledger mutation;
-report that the Markdown source is current and the visual artifact is stale. Still proceed to the
-reconciliation handoff — a stale visual artifact must not invalidate a successful canonical
-transaction.
+The legacy `ISSUES-LIST.html` visual register was **retired on 2026-08-18** by ledger issue `#338`,
+precisely because it could only be refreshed from one Windows machine and so drifted silently as
+work moved to container and cloud sessions. Do not refresh it, do not report it as stale after a
+reconciliation, and do not improvise a substitute renderer — a reconciliation that updates the
+canonical Markdown is complete on its own.
 
 ## Persist the memory (commit)
 

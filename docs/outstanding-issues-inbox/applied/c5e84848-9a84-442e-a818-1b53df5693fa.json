@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "c5e84848-9a84-442e-a818-1b53df5693fa",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#189",
+    "outcome": "Route-level budget pinned via PR #1950 (16 round trips: auth/ratelimit/scope/enrichment/telemetry). The x3 text-RPC fan-out (match_document_chunks_text_v2 / match_document_table_facts_text_v2) is disposed as INTENTIONAL: src/lib/rag/rag-candidate-sources.ts fans out maxTextRpcQueryVariants (3) lexical query-variant phrasings for recall, with an existing PT-02 early exit (firstVariantPoolIsStrong) that skips sibling RPCs when the primary pool is already strong. No retrieval-behaviour change made; collapsing further would need a RAG flag plus a live canary, out of scope for this PR."
+  }
+}

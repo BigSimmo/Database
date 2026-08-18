@@ -2,17 +2,22 @@ import { existsSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { sourceSegment } from "./helpers/source-contract";
+
 const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 const therapyPath = "src/components/therapy-compass";
 
 const globalsSource = read("src/app/globals.css");
 const controlsSource = read(`${therapyPath}/controls.ts`);
-const therapyNavSource = read(`${therapyPath}/nav.tsx`);
+const registryModeNavSource = read("src/components/mode-nav/registry-mode-nav.tsx");
 const therapyCardSource = read(`${therapyPath}/therapy-card.tsx`);
+const therapyFavouriteSource = read(`${therapyPath}/use-therapy-favourite.ts`);
 const workspaceSource = read(`${therapyPath}/workspace.tsx`);
 const homeSource = read(`${therapyPath}/screens/home-screen.tsx`);
 const modeHomeComposerSource = read("src/lib/mode-home-composer.ts");
 const modeHomeTemplateSource = read("src/components/mode-home-template.tsx");
+const informationPageShellSource = read("src/components/information-page-shell.tsx");
+const printOutputSource = read("src/components/ui/print-output.tsx");
 const detailSource = read(`${therapyPath}/screens/detail-screen.tsx`);
 const compareSource = read(`${therapyPath}/screens/compare-screen.tsx`);
 const recommendSource = read(`${therapyPath}/screens/recommend-screen.tsx`);
@@ -24,9 +29,17 @@ const otherSource = read(`${therapyPath}/screens/other-screen.tsx`);
 /**
  * A fixed multi-column grid must collapse to a single column on phones via
  * Tailwind's mobile-first `grid-cols-1` + `sm:grid-cols-*`.
+ *
+ * Both className spellings count. This used to read only `className="…"`, so a
+ * grid written as `className={`${cardSurface} grid-cols-1 sm:grid-cols-…`}` was
+ * invisible to the check — not failing it, simply never counted. Adopting the
+ * shared `cardSurface` recipe moved several of these grids to the template form
+ * and exposed the hole: the compare grid still stacked on phones exactly as
+ * before, and the count silently fell to zero. Matching both forms is the
+ * stronger condition, because it measures the reflow rather than the quoting.
  */
 function responsiveStackCount(source: string) {
-  return source.match(/className="[^"]*\bgrid-cols-1\b[^"]*\bsm:grid-cols-/g)?.length ?? 0;
+  return source.match(/className=(?:"|\{`)[^"`]*\bgrid-cols-1\b[^"`]*\bsm:grid-cols-/g)?.length ?? 0;
 }
 
 function openingTagWith(source: string, tagName: string, attributes: string[]) {
@@ -59,9 +72,10 @@ describe("Therapy Compass responsive contract", () => {
     // The sideways-scrolling pill strip is retired: Therapy's nav is the shared
     // bar, which folds its overflow into a sheet rather than off the screen
     // edge. Its own density and centring contract lives in mode-nav-contract.
-    expect(therapyNavSource).toContain("ModeNav");
-    expect(therapyNavSource).not.toContain("overflow-x-auto");
-    expect(therapyNavSource).not.toContain("w-fit");
+    expect(registryModeNavSource).toContain("ModeNav");
+    expect(registryModeNavSource).toContain('"therapy-compass": "balanced-four"');
+    expect(registryModeNavSource).not.toContain("overflow-x-auto");
+    expect(registryModeNavSource).not.toContain("w-fit");
     expect(globalsSource).toContain("position: relative;");
   });
 
@@ -72,12 +86,29 @@ describe("Therapy Compass responsive contract", () => {
     // The portal is `ModeNavHeaderPortal`'s job now, not the mode's — it claims
     // the same slot at every width rather than only below the phone seam.
     expect(read("src/components/mode-nav/mode-nav-portal.tsx")).toContain("phoneHeaderCollapseAddonSlotId");
-    expect(therapyNavSource).not.toContain("PhoneHeaderCollapsePortal");
+    expect(registryModeNavSource).not.toContain("PhoneHeaderCollapsePortal");
   });
 
   it("puts every therapy screen on the shared content rail", () => {
     // Three rails used to disagree: header max-w-7xl, bar full-bleed, body on
-    // bespoke 1240/1180px caps. `pageContainer` is the repo's canonical token.
+    // bespoke 1240/1180px caps. Catalogue screens use `pageContainer`
+    // directly; information routes inherit the same rail from the shared shell.
+    for (const [name, source] of [
+      ["compare", compareSource],
+      ["recommend", recommendSource],
+      ["pathways", pathwaysSource],
+      ["other", otherSource],
+    ] as const) {
+      expect(source, `${name} screen`).toContain("pageContainer");
+    }
+    expect(informationPageShellSource).toContain("pageContainer");
+    for (const [name, source] of [
+      ["detail", detailSource],
+      ["brief", briefSource],
+      ["sheets", sheetsSource],
+    ] as const) {
+      expect(source, `${name} screen`).toContain("InformationPageShell");
+    }
     for (const [name, source] of [
       ["detail", detailSource],
       ["compare", compareSource],
@@ -87,7 +118,6 @@ describe("Therapy Compass responsive contract", () => {
       ["sheets", sheetsSource],
       ["other", otherSource],
     ] as const) {
-      expect(source, `${name} screen`).toContain("pageContainer");
       expect(source, `${name} screen`).not.toContain("max-w-[1240px]");
       expect(source, `${name} screen`).not.toContain("max-w-[1180px]");
     }
@@ -97,7 +127,6 @@ describe("Therapy Compass responsive contract", () => {
 
   it("keeps phone reflow and comparison scroll residuals in globals.css", () => {
     expect(globalsSource).toMatch(/@media \(max-width: 640px\)/);
-    expect(globalsSource).toContain(".therapy-compare-table");
     expect(globalsSource).toContain("overflow-x: auto !important;");
     expect(globalsSource).toContain("[data-therapy-scroll-sm]");
   });
@@ -118,11 +147,9 @@ describe("Therapy Compass responsive contract", () => {
     expect(homeSource).toContain("ModeHomeVerificationFooter");
     expect(responsiveStackCount(detailSource)).toBeGreaterThanOrEqual(1);
     expect(detailSource).toContain("max-sm:static");
-    expect(
-      responsiveStackCount(compareSource) + (compareSource.includes("therapy-compare-tabs") ? 1 : 0),
-    ).toBeGreaterThanOrEqual(1);
-    expect(compareSource).toContain("therapy-compare-tabs");
-    expect(compareSource).toContain("therapy-compare-table");
+    expect(responsiveStackCount(compareSource)).toBeGreaterThanOrEqual(1);
+    expect(compareSource).toContain("<Tabs");
+    expect(compareSource).toContain("<SegmentedControl");
     expect(compareSource).toContain("data-therapy-scroll-sm");
     expect(responsiveStackCount(recommendSource)).toBeGreaterThanOrEqual(1);
     expect(responsiveStackCount(pathwaysSource)).toBeGreaterThanOrEqual(1);
@@ -146,10 +173,9 @@ describe("Therapy Compass responsive contract", () => {
   });
 
   it("lets result-card evidence and actions use the phone width without forcing the desktop grid", () => {
-    const resultCardSource = therapyCardSource.slice(
-      therapyCardSource.indexOf("export function ResultCard"),
-      therapyCardSource.indexOf("function CardCell"),
-    );
+    const resultCardSource = sourceSegment(therapyCardSource, "export function ResultCard", "function CardCell", {
+      label: "therapy ResultCard",
+    });
 
     expect(resultCardSource).toContain("data-therapy-result-card");
     expect(resultCardSource).toContain("md:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)]");
@@ -160,22 +186,14 @@ describe("Therapy Compass responsive contract", () => {
     expect(resultCardSource).not.toContain("<IconTile");
   });
 
-  it("renders the unavailable Favourite action honestly disabled", () => {
-    const favouriteButton = therapyCardSource.match(
-      /<button[\s\S]*?title="Favourite saving is not available yet"[\s\S]*?<\/button>/,
-    )?.[0];
-
-    expect(favouriteButton).toBeTruthy();
-    // `aria-disabled` + the shared inert handler, not the native attribute: the
-    // reason lives in the title, and `disabled` would take the only route to it
-    // (the tab stop) away. The handler is what makes the control do nothing —
-    // its presence is the contract, so this no longer asserts "no onClick".
-    expect(favouriteButton).toContain('aria-disabled="true"');
-    expect(favouriteButton).not.toMatch(/(^|\s)disabled(\s|=|$)/);
-    expect(favouriteButton).toContain("onClick={ignoreUnavailableActivation}");
-    expect(favouriteButton).toContain('aria-label="Favourite saving is not available yet"');
-    expect(favouriteButton).toContain("iconControl");
-    expect(controlsSource).toContain("aria-disabled:cursor-not-allowed");
+  it("keeps the Favourite action wired and surfaces mutation failures", () => {
+    expect(therapyCardSource).toContain("useTherapyFavourite(therapy.slug)");
+    expect(therapyCardSource).toContain("onClick={() => void toggleFavourite()}");
+    expect(therapyCardSource).toContain("aria-pressed={saved}");
+    expect(therapyCardSource).toContain('role="status"');
+    expect(therapyFavouriteSource).toContain('await accountData.setFavourite("therapy", slug, nowSaved)');
+    expect(therapyFavouriteSource).toContain("Sign in or create an account to save therapies.");
+    expect(therapyFavouriteSource).toContain("Save failed. Try again.");
   });
 
   it("keeps search result cards dense: single-row tags, top favourite, clamped match cells", () => {
@@ -207,42 +225,39 @@ describe("Therapy Compass responsive contract", () => {
   });
 
   it("uses complete toggle semantics and preserves full-size control hit targets", () => {
-    const briefGroupTag = openingTagWith(briefSource, "div", [
-      'role="group"',
-      'aria-label="Brief intervention duration"',
-    ]);
-    const compareGroupTag = openingTagWith(compareSource, "div", ['role="group"', 'aria-label="Comparison fields"']);
-    expect(briefGroupTag).toBeTruthy();
-    expect(compareGroupTag).toBeTruthy();
-
-    for (const state of ['b.briefTab === "5min"', 'b.briefTab === "15min"', 'b.briefTab === "ground"']) {
-      expect(openingTagWith(briefSource, "button", [`aria-pressed={${state}}`])).toBeTruthy();
-    }
-    for (const state of ['b.cmpTab === "priorities"', 'b.cmpTab === "differences"', 'b.cmpTab === "all"']) {
-      expect(openingTagWith(compareSource, "button", [`aria-pressed={${state}}`])).toBeTruthy();
-    }
-    expect(briefSource).not.toContain('role="tab"');
-    expect(briefSource).not.toContain("aria-selected=");
-    expect(compareSource).not.toContain('role="tab"');
-    expect(compareSource).not.toContain("aria-selected=");
+    // Indentation is not the contract. These used to pin the exact leading
+    // whitespace of each opening tag, so moving the density control into a
+    // `PageHeader` `actions` slot — which re-indents it and changes nothing
+    // else — failed an assertion about toggle semantics. `openingTagWith` is
+    // the stronger condition: it proves the element really is that component
+    // AND carries the labelling attribute, and unlike a raw substring it
+    // cannot be satisfied by matching prose elsewhere in the file.
+    expect(openingTagWith(briefSource, "Tabs", ['label="Brief intervention duration"'])).toBeTruthy();
+    expect(openingTagWith(compareSource, "Tabs", ['label="Comparison fields"'])).toBeTruthy();
+    expect(openingTagWith(compareSource, "SegmentedControl", ['label="Comparison density"'])).toBeTruthy();
+    expect(openingTagWith(sheetsSource, "SegmentedControl", ['label="Reading level and tone"'])).toBeTruthy();
 
     const pickerTriggerTag = openingTagWith(sheetsSource, "button", ["aria-expanded={open}"]);
     expect(pickerTriggerTag).toBeTruthy();
 
-    expect(globalsSource).toContain("[data-therapy-clinician-track]");
-    expect(globalsSource).toContain("width: var(--spacing-tap);");
-    expect(globalsSource).toContain("[data-therapy-clinician-track]::before");
-    expect(sheetsSource).toContain("data-therapy-clinician-track");
+    expect(sheetsSource).toContain("<ToggleSwitch");
+    expect(sheetsSource).toContain('aria-label="Show clinician footer"');
   });
 
-  it("scopes print hiding and page sizing to the mounted Therapy route", () => {
-    const pageRuleStart = globalsSource.indexOf("@page therapy-compass-sheet");
+  it("uses shared print output ownership with route-scoped paper styling", () => {
+    expect(briefSource).toContain("<PrintOutput");
+    expect(sheetsSource).toContain("<PrintOutput");
+    expect(printOutputSource).toContain("data-print-output");
+    expect(printOutputSource).toContain("data-print-provenance");
+    expect(printOutputSource).toContain('data-therapy-paper={paperTone === "therapy" ? "" : undefined}');
+
+    const pageRuleStart = globalsSource.indexOf("@page shared-clinical-output");
     expect(pageRuleStart).toBeGreaterThanOrEqual(0);
     const printBlock = globalsSource.slice(pageRuleStart, pageRuleStart + 1200);
 
-    expect(printBlock).toContain("body:has([data-therapy-root]) *");
-    expect(printBlock).toContain("body:has([data-therapy-root]) [data-therapy-paper]");
-    expect(printBlock).toContain("page: therapy-compass-sheet;");
+    expect(printBlock).toContain("body:has([data-print-output]) *");
+    expect(printBlock).toContain("body:has([data-print-output]) [data-print-output]");
+    expect(printBlock).toContain("page: shared-clinical-output;");
     expect(printBlock).not.toMatch(/\n\s*body\s+\*/);
   });
 });
@@ -262,7 +277,17 @@ describe("clinical accent contrast contract", () => {
       expect(source).not.toMatch(/background:var\(--clinical-accent\);color:#(?:fff|ffffff)/i);
       expect(source).not.toMatch(/bg-\[color:var\(--clinical-accent\)\][^"\n]*\btext-white\b/);
     }
-    expect(controlsSource).toContain("text-[color:var(--clinical-accent-contrast)]");
+    // This used to assert that `controls.ts` paired its accent fill with the
+    // semantic contrast token, which was `accentControl`'s job. That recipe is
+    // gone: therapy's filled action is the shared `Button` on the `--command`
+    // triplet, per COMPONENTS.md section 9.1, whose token list does not include
+    // `--clinical-accent`. So the requirement is now the stronger one — no accent
+    // fill in `controls.ts` at all — and the pairing is asserted where the accent
+    // fill actually survives, on `IconTile` in `ui.tsx`.
+    expect(controlsSource).not.toContain("bg-[color:var(--clinical-accent)]");
+    expect(read(`${therapyPath}/ui.tsx`)).toContain(
+      "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]",
+    );
     expect(homeSource).toContain("ModeHomeTemplate");
     expect(homeSource).not.toMatch(/background:var\(--clinical-accent\);color:#(?:fff|ffffff)/i);
     expect(homeSource).not.toMatch(/bg-\[color:var\(--clinical-accent\)\][^"\n]*\btext-white\b/);

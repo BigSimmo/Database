@@ -6,6 +6,7 @@ import {
   commandDropdownCanDisplay,
   commandDropdownMinimumWidthMediaQuery,
   commandDropdownPointerMediaQuery,
+  commandSurfaceRemoteSearchEnabled,
   differentialRedFlagTerms,
   filteredSuggestions,
   isFormCodeQuery,
@@ -44,6 +45,12 @@ describe("search command surface", () => {
     expect(specifiers?.examples.length).toBeGreaterThan(0);
     expect(specifiers?.suggestions.length).toBeGreaterThan(0);
     expect(specifiers?.crossModes).toContain("formulation");
+  });
+
+  it("keeps calculator suggestions local while preserving remote typeahead elsewhere", () => {
+    expect(commandSurfaceRemoteSearchEnabled("calculators")).toBe(false);
+    expect(commandSurfaceRemoteSearchEnabled("documents")).toBe(true);
+    expect(commandSurfaceRemoteSearchEnabled("therapy-compass")).toBe(false);
   });
 
   it("detects form code queries", () => {

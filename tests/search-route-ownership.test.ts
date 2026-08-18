@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { sourceFrom, sourceSegment } from "./helpers/source-contract";
+
 import {
   isAlwaysStandaloneShellPath,
   isDashboardModeHref,
@@ -23,6 +25,7 @@ describe("shared-search route ownership", () => {
       "formulation",
       "therapy-compass",
       "tools",
+      "calculators",
     ] as const) {
       expect(shouldRenderDashboardSearch({ hasSubmittedSearch: true, mode, pathname: `/${mode}` })).toBe(false);
     }
@@ -65,6 +68,7 @@ describe("shared-search route ownership", () => {
       "/factsheets",
       "/therapy-compass",
       "/tools",
+      "/calculators",
       "/documents",
       "/medications",
     ]) {
@@ -227,13 +231,18 @@ describe("shared-search route ownership", () => {
 
   it("keeps the mode pill from navigating while the shared home is showing", () => {
     const dashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
-    const selectSearchMode = dashboardSource.slice(dashboardSource.indexOf("function selectSearchMode("));
+    const selectSearchMode = sourceFrom(dashboardSource, "function selectSearchMode(", {
+      label: "selectSearchMode",
+    });
 
     // Isolate the shared-home branch so the negative assertions below cannot be
-    // satisfied by unrelated code further down selectSearchMode.
-    const branchStart = selectSearchMode.indexOf("if (showSharedHome) {");
-    expect(branchStart).toBeGreaterThan(-1);
-    const sharedHomeBranch = selectSearchMode.slice(branchStart, selectSearchMode.indexOf("\n    }", branchStart));
+    // satisfied by unrelated code further down selectSearchMode. The end marker
+    // is an indentation depth, which is why it goes through the guarded helper:
+    // unguarded, a reformat would turn every negative assertion below into a
+    // vacuous pass rather than a failure.
+    const sharedHomeBranch = sourceSegment(selectSearchMode, "if (showSharedHome) {", "\n    }", {
+      label: "selectSearchMode shared-home branch",
+    });
 
     // `/` is the single home page. On it the pill only retargets the composer:
     // rewrite `?mode=` in place, never push a route and never re-render the page.
@@ -253,14 +262,18 @@ describe("shared-search route ownership", () => {
     // Returning home must invalidate the in-flight search before clearing UI —
     // the dashboard stays mounted, so a late applySearchResult would otherwise
     // restore the old answer and rewrite run=1 over the draft home.
-    const leaveResultsBranch = selectSearchMode.slice(
-      selectSearchMode.indexOf("// Outside the shared home"),
-      selectSearchMode.indexOf("function stageAnswerFollowUpDraft"),
+    const leaveResultsBranch = sourceSegment(
+      selectSearchMode,
+      "// Outside the shared home",
+      "function stageAnswerFollowUpDraft",
+      { label: "selectSearchMode leave-results branch" },
     );
     expect(leaveResultsBranch).toMatch(/stopSearch\(\);\s*clearModeResultState\(\);/);
-    expect(selectSearchMode.slice(0, selectSearchMode.indexOf("function stageAnswerFollowUpDraft"))).not.toContain(
-      "crossModeSearch(mode, carriedQuery)",
-    );
+    expect(
+      sourceSegment(selectSearchMode, "function selectSearchMode(", "function stageAnswerFollowUpDraft", {
+        label: "selectSearchMode before stageAnswerFollowUpDraft",
+      }),
+    ).not.toContain("crossModeSearch(mode, carriedQuery)");
     expect(dashboardSource).toContain('if (pathname === "/" && !submittedUrlRunRequested) return;');
     expect(dashboardSource).toContain("if (modeChangeFromUiRef.current && !submittedUrlModeMatchesActive) return;");
     // Ask-this / cross-mode into Answer must not depend solely on auto-run: the
@@ -269,13 +282,15 @@ describe("shared-search route ownership", () => {
       /if \(mode === "answer" \|\| mode === "documents"\) \{[\s\S]*?void executeSearch\(crossQuery, mode/,
     );
     expect(dashboardSource).toMatch(
-      /const showSharedHome =\s*isHomeRoute &&\s*!submittedUrlRunRequested &&[\s\S]*?!submittedAnswerSearchActive;/,
+      /const showSharedHome = shouldShowSharedHome\(\{[\s\S]*?pathname,[\s\S]*?mode: searchParams\.get\("mode"\),[\s\S]*?submittedAnswerSearchActive,[\s\S]*?\}\);/,
     );
   });
 
   it("routes a submitted shared-composer search to the selected mode's own surface", () => {
     const dashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
-    const ask = dashboardSource.slice(dashboardSource.indexOf("async function ask("));
+    const ask = sourceFrom(dashboardSource, "async function ask(", {
+      label: "ClinicalDashboard async function ask",
+    });
 
     // Before this branch existed, every mode except documents/prescribing fell
     // through to an in-place executeSearch. That was only safe while `/` plus a

@@ -61,7 +61,7 @@ function SlotInk({
         <Icon
           aria-hidden="true"
           className={cn(
-            "h-[1.0625rem] w-[1.0625rem] shrink-0",
+            "size-icon-md shrink-0",
             state === "on"
               ? "text-[color:var(--clinical-accent)]"
               : state === "trail"
@@ -209,10 +209,7 @@ export function ModeNav({
             )}
           >
             {active ? (
-              <active.icon
-                aria-hidden="true"
-                className="h-[1.0625rem] w-[1.0625rem] text-[color:var(--clinical-accent)]"
-              />
+              <active.icon aria-hidden="true" className="size-icon-md text-[color:var(--clinical-accent)]" />
             ) : null}
             <span className="min-w-0 flex-1 truncate">{active ? active.label : label}</span>
             {active ? (

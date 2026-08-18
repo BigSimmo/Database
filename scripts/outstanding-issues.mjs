@@ -12,18 +12,17 @@
 //     that had since been archived (the gate caught it as a cell-count error,
 //     which is a confusing way to be told "wrong table")
 //   - an unescaped `|` inside prose splitting one row into extra cells
-//   - ids allocated by reading the marker by eye and colliding with a
-//     concurrent branch
+//   - ids formerly allocated by reading a numeric marker by eye and colliding
+//     with a concurrent branch
 //
 // So the rules live in ONE place: this writer imports the gate's parser rather
 // than re-deriving where the tables are or how wide they are, and it re-runs the
 // gate against its own output before writing. A refusal here is the same
 // refusal CI would give, minus the round trip.
 //
-// It deliberately does NOT solve id collisions between concurrent branches:
-// allocation is still read-modify-write against the marker, so two branches can
-// still pick the same number. That is ledger #156 / #168 territory and needs a
-// different id scheme, not a better writer.
+// New rows use a request-owned durable ULID and a permanent Crockford display
+// locator. The locator starts at six characters and extends only on collision;
+// existing sequential ids remain valid and are never rewritten.
 //
 // Usage:
 //   node scripts/outstanding-issues.mjs add --pri P2 --type issue \
@@ -41,9 +40,11 @@
 // visible row by row in review.
 
 import { readFileSync, writeFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { ISSUES_PATH, canonicalId, checkIssues, parseIssues } from "./check-outstanding-issues.mjs";
+import { ISSUES_PATH, checkIssues, parseIssues } from "./check-outstanding-issues.mjs";
+import { allocateDisplayId, displayIdForUlid, issueIdCell, issueIdCitations, issueUlid } from "./issue-id.mjs";
 
 const OPEN_CELLS = 7; // ID | Pri | Type | Summary | Detail / next action | Source | Added
 const ARCHIVE_CELLS = 5; // ID | Type | Summary | Outcome | Resolved
@@ -124,8 +125,7 @@ function isQueueSeparatorRow(cells) {
  * - Renumbers Order 1..N to close gaps (skill contract).
  */
 export function pruneResolvedIdFromQueue(markdown, id) {
-  const target = Number(String(id).replace(/^#/, ""));
-  if (!Number.isFinite(target)) return markdown;
+  const target = String(id);
 
   const lines = markdown.split("\n");
   const queueStart = lines.findIndex((line) => line.startsWith("## Recommended execution queue"));
@@ -142,15 +142,15 @@ export function pruneResolvedIdFromQueue(markdown, id) {
     if (cells.length < 2 || isQueueHeaderRow(cells) || isQueueSeparatorRow(cells)) continue;
 
     const idCell = cells[1] ?? "";
-    const cited = [...idCell.matchAll(/#(\d+)/g)].map((match) => Number(match[1]));
+    const cited = issueIdCitations(idCell);
     if (!cited.includes(target)) continue;
 
-    const remaining = cited.filter((number) => number !== target);
+    const remaining = cited.filter((candidate) => candidate !== target);
     if (remaining.length === 0) {
       lines.splice(index, 1);
       continue;
     }
-    cells[1] = remaining.map((number) => `\`${canonicalId(number)}\``).join(", ");
+    cells[1] = remaining.map((candidate) => `\`${candidate}\``).join(", ");
     lines[index] = buildRow(cells);
   }
 
@@ -196,12 +196,12 @@ export function addIssue(markdown, fields, options = {}) {
 
   return guarded(markdown, (current) => {
     const parsed = parseIssues(current);
-    if (parsed.nextId === null) throw new Error("no issues:next-id marker found");
     if (parsed.openStart < 0) throw new Error("no '## Open items' heading found");
 
-    const id = canonicalId(parsed.nextId);
+    const ulid = String(fields.issueUlid ?? options.issueUlid ?? issueUlid());
+    const id = allocateDisplayId(ulid, new Set(parsed.rows.filter((entry) => entry.valid).map((entry) => entry.id)));
     const row = buildRow([
-      id,
+      issueIdCell(id, ulid),
       pri,
       type,
       escapeCell(fields.summary),
@@ -218,9 +218,7 @@ export function addIssue(markdown, fields, options = {}) {
 
     const lines = current.split("\n");
     lines.splice(anchor + 1, 0, row);
-    let next = lines.join("\n");
-    next = next.replace(/<!--\s*issues:next-id=\d+\s*-->/, `<!-- issues:next-id=${parsed.nextId + 1} -->`);
-    return next;
+    return lines.join("\n");
   });
 }
 
@@ -323,32 +321,35 @@ function selfTest() {
     if (!condition) failures.push(label);
   };
 
-  // add: lands in the OPEN table, takes the marker's id, bumps it.
+  const testUlid = issueUlid(Date.UTC(2026, 1, 2), new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
+  const testId = displayIdForUlid(testUlid);
+
+  // add: lands in the OPEN table with a durable, collision-free identity.
   const added = addIssue(
     fixture,
     { pri: "P1", type: "rec", summary: "third", detail: "d", source: "s" },
-    { date: "2026-02-02" },
+    { date: "2026-02-02", issueUlid: testUlid },
   );
   const addedParsed = parseIssues(added);
   check(
-    "add uses the marker id",
-    addedParsed.rows.some((r) => r.id === "#017" && r.table === "open"),
+    "add stores the derived display id",
+    addedParsed.rows.some((r) => r.id === testId && r.ulid === testUlid && r.table === "open"),
   );
-  check("add bumps the marker", addedParsed.nextId === 18);
-  check("add appends after the last open row", added.indexOf("#017") > added.indexOf("#016"));
-  check("add stays out of the archive", !addedParsed.rows.some((r) => r.id === "#017" && r.table === "archive"));
+  check("add leaves the deprecated marker untouched", addedParsed.nextId === 17);
+  check("add appends after the last open row", added.indexOf(testId) > added.indexOf("#016"));
+  check("add stays out of the archive", !addedParsed.rows.some((r) => r.id === testId && r.table === "archive"));
 
   // The wrong-table failure that motivated this writer: appending must not land
   // in the archive even though an archived row sits later in the file.
-  check("add lands before the archive heading", added.indexOf("| #017 ") < added.indexOf("## Resolved / archive"));
+  check("add lands before the archive heading", added.indexOf(`| ${testId} `) < added.indexOf("## Resolved / archive"));
 
   // escaping: a pipe in prose must not become a column.
   const piped = addIssue(
     fixture,
     { pri: "P2", type: "task", summary: "a | b", detail: "c | d" },
-    { date: "2026-02-02" },
+    { date: "2026-02-02", issueUlid: testUlid },
   );
-  const pipedRow = parseIssues(piped).rows.find((r) => r.id === "#017");
+  const pipedRow = parseIssues(piped).rows.find((r) => r.id === testId);
   check("pipes are escaped, not new cells", splitCells(pipedRow.raw).length === OPEN_CELLS);
   check("escaped pipe survives in the text", pipedRow.raw.includes("a \\| b"));
 
@@ -492,7 +493,8 @@ function main() {
   }
 
   const [command, positional] = argv;
-  const markdown = readFileSync(ISSUES_PATH, "utf8");
+  const issuesFile = path.resolve(process.cwd(), ISSUES_PATH);
+  const markdown = readFileSync(issuesFile, "utf8");
   let next;
 
   try {
@@ -524,12 +526,15 @@ function main() {
     return;
   }
 
-  writeFileSync(ISSUES_PATH, next, "utf8");
+  writeFileSync(issuesFile, next, "utf8");
   const parsed = parseIssues(next);
   const open = parsed.rows.filter((r) => r.table === "open").length;
   const archived = parsed.rows.filter((r) => r.table === "archive").length;
-  console.log(`${ISSUES_PATH} updated: ${open} open, ${archived} archived, next-id=${parsed.nextId}.`);
+  console.log(`${ISSUES_PATH} updated: ${open} open, ${archived} archived, collision-free id allocation enabled.`);
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const invokedDirectly =
+  process.argv[1] &&
+  (import.meta.url === pathToFileURL(process.argv[1]).href ||
+    fileURLToPath(import.meta.url) === path.resolve(process.argv[1]));
 if (invokedDirectly) main();

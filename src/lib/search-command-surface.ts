@@ -9,6 +9,8 @@ export type SearchCommandSurfaceConfig = {
   examples: string[];
   suggestions: CommandSuggestion[];
   crossModes: AppModeId[];
+  /** Defaults to true. Set false when a mode's search contract is entirely local. */
+  remoteSearchEnabled?: boolean;
 };
 
 export type CommandSurfacePlacement = "bottom-dock" | "inline";
@@ -141,10 +143,35 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     ],
     crossModes: ["documents", "prescribing", "forms", "favourites"],
   },
+  calculators: {
+    examples: ["depression severity", "anxiety screening", "alcohol use"],
+    suggestions: [
+      { text: "depression severity", meta: "PHQ-9" },
+      { text: "anxiety screening", meta: "GAD-7" },
+      { text: "alcohol use", meta: "AUDIT-C" },
+    ],
+    crossModes: ["documents", "forms", "tools"],
+    remoteSearchEnabled: false,
+  },
+  factsheets: {
+    examples: ["sertraline", "lithium monitoring", "CBT"],
+    suggestions: [
+      { text: "sertraline (Zoloft)", meta: "Medications" },
+      { text: "lithium monitoring", meta: "Tests & procedures" },
+      { text: "CBT", meta: "Therapies" },
+    ],
+    crossModes: ["prescribing", "dsm", "documents"],
+    remoteSearchEnabled: false,
+  },
 };
 
 export function searchCommandSurfaceConfig(modeId: AppModeId): SearchCommandSurfaceConfig | null {
   return searchCommandSurfaceByMode[modeId] ?? null;
+}
+
+export function commandSurfaceRemoteSearchEnabled(modeId: AppModeId) {
+  const config = searchCommandSurfaceConfig(modeId);
+  return Boolean(config && config.remoteSearchEnabled !== false);
 }
 
 export const differentialRedFlagTerms = ["confusion", "overdose", "suicid", "chest pain", "unresponsive", "catatoni"];

@@ -9,6 +9,7 @@ import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/r
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
+import { isPublicDocument } from "@/lib/documents/is-public-document";
 import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
 
     // Verify document access
     const { data: documents, error: documentError } = await withOwnerReadScope(
-      supabase.from("documents").select("id,metadata").in("id", documentIds),
+      supabase.from("documents").select("id,owner_id,metadata").in("id", documentIds),
       access.ownerId,
     );
 
@@ -91,26 +92,53 @@ export async function POST(request: Request) {
       return NextResponse.json({ urls: {} });
     }
 
-    const storagePaths = validImages.map((img) => img.storage_path);
-    const signed = await supabase.storage
-      .from(env.SUPABASE_IMAGE_BUCKET)
-      .createSignedUrls(storagePaths, signedUrlTtlSeconds);
-
-    if (signed.error) throw new Error(signed.error.message);
-
-    const signedUrlMap = new Map(signed.data.map((res) => [res.path, res.signedUrl]));
+    // Split valid images into public corpus images (skip signing) and private images (sign).
+    const publicImages = validImages.filter((img) => {
+      const doc = documentMap.get(img.document_id) ?? null;
+      return isPublicDocument(doc as Parameters<typeof isPublicDocument>[0]);
+    });
+    const privateImages = validImages.filter((img) => {
+      const doc = documentMap.get(img.document_id) ?? null;
+      return !isPublicDocument(doc as Parameters<typeof isPublicDocument>[0]);
+    });
 
     const urls: Record<string, { url: string; mimeType: string | null; caption: string | null; expiresAt: string }> =
       {};
-    for (const img of validImages) {
-      const signedUrl = signedUrlMap.get(img.storage_path);
-      if (signedUrl) {
+
+    // Public corpus images: use a public (unsigned) URL — no signed-URL overhead.
+    for (const img of publicImages) {
+      const { data } = supabase.storage.from(env.SUPABASE_IMAGE_BUCKET).getPublicUrl(img.storage_path);
+      if (data?.publicUrl) {
         urls[img.id] = {
-          url: signedUrl,
+          url: data.publicUrl,
           mimeType: img.mime_type,
           caption: img.caption,
           expiresAt: new Date(Date.now() + signedUrlTtlSeconds * 1000).toISOString(),
         };
+      }
+    }
+
+    // Private images: create signed URLs in a single batch call.
+    if (privateImages.length > 0) {
+      const storagePaths = privateImages.map((img) => img.storage_path);
+      const signed = await supabase.storage
+        .from(env.SUPABASE_IMAGE_BUCKET)
+        .createSignedUrls(storagePaths, signedUrlTtlSeconds);
+
+      if (signed.error) throw new Error(signed.error.message);
+
+      const signedUrlMap = new Map(signed.data.map((res) => [res.path, res.signedUrl]));
+
+      for (const img of privateImages) {
+        const signedUrl = signedUrlMap.get(img.storage_path);
+        if (signedUrl) {
+          urls[img.id] = {
+            url: signedUrl,
+            mimeType: img.mime_type,
+            caption: img.caption,
+            expiresAt: new Date(Date.now() + signedUrlTtlSeconds * 1000).toISOString(),
+          };
+        }
       }
     }
 

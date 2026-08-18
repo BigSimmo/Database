@@ -57,12 +57,22 @@ force-push, or discard work.
    End the message with:
    `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 5. **Push** the feature branch: `git push -u origin <branch>`. Per-PR auto-merge state is user-owned:
-   automation must not disable it. If the branch already has an open PR with auto-merge armed,
-   leave it mutation-frozen; do not push or change the branch/base until it merges or the user
+   automation must not disable or re-enable it. If the branch already has an open PR with auto-merge
+   armed, an ordinary fast-forward push (this step) is still safe — GitHub re-validates required
+   checks against the new head before it merges. Never force-push, rewrite history, or change the
+   branch/base while auto-merge is armed; that alone stays frozen until the PR merges or the user
    manually changes that state. Never pipe the push through `tail`,
    `head`, or another command that can mask its status. Confirm the remote tip equals local HEAD
    with `git ls-remote` before reporting success. The pre-push guards run
    (auto-merge sentinel, format, drift) — heed a block rather than overriding blindly.
+
+   **Restarting a branch whose PR already merged:** GitHub deletes the remote branch on merge,
+   so the local `origin/<branch>` ref is stale and `--force-with-lease` fails with `stale info`
+   before it ever reaches the remote. That is not a lease violation to override — run
+   `git remote prune origin` and push normally. There is nothing to force: the branch no longer
+   exists remotely, so the push creates it fresh. Observed 2026-08-14 restarting this branch
+   after PR #1944 merged.
+
 6. **Open a PR** with `gh pr create --base main`, body ending with the Claude Code
    attribution line. Write the body from `.github/pull_request_template.md` in full normal
    prose — exact `## Summary` / `## Verification` / `## Risk and rollout` / (when clinical-risk

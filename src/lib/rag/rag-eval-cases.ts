@@ -87,7 +87,7 @@ export type AnswerQualityMetricScore = {
 
 export const answerQualityMetricLabels: Record<AnswerQualityMetric, string> = {
   relevance: "Answer addresses the requested entity and task.",
-  readability: "Answer is grammatical, concise, and not fragment-like.",
+  readability: "Answer is not fragment-like, and its length is within the v19 answer+sections contract.",
   artifact_leaks: "Answer avoids backend, admin, provenance, and template wording.",
   intent_coverage: "Answer includes the action, dose, schedule, document list, or gap required by intent.",
   fail_closed: "Unsupported or weakly supported answers refuse specifically instead of guessing.",
@@ -138,6 +138,39 @@ function citesOrNamesExpectedDocument(testCase: AnswerQualityEvalCase, answer: R
   );
 }
 
+// Readability is scored as TWO independent checks that share one metric key, because
+// `AnswerQualityMetric` is a closed union consumed by `scripts/eval-answer-quality.ts` as a total
+// `Record<AnswerQualityMetric, number>` — a sixth key would break that aggregation (and the metric-key
+// pins in tests/rag-eval-cases.test.ts) without adding evaluative power. Each check therefore reports
+// its own reason so a failure names which contract it broke.
+//
+// Check 1 — FRAGMENTATION (unchanged): the regression this metric exists to catch. Answer text that
+// carries OCR/table run-together artefacts.
+//
+// Check 2 — LENGTH: a floor for empty/stub answers, and a ceiling derived from what prompt
+// `clinical-rag-answer-v19` can legitimately emit. Before packet S2 the ceiling was a flat 220 words
+// over `answerTextForQuality` (answer + every section heading and body). S2 (#2097, `dda4956ff`) moved
+// the answer field to 60–110 words and sections to three-to-six, so a correctly shaped v19 answer can
+// exceed 220 — at which point one conflated boolean could no longer separate "longer by design" from
+// "fragmented", the regression it is here for.
+//
+// Derivation of ANSWER_MAX_WORDS, from S2's own targets and the enforced response schema:
+//   answer field        110 words   `rag-answer-instructions.ts` upper target ("about 60-110 words")
+//   sections                6       `answerSections.maxItems` in `rag.ts` (= the prompt's "three to six")
+//   per section       648 chars     `heading` maxLength 48 + `body` maxLength 600, both in `rag.ts`
+//   chars per word          5       deliberately low, so the char->word conversion OVERSTATES the word
+//                                   ceiling; this bound must never fail a well-formed answer.
+//   => 110 + 6 * (648 / 5) = 110 + 777.6 -> 900 words (rounded up)
+//
+// This is a CONTRACT ceiling, not a style ceiling: conciseness is enforced by the prompt itself and
+// measured by `scoreAnswerTargeting`. Exceeding 900 words means the answer could not have come from a
+// schema-conformant generation — runaway duplication, or a deterministic composition path
+// (`rag-extractive-answer.ts`, `rag-comparison.ts`) that builds a RagAnswer in code without the JSON
+// schema. Both are real defects. Raising or lowering either bound is a gate-semantic change and needs
+// an `eval_config_version` bump in `scripts/fixtures/rag-adversarial-baseline.v1.json`.
+const ANSWER_MIN_WORDS = 5;
+const ANSWER_MAX_WORDS = 900;
+
 export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answer: RagAnswer) {
   const text = answerTextForQuality(answer);
   const sourceBackedReviewStub = isSourceBackedReviewFallback(answer);
@@ -160,7 +193,14 @@ export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answ
         expectedFileCoverage(testCase.expectedFiles, answer.citations, answer.citations.length).anyHit
       : answer.grounded && answer.citations.length >= testCase.minCitations && expectedClassOk
     : unsupported;
-  const readabilityOk = wordCount >= 5 && wordCount <= 220 && !fragmentPattern.test(text);
+  const fragmentedText = fragmentPattern.test(text);
+  const lengthOk = wordCount >= ANSWER_MIN_WORDS && wordCount <= ANSWER_MAX_WORDS;
+  const readabilityOk = !fragmentedText && lengthOk;
+  const readabilityReasons = [
+    ...(fragmentedText ? ["fragmented"] : []),
+    ...(wordCount < ANSWER_MIN_WORDS ? [`too short (${wordCount} words < ${ANSWER_MIN_WORDS})`] : []),
+    ...(wordCount > ANSWER_MAX_WORDS ? [`too long (${wordCount} words > ${ANSWER_MAX_WORDS})`] : []),
+  ];
   const artifactOk = !artifactPattern.test(text) && containsNone(text, testCase.mustNotContain);
   const intentOk = !sourceBackedReviewStub && containsAny(text, testCase.mustContainAny);
   const failClosedOk =
@@ -171,7 +211,7 @@ export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answ
     {
       metric: "readability",
       score: readabilityOk ? 1 : 0,
-      reason: readabilityOk ? "readable" : "fragmented or too long",
+      reason: readabilityOk ? "readable" : readabilityReasons.join("; "),
     },
     { metric: "artifact_leaks", score: artifactOk ? 1 : 0, reason: artifactOk ? "clean" : "artifact wording present" },
     {
@@ -762,7 +802,7 @@ export const ragEvalCases: RagEvalCase[] = [
     expectedQueryClass: "medication_dose_risk",
     supported: true,
     expectedFiles: ["CG.MHSP.ClozapinePresAdminMonitor.pdf"],
-    allowedRoutes: ["extractive", "fast"],
+    allowedRoutes: ["extractive", "fast", "strong"],
     minCitations: 1,
     latencyTargetMs: 2000,
   },
@@ -805,7 +845,7 @@ export const ragEvalCases: RagEvalCase[] = [
     expectedQueryClass: "medication_dose_risk",
     supported: true,
     expectedFiles: ["MHSP.AgitationArousalPharmaMgt.pdf"],
-    allowedRoutes: ["extractive", "fast"],
+    allowedRoutes: ["extractive", "fast", "strong"],
     minCitations: 2,
     latencyTargetMs: 2000,
   },
@@ -845,7 +885,7 @@ export const ragEvalCases: RagEvalCase[] = [
     category: "routine",
     supported: true,
     expectedFiles: ["MHSP.LongActingInjectable.pdf"],
-    allowedRoutes: ["extractive", "fast"],
+    allowedRoutes: ["extractive", "fast", "strong"],
     minCitations: 2,
     latencyTargetMs: 2000,
   },
@@ -1075,7 +1115,7 @@ export const ragEvalCases: RagEvalCase[] = [
     expectedQueryClass: "medication_dose_risk",
     supported: true,
     expectedFiles: ["CG.MHSP.ClozapinePresAdminMonitor.pdf"],
-    allowedRoutes: ["extractive", "fast"],
+    allowedRoutes: ["extractive", "fast", "strong"],
     minCitations: 1,
     latencyTargetMs: 2000,
   },
@@ -1098,7 +1138,7 @@ export const ragEvalCases: RagEvalCase[] = [
     category: "routine",
     supported: true,
     expectedFiles: ["CG.MHSP.ClozapinePresAdminMonitor.pdf"],
-    allowedRoutes: ["extractive", "fast"],
+    allowedRoutes: ["extractive", "fast", "strong"],
     minCitations: 1,
     latencyTargetMs: 2000,
     requireVisualEvidence: true,
@@ -1112,7 +1152,7 @@ export const ragEvalCases: RagEvalCase[] = [
     expectedQueryClass: "medication_dose_risk",
     supported: true,
     expectedFiles: ["MHSP.AgitationArousalPharmaMgt.pdf"],
-    allowedRoutes: ["extractive", "fast"],
+    allowedRoutes: ["extractive", "fast", "strong"],
     minCitations: 1,
     latencyTargetMs: 2000,
   },

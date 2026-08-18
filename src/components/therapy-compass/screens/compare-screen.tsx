@@ -1,34 +1,42 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useMemo, useState } from "react";
+import {
+  Check,
+  CirclePlay,
+  Clock,
+  Copy,
+  Info,
+  Plus,
+  Scale,
+  Search,
+  Shield,
+  Target,
+  TriangleAlert,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 
+import { cardSurface } from "@/components/card-recipes";
+import { PageHeader } from "@/components/ui/page-header";
 import { pageContainer } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Tabs } from "@/components/ui/tabs";
 
-import { MAX_COMPARE, useTcBindings } from "../bindings";
-import { commandControl, outlineControl, therapyBtn } from "../controls";
+import { THERAPY_MAX_COMPARE } from "@/lib/therapy-compass-navigation";
+
+import { useTcBindings } from "../bindings";
+import { therapyBtn } from "../controls";
 import { needsReviewCount, parseSteps, searchTherapies, shortestDelivery, summarise } from "../data/select";
 import type { Therapy } from "../data/types";
-import {
-  AlertIcon,
-  CheckIcon,
-  ClockIcon,
-  CopyIcon,
-  CrosshairIcon,
-  InfoIcon,
-  PlayIcon,
-  PlusIcon,
-  ScaleIcon,
-  SearchIcon,
-  ShieldIcon,
-  XIcon,
-} from "../icons";
 import { EmptyState } from "../ui";
 import { useClipboard } from "../use-clipboard";
 
 type Row = {
   key: string;
   label: string;
-  icon: (p: { size?: number; strokeWidth?: number }) => ReactNode;
+  icon: LucideIcon;
   tone?: "warning";
   priority?: boolean;
   get: (t: Therapy) => string;
@@ -38,7 +46,7 @@ const ROWS: Row[] = [
   {
     key: "avoid",
     label: "When not to use",
-    icon: AlertIcon,
+    icon: TriangleAlert,
     tone: "warning",
     priority: true,
     get: (t) => summarise(t.contraindicationsOrCautions, 1) || "Check source before use.",
@@ -46,23 +54,23 @@ const ROWS: Row[] = [
   {
     key: "fit",
     label: "Best fit",
-    icon: CrosshairIcon,
+    icon: Target,
     priority: true,
     get: (t) => t.bestUsedFor || t.targetSymptoms || "—",
   },
   {
     key: "first",
     label: "What to do first",
-    icon: PlayIcon,
+    icon: CirclePlay,
     get: (t) => parseSteps(t.deliverySteps)[0] || summarise(t.mechanism, 1) || "—",
   },
-  { key: "time", label: "Time required", icon: ClockIcon, get: (t) => t.timeRequired || t.sessionLength || "—" },
-  { key: "setting", label: "Setting", icon: ShieldIcon, get: (t) => t.setting || t.patientPopulation || "—" },
-  { key: "complexity", label: "Clinician skill / complexity", icon: ScaleIcon, get: (t) => t.complexity || "—" },
+  { key: "time", label: "Time required", icon: Clock, get: (t) => t.timeRequired || t.sessionLength || "—" },
+  { key: "setting", label: "Setting", icon: Shield, get: (t) => t.setting || t.patientPopulation || "—" },
+  { key: "complexity", label: "Clinician skill / complexity", icon: Scale, get: (t) => t.complexity || "—" },
   {
     key: "evidence",
     label: "Evidence level",
-    icon: ShieldIcon,
+    icon: Shield,
     tone: "warning",
     priority: true,
     get: (t) => t.evidenceLevel || (t.reviewStatus === "reviewed" ? "Reviewed" : "Source review required"),
@@ -92,64 +100,49 @@ export function CompareScreen() {
       "set",
     );
 
-  const cols = `minmax(180px,1.1fr) ${items.map(() => "minmax(160px,1fr)").join(" ")}`;
   const dense = b.density === "dense";
-  const cellPad = dense ? "11px 16px" : "15px 20px";
 
   return (
     <section data-screen-label="Compare" className={pageContainer}>
-      <div className="flex items-start justify-between gap-5 mb-1.5 flex-wrap">
-        <div>
-          <div className="flex items-baseline gap-3 flex-wrap">
-            <h1 className="m-0 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
-              Therapy Comparison
-            </h1>
-            <span className="text-sm-minus font-semibold text-[color:var(--clinical-accent-hover)] bg-[color:var(--clinical-accent-soft)] py-[3px] px-2.5 rounded-md">
-              {items.length} of 4 selected
-            </span>
-          </div>
-          <p className="mt-1.5 mx-0 mb-0 text-sm text-[color:var(--text-muted)]">
-            Compare fit, cautions, delivery and evidence without losing source context.
-          </p>
-        </div>
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="flex gap-0.5 p-[3px] bg-[color:var(--surface-inset)] rounded-lg">
-            <button
-              type="button"
-              className={`${therapyBtn} ${b.segComfortable}`}
-              onClick={b.setComfortable}
-              aria-pressed={b.density === "comfortable"}
+      <PageHeader
+        className="mb-1.5"
+        title="Therapy Comparison"
+        description="Compare fit, cautions, delivery and evidence without losing source context."
+        // The selection count moves from beside the title to `meta`, the slot
+        // documented for exactly this. It was baseline-aligned with the `<h1>`,
+        // which is not something `PageHeader` offers — and should not, since a
+        // count that grows cannot share a line with a title that wraps.
+        meta={
+          <span className="text-sm-minus font-semibold text-[color:var(--clinical-accent-hover)] bg-[color:var(--clinical-accent-soft)] py-[3px] px-2.5 rounded-md">
+            {items.length} of 4 selected
+          </span>
+        }
+        actions={
+          <>
+            <SegmentedControl
+              label="Comparison density"
+              value={b.density}
+              onChange={(value) => (value === "dense" ? b.setDense() : b.setComfortable())}
+              options={[
+                { value: "comfortable", label: "Comfortable" },
+                { value: "dense", label: "Dense" },
+              ]}
+              className="w-auto"
+            />
+            <Button
+              variant="secondary"
+              icon={copied === "set" ? Check : Copy}
+              onClick={copySet}
+              disabled={items.length < 2}
             >
-              Comfortable
-            </button>
-            <button
-              type="button"
-              className={`${therapyBtn} ${b.segDense}`}
-              onClick={b.setDense}
-              aria-pressed={b.density === "dense"}
-            >
-              Dense
-            </button>
-          </div>
-          <button
-            type="button"
-            className={`${therapyBtn} ${outlineControl}`}
-            onClick={copySet}
-            disabled={items.length < 2}
-          >
-            {copied === "set" ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
-            {copied === "set" ? "Copied" : "Copy set"}
-          </button>
-          <button
-            type="button"
-            className={`${therapyBtn} ${outlineControl}`}
-            onClick={b.clearCompare}
-            disabled={items.length === 0}
-          >
-            Clear
-          </button>
-        </div>
-      </div>
+              {copied === "set" ? "Copied" : "Copy set"}
+            </Button>
+            <Button variant="secondary" onClick={b.clearCompare} disabled={items.length === 0}>
+              Clear
+            </Button>
+          </>
+        }
+      />
 
       <div className="flex gap-3 my-[18px] mx-0 flex-wrap items-center">
         <AddPicker />
@@ -158,7 +151,7 @@ export function CompareScreen() {
             key={t.slug}
             className="flex items-center gap-2 h-[46px] pt-0 pr-2 pb-0 pl-3.5 border border-[color:var(--border)] rounded-lg bg-[color:var(--surface)] shadow-[var(--e1)]"
           >
-            <ScaleIcon size={15} className="text-[color:var(--decoration-soft)]" />
+            <Scale aria-hidden="true" size={15} className="text-[color:var(--decoration-soft)]" />
             <span className="text-sm-minus font-semibold text-[color:var(--text-heading)] max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap">
               {t.name}
             </span>
@@ -168,7 +161,7 @@ export function CompareScreen() {
               onClick={() => b.removeCompare(t.slug)}
               title={`Remove ${t.name}`}
             >
-              <XIcon size={15} strokeWidth={1.9} />
+              <X aria-hidden="true" size={15} strokeWidth={1.9} />
             </button>
           </span>
         ))}
@@ -176,20 +169,19 @@ export function CompareScreen() {
 
       {items.length < 2 ? (
         <EmptyState
-          icon={ScaleIcon}
+          icon={Scale}
           title={items.length === 0 ? "Add therapies to compare" : "Add one more therapy"}
           body="Pick two to four therapies — from search results, a therapy record, or the add box above — to compare fit, cautions, delivery and evidence side by side."
           action={
-            <button type="button" className={`${therapyBtn} ${commandControl}`} onClick={b.goSearch}>
-              <SearchIcon size={16} strokeWidth={1.9} />
+            <Button variant="primary" icon={Search} onClick={b.goSearch}>
               Find therapies to compare
-            </button>
+            </Button>
           }
         />
       ) : (
         <>
           {/* decision summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-[1.1fr_1fr_1fr] bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] overflow-hidden mb-5">
+          <div className={`${cardSurface} grid grid-cols-1 sm:grid-cols-[1.1fr_1fr_1fr] overflow-hidden mb-5`}>
             <div className="py-5 px-[22px]">
               <div className="text-base-minus font-semibold text-[color:var(--text-heading)]">Decision summary</div>
             </div>
@@ -202,88 +194,100 @@ export function CompareScreen() {
           </div>
 
           {/* tabs */}
-          <div
-            className="therapy-compare-tabs flex gap-[26px] border-b border-[color:var(--border)] mb-0.5"
-            role="group"
-            aria-label="Comparison fields"
+          <Tabs
+            label="Comparison fields"
+            value={b.cmpTab}
+            onChange={(value) => {
+              if (value === "priorities") b.setTabPriorities();
+              else if (value === "differences") b.setTabDifferences();
+              else b.setTabAll();
+            }}
+            items={[
+              { id: "priorities", label: "Priorities" },
+              { id: "differences", label: "Differences" },
+              { id: "all", label: "All fields" },
+            ]}
           >
-            <button
-              type="button"
-              className={`${therapyBtn} ${b.tabPriorities}`}
-              onClick={b.setTabPriorities}
-              aria-pressed={b.cmpTab === "priorities"}
+            {/* table */}
+            <div
+              data-therapy-scroll-sm
+              role="region"
+              aria-label="Therapy comparison table"
+              tabIndex={0}
+              className="overflow-x-auto rounded-xs border border-[color:var(--border)] shadow-[var(--shadow-soft)]"
             >
-              Priorities
-            </button>
-            <button
-              type="button"
-              className={`${therapyBtn} ${b.tabDifferences}`}
-              onClick={b.setTabDifferences}
-              aria-pressed={b.cmpTab === "differences"}
-            >
-              Differences
-            </button>
-            <button
-              type="button"
-              className={`${therapyBtn} ${b.tabAll}`}
-              onClick={b.setTabAll}
-              aria-pressed={b.cmpTab === "all"}
-            >
-              All fields
-            </button>
-          </div>
-
-          {/* table */}
-          <div
-            data-therapy-scroll-sm
-            className="therapy-compare-table bg-[color:var(--surface)] border border-[color:var(--border)] border-t-0 rounded-xs shadow-[var(--shadow-soft)] overflow-hidden"
-            style={{ "--tc-compare-columns": cols, "--tc-compare-cell-padding": cellPad } as CSSProperties}
-          >
-            <div className="therapy-compare-grid bg-[color:var(--surface-subtle)]">
-              <div className="py-4 px-5 text-sm-minus font-semibold text-[color:var(--text-muted)]">Field</div>
-              {items.map((t) => (
-                <div key={t.slug} className="py-3.5 px-5 border-l border-[color:var(--border)]">
-                  <div className="flex items-center gap-[7px]">
-                    <ScaleIcon size={15} className="text-[color:var(--decoration-soft)]" />
-                    <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
-                  </div>
-                  <div
-                    className={
-                      t.reviewStatus === "reviewed"
-                        ? "mt-[3px] text-2xs font-semibold text-[color:var(--success-text)]"
-                        : "mt-[3px] text-2xs font-semibold text-[color:var(--warning-text)]"
-                    }
-                  >
-                    {t.reviewStatus === "reviewed" ? "Reviewed" : "Needs review"}
-                  </div>
-                </div>
-              ))}
+              <table className="w-full min-w-[720px] border-collapse bg-[color:var(--surface)] text-left">
+                <caption className="sr-only">Therapy comparison by clinical field</caption>
+                <thead className="bg-[color:var(--surface-subtle)]">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="min-w-[180px] px-5 py-4 text-sm-minus font-semibold text-[color:var(--text-muted)]"
+                    >
+                      Field
+                    </th>
+                    {items.map((t) => (
+                      <th
+                        key={t.slug}
+                        scope="col"
+                        className="min-w-[160px] border-l border-[color:var(--border)] px-5 py-3.5 align-top"
+                      >
+                        <div className="flex items-center gap-[7px]">
+                          <Scale aria-hidden="true" size={15} className="text-[color:var(--decoration-soft)]" />
+                          <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
+                        </div>
+                        <div
+                          className={
+                            t.reviewStatus === "reviewed"
+                              ? "mt-[3px] text-2xs font-semibold text-[color:var(--success-text)]"
+                              : "mt-[3px] text-2xs font-semibold text-[color:var(--warning-text)]"
+                          }
+                        >
+                          {t.reviewStatus === "reviewed" ? "Reviewed" : "Needs review"}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, ri) => {
+                    const warn = r.tone === "warning";
+                    const stripe = ri % 2 === 1;
+                    const rowTone = warn
+                      ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"
+                      : stripe
+                        ? "bg-[color:var(--surface-subtle)]"
+                        : "bg-[color:var(--surface)]";
+                    return (
+                      <tr key={r.key} className={rowTone}>
+                        <th
+                          scope="row"
+                          className={`border-t border-[color:var(--border)] font-semibold ${dense ? "px-4 py-3" : "px-5 py-4"}`}
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <r.icon size={16} strokeWidth={1.7} />
+                            {r.label}
+                          </span>
+                        </th>
+                        {items.map((t) => (
+                          <td
+                            key={t.slug}
+                            className={`border-l border-t border-[color:var(--border)] align-top text-sm-minus leading-normal ${dense ? "px-4 py-3" : "px-5 py-4"}`}
+                          >
+                            {r.get(t)}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            {rows.map((r, ri) => {
-              const warn = r.tone === "warning";
-              const stripe = ri % 2 === 1;
-              return (
-                <div
-                  key={r.key}
-                  className={`therapy-compare-grid bg-[color:var(--surface)]${warn ? " bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : stripe ? " bg-[color:var(--surface-subtle)]" : ""}`}
-                >
-                  <div className="therapy-compare-row-label flex items-center">
-                    <r.icon size={16} strokeWidth={1.7} />
-                    {r.label}
-                  </div>
-                  {items.map((t) => (
-                    <div key={t.slug} className="therapy-compare-cell border-l border-[color:var(--border)]">
-                      {r.get(t)}
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex items-center gap-2 mt-4 text-xs text-[color:var(--text-muted)]">
-            <InfoIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
-            Comparisons are source-grounded. Review status reflects the latest source checks.
-          </div>
+            <div className="flex items-center gap-2 mt-4 text-xs text-[color:var(--text-muted)]">
+              <Info aria-hidden="true" size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
+              Comparisons are source-grounded. Review status reflects the latest source checks.
+            </div>
+          </Tabs>
         </>
       )}
     </section>
@@ -314,7 +318,7 @@ function SummaryCell({
 function AddPicker() {
   const b = useTcBindings();
   const [q, setQ] = useState("");
-  const atLimit = b.compareSlugs.length >= MAX_COMPARE;
+  const atLimit = b.compareSlugs.length >= THERAPY_MAX_COMPARE;
   const matches = useMemo(() => {
     if (atLimit || !q.trim()) return [];
     return searchTherapies(b.therapies, { query: q, tags: [], briefOnly: false, sheetOnly: false, reviewedOnly: false })
@@ -325,7 +329,12 @@ function AddPicker() {
   return (
     <div className="relative flex-1 min-w-[260px]">
       <label className="relative flex items-center">
-        <SearchIcon size={17} strokeWidth={1.8} className="absolute left-[14px] text-[color:var(--decoration-soft)]" />
+        <Search
+          aria-hidden="true"
+          size={17}
+          strokeWidth={1.8}
+          className="absolute left-[14px] text-[color:var(--decoration-soft)]"
+        />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -349,7 +358,7 @@ function AddPicker() {
                 setQ("");
               }}
             >
-              <PlusIcon size={15} className="text-[color:var(--clinical-accent)] flex-none" />
+              <Plus aria-hidden="true" size={15} className="text-[color:var(--clinical-accent)] flex-none" />
               <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
             </button>
           ))}

@@ -68,8 +68,24 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("strong_routine_retrieval");
   });
 
-  it("uses fast model synthesis for routine medication questions with strong single-source support", () => {
+  it("routes routine dosing-class questions to the strong model before the deadline is created", () => {
     const selected = route("What clozapine monitoring is required?", [source()]);
+
+    expect(selected.mode).toBe("strong");
+    expect(selected.model).toBe("strong-model");
+    expect(selected.reason).toBe("medication_dose_risk_strong_route");
+  });
+
+  it("routes bare dosing questions to the strong model instead of the fast fallthrough", () => {
+    const selected = route("Lithium dosing?", [source()]);
+
+    expect(selected.mode).toBe("strong");
+    expect(selected.model).toBe("strong-model");
+    expect(selected.reason).toBe("medication_dose_risk_strong_route");
+  });
+
+  it("keeps the table-threshold fallthrough on the fast synthesis route", () => {
+    const selected = route("What sedation score threshold applies?", [source({ text_rank: 0.05 })]);
 
     expect(selected.mode).toBe("fast");
     expect(selected.model).toBe("fast-model");
@@ -1145,8 +1161,9 @@ describe("RAG answer routing", () => {
   });
 
   it("retries a single-source clinical fast failure with the strong model when retrieval is strong", () => {
-    const selected = route("What clozapine monitoring is required?", [source()]);
+    const selected = route("What sedation score threshold applies?", [source({ text_rank: 0.05 })]);
 
+    expect(selected.reason).toBe("clinical_fast_grounded_synthesis");
     expect(
       shouldRetryWithStrongAfterFast({
         route: selected,
@@ -1156,9 +1173,22 @@ describe("RAG answer routing", () => {
           citations: [],
           routingReason: "structured_parse_fallback",
         },
-        results: [source()],
+        results: [source({ text_rank: 0.05 })],
       }),
     ).toBe(true);
+  });
+
+  it("never enters the after-fast strong retry for the pre-deadline dosing strong route", () => {
+    const selected = route("Lithium dosing?", [source()]);
+
+    expect(selected.mode).toBe("strong");
+    expect(
+      shouldRetryWithStrongAfterFast({
+        route: selected,
+        answer: { grounded: false, confidence: "unsupported", citations: [] },
+        results: [source()],
+      }),
+    ).toBe(false);
   });
 });
 

@@ -109,6 +109,57 @@ export function isReconciliationMove(file, landingRef, ref, entryAt) {
 }
 
 /**
+ * Where a landing's contribution to one file disappeared, and by what mechanism.
+ *
+ * Walk the commits that touched `file` between the landing and the ref OLDEST
+ * FIRST and take the first one whose tree entry already equals the pre-landing
+ * entry. That is where the contribution stopped being present; a later commit
+ * that also matches is just carrying the absence forward.
+ *
+ * The mechanism is the triage signal, and it is the reason this tool can be read
+ * at all. A merge commit dropping a side is the accidental case the audit exists
+ * for. A single-parent commit is somebody choosing to remove the change, and its
+ * subject almost always says why. Measured over the 2026-08-01..15 window: of 66
+ * flagged non-inbox files, 14 were merge-resolution removals and 13 of those came
+ * from the single documented bad merge (acf78bf) — while every one of the other 52
+ * had an explanatory single-parent subject ("Re-land the --shadow-tight
+ * retirement", "rework the viewer for phone and PWA reading", "ci: speed
+ * iteration without weakening gates").
+ *
+ * This does NOT turn the audit into a verdict, and deliberately does not filter:
+ * a deliberate-looking commit can still be a mistake, and `unknown` means the
+ * walk found no commit matching the pre-landing entry, which is a question rather
+ * than a clean bill. It orders the reading list so the accidental cases are not
+ * buried under the deliberate ones.
+ *
+ * Pure, with git access injected, so it is testable without a repository.
+ *
+ * @param {{ file: string, landingSha: string, preEntry: string | null, ref: string,
+ *   historyOf: (landingSha: string, ref: string, file: string) => Array<{ sha: string, subject: string }>,
+ *   entryAt: (ref: string, file: string) => string | null,
+ *   isMergeCommit: (sha: string) => boolean }} options
+ */
+export function classifyRemoval({ file, landingSha, preEntry, ref, historyOf, entryAt, isMergeCommit }) {
+  const commits = historyOf(landingSha, ref, file) ?? [];
+  for (const commit of commits) {
+    if (entryAt(commit.sha, file) !== preEntry) continue;
+    return {
+      mechanism: isMergeCommit(commit.sha) ? "merge-resolution" : "deliberate-commit",
+      sha: commit.sha,
+      subject: commit.subject,
+    };
+  }
+  return { mechanism: "unknown", sha: undefined, subject: undefined };
+}
+
+const MECHANISMS = ["merge-resolution", "deliberate-commit", "unknown"];
+
+/** How many of a finding's files went in a merge resolution — the ordering key. */
+function mergeResolutionCount(finding) {
+  return finding.revertedFiles.filter((entry) => entry.removal?.mechanism === "merge-resolution").length;
+}
+
+/**
  * Compare each landing's contribution against the ref's current state.
  *
  * `entryAt(ref, file)` returns a tree entry (mode, object type, and blob OID),
@@ -120,18 +171,28 @@ export function isReconciliationMove(file, landingRef, ref, entryAt) {
  * gone again" case. A file the pull request DELETED and which is still absent
  * does not match, because its pre-landing blob existed — the deletion survived.
  *
+ * `removalOf` is optional. When given, each reported file carries the commit and
+ * mechanism that removed it (see classifyRemoval) and findings are ordered so the
+ * merge-resolution cases come first. Omitting it leaves the finding shape and the
+ * original ordering untouched.
+ *
  * Pure and exported for the self-test and focused tests.
  *
  * @typedef {{ sha: string, date: string, subject: string, pullNumber: number | undefined,
  *   preRef: string, files?: string[] }} Landing
+ * @typedef {{ mechanism: "merge-resolution" | "deliberate-commit" | "unknown",
+ *   sha: string | undefined, subject: string | undefined }} Removal
  * @param {{ landings?: Landing[], entryAt: (ref: string, file: string) => string | null,
- *   ref?: string }} options
+ *   ref?: string,
+ *   removalOf?: (context: { file: string, landingSha: string, preEntry: string | null }) => Removal | undefined
+ *   }} options
  */
-export function classifyMergeLoss({ landings = [], entryAt, ref = DEFAULT_REF }) {
+export function classifyMergeLoss({ landings = [], entryAt, ref = DEFAULT_REF, removalOf }) {
   const findings = [];
   let filesCompared = 0;
   let filesExempted = 0;
   const skipped = [];
+  const mechanismCounts = Object.fromEntries(MECHANISMS.map((mechanism) => [mechanism, 0]));
   for (const landing of landings) {
     if (landing.pullNumber === undefined) {
       skipped.push(landing);
@@ -147,7 +208,13 @@ export function classifyMergeLoss({ landings = [], entryAt, ref = DEFAULT_REF })
         filesExempted += 1;
         continue;
       }
-      reverted.push({ file, absent: now === null });
+      // `removalOf` stays optional so the finding shape is unchanged for callers
+      // that only want the comparison — the mechanism costs a `git log` per
+      // flagged file, which is worth paying for findings and not for every
+      // compared file.
+      const removal = removalOf ? removalOf({ file, landingSha: landing.sha, preEntry: before }) : undefined;
+      if (removal) mechanismCounts[removal.mechanism] += 1;
+      reverted.push(removal ? { file, absent: now === null, removal } : { file, absent: now === null });
     }
     if (reverted.length > 0) {
       findings.push({
@@ -160,8 +227,23 @@ export function classifyMergeLoss({ landings = [], entryAt, ref = DEFAULT_REF })
       });
     }
   }
-  findings.sort((a, b) => b.revertedFiles.length - a.revertedFiles.length || a.pullNumber - b.pullNumber);
-  return { findings, scannedLandings: landings.length - skipped.length, skipped, filesCompared, filesExempted };
+  // Merge-resolution removals first: they are the accidental case. With no
+  // `removalOf` every count is 0, so this falls through to the original
+  // most-of-the-landing-missing order.
+  findings.sort(
+    (a, b) =>
+      mergeResolutionCount(b) - mergeResolutionCount(a) ||
+      b.revertedFiles.length - a.revertedFiles.length ||
+      a.pullNumber - b.pullNumber,
+  );
+  return {
+    findings,
+    scannedLandings: landings.length - skipped.length,
+    skipped,
+    filesCompared,
+    filesExempted,
+    mechanismCounts,
+  };
 }
 
 function resolveArgs(argv) {
@@ -191,17 +273,92 @@ function collectLandings(ref, since) {
   });
 }
 
+/**
+ * The mode/type/OID prefix of one `git ls-tree` line, with the path removed.
+ *
+ * `ls-tree` renders `<mode> SP <type> SP <oid> TAB <path>`, so the split is on a
+ * REAL tab. This is exported because getting it wrong is invisible to any test
+ * that injects `entryAt` directly, which is how the original `"\\t"` (a literal
+ * backslash-t, matching nothing) survived a green suite: leaving the path on the
+ * entry is harmless for the same-path comparison that finds losses, and breaks
+ * only the cross-path reconciliation check, which compares an inbox request
+ * against its `applied/` record. That silently turned every reconciled request
+ * back into a finding — 189 of 255 flagged files on a 14-day window, with
+ * `filesExempted` reporting 0 — burying the genuine signal the exemption exists
+ * to protect. Parse it here, once, and test it against real `ls-tree` output.
+ */
+export function parseTreeEntry(raw) {
+  if (raw === undefined || raw === null) return null;
+  const line = String(raw);
+  if (line.length === 0) return null;
+  return line.split("\t", 1)[0];
+}
+
 function treeEntryReader() {
   const cache = new Map();
   return (ref, file) => {
     const key = `${ref}:${file}`;
     if (!cache.has(key)) {
-      const entry = tryGit(["ls-tree", ref, "--", file]);
-      cache.set(key, entry ? entry.split("\\t", 1)[0] : null);
+      cache.set(key, parseTreeEntry(tryGit(["ls-tree", ref, "--", file])));
     }
     return cache.get(key);
   };
 }
+
+/**
+ * Commits touching `file` between a landing and the ref, oldest first.
+ *
+ * `--full-history` matters: default history simplification hides the merge
+ * commits that are exactly what this walk is looking for, so without it a
+ * merge-resolution removal reports as `unknown`.
+ */
+function historyReader() {
+  const cache = new Map();
+  return (landingSha, ref, file) => {
+    const key = `${landingSha}..${ref}:${file}`;
+    if (!cache.has(key)) {
+      const raw = tryGit([
+        "log",
+        "--reverse",
+        "--first-parent",
+        "--full-history",
+        "--format=%H%x1f%s",
+        `${landingSha}..${ref}`,
+        "--",
+        file,
+      ]);
+      cache.set(
+        key,
+        String(raw ?? "")
+          .split(/\r?\n/)
+          .filter((line) => line.trim().length > 0)
+          .map((line) => {
+            const [sha, ...rest] = line.split("\x1f");
+            return { sha, subject: rest.join("\x1f") };
+          }),
+      );
+    }
+    return cache.get(key);
+  };
+}
+
+function mergeCommitReader() {
+  const cache = new Map();
+  return (sha) => {
+    if (!cache.has(sha)) {
+      const raw = tryGit(["rev-list", "--parents", "-n", "1", sha]);
+      // `<sha> <parent>…` — more than one parent means a merge.
+      cache.set(sha, raw === undefined ? false : raw.trim().split(/\s+/).length - 1 > 1);
+    }
+    return cache.get(sha);
+  };
+}
+
+const MECHANISM_LABEL = {
+  "merge-resolution": "MERGE-RESOLUTION",
+  "deliberate-commit": "deliberate commit",
+  unknown: "unresolved",
+};
 
 function report(result, { ref, since, strict }) {
   const { findings, scannedLandings, skipped, filesCompared, filesExempted } = result;
@@ -228,6 +385,18 @@ function report(result, { ref, since, strict }) {
   console.log(`[merge-loss] ${findings.length} landing(s) look reverted — HUMAN CONFIRMATION REQUIRED.`);
   console.log("A deliberate later revert is identical to an accidental one at blob level, so this is a");
   console.log("question, not a verdict. For each entry below, decide whether the change was meant to go.");
+  const counts = result.mechanismCounts ?? {};
+  if (MECHANISMS.some((mechanism) => counts[mechanism] > 0)) {
+    console.log("");
+    console.log(
+      `[merge-loss] removal mechanism across ${MECHANISMS.reduce((total, m) => total + counts[m], 0)} flagged file(s): ` +
+        `${counts["merge-resolution"]} merge-resolution, ${counts["deliberate-commit"]} deliberate commit, ` +
+        `${counts.unknown} unresolved.`,
+    );
+    console.log("Merge-resolution removals are the accidental case and are listed FIRST. A deliberate commit");
+    console.log("with an explanatory subject is usually a real decision — check it, but check the others first.");
+    console.log("`unresolved` means no commit in the window matched the pre-merge entry; treat it as a question.");
+  }
   for (const finding of findings) {
     console.log("");
     console.log(`  PR #${finding.pullNumber} — ${finding.subject}`);
@@ -237,6 +406,10 @@ function report(result, { ref, since, strict }) {
     );
     for (const entry of finding.revertedFiles) {
       console.log(`      - ${entry.file}${entry.absent ? " (added by the PR, absent now)" : ""}`);
+      if (entry.removal) {
+        const where = entry.removal.sha ? ` ${entry.removal.sha.slice(0, 12)} — ${entry.removal.subject}` : "";
+        console.log(`          via ${MECHANISM_LABEL[entry.removal.mechanism]}:${where}`);
+      }
     }
     console.log(`    Inspect: git diff ${finding.sha}^1 ${finding.sha} -- <file>`);
   }
@@ -303,6 +476,55 @@ function selfTest() {
   if (reconciled.findings.length !== 0 || reconciled.filesExempted !== 1) {
     throw new Error("self-test failed: a reconciled inbox request was reported as a merge loss");
   }
+
+  // Regression guard for the `"\\t"` bug. The check above injects bare entries, so
+  // it passes either way; this one runs real `ls-tree` output through the real
+  // parser, where leaving the path attached makes the cross-path comparison fail.
+  if (parseTreeEntry("100644 blob eee\tsome/path.json") !== "100644 blob eee") {
+    throw new Error("self-test failed: parseTreeEntry did not strip the path from an ls-tree line");
+  }
+  if (parseTreeEntry(undefined) !== null || parseTreeEntry("") !== null) {
+    throw new Error("self-test failed: parseTreeEntry did not treat a missing path as null");
+  }
+  const applied = `${INBOX}/applied/${path.posix.basename(request)}`;
+  const lsTree = (file) => parseTreeEntry(`100644 blob eee\t${file}`);
+  const realistic = classifyMergeLoss({
+    ref: "head",
+    entryAt: (reference, file) => {
+      if (reference === "s6" && file === request) return lsTree(file);
+      return reference === "head" && file === applied ? lsTree(file) : null;
+    },
+    landings: [{ sha: "s6", date: "d", subject: "r (#6)", pullNumber: 6, preRef: "pre", files: [request] }],
+  });
+  if (realistic.findings.length !== 0 || realistic.filesExempted !== 1) {
+    throw new Error("self-test failed: the reconciliation exemption does not survive real ls-tree entries");
+  }
+
+  const history = { "s7..head:lost.ts": [{ sha: "m1", subject: "Merge remote-tracking branch 'origin/main'" }] };
+  const removal = classifyRemoval({
+    file: "lost.ts",
+    landingSha: "s7",
+    preEntry: "pre-entry",
+    ref: "head",
+    historyOf: (landingSha, reference, file) => history[`${landingSha}..${reference}:${file}`] ?? [],
+    entryAt: () => "pre-entry",
+    isMergeCommit: (sha) => sha === "m1",
+  });
+  if (removal.mechanism !== "merge-resolution" || removal.sha !== "m1") {
+    throw new Error("self-test failed: a merge-resolution removal was not classified");
+  }
+  const unresolved = classifyRemoval({
+    file: "lost.ts",
+    landingSha: "s7",
+    preEntry: "pre-entry",
+    ref: "head",
+    historyOf: () => [],
+    entryAt: () => "pre-entry",
+    isMergeCommit: () => false,
+  });
+  if (unresolved.mechanism !== "unknown") {
+    throw new Error("self-test failed: an empty history should classify as unknown, not as deliberate");
+  }
   console.error("merge-loss audit self-test passed.");
 }
 
@@ -310,7 +532,8 @@ function main() {
   if (process.argv.includes("--self-test")) return selfTest();
   const options = resolveArgs(process.argv.slice(2));
 
-  if (tryGit(["rev-parse", "--is-shallow-repository"]) === "true") {
+  const shallow = tryGit(["rev-parse", "--is-shallow-repository"]);
+  if (shallow?.trim() !== "false") {
     console.error("[merge-loss] this is a shallow clone; pre-merge parents are unavailable and a clean sweep here");
     console.error("[merge-loss] would be meaningless. Re-run after `git fetch --unshallow`.");
     process.exitCode = 1;
@@ -323,7 +546,16 @@ function main() {
   }
 
   const landings = collectLandings(options.ref, options.since);
-  const result = classifyMergeLoss({ landings, entryAt: treeEntryReader(), ref: options.ref });
+  const entryAt = treeEntryReader();
+  const historyOf = historyReader();
+  const isMergeCommit = mergeCommitReader();
+  const result = classifyMergeLoss({
+    landings,
+    entryAt,
+    ref: options.ref,
+    removalOf: ({ file, landingSha, preEntry }) =>
+      classifyRemoval({ file, landingSha, preEntry, ref: options.ref, historyOf, entryAt, isMergeCommit }),
+  });
   if (options.json) {
     console.log(JSON.stringify({ ref: options.ref, sinceDays: options.since, ...result }, null, 2));
     process.exitCode = options.strict && result.findings.length > 0 ? 1 : 0;

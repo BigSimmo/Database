@@ -261,6 +261,33 @@ try {
           baseUrl: "../..",
           paths: { "@/*": ["src/*"] },
         },
+        // Declaring include/exclude here (rather than leaving them unset and
+        // inheriting the root tsconfig.json's) is deliberate. TypeScript resolves
+        // an extended config's *inherited* relative include/exclude entries
+        // against the repo root, so an unset include here would still resolve
+        // "**/*.ts" and ".next/dev/types/**/*.ts" against the shared top-level
+        // .next/ directory — not this isolated run's own NEXT_DIST_DIR output
+        // under `dist/`. That pulls stale/foreign route types from whatever the
+        // top-level .next happens to contain (a prior `npm run dev` or `npm run
+        // build`) into this run's typecheck. Excluding the repo-root .next/ and
+        // pointing at this run's own dist/types + dist/dev/types keeps the
+        // isolated build's typecheck scoped to itself (outstanding-issues #210).
+        include: [
+          "../../next-env.d.ts",
+          "../../**/*.ts",
+          "../../**/*.tsx",
+          "../../**/*.mts",
+          "dist/types/**/*.ts",
+          "dist/dev/types/**/*.ts",
+        ],
+        exclude: [
+          "../../node_modules",
+          "../../scratch/**",
+          "../../supabase/functions/**",
+          "../../worktrees/**",
+          "../../scripts/archive/**",
+          "../../.next/**",
+        ],
       },
       null,
       2,

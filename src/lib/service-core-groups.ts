@@ -8,6 +8,7 @@ export const serviceCoreGroups = [
 ] as const;
 
 export type ServiceCoreGroupId = (typeof serviceCoreGroups)[number]["id"];
+export type ServiceCoreGroupSelection = ReadonlySet<ServiceCoreGroupId>;
 
 const urgentPattern = /\b(?:acute|crisis|emergenc\w*|urgent|suicide|after[- ]?hours|triage)\b/i;
 const publicPattern =
@@ -38,6 +39,28 @@ export function readServiceCoreGroup(value: string | null | undefined): ServiceC
   return serviceCoreGroups.some((group) => group.id === value) ? (value as ServiceCoreGroupId) : null;
 }
 
+/**
+ * Service categories overlap, so the filter sheet treats them as an OR-within
+ * facet rather than a one-of-N lens. Comma-separated values keep legacy
+ * `?group=urgent` links valid while allowing honest multi-selection.
+ */
+export function readServiceCoreGroupSelection(value: string | null | undefined): ServiceCoreGroupSelection {
+  const groups = (value ?? "")
+    .split(",")
+    .map((candidate) => readServiceCoreGroup(candidate.trim()))
+    .filter((candidate): candidate is ServiceCoreGroupId => candidate !== null);
+  return new Set(groups);
+}
+
+export function writeServiceCoreGroupSelectionToParams(
+  params: URLSearchParams,
+  selection: ServiceCoreGroupSelection,
+): void {
+  const ordered = serviceCoreGroups.map((group) => group.id).filter((group) => selection.has(group));
+  if (ordered.length > 0) params.set("group", ordered.join(","));
+  else params.delete("group");
+}
+
 export function serviceCoreGroupIds(service: ServiceRecord): ServiceCoreGroupId[] {
   const fields = serviceGroupFields(service);
   const groups: ServiceCoreGroupId[] = [];
@@ -50,6 +73,14 @@ export function serviceCoreGroupIds(service: ServiceRecord): ServiceCoreGroupId[
 
 export function serviceMatchesCoreGroup(service: ServiceRecord, group: ServiceCoreGroupId | null) {
   return group === null || serviceCoreGroupIds(service).includes(group);
+}
+
+export function serviceMatchesCoreGroupSelection(
+  service: ServiceRecord,
+  selection: ServiceCoreGroupSelection,
+): boolean {
+  if (selection.size === 0) return true;
+  return serviceCoreGroupIds(service).some((group) => selection.has(group));
 }
 
 export function serviceCoreGroupLabel(group: ServiceCoreGroupId | null) {

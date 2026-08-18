@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "id": "1da43f2b-4b52-4fb7-b39a-e5aa5bf7c7e7",
+  "createdOn": "2026-08-15",
+  "action": "update",
+  "payload": {
+    "id": "#316",
+    "summary": "Live DB has 20 currently missing repo-defined indexes and 10 retrieval RPC bodies diverge; weekly live-drift has been red since 2026-07-26 with no routing",
+    "detail": "2026-08-14 incident session: two of the 21 missing indexes (documents_title_trgm_idx, document_chunks_content_trgm_idx) were the retrieval-critical pair; restored live via owner-approved CREATE INDEX CONCURRENTLY + ANALYZE. Current 2026-08-14 inventory is 20 missing indexes (the inventory result, not an arithmetic inference from the prior 21 baseline). Before/after supabase_rpc_latency_ms 31610 -> 1535 (text) / 8519 (hybrid). Forensics: the pair was created 2026-07-05 and reported missing by 2026-08-02, so the drop is bounded between 2026-07-05 and 2026-08-02 (likely by 2026-07-26); guard 20260804110240 validates four other indexes and gives no existence bound for this pair. No app code drops indexes; owner dashboard-audit check for manual/advisor DROP INDEX remains pending. Evidence: docs/audit/live-drift-forensics-2026-08.md. Remaining drift findings plus 10 diverged match_* RPC bodies stay with docs/database-remediation-plan.md. Drift routing: PR #1939.",
+    "source": "PR #1968 review against docs/audit/live-drift-forensics-2026-08.md, 2026-08-15"
+  }
+}

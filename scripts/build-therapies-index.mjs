@@ -92,37 +92,19 @@ function renderManifest(current, previous, summary) {
   ].join("\n");
 }
 
-// The source catalogue's `modality` is an echo of one of the record's own tags:
-// all 205 records carry one, every value is also present in that record's
-// `tags`, and the whole catalogue collapses to just CBT/ACT/DBT. That inference
-// mislabels somatic and psychodynamic treatments — ECT and rTMS as "ACT",
-// Psychoanalysis and Psychodynamic Psychotherapy as "CBT", MBT and TFP as
-// "DBT" — and the value renders as a curated chip on the detail and recommend
-// screens while scoring related-therapy selection. A guess presented as a
-// curated fact is a clinical mislabel, so emit the field only when the source
-// genuinely curates a value that is not already one of the record's tags.
-// Consumers already treat `null` as "unknown" and render nothing.
-function curatedModality(therapy) {
-  const value = therapy.modality ?? null;
-  if (!value) return null;
-  const tags = Array.isArray(therapy.tags) ? therapy.tags : [];
-  return tags.includes(value) ? null : value;
-}
-
 // Detail and recommend load the full catalogue (`catalogue: "full"`), not the
-// index projections. Scrub tag-echo modalities there too; a raw copy of the
-// source would leave the mislabel on the only path that renders the chip.
-const curatedFull = therapies.map((therapy) => ({
-  ...therapy,
-  modality: curatedModality(therapy),
-}));
+// index projections. Strip dead modality field from full catalogue outputs.
+const curatedFull = therapies.map((therapy) => {
+  const item = { ...therapy };
+  delete item.modality;
+  return item;
+});
 
 const projected = therapies
   .map((t) => ({
     slug: t.slug,
     name: t.name,
     category: t.category ?? null,
-    modality: curatedModality(t),
     clinicalSummary: t.clinicalSummary ?? null,
     bestUsedFor: t.bestUsedFor ?? null,
     targetSymptoms: t.targetSymptoms ?? null,
@@ -140,7 +122,6 @@ const browserProjected = therapies
     slug: therapy.slug,
     name: therapy.name,
     category: therapy.category ?? null,
-    modality: curatedModality(therapy),
     // The browser index is the browse/pathway payload, not the search corpus.
     // Keep only the short subtitle the catalogue cards render. Search loads the
     // full records so removing long clinical prose here cannot change recall.

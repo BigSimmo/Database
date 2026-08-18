@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "9f306cfd-a6cb-4c17-93e6-69bd6a242d42",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#314",
+    "outcome": "Summary/search compressed projections and Gzip transfer shipped",
+    "baseRowFingerprint": "5f786495ed069c9cb259201b77fcd4f4e63261836fd3d20222c3957c8c7d13bd"
+  }
+}

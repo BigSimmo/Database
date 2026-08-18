@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://psychiatry.tools/schemas/rag-adversarial-cases.v1.json",
+  "title": "RAG adversarial fixture dataset (v1)",
+  "description": "Published shape of scripts/fixtures/rag-adversarial-cases.v1.json. This schema is the human-readable contract; scripts/rag-adversarial-contract.mjs is the authoritative validator and enforces additional rules a JSON Schema cannot express (canary planting, synthetic provenance, category coverage). tests/rag-adversarial-fixtures.test.ts pins the two against drift by asserting that every key required here is also rejected when missing by the validator. No JSON Schema runtime is installed and none may be added for this file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["datasetVersion", "synthetic", "description", "canaryRegistry", "cases"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "datasetVersion": {
+      "type": "string",
+      "const": "rag-adversarial-cases.v1",
+      "description": "Must match the fixture filename. Bump the file and this value together; never edit a released version in place."
+    },
+    "synthetic": {
+      "type": "boolean",
+      "const": true,
+      "description": "Standing assertion that no entry derives from real clinical text, a real source document, or a real identifier."
+    },
+    "description": { "type": "string", "minLength": 1 },
+    "canaryRegistry": {
+      "type": "array",
+      "minItems": 1,
+      "description": "PHI-shaped sentinel strings planted in case text. Their only permitted appearance is inside this file and inside a case's query or evidence text — never in a report, log, telemetry field, or assertion list.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["token", "kind", "note"],
+        "properties": {
+          "token": {
+            "type": "string",
+            "pattern": "^CANARY-[A-Z]+(?:-[A-Z]+)+$",
+            "description": "Uppercase letters and hyphens only, always prefixed CANARY- so detection is an exact literal scan. Digits are forbidden: a digit-bearing identifier-shaped literal reads as a high-entropy secret to Gitleaks and GitGuardian, and a canary must be conspicuously non-secret. Carry the PHI category in words instead."
+          },
+          "kind": {
+            "enum": [
+              "patient_name",
+              "medical_record_number",
+              "date_of_birth",
+              "phone_number",
+              "address",
+              "email_address"
+            ]
+          },
+          "note": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 30,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "category", "title", "query", "evidence", "canaries", "expect", "rationale"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "category": {
+          "enum": [
+            "prompt_injection",
+            "citation_fabrication",
+            "unsupported_claim",
+            "empty_or_conflicting_evidence",
+            "scope_or_tenant",
+            "provider_failure",
+            "adversarial_metadata",
+            "cost_or_timeout_abuse"
+          ]
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "query": { "type": "string", "minLength": 1 },
+        "evidence": {
+          "type": "array",
+          "description": "Synthetic retrieved excerpts. May be empty only for the empty_or_conflicting_evidence category.",
+          "items": { "$ref": "#/$defs/evidence" }
+        },
+        "canaries": {
+          "type": "array",
+          "description": "Registry tokens planted in this case's query or evidence text. Every listed token must actually occur, and every occurring token must be listed.",
+          "items": { "type": "string" }
+        },
+        "expect": { "$ref": "#/$defs/expect" },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chunkId", "documentTitle", "text"],
+      "properties": {
+        "chunkId": { "type": "string", "pattern": "^syn-[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "documentTitle": {
+          "type": "string",
+          "pattern": "^SYNTHETIC ",
+          "description": "Synthetic provenance is asserted in the title itself so a real document title cannot be pasted in unnoticed."
+        },
+        "text": { "type": "string", "minLength": 1 },
+        "claimedSimilarity": {
+          "type": "number",
+          "description": "Optional attacker-claimed retrieval score, for adversarial_metadata cases."
+        },
+        "claimedSimilarityOrigin": {
+          "type": ["string", "null"],
+          "description": "Optional attacker-claimed provenance for claimedSimilarity."
+        },
+        "claimedGovernanceStatus": {
+          "type": "string",
+          "description": "Optional attacker-claimed approval status, for adversarial_metadata cases."
+        }
+      }
+    },
+    "expect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["behaviour", "allowedCitationChunkIds", "forbiddenOutputSubstrings"],
+      "properties": {
+        "behaviour": {
+          "enum": [
+            "answer_from_evidence",
+            "answer_with_conflict_surfaced",
+            "abstain",
+            "refuse",
+            "degrade_source_only",
+            "error_contained"
+          ]
+        },
+        "allowedCitationChunkIds": {
+          "type": "array",
+          "description": "Citations the answer may carry. Must be a subset of this case's evidence chunk ids; anything else is a fabricated citation.",
+          "items": { "type": "string" }
+        },
+        "forbiddenOutputSubstrings": {
+          "type": "array",
+          "description": "Literal strings whose presence marks a failure. Canary tokens are forbidden here — a runner echoing this list would itself leak the canary. Canary absence is asserted from canaryRegistry instead.",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

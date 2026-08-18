@@ -913,6 +913,15 @@ export function DocumentViewer({
   const chunkById = useMemo(() => new Map(chunks.map((chunk) => [chunk.id, chunk])), [chunks]);
   const selectedPage = pageByNumber.get(activePage) ?? pages[0];
   const selectedChunk = activeChunkId ? chunkById.get(activeChunkId) : undefined;
+  const highlightedImage = useMemo(() => {
+    if (selectedChunk?.image_ids?.length) {
+      for (const id of selectedChunk.image_ids) {
+        const match = images.find((img) => img.id === id && img.bbox);
+        if (match) return match;
+      }
+    }
+    return undefined;
+  }, [selectedChunk, images]);
   const { clinicalImages, auditImages } = partitionViewerImages(images);
   // Built on every render rather than memoised: it is seven objects from values
   // already in hand, and `clinicalImages` is a fresh array each render, so a
@@ -1306,10 +1315,20 @@ export function DocumentViewer({
         data-phone-scroll-owner={activeScrollOwner}
         data-phone-footer-owner={readyDocument ? "document-viewer" : "none"}
         data-phone-composer-reserve={
-          composerScrollHidden ? "0rem" : "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))"
+          composerScrollHidden ? "0.75rem" : "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))"
         }
         data-phone-chrome-transition={reserveTransitioning ? "active" : "idle"}
         data-document-view={compactView ? "condensed" : "full"}
+        // Hidden state releases the composer's own 9rem clearance, but keeps a
+        // small resting gap (0.75rem — the same figure the floating pill itself
+        // uses for its bottom clearance, .floating-composer-edge) so the last
+        // card never paints flush against the physical bottom edge once the pill
+        // is gone. Reported by a user whose last card sat with zero clearance at
+        // the true end of scroll. `data-reserve-hidden-pad` keeps that baseline
+        // out of the hide/reveal collapse-budget math (readChromeCollapseMetrics
+        // in use-hide-on-scroll.ts), which otherwise would treat it as space the
+        // hide would still release.
+        data-reserve-hidden-pad="0.75rem"
         className={cn(
           // Base `grid-cols-1` for the same reason as the rail grid: without an
           // explicit track this is an implicit `auto` column sized by its items'
@@ -1317,10 +1336,11 @@ export function DocumentViewer({
           // whole page past the viewport and get clipped by `overflow-x: clip`.
           "mx-auto grid max-w-[1440px] grid-cols-1 gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
           // The visible fixed composer needs endpoint clearance. Once hidden,
-          // remove all artificial clearance so Safari can paint document content
-          // beneath its translucent toolbar instead of showing a blank band.
+          // release the composer-height clearance so Safari can paint document
+          // content beneath its translucent toolbar instead of showing a blank
+          // band — but keep a small 0.75rem resting pad (see comment above).
           composerScrollHidden
-            ? "max-sm:pb-0"
+            ? "max-sm:pb-3"
             : "max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))] max-sm:[--phone-focus-bottom-clearance:calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]",
         )}
       >
@@ -1386,13 +1406,17 @@ export function DocumentViewer({
           </div>
         ) : null}
 
-        {/* Phone order is source-first: the title strip, then the PDF, then this.
-            `buildDocumentSectionIndex` has always described the summary as coming
-            after the source — the DOM was what disagreed, by rendering this card
-            inside the overview landing above the PDF. Desktop keeps its position
-            directly under the title card, so only the phone order changes. */}
+        {/* Phone order: the title strip, then this card, then the PDF — matching
+            desktop, where the card already sits directly under the title card
+            (both are lg:col-span-2 ahead of the PDF column). Previously this card
+            was ordered after the PDF ("source-first"); moved back ahead of it so
+            a phone reader sees the clinical priorities digest before scrolling
+            past the PDF. */}
         {readyDocument ? (
-          <div className="min-w-0 max-sm:order-3 lg:col-span-2">
+          <div
+            id="source-summary-card"
+            className="min-w-0 max-sm:order-2 lg:col-span-2 scroll-mt-[var(--document-anchor-offset,6rem)]"
+          >
             <DocumentClinicalSummary
               document={readyDocument}
               pageHref={usefulPageHref}
@@ -1413,7 +1437,7 @@ export function DocumentViewer({
           </div>
         ) : null}
 
-        <div className="min-w-0 space-y-4 max-sm:order-2 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
+        <div className="min-w-0 space-y-4 max-sm:order-3 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
           <div
             id="pdf-preview-section"
             className={cn(panel, "scroll-mt-[var(--document-anchor-offset,6rem)] overflow-hidden")}
@@ -1482,6 +1506,8 @@ export function DocumentViewer({
                     zoom={pdfZoom}
                     rotation={pdfRotation}
                     fullscreen={pdfFullscreen}
+                    highlightedBbox={highlightedImage?.bbox ?? null}
+                    highlightedBboxPage={highlightedImage?.page_number ?? null}
                     onFitWidthChange={handlePdfFitWidthChange}
                     onZoomChange={handlePdfZoomChange}
                     // The same handler DocumentFrame's rotate control uses, so

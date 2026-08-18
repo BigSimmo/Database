@@ -13,12 +13,16 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   formulation: ["formulation"],
   prescribing: ["medications", "documents"],
   tools: ["tools"],
+  // Calculators searches its local, session-aware catalogue rather than the
+  // cross-entity index, so it has no universal-search domain preference.
+  calculators: [],
   // Therapy Compass leads with its own therapy library, exposed to cross-entity
   // search as the "therapies" domain.
   "therapy-compass": ["therapies"],
   // Factsheets searches its own local patient-information library, not a
   // cross-entity search domain, so it declares no preferred universal domains.
   factsheets: [],
+  dictionary: ["dictionary"],
 };
 
 const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {
@@ -32,6 +36,7 @@ const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {
   formulation: "formulation",
   dsm: "dsm",
   therapies: "therapy-compass",
+  dictionary: "dictionary",
   tools: "tools",
 };
 

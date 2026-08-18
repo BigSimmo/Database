@@ -146,6 +146,21 @@ async function openComposer(page: Page, href = "/?mode=documents&focus=1") {
 test.beforeEach(stubZeroTouchPoints);
 
 test.describe("universal search typeahead", () => {
+  test("keeps calculator command suggestions local", async ({ page }) => {
+    let universalRequestCount = 0;
+    await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+      universalRequestCount += 1;
+      await route.fulfill({ status: 204 });
+    });
+
+    const input = await openComposer(page, "/calculators?focus=1");
+    await input.fill("depression");
+    await expect(page.getByRole("option", { name: /depression severity.*PHQ-9/i })).toBeVisible();
+    await page.waitForTimeout(500);
+
+    expect(universalRequestCount).toBe(0);
+  });
+
   test("shows grouped cross-entity results while typing", async ({ page }) => {
     await mockUniversalSearch(page);
     const input = await openComposer(page);
@@ -230,6 +245,17 @@ test.describe("universal search typeahead", () => {
 
     const option = page.getByRole("option", { name: /^Acamprosate Alcohol/ });
     await expect(option).toBeVisible();
+    // Scroll the command list itself before clicking. Playwright's generic
+    // actionability scroll can move the document when this lower grouped item
+    // is clipped, which intentionally closes the floating command surface.
+    // A user reaches the item by scrolling this listbox, not the page.
+    await option.evaluate((element) => {
+      const listbox = element.closest<HTMLElement>('[role="listbox"]');
+      if (!listbox) throw new Error("Universal-search option is not owned by a listbox.");
+      listbox.scrollTop = Math.max(0, (element as HTMLElement).offsetTop - listbox.clientHeight / 2);
+    });
+    await expect(option).toBeVisible();
+    await expect(option).toBeInViewport();
     await option.click();
     await expect(page).toHaveURL(/\/medications\/acamprosate/, { timeout: 30_000 });
   });

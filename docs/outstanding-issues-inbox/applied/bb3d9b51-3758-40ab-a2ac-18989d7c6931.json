@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "bb3d9b51-3758-40ab-a2ac-18989d7c6931",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#193",
+    "outcome": "Preserved stable directory structure across active branches",
+    "baseRowFingerprint": "6d8582e631668287e1f468b98a80da6553cfa51fc1df4c808c8e2a0fc6a3bd67"
+  }
+}

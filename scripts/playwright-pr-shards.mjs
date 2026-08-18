@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|document-canvas|tools|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|dictionary|document-canvas|tools|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * One source of truth for shard membership and its latest hosted timing sample.
@@ -36,6 +36,8 @@ export const prUiSpecProfiles = Object.freeze([
   { file: "tests/ui-accessibility.spec.ts", shard: 1, fullSeconds: 17.1, criticalSeconds: 0 },
   { file: "tests/ui-route-coverage.spec.ts", shard: 1, fullSeconds: 21.1, criticalSeconds: 0 },
   { file: "tests/ui-formulation.spec.ts", shard: 1, fullSeconds: 11.0, criticalSeconds: 0 },
+  // New route-focused suite; keep on the lightest measured shard until hosted timing is available.
+  { file: "tests/ui-dictionary.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
 
   { file: "tests/ui-phone-scroll-routes.spec.ts", shard: 2, fullSeconds: 129.6, criticalSeconds: 0 },
   { file: "tests/ui-phone-scroll.spec.ts", shard: 2, fullSeconds: 66.3, criticalSeconds: 0 },
@@ -44,6 +46,9 @@ export const prUiSpecProfiles = Object.freeze([
   // Added after the timing sample; place it on the lightest measured shard and
   // replace this zero with hosted evidence at the next timing refresh.
   { file: "tests/dsm-ui-smoke.spec.ts", shard: 2, fullSeconds: 0, criticalSeconds: 0 },
+  // Added after the timing sample. Measured locally at ~4.8s for 3 tests; replace
+  // with hosted evidence at the next timing refresh.
+  { file: "tests/ui-phone-motion.spec.ts", shard: 2, fullSeconds: 5.0, criticalSeconds: 0 },
 
   { file: "tests/ui-tools.spec.ts", shard: 3, fullSeconds: 110.5, criticalSeconds: 3.1 },
   { file: "tests/ui-chrome-scroll.spec.ts", shard: 3, fullSeconds: 60.7, criticalSeconds: 0 },

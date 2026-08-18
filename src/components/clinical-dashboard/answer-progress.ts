@@ -1,4 +1,5 @@
 import type { PublicAnswerProgressEvent, PublicAnswerProgressStage } from "@/lib/answer-progress-public";
+import { isDeliverableVerifiedUnit } from "@/lib/answer-stream-contract";
 
 export type AnswerProgressUpdate = PublicAnswerProgressEvent;
 export type TimedAnswerProgressUpdate = AnswerProgressUpdate & { receivedAt: number };
@@ -41,7 +42,10 @@ function finiteCount(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : undefined;
 }
 
-export function normalizeAnswerProgressEvent(data: unknown): AnswerProgressUpdate | null {
+export function normalizeAnswerProgressEvent(
+  data: unknown,
+  lastVerifiedUnitSequence: number | null = null,
+): AnswerProgressUpdate | null {
   if (typeof data === "string" && data.trim()) {
     const message = data.trim();
     return { stage: inferLegacyStage(message), message };
@@ -55,10 +59,14 @@ export function normalizeAnswerProgressEvent(data: unknown): AnswerProgressUpdat
     typeof value.stage === "string" && answerProgressStages.has(value.stage as PublicAnswerProgressStage)
       ? (value.stage as PublicAnswerProgressStage)
       : inferLegacyStage(message);
+  const verifiedUnit = isDeliverableVerifiedUnit(value.verifiedUnit, lastVerifiedUnitSequence)
+    ? value.verifiedUnit
+    : undefined;
 
   return {
     stage,
     message,
+    ...(verifiedUnit === undefined ? {} : { verifiedUnit }),
     resultCount: finiteCount(value.resultCount),
     selectedContextCount: finiteCount(value.selectedContextCount),
     australianSourceCount: finiteCount(value.australianSourceCount),

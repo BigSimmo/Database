@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "7954fb32-db57-43ce-a3e4-b31aa4a897f9",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#322",
+    "outcome": "Merged duplicate Warfarin catalogue records to canonical warfarin-vka",
+    "baseRowFingerprint": "fb86e3f0945226989a39bf5f5148dbc425d758d90d0ed6b1555b27e2b2b4068b"
+  }
+}

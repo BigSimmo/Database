@@ -85,12 +85,28 @@ describe("mode-home loading contract", () => {
 
   it("loads the Therapy workspace only for rich child routes, not the lightweight home", () => {
     const source = readFileSync(
-      join(process.cwd(), "src/components/clinical-dashboard/shared-search-app-shell.tsx"),
+      join(process.cwd(), "src/components/therapy-compass/therapy-compass-route-layout.tsx"),
       "utf8",
     );
-    expect(source).toMatch(/dynamic\([\s\S]*?import\("@\/components\/therapy-compass\/workspace"\)/);
+    expect(source).toMatch(/dynamic\([\s\S]*?import\("\.\/workspace"\)/);
     expect(source).not.toMatch(/^import \{ TherapyCompassWorkspace \}/m);
-    expect(source).toContain('pathname.startsWith("/therapy-compass/")');
+    expect(source).toContain("pathname === THERAPY_HOME");
+  });
+
+  it("routes Factsheets' mode home body through the shared ModeHomeTemplate composer host", () => {
+    // A hand-rolled composer slot (as Factsheets briefly had) omits the SSR
+    // data-composer-reserve/min-h reserve that ModeHomeTemplate provides, which
+    // regresses the shared "one composer host" contract — see
+    // docs/search-chrome-behaviour.md Invariant 15.
+    const factsheetsSource = readFileSync(
+      join(process.cwd(), "src/components/factsheets/factsheets-home-page.tsx"),
+      "utf8",
+    );
+    expect(factsheetsSource).toMatch(
+      /import\s*\{[^}]*ModeHomeTemplate[^}]*\}\s*from\s*"@\/components\/mode-home-template"/,
+    );
+    expect(factsheetsSource).toMatch(/<ModeHomeTemplate\b/);
+    expect(factsheetsSource).not.toMatch(/DesktopComposerPortalSlot/);
   });
 
   it("keeps mode-home route loading top-aligned on phones", () => {

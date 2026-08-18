@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "ec6d0c23-2f19-4159-9c73-49bdc103b61e",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#237",
+    "detail": "CLOSURE ATTEMPTED AND REJECTED 2026-08-14 — read this before closing again. PR #1940 queued a `done` for this row citing tests/accessible-table.dom.test.tsx:110 (\"keeps the full missing-value phrase readable in the dense 320px preview\"); the closure was cancelled on review with the reason \"the jsdom assertion does not verify the requested real 320px browser visual pass\". The cancellation is correct. jsdom does not lay out text, so a 320px assertion there proves the string is present, not that it fits, wraps or stays legible at that width — which is the whole question for a low-confidence extraction in a sparse grid. IN FLIGHT note retired: PR #1841 merged, so the do-not-start warning no longer applies. The requirement is unchanged. PR #1616 clinical MissingValue phrases increase text volume in sparse OCR grids; the contract forbids abbreviating to a dash. Next: open one real lowConfidence extraction at 320px phone width in an actual browser (npm run ensure, then a phone viewport) and accept or adjust dense preview column widths before committing Linux screenshots (#118). Stop: do not close this row on a jsdom, DOM-testing-library or snapshot-string assertion — only a real browser at 320px settles it."
+  }
+}

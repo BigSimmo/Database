@@ -22,7 +22,7 @@ Never, even during a sweep:
 
 - Never merge a pull request into `main` or any protected branch, and never enable auto-merge;
   the sweep fixes and reports, the user merges. Per-PR auto-merge state is user-owned:
-  automation must not disable it.
+  automation must not disable or re-enable it.
 - Never close a pull request, delete or rename branches, force-push (no `--force`, no
   `--force-with-lease`), or rebase.
 - Never run provider-backed gates: `eval:rag`, `eval:quality`, `eval:retrieval:quality`,
@@ -54,10 +54,12 @@ Never, even during a sweep:
 
 ## Per-PR algorithm
 
-Before any branch-changing action, inspect `autoMergeRequest`. If it is non-null, treat the PR as
-mutation-frozen: do not push, update the branch/base, or otherwise change its head. Continue
-read-only diagnosis and reporting, but leave the armed state untouched until the PR merges or the
-user manually changes it. Never disable auto-merge as a workaround for maintenance.
+Before any branch-changing action, inspect `autoMergeRequest`. If it is non-null, ordinary
+fast-forward fixes (CI repairs, review-thread fixes, syncing `main` in) may still proceed — GitHub
+re-validates required checks against the new head before it merges, so an additive push cannot
+slip an unvalidated commit past auto-merge. Never disable or re-enable auto-merge, and never
+force-push or otherwise rewrite the branch's history while it is armed; that alone stays frozen
+until the PR merges or the user manually changes the auto-merge state.
 
 ### Step 0 — skip gates (record every skip with its reason)
 

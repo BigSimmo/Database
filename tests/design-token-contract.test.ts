@@ -1,7 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
+
+import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 /**
  * Invariants of the Clinical Sky token system in `src/app/globals.css`.
@@ -173,7 +175,8 @@ describe("elevation ladder", () => {
   it("keeps the retired --shadow-tight token deleted across the tracked tree", () => {
     const tracked = execFileSync("git", ["ls-files", "src"], { encoding: "utf8" })
       .split("\n")
-      .filter((file) => /\.(tsx?|css)$/.test(file));
+      .filter((file) => /\.(tsx?|css)$/.test(file))
+      .filter((file) => existsSync(new URL(`../${file}`, import.meta.url)));
 
     const survivors = tracked.flatMap((file) => {
       const source = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
@@ -215,14 +218,22 @@ describe("elevation ladder", () => {
   });
 
   it("flattens the ladder itself under forced colors, not only the role aliases", () => {
-    const forced = globals.slice(globals.indexOf("@media (forced-colors: active)"));
+    const forced = sourceFrom(
+      globals,
+      "@media (forced-colors: active) {\n  :root,\n  .dark {\n    --background: Canvas;",
+      {
+        label: "globals.css theme forced-colors block",
+      },
+    );
     for (const tier of ["--e1", "--e2", "--e3", "--e4"]) {
       expect(forced, `${tier} must be neutralised in forced-colors mode`).toContain(`${tier}: none;`);
     }
   });
 
   it("pins the complete v2 forced-colors selector group", () => {
-    const forced = v2Stylesheet.slice(v2Stylesheet.indexOf("@media (forced-colors: active)"));
+    const forced = sourceFrom(v2Stylesheet, "@media (forced-colors: active)", {
+      label: "v2 forced-colors block",
+    });
     expect(forced).toMatch(/\.ckb-v2\.ckb-v2,\s+\.dark \.ckb-v2\.ckb-v2,\s+\.ckb-v2\.dark\.ckb-v2\s*\{/);
   });
 });
@@ -328,7 +339,9 @@ describe("disabled and pre-paint values", () => {
     // APP_THEME_COLORS paints before any stylesheet loads; a drift here is a
     // flash of the wrong page colour and a mismatched browser chrome bar.
     const theme = readFileSync(new URL("../src/lib/theme.ts", import.meta.url), "utf8");
-    const appThemeColors = theme.slice(theme.indexOf("export const APP_THEME_COLORS"));
+    const appThemeColors = sourceFrom(theme, "export const APP_THEME_COLORS", {
+      label: "theme.ts export const APP_THEME_COLORS",
+    });
     expect(appThemeColors).toContain(`light: "${colourOf(v2Light, "--background")}"`);
     expect(appThemeColors).toContain(`dark: "${colourOf(v2Dark, "--background")}"`);
   });
@@ -381,7 +394,8 @@ describe("type scale floor", () => {
     // arrival. Mockups are NOT exempt here — a dead class breaks them too.
     const tracked = execFileSync("git", ["ls-files", "src"], { encoding: "utf8" })
       .split("\n")
-      .filter((file) => /\.(tsx?|css)$/.test(file));
+      .filter((file) => /\.(tsx?|css)$/.test(file))
+      .filter((file) => existsSync(new URL(`../${file}`, import.meta.url)));
 
     const orphans = tracked.flatMap((file) => {
       const source = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
@@ -420,6 +434,7 @@ describe("leading vocabulary", () => {
     const production = execFileSync("git", ["ls-files", "src"], { encoding: "utf8" })
       .split("\n")
       .filter((file) => /\.(tsx?|css)$/.test(file))
+      .filter((file) => existsSync(new URL(`../${file}`, import.meta.url)))
       .filter((file) => !/mockup/i.test(file));
 
     const offenders = production.flatMap((file) => {
@@ -448,9 +463,80 @@ describe("focus ring", () => {
     // stack a second affordance AND replace whatever resting elevation the
     // control had, since a blanket rule cannot know it. tests/ui-smoke.spec.ts
     // asserts the rendered consequence; this asserts the rule itself.
-    const rule = globals.slice(globals.indexOf(':where(button, a, summary, input[type="checkbox"]'));
-    const body = rule.slice(0, rule.indexOf("}"));
+    const body = sourceSegment(globals, ':where(button, a, summary, input[type="checkbox"]', "}", {
+      label: "shared focus rule body",
+    });
     expect(body).toContain("outline: 2px solid var(--focus)");
     expect(body, "the shared focus rule must not paint a box-shadow").not.toContain("box-shadow");
+  });
+});
+
+describe("category accents stay out of the semantic palette", () => {
+  // Identity and status are two different vocabularies sharing one canvas.
+  // `semantic-tone.ts` owns six tones where the colour IS the claim — danger,
+  // warning, success, info and the two neutrals. A category accent says only
+  // "this belongs with those"; it must never borrow a token that says "pause"
+  // or "this passed a check".
+  //
+  // This is not hypothetical: factsheets shipped Therapies on `--success-text`
+  // and Tests & procedures on `--warning-text`, so an entire category of
+  // patient handouts wore caution-amber on its hero band without any review
+  // having produced that judgement.
+  const semanticFamilies = /--(danger|warning|success|info)[\w-]*/g;
+
+  it("resolves every [data-category-accent] rule to a non-semantic triad", () => {
+    const rules = [...globals.matchAll(/\[data-category-accent="([\w-]+)"\]\s*\{([^}]*)\}/g)];
+    expect(rules.length, "no [data-category-accent] rules found in globals.css").toBeGreaterThan(0);
+    for (const [, accent, body] of rules) {
+      const borrowed = body.match(semanticFamilies) ?? [];
+      expect(borrowed, `category accent "${accent}" borrows semantic token(s): ${borrowed.join(", ")}`).toEqual([]);
+      expect(body, `category accent "${accent}" declares no --cat-accent`).toContain("--cat-accent:");
+      expect(body, `category accent "${accent}" declares no --cat-soft`).toContain("--cat-soft:");
+      expect(body, `category accent "${accent}" declares no --cat-border`).toContain("--cat-border:");
+    }
+  });
+
+  // The defect site itself. `categoryTheme` returns raw CSS value strings that
+  // ~20 call sites pass to inline `style`, so a semantic token written here
+  // reaches the page without passing through the `[data-category-accent]` rules
+  // the assertion above guards. It must stay derived from the registry rather
+  // than reacquiring a hand-written per-category table.
+  it("keeps the factsheet category theme derived and off semantic tokens", () => {
+    const source = readFileSync(new URL("../src/components/factsheets/factsheets-data.ts", import.meta.url), "utf8");
+    const block = sourceSegment(source, "export function categoryTheme(", "\n}", {
+      label: "factsheet categoryTheme",
+    });
+    const borrowed = block.match(semanticFamilies) ?? [];
+    expect(borrowed, `categoryTheme returns semantic token(s): ${borrowed.join(", ")}`).toEqual([]);
+    expect(block, "categoryTheme must resolve accents through the shared registry").toContain("categoryAccentVars");
+  });
+
+  // Belt and braces for the type union itself. `CategoryAccent` is what makes a
+  // semantic accent unrepresentable at every call site at once; if a member is
+  // ever added from the status palette, the union stops being the guarantee.
+  it("declares no semantic member on the CategoryAccent union", () => {
+    const source = readFileSync(new URL("../src/lib/category-identity.ts", import.meta.url), "utf8");
+    const union = sourceSegment(source, "export type CategoryAccent =", ";", { label: "CategoryAccent union" });
+    for (const forbidden of ["danger", "warning", "success", "info"]) {
+      expect(union, `CategoryAccent must not offer "${forbidden}" as an identity accent`).not.toContain(
+        `"${forbidden}"`,
+      );
+    }
+  });
+});
+
+describe("responsive breakpoint tokens (Task #336)", () => {
+  it("declares standard named breakpoint tokens in :root, @theme, and ckb-v2", () => {
+    expect(light.get("--bp-phone")).toBe("640px");
+    expect(light.get("--bp-tablet")).toBe("768px");
+    expect(light.get("--bp-desktop")).toBe("1024px");
+
+    expect(v2Light.get("--bp-phone")).toBe("640px");
+    expect(v2Light.get("--bp-tablet")).toBe("768px");
+    expect(v2Light.get("--bp-desktop")).toBe("1024px");
+
+    expect(themeConfigBlock).toContain("--breakpoint-phone: 640px;");
+    expect(themeConfigBlock).toContain("--breakpoint-tablet: 768px;");
+    expect(themeConfigBlock).toContain("--breakpoint-desktop: 1024px;");
   });
 });

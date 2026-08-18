@@ -14,49 +14,141 @@ import type { AppModeId } from "@/lib/app-modes";
  * never hardcoded here.
  */
 
-export type SharedHomePresentation = {
-  title: string;
+export type SharedHomeVerification = {
+  label: string;
+  body: string;
 };
 
+export type SharedHomePresentation = {
+  title: string;
+  subtitle: string;
+  /**
+   * The mode's review-before-use caveat, rendered under the composer.
+   *
+   * Optional because it is a genuine instruction, not decoration: modes whose
+   * footer would only restate what the mode does render nothing, matching the
+   * rule in `ModeHomeVerificationFooter`.
+   */
+  verification?: SharedHomeVerification;
+};
+
+/**
+ * Per-mode copy for the one shared home at `/`.
+ *
+ * `/` is the single home page for every mode — the mode pill retargets the
+ * composer rather than navigating (see `appModeSelectionHref`), so this table is
+ * the *only* thing that changes between modes on that page. Each entry mirrors
+ * the mode's own standalone home (`*-home-page.tsx`) so a clinician sees the
+ * same words whichever door they came through.
+ */
 export const sharedHomePresentation = {
   answer: {
     title: "Clinical Answers",
+    subtitle: "Ask a clinical question or search your documents.",
+    verification: {
+      label: "Clinical decision support",
+      body: "Verify against cited sources before clinical use",
+    },
   },
   documents: {
     title: "Clinical Documents",
+    subtitle: "Open, browse, and continue reading your clinical sources.",
   },
   services: {
     title: "Clinical Services",
+    subtitle: "Search by need, catchment, or route.",
+    verification: {
+      label: "Referral fit",
+      body: "Need, catchment, eligibility and route",
+    },
   },
   forms: {
     title: "Clinical Forms",
+    subtitle: "The WA MHA 2014 forms register.",
+    verification: {
+      label: "Source catalogue reviewed",
+      body: "Official-source MHA 2014 forms · verify before use",
+    },
   },
   favourites: {
     title: "Clinical Favourites",
+    subtitle: "Saved notes, sources, and sets.",
   },
   differentials: {
     title: "Differential Diagnosis",
+    subtitle: "Match your catalogue to your library.",
+    verification: {
+      label: "Decision support",
+      body: "Review before use",
+    },
   },
   dsm: {
     title: "DSM-5 Diagnosis",
+    subtitle: "Criteria, specifiers, and comparisons.",
+    verification: {
+      label: "Local reference content",
+      body: "Clinical review required",
+    },
   },
   specifiers: {
     title: "Diagnostic Specifiers",
+    subtitle: "Check specifier fit and exclusions.",
+    verification: {
+      label: "Diagnostic decision support",
+      body: "Review criteria and exclusions before documenting",
+    },
   },
   formulation: {
     title: "Clinical Formulation",
+    subtitle: "Build a formulation from the evidence.",
+    verification: {
+      label: "Hypothesis-led decision support",
+      body: "Check fit, alternatives, risk, and context before using a draft",
+    },
   },
   prescribing: {
     title: "Medication Guidance",
+    subtitle: "Medication dosing and safety.",
+    verification: {
+      label: "Prescribing support",
+      body: "Confirm against source",
+    },
   },
   tools: {
     title: "Clinical Tools",
+    subtitle: "Clinical tools and applications.",
+  },
+  calculators: {
+    title: "Clinical Calculators",
+    subtitle: "Validated psychiatry scores with the indication, items, and next actions in one place.",
+    verification: {
+      label: "Source-cited scoring",
+      body: "Scores support clinical judgement and never replace a full assessment. Nothing entered here is stored.",
+    },
   },
   "therapy-compass": {
     title: "Therapy Compass",
+    subtitle: "Source-grounded therapy records.",
+    verification: {
+      label: "Decision support",
+      body: "Source-grounded — review status before clinical use",
+    },
   },
   factsheets: {
     title: "Patient Factsheets",
+    subtitle: "Plain-language patient handouts.",
+    verification: {
+      label: "Demonstration patient information",
+      body: "Connect only governance-approved content before publication",
+    },
+  },
+  dictionary: {
+    title: "Clinical Dictionary",
+    subtitle: "Source-governed psychiatric terms, abbreviations, and distinctions.",
+    verification: {
+      label: "Source-checked reference terminology",
+      body: "Not patient-specific guidance",
+    },
   },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 

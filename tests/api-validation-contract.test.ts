@@ -332,6 +332,42 @@ describe("API validation contracts", () => {
     expect(client.calls[0].range).toEqual({ from: 10_000, to: 10_049 });
   });
 
+  it.each([
+    {
+      table: "documents",
+      malformedRow: { id: { sensitive: "patient-secret" }, owner_id: userId, status: "indexed" },
+    },
+    {
+      table: "document_labels",
+      malformedRow: { document_id: { sensitive: "patient-secret" }, label: "Clinical" },
+    },
+    {
+      table: "document_summaries",
+      malformedRow: { document_id: { sensitive: "patient-secret" }, summary: "Private summary" },
+    },
+  ])("rejects and redacts malformed $table rows from the document list", async ({ table, malformedRow }) => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === table) return ok([malformedRow]);
+      if (call.table === "documents") {
+        return ok([{ id: documentId, owner_id: userId, status: "indexed", title: "Guideline" }], 1);
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(authenticatedRequest("/api/documents"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: "Request failed.",
+      message: "Request failed.",
+      code: "internal_error",
+    });
+    expect(JSON.stringify(body)).not.toContain("patient-secret");
+  });
+
   it("treats empty document-detail chunk as absent and clamps page/chunk windows", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.maybeSingle) {
@@ -400,6 +436,115 @@ describe("API validation contracts", () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({ items: [] });
     expect(client.calls[0]).toMatchObject({ table: "documents", limitCount: 200 });
+  });
+
+  it.each([
+    {
+      table: "documents",
+      malformedRow: {
+        id: { sensitive: "patient-secret" },
+        title: "Guideline",
+        file_name: "guideline.pdf",
+        status: "indexed",
+        page_count: 1,
+        chunk_count: 1,
+        image_count: 0,
+        error_message: null,
+        metadata: {},
+        updated_at: null,
+      },
+    },
+    {
+      table: "document_index_quality",
+      malformedRow: {
+        document_id: { sensitive: "patient-secret" },
+        quality_score: 0.8,
+        extraction_quality: "good",
+        metrics: {},
+        issues: [],
+        updated_at: null,
+      },
+    },
+    {
+      table: "ingestion_jobs",
+      malformedRow: {
+        id: "job-1",
+        document_id: { sensitive: "patient-secret" },
+        status: "completed",
+        stage: null,
+        error_message: null,
+        updated_at: null,
+      },
+    },
+    {
+      table: "ingestion_job_stages",
+      malformedRow: {
+        id: "stage-1",
+        document_id: { sensitive: "patient-secret" },
+        job_id: null,
+        stage_name: null,
+        stage_status: null,
+        error_message: null,
+        metadata: {},
+        artifact_counts: {},
+        finished_at: null,
+        started_at: null,
+      },
+    },
+    {
+      table: "document_pages",
+      malformedRow: {
+        document_id: { sensitive: "patient-secret" },
+        page_number: 1,
+        text: null,
+        ocr_used: false,
+        metadata: {},
+      },
+    },
+    {
+      table: "document_images",
+      malformedRow: {
+        document_id: { sensitive: "patient-secret" },
+        page_number: 1,
+        source_kind: null,
+        searchable: false,
+        metadata: {},
+      },
+    },
+  ])("rejects and redacts malformed $table rows from ingestion quality", async ({ table, malformedRow }) => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === table) return ok([malformedRow]);
+      if (call.table === "documents") {
+        return ok([
+          {
+            id: documentId,
+            title: "Guideline",
+            file_name: "guideline.pdf",
+            status: "indexed",
+            page_count: 1,
+            chunk_count: 1,
+            image_count: 0,
+            error_message: null,
+            metadata: {},
+            updated_at: null,
+          },
+        ]);
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/ingestion/quality/route");
+
+    const response = await GET(authenticatedRequest("/api/ingestion/quality"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: "Request failed.",
+      message: "Request failed.",
+      code: "internal_error",
+    });
+    expect(JSON.stringify(body)).not.toContain("patient-secret");
   });
 
   it("rejects invalid ingestion jobs batchId without querying jobs", async () => {
@@ -471,6 +616,36 @@ describe("API validation contracts", () => {
       pagination: { limit: 2, offset: 1, total: 0, nextOffset: 1, hasMore: false },
     });
     expect(client.calls[2]).toMatchObject({ table: "import_batches", range: { from: 1, to: 2 } });
+  });
+
+  it.each([
+    {
+      path: "/api/jobs",
+      loadRoute: () => import("../src/app/api/jobs/route"),
+    },
+    {
+      path: "/api/ingestion/jobs",
+      loadRoute: () => import("../src/app/api/ingestion/jobs/route"),
+    },
+    {
+      path: "/api/ingestion/batches",
+      loadRoute: () => import("../src/app/api/ingestion/batches/route"),
+    },
+  ])("rejects and redacts malformed status rows from $path", async ({ path, loadRoute }) => {
+    const client = createSupabaseMock(() => ok([{ status: { sensitive: "patient-secret" } }]));
+    mockRuntime(client);
+    const { GET } = await loadRoute();
+
+    const response = await GET(authenticatedRequest(path));
+    const body = await payload(response);
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: "Request failed.",
+      message: "Request failed.",
+      code: "internal_error",
+    });
+    expect(JSON.stringify(body)).not.toContain("patient-secret");
   });
 
   it("validates UUID route params for retry, summarize, and labels endpoints", async () => {

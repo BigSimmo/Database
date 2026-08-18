@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronDown, Funnel, Search, X } from "lucide-react";
-import { type ReactNode, useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/components/ui-primitives";
@@ -25,11 +25,9 @@ import { cn } from "@/components/ui-primitives";
  * - `ResultFilterSheet` — the shared sheet for every mode's filters, lens and
  *   facet alike. Below the density threshold (`docs/filter-contract.md` §5) a
  *   facet group is a plain chip row; above it, the sheet grows a find-a-filter
- *   field and collapse-by-default per group. Documents (the largest surface —
- *   up to 11 facet groups) converged onto this in PR F; `meterContent` and
- *   `footerOverride` exist because its progress meter and "Show N documents" /
- *   "Browse all sources" footer are richer than every other mode's plain
- *   `footerNote` + "Done".
+ *   field and collapse-by-default per group. Typed scope, coverage, summary and
+ *   secondary-action props describe the non-group anatomy without arbitrary
+ *   caller-owned markup.
  *
  * Desktop is untouched. The ribbon renders `filterControls` from `sm` up and
  * `mobileControls` below it, never both, so each mode keeps the chip row or tab
@@ -47,14 +45,21 @@ export type ResultFilterOption<Value extends string> = {
   disabled?: boolean;
 };
 
+export type ResultFilterOptionSection = {
+  id: string;
+  label: string;
+  description?: string;
+  optionValues: ReadonlyArray<string>;
+};
+
 /**
  * A dimension the sheet can render, discriminated by what it MEANS rather than
  * by how it should look.
  *
  * `lens` — one-of-N. The options partition the result set and exactly one is
- * active: differentials' All/Presentations/Diagnoses, medication's
- * Best/Indication/Safety/Monitor. This is the shape every call site uses today,
- * so it is the default and `kind` may be omitted.
+ * active: differentials' All/Presentations/Diagnoses or medication match
+ * quality. This is the shape every call site uses today, so it is the default
+ * and `kind` may be omitted.
  *
  * `facet` — many-of-N, OR within the group and AND across groups. Formulation's
  * domains and the documents tag groups are facets; rendering them as radios (as
@@ -71,7 +76,11 @@ type ResultFilterGroupBase = {
   /** Stable within one sheet; used for the group's own labelling ids. */
   id: string;
   label: string;
+  /** Optional clinical context rendered below the group heading. */
+  description?: string;
   options: ReadonlyArray<ResultFilterOption<string>>;
+  /** Visual grouping only. It never changes the group's lens/facet predicate. */
+  optionSections?: ReadonlyArray<ResultFilterOptionSection>;
 };
 
 export type ResultFilterLensGroup = ResultFilterGroupBase & {
@@ -113,18 +122,22 @@ export function isFacetGroup(group: ResultFilterGroup): group is ResultFilterFac
 export function resultFilterGroup<Value extends string>(group: {
   id: string;
   label: string;
+  description?: string;
   value: Value;
   options: ReadonlyArray<ResultFilterOption<Value>>;
   onChange: (value: Value) => void;
   note?: string;
+  optionSections?: ReadonlyArray<ResultFilterOptionSection>;
 }): ResultFilterGroup {
   return {
     kind: "lens",
     id: group.id,
     label: group.label,
+    description: group.description,
     value: group.value,
     options: group.options,
     note: group.note,
+    optionSections: group.optionSections,
     // The one narrowing, isolated here rather than repeated at seven call sites.
     onChange: (value) => group.onChange(value as Value),
   };
@@ -148,9 +161,11 @@ export function resultFilterGroup<Value extends string>(group: {
 export function resultFilterFacetGroup<Value extends string>(group: {
   id: string;
   label: string;
+  description?: string;
   selected: ReadonlySet<Value>;
   options: ReadonlyArray<ResultFilterOption<Value>>;
   onToggle: (value: Value) => void;
+  optionSections?: ReadonlyArray<ResultFilterOptionSection>;
   // Returns the narrow facet type, not the union: a mode hands the same group
   // to `ResultFilterSheet` (which takes the union) and to
   // `ResultFilterFacetChips` for its desktop rail (which does not).
@@ -159,8 +174,10 @@ export function resultFilterFacetGroup<Value extends string>(group: {
     kind: "facet",
     id: group.id,
     label: group.label,
+    description: group.description,
     selected: group.selected as ReadonlySet<string>,
     options: group.options,
+    optionSections: group.optionSections,
     onToggle: (value) => group.onToggle(value as Value),
   };
 }
@@ -255,10 +272,9 @@ export function ResultFilterTrigger({
  * the interaction.
  *
  * Arrow keys select as they move, which is the ARIA default and also what the
- * native `<select>` this replaced already did on desktop. That matters for the
- * groups whose `onChange` navigates (services' quick filters, formulation's
- * patterns): arrowing commits, exactly as it did before, so the role introduces
- * no new hazard there.
+ * native `<select>` this replaced already did on desktop. Live catalogue
+ * lenses therefore commit as focus moves, while staged panels keep their
+ * changes in draft state until the primary action runs.
  *
  * A dead-end option stays on the arrow path but is never selected by it. That is
  * the ARIA guidance for a disabled radio, and it is the only arrangement that
@@ -268,11 +284,9 @@ export function ResultFilterTrigger({
  * would make them reachable — and would add a second, third and fourth tab stop
  * to a control whose whole point is having one.
  *
- * No call site produces a dead end today: `deadEnd` is `disabled && !selected`,
- * and every placeholder this component ships with (services' "Current search" /
- * "All services", formulation's "Current search") is rendered only while it is
- * the *selected* option. This path is therefore defensive, and is asserted in the
- * DOM tests so it cannot rot before the first mode needs it.
+ * `deadEnd` is `disabled && !selected`. These options remain reachable for an
+ * explanation while the selected zero-result value stays removable through
+ * the applied shelf. DOM coverage keeps that distinction explicit.
  */
 function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; panelId: string }) {
   const refs = useRef(new Map<string, HTMLButtonElement>());
@@ -334,6 +348,9 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
         <span id={groupLabelId}>{group.label}</span>
         {group.note ? <span className="ml-auto text-[color:var(--clinical-accent)]">{group.note}</span> : null}
       </h3>
+      {group.description ? (
+        <p className="-mt-0.5 mb-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{group.description}</p>
+      ) : null}
       <div
         role="radiogroup"
         aria-labelledby={groupLabelId}
@@ -381,11 +398,9 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
                 group.onChange(option.value);
               }}
               className={cn(
-                // The tap floor is the token, relaxing to compact density
-                // from `sm` where a pointer is likely. Same recipe as the
-                // documents facet chips, so the two sheets read as one
-                // component family.
-                "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-9 sm:gap-1 sm:px-2 lg:min-h-8",
+                // Phone targets use the 48px tap floor; pointer layouts stay
+                // compact without dropping below the 40px filter-control floor.
+                "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-10 sm:gap-1 sm:px-2",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                 selected
                   ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
@@ -464,6 +479,67 @@ export function ResultFilterFacetChips({
   const panelId = idPrefix;
   const groupLabelId = `${panelId}-${group.id}-label`;
   const visibleOptions = options ?? group.options;
+  const isDenseList =
+    !group.optionSections &&
+    ((group.options.length >= 6 && group.options.length <= 20) ||
+      (visibleOptions.length >= 6 && visibleOptions.length <= 20));
+
+  const renderOptions = (items: ReadonlyArray<ResultFilterOption<string>>, isDense: boolean = isDenseList) =>
+    items.map((option) => {
+      const selected = group.selected.has(option.value);
+      const deadEnd = Boolean(option.disabled) && !selected;
+      const deadEndDescId = `${panelId}-${group.id}-${option.value.replace(/[^A-Za-z0-9_-]/g, "-")}-note`;
+      return (
+        <button
+          key={option.value}
+          type="button"
+          aria-pressed={selected}
+          aria-disabled={deadEnd || undefined}
+          aria-describedby={deadEnd ? deadEndDescId : undefined}
+          aria-label={option.hint ? `${option.label} (${option.hint})` : undefined}
+          onClick={() => {
+            if (deadEnd) return;
+            group.onToggle(option.value);
+          }}
+          className={cn(
+            isDense
+              ? "flex min-h-tap w-full min-w-0 items-center justify-between gap-2.5 rounded-lg border px-3 py-2 text-left text-xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-9 sm:py-1.5"
+              : "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-10 sm:gap-1 sm:px-2",
+            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+            selected
+              ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+              : deadEnd
+                ? "cursor-default border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+          )}
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              aria-hidden
+              className={cn(
+                "grid size-icon-sm shrink-0 place-items-center rounded-xs border transition-colors",
+                selected
+                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--surface)]"
+                  : "border-[color:var(--border-strong)] bg-[color:var(--surface)]",
+              )}
+            >
+              {selected ? <Check aria-hidden="true" className="h-2.5 w-2.5" strokeWidth={3.5} /> : null}
+            </span>
+            <span className="truncate">{option.label}</span>
+          </div>
+          {option.hint ? (
+            <span className="nums shrink-0 text-right text-xs font-bold tabular-nums text-[color:var(--text-muted)]">
+              {option.hint}
+            </span>
+          ) : null}
+          {deadEnd ? (
+            <span id={deadEndDescId} className="sr-only">
+              No matches with your current filters.
+            </span>
+          ) : null}
+        </button>
+      );
+    });
 
   return (
     <section className="min-w-0 border-t border-[color:var(--border)] py-1 first:border-t-0">
@@ -512,70 +588,157 @@ export function ResultFilterFacetChips({
           </>
         )}
       </h3>
+      {group.description ? (
+        <p className="-mt-0.5 mb-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{group.description}</p>
+      ) : null}
       <div
         id={disclosure?.contentId}
         hidden={disclosure ? !disclosure.open : false}
         role="group"
         aria-labelledby={groupLabelId}
-        className="flex flex-wrap gap-2 pb-2.5 sm:gap-1.5"
+        className={cn(
+          "pb-2.5",
+          group.optionSections ? "grid gap-3" : isDenseList ? "grid gap-1" : "flex flex-wrap gap-2 sm:gap-1.5",
+        )}
       >
-        {visibleOptions.map((option) => {
-          const selected = group.selected.has(option.value);
-          const deadEnd = Boolean(option.disabled) && !selected;
-          const deadEndDescId = `${panelId}-${group.id}-${option.value.replace(/[^A-Za-z0-9_-]/g, "-")}-note`;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              aria-pressed={selected}
-              aria-disabled={deadEnd || undefined}
-              aria-describedby={deadEnd ? deadEndDescId : undefined}
-              // Same concatenation defect as the lens chips above: a facet
-              // count would otherwise be announced as "Crisis12".
-              aria-label={option.hint ? `${option.label} (${option.hint})` : undefined}
-              onClick={() => {
-                if (deadEnd) return;
-                group.onToggle(option.value);
-              }}
-              className={cn(
-                // Same recipe and the same tap floor as the lens chips, so the
-                // two kinds read as one component family at every breakpoint.
-                "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-9 sm:gap-1 sm:px-2 lg:min-h-8",
-                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                selected
-                  ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                  : deadEnd
-                    ? "cursor-default border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
-                    : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-              )}
-            >
-              {/* A box rather than a tick-only cue: the empty state has to be as
-                  legible as the checked one for a control that accumulates. */}
-              <span
-                aria-hidden
-                className={cn(
-                  "grid size-icon-sm shrink-0 place-items-center rounded-xs border transition-colors",
-                  selected
-                    ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--surface)]"
-                    : "border-[color:var(--border-strong)] bg-[color:var(--surface)]",
-                )}
-              >
-                {selected ? <Check aria-hidden="true" className="h-2.5 w-2.5" strokeWidth={3.5} /> : null}
-              </span>
-              <span className="truncate">{option.label}</span>
-              {option.hint ? <span className="nums text-[color:var(--text-muted)]">{option.hint}</span> : null}
-              {deadEnd ? (
-                <span id={deadEndDescId} className="sr-only">
-                  No matches with your current filters.
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
+        {group.optionSections
+          ? group.optionSections.map((section) => {
+              const sectionOptions = visibleOptions.filter((option) => section.optionValues.includes(option.value));
+              if (sectionOptions.length === 0) return null;
+              const sectionDense =
+                (section.optionValues.length >= 6 && section.optionValues.length <= 20) ||
+                (sectionOptions.length >= 6 && sectionOptions.length <= 20);
+              return (
+                <section key={section.id} className="grid gap-1.5 rounded-lg bg-[color:var(--surface-subtle)] p-2.5">
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-bold text-[color:var(--text-heading)]">{section.label}</h4>
+                    {section.description ? (
+                      <p className="mt-0.5 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+                        {section.description}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className={cn(sectionDense ? "grid gap-1" : "flex flex-wrap gap-2 sm:gap-1.5")}>
+                    {renderOptions(sectionOptions, sectionDense)}
+                  </div>
+                </section>
+              );
+            })
+          : renderOptions(visibleOptions, isDenseList)}
       </div>
     </section>
   );
 }
+
+export type ResultFilterScopeOption<Value extends string = string> = {
+  value: Value;
+  label: string;
+  count: number;
+  description?: string;
+};
+
+export type ResultFilterScopeConfig = {
+  label?: string;
+  value: string;
+  options: ReadonlyArray<ResultFilterScopeOption>;
+  onChange: (value: string) => void;
+};
+
+/**
+ * A compact, count-bearing scope choice for a catalogue that can widen beyond
+ * the current query. It is deliberately not a generic toggle: the legend names
+ * the dimension, native radios provide keyboard behaviour, and each choice
+ * explains the result universe it will use.
+ */
+export function ResultFilterScopeSelector<Value extends string>({
+  id,
+  label = "Search in",
+  value,
+  options,
+  onChange,
+}: {
+  id: string;
+  label?: string;
+  value: Value;
+  options: ReadonlyArray<ResultFilterScopeOption<Value>>;
+  onChange: (value: Value) => void;
+}) {
+  return (
+    <fieldset className="min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5">
+      <legend className="px-1 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+        {label}
+      </legend>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {options.map((option) => {
+          const descriptionId = option.description
+            ? `${id}-scope-${option.value.replace(/[^A-Za-z0-9_-]/g, "-")}-description`
+            : undefined;
+          return (
+            <label key={option.value} className="relative min-w-0 cursor-pointer">
+              <input
+                type="radio"
+                name={`${id}-scope`}
+                value={option.value}
+                checked={value === option.value}
+                onChange={() => onChange(option.value)}
+                aria-label={`${option.label}, ${option.count.toLocaleString()} ${option.count === 1 ? "match" : "matches"}`}
+                aria-describedby={descriptionId}
+                className="peer sr-only"
+              />
+              <span
+                className={cn(
+                  "flex min-h-tap min-w-0 items-center gap-2 rounded-lg border bg-[color:var(--surface-raised)] px-3 py-2 shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-10",
+                  "border-[color:var(--border-lux)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)]",
+                  "peer-checked:border-[color:var(--clinical-accent-border)] peer-checked:bg-[color:var(--clinical-accent-soft)] peer-checked:text-[color:var(--clinical-accent)]",
+                  "peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--focus)]",
+                )}
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "grid size-icon-sm shrink-0 place-items-center rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]",
+                    value === option.value &&
+                      "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--surface)]",
+                  )}
+                >
+                  {value === option.value ? (
+                    <Check aria-hidden="true" className="h-2.5 w-2.5" strokeWidth={3.5} />
+                  ) : null}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-bold text-[color:var(--text-heading)]">
+                    {option.label}
+                  </span>
+                  {option.description ? (
+                    <span
+                      id={descriptionId}
+                      className="mt-0.5 block text-2xs font-medium leading-4 text-[color:var(--text-muted)]"
+                    >
+                      {option.description}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="nums shrink-0 text-xs font-bold tabular-nums">{option.count.toLocaleString()}</span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+export type ResultFilterSummary = {
+  count: number;
+  noun: string;
+  totalCount?: number;
+};
+
+export type ResultFilterSecondaryAction = {
+  label: string;
+  count?: number;
+  onClick: () => void;
+};
 
 /**
  * A single-choice filter sheet: one radio group per dimension, plus
@@ -612,23 +775,19 @@ export function ResultFilterSheet({
   description,
   groups,
   onClearAll,
-  footerNote,
+  summary,
+  scope,
+  coverage,
+  primaryActionLabel,
+  onApply,
+  secondaryAction,
+  applicationMode = "live",
   /** Result-set identity for the dense-mode chrome below (the find-a-filter
       text and per-group collapse state). Changing it clears that chrome, so a
       new search or scope change cannot leave a stale needle filtering a list
       it no longer describes. Only meaningful once a sheet goes dense (more
       than three facet groups); a sheet that never does can omit it. */
   chromeResetKey = "",
-  /** The scope segment (docs/filter-contract.md section 4) — "These results
-      N | All items N" — rendered above the groups when the calling mode has
-      a catalogue meaningfully larger than its current result set. Built by
-      the caller from `SegmentedControl` rather than owned here: the sheet
-      only reserves the slot, since "meaningfully larger" and what the two
-      counts mean are per-mode judgements, not something a shared filter
-      renderer can decide. */
-  scopeControl,
-  meterContent,
-  footerOverride,
 }: {
   open: boolean;
   onClose: () => void;
@@ -640,18 +799,14 @@ export function ResultFilterSheet({
   /** Omit to hide the header's Clear. A control that advertises an action must
       perform one, so pass this only when something is actually clearable. */
   onClearAll?: () => void;
-  footerNote?: ReactNode;
+  summary?: ResultFilterSummary;
+  scope?: ResultFilterScopeConfig;
+  coverage?: { visibleCount: number; totalCount: number; label?: string };
+  primaryActionLabel?: string;
+  onApply?: () => void;
+  secondaryAction?: ResultFilterSecondaryAction;
+  applicationMode?: "live" | "staged";
   chromeResetKey?: string;
-  scopeControl?: ReactNode;
-  /** Content rendered first in the body, above `scopeControl` and the find-a-filter field —
-      documents' `N of M documents shown` progress meter. No other mode needs this; omit
-      otherwise. */
-  meterContent?: ReactNode;
-  /** Replaces the entire default footer (the `footerNote` span plus the "Done" button) rather
-      than composing with it. For a mode whose commit action needs its own label/count (documents'
-      "Show N documents") or a secondary action beside it (its "Browse all sources"), supplying
-      those loses nothing the default footer offered. `footerNote` is ignored when this is set. */
-  footerOverride?: ReactNode;
 }) {
   // Hooks run unconditionally — the empty-groups early return happens below,
   // after every hook the render needs has already been declared.
@@ -705,7 +860,7 @@ export function ResultFilterSheet({
     });
   };
 
-  if (groups.length === 0) return null;
+  if (groups.length === 0 && !scope) return null;
 
   const facetGroups = groups.filter(isFacetGroup);
   const totalFacetOptions = facetGroups.reduce((total, group) => total + group.options.length, 0);
@@ -746,6 +901,7 @@ export function ResultFilterSheet({
       title={title}
       description={description}
       portal
+      placement="responsive-right"
       id={panelId}
       testId={testId}
       headerActions={
@@ -755,7 +911,7 @@ export function ResultFilterSheet({
             onClick={onClearAll}
             data-testid={`${testId}-clear`}
             className={cn(
-              "search-band-ghost inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-2xs font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-8",
+              "search-band-ghost inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-2xs font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
               "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             )}
           >
@@ -765,28 +921,90 @@ export function ResultFilterSheet({
         ) : null
       }
       footer={
-        footerOverride ?? (
+        <div className="grid gap-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="min-w-0 text-2xs font-semibold text-[color:var(--text-muted)]">{footerNote}</span>
+            <span aria-live="polite" className="min-w-0 text-xs font-semibold text-[color:var(--text-muted)]">
+              {summary
+                ? `${summary.count.toLocaleString()} ${summary.noun}${
+                    summary.totalCount == null ? "" : ` of ${summary.totalCount.toLocaleString()}`
+                  }`
+                : null}
+              {applicationMode === "staged" ? <span className="sr-only">. Changes apply together.</span> : null}
+            </span>
             <button
               type="button"
-              onClick={onClose}
+              onClick={onApply ?? onClose}
               data-testid={`${testId}-done`}
               className={cn(
-                "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:min-h-9",
+                "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-hover)] sm:min-h-10",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               )}
             >
-              Done
+              {primaryActionLabel ??
+                (summary
+                  ? `View ${summary.count.toLocaleString()} ${summary.noun}`
+                  : applicationMode === "staged"
+                    ? "Apply filters"
+                    : "Done")}
             </button>
           </div>
-        )
+          {secondaryAction ? (
+            <button
+              type="button"
+              onClick={secondaryAction.onClick}
+              className={cn(
+                "flex min-h-tap w-full items-center justify-between gap-3 rounded-lg border-t border-[color:var(--border)] px-1 pt-2.5 text-left text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
+                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              )}
+            >
+              <span>{secondaryAction.label}</span>
+              {secondaryAction.count == null ? null : (
+                <span className="nums text-[color:var(--text-muted)]">{secondaryAction.count.toLocaleString()}</span>
+              )}
+            </button>
+          ) : null}
+        </div>
       }
     >
       <div className="grid min-w-0 gap-1">
-        {meterContent ? <div className="min-w-0">{meterContent}</div> : null}
-        {scopeControl ? (
-          <div className="min-w-0 border-b border-[color:var(--border)] pb-2.5">{scopeControl}</div>
+        {coverage ? (
+          <div className="min-w-0 pb-2.5">
+            <div
+              role="progressbar"
+              aria-label={coverage.label ?? "Visible results"}
+              aria-valuemin={0}
+              aria-valuemax={Math.max(coverage.totalCount, 0)}
+              aria-valuenow={Math.min(coverage.visibleCount, Math.max(coverage.totalCount, 0))}
+              className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
+            >
+              <span
+                aria-hidden
+                className="block h-full w-full origin-left rounded-full bg-[color:var(--clinical-accent)] transition-transform motion-reduce:transition-none"
+                style={{
+                  transform: `scaleX(${
+                    coverage.totalCount > 0
+                      ? Math.min(100, Math.max(0, (coverage.visibleCount / coverage.totalCount) * 100)) / 100
+                      : 0
+                  })`,
+                }}
+              />
+            </div>
+            <p className="nums mt-1.5 text-xs font-semibold text-[color:var(--text-muted)]">
+              <span className="text-[color:var(--text-heading)]">{coverage.visibleCount.toLocaleString()}</span> of{" "}
+              {coverage.totalCount.toLocaleString()} retrieved matches visible
+            </p>
+          </div>
+        ) : null}
+        {scope ? (
+          <div className="min-w-0 border-b border-[color:var(--border)] pb-3">
+            <ResultFilterScopeSelector
+              id={panelId}
+              label={scope.label}
+              value={scope.value}
+              options={scope.options}
+              onChange={scope.onChange}
+            />
+          </div>
         ) : null}
         {dense ? (
           <div className="min-w-0 pb-2.5">
@@ -802,14 +1020,14 @@ export function ResultFilterSheet({
                 onChange={(event) => setNeedle(event.target.value)}
                 placeholder="Find a filter…"
                 data-testid={`${testId}-find`}
-                className="min-h-tap min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-9"
+                className="min-h-tap min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-10"
               />
               {needle ? (
                 <button
                   type="button"
                   onClick={() => setNeedle("")}
                   aria-label="Clear the filter search"
-                  className="grid min-h-tap min-w-tap place-items-center text-[color:var(--decoration-soft)] hover:text-[color:var(--text)] sm:min-h-8 sm:min-w-8"
+                  className="grid min-h-tap min-w-tap place-items-center text-[color:var(--decoration-soft)] hover:text-[color:var(--text)] sm:min-h-10 sm:min-w-10"
                 >
                   <X aria-hidden="true" className="h-3.5 w-3.5" />
                 </button>

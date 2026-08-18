@@ -17,7 +17,7 @@ import { expectSingleSettledOwner } from "./playwright-settlement";
 
 /**
  * Page-owned phone chrome: the document viewer's own composer, the standalone
- * frame-owned footers, the calculators dock, and the Services result canvas.
+ * frame-owned footers and the Services result canvas.
  *
  * These surfaces own their composer instead of using the shell's, so their
  * hide/reveal and reserve behaviour is independent of the shared header swept in
@@ -504,7 +504,13 @@ for (const footerCase of standalonePageOwnedFooterRoutes) {
         .toBe(0);
       await expect
         .poll(async () => (await readPageOwnedFooterGeometry(footer, footerCase.reserveSelector)).reservePaddingBottom)
-        .toBeLessThanOrEqual(1);
+        // DocumentViewer's own content reserve (document composer case) keeps a
+        // small 0.75rem/12px resting pad even once hidden — see the matching
+        // comment on `document-viewer-content` in DocumentViewer.tsx — so the
+        // last card never paints flush against the physical bottom edge. Allow
+        // that, with a little slack, while still catching a regression back
+        // toward the full ~9rem visible-state clearance.
+        .toBeLessThanOrEqual(13);
 
       const hidden = await readPageOwnedFooterGeometry(footer, footerCase.reserveSelector);
       expect(hidden.footerPointerEvents, "hidden footer cannot retain an interactive edge layer").toBe("none");
@@ -837,10 +843,20 @@ test("Services results keep a continuous browser viewport after shared chrome re
   );
 });
 
-test("calculator results stay inside narrow phone viewports", async ({ page }) => {
-  for (const width of [320, 390]) {
-    await page.setViewportSize({ width, height: 844 });
-    await gotoPhoneSurface(page, "/calculators", 112);
+test("calculator results stay usable across the responsive and accessibility matrix", async ({ page }) => {
+  const viewports = [
+    { width: 320, height: 740 },
+    { width: 390, height: 844 },
+    { width: 639, height: 900 },
+    { width: 768, height: 1024 },
+    { width: 1440, height: 900 },
+    { width: 1920, height: 1080 },
+  ] as const;
+
+  for (const { width, height } of viewports) {
+    await page.emulateMedia({ colorScheme: "light", forcedColors: "none", reducedMotion: "no-preference" });
+    await page.setViewportSize({ width, height });
+    await gotoPhoneSurface(page, "/calculators?q=depression&run=1", 112);
 
     const pageSurface = page.getByTestId("calculators-search-page");
     const geometry = await pageSurface.evaluate((element) => ({
@@ -851,10 +867,10 @@ test("calculator results stay inside narrow phone viewports", async ({ page }) =
       geometry.clientWidth + 1,
     );
 
-    for (const control of [
-      page.getByRole("button", { name: "Filters" }),
-      page.getByRole("button", { name: /^Open PHQ-9/ }),
-    ]) {
+    const filterTrigger = page.getByTestId(
+      width < 640 ? "calculators-filter-trigger-phone" : "calculators-filter-trigger-desktop",
+    );
+    for (const control of [filterTrigger, page.getByRole("button", { name: /^Open PHQ-9/ })]) {
       const box = await control.boundingBox();
       expect(box, `${width}px calculator control should be rendered`).not.toBeNull();
       expect(box!.x, `${width}px calculator control starts inside the viewport`).toBeGreaterThanOrEqual(0);
@@ -862,351 +878,35 @@ test("calculator results stay inside narrow phone viewports", async ({ page }) =
         width + 1,
       );
     }
-  }
-});
 
-test("calculators page-owned phone dock uses localized glass and releases its reserve when hidden", async ({
-  page,
-}) => {
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.setViewportSize(phoneViewport);
-  await gotoPhoneSurface(page, "/calculators", 112);
-
-  const dock = page.getByTestId("calculators-phone-dock");
-  const pageSurface = page.getByTestId("calculators-search-page");
-  await expect(dock).toBeVisible();
-
-  const visible = await dock.evaluate((element) => {
-    const backdrop = element.querySelector<HTMLElement>(".answer-footer-search-backdrop");
-    const dockRect = element.getBoundingClientRect();
-    const backdropStyle = backdrop ? getComputedStyle(backdrop) : null;
-    return {
-      background: getComputedStyle(element).backgroundColor,
-      left: dockRect.left,
-      right: dockRect.right,
-      bottom: dockRect.bottom,
-      backdropDisplay: backdropStyle?.display ?? "missing",
-      backdropPosition: backdropStyle?.position ?? "missing",
-      backdropPaint: backdropStyle?.backgroundImage ?? "",
-      backdropHasTranslucentStop: /transparent|\/\s*(?:0?\.)\d+/.test(backdropStyle?.backgroundImage ?? ""),
-    };
-  });
-  expect(visible.background).toBe("rgba(0, 0, 0, 0)");
-  expect(visible.left).toBeCloseTo(0, 0);
-  expect(visible.right).toBeCloseTo(phoneViewport.width, 0);
-  expect(visible.bottom).toBeCloseTo(phoneViewport.height, 0);
-  expect(visible.backdropDisplay).toBe("block");
-  expect(visible.backdropPosition).toBe("absolute");
-  expect(visible.backdropPaint).toContain("gradient");
-  expect(visible.backdropHasTranslucentStop).toBe(true);
-  await expect
-    .poll(async () =>
-      Number.parseFloat(await pageSurface.evaluate((element) => getComputedStyle(element).paddingBottom)),
-    )
-    .toBeGreaterThan(112);
-
-  // This journey owns the visible/hidden paint contract. Give it explicit
-  // runway so the separate near-bottom tests remain the sole owner of the
-  // intentional anti-clamp behavior on naturally short calculator pages.
-  await addPhoneScrollRunway(page);
-  const geometry = await readGeometry(page);
-  await dragScrollBy(page, Math.min(Math.max(geometry.maxOffset, 500), 900), 24);
-  await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
-  await page.waitForTimeout(300);
-
-  const hidden = await dock.evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    return { opacity: getComputedStyle(element).opacity, top: rect.top, viewportHeight: window.innerHeight };
-  });
-  expect(hidden.opacity).toBe("0");
-  expect(hidden.top).toBeGreaterThanOrEqual(hidden.viewportHeight - 1);
-  await expect
-    .poll(async () =>
-      Number.parseFloat(await pageSurface.evaluate((element) => getComputedStyle(element).paddingBottom)),
-    )
-    .toBeLessThanOrEqual(1);
-
-  await dragScrollBy(page, -48, 8);
-  await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
-});
-
-test("calculator dock clears its focus pin after a focused submit opens and closes a sheet", async ({ page }) => {
-  await page.setViewportSize(phoneViewport);
-  await gotoPhoneSurface(page, "/calculators", 112);
-
-  const dock = page.getByTestId("calculators-phone-dock");
-  const input = dock.getByRole("searchbox", { name: "Search calculators" });
-  await input.fill("PHQ-9");
-  await input.press("Enter");
-  await expect(page.getByRole("button", { name: "Close", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Close", exact: true }).click();
-  await expect(dock).toBeVisible();
-  await expect(input).not.toBeFocused();
-
-  await addPhoneScrollRunway(page);
-  await dragScrollUntilHidden(page, 900, 24);
-  await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
-});
-
-test("page-owned focus clearance places a below-fold calculator control above the visible dock", async ({ page }) => {
-  await page.setViewportSize(phoneViewport);
-  await gotoPhoneSurface(page, "/calculators", 112);
-  await expect(page.getByTestId("calculators-phone-dock")).toBeVisible();
-
-  const geometry = await page.evaluate(() => {
-    const owner = document.querySelector<HTMLElement>('[data-reserve-owner="calculator"]');
-    const dock = document.querySelector<HTMLElement>('[data-testid="calculators-phone-dock"]');
-    if (!owner || !dock) throw new Error("calculator focus-clearance owners were not rendered");
-    const runway = document.createElement("div");
-    runway.style.height = "1400px";
-    runway.setAttribute("aria-hidden", "true");
-    const target = document.createElement("button");
-    target.type = "button";
-    target.textContent = "Focus clearance probe";
-    target.dataset.testid = "phone-focus-clearance-probe";
-    const tail = document.createElement("div");
-    tail.style.height = "400px";
-    tail.setAttribute("aria-hidden", "true");
-    owner.append(runway, target, tail);
-    window.scrollTo(0, 0);
-    target.focus({ preventScroll: true });
-    target.scrollIntoView({ block: "nearest" });
-    const targetRect = target.getBoundingClientRect();
-    const dockRect = dock.getBoundingClientRect();
-    return {
-      targetBottom: targetRect.bottom,
-      dockTop: dockRect.top,
-      scrollMarginBottom: Number.parseFloat(getComputedStyle(target).scrollMarginBottom),
-      dockHidden: dock.getAttribute("data-scroll-hidden") === "true",
-    };
-  });
-
-  expect(geometry.dockHidden, "measure before hide-on-scroll can release the visible dock").toBe(false);
-  expect(geometry.scrollMarginBottom, "the page-owned reserve must reach focused descendants").toBeGreaterThan(100);
-  expect(geometry.targetBottom, "focused content must land above the visible page-owned dock").toBeLessThanOrEqual(
-    geometry.dockTop + 1,
-  );
-});
-
-// Renamed 2026-07-30: the old title said "96px of near-bottom runway", but 96 is
-// `collapseRunwaySlack`, which only exists on the in-flow branch of
-// `computeScrollHideUpdate`. Reserve-only overlay has no slack term at all — its
-// near-bottom refusal is `offset <= postCollapseMaxOffset + bottomClampTolerance`.
-// One test covers both owners, so the title names the behaviour rather than one
-// motion's constant. No flake-ledger or allowlist entry referenced the old name.
-test("calculator combined chrome refuses a near-bottom hide that would clamp the reader", async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.setViewportSize(phoneViewport);
-  await gotoPhoneSurface(page, "/calculators", 112);
-  await addPhoneScrollRunway(page);
-
-  const { frames, diag } = await page.evaluate(async () => {
-    const main = document.getElementById("main-content");
-    const dock = document.querySelector<HTMLElement>('[data-testid="calculators-phone-dock"]');
-    const reserve = document.querySelector<HTMLElement>('[data-testid="calculators-search-page"]');
-    if (!main || !dock || !reserve) throw new Error("calculator reserve geometry was not rendered");
-    const mainOwnsScroll =
-      /^(?:auto|scroll|overlay)$/.test(getComputedStyle(main).overflowY) && main.scrollHeight > main.clientHeight + 1;
-    const scrollOwner = mainOwnsScroll ? main : (document.scrollingElement ?? document.documentElement);
-    const read = () => ({
-      dockHidden: dock.getAttribute("data-scroll-hidden") === "true",
-      headerHidden:
-        document.querySelector('[data-testid="universal-header-collapse"]')?.getAttribute("data-scroll-hidden") ===
-        "true",
-      scrollTop: scrollOwner.scrollTop,
-      maxOffset: scrollOwner.scrollHeight - scrollOwner.clientHeight,
-    });
-    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
-    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
-    // Match `readChromeCollapseMetrics`: overlay charges zero top release, so
-    // the near-bottom gate is reserve-only. Including the still-present header
-    // height here overstates the budget and scrolls into a zone where
-    // reserve-only policy *allows* hide — the opposite of this regression guard.
-    const phoneOverlayMotion = collapse?.dataset.phoneMotion === "overlay";
-    const headerRelease =
-      !phoneOverlayMotion && collapse && getComputedStyle(collapse).display === "grid"
-        ? collapse.getBoundingClientRect().height
-        : 0;
-    const safeAreaRelease = headerRelease > 0 && safeArea ? safeArea.getBoundingClientRect().height : 0;
-    const reserveRelease = Math.max(0, Number.parseFloat(getComputedStyle(reserve).paddingBottom) || 0);
-    const collapseBudget = headerRelease + safeAreaRelease + reserveRelease;
-    // Both target offsets are derived from `computeScrollHideUpdate`'s own
-    // refusal clauses (use-hide-on-scroll.ts) rather than from a chosen number,
-    // because the two motions refuse for genuinely different reasons:
-    //
-    //   in-flow       refuse while runwayAfterCollapse <= revealIntentDistance
-    //                 + collapseRunwaySlack  (12 + 96)
-    //   reserve-only  refuse while offset > postCollapseMaxOffset
-    //                 + bottomClampTolerance
-    //
-    // Mirrored constants — keep in step with use-hide-on-scroll.ts.
-    const revealIntentDistance = 12;
-    const collapseRunwaySlack = 96;
-    const bottomClampTolerance = 1;
-    const maxOffset = Math.max(0, scrollOwner.scrollHeight - scrollOwner.clientHeight);
-    const postCollapseMaxOffset = Math.max(0, maxOffset - collapseBudget);
-    // Reserve-only: land strictly inside the refusal band but not at the very
-    // bottom, so this stays a boundary case rather than the trivial one.
-    const overlayTarget = Math.min(
-      maxOffset,
-      postCollapseMaxOffset + bottomClampTolerance + Math.max(1, Math.round(reserveRelease / 3)),
+    await filterTrigger.click();
+    const filterSheet = page.getByTestId("calculators-filter-sheet");
+    await expect(filterSheet).toBeVisible();
+    const filterGeometry = await filterSheet.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      right: element.getBoundingClientRect().right,
+    }));
+    expect(filterGeometry.scrollWidth, `${width}px calculator filters must not overflow`).toBeLessThanOrEqual(
+      filterGeometry.clientWidth + 1,
     );
-    const inFlowTarget = Math.max(0, maxOffset - collapseBudget - collapseRunwaySlack);
-    scrollOwner.scrollTop = phoneOverlayMotion ? overlayTarget : inFlowTarget;
-    // Capture the offset we actually landed on BEFORE dispatching, and never
-    // re-read it afterwards. If the policy regresses and the hide is wrongly
-    // allowed, the reserve collapses, maxOffset shrinks and the browser clamps
-    // scrollTop — so a post-loop read reports the offset after the bug rather
-    // than the offset under test. Asserting the band against that clamped value
-    // made a policy regression surface as "the test setup is wrong", which is
-    // the opposite of a useful failure. Found by removing the refusal clause and
-    // watching this test fail for the wrong reason (2026-07-30).
-    const targetScrollTop = scrollOwner.scrollTop;
-    (mainOwnsScroll ? main : window).dispatchEvent(new Event("scroll", { bubbles: true }));
-    const frames = [read()];
-    for (let index = 0; index < 18; index += 1) {
-      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
-      frames.push(read());
-    }
-    return {
-      frames,
-      diag: {
-        phoneOverlayMotion,
-        reserveRelease,
-        collapseBudget,
-        maxOffset,
-        postCollapseMaxOffset,
-        targetScrollTop,
-        // The other reserve-only clause. If the post-collapse range were shorter
-        // than this, hide would be refused for being too short overall and the
-        // near-bottom clause would never be reached — the test would pass
-        // without testing anything.
-        minimumRangeForHide: 8 + 24,
-        inFlowRunwayAfterCollapse: maxOffset - targetScrollTop - collapseBudget,
-        inFlowRefusalCeiling: revealIntentDistance + collapseRunwaySlack,
-      },
-    };
-  });
-
-  // Non-vacuity first. "Chrome stayed visible" is only evidence of a refusal if
-  // the scroll position actually sat inside the refusal band AND the other
-  // clauses were satisfied — otherwise chrome stays visible for an unrelated
-  // reason and this test silently guards nothing. Added 2026-07-30: the overlay
-  // branch previously used chosen offsets, so nothing checked that it landed
-  // anywhere meaningful.
-  expect(diag.collapseBudget, "chrome must have geometry to release, or nothing can be refused").toBeGreaterThan(1);
-  if (diag.phoneOverlayMotion) {
-    expect(
-      diag.postCollapseMaxOffset,
-      "post-collapse range must clear the short-range clause, so the near-bottom clause is what refuses",
-    ).toBeGreaterThanOrEqual(diag.minimumRangeForHide);
-    expect(diag.targetScrollTop, "reserve-only offset must sit inside the near-bottom refusal band").toBeGreaterThan(
-      diag.postCollapseMaxOffset + 1,
+    expect(filterGeometry.right, `${width}px calculator filters stay inside the viewport`).toBeLessThanOrEqual(
+      width + 1,
     );
-  } else {
-    expect(
-      diag.inFlowRunwayAfterCollapse,
-      "in-flow runway after collapse must sit inside the slack refusal band",
-    ).toBeLessThanOrEqual(diag.inFlowRefusalCeiling);
+    await page.keyboard.press("Escape");
+    await expect(filterSheet).toBeHidden();
+    await expect(filterTrigger).toBeFocused();
   }
 
-  expect(frames.every((frame) => !frame.headerHidden && !frame.dockHidden)).toBe(true);
-  for (let index = 1; index < frames.length; index += 1) {
-    expect(frames[index].scrollTop, "rejected near-bottom collapse cannot clamp scrollTop").toBeCloseTo(
-      frames[0].scrollTop,
-      0,
-    );
-    expect(frames[index].maxOffset, "rejected near-bottom collapse keeps the scroll range stable").toBeCloseTo(
-      frames[0].maxOffset,
-      0,
-    );
-  }
-});
-
-test("calculator reserve and dock hide and reveal monotonically with sufficient near-bottom runway", async ({
-  page,
-}) => {
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.setViewportSize(phoneViewport);
-  await gotoPhoneSurface(page, "/calculators", 112);
-  await addPhoneScrollRunway(page);
-
-  const frames = await page.evaluate(async () => {
-    const main = document.getElementById("main-content");
-    const dock = document.querySelector<HTMLElement>('[data-testid="calculators-phone-dock"]');
-    const reserve = document.querySelector<HTMLElement>('[data-testid="calculators-search-page"]');
-    if (!main || !dock || !reserve) throw new Error("calculator reserve geometry was not rendered");
-    const mainOwnsScroll =
-      /^(?:auto|scroll|overlay)$/.test(getComputedStyle(main).overflowY) && main.scrollHeight > main.clientHeight + 1;
-    const scrollOwner = mainOwnsScroll ? main : (document.scrollingElement ?? document.documentElement);
-    const read = () => ({
-      hidden: dock.getAttribute("data-scroll-hidden") === "true",
-      dockTop: dock.getBoundingClientRect().top,
-      paddingBottom: Number.parseFloat(getComputedStyle(reserve).paddingBottom),
-      scrollTop: scrollOwner.scrollTop,
-      maxOffset: scrollOwner.scrollHeight - scrollOwner.clientHeight,
-      scrollAnchor: getComputedStyle(scrollOwner).overflowAnchor,
-      transitionDuration: getComputedStyle(reserve).transitionDuration,
-    });
-    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
-    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
-    const collapseBudget =
-      (collapse?.getBoundingClientRect().height ?? 0) +
-      (safeArea?.getBoundingClientRect().height ?? 0) +
-      Number.parseFloat(getComputedStyle(reserve).paddingBottom);
-    const targetOffset = Math.max(0, scrollOwner.scrollHeight - scrollOwner.clientHeight - collapseBudget - 256);
-    scrollOwner.scrollTop = Math.max(0, targetOffset - 24);
-    (mainOwnsScroll ? main : window).dispatchEvent(new Event("scroll", { bubbles: true }));
-    await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
-    scrollOwner.scrollTop = targetOffset;
-    (mainOwnsScroll ? main : window).dispatchEvent(new Event("scroll", { bubbles: true }));
-    const hiding = [read()];
-    for (let index = 0; index < 18; index += 1) {
-      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
-      hiding.push(read());
-    }
-    scrollOwner.scrollTop -= 12;
-    (mainOwnsScroll ? main : window).dispatchEvent(new Event("scroll", { bubbles: true }));
-    const reveal = [read()];
-    for (let index = 0; index < 16; index += 1) {
-      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
-      reveal.push(read());
-    }
-    return { hiding, reveal };
-  });
-
-  const firstHidden = frames.hiding.findIndex((frame) => frame.hidden);
-  expect(firstHidden, "sufficient-runway downward intent hides the calculator dock").toBeGreaterThan(-1);
-  const hiding = frames.hiding.slice(firstHidden);
-  expect(hiding.some((frame) => frame.transitionDuration.includes("0.24s"))).toBe(true);
-  expect(
-    hiding.some((frame) => frame.scrollAnchor === "none"),
-    "page-owned reserve transition disables anchoring",
-  ).toBe(true);
-  for (let index = 1; index < hiding.length; index += 1) {
-    expect(hiding[index].paddingBottom, "calculator reserve never reverses during hide").toBeLessThanOrEqual(
-      hiding[index - 1].paddingBottom + 1,
-    );
-    expect(hiding[index].dockTop, "dock never reverses during hide").toBeGreaterThanOrEqual(
-      hiding[index - 1].dockTop - 1,
-    );
-    expect(
-      hiding[index].scrollTop,
-      `scroll remains monotonic during hide at frame ${index}: ${JSON.stringify({ previous: hiding[index - 1], current: hiding[index] })}`,
-    ).toBeGreaterThanOrEqual(hiding[index - 1].scrollTop - 1);
-  }
-  const firstRevealed = frames.reveal.findIndex((frame) => !frame.hidden);
-  expect(firstRevealed, "upward intent reveals the calculator dock").toBeGreaterThan(-1);
-  const revealing = frames.reveal.slice(firstRevealed);
-  for (let index = 1; index < revealing.length; index += 1) {
-    expect(revealing[index].paddingBottom, "calculator reserve never reverses during reveal").toBeGreaterThanOrEqual(
-      revealing[index - 1].paddingBottom - 1,
-    );
-    expect(revealing[index].dockTop, "dock never reverses during reveal").toBeLessThanOrEqual(
-      revealing[index - 1].dockTop + 1,
-    );
-    expect(revealing[index].scrollTop, "scroll remains monotonic during reveal").toBeLessThanOrEqual(
-      revealing[index - 1].scrollTop + 1,
-    );
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const media of [
+    { colorScheme: "dark" as const, forcedColors: "none" as const, reducedMotion: "no-preference" as const },
+    { colorScheme: "light" as const, forcedColors: "none" as const, reducedMotion: "reduce" as const },
+    { colorScheme: "light" as const, forcedColors: "active" as const, reducedMotion: "no-preference" as const },
+  ]) {
+    await page.emulateMedia(media);
+    await gotoPhoneSurface(page, "/calculators?q=depression&run=1", 112);
+    await expect(page.getByTestId("calculators-search-page")).toBeVisible();
+    await expect(page.getByTestId("calculators-filter-trigger-phone")).toBeVisible();
   }
 });

@@ -4,8 +4,8 @@
  * the floating composer on read-focused routes.
  *
  * Basic chrome for these pages lives in `src/components/information-page-shell.tsx`.
- * Intentional opt-outs from that shell (different product chrome): document viewer,
- * therapy-compass CSS workspace, differentials presentation workflow.
+ * Intentional opt-outs from that shell (different product chrome): document viewer
+ * and the differentials presentation workflow.
  */
 
 export type InformationPageMode =
@@ -15,6 +15,7 @@ export type InformationPageMode =
   | "specifiers"
   | "formulation"
   | "factsheets"
+  | "dictionary"
   | "therapy-compass"
   | "differentials"
   | "dsm"
@@ -48,6 +49,9 @@ export function isInformationPage(pathname: string): boolean {
   if (isSlugDetail(pathname, "/specifiers")) return true;
   if (isSlugDetail(pathname, "/formulation")) return true;
   if (isSlugDetail(pathname, "/factsheets", ["search"])) return true;
+  if (isSlugDetail(pathname, "/dictionary", ["search", "browse", "topics", "compare", "sources"])) return true;
+  if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
+    return true;
 
   // Therapy compass detail: /therapy-compass/[slug]/brief or /sheet (and bare slug if present)
   if (
@@ -81,5 +85,7 @@ export const informationPageShellModes = [
   "specifiers",
   "formulation",
   "factsheets",
+  "dictionary",
+  "therapy-compass",
   "dsm",
 ] as const satisfies readonly InformationPageMode[];

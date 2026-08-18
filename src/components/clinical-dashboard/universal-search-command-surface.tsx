@@ -32,6 +32,7 @@ import {
   commandDropdownCanDisplay,
   commandDropdownMinimumWidthMediaQuery,
   commandDropdownPointerMediaQuery,
+  commandSurfaceRemoteSearchEnabled,
   differentialRedFlagTerms,
   filteredSuggestions,
   isFormCodeQuery,
@@ -60,6 +61,7 @@ const domainsByTargetMode: Partial<Record<AppModeId, UniversalSearchDomain[]>> =
   specifiers: ["specifiers"],
   formulation: ["formulation"],
   "therapy-compass": ["therapies"],
+  dictionary: ["dictionary"],
   tools: ["tools"],
 };
 
@@ -74,6 +76,7 @@ const domainHeadings: Record<UniversalSearchDomain, string> = {
   specifiers: "Specifiers",
   formulation: "Formulation",
   therapies: "Therapies",
+  dictionary: "Dictionary",
   tools: "Tools",
 };
 
@@ -441,7 +444,7 @@ export function UniversalSearchCommandSurface({
   dropdownOpen: boolean;
   onDropdownOpenChange: (open: boolean) => void;
   onQueryChange: (query: string) => void;
-  onSearch: () => void;
+  onSearch: (query?: string) => void;
   onPickRecent: (query: string) => void;
   onCrossMode: (modeId: AppModeId, query: string) => void;
   onRunModeAction?: (actionId: ModeActionId) => void;
@@ -489,7 +492,7 @@ export function UniversalSearchCommandSurface({
   // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
   const universal = useUniversalSearch({
     query: trimmedQuery,
-    enabled: dropdownOpen && dropdownDisplayable && Boolean(config),
+    enabled: dropdownOpen && dropdownDisplayable && commandSurfaceRemoteSearchEnabled(modeId),
     contextMode: modeId,
   });
   const savedRegistryFavourites = useSavedRegistryFavourites().items;
@@ -697,7 +700,7 @@ export function UniversalSearchCommandSurface({
             onSelect: () => {
               onDropdownOpenChange(false);
               onQueryChange(suggestion.text);
-              onSearch();
+              onSearch(suggestion.text);
             },
             render: (active) => (
               <OptionShell active={active} hint="Search">
@@ -844,7 +847,9 @@ export function UniversalSearchCommandSurface({
                       ? "answer"
                       : modeId === "tools"
                         ? "tools"
-                        : null;
+                        : modeId === "dictionary"
+                          ? "dictionary"
+                          : null;
 
     if (actionSetId) {
       const actions = modeActionItemsFor(actionSetId).slice(0, 3);
@@ -1029,8 +1034,10 @@ export function UniversalSearchCommandSurface({
   }, [dropdownOpen, onDropdownOpenChange]);
 
   useEffect(() => {
-    function handleSlashFocus(event: KeyboardEvent) {
-      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+    function handleSearchFocusShortcut(event: KeyboardEvent) {
+      const slashShortcut = event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey;
+      const commandShortcut = event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey) && !event.altKey;
+      if (!slashShortcut && !commandShortcut) return;
       const target = event.target as HTMLElement | null;
       if (
         target &&
@@ -1044,8 +1051,8 @@ export function UniversalSearchCommandSurface({
       event.preventDefault();
       onFocusSearchInput?.();
     }
-    window.addEventListener("keydown", handleSlashFocus);
-    return () => window.removeEventListener("keydown", handleSlashFocus);
+    window.addEventListener("keydown", handleSearchFocusShortcut);
+    return () => window.removeEventListener("keydown", handleSearchFocusShortcut);
   }, [onFocusSearchInput]);
 
   if (!config) {

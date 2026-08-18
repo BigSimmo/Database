@@ -3,6 +3,8 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { sourceFrom, sourceSegment } from "./helpers/source-contract";
+
 const nodeSetup = readFileSync(new URL("../.github/actions/setup-node-cached/action.yml", import.meta.url), "utf8");
 const uiSetup = readFileSync(new URL("../.github/actions/setup-ui-e2e/action.yml", import.meta.url), "utf8");
 const lighthouseChromiumSetup = readFileSync(
@@ -99,6 +101,12 @@ describe("CI cache safety", () => {
     expect(workflow).toContain("run: npm run check:verification-plan");
   });
 
+  it("runs the generated medication lexicon freshness check through static-heavy scope", () => {
+    expect(workflow).toMatch(
+      /name: Medication lexicon report freshness\n\s+if: needs\.changes\.outputs\.static_heavy_changed == 'true'\n\s+run: npm run check:medication-lexicon-report/,
+    );
+  });
+
   it("does not repeat focused workflow contracts inside the full coverage run", () => {
     expect(workflow).toContain(
       "if: needs.changes.outputs.workflow_changed == 'true' && needs.changes.outputs.coverage_changed != 'true'",
@@ -176,7 +184,9 @@ describe("CI cache safety", () => {
   });
 
   it("lets the release Playwright wrapper own its build and skips proven production Chromium", () => {
-    const releaseJob = workflow.slice(workflow.indexOf("  release-browser-matrix:"));
+    const releaseJob = sourceFrom(workflow, "  release-browser-matrix:", {
+      label: "release-browser-matrix job definition",
+    });
     expect(releaseJob).not.toContain("path: .next/cache");
     expect(releaseJob).not.toContain("run: npm run build");
     expect(releaseJob).toContain("npm run test:e2e -- --project=chromium-mockups --project=firefox --project=webkit");
@@ -184,15 +194,45 @@ describe("CI cache safety", () => {
   });
 
   it("scopes the main-branch release backstop to UI, performance, or lockfile risk", () => {
-    const releaseHeader = workflow.slice(
-      workflow.indexOf("  release-browser-matrix:"),
-      workflow.indexOf("    steps:", workflow.indexOf("  release-browser-matrix:")),
-    );
+    const releaseHeader = sourceSegment(workflow, "  release-browser-matrix:", "    steps:", {
+      label: "release-browser-matrix job header",
+    });
     expect(releaseHeader).toContain("github.ref == 'refs/heads/main'");
     expect(releaseHeader).toContain("needs.changes.outputs.ui_changed == 'true'");
     expect(releaseHeader).toContain("needs.changes.outputs.perf_changed == 'true'");
     expect(releaseHeader).toContain("needs.changes.outputs.lockfile_changed == 'true'");
     expect(releaseHeader).toContain("startsWith(github.ref, 'refs/heads/release/')");
+  });
+
+  /*
+   * Base-branch pushes must never be cancelled by a later merge.
+   *
+   * `cancel-in-progress: true` is correct for a PR branch, where a newer head genuinely
+   * supersedes the work in flight. It is wrong for `main`: that commit is already merged and
+   * nothing supersedes it, so cancelling does not skip redundant work — it throws away the only
+   * verification `main` receives. Measured 2026-08-18 across the last 30 pushes to main, 23 were
+   * cancelled (77%) and only 6 completed, which is how a ~163ms Lighthouse drift on
+   * desktop /therapy-compass and two broken @mockup assertions both reached feature branches as
+   * first detection, and why ci-triage kept reporting a cancelled main run as its baseline.
+   *
+   * A blanket `true` here reads as a harmless cost control and is not one, so it is pinned with
+   * its own case rather than left to review.
+   */
+  it("never cancels an in-flight run for a base-branch push", () => {
+    const concurrency = sourceSegment(workflow, "concurrency:", "permissions:", {
+      label: "workflow concurrency block",
+    });
+
+    expect(concurrency).toContain("cancel-in-progress: ${{ github.event_name != 'push' }}");
+    expect(concurrency).not.toContain("cancel-in-progress: true");
+
+    // `on.push.branches` is what makes `event_name == 'push'` mean "base branch" — if a push
+    // trigger is ever widened to feature branches, this exemption silently stops being scoped
+    // and every branch keeps its superseded runs alive.
+    const pushTrigger = sourceSegment(workflow, "  push:", "  pull_request:", {
+      label: "workflow push trigger",
+    });
+    expect(pushTrigger).toContain('branches: [main, "release/**"]');
   });
 });
 
@@ -234,6 +274,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     DB_CHANGED: "false",
     BUILD_CHANGED: "false",
     CONTAINER_CHANGED: "false",
+    PR_DRAFT: "false",
     EVENT_NAME: "pull_request",
     CHANGES_RESULT: "success",
     STATIC_RESULT: "success",
@@ -285,6 +326,34 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", SAFETY_RESULT: "success" }).status).toBe(0);
     expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", SAFETY_RESULT: "skipped" }).status).not.toBe(0);
     expect(runAggregate({ STATIC_HEAVY_CHANGED: "false", SAFETY_RESULT: "skipped" }).status).toBe(0);
+  });
+
+  it("skips heavy jobs on a draft PR instead of reporting them as a failed skip", () => {
+    // Without PR_DRAFT, a heavy-scope draft push would call require_success on a job the
+    // job's own `if:` intentionally skipped, turning "draft, don't book a runner" into a
+    // false-red required check. PR_DRAFT folds draft into the same in-scope check as the
+    // *_CHANGED flags so the aggregate reads it as skipped-and-fine instead.
+    expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", PR_DRAFT: "true", SAFETY_RESULT: "skipped" }).status).toBe(0);
+    expect(runAggregate({ COVERAGE_CHANGED: "true", PR_DRAFT: "true", COVERAGE_RESULT: "skipped" }).status).toBe(0);
+    expect(runAggregate({ BUILD_CHANGED: "true", PR_DRAFT: "true", BUILD_RESULT: "skipped" }).status).toBe(0);
+    expect(
+      runAggregate({
+        UI_CHANGED: "true",
+        PR_DRAFT: "true",
+        UI_FAST_RESULT: "skipped",
+        UI_RESULT: "skipped",
+      }).status,
+    ).toBe(0);
+    expect(runAggregate({ DB_CHANGED: "true", PR_DRAFT: "true", DB_RESULT: "skipped" }).status).toBe(0);
+  });
+
+  it("still requires heavy jobs on a ready-for-review PR even though it once was a draft", () => {
+    // PR_DRAFT reflects the *current* event's draft state, not history — `ready_for_review`
+    // reruns the whole workflow fresh, so a stale skip must never carry forward.
+    expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", PR_DRAFT: "false", SAFETY_RESULT: "skipped" }).status).not.toBe(
+      0,
+    );
+    expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", PR_DRAFT: "false", SAFETY_RESULT: "success" }).status).toBe(0);
   });
 
   it("requires ingestion SAST only for its path-scoped surface", () => {

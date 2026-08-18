@@ -37,6 +37,7 @@ import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { restoreFocusUnlessMoved, useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
+import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
@@ -113,8 +114,8 @@ const phoneModeGroups = [
   {
     id: "care",
     label: "Care",
-    hint: "Medication, tools, therapy",
-    modeIds: ["prescribing", "tools", "therapy-compass", "factsheets"],
+    hint: "Medication, calculators, reference, therapy",
+    modeIds: ["prescribing", "calculators", "tools", "therapy-compass", "factsheets", "dictionary"],
   },
 ] as const satisfies ReadonlyArray<{
   id: string;
@@ -246,7 +247,7 @@ export function MasterSearchHeader({
   realDataReady: boolean;
   onQueryChange: (query: string) => void;
   onSearchModeChange: (mode: AppModeId) => void;
-  onAsk: () => void;
+  onAsk: (query?: string) => void;
   onClearQuery: () => void;
   onClearScope: () => void;
   onQueryModeChange: (mode: ClinicalQueryMode) => void;
@@ -354,6 +355,7 @@ export function MasterSearchHeader({
   // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
   // Do not OR demoMode again here — that would reopen Favourites when props diverge.
   const router = useRouter();
+  const [, setLastAppMode] = useLastAppMode();
   const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
     authenticated: canAccessFavourites,
     demoMode: false,
@@ -373,7 +375,9 @@ export function MasterSearchHeader({
     selectedSearch.kind === "documents" ||
     selectedSearch.kind === "forms" ||
     selectedSearch.kind === "services" ||
+    selectedSearch.kind === "therapies" ||
     selectedSearch.kind === "tools" ||
+    selectedSearch.kind === "calculators" ||
     selectedSearch.kind === "favourites" ||
     selectedSearch.kind === "specifiers" ||
     selectedSearch.kind === "formulation" ||
@@ -657,9 +661,13 @@ export function MasterSearchHeader({
                       ? "formulation"
                       : searchMode === "tools"
                         ? "tools"
-                        : searchMode === "factsheets"
-                          ? "factsheets"
-                          : "answer";
+                        : searchMode === "calculators"
+                          ? "calculators"
+                          : searchMode === "factsheets"
+                            ? "factsheets"
+                            : searchMode === "dictionary"
+                              ? "dictionary"
+                              : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
 
@@ -759,6 +767,26 @@ export function MasterSearchHeader({
       onQueryChange("");
       return;
     }
+    if (actionId === "dictionary-search") {
+      router.push(`/dictionary/search${trimmedQuery ? `?q=${encodeURIComponent(trimmedQuery)}` : ""}`);
+      return;
+    }
+    if (actionId === "dictionary-browse") {
+      router.push("/dictionary/browse");
+      return;
+    }
+    if (actionId === "dictionary-topics") {
+      router.push("/dictionary/topics");
+      return;
+    }
+    if (actionId === "dictionary-compare") {
+      router.push("/dictionary/compare");
+      return;
+    }
+    if (actionId === "dictionary-sources") {
+      router.push("/dictionary/sources");
+      return;
+    }
     if (actionId === "services-search") {
       onSearchModeChange("services");
       return;
@@ -812,6 +840,10 @@ export function MasterSearchHeader({
     }
     if (actionId === "tools-browse") {
       onSearchModeChange("tools");
+      return;
+    }
+    if (actionId === "calculators-browse") {
+      router.push("/calculators");
       return;
     }
     if (actionId === "differentials-build") {
@@ -883,6 +915,30 @@ export function MasterSearchHeader({
 
   function selectAppMode(mode: (typeof appModeDefinitions)[number]) {
     setModeMenuOpen(false);
+    if (mode.id === "tools" && "href" in mode && mode.href) {
+      // Tools is a browse-first directory: selecting it opens the canonical
+      // all-tools page instead of retargeting the shared-home composer.
+      // Persist the selection here rather than via onSearchModeChange: that
+      // callback owns shared-home navigation and would race this canonical push.
+      setLastAppMode(mode.id);
+      pendingModeSelectionFocusRef.current = mode.id;
+      router.push(mode.href);
+      if (mode.id === searchMode) {
+        const restoreSameModeFocus = () => {
+          if (pendingModeSelectionFocusRef.current !== mode.id) return;
+          if (document.getElementById("app-mode-menu")) {
+            window.setTimeout(restoreSameModeFocus, 50);
+            return;
+          }
+          restoreFocusUnlessMoved(modeButtonRef.current);
+          pendingModeSelectionFocusRef.current = null;
+        };
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(restoreSameModeFocus);
+        });
+      }
+      return;
+    }
     if (isSearchableAppMode(mode.id)) {
       // Wait until the URL-owned mode prop settles before returning focus. The
       // trigger's accessible name changes with that prop; focusing in the click
@@ -987,11 +1043,11 @@ export function MasterSearchHeader({
   // Prefetch only the mode the user is about to choose — the highlighted option
   // on open, then whichever option receives focus/pointer while scanning.
   //
-  // A pick always returns to the shared home; warm that exact URL rather than a
-  // mode-owned home or search route the user has not asked to open.
+  // Most picks return to the shared home. Tools is browse-first and opens its
+  // canonical all-results directory, so warm that route instead.
   function prefetchModeSelection(modeId: AppModeId) {
     if (modeId === searchMode) return;
-    const href = appModeSelectionHref(modeId);
+    const href = modeId === "tools" ? "/tools" : appModeSelectionHref(modeId);
     if (prefetchedModeHrefsRef.current.has(href)) return;
     prefetchedModeHrefsRef.current.add(href);
     router.prefetch(href, {
@@ -2368,6 +2424,7 @@ export function MasterSearchHeader({
           portal
           mobilePlacement="bottom"
           mobileSize="content"
+          mobileHeaderSafeArea="padding"
           testId="app-mode-menu-sheet"
           contentClassName="max-h-[calc(100dvh-0.75rem)] rounded-t-3xl bg-[color:var(--surface-lux)] sm:max-w-md sm:rounded-2xl"
           bodyClassName="bg-[color:var(--surface-lux)] px-2.5 pb-2 pt-0.5"

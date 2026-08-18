@@ -159,6 +159,14 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  // B1 telemetry extension (docs/rag-improvement/README.md §B1). Default OFF: when true,
+  // the allow-listed extended answer-telemetry fields (numbers only, projected through
+  // src/lib/rag/rag-answer-telemetry-metadata.ts) are added to rag_queries.metadata.
+  // Rollback for the whole B1 surface is RAG_TELEMETRY_EXTENDED=false.
+  RAG_TELEMETRY_EXTENDED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   // P8b extension: when strict-AND text retrieval returns weak-but-nonzero matches (sparse
   // result set or negligible top text_rank), append OR-relaxed recall behind the strict
   // matches. Default OFF: with it on, the golden retrieval eval measured OR-noise displacing

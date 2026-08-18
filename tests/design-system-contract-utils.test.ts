@@ -12,6 +12,7 @@ import {
   findErrorStateCountPropsInSource,
   findFailedStateResultCountsInSource,
   findHardcodedMotionClassesInSource,
+  findInteractiveTapFloorDeclarationsInSource,
   findInteractiveTapLiteralsInSource,
   findJsxEdgeOwnershipConflictsInSource,
   findLayoutTransitionClassesInSource,
@@ -79,6 +80,39 @@ describe("design-system contract helpers", () => {
         '<div className={cn("h-11", active && "md:w-11")}>Decoration</div>',
       ),
     ).toEqual([]);
+  });
+
+  it("flags interactive controls declaring a sub-floor min-height, and only those (Gate 2)", () => {
+    const find = (source: string) => findInteractiveTapFloorDeclarationsInSource("src/example.tsx", source);
+
+    // The violation: an interactive element declaring its own floor under 48px.
+    expect(find('<button className="min-h-9 px-3">Reset</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className={cn("inline-flex min-h-10", active && "px-3")}>Reset</button>')).toEqual([
+      "src/example.tsx:1",
+    ]);
+    expect(find('<summary className="min-h-8">Details</summary>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<summary className="min-h-[42px]">Details</summary>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className="min-h-[2.5rem]">Reset</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className={compact ? "min-h-10" : "min-h-12"}>Reset</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className={cn("min-h-12", compact && "min-h-10")}>Reset</button>')).toEqual([
+      "src/example.tsx:1",
+    ]);
+
+    // The repo's correct responsive pattern must NOT be flagged: 48px on
+    // phones, released to 40px from `sm` up.
+    expect(find('<button className="min-h-12 sm:min-h-10">Save</button>')).toEqual([]);
+    expect(find('<button className="min-h-tap sm:min-h-9">Save</button>')).toEqual([]);
+    expect(find('<button className="min-h-[48px]">Save</button>')).toEqual([]);
+    expect(find('<button className="min-h-[3rem]">Save</button>')).toEqual([]);
+    expect(find('<button className={compact ? "min-h-tap" : "min-h-12"}>Save</button>')).toEqual([]);
+
+    // A short height on a NON-interactive element is layout, not a tap target.
+    expect(find('<div className="min-h-9">Panel</div>')).toEqual([]);
+
+    // Scoped to `min-h-*`: a short `h-*`/`size-*` is routinely the visible box
+    // of a control whose hit area belongs to a tap-sized wrapper, so flagging
+    // it would pad the baseline with non-defects (GATES.md §5).
+    expect(find('<input type="checkbox" className="h-4 w-4" />')).toEqual([]);
   });
 
   it("finds whitespace, fallback, URL, string and template --text-soft consumers in TypeScript", () => {

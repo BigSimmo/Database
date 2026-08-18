@@ -1,12 +1,12 @@
 {
   "version": 1,
   "generatedFrom": "data/medications-snapshot.json",
-  "sourceRowCount": 523,
+  "sourceRowCount": 525,
   "stats": {
-    "resolvedRows": 362,
-    "unresolvedRows": 161,
-    "rowsWithCatalogueTarget": 423,
-    "medicationsWithUnresolvedRows": 142
+    "resolvedRows": 392,
+    "unresolvedRows": 133,
+    "rowsWithCatalogueTarget": 440,
+    "medicationsWithUnresolvedRows": 118
   },
   "names": {
     "acamprosate": "Acamprosate",
@@ -624,9 +624,16 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "caution",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": [
+            "nicotine-gum",
+            "nicotine-inhalator",
+            "nicotine-lozenge",
+            "nicotine-mouth-spray",
+            "nicotine-patch",
+            "nicotine-sublingual-tablet"
+          ],
+          "termIds": ["nrt"],
+          "resolved": true,
           "note": "CAUTION — Transdermal NRT co-administration increased adverse effects in study data. Avoid routine combination unless there is a clear plan to monitor nausea, headache, vomiting, dizziness, dyspepsia, fatigue, and overall tolerability."
         },
         {
@@ -639,7 +646,7 @@
           "note": "LOW — Varenicline has minimal clinically meaningful CYP450 interaction burden and is largely renally excreted unchanged; renal function matters more than CYP-mediated interactions."
         }
       ],
-      "unresolvedRowCount": 2
+      "unresolvedRowCount": 1
     },
     "adrenaline-epinephrine": {
       "rows": [
@@ -702,6 +709,7 @@
             "clozapine",
             "codeine",
             "diazepam",
+            "dosulepin",
             "doxepin",
             "fentanyl",
             "flupentixol-decanoate",
@@ -776,6 +784,7 @@
             "chlorpromazine",
             "clomipramine",
             "clozapine",
+            "dosulepin",
             "doxepin",
             "flupentixol-decanoate",
             "haloperidol-decanoate",
@@ -872,6 +881,7 @@
             "clozapine",
             "codeine",
             "diazepam",
+            "dosulepin",
             "doxepin",
             "fentanyl",
             "flupentixol-decanoate",
@@ -1252,6 +1262,7 @@
             "citalopram",
             "clomipramine",
             "desvenlafaxine",
+            "dosulepin",
             "doxepin",
             "duloxetine",
             "escitalopram",
@@ -1394,6 +1405,7 @@
             "amiloride",
             "aspirin",
             "candesartan",
+            "celecoxib",
             "diclofenac",
             "eplerenone",
             "frusemide",
@@ -1402,6 +1414,7 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "perindopril",
             "spironolactone"
           ],
@@ -1499,6 +1512,7 @@
             "amiloride",
             "aspirin",
             "candesartan",
+            "celecoxib",
             "diclofenac",
             "eplerenone",
             "frusemide",
@@ -1507,6 +1521,7 @@
             "indapamide",
             "ketorolac",
             "naproxen",
+            "parecoxib",
             "perindopril",
             "spironolactone"
           ],
@@ -1558,6 +1573,7 @@
             "amiloride",
             "aspirin",
             "candesartan",
+            "celecoxib",
             "diclofenac",
             "eplerenone",
             "frusemide",
@@ -1566,6 +1582,7 @@
             "indapamide",
             "ketorolac",
             "meloxicam",
+            "parecoxib",
             "perindopril",
             "spironolactone"
           ],
@@ -1669,7 +1686,7 @@
           "rowIndex": 0,
           "severity": "critical",
           "counterparties": ["lidocaine-patch"],
-          "termIds": [],
+          "termIds": ["anaesthetics"],
           "resolved": true,
           "note": "CRITICAL — Additive toxicity with other local anaesthetics. You must calculate the TOTAL cumulative dose if the patient has had a Lidocaine block and a Bupivacaine epidural."
         }
@@ -1711,7 +1728,7 @@
           "rowIndex": 0,
           "severity": "high",
           "counterparties": ["bupivacaine", "flecainide"],
-          "termIds": [],
+          "termIds": ["anaesthetics"],
           "resolved": true,
           "note": "HIGH — Additive toxicity with Class I antiarrhythmics (e.g., Flecainide) or other local anaesthetics (e.g., concurrent bupivacaine infusions)."
         }
@@ -1758,15 +1775,20 @@
           "rowIndex": 1,
           "severity": "high",
           "counterparties": [
+            "amlodipine",
             "atenolol",
             "bisoprolol",
             "carvedilol",
+            "diltiazem",
+            "felodipine",
             "labetalol",
             "metoprolol",
+            "nifedipine-xr",
             "propranolol",
-            "sotalol"
+            "sotalol",
+            "verapamil"
           ],
-          "termIds": ["beta-blockers", "qtc-prolonging"],
+          "termIds": ["beta-blockers", "calcium-channel-blockers", "qtc-prolonging"],
           "resolved": false,
           "note": "HIGH — Beta-blockers, CCBs, and other QTc prolonging drugs."
         }
@@ -1817,15 +1839,20 @@
           "rowIndex": 0,
           "severity": "critical",
           "counterparties": [
+            "amlodipine",
             "atenolol",
             "bisoprolol",
             "carvedilol",
+            "diltiazem",
+            "felodipine",
             "labetalol",
             "metoprolol",
+            "nifedipine-xr",
             "propranolol",
-            "sotalol"
+            "sotalol",
+            "verapamil"
           ],
-          "termIds": ["beta-blockers"],
+          "termIds": ["beta-blockers", "calcium-channel-blockers"],
           "resolved": true,
           "note": "CRITICAL — Beta-blockers/CCBs (additive negative inotropy and bradycardia)."
         },
@@ -1893,8 +1920,8 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "critical",
-          "counterparties": ["verapamil"],
-          "termIds": [],
+          "counterparties": ["amlodipine", "diltiazem", "felodipine", "nifedipine-xr", "verapamil"],
+          "termIds": ["calcium-channel-blockers"],
           "resolved": true,
           "note": "CRITICAL — Non-DHP CCBs (Verapamil) risk asystole."
         }
@@ -1974,6 +2001,7 @@
           "counterparties": [
             "amiloride",
             "aspirin",
+            "celecoxib",
             "diclofenac",
             "eplerenone",
             "frusemide",
@@ -1983,6 +2011,7 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "spironolactone"
           ],
           "termIds": ["arbs", "diuretics", "nsaids"],
@@ -2087,6 +2116,7 @@
           "counterparties": [
             "amiloride",
             "aspirin",
+            "celecoxib",
             "diclofenac",
             "eplerenone",
             "frusemide",
@@ -2096,6 +2126,7 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "spironolactone"
           ],
           "termIds": ["acei", "diuretics", "nsaids"],
@@ -2181,8 +2212,8 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["diltiazem", "verapamil"],
-          "termIds": [],
+          "counterparties": ["amlodipine", "diltiazem", "felodipine", "nifedipine-xr", "verapamil"],
+          "termIds": ["calcium-channel-blockers"],
           "resolved": true,
           "note": "CRITICAL — Non-DHP CCBs (Verapamil, Diltiazem) due to profound AV node blockade."
         },
@@ -2227,13 +2258,13 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["amlodipine", "diltiazem", "felodipine", "nifedipine-xr", "verapamil"],
+          "termIds": ["anaesthetics", "calcium-channel-blockers"],
+          "resolved": true,
           "note": "HIGH — Additive hypotension with halothane/anaesthetics. Bradycardia with non-DHP CCBs."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "metoprolol": {
       "rows": [
@@ -2273,7 +2304,16 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": ["aspirin", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen"],
+          "counterparties": [
+            "aspirin",
+            "celecoxib",
+            "diclofenac",
+            "ibuprofen",
+            "ketorolac",
+            "meloxicam",
+            "naproxen",
+            "parecoxib"
+          ],
           "termIds": ["nsaids"],
           "resolved": true,
           "note": "HIGH — NSAIDs (exacerbate renal failure and hyperkalemia)."
@@ -2313,11 +2353,13 @@
           "counterparties": [
             "aspirin",
             "candesartan",
+            "celecoxib",
             "diclofenac",
             "ibuprofen",
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "perindopril"
           ],
           "termIds": ["acei", "arbs", "nsaids"],
@@ -2353,12 +2395,14 @@
           "severity": "critical",
           "counterparties": [
             "aspirin",
+            "celecoxib",
             "diclofenac",
             "ibuprofen",
             "indapamide",
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "perindopril"
           ],
           "termIds": ["acei", "nsaids", "thiazide-diuretics"],
@@ -2383,7 +2427,17 @@
           "rowKey": "Triple Whammy",
           "rowIndex": 1,
           "severity": "critical",
-          "counterparties": ["aspirin", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "perindopril"],
+          "counterparties": [
+            "aspirin",
+            "celecoxib",
+            "diclofenac",
+            "ibuprofen",
+            "ketorolac",
+            "meloxicam",
+            "naproxen",
+            "parecoxib",
+            "perindopril"
+          ],
           "termIds": ["acei", "nsaids"],
           "resolved": true,
           "note": "CRITICAL — NSAIDs + ACEi + Indapamide."
@@ -2429,8 +2483,8 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": ["rosuvastatin"],
-          "termIds": ["statins"],
+          "counterparties": ["fenofibrate", "rosuvastatin"],
+          "termIds": ["fibrates", "statins"],
           "resolved": true,
           "note": "HIGH — Gemfibrozil (Fibrate) blocks statin uptake, drastically increasing blood levels. Avoid combo."
         }
@@ -2444,21 +2498,21 @@
           "rowIndex": 0,
           "severity": "caution",
           "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "termIds": ["bile-acid-sequestrants"],
+          "resolved": true,
           "note": "CAUTION — Bile acid sequestrants (Cholestyramine) bind to Ezetimibe in the gut. Must be taken 2 hours before or 4 hours after."
         },
         {
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "caution",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["fenofibrate"],
+          "termIds": ["fibrates"],
+          "resolved": true,
           "note": "CAUTION — Fibrates (increases risk of gallstones/cholelithiasis)."
         }
       ],
-      "unresolvedRowCount": 2
+      "unresolvedRowCount": 0
     },
     "fenofibrate": {
       "rows": [
@@ -2579,8 +2633,8 @@
           "rowIndex": 0,
           "severity": "high",
           "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "termIds": ["anaesthetics"],
+          "resolved": true,
           "note": "HIGH — Additive hypotension with other vasodilators and anaesthetics."
         },
         {
@@ -2607,7 +2661,7 @@
           "note": "BENEFICIAL — Beta-blockers (blunt reflex tachycardia) and Diuretics (blunt fluid retention)."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "prazosin": {
       "rows": [
@@ -2669,6 +2723,7 @@
           "counterparties": [
             "amitriptyline",
             "clomipramine",
+            "dosulepin",
             "doxepin",
             "imipramine",
             "nortriptyline",
@@ -2773,7 +2828,7 @@
           "rowIndex": 0,
           "severity": "moderate",
           "counterparties": [],
-          "termIds": [],
+          "termIds": ["oral-absorption"],
           "resolved": false,
           "note": "MODERATE — Delayed gastric emptying can slightly delay the absorption of concomitant oral medications."
         }
@@ -2786,8 +2841,47 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": ["paracetamol"],
-          "termIds": [],
+          "counterparties": [
+            "amikacin",
+            "amoxicillin",
+            "amoxicillin-clavulanate",
+            "azithromycin",
+            "aztreonam",
+            "benzathine-benzylpenicillin",
+            "cefazolin",
+            "cefepime",
+            "ceftriaxone",
+            "cefuroxime",
+            "cephalexin",
+            "ciprofloxacin",
+            "clarithromycin",
+            "clindamycin",
+            "co-trimoxazole",
+            "colistin",
+            "dicloxacillin",
+            "doxycycline",
+            "ertapenem",
+            "erythromycin",
+            "ethinylestradiol",
+            "flucloxacillin",
+            "fosfomycin",
+            "gentamicin",
+            "levonorgestrel",
+            "medroxyprogesterone",
+            "meropenem",
+            "metronidazole",
+            "minocycline",
+            "moxifloxacin",
+            "nitrofurantoin",
+            "norfloxacin",
+            "paracetamol",
+            "phenoxymethylpenicillin",
+            "piperacillin-tazobactam",
+            "roxithromycin",
+            "trimethoprim",
+            "vancomycin"
+          ],
+          "termIds": ["antibiotics", "oral-contraceptives"],
           "resolved": true,
           "note": "HIGH — Because it paralyzes the stomach (slows gastric emptying), it can severely delay the absorption of oral drugs that require rapid peak levels (e.g., Paracetamol, oral contraceptives, antibiotics)."
         }
@@ -3092,7 +3186,7 @@
           "rowIndex": 0,
           "severity": "moderate",
           "counterparties": [],
-          "termIds": [],
+          "termIds": ["oral-absorption"],
           "resolved": false,
           "note": "MODERATE — Delays the absorption of rapidly acting oral medications due to gastric stasis."
         }
@@ -3251,7 +3345,16 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["aspirin", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen"],
+          "counterparties": [
+            "aspirin",
+            "celecoxib",
+            "diclofenac",
+            "ibuprofen",
+            "ketorolac",
+            "meloxicam",
+            "naproxen",
+            "parecoxib"
+          ],
           "termIds": ["nsaids"],
           "resolved": true,
           "note": "CRITICAL — NSAIDs (Massive risk of bleeding gastric ulcers)."
@@ -3297,13 +3400,15 @@
           "severity": "high",
           "counterparties": [
             "aspirin",
+            "celecoxib",
             "diclofenac",
             "hydrochlorothiazide",
             "ibuprofen",
             "indapamide",
             "ketorolac",
             "meloxicam",
-            "naproxen"
+            "naproxen",
+            "parecoxib"
           ],
           "termIds": ["nsaids", "thiazide-diuretics"],
           "resolved": true,
@@ -3334,13 +3439,15 @@
           "severity": "critical",
           "counterparties": [
             "aspirin",
+            "celecoxib",
             "diclofenac",
             "esomeprazole",
             "ibuprofen",
             "ketorolac",
             "meloxicam",
             "naproxen",
-            "pantoprazole"
+            "pantoprazole",
+            "parecoxib"
           ],
           "termIds": ["nsaids", "ppis"],
           "resolved": true,
@@ -3366,13 +3473,15 @@
           "severity": "critical",
           "counterparties": [
             "aspirin",
+            "celecoxib",
             "diclofenac",
             "esomeprazole",
             "ibuprofen",
             "ketorolac",
             "meloxicam",
             "naproxen",
-            "pantoprazole"
+            "pantoprazole",
+            "parecoxib"
           ],
           "termIds": ["nsaids", "ppis"],
           "resolved": true,
@@ -3424,13 +3533,13 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["methotrexate"],
+          "termIds": ["immunosuppressants"],
+          "resolved": true,
           "note": "HIGH — Immunosuppressants (additive risk of severe infections)."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "levothyroxine": {
       "rows": [
@@ -3610,6 +3719,7 @@
             "clozapine",
             "codeine",
             "diazepam",
+            "dosulepin",
             "doxepin",
             "fentanyl",
             "flupentixol-decanoate",
@@ -3717,6 +3827,7 @@
             "clozapine",
             "codeine",
             "diazepam",
+            "dosulepin",
             "doxepin",
             "fentanyl",
             "flupentixol-decanoate",
@@ -3927,6 +4038,7 @@
             "clozapine",
             "cyclizine",
             "diphenhydramine",
+            "dosulepin",
             "doxepin",
             "fexofenadine",
             "flupentixol-decanoate",
@@ -3998,7 +4110,16 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "caution",
-          "counterparties": ["aspirin", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen"],
+          "counterparties": [
+            "aspirin",
+            "celecoxib",
+            "diclofenac",
+            "ibuprofen",
+            "ketorolac",
+            "meloxicam",
+            "naproxen",
+            "parecoxib"
+          ],
           "termIds": ["nsaids"],
           "resolved": true,
           "note": "CAUTION — Concurrent use with other nephrotoxic drugs (NSAIDs) increases the risk of renal failure."
@@ -4030,8 +4151,8 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "moderate",
-          "counterparties": ["gliclazide"],
-          "termIds": [],
+          "counterparties": ["gliclazide", "glipizide"],
+          "termIds": ["sulfonylureas"],
           "resolved": true,
           "note": "MODERATE — Can enhance the hypoglycemic effect of sulfonylureas (e.g., Gliclazide)."
         }
@@ -4059,12 +4180,12 @@
           "rowIndex": 0,
           "severity": "high",
           "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "termIds": ["liquid-paraffin"],
+          "resolved": true,
           "note": "HIGH — Liquid paraffin (mineral oil laxatives). Docusate increases the systemic absorption of mineral oil, leading to lipoid pneumonia and hepatic granulomas. Never combine them."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "fortrans-peg": {
       "rows": [
@@ -4072,13 +4193,13 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["ethinylestradiol", "levonorgestrel", "medroxyprogesterone"],
+          "termIds": ["oral-contraceptives"],
+          "resolved": true,
           "note": "CRITICAL — Flushes EVERYTHING out. Any oral medication (e.g., blood pressure pills, oral contraceptives) taken within 2-3 hours of the prep will be flushed out completely unabsorbed."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "glycerol-suppository": {
       "rows": [
@@ -4114,13 +4235,48 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "low",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": [
+            "amikacin",
+            "amoxicillin",
+            "amoxicillin-clavulanate",
+            "azithromycin",
+            "aztreonam",
+            "benzathine-benzylpenicillin",
+            "cefazolin",
+            "cefepime",
+            "ceftriaxone",
+            "cefuroxime",
+            "cephalexin",
+            "ciprofloxacin",
+            "clarithromycin",
+            "clindamycin",
+            "co-trimoxazole",
+            "colistin",
+            "dicloxacillin",
+            "doxycycline",
+            "ertapenem",
+            "erythromycin",
+            "flucloxacillin",
+            "fosfomycin",
+            "gentamicin",
+            "meropenem",
+            "metronidazole",
+            "minocycline",
+            "moxifloxacin",
+            "nitrofurantoin",
+            "norfloxacin",
+            "phenoxymethylpenicillin",
+            "piperacillin-tazobactam",
+            "roxithromycin",
+            "trimethoprim",
+            "vancomycin"
+          ],
+          "termIds": ["antibiotics"],
+          "resolved": true,
           "note": "LOW — Theoretically, oral antibiotics (like Neomycin) can kill the colonic bacteria needed to ferment lactulose, reducing its efficacy, but in practice, they are often used together successfully for encephalopathy."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "movicol-macrogol": {
       "rows": [
@@ -4186,10 +4342,14 @@
           "severity": "high",
           "counterparties": [
             "amiloride",
+            "amlodipine",
             "aspirin",
             "candesartan",
+            "celecoxib",
             "diclofenac",
+            "diltiazem",
             "eplerenone",
+            "felodipine",
             "frusemide",
             "hydrochlorothiazide",
             "ibuprofen",
@@ -4197,10 +4357,13 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "nifedipine-xr",
+            "parecoxib",
             "perindopril",
-            "spironolactone"
+            "spironolactone",
+            "verapamil"
           ],
-          "termIds": ["acei", "arbs", "diuretics", "nsaids"],
+          "termIds": ["acei", "arbs", "calcium-channel-blockers", "diuretics", "nsaids"],
           "resolved": true,
           "note": "HIGH — ACE inhibitors, ARBs, NSAIDs, diuretics, calcium channel blockers, and other drugs affecting renal perfusion/electrolytes increase AKI or electrolyte-risk context; avoid unless medically reviewed."
         }
@@ -4213,13 +4376,48 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "low",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": [
+            "amikacin",
+            "amoxicillin",
+            "amoxicillin-clavulanate",
+            "azithromycin",
+            "aztreonam",
+            "benzathine-benzylpenicillin",
+            "cefazolin",
+            "cefepime",
+            "ceftriaxone",
+            "cefuroxime",
+            "cephalexin",
+            "ciprofloxacin",
+            "clarithromycin",
+            "clindamycin",
+            "co-trimoxazole",
+            "colistin",
+            "dicloxacillin",
+            "doxycycline",
+            "ertapenem",
+            "erythromycin",
+            "flucloxacillin",
+            "fosfomycin",
+            "gentamicin",
+            "meropenem",
+            "metronidazole",
+            "minocycline",
+            "moxifloxacin",
+            "nitrofurantoin",
+            "norfloxacin",
+            "phenoxymethylpenicillin",
+            "piperacillin-tazobactam",
+            "roxithromycin",
+            "trimethoprim",
+            "vancomycin"
+          ],
+          "termIds": ["antibiotics"],
+          "resolved": true,
           "note": "LOW — Broad-spectrum antibiotics may theoretically reduce the colonic bacteria needed to activate the drug, but rarely clinically significant."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "apixaban": {
       "rows": [
@@ -4238,6 +4436,7 @@
           "severity": "high",
           "counterparties": [
             "aspirin",
+            "celecoxib",
             "citalopram",
             "diclofenac",
             "escitalopram",
@@ -4247,6 +4446,7 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "paroxetine",
             "sertraline"
           ],
@@ -4274,6 +4474,7 @@
           "severity": "critical",
           "counterparties": [
             "aspirin",
+            "celecoxib",
             "citalopram",
             "diclofenac",
             "escitalopram",
@@ -4283,6 +4484,7 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "paroxetine",
             "sertraline"
           ],
@@ -4302,6 +4504,7 @@
           "counterparties": [
             "apixaban",
             "aspirin",
+            "celecoxib",
             "clopidogrel",
             "dabigatran",
             "diclofenac",
@@ -4313,6 +4516,7 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "rivaroxaban",
             "ticagrelor",
             "warfarin-anticoagulant",
@@ -4349,6 +4553,7 @@
           "severity": "critical",
           "counterparties": [
             "aspirin",
+            "celecoxib",
             "citalopram",
             "diclofenac",
             "escitalopram",
@@ -4358,6 +4563,7 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "paroxetine",
             "sertraline"
           ],
@@ -4377,6 +4583,7 @@
           "counterparties": [
             "apixaban",
             "aspirin",
+            "celecoxib",
             "clopidogrel",
             "dabigatran",
             "dalteparin",
@@ -4388,6 +4595,7 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "rivaroxaban",
             "ticagrelor",
             "warfarin-anticoagulant",
@@ -4409,6 +4617,7 @@
           "counterparties": [
             "apixaban",
             "aspirin",
+            "celecoxib",
             "clopidogrel",
             "dabigatran",
             "dalteparin",
@@ -4420,6 +4629,7 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "rivaroxaban",
             "ticagrelor",
             "warfarin-anticoagulant",
@@ -4449,6 +4659,7 @@
           "severity": "high",
           "counterparties": [
             "aspirin",
+            "celecoxib",
             "citalopram",
             "diclofenac",
             "escitalopram",
@@ -4458,6 +4669,7 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "paroxetine",
             "sertraline"
           ],
@@ -4474,13 +4686,13 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["ethinylestradiol", "levonorgestrel", "medroxyprogesterone"],
+          "termIds": ["oral-contraceptives"],
+          "resolved": true,
           "note": "HIGH — Combined Oral Contraceptive Pill (COCP). Using TXA and estrogen together synergistically increases the risk of a fatal DVT or PE."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "warfarin-vka": {
       "rows": [
@@ -4488,28 +4700,52 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["amiodarone", "fluconazole", "metronidazole", "warfarin-anticoagulant"],
+          "counterparties": ["amiodarone", "fluconazole", "metronidazole"],
           "termIds": ["cotrimoxazole"],
           "resolved": true,
-          "note": "CRITICAL — **CYP2C9** Inhibitors (Fluconazole, Metronidazole, Amiodarone, Bactrim). These will massively spike Warfarin levels, shooting the INR to 8+ and causing fatal bleeding. Dose must be halved preemptively."
+          "note": "CRITICAL — **CYP2C9** inhibitors (Amiodarone, Metronidazole, Fluconazole, Bactrim) massively spike INR and cause bleeding. You MUST halve the warfarin dose if starting these."
         },
         {
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "critical",
-          "counterparties": ["carbamazepine", "warfarin-anticoagulant"],
+          "counterparties": ["carbamazepine"],
           "termIds": ["st-johns-wort"],
           "resolved": true,
-          "note": "CRITICAL — **CYP2C9** Inducers (Carbamazepine, Rifampicin, St John's Wort). These destroy Warfarin, dropping the INR to 1.0 and causing massive strokes."
+          "note": "CRITICAL — **CYP2C9** inducers (Carbamazepine, Rifampicin, St John's Wort). These destroy Warfarin, dropping the INR to 1.0 and causing massive strokes."
+        },
+        {
+          "rowKey": "Pharmacodynamic",
+          "rowIndex": 2,
+          "severity": "high",
+          "counterparties": [
+            "aspirin",
+            "celecoxib",
+            "citalopram",
+            "diclofenac",
+            "escitalopram",
+            "fluoxetine",
+            "fluvoxamine",
+            "ibuprofen",
+            "ketorolac",
+            "meloxicam",
+            "naproxen",
+            "parecoxib",
+            "paroxetine",
+            "sertraline"
+          ],
+          "termIds": ["nsaids", "ssris"],
+          "resolved": true,
+          "note": "HIGH — NSAIDs, Aspirin, SSRIs (increase bleeding risk without changing INR)."
         },
         {
           "rowKey": "Dietary",
-          "rowIndex": 2,
+          "rowIndex": 3,
           "severity": "high",
-          "counterparties": ["vitamin-k", "warfarin-anticoagulant"],
+          "counterparties": ["vitamin-k"],
           "termIds": [],
           "resolved": true,
-          "note": "HIGH — Leafy green vegetables (Spinach, Broccoli) contain high Vitamin K, directly canceling out Warfarin. Patients must maintain a consistent, unchanging diet."
+          "note": "HIGH — Leafy greens (broccoli, spinach) contain high Vitamin K and reverse the drug's effect. Diet must be consistent."
         }
       ],
       "unresolvedRowCount": 0
@@ -4520,17 +4756,27 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["amiodarone", "fluconazole", "metronidazole", "warfarin-vka"],
+          "counterparties": ["amiodarone", "fluconazole", "metronidazole"],
           "termIds": ["cotrimoxazole"],
           "resolved": true,
           "note": "CRITICAL — **CYP2C9** inhibitors (Amiodarone, Metronidazole, Fluconazole, Bactrim) massively spike INR and cause bleeding. You MUST halve the warfarin dose if starting these."
         },
         {
-          "rowKey": "Pharmacodynamic",
+          "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
+          "severity": "critical",
+          "counterparties": ["carbamazepine"],
+          "termIds": ["st-johns-wort"],
+          "resolved": true,
+          "note": "CRITICAL — **CYP2C9** inducers (Carbamazepine, Rifampicin, St John's Wort). These destroy Warfarin, dropping the INR to 1.0 and causing massive strokes."
+        },
+        {
+          "rowKey": "Pharmacodynamic",
+          "rowIndex": 2,
           "severity": "high",
           "counterparties": [
             "aspirin",
+            "celecoxib",
             "citalopram",
             "diclofenac",
             "escitalopram",
@@ -4540,6 +4786,7 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "paroxetine",
             "sertraline"
           ],
@@ -4549,7 +4796,7 @@
         },
         {
           "rowKey": "Dietary",
-          "rowIndex": 2,
+          "rowIndex": 3,
           "severity": "high",
           "counterparties": ["vitamin-k"],
           "termIds": [],
@@ -4567,6 +4814,7 @@
           "severity": "critical",
           "counterparties": [
             "apixaban",
+            "celecoxib",
             "clopidogrel",
             "dabigatran",
             "dalteparin",
@@ -4579,6 +4827,7 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "rivaroxaban",
             "ticagrelor",
             "warfarin-anticoagulant",
@@ -4618,6 +4867,7 @@
           "counterparties": [
             "apixaban",
             "aspirin",
+            "celecoxib",
             "citalopram",
             "dabigatran",
             "dalteparin",
@@ -4633,6 +4883,7 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "paroxetine",
             "rivaroxaban",
             "sertraline",
@@ -4721,12 +4972,14 @@
           "severity": "critical",
           "counterparties": [
             "aspirin",
+            "celecoxib",
             "diclofenac",
             "frusemide",
             "ibuprofen",
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "vancomycin"
           ],
           "termIds": ["loop-diuretics", "nsaids"],
@@ -4798,12 +5051,14 @@
           "counterparties": [
             "amikacin",
             "aspirin",
+            "celecoxib",
             "diclofenac",
             "gentamicin",
             "ibuprofen",
             "ketorolac",
             "meloxicam",
-            "naproxen"
+            "naproxen",
+            "parecoxib"
           ],
           "termIds": ["aminoglycosides", "nsaids"],
           "resolved": true,
@@ -4819,12 +5074,12 @@
           "rowIndex": 0,
           "severity": "high",
           "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "termIds": ["laiv"],
+          "resolved": true,
           "note": "HIGH — Live Attenuated Influenza Vaccine (LAIV). Oseltamivir will kill the live vaccine. Do not give LAIV within 2 weeks of taking Oseltamivir. (Note: Standard Australian flu shots are INACTIVATED and do not interact)."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "valaciclovir": {
       "rows": [
@@ -4835,6 +5090,7 @@
           "counterparties": [
             "amiloride",
             "aspirin",
+            "celecoxib",
             "diclofenac",
             "eplerenone",
             "frusemide",
@@ -4844,6 +5100,7 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "perindopril",
             "spironolactone"
           ],
@@ -4861,12 +5118,12 @@
           "rowIndex": 0,
           "severity": "low",
           "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "termIds": ["barrier-contraception"],
+          "resolved": true,
           "note": "LOW — Vaginal creams/pessaries contain oils that can degrade latex condoms and diaphragms, causing them to break. Warn patients to use alternative contraception methods."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "cefazolin": {
       "rows": [
@@ -4875,12 +5132,12 @@
           "rowIndex": 0,
           "severity": "low",
           "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "termIds": ["anaesthetics"],
+          "resolved": true,
           "note": "LOW — Exceptionally clean drug interaction profile. Highly safe to use with anaesthetic agents."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "cefepime": {
       "rows": [
@@ -4903,12 +5160,12 @@
           "rowIndex": 0,
           "severity": "critical",
           "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "termIds": ["iv-calcium-solutions"],
+          "resolved": true,
           "note": "CRITICAL — IV Calcium solutions (Hartmann's, Plasmalyte). Wait 48 hours or use distinct, deeply flushed lines."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "cefuroxime": {
       "rows": [
@@ -4958,6 +5215,7 @@
             "beclometasone",
             "betamethasone",
             "budesonide",
+            "celecoxib",
             "ciclesonide",
             "clobetasol",
             "dexamethasone",
@@ -4972,6 +5230,7 @@
             "methylprednisolone",
             "mometasone",
             "naproxen",
+            "parecoxib",
             "prednisolone",
             "prednisone",
             "triamcinolone"
@@ -4992,13 +5251,15 @@
           "counterparties": [
             "amikacin",
             "aspirin",
+            "celecoxib",
             "diclofenac",
             "frusemide",
             "gentamicin",
             "ibuprofen",
             "ketorolac",
             "meloxicam",
-            "naproxen"
+            "naproxen",
+            "parecoxib"
           ],
           "termIds": ["aminoglycosides", "loop-diuretics", "nsaids"],
           "resolved": true,
@@ -5011,13 +5272,15 @@
           "counterparties": [
             "amikacin",
             "aspirin",
+            "celecoxib",
             "diclofenac",
             "frusemide",
             "gentamicin",
             "ibuprofen",
             "ketorolac",
             "meloxicam",
-            "naproxen"
+            "naproxen",
+            "parecoxib"
           ],
           "termIds": ["aminoglycosides", "loop-diuretics", "nsaids"],
           "resolved": true,
@@ -5119,12 +5382,12 @@
           "rowIndex": 1,
           "severity": "critical",
           "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "termIds": ["retinoids"],
+          "resolved": true,
           "note": "CRITICAL — Oral Retinoids (Isotretinoin/Roaccutane). Fatal interaction causing pseudotumor cerebri."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "roxithromycin": {
       "rows": [
@@ -5192,12 +5455,12 @@
           "rowIndex": 0,
           "severity": "high",
           "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "termIds": ["anaesthetics"],
+          "resolved": true,
           "note": "HIGH — Neuromuscular blocking agents (Anaesthetics). Clindamycin has intrinsic neuromuscular blocking properties and will dangerously prolong the paralysis of surgical muscle relaxants."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "co-trimoxazole": {
       "rows": [
@@ -5238,7 +5501,7 @@
           "rowIndex": 0,
           "severity": "critical",
           "counterparties": ["amikacin", "gentamicin"],
-          "termIds": ["aminoglycosides"],
+          "termIds": ["aminoglycosides", "anaesthetics"],
           "resolved": true,
           "note": "CRITICAL — Neuromuscular blocking agents (Rocuronium) and Aminoglycosides. The combination causes prolonged, fatal respiratory muscle paralysis."
         },
@@ -5246,7 +5509,17 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": ["aspirin", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "vancomycin"],
+          "counterparties": [
+            "aspirin",
+            "celecoxib",
+            "diclofenac",
+            "ibuprofen",
+            "ketorolac",
+            "meloxicam",
+            "naproxen",
+            "parecoxib",
+            "vancomycin"
+          ],
           "termIds": ["nsaids"],
           "resolved": true,
           "note": "HIGH — Nephrotoxins (NSAIDs, Vancomycin). Synergistic kidney destruction."
@@ -5274,8 +5547,43 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["sodium-valproate-oral-iv"],
-          "termIds": [],
+          "counterparties": [
+            "amikacin",
+            "amoxicillin",
+            "amoxicillin-clavulanate",
+            "azithromycin",
+            "aztreonam",
+            "benzathine-benzylpenicillin",
+            "cefazolin",
+            "cefepime",
+            "ceftriaxone",
+            "cefuroxime",
+            "cephalexin",
+            "ciprofloxacin",
+            "clarithromycin",
+            "clindamycin",
+            "co-trimoxazole",
+            "colistin",
+            "dicloxacillin",
+            "doxycycline",
+            "ertapenem",
+            "erythromycin",
+            "flucloxacillin",
+            "fosfomycin",
+            "gentamicin",
+            "metronidazole",
+            "minocycline",
+            "moxifloxacin",
+            "nitrofurantoin",
+            "norfloxacin",
+            "phenoxymethylpenicillin",
+            "piperacillin-tazobactam",
+            "roxithromycin",
+            "sodium-valproate-oral-iv",
+            "trimethoprim",
+            "vancomycin"
+          ],
+          "termIds": ["antibiotics"],
           "resolved": true,
           "note": "CRITICAL — Sodium Valproate (Epilim). Meropenem rapidly accelerates the hepatic breakdown of Valproate. Blood levels drop to zero within 24 hours. The interaction cannot be overcome by increasing Valproate dose. Use alternative antibiotic or antiepileptic."
         }
@@ -5366,8 +5674,16 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": ["methotrexate"],
-          "termIds": [],
+          "counterparties": [
+            "amoxicillin-clavulanate",
+            "benzathine-benzylpenicillin",
+            "dicloxacillin",
+            "flucloxacillin",
+            "methotrexate",
+            "phenoxymethylpenicillin",
+            "piperacillin-tazobactam"
+          ],
+          "termIds": ["penicillins"],
           "resolved": true,
           "note": "HIGH — Methotrexate (Penicillins reduce renal clearance of MTX, risking fatal bone marrow toxicity)."
         }
@@ -5583,9 +5899,9 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["methotrexate"],
+          "termIds": ["immunosuppressants"],
+          "resolved": true,
           "note": "CRITICAL — Azathioprine and 6-Mercaptopurine. Xanthine oxidase breaks down these immunosuppressants. Allopurinol blocks this, causing 1000x fatal bone marrow toxicity. Do NOT combine without oncology oversight."
         },
         {
@@ -5598,7 +5914,7 @@
           "note": "HIGH — Amoxicillin/Ampicillin (massive increase in non-allergic maculopapular rash)."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "baclofen": {
       "rows": [
@@ -5700,13 +6016,13 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["amlodipine", "diltiazem", "felodipine", "nifedipine-xr", "verapamil"],
+          "termIds": ["calcium-channel-blockers"],
+          "resolved": true,
           "note": "CRITICAL — Avoid calcium channel blockers with IV dantrolene because severe hyperkalaemia and cardiovascular collapse have been reported."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "hydroxychloroquine": {
       "rows": [
@@ -5747,16 +6063,25 @@
           "rowIndex": 1,
           "severity": "high",
           "counterparties": [
+            "amoxicillin",
+            "amoxicillin-clavulanate",
             "aspirin",
+            "benzathine-benzylpenicillin",
+            "celecoxib",
             "diclofenac",
+            "dicloxacillin",
             "esomeprazole",
+            "flucloxacillin",
             "ibuprofen",
             "ketorolac",
             "meloxicam",
             "naproxen",
-            "pantoprazole"
+            "pantoprazole",
+            "parecoxib",
+            "phenoxymethylpenicillin",
+            "piperacillin-tazobactam"
           ],
-          "termIds": ["nsaids", "ppis"],
+          "termIds": ["nsaids", "penicillins", "ppis"],
           "resolved": true,
           "note": "HIGH — NSAIDs, Penicillins, PPIs (Reduce renal clearance of methotrexate, spiking toxicity)."
         }
@@ -5781,6 +6106,7 @@
             "chlorpromazine",
             "clomipramine",
             "clozapine",
+            "dosulepin",
             "doxepin",
             "flupentixol-decanoate",
             "haloperidol-decanoate",
@@ -5862,9 +6188,22 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": [
+            "amoxicillin",
+            "amoxicillin-clavulanate",
+            "benzathine-benzylpenicillin",
+            "cefazolin",
+            "cefepime",
+            "ceftriaxone",
+            "cefuroxime",
+            "cephalexin",
+            "dicloxacillin",
+            "flucloxacillin",
+            "phenoxymethylpenicillin",
+            "piperacillin-tazobactam"
+          ],
+          "termIds": ["cephalosporins", "penicillins"],
+          "resolved": true,
           "note": "HIGH — Penicillins and Cephalosporins (massively increases their blood levels and half-life)."
         },
         {
@@ -5877,7 +6216,7 @@
           "note": "HIGH — Methotrexate (reduces MTX clearance, spiking fatal toxicity)."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "armodafinil": {
       "rows": [
@@ -5885,8 +6224,8 @@
           "rowKey": "Endocrine",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["copper"],
-          "termIds": [],
+          "counterparties": ["copper", "ethinylestradiol", "levonorgestrel", "medroxyprogesterone"],
+          "termIds": ["oral-contraceptives"],
           "resolved": true,
           "note": "CRITICAL — Strong inducer of **CYP3A4**. It rapidly destroys the estrogen/progesterone in the Combined Oral Contraceptive Pill. Women MUST use alternative non-hormonal contraception (Copper IUD) while on the drug and for 1 month after stopping."
         },
@@ -6028,7 +6367,10 @@
             "edoxaban",
             "enoxaparin",
             "erythromycin",
+            "ethinylestradiol",
             "heparin-iv-sc",
+            "levonorgestrel",
+            "medroxyprogesterone",
             "quetiapine",
             "rivaroxaban",
             "roxithromycin",
@@ -6036,7 +6378,7 @@
             "warfarin-anticoagulant",
             "warfarin-vka"
           ],
-          "termIds": ["anticoagulants", "macrolides"],
+          "termIds": ["anticoagulants", "macrolides", "oral-contraceptives"],
           "resolved": true,
           "note": "CRITICAL — Massively induces CYP3A4, CYP1A2, and CYP2C9. Destroys efficacy of DOACs (Apixaban/Rivaroxaban), Warfarin, Oral Contraceptives, Clozapine, Quetiapine, and Macrolides. A nightmare for polypharmacy."
         },
@@ -6114,13 +6456,13 @@
           "rowKey": "Endocrine",
           "rowIndex": 2,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["ethinylestradiol", "levonorgestrel", "medroxyprogesterone"],
+          "termIds": ["oral-contraceptives"],
+          "resolved": true,
           "note": "HIGH — The combined oral contraceptive pill (COCP) halves lamotrigine blood levels. If the woman stops the pill for the placebo week, lamotrigine levels spike, causing acute neurotoxicity (ataxia/double vision)."
         }
       ],
-      "unresolvedRowCount": 2
+      "unresolvedRowCount": 1
     },
     "levetiracetam": {
       "rows": [
@@ -6136,13 +6478,16 @@
             "dipyridamole",
             "edoxaban",
             "enoxaparin",
+            "ethinylestradiol",
             "heparin-iv-sc",
+            "levonorgestrel",
+            "medroxyprogesterone",
             "rivaroxaban",
             "ticagrelor",
             "warfarin-anticoagulant",
             "warfarin-vka"
           ],
-          "termIds": ["anticoagulants"],
+          "termIds": ["anticoagulants", "oral-contraceptives"],
           "resolved": true,
           "note": "LOW — Essentially zero drug-drug interactions. Safe to mix with all other anticonvulsants, OCPs, and DOACs."
         }
@@ -6163,14 +6508,17 @@
             "dipyridamole",
             "edoxaban",
             "enoxaparin",
+            "ethinylestradiol",
             "heparin-iv-sc",
+            "levonorgestrel",
+            "medroxyprogesterone",
             "quetiapine",
             "rivaroxaban",
             "ticagrelor",
             "warfarin-anticoagulant",
             "warfarin-vka"
           ],
-          "termIds": ["anticoagulants"],
+          "termIds": ["anticoagulants", "oral-contraceptives"],
           "resolved": true,
           "note": "CRITICAL — Broad-spectrum enzyme INDUCER (CYP3A4, CYP2C9). Obliterates blood levels of OCPs, DOACs, Warfarin, and Quetiapine."
         },
@@ -6252,13 +6600,13 @@
           "rowKey": "Endocrine",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["ethinylestradiol", "levonorgestrel", "medroxyprogesterone"],
+          "termIds": ["oral-contraceptives"],
+          "resolved": true,
           "note": "HIGH — Doses > 200mg/day induce CYP3A4, accelerating the clearance of oral contraceptives (OCPs), rendering them ineffective and leading to unplanned pregnancies."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "sumatriptan": {
       "rows": [
@@ -6753,6 +7101,7 @@
             "atomoxetine",
             "clomipramine",
             "desvenlafaxine",
+            "dosulepin",
             "doxepin",
             "duloxetine",
             "imipramine",
@@ -6817,6 +7166,7 @@
             "chlorpromazine",
             "clomipramine",
             "clozapine",
+            "dosulepin",
             "doxepin",
             "flupentixol-decanoate",
             "haloperidol-decanoate",
@@ -6865,6 +7215,7 @@
             "clozapine",
             "cyclizine",
             "diphenhydramine",
+            "dosulepin",
             "doxepin",
             "fexofenadine",
             "hyoscine-butylbromide",
@@ -6934,6 +7285,7 @@
             "chlorpromazine",
             "clomipramine",
             "clozapine",
+            "dosulepin",
             "doxepin",
             "flupentixol-decanoate",
             "haloperidol-decanoate",
@@ -7149,8 +7501,8 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["diltiazem", "verapamil"],
-          "termIds": [],
+          "counterparties": ["amlodipine", "diltiazem", "felodipine", "nifedipine-xr", "verapamil"],
+          "termIds": ["calcium-channel-blockers"],
           "resolved": true,
           "note": "CRITICAL — Non-DHP CCBs (Verapamil, Diltiazem) cause fatal heart block/asystole."
         },
@@ -7269,7 +7621,15 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 2,
           "severity": "high",
-          "counterparties": ["clomipramine", "doxepin", "fluoxetine", "imipramine", "nortriptyline", "paroxetine"],
+          "counterparties": [
+            "clomipramine",
+            "dosulepin",
+            "doxepin",
+            "fluoxetine",
+            "imipramine",
+            "nortriptyline",
+            "paroxetine"
+          ],
           "termIds": ["cyp-inhibitors", "tcas"],
           "resolved": false,
           "note": "HIGH — **CYP2D6** inhibitors (Fluoxetine, Paroxetine) spike TCA blood levels into the toxic range."
@@ -7472,7 +7832,16 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 2,
           "severity": "high",
-          "counterparties": ["aspirin", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen"],
+          "counterparties": [
+            "aspirin",
+            "celecoxib",
+            "diclofenac",
+            "ibuprofen",
+            "ketorolac",
+            "meloxicam",
+            "naproxen",
+            "parecoxib"
+          ],
           "termIds": ["nsaids"],
           "resolved": true,
           "note": "HIGH — NSAIDs (Bleeding risk)."
@@ -7490,6 +7859,7 @@
             "amitriptyline",
             "clomipramine",
             "codeine",
+            "dosulepin",
             "doxepin",
             "imipramine",
             "metoprolol",
@@ -7506,7 +7876,16 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": ["aspirin", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen"],
+          "counterparties": [
+            "aspirin",
+            "celecoxib",
+            "diclofenac",
+            "ibuprofen",
+            "ketorolac",
+            "meloxicam",
+            "naproxen",
+            "parecoxib"
+          ],
           "termIds": ["nsaids"],
           "resolved": true,
           "note": "HIGH — NSAIDs and Aspirin (Doubles risk of upper GI bleeds)."
@@ -7687,6 +8066,7 @@
             "amitriptyline",
             "citalopram",
             "clomipramine",
+            "dosulepin",
             "doxepin",
             "escitalopram",
             "fluoxetine",
@@ -7744,6 +8124,7 @@
           "severity": "high",
           "counterparties": [
             "aspirin",
+            "celecoxib",
             "citalopram",
             "diclofenac",
             "escitalopram",
@@ -7755,6 +8136,7 @@
             "meloxicam",
             "naproxen",
             "pantoprazole",
+            "parecoxib",
             "paroxetine"
           ],
           "termIds": ["nsaids", "ppis", "ssris"],
@@ -7810,7 +8192,16 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": ["aspirin", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen"],
+          "counterparties": [
+            "aspirin",
+            "celecoxib",
+            "diclofenac",
+            "ibuprofen",
+            "ketorolac",
+            "meloxicam",
+            "naproxen",
+            "parecoxib"
+          ],
           "termIds": ["nsaids"],
           "resolved": true,
           "note": "HIGH — NSAIDs (Bleeding risk)."
@@ -8290,6 +8681,7 @@
           "counterparties": [
             "aspirin",
             "candesartan",
+            "celecoxib",
             "diclofenac",
             "hydrochlorothiazide",
             "ibuprofen",
@@ -8297,6 +8689,7 @@
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "perindopril"
           ],
           "termIds": ["acei", "arbs", "lithium", "nsaids", "thiazide-diuretics"],
@@ -8312,9 +8705,9 @@
           "rowKey": "Endocrine",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["ethinylestradiol", "levonorgestrel", "medroxyprogesterone"],
+          "termIds": ["oral-contraceptives"],
+          "resolved": true,
           "note": "CRITICAL — Weak inducer of CYP3A4, but strong enough to completely destroy the efficacy of oral contraceptives (OCPs), causing unplanned pregnancy. Must use IUD or barrier."
         },
         {
@@ -8327,7 +8720,7 @@
           "note": "HIGH — Inhibits CYP2C19. Will significantly raise blood levels of Phenytoin."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "amisulpride": {
       "rows": [
@@ -8480,6 +8873,7 @@
             "amitriptyline",
             "benzatropine",
             "clomipramine",
+            "dosulepin",
             "doxepin",
             "hyoscine-butylbromide",
             "hyoscine-hydrobromide",
@@ -8611,6 +9005,7 @@
             "amitriptyline",
             "citalopram",
             "clomipramine",
+            "dosulepin",
             "doxepin",
             "escitalopram",
             "fluoxetine",
@@ -8786,6 +9181,7 @@
             "clozapine",
             "cyclizine",
             "diphenhydramine",
+            "dosulepin",
             "doxepin",
             "fexofenadine",
             "flupentixol-decanoate",
@@ -8918,13 +9314,21 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "low",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": [
+            "amoxicillin",
+            "amoxicillin-clavulanate",
+            "benzathine-benzylpenicillin",
+            "dicloxacillin",
+            "flucloxacillin",
+            "phenoxymethylpenicillin",
+            "piperacillin-tazobactam"
+          ],
+          "termIds": ["penicillins"],
+          "resolved": true,
           "note": "LOW — No major systemic interactions. However, it is chemically incompatible in the same IV line with many drugs (e.g., penicillins). Run on a dedicated line."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "flumazenil": {
       "rows": [
@@ -8938,6 +9342,7 @@
             "clomipramine",
             "clonazepam",
             "diazepam",
+            "dosulepin",
             "doxepin",
             "imipramine",
             "lorazepam",
@@ -9018,6 +9423,7 @@
             "clozapine",
             "cyclizine",
             "diphenhydramine",
+            "dosulepin",
             "doxepin",
             "fexofenadine",
             "flupentixol-decanoate",
@@ -9122,6 +9528,7 @@
             "chlorpromazine",
             "clomipramine",
             "clozapine",
+            "dosulepin",
             "doxepin",
             "flupentixol-decanoate",
             "haloperidol-decanoate",
@@ -9355,8 +9762,43 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["ciprofloxacin", "doxycycline", "moxifloxacin", "norfloxacin"],
-          "termIds": ["fluoroquinolones"],
+          "counterparties": [
+            "amikacin",
+            "amoxicillin",
+            "amoxicillin-clavulanate",
+            "azithromycin",
+            "aztreonam",
+            "benzathine-benzylpenicillin",
+            "cefazolin",
+            "cefepime",
+            "ceftriaxone",
+            "cefuroxime",
+            "cephalexin",
+            "ciprofloxacin",
+            "clarithromycin",
+            "clindamycin",
+            "co-trimoxazole",
+            "colistin",
+            "dicloxacillin",
+            "doxycycline",
+            "ertapenem",
+            "erythromycin",
+            "flucloxacillin",
+            "fosfomycin",
+            "gentamicin",
+            "meropenem",
+            "metronidazole",
+            "minocycline",
+            "moxifloxacin",
+            "nitrofurantoin",
+            "norfloxacin",
+            "phenoxymethylpenicillin",
+            "piperacillin-tazobactam",
+            "roxithromycin",
+            "trimethoprim",
+            "vancomycin"
+          ],
+          "termIds": ["antibiotics", "fluoroquinolones"],
           "resolved": true,
           "note": "CRITICAL — Binds to Tetracyclines (Doxycycline) and Fluoroquinolones (Ciprofloxacin) in the gut, completely destroying their antibiotic absorption. Separate by 4 hours."
         }
@@ -9369,8 +9811,8 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["amlodipine", "nifedipine-xr"],
-          "termIds": [],
+          "counterparties": ["amlodipine", "diltiazem", "felodipine", "nifedipine-xr", "verapamil"],
+          "termIds": ["calcium-channel-blockers"],
           "resolved": true,
           "note": "CRITICAL — Calcium Channel Blockers (Nifedipine, Amlodipine). Combining IV Magnesium with high-dose CCBs causes profound, refractory hypotension and neuromuscular blockade."
         },
@@ -9410,11 +9852,13 @@
             "amiloride",
             "aspirin",
             "candesartan",
+            "celecoxib",
             "diclofenac",
             "ibuprofen",
             "ketorolac",
             "meloxicam",
             "naproxen",
+            "parecoxib",
             "perindopril",
             "spironolactone"
           ],
@@ -9530,8 +9974,8 @@
           "rowIndex": 0,
           "severity": "critical",
           "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "termIds": ["retinoids"],
+          "resolved": true,
           "note": "CRITICAL — Isotretinoin/Acitretin. These are Vitamin A derivatives. Adding Vitamin A supplements causes instant, severe systemic toxicity and intracranial hypertension."
         },
         {
@@ -9539,12 +9983,12 @@
           "rowIndex": 1,
           "severity": "high",
           "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "termIds": ["orlistat"],
+          "resolved": true,
           "note": "HIGH — Orlistat blocks absorption (fat-soluble)."
         }
       ],
-      "unresolvedRowCount": 2
+      "unresolvedRowCount": 0
     },
     "vitamin-b12": {
       "rows": [
@@ -9567,8 +10011,8 @@
           "rowIndex": 0,
           "severity": "high",
           "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "termIds": ["bile-acid-sequestrants", "orlistat"],
+          "resolved": true,
           "note": "HIGH — Orlistat and Bile Acid Sequestrants block the absorption of all fat-soluble vitamins (A, D, E, K). Separate doses by 2-4 hours."
         },
         {
@@ -9581,7 +10025,7 @@
           "note": "MODERATE — Phenytoin and Carbamazepine accelerate Vitamin D metabolism, increasing the dose requirement."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "vitamin-e": {
       "rows": [
@@ -9627,12 +10071,12 @@
           "rowIndex": 1,
           "severity": "high",
           "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "termIds": ["bile-acid-sequestrants", "orlistat"],
+          "resolved": true,
           "note": "HIGH — Bile acid sequestrants (Cholestyramine) and Orlistat block fat-soluble vitamin absorption in the gut. Avoid giving PO Vitamin K with them."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "zinc-sulfate": {
       "rows": [

@@ -12,6 +12,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   BookOpen,
   Clock3,
@@ -35,6 +36,7 @@ import {
   ResultFilterTrigger,
   resultFilterFacetGroup,
   resultFilterGroup,
+  type ResultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
@@ -52,6 +54,7 @@ import {
   DocumentBadge,
   documentActionClass,
 } from "@/components/clinical-dashboard/document-ui";
+import { useBatchSignedImageUrls } from "@/components/clinical-dashboard/use-batch-signed-urls";
 import { useSignedImageUrl } from "@/components/clinical-dashboard/use-signed-image-url";
 import {
   cn,
@@ -73,8 +76,34 @@ import {
 } from "@/lib/document-tags";
 import type { ServiceSearchMatch } from "@/lib/services";
 import type { FormSearchMatch } from "@/lib/forms";
-import type { SearchScopeFilters } from "@/lib/search-scope";
+import {
+  extractionQualityValues,
+  sourceStatusValues,
+  validationStatusValues,
+  type SearchScopeFilters,
+} from "@/lib/search-scope";
 import { removeScopeFilterValue, scopeFilterChips } from "@/lib/search-scope-filter-chips";
+import {
+  documentLabelFilterFields,
+  documentRetrievalFilterValueCount,
+  deriveDocumentLabelOptions,
+  extractionQualityLabels,
+  filterDocumentsByRetrievalScope,
+  mergePublicDocumentScopeFilters,
+  projectedDocumentScopeCount,
+  publicDocumentScopeFilters,
+  sameDocumentScope,
+  sourceStatusLabels,
+  validationStatusLabels,
+  type DocumentLabelFilterKey,
+} from "@/lib/document-filter-model";
+import {
+  readResultFilterValue,
+  readResultFilterValues,
+  replaceResultFilterUrl,
+  writeResultFilterValue,
+  writeResultFilterValues,
+} from "@/lib/result-filter-url";
 import type { ClinicalDocument, DocumentMatch, SearchScopeSummary } from "@/lib/types";
 import type { RegistryRequestStatus } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
@@ -82,6 +111,14 @@ import { documentRelevancePercent } from "./relevance-score";
 
 type SearchFacet = { value: string; count: number };
 type ResultTypeFilter = "all" | "tables" | "images" | "pdfs";
+const resultTypeFilterValues = new Set<ResultTypeFilter>(["all", "tables", "images", "pdfs"]);
+type DocumentFilterDraft = {
+  query: string;
+  facetKeys: string[];
+  resultType: ResultTypeFilter;
+  scopeFilters: SearchScopeFilters;
+  selectedDocumentIds: string[];
+};
 
 /** Initial DOM budget for document result cards; further rows reveal on demand. */
 const DOCUMENT_RESULTS_INITIAL_WINDOW = 25;
@@ -107,8 +144,6 @@ export type SearchFacets = {
 
 type SearchRecordMode = "services" | "forms";
 type SearchRecordMatch = ServiceSearchMatch | FormSearchMatch;
-
-const EMPTY_APPLIED_FILTERS: AppliedFilterChip[] = [];
 
 const searchRecordConfig: Record<
   SearchRecordMode,
@@ -142,9 +177,8 @@ const searchRecordConfig: Record<
 // The filter sheet itself (source type as a lens, smart-tag facets as facet groups) is
 // built in DocumentSearchResultsPanelImpl below and rendered through the shared
 // ResultFilterSheet/ResultFilterTrigger (src/components/clinical-dashboard/result-filter-control.tsx),
-// which grew documents' own dense tier (find-a-filter, collapse-by-default) and a
-// meterContent/footerOverride slot for its progress meter and "Show N documents" /
-// "Browse all sources" footer during the filter-contract rollout. Source type is
+// which grew documents' own dense tier (find-a-filter, collapse-by-default) and
+// typed coverage, result-action and secondary-action anatomy. Result type is
 // single-select and the tag facets are multi-select (OR within a group, AND across
 // groups, per filterDocumentsBySmartTagFacetIndex), so the two still carry different
 // affordances: role="radio"+aria-checked for source type, aria-pressed for facets —
@@ -180,6 +214,10 @@ function filterMatchesByResultType(matches: DocumentMatch[], filter: ResultTypeF
   if (filter === "images") return matches.filter((match) => match.imageCount > 0);
   if (filter === "pdfs") return matches.filter((match) => match.file_name.toLowerCase().endsWith(".pdf"));
   return matches;
+}
+
+function loadedSourceCountHint(count: number) {
+  return `${count.toLocaleString()} loaded ${count === 1 ? "source" : "sources"}`;
 }
 
 function relevanceTone(document: DocumentMatch) {
@@ -758,8 +796,11 @@ function DocumentSearchResultsPanelImpl({
   onOpenLibrary,
   onOpenSourcePdf,
   onTagSearch,
+  recentDocuments = [],
+  selectedDocumentIds = [],
   scopeFilters,
   onScopeFiltersChange,
+  onDocumentFiltersApply,
   showHome = false,
   desktopComposerSlotId,
 }: {
@@ -784,6 +825,7 @@ function DocumentSearchResultsPanelImpl({
   onOpenLibrary: () => void;
   onOpenSourcePdf: () => void;
   onTagSearch: (tag: SmartDocumentTag | SmartDocumentTagFacet) => void;
+  selectedDocumentIds?: string[];
   /**
    * The scope filters the current results were requested with. Paired with
    * `searchScope.activeFilterCount` (the server's count of what it actually
@@ -797,14 +839,15 @@ function DocumentSearchResultsPanelImpl({
    * retrieval, so no client-side control can undo them. Omit to hide that route.
    */
   onScopeFiltersChange?: (filters: SearchScopeFilters) => void;
+  /** Commits the staged retrieval scope and performs the one resulting search. */
+  onDocumentFiltersApply?: (filters: SearchScopeFilters, selectedDocumentIds: string[]) => void;
   showHome?: boolean;
   desktopComposerSlotId?: string;
 }) {
   void _facets;
   const [sortValue, setSortValue] = useResultSort();
+  const searchParams = useSearchParams();
   const trimmedQuery = query.trim();
-  const [activeFacetState, setActiveFacetState] = useState<{ query: string; keys: string[] }>({ query: "", keys: [] });
-  const [activeResultType, setActiveResultType] = useState<ResultTypeFilter>("all");
   const filterPanelId = useId();
   // Query-scope the open flag the same way facets are scoped: a new search must
   // not leave the panel covering a different result set (especially on phones).
@@ -814,11 +857,24 @@ function DocumentSearchResultsPanelImpl({
     open: false,
   });
   const filterPanelOpen = filterPanelState.query === query && filterPanelState.open;
-  const activeFacetKeys = useMemo(
-    () => (activeFacetState.query === query ? activeFacetState.keys : []),
-    [activeFacetState, query],
-  );
   const tagFacetIndex = useMemo(() => buildSmartDocumentTagFacetIndex(matches, { query }), [matches, query]);
+  const availableFacetKeys = useMemo(
+    () => new Set(tagFacetIndex.groups.flatMap((group) => group.facets.map((facet) => facet.key))),
+    [tagFacetIndex],
+  );
+  const activeFacetKeys = useMemo(
+    () => readResultFilterValues(searchParams, "facet", availableFacetKeys),
+    [availableFacetKeys, searchParams],
+  );
+  const activeResultType = readResultFilterValue(searchParams, "resultType", resultTypeFilterValues, "all");
+  const committedScopeFilters = scopeFilters ?? {};
+  const [filterDraft, setFilterDraft] = useState<DocumentFilterDraft>({
+    query: "",
+    facetKeys: [],
+    resultType: "all",
+    scopeFilters: {},
+    selectedDocumentIds: [],
+  });
   // Counts must describe the set the reader is looking at. `tagFacetIndex.groups`
   // counts against the whole match set, so once a facet is selected the rest of
   // the panel reports numbers for a set that no longer exists — several of them
@@ -859,6 +915,11 @@ function DocumentSearchResultsPanelImpl({
   }
   const visibleCount = Math.min(visibleCountState.count, sortedMatches.length);
   const renderedMatches = sortedMatches.slice(0, visibleCount);
+  const coverImageIds = useMemo(
+    () => renderedMatches.map((doc) => doc.coverImageId).filter((id): id is string => Boolean(id)),
+    [renderedMatches],
+  );
+  useBatchSignedImageUrls(coverImageIds);
   const hasMoreMatches = visibleCount < sortedMatches.length;
   const recordMatchCount = recordMatches.length;
   const shouldShowHome = showHome || !trimmedQuery;
@@ -867,16 +928,20 @@ function DocumentSearchResultsPanelImpl({
   // rather than suppressing the dependency check.
   const toggleTagFacet = useCallback(
     (key: string) => {
-      setActiveFacetState((current) => {
-        const keys = current.query === query ? current.keys : [];
-        return {
-          query,
-          keys: keys.includes(key) ? keys.filter((existing) => existing !== key) : [...keys, key],
-        };
+      replaceResultFilterUrl((params) => {
+        const next = new Set(readResultFilterValues(params, "facet", availableFacetKeys));
+        if (!next.delete(key)) next.add(key);
+        writeResultFilterValues(params, "facet", next, availableFacetKeys);
       });
     },
-    [query],
+    [availableFacetKeys],
   );
+
+  const setResultType = useCallback((value: ResultTypeFilter) => {
+    replaceResultFilterUrl((params) =>
+      writeResultFilterValue(params, "resultType", value, "all", resultTypeFilterValues),
+    );
+  }, []);
 
   const unavailable = deriveDocumentSearchUnavailable({
     apiUnavailable,
@@ -893,12 +958,19 @@ function DocumentSearchResultsPanelImpl({
   const recordBandOwnsFault =
     showRecordMatches && (recordStatus === "error" || recordStatus === "not_found" || recordStatus === "unauthorized");
   const showResultsControls = matches.length > 0 && !loading;
-  const activeFilterCount = activeFacetKeys.length + (effectiveResultType === "all" ? 0 : 1);
+  const activeFilterCount =
+    activeFacetKeys.length +
+    (effectiveResultType === "all" ? 0 : 1) +
+    documentRetrievalFilterValueCount(committedScopeFilters, selectedDocumentIds.length);
   // Both the source-type tabs and the tag facets are derived from the current
   // match set, so a query that yields one uniform kind of document has nothing
   // to offer. Advertising Filter there would open an empty panel.
   const hasFilters = resultTabs.length > 1 || tagFacetGroups.length > 0;
-  const showFilterControl = showResultsControls && hasFilters;
+  const hasRetrievalFilters =
+    recentDocuments.length > 0 ||
+    documentRetrievalFilterValueCount(committedScopeFilters, selectedDocumentIds.length) > 0;
+  const showFilterControl =
+    !showRecordMatches && !loading && Boolean(trimmedQuery) && (hasFilters || hasRetrievalFilters);
   /* The registry is still answering. `loading` covers only the document search,
      so on the services and forms paths the zero-result body used to render
      "No matches for …" directly beneath a spine reading "Searching…" — the band
@@ -927,6 +999,20 @@ function DocumentSearchResultsPanelImpl({
       ) : null}
     </button>
   );
+  const openOrCloseFilters = () => {
+    if (filterPanelOpen) {
+      setFilterPanelState({ query, open: false });
+      return;
+    }
+    setFilterDraft({
+      query,
+      facetKeys: activeFacetKeys,
+      resultType: effectiveResultType,
+      scopeFilters: publicDocumentScopeFilters(committedScopeFilters),
+      selectedDocumentIds,
+    });
+    setFilterPanelState({ query, open: true });
+  };
   const renderFilterTrigger = (testId: string) =>
     showFilterControl ? (
       <ResultFilterTrigger
@@ -935,51 +1021,333 @@ function DocumentSearchResultsPanelImpl({
         title="Filter documents"
         open={filterPanelOpen}
         activeCount={activeFilterCount}
-        onToggle={() =>
-          setFilterPanelState((current) => ({
-            query,
-            open: current.query === query ? !current.open : true,
-          }))
-        }
+        onToggle={openOrCloseFilters}
       />
     ) : null;
-  // The shelf's contents. Facet chips carry their group's own label so a bare
-  // "Policy" is not ambiguous across ten groups, and the source-type chip joins
-  // them because it narrows the same list by the same act.
-  const appliedFilters = useMemo(() => {
-    const selected = new Set(activeFacetKeys);
-    const chips = tagFacetGroups.flatMap((group) =>
+
+  const activeDraft: DocumentFilterDraft =
+    filterPanelOpen && filterDraft.query === query
+      ? filterDraft
+      : {
+          query,
+          facetKeys: activeFacetKeys,
+          resultType: effectiveResultType,
+          scopeFilters: publicDocumentScopeFilters(committedScopeFilters),
+          selectedDocumentIds,
+        };
+  // These projections exist solely to render the open filter sheet. Keep the
+  // library-sized scans dormant while it is closed so composer keystrokes do
+  // not rebuild every projected count.
+  const draftSourceDocuments = filterPanelOpen ? recentDocuments : [];
+  const loadedSourceCountsAreComplete = documentCount > 0 && draftSourceDocuments.length >= documentCount;
+  const draftSelectedDocumentIds = new Set(filterPanelOpen ? activeDraft.selectedDocumentIds : []);
+  const draftTagFacetGroups = filterPanelOpen ? projectSmartTagFacetGroups(tagFacetIndex, activeDraft.facetKeys) : [];
+  const draftVisibleMatches = filterPanelOpen
+    ? filterDocumentsBySmartTagFacetIndex(tagFacetIndex, activeDraft.facetKeys)
+    : [];
+  const draftResultTabs = filterPanelOpen ? resultTypeTabs(draftVisibleMatches) : [];
+  const draftResultType =
+    filterPanelOpen && draftResultTabs.some((tab) => tab.key === activeDraft.resultType)
+      ? activeDraft.resultType
+      : "all";
+  const draftDisplayedMatches = filterPanelOpen ? filterMatchesByResultType(draftVisibleMatches, draftResultType) : [];
+
+  function toggleDraftListFilter(
+    key: DocumentLabelFilterKey | "sourceStatuses" | "validationStatuses" | "extractionQualities",
+    value: string,
+  ) {
+    setFilterDraft((current) => {
+      const selected = new Set((current.scopeFilters[key] as string[] | undefined) ?? []);
+      if (!selected.delete(value)) selected.add(value);
+      return { ...current, scopeFilters: { ...current.scopeFilters, [key]: [...selected] } };
+    });
+  }
+
+  function commitRetrievalFilters(filters: SearchScopeFilters, documentIds: string[]) {
+    if (onDocumentFiltersApply) onDocumentFiltersApply(filters, documentIds);
+    else if (onScopeFiltersChange) onScopeFiltersChange(filters);
+  }
+
+  function applyDocumentFilters() {
+    replaceResultFilterUrl((params) => {
+      writeResultFilterValues(params, "facet", activeDraft.facetKeys, availableFacetKeys);
+      writeResultFilterValue(params, "resultType", draftResultType, "all", resultTypeFilterValues);
+    });
+    const nextScope = mergePublicDocumentScopeFilters(committedScopeFilters, activeDraft.scopeFilters);
+    const selectedChanged =
+      [...activeDraft.selectedDocumentIds].sort().join("\0") !== [...selectedDocumentIds].sort().join("\0");
+    if (!sameDocumentScope(nextScope, committedScopeFilters) || selectedChanged) {
+      commitRetrievalFilters(nextScope, activeDraft.selectedDocumentIds);
+    }
+    setFilterPanelState({ query, open: false });
+  }
+
+  function clearAllFilters() {
+    replaceResultFilterUrl((params) => {
+      params.delete("facet");
+      params.delete("resultType");
+    });
+    const nextScope = mergePublicDocumentScopeFilters(committedScopeFilters, {});
+    if (!sameDocumentScope(nextScope, committedScopeFilters) || selectedDocumentIds.length > 0) {
+      commitRetrievalFilters(nextScope, []);
+    }
+  }
+
+  const selectedFacetKeys = new Set(activeFacetKeys);
+  const appliedFilters: AppliedFilterChip[] = [
+    ...selectedDocumentIds.map((documentId) => {
+      const document = recentDocuments.find((item) => item.id === documentId);
+      return {
+        id: `source-${documentId}`,
+        groupLabel: "Source",
+        valueLabel: document ? documentDisplayTitle(document) : "Selected source",
+        onRemove: () =>
+          commitRetrievalFilters(
+            committedScopeFilters,
+            selectedDocumentIds.filter((id) => id !== documentId),
+          ),
+      };
+    }),
+    ...scopeFilterChips(publicDocumentScopeFilters(committedScopeFilters)).map((chip) => ({
+      ...chip,
+      onRemove: () =>
+        commitRetrievalFilters(
+          mergePublicDocumentScopeFilters(
+            committedScopeFilters,
+            removeScopeFilterValue(publicDocumentScopeFilters(committedScopeFilters), chip.id),
+          ),
+          selectedDocumentIds,
+        ),
+    })),
+    ...tagFacetGroups.flatMap((group) =>
       group.facets
-        .filter((facet) => selected.has(facet.key))
+        .filter((facet) => selectedFacetKeys.has(facet.key))
         .map((facet) => ({
           id: facet.key,
-          label: facet.label,
+          groupLabel: group.group,
+          valueLabel: facet.label,
           onRemove: () => toggleTagFacet(facet.key),
         })),
-    );
-    if (effectiveResultType !== "all") {
-      const tab = resultTabs.find((entry) => entry.key === effectiveResultType);
-      if (tab) {
-        chips.push({
-          id: `result-type-${tab.key}`,
-          label: tab.label,
-          onRemove: () => setActiveResultType("all"),
-        });
-      }
+    ),
+  ];
+  if (effectiveResultType !== "all") {
+    const tab = resultTabs.find((entry) => entry.key === effectiveResultType);
+    if (tab) {
+      appliedFilters.push({
+        id: `result-type-${tab.key}`,
+        groupLabel: "Result type",
+        valueLabel: tab.label,
+        onRemove: () => setResultType("all"),
+      });
     }
-    return chips;
-  }, [tagFacetGroups, activeFacetKeys, effectiveResultType, resultTabs, toggleTagFacet]);
-  const clearAllFilters = () => {
-    setActiveFacetState({ query, keys: [] });
-    setActiveResultType("all");
-  };
-  /* The scope filters the API applied BEFORE retrieval, as removable chips.
-     Only used on the zero-result path: while matches exist the facet chips above
-     describe what is narrowing the visible list, and stacking both would show a
-     reader two filter shelves doing different jobs. At zero there is no match
-     set to derive facets from, so without these the constraint that emptied the
-     search is invisible — and unclearable, since `showResultsControls` gates the
-     Filter trigger on `matches.length > 0`. */
+  }
+
+  const documentFilterGroups: ResultFilterGroup[] = [];
+  if (draftSourceDocuments.length > 0) {
+    documentFilterGroups.push(
+      resultFilterFacetGroup({
+        id: "selected-sources",
+        label: "Selected sources",
+        description: "Choose specific indexed sources. Leave empty to search across the filtered source set.",
+        selected: draftSelectedDocumentIds,
+        options: [...draftSourceDocuments]
+          .sort((left, right) => documentDisplayTitle(left).localeCompare(documentDisplayTitle(right)))
+          .map((document) => {
+            const withCandidate = new Set(draftSelectedDocumentIds);
+            if (!withCandidate.has(document.id)) withCandidate.add(document.id);
+            const count = filterDocumentsByRetrievalScope(
+              draftSourceDocuments,
+              activeDraft.scopeFilters,
+              withCandidate,
+            ).length;
+            return {
+              value: document.id,
+              label: documentDisplayTitle(document),
+              searchText: `${document.title} ${document.file_name}`,
+              hint: loadedSourceCountHint(count),
+              disabled: count === 0 && !draftSelectedDocumentIds.has(document.id),
+            };
+          }),
+        onToggle: (documentId) =>
+          setFilterDraft((current) => {
+            const next = new Set(current.selectedDocumentIds);
+            if (!next.delete(documentId)) next.add(documentId);
+            return { ...current, selectedDocumentIds: [...next] };
+          }),
+      }),
+    );
+  }
+
+  const governanceGroups = filterPanelOpen
+    ? [
+        {
+          key: "sourceStatuses" as const,
+          label: "Source status",
+          values: sourceStatusValues,
+          labels: sourceStatusLabels,
+        },
+        {
+          key: "validationStatuses" as const,
+          label: "Clinical validation",
+          values: validationStatusValues,
+          labels: validationStatusLabels,
+        },
+        {
+          key: "extractionQualities" as const,
+          label: "Extraction quality",
+          values: extractionQualityValues,
+          labels: extractionQualityLabels,
+        },
+      ]
+    : [];
+  for (const group of governanceGroups) {
+    const selected = new Set((activeDraft.scopeFilters[group.key] as string[] | undefined) ?? []);
+    documentFilterGroups.push(
+      resultFilterFacetGroup({
+        id: group.key,
+        label: group.label,
+        description: "Source governance is applied before document retrieval.",
+        selected,
+        options: group.values.map((value) => {
+          const count = projectedDocumentScopeCount({
+            documents: draftSourceDocuments,
+            filters: activeDraft.scopeFilters,
+            selectedDocumentIds: draftSelectedDocumentIds,
+            key: group.key,
+            value,
+          });
+          return {
+            value,
+            label: group.labels[value] ?? value,
+            hint: loadedSourceCountHint(count),
+            disabled: loadedSourceCountsAreComplete && count === 0 && !selected.has(value),
+          };
+        }),
+        onToggle: (value) => toggleDraftListFilter(group.key, value),
+      }),
+    );
+  }
+
+  if (filterPanelOpen) {
+    documentFilterGroups.push(
+      resultFilterGroup({
+        id: "locality",
+        label: "Source locality",
+        description: "Separate WA and health-service sources from non-local guidance.",
+        value: activeDraft.scopeFilters.locality ?? "all",
+        options: [
+          {
+            value: "all",
+            label: "Any locality",
+            hint: loadedSourceCountHint(
+              filterDocumentsByRetrievalScope(
+                draftSourceDocuments,
+                { ...activeDraft.scopeFilters, locality: undefined },
+                draftSelectedDocumentIds,
+              ).length,
+            ),
+          },
+          ...(["local", "non_local"] as const).map((value) => {
+            const count = filterDocumentsByRetrievalScope(
+              draftSourceDocuments,
+              { ...activeDraft.scopeFilters, locality: value },
+              draftSelectedDocumentIds,
+            ).length;
+            return {
+              value,
+              label: value === "local" ? "Local" : "Non-local",
+              hint: loadedSourceCountHint(count),
+              disabled: loadedSourceCountsAreComplete && count === 0 && activeDraft.scopeFilters.locality !== value,
+            };
+          }),
+        ],
+        onChange: (value) =>
+          setFilterDraft((current) => ({
+            ...current,
+            scopeFilters: {
+              ...current.scopeFilters,
+              locality: value === "all" ? undefined : value,
+            },
+          })),
+      }),
+    );
+  }
+
+  for (const field of filterPanelOpen ? documentLabelFilterFields : []) {
+    const selected = new Set(activeDraft.scopeFilters[field.key] ?? []);
+    const values = [...new Set([...deriveDocumentLabelOptions(draftSourceDocuments, field.labelType), ...selected])];
+    if (values.length === 0) continue;
+    documentFilterGroups.push(
+      resultFilterFacetGroup({
+        id: field.key,
+        label: field.label,
+        description: "Advanced clinical label. Values are OR alternatives within this group.",
+        selected,
+        options: values.map((value) => {
+          const count = projectedDocumentScopeCount({
+            documents: draftSourceDocuments,
+            filters: activeDraft.scopeFilters,
+            selectedDocumentIds: draftSelectedDocumentIds,
+            key: field.key,
+            value,
+          });
+          return {
+            value,
+            label: value,
+            hint: loadedSourceCountHint(count),
+            disabled: loadedSourceCountsAreComplete && count === 0 && !selected.has(value),
+          };
+        }),
+        onToggle: (value) => toggleDraftListFilter(field.key, value),
+      }),
+    );
+  }
+
+  if (filterPanelOpen && draftResultTabs.length > 1) {
+    documentFilterGroups.push(
+      resultFilterGroup({
+        id: "result-type",
+        label: "Result type",
+        description: "Refine the retrieved matches without running retrieval again.",
+        note: "one only",
+        value: draftResultType,
+        options: draftResultTabs.map((tab) => ({ value: tab.key, label: tab.label, hint: String(tab.count) })),
+        onChange: (value) => setFilterDraft((current) => ({ ...current, resultType: value })),
+      }),
+    );
+  }
+  for (const group of draftTagFacetGroups) {
+    const selected = new Set(
+      group.facets.filter((facet) => activeDraft.facetKeys.includes(facet.key)).map((facet) => facet.key),
+    );
+    documentFilterGroups.push(
+      resultFilterFacetGroup({
+        id: `smart-${group.group}`,
+        label: group.group,
+        description: "Smart tags refine the matches already retrieved.",
+        selected,
+        options: group.facets.map((facet) => ({
+          value: facet.key,
+          label: facet.label,
+          hint: String(facet.count),
+          searchText: facet.searchText,
+          disabled: facet.count === 0 && !selected.has(facet.key),
+        })),
+        onToggle: (facetKey) =>
+          setFilterDraft((current) => {
+            const next = new Set(current.facetKeys);
+            if (!next.delete(facetKey)) next.add(facetKey);
+            return { ...current, facetKeys: [...next] };
+          }),
+      }),
+    );
+  }
+  const draftActiveFilterCount = filterPanelOpen
+    ? activeDraft.facetKeys.length +
+      Number(draftResultType !== "all") +
+      documentRetrievalFilterValueCount(activeDraft.scopeFilters, activeDraft.selectedDocumentIds.length)
+    : 0;
+
   /* A retrieval layer errored, so no count from this search is trustworthy —
      including a non-zero one. The band owns that claim: it renders `matchCount`
      inside the only `role="status"` region on the page, and the zero-result
@@ -991,15 +1359,51 @@ function DocumentSearchResultsPanelImpl({
      above zero it is the only thing that says the list is a floor rather than
      the answer. (Raised by Devin review on PR #1640.) */
   const retrievalDegraded = Boolean(searchScope?.retrieval?.degraded);
-  const activeScopeFilters = scopeFilters ?? null;
-  const scopeEmptiedResults = matches.length === 0 && (searchScope?.activeFilterCount ?? 0) > 0;
-  const scopeAppliedFilters = useMemo(() => {
-    if (!scopeEmptiedResults || !activeScopeFilters || !onScopeFiltersChange) return EMPTY_APPLIED_FILTERS;
-    return scopeFilterChips(activeScopeFilters).map((chip) => ({
-      ...chip,
-      onRemove: () => onScopeFiltersChange(removeScopeFilterValue(activeScopeFilters, chip.id)),
-    }));
-  }, [scopeEmptiedResults, activeScopeFilters, onScopeFiltersChange]);
+  const documentFilterSheet =
+    showFilterControl && filterPanelOpen ? (
+      <ResultFilterSheet
+        open={filterPanelOpen}
+        onClose={() => setFilterPanelState({ query, open: false })}
+        panelId={filterPanelId}
+        testId="document-filter-panel"
+        title="Filter documents"
+        description="Set retrieval scope and refine the matches already returned. Source-scope counts cover loaded sources; changes run together across the full indexed library."
+        chromeResetKey={query}
+        groups={documentFilterGroups}
+        applicationMode="staged"
+        primaryActionLabel="Update search"
+        onApply={applyDocumentFilters}
+        onClearAll={
+          draftActiveFilterCount > 0
+            ? () =>
+                setFilterDraft((current) => ({
+                  ...current,
+                  facetKeys: [],
+                  resultType: "all",
+                  scopeFilters: {},
+                  selectedDocumentIds: [],
+                }))
+            : undefined
+        }
+        summary={{
+          count: draftDisplayedMatches.length,
+          noun: draftDisplayedMatches.length === 1 ? "match" : "matches",
+        }}
+        coverage={{
+          visibleCount: draftDisplayedMatches.length,
+          totalCount: matches.length,
+          label: "Visible retrieved matches",
+        }}
+        secondaryAction={{
+          label: "Browse all sources",
+          count: documentCount > 0 ? documentCount : undefined,
+          onClick: () => {
+            setFilterPanelState({ query, open: false });
+            onOpenLibrary();
+          },
+        }}
+      />
+    ) : null;
   const showIdentityHeader =
     recordMatchCount > 0 ||
     matches.length > 0 ||
@@ -1053,7 +1457,7 @@ function DocumentSearchResultsPanelImpl({
           // footer, and the zero-result state, which are the two moments
           // browsing is actually the next step.
           appliedFilters={appliedFilters}
-          onClearFilters={clearAllFilters}
+          onClearFilters={activeFilterCount > 0 ? clearAllFilters : undefined}
           filterLabel="Filter documents"
           // The same trigger goes in both slots: the ribbon shows `mobileControls`
           // below `sm` and `filterControls` from `sm` up, never both at once.
@@ -1064,6 +1468,8 @@ function DocumentSearchResultsPanelImpl({
           filterControls={renderFilterTrigger("document-filter-trigger-wide")}
         />
       ) : null}
+
+      {documentFilterSheet}
 
       {/* When the ribbon is shown it owns this message in its fault panel. This
           standalone alert remains for the routes that render no ribbon, so the
@@ -1116,10 +1522,8 @@ function DocumentSearchResultsPanelImpl({
             // shared state already carries for filtered-to-zero, which the
             // documents path could not reach because it only ever passed
             // client-derived facet chips (always empty at zero matches).
-            appliedFilters={scopeAppliedFilters}
-            onClearFilters={
-              scopeAppliedFilters.length > 0 && onScopeFiltersChange ? () => onScopeFiltersChange({}) : undefined
-            }
+            appliedFilters={appliedFilters}
+            onClearFilters={activeFilterCount > 0 ? clearAllFilters : undefined}
             // A retrieval layer errored, so this zero is not evidence of absence.
             degraded={retrievalDegraded}
             onBrowseAll={onOpenLibrary}
@@ -1138,166 +1542,7 @@ function DocumentSearchResultsPanelImpl({
         )
       ) : (
         <>
-          {/* Opened by the ribbon's Filter trigger. Previously this was gated on
-              `activeFacetKeys.length > 0`, which nothing else could satisfy —
-              the only writers of that state lived inside the gated subtree — so
-              the facets were unreachable. The trigger is now the way in.
-              Mounted unconditionally: `Sheet` returns null while closed and owns
-              its own open/close transition, so gating the mount here would cut
-              the dismiss animation off mid-flight. */}
-          {showFilterControl ? (
-            <ResultFilterSheet
-              open={filterPanelOpen}
-              onClose={() => setFilterPanelState({ query, open: false })}
-              panelId={filterPanelId}
-              testId="document-filter-panel"
-              title="Filter documents"
-              chromeResetKey={query}
-              groups={[
-                ...(resultTabs.length > 1
-                  ? [
-                      // Radio semantics, not toggles: picking one source type replaces the
-                      // last, so `aria-pressed` on four buttons would describe a state the
-                      // filter cannot be in. `note` states the shape once, because facet
-                      // groups directly below render as near-identical chips.
-                      resultFilterGroup({
-                        id: "source-type",
-                        label: "Source type",
-                        note: "one only",
-                        value: effectiveResultType,
-                        options: resultTabs.map((tab) => ({
-                          value: tab.key,
-                          label: tab.label,
-                          hint: String(tab.count),
-                        })),
-                        onChange: setActiveResultType,
-                      }),
-                    ]
-                  : []),
-                ...tagFacetGroups.map((group) => {
-                  const selected = new Set(
-                    group.facets.filter((facet) => activeFacetKeys.includes(facet.key)).map((facet) => facet.key),
-                  );
-                  return resultFilterFacetGroup({
-                    id: group.group,
-                    label: group.group,
-                    selected,
-                    options: group.facets.map((facet) => ({
-                      value: facet.key,
-                      label: facet.label,
-                      hint: String(facet.count),
-                      searchText: facet.searchText,
-                      // Zero-count unselected facets stay visible so the list does not jump,
-                      // but they are disabled: selecting them would empty the set.
-                      disabled: facet.count === 0 && !selected.has(facet.key),
-                    })),
-                    onToggle: toggleTagFacet,
-                  });
-                }),
-              ]}
-              onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
-              meterContent={
-                // The proportion, once, at the top. A meter rather than a second number:
-                // "12 of 2,014" is a ratio the reader is judging, not a figure they are
-                // reading off. It goes to `--warning` at zero so the state that needs
-                // explaining is the one that looks different.
-                <>
-                  <div
-                    className="h-1 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
-                    role="presentation"
-                    aria-hidden="true"
-                  >
-                    <span
-                      className={cn(
-                        "block h-full rounded-full",
-                        sortedMatches.length === 0 ? "bg-[color:var(--warning)]" : "bg-[color:var(--clinical-accent)]",
-                      )}
-                      style={{
-                        width:
-                          documentCount > 0
-                            ? `${Math.max(
-                                sortedMatches.length === 0 ? 0 : 1.5,
-                                Math.min(100, (sortedMatches.length / documentCount) * 100),
-                              )}%`
-                            : "0%",
-                      }}
-                    />
-                  </div>
-                  <p
-                    className={cn(
-                      "nums mt-1.5 text-xs font-semibold",
-                      sortedMatches.length === 0 ? "text-[color:var(--warning)]" : "",
-                    )}
-                  >
-                    <span className={sortedMatches.length === 0 ? "" : "text-[color:var(--text-heading)]"}>
-                      {sortedMatches.length}
-                    </span>{" "}
-                    <span className={sortedMatches.length === 0 ? "" : textMuted}>
-                      of {documentCount > 0 ? documentCount.toLocaleString() : "—"} documents shown
-                    </span>
-                  </p>
-                </>
-              }
-              footerOverride={
-                <div className="grid gap-3">
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    {/* The count is the point of the panel: it tells the reader whether the
-                        combination they have built still returns anything before they
-                        dismiss it. `aria-live` is deliberate — the number changes under
-                        them as they toggle, and the sheet covers the results it
-                        describes. The bare repeat of the number beside the button is gone;
-                        the button carries it, and the readout at the top carries the
-                        proportion. */}
-                    <span aria-live="polite" className="sr-only">
-                      {sortedMatches.length} document{sortedMatches.length === 1 ? "" : "s"} match the current filters
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setFilterPanelState({ query, open: false })}
-                      data-testid="document-filter-done"
-                      className={cn(
-                        "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:min-h-12",
-                        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                      )}
-                    >
-                      Show {sortedMatches.length} document{sortedMatches.length === 1 ? "" : "s"}
-                    </button>
-                  </div>
-                  {/* Below a rule, and phrased as reach rather than refinement. Library
-                      spent the utility rail competing with Filter for the same edge while
-                      answering a different question — Filter narrows what this query
-                      returned, Library opens the whole corpus. Here it is the actual next
-                      step, and it keeps the in-context route that stopped it being
-                      deleted: the documents action menu clears the query. */}
-                  <button
-                    type="button"
-                    // Dismiss the sheet on the way out. Browsing the corpus is leaving
-                    // this surface, not another thing to do on it, and the Sources
-                    // drawer would otherwise open underneath a filter sheet that is
-                    // still covering the results both of them describe.
-                    onClick={() => {
-                      setFilterPanelState({ query, open: false });
-                      onOpenLibrary();
-                    }}
-                    data-testid="document-filter-browse-library"
-                    className={cn(
-                      floatingControl,
-                      "min-h-tap justify-start gap-2 rounded-lg border-0 border-t border-[color:var(--border)] bg-transparent px-1 text-xs sm:min-h-10",
-                    )}
-                  >
-                    <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
-                    <span>Browse all sources</span>
-                    {documentCount > 0 ? (
-                      <span className="nums ml-auto text-2xs text-[color:var(--text-muted)]">
-                        {documentCount.toLocaleString()}
-                      </span>
-                    ) : null}
-                  </button>
-                </div>
-              }
-            />
-          ) : null}
-          {showResultsControls && !hasFilters ? browseLibraryControl : null}
+          {showResultsControls && !showFilterControl ? browseLibraryControl : null}
           {/* With the panel closed the active filters are otherwise invisible
               apart from the trigger's badge, so the reader needs the count to
               explain why the list is shorter than the ribbon's total. */}

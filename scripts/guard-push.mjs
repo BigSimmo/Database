@@ -3,13 +3,18 @@
  * guard-push — pre-push safety net for this repo's known, repeated traps.
  *
  * Runs five independent guards; any one can BLOCK the push (non-zero exit).
- * All except the auto-merge ownership guard have an explicit override env var:
+ * All except the auto-merge force-push guard have an explicit override env var:
  *
- *   1. Auto-merge ownership guard (all PR branches)
- *      Per-PR auto-merge state is user-owned. Pushing to a PR whose auto-merge is
- *      already armed can race the merge and, for actors without write permission,
- *      GitHub disables auto-merge. If `gh` reports an armed autoMergeRequest for
- *      the current branch's open PR, block without an automation override.
+ *   1. Auto-merge force-push guard (all PR branches)
+ *      Per-PR auto-merge state is user-owned. An ordinary fast-forward push to a PR
+ *      whose auto-merge is already armed is safe — GitHub re-validates required
+ *      checks against the new head before it will merge, so an additive commit
+ *      cannot make it merge something unvalidated. That is allowed through with a
+ *      warning note. A force-push (history rewrite) while armed is different: it
+ *      can discard the commit GitHub already validated or is mid-evaluating, and
+ *      for actors without write permission GitHub disables auto-merge outright. If
+ *      `gh` reports an armed autoMergeRequest AND this push force-updates that
+ *      branch, block without an automation override.
  *      Fails OPEN (never blocks) when gh is missing/unauthenticated, so
  *      contributors without gh can still push.
  *
@@ -116,17 +121,66 @@ export function pushedBranchNames(ranges, fallbackBranch = "") {
   return [...branches];
 }
 
-/** Exported for tests: existing branches compare from their remote tip; new
- * branches compare from the PR merge base so newer main-only commits are out of
- * scope for transaction guards that accept explicit base/head commits. */
-export function guardBaseForRange(range, cwd = PROJECT_ROOT) {
-  if (range.remoteSha && range.remoteSha !== ZERO_SHA) return range.remoteSha;
+/** True when `ancestor` is reachable from `descendant`, i.e. the push fast-forwards. */
+function isAncestor(ancestor, descendant, cwd = PROJECT_ROOT) {
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], { cwd, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Exported for tests: true when this range rewrites the remote branch's history
+ * (force-push) rather than fast-forwarding it. A brand-new branch (remote sha
+ * all-zero) is never a force-push — there is no prior tip to discard. */
+export function isForcePushRange(range, cwd = PROJECT_ROOT) {
+  if (!range.remoteSha || range.remoteSha === ZERO_SHA) return false;
+  return !isAncestor(range.remoteSha, range.localSha, cwd);
+}
+
+/** Exported for tests: branches this push force-updates — the one case the
+ * auto-merge guard still hard-blocks while armed, with no override. */
+export function forcePushedBranchNames(ranges, cwd = PROJECT_ROOT) {
+  const branches = new Set();
+  for (const range of ranges) {
+    if (!isForcePushRange(range, cwd)) continue;
+    const ref = range.remoteRef || range.localRef || "";
+    if (ref.startsWith("refs/heads/")) branches.add(ref.slice("refs/heads/".length));
+  }
+  return branches;
+}
+
+/** Merge base with origin/main — the base a PR is actually evaluated against, and
+ * the same one CI passes as LEDGER_WRITE_BASE_SHA (.github/workflows/ci.yml). */
+function mainMergeBase(range, cwd = PROJECT_ROOT) {
   if (!tryGit(["rev-parse", "--verify", "--quiet", MAIN_REMOTE_REF], cwd)) return undefined;
   return tryGit(["merge-base", MAIN_REMOTE_REF, range.localSha], cwd);
 }
 
+/** Exported for tests: a fast-forward push compares from its remote tip; a new
+ * branch, or one whose history was rewritten, compares from the PR merge base so
+ * newer main-only commits are out of scope for transaction guards that accept
+ * explicit base/head commits.
+ *
+ * The rewritten-history case matters: after a force-push the old remote tip is an
+ * abandoned line, so every request it carried reads as deleted and the ledger
+ * transaction guard can never pass — no matter how clean the rebuild is. Falling
+ * back to the merge base asks the question CI asks instead of an unanswerable one. */
+export function guardBaseForRange(range, cwd = PROJECT_ROOT) {
+  if (range.remoteSha && range.remoteSha !== ZERO_SHA) {
+    if (isAncestor(range.remoteSha, range.localSha, cwd)) return range.remoteSha;
+    return mainMergeBase(range, cwd);
+  }
+  return mainMergeBase(range, cwd);
+}
+
 export function changedFilesForRange(range, cwd = PROJECT_ROOT) {
-  const existingRemote = range.remoteSha && range.remoteSha !== ZERO_SHA;
+  // A rewritten history is treated like a new branch here for the same reason as
+  // guardBaseForRange: `<abandoned tip>..<local>` is not the set of files this push
+  // actually introduces relative to main.
+  const existingRemote =
+    range.remoteSha && range.remoteSha !== ZERO_SHA && isAncestor(range.remoteSha, range.localSha, cwd);
   const hasOriginMain = !existingRemote && tryGit(["rev-parse", "--verify", "--quiet", MAIN_REMOTE_REF], cwd);
   const spec = existingRemote
     ? `${range.remoteSha}..${range.localSha}`
@@ -188,20 +242,34 @@ function ghIsAvailable() {
   }
 }
 
-/** Exported for tests: decide from a parsed `gh pr view` payload. */
-export function autoMergeVerdict(branch, prPayload) {
-  if (!prPayload) return { block: false, reason: "no-open-pr" };
-  if (prPayload.state && prPayload.state !== "OPEN") return { block: false, reason: "pr-not-open" };
+/**
+ * Exported for tests: decide from a parsed `gh pr view` payload.
+ *
+ * Auto-merge itself is user-owned, so automation never disables/re-enables it —
+ * that stays a hard, unconditional rule with no code path here at all. An
+ * ordinary fast-forward push while armed is allowed through (with a warning):
+ * GitHub re-validates required checks against the new head before it merges, so
+ * an additive commit cannot make it merge something that was never validated. A
+ * force-push while armed is the actual race — it can discard the commit GitHub
+ * already validated or is mid-evaluating — so that alone still blocks.
+ */
+export function autoMergeVerdict(branch, prPayload, isForcePush = false) {
+  if (!prPayload) return { block: false, warn: false, reason: "no-open-pr" };
+  if (prPayload.state && prPayload.state !== "OPEN") return { block: false, warn: false, reason: "pr-not-open" };
   if (prPayload.autoMergeRequest) {
-    return { block: true, reason: "auto-merge-armed", number: prPayload.number };
+    if (isForcePush) {
+      return { block: true, warn: false, reason: "auto-merge-armed-force-push", number: prPayload.number };
+    }
+    return { block: false, warn: true, reason: "auto-merge-armed-fast-forward", number: prPayload.number };
   }
-  return { block: false, reason: "auto-merge-not-armed" };
+  return { block: false, warn: false, reason: "auto-merge-not-armed" };
 }
 
-function autoMergeGuard(branches) {
+function autoMergeGuard(branches, forcePushBranches = new Set()) {
   if (!ghIsAvailable()) {
     return { name: "auto-merge", ok: true, note: "gh not available — auto-merge check skipped (fail-open)" };
   }
+  const warnings = [];
   for (const branch of branches) {
     let payload;
     try {
@@ -214,17 +282,29 @@ function autoMergeGuard(branches) {
       // No PR for this branch, or gh unauthenticated: fail open.
       continue;
     }
-    const verdict = autoMergeVerdict(branch, payload);
+    const verdict = autoMergeVerdict(branch, payload, forcePushBranches.has(branch));
     if (verdict.block) {
       return {
         name: "auto-merge",
         ok: false,
         message:
-          `PR #${verdict.number} on ${branch} has auto-merge ARMED.\n` +
-          `  Auto-merge state is user-owned; automation must not disable it or push through it.\n` +
-          `  Leave this PR untouched until it merges or the user manually changes that state.`,
+          `PR #${verdict.number} on ${branch} has auto-merge ARMED and this push force-updates the branch.\n` +
+          `  A force-push while armed can discard the commit GitHub already validated or is mid-evaluating.\n` +
+          `  Push a fast-forward commit instead, or wait for the user to change the auto-merge state. No override.`,
       };
     }
+    if (verdict.warn) {
+      warnings.push(`PR #${verdict.number} on ${branch} has auto-merge ARMED — pushing anyway (fast-forward).`);
+    }
+  }
+  if (warnings.length > 0) {
+    return {
+      name: "auto-merge",
+      ok: true,
+      note:
+        warnings.join(" ") +
+        " Auto-merge state is still user-owned — do not disable/re-enable it, and never force-push while armed.",
+    };
   }
   return { name: "auto-merge", ok: true };
 }
@@ -940,10 +1020,11 @@ function main() {
   if (ranges.length === 0) process.exit(0); // deletion-only push or nothing to do
   const branch = currentBranch();
   const pushedBranches = pushedBranchNames(ranges, branch);
+  const forcePushBranches = forcePushedBranchNames(ranges);
   const changedFiles = collectChangedFiles(ranges);
   // formatGuard reads the pushed blobs; drift/static only need the paths.
   const results = [
-    autoMergeGuard(pushedBranches),
+    autoMergeGuard(pushedBranches, forcePushBranches),
     formatGuard(collectChangedBlobs(ranges)),
     driftGuard(changedFiles),
     staticGuard(changedFiles, { ranges }),
@@ -974,12 +1055,17 @@ function assert(condition, label) {
 function selfTest() {
   // auto-merge verdicts
   assert(
-    autoMergeVerdict("codex/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 6 }).block === true,
-    "armed auto-merge on codex/* blocks",
+    autoMergeVerdict("codex/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 6 }).block === false,
+    "armed auto-merge does not block a fast-forward push",
   );
   assert(
-    autoMergeVerdict("claude/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 7 }).block === true,
-    "armed auto-merge on claude/* blocks",
+    autoMergeVerdict("codex/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 6 }).warn === true,
+    "armed auto-merge still warns on a fast-forward push",
+  );
+  assert(
+    autoMergeVerdict("claude/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 7 }, true).block ===
+      true,
+    "armed auto-merge blocks a force-push",
   );
   assert(
     autoMergeVerdict("claude/x", { autoMergeRequest: null, state: "OPEN" }).block === false,

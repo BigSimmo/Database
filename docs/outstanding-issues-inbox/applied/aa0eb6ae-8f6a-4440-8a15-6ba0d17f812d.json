@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "aa0eb6ae-8f6a-4440-8a15-6ba0d17f812d",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Decide whether a fabricated similarity of 1 on document-summary rows may earn the high confidence label a clinician reads",
+    "detail": "buildDocumentSummaryResults (src/lib/rag/rag-row-contracts.ts) stamps similarity: 1 on document-summary rows -- a fabricated score, not a measured cosine -- and does NOT set similarity_origin. deriveConfidence (src/lib/rag/rag-answer-support.ts:32-36) computes strongestNonSynthetic by EXCLUDING rows tagged similarity_origin === \"synthetic_text\", so an untagged fabricated 1.0 IS counted, and line 36 gates the \"high\" verdict on strongestNonSynthetic >= 0.82 with at least 2 accepted citations. A document summary therefore reaches the \"high\" confidence label on a score nobody measured. Note the mechanism precisely: buildDocumentSummaryResults does NOT set the tag -- the three call sites that DO tag synthetic scores are in rag-candidate-sources.ts (lines 626, 721, 934), and it is the ABSENCE of the tag here that admits the fabricated score. docs/clinical-hazard-analysis.md H5a records the adjacent document-lookup fast-path hazard. QUESTION: should a fabricated similarity count toward \"high\"? Adding the tag would demote these answers to medium or low. This is a clinical-governance decision before it is an engineering one: either way it needs its own design, discriminating offline tests that separate tagged from untagged rows, and a live eval-canary before/after pair per docs/rag-behaviour/. Deliberately excluded from PR #1981 and from the #212 tranche 3 PR rather than bundled, because it changes clinical output. Verified on main at d0276718.",
+    "source": "ledger #212 tranche 3 (src/app/api row contracts), session 2026-08-17",
+    "issueUlid": "01M07DCMBNJ912J9F17RHNW2AJ"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "baselineVersion": "rag-adversarial-baseline.v1",
+  "capturedAt": "2026-08-18",
+  "promptVersion": "clinical-rag-answer-v19",
+  "semanticRerankEnabled": false,
+  "reportKey": {
+    "commit_sha": "b7aa925f0ae19e89a9f0acf842b4a80d84083fb5",
+    "dataset_version": "rag-adversarial-cases.v1",
+    "eval_config_version": "rag-eval-config-v2",
+    "model_version": "answer=gpt-5.6-terra; fast=gpt-5.6-terra; strong=gpt-5.6-sol",
+    "embedding_version": "text-embedding-3-small@1536",
+    "index_version": "20260818090000_schema_drift_snapshot_history_probe"
+  },
+  "gates": [
+    {
+      "id": "retrieval_golden",
+      "caseCount": 36,
+      "status": "pending_owner_run",
+      "blockedReason": "eval:retrieval:quality is provider-backed (Supabase + OpenAI) and fires only via the owner-approved eval-canary dispatch. Not run at this commit; the packet S2 post-merge dispatch is the post half of the pair.",
+      "priorRun": "Recorded green at 4ea310e48 (the S2 merge base): eval-canary run 32100681177, document and content recall 1.0/1.0, zero per-case reciprocal-rank regressions — the S1d confirmation run and the baseline half of the S2 canary pair (docs/rag-improvement/HANDOVER.md §2)."
+    },
+    {
+      "id": "answer_gate",
+      "caseCount": 44,
+      "status": "pending_owner_run",
+      "blockedReason": "The ragEvalCases answer gate runs inside the provider-backed eval-canary dispatch. Not run at this commit; prompt v19 changes answer composition and length, so the pre-S2 result is history, not this tree's result.",
+      "priorRun": "44/44 at 4ea310e48 in eval-canary run 32100681177 (denominator reconciled by packet S5 — docs/rag-improvement/baseline-record.md §3), under prompt v18."
+    },
+    {
+      "id": "answer_quality",
+      "caseCount": 30,
+      "status": "pending_owner_run",
+      "blockedReason": "npm run eval:answer-quality over answerQualityEvalCases is a provider-backed OpenAI/Supabase evaluation requiring explicit owner approval per run. Requested (not executed) by packet S2 as the Gate E before/after comparison.",
+      "priorRun": "No before/after comparison has been recorded. The 220-word readability confound noted at eval_config_version rag-eval-config-v1 is resolved: scoreAnswerQualityEvalCase now scores fragmentation and length as two independent checks with separate reasons, and the length ceiling is derived from the v19 contract (110-word answer target + 6 sections at the schema heading/body maxima) rather than the pre-S2 flat 220. A readability=0 flag now names which check failed, so length and fragmentation no longer have to be adjudicated apart by hand. This gate semantic change is why the key reads rag-eval-config-v2; the first run under v2 has no v1-comparable readability rate."
+    },
+    {
+      "id": "offline_contract",
+      "caseCount": 26,
+      "status": "recorded",
+      "result": "26 offline contract suites, 623 tests passed; golden fixture validation 36 cases / 26 suites.",
+      "evidence": "npm run eval:rag:offline on this branch over b7aa925f0ae19e89a9f0acf842b4a80d84083fb5, 2026-08-18: 'Test Files 26 passed (26) / Tests 623 passed (623)'. Packet S2 added tests/answer-composition.test.ts (9 tests) to the list; the remaining movement from the S4 record (25 suites / 603 tests at 92f7618c) landed on main between the two captures (S1c, S1d, G1, #212 T4)."
+    },
+    {
+      "id": "adversarial_fixtures",
+      "caseCount": 24,
+      "status": "recorded",
+      "result": "24 synthetic cases across 8 categories, 6 registered canaries, report canary-free.",
+      "evidence": "npm run check:rag:adversarial-fixtures at b7aa925f0ae19e89a9f0acf842b4a80d84083fb5, 2026-08-18 (prompt v19)."
+    }
+  ]
+}

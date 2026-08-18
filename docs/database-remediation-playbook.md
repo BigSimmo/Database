@@ -3,9 +3,10 @@
 Companion to [`database-remediation-plan.md`](database-remediation-plan.md) (the plan of record —
 read it first in every session). This playbook exists so the work can be executed across **many
 separate chat sessions**: each phase below carries the full context a fresh session needs and a
-ready-to-paste prompt. Tracking anchor: the queued P1 ledger item titled “Live DB is missing 21
-repo-defined indexes and 10 retrieval RPC bodies diverge”. After inbox reconciliation, resolve its
-numeric ID by exact title before updating it; never assume an ID.
+ready-to-paste prompt. Tracking anchor: the queued P1 ledger item titled “Live DB has 20 currently
+missing repo-defined indexes and 10 retrieval RPC bodies diverge; weekly live-drift has been red
+since 2026-07-26 with no routing”. After inbox reconciliation, resolve its numeric ID by exact title
+before updating it; never assume an ID.
 
 ---
 
@@ -19,19 +20,47 @@ migrations show that history advanced, but neither point distinguishes skipped D
 history from indexes that were created and later dropped. The Phase 1 read-only history and audit
 check must establish that cause before the row is closed or remediation is attributed to it.
 
-**Current live state** (from scheduled `live-drift.yml` Actions run `31330856982`, 2026-08-09):
+**Current live state** (from `live-drift.yml` Actions run `31813064485`, 2026-08-14 — this
+supersedes the 2026-08-09 run `31330856982` the plan was originally written against):
 
-- 21 `missing_live` indexes across many migrations — tables: `audit_logs` (2), `api_rate_limits`,
-  `document_chunks` (2, incl. `document_chunks_content_trgm_idx`), `document_images` (3),
-  `document_index_quality`, `document_index_units`, `document_publication_approvals`,
-  `document_summaries`, `documents` (2, incl. `documents_title_trgm_idx`),
+- 20 `missing_live` indexes across many migrations — tables: `audit_logs` (2), `api_rate_limits`,
+  `document_chunks`, `document_images` (3), `document_index_quality`, `document_index_units`,
+  `document_publication_approvals`, `document_summaries`, `documents`,
   `image_caption_cache`, `indexing_v3_agent_jobs`, `ingestion_job_stages`, `medication_records`,
   `rag_aliases`, `rag_queries`, `rag_query_misses`, `storage_cleanup_jobs`.
+  **`documents_title_trgm_idx` and `document_chunks_content_trgm_idx` are no longer among them** —
+  both were restored in the 2026-08-14 incident window and re-verified `indisvalid`/`indisready`.
 - 2 `unexpected_live` indexes: `document_table_facts_document_id_idx`,
   `storage_cleanup_jobs_owner_id_idx`.
-- `def_hash` mismatches on 10 `match_*` retrieval RPCs (protected RAG surface; live bodies vs
-  repo — direction unknown until diffed).
-- The weekly `live-drift` run has been red since 2026-07-26 with no notification routing.
+- `def_hash` mismatches on 10 `match_*` retrieval RPCs — **unchanged, and entirely outstanding**
+  (protected RAG surface; live bodies vs repo — direction unknown until diffed). This is now the
+  highest-stakes remaining unknown and the reason Phase 1.2 comes next.
+- Drift-failure routing is **live**: a failed run creates or updates the pinned issue
+  "Live drift check failing" (currently **#1963**) and a green run closes it.
+
+**Phase status** (2026-08-18). The live board is
+[`database-remediation-coordination.md`](database-remediation-coordination.md); update that first —
+this is a pointer, not a second source of truth.
+
+Phase 0 complete. **Phase 1 complete** — 1.1 (`20260705180000` was not mark-applied; the dashboard
+audit-history pairing is still owner action, so `#248` stays open), 1.2 (PR #2087: all ten
+mismatches are attribute-only `SET work_mem`, zero body divergence, zero repo-ahead, zero
+UNCLASSIFIED), 1.3 whole-schema done with the remaining index sizing folded into Phase 5.
+**Phase 2 complete** — PR #2093: staging at full migration parity, and `check:drift` against staging
+**red with 19 items**, which is the finding the phase existed to produce rather than a failure of it;
+a re-measure is owed once staging carries `20260818090000`. **Phase 6 repo-side complete** — its
+migration deploy is still owed. Phase 4 partial (2 restored, 20 missing, 2 unexpected
+undispositioned). Phase 5 partial. Phase 7 not started.
+
+**Phase 3 is next, and it has been reframed.** Because 1.2 found zero repo-ahead bodies it is now
+repo-side work needing **no eval canary** — materially different from the prompt further down this
+file, which still assumes per-RPC canary approvals. Read the reframing and the outstanding owner
+decisions in [`database-remediation-coordination.md`](database-remediation-coordination.md) before
+dispatching it; do not execute the Phase 3 prompt below as written.
+
+**Before starting any phase, check the open-PR list for the surface** (`#292`). Phase 0 was built
+twice independently on 2026-08-14; a duplicate in Phase 3 or 4 wastes an approved production window
+and eval-canary budget, not just tokens.
 
 **Prior repair to imitate.** PR #1614 / migration `20260804110240_restore_rag_search_health_indexes.sql`
 is the approved pattern: operator prebuilds indexes with `CREATE INDEX CONCURRENTLY` outside any
@@ -60,17 +89,70 @@ against a pinned canonical definition, and only then marks a fail-fast guard mig
   attestation apply), `#025` (webhook inert), `#183` (missing SUPABASE_ACCESS_TOKEN),
   `#188`/`#196`–`#200` (DR gaps), `#191` (ACL consolidation — last), `#098`/`#099` (round trips).
 
+**Traps this programme has already hit.** Each cost real time; none is hypothetical.
+
+- **The newest migration mentioning a function often does not define it.** These `match_*` functions
+  are redefined 2–16 times across migrations, and
+  `20260724130000_explicit_base_match_rpc_execute_grants.sql` — the newest file mentioning several of
+  them — contains **zero** `create or replace function`; it only re-asserts grants. (An earlier
+  version of this note said the same of `20260724120000_table_facts_plpgsql_execute.sql`; that was
+  wrong — it **does** re-create `match_document_table_facts_text` at line 9 and is that function's
+  canonical body, which is exactly why a clean replay resets the `work_mem` that `20260724000000`
+  set on it. Corrected by the Phase 1.2 dossier, 2026-08-18.) Select the latest migration carrying
+  an actual `as $$ … $$` body, not merely a reference.
+- **`SET` attributes are part of the function hash.** The drift `def_hash` strips comments and
+  whitespace from `pg_get_functiondef` and nothing else, so `ALTER FUNCTION … SET work_mem` (or
+  `plan_cache_mode`) applied by migration but absent from the `schema.sql` mirror is guaranteed
+  drift with a byte-identical body. All ten Phase 1.2 mismatches were this (forensics §1.2). Test
+  the attribute-strip variant before diffing bodies.
+- **Normalize before joining live functions to the manifest.** Joining manifest signatures to live
+  `p.oid::regprocedure::text` reports all 93 functions as simultaneously missing _and_ extra, because
+  the manifest stores `public.fn(extensions.vector,…)` while a live session renders `fn(vector,…)`.
+  That is a join failure, not a finding. Strip `public.`, fold `extensions.vector` → `vector`, then
+  test each surviving mismatch against the qualification variants before calling it divergence.
+- **Resolve ledger rows by exact title, and check the row is still in the _open_ table.** The
+  tracking anchor was cited as `#312` in an early prompt; `#312` is an unrelated row. Separately, a
+  close request for `#333` was queued after confirming a `#333` row existed — but the match was the
+  **archived** row, and the invalid request threw `#333 is already archived`, red-lining
+  `docs:check-links` for the whole branch.
+- **Node 24 is mandatory** (`engine-strict`). A cloud container may ship Node 20/22; `npm ci` then
+  fails `EBADENGINE` and leaves `tsx` unresolvable, which fails `check:runtime`. Install Node 24
+  before anything else.
+- **Two known tooling failures are fixed — recognise the symptoms rather than re-diagnosing them.**
+  `cancel request … targets missing pending request` was the ledger cancel-race (fixed in PR #1978;
+  a cancellation whose target was already applied is now a loud no-op). A force-push rejected with
+  "removed without an audit record" was `guardBaseForRange` comparing against abandoned history
+  (also #1978; it now falls back to the merge base). Neither should need an override.
+
 **Session hygiene for every phase:** start from a fresh worktree off latest `origin/main`
 (`newtask` skill), one branch per phase (`claude/db-remediation-phase-N`), record evidence in
 `docs/audit/live-drift-forensics-2026-08.md`, hand off via the `handoff` skill, and update the
 live-drift tracking item via `npm run issues:update` before the session ends.
+
+**Running two phases at once.** Phases whose targets differ (for example Phase 1.2 read-only against
+production and Phase 2 mutating staging) can safely run concurrently — but the **ledger**, not the
+database, is where they collide:
+
+- **Assign one ledger row per session, explicitly, in the prompt.** Two pending mutations on the same
+  row make the inbox refuse the whole batch until someone queues an explicit cancellation. Phase 1.2
+  owns the live-drift tracking item; Phase 2 owns `#056`.
+- **One reconciliation at a time, from a fresh-base branch.** Three ran in parallel on 2026-08-14 and
+  collided. `npm run issues:reconcile` is the only thing that may edit `docs/outstanding-issues.md`.
+- **Never merge `main` into a PR that carries a reconciliation** — it turns a complete transaction
+  into a partial one and the guard correctly rejects it.
+- **After a PR lands, verify the content on `main`, not the commit title** (`#324`): no gate catches
+  a merge resolution silently reverting merged work, and this programme's branches have been through
+  enough force-pushes and third-party commits for that to be a live risk.
 
 **Model guidance:** Fable for Phases 1, 3, 6 (and #191 later) — judgment-heavy, expensive
 mistakes. Opus is sufficient for Phases 0, 2, 4, 5, 7 — execution against this playbook.
 
 ---
 
-## Phase 0 — Enablement (repo-only; no approval window needed) · Opus · 2–4 h
+## Phase 0 — Enablement (repo-only; no approval window needed) · Opus · 2–4 h — **COMPLETE 2026-08-14**
+
+Delivered in PRs #1938, #1939 and #1951; the forced-dispatch proof is Actions run `31813064485`,
+which auto-created issue #1963. The prompt below is retained as history.
 
 Deliverables: drift-failure routing, post-migration drift trigger, evidence file scaffold.
 Definition of done: PR merged; `check:github-actions` and `verify:pr-local` green; a forced
@@ -119,7 +201,7 @@ conclusion for `#248`; no writes performed.
 > classify each as live-ahead, repo-ahead, or normalization noise, quoting the decisive diff hunks
 > — this is a protected RAG surface, so classification accuracy matters more than speed, and any
 > ambiguous diff is recorded as UNCLASSIFIED with the ambiguity explained, never guessed; (3) for
-> the 21 missing and 2 unexpected indexes, record owning-table pg_relation_size and run EXPLAIN
+> the 20 missing and 2 unexpected indexes, record owning-table pg_relation_size and run EXPLAIN
 > (ANALYZE, BUFFERS) for the documents title ILIKE query, the document_chunks content search, and
 > the rag_retrieval_logs miss scan as before-baselines. Write all evidence with dates and run IDs
 > into docs/audit/live-drift-forensics-2026-08.md, update the live-drift tracking item, commit, push, PR (docs-only;
@@ -169,7 +251,8 @@ allowlist entries); eval evidence attached for any behaviour-changing deploy.
 
 ## Phase 4 — Index restoration (approved off-peak production window) · Opus · 2–3 h active
 
-Prerequisites: Phases 1–3. Deliverables: 21 indexes restored + validated, 2 unexpected indexes
+Prerequisites: Phases 1–3. Deliverables: the ~20 still-missing indexes restored + validated (the two
+trigram indexes were already restored on 2026-08-14), 2 unexpected indexes
 dispositioned, guard migrations landed, live-drift green. Definition of done: green live-drift
 dispatch output pasted; `search_schema_health()` still `ok: true`.
 

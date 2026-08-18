@@ -1,7 +1,20 @@
 "use client";
 
-import { RefreshCw, Share, SquarePlus, Wifi, WifiOff, X, type LucideIcon } from "lucide-react";
+import {
+  Download,
+  LayoutGrid,
+  RefreshCw,
+  Share,
+  Smartphone,
+  SquarePlus,
+  Wifi,
+  WifiOff,
+  X,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { createBrowserStore } from "@/lib/client-store-factory";
 
 const SERVICE_WORKER_URL = "/sw.js";
@@ -100,12 +113,11 @@ async function teardownLocalPwa() {
   }
 }
 
-const cardClassName =
-  "pwa-notice-card pointer-events-auto relative rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-[color:var(--ring-glass)] backdrop-blur-md";
+const cardClassName = "pwa-notice-card pointer-events-auto relative text-[color:var(--text)]";
 const primaryButtonClassName =
-  "inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3.5 py-2 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] transition-colors hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+  "pwa-action pwa-action-primary inline-flex min-h-tap items-center justify-center rounded-md px-4 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 const secondaryButtonClassName =
-  "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--border-lux)] px-3.5 py-2 text-sm font-semibold text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+  "pwa-action pwa-action-secondary inline-flex min-h-tap items-center justify-center rounded-md px-4 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 const dismissIconButtonClassName =
   "absolute right-1 top-1 inline-flex h-tap w-tap items-center justify-center rounded-full text-[color:var(--text-muted)] transition-colors hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
@@ -130,46 +142,75 @@ function NoticeIcon({ icon: Icon, tone }: { icon: LucideIcon; tone: "accent" | "
   );
 }
 
-// Phone install notices read as a native install sheet: grip bar (visual
-// echo of src/components/ui/sheet.tsx; static — notices are transient cards,
-// not draggable dialogs) and the real app icon as the identity mark.
+// Phone install notices echo the application's sheet language without acting
+// like a draggable modal. The grip is deliberately decorative and the notice
+// remains a non-blocking region.
 function InstallSheetGrip() {
   return (
-    <div className="flex justify-center pb-2 pt-0.5 sm:hidden" aria-hidden="true">
-      <span className="h-1 w-9 rounded-full bg-[color:var(--border-strong)]" />
+    <div className="pwa-install-grip sm:hidden" aria-hidden="true">
+      <span />
     </div>
   );
 }
 
-function InstallAppIdentity({ title, titleId, tagline }: { title: string; titleId: string; tagline: string }) {
+function InstallHeader({
+  dismissLabel,
+  onDismiss,
+  title,
+  titleId,
+}: {
+  dismissLabel: string;
+  onDismiss: () => void;
+  title: string;
+  titleId: string;
+}) {
   return (
-    <div className="flex min-w-0 items-center gap-3.5">
-      {/* eslint-disable-next-line @next/next/no-img-element -- static same-origin
-          brand asset; next/image adds a client chunk for zero benefit here. */}
-      <img
-        src="/icons/icon-192"
-        alt=""
-        aria-hidden="true"
-        width={56}
-        height={56}
-        className="h-14 w-14 shrink-0 rounded-xl border border-[color:var(--border-lux)] shadow-[var(--e1)]"
-      />
-      <div className="min-w-0">
-        <p id={titleId} className="text-base font-bold leading-tight text-[color:var(--text-heading)]">
+    <div className="pwa-install-header">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <BrandMark className="pwa-install-mark h-9 w-9" />
+        <p id={titleId} className="min-w-0 text-sm font-bold leading-5 text-[color:var(--text-heading)]">
           {title}
         </p>
-        <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">{tagline}</p>
       </div>
+      <button type="button" className="pwa-install-dismiss" aria-label={dismissLabel} onClick={onDismiss}>
+        <X className="h-icon-sm w-icon-sm" aria-hidden="true" />
+        <span>Dismiss</span>
+      </button>
     </div>
   );
 }
 
-function InstallStepChip({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
+const installBenefits: Array<{ icon: LucideIcon; label: string }> = [
+  { icon: Zap, label: "Quick access" },
+  { icon: Smartphone, label: "App-like launch" },
+  { icon: LayoutGrid, label: "Familiar workspace" },
+];
+
+function InstallBenefits() {
   return (
-    <span className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-semibold text-[color:var(--clinical-accent)]">
-      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-      {label}
-    </span>
+    <ul className="pwa-install-benefits" aria-label="Install benefits">
+      {installBenefits.map(({ icon: Icon, label }) => (
+        <li key={label}>
+          <Icon className="h-icon-md w-icon-md" aria-hidden="true" />
+          <span>{label}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function InstallManualSteps() {
+  return (
+    <ol className="pwa-install-steps" aria-label="Add Clinical KB to your Home Screen">
+      <li>
+        <span>1. Tap Share</span>
+        <Share className="h-icon-md w-icon-md" aria-hidden="true" />
+      </li>
+      <li>
+        <span>2. Add to Home Screen</span>
+        <SquarePlus className="h-icon-md w-icon-md" aria-hidden="true" />
+      </li>
+    </ol>
   );
 }
 
@@ -457,7 +498,12 @@ export function PwaLifecycle() {
   return (
     <div className="pwa-notice-stack">
       {showOffline ? (
-        <section className={cardClassName} role="region" aria-labelledby="pwa-offline-title" aria-live="polite">
+        <section
+          className={`${cardClassName} pwa-lifecycle-card`}
+          role="region"
+          aria-labelledby="pwa-offline-title"
+          aria-live="polite"
+        >
           <button
             type="button"
             className={dismissIconButtonClassName}
@@ -470,10 +516,10 @@ export function PwaLifecycle() {
             <NoticeIcon icon={WifiOff} tone="warning" />
             <div className="min-w-0">
               <p id="pwa-offline-title" className="text-sm font-bold text-[color:var(--text-heading)]">
-                You appear to be offline
+                You’re offline
               </p>
               <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-                Clinical search, answers, private documents, uploads, and account data require a connection.
+                Clinical search and private features need a connection.
               </p>
               <button
                 type="button"
@@ -488,7 +534,7 @@ export function PwaLifecycle() {
       ) : null}
 
       {connectionRestored ? (
-        <section className={cardClassName} role="status">
+        <section className={`${cardClassName} pwa-connection-restored`} role="status">
           <div className="flex items-center gap-3">
             <NoticeIcon icon={Wifi} tone="success" />
             <p className="text-sm font-bold text-[color:var(--text-heading)]">Connection restored</p>
@@ -497,7 +543,12 @@ export function PwaLifecycle() {
       ) : null}
 
       {showUpdate ? (
-        <section className={cardClassName} role="region" aria-labelledby="pwa-update-title" aria-live="polite">
+        <section
+          className={`${cardClassName} pwa-lifecycle-card`}
+          role="region"
+          aria-labelledby="pwa-update-title"
+          aria-live="polite"
+        >
           <button
             type="button"
             className={dismissIconButtonClassName}
@@ -510,14 +561,15 @@ export function PwaLifecycle() {
             <NoticeIcon icon={RefreshCw} tone="info" />
             <div className="min-w-0">
               <p id="pwa-update-title" className="text-sm font-bold text-[color:var(--text-heading)]">
-                An update is ready
+                Update available
               </p>
               <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-                Refresh when convenient to use the latest Clinical KB version.
+                Reload when convenient to use the latest version.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" className={primaryButtonClassName} onClick={applyUpdate}>
-                  Refresh now
+                  <RefreshCw className="mr-2 h-icon-md w-icon-md" aria-hidden="true" />
+                  Reload
                 </button>
                 <button type="button" className={secondaryButtonClassName} onClick={dismissUpdate}>
                   Later
@@ -535,30 +587,20 @@ export function PwaLifecycle() {
           aria-labelledby="pwa-ios-install-title"
           aria-live="polite"
         >
-          <button
-            type="button"
-            className={dismissIconButtonClassName}
-            aria-label="Dismiss install hint"
-            onClick={dismissIosHint}
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
           <InstallSheetGrip />
-          <div className="pr-12 sm:pr-10">
-            <InstallAppIdentity
-              title="Install Clinical KB"
-              titleId="pwa-ios-install-title"
-              tagline="Clinical guidelines on your home screen."
-            />
-            <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)]">
-              In Safari, tap Share, then Add to Home Screen. Private clinical features still require a connection.
-            </p>
-            <div className="mt-2.5 flex flex-wrap items-center gap-2" aria-hidden="true">
-              <InstallStepChip icon={Share} label="1. Tap Share" />
-              <InstallStepChip icon={SquarePlus} label="2. Add to Home Screen" />
-            </div>
-            <div className="mt-3.5 flex flex-wrap gap-2">
-              <button type="button" className={secondaryButtonClassName} onClick={dismissIosHint}>
+          <InstallHeader
+            title="Install Clinical KB"
+            titleId="pwa-ios-install-title"
+            dismissLabel="Dismiss install hint"
+            onDismiss={dismissIosHint}
+          />
+          <div className="pwa-install-body">
+            <p className="pwa-install-tagline">Clinical guidelines on your home screen.</p>
+            <p className="pwa-install-copy">In Safari, tap Share, then Add to Home Screen.</p>
+            <InstallManualSteps />
+            <p className="pwa-install-support">Private clinical features still require a connection.</p>
+            <div className="pwa-install-actions pwa-install-actions-single">
+              <button type="button" className={`${secondaryButtonClassName} w-full`} onClick={dismissIosHint}>
                 Not now
               </button>
             </div>
@@ -568,41 +610,40 @@ export function PwaLifecycle() {
 
       {showInstall ? (
         <section
-          className={`${cardClassName} pwa-install-sheet`}
+          className={`${cardClassName} pwa-install-sheet pwa-install-native-sheet`}
           role="region"
           aria-labelledby="pwa-install-title"
           aria-live="polite"
         >
-          <button
-            type="button"
-            className={dismissIconButtonClassName}
-            aria-label="Dismiss install prompt"
-            onClick={dismissInstall}
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
           <InstallSheetGrip />
-          <div className="pr-12 sm:pr-10">
-            <InstallAppIdentity
-              title="Install Clinical KB"
-              titleId="pwa-install-title"
-              tagline="Clinical guidelines on your home screen."
-            />
-            <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)]">
+          <InstallHeader
+            title="Install Clinical KB"
+            titleId="pwa-install-title"
+            dismissLabel="Dismiss install prompt"
+            onDismiss={dismissInstall}
+          />
+          <div className="pwa-install-body">
+            <p className="pwa-install-compact-copy">Quick access · No app store</p>
+            <p className="pwa-install-tagline">Clinical guidelines on your home screen.</p>
+            <p className="pwa-install-copy">
               Open it from your device like an app. Private clinical features still require a connection.
             </p>
-            <p className="mt-1.5 text-xs font-semibold tracking-normal text-[color:var(--text-muted)]">
-              Free · No app store · Takes a few seconds
-            </p>
-            <div className="mt-3.5 flex flex-wrap gap-2">
+            <p className="pwa-install-support">Free · No app store · Takes a few seconds</p>
+            <InstallBenefits />
+            <div className="pwa-install-actions">
               <button
                 type="button"
-                className={`${primaryButtonClassName} max-sm:flex-1`}
+                className={`${primaryButtonClassName} pwa-install-primary`}
                 onClick={() => void requestInstall()}
               >
+                <Download className="mr-2 h-icon-md w-icon-md" aria-hidden="true" />
                 Install app
               </button>
-              <button type="button" className={secondaryButtonClassName} onClick={dismissInstall}>
+              <button
+                type="button"
+                className={`${secondaryButtonClassName} pwa-install-secondary`}
+                onClick={dismissInstall}
+              >
                 Not now
               </button>
             </div>

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "370d002c-5a65-4c99-bf5b-4146c59d5dc8",
+  "createdOn": "2026-08-17",
+  "action": "cancel",
+  "payload": {
+    "requestId": "46750cbf-f4f4-4a00-ab93-bdac644afbde",
+    "reason": "Superseded by db498cc1-c516-4141-9837-15fc9ef30684 (PR #2015), which restates and extends this note with the 2026-08-17 landed fixes; keeping both pending update requests on #318 blocked docs:check-links (mutationConflicts requires an explicit cancellation decision when two pending mutations target the same row)."
+  }
+}

@@ -1,11 +1,13 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { X } from "lucide-react";
 
 import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import {
   ResultFilterFacetChips,
   ResultFilterSheet,
@@ -17,7 +19,6 @@ import { pageContainer } from "@/components/ui-primitives";
 import { useTcBindings } from "../bindings";
 import { matchesAvailability, matchesTopics } from "../data/select";
 import { therapyBtn } from "../controls";
-import { XIcon } from "../icons";
 import { LoadingState } from "../ui";
 import { ResultCard } from "../therapy-card";
 
@@ -45,9 +46,18 @@ export function SearchScreen() {
   // shelf. The query is deliberately absent: it is stated in the composer and
   // removing it is not a filter operation.
   const appliedFilters = [
-    ...b.search.tags.map((tag) => ({ id: `topic-${tag}`, label: tag, onRemove: () => b.toggleTag(tag) })),
-    ...(b.search.reviewedOnly ? [{ id: "reviewed", label: "Reviewed only", onRemove: b.toggleReviewedOnly }] : []),
-    ...(b.search.briefOnly ? [{ id: "brief", label: "Brief available", onRemove: b.toggleBriefOnly }] : []),
+    ...b.search.tags.map((tag) => ({
+      id: `topic-${tag}`,
+      groupLabel: "Topic",
+      valueLabel: tag,
+      onRemove: () => b.toggleTag(tag),
+    })),
+    ...(b.search.reviewedOnly
+      ? [{ id: "reviewed", groupLabel: "Evidence", valueLabel: "Reviewed", onRemove: b.toggleReviewedOnly }]
+      : []),
+    ...(b.search.briefOnly
+      ? [{ id: "brief", groupLabel: "Availability", valueLabel: "Brief available", onRemove: b.toggleBriefOnly }]
+      : []),
   ];
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
@@ -184,7 +194,7 @@ export function SearchScreen() {
                 // the query, deleting the search the reader is looking at.
                 onClick={b.clearSearchFilters}
               >
-                <XIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
+                <X aria-hidden="true" size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
                 Clear
               </button>
             ) : null}
@@ -204,7 +214,7 @@ export function SearchScreen() {
         // "Clear search" control (every breakpoint) already covers wiping the
         // query; this sheet only ever clears what it itself narrows.
         onClearAll={activeFilterCount > 0 ? b.clearSearchFilters : undefined}
-        footerNote={`${results.length} therap${results.length === 1 ? "y" : "ies"}`}
+        summary={{ count: results.length, noun: results.length === 1 ? "therapy" : "therapies" }}
       />
 
       {/* The band's fault panel owns the failure. Without this guard an error
@@ -220,8 +230,8 @@ export function SearchScreen() {
               query={q}
               appliedFilters={appliedFilters}
               onClearFilters={b.clearSearchFilters}
-              // Query-only zero results otherwise have no filter chip, example,
-              // or cross-mode action. Restore a one-tap escape without relabeling
+              // Query-only zero results otherwise have no filter chip or example.
+              // Restore a one-tap escape without relabeling
               // a query reset as a filter operation.
               onClearSearch={b.clearSearch}
             />
@@ -234,6 +244,10 @@ export function SearchScreen() {
           )}
         </>
       )}
+
+      {!b.error && !b.loading ? (
+        <UniversalSearchAlsoMatches modeId="therapy-compass" query={q} className="mt-4" />
+      ) : null}
     </section>
   );
 }

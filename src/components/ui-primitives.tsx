@@ -393,12 +393,12 @@ export function ToggleSwitch({
         disabled={disabled}
         onClick={onToggle}
         className={cn(
-          track,
+          "inline-grid min-h-tap min-w-tap shrink-0 place-items-center rounded-full",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
           controlDisabled,
         )}
       >
-        {knob}
+        <span className={track}>{knob}</span>
       </button>
     );
   }

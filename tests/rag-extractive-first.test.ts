@@ -519,7 +519,7 @@ The details (i.e.: medication name, formulation, route, dose and directions for 
       query: "How are long acting injectables managed?",
       queryClass: "medication_dose_risk",
       results: laiResults,
-      route: { mode: "fast", reason: "clinical_fast_grounded_synthesis" },
+      route: { mode: "strong", reason: "medication_dose_risk_strong_route" },
     });
 
     expect(chooseValidatedExtractiveShortCircuit(args)).toEqual({
@@ -527,6 +527,14 @@ The details (i.e.: medication name, formulation, route, dose and directions for 
     });
     // The LAI skip is only offered while the retrieval gate passed.
     expect(chooseValidatedExtractiveShortCircuit({ ...args, gateStatus: "blocked" })).toBeNull();
+    // The dosing class no longer reaches the fast fallthrough; the retired fast
+    // signature must not qualify.
+    expect(
+      chooseValidatedExtractiveShortCircuit({
+        ...args,
+        route: { mode: "fast", reason: "clinical_fast_grounded_synthesis" },
+      }),
+    ).toBeNull();
   });
 
   it("short-circuits only the measured typo dosing query when its single-source candidate validates", () => {
@@ -534,7 +542,7 @@ The details (i.e.: medication name, formulation, route, dose and directions for 
     const args = proceduralArgs({
       query,
       queryClass: "medication_dose_risk",
-      route: { mode: "fast", reason: "clinical_fast_grounded_synthesis" },
+      route: { mode: "strong", reason: "medication_dose_risk_strong_route" },
       results: [
         source({
           id: "agitation-repeat-dose-guidance",
@@ -561,6 +569,12 @@ The details (i.e.: medication name, formulation, route, dose and directions for 
     ).toBe(false);
     expect(hasValidatedAgitationArousalTypoDosingExtractiveAnswer({ ...args, gateStatus: "blocked" })).toBe(false);
     expect(hasValidatedAgitationArousalTypoDosingExtractiveAnswer({ ...args, sourceBacked: false })).toBe(false);
+    expect(
+      hasValidatedAgitationArousalTypoDosingExtractiveAnswer({
+        ...args,
+        route: { mode: "fast", reason: "clinical_fast_grounded_synthesis" },
+      }),
+    ).toBe(false);
   });
 
   it("returns the blocked-recovery marker for the score-blocked routine document lookup", () => {

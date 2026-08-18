@@ -1,5 +1,11 @@
 export type DensityPreference = "comfortable" | "compact" | "spacious";
-export type MotionPreference = "system" | "reduced";
+/**
+ * "system" follows prefers-reduced-motion. "reduced" and "full" are explicit
+ * overrides in either direction — "full" exists because iOS Reduce Motion is
+ * often switched on for app-launch zoom rather than vestibular sensitivity, and
+ * without an opt-in it silently freezes this app's answer-progress feedback.
+ */
+export type MotionPreference = "system" | "reduced" | "full";
 export type PopulationPreference = "adults" | "older-adults" | "adolescents" | "all";
 export type AnswerStylePreference = "conservative" | "balanced" | "comprehensive";
 export type LandingPreference = "ask" | "search" | "browse";
@@ -54,6 +60,12 @@ export const DENSITY_OPTIONS: ReadonlyArray<{ value: DensityPreference; label: s
   { value: "spacious", label: "Spacious" },
 ];
 
+export const MOTION_OPTIONS: ReadonlyArray<{ value: MotionPreference; label: string }> = [
+  { value: "system", label: "System" },
+  { value: "reduced", label: "Reduced" },
+  { value: "full", label: "Full" },
+];
+
 export const LANDING_OPTIONS: ReadonlyArray<{ value: LandingPreference; label: string }> = [
   { value: "ask", label: "Ask" },
   { value: "search", label: "Search" },
@@ -95,7 +107,7 @@ export function normalizePreferences(input: unknown): AppPreferences {
       : DEFAULT_PREFERENCES.jurisdiction;
   return {
     density: coerceEnum(input.density, ["comfortable", "compact", "spacious"], DEFAULT_PREFERENCES.density),
-    motion: coerceEnum(input.motion, ["system", "reduced"], DEFAULT_PREFERENCES.motion),
+    motion: coerceEnum(input.motion, ["system", "reduced", "full"], DEFAULT_PREFERENCES.motion),
     jurisdiction,
     population: coerceEnum(
       input.population,

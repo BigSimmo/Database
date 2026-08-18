@@ -42,6 +42,15 @@ async function fillHydratedAnswerQuestion(page: Page, value: string) {
   return submit;
 }
 
+async function dismissBlockingPwaNotice(page: Page) {
+  const dismiss = page.getByRole("button", { name: /Dismiss (?:offline notice|update notice|install)/ }).first();
+  const noticeAppeared = await dismiss
+    .waitFor({ state: "visible", timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (noticeAppeared) await dismiss.click();
+}
+
 async function mockDashboardApis(page: Page) {
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
@@ -435,6 +444,7 @@ test("follow-up answer generation stays compact above the previous answer", asyn
   await mockDashboardApis(page);
   await installSuccessfulThenHoldingAnswerStreams(page);
   await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
+  await dismissBlockingPwaNotice(page);
 
   const submit = await fillHydratedAnswerQuestion(page, "Lithium dosing");
   await submit.click();
@@ -466,7 +476,7 @@ test("follow-up answer generation stays compact above the previous answer", asyn
         timingFunction: style.animationTimingFunction,
       };
     }),
-  ).toEqual({ duration: "1.6s", iterationCount: "infinite", timingFunction: "linear" });
+  ).toEqual({ duration: "2.6s", iterationCount: "infinite", timingFunction: "linear" });
   const stop = progress.getByRole("button", { name: "Stop generating answer" });
   expect((await stop.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
 
@@ -528,6 +538,7 @@ test("answer progress keeps focus, reduced-motion, and forced-colour behavior in
   await mockDashboardApis(page);
   await installHoldingAnswerStream(page);
   await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
+  await dismissBlockingPwaNotice(page);
 
   const submit = await fillHydratedAnswerQuestion(page, "Lithium dosing");
   await submit.click();
@@ -544,6 +555,9 @@ test("answer progress keeps focus, reduced-motion, and forced-colour behavior in
   await expect(activityTraceBase).toBeVisible();
   expect(await activeSpinner.evaluate((spinner) => getComputedStyle(spinner).animationName)).toBe("none");
   expect(await activityTraceSweep.evaluate((trace) => getComputedStyle(trace).animationName)).toBe("none");
+  // Suppressing motion must not delete the indicator. This previously resolved to
+  // "0", which left everyone with OS Reduce Motion staring at a blank, frozen panel.
+  expect(await activityTraceSweep.evaluate((trace) => getComputedStyle(trace).opacity)).toBe("0.55");
 
   const stop = progress.getByRole("button", { name: "Stop generating answer" });
   const details = progress.getByText("Processing details", { exact: true });
@@ -566,11 +580,33 @@ test("answer progress keeps focus, reduced-motion, and forced-colour behavior in
       };
     }),
   ).toEqual({
-    name: "answer-ecg-sweep",
-    duration: "1.8s",
+    name: "answer-ecg-scroll",
+    duration: "3.2s",
     iterationCount: "infinite",
     timingFunction: "linear",
   });
+  const restingTransform = await activityTraceSweep.evaluate(async (trace) => {
+    const animation = trace.getAnimations()[0];
+    animation.pause();
+    animation.currentTime = 0;
+    await new Promise(requestAnimationFrame);
+    return getComputedStyle(trace).transform;
+  });
+  const restingPixels = await activityTraceSweep.screenshot();
+  const midTransform = await activityTraceSweep.evaluate(async (trace) => {
+    const animation = trace.getAnimations()[0];
+    animation.currentTime = 1_600;
+    await new Promise(requestAnimationFrame);
+    return getComputedStyle(trace).transform;
+  });
+  const midPixels = await activityTraceSweep.screenshot();
+  // The strip actually moves: a matrix translate, not the identity, and a raster
+  // that genuinely differs. Computed style alone was never enough — the previous
+  // animation satisfied every computed-style assertion while reading as static.
+  expect(restingTransform).toBe("matrix(1, 0, 0, 1, 0, 0)");
+  expect(midTransform).not.toBe(restingTransform);
+  expect(midTransform).toMatch(/^matrix\(1, 0, 0, 1, -\d/);
+  expect(restingPixels.equals(midPixels), "the WebKit raster must visibly change as the strip travels").toBe(false);
 
   await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
   await expect(currentStage.locator('[data-slot="answer-progress-stage-marker"]')).toBeVisible();

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e4773b50-2c9f-4f48-94ca-ed5816ef4d82",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#183",
+    "outcome": "Configured Sentry alert routing on critical worker spans",
+    "baseRowFingerprint": "9c39d9051c565900be423616fa48f811601813ee8743cfa82682a9ac4bb5a5e7"
+  }
+}

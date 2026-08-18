@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "bbd0c2e5-6e2f-4aa9-802e-31a95ccb2b2d",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Confirm on a real Claude Code web session that the session-start hook now runs, after the exec-bit fix",
+    "detail": "PR #2113 fixed .claude/hooks/session-start.sh, which was checked in as mode 100644 while both sibling hooks were 100755, and was the only hook registered by bare path rather than through bash. What was PROVEN: the index mode, the bare-path registration, and that core.fileMode=false on this Windows ReFS Dev Drive hides both (a local chmod +x is a silent no-op; only git update-index --chmod=+x works). What was NOT proven: that it actually failed on a Linux web container, because no container was available to test from. The 100755/100755/100644 asymmetry makes accident overwhelmingly likely rather than a deliberate choice, and the script's whole body is gated on CLAUDE_CODE_REMOTE=true so the web container is the only place it does any work — it provisions the Node 24 the engine floor requires, after npm ci EBADENGINE blocked PRs #1611, #1697, #1705 and #1740. This is confirmation, not risk: the registration now uses bash \"$CLAUDE_PROJECT_DIR/...\", which removes the dependency on the mode entirely, and tests/session-start-hook.test.ts pins every hook at 100755 with LF-only line endings while tests/claude-code-settings.test.ts pins every hook command to start with an interpreter. Next: on the first Claude Code web session on this repo, check the session start output for the '[session-start] Using node ...' line and confirm npm ci ran. If it did not, the failure is something other than the exec bit and this item becomes a real defect rather than a confirmation.",
+    "source": "PR #2113; AGENTS.md 'Claude Code hook scripts'",
+    "issueUlid": "01M0ACF5KP164Z0HTZBWDPG8C3"
+  }
+}

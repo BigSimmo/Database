@@ -104,6 +104,10 @@ const BAND_ROUTE_ALLOWLIST = new Map<string, string>([
     "Factsheets mode home is a catalogue landing; result lists (and the band) live on /factsheets/search.",
   ],
   [
+    "src/app/(search-app)/dictionary/page.tsx",
+    "Dictionary mode home uses the shared in-flow composer; its mixed result list and band live on /dictionary/search.",
+  ],
+  [
     "src/app/(search-app)/therapy-compass/page.tsx",
     "Therapy home is the library landing; the search results band lives on /therapy-compass/search.",
   ],
@@ -152,8 +156,8 @@ function routePathname(routeAbs: string): string {
  * the band through their own page:
  * - `isAlwaysStandaloneShellPath` — never mounts the dashboard (services, forms, …)
  * - `isStandaloneModeHomePath` — mode homes with their own results page, including
- *   `/tools`, whose page switches between `ApplicationsLauncherPage` and its
- *   route-owned submitted-results component
+ *   `/tools`, whose default and submitted states both mount its route-owned
+ *   `ToolsSearchResultsPage`
  */
 function reachabilityRoots(routeAbs: string): string[] {
   const pathname = routePathname(routeAbs);

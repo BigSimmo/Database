@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useId, useMemo, useState, useDeferredValue } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useDeferredValue, useId, useMemo, useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -24,9 +24,11 @@ import {
 } from "@/components/formulation/formulation-ui";
 import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
-  ResultFilterFacetChips,
+  SearchResultsHeaderBand,
+  type AppliedFilterChip,
+} from "@/components/clinical-dashboard/search-results-header-band";
+import {
   ResultFilterSheet,
   ResultFilterTrigger,
   resultFilterFacetGroup,
@@ -36,12 +38,14 @@ import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
   formulationDomainsInUse,
+  formulationDomainGroups,
   formulationSearchPresets,
   formulationTemplates,
   searchFormulationMechanisms,
 } from "@/lib/formulation";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
+import { readResultFilterValues, replaceResultFilterUrl, writeResultFilterValues } from "@/lib/result-filter-url";
 
 function presetHref(query: string) {
   return appModeHomeHref("formulation", { query, run: true, focus: true });
@@ -152,9 +156,14 @@ function EmptySearchResults({ query }: { query: string }) {
 
 function FormulationResults({ query }: { query: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   // Many-of-N. A mechanism carries 3.92 domains on average, so a radio set
   // claimed the reader could not hold Affect and Risk at once, which is false.
-  const [domains, setDomains] = useState<ReadonlySet<string>>(() => new Set());
+  const domainValues = useMemo(() => new Set(formulationDomainsInUse), []);
+  const domains = useMemo(
+    () => new Set(readResultFilterValues(searchParams, "domain", domainValues)),
+    [domainValues, searchParams],
+  );
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const deferredQuery = useDeferredValue(query);
@@ -177,13 +186,16 @@ function FormulationResults({ query }: { query: string }) {
   }, [domains, deferredQuery, query]);
   const hasUniqueTopMatch = results.length > 0 && (results.length < 2 || results[0].score !== results[1].score);
 
-  const toggleDomain = useCallback((value: string) => {
-    setDomains((current) => {
-      const next = new Set(current);
-      if (!next.delete(value)) next.add(value);
-      return next;
-    });
-  }, []);
+  const toggleDomain = useCallback(
+    (value: string) => {
+      replaceResultFilterUrl((params) => {
+        const next = new Set(readResultFilterValues(params, "domain", domainValues));
+        if (!next.delete(value)) next.add(value);
+        writeResultFilterValues(params, "domain", next, domainValues);
+      });
+    },
+    [domainValues],
+  );
 
   // "How many would I have if I ticked this as well" — the same predicate as the
   // filter, run with the candidate added. Under OR-within-group adding an option
@@ -194,7 +206,14 @@ function FormulationResults({ query }: { query: string }) {
       resultFilterFacetGroup({
         id: "domain",
         label: "Domain",
+        description: "Domains combine with OR. Sections organise the taxonomy without changing that predicate.",
         selected: domains,
+        optionSections: formulationDomainGroups.map((section) => ({
+          id: section.id,
+          label: section.label,
+          description: section.description,
+          optionValues: section.domains.filter((domain) => domainValues.has(domain)),
+        })),
         options: formulationDomainsInUse.map((item) => {
           const withCandidate = pendingRanking
             ? 0
@@ -217,8 +236,18 @@ function FormulationResults({ query }: { query: string }) {
         }),
         onToggle: toggleDomain,
       }),
-    [domains, pendingRanking, searchQuery, toggleDomain],
+    [domains, domainValues, pendingRanking, searchQuery, toggleDomain],
   );
+  const appliedFilters: AppliedFilterChip[] = [...domains].map((domain) => ({
+    id: `domain-${domain}`,
+    groupLabel: "Domain",
+    valueLabel: domain,
+    onRemove: () => toggleDomain(domain),
+  }));
+  const clearDomains = () =>
+    replaceResultFilterUrl((params) => {
+      params.delete("domain");
+    });
 
   return (
     <FormulationPageShell>
@@ -233,6 +262,8 @@ function FormulationResults({ query }: { query: string }) {
         status={rankingReady ? "ready" : "refetching"}
         headingLevel={1}
         filterLabel="Filter formulation mechanisms"
+        appliedFilters={appliedFilters}
+        onClearFilters={domains.size > 0 ? clearDomains : undefined}
         // One compact badged trigger replaces the two-column grid of selects, so
         // the band collapses to one line here too.
         mobileControlsPlacement="inline"
@@ -250,7 +281,16 @@ function FormulationResults({ query }: { query: string }) {
         // drift. The preset row that used to sit here has moved below the band:
         // it replaced the query rather than narrowing it, which a control
         // labelled "Filter" must not do.
-        filterControls={<ResultFilterFacetChips group={domainGroup} idPrefix={`${filterPanelId}-desktop`} />}
+        filterControls={
+          <ResultFilterTrigger
+            panelId={filterPanelId}
+            testId="formulation-filter-trigger-desktop"
+            title="Filter formulation mechanisms"
+            open={filterOpen}
+            activeCount={domains.size}
+            onToggle={() => setFilterOpen((current) => !current)}
+          />
+        }
       />
 
       {/* Phone-only by construction: the trigger that opens it lives in the
@@ -266,8 +306,8 @@ function FormulationResults({ query }: { query: string }) {
         testId="formulation-filter-panel"
         title="Filter formulation mechanisms"
         groups={[domainGroup]}
-        onClearAll={domains.size === 0 ? undefined : () => setDomains(new Set())}
-        footerNote={`${results.length} showing`}
+        onClearAll={domains.size === 0 ? undefined : clearDomains}
+        summary={{ count: results.length, noun: results.length === 1 ? "mechanism" : "mechanisms" }}
       />
 
       {/* Evicted from the filter sheet, and all five rather than the first four:

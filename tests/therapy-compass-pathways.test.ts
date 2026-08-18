@@ -16,7 +16,6 @@ type Therapy = {
   slug: string;
   name?: string;
   bestUsedFor: string;
-  modality?: string | null;
   tags?: string[];
 };
 type Step = { therapySlug: string; label: string; description: string };
@@ -210,41 +209,18 @@ const DOMAIN_APPROPRIATE: Record<string, string[]> = {
 };
 
 describe("Therapy Compass catalogue clinical labelling", () => {
-  it("never ships a modality that is merely an echo of the record's own tags", () => {
-    // The source catalogue derives `modality` from the tag list, which collapses
-    // 205 therapies onto CBT/ACT/DBT and mislabels treatments it cannot describe:
-    // ECT and rTMS as "ACT", Psychoanalysis and Psychodynamic Psychotherapy as
-    // "CBT", MBT and TFP as "DBT". That value renders as a curated chip on the
-    // detail and recommend screens and scores related-therapy selection, so an
-    // inferred label reads as clinical fact. The generator emits `null` unless
-    // the source curates a value that is not already a tag; consumers treat
-    // `null` as unknown and render nothing. Assert both the server index and the
-    // full catalogue asset — detail/recommend load `catalogue: "full"`, so pinning
-    // only the index would green-pass while the chips still showed the mislabel.
+  it("never ships a modality field across server index or full catalogue", () => {
+    // The source catalogue previously derived `modality` from the tag list, which collapsed
+    // 205 therapies onto CBT/ACT/DBT and mislabelled treatments it could not describe.
+    // The field has been removed completely to prevent uncurated guesses from rendering.
     for (const [label, records] of [
       ["server index", therapiesIndexJson],
       ["full catalogue", therapies],
     ] as const) {
-      const echoes = records
-        .filter((therapy) => therapy.modality && (therapy.tags ?? []).includes(therapy.modality))
-        .map((therapy) => `${therapy.name ?? therapy.slug} → ${therapy.modality}`);
-      expect(echoes, `${label}: modality must be curated, not inferred from tags`).toEqual([]);
-    }
-  });
-
-  it("does not label somatic or psychodynamic treatments with a talking-therapy modality", () => {
-    // Pins the specific records the tag-derived value got wrong, so a future
-    // regeneration that reintroduces the inference fails by name. Check the full
-    // catalogue (the UI path) as well as the server index projection.
-    for (const name of ["ECT", "rTMS", "Psychoanalysis", "Psychodynamic Psychotherapy"]) {
-      for (const [label, records] of [
-        ["server index", therapiesIndexJson],
-        ["full catalogue", therapies],
-      ] as const) {
-        const record = records.find((therapy) => therapy.name === name);
-        if (!record) continue;
-        expect(record.modality, `${label}: ${name} carries an inferred modality`).toBeNull();
-      }
+      const withModality = records
+        .filter((therapy: Record<string, unknown>) => "modality" in therapy)
+        .map((therapy: Record<string, unknown>) => `${therapy.name ?? therapy.slug}`);
+      expect(withModality, `${label}: modality must not be present`).toEqual([]);
     }
   });
 

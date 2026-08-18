@@ -280,7 +280,7 @@ describe("in-page navigation section contracts", () => {
     expect(routes).toHaveLength(13);
   });
 
-  it("keeps the specifier map header and role buttons synchronized during ordinary scrolling", async () => {
+  it("keeps the specifier map jump cards synchronized during ordinary scrolling", async () => {
     class TestIntersectionObserver {
       readonly root = null;
       readonly rootMargin = "";
@@ -328,14 +328,13 @@ describe("in-page navigation section contracts", () => {
 
     try {
       render(<SpecifierMapPage />);
-      await waitFor(() => expect(screen.getByTestId("specifier-map-section-trigger")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByTestId("specifier-map-jump-episode-features")).toBeInTheDocument());
 
       scrollY = 160;
       fireEvent.scroll(window);
 
       await waitFor(() => {
         expect(screen.getByTestId("specifier-map-jump-course-onset")).toHaveAttribute("aria-current", "true");
-        expect(screen.getByTestId("specifier-map-section-trigger")).toHaveTextContent("Course and onset");
       });
     } finally {
       clientRectsSpy.mockRestore();
@@ -482,6 +481,24 @@ describe("in-page navigation panel-swap contracts", () => {
 
     expect(document.querySelector("#medication-panel-safety")).not.toBeNull();
     expect(within(rail).getByRole("button", { name: /^Safety/ })).toHaveAttribute("aria-current", "true");
+  });
+
+  it("opens every card when a medication category becomes active", async () => {
+    const user = userEvent.setup();
+    render(<MedicationRecordPage slug={medication!.slug} fallbackRecord={medication!} />);
+    const rail = screen.getByTestId("medication-section-rail");
+
+    for (const section of medicationNavSections) {
+      await user.click(within(rail).getByRole("button", { name: new RegExp(`^${section.label}`) }));
+      const panel = document.querySelector<HTMLElement>(`#medication-panel-${CSS.escape(section.id)}`);
+      const cards = Array.from(panel?.querySelectorAll<HTMLDetailsElement>(":scope > details") ?? []);
+
+      expect(cards.length, `the "${section.id}" panel renders no cards`).toBeGreaterThan(0);
+      expect(
+        cards.every((card) => card.open),
+        `the "${section.id}" panel contains a folded card`,
+      ).toBe(true);
+    }
   });
 
   it("offers no dead segment: every declared tab holds at least one section", () => {

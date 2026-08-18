@@ -2,11 +2,21 @@ import {
   normalizeAnswerProgressEvent,
   type AnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
+import { isAnswerStreamEventName, type VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
 import type { RagAnswer } from "@/lib/types";
 
 export { keywordQueryFromNaturalLanguage } from "@/lib/keyword-query";
 
 export type AnswerPayload = RagAnswer & { demoMode?: boolean };
+
+export function evidencePreviewReconcilesWithFinal(preview: VerifiedEvidencePreviewUnit, finalPayload: AnswerPayload) {
+  const finalSourcesByIdentity = new Map(
+    finalPayload.sources.map((source) => [`${source.document_id}:${source.id}`, JSON.stringify(source)]),
+  );
+  return preview.sources.every(
+    (source) => finalSourcesByIdentity.get(`${source.document_id}:${source.id}`) === JSON.stringify(source),
+  );
+}
 
 const answerConfidenceValues = new Set<AnswerPayload["confidence"]>(["high", "medium", "low", "unsupported"]);
 
@@ -59,9 +69,10 @@ function findSseSeparator(buffer: string) {
 export async function readAnswerStream(
   response: Response,
   onProgress: (progress: AnswerProgressUpdate) => void,
-  onToken?: (delta: string) => void,
+  _onToken?: (delta: string) => void,
   onRevising?: () => void,
   onActivity?: () => void,
+  onEvidencePreview?: (preview: VerifiedEvidencePreviewUnit | null) => void,
 ): Promise<AnswerPayload> {
   if (!response.body) throw makeSearchError("Answer stream could not be opened.", undefined, true);
 
@@ -69,6 +80,14 @@ export async function readAnswerStream(
   const decoder = new TextDecoder();
   let buffer = "";
   let pendingCompletion: AnswerProgressUpdate | null = null;
+  let lastVerifiedUnitSequence: number | null = null;
+  let evidencePreview: VerifiedEvidencePreviewUnit | null = null;
+
+  function clearEvidencePreview() {
+    if (evidencePreview === null) return;
+    evidencePreview = null;
+    onEvidencePreview?.(null);
+  }
 
   function processEvent(block: string) {
     const lines = block.split(/\r?\n/);
@@ -83,29 +102,36 @@ export async function readAnswerStream(
     if (dataLines.length === 0) return null;
     const data = parseSseData(dataLines);
     if (data === null) return null;
+    if (!isAnswerStreamEventName(event)) return null;
     if (event === "progress") {
-      const progress = normalizeAnswerProgressEvent(data);
+      const verifiedUnitWasProvided =
+        typeof data === "object" &&
+        data !== null &&
+        !Array.isArray(data) &&
+        Object.prototype.hasOwnProperty.call(data, "verifiedUnit");
+      const progress = normalizeAnswerProgressEvent(data, lastVerifiedUnitSequence);
+      if (verifiedUnitWasProvided && !progress?.verifiedUnit) clearEvidencePreview();
       if (progress) {
+        const { verifiedUnit, ...publicProgress } = progress;
+        if (verifiedUnit) {
+          lastVerifiedUnitSequence = verifiedUnit.sequence;
+          if (verifiedUnit.kind === "evidence_preview") {
+            evidencePreview = verifiedUnit;
+            onEvidencePreview?.(verifiedUnit);
+          }
+        }
         if (progress.stage === "complete") {
-          pendingCompletion = progress;
+          pendingCompletion = publicProgress;
         } else {
-          onProgress(progress);
+          onProgress(publicProgress);
           if (progress.stage === "fallback") onRevising?.();
         }
       }
       return null;
     }
-    if (event === "token") {
-      const delta = data && typeof data === "object" ? (data as { delta?: unknown }).delta : null;
-      if (typeof delta === "string" && delta) onToken?.(delta);
-      return null;
-    }
-    if (event === "revising") {
-      onRevising?.();
-      return null;
-    }
     if (event === "error") {
       pendingCompletion = null;
+      clearEvidencePreview();
       const message = data && typeof data === "object" ? (data as { error?: unknown }).error : null;
       const details =
         data && typeof data === "object" ? (data as { details?: { message?: unknown } | unknown }).details : null;
@@ -130,8 +156,16 @@ export async function readAnswerStream(
     if (event === "final") {
       if (!isAnswerPayload(data)) {
         pendingCompletion = null;
+        clearEvidencePreview();
         throw makeSearchError("Answer stream returned an invalid final payload.", 502, true);
       }
+      if (evidencePreview) {
+        // The final payload is authoritative in both outcomes. Reconciliation is
+        // deliberately evaluated before the preview is discarded so client tests
+        // guard the byte-identical subset contract without ever withholding final.
+        evidencePreviewReconcilesWithFinal(evidencePreview, data);
+      }
+      clearEvidencePreview();
       if (pendingCompletion) {
         onProgress(pendingCompletion);
         pendingCompletion = null;
@@ -142,30 +176,36 @@ export async function readAnswerStream(
     return null;
   }
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (value && value.length > 0) onActivity?.();
-    buffer += decoder.decode(value, { stream: !done });
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (value && value.length > 0) onActivity?.();
+      buffer += decoder.decode(value, { stream: !done });
 
-    let separator = findSseSeparator(buffer);
-    while (separator) {
-      const block = buffer.slice(0, separator.index).trim();
-      buffer = buffer.slice(separator.index + separator.length);
-      const finalPayload = block ? processEvent(block) : null;
-      if (finalPayload) {
-        await reader.cancel().catch(() => undefined);
-        return finalPayload;
+      let separator = findSseSeparator(buffer);
+      while (separator) {
+        const block = buffer.slice(0, separator.index).trim();
+        buffer = buffer.slice(separator.index + separator.length);
+        const finalPayload = block ? processEvent(block) : null;
+        if (finalPayload) {
+          await reader.cancel().catch(() => undefined);
+          return finalPayload;
+        }
+        separator = findSseSeparator(buffer);
       }
-      separator = findSseSeparator(buffer);
+
+      if (done) break;
     }
 
-    if (done) break;
+    const finalPayload = buffer.trim() ? processEvent(buffer.trim()) : null;
+    if (finalPayload) return finalPayload;
+    pendingCompletion = null;
+    clearEvidencePreview();
+    throw makeSearchError("Answer stream ended before a final answer was received.", undefined, true);
+  } catch (error) {
+    clearEvidencePreview();
+    throw error;
   }
-
-  const finalPayload = buffer.trim() ? processEvent(buffer.trim()) : null;
-  if (finalPayload) return finalPayload;
-  pendingCompletion = null;
-  throw makeSearchError("Answer stream ended before a final answer was received.", undefined, true);
 }
 
 export function isRetryableStatus(status: number) {

@@ -335,7 +335,7 @@ function DetailCard({
       <button
         type="button"
         onClick={onOpenDetail}
-        className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--surface-lux)]"
+        className="min-w-0 flex-1 rounded-md text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         aria-label={`${label}: ${displayText(card.title)}. Open detail.`}
       >
         {content}
@@ -542,7 +542,7 @@ function PathwayContextCard({
           aria-selected={activeTab === "pathway"}
           onClick={() => setActiveTab("pathway")}
           className={cn(
-            "rounded-md px-3 py-2 text-center transition",
+            "min-h-tap rounded-md px-3 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9",
             activeTab === "pathway"
               ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
               : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
@@ -556,7 +556,7 @@ function PathwayContextCard({
           aria-selected={activeTab === "source"}
           onClick={() => setActiveTab("source")}
           className={cn(
-            "rounded-md px-3 py-2 text-center transition",
+            "min-h-tap rounded-md px-3 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9",
             activeTab === "source"
               ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
               : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
@@ -1042,22 +1042,45 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   <FileText className="size-icon-md sm:size-icon-lg" aria-hidden />
                 </span>
                 <div className="min-w-0">
-                  <h2 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                    {formShortTitle(form)}
-                    {details?.availability === "downloadable" ? ".pdf" : ""}
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex h-5 shrink-0 items-center rounded-md bg-[color:var(--clinical-accent-soft)] px-1.5 text-3xs font-bold uppercase leading-none tracking-label text-[color:var(--clinical-accent)]">
+                      {`Form ${formCode(form)}`}
+                    </span>
+                    {details?.availability === "downloadable" ? (
+                      <span className="text-2xs font-semibold uppercase leading-none text-[color:var(--text-muted)]">
+                        PDF
+                      </span>
+                    ) : null}
+                  </div>
+                  <h2 className="mt-1 truncate text-sm font-semibold text-[color:var(--text-heading)]">
+                    {displayText(form.title, `Form ${formCode(form)}`)}
                   </h2>
-                  <p className={cn("mt-0.5 text-xs", textMuted)}>{displayText(form.source?.label, "Official form")}</p>
+                  <p className={cn("mt-0.5 truncate text-xs", textMuted)}>
+                    {displayText(form.source?.label, "Official form")}
+                  </p>
                 </div>
               </div>
               <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
                 {displayText(form.source?.status, "Source status pending")}
               </span>
-              <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
+              <span
+                className={cn(
+                  "hidden min-h-7 items-center rounded-full border px-2 text-xs font-semibold shadow-[var(--shadow-inset)] sm:inline-flex",
+                  details?.officialPdfPasswordProtected ? toneWarning : toneNeutral,
+                )}
+              >
                 {details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}
               </span>
-              <div className="flex items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:hidden">
-                <span>{details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}</span>
-                <ChevronRight className="h-4 w-4" aria-hidden />
+              <div className="flex items-center gap-2 sm:hidden">
+                <span
+                  className={cn(
+                    "inline-flex min-h-6 items-center rounded-full border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)]",
+                    details?.officialPdfPasswordProtected ? toneWarning : toneNeutral,
+                  )}
+                >
+                  {details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}
+                </span>
+                <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
               </div>
               {form.source?.url || details?.localPdfPath ? (
                 <div className="hidden items-center gap-3 sm:flex">
@@ -1066,7 +1089,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                       href={form.source.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      className="inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
                     >
                       Official
                       <ExternalLink className="h-4 w-4" aria-hidden />
@@ -1077,7 +1100,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                       href={details.localPdfPath}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--text-muted)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      className="inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--text-muted)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
                     >
                       Stored copy
                       <Download className="h-4 w-4" aria-hidden />
@@ -1122,7 +1145,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             </section>
 
             <section id="form-information" aria-label="Form information" className={cn(inPageAnchor, "grid gap-2")}>
-              <DisclosureGroup items={formInformationItems(detailRows)} headingLevel={3} />
+              <DisclosureGroup className="min-w-0" items={formInformationItems(detailRows)} headingLevel={3} />
             </section>
 
             {/* The `-mobile`/`-desktop` id pairs below are the section anchors

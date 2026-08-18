@@ -64,6 +64,7 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
+import { focusComposerInput } from "@/components/clinical-dashboard/focus-composer-input";
 
 // Namespaced mode homes share this client shell but never render the dashboard
 // body — keep ClinicalDashboard out of their parse/eval path until `/` needs it.
@@ -108,6 +109,8 @@ type GlobalSearchShellProps = {
   initialMode?: AppModeId;
   availableModeIds?: readonly AppModeId[];
   desktopSearchPlacement?: "default" | "hero";
+  /** Override the phone placement for a standalone mode home's shared composer. */
+  mobileHomeComposerPlacement?: "hero" | "footer";
   /** Hide the shared search composer on routes that provide their own search surface. */
   searchComposerVisible?: boolean;
   /** Keep the global header/search while allowing a route to use the full desktop canvas. */
@@ -311,6 +314,7 @@ function GlobalStandaloneSearchShellBody({
   initialMode = "answer",
   availableModeIds,
   desktopSearchPlacement = "default",
+  mobileHomeComposerPlacement = "hero",
   searchComposerVisible = true,
   hideDesktopSidebar = false,
   chromeVisible = true,
@@ -444,9 +448,14 @@ function GlobalStandaloneSearchShellBody({
     searchComposerVisible &&
     !isDifferentialPresentationWorkflow &&
     (!isInfoPage || isToolDetailWithFooterSearch(pathname));
+  const heroOwnsPhoneComposer = isStandaloneModeHome && mobileHomeComposerPlacement === "hero";
+  // This flag controls sm+ padding, where every standalone home (including
+  // Tools) keeps its composer in flow. Phone clearance is resolved separately
+  // from heroOwnsPhoneComposer below.
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
-  // Standalone mode homes keep the in-flow hero pill at every width (no phone
-  // dock reserve). Document viewer routes own their own floating composer, so
+  // Most standalone mode homes keep the in-flow hero pill at every width. Tools
+  // deliberately uses the shared footer on phones. Document viewer routes own
+  // their own floating composer, so
   // the shell keeps only a small pad and lets DocumentViewer manage clearance.
   // Release the large bottom reserve only when the phone bottom composer is
   // actually hidden (MasterSearchHeader's bottomComposerHidden). Header-only
@@ -461,7 +470,7 @@ function GlobalStandaloneSearchShellBody({
     resolveShellVisibleMobileComposerReserve({
       shouldShowSearchComposer,
       pageOwnedComposerRoute: isPageOwnedComposerRoute(pathname),
-      isStandaloneModeHome,
+      heroOwnsPhoneComposer,
       searchMode,
       differentialsCompareAddonActive,
     }),
@@ -638,8 +647,8 @@ function GlobalStandaloneSearchShellBody({
     router.push(appModeHomeHref(mode, nextOptions));
   }
 
-  function submitSearch() {
-    const trimmedQuery = query.trim();
+  function submitSearch(queryOverride?: string) {
+    const trimmedQuery = (queryOverride ?? query).trim();
     navigateToMode(searchMode, {
       query: trimmedQuery || undefined,
       run: Boolean(trimmedQuery),
@@ -817,6 +826,7 @@ function GlobalStandaloneSearchShellBody({
               onPrefetchSettings={loadSettingsDialog}
               onPrefetchAccount={prefetchAccountDialog}
               onPrefetchApplications={prefetchApplications}
+              onOpenSearch={() => focusComposerInput(inputRef)}
             />
           </div>
         </div>
@@ -856,7 +866,9 @@ function GlobalStandaloneSearchShellBody({
             onAsk={submitSearch}
             onClearQuery={() => {
               setQuery("");
-              if (isStandaloneModeHome) navigateToMode(searchMode, { focus: true });
+              if (isStandaloneModeHome || searchMode === "calculators") {
+                navigateToMode(searchMode, { focus: true });
+              }
             }}
             onClearScope={() => undefined}
             onQueryModeChange={setQueryMode}
@@ -890,11 +902,10 @@ function GlobalStandaloneSearchShellBody({
             desktopPageComposerSlotId={
               shouldShowSearchComposer && !isStandaloneModeHome ? desktopPageComposerSlotId : undefined
             }
-            // Standalone mode homes keep the in-flow hero pill at every width,
-            // phones included — the composer sits in the middle of the hero and
-            // scrolls with the content, matching the answer home rather than
-            // docking to the bottom edge.
-            heroComposerBreakpoint="all"
+            // Most standalone homes keep the in-flow hero pill at every width.
+            // Tools keeps that placement from sm up but uses the same global
+            // footer dock as submitted views on phones.
+            heroComposerBreakpoint={mobileHomeComposerPlacement === "footer" ? "sm-up" : "all"}
             // Phones: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the top bar to hand space back to content.
             // Tablet and desktop portal search into normal page flow. The outer
@@ -934,7 +945,7 @@ function GlobalStandaloneSearchShellBody({
           data-chrome-transitioning={chromeTransitioning ? "true" : undefined}
           data-phone-scroll-owner={activeScrollOwner}
           data-phone-footer-owner={
-            isStandaloneModeHome
+            heroOwnsPhoneComposer
               ? "hero"
               : isPageOwnedComposerRoute(pathname)
                 ? "page"
@@ -1040,6 +1051,7 @@ function GlobalStandaloneSearchShellBody({
         onPrefetchSettings={loadSettingsDialog}
         onPrefetchAccount={prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
+        onOpenSearch={() => focusComposerInput(inputRef)}
       />
     </div>
   );

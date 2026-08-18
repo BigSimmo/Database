@@ -3,7 +3,14 @@ import { describe, expect, it } from "vitest";
 import { compactBestUseTitle, compactCatalogField, parseLabeledReferralDetails } from "@/lib/compact-best-use-title";
 import { catalogToServiceRecord, mapCatalogToServiceRecords } from "@/lib/service-catalog-mapper";
 import { loadServicesSnapshot, normalizeCatalogServices } from "@/lib/service-catalog";
-import { readServiceCoreGroup, serviceCoreGroupIds, serviceMatchesCoreGroup } from "@/lib/service-core-groups";
+import {
+  readServiceCoreGroup,
+  readServiceCoreGroupSelection,
+  serviceCoreGroupIds,
+  serviceMatchesCoreGroup,
+  serviceMatchesCoreGroupSelection,
+  writeServiceCoreGroupSelectionToParams,
+} from "@/lib/service-core-groups";
 import {
   getServiceRecord,
   loadServiceRecords,
@@ -238,6 +245,25 @@ describe("services catalogue", () => {
       "public",
     );
     expect(crossFieldOnly).toBe(false);
+  });
+
+  it("round-trips overlapping browse groups as a multi-select filter", () => {
+    const selection = readServiceCoreGroupSelection("urgent,public,unknown,urgent");
+    expect([...selection]).toEqual(["urgent", "public"]);
+
+    const yarn = loadServiceRecords().find((service) => service.slug === "13yarn");
+    expect(yarn).toBeDefined();
+    expect(serviceMatchesCoreGroupSelection(yarn!, selection)).toBe(true);
+    expect(serviceMatchesCoreGroupSelection(yarn!, new Set())).toBe(true);
+
+    const params = new URLSearchParams("q=13YARN&run=1");
+    writeServiceCoreGroupSelectionToParams(params, readServiceCoreGroupSelection("aod,urgent"));
+    expect(params.get("group")).toBe("urgent,aod");
+    expect(params.get("q")).toBe("13YARN");
+
+    writeServiceCoreGroupSelectionToParams(params, new Set());
+    expect(params.has("group")).toBe(false);
+    expect(params.get("q")).toBe("13YARN");
   });
 
   it("normalizes service lookup", () => {

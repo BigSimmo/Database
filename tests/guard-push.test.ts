@@ -9,6 +9,7 @@ import {
   changedFilesForRange,
   driftVerdict,
   findPrettierBin,
+  forcePushedBranchNames,
   formatGuard,
   guardBaseForRange,
   HEAVY_RUN_ADMISSION_BUSY_EXIT,
@@ -16,6 +17,7 @@ import {
   isCoordinatorBusyOutput,
   isCoordinatorBusyResult,
   isEslintPolicyFile,
+  isForcePushRange,
   isTypecheckExcludedPath,
   lintableFiles,
   needsRepoWideLint,
@@ -78,20 +80,22 @@ describe("guard-push sha parity", () => {
 });
 
 describe("auto-merge verdict", () => {
-  it("blocks any PR branch with armed auto-merge", () => {
-    expect(autoMergeVerdict("codex/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 6 }).block).toBe(
-      true,
-    );
+  it("does not block a fast-forward push to a PR branch with armed auto-merge, but warns", () => {
+    const v = autoMergeVerdict("codex/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 6 });
+    expect(v.block).toBe(false);
+    expect(v.warn).toBe(true);
   });
 
-  it("blocks a claude/* branch with an armed auto-merge on an open PR", () => {
-    const v = autoMergeVerdict("claude/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 7 });
+  it("blocks a force-push to a claude/* branch with armed auto-merge on an open PR", () => {
+    const v = autoMergeVerdict("claude/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 7 }, true);
     expect(v.block).toBe(true);
     expect(v.number).toBe(7);
   });
 
-  it("does not block when auto-merge is not armed", () => {
-    expect(autoMergeVerdict("claude/x", { autoMergeRequest: null, state: "OPEN" }).block).toBe(false);
+  it("does not warn or block a force-push when auto-merge is not armed", () => {
+    const v = autoMergeVerdict("claude/x", { autoMergeRequest: null, state: "OPEN" }, true);
+    expect(v.block).toBe(false);
+    expect(v.warn).toBe(false);
   });
 
   it("does not block when there is no open PR", () => {
@@ -100,6 +104,46 @@ describe("auto-merge verdict", () => {
 
   it("does not block when the PR is not OPEN", () => {
     expect(autoMergeVerdict("claude/x", { autoMergeRequest: {}, state: "MERGED" }).block).toBe(false);
+  });
+});
+
+describe("force-push detection", () => {
+  it("does not flag a fast-forward push", () => {
+    const { root, git } = gitFixture();
+    writeFileSync(join(root, "one.md"), "one\n");
+    git("add", "one.md");
+    git("commit", "--quiet", "-m", "one");
+    const remoteSha = git("rev-parse", "HEAD");
+    writeFileSync(join(root, "two.md"), "two\n");
+    git("add", "two.md");
+    git("commit", "--quiet", "-m", "two");
+    const localSha = git("rev-parse", "HEAD");
+
+    expect(isForcePushRange({ localSha, remoteSha, remoteRef: "refs/heads/feature" }, root)).toBe(false);
+    expect(forcePushedBranchNames([{ localSha, remoteSha, remoteRef: "refs/heads/feature" }], root)).toEqual(new Set());
+  });
+
+  it("flags a push that abandons the remote tip (history rewrite)", () => {
+    const { root, git, baseSha } = gitFixture();
+    writeFileSync(join(root, "abandoned.md"), "abandoned\n");
+    git("add", "abandoned.md");
+    git("commit", "--quiet", "-m", "abandoned");
+    const remoteSha = git("rev-parse", "HEAD");
+
+    git("reset", "--quiet", "--hard", baseSha);
+    writeFileSync(join(root, "rebuilt.md"), "rebuilt\n");
+    git("add", "rebuilt.md");
+    git("commit", "--quiet", "-m", "rebuilt");
+    const localSha = git("rev-parse", "HEAD");
+
+    expect(isForcePushRange({ localSha, remoteSha, remoteRef: "refs/heads/feature" }, root)).toBe(true);
+    expect(forcePushedBranchNames([{ localSha, remoteSha, remoteRef: "refs/heads/feature" }], root)).toEqual(
+      new Set(["feature"]),
+    );
+  });
+
+  it("never flags a brand-new branch (zero remote sha) as a force-push", () => {
+    expect(isForcePushRange({ localSha: "abc123", remoteSha: ZERO, remoteRef: "refs/heads/feature" })).toBe(false);
   });
 });
 
@@ -152,6 +196,49 @@ describe("push-range parsing", () => {
 
   it("ignores blank lines", () => {
     expect(parsePushRanges("\n  \n")).toHaveLength(0);
+  });
+
+  it("compares a fast-forward push from its remote tip", () => {
+    const { root, git } = gitFixture();
+    git("update-ref", "refs/remotes/origin/main", "HEAD");
+    git("switch", "--quiet", "-c", "feature");
+    writeFileSync(join(root, "one.md"), "one\n");
+    git("add", "one.md");
+    git("commit", "--quiet", "-m", "one");
+    const remoteSha = git("rev-parse", "HEAD");
+    writeFileSync(join(root, "two.md"), "two\n");
+    git("add", "two.md");
+    git("commit", "--quiet", "-m", "two");
+    const localSha = git("rev-parse", "HEAD");
+
+    // Ordinary push: the remote tip is reachable, so it stays the base and only
+    // the newly pushed commit is in scope.
+    expect(guardBaseForRange({ localSha, remoteSha }, root)).toBe(remoteSha);
+    expect(changedFilesForRange({ localSha, remoteSha }, root)).toEqual(["two.md"]);
+  });
+
+  // A force-push abandons the old remote tip. Comparing against it makes every
+  // file the discarded history carried look deleted, which is unanswerable for
+  // transaction guards; the merge base is the question CI actually asks.
+  it("falls back to the merge base when the remote tip was discarded by a force-push", () => {
+    const { root, git, baseSha } = gitFixture();
+    git("update-ref", "refs/remotes/origin/main", "HEAD");
+    git("switch", "--quiet", "-c", "feature");
+    writeFileSync(join(root, "abandoned.md"), "abandoned\n");
+    git("add", "abandoned.md");
+    git("commit", "--quiet", "-m", "abandoned");
+    const discardedSha = git("rev-parse", "HEAD");
+
+    git("reset", "--quiet", "--hard", baseSha);
+    writeFileSync(join(root, "rebuilt.md"), "rebuilt\n");
+    git("add", "rebuilt.md");
+    git("commit", "--quiet", "-m", "rebuilt");
+    const localSha = git("rev-parse", "HEAD");
+
+    expect(discardedSha).not.toBe(localSha);
+    expect(guardBaseForRange({ localSha, remoteSha: discardedSha }, root)).toBe(baseSha);
+    // abandoned.md must not read as a deletion introduced by this push.
+    expect(changedFilesForRange({ localSha, remoteSha: discardedSha }, root)).toEqual(["rebuilt.md"]);
   });
 
   it("keeps a Windows new-branch static command scoped to the PR side of an advanced main", () => {

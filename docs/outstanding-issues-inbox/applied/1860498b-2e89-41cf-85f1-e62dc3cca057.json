@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "1860498b-2e89-41cf-85f1-e62dc3cca057",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#210",
+    "outcome": "Closed after PR #1953 landed on main: scripts/run-playwright.mjs now gives the generated isolated child tsconfig its own include/exclude, preventing stale repo-root .next/dev types from leaking into the Playwright build while retaining the run's generated types."
+  }
+}

@@ -3585,7 +3585,19 @@ describe("private document API access", () => {
         return ok({ id: manualLabelId, ...(call.insertPayload as Record<string, unknown>) });
       }
       if (call.table === "document_labels" && call.operation === "select") {
-        return ok([{ id: manualLabelId, document_id: documentId, label: "clozapine monitoring" }]);
+        // selectLabels issues a select("*"), so a realistic row carries every column.
+        // label_type, source and confidence are all `not null` with check constraints on
+        // public.document_labels, and assertDocumentLabelRows now holds the route to that.
+        return ok([
+          {
+            id: manualLabelId,
+            document_id: documentId,
+            label: "clozapine monitoring",
+            label_type: "medication",
+            source: "manual",
+            confidence: 1,
+          },
+        ]);
       }
       return ok([]);
     });
@@ -3625,7 +3637,16 @@ describe("private document API access", () => {
         return ok({ id: manualLabelId, ...(call.insertPayload as Record<string, unknown>) });
       }
       if (call.table === "document_labels" && call.operation === "select") {
-        return ok([{ id: manualLabelId, document_id: documentId, label: "fiona stanley hospital" }]);
+        return ok([
+          {
+            id: manualLabelId,
+            document_id: documentId,
+            label: "fiona stanley hospital",
+            label_type: "site",
+            source: "manual",
+            confidence: 1,
+          },
+        ]);
       }
       return ok([]);
     });
@@ -3687,7 +3708,16 @@ describe("private document API access", () => {
         return ok({ id: manualLabelId, ...(call.updatePayload as Record<string, unknown>) });
       }
       if (call.table === "document_labels" && call.operation === "select") {
-        return ok([{ id: manualLabelId, document_id: documentId, label: "lithium toxicity" }]);
+        return ok([
+          {
+            id: manualLabelId,
+            document_id: documentId,
+            label: "lithium toxicity",
+            label_type: "risk",
+            source: "manual",
+            confidence: 1,
+          },
+        ]);
       }
       return ok([]);
     });
@@ -3725,7 +3755,16 @@ describe("private document API access", () => {
         return ok({ id: labelId, ...(call.updatePayload as Record<string, unknown>) });
       }
       if (call.table === "document_labels" && call.operation === "select") {
-        return ok([{ id: labelId, document_id: documentId, label: "lithium", label_type: "medication" }]);
+        return ok([
+          {
+            id: labelId,
+            document_id: documentId,
+            label: "lithium",
+            label_type: "medication",
+            source: "generated",
+            confidence: 0.72,
+          },
+        ]);
       }
       return ok([]);
     });

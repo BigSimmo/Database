@@ -71,7 +71,7 @@ export function InPageSectionRail({
     <nav
       aria-label={label}
       data-testid={`${testIdPrefix}-section-rail`}
-      className="border-t border-[color:var(--border)]"
+      className="border-t border-[color:var(--border)] sm:mt-2 sm:rounded-xl sm:border sm:border-[color:var(--border-lux)] sm:bg-[color:var(--surface-raised)] sm:px-1 sm:shadow-[var(--shadow-inset)]"
     >
       <div className="mode-nav" data-density-profile="extended">
         <ul className="mode-nav__bar h-12 items-stretch px-1">
@@ -89,7 +89,11 @@ export function InPageSectionRail({
                   type="button"
                   onClick={() => onSelect(section.id)}
                   aria-current={selected ? "true" : undefined}
-                  className={cn("flex h-full w-full items-center justify-center rounded-lg", focusRing)}
+                  className={cn(
+                    "flex h-full w-full items-center justify-center rounded-lg transition-colors motion-reduce:transition-none sm:hover:bg-[color:var(--surface-subtle)]",
+                    selected && "sm:bg-[color:var(--clinical-accent-soft)] sm:shadow-[var(--shadow-inset)]",
+                    focusRing,
+                  )}
                 >
                   <ModeNavSlotInk
                     icon={section.icon}

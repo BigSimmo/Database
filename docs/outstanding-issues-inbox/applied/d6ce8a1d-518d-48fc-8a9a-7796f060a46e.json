@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d6ce8a1d-518d-48fc-8a9a-7796f060a46e",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Deploy the 20260818090000 schema_drift_snapshot v2 history probe (Phase 6.1) in an approved production window after Phase 4, triage the first unguarded no-statements report, and author fail-fast guard migrations for the pre-contract 2026-07-01..02 and 2026-07-12 rows",
+    "detail": "Repo side of remediation plan Phase 6 landed (probe migration, guard-migration contract in docs/database-drift-detection.md + AGENTS.md, tests/migration-history-guards.test.ts, tests/search-health-index-coverage.test.ts + supabase/search-health-unmonitored-indexes.json). The migration is NOT deployed: it needs the owner-approved production migration deploy window (plan approval map, Phase 6.1, after Phase 4). Expected first live run: the ~9 remaining section 1.1 versions plus the 2026-07-12 batch (20260712165915..20260712173000) are reported as unguarded no_statements findings because no repo-provable guard exists; each needs a validation guard migration (20260804110240 pattern) + a migration_history allowlist entry, not a bare allowlist. Also decide the 8 monitor-candidate indexes in the ratchet file by a required_indexes migration (Phase 4.4). Do not touch #316/#056 for this; those rows are owned by the Phase 1.2 / Phase 2 sessions.",
+    "source": "Phase 6 worker chat 2026-08-18; docs/database-remediation-plan.md section 6; docs/audit/live-drift-forensics-2026-08.md Phase 6",
+    "issueUlid": "01M089RSB6Q5JHBJX1MSZ0DR85"
+  }
+}

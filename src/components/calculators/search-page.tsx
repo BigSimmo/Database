@@ -1,49 +1,44 @@
 "use client";
 
-import {
-  ArrowRight,
-  Calculator,
-  Clock3,
-  History,
-  Info,
-  LayoutGrid,
-  ListChecks,
-  Plus,
-  Rows3,
-  Search,
-  Send,
-  Sigma,
-  SlidersHorizontal,
-  X,
-} from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, Clock3, History, Info, LayoutGrid, ListChecks, Rows3, Search, Sigma } from "lucide-react";
+import { useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
 
-import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import {
-  PhoneFooterLayerPortal,
-  usePhoneFooterLayerScrollHidden,
-} from "@/components/clinical-dashboard/phone-footer-layer-portal";
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterFacetGroup,
+  resultFilterGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
+import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
-import { useHideOnScroll, useReserveTransitionMarker } from "@/components/clinical-dashboard/use-hide-on-scroll";
-import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import {
-  chatComposerInput,
-  chatComposerShellBase,
-  chatSendButton,
-  cn,
-  eyebrowText,
-  ignoreUnavailableActivation,
-} from "@/components/ui-primitives";
+  SearchResultsEmptyState,
+  SearchResultsHeaderBand,
+  type AppliedFilterChip,
+} from "@/components/clinical-dashboard/search-results-header-band";
+import { cn, eyebrowText } from "@/components/ui-primitives";
+import { appModeHomeHref } from "@/lib/app-modes";
 
+import {
+  calculatorDomainCandidateCount,
+  calculatorProgressCandidateCount,
+  calculatorTimeCandidateCount,
+  filterCalculatorRecords,
+  normalizeCalculatorQuery,
+  type CalculatorFilterState,
+  type CalculatorProgressFilter,
+  type CalculatorTimeFilter,
+} from "./calculator-filters";
 import {
   calculators,
-  domainIcons,
   domainLabels,
   domainOrder,
   plannedCalculators,
   type CalculatorDomain,
   type CalculatorFixture,
 } from "./calculator-fixtures";
+import { CalculatorSheet } from "./calculator-sheet";
 import {
   MetaPill,
   SeverityPill,
@@ -54,11 +49,29 @@ import {
   type AnswerMap,
   type DerivedCalculator,
 } from "./calculator-ui";
-import { CalculatorSheet } from "./calculator-sheet";
 
-type DomainFilter = CalculatorDomain | "all";
 type SessionAnswers = Record<string, AnswerMap>;
 type Density = "comfortable" | "compact";
+
+const subscribeNoop = () => () => undefined;
+
+const progressOptions: ReadonlyArray<{ value: CalculatorProgressFilter; label: string }> = [
+  { value: "all", label: "Any" },
+  { value: "not-started", label: "Not started" },
+  { value: "in-progress", label: "In progress" },
+  { value: "completed", label: "Completed" },
+];
+
+const timeOptions: ReadonlyArray<{ value: CalculatorTimeFilter; label: string }> = [
+  { value: "all", label: "Any" },
+  { value: "quick", label: "2 minutes or less" },
+  { value: "standard", label: "3–4 minutes" },
+  { value: "extended", label: "5+ minutes" },
+];
+
+function optionLabel<Value extends string>(options: ReadonlyArray<{ value: Value; label: string }>, value: Value) {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
 
 /** Match context: name / indication hit, or the first matching item text. */
 function matchContext(calc: CalculatorFixture, query: string): string | null {
@@ -66,126 +79,6 @@ function matchContext(calc: CalculatorFixture, query: string): string | null {
   const item = calc.items.find((entry) => entry.text.toLowerCase().includes(query));
   return item ? item.text : null;
 }
-
-function matches(calc: CalculatorFixture, query: string): boolean {
-  if (!query) return true;
-  const haystack = [calc.abbrev, calc.name, calc.indication, calc.summary, domainLabels[calc.domain]]
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(query) || calc.items.some((item) => item.text.toLowerCase().includes(query));
-}
-
-/* ---------- universal-style search composer (top on desktop, docked bottom on phones) ---------- */
-
-// Example searches shown in the composer prompt row; each filters the list.
-const promptExamples = ["depression", "anxiety", "drinking", "bipolar", "suicide"];
-
-/**
- * The calculators search composer, matching the app's universal composer: a
- * leading "+" (new search), the query input with an inline clear, and the teal
- * send button. `variant="full"` adds the Smart-search hint, prompt chips, and
- * privacy notice (desktop header); `variant="compact"` shows the pill plus the
- * privacy line only (phone bottom dock).
- */
-function CalculatorComposer({
-  query,
-  onQuery,
-  onReset,
-  onSubmit,
-  variant,
-}: {
-  query: string;
-  onQuery: (value: string) => void;
-  onReset: () => void;
-  onSubmit: () => void;
-  variant: "full" | "compact";
-}) {
-  return (
-    <div className="grid gap-2">
-      {variant === "full" ? (
-        <div className="smart-search-rotating-text" aria-live="polite">
-          <span>Smart search</span>
-          <span aria-hidden="true">·</span>
-          <span>
-            Try <span className="smart-search-rotating-query">&ldquo;depression severity&rdquo;</span> in Calculators.
-          </span>
-        </div>
-      ) : null}
-
-      <form
-        role="search"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmit();
-        }}
-        className={cn(chatComposerShellBase, "answer-footer-search-pill relative z-10 w-full")}
-      >
-        <button
-          type="button"
-          onClick={onReset}
-          aria-label="New search"
-          title="New search"
-          className={cn(
-            "answer-footer-search-action grid shrink-0 place-items-center rounded-full transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]",
-            focusRing,
-          )}
-        >
-          <Plus className="h-5 w-5" aria-hidden="true" />
-        </button>
-
-        <label className="flex min-w-0 flex-1 items-center overflow-hidden">
-          <input
-            type="search"
-            value={query}
-            enterKeyHint="search"
-            onChange={(event) => onQuery(event.target.value)}
-            placeholder="Search calculators by scale, symptom, or indication"
-            aria-label="Search calculators"
-            className={cn(chatComposerInput, "answer-footer-search-input w-full min-w-0")}
-          />
-          {query ? (
-            <button
-              type="button"
-              onClick={() => onQuery("")}
-              aria-label="Clear search"
-              className="grid size-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-          ) : null}
-        </label>
-
-        <span className="answer-footer-search-divider" aria-hidden="true" />
-
-        <button
-          type="submit"
-          aria-label="Search calculators"
-          className={cn(chatSendButton, "answer-footer-search-send")}
-        >
-          <Send className="size-icon-lg" aria-hidden="true" />
-        </button>
-      </form>
-
-      {variant === "full" ? (
-        <AnswerSuggestionChips
-          suggestions={promptExamples}
-          onPick={onQuery}
-          label="Prompts"
-          layout="scroll"
-          className="smart-search-prompt-row"
-          testId="calculator-prompt-row"
-        />
-      ) : null}
-
-      {/* Cancel the shared notice's phone -mb-4 reclaim: this composer is a
-          fixed dock, and the overhang would clip the link's focus ring below
-          the viewport when safe-area inset is zero. */}
-      <PrivacyInputNotice className="justify-center [&_a]:mb-0" />
-    </div>
-  );
-}
-
-/* ---------- home-page-style calculator tile ---------- */
 
 function CalculatorTile({
   calc,
@@ -262,141 +155,37 @@ function CalculatorTile({
   );
 }
 
-/* ---------- results header band (count + eyebrow + controls) ---------- */
-
-function ResultsHeaderBand({
-  count,
-  query,
-  density,
-  onDensity,
-}: {
-  count: number;
-  query: string;
-  density: Density;
-  onDensity: (next: Density) => void;
-}) {
+function DensityControl({ density, onDensity }: { density: Density; onDensity: (next: Density) => void }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e1)]">
-      <div className="flex items-start justify-between gap-3 bg-[color:var(--surface-chrome)] p-3 sm:p-4">
-        <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-3 sm:grid-cols-[3.25rem_minmax(0,1fr)]">
-          <span className="hidden size-12 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:grid">
-            <span className="font-mono text-xl font-extrabold leading-none tabular-nums">{count}</span>
-          </span>
-          <div className="min-w-0">
-            <p className={cn(eyebrowText, "hidden text-[color:var(--clinical-accent)] sm:block")}>
-              Clinical calculators
-            </p>
-            <h1 className="text-2xl-minus font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:mt-0.5 sm:text-3xl">
-              {count} {count === 1 ? "calculator" : "calculators"}
-            </h1>
-            <p className="mt-1 max-w-2xl text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-              {query ? (
-                <>
-                  Matching “<span className="font-semibold text-[color:var(--text)]">{query}</span>”. Open one to score
-                  it and see next actions.
-                </>
-              ) : (
-                "Validated psychiatry scores. Open one to score it and see score-linked next actions."
-              )}
-            </p>
-          </div>
-        </div>
-        <div className="hidden shrink-0 items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-0.5 shadow-[var(--shadow-inset)] sm:inline-flex">
-          {(
-            [
-              ["comfortable", LayoutGrid, "Comfortable"],
-              ["compact", Rows3, "Compact"],
-            ] as const
-          ).map(([value, DensityIcon, label]) => {
-            const active = density === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={active}
-                aria-label={label}
-                onClick={() => onDensity(value)}
-                className={cn(
-                  "grid size-9 place-items-center rounded-md transition",
-                  active
-                    ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
-                  focusRing,
-                )}
-              >
-                <DensityIcon className="size-icon-md" aria-hidden="true" />
-              </button>
-            );
-          })}
-        </div>
-      </div>
+    <div
+      className="inline-flex shrink-0 items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-0.5 shadow-[var(--shadow-inset)]"
+      aria-label="Calculator result density"
+    >
+      {(
+        [
+          ["comfortable", LayoutGrid, "Comfortable"],
+          ["compact", Rows3, "Compact"],
+        ] as const
+      ).map(([value, Icon, label]) => (
+        <button
+          key={value}
+          type="button"
+          aria-pressed={density === value}
+          aria-label={`${label} density`}
+          title={`${label} density`}
+          onClick={() => onDensity(value)}
+          className={cn(
+            "grid size-9 place-items-center rounded-md transition motion-reduce:transition-none",
+            density === value
+              ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+              : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+            focusRing,
+          )}
+        >
+          <Icon className="size-icon-md" aria-hidden="true" />
+        </button>
+      ))}
     </div>
-  );
-}
-
-/* ---------- right rail ---------- */
-
-function DomainNav({
-  domain,
-  counts,
-  onSelect,
-}: {
-  domain: DomainFilter;
-  counts: Record<string, number>;
-  onSelect: (next: DomainFilter) => void;
-}) {
-  const rows: { id: DomainFilter; label: string; icon: typeof Calculator }[] = [
-    { id: "all", label: "All calculators", icon: Calculator },
-    ...domainOrder.map((entry) => ({
-      id: entry as DomainFilter,
-      label: domainLabels[entry],
-      icon: domainIcons[entry],
-    })),
-  ];
-
-  return (
-    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--e1)]">
-      <h2 className={cn(eyebrowText, "px-1 pb-2 text-[color:var(--text-muted)]")}>Browse by domain</h2>
-      <div className="grid gap-1">
-        {rows.map((row) => {
-          const active = domain === row.id;
-          const RowIcon = row.icon;
-          const count = row.id === "all" ? calculators.length : (counts[row.id] ?? 0);
-          return (
-            <button
-              key={row.id}
-              type="button"
-              aria-pressed={active}
-              onClick={() => onSelect(row.id)}
-              className={cn(
-                "grid min-h-tap grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg border px-2.5 text-left transition",
-                active
-                  ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
-                  : "border-transparent hover:bg-[color:var(--surface-subtle)]",
-                focusRing,
-              )}
-            >
-              <RowIcon
-                className={cn(
-                  "size-icon-md",
-                  active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
-                )}
-                aria-hidden="true"
-              />
-              <span
-                className={cn(
-                  "truncate text-sm-minus font-bold",
-                  active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-heading)]",
-                )}
-              >
-                {row.label}
-              </span>
-              <span className="font-mono text-2xs font-bold tabular-nums text-[color:var(--text-muted)]">{count}</span>
-            </button>
-          );
-        })}
-      </div>
-    </section>
   );
 }
 
@@ -463,45 +252,48 @@ function AboutPanel() {
   );
 }
 
-/* ---------- page ---------- */
-
-const filterChips: { id: DomainFilter; label: string }[] = [
-  { id: "all", label: "All" },
-  ...domainOrder.map((domain) => ({ id: domain as DomainFilter, label: domainLabels[domain] })),
-];
-
-export function CalculatorsSearchPage() {
-  const [query, setQuery] = useState("");
-  const [domain, setDomain] = useState<DomainFilter>("all");
+export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: string }) {
+  const router = useRouter();
+  const searchCommand = useSearchCommand();
+  const hydrated = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
+  const query = hydrated ? (searchCommand?.query ?? initialQuery) : initialQuery;
+  const normalizedQuery = normalizeCalculatorQuery(query);
+  const filterPanelId = useId();
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [selectedDomains, setSelectedDomains] = useState<ReadonlySet<CalculatorDomain>>(new Set());
+  const [progress, setProgress] = useState<CalculatorProgressFilter>("all");
+  const [time, setTime] = useState<CalculatorTimeFilter>("all");
   const [density, setDensity] = useState<Density>("comfortable");
   const [session, setSession] = useState<SessionAnswers>({});
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const trimmed = query.trim().toLowerCase();
-
-  const domainCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const calc of calculators) counts[calc.domain] = (counts[calc.domain] ?? 0) + 1;
-    return counts;
-  }, []);
-
-  const results = useMemo(
+  const records = useMemo(
     () =>
-      calculators
-        .filter((calc) => (domain === "all" || calc.domain === domain) && matches(calc, trimmed))
-        .map((calc) => ({ calc, context: matchContext(calc, trimmed) })),
-    [domain, trimmed],
-  );
-
-  const inProgress = useMemo(
-    () =>
-      calculators
-        .map((calc) => ({ calc, derived: deriveCalculator(calc, session[calc.id] ?? {}) }))
-        .filter((entry) => entry.derived.started),
+      calculators.map((calc) => ({
+        calc,
+        derived: deriveCalculator(calc, session[calc.id] ?? {}),
+      })),
     [session],
   );
-
+  const filters = useMemo<CalculatorFilterState>(
+    () => ({ domains: selectedDomains, progress, time }),
+    [progress, selectedDomains, time],
+  );
+  const results = useMemo(
+    () =>
+      filterCalculatorRecords(records, query, filters).map((record) => ({
+        ...record,
+        context: matchContext(record.calc, normalizedQuery),
+      })),
+    [filters, normalizedQuery, query, records],
+  );
+  const inProgress = useMemo(() => records.filter((record) => record.derived.started), [records]);
   const activeCalc = openId ? calculators.find((calc) => calc.id === openId) : undefined;
+  const activeFilterCount = selectedDomains.size + (progress === "all" ? 0 : 1) + (time === "all" ? 0 : 1);
 
   useEffect(() => {
     if (!activeCalc) return;
@@ -516,224 +308,195 @@ export function CalculatorsSearchPage() {
     };
   }, [activeCalc]);
 
-  // The viewport frame owns the authoritative hide decision for its header and
-  // every portaled footer. Reuse that signal so slower hydration/RAF scheduling
-  // cannot let independently evaluated header and calculator reporters split.
-  // Keep local reporters only for the shell-less fallback used by isolated
-  // renders; browser phones scroll the document while standalone mode scrolls
-  // #main-content.
-  const frameScrollHidden = usePhoneFooterLayerScrollHidden();
-  const useLocalScrollFallback = frameScrollHidden === undefined;
-  const scrollContainerRef = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    scrollContainerRef.current = document.querySelector<HTMLElement>("#main-content");
-  }, []);
-  const innerFooterHidden = useHideOnScroll({
-    containerRef: scrollContainerRef,
-    disabled: !useLocalScrollFallback,
-  });
-  const documentFooterHidden = useHideOnScroll({
-    documentCollapseRootRef: scrollContainerRef,
-    disabled: !useLocalScrollFallback,
-  });
-  const footerHidden = frameScrollHidden ?? (innerFooterHidden || documentFooterHidden);
-  // Keep the phone dock visible while focused so scroll-hide cannot slide a
-  // focused input off-screen or mark it aria-hidden while still tabbable.
-  const [dockFocused, setDockFocused] = useState(false);
-  const dockHidden = footerHidden && !dockFocused;
-  const reserveTransitioning = useReserveTransitionMarker(dockHidden, activeCalc);
-  useEffect(() => {
-    if (!activeCalc) return;
-    // Submitting a focused dock input unmounts the dock before React is
-    // guaranteed to dispatch blur. Clear the latch after teardown so the dock
-    // can resume hide-on-scroll when the calculator sheet closes. This reset
-    // must survive a fast close: cancelling the microtask during effect cleanup
-    // can otherwise leave the remounted dock permanently focus-pinned.
-    queueMicrotask(() => {
-      setDockFocused(false);
+  function toggleDomain(domain: CalculatorDomain) {
+    setSelectedDomains((current) => {
+      const next = new Set(current);
+      if (next.has(domain)) next.delete(domain);
+      else next.add(domain);
+      return next;
     });
-  }, [activeCalc]);
+  }
 
-  const compact = density === "compact";
+  function clearFilters() {
+    setSelectedDomains(new Set());
+    setProgress("all");
+    setTime("all");
+  }
 
-  const submitSearch = () => {
-    if (results.length === 1) setOpenId(results[0].calc.id);
-  };
+  const domainGroup = resultFilterFacetGroup({
+    id: "clinical-domain",
+    label: "Clinical domain",
+    selected: selectedDomains,
+    options: domainOrder.map((domain) => {
+      const count = calculatorDomainCandidateCount(records, query, filters, domain);
+      return {
+        value: domain,
+        label: domainLabels[domain],
+        hint: String(count),
+        disabled: count === 0 && !selectedDomains.has(domain),
+      };
+    }),
+    onToggle: toggleDomain,
+  });
+  const progressGroup = resultFilterGroup({
+    id: "session-progress",
+    label: "Session progress",
+    value: progress,
+    options: progressOptions.map((option) => {
+      const count = calculatorProgressCandidateCount(records, query, filters, option.value);
+      return {
+        ...option,
+        hint: String(count),
+        disabled: count === 0 && progress !== option.value,
+      };
+    }),
+    onChange: setProgress,
+    note: "one only",
+  });
+  const timeGroup = resultFilterGroup({
+    id: "completion-time",
+    label: "Completion time",
+    value: time,
+    options: timeOptions.map((option) => {
+      const count = calculatorTimeCandidateCount(records, query, filters, option.value);
+      return {
+        ...option,
+        hint: String(count),
+        disabled: count === 0 && time !== option.value,
+      };
+    }),
+    onChange: setTime,
+    note: "one only",
+  });
 
-  const resetSearch = () => {
-    setQuery("");
-    setDomain("all");
-  };
+  const appliedFilters: AppliedFilterChip[] = [
+    ...domainOrder
+      .filter((domain) => selectedDomains.has(domain))
+      .map((domain) => ({
+        id: `domain-${domain}`,
+        groupLabel: "Clinical domain",
+        valueLabel: domainLabels[domain],
+        onRemove: () => toggleDomain(domain),
+      })),
+    ...(progress === "all"
+      ? []
+      : [
+          {
+            id: `progress-${progress}`,
+            groupLabel: "Session progress",
+            valueLabel: optionLabel(progressOptions, progress),
+            onRemove: () => setProgress("all"),
+          },
+        ]),
+    ...(time === "all"
+      ? []
+      : [
+          {
+            id: `time-${time}`,
+            groupLabel: "Completion time",
+            valueLabel: optionLabel(timeOptions, time),
+            onRemove: () => setTime("all"),
+          },
+        ]),
+  ];
 
   return (
     <>
       <SearchResultsLayout
         testId="calculators-search-page"
-        resultsLabel="Calculators"
-        reserveOwner="calculator"
-        reserveHiddenPad="0rem"
-        reserveTransitioning={reserveTransitioning}
-        // Page-owned phone dock: shell composer is hidden, so clear space here.
-        // Collapse with the dock on scroll-hide so content reaches the viewport edge.
-        className={cn(
-          !dockHidden &&
-            !activeCalc &&
-            "max-sm:pb-[calc(5.5rem+var(--safe-area-bottom))] max-sm:[--phone-focus-bottom-clearance:calc(9rem+var(--safe-area-bottom))]",
-          dockHidden && "max-sm:pb-0",
-        )}
+        resultsLabel="Calculator results"
         header={
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
-            {/* Desktop: universal-style composer at the top, matching the site-wide
-                search header. Phones get the docked bottom composer below. */}
-            <div className="hidden sm:block">
-              <CalculatorComposer
-                query={query}
-                onQuery={setQuery}
-                onReset={resetSearch}
-                onSubmit={submitSearch}
-                variant="full"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div
-                className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                aria-label="Filter by domain"
-              >
-                {filterChips.map((chip) => {
-                  const active = domain === chip.id;
-                  return (
-                    <button
-                      key={chip.id}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => setDomain(chip.id)}
-                      className={cn(
-                        "inline-flex min-h-9 shrink-0 items-center rounded-full border px-3 text-xs font-bold transition",
-                        active
-                          ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]"
-                          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                        focusRing,
-                      )}
-                    >
-                      {chip.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                type="button"
-                aria-disabled="true"
-                onClick={ignoreUnavailableActivation}
-                aria-describedby="calculators-filters-unavailable"
-                title="Advanced filters — coming soon"
-                aria-label="Filters"
-                className="inline-flex min-h-9 shrink-0 cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
-              >
-                <SlidersHorizontal className="size-icon-sm" aria-hidden="true" />
-                <span className="hidden sm:inline">Filters</span>
-              </button>
-              <span id="calculators-filters-unavailable" className="sr-only">
-                Advanced filters are coming soon.
-              </span>
-            </div>
-          </div>
-        }
-        summary={
-          <ResultsHeaderBand count={results.length} query={query.trim()} density={density} onDensity={setDensity} />
+          <>
+            <SearchResultsHeaderBand
+              modeId="calculators"
+              query={query}
+              matchCount={results.length}
+              headingLevel={1}
+              filterLabel="Filter calculator results"
+              appliedFilters={appliedFilters}
+              onClearFilters={activeFilterCount > 0 ? clearFilters : undefined}
+              mobileControlsPlacement="inline"
+              mobileControls={
+                <ResultFilterTrigger
+                  panelId={filterPanelId}
+                  testId="calculators-filter-trigger-phone"
+                  title="Filter calculators"
+                  open={filterOpen}
+                  activeCount={activeFilterCount}
+                  onToggle={() => setFilterOpen((current) => !current)}
+                />
+              }
+              utilityControls={
+                <span className="hidden items-center gap-2 sm:inline-flex">
+                  <ResultFilterTrigger
+                    panelId={filterPanelId}
+                    testId="calculators-filter-trigger-desktop"
+                    title="Filter calculators"
+                    open={filterOpen}
+                    activeCount={activeFilterCount}
+                    onToggle={() => setFilterOpen((current) => !current)}
+                  />
+                  <DensityControl density={density} onDensity={setDensity} />
+                </span>
+              }
+            />
+            <ResultFilterSheet
+              open={filterOpen}
+              onClose={() => setFilterOpen(false)}
+              panelId={filterPanelId}
+              testId="calculators-filter-sheet"
+              title="Filter calculators"
+              description="Choose any clinical domains, then narrow by session progress and completion time."
+              groups={[domainGroup, progressGroup, timeGroup]}
+              onClearAll={activeFilterCount > 0 ? clearFilters : undefined}
+              summary={{ count: results.length, noun: results.length === 1 ? "calculator" : "calculators" }}
+              chromeResetKey={query}
+            />
+          </>
         }
         sidebar={
           <>
-            <DomainNav domain={domain} counts={domainCounts} onSelect={setDomain} />
             <ContinuePanel inProgress={inProgress} onOpen={setOpenId} />
             <AboutPanel />
           </>
         }
         sidebarMobile={
-          <div className="xl:hidden">
+          <div className="grid gap-4 xl:hidden">
+            <ContinuePanel inProgress={inProgress} onOpen={setOpenId} />
             <AboutPanel />
           </div>
         }
       >
         {results.length ? (
-          <div className={cn("grid gap-3", compact ? "sm:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2")}>
-            {results.map(({ calc, context }) => (
+          <div className={cn("grid gap-3", density === "compact" ? "sm:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2")}>
+            {results.map(({ calc, derived, context }) => (
               <CalculatorTile
                 key={calc.id}
                 calc={calc}
-                derived={deriveCalculator(calc, session[calc.id] ?? {})}
+                derived={derived}
                 context={context}
-                compact={compact}
+                compact={density === "compact"}
                 onOpen={() => setOpenId(calc.id)}
               />
             ))}
           </div>
         ) : (
-          <div className="grid justify-items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-8 text-center">
-            <span className="grid size-tap place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--decoration-soft)]">
-              <Search className="size-icon-lg" aria-hidden="true" />
-            </span>
-            <p className="text-base font-bold text-[color:var(--text-heading)]">
-              No calculators match “{query.trim()}”.
-            </p>
-            <p className="max-w-sm text-sm-minus font-medium text-[color:var(--text-muted)]">
-              Try a symptom (“hopeless”, “drinking”, “worry”) or clear the filters.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setQuery("");
-                setDomain("all");
-              }}
-              className={cn(
-                "mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm-minus font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--clinical-accent-hover)]",
-                focusRing,
-              )}
-            >
-              Reset search
-            </button>
-          </div>
+          <SearchResultsEmptyState
+            modeId="calculators"
+            query={query}
+            appliedFilters={appliedFilters}
+            onClearFilters={activeFilterCount > 0 ? clearFilters : undefined}
+            onClearSearch={() => router.push(appModeHomeHref("calculators", { focus: true }))}
+            onTryExample={(example) => router.push(appModeHomeHref("calculators", { query: example, run: true }))}
+          />
         )}
       </SearchResultsLayout>
-
-      {/* Phones: composer docks at the bottom, matching the site-wide composer
-          placement, and slides away on scroll-down in lockstep with the header.
-          Hidden while a calculator sheet is open. */}
-      {activeCalc ? null : (
-        <PhoneFooterLayerPortal>
-          <div
-            data-testid="calculators-phone-dock"
-            data-scroll-hidden={dockHidden ? "true" : undefined}
-            onFocusCapture={() => setDockFocused(true)}
-            onBlurCapture={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDockFocused(false);
-            }}
-            className={cn(
-              "phone-footer-layer answer-footer-search-dock answer-footer-search-edge inset-x-0 bottom-0 z-40 px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-3 transition-[transform,opacity] motion-reduce:transition-none sm:hidden",
-              dockHidden
-                ? "pointer-events-none duration-[var(--duration-slow)] ease-[var(--ease-chrome-hide)]"
-                : "duration-[var(--duration-moderate)] ease-[var(--ease-chrome-reveal)]",
-            )}
-            aria-hidden={dockHidden}
-            inert={dockHidden || undefined}
-          >
-            <div className="answer-footer-search-backdrop" aria-hidden="true" />
-            <CalculatorComposer
-              query={query}
-              onQuery={setQuery}
-              onReset={resetSearch}
-              onSubmit={submitSearch}
-              variant="compact"
-            />
-          </div>
-        </PhoneFooterLayerPortal>
-      )}
 
       {activeCalc ? (
         <CalculatorSheet
           calc={activeCalc}
           answers={session[activeCalc.id] ?? {}}
-          onAnswersChange={(next) => setSession((prev) => ({ ...prev, [activeCalc.id]: next }))}
+          onAnswersChange={(next) => setSession((current) => ({ ...current, [activeCalc.id]: next }))}
           onClose={() => setOpenId(null)}
           onOpenCalculator={setOpenId}
         />

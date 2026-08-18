@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Structural gate for docs/outstanding-issues.md.
 //
-// Ledger #112. The `issues:next-id` marker is a plain HTML comment that every
-// editor read-modify-writes with no lock. A `merge=union` driver was tried (PR
+// Ledger #112/#168. The former `issues:next-id` allocator was a plain HTML
+// comment that every editor read-modify-wrote with no lock. New rows now carry
+// durable ULIDs and collision-extended display locators; a transition marker,
+// if still present, is deliberately ignored. A `merge=union` driver was tried (PR
 // #1416) and removed: unlike docs/branch-review-ledger.md this file allocates
 // IDs by read-modify-write, so union could not allocate unique IDs either, and
 // it silently concatenated conflicting hunks — two marker bumps became two
@@ -15,7 +17,7 @@
 //
 // This makes each of those failures loud:
 //   - an id used twice is a merge that kept both sides' rows under one number
-//   - an id above the marker is a merge that kept a row and lost the bump
+//   - a durable ULID or permanent display locator used twice is an identity collision
 //   - an id in both tables is an archive move that copied instead of moving
 //   - an id absent from both tables relative to the base is a row deletion
 //   - a malformed row is usually a hand-edit that broke the column count
@@ -29,6 +31,9 @@
 
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+
+import { canonicalLegacyIssueId, isIssueDisplayId, issueIdCitations, parseIssueIdCell } from "./issue-id.mjs";
 
 export const ISSUES_PATH = "docs/outstanding-issues.md";
 
@@ -37,21 +42,7 @@ const ARCHIVE_HEADING = "## Resolved / archive";
 const QUEUE_HEADING = "## Recommended execution queue";
 const MARKER = /<!--\s*issues:next-id=(\d+)\s*-->/;
 const PRETTIER_IGNORE = "<!-- prettier-ignore -->";
-/** Match `#NNN` citations inside a queue ID(s) cell (backticks/commas allowed). */
-const QUEUE_ID_CITATION = /#(\d+)/g;
-/**
- * An id cell's shape, e.g. `#042`. Used to READ the number, never to decide
- * whether a line is a row.
- *
- * That distinction is the whole correctness argument. Matching only well-formed
- * ids and skipping the rest would make this gate claim more than it does: a
- * hand edit turning `#001` into `001` or `#OO1` would drop that row from EVERY
- * check below — duplicate detection, the marker comparison, the width check —
- * and the file would pass while carrying exactly the malformed row the gate
- * advertises. Rows are found positionally instead (see `tableBodies`), and the
- * id shape is validated rather than assumed.
- */
-const ID_CELL = /^#\d+$/;
+const ISSUE_ROW_FINGERPRINT = /^[0-9a-f]{64}$/i;
 /**
  * A table's separator row, e.g. `| ---- | --- |`, which declares its width.
  * The inner pipes must be in the class: without them this only ever matched a
@@ -158,14 +149,14 @@ function orphanRuns(lines, headingIndex, limit, bodies) {
 }
 
 /**
- * The canonical rendering of an id number: zero-padded to at least three
+ * The canonical rendering of a legacy id number: zero-padded to at least three
  * digits. `#1` and `#001` are the SAME allocation, so accepting both lets a
  * conflict keep two rows for one number while a string-keyed uniqueness check
  * calls them distinct. Comparing against this form rejects `#1`, `#0001` and
  * `#00042` while still allowing the scheme to grow past `#999`.
  */
 export function canonicalId(number) {
-  return `#${String(number).padStart(3, "0")}`;
+  return canonicalLegacyIssueId(number);
 }
 
 export function parseIssues(markdown) {
@@ -202,6 +193,7 @@ export function parseIssues(markdown) {
             ...record,
             id: "",
             number: null,
+            ulid: null,
             valid: false,
             cellCount: null,
             expectedCells: body.width,
@@ -210,13 +202,13 @@ export function parseIssues(markdown) {
           continue;
         }
         const parsed = cells(line);
-        const id = parsed[0] ?? "";
-        const number = ID_CELL.test(id) ? Number(id.slice(1)) : null;
+        const identity = parseIssueIdCell(parsed[0] ?? "");
         rows.push({
           ...record,
-          id,
-          number,
-          valid: number !== null && id === canonicalId(number),
+          id: identity.id,
+          number: identity.number,
+          ulid: identity.ulid,
+          valid: identity.valid,
           cellCount: parsed.length,
           // Each block declares its own width, so a row is checked against the
           // table it is actually in rather than a section-wide assumption.
@@ -236,11 +228,10 @@ export function parseIssues(markdown) {
       const parsed = cells(line);
       // Column 0 is Order; column 1 is ID(s). Ignore other cells (evidence prose).
       const idCell = parsed[1] ?? "";
-      for (const match of idCell.matchAll(QUEUE_ID_CITATION)) {
+      for (const id of issueIdCitations(idCell)) {
         queueCitations.push({
           line: index + 1,
-          number: Number(match[1]),
-          raw: match[0],
+          id,
         });
       }
     }
@@ -259,10 +250,46 @@ export function parseIssues(markdown) {
   };
 }
 
+// Two id generations coexist in the ledger: legacy zero-padded sequential ids
+// (`#001`) and the Crockford display locators minted from a row's ULID
+// (`#J912J9`). Rows of both kinds are addressed by display id everywhere else,
+// but this lookup resolved only the numeric form — so for every row created
+// after the ULID migration it returned null, and `ledger-inbox.mjs` reads a null
+// fingerprint as "no such row" and refuses the request. The visible symptom was
+// `npm run issues:done '#J912J9'` failing with "is not in Open items" against a
+// row plainly present in Open items, which made the optimistic-concurrency check
+// unreachable for exactly the rows that have it available (they carry a ULID).
+export function issueRowFingerprint(markdown, issueId) {
+  const id = String(issueId).trim();
+  const legacy = id.match(/^#(\d+)$/);
+  const number = legacy ? Number(legacy[1]) : null;
+  if (legacy) {
+    if (!Number.isFinite(number)) return null;
+  } else if (!isIssueDisplayId(id)) {
+    return null;
+  }
+
+  const open = parseIssues(markdown).rows.filter((entry) => entry.table === "open" && entry.valid && entry.raw);
+  // Exact display id first, and only then the legacy numeric interpretation.
+  // Crockford's alphabet includes 0-9, so a ULID-derived locator can be entirely
+  // digits (`#041061`) and is indistinguishable from a legacy id by pattern
+  // alone — branching on shape would silently miss exactly those rows. The
+  // fallback preserves the old behaviour of resolving a non-canonical legacy id
+  // (`#5`) to its zero-padded row, and the exact-id arm preserves
+  // `issues:done` closing ULID-suffix display ids minted by reconcile.
+  const row = open.find((entry) => entry.id === id) ?? (legacy ? open.find((entry) => entry.number === number) : null);
+  if (!row) return null;
+  const normalized = `| ${cells(row.raw).join(" | ")} |`;
+  return createHash("sha256").update(normalized).digest("hex");
+}
+
+export function isValidIssueRowFingerprint(value) {
+  return ISSUE_ROW_FINGERPRINT.test(String(value ?? ""));
+}
+
 export function checkIssues(markdown, { prettierIgnored = false } = {}) {
   const problems = [];
-  const { openStart, archiveStart, nextId, markerCount, rows, orphans, bodyCount, queueCitations } =
-    parseIssues(markdown);
+  const { openStart, archiveStart, markerCount, rows, orphans, bodyCount, queueCitations } = parseIssues(markdown);
   const lines = markdown.split("\n");
 
   // Prettier pads every Markdown table cell to the widest value in its column.
@@ -293,43 +320,51 @@ export function checkIssues(markdown, { prettierIgnored = false } = {}) {
   if (openStart >= 0 && archiveStart >= 0 && archiveStart < openStart) {
     problems.push(`"${ARCHIVE_HEADING}" appears before "${OPEN_HEADING}"`);
   }
-  if (nextId === null) problems.push("missing the <!-- issues:next-id=N --> marker");
   if (markerCount > 1) {
-    // Only the first is ever read, so a conflict that kept both leaves a stale
-    // value that a later editor can follow straight into a reused id.
     problems.push(
-      `${markerCount} <!-- issues:next-id=N --> markers — exactly one is allowed; ` +
-        "a second is a conflict resolution that kept both sides",
+      `${markerCount} deprecated <!-- issues:next-id=N --> markers — at most one transition marker is allowed`,
     );
   }
-  if (rows.length === 0) problems.push("no `| #NNN |` rows found — the parser or the file shape has drifted");
+  if (rows.length === 0) problems.push("no outstanding-issue rows found — the parser or the file shape has drifted");
 
-  // The failure this gate exists for: a lost-row merge that left two rows
-  // sharing one number, so one item's evidence is silently attributed to
-  // another and the next allocation collides again.
+  // Invalid spellings stay visible to every downstream collision check.
   for (const row of rows.filter((entry) => !entry.valid)) {
     problems.push(
       row.shape === "not-a-table-row"
         ? `line ${row.line} (${row.table} table body) is not a table row: ${JSON.stringify(row.raw.slice(0, 60))} — ` +
             "a row that lost its leading or trailing pipe has left the table while still sitting in it"
         : `line ${row.line} (${row.table} table) has a non-canonical id ${JSON.stringify(row.id)} — ` +
-            `ids are zero-padded to three digits (${row.number === null ? "#NNN" : canonicalId(row.number)}), ` +
-            "so two spellings of one number cannot both exist",
+            "use a zero-padded legacy #NNN id, or a stored collision-free display id with its derived issue-ulid comment",
     );
   }
 
-  // Keyed by NUMBER, not by the raw string: `#1` and `#001` are one allocation,
-  // and a string key would call them distinct and pass.
+  // Display locators are permanent citations, so they must remain unique even
+  // though modern rows also carry a durable ULID.
   const byId = new Map();
-  for (const row of rows.filter((entry) => entry.number !== null)) {
-    if (!byId.has(row.number)) byId.set(row.number, []);
-    byId.get(row.number).push(row);
+  for (const row of rows.filter((entry) => entry.valid || entry.number !== null)) {
+    const key = row.valid ? row.id : canonicalId(row.number);
+    if (!byId.has(key)) byId.set(key, []);
+    byId.get(key).push(row);
   }
-  for (const [number, entries] of byId) {
+  for (const [id, entries] of byId) {
     if (entries.length > 1) {
       problems.push(
-        `${canonicalId(number)} appears ${entries.length} times (lines ${entries.map((entry) => entry.line).join(", ")}) — ` +
+        `${id} appears ${entries.length} times (lines ${entries.map((entry) => entry.line).join(", ")}) — ` +
           "ids are never reused; a collision usually means a merge kept both sides under one number",
+      );
+    }
+  }
+
+  const byUlid = new Map();
+  for (const row of rows.filter((entry) => entry.ulid !== null)) {
+    if (!byUlid.has(row.ulid)) byUlid.set(row.ulid, []);
+    byUlid.get(row.ulid).push(row);
+  }
+  for (const [ulid, entries] of byUlid) {
+    if (entries.length > 1) {
+      problems.push(
+        `issue ULID ${ulid} appears ${entries.length} times (lines ${entries.map((entry) => entry.line).join(", ")}) — ` +
+          "durable identities are never reused",
       );
     }
   }
@@ -337,22 +372,9 @@ export function checkIssues(markdown, { prettierIgnored = false } = {}) {
   // An item cannot be open and resolved at once. This catches an archive move
   // that copied the row instead of moving it — the shape a reader trusts least,
   // because the two copies then disagree about whether the work is done.
-  for (const [number, entries] of byId) {
+  for (const [id, entries] of byId) {
     const tables = new Set(entries.map((entry) => entry.table));
-    if (tables.size > 1) problems.push(`${canonicalId(number)} is in BOTH the open and archive tables`);
-  }
-
-  // The marker must lead the whole file, not just the open table: ids are never
-  // reused, so an archived row still burns its number.
-  const numbered = rows.filter((row) => row.number !== null);
-  if (nextId !== null && numbered.length > 0) {
-    const highest = Math.max(...numbered.map((row) => row.number));
-    if (nextId <= highest) {
-      problems.push(
-        `issues:next-id=${nextId} is not above the highest id #${String(highest).padStart(3, "0")} — ` +
-          "the next allocation would reuse a number that is already taken",
-      );
-    }
+    if (tables.size > 1) problems.push(`${id} is in BOTH the open and archive tables`);
   }
 
   // Rows stranded outside every table. A blank line mid-table is the usual
@@ -397,13 +419,11 @@ export function checkIssues(markdown, { prettierIgnored = false } = {}) {
 
   // Recommended execution queue may only cite currently open IDs (#201). Parse
   // the ID(s) column alone so archive mentions in evidence prose do not fail.
-  const openNumbers = new Set(
-    rows.filter((row) => row.table === "open" && row.number !== null).map((row) => row.number),
-  );
+  const openIds = new Set(rows.filter((row) => row.table === "open" && row.valid).map((row) => row.id));
   for (const citation of queueCitations ?? []) {
-    if (!openNumbers.has(citation.number)) {
+    if (!openIds.has(citation.id)) {
       problems.push(
-        `recommended queue line ${citation.line} cites ${canonicalId(citation.number)} which is not in Open items — ` +
+        `recommended queue line ${citation.line} cites ${citation.id} which is not in Open items — ` +
           "prune the queue row or restore the open item; do not treat evidence prose as queue membership",
       );
     }
@@ -422,15 +442,15 @@ export function prettierIgnoreCoversIssues(prettierIgnore) {
  * therefore passes; deleting it from both tables does not.
  */
 export function missingIssueIds(baseMarkdown, currentMarkdown) {
-  const numbers = (markdown) =>
+  const ids = (markdown) =>
     new Set(
       parseIssues(markdown)
-        .rows.filter((row) => row.number !== null)
-        .map((row) => row.number),
+        .rows.filter((row) => row.valid)
+        .map((row) => row.id),
     );
-  const baseIds = numbers(baseMarkdown);
-  const currentIds = numbers(currentMarkdown);
-  return [...baseIds].filter((number) => !currentIds.has(number)).sort((left, right) => left - right);
+  const baseIds = ids(baseMarkdown);
+  const currentIds = ids(currentMarkdown);
+  return [...baseIds].filter((id) => !currentIds.has(id)).sort();
 }
 
 function argumentValue(name) {
@@ -499,9 +519,9 @@ function selfTest() {
     ],
     ["a padded table row", good.replace("| #001 | P2 | a |", "| #001 | P2      | a |"), 1],
     ["a duplicated id", good.replace("| #002 | b |", "| #001 | b |"), 2], // duplicate + both-tables
-    ["an id at the marker", good.replace("next-id=3", "next-id=2"), 1],
+    ["a stale transition marker", good.replace("next-id=3", "next-id=2"), 0],
     ["a row with a stray pipe", good.replace("| #001 | P2 | a |", "| #001 | P2 | a | b |"), 1],
-    ["a missing marker", good.replace("<!-- issues:next-id=3 -->", ""), 1],
+    ["a removed transition marker", good.replace("<!-- issues:next-id=3 -->", ""), 0],
     // A literal pipe inside a cell is escaped, not a column boundary. The real
     // file has rows like this and an earlier draft of the checker failed them.
     ["an escaped pipe inside a cell", good.replace("| #001 | P2 | a |", "| #001 | P2 | a \\| b |"), 0],
@@ -524,7 +544,7 @@ function selfTest() {
     // non-canonical + duplicate #001 + in-both-tables: the collision a
     // string-keyed uniqueness check would have called two distinct ids.
     ["a short id that collides with a padded one", good.replace("| #002 | b |", "| #1 | b |"), 3],
-    ["an over-padded id", good.replace("| #001 | P2 | a |", "| #0001 | P2 | a |"), 1],
+    ["an over-padded id", good.replace("| #001 | P2 | a |", "| #0001 | P2 | a |"), 2],
     // Deleting a separator used to disable the width check for its whole table
     // silently — the check had nothing to compare against and skipped.
     ["a deleted separator row", good.replace("| --- | --- | --- |\n", ""), 3], // no table + orphan pipes + queue cites missing open
@@ -542,6 +562,26 @@ function selfTest() {
     ["a blank line stranding the rows below it", good.replace("| #002 | b |", "| #002 | b |\n\n| #003 | c |"), 1],
     // #201: queue ID(s) column must cite open items only.
     ["a queue row citing an archived id", good.replace("| 1 | `#001` |", "| 1 | `#002` |"), 1],
+    [
+      "a modern durable id",
+      good
+        .replace("`#001`", "`#ABCDEF`")
+        .replace("| #001 | P2 | a |", "| #ABCDEF <!-- issue-ulid:0000000000ABCDEF0000000000 --> | P2 | a |"),
+      0,
+    ],
+    [
+      "a modern display id without its durable identity",
+      good.replace("`#001`", "`#ABCDEF`").replace("| #001 | P2 | a |", "| #ABCDEF | P2 | a |"),
+      2,
+    ],
+    [
+      "a reused modern durable identity",
+      good
+        .replace("`#001`", "`#ABCDEF`")
+        .replace("| #001 | P2 | a |", "| #ABCDEF <!-- issue-ulid:0000000000ABCDEF0000000000 --> | P2 | a |")
+        .replace("| #002 | b |", "| #ABCDEF0 <!-- issue-ulid:0000000000ABCDEF0000000000 --> | b |"),
+      1,
+    ],
   ];
   let failures = 0;
   for (const [name, markdown, expected] of cases) {
@@ -569,7 +609,7 @@ function selfTest() {
 
   const deletionCases = [
     ["an unchanged id set", good, []],
-    ["an open row deleted from both tables", good.replace("| #001 | P2 | a |\n", ""), [1]],
+    ["an open row deleted from both tables", good.replace("| #001 | P2 | a |\n", ""), ["#001"]],
     [
       "an open row moved to the archive",
       good.replace("| #001 | P2 | a |\n", "").replace("| #002 | b |", "| #002 | b |\n| #001 | a |"),
@@ -645,9 +685,9 @@ function main() {
     try {
       const missing = missingIssueIds(readIssuesAtRevision(base.ref), markdown);
       checkedBase = base.ref;
-      for (const number of missing) {
+      for (const id of missing) {
         problems.push(
-          `${canonicalId(number)} existed at base ${base.ref.slice(0, 12)} but is absent from both open and archive tables — ` +
+          `${id} existed at base ${base.ref.slice(0, 12)} but is absent from both open and archive tables — ` +
             "move resolved or superseded rows to the archive; never delete their allocation",
         );
       }
@@ -663,23 +703,25 @@ function main() {
   // A merge driver on this file is a regression, not an improvement: union
   // concatenated conflicting hunks and duplicated the whole table rather than
   // failing (#133, and four times on PR #1430). Honest conflicts are the
-  // contract; ids still need manual renumbering either way.
+  // contract. Immutable inbox requests plus serialized reconciliation remain
+  // the only supported way to mutate the canonical ledger.
   const mergeProblem = mergeAttributeProblem(effectiveMergeAttribute());
   if (mergeProblem) problems.push(mergeProblem);
   if (problems.length > 0) {
     console.error(`${ISSUES_PATH} check FAILED:`);
     for (const problem of problems) console.error(`  - ${problem}`);
     console.error(
-      "\nIds are never reused. If a merge collided, renumber the incoming rows above the marker " +
-        "and bump it — do not resolve by taking one side wholesale, which drops the other's rows.",
+      "\nIds are never reused. Do not hand-edit or renumber rows after a conflict: preserve immutable " +
+        "inbox requests and run one serialized reconciliation from a fresh origin/main base.",
     );
     process.exit(1);
   }
-  const { rows, nextId } = parseIssues(markdown);
+  const { rows, markerCount } = parseIssues(markdown);
   const open = rows.filter((row) => row.table === "open").length;
   console.log(
     `Outstanding-issues guard passed: ${rows.length} rows (${open} open, ${rows.length - open} archived), ` +
-      `unique ids, next-id=${nextId} above the highest, no merge driver` +
+      `unique display and durable ids, collision-free allocation enabled` +
+      `${markerCount ? ", deprecated next-id marker ignored" : ""}, no merge driver` +
       `${checkedBase ? `, no ids deleted from base ${checkedBase.slice(0, 12)}` : ", deletion baseline unavailable"}.`,
   );
 }

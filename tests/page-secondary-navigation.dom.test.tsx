@@ -155,7 +155,7 @@ describe("PageSecondaryNavigation", () => {
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
   });
 
-  it("leaves locally controlled information and Therapy workflow navigation to their page owners", async () => {
+  it("leaves information navigation local and renders Therapy workflow navigation from the shared registry", async () => {
     const { rerender } = render(
       <PageSecondaryNavigation modeId="prescribing" pathname="/medications/sertraline" hasSubmittedSearch />,
     );
@@ -168,7 +168,11 @@ describe("PageSecondaryNavigation", () => {
         hasSubmittedSearch={false}
       />,
     );
-    expect(screen.queryByTestId("secondary-navigation")).toBeNull();
+    expect(screen.getByTestId("mode-nav")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("href", "/therapy-compass/search");
+    expect(screen.getByRole("link", { name: "Recommend" })).toHaveAttribute("href", "/therapy-compass/recommend");
+    expect(screen.getByRole("link", { name: "Compare" })).toHaveAttribute("href", "/therapy-compass/compare");
+    expect(screen.getByRole("link", { name: "Pathways" })).toHaveAttribute("href", "/therapy-compass/pathways");
 
     rerender(
       <PageSecondaryNavigation

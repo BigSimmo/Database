@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "81fdf812-4dd6-4fd6-b2e8-f3b730affd8a",
+  "createdOn": "2026-08-15",
+  "action": "done",
+  "payload": {
+    "id": "#192",
+    "outcome": "Resolved by PR #1964 (commit adc5182a7): X6 added four clinical/retrieval/answer coverage groups plus global/broad floors and CI enforcement, raising evidence/verification branches 81 to 84 and core RAG branches 72 to 76 without lowering any floor. Current-main static CI scope check passes. A fresh exclusive coverage run is useful after later RAG commits but is freshness evidence, not remaining X6 implementation."
+  }
+}

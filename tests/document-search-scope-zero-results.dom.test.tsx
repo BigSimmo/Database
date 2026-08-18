@@ -236,9 +236,9 @@ describe("documents zero-result state when retrieval degraded", () => {
 describe("scope filter chips", () => {
   it("names the group so a bare value is not ambiguous", () => {
     expect(scopeFilterChips({ topics: ["agitation"], sites: ["FSH"], locality: "local" })).toEqual([
-      { id: "scope:topics:agitation", label: "Topic: agitation" },
-      { id: "scope:sites:FSH", label: "Site: FSH" },
-      { id: "scope:locality:local", label: "Locality: local" },
+      { id: "scope:topics:agitation", groupLabel: "Topic", valueLabel: "agitation" },
+      { id: "scope:sites:FSH", groupLabel: "Site", valueLabel: "FSH" },
+      { id: "scope:locality:local", groupLabel: "Locality", valueLabel: "Local" },
     ]);
   });
 

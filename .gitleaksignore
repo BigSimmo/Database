@@ -29,3 +29,11 @@ d650ecb89bcdfece0af77ad9ea0d62d8eaa42233:scripts/build-ranking-snapshot.ts:gener
 # False positive: deliberately credential-shaped test data proving that hosted
 # app inventory reporting never echoes arbitrary operator-supplied values.
 a394d76631c7ea3405037baf58091b1c4c47fa3f:tests/codex-cloud-setup.test.ts:generic-api-key:451
+# False positive: a synthetic PHI canary in the adversarial fixture dataset. The
+# first version of these tokens carried identifier-shaped digit runs
+# (CANARY-PHI-DOB-<date>), which read as a high-entropy secret; the file contains
+# no credential material. The tip no longer matches — canary tokens are now
+# letters-only, enforced by scripts/rag-adversarial-contract.mjs and pinned by
+# tests/rag-adversarial-fixtures.test.ts — but this historical commit is still
+# scanned on every PR range run.
+57fd5ae462dd85a3fd6af0a4d6e2db5d8d711b68:scripts/fixtures/rag-adversarial-cases.v1.json:generic-api-key:18

@@ -23,6 +23,13 @@ export type AnswerRoute = {
 
 export const SOURCE_BACKED_REVIEW_FALLBACK_REASON = "source_backed_review_fallback";
 
+// Dosing-class queries that reach the routed-generation fallthrough go to the strong
+// route up front, so the 35s strong budget exists before the deadline is created.
+// On the fast route their failed attempts retried strong inside the fast route's
+// leftover budget (fast_unsupported_retry_strong) and died as provider_timeout —
+// the dominant "Lithium dosing?" fallback mode after S1 (issue #231 residual R1).
+export const MEDICATION_DOSE_RISK_STRONG_ROUTE_REASON = "medication_dose_risk_strong_route";
+
 const unsupportedSimilarityThreshold = 0.32;
 const strongRetrievalThreshold = 0.64;
 const extractiveRetrievalThreshold = 0.76;
@@ -1159,6 +1166,16 @@ export function chooseAnswerRoute(args: {
           actionableConflictOrGap && !directTitleSupport
             ? "retrieval_gap_or_conflict"
             : "clinical_risk_or_complex_query",
+        strongestScore,
+        documentCount: documents,
+      };
+    }
+
+    if (queryClass === "medication_dose_risk") {
+      return {
+        mode: "strong",
+        model: args.strongModel,
+        reason: MEDICATION_DOSE_RISK_STRONG_ROUTE_REASON,
         strongestScore,
         documentCount: documents,
       };

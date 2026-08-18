@@ -16,6 +16,35 @@ import type { ClinicalQueryMode } from "@/lib/clinical-query-mode";
 // `normalizedPollDelay`. Shared with the dashboard's polling loop.
 export const setupRecheckPollMs = 60_000;
 
+/** Keep the retained `/?mode=tools` launcher separate from every other idle mode home. */
+export function shouldShowSharedHome({
+  pathname,
+  mode,
+  submittedUrlRunRequested,
+  hasError,
+  hasAnswer,
+  loading,
+  submittedAnswerSearchActive,
+}: {
+  pathname: string;
+  mode: string | null;
+  submittedUrlRunRequested: boolean;
+  hasError: boolean;
+  hasAnswer: boolean;
+  loading: boolean;
+  submittedAnswerSearchActive: boolean;
+}) {
+  return (
+    pathname === "/" &&
+    mode !== "tools" &&
+    !submittedUrlRunRequested &&
+    !hasError &&
+    !hasAnswer &&
+    !loading &&
+    !submittedAnswerSearchActive
+  );
+}
+
 /**
  * Re-run a Documents search against a relaxed server-side scope.
  *

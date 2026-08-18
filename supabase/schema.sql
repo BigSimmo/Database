@@ -2769,6 +2769,7 @@ returns table (
 language sql
 stable
 set search_path = public, extensions, pg_temp
+set work_mem = '128MB'
 as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
@@ -2978,6 +2979,7 @@ returns table (
 language sql
 stable
 set search_path = public, extensions, pg_temp
+set work_mem = '64MB'
 as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
@@ -3091,6 +3093,7 @@ language plpgsql
 stable
 set search_path = public, extensions, pg_temp
 set plan_cache_mode = 'force_custom_plan'
+set work_mem = '64MB'
 as $$
 BEGIN
   PERFORM set_config('hnsw.ef_search', '100', true);
@@ -3512,8 +3515,10 @@ grant execute on function public.invoke_ingestion_worker(integer) to service_rol
 -- Full-inventory drift snapshot backing `npm run check:drift`. The expected
 -- state lives in supabase/drift-manifest.json (generated from a scratch replay
 -- of this file via `npm run drift:manifest`). Keep this definition byte-identical
--- to supabase/migrations/20260706200000_schema_drift_snapshot.sql; a unit test
--- in tests/supabase-schema.test.ts enforces it. See docs/database-drift-detection.md.
+-- to the latest defining migration,
+-- supabase/migrations/20260818090000_schema_drift_snapshot_history_probe.sql
+-- (v2: adds the migration-history integrity probe; supersedes 20260706200000);
+-- tests/drift-detection.test.ts enforces the parity. See docs/database-drift-detection.md.
 create or replace function public.schema_drift_snapshot()
 returns jsonb
 language plpgsql
@@ -3524,9 +3529,11 @@ as $$
 declare
   snapshot jsonb;
   buckets jsonb := '[]'::jsonb;
+  history jsonb := '[]'::jsonb;
+  history_probe text := 'no_history_table';
 begin
   select jsonb_build_object(
-    'snapshot_version', 1,
+    'snapshot_version', 2,
     'captured_at', now(),
     'extensions', coalesce((
       select jsonb_agg(jsonb_build_object('name', e.extname, 'schema', n.nspname) order by e.extname)
@@ -3637,7 +3644,37 @@ begin
       into buckets;
   end if;
 
-  return snapshot || jsonb_build_object('storage_buckets', buckets);
+  -- Migration-history integrity probe. A version recorded without executed
+  -- statements is the fingerprint of a history repair / mark-applied row and
+  -- must be covered by a fail-fast guard migration + a reviewed allowlist entry
+  -- (docs/database-drift-detection.md, "Guard-migration contract").
+  if to_regclass('supabase_migrations.schema_migrations') is not null then
+    if exists (
+      select 1
+      from pg_attribute att
+      where att.attrelid = 'supabase_migrations.schema_migrations'::regclass
+        and att.attname = 'statements'
+        and att.attnum > 0
+        and not att.attisdropped
+    ) then
+      execute 'select coalesce(jsonb_agg(jsonb_build_object('
+        || '''version'', m.version, ''name'', m.name, '
+        || '''signal'', case when m.statements is null then ''null'' else ''empty'' end'
+        || ') order by m.version), ''[]''::jsonb) '
+        || 'from supabase_migrations.schema_migrations m '
+        || 'where m.statements is null or cardinality(m.statements) = 0'
+        into history;
+      history_probe := 'ok';
+    else
+      history_probe := 'no_statements_column';
+    end if;
+  end if;
+
+  return snapshot || jsonb_build_object(
+    'storage_buckets', buckets,
+    'migration_history', history,
+    'migration_history_probe', history_probe
+  );
 end;
 $$;
 
@@ -3805,6 +3842,7 @@ returns table (
 language sql
 stable
 set search_path = public, extensions, pg_temp
+set work_mem = '64MB'
 as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
@@ -3961,6 +3999,7 @@ returns table (
 language sql
 stable
 set search_path = public, extensions, pg_temp
+set work_mem = '64MB'
 as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
@@ -4148,6 +4187,7 @@ language sql
 stable
 set search_path = public, extensions, pg_temp
 set plan_cache_mode = 'force_custom_plan'
+set work_mem = '64MB'
 as $$
   with query as (
     select
@@ -4249,6 +4289,7 @@ language sql
 stable
 set search_path = public, extensions, pg_temp
 set plan_cache_mode = 'force_custom_plan'
+set work_mem = '128MB'
 as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
@@ -5457,6 +5498,7 @@ language sql
 stable
 set search_path = public, extensions, pg_temp
 set plan_cache_mode = 'force_custom_plan'
+set work_mem = '128MB'
 as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq,
@@ -6543,6 +6585,7 @@ CREATE OR REPLACE FUNCTION public.match_document_chunks_hybrid(query_embedding v
  LANGUAGE sql
  STABLE
  SET search_path TO 'public', 'extensions', 'pg_temp'
+ SET work_mem TO '128MB'
 AS $function$
   with query as (select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq),
   vector_ranked as (
@@ -6630,6 +6673,7 @@ CREATE OR REPLACE FUNCTION public.match_document_table_facts_text(query_text tex
  STABLE
  SET search_path TO 'public', 'extensions', 'pg_temp'
  SET plan_cache_mode TO 'force_custom_plan'
+ SET work_mem TO '64MB'
 AS $function$
 begin
   return query execute $body$
@@ -7775,6 +7819,7 @@ returns table (
 language sql
 stable
 set search_path = public, extensions, pg_temp
+set work_mem = '64MB'
 as $$
   select *
   from public.match_document_chunks_text_scoped(
@@ -7958,6 +8003,7 @@ returns table (
 language sql
 stable
 set search_path = public, extensions, pg_temp
+set work_mem = '128MB'
 as $$
   select *
   from public.match_document_index_units_hybrid_scoped(
@@ -8887,7 +8933,7 @@ create table if not exists public.user_favourites (
   created_at timestamptz not null default now(),
   primary key (user_id, content_type, content_key),
   constraint user_favourites_content_type_check
-    check (content_type in ('service', 'form', 'differential')),
+    check (content_type in ('service', 'form', 'differential', 'therapy')),
   constraint user_favourites_content_key_check
     check (content_key = btrim(content_key) and char_length(content_key) between 1 and 180)
 );

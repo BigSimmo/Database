@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
-import { ApplicationsLauncherPage } from "@/components/applications-launcher-page";
 import { ToolsSearchResultsPage } from "@/components/tools/tools-search-results-page";
+import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 
 type ToolsRouteProps = {
   searchParams?: Promise<{ query?: string | string[]; q?: string | string[]; run?: string | string[] }>;
@@ -21,5 +21,10 @@ export default async function ToolsRoute({ searchParams }: ToolsRouteProps) {
   const query = (firstSearchParam(params.q) ?? firstSearchParam(params.query) ?? "").trim();
   const hasSubmittedSearch = firstSearchParam(params.run) === "1" && query.length > 0;
 
-  return hasSubmittedSearch ? <ToolsSearchResultsPage initialQuery={query} /> : <ApplicationsLauncherPage />;
+  return (
+    <ToolsSearchResultsPage
+      initialQuery={query}
+      desktopComposerSlotId={hasSubmittedSearch ? undefined : modeHomeDesktopComposerSlotId}
+    />
+  );
 }

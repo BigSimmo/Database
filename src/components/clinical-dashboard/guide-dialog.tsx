@@ -18,12 +18,13 @@ import {
   PlayCircle,
   RotateCcw,
   Search,
+  Send,
   ShieldCheck,
   SlidersHorizontal,
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type RefObject, type UIEvent } from "react";
 
 import {
   guideQuickTasks,
@@ -44,11 +45,13 @@ import {
   saveGuideProgress,
   type GuideProgress,
 } from "@/components/clinical-dashboard/guide-progress";
+import { readChromeCollapseMetrics, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { Sheet } from "@/components/ui/sheet";
 import {
   chatComposerIconButton,
   chatComposerInput,
   chatComposerShellBase,
+  chatSendButton,
   cn,
   eyebrowText,
   floatingControl,
@@ -71,12 +74,26 @@ const topicIcons: Record<GuideTopicId, LucideIcon> = {
 
 const quickTaskIcons: readonly LucideIcon[] = [HelpCircle, SlidersHorizontal, ShieldCheck, LockKeyhole];
 
-function GuideSearch({ query, onQueryChange }: { query: string; onQueryChange: (query: string) => void }) {
+function GuideSearch({
+  query,
+  inputRef,
+  onFocusChange,
+  onQueryChange,
+}: {
+  query: string;
+  inputRef: RefObject<HTMLInputElement | null>;
+  onFocusChange: (focused: boolean) => void;
+  onQueryChange: (query: string) => void;
+}) {
   return (
     <form
       role="search"
       aria-label="Search guide content"
-      onSubmit={(event) => event.preventDefault()}
+      onSubmit={(event) => {
+        event.preventDefault();
+        inputRef.current?.blur();
+      }}
+      data-guide-universal-search
       className="mx-auto w-full max-w-3xl"
     >
       <div
@@ -91,9 +108,12 @@ function GuideSearch({ query, onQueryChange }: { query: string; onQueryChange: (
         <label className="min-w-0 flex-1">
           <span className="sr-only">Search the guide</span>
           <input
+            ref={inputRef}
             type="search"
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
+            onFocus={() => onFocusChange(true)}
+            onBlur={() => onFocusChange(false)}
             placeholder="Search the guide"
             className={cn(chatComposerInput, "answer-footer-search-input w-full min-w-0")}
             autoComplete="off"
@@ -110,6 +130,14 @@ function GuideSearch({ query, onQueryChange }: { query: string; onQueryChange: (
             <X aria-hidden="true" className="size-icon-md" />
           </button>
         ) : null}
+        <span className="answer-footer-search-divider" aria-hidden="true" />
+        <button
+          type="submit"
+          className={cn(chatSendButton, "answer-footer-search-send")}
+          aria-label="Submit guide search"
+        >
+          <Send aria-hidden="true" className="size-icon-lg" />
+        </button>
       </div>
     </form>
   );
@@ -122,7 +150,10 @@ function GuideTopNavigation({ view, onNavigate }: { view: GuideView; onNavigate:
     { view: "topics", label: "All topics", icon: Grid2X2 },
   ];
   return (
-    <nav aria-label="Guide views" className="grid grid-cols-3 border-y border-[color:var(--border)]">
+    <nav
+      aria-label="Guide views"
+      className="grid grid-cols-3 border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]"
+    >
       {items.map((item) => {
         const active = view === item.view || (view === "topic" && item.view === "topics");
         const Icon = item.icon;
@@ -133,7 +164,7 @@ function GuideTopNavigation({ view, onNavigate }: { view: GuideView; onNavigate:
             onClick={() => onNavigate(item.view)}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "relative inline-flex min-h-tap items-center justify-center gap-2 px-2 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] sm:text-sm",
+              "relative inline-flex min-h-tap items-center justify-center gap-1.5 px-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] sm:gap-2 sm:px-2 sm:text-sm",
               active
                 ? "text-[color:var(--clinical-accent)] after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:bg-[color:var(--clinical-accent)]"
                 : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
@@ -270,34 +301,45 @@ function VerificationDemo({ onOpenSourceGuide }: { onOpenSourceGuide: () => void
         Follow each claim to the source before using it in practice.
       </p>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-[8rem_minmax(0,1fr)]">
-        <ol className="space-y-3" aria-label="Verification steps">
+      <div className="mt-5 grid gap-4 md:grid-cols-[11rem_minmax(0,1fr)]">
+        <ol className="grid grid-cols-3 gap-2 md:grid-cols-1 md:gap-3" aria-label="Verification steps">
           {["Check the claim", "Open the citation", "Read the source passage"].map((label, index) => (
-            <li key={label} className="flex items-start gap-2 text-sm font-medium text-[color:var(--text-heading)]">
+            <li
+              key={label}
+              className="flex min-w-0 flex-col items-center gap-1.5 text-center text-xs font-medium text-[color:var(--text-heading)] md:flex-row md:items-start md:gap-2 md:text-left md:text-sm"
+            >
               <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs font-bold text-[color:var(--clinical-accent-contrast)]">
                 {index + 1}
               </span>
-              <span className="pt-1">{label}</span>
+              <span className="leading-4 md:pt-1 md:leading-5">{label}</span>
             </li>
           ))}
         </ol>
 
         <div className="space-y-3">
           <article className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--shadow-inset)]">
-            <h3 className="text-base font-semibold text-[color:var(--text-heading)]">Answer preview</h3>
-            <div className="mt-3 space-y-3" aria-label="Neutral illustrative answer">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 flex-1 rounded-full bg-[color:var(--surface-subtle)]" />
-                <span className="rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 py-1 font-mono text-xs font-semibold text-[color:var(--clinical-accent)]">
+            <p className={cn(eyebrowText, "text-[color:var(--clinical-accent)]")}>Illustrative answer</p>
+            <h3 className="mt-1 text-base font-semibold text-[color:var(--text-heading)]">
+              Check each claim, not just the summary
+            </h3>
+            <div
+              className="mt-3 space-y-3 text-sm leading-6 text-[color:var(--text)]"
+              aria-label="Neutral illustrative answer"
+            >
+              <p>
+                The answer should state a focused claim and place its citation beside the words it supports{" "}
+                <span className="inline-flex rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 py-0.5 font-mono text-xs font-semibold text-[color:var(--clinical-accent)]">
                   [1]
                 </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-4/5 rounded-full bg-[color:var(--surface-subtle)]" />
-                <span className="rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 py-1 font-mono text-xs font-semibold text-[color:var(--clinical-accent)]">
+                .
+              </p>
+              <p className="border-l-2 border-[color:var(--clinical-accent)] pl-3 text-[color:var(--text-muted)]">
+                Open the citation and compare the source passage with the wording, population, and limits of the claim{" "}
+                <span className="inline-flex rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 py-0.5 font-mono text-xs font-semibold text-[color:var(--clinical-accent)]">
                   [2]
                 </span>
-              </div>
+                .
+              </p>
             </div>
           </article>
 
@@ -651,13 +693,47 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
   const [progress, setProgress] = useState<GuideProgress>(() => loadGuideProgress());
   const [tourStepIndex, setTourStepIndex] = useState(0);
   const [tourComplete, setTourComplete] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
   const contentStartRef = useRef<HTMLDivElement | null>(null);
+  const scrollBodyRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const lastScrollTopRef = useRef(0);
+  const chromeScrollHide = useScrollHideReporter(
+    searchFocused,
+    false,
+    `${view}:${activeTopicId}:${tourStepIndex}:${tourComplete}`,
+  );
+  const chromeHidden = chromeScrollHide.hidden;
 
   function focusPageStart() {
     window.requestAnimationFrame(() => {
-      contentStartRef.current?.scrollIntoView({ block: "start" });
+      if (scrollBodyRef.current) scrollBodyRef.current.scrollTop = 0;
+      lastScrollTopRef.current = 0;
+      chromeScrollHide.reset();
       contentStartRef.current?.querySelector<HTMLElement>("[data-guide-page-heading]")?.focus({ preventScroll: true });
     });
+  }
+
+  function handleBodyScroll(event: UIEvent<HTMLDivElement>) {
+    const target = event.currentTarget;
+    const nextScrollTop = target.scrollTop;
+    if (document.activeElement === searchInputRef.current && Math.abs(nextScrollTop - lastScrollTopRef.current) > 4) {
+      searchInputRef.current?.blur();
+    }
+    const collapseMetrics = readChromeCollapseMetrics(target);
+    const headerRelease = headerRef.current?.getBoundingClientRect().height ?? 0;
+    const reserveRelease = collapseMetrics.collapseBudget ?? 0;
+    chromeScrollHide.reportScroll({
+      offset: nextScrollTop,
+      maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
+      ...collapseMetrics,
+      collapseBudget: headerRelease + reserveRelease,
+      collapseKind: headerRelease > 0 ? "in-flow" : collapseMetrics.collapseKind,
+      combinedChrome: headerRelease > 0 && reserveRelease > 0,
+      source: target,
+    });
+    lastScrollTopRef.current = nextScrollTop;
   }
 
   function navigate(nextView: GuideView) {
@@ -713,11 +789,13 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
         ? "Review guided tour"
         : "Resume guided tour";
   const footer = (
-    <div className="flex min-w-0 items-center justify-between gap-3">
-      <p className={cn("hidden min-w-0 items-center gap-2 text-xs sm:flex", textMuted)}>
-        <ShieldCheck aria-hidden="true" className="size-icon-md shrink-0" /> Demo content only · Do not enter PHI
-      </p>
-      <div className="ml-auto flex min-w-0 items-center justify-end gap-2">
+    <div
+      data-guide-mobile-footer
+      aria-hidden={chromeHidden}
+      inert={chromeHidden || undefined}
+      className="mx-auto grid w-full max-w-3xl min-w-0 gap-2.5"
+    >
+      <div data-guide-tour-action-row className="flex min-w-0 items-center justify-center gap-2">
         {view === "tour" && !tourComplete ? (
           <>
             <button
@@ -780,6 +858,23 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
           </>
         )}
       </div>
+      <GuideSearch
+        query={query}
+        inputRef={searchInputRef}
+        onFocusChange={setSearchFocused}
+        onQueryChange={(nextQuery) => {
+          setQuery(nextQuery);
+          if (nextQuery.trim()) {
+            window.requestAnimationFrame(() => {
+              if (scrollBodyRef.current) scrollBodyRef.current.scrollTop = 0;
+              chromeScrollHide.reset();
+            });
+          }
+        }}
+      />
+      <p className={cn("hidden items-center justify-center gap-2 text-xs sm:flex", textMuted)}>
+        <ShieldCheck aria-hidden="true" className="size-icon-md shrink-0" /> Demo content only · Do not enter PHI
+      </p>
     </div>
   );
 
@@ -798,21 +893,39 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
           <BookOpen aria-hidden="true" className="size-6" />
         </span>
       }
-      contentClassName="font-sans sm:max-w-none lg:h-[min(56rem,calc(100dvh-3rem))] lg:max-w-[min(94vw,90rem)]"
+      contentClassName="relative font-sans sm:max-w-none lg:h-[min(56rem,calc(100dvh-3rem))] lg:max-w-[min(94vw,90rem)]"
       bodyClassName="p-0 sm:p-0"
+      bodyRef={scrollBodyRef}
+      bodyTabIndex={0}
+      onBodyScroll={handleBodyScroll}
+      headerRef={headerRef}
+      headerHidden={chromeHidden}
+      headerBottom={<GuideTopNavigation view={view} onNavigate={navigate} />}
+      headerClassName={cn(
+        "guide-centre-header max-h-48 overflow-hidden pt-[max(1rem,env(safe-area-inset-top))] transition-[border-color,opacity] duration-[var(--duration-moderate)] motion-reduce:transition-none sm:pt-5",
+        chromeHidden &&
+          "max-h-0 border-transparent p-0 opacity-0 sm:max-h-48 sm:border-[color:var(--border)] sm:p-5 sm:opacity-100",
+      )}
       mobilePlacement="fullscreen"
       footer={footer}
+      footerClassName={cn(
+        "absolute inset-x-0 bottom-0 z-30 border-t border-[color:var(--border)] bg-[color:var(--surface-raised)] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[var(--e4)] transition-[transform,opacity] duration-[var(--duration-moderate)] motion-reduce:transition-none sm:static sm:p-4 sm:shadow-none",
+        chromeHidden &&
+          "pointer-events-none translate-y-full opacity-0 sm:pointer-events-auto sm:translate-y-0 sm:opacity-100",
+      )}
       testId="clinical-kb-guide-centre"
       closeButtonClassName="grid size-tap shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
     >
       <span id={guideAccessibleNameId} className="sr-only">
         Clinical KB guide
       </span>
-      <div className="sticky top-0 z-20 bg-[color:var(--surface-raised)] px-3 pb-3 sm:px-5">
-        <GuideSearch query={query} onQueryChange={setQuery} />
-      </div>
-      <GuideTopNavigation view={view} onNavigate={navigate} />
-      <div ref={contentStartRef} className="space-y-4 p-3 sm:p-5">
+      <div
+        ref={contentStartRef}
+        data-guide-content
+        data-reserve-owner="guide-search-dock"
+        data-reserve-hidden-pad="0"
+        className={cn("space-y-4 p-3 sm:p-5", chromeHidden ? "pb-0 sm:pb-5" : "pb-40 sm:pb-5")}
+      >
         {hasSearch ? (
           <SearchResults query={query} onSelect={openTopic} />
         ) : (

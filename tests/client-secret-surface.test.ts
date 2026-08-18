@@ -19,7 +19,11 @@ const SRC_ROOT = join(ROOT, "src");
 const SERVER_ENV = join(SRC_ROOT, "lib", "env.ts");
 const PUBLIC_ENV = join(SRC_ROOT, "lib", "client-env.ts");
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx"];
-const PUBLIC_ENV_KEYS = new Set(["NODE_ENV", "NEXT_PUBLIC_LOCAL_NO_AUTH"]);
+const PUBLIC_ENV_KEYS = new Set([
+  "NODE_ENV",
+  "NEXT_PUBLIC_LOCAL_NO_AUTH",
+  "NEXT_PUBLIC_RAG_INCREMENTAL_EVIDENCE_PREVIEW_RENDER",
+]);
 const importCache = new Map<string, string[]>();
 
 function sourceFiles(dir: string): string[] {

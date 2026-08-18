@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   classifyMergeLoss,
+  classifyRemoval,
   isReconciliationMove,
   parseLogEntries,
   parsePullNumber,
+  parseTreeEntry,
 } from "../scripts/audit-merge-loss.mjs";
 
 const INBOX = "docs/outstanding-issues-inbox";
@@ -148,5 +150,143 @@ describe("merge-loss reconciliation exemption", () => {
     });
     expect(result.findings).toHaveLength(1);
     expect(result.filesExempted).toBe(0);
+  });
+
+  it("exempts a reconciled request when entries come from real ls-tree output", () => {
+    // The guard the `"\\t"` bug needed. Every other test in this file injects bare
+    // entries, which compare equal whether or not the path was stripped; only a
+    // realistic entry exposes a cross-path comparison that can never match.
+    const lsTree = (file: string) => parseTreeEntry(`100644 blob eee\t${file}`);
+    const result = classifyMergeLoss({
+      ref: "head",
+      entryAt: reader({ [`sha1915:${request}`]: lsTree(request)!, [`head:${applied}`]: lsTree(applied)! }),
+      landings: [landing(1915, [request])],
+    });
+    expect(result.findings).toEqual([]);
+    expect(result.filesExempted).toBe(1);
+  });
+});
+
+describe("merge-loss tree-entry parsing", () => {
+  it("strips the path from an ls-tree line", () => {
+    // `<mode> SP <type> SP <oid> TAB <path>` — the separator is a real tab.
+    expect(parseTreeEntry("100644 blob aa5bc159018775a3ba075fa846ff4c1fda01e236\tpackage.json")).toBe(
+      "100644 blob aa5bc159018775a3ba075fa846ff4c1fda01e236",
+    );
+  });
+
+  it("gives two paths sharing a blob the same entry", () => {
+    // This is what the reconciliation exemption depends on.
+    const inbox = parseTreeEntry("100644 blob eee\tdocs/outstanding-issues-inbox/x.json");
+    const moved = parseTreeEntry("100644 blob eee\tdocs/outstanding-issues-inbox/applied/x.json");
+    expect(inbox).toBe(moved);
+  });
+
+  it("keeps a mode difference visible", () => {
+    expect(parseTreeEntry("100644 blob aaa\ts.sh")).not.toBe(parseTreeEntry("100755 blob aaa\ts.sh"));
+  });
+
+  it("treats a missing path as null", () => {
+    expect(parseTreeEntry(undefined)).toBeNull();
+    expect(parseTreeEntry("")).toBeNull();
+  });
+});
+
+describe("merge-loss removal mechanism", () => {
+  const walk = (commits: Array<{ sha: string; subject: string }>, merges: string[] = []) => ({
+    historyOf: () => commits,
+    entryAt: () => "pre-entry" as string | null,
+    isMergeCommit: (sha: string) => merges.includes(sha),
+  });
+  const base = { file: "lost.ts", landingSha: "s1", preEntry: "pre-entry", ref: "head" };
+
+  it("classifies a merge commit as a merge resolution", () => {
+    const removal = classifyRemoval({
+      ...base,
+      ...walk(
+        [{ sha: "acf78bf4", subject: "Merge remote-tracking branch 'origin/main' into probe2-1815" }],
+        ["acf78bf4"],
+      ),
+    });
+    expect(removal).toMatchObject({ mechanism: "merge-resolution", sha: "acf78bf4" });
+  });
+
+  it("classifies a single-parent commit as deliberate", () => {
+    const removal = classifyRemoval({
+      ...base,
+      ...walk([{ sha: "8ca147d5", subject: "ci: speed iteration without weakening gates (#1926)" }]),
+    });
+    expect(removal).toMatchObject({
+      mechanism: "deliberate-commit",
+      subject: "ci: speed iteration without weakening gates (#1926)",
+    });
+  });
+
+  it("blames the oldest matching commit, not a later one carrying the absence forward", () => {
+    const removal = classifyRemoval({
+      ...base,
+      historyOf: () => [
+        { sha: "culprit", subject: "Merge branch 'main'" },
+        { sha: "later", subject: "unrelated touch" },
+      ],
+      entryAt: () => "pre-entry",
+      isMergeCommit: (sha: string) => sha === "culprit",
+    });
+    expect(removal).toMatchObject({ mechanism: "merge-resolution", sha: "culprit" });
+  });
+
+  it("reports unknown rather than guessing when no commit matches the pre-merge entry", () => {
+    const removal = classifyRemoval({
+      ...base,
+      historyOf: () => [{ sha: "c1", subject: "something else" }],
+      entryAt: () => "a-different-entry",
+      isMergeCommit: () => false,
+    });
+    expect(removal.mechanism).toBe("unknown");
+    expect(removal.sha).toBeUndefined();
+  });
+
+  it("reports unknown for an empty history", () => {
+    expect(classifyRemoval({ ...base, ...walk([]) }).mechanism).toBe("unknown");
+  });
+});
+
+describe("merge-loss mechanism reporting", () => {
+  const entryAt = reader({ "pre:a.ts": "1", "head:a.ts": "1", "pre:b.ts": "2", "head:b.ts": "2" });
+
+  it("leaves the finding shape and order untouched when no mechanism reader is given", () => {
+    const result = classifyMergeLoss({ ref: "head", entryAt, landings: [landing(10, ["a.ts"])] });
+    expect(result.findings[0].revertedFiles).toEqual([{ file: "a.ts", absent: false }]);
+    expect(result.mechanismCounts).toEqual({ "merge-resolution": 0, "deliberate-commit": 0, unknown: 0 });
+  });
+
+  it("attaches the mechanism and counts it", () => {
+    const result = classifyMergeLoss({
+      ref: "head",
+      entryAt,
+      landings: [landing(10, ["a.ts"])],
+      removalOf: () => ({ mechanism: "merge-resolution", sha: "acf78bf4", subject: "Merge origin/main" }),
+    });
+    expect(result.findings[0].revertedFiles[0]).toMatchObject({
+      file: "a.ts",
+      removal: { mechanism: "merge-resolution", sha: "acf78bf4" },
+    });
+    expect(result.mechanismCounts["merge-resolution"]).toBe(1);
+  });
+
+  it("lists merge-resolution findings before larger deliberate ones", () => {
+    // #1800 lost 6 files to acf78bf; #1815 lost 47 to a re-land. The accidental
+    // case must not be buried under the bigger deliberate one.
+    const result = classifyMergeLoss({
+      ref: "head",
+      entryAt,
+      landings: [landing(1815, ["a.ts", "b.ts"]), landing(1800, ["a.ts"])],
+      removalOf: ({ landingSha }: { landingSha: string }) =>
+        landingSha === "sha1800"
+          ? { mechanism: "merge-resolution", sha: "acf78bf4", subject: "Merge origin/main" }
+          : { mechanism: "deliberate-commit", sha: "f89fbcc7", subject: "Re-land the retirement" },
+    });
+    expect(result.findings.map((finding) => finding.pullNumber)).toEqual([1800, 1815]);
+    expect(result.mechanismCounts).toEqual({ "merge-resolution": 1, "deliberate-commit": 2, unknown: 0 });
   });
 });

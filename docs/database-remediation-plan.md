@@ -3,14 +3,36 @@
 Owner: operator (Josh) + specialist session. Source findings: open ledger `#248` (whose causal
 conclusion awaits a read-only history and audit check) and the queued P1 live-drift follow-up.
 Companion evidence: live-drift Actions runs
-`30763871562` (2026-08-02) and
-`31330856982` (2026-08-09), PR #1614, `supabase/migrations/20260804110240_restore_rag_search_health_indexes.sql`.
+`30763871562` (2026-08-02), `31330856982` (2026-08-09) and
+`31813064485` (2026-08-14, the current measurement), PR #1614,
+`supabase/migrations/20260804110240_restore_rag_search_health_indexes.sql`.
 
-**Scope.** Fixes, in dependency order: the live-vs-repo schema gap (21 missing indexes, 2
-unexpected indexes, 10 diverged `match_*` RPC bodies), the unresolved cause of the affected
-migration history, drift-detection routing, and the surrounding database debt (`#102`, `#011`, `#036`,
-`#022`, `#025`, `#056`/`#057`, `#183`, `#188`/`#196`–`#200`, `#191`, `#098`/`#099`). Ends with
-standing protections so unverified history repairs remain visible and cannot silently mask drift.
+> **Status as of 2026-08-14.** Phase 0 is **complete** (routing, post-migration trigger, evidence
+> file, and the forced-dispatch proof — which auto-created issue **#1963**). Phase 1 is **partial**:
+> 1.1 and 1.3 were run in an owner-authorised incident window, but **1.2, the RPC divergence
+> dossier, is outstanding and is the gate for Phase 3**. Phase 4 is **partial**: the two
+> retrieval-critical trigram indexes were restored, ~20 remain.
+>
+> **Next step is Phase 1.2, not Phase 3.** Complete and review the RPC divergence dossier first,
+> then run the Phase 2 staging-parity rehearsal. Only after both prerequisites are complete may an
+> appropriately approved Phase 3 reconciliation proceed. Before starting any phase, check the
+> open-PR list for the surface first (`#292`): Phase 0 was independently built twice on 2026-08-14,
+> and Phases 3 and 4 spend approved production windows and eval-canary budget rather than just tokens.
+
+**Scope.** Fixes, in dependency order: the live-vs-repo schema gap, the unresolved cause of the
+affected migration history, drift-detection routing, and the surrounding database debt (`#102`,
+`#011`, `#036`, `#022`, `#025`, `#056`/`#057`, `#183`, `#188`/`#196`–`#200`, `#191`, `#098`/`#099`).
+Ends with standing protections so unverified history repairs remain visible and cannot silently mask
+drift.
+
+The schema gap, measured 2026-08-14 (superseding the 2026-08-09 figures this plan was written
+against):
+
+| Category                      | 2026-08-09 | 2026-08-14         |
+| ----------------------------- | ---------- | ------------------ |
+| diverged `match_*` RPC bodies | 10         | **10 — unchanged** |
+| `missing_live` indexes        | 21         | **20**             |
+| `unexpected_live` indexes     | 2          | **2 — unchanged**  |
 
 **Standing rules for every phase.** No hosted mutation without explicit approval for that phase.
 Never raw-SQL a drift fix — every live change is codified (migration + `schema.sql` mirror +
@@ -63,7 +85,7 @@ hypothesis into a named, evidence-backed conclusion.
 noise** (whitespace/qualifier only). No edits. This is the highest-stakes unknown in the whole
 plan — live retrieval behaviour may currently depend on bodies the repo does not contain.
 
-1.3 **Index inventory & sizing.** For the 21 missing and 2 unexpected indexes: owning-table
+1.3 **Index inventory & sizing.** For the 20 missing and 2 unexpected indexes: owning-table
 `pg_relation_size`, and `EXPLAIN (ANALYZE, BUFFERS)` for the known hot queries
 (`documents` title ILIKE, `document_chunks` content search, `rag_retrieval_logs` miss scan).
 These are the before-measurements for Phase 4, including the `#231` latency hypothesis.
@@ -73,7 +95,9 @@ right now), report before proceeding.
 
 ## Phase 2 — Staging rehearsal (`#056`, prerequisite for safe production work)
 
-2.1 Bring `Clinical KB Staging` to full migration parity (it is ~24 migrations behind). This
+2.1 Bring `Clinical KB Staging` to full migration parity (**26 migrations behind as measured
+2026-08-17** — ten earlier history holes plus sixteen after `20260719055623`; the gap widens as
+`main` advances, so re-measure at the start of the window rather than trusting this figure). This
 doubles as the rehearsal: the replay exercises every migration end-to-end, including the
 `20260804110240` guard (staging must prebuild or take the transactional builds — it is idle, so
 transactional is fine there).

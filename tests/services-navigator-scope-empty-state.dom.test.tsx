@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -47,6 +47,23 @@ vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => (
   UniversalSearchAlsoMatches: () => null,
 }));
 
+// The result row's bookmark reads account favourites. Stubbed rather than
+// wrapped in the real provider so this file keeps testing scope/facet
+// behaviour without also exercising the account fetch.
+vi.mock("@/components/account-data-provider", () => ({
+  useAccountData: () => ({
+    favourites: { service: [], form: [], differential: [] },
+    ready: true,
+    loadError: null,
+    error: null,
+    isAuthenticated: false,
+    isSaved: () => false,
+    setFavourite: vi.fn(async () => true),
+    clearFavourites: vi.fn(async () => true),
+    reload: vi.fn(),
+  }),
+}));
+
 import { ServicesNavigatorPage } from "@/components/services/services-navigator-page";
 
 describe("services scope segment vs the query-empty state", () => {
@@ -76,6 +93,12 @@ describe("services scope segment vs the query-empty state", () => {
     const results = screen.getByTestId("service-search-results");
     expect(results).toBeInTheDocument();
     expect(results.children.length).toBe(registryRecords.length);
+
+    fireEvent.click(screen.getByTestId("service-filter-trigger-desktop"));
+    const scope = screen.getByRole("group", { name: "Search in" });
+    expect(within(scope).getByRole("radio", { name: /^Current results/ })).not.toBeChecked();
+    expect(within(scope).getByRole("radio", { name: /^All services/ })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Remove Search in: All services filter" })).toBeVisible();
   });
 
   it("marks a zero-count care lens as unavailable from the active facet set", () => {

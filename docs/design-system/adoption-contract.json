@@ -118,6 +118,14 @@
       "id": "catalogues-forms-and-info",
       "disposition": "owned",
       "routes": [
+        "src/app/(search-app)/dictionary/[slug]/page.tsx",
+        "src/app/(search-app)/dictionary/browse/page.tsx",
+        "src/app/(search-app)/dictionary/compare/page.tsx",
+        "src/app/(search-app)/dictionary/page.tsx",
+        "src/app/(search-app)/dictionary/search/page.tsx",
+        "src/app/(search-app)/dictionary/sources/page.tsx",
+        "src/app/(search-app)/dictionary/topics/[slug]/page.tsx",
+        "src/app/(search-app)/dictionary/topics/page.tsx",
         "src/app/(search-app)/dsm/compare/page.tsx",
         "src/app/(search-app)/dsm/diagnoses/[slug]/differentials/page.tsx",
         "src/app/(search-app)/dsm/diagnoses/[slug]/page.tsx",
@@ -484,7 +492,7 @@
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["ApplicationsLauncherPage", "CalculatorsSearchPage"]
+      "sanctionedSpecialPatterns": ["ToolsSearchResultsPage", "CalculatorsSearchPage"]
     },
     {
       "id": "ward-management",

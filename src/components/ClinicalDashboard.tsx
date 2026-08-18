@@ -34,7 +34,12 @@ import { useUploadDesktopLayout } from "@/components/clinical-dashboard/use-uplo
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { ownsVerticalScroll, scrollSurface } from "@/components/clinical-dashboard/scroll-surface";
-import { isLocalNoAuthMode, resolveClientDemoMode, resolveUploadReadOnlyMode } from "@/lib/client-env";
+import {
+  incrementalEvidencePreviewRenderingEnabled,
+  isLocalNoAuthMode,
+  resolveClientDemoMode,
+  resolveUploadReadOnlyMode,
+} from "@/lib/client-env";
 import { isAdministratorUser } from "@/lib/authorization";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
@@ -50,6 +55,7 @@ import {
 import { useAuthSession } from "@/lib/supabase/client";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
+import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
 import * as SidebarDialogs from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
@@ -82,6 +88,8 @@ import {
   type AnswerProgressUpdate,
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
+import { AnswerEvidencePreview } from "@/components/clinical-dashboard/answer-evidence-preview";
+import { requestAnswerStream } from "@/components/clinical-dashboard/answer-request";
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
@@ -100,7 +108,6 @@ import {
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   answerReferencesDocument,
-  answerTimedOutError,
   applyRenamedDocumentToAnswer,
   compactScopeFilters,
   hasActiveIndexingWork,
@@ -110,6 +117,7 @@ import {
   replaceOwnedAbortController,
   mergeDocumentRefresh,
   normalizeNavigationHash,
+  shouldShowSharedHome,
   setupNeedsSlowRecheck,
   setupRecheckPollMs,
   shorterPollDelay,
@@ -170,12 +178,10 @@ import {
   keywordQueryFromNaturalLanguage,
   makeSearchError,
   progressForRetry,
-  readAnswerStream,
   searchRetryCount,
   searchRetryDelaysMs,
   sleep,
   type AnswerErrorKind,
-  type AnswerPayload,
   type SearchError,
 } from "@/components/clinical-dashboard/search-utils";
 import {
@@ -224,11 +230,13 @@ import {
 } from "@/components/clinical-dashboard/use-persisted-answer-thread";
 import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import { buildAnswerRenderModel, isAnswerSourceBacked } from "@/lib/answer-render-policy";
+import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
 import {
   frontendSourceGovernanceWarnings,
   groupSourceGovernanceWarnings,
   type SourceGovernanceWarning,
 } from "@/lib/source-governance";
+
 import { type SmartDocumentTag, type SmartDocumentTagFacet } from "@/lib/document-tags";
 import type {
   ClinicalDocument,
@@ -437,6 +445,7 @@ export function ClinicalDashboard({
     setSourceGovernanceWarnings([]);
     setError(null);
     setAnswerProgress(null);
+    setAnswerEvidencePreview(null);
     setDifferentialEvidenceQuery(null);
   }, [resetAnswerThread]);
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>(initialSearchNavigationContext.scopeFilters);
@@ -449,6 +458,7 @@ export function ClinicalDashboard({
   const [answerProgress, setAnswerProgress] = useState<string | null>(null);
   const [answerProgressEvents, setAnswerProgressEvents] = useState<TimedAnswerProgressUpdate[]>([]);
   const [answerProgressStartedAt, setAnswerProgressStartedAt] = useState<number | null>(null);
+  const [answerEvidencePreview, setAnswerEvidencePreview] = useState<VerifiedEvidencePreviewUnit | null>(null);
   const [answerLifecycle, dispatchAnswerLifecycle] = useReducer(answerLifecycleReducer, initialAnswerLifecycle);
   const [error, setError] = useState<string | null>(null);
   // Companion state for `error`, used to pick the right recovery UI (retry vs.
@@ -1670,57 +1680,30 @@ export function ClinicalDashboard({
     };
   }
 
-  async function requestAnswer(
+  function requestAnswer(
     queryText: string,
     filtersOverride: SearchScopeFilters = scopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
     onProgress: (progress: AnswerProgressUpdate) => void,
+    onEvidencePreview: (preview: VerifiedEvidencePreviewUnit | null) => void,
     signal?: AbortSignal,
     onStreamActivity?: () => void,
   ) {
-    let response: Response;
-    try {
-      response = await fetch("/api/answer/stream", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(clientDemoMode ? {} : authorizationHeader),
-        },
-        body: JSON.stringify({
-          query: queryText,
-          documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
-          filters: compactScopeFilters(filtersOverride),
-          queryMode: queryModeOverride,
-        }),
-        signal,
-      });
-    } catch (error) {
-      if (answerTimedOutRef.current) throw answerTimedOutError();
-      if (isAbortError(error)) throw error;
-      throw searchNetworkFailure("Answer search");
-    }
-
-    if (response.status === 401) {
-      markSessionExpired();
-      throw makeSearchError("Search request was not authorized by the server.", 401, false);
-    }
-    if (!response.ok) {
-      throw await parseApiErrorResponse(response);
-    }
-
-    let payload: AnswerPayload;
-    try {
-      payload = await readAnswerStream(response, onProgress, onStreamActivity);
-    } catch (error) {
-      if (answerTimedOutRef.current) throw answerTimedOutError();
-      if (isAbortError(error)) throw error;
-      throw error;
-    }
-    return {
-      kind: "answer" as const,
-      query: queryText,
-      payload,
-    };
+    return requestAnswerStream({
+      queryText,
+      filters: filtersOverride,
+      queryMode: queryModeOverride,
+      selectedDocumentIds,
+      clientDemoMode,
+      authorizationHeader,
+      onProgress,
+      onEvidencePreview,
+      signal,
+      onStreamActivity,
+      timedOut: () => answerTimedOutRef.current,
+      onSessionExpired: markSessionExpired,
+      networkFailure: () => searchNetworkFailure("Answer search"),
+    });
   }
 
   async function runWithRetries<T>(
@@ -1773,6 +1756,7 @@ export function ClinicalDashboard({
     setAnswerProgress(null);
     setAnswerProgressEvents([]);
     setAnswerProgressStartedAt(null);
+    setAnswerEvidencePreview(null);
     dispatchAnswerLifecycle({ type: "cancel" });
   }
 
@@ -1933,6 +1917,10 @@ export function ClinicalDashboard({
         return [...current, { ...progress, receivedAt: Date.now() }].slice(-16);
       });
     };
+    const onAnswerEvidencePreview = (preview: VerifiedEvidencePreviewUnit | null) => {
+      if (!requestIsCurrent()) return;
+      setAnswerEvidencePreview(incrementalEvidencePreviewRenderingEnabled() ? preview : null);
+    };
     const onRetryProgress = (message: string) => {
       if (isAnswerRequest) onAnswerProgress({ stage: "retrying", message });
       else onProgress(message);
@@ -1951,6 +1939,7 @@ export function ClinicalDashboard({
     setSearchFacets(null);
     setSearchScope(null);
     setSourceGovernanceWarnings([]);
+    setAnswerEvidencePreview(null);
     setAnswerViewMode("high_yield");
     if (isAnswerRequest) {
       const startedAt = Date.now();
@@ -2029,15 +2018,18 @@ export function ClinicalDashboard({
                   abortController.signal,
                 )
               : await runWithRetries(
-                  () =>
-                    requestAnswer(
+                  () => {
+                    onAnswerEvidencePreview(null);
+                    return requestAnswer(
                       entry.query,
                       filtersOverride,
                       targetQueryMode,
                       onAnswerProgress,
+                      onAnswerEvidencePreview,
                       abortController.signal,
                       answerWatchdog.touch,
-                    ),
+                    );
+                  },
                   onRetryProgress,
                   abortController.signal,
                 );
@@ -2196,7 +2188,7 @@ export function ClinicalDashboard({
     if (searchMode === "documents" && trimmedQuery) {
       rememberRecentQuery(trimmedQuery);
       autoRunSearchSignatureRef.current = searchSubmissionSignature(searchMode, trimmedQuery, navigationContext);
-      window.history.pushState(
+      window.history[replaceExistingAnswer ? "replaceState" : "pushState"](
         null,
         "",
         documentsSearchHref({
@@ -3014,14 +3006,15 @@ export function ClinicalDashboard({
   const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
   const submittedAnswerSearchActive =
     activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
-  // `/` is the single home page for every mode. The mode pill retargets the
-  // composer instead of navigating, so the hero must not be answer-only: picking
-  // DSM on home keeps this exact surface and only swaps the placeholder. Gated on
-  // the pathname (never on `searchMode`) per the hero-vs-dock rule in
-  // docs/search-chrome-behaviour.md — a mode pick must not flip composer reserve.
-  const isHomeRoute = pathname === "/";
-  const showSharedHome =
-    isHomeRoute && !submittedUrlRunRequested && !error && !answer && !loading && !submittedAnswerSearchActive;
+  const showSharedHome = shouldShowSharedHome({
+    pathname,
+    mode: searchParams.get("mode"),
+    submittedUrlRunRequested,
+    hasError: Boolean(error),
+    hasAnswer: Boolean(answer),
+    loading,
+    submittedAnswerSearchActive,
+  });
   const showAnswerPending =
     activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
   const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
@@ -3065,17 +3058,18 @@ export function ClinicalDashboard({
   const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
   const desktopResultComposerSlotId =
     !desktopHomeComposerSlotId && searchMode !== "answer" ? desktopPageComposerSlotId : undefined;
-  // Any mounted mode home (answer, documents, prescribing, differentials, tools,
-  // favourites) keeps the in-flow hero pill on phones ("all") per the
-  // page-ownership contract. Only result/submitted views fall back to "sm-up"
-  // so phones get the compact bottom dock.
-  const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";
+  // Most mounted mode homes keep the in-flow hero pill on phones. Tools is the
+  // deliberate exception: its content-rich directory keeps the compact footer.
+  // Modes borrowing `kind: "tools"` (Factsheets, Dictionary, Therapy Compass) opt back in via `showSharedHome`.
+  const heroComposerBreakpoint =
+    showDesktopHomeComposer && (showSharedHome || activeModeResultKind !== "tools") ? "all" : "sm-up";
   const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
   const hasMobileBottomSearch = searchMode !== "answer" && !heroOwnsPhoneComposer;
-  // Favourites and Tools are content-rich hubs: they share the centred hero but
-  // stay top-aligned so their lists start in a stable position.
+  // Favourites and Tools are content-rich hubs that stay top-aligned; the shared
+  // home mounts neither, so it centres like every other mode.
   const centeredModeHome =
-    showDesktopHomeComposer && activeModeResultKind !== "tools" && activeModeResultKind !== "favourites";
+    showDesktopHomeComposer &&
+    (showSharedHome || (activeModeResultKind !== "tools" && activeModeResultKind !== "favourites"));
   // Short mode homes (centred homes plus the services/forms registry homes)
   // drop the large mobile bottom padding so phones don't get a scrollbar for
   // content that already fits. Result views keep the full clearance.
@@ -3226,6 +3220,7 @@ export function ClinicalDashboard({
   const handleCrossModeSearch = useEventCallback(crossModeSearch);
   const handleDocumentTagSearch = useEventCallback(handleTagSearch);
   const handleScopeFiltersChange = useScopeFilterRelax(query, queryMode, setScopeFilters, ask);
+  const handleDocumentFiltersApply = useApplyFilters(query, queryMode, setScopeFilters, setSelectedDocumentIds, askRef);
   const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
   const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
   const handleDocumentsDrawerOpenChange = useEventCallback((nextOpen: boolean) => {
@@ -3318,6 +3313,7 @@ export function ClinicalDashboard({
         onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
         onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
+        onOpenSearch={focusComposerInput}
         showAccountLibrary={favouritesAccessible}
       />
       <PhoneFooterLayerFrame
@@ -3658,6 +3654,10 @@ export function ClinicalDashboard({
                     <SearchProgressBanner message={answerProgress} onStop={stopSearch} />
                   ) : null)}
 
+                {activeModeResultKind === "answer" && loading && answerEvidencePreview ? (
+                  <AnswerEvidencePreview preview={answerEvidencePreview} />
+                ) : null}
+
                 {showUniversalAlsoMatches &&
                 (activeModeResultKind === "tools" ||
                   activeModeResultKind === "documents" ||
@@ -3667,7 +3667,7 @@ export function ClinicalDashboard({
                 ) : null}
 
                 {showSharedHome ? (
-                  // The one home surface, shared by all 13 modes. It sits above every
+                  // The one home surface, shared by every registered mode. It sits above every
                   // mode-specific branch so picking a mode on `/` changes only its
                   // presentation and composer target; mode-owned content stays behind
                   // its own route (/tools, /favourites, /dsm, …).
@@ -3767,6 +3767,8 @@ export function ClinicalDashboard({
                         onTagSearch={handleDocumentTagSearch}
                         scopeFilters={searchMode === "documents" ? scopeFilters : null}
                         onScopeFiltersChange={searchMode === "documents" ? handleScopeFiltersChange : undefined}
+                        selectedDocumentIds={searchMode === "documents" ? selectedDocumentIds : []}
+                        onDocumentFiltersApply={searchMode === "documents" ? handleDocumentFiltersApply : undefined}
                         showHome={searchMode === "documents" && !modeSearchSubmitted}
                         desktopComposerSlotId={desktopHomeComposerSlotId}
                       />
@@ -4129,6 +4131,7 @@ export function ClinicalDashboard({
           onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
           onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
           onPrefetchApplications={prefetchApplications}
+          onOpenSearch={focusComposerInput}
           showAccountLibrary={favouritesAccessible}
         />
       </PhoneFooterLayerFrame>

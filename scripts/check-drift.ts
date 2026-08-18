@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { loadEnvConfig } from "@next/env";
 
 loadEnvConfig(process.cwd());
@@ -14,34 +14,114 @@ loadEnvConfig(process.cwd());
  * it was generated from, so a stale manifest fails fast here (and offline in
  * tests/drift-detection.test.ts) instead of producing phantom drift.
  *
- * Live side: public.schema_drift_snapshot() (migration
- * 20260706200000_schema_drift_snapshot.sql), a service-role-only RPC returning
- * the same normalized inventory the manifest holds.
+ * Live side: public.schema_drift_snapshot() (v1 migration
+ * 20260706200000_schema_drift_snapshot.sql, v2 20260818090000 — see
+ * HISTORY_PROBE_MIGRATION below), a service-role-only RPC returning the same
+ * normalized inventory the manifest holds.
  *
  * Known, documented divergence is carried in supabase/drift-allowlist.json —
  * every entry needs a reason and is reported as a warning, never silently
  * dropped. Anything not allowlisted exits 1. See docs/database-drift-detection.md.
+ *
+ * Migration-history probe (snapshot v2, migration 20260818090000): the live
+ * snapshot also carries `migration_history` — every
+ * supabase_migrations.schema_migrations version whose `statements` is NULL or
+ * empty, i.e. a history repair / mark-applied row whose DDL the CLI never
+ * executed. That category is never compared manifest-vs-live (the replay
+ * container has no history table); each live row is a finding unless a
+ * reviewed `migration_history` allowlist entry points at a real guard
+ * migration (see docs/database-drift-detection.md "Guard-migration contract").
  */
 
 type SnapshotObject = Record<string, unknown>;
 type Snapshot = Record<string, unknown>;
 
-type AllowlistEntry = {
+export const HISTORY_PROBE_MIGRATION = "20260818090000_schema_drift_snapshot_history_probe.sql";
+/** Versions at or after this date must use the `validation` guard class. */
+export const GUARD_CONTRACT_VERSION = "20260818000000";
+export const HISTORY_GUARD_CLASSES = ["validation", "superseded", "no_ddl"] as const;
+export type HistoryGuardClass = (typeof HISTORY_GUARD_CLASSES)[number];
+
+export type HistoryGuard = {
+  class: HistoryGuardClass;
+  migration: string;
+  objects?: string[];
+};
+
+export type AllowlistEntry = {
   category: string;
-  kind: "missing_live" | "unexpected_live" | "mismatch" | "alias";
+  kind: "missing_live" | "unexpected_live" | "mismatch" | "alias" | "no_statements";
   key: string;
   live_key?: string;
   reason: string;
+  guard?: HistoryGuard;
 };
 
-type Finding = {
+export type Finding = {
   category: string;
-  kind: "missing_live" | "unexpected_live" | "mismatch";
+  kind: "missing_live" | "unexpected_live" | "mismatch" | "no_statements";
   key: string;
   detail?: string;
 };
 
+type MigrationHistoryRow = { version: string; name?: string; signal?: string };
+
 const read = (relative: string) => readFileSync(new URL(`../${relative}`, import.meta.url), "utf8");
+const migrationExists = (fileName: string) =>
+  existsSync(new URL(`../supabase/migrations/${fileName}`, import.meta.url));
+
+const MIGRATION_FILE = /^(\d{14})_.+\.sql$/;
+
+/**
+ * Structural validation of a `migration_history` allowlist entry. A malformed
+ * entry never matches a finding, so it can never silence a history row: the
+ * row stays an unexpected finding and the entry is reported as stale.
+ * Object-level checks (does the guard file really validate the named objects)
+ * live in tests/migration-history-guards.test.ts.
+ */
+export function historyEntryProblems(
+  entry: AllowlistEntry,
+  options: { migrationExists?: (fileName: string) => boolean } = {},
+): string[] {
+  const exists = options.migrationExists ?? migrationExists;
+  const problems: string[] = [];
+  if (entry.category !== "migration_history") problems.push("category must be migration_history");
+  if (entry.kind !== "no_statements") problems.push("kind must be no_statements");
+  if (!/^\d{14}$/.test(entry.key)) problems.push("key must be a 14-digit migration version");
+  if (typeof entry.reason !== "string" || entry.reason.trim().length <= 20) {
+    problems.push("reason must be a real explanation (> 20 chars)");
+  }
+  const guard = entry.guard;
+  if (!guard || typeof guard !== "object") {
+    problems.push("guard is required");
+    return problems;
+  }
+  if (!HISTORY_GUARD_CLASSES.includes(guard.class)) {
+    problems.push(`guard.class must be one of ${HISTORY_GUARD_CLASSES.join("|")}`);
+  }
+  const fileMatch = typeof guard.migration === "string" ? guard.migration.match(MIGRATION_FILE) : null;
+  if (!fileMatch) {
+    problems.push("guard.migration must be a <14-digit version>_<stem>.sql file name");
+    return problems;
+  }
+  if (!exists(guard.migration))
+    problems.push(`guard.migration ${guard.migration} does not exist under supabase/migrations/`);
+  const guardVersion = fileMatch[1];
+  if (guard.class === "no_ddl") {
+    if (guardVersion !== entry.key) problems.push("no_ddl guard must be the version's own migration file");
+  } else if (!(guardVersion > entry.key)) {
+    problems.push(`${guard.class} guard must be a later migration than ${entry.key}`);
+  }
+  if (guard.class === "validation" && (!Array.isArray(guard.objects) || guard.objects.length === 0)) {
+    problems.push("validation guard must list the objects it proves (guard.objects)");
+  }
+  if (guard.class !== "validation" && entry.key >= GUARD_CONTRACT_VERSION) {
+    problems.push(
+      `versions from ${GUARD_CONTRACT_VERSION} must use a validation guard (guard-migration contract); ${guard.class} is for pre-contract history only`,
+    );
+  }
+  return problems;
+}
 
 export function normalizedSchemaSha256(schemaSqlText: string) {
   return createHash("sha256").update(schemaSqlText.replace(/\r\n/g, "\n")).digest("hex");
@@ -127,6 +207,7 @@ export function compareDriftSnapshots(
   expected: Snapshot,
   live: Snapshot,
   allowlist: AllowlistEntry[],
+  options: { historyEntryProblems?: (entry: AllowlistEntry) => string[] } = {},
 ): DriftComparison {
   const findings: Finding[] = [];
   const infos: string[] = [];
@@ -158,6 +239,35 @@ export function compareDriftSnapshots(
     }
   }
 
+  // Migration-history probe (snapshot v2). Never compared manifest-vs-live —
+  // the manifest replay has no supabase_migrations schema — so every live row
+  // recorded without executed statements is a finding unless a validated
+  // `migration_history` allowlist entry covers it.
+  const historyRows = live.migration_history;
+  if (historyRows === undefined) {
+    infos.push(
+      `migration-history probe not present in the live snapshot — migration ${HISTORY_PROBE_MIGRATION} is not deployed; ` +
+        `the schema_drift_snapshot() function mismatch is that pending deploy, not a body regression`,
+    );
+  } else if (live.migration_history_probe !== "ok") {
+    infos.push(
+      `migration-history probe reported '${String(live.migration_history_probe)}' — history rows were not inspected`,
+    );
+  } else if (Array.isArray(historyRows)) {
+    for (const raw of historyRows) {
+      if (!raw || typeof raw !== "object") continue;
+      const row = raw as MigrationHistoryRow;
+      findings.push({
+        category: "migration_history",
+        kind: "no_statements",
+        key: String(row.version),
+        detail:
+          `${row.name ?? "(unnamed)"} (statements ${row.signal ?? "null"}) — history row recorded without executed DDL; ` +
+          `needs a fail-fast guard migration + reviewed allowlist entry`,
+      });
+    }
+  }
+
   // Apply the allowlist. Alias entries assert the live database carries the
   // same index under a legacy name; they consume both the missing_live finding
   // for the manifest name and the unexpected_live finding for the legacy name.
@@ -184,11 +294,24 @@ export function compareDriftSnapshots(
     return finding.kind === "unexpected_live" && finding.key === entry.live_key;
   };
 
+  // A migration_history entry only counts when it is structurally valid and
+  // points at a real guard migration; a malformed entry can never silence a
+  // history row (the finding stays and the entry is reported as stale).
+  const historyProblems = options.historyEntryProblems ?? historyEntryProblems;
+  const matchesHistory = (entry: AllowlistEntry, finding: Finding): boolean =>
+    finding.category === "migration_history" &&
+    finding.kind === "no_statements" &&
+    entry.category === "migration_history" &&
+    entry.kind === "no_statements" &&
+    entry.key === finding.key &&
+    historyProblems(entry).length === 0;
+
   for (const finding of findings) {
-    const entry = allowlist.find(
-      (candidate) =>
-        (candidate.kind === "alias" && matchesAlias(candidate, finding)) ||
-        (candidate.kind === finding.kind && candidate.category === finding.category && candidate.key === finding.key),
+    const entry = allowlist.find((candidate) =>
+      finding.category === "migration_history"
+        ? matchesHistory(candidate, finding)
+        : (candidate.kind === "alias" && matchesAlias(candidate, finding)) ||
+          (candidate.kind === finding.kind && candidate.category === finding.category && candidate.key === finding.key),
     );
     if (entry) {
       usedEntries.add(entry);
@@ -216,6 +339,12 @@ async function main() {
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
       SUPABASE_PROJECT_REF: process.env.SUPABASE_PROJECT_REF,
       SUPABASE_PROJECT_NAME: process.env.SUPABASE_PROJECT_NAME,
+      // Staging declarations must be forwarded, or resolveStagingProject() sees
+      // none and every ref is compared against production. check:supabase-project
+      // already passes all five keys; this check must match it so an approved
+      // staging window can run the same drift comparison.
+      SUPABASE_STAGING_PROJECT_REF: process.env.SUPABASE_STAGING_PROJECT_REF,
+      SUPABASE_STAGING_PROJECT_NAME: process.env.SUPABASE_STAGING_PROJECT_NAME,
     },
     { requireMetadata: false },
   );
@@ -250,7 +379,7 @@ async function main() {
     if (/could not find the function|schema cache|PGRST202/i.test(message)) {
       throw new Error(
         `schema_drift_snapshot() is not available on the live project. Apply migration ` +
-          `20260706200000_schema_drift_snapshot.sql through the normal linked migration workflow first. (${message})`,
+          `${HISTORY_PROBE_MIGRATION} (or at least the v1 20260706200000_schema_drift_snapshot.sql) through the normal linked migration workflow first. (${message})`,
       );
     }
     throw new Error(`schema_drift_snapshot RPC failed: ${message}`);
@@ -293,7 +422,10 @@ async function main() {
   if (staleEntries.length > 0) {
     console.log(`\nStale allowlist entries (${staleEntries.length}) — no longer matching, remove them:`);
     for (const entry of staleEntries) {
-      console.log(`  ? [${entry.category}] ${entry.kind} ${entry.key}`);
+      const problems = entry.category === "migration_history" ? historyEntryProblems(entry) : [];
+      console.log(
+        `  ? [${entry.category}] ${entry.kind} ${entry.key}${problems.length ? ` :: invalid entry — ${problems.join("; ")}` : ""}`,
+      );
     }
   }
   if (remaining.length > 0) {

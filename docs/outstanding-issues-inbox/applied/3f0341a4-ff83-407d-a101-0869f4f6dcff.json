@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3f0341a4-ff83-407d-a101-0869f4f6dcff",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#325",
+    "outcome": "Inbox intake schema prevents stale row clobbering with merge-safe UUID requests",
+    "baseRowFingerprint": "c9857c2da32123cfaa85d68d08cf7351cbcde8163d9ea25826055f595943c93a"
+  }
+}

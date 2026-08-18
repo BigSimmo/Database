@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -30,16 +30,98 @@ describe("Clinical KB Guide Centre", () => {
     const search = within(dialog).getByPlaceholderText("Search the guide");
     expect(search.closest(".answer-footer-search-pill")).not.toBeNull();
 
+    const submit = within(dialog).getByRole("button", { name: "Submit guide search" });
+    expect(submit).toHaveClass("chat-send-button");
+
     await user.type(search, "privacy");
     expect(within(dialog).getByRole("heading", { name: "Search results" })).toBeVisible();
     expect(within(dialog).getByRole("button", { name: /Privacy and safe use/ })).toBeVisible();
     expect(within(dialog).getByText(/topics? found for “privacy”/)).toBeVisible();
+
+    await user.click(submit);
+    expect(within(dialog).getByRole("heading", { name: "Search results" })).toBeVisible();
+    expect(search).toHaveValue("privacy");
 
     await user.clear(search);
     await user.type(search, "no matching phrase anywhere");
     expect(within(dialog).getByRole("heading", { name: "No matching guide topic" })).toBeVisible();
     await user.click(within(dialog).getByRole("button", { name: "Clear guide search" }));
     expect(within(dialog).getByRole("heading", { name: "How to verify an answer" })).toBeVisible();
+  });
+
+  it("shows a useful verification example and hides the shared header and bottom search chrome while scrolling down", async () => {
+    vi.spyOn(window, "matchMedia").mockImplementation(
+      () =>
+        ({
+          matches: true,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }) as unknown as MediaQueryList,
+    );
+    const { dialog } = renderGuide();
+    expect(within(dialog).getByText("Check each claim, not just the summary")).toBeVisible();
+    expect(within(dialog).getByLabelText("Neutral illustrative answer")).toHaveTextContent(
+      "place its citation beside the words it supports",
+    );
+    // Mount schedules an rAF-deferred hide-state reset (use-hide-on-scroll's
+    // resetKey effect); flush it before the first scroll so it cannot fire
+    // after and revert the scroll-triggered hide mid-assertion.
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+
+    const scrollBody = dialog.querySelector<HTMLElement>(".polished-scroll");
+    const footer = dialog.querySelector<HTMLElement>("[data-guide-mobile-footer]");
+    const footerLayer = footer?.parentElement;
+    const header = dialog.querySelector<HTMLElement>(".guide-centre-header");
+    const content = dialog.querySelector<HTMLElement>("[data-guide-content]");
+    expect(scrollBody).not.toBeNull();
+    expect(footer).not.toBeNull();
+    expect(header).not.toBeNull();
+    expect(content).not.toBeNull();
+    expect(footer?.querySelector("[data-guide-universal-search]")).not.toBeNull();
+    expect(footer?.querySelector("[data-guide-tour-action-row]")).not.toBeNull();
+    expect(header).toHaveClass("pt-[max(1rem,var(--safe-area-top))]");
+
+    Object.defineProperty(scrollBody, "scrollHeight", { configurable: true, value: 1_600 });
+    Object.defineProperty(scrollBody, "clientHeight", { configurable: true, value: 600 });
+    Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 140 });
+    fireEvent.scroll(scrollBody!);
+    await waitFor(() => expect(footerLayer).toHaveClass("translate-y-full"));
+    expect(header).toHaveClass("max-h-0");
+    expect(header).not.toHaveClass("pt-[max(1rem,var(--safe-area-top))]");
+    expect(header).toHaveAttribute("aria-hidden", "true");
+    expect(header).toHaveAttribute("inert", "");
+    expect(footer).toHaveAttribute("aria-hidden", "true");
+    expect(footer).toHaveAttribute("inert", "");
+    expect(within(footer!).queryByRole("button", { name: "Start guided tour" })).not.toBeInTheDocument();
+    expect(content).toHaveClass("pb-0");
+    expect(content).not.toHaveClass("pb-40");
+
+    Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 0 });
+    fireEvent.scroll(scrollBody!);
+    await waitFor(() => expect(footerLayer).not.toHaveClass("translate-y-full"));
+    expect(header).not.toHaveClass("max-h-0");
+    expect(header).toHaveClass("pt-[max(1rem,var(--safe-area-top))]");
+    expect(header).toHaveAttribute("aria-hidden", "false");
+    expect(header).not.toHaveAttribute("inert");
+    expect(footer).toHaveAttribute("aria-hidden", "false");
+    expect(footer).not.toHaveAttribute("inert");
+    expect(content).toHaveClass("pb-40");
+  });
+
+  it("keeps the guide footer available while the desktop body scrolls", () => {
+    const { dialog } = renderGuide();
+    const scrollBody = dialog.querySelector<HTMLElement>(".polished-scroll");
+    const footer = dialog.querySelector<HTMLElement>("[data-guide-mobile-footer]");
+    const footerLayer = footer?.parentElement;
+    const content = dialog.querySelector<HTMLElement>("[data-guide-content]");
+
+    Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 80 });
+    fireEvent.scroll(scrollBody!);
+
+    expect(footerLayer).not.toHaveClass("translate-y-full");
+    expect(footer).toHaveAttribute("aria-hidden", "false");
+    expect(footer).not.toHaveAttribute("inert");
+    expect(content).toHaveClass("pb-40");
   });
 
   it("wires every quick task to its complete guide topic", async () => {
