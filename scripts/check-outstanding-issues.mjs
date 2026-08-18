@@ -33,7 +33,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 
-import { canonicalLegacyIssueId, issueIdCitations, parseIssueIdCell } from "./issue-id.mjs";
+import { canonicalLegacyIssueId, isIssueDisplayId, issueIdCitations, parseIssueIdCell } from "./issue-id.mjs";
 
 export const ISSUES_PATH = "docs/outstanding-issues.md";
 
@@ -250,17 +250,34 @@ export function parseIssues(markdown) {
   };
 }
 
+// Two id generations coexist in the ledger: legacy zero-padded sequential ids
+// (`#001`) and the Crockford display locators minted from a row's ULID
+// (`#J912J9`). Rows of both kinds are addressed by display id everywhere else,
+// but this lookup resolved only the numeric form — so for every row created
+// after the ULID migration it returned null, and `ledger-inbox.mjs` reads a null
+// fingerprint as "no such row" and refuses the request. The visible symptom was
+// `npm run issues:done '#J912J9'` failing with "is not in Open items" against a
+// row plainly present in Open items, which made the optimistic-concurrency check
+// unreachable for exactly the rows that have it available (they carry a ULID).
 export function issueRowFingerprint(markdown, issueId) {
-  const match = String(issueId)
-    .trim()
-    .match(/^#(\d+)$/);
-  if (!match) return null;
-  const number = Number(match[1]);
-  if (!Number.isFinite(number)) return null;
+  const id = String(issueId).trim();
+  const legacy = id.match(/^#(\d+)$/);
+  const number = legacy ? Number(legacy[1]) : null;
+  if (legacy) {
+    if (!Number.isFinite(number)) return null;
+  } else if (!isIssueDisplayId(id)) {
+    return null;
+  }
 
-  const row = parseIssues(markdown).rows.find(
-    (entry) => entry.number === number && entry.table === "open" && entry.valid && entry.raw,
-  );
+  const open = parseIssues(markdown).rows.filter((entry) => entry.table === "open" && entry.valid && entry.raw);
+  // Exact display id first, and only then the legacy numeric interpretation.
+  // Crockford's alphabet includes 0-9, so a ULID-derived locator can be entirely
+  // digits (`#041061`) and is indistinguishable from a legacy id by pattern
+  // alone — branching on shape would silently miss exactly those rows. The
+  // fallback preserves the old behaviour of resolving a non-canonical legacy id
+  // (`#5`) to its zero-padded row, and the exact-id arm preserves
+  // `issues:done` closing ULID-suffix display ids minted by reconcile.
+  const row = open.find((entry) => entry.id === id) ?? (legacy ? open.find((entry) => entry.number === number) : null);
   if (!row) return null;
   const normalized = `| ${cells(row.raw).join(" | ")} |`;
   return createHash("sha256").update(normalized).digest("hex");

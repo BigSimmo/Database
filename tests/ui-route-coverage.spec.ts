@@ -566,7 +566,7 @@ test.describe("previously uncovered production routes", () => {
 
     await gotoApp(page, "/differentials/presentations");
     await page.setViewportSize({ width: 1280, height: 900 });
-    await expect(page.getByRole("heading", { name: "Presentation pathways", level: 2 })).toBeVisible();
+    await expect(visibleByTestId(page, "search-query-ribbon")).toBeVisible();
     const presentationBrowseTrigger = visibleByTestId(page, "differentials-stream-filter-trigger-desktop");
     await presentationBrowseTrigger.click();
     await expect(page.getByRole("radiogroup", { name: "Clinical urgency" })).toBeVisible();
