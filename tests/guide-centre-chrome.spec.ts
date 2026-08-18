@@ -114,4 +114,85 @@ test.describe("Clinical KB Guide Centre chrome", () => {
     await expect(header).toHaveAttribute("aria-hidden", "false");
     await expect(header).not.toHaveAttribute("inert");
   });
+
+  /**
+   * RENDERED EFFECT, not class presence.
+   *
+   * `tests/guide-centre-design-contract.dom.test.tsx` asserts the footer carries
+   * the dock classes, which is the *cause*. jsdom cannot evaluate a media query
+   * or a cascade layer, so it would pass just as happily with the styles inert —
+   * the failure mode `tests/helpers/style-contracts.ts` was written about.
+   *
+   * Two things here are only provable in a browser:
+   *
+   * 1. The band really paints as glass. `Sheet` always wraps its footer slot in
+   *    `border-t border-[color:var(--border)] p-3`, so a transparent, borderless,
+   *    flush-to-the-edge band means the unlayered dock rules actually beat those
+   *    utilities at phone width.
+   * 2. The tour action really renders as the addon pill. Its overrides are
+   *    `max-sm:` variants layered over `primaryControl`'s own `bg-`/`text-`
+   *    utilities; tailwind-merge keeps BOTH (different variant keys), so which
+   *    one wins is decided by generated stylesheet order. Nothing but a real
+   *    browser at a real width can prove the filled slab did not come back.
+   */
+  test("the phone footer paints as a flush glass dock, not a Sheet footer band", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockGuideShell(page);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
+
+    const dialog = await openGuide(page);
+    const band = dialog.locator(".answer-footer-search-dock");
+    await expect(band).toBeVisible();
+
+    const painted = await band.evaluate((element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      const scrim = element.querySelector(".answer-footer-search-backdrop");
+      const scrimStyle = scrim ? window.getComputedStyle(scrim) : null;
+      return {
+        background: style.backgroundColor,
+        borderTopWidth: style.borderTopWidth,
+        boxShadow: style.boxShadow,
+        left: Math.round(rect.left),
+        right: Math.round(window.innerWidth - rect.right),
+        bottom: Math.round(window.innerHeight - rect.bottom),
+        scrimDisplay: scrimStyle ? scrimStyle.display : null,
+        scrimHeight: scrimStyle ? Math.round(Number.parseFloat(scrimStyle.height)) : 0,
+      };
+    });
+
+    // Glass, not a band: fully transparent, no rule, no elevation.
+    expect(painted.background).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+    expect(painted.borderTopWidth).toBe("0px");
+    expect(painted.boxShadow === "none" || /rgba\(0, 0, 0, 0\)/.test(painted.boxShadow)).toBe(true);
+
+    // Edge to edge, flush to the physical bottom — never a floating inset.
+    expect(painted.left).toBe(0);
+    expect(painted.right).toBe(0);
+    expect(painted.bottom).toBe(0);
+
+    // The scrim is what tints around the pill; without it the band is bare.
+    expect(painted.scrimDisplay).toBe("block");
+    expect(painted.scrimHeight).toBeGreaterThan(0);
+
+    const action = dialog.locator("[data-guide-tour-action-row] button").last();
+    const addon = await action.evaluate((element) => {
+      const style = window.getComputedStyle(element);
+      return {
+        background: style.backgroundColor,
+        borderTopWidth: style.borderTopWidth,
+        borderRadius: Number.parseFloat(style.borderTopLeftRadius),
+        minHeight: Number.parseFloat(style.minHeight),
+      };
+    });
+
+    // Addon pill: outlined, pill-radius, and translucent rather than a filled
+    // slab — `color-mix(in srgb, var(--surface) 92%, transparent)` resolves to a
+    // colour carrying alpha, which a filled `--command` background never does.
+    expect(addon.borderTopWidth).toBe("1px");
+    expect(addon.borderRadius).toBeGreaterThan(100);
+    expect(addon.minHeight).toBeGreaterThanOrEqual(48);
+    expect(addon.background).toMatch(/\/\s*0?\.9|rgba\([^)]+,\s*0?\.9/);
+  });
 });

@@ -1,18 +1,6 @@
 {
-  "_comment": "Runtime index-monitoring ratchet (docs/database-drift-detection.md, 'Runtime index-monitoring ratchet'). Every repo-defined index on the retrieval-critical tables (documents, document_chunks, document_index_units, document_embedding_fields, document_memory_cards, rag_retrieval_logs) must be either monitored by search_schema_health() required_indexes/index_aliases or listed here with a reason and a disposition. `accepted-unmonitored`: absence would degrade an operational path but not clinical retrieval, and check:drift's full index inventory still reports it missing. `monitor-candidate`: retrieval-facing or currently absent on live (forensics section 1.3, 2026-08-14) — a Phase 4.4 migration extending required_indexes must decide it; it stays visibly flagged here until then. required_indexes changes travel by migration only, never by editing schema.sql. tests/search-health-index-coverage.test.ts enforces this file. Seeded 2026-08-18: 44 entries.",
+  "_comment": "Runtime index-monitoring ratchet (docs/database-drift-detection.md, 'Runtime index-monitoring ratchet'). Every repo-defined index on the retrieval-critical tables (documents, document_chunks, document_index_units, document_embedding_fields, document_memory_cards, rag_retrieval_logs) must be either monitored by search_schema_health() required_indexes/index_aliases or listed here with a reason and a disposition. `accepted-unmonitored`: absence would degrade an operational path but not clinical retrieval, and check:drift's full index inventory still reports it missing. `monitor-candidate`: retrieval-facing or currently absent on live (forensics section 1.3, 2026-08-14) — a Phase 4.4 migration extending required_indexes must decide it; it stays visibly flagged here until then. The disposition is currently unused: all eight 2026-08-18 candidates were decided by 20260819100300_monitor_restored_retrieval_indexes.sql and are now monitored, so they were removed from this file (the test rejects a listed index that is also monitored). It remains available for the next index this scope acquires. required_indexes changes travel by migration only, never by editing schema.sql. tests/search-health-index-coverage.test.ts enforces this file. Seeded 2026-08-18 with 44 entries; 2026-08-19 (Phase 4.4, ledger #316): the 8 monitor-candidates entered required_indexes, leaving 36 accepted-unmonitored.",
   "unmonitored": [
-    {
-      "index": "documents_search_idx",
-      "table": "documents",
-      "disposition": "monitor-candidate",
-      "reason": "GIN over the documents search tsvector used by the title fast path; retrieval-facing but only the trgm title index is monitored today"
-    },
-    {
-      "index": "documents_registry_projection_lookup_idx",
-      "table": "documents",
-      "disposition": "monitor-candidate",
-      "reason": "Absent on live per forensics section 1.3 (2026-08-14); registry-projection lookup path — Phase 4 restores it and Phase 4.4 decides required_indexes by migration"
-    },
     {
       "index": "documents_owner_content_hash_unique_idx",
       "table": "documents",
@@ -60,12 +48,6 @@
       "table": "documents",
       "disposition": "accepted-unmonitored",
       "reason": "Plain status index, codified into the chain by 20260818111000 (was schema.sql-only — drift backlog item 10, forensics 2.3 b); operational status scans"
-    },
-    {
-      "index": "document_chunks_anchor_idx",
-      "table": "document_chunks",
-      "disposition": "monitor-candidate",
-      "reason": "Absent on live per forensics section 1.3 (2026-08-14); anchor lookup for citation deep links — Phase 4 restores it and Phase 4.4 decides required_indexes by migration"
     },
     {
       "index": "document_chunks_content_hash_idx",
@@ -134,12 +116,6 @@
       "reason": "Rename target of the dropped document_embedding_fields_owner_idx, codified into the chain by 20260818111000 (was schema.sql-only — drift backlog item 10); owner FK support, superseded for retrieval by document_embedding_fields_owner_chunk_idx"
     },
     {
-      "index": "document_embedding_fields_search_tsv_chunk_gin_idx",
-      "table": "document_embedding_fields",
-      "disposition": "monitor-candidate",
-      "reason": "GIN over the embedding-field search tsvector, codified into the chain by 20260818111000 (was schema.sql-only — drift backlog item 10); lexical field retrieval path — decide required_indexes membership by migration in Phase 4.4 (present on production per the 2026-08-14 live-drift run)"
-    },
-    {
       "index": "document_embedding_fields_source_chunk_id_idx",
       "table": "document_embedding_fields",
       "disposition": "accepted-unmonitored",
@@ -162,12 +138,6 @@
       "table": "document_index_units",
       "disposition": "accepted-unmonitored",
       "reason": "Redundant with the monitored document_index_units_document_idx (same leading column); codified from live for FK support only"
-    },
-    {
-      "index": "document_index_units_heading_path_idx",
-      "table": "document_index_units",
-      "disposition": "monitor-candidate",
-      "reason": "Absent on live per forensics section 1.3 (2026-08-14); heading-path scoped lookups — Phase 4 restores it and Phase 4.4 decides required_indexes by migration"
     },
     {
       "index": "document_index_units_image_idx",
@@ -200,12 +170,6 @@
       "reason": "Producer-scoped generation bookkeeping for deep-memory commits; ingestion path"
     },
     {
-      "index": "document_index_units_search_idx",
-      "table": "document_index_units",
-      "disposition": "monitor-candidate",
-      "reason": "GIN over the index-unit search tsvector; lexical candidate gate for the index-unit hybrid RPC, retrieval-facing with no monitored equivalent (worst-covered table: 2 of 16 monitored)"
-    },
-    {
       "index": "document_index_units_source_chunk_id_idx",
       "table": "document_index_units",
       "disposition": "accepted-unmonitored",
@@ -216,12 +180,6 @@
       "table": "document_index_units",
       "disposition": "accepted-unmonitored",
       "reason": "source_image_id FK support codified from live; join/cleanup path"
-    },
-    {
-      "index": "document_index_units_terms_idx",
-      "table": "document_index_units",
-      "disposition": "monitor-candidate",
-      "reason": "GIN over normalized_terms used by index-unit lexical matching; retrieval-facing with no monitored equivalent"
     },
     {
       "index": "document_memory_cards_document_generation_idx",
@@ -252,12 +210,6 @@
       "table": "document_memory_cards",
       "disposition": "accepted-unmonitored",
       "reason": "Producer-scoped generation bookkeeping for deep-memory commits; ingestion path"
-    },
-    {
-      "index": "document_memory_cards_search_idx",
-      "table": "document_memory_cards",
-      "disposition": "monitor-candidate",
-      "reason": "GIN over the memory-card search tsvector; lexical half of the memory-card hybrid RPC, retrieval-facing with no monitored equivalent"
     },
     {
       "index": "document_memory_cards_section_idx",
