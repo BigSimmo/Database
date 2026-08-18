@@ -9,6 +9,7 @@ import {
   rankPresentationWorkflows,
 } from "@/lib/differentials";
 import { dsmDiagnosisSummary, rankDsmDiagnoses } from "@/lib/dsm";
+import { dictionaryKindLabel, searchDictionary } from "@/lib/dictionary";
 import { formRecords, rankFormRecords, type FormRecord } from "@/lib/forms";
 import { rowToMedicationRecord } from "@/lib/medication-records";
 import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
@@ -390,6 +391,54 @@ async function searchToolsDomain(args: ResolvedSearchArgs): Promise<UniversalSea
   }));
 }
 
+async function searchDictionaryDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
+  return searchDictionary({
+    q: args.baseQuery,
+    view: "all",
+    topics: [],
+    kinds: [],
+    sources: [],
+    sort: "relevance",
+  })
+    .slice(0, args.limitPerDomain)
+    .map((hit): UniversalSearchItem => {
+      if (hit.type === "entry") {
+        return {
+          id: hit.entry.slug,
+          kind: "dictionary",
+          title: hit.entry.term,
+          subtitle: hit.entry.definition,
+          href: `/dictionary/${hit.entry.slug}`,
+          score: hit.score,
+          badge: dictionaryKindLabel(hit.entry.kind),
+          meta: hit.reason,
+        };
+      }
+      if (hit.type === "abbreviation") {
+        return {
+          id: `abbreviation:${hit.abbreviation}`,
+          kind: "dictionary",
+          title: hit.abbreviation,
+          subtitle: hit.senses.map((entry) => entry.term).join(" · "),
+          href: `/dictionary/search?q=${encodeURIComponent(hit.abbreviation)}&view=abbreviations`,
+          score: hit.score,
+          badge: hit.senses.length > 1 ? `${hit.senses.length} meanings` : "Abbreviation",
+          meta: hit.reason,
+        };
+      }
+      return {
+        id: `topic:${hit.topic.slug}`,
+        kind: "dictionary",
+        title: hit.topic.title,
+        subtitle: hit.topic.description,
+        href: `/dictionary/topics/${hit.topic.slug}`,
+        score: hit.score,
+        badge: "Topic",
+        meta: hit.reason,
+      };
+    });
+}
+
 async function searchFormulationDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   return searchFormulationMechanisms(args.baseQuery)
     .slice(0, args.limitPerDomain)
@@ -514,6 +563,7 @@ const domainAdapters: Record<
   specifiers: { run: searchSpecifiersDomain, timeoutMs: registryDomainTimeoutMs },
   formulation: { run: searchFormulationDomain, timeoutMs: registryDomainTimeoutMs },
   therapies: { run: searchTherapiesDomain, timeoutMs: registryDomainTimeoutMs },
+  dictionary: { run: searchDictionaryDomain, timeoutMs: registryDomainTimeoutMs },
   tools: { run: searchToolsDomain, timeoutMs: registryDomainTimeoutMs },
 };
 
@@ -725,6 +775,8 @@ export function universalSearchViewAllHref(domain: UniversalSearchDomain, query:
       return `/formulation?q=${encodeURIComponent(query)}&run=1`;
     case "therapies":
       return `/therapy-compass/search?q=${encodeURIComponent(query)}&run=1`;
+    case "dictionary":
+      return `/dictionary/search?q=${encodeURIComponent(query)}`;
     case "tools":
       return `/tools?q=${encodeURIComponent(query)}&run=1`;
   }

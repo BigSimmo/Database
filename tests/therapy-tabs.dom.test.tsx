@@ -17,7 +17,6 @@ const therapy = vi.hoisted(() => (slug: string, name: string) => ({
   slug,
   name,
   category: "Skills based",
-  modality: "Individual",
   clinicalSummary: `${name} summary`,
   bestUsedFor: "Anxiety",
   indications: "Anxiety",

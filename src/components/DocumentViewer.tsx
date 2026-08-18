@@ -913,6 +913,15 @@ export function DocumentViewer({
   const chunkById = useMemo(() => new Map(chunks.map((chunk) => [chunk.id, chunk])), [chunks]);
   const selectedPage = pageByNumber.get(activePage) ?? pages[0];
   const selectedChunk = activeChunkId ? chunkById.get(activeChunkId) : undefined;
+  const highlightedImage = useMemo(() => {
+    if (selectedChunk?.image_ids?.length) {
+      for (const id of selectedChunk.image_ids) {
+        const match = images.find((img) => img.id === id && img.bbox);
+        if (match) return match;
+      }
+    }
+    return undefined;
+  }, [selectedChunk, images]);
   const { clinicalImages, auditImages } = partitionViewerImages(images);
   // Built on every render rather than memoised: it is seven objects from values
   // already in hand, and `clinicalImages` is a fresh array each render, so a
@@ -1404,7 +1413,10 @@ export function DocumentViewer({
             a phone reader sees the clinical priorities digest before scrolling
             past the PDF. */}
         {readyDocument ? (
-          <div className="min-w-0 max-sm:order-2 lg:col-span-2">
+          <div
+            id="source-summary-card"
+            className="min-w-0 max-sm:order-2 lg:col-span-2 scroll-mt-[var(--document-anchor-offset,6rem)]"
+          >
             <DocumentClinicalSummary
               document={readyDocument}
               pageHref={usefulPageHref}
@@ -1494,6 +1506,8 @@ export function DocumentViewer({
                     zoom={pdfZoom}
                     rotation={pdfRotation}
                     fullscreen={pdfFullscreen}
+                    highlightedBbox={highlightedImage?.bbox ?? null}
+                    highlightedBboxPage={highlightedImage?.page_number ?? null}
                     onFitWidthChange={handlePdfFitWidthChange}
                     onZoomChange={handlePdfZoomChange}
                     // The same handler DocumentFrame's rotate control uses, so

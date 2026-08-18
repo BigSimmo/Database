@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ff207c2c-8ed0-4e4b-bd75-797eb397c1f1",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#318",
+    "outcome": "Excluded loperamide from opioids and completed clinical sign-off in lexicon review sheet",
+    "baseRowFingerprint": "e7abb0eeb8a5e3f23e5989e7d3435d561343c04cdee0f1e4b4eb1c84ca48f293"
+  }
+}

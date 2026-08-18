@@ -243,6 +243,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     DB_CHANGED: "false",
     BUILD_CHANGED: "false",
     CONTAINER_CHANGED: "false",
+    PR_DRAFT: "false",
     EVENT_NAME: "pull_request",
     CHANGES_RESULT: "success",
     STATIC_RESULT: "success",
@@ -294,6 +295,34 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", SAFETY_RESULT: "success" }).status).toBe(0);
     expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", SAFETY_RESULT: "skipped" }).status).not.toBe(0);
     expect(runAggregate({ STATIC_HEAVY_CHANGED: "false", SAFETY_RESULT: "skipped" }).status).toBe(0);
+  });
+
+  it("skips heavy jobs on a draft PR instead of reporting them as a failed skip", () => {
+    // Without PR_DRAFT, a heavy-scope draft push would call require_success on a job the
+    // job's own `if:` intentionally skipped, turning "draft, don't book a runner" into a
+    // false-red required check. PR_DRAFT folds draft into the same in-scope check as the
+    // *_CHANGED flags so the aggregate reads it as skipped-and-fine instead.
+    expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", PR_DRAFT: "true", SAFETY_RESULT: "skipped" }).status).toBe(0);
+    expect(runAggregate({ COVERAGE_CHANGED: "true", PR_DRAFT: "true", COVERAGE_RESULT: "skipped" }).status).toBe(0);
+    expect(runAggregate({ BUILD_CHANGED: "true", PR_DRAFT: "true", BUILD_RESULT: "skipped" }).status).toBe(0);
+    expect(
+      runAggregate({
+        UI_CHANGED: "true",
+        PR_DRAFT: "true",
+        UI_FAST_RESULT: "skipped",
+        UI_RESULT: "skipped",
+      }).status,
+    ).toBe(0);
+    expect(runAggregate({ DB_CHANGED: "true", PR_DRAFT: "true", DB_RESULT: "skipped" }).status).toBe(0);
+  });
+
+  it("still requires heavy jobs on a ready-for-review PR even though it once was a draft", () => {
+    // PR_DRAFT reflects the *current* event's draft state, not history — `ready_for_review`
+    // reruns the whole workflow fresh, so a stale skip must never carry forward.
+    expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", PR_DRAFT: "false", SAFETY_RESULT: "skipped" }).status).not.toBe(
+      0,
+    );
+    expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", PR_DRAFT: "false", SAFETY_RESULT: "success" }).status).toBe(0);
   });
 
   it("requires ingestion SAST only for its path-scoped surface", () => {

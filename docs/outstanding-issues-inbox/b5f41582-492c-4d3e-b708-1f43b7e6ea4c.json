@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b5f41582-492c-4d3e-b708-1f43b7e6ea4c",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "tests/ui-tools-search-mode-mockup.spec.ts has two assertions stale on main, so the advisory lane is red for every UI PR",
+    "detail": "Verified 2026-08-18 on a clean origin/main worktree: node scripts/run-playwright.mjs --project=chromium-mockups tests/ui-tools-search-mode-mockup.spec.ts reports 2 failed | 14 passed. The failures are 'desktop uses universal search and keeps results beside the selected-tool panel' (line 24) and 'phone filter sheet follows the shared local-filter behavior' (line 188, expecting the exact text '2 showing' in the filter sheet). Neither is caused by any open PR: PR #2095 was flagged for the second one while changing only mockup routes under src/app/mockups/caring-contacts. Advisory UI is non-blocking, so this stays red and trains reviewers to ignore the lane. Likely stale after the catalogue-toolbar work in #2086. Fix the assertions against current tools UI or quarantine per the flake ledger rules.",
+    "source": "Copilot review triage on #2095/#2096, 2026-08-18",
+    "issueUlid": "01M0A10Q19SZGPAH22TYYY2366"
+  }
+}

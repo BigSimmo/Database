@@ -14,9 +14,10 @@ loadEnvConfig(process.cwd());
  * it was generated from, so a stale manifest fails fast here (and offline in
  * tests/drift-detection.test.ts) instead of producing phantom drift.
  *
- * Live side: public.schema_drift_snapshot() (migration
- * 20260706200000_schema_drift_snapshot.sql), a service-role-only RPC returning
- * the same normalized inventory the manifest holds.
+ * Live side: public.schema_drift_snapshot() (v1 migration
+ * 20260706200000_schema_drift_snapshot.sql, v2 20260818090000 — see
+ * HISTORY_PROBE_MIGRATION below), a service-role-only RPC returning the same
+ * normalized inventory the manifest holds.
  *
  * Known, documented divergence is carried in supabase/drift-allowlist.json —
  * every entry needs a reason and is reported as a warning, never silently
@@ -338,6 +339,12 @@ async function main() {
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
       SUPABASE_PROJECT_REF: process.env.SUPABASE_PROJECT_REF,
       SUPABASE_PROJECT_NAME: process.env.SUPABASE_PROJECT_NAME,
+      // Staging declarations must be forwarded, or resolveStagingProject() sees
+      // none and every ref is compared against production. check:supabase-project
+      // already passes all five keys; this check must match it so an approved
+      // staging window can run the same drift comparison.
+      SUPABASE_STAGING_PROJECT_REF: process.env.SUPABASE_STAGING_PROJECT_REF,
+      SUPABASE_STAGING_PROJECT_NAME: process.env.SUPABASE_STAGING_PROJECT_NAME,
     },
     { requireMetadata: false },
   );
@@ -372,7 +379,7 @@ async function main() {
     if (/could not find the function|schema cache|PGRST202/i.test(message)) {
       throw new Error(
         `schema_drift_snapshot() is not available on the live project. Apply migration ` +
-          `20260706200000_schema_drift_snapshot.sql through the normal linked migration workflow first. (${message})`,
+          `${HISTORY_PROBE_MIGRATION} (or at least the v1 20260706200000_schema_drift_snapshot.sql) through the normal linked migration workflow first. (${message})`,
       );
     }
     throw new Error(`schema_drift_snapshot RPC failed: ${message}`);

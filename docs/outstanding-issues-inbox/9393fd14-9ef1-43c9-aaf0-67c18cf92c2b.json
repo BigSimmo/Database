@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "9393fd14-9ef1-43c9-aaf0-67c18cf92c2b",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#338",
+    "outcome": "Retired legacy ISSUES-LIST.html in favor of docs/outstanding-issues.md as the sole canonical cross-platform ledger",
+    "baseRowFingerprint": "5cdb20c1a380e7ceed62f1a28ebbfc4744ca9e6b0b54e7917cf6bc8a59e0bc2f"
+  }
+}
