@@ -80,11 +80,16 @@ function stubEnvironment(): { home: string; project: string; hook: string } {
 }
 
 function runHook(hook: string, env: Record<string, string | undefined>, cwd: string) {
-  const base = { ...process.env, CLAUDE_CODE_REMOTE: "true", ...env };
+  const normalizedEnv: Record<string, string | undefined> = {};
   for (const [key, value] of Object.entries(env)) {
+    normalizedEnv[key] = typeof value === "string" ? value.replace(/\\/g, "/") : value;
+  }
+  const base = { ...process.env, CLAUDE_CODE_REMOTE: "true", ...normalizedEnv };
+  for (const [key, value] of Object.entries(normalizedEnv)) {
     if (value === undefined) delete (base as Record<string, string | undefined>)[key];
   }
-  return spawnSync("bash", [hook], { cwd, env: base as NodeJS.ProcessEnv, encoding: "utf8" });
+  const normalizedHook = hook.replace(/\\/g, "/");
+  return spawnSync("bash", [normalizedHook], { cwd, env: base as NodeJS.ProcessEnv, encoding: "utf8" });
 }
 
 describe("session-start hook", () => {

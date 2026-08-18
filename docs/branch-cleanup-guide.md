@@ -121,6 +121,52 @@ credentials.
 5. Record completed cleanup reviews with `npm run ledger:append -- --ref <branch> --head <full-sha> --scope branch-cleanup --outcome <o> --checks <c>`. The scope cell must be exactly `branch-cleanup` for a later sweep to treat it as complete; `branch-cleanup-deletion-pending` deliberately does not count.
 6. Remove detached worktrees only when clean, unneeded, and absent from active `git worktree list` output.
 
+## Dev Drive Stale Worktree Pruning (Inbox ec356a7d)
+
+When operating across concurrent agent sessions on a Dev Drive (e.g. `D:\`), duplicate `node_modules` installations across dozens of worktrees consume significant disk capacity (~0.89 GB per worktree). Stale worktrees from already-landed branches must be safely identified and pruned to reclaim storage without risking active or unmerged work.
+
+### Safe Pruning Workflow
+
+1. **Scan landed candidates in list-only mode:**
+   Run the worktree cleanup script when no other Codex, Gemini, or Claude sessions are active:
+
+   ```powershell
+   node scripts/clean-worktree.mjs --merged --squashed
+   ```
+
+2. **Inspect candidate confidence reports:**
+   Review the confidence diagnostic printed for each candidate worktree.
+   - **Skip any candidate marked `NOT fully corroborated`:** This label indicates that while a patch-ID match inferred landing, some working tree files still differ from `origin/main` (frequently base churn, but potentially unmerged edits).
+   - Only consider candidates confirmed fully merged or squashed into `origin/main` with zero local unpushed commits.
+
+3. **Re-verify each candidate immediately before removal:**
+   Never remove worktrees blindly. Actively inspect the candidate path:
+
+   ```powershell
+   git -C <worktree-path> status --short --branch
+   git log --right-only --cherry-pick origin/main...<worktree-head>
+   ```
+
+   Confirm that the worktree has 0 uncommitted changes and 0 unmerged commits ahead of `origin/main`.
+
+4. **Verify process and lease locks:**
+   Ensure no background test runner, dev server, Playwright instance, or repository run coordinator lease holds the candidate worktree path.
+
+5. **Prune the worktree safely:**
+   Remove the verified landed worktree:
+
+   ```powershell
+   git worktree remove <worktree-path>
+   ```
+
+   Alternatively, rerun `node scripts/clean-worktree.mjs --merged --squashed --remove` only after verifying all candidate confidence reports.
+
+### Safety Stop Rules
+
+- **Never pass `--force` to `git worktree remove`:** If git refuses removal due to untracked or modified files, stop and inspect the worktree manually.
+- **Never remove a worktree that is ahead of `origin/main`:** Even if a prior scan reported 0 commits ahead, always re-verify before deleting.
+- **Ignore active session worktrees:** Ignore worktree directories on `C:` or other dedicated drives belonging to active Antigravity / Codex sessions.
+
 ## Final Verification
 
 After each cleanup pass:

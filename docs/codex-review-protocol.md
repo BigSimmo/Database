@@ -13,6 +13,28 @@ Use this protocol for every Codex review, audit, bug hunt, PR review, release-re
 - Route automatic repair only for high-risk paths, at least 10 changed non-test source files, at least 300 changed non-test source lines, or an explicit `codex-review` label. `skip-codex-review` always opts out, including when both labels are present. Small low-risk, docs-only, test-only, and generated-only changes should not receive the automatic repair request.
 - Ready PRs must pass the trusted `PR policy` metadata check. It reads only the base-branch policy implementation, never executes PR code, and requires concrete verification plus risk/rollback evidence for high-risk changes.
 
+## Review Bot Quota Conservation (Inbox 9864a5d7)
+
+High PR churn and unbounded automated review loops can rapidly exhaust organization review-bot spending caps (such as CodeRabbit and Codex connector usage quotas), causing subsequent PRs to land with zero automated review.
+
+To conserve review quotas and ensure automated reviews remain available for high-risk changes, follow these standing rules:
+
+1. **Strict SHA Throttling & Ledger Checking:**
+   - Always run `npm run ledger:lookup -- <branch-or-ref> --scope "<scope>"` before starting a review.
+   - If the verdict is `ALREADY REVIEWED`, skip the review pass entirely. Never rerun automated reviews against unchanged commit SHAs.
+   - Do not trigger bot reviews for purely administrative commits, documentation-only edits, ledger appends, or formatting/whitespace adjustments.
+
+2. **Single Pass per Pull Request Head:**
+   - Automated review bots must perform at most one review pass per PR head.
+   - Automated repair or resolution tasks must not trigger secondary review passes in an infinite loop. Subsequent passes require explicit human request.
+
+3. **PR Bundling & Scope Qualification:**
+   - Bundle related fixes into coherent PRs rather than opening rapid streams of single-commit / single-task PRs that multiply review triggers and CI queue congestion.
+   - Low-risk, test-only, generated-only, or doc-only PRs should explicitly include the `skip-codex-review` label or opt out of heavy bot sweeps.
+
+4. **Safety Invariant on Quota Exhaustion:**
+   - If bot review quotas are exhausted and a PR receives no bot feedback, **never weaken required local verification, PR policy checks, or security gates** to compensate. Rely on mandatory local verification (`npm run verify:pr-local`) and human review.
+
 ## Review Output
 
 - Lead with findings, ordered by severity: P0, P1, P2, then P3.

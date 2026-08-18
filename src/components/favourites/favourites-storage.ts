@@ -5,22 +5,21 @@ export const DATABASE_FAVOURITES_PINNED_STORAGE_KEY = "database:favourites:pinne
 
 const DEFAULT_PINNED_ITEM_IDS = ["acamprosate-renal-screen", "lithium-monitoring-guideline"];
 
-// Initial baseline offsets for demo prototype items before user interactions
+// Initial baseline timestamps: honest absence for unopened items.
+// Ledger task #339: do not fabricate timestamps for items that have never been opened.
 function getDefaultInitialTimestamps(): Record<string, number> {
-  const now = Date.now();
-  const dayMs = 24 * 60 * 60 * 1000;
-  return {
-    "acamprosate-renal-screen": now - 15 * 60 * 1000, // 15 mins ago (today)
-    "lithium-monitoring-guideline": now - 35 * 60 * 1000, // 35 mins ago (today)
-    "renal-dose-search": now - 55 * 60 * 1000, // 55 mins ago (today)
-    "clozapine-monitoring-table": now - dayMs - 2 * 60 * 60 * 1000, // yesterday
-    "qt-prolongation-quote": now - 3 * dayMs, // earlier this week
-  };
+  return {};
 }
 
 let inMemoryLastOpened: Record<string, number> | null = null;
 let inMemoryPinned: Set<string> | null = null;
 const listeners = new Set<() => void>();
+
+export function resetFavouritesStorageForTesting(): void {
+  inMemoryLastOpened = null;
+  inMemoryPinned = null;
+  listeners.clear();
+}
 
 function notifyListeners() {
   for (const listener of listeners) {
@@ -69,7 +68,7 @@ export function loadFavouriteLastOpened(): Record<string, number> {
     const raw = localStorage.getItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (typeof parsed === "object" && parsed !== null) {
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
         const result: Record<string, number> = { ...getDefaultInitialTimestamps(), ...parsed };
         inMemoryLastOpened = result;
         return result;
@@ -146,7 +145,7 @@ const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export function formatLastOpened(timestampOrLabel: number | string | undefined): string {
-  if (timestampOrLabel === undefined || timestampOrLabel === null) {
+  if (timestampOrLabel === undefined || timestampOrLabel === null || timestampOrLabel === 0) {
     return "Saved";
   }
   if (typeof timestampOrLabel === "string") {
@@ -154,7 +153,7 @@ export function formatLastOpened(timestampOrLabel: number | string | undefined):
   }
 
   const date = new Date(timestampOrLabel);
-  if (Number.isNaN(date.getTime())) {
+  if (Number.isNaN(date.getTime()) || timestampOrLabel < 0) {
     return "Saved";
   }
 
@@ -181,6 +180,7 @@ export function formatLastOpened(timestampOrLabel: number | string | undefined):
 
 export function lastOpenedScore(lastUsed: string | number | undefined): number {
   if (typeof lastUsed === "number") {
+    if (Number.isNaN(lastUsed) || !Number.isFinite(lastUsed) || lastUsed <= 0) return 0;
     return lastUsed;
   }
   if (!lastUsed) return 0;

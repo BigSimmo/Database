@@ -53,6 +53,15 @@ where created_at > now() - interval '24 hours'
 group by 1;
 ```
 
+### Database latency — Sentry production DB span SLO (#183)
+
+Sentry metric alert criteria for production database query span duration. Guards against unindexed queries, table locks, RPC latency spikes, and connection pool exhaustion:
+
+- **Metric:** `transaction.duration` / span duration for `span.op:db` spans in environment `production`.
+- **SLO:** p95 ≤ 500 ms over a 5-minute rolling evaluation window.
+- **Warn / Alert:** p95 > 500 ms over 5 minutes.
+- **Operational context:** Sustained breaches indicate Postgres RPC regression (such as unindexed embedding comparisons or table scans) or lock contention. Investigate via Supabase database insights, query performance metrics, and `search_schema_health()`. Requires `SENTRY_AUTH_TOKEN` for programmatic alert provisioning (#183).
+
 ### Quality — source-gap rate
 
 Share of answered queries whose confidence collapsed to a gap
@@ -233,6 +242,14 @@ regression triage does not relearn them:
   run-over-run metric table (and `--case <id>` a per-case rr trend) from
   downloaded artifacts — the durable trend record without any new
   infrastructure.
+
+### 3.2 Canary latency & cost SLOs (#305)
+
+- **Retrieval latency SLO:** The retrieval latency evaluation budget enforces a **p90 ≤ 20 s** SLO across test cases with a hard **25 s case timeout** (`npm run eval:retrieval:latency -- --fail-on-threshold`). In CI and canary runs, answer-generation latency thresholds are evaluated with `EVAL_LATENCY_CONTEXT=cross-region-runner` to account for scheduled runner network hops without masking slow database queries.
+- **Canary cost lower bounds:** Weekly canary cost calculations (`estimated_cost_usd`) represent **cold lower bounds**:
+  1. The cost estimator calculates usage using the single base model rate set (`gpt-5.6-terra`) across all evaluations, which understates usage during 2x-priced strong-model retries.
+  2. Golden retrieval evals invoke OpenAI embeddings only on forced-vector probes (`forceEmbedding`) and cache misses, whereas live user traffic exhibits unpredictable cache hit rates, varying prompt token lengths, and dynamic multi-turn follow-ups.
+  3. Operators must treat canary cost readouts as a reproducible baseline floor rather than a maximum ceiling when modeling production API expenditure.
 
 ## 4. Degradation counters on `/api/health` (shipped)
 
