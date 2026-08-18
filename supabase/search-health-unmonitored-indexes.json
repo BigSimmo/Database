@@ -59,7 +59,7 @@
       "index": "documents_status_idx",
       "table": "documents",
       "disposition": "accepted-unmonitored",
-      "reason": "Plain status index declared only in schema.sql (never by a migration — drift backlog item 10, migration-chain fidelity); operational status scans"
+      "reason": "Plain status index, codified into the chain by 20260818111000 (was schema.sql-only — drift backlog item 10, forensics 2.3 b); operational status scans"
     },
     {
       "index": "document_chunks_anchor_idx",
@@ -119,31 +119,31 @@
       "index": "document_embedding_fields_meta_rag_indexing_version_idx",
       "table": "document_embedding_fields",
       "disposition": "accepted-unmonitored",
-      "reason": "Schema.sql-only version-tag scan index for reindex campaigns (drift backlog item 10); operational"
+      "reason": "Version-tag scan index for reindex campaigns, codified into the chain by 20260818111000 (was schema.sql-only — drift backlog item 10); operational"
     },
     {
       "index": "document_embedding_fields_owner_document_created_idx",
       "table": "document_embedding_fields",
       "disposition": "accepted-unmonitored",
-      "reason": "Schema.sql-only owner+document+created listing index (drift backlog item 10); the monitored document_embedding_fields_owner_chunk_idx covers the retrieval owner predicate"
+      "reason": "Owner+document+created listing index, codified into the chain by 20260818111000 (was schema.sql-only — drift backlog item 10); the monitored document_embedding_fields_owner_chunk_idx covers the retrieval owner predicate"
     },
     {
       "index": "document_embedding_fields_owner_id_idx",
       "table": "document_embedding_fields",
       "disposition": "accepted-unmonitored",
-      "reason": "Schema.sql-only rename target of the dropped document_embedding_fields_owner_idx (drift backlog item 10); owner FK support, superseded for retrieval by document_embedding_fields_owner_chunk_idx"
+      "reason": "Rename target of the dropped document_embedding_fields_owner_idx, codified into the chain by 20260818111000 (was schema.sql-only — drift backlog item 10); owner FK support, superseded for retrieval by document_embedding_fields_owner_chunk_idx"
     },
     {
       "index": "document_embedding_fields_search_tsv_chunk_gin_idx",
       "table": "document_embedding_fields",
       "disposition": "monitor-candidate",
-      "reason": "Schema.sql-only GIN over the embedding-field search tsvector (drift backlog item 10); lexical field retrieval path — decide required_indexes membership by migration once its live status is confirmed"
+      "reason": "GIN over the embedding-field search tsvector, codified into the chain by 20260818111000 (was schema.sql-only — drift backlog item 10); lexical field retrieval path — decide required_indexes membership by migration in Phase 4.4 (present on production per the 2026-08-14 live-drift run)"
     },
     {
       "index": "document_embedding_fields_source_chunk_id_idx",
       "table": "document_embedding_fields",
       "disposition": "accepted-unmonitored",
-      "reason": "Schema.sql-only source_chunk_id FK support (drift backlog item 10); join support for cleanup, not retrieval matching"
+      "reason": "source_chunk_id FK support, codified into the chain by 20260818111000 (was schema.sql-only — drift backlog item 10); join support for cleanup, not retrieval matching"
     },
     {
       "index": "document_index_units_chunk_idx",

@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "41576279-d570-436b-a80b-d23b555845af",
+  "createdOn": "2026-08-18",
+  "action": "update",
+  "payload": {
+    "id": "#183",
+    "detail": "RIDER 2026-08-18 (recorded on the Phase 3 product PR, not a ledger-only branch): the Supabase CLI is now authenticated and this repository is linked to the staging project Clinical KB Staging (ikoiolksxqxfxgiyqpnu) — owner action 2026-08-18. That unblocks CLI repair paths (supabase db push --linked, migration repair with a guard migration) for staging; SUPABASE_ACCESS_TOKEN as a repository/environment secret for CI/live-drift remains outstanding, and the Sentry metric-alert part of this row (SENTRY_AUTH_TOKEN, p95 span.op:db > 500ms alert, deprioritised 2026-08-12) is unchanged.",
+    "source": "session 2026-08-18 Phase 3 repo-side codification (branch claude/schema-work-mem-codify-6200f1)",
+    "baseRowFingerprint": "35940a5d1e7fd7c0025901d36235a4620234f28c6c55abbed3381c57c814dd83"
+  }
+}
