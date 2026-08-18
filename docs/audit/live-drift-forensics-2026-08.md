@@ -1091,6 +1091,122 @@ project safety" none of them is eligible for history repair; only real execution
 One window covers all five via `db push`; none needs a canary (D2), none builds an index, none
 changes a body that production does not already run.
 
+### 3.7 Production window — authorised 2026-08-18; found already applied, `db push` NOT run
+
+_2026-08-18 (owner-authorised production window for exactly the five §3.6 migrations via the
+authenticated Supabase CLI 2.114.0; target `Clinical KB Database` `sjrfecxgysukkwxsowpy`, linked
+from a dedicated worktree and unlinked again at the end; the main checkout stayed linked to
+staging). Authorisation was conditional: `supabase migration list` first, and stop if the pending
+set was anything other than those five. It was — the pending set was **empty** — so `supabase db
+push` was never run, no `migration repair` / mark-applied path was used, no vault secret was read or
+seeded, staging was not touched, and production received zero writes in this session._
+
+**Pre-flight identity (read-only, `supabase db query --linked --project-ref sjrfecxgysukkwxsowpy`):**
+
+```
+db postgres · usr postgres · total_rows 199 · latest_version 20260818113000 · documents 2851 · document_chunks 70120
+```
+
+**(1) `supabase migration list --linked`** — every local version, including all five `20260818*`,
+has a matching remote row (decisive tail of the JSON):
+
+```
+{"local":"20260818090000","remote":"20260818090000"} {"local":"20260818110000","remote":"20260818110000"} {"local":"20260818111000","remote":"20260818111000"} {"local":"20260818112000","remote":"20260818112000"} {"local":"20260818113000","remote":"20260818113000"}
+```
+
+**(2) History rows carry executed statements** — the CLI's per-statement `db push` shape, not the
+empty mark-applied shape, so the guard-migration contract was not breached by whoever applied them
+(`created_by`, `idempotency_key`, `rollback` are all null on every row, so the history table itself
+names no actor):
+
+```
+20260818090000 schema_drift_snapshot_history_probe         stmt_count  3 bytes  9025 md5 d499617cf9d3423ef9f9e5d83cd698dd
+20260818110000 codify_live_rpc_work_mem                    stmt_count 11 bytes  3965 md5 28082364f1ae611a4f6879fd0c6d7b04
+20260818111000 codify_schema_only_indexes_and_triggers     stmt_count 12 bytes  3854 md5 0db7d36488c0db0a96f62166a32a6771
+20260818112000 reconcile_chain_stale_table_columns         stmt_count  5 bytes  3045 md5 729942468a857db869edddbee7e1b0d9
+20260818113000 forward_codify_hybrid_owner_matches_bodies  stmt_count  4 bytes 12087 md5 e4e640f3ec34e0ee9fb149ad06fcd6d0
+```
+
+(The md5s differ from §3.5's staging values because staging recorded each file as one statement;
+production's rows are the CLI's statement split. Object-state proof below is the faithfulness test.)
+
+**(3) `schema_drift_snapshot()` v2 is live** — `snapshot_version 2`, `migration_history_probe "ok"`,
+`migration_history` **20** rows. The five seeded `superseded` guards (`20260701010000`, `020000`,
+`030000`, `060000`, `20260702000000`) plus the fifteen deliberately unallowlisted §1.1 rows — the
+expected first live report. **Nothing was allowlisted**; the fix remains fail-fast guard migrations
+(Phase 6.2):
+
+```
+20260701010000 20260701020000 20260701030000 20260701040000 20260701060000 20260702000000
+20260702100000 20260702110000 20260702120000 20260702130000 20260702140000 20260702150000
+20260702160000 20260702180000 20260712165915 20260712170500 20260712171000 20260712171500
+20260712172000 20260712173000
+```
+
+**(4) `work_mem` on the ten retrieval RPCs** — exactly ten `pg_proc` rows, D1 values:
+
+```
+128MB  match_document_chunks_hybrid · match_document_embedding_fields_hybrid · match_document_index_units_hybrid · match_document_index_units_hybrid_v2
+ 64MB  match_document_chunks_text · match_document_chunks_text_v2 · match_document_lookup_chunks_text · match_document_memory_cards_hybrid · match_document_memory_cards_hybrid_v2 · match_document_table_facts_text
+```
+
+**Who applied them, and when — Supabase's GitHub integration on merge to `main`.**
+`supabase branches list --project-ref sjrfecxgysukkwxsowpy` returns one branch: `name main`,
+`is_default true`, `git_branch main`, `project_ref = parent_project_ref = sjrfecxgysukkwxsowpy`,
+`created_at 2026-06-27`. That is Supabase Branching with the production project bound to the
+repository's `main` branch, and its documented behaviour is to run pending `supabase/migrations`
+against production whenever that branch advances. The push-triggered `live-drift.yml` runs bracket
+it exactly (no repo workflow pushes migrations — CI's `db-reset-verify` replays a local emulator only,
+and no Supabase check-run is posted on the merge commits, so the drift runs are the only clock):
+
+| Live-drift run (`push` event)       | Head        | Merged PR / time (UTC) | Function mismatches                                                                           | Verdict                                                      |
+| ----------------------------------- | ----------- | ---------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `32051068106` — 2026-08-17 17:37:38 | `9c660af1f` | #2058, 17:36:13        | 11 (10 `work_mem` + `schema_drift_snapshot`); info line "migration-history probe not present" | nothing applied 85 s after #2058 merged                      |
+| `32124243972` — 2026-08-18 09:57:27 | `72aa18865` | #2106, 09:56:53        | **0**; `UNEXPECTED DRIFT (37)`                                                                | `090000`–`112000` all live **34 s** after #2106 merged       |
+| `32131517648` — 2026-08-18 11:24:34 | `9b52eb075` | #2111, 11:23:50        | **0**; `UNEXPECTED DRIFT (37)`                                                                | `113000` is a no-op, so no visible delta; row present by now |
+
+Thirty-four seconds from squash-merge to applied migrations is automation, not an operator; the
+per-statement history shape is the CLI's, which the integration runs. So the "production window" this
+section was opened for had already been performed by the integration on 2026-08-18 — `090000` some
+time between 2026-08-17 17:37:38 and 2026-08-18 09:57:27, `110000`–`112000` by 09:57:27, `113000`
+by the time of this session's read (~13:30). Exact integration timestamps were not retrieved (no
+`track_commit_timestamp` on the project; `pg_xact_commit_timestamp` raised `55000`).
+
+**Live-drift proof (run `32131517648`, the post-#2111 head; a fresh dispatch was not made because it
+would repeat this run byte-for-byte):**
+
+```
+Compared 6 extensions, 38 tables, 1 views, 93 functions, 210 indexes, 48 policies, 170 constraints, 26 triggers, 2 storage_buckets against live.
+  ~ [migration_history] no_statements … ×5    (the five seeded superseded guards — expected, printed before the block)
+UNEXPECTED DRIFT (37):
+  ! [indexes] missing_live … ×20   (api_rate_limits_bucket_updated_idx … storage_cleanup_jobs_owner_status_idx — the §1.3 twenty)
+  ! [indexes] unexpected_live document_table_facts_document_id_idx
+  ! [indexes] unexpected_live storage_cleanup_jobs_owner_id_idx
+  ! [migration_history] no_statements … ×15   (20260701040000, 20260702100000…180000, 20260712165915…173000)
+```
+
+**Function `def_hash` mismatches: zero.** `missing_live` indexes: **20** (Phase 4's job).
+`unexpected_live`: **2** (Phase 4's job). `migration_history` findings: **15** unexpected + 5 expected
+— appearing for the first time, exactly as Phase 6.2 predicted; fix = guard migrations, never bare
+allowlisting. The run's overall conclusion is `failure` because of those 37, which is the intended
+red-until-Phase-4-and-6.2 state.
+
+**Consequences for the coordinator (not absorbed here — owner decision):**
+
+- The plan's "one approved production window per phase" model is not what the platform does: **every
+  migration merged to `main` is applied to production by the Supabase GitHub integration, with no
+  operator window and no approval gate.** Either keep it and rewrite the playbook/approval map around
+  it, or disable it in the Supabase dashboard. Neither was done in this session.
+- Phase 4 must be designed for this either way: an index-restoration migration merged to `main` will
+  be run by the integration inside `db push`'s per-migration transaction, where
+  `CREATE INDEX CONCURRENTLY` fails. The plan's operator-prebuild-then-guard pattern
+  (`20260804110240`) still fits; a bare `create index concurrently` migration does not.
+- Not established: who enabled the integration or when (branch `created_at 2026-06-27`), and whether
+  earlier "recorded as executed" rows in §1.1 came from it. Not investigated in this session.
+
+Local state after the session: worktree unlinked (`supabase unlink` → `.temp/project-ref` absent),
+no repository files other than this section changed, `#316` untouched (mid-reconcile elsewhere).
+
 ## Phase 4 — Index restoration
 
 _2026-08-14 (partial, incident-driven: the two retrieval-critical indexes only, owner-approved
