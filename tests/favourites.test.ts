@@ -86,7 +86,7 @@ describe("favourites storage, timestamps and pinning", () => {
     expect(formattedYesterday).toMatch(/^Yesterday \d{2}:\d{2}$/);
 
     expect(formatLastOpened(undefined)).toBe("Saved");
-    expect(formatLastOpened(null as any)).toBe("Saved");
+    expect(formatLastOpened(null as unknown as undefined)).toBe("Saved");
     expect(formatLastOpened(0)).toBe("Saved");
     expect(formatLastOpened(NaN)).toBe("Saved");
     expect(formatLastOpened(-100)).toBe("Saved");
