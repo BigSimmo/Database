@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "1d0dbb76-a35d-4c8c-8816-3f82f3e1a5f6",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Therapy sign-off tooling is deferred: no guard stops reviewStatus reviewed being set with an empty checklist, and there is no reviewer attribution",
+    "detail": "Deferred 2026-08-18 when Therapy was made production-visible ahead of clinical review. Three gaps. (1) reviewStatus is a bare string in src/data/therapies-source.json; a record can be flipped to reviewed with all seven reviewChecklist booleans still false and nothing detects it. Needs a script that refuses the flip unless the checklist is complete, plus a contract test pinning reviewed implies full checklist. (2) No attribution: none of the 44 record fields carries reviewedBy or reviewedAt, so a sign-off cannot record who signed or when - the same defect #318 flags against the medication interaction lexicon. (3) No review workflow: signing off 205 records x 7 checks is 1435 clinical judgements by hand; a CLI that walks records, shows the fields each check covers, and writes the decision with attribution would make it tractable. Current state at deferral: 205 records, all reviewStatus needs_review, all seven checklist booleans false, reviewCompleteness 57-71 with zero records complete. Stop rule: an assistant must never tick clinicalAccuracyReviewed, sourceChecked, evidenceAppraised, safetyCautionsChecked or patientExplanationChecked - those are qualified-clinician attestations. proofread and australianEnglishChecked are non-clinical and may be done with attribution.",
+    "issueUlid": "01M0ASAS3EJ2Z62XJV5ZQ8A08W"
+  }
+}
