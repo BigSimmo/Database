@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type FormEvent, type ReactNode, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -8,6 +9,7 @@ import {
   Check,
   ChevronRight,
   CircleHelp,
+  FlaskConical,
   CircleUserRound,
   Globe2,
   Keyboard,
@@ -63,7 +65,8 @@ type SettingsSectionId =
   | "notifications"
   | "privacy"
   | "keyboard"
-  | "help";
+  | "help"
+  | "development";
 
 const SETTINGS_SECTIONS: ReadonlyArray<{ id: SettingsSectionId; navLabel: string; icon: LucideIcon }> = [
   { id: "account", navLabel: "Account", icon: CircleUserRound },
@@ -74,6 +77,7 @@ const SETTINGS_SECTIONS: ReadonlyArray<{ id: SettingsSectionId; navLabel: string
   { id: "privacy", navLabel: "Privacy", icon: ShieldCheck },
   { id: "keyboard", navLabel: "Shortcuts", icon: Keyboard },
   { id: "help", navLabel: "Help & About", icon: CircleHelp },
+  { id: "development", navLabel: "Development", icon: FlaskConical },
 ];
 
 const APPEARANCE_OPTIONS: ReadonlyArray<{ value: ThemePreference; label: string; icon: LucideIcon }> = [
@@ -140,6 +144,9 @@ export function SettingsDialog({
 }) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const guideButtonRef = useRef<HTMLButtonElement | null>(null);
+  const visibleSettingsSections = SETTINGS_SECTIONS.filter(
+    (item) => item.id !== "development" || caringContactPrototypeVisible,
+  );
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // The title bar is sticky inside the scroll region on every breakpoint, so its
   // height is the amount of the scroll port a section would otherwise land
@@ -533,7 +540,7 @@ export function SettingsDialog({
       <div className="relative grid h-full max-h-full min-h-0 overflow-hidden lg:h-[min(88dvh,840px)] lg:grid-cols-[248px_minmax(0,1fr)]">
         <aside className="hidden border-r border-[color:var(--border-lux)] bg-[color:var(--surface)]/72 px-4 pb-5 pt-6 lg:flex lg:flex-col">
           <nav aria-label="Settings sections" className="grid gap-1">
-            {SETTINGS_SECTIONS.map((item) => {
+            {visibleSettingsSections.map((item) => {
               const Icon = item.icon;
               const active = item.id === activeSection;
               return (
@@ -1028,12 +1035,46 @@ export function SettingsDialog({
                 </button>
               </div>
             </SettingsSection>
+
+            {caringContactPrototypeVisible ? (
+              <SettingsSection
+                id="development"
+                title="Development"
+                note="In-progress surfaces, reachable only in development builds. Not clinical content."
+              >
+                <div className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
+                  <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Caring Contact</p>
+                  <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                    Linked prototype of the caring-contacts workflow. Synthetic data only — no patient record, message
+                    or schedule here is real.
+                  </p>
+                  <Link
+                    href="/mockups/caring-contacts"
+                    onClick={onClose}
+                    className={cn(floatingControl, "mt-3 min-h-10 w-full gap-2 text-sm")}
+                    data-testid="settings-row-caring-contact-prototype"
+                  >
+                    <FlaskConical aria-hidden="true" className="h-4 w-4" />
+                    Open Caring Contact prototype
+                    <span className="ml-auto text-xs font-semibold text-[color:var(--text-muted)]">Temporary</span>
+                  </Link>
+                </div>
+              </SettingsSection>
+            ) : null}
           </div>
         </div>
       </div>
     </Sheet>
   );
 }
+
+// Temporary developer affordance: a way into the Caring Contact prototype while
+// it is being built. Mirrors `mockupsEnabled()` in src/lib/env.ts without
+// importing that server-only module: `NODE_ENV` and `NEXT_PUBLIC_*` are both
+// inlined at build time, so this evaluates to `false` in a production deploy
+// that has not opted in — exactly when `/mockups/*` would 404 anyway.
+const caringContactPrototypeVisible =
+  process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_MOCKUPS_ENABLED === "true";
 
 function SettingsSection({
   id,
