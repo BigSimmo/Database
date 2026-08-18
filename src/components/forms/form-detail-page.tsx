@@ -335,7 +335,7 @@ function DetailCard({
       <button
         type="button"
         onClick={onOpenDetail}
-        className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--surface-lux)]"
+        className="min-w-0 flex-1 rounded-md text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         aria-label={`${label}: ${displayText(card.title)}. Open detail.`}
       >
         {content}
@@ -542,7 +542,7 @@ function PathwayContextCard({
           aria-selected={activeTab === "pathway"}
           onClick={() => setActiveTab("pathway")}
           className={cn(
-            "rounded-md px-3 py-2 text-center transition",
+            "min-h-tap rounded-md px-3 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9",
             activeTab === "pathway"
               ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
               : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
@@ -556,7 +556,7 @@ function PathwayContextCard({
           aria-selected={activeTab === "source"}
           onClick={() => setActiveTab("source")}
           className={cn(
-            "rounded-md px-3 py-2 text-center transition",
+            "min-h-tap rounded-md px-3 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9",
             activeTab === "source"
               ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
               : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
@@ -1066,7 +1066,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                       href={form.source.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      className="inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
                     >
                       Official
                       <ExternalLink className="h-4 w-4" aria-hidden />
@@ -1077,7 +1077,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                       href={details.localPdfPath}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--text-muted)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      className="inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--text-muted)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
                     >
                       Stored copy
                       <Download className="h-4 w-4" aria-hidden />
