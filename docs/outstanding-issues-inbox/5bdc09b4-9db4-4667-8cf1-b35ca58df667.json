@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5bdc09b4-9db4-4667-8cf1-b35ca58df667",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#283",
+    "outcome": "Deleted uncalled batch signed-urls endpoint from repository",
+    "baseRowFingerprint": "be49376f84e0237d4e8244906ddb674d6ef262386f9cf0f36d793601d0e7f8ea"
+  }
+}
