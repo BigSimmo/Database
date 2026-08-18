@@ -21,7 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeTemplate } from "@/components/mode-home-template";
 import {
   SearchResultsHeaderBand,
   type AppliedFilterChip,
@@ -1446,7 +1446,6 @@ export function DifferentialsHome({
                 onClick: () => handleSuggestedSearch(item.query),
               }))
         }
-        footer={<ModeHomeVerificationFooter label="Decision support" body="Review before use" />}
       />
     </div>
   );
