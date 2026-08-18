@@ -153,6 +153,16 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["documents", "forms", "tools"],
     remoteSearchEnabled: false,
   },
+  factsheets: {
+    examples: ["sertraline", "lithium monitoring", "CBT"],
+    suggestions: [
+      { text: "sertraline (Zoloft)", meta: "Medications" },
+      { text: "lithium monitoring", meta: "Tests & procedures" },
+      { text: "CBT", meta: "Therapies" },
+    ],
+    crossModes: ["prescribing", "dsm", "documents"],
+    remoteSearchEnabled: false,
+  },
 };
 
 export function searchCommandSurfaceConfig(modeId: AppModeId): SearchCommandSurfaceConfig | null {
