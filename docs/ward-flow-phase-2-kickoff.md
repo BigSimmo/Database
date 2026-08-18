@@ -14,11 +14,12 @@ Each phase therefore gets its own session, starting cold from three files.
 
 Continuity lives in the repository, not in a conversation:
 
-| File                                                                        | What it carries                                               |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `docs/ward-flow-phase-handoff.md`                                           | Phase 1's rulings, parked findings, repo traps, closing state |
-| `docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md`  | The binding authority all phases argue from                   |
-| `docs/superpowers/plans/2026-08-18-ward-flow-phase-2-coordinator-screen.md` | Phase 2's executable detail                                   |
+| File                                                                        | What it carries                                                   |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `docs/ward-flow-context.md`                                                 | **Everything, in one file.** Written to be read cold — start here |
+| `docs/superpowers/plans/2026-08-18-ward-flow-phase-2-coordinator-screen.md` | Phase 2's executable detail                                       |
+| `docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md`  | The binding authority, when a task needs the full requirement     |
+| `docs/ward-flow-phase-handoff.md`                                           | Phase 1's rulings and parked findings in full                     |
 
 ## Before starting: open the app
 
