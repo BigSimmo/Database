@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "8c14c6a0-f893-4659-b84e-62823d832c97",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Therapy Compass has three shared-component stages left: Button call sites, card-recipes adoption, and page headers",
+    "detail": "Branch claude/therapy-mode-consistency-a466b0 landed A/B1/B2/E/F/G in 7ce820f2c..7d2c84a11. Remaining: B3 (18 control-recipe call sites across 9 files), C (card/heroCard plus the inline fork at therapy-card.tsx:71 bypass card-recipes.ts), D (7 hand-rolled h1, 3 at text-3xl-minus). Stop rule: one browser pass and one baseline refresh after all three, never per stage.",
+    "issueUlid": "01M0AD3GDAFEWQZ5HN2TWP3V1S"
+  }
+}

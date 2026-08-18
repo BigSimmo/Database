@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ShieldCheck, TriangleAlert, type LucideIcon } from "lucide-react";
 
 import { Chip, type ChipAppearance } from "@/components/ui/chip";
 import {
@@ -10,7 +11,6 @@ import {
   toneWarning,
 } from "@/components/ui-primitives";
 
-import { AlertIcon, ShieldCheckIcon } from "./icons";
 import { reviewStatusMeta } from "./data/select";
 
 // ---- tag pill -----------------------------------------------------------
@@ -44,7 +44,7 @@ const TONE_TEXT: Record<Tone, string> = {
   accent: "text-[color:var(--clinical-accent-hover)]",
 };
 
-export function tagTone(tag: string): Tone {
+function tagTone(tag: string): Tone {
   const t = tag.toLowerCase();
   if (/(cbt|act|dbt|behavioural)/.test(t)) return "purple";
   if (/(crisis|risk|trauma|psychosis)/.test(t)) return "info";
@@ -112,7 +112,7 @@ export function TagRow({
 export function StatusBadge({ status }: { status: string }) {
   const meta = reviewStatusMeta(status);
   const tone = meta.tone === "success" ? "success" : meta.tone === "warning" ? "warning" : "neutral";
-  const Icon = meta.tone === "success" ? ShieldCheckIcon : AlertIcon;
+  const Icon = meta.tone === "success" ? ShieldCheck : TriangleAlert;
   return (
     <span
       className={cn(
@@ -120,7 +120,7 @@ export function StatusBadge({ status }: { status: string }) {
         TONE_SURFACE[tone],
       )}
     >
-      <Icon size={14} strokeWidth={1.9} />
+      <Icon size={14} strokeWidth={1.9} aria-hidden="true" />
       {meta.label}
     </span>
   );
@@ -133,7 +133,7 @@ export function IconTile({
   size = 44,
   variant = "accent",
 }: {
-  icon: (p: { size?: number }) => ReactNode;
+  icon: LucideIcon;
   size?: number;
   variant?: "accent" | "soft";
 }) {
@@ -147,7 +147,7 @@ export function IconTile({
           : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
       )}
     >
-      <Icon size={Math.round(size * 0.5)} />
+      <Icon size={Math.round(size * 0.5)} aria-hidden="true" />
     </span>
   );
 }
@@ -164,7 +164,7 @@ export function EmptyState({
   body,
   action,
 }: {
-  icon: (p: { size?: number }) => ReactNode;
+  icon: LucideIcon;
   title: string;
   body: string;
   action?: ReactNode;
@@ -174,7 +174,7 @@ export function EmptyState({
       title={title}
       body={body}
       actions={action}
-      iconNode={<Icon size={26} />}
+      iconNode={<Icon size={26} aria-hidden="true" />}
       align="center"
       live="polite"
       centeredTreatment="clinical"
@@ -184,17 +184,33 @@ export function EmptyState({
 
 // ---- small building blocks ---------------------------------------------
 
-export function SectionHeading({ children }: { children: ReactNode }) {
-  return <div className="text-base-minus font-semibold text-[color:var(--text-heading)]">{children}</div>;
-}
-
 export function Eyebrow({ children, tone = "neutral" }: { children: ReactNode; tone?: Tone }) {
   return <span className={cn("text-2xs font-bold tracking-eyebrow", TONE_TEXT[tone])}>{children}</span>;
+}
+
+/**
+ * The three completeness bands the fill colour encodes.
+ *
+ * Naming them is what stops the meter being a colour-only status indicator
+ * (GATES.md gate 4). The percentage alone does not carry it: a reader can see
+ * "62%" and still not know the review threshold it is measured against, which
+ * is the whole point of the hue changing at 80 and 50.
+ *
+ * A `StatusMark` is deliberately not used. Its own contract limits shape marks
+ * to surfaces where a reader looks at one thing — "in a dense table, use the
+ * label alone" — and the review queue renders three meters per row across
+ * twenty-four rows.
+ */
+function completenessBand(v: number) {
+  if (v >= 80) return { fill: "bg-[color:var(--success)]", label: "complete" } as const;
+  if (v >= 50) return { fill: "bg-[color:var(--clinical-accent)]", label: "partial" } as const;
+  return { fill: "bg-[color:var(--warning)]", label: "below review threshold" } as const;
 }
 
 /** A completeness meter (0–100) used on cards and the detail rail. */
 export function Meter({ value, label }: { value: number | null; label: string }) {
   const v = Math.max(0, Math.min(100, value ?? 0));
+  const band = completenessBand(v);
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex items-center justify-between gap-2">
@@ -203,22 +219,19 @@ export function Meter({ value, label }: { value: number | null; label: string })
       </div>
       <span
         role={value == null ? undefined : "meter"}
-        aria-label={value == null ? undefined : label}
+        // The band rides in the accessible name, so the threshold the hue marks
+        // is announced rather than only seen.
+        aria-label={value == null ? undefined : `${label} — ${band.label}`}
         aria-valuemin={value == null ? undefined : 0}
         aria-valuemax={value == null ? undefined : 100}
         aria-valuenow={value == null ? undefined : v}
+        aria-valuetext={value == null ? undefined : `${v}% — ${band.label}`}
         className="block h-1.5 overflow-hidden rounded-xs bg-[color:var(--surface-inset)]"
       >
         <span
-          className={cn(
-            "block h-full rounded-xs",
-            v >= 80
-              ? "bg-[color:var(--success)]"
-              : v >= 50
-                ? "bg-[color:var(--clinical-accent)]"
-                : "bg-[color:var(--warning)]",
-          )}
+          className={cn("block h-full rounded-xs", band.fill)}
           style={{ width: `${v}%` }}
+          title={value == null ? undefined : band.label}
         />
       </span>
     </div>
