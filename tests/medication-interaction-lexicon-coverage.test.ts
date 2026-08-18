@@ -388,14 +388,17 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
       readFileSync(path.join(__dirname, "../data/medication-interaction-index.json"), "utf-8"),
     ) as { bySlug: Record<string, { rows: Array<{ counterparties: string[] }> }> };
     const { bySlug } = interactionIndex;
+    const warfarinSlugs = ["warfarin-vka", "warfarin-anticoagulant"] as const;
+    // Both entries must exist — if either slug is renamed this test catches it.
+    for (const slug of warfarinSlugs) {
+      expect(bySlug[slug]).toBeDefined();
+    }
     const warfarinPairs: [string, string][] = [
       ["warfarin-vka", "warfarin-anticoagulant"],
       ["warfarin-anticoagulant", "warfarin-vka"],
     ];
     for (const [slug, forbidden] of warfarinPairs) {
-      const entry = bySlug[slug];
-      if (!entry) continue;
-      const found = entry.rows.some((row) => row.counterparties.includes(forbidden));
+      const found = bySlug[slug]!.rows.some((row) => row.counterparties.includes(forbidden));
       expect(found).toBe(false);
     }
   });
