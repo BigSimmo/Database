@@ -81,7 +81,7 @@ An invalid workflow stage returns to Patient and agreement and announces the rea
 - [Clinical language trace](clinical-language-trace.md)
 - [Accessibility acceptance](accessibility-acceptance.md)
 - [Visual reference manifest](visual-reference-manifest.md)
-- [Screenshot atlas manifest](screenshot-atlas-manifest.json) records all 44 inspected captures, their routes, scenarios, viewports and rendered dimensions.
+- [Screenshot atlas manifest](screenshot-atlas-manifest.json) records all 44 inspected captures, their routes, scenarios, viewports and rendered dimensions. The captures themselves are committed under [`atlas/`](atlas) so the prototype can be reviewed without rebuilding it.
 - [Verification report](verification-report.md) records the exact final gate outcomes and deliberately unrun acceptance work.
 
 ## Production exclusions

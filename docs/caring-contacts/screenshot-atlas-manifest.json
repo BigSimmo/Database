@@ -575,6 +575,8 @@
       }
     }
   ],
-  "worktreeState": "uncommitted task worktree",
-  "evidenceDirectory": ".local/caring-contact-linked-mockup/atlas"
+  "worktreeState": "captured from the task worktree; images committed with this PR",
+  "evidenceDirectory": "docs/caring-contacts/atlas",
+  "imagesCommitted": true,
+  "note": "The 44 captures listed below are committed alongside this manifest in docs/caring-contacts/atlas so the prototype can be reviewed without the capture worktree. They are rendered from synthetic prototype data only."
 }

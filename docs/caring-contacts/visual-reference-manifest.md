@@ -2,6 +2,8 @@
 
 These ten boards were inspected from the older read-only Caring Contact design worktree. They establish the approved composition, density and continuity direction. The linked build selectively reconciles them against current-main repository tokens, primitives, accessibility and Next.js contracts; the older worktree and its package/configuration state are not merged.
 
+**The board images are not in this repository.** They live in that separate design worktree, and the table below is a provenance record — byte size and SHA-256 identify each board if it is produced again, they do not point at a file you can open from here. The evidence you can open is the 44-capture atlas of this build under [`atlas/`](atlas), indexed by [`screenshot-atlas-manifest.json`](screenshot-atlas-manifest.json).
+
 | Board                                  |     Bytes | SHA-256                                                            | Design role                                                |
 | -------------------------------------- | --------: | ------------------------------------------------------------------ | ---------------------------------------------------------- |
 | `01-foundation-and-today.png`          | 1,208,049 | `d52ca707322605a76fad8178020833304edf1d3779249ddbb8eca75132d43861` | Clinical White/Sky Graphite foundation and Today hierarchy |
