@@ -168,8 +168,11 @@ export function DictionarySearchPage() {
     })),
   ];
 
+  // The lens rail lives on the page, not in the band's `filterControls` row: the
+  // band hides that row below `sm` whenever a phone control is supplied, so the
+  // four result lenses were unreachable on a phone. One rail, every width.
   const lensControls = (
-    <div className="flex min-w-max items-center gap-1.5" role="group" aria-label="Result type">
+    <div role="group" aria-label="Result type" className="flex min-w-0 flex-wrap items-center gap-1.5">
       {lensOptions.map((option) => (
         <button
           key={option.value}
@@ -177,14 +180,21 @@ export function DictionarySearchPage() {
           aria-pressed={filters.view === option.value}
           onClick={() => setOne("view", option.value, "all")}
           className={cn(
-            "inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-3 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10",
+            "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border px-3 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10",
             filters.view === option.value
               ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-              : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+              : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
           )}
         >
           {option.label}
-          <span className="nums text-3xs opacity-80">{lensCounts[option.value]}</span>
+          <span
+            className={cn(
+              "nums text-2xs",
+              filters.view === option.value ? "opacity-80" : "text-[color:var(--text-muted)]",
+            )}
+          >
+            {lensCounts[option.value]}
+          </span>
         </button>
       ))}
     </div>
@@ -204,28 +214,40 @@ export function DictionarySearchPage() {
   return (
     <>
       <InformationPageShell testId="dictionary-search-main" width="bleed" gap={false}>
-        <SearchResultsHeaderBand
-          modeId="dictionary"
-          query={filters.q}
-          matchCount={hits.length}
-          status="ready"
-          headingLevel={1}
-          sortValue={filters.sort === "az" ? "alpha" : "relevance"}
-          onSortChange={(value) => setOne("sort", value === "alpha" ? "az" : "relevance", "relevance")}
-          filterControls={
-            <div className="flex items-center justify-between gap-3 overflow-x-auto px-3 py-2 sm:px-4">
-              {lensControls}
-              {trigger("desktop")}
-            </div>
-          }
-          mobileControls={trigger("phone")}
-          mobileControlsPlacement="inline"
-          appliedFilters={appliedFilters}
-          onClearFilters={activeCount ? clearFilters : undefined}
-        />
-        <div className="mx-auto w-full max-w-[76rem] px-0 py-2 sm:px-4 sm:py-4">
+        {/* The band used to be the first thing under the mode nav, so its card
+            edge sat flush against the tab rule with no page title and no
+            breathing room. The route now opens with its own titled header, and
+            the band is what it is elsewhere: the result spine below the title. */}
+        <header className="mx-auto w-full max-w-[76rem] px-4 pb-4 pt-5 sm:px-6 sm:pb-5 sm:pt-7">
+          <p className="text-xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
+            Clinical dictionary
+          </p>
+          <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
+            Search terms
+          </h1>
+          <div className="mt-4">{lensControls}</div>
+        </header>
+        <div className="mx-auto w-full max-w-[76rem] px-4 sm:px-6">
+          <SearchResultsHeaderBand
+            modeId="dictionary"
+            query={filters.q}
+            matchCount={hits.length}
+            status="ready"
+            sortValue={filters.sort === "az" ? "alpha" : "relevance"}
+            onSortChange={(value) => setOne("sort", value === "alpha" ? "az" : "relevance", "relevance")}
+            utilityControls={<div className="hidden shrink-0 sm:flex">{trigger("desktop")}</div>}
+            mobileControls={trigger("phone")}
+            mobileControlsPlacement="inline"
+            appliedFilters={appliedFilters}
+            onClearFilters={activeCount ? clearFilters : undefined}
+          />
+        </div>
+        <div className="mx-auto w-full max-w-[76rem] px-0 py-3 sm:px-6 sm:py-4">
           {hits.length ? (
-            <section aria-label="Dictionary results" className="border-y border-[color:var(--border)] sm:border-x">
+            <section
+              aria-label="Dictionary results"
+              className="border-y border-[color:var(--border)] sm:overflow-hidden sm:rounded-xl sm:border-x sm:bg-[color:var(--surface)]"
+            >
               {hits.map((hit) => {
                 const key =
                   hit.type === "entry"
@@ -474,39 +496,34 @@ export function DictionaryTopicsPage() {
               <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
                 Topics
               </h1>
-              <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                Discover clinical terminology through {dictionaryTopics.length} scoped collections.
-              </p>
             </header>
-            <div className="mt-5 flex gap-2">
-              <label className="flex min-h-tap min-w-0 flex-1 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 sm:min-h-10">
-                <Search className="size-icon-sm text-[color:var(--decoration-soft)]" aria-hidden="true" />
-                <span className="sr-only">Search topics</span>
-                <input
-                  value={query}
-                  onChange={(event) => setOne("q", event.target.value)}
-                  placeholder="Search topics"
-                  className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-[color:var(--text-placeholder)] sm:text-sm"
-                />
-              </label>
+            {/* The page-level topic search was removed: twelve collections fit on
+                one screen, and the universal composer already searches the whole
+                dictionary. Kind filtering and sort stay, as a compact toolbar. */}
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-b border-[color:var(--border)] pb-3">
+              <p className="mr-auto text-sm font-bold text-[color:var(--text-muted)]">
+                <span className="nums text-[color:var(--text-heading)]">{visible.length}</span>{" "}
+                {visible.length === 1 ? "collection" : "collections"}
+              </p>
               <button
                 type="button"
                 onClick={() => setFilterOpen(true)}
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold sm:min-h-10"
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)] hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
               >
                 <Filter className="size-icon-sm" aria-hidden="true" />
-                Filter{kinds.length ? ` ${kinds.length}` : ""}
+                Filter
+                {kinds.length ? <span className="nums text-[color:var(--clinical-accent)]">{kinds.length}</span> : null}
               </button>
               <button
                 type="button"
                 onClick={() => setOne("sort", sort === "az" ? "za" : "az", "az")}
-                className="hidden min-h-tap items-center gap-1 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold sm:inline-flex sm:min-h-10"
+                className="inline-flex min-h-tap items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
               >
                 {sort === "az" ? "A–Z" : "Z–A"}
                 <ChevronDown className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
-            <section className="mt-4 border-y border-[color:var(--border)]" aria-label="Clinical topics">
+            <section className="border-b border-[color:var(--border)]" aria-label="Clinical topics">
               {visible.map((topic) => {
                 const entries = dictionaryTopicEntries(topic);
                 return (

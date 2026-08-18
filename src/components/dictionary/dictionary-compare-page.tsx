@@ -115,9 +115,6 @@ export function DictionaryComparePage({ a, b }: { a: DictionaryEntry | null; b: 
               <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
                 Compare terms
               </h1>
-              <p className="mt-2 max-w-2xl text-sm text-[color:var(--text-muted)]">
-                Align two source-linked entries field by field without generating clinical advice.
-              </p>
             </div>
             <div className="hidden flex-wrap gap-2 sm:flex">
               <button
