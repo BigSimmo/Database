@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "7c1f5850-ddcd-47da-89ad-99314d0040fe",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "H5a residual: whether a constant similarity of 1 may contribute to a confidence label is still open, and after G1 it lives only in the hazard doc",
+    "detail": "Packet G1 (PR #2053, merged 2026-08-17) implemented owner decision Option B: buildDocumentSummaryResults now stamps similarity_origin \"document_context\" on document-summary rows, deriveConfidence is unchanged, and document summaries still reach \"high\". That closed the LEGIBILITY half of the H5a live residual -- the fabricated 1.0 is no longer indistinguishable from a perfect cosine at any surface that reads a row. It did NOT answer the underlying governance question: may a score nobody measured contribute to the confidence label a clinician reads at all? Option B was chosen because tagging has no measured safety cost while Option A (tag as synthetic_text, capping summaries at \"medium\") is a label downgrade without measured gain -- so the question was deferred deliberately, not resolved. The paired question row #J912J9 is being closed by G1, so once that closure reconciles this knowledge survives only in docs/clinical-hazard-analysis.md H5a and not in the queue anyone reads. NEXT: no action required unless a measured signal appears; if it does, the tag is what makes the fix cheap -- any future gate can now discriminate the document-summary route without re-deriving provenance. Guard rails already in place: tests/rag-score.test.ts pins the discriminating pair (two document_context citations >= 0.82 -> \"high\"; the identical scores tagged synthetic_text -> \"medium\"), so a silent change in either direction goes red.",
+    "source": "Packet G1 session 2026-08-17 (PR #2053); docs/clinical-hazard-analysis.md H5a; closes-with #J912J9",
+    "issueUlid": "01M09A824C1PN5BM56CHVH0WKM"
+  }
+}
