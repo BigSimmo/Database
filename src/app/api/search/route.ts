@@ -1064,6 +1064,9 @@ export async function POST(request: Request) {
     if (error instanceof PublicApiError) {
       return jsonError(error, error.status);
     }
+    if (error instanceof SyntaxError || error instanceof URIError) {
+      return jsonError(new PublicApiError("Invalid search request.", 400, { code: "invalid_request" }), 400);
+    }
     if (error instanceof Error && error.message.trim()) {
       const code = classifySearchFailure(error);
       const fallbackBody = body;
@@ -1110,4 +1113,11 @@ export async function POST(request: Request) {
     }
     return jsonError(error, 500);
   }
+}
+
+export async function GET() {
+  return jsonError(
+    new PublicApiError("Method Not Allowed. Search requires a POST request.", 405, { code: "method_not_allowed" }),
+    405,
+  );
 }
