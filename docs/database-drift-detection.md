@@ -44,9 +44,11 @@ storage bucket rows + storage.objects policies.
 - **Column ordinal drift** — live tables grew via `ALTER TABLE ADD COLUMN`;
   columns compare sorted by name, not `attnum`.
 - **ACL append order** — aclitem arrays are sorted.
-- **Duplicate migration-history versions** — history is _not_ compared at all;
-  the check compares actual object state (history presence proved unreliable:
-  see `20260703030000` below).
+- **Duplicate migration-history versions** — history _presence_ is not compared;
+  the object categories compare actual object state (history presence proved
+  unreliable: see `20260703030000` below). The one thing the check now reads
+  from history is the no-statements fingerprint ("Migration-history probe"
+  below), and that is compared live-vs-allowlist, never manifest-vs-live.
 - **Platform-provisioned extensions** (pg_net, pgsodium, pgmq, …) — extra live
   extensions are informational; missing schema.sql-declared ones fail.
 - **Legacy index names** — `alias` allowlist entries assert the live database
