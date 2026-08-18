@@ -359,9 +359,9 @@ product exclusions; the only route-only disposition is the documented legacy doc
 redirect. Shared shell/component roots carry their own explicit `shared-shell` disposition.
 
 Registered public components: 54
-Declared product roots: 73
+Declared product roots: 74
 Roots with a literal `.ckb-v2` opt-in: 1
-Roots inheriting `.ckb-v2` from the global `<html>`: 72
+Roots inheriting `.ckb-v2` from the global `<html>`: 73
 Production surfaces observed under v2: 15/15
 Dynamic `ckb-v2` constructions: 0
 Declared production page routes: 61/61
@@ -382,7 +382,7 @@ Observed v2 under a compatibility declaration fails closed. A declared v2 shell 
 | `documents-source-legacy-redirect` | legacy-redirect |      1 |     0 | v2             | v2 (inherited-global-root) | not-applicable | not-applicable |
 | `favourites`                       | owned           |      1 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `tools-and-calculators`            | owned           |      2 |     2 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `ward-management`                  | owned           |     10 |    14 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `ward-management`                  | owned           |     10 |    15 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `privacy-safety-and-reference`     | owned           |      3 |     3 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `search-results-shared`            | shared-shell    |      0 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `answers-shared`                   | shared-shell    |      0 |     2 | v2             | v2 (inherited-global-root) | passed         | not-committed  |

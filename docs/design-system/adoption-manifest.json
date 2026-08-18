@@ -3080,6 +3080,7 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout"],
       "sanctionedSpecialPatterns": [
         "ClinicalRail",
+        "CoordinatorScreen",
         "PatientMovementWorkspace",
         "WardManagementConsole",
         "WardModeNavigation",
@@ -3155,7 +3156,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["WardManagementConsole"]
+          "sanctionedPatternsPresent": ["CoordinatorScreen"]
         },
         {
           "file": "src/app/ward-management/patients/[patientId]/page.tsx",
@@ -3186,6 +3187,16 @@
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
           "sanctionedPatternsPresent": ["WardModeWorkspace"]
+        },
+        {
+          "file": "src/components/ward-management/coordinator/coordinator-screen.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CoordinatorScreen", "WardModeNavigation", "ClinicalRail"]
         },
         {
           "file": "src/components/ward-management/ward-management-console.tsx",
@@ -3622,7 +3633,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 72,
+    "inheritedCkbV2RootCount": 73,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -3631,7 +3642,7 @@
     "registeredComponentCount": 54,
     "previewCount": 54,
     "productImportedComponentCount": 32,
-    "rootCount": 73,
+    "rootCount": 74,
     "productionRouteCount": 61,
     "nextUiEntryCount": 113
   }

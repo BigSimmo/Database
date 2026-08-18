@@ -503,6 +503,7 @@
       ],
       "routeRoots": true,
       "roots": [
+        "src/components/ward-management/coordinator/coordinator-screen.tsx",
         "src/components/ward-management/ward-management-console.tsx",
         "src/components/ward-management/ward-management-modes.tsx",
         "src/components/ward-management/ward-management-navigation.tsx",
@@ -537,6 +538,7 @@
         "files": []
       },
       "sanctionedSpecialPatterns": [
+        "CoordinatorScreen",
         "WardManagementConsole",
         "PatientMovementWorkspace",
         "WardModeWorkspace",
