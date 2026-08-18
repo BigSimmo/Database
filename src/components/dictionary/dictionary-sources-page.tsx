@@ -63,17 +63,22 @@ function StatTile({ label, value, hint, compact }: { label: string; value: strin
   return (
     <div className="bg-[color:var(--surface)] px-4 py-3">
       <dt className="text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">{label}</dt>
-      {/* `compact` is for the date: at `text-xl` it wrapped to two lines in a
+      {/* The hint lives inside the `<dd>`, not beside it: a `<div>` inside a
+          `<dl>` may contain only `<dt>`/`<dd>`, and a sibling `<p>` there is a
+          serious axe `definition-list` violation.
+          `compact` is for the date: at `text-xl` it wrapped to two lines in a
           half-width phone tile and pulled the row out of alignment. */}
-      <dd
-        className={cn(
-          "mt-1 font-extrabold leading-tight text-[color:var(--text-heading)]",
-          compact ? "text-base sm:text-lg" : "text-xl",
-        )}
-      >
-        <span className="nums">{value}</span>
+      <dd className="mt-1">
+        <span
+          className={cn(
+            "nums block font-extrabold leading-tight text-[color:var(--text-heading)]",
+            compact ? "text-base sm:text-lg" : "text-xl",
+          )}
+        >
+          {value}
+        </span>
+        {hint ? <span className="mt-0.5 block text-xs leading-5 text-[color:var(--text-muted)]">{hint}</span> : null}
       </dd>
-      {hint ? <p className="mt-0.5 text-xs leading-5 text-[color:var(--text-muted)]">{hint}</p> : null}
     </div>
   );
 }
