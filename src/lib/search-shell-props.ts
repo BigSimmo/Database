@@ -88,7 +88,15 @@ export function searchShellPropsForPathname(pathname: string): SearchShellPathPr
   }
 
   if (pathname.startsWith("/dictionary")) {
-    return { initialMode: "dictionary", desktopSearchPlacement: "hero" };
+    // `/dictionary/sources` is a read-only governance page — the source method,
+    // the authority hierarchy, the index and the review cadence. Nothing on it
+    // is searched, so it carries no composer (the mode nav still reaches every
+    // other dictionary surface). Every other dictionary route keeps one.
+    return {
+      initialMode: "dictionary",
+      desktopSearchPlacement: "hero",
+      ...(pathname === "/dictionary/sources" ? { searchComposerVisible: false } : {}),
+    };
   }
 
   return { initialMode: "answer" };

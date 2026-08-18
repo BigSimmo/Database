@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "22577f77-0674-4db5-8f20-8e75ae0b04e6",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "88868df4-c310-4ac2-9e83-cd3ad7702a1d",
+    "reason": "False claim, same pattern as the other cancelled requests on this branch. #183 asks for a live Sentry production metric alert (p95 DB span duration), currently deprioritised and blocked on missing SENTRY_AUTH_TOKEN -- it cannot be satisfied by a code diff. This branch's actual final diff (bbox-overlay feature, therapies.ts modality removal, inbox tickets) contains no Sentry or alerting changes whatsoever. Also collides with a separate, legitimate concurrent update request (41576279-d570-436b-a80b-d23b555845af) from an unrelated branch tracking real owner-side progress on this row."
+  }
+}

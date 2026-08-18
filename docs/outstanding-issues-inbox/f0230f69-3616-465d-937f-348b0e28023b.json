@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f0230f69-3616-465d-937f-348b0e28023b",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#283",
+    "outcome": "Deleted uncalled batch signed-urls endpoint and updated site map",
+    "baseRowFingerprint": "be49376f84e0237d4e8244906ddb674d6ef262386f9cf0f36d793601d0e7f8ea"
+  }
+}

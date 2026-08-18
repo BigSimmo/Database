@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "dc8a4641-3937-4609-9595-031107cd43e0",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#024",
+    "outcome": "Verified WebKit prefetch handling and confirmed clean Safari document routing",
+    "baseRowFingerprint": "137dc39ab58e3b6063913b2aae802ad0989d8e3d5da8de64ffa1c882278a5e17"
+  }
+}
