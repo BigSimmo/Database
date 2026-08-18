@@ -3,7 +3,7 @@
 import { GitCompareArrows, Network, Search, Sparkles, Waypoints } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { therapyHrefWithSearchParams, therapyScreenHref } from "@/lib/therapy-compass-navigation";
 
@@ -73,12 +73,6 @@ export function HomeScreen() {
             ),
           icon: Network,
         }))}
-        footer={
-          <ModeHomeVerificationFooter
-            label="Decision support"
-            body="Source-grounded — check each record's review status and cited sources before clinical use"
-          />
-        }
       />
     </ModeHomeMain>
   );
