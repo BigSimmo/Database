@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "../styles/tokens.css";
 /* Design-scratch routes have their own route-scoped utility sheet. Keeping
    their rapidly growing utility vocabulary out of every production page cuts
    the shared render-blocking stylesheet without changing mockup rendering. */
