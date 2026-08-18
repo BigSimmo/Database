@@ -24,7 +24,7 @@ function parseStoredPrivateSearchScope(raw: string): StoredPrivateSearchScope | 
   ) {
     return null;
   }
-  if (typeof value.expiresAt !== "number" || Number.isNaN(value.expiresAt)) return null;
+  if (typeof value.expiresAt !== "number" || !Number.isFinite(value.expiresAt)) return null;
   return { version: 1, ownerId: value.ownerId, documentIds: value.documentIds, expiresAt: value.expiresAt };
 }
 
