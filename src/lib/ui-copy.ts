@@ -127,7 +127,10 @@ export const sharedHomePresentation = {
     },
   },
   "therapy-compass": {
-    title: "Therapy Compass",
+    // "Therapy", not "Therapy Compass": the mode's own copy rule, pinned by
+    // tests/therapy-compass-mode-wiring.test.ts, which the retired detailed home
+    // followed. This title became user-visible when that home was consolidated here.
+    title: "Therapy",
     subtitle: "Source-grounded therapy records.",
     verification: {
       label: "Decision support",

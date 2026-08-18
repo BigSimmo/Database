@@ -71,9 +71,11 @@ const sidebarToolItems = [
   { id: "answer", label: "Answer", icon: Sparkles, href: "/?mode=answer" },
   // Documents and Medication now have real homes, like every other mode.
   { id: "documents", label: "Documents", icon: FileText, href: "/documents" },
-  { id: "services", label: "Services", icon: appModeIcons.services, href: "/services" },
+  // Every consolidated mode links to the one shared home; their bare paths are now
+  // redirects onto it, so pointing a pinned entry at `/services` or `/factsheets`
+  // would spend a round trip arriving at the same place.
+  { id: "services", label: "Services", icon: appModeIcons.services, href: "/?mode=services" },
   { id: "prescribing", label: appModeDefinition("prescribing").label, icon: Pill, href: "/medications" },
-  // Every consolidated mode links to the one shared home; `/factsheets` is now a redirect onto it.
   { id: "factsheets", label: "Factsheets", icon: appModeIcons.factsheets, href: "/?mode=factsheets" },
   // PT-11: standalone /tools is the canonical entry; /?mode=tools remains a dashboard-mode alias.
   { id: "tools", label: "Tools", icon: Wrench, href: "/tools" },

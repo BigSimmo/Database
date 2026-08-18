@@ -1238,9 +1238,11 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    // 59: the previous 51 production pages plus the eight-route Dictionary
-    // surface, including its shared mode home and governed detail routes.
-    expect(manifest.routeCoverage.discovered).toHaveLength(59);
+    // 65: the 59 that preceded home consolidation plus the six `<mode>/search`
+    // routes it split out of the bare paths (services, forms, calculators,
+    // specifiers, formulation, differentials). The bare paths still count — they
+    // stayed as redirect stubs so bookmarks and deep links keep resolving.
+    expect(manifest.routeCoverage.discovered).toHaveLength(65);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

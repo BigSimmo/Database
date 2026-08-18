@@ -16,6 +16,13 @@ const consolidatedModeHomePaths = {
   "/dsm": "dsm",
   "/dictionary": "dictionary",
   "/factsheets": "factsheets",
+  "/services": "services",
+  "/forms": "forms",
+  "/calculators": "calculators",
+  "/specifiers": "specifiers",
+  "/formulation": "formulation",
+  "/differentials": "differentials",
+  "/therapy-compass": "therapy-compass",
 } as const satisfies Record<string, AppModeId>;
 
 type ConsolidatedModeHomePath = keyof typeof consolidatedModeHomePaths;
@@ -59,3 +66,16 @@ export function consolidatedModeHomeTarget(pathname: string, search: URLSearchPa
   params.set("mode", modeId);
   return `/?${params.toString()}`;
 }
+
+/**
+ * The modes whose bare path redirects — the same set, keyed by mode instead of path.
+ *
+ * `app-modes.ts` reads this to route submitted searches to `<href>/search` and
+ * unsubmitted ones straight to `/?mode=<id>`. Deriving it here rather than
+ * restating the list there is what stops the two drifting: a mode added to the
+ * redirect map without a `/search` route would otherwise send a submitted query
+ * back through its own redirect and loop.
+ */
+export const consolidatedModeHomeModeIds: ReadonlySet<AppModeId> = new Set<AppModeId>(
+  Object.values(consolidatedModeHomePaths),
+);

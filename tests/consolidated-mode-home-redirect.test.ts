@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { appModeIds } from "@/lib/app-modes";
+import { appModeHomeHref, appModeIds } from "@/lib/app-modes";
 import {
   consolidatedModeHomeModeId,
+  consolidatedModeHomeModeIds,
   consolidatedModeHomeTarget,
   isConsolidatedModeHomePath,
 } from "@/lib/consolidated-mode-home-redirect";
@@ -14,10 +15,17 @@ describe("consolidated mode home redirects", () => {
     expect(target("/dsm")).toBe("/?mode=dsm");
     expect(target("/dictionary")).toBe("/?mode=dictionary");
     expect(target("/factsheets")).toBe("/?mode=factsheets");
+    expect(target("/services")).toBe("/?mode=services");
+    expect(target("/forms")).toBe("/?mode=forms");
+    expect(target("/calculators")).toBe("/?mode=calculators");
+    expect(target("/specifiers")).toBe("/?mode=specifiers");
+    expect(target("/formulation")).toBe("/?mode=formulation");
+    expect(target("/differentials")).toBe("/?mode=differentials");
+    expect(target("/therapy-compass")).toBe("/?mode=therapy-compass");
   });
 
   it("leaves every other path alone", () => {
-    for (const pathname of ["/", "/services", "/tools", "/documents", "/mockups/dsm-home-detailed"]) {
+    for (const pathname of ["/", "/favourites", "/tools", "/documents", "/medications", "/mockups/dsm-home-detailed"]) {
       expect(target(pathname)).toBeNull();
       expect(isConsolidatedModeHomePath(pathname)).toBe(false);
     }
@@ -37,6 +45,10 @@ describe("consolidated mode home redirects", () => {
       "/dictionary/topics",
       "/factsheets/search",
       "/factsheets/sertraline",
+      "/services/search",
+      "/forms/search",
+      "/calculators/search",
+      "/therapy-compass/search",
     ]) {
       expect(target(pathname)).toBeNull();
       expect(isConsolidatedModeHomePath(pathname)).toBe(false);
@@ -61,10 +73,23 @@ describe("consolidated mode home redirects", () => {
   });
 
   it("resolves every consolidated path to a real app mode", () => {
-    for (const pathname of ["/dsm", "/dictionary", "/factsheets"]) {
-      const modeId = consolidatedModeHomeModeId(pathname);
-      expect(modeId).not.toBeNull();
+    for (const modeId of consolidatedModeHomeModeIds) {
       expect(appModeIds).toContain(modeId);
+      expect(consolidatedModeHomeModeId(`/${modeId}`)).toBe(modeId);
+    }
+  });
+
+  /*
+   * The loop guard. A consolidated bare path redirects to the shared home, and the
+   * shared home routes a submitted query back to the mode's own surface — so that
+   * surface must never be the bare path again. `appModeHomeHref` is the only thing
+   * that builds it, so asserting on its output is asserting on the real hop.
+   */
+  it("never routes a submitted search back at a path that redirects", () => {
+    for (const modeId of consolidatedModeHomeModeIds) {
+      const submitted = appModeHomeHref(modeId, { query: "clozapine", run: true });
+      expect(target(new URL(submitted, "https://clinical.test").pathname)).toBeNull();
+      expect(submitted.startsWith(`/${modeId}/search?`)).toBe(true);
     }
   });
 });

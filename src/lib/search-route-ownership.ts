@@ -26,15 +26,8 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
  * navigation cannot flip the shell into dock reserve mid-transition.
  */
 const standaloneModeHomePaths = new Set<string>([
-  "/services",
-  "/forms",
   "/favourites",
-  "/differentials",
-  "/specifiers",
-  "/formulation",
-  "/therapy-compass",
   "/tools",
-  "/calculators",
   // Documents and Medication gained real homes when `/` became the single shared
   // home for every mode. Like the others they own an in-flow hero composer.
   "/documents",

@@ -108,7 +108,7 @@ describe("favourites auth gate DOM", () => {
     ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/documents" },
-      { name: "Services", href: "/services" },
+      { name: "Services", href: "/?mode=services" },
       { name: "Medication", href: "/medications" },
       { name: "Factsheets", href: "/?mode=factsheets" },
       { name: "Tools", href: "/tools" },

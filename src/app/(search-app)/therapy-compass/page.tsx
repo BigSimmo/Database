@@ -1,28 +1,19 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { HomeScreen } from "@/components/therapy-compass/screens/home-screen";
+import { appModeSelectionHref } from "@/lib/app-modes";
 
-export const metadata: Metadata = {
-  title: "Therapy - Clinical KB",
-  description:
-    "Source-grounded therapy decision support: search, compare, recommend, pathways, brief interventions and patient sheets.",
-};
-
-type TherapyCompassHomeProps = {
-  searchParams?: Promise<{ q?: string | string[]; run?: string | string[] }>;
-};
-
-function firstParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-export default async function TherapyCompassHome({ searchParams }: TherapyCompassHomeProps) {
-  const params = searchParams ? await searchParams : {};
-  const query = firstParam(params.q)?.trim() ?? "";
-  const autoRun = firstParam(params.run) === "1" && query.length > 0;
-  // A run-enabled mode search resolves to the home href (appModeHomeHref); send it
-  // on to the dedicated, deep-linkable search route so the workspace opens on results.
-  if (autoRun) redirect(`/therapy-compass/search?q=${encodeURIComponent(query)}&run=1`);
-  return <HomeScreen />;
+/**
+ * `Therapy` has no home page of its own any more.
+ *
+ * Every mode shares one lightweight home at `/?mode=<id>`, whose per-mode copy
+ * lives in `sharedHomePresentation` (src/lib/ui-copy.ts). This path stays so
+ * bookmarks and external deep links keep resolving, and forwards to that shared
+ * home. Submitted searches render at `/therapy-compass/search`; the proxy carries the
+ * query across, so a deep link never lands here without one.
+ *
+ * The previous detailed page is preserved, off the live routes, at
+ * `/mockups/therapy-compass-home-detailed`.
+ */
+export default function TherapyCompassHomeRoute() {
+  redirect(appModeSelectionHref("therapy-compass"));
 }

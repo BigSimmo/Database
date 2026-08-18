@@ -1,21 +1,19 @@
-import { DifferentialsHomePage } from "@/components/differentials/differentials-home-page";
+import { redirect } from "next/navigation";
 
-type DifferentialsRouteProps = {
-  searchParams?: Promise<{ query?: string | string[]; q?: string | string[]; run?: string | string[] }>;
-};
+import { appModeSelectionHref } from "@/lib/app-modes";
 
-function firstSearchParam(value?: string | string[]) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-export default async function DifferentialsHomeRoute({ searchParams }: DifferentialsRouteProps) {
-  const params = searchParams ? await searchParams : {};
-  const query = (firstSearchParam(params.q) ?? firstSearchParam(params.query) ?? "").trim();
-  const hasSubmittedSearch = firstSearchParam(params.run) === "1" && query.length > 0;
-
-  if (!hasSubmittedSearch) {
-    return <DifferentialsHomePage />;
-  }
-
-  return <DifferentialsHomePage query={query} autoRunSearch />;
+/**
+ * `Differential Diagnosis` has no home page of its own any more.
+ *
+ * Every mode shares one lightweight home at `/?mode=<id>`, whose per-mode copy
+ * lives in `sharedHomePresentation` (src/lib/ui-copy.ts). This path stays so
+ * bookmarks and external deep links keep resolving, and forwards to that shared
+ * home. Submitted searches render at `/differentials/search`; the proxy carries the
+ * query across, so a deep link never lands here without one.
+ *
+ * The previous detailed page is preserved, off the live routes, at
+ * `/mockups/differentials-home-detailed`.
+ */
+export default function DifferentialsHomeRoute() {
+  redirect(appModeSelectionHref("differentials"));
 }

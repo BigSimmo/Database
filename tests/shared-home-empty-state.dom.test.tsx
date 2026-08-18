@@ -85,7 +85,7 @@ const expectedPresentations = [
   },
   {
     modeId: "therapy-compass",
-    title: "Therapy Compass",
+    title: "Therapy",
     subtitle: "Source-grounded therapy records.",
     iconClass: "lucide-compass",
   },

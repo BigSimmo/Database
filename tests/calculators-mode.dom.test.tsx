@@ -17,6 +17,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import CalculatorsRoute from "@/app/(search-app)/calculators/page";
+import CalculatorsSearchRoute from "@/app/(search-app)/calculators/search/page";
 import {
   calculatorDomainCandidateCount,
   calculatorProgressCandidateCount,
@@ -49,15 +50,31 @@ const emptyFilters = (): CalculatorFilterState => ({
 });
 
 describe("calculator mode routing", () => {
-  it("renders the shared-composer home until a non-empty search is submitted", async () => {
-    const home = await CalculatorsRoute({ searchParams: Promise.resolve({}) });
-    const emptyRun = await CalculatorsRoute({ searchParams: Promise.resolve({ run: "1", q: "  " }) });
-    const results = await CalculatorsRoute({
+  /*
+   * Calculators has no home page of its own any more: `/calculators` redirects to
+   * the shared lightweight home and results moved to `/calculators/search`. These
+   * cases pin that split, because routing a submitted query back at the bare path
+   * would bounce through the redirect and loop.
+   */
+  it("forwards the bare path to the shared home", () => {
+    navigation.redirect.mockClear();
+    expect(() => CalculatorsRoute()).toThrow("NEXT_REDIRECT");
+    expect(navigation.redirect).toHaveBeenCalledWith("/?mode=calculators");
+  });
+
+  it("renders results only once a non-empty search is submitted", async () => {
+    navigation.redirect.mockClear();
+    await expect(CalculatorsSearchRoute({ searchParams: Promise.resolve({}) })).rejects.toThrow("NEXT_REDIRECT");
+    expect(navigation.redirect).toHaveBeenLastCalledWith("/?mode=calculators");
+
+    await expect(CalculatorsSearchRoute({ searchParams: Promise.resolve({ run: "1", q: "  " }) })).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+    expect(navigation.redirect).toHaveBeenLastCalledWith("/?mode=calculators");
+
+    const results = await CalculatorsSearchRoute({
       searchParams: Promise.resolve({ run: "1", q: " depression " }),
     });
-
-    expect(home.type).toBe(CalculatorsHomePage);
-    expect(emptyRun.type).toBe(CalculatorsHomePage);
     expect(results.type).toBe(CalculatorsSearchPage);
     expect(results.props.initialQuery).toBe("depression");
   });
@@ -65,24 +82,24 @@ describe("calculator mode routing", () => {
   it("normalizes the legacy query parameter to the canonical q URL", async () => {
     navigation.redirect.mockClear();
     await expect(
-      CalculatorsRoute({
+      CalculatorsSearchRoute({
         searchParams: Promise.resolve({ run: "1", query: "PHQ-9", focus: "1" }),
       }),
     ).rejects.toThrow("NEXT_REDIRECT");
-    expect(navigation.redirect).toHaveBeenCalledWith("/calculators?run=1&focus=1&q=PHQ-9");
+    expect(navigation.redirect).toHaveBeenCalledWith("/calculators/search?run=1&focus=1&q=PHQ-9");
   });
 
   it("removes empty and redundant legacy query parameters", async () => {
     navigation.redirect.mockClear();
-    await expect(CalculatorsRoute({ searchParams: Promise.resolve({ query: "   " }) })).rejects.toThrow(
+    await expect(CalculatorsSearchRoute({ searchParams: Promise.resolve({ query: "   " }) })).rejects.toThrow(
       "NEXT_REDIRECT",
     );
-    expect(navigation.redirect).toHaveBeenLastCalledWith("/calculators");
+    expect(navigation.redirect).toHaveBeenLastCalledWith("/calculators/search");
 
-    await expect(CalculatorsRoute({ searchParams: Promise.resolve({ q: "GAD-7", query: "" }) })).rejects.toThrow(
+    await expect(CalculatorsSearchRoute({ searchParams: Promise.resolve({ q: "GAD-7", query: "" }) })).rejects.toThrow(
       "NEXT_REDIRECT",
     );
-    expect(navigation.redirect).toHaveBeenLastCalledWith("/calculators?q=GAD-7");
+    expect(navigation.redirect).toHaveBeenLastCalledWith("/calculators/search?q=GAD-7");
   });
 
   it("mounts the universal hero composer slot and canonical starter searches", () => {
@@ -92,9 +109,9 @@ describe("calculator mode routing", () => {
     expect(container.querySelector(".mode-home-composer-slot")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Depression severity/ })).toHaveAttribute(
       "href",
-      "/calculators?q=depression&run=1",
+      "/calculators/search?q=depression&run=1",
     );
-    expect(screen.getByRole("link", { name: "PHQ-9" })).toHaveAttribute("href", "/calculators?q=PHQ-9&run=1");
+    expect(screen.getByRole("link", { name: "PHQ-9" })).toHaveAttribute("href", "/calculators/search?q=PHQ-9&run=1");
   });
 });
 
@@ -213,7 +230,7 @@ describe("calculator results surface", () => {
     );
     expect(screen.getByText("No matches for “no-such-calculator”")).toBeVisible();
     await user.click(screen.getByTestId("search-results-empty-clear-search"));
-    expect(navigation.push).toHaveBeenCalledWith("/calculators?focus=1");
+    expect(navigation.push).toHaveBeenCalledWith("/?mode=calculators&focus=1");
   });
 
   it("opens, updates, completes, closes, and resumes a scoring session", async () => {
