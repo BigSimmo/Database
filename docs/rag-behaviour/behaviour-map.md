@@ -134,3 +134,9 @@ answerShape}` where `answerShape` is provider-safe counts/lengths only — never
   ladder apply to menu sections unchanged. Contract pins: `tests/answer-composition.test.ts`
   (all 48 class×intent cells), `tests/rag-answer-composition-prompt.test.ts`,
   `tests/rag-answer-fallback.test.ts` (menu line in the real prompt input).
+- Downstream consumer (packet S3, 2026-08-18): `src/lib/answer-follow-up.ts` reads the same menu to
+  compose the answer surface's follow-up chips — menu-derived candidates, gated on the retrieved
+  evidence the client actually received, and suppressed when the answer body or an emitted section of
+  that kind already covers them. It only READS the menu and changes no retrieval, ranking or prompt
+  surface. Its templates are index-aligned with the menu items, asserted over all 48 cells in
+  `tests/answer-follow-up.test.ts`, so a menu edit fails offline instead of silently dropping a chip.

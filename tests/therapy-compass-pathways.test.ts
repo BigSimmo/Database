@@ -16,7 +16,6 @@ type Therapy = {
   slug: string;
   name?: string;
   bestUsedFor: string;
-  modality?: string | null;
   tags?: string[];
 };
 type Step = { therapySlug: string; label: string; description: string };

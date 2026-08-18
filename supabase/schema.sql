@@ -2769,6 +2769,7 @@ returns table (
 language sql
 stable
 set search_path = public, extensions, pg_temp
+set work_mem = '128MB'
 as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
@@ -2978,6 +2979,7 @@ returns table (
 language sql
 stable
 set search_path = public, extensions, pg_temp
+set work_mem = '64MB'
 as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
@@ -3091,6 +3093,7 @@ language plpgsql
 stable
 set search_path = public, extensions, pg_temp
 set plan_cache_mode = 'force_custom_plan'
+set work_mem = '64MB'
 as $$
 BEGIN
   PERFORM set_config('hnsw.ef_search', '100', true);
@@ -3839,6 +3842,7 @@ returns table (
 language sql
 stable
 set search_path = public, extensions, pg_temp
+set work_mem = '64MB'
 as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
@@ -3995,6 +3999,7 @@ returns table (
 language sql
 stable
 set search_path = public, extensions, pg_temp
+set work_mem = '64MB'
 as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
@@ -4182,6 +4187,7 @@ language sql
 stable
 set search_path = public, extensions, pg_temp
 set plan_cache_mode = 'force_custom_plan'
+set work_mem = '64MB'
 as $$
   with query as (
     select
@@ -4283,6 +4289,7 @@ language sql
 stable
 set search_path = public, extensions, pg_temp
 set plan_cache_mode = 'force_custom_plan'
+set work_mem = '128MB'
 as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
@@ -5491,6 +5498,7 @@ language sql
 stable
 set search_path = public, extensions, pg_temp
 set plan_cache_mode = 'force_custom_plan'
+set work_mem = '128MB'
 as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq,
@@ -6577,6 +6585,7 @@ CREATE OR REPLACE FUNCTION public.match_document_chunks_hybrid(query_embedding v
  LANGUAGE sql
  STABLE
  SET search_path TO 'public', 'extensions', 'pg_temp'
+ SET work_mem TO '128MB'
 AS $function$
   with query as (select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq),
   vector_ranked as (
@@ -6664,6 +6673,7 @@ CREATE OR REPLACE FUNCTION public.match_document_table_facts_text(query_text tex
  STABLE
  SET search_path TO 'public', 'extensions', 'pg_temp'
  SET plan_cache_mode TO 'force_custom_plan'
+ SET work_mem TO '64MB'
 AS $function$
 begin
   return query execute $body$
@@ -7809,6 +7819,7 @@ returns table (
 language sql
 stable
 set search_path = public, extensions, pg_temp
+set work_mem = '64MB'
 as $$
   select *
   from public.match_document_chunks_text_scoped(
@@ -7992,6 +8003,7 @@ returns table (
 language sql
 stable
 set search_path = public, extensions, pg_temp
+set work_mem = '128MB'
 as $$
   select *
   from public.match_document_index_units_hybrid_scoped(

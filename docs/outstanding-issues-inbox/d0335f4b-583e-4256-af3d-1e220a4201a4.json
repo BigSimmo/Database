@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d0335f4b-583e-4256-af3d-1e220a4201a4",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#175",
+    "outcome": "Removed modality field from Therapy types, ranking and search",
+    "baseRowFingerprint": "6bbba6a6a63d2d752d1ac7ac5ffb02697fb73841942799e7759dfb64f60c5eb3"
+  }
+}
