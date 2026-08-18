@@ -166,11 +166,11 @@
     {
       "name": "AnswerFooter",
       "family": "answer",
-      "source": "src/components/ui/answer-card.tsx",
+      "source": "src/components/answer/AnswerFooter.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
-      "productImportFiles": [],
+      "directImportFiles": ["src/components/ui/answer-card.tsx"],
+      "productImportFiles": ["src/components/ui/answer-card.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -181,6 +181,7 @@
         "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
+        "tests/dose-line.dom.test.tsx",
         "tests/ui-v2-answer-safety.dom.test.tsx",
         "tests/ui-v2-components.dom.test.tsx"
       ],
@@ -192,8 +193,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -488,12 +489,12 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
-        "src/components/ui/answer-card.tsx",
+        "src/components/answer/AnswerFooter.tsx",
         "src/components/ui/retrieval-state-banner.tsx",
         "src/components/ui/verification-notice.tsx"
       ],
       "productImportFiles": [
-        "src/components/ui/answer-card.tsx",
+        "src/components/answer/AnswerFooter.tsx",
         "src/components/ui/retrieval-state-banner.tsx",
         "src/components/ui/verification-notice.tsx"
       ],
@@ -589,7 +590,7 @@
     {
       "name": "DoseLine",
       "family": "answer",
-      "source": "src/components/ui/answer-card.tsx",
+      "source": "src/components/ui/dose-line.tsx",
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [],
@@ -602,6 +603,7 @@
       },
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
+        "tests/dose-line.dom.test.tsx",
         "tests/ui-v2-answer-safety.dom.test.tsx",
         "tests/ui-v2-components.dom.test.tsx"
       ],
@@ -1052,12 +1054,12 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
-        "src/components/ui/answer-card.tsx",
+        "src/components/answer/AnswerFooter.tsx",
         "src/components/ui/date-display.tsx"
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
-        "src/components/ui/answer-card.tsx",
+        "src/components/answer/AnswerFooter.tsx",
         "src/components/ui/date-display.tsx"
       ],
       "designSync": {
@@ -1070,6 +1072,7 @@
         "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
+        "tests/dose-line.dom.test.tsx",
         "tests/ui-v2-answer-safety.dom.test.tsx"
       ],
       "baseline": {
@@ -1242,8 +1245,8 @@
       "source": "src/components/ui/quantity.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/ui/answer-card.tsx"],
-      "productImportFiles": ["src/components/ui/answer-card.tsx"],
+      "directImportFiles": ["src/components/ui/dose-line.tsx"],
+      "productImportFiles": ["src/components/ui/dose-line.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1462,11 +1465,11 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/formulation/formulation-builder-page.tsx"
+        "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/formulation/formulation-builder-page.tsx"
+        "src/components/ui/catalogue-toolbar.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1649,12 +1652,16 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/answer/AnswerFooter.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx"
+        "src/components/therapy-compass/screens/detail-screen.tsx",
+        "src/components/ui/dose-line.tsx"
       ],
       "productImportFiles": [
+        "src/components/answer/AnswerFooter.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx"
+        "src/components/therapy-compass/screens/detail-screen.tsx",
+        "src/components/ui/dose-line.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1711,12 +1718,16 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/answer/AnswerFooter.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx"
+        "src/components/therapy-compass/screens/detail-screen.tsx",
+        "src/components/ui/dose-line.tsx"
       ],
       "productImportFiles": [
+        "src/components/answer/AnswerFooter.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx"
+        "src/components/therapy-compass/screens/detail-screen.tsx",
+        "src/components/ui/dose-line.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1773,11 +1784,11 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
-        "src/components/ui/answer-card.tsx",
         "src/components/ui/citation.tsx",
+        "src/components/ui/dose-line.tsx",
         "src/components/ui/retrieval-state-banner.tsx"
       ],
-      "productImportFiles": ["src/components/ui/answer-card.tsx", "src/components/ui/retrieval-state-banner.tsx"],
+      "productImportFiles": ["src/components/ui/dose-line.tsx", "src/components/ui/retrieval-state-banner.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1847,13 +1858,13 @@
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/formulation/formulation-builder-page.tsx"
+        "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/formulation/formulation-builder-page.tsx"
+        "src/components/ui/catalogue-toolbar.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -3544,7 +3555,7 @@
   "summary": {
     "registeredComponentCount": 54,
     "previewCount": 54,
-    "productImportedComponentCount": 33,
+    "productImportedComponentCount": 34,
     "rootCount": 67,
     "productionRouteCount": 59,
     "nextUiEntryCount": 112

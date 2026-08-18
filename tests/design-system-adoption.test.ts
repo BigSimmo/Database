@@ -1204,7 +1204,8 @@ describe("design-system adoption manifest", () => {
     ).toContain("src/components/ui/confirm-dialog.tsx");
     expect(
       manifest.components.find((component: { name: string }) => component.name === "Quantity").directImportFiles,
-    ).toContain("src/components/ui/answer-card.tsx");
+    ).toContain("src/components/ui/dose-line.tsx");
+
     const skeleton = manifest.components.find((component: { name: string }) => component.name === "Skeleton");
     expect(skeleton.productImportFiles).toEqual(
       expect.arrayContaining([
