@@ -28,47 +28,33 @@ import {
 import { useMemo, useState } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
+import { formatInstant } from "@/components/ward-management/ward-clock";
+import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
-  formatInstant,
-  formatRemaining,
-  minutesUntil,
-  clockState,
-  type Instant,
-} from "@/components/ward-management/ward-clock";
-import { eligibility, type EligibilityVerdict } from "@/components/ward-management/ward-eligibility";
-import {
-  MOVEMENT_STAGES,
-  PARALLEL_REFERRAL_CAP,
-  type HealthService,
-  type Movement,
-  type MovementStage,
-  type TransportJob,
-  type Unit,
-} from "@/components/ward-management/ward-model";
-import { bedReleases, movementById, wardMovements } from "@/components/ward-management/ward-movements";
+  buildActionInbox,
+  candidateReason,
+  destinationUnit,
+  eligibleCandidates,
+  elapsedLabel,
+  movementHealthService,
+  movementStageSummary,
+  movementTimeline,
+  roleLabels,
+  roleTaskLabel,
+  stageCopy,
+  transportStatusLabel,
+  unitCapacity,
+  unitSiteCode,
+  wardServiceOrder,
+  type InboxItem,
+  type WardRole,
+} from "@/components/ward-management/ward-derivations";
+import { MOVEMENT_STAGES, type Movement, type MovementStage, type Unit } from "@/components/ward-management/ward-model";
+import { movementById, wardMovements } from "@/components/ward-management/ward-movements";
 import { ClinicalRail, WardModeNavigation } from "@/components/ward-management/ward-management-navigation";
-import {
-  NOW_ANCHOR,
-  allEmergencyDepartments,
-  allUnits,
-  siteByCode,
-  unitById,
-} from "@/components/ward-management/ward-sites";
+import { NOW_ANCHOR, allUnits, siteByCode, unitById } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management.module.css";
-
-/** UI-only role concept; not part of the domain model. */
-export type WardRole = "flow" | "ed" | "ward";
-
-export const stageCopy: Record<MovementStage, { label: string; shortLabel: string }> = {
-  placement_requested: { label: "Placement requested", shortLabel: "Requested" },
-  destination_review: { label: "Destination review", shortLabel: "Review" },
-  accepted_awaiting_bed: { label: "Accepted, awaiting bed", shortLabel: "Accepted" },
-  bed_held: { label: "Bed held", shortLabel: "Held" },
-  handover_ready: { label: "Handover ready", shortLabel: "Ready" },
-  moving: { label: "Moving", shortLabel: "Moving" },
-  arrived: { label: "Arrived", shortLabel: "Arrived" },
-};
 
 const stageIcons = {
   placement_requested: FileCheck2,
@@ -80,158 +66,11 @@ const stageIcons = {
   arrived: CheckCircle2,
 } satisfies Record<MovementStage, LucideIcon>;
 
-/** Counts are derived from `wardMovements` so the pipeline strip can never advertise a
- * count no other surface can show. */
-export function stageSummaries(movements: Movement[]) {
-  return MOVEMENT_STAGES.map((id) => ({
-    id,
-    ...stageCopy[id],
-    count: movements.filter((movement) => movement.stage === id).length,
-  }));
-}
-
-export const movementStageSummary = stageSummaries(wardMovements);
-
-export const wardServiceOrder: HealthService[] = ["North Metro", "East Metro", "South Metro", "WACHS", "Private"];
-
-export const roleLabels: Record<WardRole, string> = {
-  flow: "Flow coordinator",
-  ed: "ED mental health",
-  ward: "Ward manager",
-};
-
 const roleQueueHint: Record<WardRole, string> = {
   flow: "Tier first · AI within tier",
   ed: "Readiness and referral tasks",
   ward: "Capacity and acceptance tasks",
 };
-
-export const roleTaskLabel: Record<WardRole, string> = {
-  flow: "Review & confirm",
-  ed: "Confirm ED readiness",
-  ward: "Accept and hold bed",
-};
-
-/** The health service that owns the ED a movement originated in — the real catchment. */
-export function movementHealthService(movement: Movement): HealthService | undefined {
-  const ed = allEmergencyDepartments().find((candidate) => candidate.id === movement.originEdId);
-  return ed ? siteByCode(ed.siteCode)?.service : undefined;
-}
-
-/** Duration since the movement opened, using only ward-clock exports. */
-export function elapsedLabel(movement: Movement, now: Instant) {
-  return formatRemaining(minutesUntil(movement.openedAt, now));
-}
-
-/** The unit a movement is currently heading to, if any. Never falls back to a different unit. */
-export function destinationUnit(movement: Movement): Unit | undefined {
-  const id = movement.acceptedUnitId ?? movement.referredUnitIds[0];
-  return id ? unitById(id) : undefined;
-}
-
-export function unitSiteCode(unit: Unit) {
-  return siteByCode(unit.siteCode)?.code ?? unit.siteCode;
-}
-
-export function transportStatusLabel(transport: TransportJob | undefined) {
-  if (!transport) return "Not yet requested";
-  if (transport.cancelledAt !== undefined) return "Cancelled";
-  if (transport.arrivedAt !== undefined) return "Arrived";
-  if (transport.collectedAt !== undefined) return "Collected";
-  if (transport.enRouteAt !== undefined) return "En route";
-  if (transport.acceptedAt !== undefined) return `${transport.provider} accepted, awaiting departure`;
-  return `${transport.provider} requested`;
-}
-
-/** The five-state bed grid, built entirely from real unit and bed-release fields. */
-export function unitCapacity(unit: Unit) {
-  return {
-    available: unit.allocatable.value,
-    held: unit.held,
-    potential: bedReleases.filter((release) => release.unitId === unit.id).length,
-    blocked: unit.blocked,
-    occupied: Math.max(unit.beds - unit.empty.value, 0),
-  };
-}
-
-/** Cohort-matching units ranked eligible-first, using the real eligibility gates. */
-export function eligibleCandidates(movement: Movement, now: Instant, limit = 3) {
-  return allUnits()
-    .filter((unit) => unit.cohort === movement.cohort)
-    .map((unit) => ({ unit, verdict: eligibility(movement, unit, now) }))
-    .sort((a, b) => Number(b.verdict.eligible) - Number(a.verdict.eligible))
-    .slice(0, limit);
-}
-
-export function candidateReason(verdict: EligibilityVerdict) {
-  if (verdict.eligible) return "Eligible now";
-  const failed = verdict.gates.find((gate) => !gate.pass);
-  return failed ? failed.detail : "Not eligible";
-}
-
-export type InboxTone = "danger" | "warning";
-export type InboxItem = {
-  id: string;
-  tone: InboxTone;
-  icon: LucideIcon;
-  title: string;
-  detail: string;
-  owner: string;
-  movementId: string;
-};
-
-/** Every item here is computed from real movement fields — nothing is authored. */
-export function buildActionInbox(movements: Movement[], now: Instant): InboxItem[] {
-  const items: InboxItem[] = [];
-
-  const breachedLegal = movements.find(
-    (movement) => movement.legalForm && clockState(movement.legalForm.dueAt, now) === "breached",
-  );
-  if (breachedLegal?.legalForm) {
-    items.push({
-      id: `legal-${breachedLegal.id}`,
-      tone: "danger",
-      icon: CircleAlert,
-      title: "Legal timing breached",
-      detail: `${breachedLegal.id} · ${formatRemaining(minutesUntil(breachedLegal.legalForm.dueAt, now))}`,
-      owner: breachedLegal.owner,
-      movementId: breachedLegal.id,
-    });
-  }
-
-  const exhaustedReferrals = movements.find((movement) => movement.declines.length >= PARALLEL_REFERRAL_CAP);
-  if (exhaustedReferrals) {
-    items.push({
-      id: `declines-${exhaustedReferrals.id}`,
-      tone: "danger",
-      icon: CircleAlert,
-      title: "No eligible destination left",
-      detail: `${exhaustedReferrals.id} · ${exhaustedReferrals.declines.length} declines`,
-      owner: exhaustedReferrals.owner,
-      movementId: exhaustedReferrals.id,
-    });
-  }
-
-  const stalledTransport = movements.find(
-    (movement) =>
-      movement.transport?.acceptedAt !== undefined &&
-      movement.transport.enRouteAt === undefined &&
-      movement.transport.cancelledAt === undefined,
-  );
-  if (stalledTransport?.transport) {
-    items.push({
-      id: `transport-${stalledTransport.id}`,
-      tone: "warning",
-      icon: Truck,
-      title: "Transport awaiting departure",
-      detail: `${stalledTransport.id} · accepted ${formatInstant(stalledTransport.transport.acceptedAt as Instant)}`,
-      owner: stalledTransport.owner,
-      movementId: stalledTransport.id,
-    });
-  }
-
-  return items;
-}
 
 function QueueBadge({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "danger" }) {
   return <span className={tone === "danger" ? styles.queueBadgeDanger : styles.queueBadge}>{children}</span>;
@@ -577,11 +416,15 @@ function DecisionDock({
   onClose: () => void;
   onSelectUnit: (id: string) => void;
 }) {
-  const destination = selectedUnitId ? unitById(selectedUnitId) : undefined;
-  const verdict = destination ? eligibility(patient, destination, NOW_ANCHOR) : undefined;
-  const gatesPassed = verdict ? verdict.gates.filter((gate) => gate.pass).length : 0;
+  const recordedDestination = destinationUnit(patient);
+  const displayedUnit = selectedUnitId ? unitById(selectedUnitId) : undefined;
+  // The picker may be pre-seeded (or the coordinator may be previewing) a unit that is not yet
+  // the movement's recorded destination. That is a legitimate affordance, but it must never be
+  // presented as the destination unlabelled — see Task 6 Critical 2.
+  const isSuggested = displayedUnit !== undefined && displayedUnit.id !== recordedDestination?.id;
+  const verdict = displayedUnit ? eligibility(patient, displayedUnit, NOW_ANCHOR) : undefined;
   const candidates = useMemo(() => eligibleCandidates(patient, NOW_ANCHOR), [patient]);
-  const alternatives = candidates.filter((candidate) => candidate.unit.id !== destination?.id).slice(0, 2);
+  const alternatives = candidates.filter((candidate) => candidate.unit.id !== displayedUnit?.id).slice(0, 2);
 
   return (
     <section className={styles.decisionDock} aria-label={`AI destination review for ${patient.id}`}>
@@ -595,14 +438,17 @@ function DecisionDock({
           {stageCopy[patient.stage].label}
         </p>
         <span className={styles.aiLabel}>
-          <Sparkles aria-hidden="true" /> Eligibility check
+          <Sparkles aria-hidden="true" /> {isSuggested ? "Suggested destination" : "Eligibility check"}
         </span>
         <h3>
-          {destination ? destination.name : "No destination selected"}{" "}
+          {displayedUnit ? displayedUnit.name : "No destination selected"}{" "}
           <span>
             {patient.cohort} {patient.security}
           </span>
         </h3>
+        {isSuggested ? (
+          <p className={styles.governanceNote}>Not yet referred to this unit — showing the top eligible candidate.</p>
+        ) : null}
       </div>
       <div className={styles.matchReasons}>
         <span>
@@ -611,9 +457,9 @@ function DecisionDock({
         <span>
           <UserRound aria-hidden="true" /> Exact {patient.cohort} {patient.security} fit
         </span>
-        {destination ? (
+        {displayedUnit ? (
           <span>
-            <BedSingle aria-hidden="true" /> {destination.allocatable.value} beds available
+            <BedSingle aria-hidden="true" /> {displayedUnit.allocatable.value} beds available
           </span>
         ) : null}
         <span>
@@ -627,7 +473,7 @@ function DecisionDock({
         <p>
           {verdict ? (
             <>
-              Eligibility <strong>{gatesPassed}</strong>/<strong>{verdict.gates.length}</strong>
+              <strong>{candidateReason(verdict)}</strong>
               <span>·</span>
             </>
           ) : null}
@@ -649,9 +495,9 @@ function DecisionDock({
         <span>
           <CheckCircle2 aria-hidden="true" /> {transportStatusLabel(patient.transport)}
         </span>
-        {destination ? (
+        {displayedUnit ? (
           <span>
-            <CheckCircle2 aria-hidden="true" /> Confirmed {formatInstant(destination.allocatable.confirmedAt)}
+            <CheckCircle2 aria-hidden="true" /> Confirmed {formatInstant(displayedUnit.allocatable.confirmedAt)}
           </span>
         ) : null}
         <span>
@@ -663,7 +509,7 @@ function DecisionDock({
           type="button"
           onClick={onConfirm}
           className={confirmed ? styles.confirmedButton : styles.confirmButton}
-          disabled={!destination}
+          disabled={!displayedUnit}
         >
           {confirmed ? <Check aria-hidden="true" /> : null}
           {confirmed ? "Confirmed" : roleTaskLabel[role]}
@@ -878,9 +724,11 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
     );
   }
 
+  // This workspace shows the movement's own record only — it never falls back to a
+  // suggested/top-eligible unit, so `destination` here is always the real recorded destination
+  // or nothing.
   const destination = destinationUnit(patient);
   const verdict = destination ? eligibility(patient, destination, NOW_ANCHOR) : undefined;
-  const gatesPassed = verdict ? verdict.gates.filter((gate) => gate.pass).length : 0;
   const candidates = eligibleCandidates(patient, NOW_ANCHOR).filter(
     (candidate) => candidate.unit.id !== destination?.id,
   );
@@ -912,7 +760,7 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
           </div>
           <div className={styles.workspaceScore}>
             <span>Eligibility</span>
-            <strong>{verdict ? `${gatesPassed}/${verdict.gates.length}` : "—"}</strong>
+            <strong>{verdict ? candidateReason(verdict) : "—"}</strong>
             <small>Tier {patient.urgency} leads</small>
           </div>
           <button
@@ -1087,31 +935,4 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
       </main>
     </div>
   );
-}
-
-/** A real, per-movement audit trail built from actual fields — never generic flavour text. */
-export function movementTimeline(movement: Movement) {
-  const events: Array<{ at: Instant; label: string }> = [{ at: movement.openedAt, label: "Movement opened" }];
-  for (const change of movement.statusChanges) {
-    events.push({ at: change.at, label: `Legal status changed: ${change.from} → ${change.to} (${change.by})` });
-  }
-  for (const decline of movement.declines) {
-    events.push({ at: decline.at, label: `Declined by referral: ${decline.reason.replace(/_/g, " ")}` });
-  }
-  if (movement.transport?.acceptedAt !== undefined) {
-    events.push({ at: movement.transport.acceptedAt, label: `Transport accepted by ${movement.transport.provider}` });
-  }
-  if (movement.transport?.enRouteAt !== undefined) {
-    events.push({ at: movement.transport.enRouteAt, label: "Transport en route" });
-  }
-  if (movement.transport?.collectedAt !== undefined) {
-    events.push({ at: movement.transport.collectedAt, label: "Patient collected" });
-  }
-  if (movement.transport?.arrivedAt !== undefined) {
-    events.push({ at: movement.transport.arrivedAt, label: "Arrived at destination" });
-  }
-  if (movement.closure) {
-    events.push({ at: movement.closure.at, label: movement.closure.reason });
-  }
-  return events.sort((a, b) => a.at - b.at);
 }

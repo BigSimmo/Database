@@ -6,6 +6,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 
 import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
+  candidateReason,
+  destinationUnit,
   eligibleCandidates,
   elapsedLabel,
   movementHealthService,
@@ -14,7 +16,7 @@ import {
   transportStatusLabel,
   unitCapacity,
   wardServiceOrder,
-} from "@/components/ward-management/ward-management-console";
+} from "@/components/ward-management/ward-derivations";
 import { formatInstant } from "@/components/ward-management/ward-clock";
 import type { HealthService, Movement, Unit } from "@/components/ward-management/ward-model";
 import { wardMovements } from "@/components/ward-management/ward-movements";
@@ -46,11 +48,15 @@ function capabilityLabel(unit: Unit) {
 }
 
 function candidatesFor(patient: Movement): Candidate[] {
+  // Only the movement's actual recorded destination may show a real transport state — the
+  // other two candidates are computed shortlist entries the movement was never referred to,
+  // and must not inherit a transport job that belongs to a different unit (Task 6 Important 3).
+  const recordedDestinationId = destinationUnit(patient)?.id;
   return eligibleCandidates(patient, NOW_ANCHOR, 3).map((candidate, index) => ({
     unit: candidate.unit,
     verdict: candidate.verdict,
     rank: index + 1,
-    etaLabel: index === 0 ? transportStatusLabel(patient.transport) : "Not yet booked",
+    etaLabel: candidate.unit.id === recordedDestinationId ? transportStatusLabel(patient.transport) : "Not yet booked",
   }));
 }
 
@@ -125,11 +131,15 @@ export function WardNetworkWorkspace() {
   const [factorsOpen, setFactorsOpen] = useState(false);
   const [shortlistOpen, setShortlistOpen] = useState(true);
 
+  // `selectedPatientId` is only ever set from a real movement's own id (see the queue button
+  // below), so this can't miss today — but every hook after this one must still run
+  // unconditionally, so the guard lives in the JSX at the bottom, not as an early return here
+  // (Task 6 Critical 3).
   const patient = useMemo(
-    () => wardMovements.find((candidate) => candidate.id === selectedPatientId) ?? wardMovements[0],
+    () => wardMovements.find((candidate) => candidate.id === selectedPatientId),
     [selectedPatientId],
   );
-  const candidates = useMemo(() => candidatesFor(patient), [patient]);
+  const candidates = useMemo(() => (patient ? candidatesFor(patient) : []), [patient]);
   const routedIds = useMemo(() => new Set(candidates.map((candidate) => candidate.unit.id)), [candidates]);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -206,6 +216,14 @@ export function WardNetworkWorkspace() {
   const detail = selectedUnitId ? unitById(selectedUnitId) : null;
   const openMovements = movementStageSummary.reduce((sum, stage) => sum + stage.count, 0);
   const primary = candidates[0];
+
+  if (!patient) {
+    return (
+      <div className={styles.networkPage} data-testid="ward-network-view">
+        <p className={styles.assurance}>No synthetic movement matches the current selection.</p>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -444,10 +462,8 @@ export function WardNetworkWorkspace() {
                 <tr>
                   <th scope="row">Eligibility</th>
                   {candidates.map((candidate) => (
-                    <td key={candidate.unit.id}>
-                      <strong>
-                        {candidate.verdict.gates.filter((gate) => gate.pass).length}/{candidate.verdict.gates.length}
-                      </strong>
+                    <td key={candidate.unit.id} title={candidateReason(candidate.verdict)}>
+                      <strong>{candidate.verdict.eligible ? "Eligible" : "Not eligible"}</strong>
                     </td>
                   ))}
                 </tr>

@@ -33,9 +33,12 @@ test.describe("Ward Flow command view", () => {
     await expect(command.getByLabel("Action inbox")).toBeVisible();
     await expect(command.getByLabel("Patient movement stages")).toBeVisible();
     // WF-001 is first in the default flow-role queue; it has no accepted or referred unit yet,
-    // so the dock falls back to the top eligible destination, RPH Adult Secure.
-    await expect(command.getByLabel("AI destination review for WF-001")).toContainText("RPH Adult Secure");
-    await expect(command.getByLabel("AI destination review for WF-001")).toContainText("Eligibility 8/8");
+    // so the dock previews the top eligible destination, RPH Adult Secure — labelled as a
+    // suggestion, never as the movement's real (nonexistent) destination.
+    const wf001Review = command.getByLabel("AI destination review for WF-001");
+    await expect(wf001Review).toContainText("Suggested destination");
+    await expect(wf001Review).toContainText("RPH Adult Secure");
+    await expect(wf001Review).toContainText("Eligible now");
 
     // Only WF-007 and WF-015 are owned by "Ward nurse in charge"; a stable sort brings the
     // first of them to the top of the queue when the ward role is selected.
@@ -46,10 +49,15 @@ test.describe("Ward Flow command view", () => {
 
     await command.getByLabel("Current role").selectOption("flow");
     await command.getByTestId("ward-patient-WF-002").click();
-    // WF-002 already carries a live referral to FSH Older Adult.
+    // WF-002 already carries a live referral to FSH Older Adult, so the dock shows it as the
+    // real destination, not a suggestion.
     const review = command.getByLabel("AI destination review for WF-002");
     await expect(review).toContainText("FSH Older Adult");
+    await expect(review).not.toContainText("Suggested destination");
+    // Previewing a different candidate must relabel the panel honestly — it is not yet the
+    // movement's recorded destination.
     await review.getByRole("button", { name: /RPH Older Adult/ }).click();
+    await expect(review).toContainText("Suggested destination");
     await expect(review).toContainText("RPH Older Adult");
     await review.getByRole("button", { name: "Review & confirm" }).click();
     await expect(review.getByRole("button", { name: "Confirmed", exact: true })).toBeVisible();
@@ -88,9 +96,25 @@ test.describe("Ward Flow command view", () => {
     await page.waitForLoadState("networkidle");
     const constellation = page.getByTestId("ward-constellation");
     await expect(constellation.getByRole("heading", { name: "Statewide mental health flow" })).toBeVisible();
+
+    // WF-001 (the default selection) is an Adult movement, so its eligible shortlist never
+    // includes an Older Adult unit. Clicking one on the network canvas must show that unit's
+    // own real verdict, never silently substitute the top-ranked shortlisted candidate.
+    const network = constellation.getByRole("region", { name: "Statewide operational network" });
+    await network.getByRole("button", { name: /FSH Older Adult/ }).click();
+    const wf001Decision = page.getByLabel("AI best-fit review for WF-001");
+    await expect(wf001Decision).toContainText("FSH Older Adult");
+    await expect(wf001Decision).toContainText("is not in");
+    await expect(wf001Decision).toContainText("eligible shortlist");
+
     await constellation.getByRole("button", { name: /2\. WF-002/ }).click();
     const review = page.getByLabel("AI best-fit review for WF-002");
     await expect(review).toContainText("Voluntary");
+    // WF-002's own recorded referral (FSH Older Adult) has zero allocatable beds, so it is not
+    // itself in the eligible shortlist this quick-pick panel offers — confirming stays
+    // deliberately unavailable until an eligible candidate is chosen (Task 6 Critical 1).
+    await expect(review.getByRole("button", { name: "Review & confirm" })).toBeDisabled();
+    await review.getByRole("button", { name: /RPH Older Adult/ }).click();
     await review.getByRole("button", { name: "Review & confirm" }).click();
     await expect(review.getByRole("button", { name: "Match confirmed" })).toBeVisible();
 
@@ -128,7 +152,13 @@ test.describe("Ward Flow command view", () => {
     const shortlist = network.getByRole("complementary", { name: "Explainable shortlist" });
     await expect(shortlist).toContainText("WF-001");
     await expect(shortlist.getByRole("columnheader", { name: /RPH Adult Secure/ })).toBeVisible();
-    await expect(shortlist.getByRole("row", { name: /Eligibility/ })).toContainText("8/8");
+    // Eligibility is a binary verdict, not a score: gates are not commensurable, so no row
+    // ever renders a "N of M passed" fraction.
+    await expect(shortlist.getByRole("row", { name: /Eligibility/ })).toContainText("Eligible");
+    // WF-001 has no recorded destination, so none of its three candidates — including the
+    // first-ranked one — may inherit its (nonexistent) transport job.
+    await expect(shortlist.getByRole("row", { name: /Transport state/ })).toContainText("Not yet booked");
+    await expect(shortlist.getByRole("row", { name: /Transport state/ })).not.toContainText("Not yet requested");
     await expect(shortlist).toContainText("No automatic allocation");
 
     // Shortlisted services are marked as routed on the canvas; Armadale is not in WF-001's

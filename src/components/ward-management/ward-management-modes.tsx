@@ -37,12 +37,11 @@ import {
   movementTimeline,
   roleLabels,
   roleTaskLabel,
-  stageCopy,
   unitCapacity,
   wardServiceOrder,
   type InboxItem,
   type WardRole,
-} from "@/components/ward-management/ward-management-console";
+} from "@/components/ward-management/ward-derivations";
 import { WardNetworkWorkspace } from "@/components/ward-management/ward-management-network";
 import {
   ClinicalRail,
@@ -52,7 +51,7 @@ import {
 import { formatInstant } from "@/components/ward-management/ward-clock";
 import type { Movement, Unit } from "@/components/ward-management/ward-model";
 import { wardMovements } from "@/components/ward-management/ward-movements";
-import { NOW_ANCHOR, allUnits, siteByCode } from "@/components/ward-management/ward-sites";
+import { NOW_ANCHOR, allUnits, siteByCode, unitById } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-modes.module.css";
 
@@ -289,14 +288,20 @@ function DecisionPanel({
 }) {
   const [confirmed, setConfirmed] = useState(false);
   const candidates = useMemo(() => eligibleCandidates(patient, NOW_ANCHOR, 3), [patient]);
-  const selected = candidates.find((candidate) => candidate.unit.id === selectedId) ?? candidates[0];
+  // Never fall back to candidates[0] when the id in play isn't one of this movement's own
+  // shortlisted candidates — that would silently describe the wrong unit (Task 6 Critical 1).
+  const selected = candidates.find((candidate) => candidate.unit.id === selectedId);
+  const offShortlistUnit = !selected && selectedId ? unitById(selectedId) : undefined;
+  const offShortlistVerdict = offShortlistUnit ? eligibility(patient, offShortlistUnit, NOW_ANCHOR) : undefined;
+  const recordedDestination = destinationUnit(patient);
+  const isSuggested = selected !== undefined && selected.unit.id !== recordedDestination?.id;
 
   return (
     <aside className={`${styles.panel} ${styles.decisionPanel}`} aria-label={`AI best-fit review for ${patient.id}`}>
       <header className={styles.decisionHeader}>
         <div>
           <span className={styles.aiBadge}>
-            <Sparkles aria-hidden="true" /> Eligibility check
+            <Sparkles aria-hidden="true" /> {isSuggested ? "Suggested destination" : "Eligibility check"}
           </span>
           <h2>{patient.id}</h2>
         </div>
@@ -322,9 +327,7 @@ function DecisionPanel({
           <dt>Wait / eligibility</dt>
           <dd>
             {elapsedLabel(patient, NOW_ANCHOR)}
-            {selected
-              ? ` · ${selected.verdict.gates.filter((gate) => gate.pass).length}/${selected.verdict.gates.length}`
-              : ""}
+            {selected ? ` · ${candidateReason(selected.verdict)}` : ""}
           </dd>
         </div>
       </dl>
@@ -359,6 +362,19 @@ function DecisionPanel({
             </li>
           ))}
         </ul>
+      ) : offShortlistUnit && offShortlistVerdict ? (
+        <>
+          <p className={styles.microCopy}>
+            {offShortlistUnit.name} is not in {patient.id}&rsquo;s eligible shortlist.
+          </p>
+          <ul className={styles.reasonList}>
+            {offShortlistVerdict.gates.slice(0, 4).map((gate) => (
+              <li key={gate.gate}>
+                <CheckCircle2 aria-hidden="true" /> {gate.detail}
+              </li>
+            ))}
+          </ul>
+        </>
       ) : null}
 
       <div className={styles.buttonRow}>

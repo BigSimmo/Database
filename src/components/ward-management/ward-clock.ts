@@ -37,6 +37,15 @@ export function formatRemaining(minutes: number) {
   return `${splitDuration(minutes)} left`;
 }
 
+/**
+ * Formats a duration that has already elapsed (e.g. time since a movement opened).
+ * `formatRemaining` is a countdown formatter — "left"/"overdue" against a future deadline —
+ * and must not be reused for elapsed time, which has no deadline to be overdue against.
+ */
+export function formatElapsed(minutes: number) {
+  return `${splitDuration(Math.max(minutes, 0))} waiting`;
+}
+
 export function formatInstant(instant: Instant) {
   const hours = Math.floor(instant / 60) % 24;
   const minutes = instant % 60;
