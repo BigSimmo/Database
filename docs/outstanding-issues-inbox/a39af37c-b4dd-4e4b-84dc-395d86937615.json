@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a39af37c-b4dd-4e4b-84dc-395d86937615",
+  "createdOn": "2026-08-18",
+  "action": "update",
+  "payload": {
+    "id": "#336",
+    "detail": "PR #2072 merged into main 2026-08-18 citing this row, and the --breakpoint-phone/-tablet/-desktop plus --bp-phone/-tablet/-desktop tokens now exist in src/app/globals.css (confirmed on main) — but the row's required decision (record raw-vs-named-tokens choice in docs/design-system/GATES.md) was never made. GATES.md has not been touched since PR #1990 and contains no mention of breakpoints or #336. The row's own stop rule ('do not migrate one window ahead of the decision') was not honored; the merge shipped the migration without the decision record. Stays open: still needs the GATES.md decision entry.",
+    "baseRowFingerprint": "757b5240cff62bd5071d12e4f2ada7e7c3faebb8018843b45a8675913b7442d9"
+  }
+}
