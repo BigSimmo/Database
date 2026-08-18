@@ -152,7 +152,7 @@ no scale-to-zero, Railway health `/api/health/ready`. I'll prep the Railway serv
   Full build/run/verify recipe + the required env and secrets:
   [worker-deploy-runbook.md](worker-deploy-runbook.md).
 - **Registry seed (prod)** 🧑 — `npm run registry:seed -- --owner-id <prod-owner-uuid> --write --confirm`
-  (+ `differentials:seed` for the slug-retitle prune). Until seeded, Services/Forms show empty.
+  (+ `npm run differentials:seed` for the slug-retitle prune). Until seeded, Services/Forms show empty.
 - **Auth connection cap** 🧑 — before the first vertical scale-up, switch Supabase auth from the 10-absolute
   cap to **percentage-based** allocation in the dashboard ([capacity-review.md](audit/capacity-review.md) §3).
   Not settable via SQL/MCP.
