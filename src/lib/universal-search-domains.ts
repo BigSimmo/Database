@@ -14,6 +14,7 @@ export type UniversalSearchDomain =
   | "specifiers"
   | "formulation"
   | "therapies"
+  | "dictionary"
   | "tools";
 
 // Canonical order: the default group order in responses AND the topHit tiebreak when
@@ -40,5 +41,6 @@ export const universalSearchDomains: UniversalSearchDomain[] = [
   // not collide with other domains' titles, so this position only sets default group
   // order, not a topHit tiebreak.
   "therapies",
+  "dictionary",
   "tools",
 ];

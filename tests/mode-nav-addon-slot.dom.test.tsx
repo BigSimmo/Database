@@ -236,6 +236,8 @@ describe("header addon slot ownership", () => {
     expect(claimants.sort()).toEqual([
       "src/components/DocumentViewer.tsx",
       "src/components/clinical-dashboard/medication-nav-header.tsx",
+      "src/components/dictionary/dictionary-catalogue-pages.tsx",
+      "src/components/dictionary/dictionary-term-page.tsx",
       "src/components/differentials/differential-detail-page.tsx",
       "src/components/differentials/differential-presentation-workflow-page.tsx",
       "src/components/dsm/dsm-diagnosis-nav-header.tsx",

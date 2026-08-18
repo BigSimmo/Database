@@ -408,7 +408,8 @@ _2026-08-18, owner-authorized staging window ("I authorize mutation of the STAGI
 (Clinical KB Staging) only"). Target `Clinical KB Staging`, ref `ikoiolksxqxfxgiyqpnu`, via the
 Supabase MCP connector. Production `sjrfecxgysukkwxsowpy` was never a target: the only production
 interaction in this window was `list_projects`, and the target ref was restated on every call.
-Replay is **complete**. `check:drift` against staging has now **run** and is **red with 19 findings** — see 2.3._
+Replay is **complete**. `check:drift` against staging has now **run** and is **red with 19 findings** — see 2.3.
+Re-measured 2026-08-18 at `main` `4551b6e4d` after `20260818090000` landed: still **19**, unchanged — see 2.5._
 
 ### 2.0 Connector and pre-flight
 
@@ -673,6 +674,160 @@ error, and no migration file was edited.**
    `20260724130100` reference `net.http_post` and `vault.decrypted_secrets` from inside PL/pgSQL
    bodies, which Postgres does not resolve at `CREATE FUNCTION` time, so both applied without
    `pg_net` installed. They fail only when called.
+
+### 2.5 Re-measure against current `main` — 2026-08-18 (ledger `#056`)
+
+_Second staging window, same authorization and the same target: `Clinical KB Staging`, ref
+`ikoiolksxqxfxgiyqpnu`, via the Supabase MCP connector. Production `sjrfecxgysukkwxsowpy`
+was never a target — the ref was passed explicitly on every call and `list_projects` was the only
+call that named it at all. **Measurement only: no drift finding was fixed, and no vault secret was
+seeded.** §2.0–2.4 measured staging at base `ed43a64f2`; this re-measure runs at `main`
+`4551b6e4d`._
+
+**Why re-measure.** Between `ed43a64f2` and `4551b6e4d` exactly one commit touched
+`supabase/`: `9c660af1f` (PR #2058, Phase 6), which added
+`20260818090000_schema_drift_snapshot_history_probe.sql` — the migration that redefines
+`schema_drift_snapshot()` itself — and with it a regenerated `schema.sql`, a regenerated
+`drift-manifest.json`, and five `migration_history` allowlist entries. The §2.3 numbers were
+therefore measured with a snapshot v1 probe against an older manifest.
+
+Pre-flight per `#292`: the six open PRs at the time of this window (#2096, #2095, #2086, #2012,
+#2011, #2010) were checked for changed paths; **none** touches `supabase/migrations/**` or staging.
+
+#### Step 1 — before-gap: exactly one version
+
+Staging held **194** rows in `supabase_migrations.schema_migrations`, latest `20260814151000`,
+**zero** `statements IS NULL`-or-empty rows; `documents` and `document_chunks` both `0`;
+connector role `postgres`. The repository holds **195** migration files. Two-way diff:
+
+```
+=== in repo, missing from staging ===
+20260818090000
+=== in staging, not in repo ===
+=== (second list empty) ===
+```
+
+The single missing version is **not** one of the duplicate earlier/later pairs named in §2.4
+finding 2 (`20260717161000`/`20260717173000`/`20260719053532`/`20260719053533` and their
+`20260719055541`/`055555`/`055609`/`055623` re-issues) — all eight remain present from the
+Phase 2 replay — so the stop-and-report condition for applying an older body over a newer one did
+not arise.
+
+#### Step 2 — apply, by the §2.2 method
+
+`execute_sql` ran the repository file's content verbatim, then a second `execute_sql` wrote an
+explicit history row carrying the repository's own version and name. `apply_migration` was **not**
+used: it stamps a connector-generated version, which `docs/staging-setup.md` forbids.
+
+Faithfulness proof, read back from staging:
+
+```
+version 20260818090000 · name schema_drift_snapshot_history_probe
+stmt_count 1 · bytes 9034
+md5_recorded          839bed0b741cb75b79f6eb0c46ed0a50
+md5_matches_repo_file true
+```
+
+After: `total_rows 195 · latest_version 20260818090000 · no_statements 0`, two-way diff against
+`supabase/migrations/` empty in both directions, `documents`/`document_chunks` still `0`. The
+live function reports `snapshot_version 2`, `migration_history_probe 'ok'`, and a
+`migration_history` array of length **0**. The §2.2 deviation is unchanged and now applies to 29
+rows: the CLI stores one array element per statement, these rows store the whole file as a single
+element.
+
+#### Step 3 — `check:drift` against staging, current manifest
+
+Complete output, exit code **1**:
+
+```
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:drift
+> node scripts/run-tsx.mjs scripts/check-drift.ts
+
+Drift manifest: generated 2026-08-17T16:38:39.818Z from schema.sql a6fb923400f8…
+Compared 6 extensions, 38 tables, 1 views, 93 functions, 210 indexes, 48 policies, 170 constraints, 26 triggers, 2 storage_buckets against live.
+
+Stale allowlist entries (5) — no longer matching, remove them:
+  ? [migration_history] no_statements 20260701010000
+  ? [migration_history] no_statements 20260701020000
+  ? [migration_history] no_statements 20260701030000
+  ? [migration_history] no_statements 20260701060000
+  ? [migration_history] no_statements 20260702000000
+
+UNEXPECTED DRIFT (19):
+  ! [tables] mismatch document_chunks :: columns: manifest=[{"default":null,"generated":"","identity":"","name":"anchor_id","not_null":false,"type":"text"},{"default":null,"generated":"","identity":"","name":"chunk_index","not_null":true,"type":"integer"},{"default":null,"generated":"","identity":"… live=[{"default":null,"generated":"","identity":"","name":"anchor_id","not_null":false,"type":"text"},{"default":null,"generated":"","identity":"","name":"chunk_index","not_null":true,"type":"integer"},{"default":null,"generated":"","identity":"…
+  ! [tables] mismatch rag_visual_eval_cases :: columns: manifest=[{"default":"true","generated":"","identity":"","name":"active","not_null":true,"type":"boolean"},{"default":null,"generated":"","identity":"","name":"case_name","not_null":true,"type":"text"},{"default":"now()","generated":"","identity":""… live=[{"default":"true","generated":"","identity":"","name":"active","not_null":true,"type":"boolean"},{"default":null,"generated":"","identity":"","name":"case_name","not_null":true,"type":"text"},{"default":"now()","generated":"","identity":""…
+  ! [tables] mismatch rag_visual_eval_runs :: columns: manifest=[{"default":null,"generated":"","identity":"","name":"case_id","not_null":true,"type":"uuid"},{"default":"now()","generated":"","identity":"","name":"created_at","not_null":true,"type":"timestamp with time zone"},{"default":null,"generated"… live=[{"default":null,"generated":"","identity":"","name":"case_id","not_null":true,"type":"uuid"},{"default":"now()","generated":"","identity":"","name":"created_at","not_null":true,"type":"timestamp with time zone"},{"default":null,"generated"…
+  ! [functions] mismatch public.match_document_chunks_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid) :: def_hash: manifest="b5dfaa5e0d6b27ad0c7cfc89711953cb" live="cf504c2f6029e493843281f7bc66a419"
+  ! [functions] mismatch public.match_document_chunks_text(text,integer,uuid[],uuid) :: def_hash: manifest="0e662039807813b400e685d7307d7929" live="d135c628720cb8a4d86c2ade4cd3b26a"
+  ! [functions] mismatch public.match_document_embedding_fields_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid) :: def_hash: manifest="a2d97503e95af88097557029e0ea7836" live="369426ec368e36428d7c677d4f425aa7"
+  ! [functions] mismatch public.match_document_index_units_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid) :: def_hash: manifest="2e8810a1ec9927aba7c1f04fd18287d1" live="d1ee1d09fbea547b141cd4cd085e3ffb"
+  ! [functions] mismatch public.match_document_lookup_chunks_text(text,uuid[],integer,uuid) :: def_hash: manifest="989281557ff4877f8eae5c9a32a3ef8c" live="c1ede773fc0498e32bc3b4aa7262b32c"
+  ! [functions] mismatch public.match_document_memory_cards_hybrid_v2(extensions.vector,text,integer,double precision,uuid[],uuid) :: def_hash: manifest="0534ad140950e83128b3434caa5ffd32" live="5e792e262b70ecc7981770b13f146671"
+  ! [functions] mismatch public.match_document_memory_cards_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid) :: def_hash: manifest="1a937f133f5cb6e6d59a5b00311ec685" live="9079b928ee56fd7846e280d10ba1d27c"
+  ! [indexes] mismatch document_chunks_content_trgm_idx :: def_hash: manifest="8499c3d35fc205ab0f7237031eee7926" live="c3db29603d9760b6a50f5ea23d58e4a8"
+  ! [indexes] missing_live document_embedding_fields_meta_rag_indexing_version_idx :: {"def_hash":"5fb02e475d7061b2436b9179d097ab18","table":"document_embedding_fields"}
+  ! [indexes] missing_live document_embedding_fields_owner_document_created_idx :: {"def_hash":"7bb98cc6be1af5cb34eed50d8625264c","table":"document_embedding_fields"}
+  ! [indexes] missing_live document_embedding_fields_owner_id_idx :: {"def_hash":"ad61100a6b49f06e2ffde2c04eb68d9a","table":"document_embedding_fields"}
+  ! [indexes] missing_live document_embedding_fields_search_tsv_chunk_gin_idx :: {"def_hash":"56b2a3ce845ae13bfeb0551906cf9581","table":"document_embedding_fields"}
+  ! [indexes] missing_live document_embedding_fields_source_chunk_id_idx :: {"def_hash":"7224a35b50c37a7394210ca930e4e99f","table":"document_embedding_fields"}
+  ! [indexes] missing_live documents_status_idx :: {"def_hash":"7dd1181f3cb8eedf8bd8d9dd779a77ae","table":"documents"}
+  ! [triggers] missing_live documents.documents_updated_at :: {"def":"CREATE TRIGGER documents_updated_at BEFORE UPDATE ON public.documents FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()"}
+  ! [triggers] missing_live ingestion_jobs.ingestion_jobs_updated_at :: {"def":"CREATE TRIGGER ingestion_jobs_updated_at BEFORE UPDATE ON public.ingestion_jobs FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()"}
+
+Live schema diverges from supabase/schema.sql. Either codify the live state (committed migration + schema.sql + regenerate the manifest) or fix live through an approved migration. Raw SQL against live is how this class of incident started; do not "fix" drift that way. See docs/database-drift-detection.md.
+```
+
+#### Line-by-line against the 19 of §2.3
+
+**All 19 persist, unchanged — same categories, same keys, and the same manifest/live hash pairs.**
+The manifest moved underneath them (`generated 2026-08-17T16:38:39.818Z from schema.sql
+a6fb923400f8…`, against §2.3's `2026-08-16T14:37:41.042Z` / `365e3368a47b…`) and the compared
+inventory is identical in size (6 extensions, 38 tables, 1 view, 93 functions, 210 indexes, 48
+policies, 170 constraints, 26 triggers, 2 storage buckets), so the regenerated manifest changed
+none of these verdicts.
+
+| §2.3 group                                | Count | Re-measure                                         |
+| ----------------------------------------- | ----- | -------------------------------------------------- |
+| (a) `match_*` `def_hash` — `SET work_mem` | 7     | persists, same 7                                   |
+| (b) objects only `schema.sql` declares    | 8     | persists, same 8 (6 indexes + 2 triggers)          |
+| (c) table column-set mismatches           | 3     | persists, same 3                                   |
+| (d) `document_chunks_content_trgm_idx`    | 1     | persists, same hashes (`8499c3d3…` vs `c3db2960…`) |
+| **Total**                                 | 19    | **19**                                             |
+
+The seven work_mem functions are still exactly the seven of §2.3, and `match_document_table_facts_text`
+is still absent from the list: staging carries `work_mem` on **7** `match_*` functions, not 8,
+re-confirming §2.4 finding 3 on the current chain.
+
+**Nothing new appeared, and nothing changed category.** Two observations are new to this run, and
+neither is a drift finding:
+
+1. **The `migration_history` block is live and clean.** Snapshot v2 is deployed on staging, the
+   probe reports `ok`, and it returns **zero** rows — so the new category contributes **0**
+   findings. That is the expected result for an environment built by a faithful chain replay: the
+   probe exists to catch versions recorded without executed DDL, and the Phase 2 replay recorded
+   none. It is evidence the probe runs end-to-end against a real database, not that production is
+   clean — production has not been measured with v2.
+2. **Five `migration_history` allowlist entries report stale.** `20260701010000`,
+   `20260701020000`, `20260701030000`, `20260701060000` and `20260702000000` (all
+   `guard.class superseded`, added by PR #2058) match nothing here, because those history-repair
+   rows are **production's**, and staging's replayed history has no such row. This is a warning, not
+   a failure — the run still exits 1 solely on the 19. **Do not run `check:drift --prune-stale`
+   against staging:** it would delete allowlist entries that exist for production. Staleness against
+   staging is the correct, expected reading of a production-scoped allowlist.
+
+**One thing the re-measure positively confirms.** `schema_drift_snapshot` does **not** appear
+among the seven function mismatches. Before this window it could not: staging carried v1 while the
+manifest carried v2. Applying `20260818090000` and finding the function absent from the drift list
+is direct evidence that PR #2058's migration body and the `schema.sql` mirror regenerated from it
+agree — the guard-migration contract's own plumbing verified against a live database for the first
+time.
+
+**Unchanged conclusion.** `check:drift`'s expected side is generated from `supabase/schema.sql`,
+not from the migration chain, and a complete, byte-verified chain still reproduces 19 disagreements
+with it. The §2.3 reading stands: until `schema.sql` is reconciled to the chain, a production drift
+finding cannot be assumed to mean "production drifted". Every disposition remains repo-side work for
+Phase 3, and none of it was touched here.
 
 ## Phase 3 — RPC reconciliation (reframed: repo-side codification, no production deploy)
 
