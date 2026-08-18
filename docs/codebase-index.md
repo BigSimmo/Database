@@ -193,10 +193,11 @@ Supabase, OpenAI, or Next.js imports. `tests/caring-contacts-domain-isolation.te
 enforces the boundary by scanning every file in the directory for forbidden or
 directory-escaping imports.
 
-| Module     | Role                                                                                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `clock.ts` | Injectable `Clock` (`fixedClock`/`systemClock`) plus `Australia/Perth` (AWST, no DST) wall-time helpers used by the rest of the module                  |
-| `ids.ts`   | Branded identifier types and constructors (`TeamId`, `ActorId`, `PatientId`, `ReferralId`, `PlanId`, `ContactId`, `PathwayVersionId`, `IdempotencyKey`) |
+| Module     | Role                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `clock.ts` | Injectable `Clock` (`fixedClock`/`systemClock`) plus `Australia/Perth` (AWST, no DST) wall-time helpers used by the rest of the module                                                                                                                                                                                                                                            |
+| `ids.ts`   | Branded identifier types and constructors (`TeamId`, `ActorId`, `PatientId`, `ReferralId`, `PlanId`, `ContactId`, `PathwayVersionId`, `IdempotencyKey`)                                                                                                                                                                                                                           |
+| `model.ts` | Record types (`Referral`, `Plan`, `Contact`) and state enums (`ReferralState`, `PlanState`, `ContactState`, `PathwayVersionState`, `MessageType`, `SendingPreference`); `applyPlanTransition`/`applyContactTransition` return a `TransitionResult` that never throws — refused transitions carry a named machine-readable `reason` (e.g. `plan-terminal`, `contact-out-of-order`) |
 
 ---
 
