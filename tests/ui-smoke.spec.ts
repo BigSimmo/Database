@@ -4886,7 +4886,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(passages.nth(0)).toHaveJSProperty("open", false);
 
     await clickSectionNav(/High-yield summary/);
-    await expect(summary).toHaveJSProperty("open", true);
+    // At this 390px viewport the rail's high-yield-summary disclosure is
+    // hidden (superseded by the in-flow DocumentClinicalSummary card), so
+    // there is nothing for the exclusive accordion to open here —
+    // jumpToDocumentSection scrolls to the visible copy instead.
+    await expect(page.locator("#source-summary-card")).toBeInViewport();
+    await expect(summary).toHaveJSProperty("open", false);
     await expect(indexedText).toHaveJSProperty("open", false);
 
     await openImagesDisclosure();
