@@ -649,7 +649,7 @@ Durable mitigations in this repo:
   merely behind and the merge tree is clean, let that run settle and sync once,
   late, after review/fix work is assembled. Preempt an in-flight run only when
   the branch is genuinely blocking-conflicted or the user explicitly asks for
-  an immediate sync; do not disable `cancel-in-progress`.
+  an immediate sync; do not disable `cancel-in-progress` for PR branches.
 - The historical review table is frozen during normal PR work. Write a new review
   with `ledger:append`, which creates an immutable record; never resolve a review
   conflict by editing the historical table. The repository deliberately leaves its
@@ -748,8 +748,8 @@ Before opening a new branch, check whether the task can ride an **already-open P
 still own** or be bundled with **other currently-queued low-risk work** instead of
 minting a new one. If the target PR's CI is already running, either wait for it to settle
 before pushing the addition or assemble every commit before that PR's first push —
-`.github/workflows/ci.yml` sets `cancel-in-progress: true`, so a push mid-run cancels and
-restarts CI rather than saving an invocation, reproducing the exact cancellation waste
+`.github/workflows/ci.yml` cancels in-progress runs for pull requests, so a push mid-run
+cancels and restarts CI rather than saving an invocation, reproducing the exact cancellation waste
 this rule exists to cut (reproduced 2026-07-30 pushing a second commit to PR #1406: the
 in-flight `static-pr` run was cancelled, failing `pr-required` on the now-stale head).
 A settle-then-push addition also lands after this repo's one automatic Codex review may
@@ -845,8 +845,13 @@ named PR). Future process only.
   to settle before pushing again. Apply the same settle-first rule to branch syncs: for a
   behind-but-clean PR with required CI in flight, wait, then perform at most one late
   `update-branch` / `git merge origin/main` after review and fix work is assembled.
-  `cancel-in-progress: true` should remain enabled, but every superseding push or sync cancels
-  Production UI mid-flight (~40% of recent PR CI runs were cancellations).
+  Cancel-in-progress should remain enabled **for pull requests**, where a newer head genuinely
+  supersedes the work in flight, but every superseding push or sync cancels Production UI
+  mid-flight (~40% of recent PR CI runs were cancellations). It is deliberately NOT enabled for
+  base-branch pushes: a merged commit cannot be superseded, so cancelling there destroyed the
+  only verification `main` received (23 of the last 30 main pushes cancelled, measured
+  2026-08-18). Do not "simplify" that exemption back to a blanket `true` — it is pinned by
+  `tests/ci-cache-safety.test.ts`.
 - Before push: `npm run format` **and commit the result**, then
   `npm run verify:pr-local` (or the smallest gate that covers the change). Format is in
   `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed
