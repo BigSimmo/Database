@@ -3,10 +3,8 @@
 import { Clock3, Gauge, Sparkles } from "lucide-react";
 import { createContext, useContext, type ReactNode } from "react";
 
-import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
-import { appModeHomeHref } from "@/lib/app-modes";
 
 export const specifierMapSteps = [
   {
@@ -43,24 +41,21 @@ type SpecifierMapNavigation = {
 const SpecifierMapNavigationContext = createContext<SpecifierMapNavigation | null>(null);
 
 /**
- * Owns the map route's fixed in-page-navigation declaration and its scroll spy.
- * The page body consumes this single source so the header and role buttons stay
- * synchronized during ordinary scrolling as well as explicit section jumps.
+ * Owns the map route's scroll spy and exposes it to the page body via
+ * context. `/specifiers/map` is a top-level tab (`isSlugDetail` excludes the
+ * "map" tool suffix, so `isInformationPage`/`hasLocalInformationPageNavigation`
+ * are both false for it), not a slug detail page, so it must not claim the
+ * header's addon slot the way `/specifiers/[slug]` does — see
+ * `header-addon-slot.ts` and `docs/search-chrome-behaviour.md`'s "Adopted so
+ * far" list, which never included this route. This component therefore
+ * renders no header of its own; the page keeps the shared Find/Build/Compare/Map
+ * tab bar plus its own numbered jump cards for in-page navigation.
  */
 export function SpecifierMapNavHeader({ children }: { children: ReactNode }) {
-  const { sections, activeId, selectSection } = useInPageSectionNav(specifierMapSections);
+  const { activeId, selectSection } = useInPageSectionNav(specifierMapSections);
 
   return (
     <SpecifierMapNavigationContext.Provider value={{ activeId, selectSection }}>
-      <InPageNavHeader
-        back={{ href: appModeHomeHref("specifiers"), label: "Specifiers" }}
-        title="Specifier map"
-        sectionSheetTitle="Specifier map"
-        sections={sections}
-        activeId={activeId}
-        onSelectSection={selectSection}
-        testIdPrefix="specifier-map"
-      />
       {children}
     </SpecifierMapNavigationContext.Provider>
   );
