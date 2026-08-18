@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { isValidElement, useMemo, useState, type ReactNode } from "react";
 
 import { pageContainer } from "@/components/ui-primitives";
-import { MissingValue } from "@/components/ui/missing-value";
+import { MissingValue, missingValuePhrase, type MissingValueReason } from "@/components/ui/missing-value";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Tabs } from "@/components/ui/tabs";
 
@@ -89,6 +89,23 @@ const ROWS: Row[] = [
   },
 ];
 
+function rowValueText(value: ReactNode): string | null {
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (value == null || typeof value === "boolean") return null;
+  if (Array.isArray(value)) {
+    const text = value
+      .map((part) => rowValueText(part))
+      .filter((part): part is string => part !== null)
+      .join("");
+    return text || null;
+  }
+  if (isValidElement<{ children?: ReactNode; reason?: MissingValueReason }>(value)) {
+    if (value.type === MissingValue) return missingValuePhrase(value.props.reason as MissingValueReason);
+    return rowValueText(value.props.children);
+  }
+  return null;
+}
+
 export function CompareScreen() {
   const b = useTcBindings();
   const items = b.compareTherapies;
@@ -97,7 +114,7 @@ export function CompareScreen() {
   const rows = useMemo(() => {
     if (b.cmpTab === "priorities") return ROWS.filter((r) => r.priority);
     if (b.cmpTab === "differences") {
-      return ROWS.filter((r) => new Set(items.map((t) => r.get(t))).size > 1 || items.length < 2);
+      return ROWS.filter((r) => new Set(items.map((t) => rowValueText(r.get(t)) ?? "")).size > 1 || items.length < 2);
     }
     return ROWS;
   }, [b.cmpTab, items]);
@@ -107,10 +124,7 @@ export function CompareScreen() {
       [
         `Therapy comparison — ${items.map((t) => t.name).join(" vs ")}`,
         "",
-        ...ROWS.map(
-          (r) =>
-            `${r.label}: ${items.map((t) => (typeof r.get(t) === "string" ? (r.get(t) as string) : "Not recorded")).join("  |  ")}`,
-        ),
+        ...ROWS.map((r) => `${r.label}: ${items.map((t) => rowValueText(r.get(t)) ?? "Not recorded").join("  |  ")}`),
       ].join("\n"),
       "set",
     );
