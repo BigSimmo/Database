@@ -146,6 +146,20 @@ describe("retrieval row shape contract", () => {
     expect(thrown?.message).toContain("source_metadata");
   });
 
+  it("rejects a row whose source_metadata key is absent (RPC column drift must fail loudly)", () => {
+    // Present-and-null is accepted (see the next test); ABSENT is not. This is the pin PR #2107
+    // loosened to .nullish() and the restore re-tightened: an RPC that drops the column must
+    // surface as RetrievalRowShapeError, not degrade every citation to "unknown" governance.
+    let thrown: RetrievalRowShapeError | null = null;
+    try {
+      assertRetrievalRows([withoutColumn("source_metadata")], "match_document_chunks_hybrid");
+    } catch (error) {
+      thrown = error as RetrievalRowShapeError;
+    }
+    expect(thrown).toBeInstanceOf(RetrievalRowShapeError);
+    expect(thrown?.message).toContain("source_metadata");
+  });
+
   it("accepts absent or null scores, which downstream already coalesces to 0", () => {
     expect(() => assertRetrievalRows([withoutColumn("text_rank")], "match_document_chunks")).not.toThrow();
     expect(() => assertRetrievalRows([hybridRow({ rrf_score: null })], "match_document_chunks")).not.toThrow();
