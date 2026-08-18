@@ -2943,7 +2943,9 @@ test.describe("Clinical KB service detail page", () => {
     await page.keyboard.press("Escape");
 
     await page.getByRole("link", { name: "Back to services" }).click();
-    await expect(page).toHaveURL(/\/services(?:\?|$)/);
+    // "/services" is a consolidated mode path: consolidatedModeHomeTarget redirects
+    // the bare path onto the shared home rather than rendering a standalone page.
+    await expect(page).toHaveURL(/\?mode=services(?:&|$)/);
   });
 });
 
