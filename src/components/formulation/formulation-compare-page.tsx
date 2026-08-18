@@ -5,7 +5,6 @@ import { ArrowRight, GitCompareArrows, HelpCircle, Network, Repeat2, Target } fr
 import { useState } from "react";
 
 import {
-  FormulationBreadcrumbs,
   FormulationPageShell,
   FormulationSafetyNote,
   MechanismDomainChips,
@@ -115,8 +114,6 @@ export function FormulationComparePage({ initialLeft, initialRight }: { initialL
 
   return (
     <FormulationPageShell>
-      <FormulationBreadcrumbs current="Compare" />
-
       <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">
         <p className={eyebrowText}>Alternative hypotheses</p>
         <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
