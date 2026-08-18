@@ -1,6 +1,8 @@
 # RAG evaluation baseline record
 
-**Status:** maintained record, created 2026-08-17 by programme packet S4 (B0). This is the
+**Status:** maintained record, created 2026-08-17 by programme packet S4 (B0); re-recorded
+2026-08-18 by packet S2 when the answer prompt moved to `clinical-rag-answer-v19` (the validator
+cross-checks the prompt version, so a prompt bump always re-captures this record). This is the
 baseline named by [README.md](README.md) §B0. The machine-readable source of truth is
 `scripts/fixtures/rag-adversarial-baseline.v1.json`, validated by
 `npm run check:rag:adversarial-fixtures`; this page explains what the fields mean and why the
@@ -14,31 +16,31 @@ so two reports can be compared without guessing what changed between them.
 
 | Field                 | This baseline                                                  | Where it comes from                                                         |
 | --------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `commit_sha`          | `92f7618c0ccac336ef6c245b89f37b046f4eac32`                     | `git rev-parse HEAD` of the evaluated tree. Full 40 characters, enforced.   |
+| `commit_sha`          | `b7aa925f0ae19e89a9f0acf842b4a80d84083fb5`                     | `git rev-parse HEAD` of the evaluated tree. Full 40 characters, enforced.   |
 | `dataset_version`     | `rag-adversarial-cases.v1`                                     | The fixture dataset's own `datasetVersion`; cross-checked against the file. |
 | `eval_config_version` | `rag-eval-config-v1`                                           | Bumped by hand whenever a case list, threshold, or gate semantic changes.   |
 | `model_version`       | `answer=gpt-5.6-terra; fast=gpt-5.6-terra; strong=gpt-5.6-sol` | The resolved answer-model defaults in `src/lib/env.ts`.                     |
 | `embedding_version`   | `text-embedding-3-small@1536`                                  | `OPENAI_EMBEDDING_MODEL` and `EMBEDDING_DIMENSIONS` in `src/lib/env.ts`.    |
-| `index_version`       | `20260814151000_validate_therapy_favourites_content_type`      | The latest applied migration — the index shape the retrieval RPCs run on.   |
+| `index_version`       | `20260818090000_schema_drift_snapshot_history_probe`           | The latest applied migration — the index shape the retrieval RPCs run on.   |
 
 The field set and its order are pinned by `tests/rag-adversarial-fixtures.test.ts`. Adding,
 removing, or reordering a field is a deliberate contract change, not an edit.
 
 Two further values sit outside the key because they qualify the whole record rather than
-identify a run: `promptVersion` is `clinical-rag-answer-v18`, cross-checked at validation time
+identify a run: `promptVersion` is `clinical-rag-answer-v19`, cross-checked at validation time
 against `src/lib/rag/rag-versioning.ts` so the record cannot describe a superseded prompt; and
 `semanticRerankEnabled` is `false`, which the validator requires, because issue `#001` keeps the
 ambiguity-band semantic reranker off until an approved comparison exists.
 
 ## 2. Gate results
 
-| Gate                   | Cases | Status            | Result                                                            |
-| ---------------------- | ----- | ----------------- | ----------------------------------------------------------------- |
-| `retrieval_golden`     | 36    | pending owner run | Provider-backed; last recorded green at `2bd146eed`.              |
-| `answer_gate`          | 44    | pending owner run | Provider-backed; the recorded denominator is unreconciled (§3).   |
-| `answer_quality`       | 30    | pending owner run | Provider-backed; no comparison recorded at this commit.           |
-| `offline_contract`     | 25    | recorded          | 25 suites, 603 tests passed.                                      |
-| `adversarial_fixtures` | 24    | recorded          | 24 synthetic cases, 8 categories, 6 canaries, report canary-free. |
+| Gate                   | Cases | Status            | Result                                                                 |
+| ---------------------- | ----- | ----------------- | ---------------------------------------------------------------------- |
+| `retrieval_golden`     | 36    | pending owner run | Provider-backed; last recorded green at `4ea310e48` (run 32100681177). |
+| `answer_gate`          | 44    | pending owner run | Provider-backed; 44/44 at `4ea310e48` under prompt v18 (§3).           |
+| `answer_quality`       | 30    | pending owner run | Provider-backed; S2 before/after requested, not run (§4).              |
+| `offline_contract`     | 26    | recorded          | 26 suites, 623 tests passed.                                           |
+| `adversarial_fixtures` | 24    | recorded          | 24 synthetic cases, 8 categories, 6 canaries, report canary-free.      |
 
 Three of the five gates are marked `pending_owner_run` rather than carrying a number. That is
 the point of the record's shape, not a gap in it: `eval:retrieval:quality`, the `ragEvalCases`
@@ -62,7 +64,24 @@ Cases — None`, and its per-case diagnostics table lists exactly 44 rows — ma
 commit. `HANDOVER.md`'s original "45/45" was a transcription error and has been corrected
 to 44/44. The gate denominator recorded here (44) stands.
 
-## 4. Related
+## 4. Re-capture for prompt v19 (packet S2, 2026-08-18)
+
+Packet S2 (README §A2 + §A3) changed the answer prompt — the `related_information_menu`
+line and the 60–110-word / three-to-six-section targets — and bumped `ragAnswerPromptVersion`
+to `clinical-rag-answer-v19`, so this record was re-captured against the evaluated code
+commit `b7aa925f0ae19e89a9f0acf842b4a80d84083fb5`. Offline gates were re-run at that commit
+(`eval:rag:offline`: 26 suites / 623 tests; `check:rag:adversarial-fixtures`: 24 cases, canary-free);
+the three provider-backed gates stay `pending_owner_run`, carrying run `32100681177` at
+`4ea310e48` (prompt v18) as `priorRun` — that run is the baseline half of the S2 canary pair.
+
+One caveat travels with the `answer_quality` gate: `scoreAnswerQualityEvalCase`
+(`src/lib/rag/rag-eval-cases.ts`) scores readability over the answer **plus every section
+body** with a 220-word ceiling. The S2 targets can exceed that by design, so a readability=0
+flag caused only by total length is a metric artefact to adjudicate (raise the ceiling with an
+`eval_config_version` bump, or accept), not evidence of a regression. The scorer was left
+untouched in S2 so the before/after comparison runs under one definition.
+
+## 5. Related
 
 - `scripts/fixtures/rag-adversarial-baseline.v1.json` — the record itself.
 - `scripts/fixtures/rag-adversarial-cases.v1.json` — the 24 synthetic adversarial cases.
