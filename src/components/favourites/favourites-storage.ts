@@ -17,6 +17,7 @@ const listeners = new Set<() => void>();
 export function resetFavouritesStorageForTesting(): void {
   inMemoryLastOpened = null;
   inMemoryPinned = null;
+  sharedStorageListenerAttached = false;
   listeners.clear();
 }
 
@@ -196,6 +197,9 @@ export function lastOpenedScore(lastUsed: string | number | undefined | null): n
   if (typeof lastUsed === "number") {
     if (!Number.isFinite(lastUsed) || lastUsed <= 0) return 0;
     return lastUsed;
+  }
+  if (typeof lastUsed !== "string") {
+    return 0;
   }
 
   const lower = lastUsed.toLowerCase().trim();
