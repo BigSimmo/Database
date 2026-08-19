@@ -1267,7 +1267,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       {
         path: "/medications",
         testId: "medication-home",
-        heading: "Medication",
+        heading: "Medication Guidance",
         headingLevel: 2,
       },
       // Consolidated modes reach the same hero through the shared home; the

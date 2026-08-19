@@ -1838,7 +1838,7 @@ export function MasterSearchHeader({
     return (
       <form
         role="search"
-        aria-label="Clinical search"
+        aria-label="Search"
         onSubmit={submit}
         data-composer-placement={placement}
         onTouchStart={(e) => {

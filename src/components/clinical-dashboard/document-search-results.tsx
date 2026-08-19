@@ -1547,7 +1547,7 @@ function DocumentSearchResultsPanelImpl({
         // re-announced the zero count, so the empty state suppresses its
         // own live region on the filtered path to avoid a double polite
         // announcement for one interaction.
-        <div data-testid="document-filter-empty-results">
+        <div data-testid="document-filter-empty-results" className="w-full">
           <SearchResultsEmptyState
             modeId="documents"
             query={trimmedQuery}

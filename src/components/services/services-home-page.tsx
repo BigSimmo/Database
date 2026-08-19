@@ -1,6 +1,6 @@
 "use client";
 
-import { FileQuestion, FileSearch, Loader2, MapPinned, Route, ShieldAlert, Users } from "lucide-react";
+import { FileQuestion, FileSearch, Loader2, MapPinned, Route, ShieldAlert } from "lucide-react";
 
 import {
   ModeHomeMain,
@@ -9,8 +9,10 @@ import {
   type ModeHomeAction,
   type ModeHomePill,
 } from "@/components/mode-home-template";
+import { appModeIcons } from "@/lib/app-mode-icons";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 
 // The default service slug is computed server-side (app/services/page.tsx) and
@@ -132,9 +134,9 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
     >
       <ModeHomeTemplate
         testId="services-home-template"
-        title="Services"
-        subtitle="Search by need, catchment, or route."
-        icon={Users}
+        title={sharedHomePresentation.services.title}
+        subtitle={sharedHomePresentation.services.subtitle}
+        icon={appModeIcons.services}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Service tasks"
         actions={hasRegistryRecords ? taskCards : []}
