@@ -3,8 +3,9 @@
 import { useMemo } from "react";
 import { ExternalLink, ShieldCheck, TriangleAlert } from "lucide-react";
 
+import { cardSurface } from "@/components/card-recipes";
 import { PageHeader } from "@/components/ui/page-header";
-import { pageContainer } from "@/components/ui-primitives";
+import { cn, pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
 
 import { useTcBindings } from "../bindings";
@@ -22,23 +23,22 @@ export function OtherScreen() {
 
   if (!isReview) {
     return (
-      <section className="max-w-[720px] my-[60px] mx-auto text-center">
-        <span className="inline-flex items-center justify-center w-[64px] h-[64px] rounded-xl bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] mb-5">
-          <ShieldCheck aria-hidden="true" size={30} strokeWidth={1.6} />
-        </span>
-        <h1 className="mt-0 mx-0 mb-2 text-2xl font-semibold text-[color:var(--text-heading)]">{b.otherLabel}</h1>
-        <p className="mt-0 mx-0 mb-[22px] text-sm text-[color:var(--text-muted)]">
-          This surface uses the same Therapy shell. Pick a tool from the top navigation to keep exploring the clinical
-          workspace.
-        </p>
-        <div className="flex gap-2.5 justify-center flex-wrap">
-          <Button variant="primary" onClick={b.goHome}>
-            Go to Home
-          </Button>
-          <Button variant="secondary" onClick={b.goSearch}>
-            Search therapies
-          </Button>
-        </div>
+      <section className={cn(pageContainer, "my-10 max-w-[720px]")}>
+        <PageHeader
+          title={b.otherLabel}
+          icon={ShieldCheck}
+          description="This surface uses the same Therapy shell. Pick a tool from the top navigation to keep exploring the clinical workspace."
+          actions={
+            <>
+              <Button variant="primary" onClick={b.goHome}>
+                Go to Home
+              </Button>
+              <Button variant="secondary" onClick={b.goSearch}>
+                Search therapies
+              </Button>
+            </>
+          }
+        />
       </section>
     );
   }
@@ -66,7 +66,10 @@ export function OtherScreen() {
         {queue.map((t) => (
           <div
             key={t.slug}
-            className="grid grid-cols-1 sm:grid-cols-[minmax(200px,_1.4fr)_repeat(3,_minmax(110px,_1fr))_auto] gap-5 items-center bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--e1)] py-4 px-5"
+            className={cn(
+              cardSurface,
+              "grid grid-cols-1 sm:grid-cols-[minmax(200px,_1.4fr)_repeat(3,_minmax(110px,_1fr))_auto] gap-5 items-center py-4 px-5",
+            )}
           >
             <div className="min-w-0">
               <div className="text-sm font-semibold text-[color:var(--text-heading)]">{t.name}</div>

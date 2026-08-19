@@ -406,6 +406,229 @@ function assertFreshReconciliationBase() {
   }
 }
 
+/**
+ * Detect whether another unmerged branch on `origin` carries inbox
+ * reconciliations (applied inbox records under `docs/outstanding-issues-inbox/applied/`).
+ *
+ * This provides a pre-flight remote interlock so concurrent `issues:reconcile`
+ * branches are not created simultaneously against the same base (issue #EH9VA6).
+ *
+ * When offline or when git ls-remote fails, it fails open (returns an empty list)
+ * so offline workflows and tests are not blocked.
+ *
+ * @param {{
+ *   lsRemoteOutput?: string,
+ *   runner?: (args: string[]) => string,
+ *   originRef?: string,
+ *   currentBranch?: string,
+ *   warn?: (message: string) => void
+ * }} [options]
+ * @returns {Array<{ branch: string, sha: string, unmergedCount?: number, reason: string }>}
+ */
+export function findUnmergedRemoteReconciliations(options = {}) {
+  const runner =
+    options.runner ??
+    ((args) =>
+      execFileSync("git", args, {
+        cwd: ROOT,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim());
+
+  let lsRemoteText = options.lsRemoteOutput;
+  if (lsRemoteText === undefined) {
+    try {
+      lsRemoteText = runner(["ls-remote", "--heads", "origin"]);
+    } catch {
+      // Offline or network error: fail open safely.
+      return [];
+    }
+  }
+
+  if (!lsRemoteText || typeof lsRemoteText !== "string") return [];
+
+  const originMainRef = options.originRef ?? "refs/remotes/origin/main";
+  let currentBranch = options.currentBranch;
+  if (currentBranch === undefined) {
+    try {
+      currentBranch = runner(["branch", "--show-current"]).trim();
+    } catch {
+      currentBranch = "";
+    }
+  }
+
+  const lines = lsRemoteText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const candidateBranches = [];
+  const shasToCheck = [];
+
+  for (const line of lines) {
+    const parts = line.split(/\s+/);
+    if (parts.length < 2) continue;
+    const sha = parts[0];
+    const ref = parts[1];
+    const branchName = ref.replace(/^refs\/heads\//, "");
+    if (!/^[0-9a-f]{40}$/i.test(sha)) continue;
+    if (branchName === "main" || branchName === "master" || (currentBranch && branchName === currentBranch)) continue;
+
+    candidateBranches.push({ branch: branchName, sha });
+    shasToCheck.push(sha);
+  }
+
+  if (candidateBranches.length === 0) return [];
+
+  let mainApplied = new Set();
+  try {
+    const mainTree = execFileSync("git", ["ls-tree", "-r", "--name-only", originMainRef, "--", APPLIED_DIR], {
+      cwd: ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    mainApplied = new Set(
+      mainTree
+        .trim()
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+  } catch {
+    // If originMainRef cannot be inspected, fail open for tree diffs
+  }
+
+  let localShas = new Set();
+  try {
+    const checkOutput = execFileSync("git", ["cat-file", "--batch-check=%(objectname) %(objecttype)"], {
+      cwd: ROOT,
+      input: shasToCheck.join("\n") + "\n",
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "ignore"],
+    });
+    for (const entry of checkOutput.split("\n")) {
+      const [sha, type] = entry.trim().split(" ");
+      if (type === "commit") localShas.add(sha);
+    }
+  } catch {
+    // If batch-check fails, fallback
+  }
+
+  const detected = [];
+  const presentCandidates = candidateBranches.filter((b) => localShas.has(b.sha));
+  const presentShas = presentCandidates.map((b) => b.sha);
+
+  if (presentShas.length > 0) {
+    try {
+      const logArgs = [
+        "log",
+        "--format=COMMIT:%H",
+        "--name-only",
+        `^${originMainRef}`,
+        ...presentShas,
+        "--",
+        APPLIED_DIR,
+      ];
+      const logOutput = execFileSync("git", logArgs, {
+        cwd: ROOT,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      });
+      if (logOutput) {
+        const suspiciousCommits = new Set();
+        for (const block of logOutput.split("COMMIT:").filter(Boolean)) {
+          const blines = block.trim().split("\n");
+          const cSha = blines[0].trim();
+          const files = blines
+            .slice(1)
+            .map((f) => f.trim())
+            .filter(Boolean);
+          if (files.some((f) => !mainApplied.has(f))) {
+            suspiciousCommits.add(cSha);
+          }
+        }
+
+        if (suspiciousCommits.size > 0) {
+          for (const candidate of presentCandidates) {
+            try {
+              const branchLog = execFileSync(
+                "git",
+                ["log", "-1", "--format=%H", `^${originMainRef}`, candidate.sha, "--", APPLIED_DIR],
+                { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+              ).trim();
+              if (branchLog && suspiciousCommits.has(branchLog)) {
+                const branchApplied = execFileSync(
+                  "git",
+                  ["ls-tree", "-r", "--name-only", candidate.sha, "--", APPLIED_DIR],
+                  { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+                )
+                  .trim()
+                  .split("\n")
+                  .map((s) => s.trim())
+                  .filter(Boolean);
+                const unmerged = branchApplied.filter((f) => !mainApplied.has(f));
+                if (unmerged.length > 0) {
+                  detected.push({
+                    branch: candidate.branch,
+                    sha: candidate.sha,
+                    unmergedCount: unmerged.length,
+                    reason: `carries ${unmerged.length} unmerged applied inbox record(s) under ${APPLIED_DIR}`,
+                  });
+                }
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
+      }
+    } catch {
+      // fail open
+    }
+  }
+
+  for (const candidate of candidateBranches) {
+    if (localShas.has(candidate.sha)) continue;
+    if (/(?:issues|ledger|inbox)[-_]?reconcile|reconcile[-_]?(?:issues|ledger|inbox)/i.test(candidate.branch)) {
+      detected.push({
+        branch: candidate.branch,
+        sha: candidate.sha,
+        reason: "unfetched remote branch name indicates an in-flight unmerged reconcile branch",
+      });
+    }
+  }
+
+  return detected;
+}
+
+export function assertSafeRemoteReconciliation(argv = [], options = {}) {
+  const allowConcurrent =
+    argv.includes("--allow-concurrent") ||
+    argv.includes("--force") ||
+    process.env.ALLOW_CONCURRENT_RECONCILE === "true";
+  const skipRemoteCheck =
+    argv.includes("--no-remote-check") ||
+    argv.includes("--skip-remote-check") ||
+    process.env.SKIP_REMOTE_CHECK === "true";
+
+  if (skipRemoteCheck) return;
+
+  const conflicts = findUnmergedRemoteReconciliations(options);
+  if (conflicts.length === 0) return;
+
+  const detail = conflicts.map((c) => `  - ${c.branch} (${c.sha.slice(0, 12)}): ${c.reason}`).join("\n");
+  const message =
+    `detected unmerged branch(es) on origin carrying pending inbox reconciliations:\n${detail}\n` +
+    "Concurrent reconciliations cause canonical-ledger conflicts or corrupted reconciliation journals (#EH9VA6). " +
+    "Land or close the existing reconciliation PR(s) before starting a new one, or pass --allow-concurrent to override.";
+
+  if (allowConcurrent) {
+    const warn = options.warn ?? ((msg) => console.warn(msg));
+    warn(`warning: ${message}`);
+  } else {
+    throw new Error(message);
+  }
+}
+
 function createRequest(action, argv) {
   const payload =
     action === "add"
@@ -482,6 +705,13 @@ function reconcile(argv) {
     return;
   }
   assertFreshReconciliationBase();
+  try {
+    assertSafeRemoteReconciliation(argv);
+  } catch (error) {
+    console.error(`refusing to reconcile: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
+    return;
+  }
 
   const apply = () => {
     const current = readFileSync(path.join(ROOT, ISSUES_PATH), "utf8");
@@ -695,6 +925,65 @@ function selfTest() {
   if (processIsAlive(0) || processIsAlive("not-a-pid")) {
     throw new Error("self-test failed: invalid PID was treated as alive");
   }
+
+  // Pre-flight remote interlock self-test (#EH9VA6)
+  const offlineResult = findUnmergedRemoteReconciliations({
+    runner: () => {
+      throw new Error("offline");
+    },
+  });
+  if (offlineResult.length !== 0) {
+    throw new Error("self-test failed: remote check must fail open when offline");
+  }
+
+  const cleanRemoteOutput = [`${"a".repeat(40)}\trefs/heads/main`, `${"b".repeat(40)}\trefs/heads/feature-branch`].join(
+    "\n",
+  );
+  const cleanResult = findUnmergedRemoteReconciliations({
+    lsRemoteOutput: cleanRemoteOutput,
+    currentBranch: "feature-branch",
+  });
+  if (cleanResult.length !== 0) {
+    throw new Error("self-test failed: clean remote branches must report no conflicts");
+  }
+
+  const conflictingRemoteOutput = [
+    `${"a".repeat(40)}\trefs/heads/main`,
+    `${"c".repeat(40)}\trefs/heads/claude/issues-reconcile-20260818`,
+  ].join("\n");
+  const conflictResult = findUnmergedRemoteReconciliations({
+    lsRemoteOutput: conflictingRemoteOutput,
+    currentBranch: "feature-branch",
+  });
+  if (conflictResult.length === 0 || conflictResult[0].branch !== "claude/issues-reconcile-20260818") {
+    throw new Error("self-test failed: unmerged reconcile branch on origin was not detected");
+  }
+
+  let remoteInterlockError = false;
+  try {
+    assertSafeRemoteReconciliation([], {
+      lsRemoteOutput: conflictingRemoteOutput,
+      currentBranch: "feature-branch",
+    });
+  } catch (error) {
+    remoteInterlockError = /detected unmerged branch/.test(String(error));
+  }
+  if (!remoteInterlockError) {
+    throw new Error(
+      "self-test failed: assertSafeRemoteReconciliation must throw when unmerged reconcile branch is found",
+    );
+  }
+
+  const remoteWarnings = [];
+  assertSafeRemoteReconciliation(["--allow-concurrent"], {
+    lsRemoteOutput: conflictingRemoteOutput,
+    currentBranch: "feature-branch",
+    warn: (msg) => remoteWarnings.push(msg),
+  });
+  if (remoteWarnings.length === 0 || !remoteWarnings[0].includes("claude/issues-reconcile-20260818")) {
+    throw new Error("self-test failed: --allow-concurrent must warn loudly rather than throw");
+  }
+
   console.log("ledger inbox self-test passed.");
 }
 

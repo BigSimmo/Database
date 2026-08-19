@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import { ChevronRight, Copy, FileText, ListChecks, Scale, TriangleAlert, Waypoints } from "lucide-react";
+import { Check, ChevronRight, Copy, FileText, ListChecks, Scale, TriangleAlert, Waypoints } from "lucide-react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { PageHeader } from "@/components/ui/page-header";
-import { pageContainer } from "@/components/ui-primitives";
+import { cn, pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
 
 import { useTcBindings } from "../bindings";
@@ -52,7 +52,7 @@ export function PathwaysScreen() {
         }
       />
 
-      <div className={`${cardSurface} grid grid-cols-1 sm:grid-cols-[320px_minmax(0,_1fr)] gap-4 overflow-hidden`}>
+      <div className={cn(cardSurface, "grid grid-cols-1 sm:grid-cols-[320px_minmax(0,_1fr)] gap-4 overflow-hidden")}>
         {/* pathway list */}
         <div className="therapy-pathway-list border-r border-[color:var(--border)] p-[18px]">
           <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-3.5">Pathways</div>
@@ -63,7 +63,10 @@ export function PathwaysScreen() {
                 <button
                   key={p.slug}
                   type="button"
-                  className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3.5 text-left aria-[current=true]:border-[color:var(--clinical-accent-border)] aria-[current=true]:border-l-[3px] aria-[current=true]:border-l-[color:var(--clinical-accent)] aria-[current=true]:bg-[color:var(--clinical-accent-soft)]`}
+                  className={cn(
+                    therapyBtn,
+                    "transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3.5 text-left aria-[current=true]:border-[color:var(--clinical-accent-border)] aria-[current=true]:border-l-[3px] aria-[current=true]:border-l-[color:var(--clinical-accent)] aria-[current=true]:bg-[color:var(--clinical-accent-soft)]",
+                  )}
                   onClick={() => b.selectPathway(p.slug)}
                   aria-current={active ? "true" : undefined}
                 >
@@ -136,7 +139,12 @@ export function PathwaysScreen() {
                   >
                     {i + 1}
                   </span>
-                  <div className="transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex-1 min-w-0 flex items-center gap-3.5 py-3.5 px-4 border border-[color:var(--border)] rounded-lg bg-[color:var(--surface)]">
+                  <div
+                    className={cn(
+                      cardSurface,
+                      "transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex-1 min-w-0 flex items-center gap-3.5 py-3.5 px-4",
+                    )}
+                  >
                     <span className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] flex-none">
                       <Scale aria-hidden="true" size={17} strokeWidth={1.6} />
                     </span>
@@ -152,13 +160,9 @@ export function PathwaysScreen() {
                       {step.label ?? "STEP"}
                     </span>
                     {therapy ? (
-                      <button
-                        type="button"
-                        className={`${therapyBtn} inline-flex items-center gap-[5px] h-[32px] py-0 px-3 border border-[color:var(--border-strong)] rounded-md bg-[color:var(--surface)] text-[color:var(--text)] text-xs font-semibold cursor-pointer flex-none`}
-                        onClick={() => b.open(therapy.slug)}
-                      >
+                      <Button variant="secondary" size="sm" className="flex-none" onClick={() => b.open(therapy.slug)}>
                         Open record
-                      </button>
+                      </Button>
                     ) : (
                       <ChevronRight
                         aria-hidden="true"
@@ -192,14 +196,9 @@ export function PathwaysScreen() {
           </div>
         </div>
         <div className="max-sm:flex-wrap flex gap-[9px]">
-          <button
-            type="button"
-            className={`${therapyBtn} flex items-center gap-[7px] h-[40px] py-0 px-3.5 border border-[color:var(--warning-border)] rounded-md bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus font-semibold cursor-pointer`}
-            onClick={copyPathway}
-          >
-            <Copy aria-hidden="true" size={15} />
+          <Button variant="secondary" icon={copied === "pathway" ? Check : Copy} onClick={copyPathway}>
             {copied === "pathway" ? "Copied" : "Copy pathway"}
-          </button>
+          </Button>
           <Button
             variant="primary"
             icon={FileText}

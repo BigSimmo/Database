@@ -8,7 +8,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { BrowserPrintButton, PrintOutput } from "@/components/ui/print-output";
 import { cardSurface } from "@/components/card-recipes";
 import { PageHeader } from "@/components/ui/page-header";
-import { ToggleSwitch } from "@/components/ui-primitives";
+import { cn, ToggleSwitch } from "@/components/ui-primitives";
 import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "../bindings";
@@ -58,7 +58,7 @@ export function SheetsScreen() {
           <div className="grid grid-cols-1 sm:grid-cols-[340px_minmax(0,_1fr)] gap-5 items-start">
             {/* BUILDER */}
             <div className="max-sm:static max-sm:top-auto flex flex-col gap-4 sticky top-[84px]">
-              <div className={`${cardSurface} py-[18px] px-5`}>
+              <div className={cn(cardSurface, "py-[18px] px-5")}>
                 <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mb-3">Therapy</div>
                 <TherapyPicker />
                 <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mt-[18px] mx-0 mb-2.5">
@@ -81,7 +81,7 @@ export function SheetsScreen() {
                 />
               </div>
 
-              <div className={`${cardSurface} py-[18px] px-5`}>
+              <div className={cn(cardSurface, "py-[18px] px-5")}>
                 <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mb-1.5">Sections</div>
                 <p className="mt-0 mx-0 mb-3.5 text-xs text-[color:var(--text-muted)]">
                   Toggle what appears on the sheet.
@@ -130,7 +130,7 @@ export function SheetsScreen() {
                 </div>
               </div>
 
-              <div className={`${cardSurface} py-[18px] px-5`}>
+              <div className={cn(cardSurface, "py-[18px] px-5")}>
                 <div className="flex items-center justify-between gap-3">
                   <span>
                     <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">
