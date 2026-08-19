@@ -3,7 +3,8 @@
 **Why this file exists.** The Phase 2A build ran through a session ledger under `.superpowers/sdd/`,
 which is git-ignored scratch. Every ruling taken on the owner's behalf, every deferred finding and the
 resume point lived only there and in one conversation. Both are losable — a `git clean -fdx` or deleting
-the worktree would destroy them. This is the tracked copy, verbatim, as of head 6bf9f6362.
+the worktree would destroy them. This is the tracked copy, verbatim, as of head 6bf9f6362 plus the
+Task 10 review outcome recorded after it.
 
 The live ledger remains at `.superpowers/sdd/2026-08-19-caring-contact-phase-2a-foundations/progress.md`
 and stays authoritative while the plan is running. Re-copy it here at each checkpoint.
@@ -76,31 +77,28 @@ Task 3: accepted deviation — describeServiceStop takes a discriminated { stopp
 Task 3: CARRY INTO TASKS 10 AND 11 — the single-record rule for the safety stop is currently held only by the reportedByTeamId name and a doc comment. Nothing stops the storage task building a per-team table anyway. Ruling: [9] requires the schema itself to enforce one row (fixed-key singleton), and every dispatch path must read it regardless of the dispatching team. This must be a migration constraint and a test, not a convention.
 
 ## RESUME POINT
-
 Next task: Task 4 (pathway versions and dual approval). Brief already extracted at task-4-brief.md; task-5-brief.md also extracted.
 BASE for Task 4 = 6434817b2. Model guidance from the owner: Sonnet 5 for ordinary tasks; Opus 5 for the service safety stop (done), anything displaying delivery or clinical state, the 24-overlay modality contract (Tasks 17 and 18), and the final whole-branch review. Task 11 (migration plus RLS) is also Opus by the repo's own effort calibration.
 Carry into Task 4's dispatch: Ruling: [1] — PathwayVersionSnapshot needs MessageType imported from ./model, which the brief's Consumes list omits.
 Carry into Task 5's dispatch: Ruling: [1] — DuplicateReferralOutcome needs PlanId imported from ./ids, which the brief's Consumes list omits.
 
 ## Owner decisions closed 2026-08-19 (previously open from Phase 1)
-
 - Patient-visible wording: KEEP AS WRITTEN. Still flagged provisional and not clinically approved; lived-experience and clinical sign-off still required before any real use. No code change — the pinned 252/218 septet strings stand.
 - Retention: SEVEN YEARS confirmed. DEFAULT_RETENTION_POLICY already { years: 7 }. No code change.
 - Cross-team duplicate prevention: CONFIRMED as built. The partial unique index stays on (patient_id) rather than (team_id, patient_id), accepting that a second team can infer a plan exists elsewhere, because two teams sending two sets of caring contacts is the worse outcome. Phase 1 decision 6 is now the owner's decision, not mine.
-  Task 4: review — spec OK, implementation correct (all five approval sequences hand-traced; snapshot untouched by every branch; self-approval delegated, not re-implemented). ONE Important: pathway-not-retirable implemented with zero test coverage, and publishedAt/retiredAt values never asserted. The gap is in the brief I wrote, not the implementation. Fix round 1 dispatched.
-  Task 4: fix round 1/5 (1 addressed, 0 open — all three non-approved states covered with exact refusal objects, publish/retire timestamps asserted against /\+08:00$/, implementation file untouched; commits 33d38ca..9c43268)
-  Task 4: complete (commits 6434817..9c43268, review clean) — 7 passed.
-  Task 5+6+7: Ruling: [10] Tasks 5, 6 and 7 are dispatched as ONE batch with three separate commits. — Why: three small independent pure-transition modules in three different new files, each with complete test code in its brief and no interface between them; one dispatch per task would make three agents rebuild the same context, and Phase 1 batched two such tasks for the same reason. — Cost if wrong: one review surface covers three modules, so a finding in any one of them holds up the other two.
-  Task 5: complete (commit 9634deb, batch review clean) — referrals.
-  Task 6: complete (commit 9f51d5b, batch review clean) — assignment, reassignment history, coverage.
-  Task 7: complete (commit 664ec7d, batch review clean) — within-day moves and approved date changes.
-  Tasks 5-7: all 11 refusal reasons across the three modules now have a test asserting the exact refusal object; the implementer found and closed 5 gaps the briefs had left.
-  Tasks 5-7: Ruling: [11] The reviewer's one Important finding — Task 7's brief names APPROVED_SEND_WINDOW under Consumes but the module only needs isWithinApprovedSendWindow — is a defect in the brief, not the code. No change. — Why: the module must not re-derive 09:00-18:00, and it does not; adding an unused import to satisfy a list I wrote would be strictly worse than the brief being over-specified. — Cost if wrong: none; the constant remains exported and importable if a later task needs it.
-  Task 6: minor (deferred): coverage window boundary equality (day == from, day == until) is implemented inclusive on both ends but only interior and after-until dates are asserted. Boundaries are where off-by-one bugs live. FLAG FOR THE FINAL WHOLE-BRANCH REVIEW.
-  Task 6: minor (deferred): PlanAssignment mixes AWST instant strings (claimedAt, reassignment at) with bare calendar days (coverage from/until). Reviewer confirmed the 10-character calendar-day branch in effectiveResponder is a sound distinction, not a guess, and that a full ISO instant still maps to its true AWST day. Suggested later cleanup: name them claimedAtIso/fromDay or brand the two string shapes. Not blocking.
+Task 4: review — spec OK, implementation correct (all five approval sequences hand-traced; snapshot untouched by every branch; self-approval delegated, not re-implemented). ONE Important: pathway-not-retirable implemented with zero test coverage, and publishedAt/retiredAt values never asserted. The gap is in the brief I wrote, not the implementation. Fix round 1 dispatched.
+Task 4: fix round 1/5 (1 addressed, 0 open — all three non-approved states covered with exact refusal objects, publish/retire timestamps asserted against /\+08:00$/, implementation file untouched; commits 33d38ca..9c43268)
+Task 4: complete (commits 6434817..9c43268, review clean) — 7 passed.
+Task 5+6+7: Ruling: [10] Tasks 5, 6 and 7 are dispatched as ONE batch with three separate commits. — Why: three small independent pure-transition modules in three different new files, each with complete test code in its brief and no interface between them; one dispatch per task would make three agents rebuild the same context, and Phase 1 batched two such tasks for the same reason. — Cost if wrong: one review surface covers three modules, so a finding in any one of them holds up the other two.
+Task 5: complete (commit 9634deb, batch review clean) — referrals.
+Task 6: complete (commit 9f51d5b, batch review clean) — assignment, reassignment history, coverage.
+Task 7: complete (commit 664ec7d, batch review clean) — within-day moves and approved date changes.
+Tasks 5-7: all 11 refusal reasons across the three modules now have a test asserting the exact refusal object; the implementer found and closed 5 gaps the briefs had left.
+Tasks 5-7: Ruling: [11] The reviewer's one Important finding — Task 7's brief names APPROVED_SEND_WINDOW under Consumes but the module only needs isWithinApprovedSendWindow — is a defect in the brief, not the code. No change. — Why: the module must not re-derive 09:00-18:00, and it does not; adding an unused import to satisfy a list I wrote would be strictly worse than the brief being over-specified. — Cost if wrong: none; the constant remains exported and importable if a later task needs it.
+Task 6: minor (deferred): coverage window boundary equality (day == from, day == until) is implemented inclusive on both ends but only interior and after-until dates are asserted. Boundaries are where off-by-one bugs live. FLAG FOR THE FINAL WHOLE-BRANCH REVIEW.
+Task 6: minor (deferred): PlanAssignment mixes AWST instant strings (claimedAt, reassignment at) with bare calendar days (coverage from/until). Reviewer confirmed the 10-character calendar-day branch in effectiveResponder is a sound distinction, not a guess, and that a full ISO instant still maps to its true AWST day. Suggested later cleanup: name them claimedAtIso/fromDay or brand the two string shapes. Not blocking.
 
 ## OWNER CLARIFICATION 2026-08-19 — the workspace is a standalone application
-
 Caring Contacts does NOT reuse the Clinical KB navigation. It is its own application living inside the
 same deployment, and it owns its own sidebar: every one of its headings/destinations goes in ITS side
 rail, not in the host app's nav. This confirms the shell design in Task 15 (own rail, own header, own
@@ -129,16 +127,14 @@ Task 8: complete (commits 664ec7d..3272c87, review clean).
 Task 9: complete (commits 2074119, 8a5a4aa, review clean) — notification preferences and training separation.
 
 ## CHECKPOINT 1 PASSED — end of Group 1, the rules layer is complete
-
-npm run test -> Test Files 691 passed | 2 skipped (693) / Tests 7604 passed | 29 skipped (7633) PASS
-npm run typecheck -> exit 0, no diagnostics PASS
-npm run lint -> exit 0, no output PASS
+npm run test    -> Test Files 691 passed | 2 skipped (693) / Tests 7604 passed | 29 skipped (7633)  PASS
+npm run typecheck -> exit 0, no diagnostics  PASS
+npm run lint    -> exit 0, no output  PASS
 Note: typecheck first failed with DATABASE_HEAVY_RUN_ADMISSION_BUSY because the exclusive vitest lease
 was held by the concurrent full test run; it passed cleanly on rerun. That is the repo's cross-worktree
 run coordinator behaving correctly, not a defect.
 
 ## RESUME POINT (supersedes the earlier one)
-
 Group 1 (Tasks 1-9, the sealed rules layer) is COMPLETE and reviewed. Next: Task 10 (extend the storage
 contract and the in-memory store). Briefs 1-9 extracted; 10 onwards not yet.
 BASE for Task 10 = 3272c8701.
@@ -156,7 +152,6 @@ Model guidance: Sonnet 5 for ordinary tasks; Opus 5 for Task 11 (migration + RLS
 24-overlay modality contract), anything displaying delivery or clinical state, and the final review.
 
 ## Owner-directed actions on the two carried risks, 2026-08-19
-
 Risk 1 (size limit): Ruling: [13] Task 15 gains a hard requirement rather than only a measurement step —
 the workspace's client code must sit behind a lazy route boundary from the first commit, so the Clinical KB
 dashboard never downloads it and the workspace can never charge its weight to the host app's ceiling. The
@@ -184,7 +179,6 @@ on. Either wire it when training-scoped reads arrive in Plan 2B, or remove it. D
 constant that nothing can ever return.
 
 ## RESUME POINT (supersedes all earlier ones)
-
 1. FIRST: review Task 10. BASE = 88e774c95, HEAD = 6bf9f6362. Generate the package with
    scripts/review-package and dispatch a task reviewer. Task 10 is unreviewed.
 2. THEN: Task 11 (migration 0003 + Postgres implementation). Use Opus 5 — migration plus row-level
@@ -197,3 +191,76 @@ constant that nothing can ever return.
    first commit, not just measure the bundle afterwards.
 4. Owner clarification: Caring Contacts is a standalone application owning its own sidebar; all its
    destinations go in ITS rail, never the host app's nav. Applies to Task 15 and all of Plan 2B.
+
+## Session resumed 2026-08-19 (Phase 2A, from the Task 10 review resume point)
+
+Environment: Docker Desktop is now RUNNING and a disposable Postgres 17.11 container `caring-contacts-pg`
+is up on 127.0.0.1:54329 (`postgres:17`, password `caring-contacts-local`, `--restart unless-stopped`, NOT
+`--rm`). Set `CARING_CONTACTS_DATABASE_URL=postgres://postgres:caring-contacts-local@127.0.0.1:54329/postgres`
+for `npm run caring-contacts:db:test`. It is local, offline, disposable, and touches no hosted service.
+NOTE: the first attempt used `docker run --rm` and the container was removed when the engine finished
+starting, which surfaced as `Connection terminated unexpectedly` and 7 failed / 48 passed on a BASELINE run
+that had changed no code. That was environmental, not a schema defect. Re-run the baseline before trusting
+any Task 11 red/green.
+
+Task 10: REVIEWED (reviewer: Opus 5, BASE 88e774c95, HEAD 6bf9f6362). Verdict: Needs fixes —
+1 Critical, 4 Important, 9 Minor. All 21 interface methods confirmed present in both the interface and the
+in-memory store. Rulings 3, 6 and 9 independently confirmed applied and genuinely testable; Mutation A
+independently re-traced and confirmed NOT a no-op (exactly the four reported tests read the gate).
+
+Task 10 review findings entering the fix loop:
+  C1 savePathwayVersion persists caller-supplied state/approvals/authorId/publishedAt verbatim, so one
+     actor holding authorPathwayVersion can save {state:"published", approvals:[]} and publish governed
+     clinical message content past the dual-approval control Task 4 built. Governance bypass.
+  I2 No test asserts that ANY of the 20 new writes emits an audit event. Mutation B only reddened
+     pre-existing plan-write tests, so brief Step 5's proof was never actually obtained for a new method.
+  I3 A service-stopped refusal is cached against the idempotency key, so the natural retry after the
+     restart is refused forever with a reason that is no longer true.
+  I4 getAssignment and getServiceState return live internal references; every other read clones. A caller
+     can rewrite plan ownership or an incident note in place with no version bump and no audit event.
+  I5 applyAssignment never binds a claim's actorId to the writing actor, so the assignment ledger and the
+     audit event can disagree about who owns the work.
+
+Ruling: [14] savePathwayVersion persists AUTHORED CONTENT ONLY and constructs every governance field
+server-side — state "draft", approvals [], authorId from the write context, publishedAt/retiredAt/
+retirementUrgency null — regardless of what the caller supplied. Every governance transition stays
+exclusively in transitionPathwayVersion. — Why: the brief typed the input as the whole PathwayVersion, but
+a create method that trusts the caller's own approval state is not a storage decision, it is the removal of
+the dual-approval control; the same file already constructs createReferral's state server-side, so this is
+the file's own established trust boundary, not a new one. — Cost if wrong: a caller that legitimately
+needed to seed a non-draft version must now make the transition calls explicitly, which is one extra call
+and the audit trail those transitions produce.
+
+Ruling: [15] A `service-stopped` refusal is NOT written to the idempotency map; every other refusal still
+is. — Why: replay caching exists so a retried request returns its original answer, which is right when the
+answer is a property of the request, but service-stopped is a property of a global, explicitly reversible
+incident state — caching it means the safety stop's own resume path is the thing it permanently breaks.
+— Cost if wrong: a replayed write from the stopped window executes after the restart instead of returning
+the cached refusal, which is the behaviour the resume path wants anyway.
+
+Ruling: [16] `trainingWorkspaceIsolated` is REMOVED from REPOSITORY_REFUSALS rather than wired.
+— Why: the owner's instruction was wire-it-or-remove-it, and wiring it correctly is not the cheap option it
+looks like — `workspacesMayShareData` is a BETWEEN-workspaces predicate that returns false for
+(training, training), so using it as a self-access gate would refuse every operation of a training store;
+the correct gate is a workspace-identity check that does not exist yet and would add a field to the
+Read/Write contexts that Tasks 12-14 consume. — Cost if wrong: one constant to re-add in Plan 2B, next to
+the gate that can actually return it.
+
+Ruling: [17] `DispatchRecord.expectedStatus` is left unwritten in Task 10 and CARRIED as a requirement on
+whichever task builds the dispatch/provider path (Task 12 onward). — Why: reconciliation compares expected
+against reported, and nothing currently writes the expected half, so the reconciliation surface can show no
+discrepancy at all — a real façade risk of exactly the kind Ruling 3 was made to prevent; but inventing a
+setter before the dispatch path exists would be speculative, and the brief names no method that sets it.
+— Cost if wrong: if no later task claims it, the reconciliation screen in Plan 2B has a permanently empty
+expected column and the gap must be closed there instead.
+
+Task 10 minors (deferred to the final whole-branch review): rescheduleContact's
+`contact-move-leaves-scheduled-day` and `contact-date-change-in-the-past` are reachable but untested, and
+the report's refusal table overstates that coverage; `retentionCleared` is written and never read;
+`listAccessTrail` never exercises a non-zero `offset`; two test titles overclaim what their body asserts
+(the "and a blank note" title, and a positive control satisfied by pre-existing plan-write events); the
+~10x repeated permission/lookup guard could be one helper and its three action-selecting ternaries fall
+through to a default rather than failing to compile on a new variant; malformed date strings in
+listDispatches/listAccessTrail yield NaN comparisons and an empty list indistinguishable from "none";
+in-memory-repository.ts is now 1201 lines holding eight storage concerns and should split rather than
+extend again.
