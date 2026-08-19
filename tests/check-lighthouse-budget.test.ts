@@ -17,6 +17,7 @@ import {
   renderBudgetTable,
   validateBaselineBrowserVersions,
 } from "../scripts/check-lighthouse-budget.mjs";
+import { routeWithLighthouseParams } from "../scripts/lib/lighthouse-route-params.mjs";
 import { measurementFailureReason } from "../scripts/lighthouse-measurement-outcome.mjs";
 import { deadlineAfter, processTimeoutMs, remainingMs } from "../scripts/lighthouse-time-budget.mjs";
 
@@ -516,6 +517,11 @@ describe("committed lighthouse-budget.json", () => {
     expect(runner).toContain("LIGHTHOUSE_PROCESS_TIMEOUT_MS");
     expect(runner).toContain("--max-wait-for-load=60000");
     expect(runner).not.toMatch(/stdio:\s*"inherit",\s*\n\s*timeout,/);
+  });
+
+  it("disables local-dev install prompts during Lighthouse measurements", () => {
+    expect(routeWithLighthouseParams("/forms")).toBe("/forms?pwa-dev=0");
+    expect(routeWithLighthouseParams("/forms?feature=abc")).toBe("/forms?feature=abc&pwa-dev=0");
   });
 });
 
