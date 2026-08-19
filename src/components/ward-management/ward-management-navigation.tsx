@@ -10,7 +10,6 @@ import {
   LayoutDashboard,
   LayoutGrid,
   ListFilter,
-  MapPinned,
   MessageSquarePlus,
   Pill,
   Route,
@@ -28,15 +27,7 @@ import shellStyles from "./ward-management.module.css";
 import modeStyles from "./ward-management-modes.module.css";
 
 export type WardMode =
-  | "command"
-  | "constellation"
-  | "network"
-  | "queue"
-  | "capacity"
-  | "movements"
-  | "exceptions"
-  | "transport"
-  | "governance";
+  "command" | "network" | "queue" | "capacity" | "movements" | "exceptions" | "transport" | "governance";
 
 function RailLink({
   href,
@@ -62,7 +53,19 @@ function RailLink({
   );
 }
 
-export function ClinicalRail() {
+/**
+ * Task 9 (controller Ruling 4): the owner's own instruction — "you are your own application
+ * inside of it... you are able to use the side bar to place all of your headings" — moved the
+ * eight Ward Flow mode links out of the horizontal `WardModeNavigation` strip that used to sit
+ * below the header on every route, and into this rail. `ClinicalRail` is defined in this file
+ * (not the global app shell), so it is Ward Flow's own to extend rather than a shared surface
+ * this task would be overreaching to touch.
+ *
+ * `activeMode` is optional: the patient workspace route (`/ward-management/patients/[id]`) is
+ * not one of the eight modes, so it renders the rail without the mode section at all rather than
+ * forcing an arbitrary "active" choice.
+ */
+export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
   return (
     <aside className={shellStyles.clinicalRail} aria-label="Clinical KB">
       <Link href="/" className={shellStyles.railBrand} aria-label="Clinical KB home">
@@ -92,6 +95,12 @@ export function ClinicalRail() {
           <LayoutGrid aria-hidden="true" />
         </RailLink>
       </nav>
+      {activeMode ? (
+        <>
+          <div className={shellStyles.railRule} aria-hidden="true" />
+          <WardModeNavigation active={activeMode} />
+        </>
+      ) : null}
       <div className={shellStyles.railBottom}>
         <RailLink href="/?mode=answer" label="Favourites">
           <HeartPulse aria-hidden="true" />
@@ -107,89 +116,88 @@ export function ClinicalRail() {
   );
 }
 
+/**
+ * The mode strip renders one literal `<Link href="...">` per view (never built from an array)
+ * so `tests/route-reachability.test.ts` can find every href by static AST scan, and
+ * `tests/ward-management.test.ts`'s `wardModeHrefs()` can read them back by scanning this
+ * function's own source text — see that test's comment. Rendered icon-only inside `ClinicalRail`
+ * now (Task 9 Ruling 4); each link still carries its own accessible name via `aria-label` since
+ * its only visible content is an icon.
+ */
 export function WardModeNavigation({ active }: { active: WardMode }) {
   return (
     <nav className={modeStyles.modeNavigation} aria-label="Ward Flow views">
       <Link
         href="/ward-management"
+        aria-label="Command"
+        title="Command"
         aria-current={active === "command" ? "page" : undefined}
-        className={active === "command" ? modeStyles.modeLinkActive : modeStyles.modeLink}
+        className={active === "command" ? shellStyles.railLinkActive : shellStyles.railLink}
       >
         <LayoutDashboard aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Command</span>
-        <span className={modeStyles.modeShortLabel}>Home</span>
-      </Link>
-      <Link
-        href="/ward-management/constellation"
-        aria-current={active === "constellation" ? "page" : undefined}
-        className={active === "constellation" ? modeStyles.modeLinkActive : modeStyles.modeLink}
-      >
-        <MapPinned aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Constellation</span>
-        <span className={modeStyles.modeShortLabel}>Map</span>
       </Link>
       <Link
         href="/ward-management/network"
+        aria-label="Network"
+        title="Network"
         aria-current={active === "network" ? "page" : undefined}
-        className={active === "network" ? modeStyles.modeLinkActive : modeStyles.modeLink}
+        className={active === "network" ? shellStyles.railLinkActive : shellStyles.railLink}
       >
         <Waypoints aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Network</span>
-        <span className={modeStyles.modeShortLabel}>Graph</span>
       </Link>
       <Link
         href="/ward-management/queue"
+        aria-label="Priority queue"
+        title="Priority queue"
         aria-current={active === "queue" ? "page" : undefined}
-        className={active === "queue" ? modeStyles.modeLinkActive : modeStyles.modeLink}
+        className={active === "queue" ? shellStyles.railLinkActive : shellStyles.railLink}
       >
         <ListFilter aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Priority queue</span>
-        <span className={modeStyles.modeShortLabel}>Queue</span>
       </Link>
       <Link
         href="/ward-management/capacity"
+        aria-label="Capacity"
+        title="Capacity"
         aria-current={active === "capacity" ? "page" : undefined}
-        className={active === "capacity" ? modeStyles.modeLinkActive : modeStyles.modeLink}
+        className={active === "capacity" ? shellStyles.railLinkActive : shellStyles.railLink}
       >
         <BedSingle aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Capacity</span>
-        <span className={modeStyles.modeShortLabel}>Beds</span>
       </Link>
       <Link
         href="/ward-management/movements"
+        aria-label="Movements"
+        title="Movements"
         aria-current={active === "movements" ? "page" : undefined}
-        className={active === "movements" ? modeStyles.modeLinkActive : modeStyles.modeLink}
+        className={active === "movements" ? shellStyles.railLinkActive : shellStyles.railLink}
       >
         <Route aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Movements</span>
-        <span className={modeStyles.modeShortLabel}>Flow</span>
       </Link>
       <Link
         href="/ward-management/exceptions"
+        aria-label="Exceptions"
+        title="Exceptions"
         aria-current={active === "exceptions" ? "page" : undefined}
-        className={active === "exceptions" ? modeStyles.modeLinkActive : modeStyles.modeLink}
+        className={active === "exceptions" ? shellStyles.railLinkActive : shellStyles.railLink}
       >
         <CircleAlert aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Exceptions</span>
-        <span className={modeStyles.modeShortLabel}>Inbox</span>
       </Link>
       <Link
         href="/ward-management/transport"
+        aria-label="Transport"
+        title="Transport"
         aria-current={active === "transport" ? "page" : undefined}
-        className={active === "transport" ? modeStyles.modeLinkActive : modeStyles.modeLink}
+        className={active === "transport" ? shellStyles.railLinkActive : shellStyles.railLink}
       >
         <Truck aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Transport</span>
-        <span className={modeStyles.modeShortLabel}>Move</span>
       </Link>
       <Link
         href="/ward-management/governance"
+        aria-label="Governance"
+        title="Governance"
         aria-current={active === "governance" ? "page" : undefined}
-        className={active === "governance" ? modeStyles.modeLinkActive : modeStyles.modeLink}
+        className={active === "governance" ? shellStyles.railLinkActive : shellStyles.railLink}
       >
         <ShieldCheck aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Governance</span>
-        <span className={modeStyles.modeShortLabel}>Assure</span>
       </Link>
     </nav>
   );

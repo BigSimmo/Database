@@ -66,6 +66,33 @@
 }
 
 .clinicalRail {
+  /*
+   * Own its color/spacing tokens directly, rather than only relying on a host shell to define
+   * them. `.console`/`.consoleCollapsed`/`.patientWorkspace` (this file) and `.modeShell`
+   * (ward-management-modes.module.css) each declare `--ward-*`, but `.screen`
+   * (coordinator.module.css) uses an unrelated `--co-*` prefix and never did — so on the
+   * coordinator route (`/ward-management`) every `var(--ward-*)` below was silently invalid
+   * (computed background transparent, border 0px, z-index auto, padding 0px, nav gap `normal`),
+   * found empirically while verifying Task 9's rail-nav move — a real pre-existing gap, not
+   * something this task introduced, but one this task's own new `.modeNavigation` gap would
+   * otherwise inherit too. Declaring exactly the tokens this component's own subtree consumes
+   * (rail chrome/border/z-index, `.railRule` background, `.railLink`/`.railLinkActive` colors,
+   * `.avatar` colors, and the padding/gap spacing) here makes `ClinicalRail` self-sufficient
+   * regardless of which shell hosts it.
+   */
+  --ward-blue: var(--clinical-accent);
+  --ward-blue-soft: var(--clinical-accent-soft);
+  --ward-blue-border: var(--clinical-accent-border);
+  --ward-canvas: var(--surface);
+  --ward-chrome: var(--surface-chrome);
+  --ward-border: var(--border);
+  --ward-heading: var(--text-heading);
+  --ward-muted: var(--text-muted);
+  --ward-space-6: 0.375rem;
+  --ward-space-8: 0.5rem;
+  --ward-space-10: 0.625rem;
+  --ward-space-12: 0.75rem;
+  --ward-z-sticky: 3;
   grid-column: 1;
   grid-row: 1 / -1;
   z-index: var(--ward-z-sticky);
@@ -80,6 +107,7 @@
 
 .railBrand {
   display: grid;
+  flex-shrink: 0;
   width: 3rem;
   height: 3rem;
   place-items: center;
@@ -92,6 +120,7 @@
 }
 
 .railRule {
+  flex-shrink: 0;
   width: 2rem;
   height: 0.0625rem;
   margin: 0.25rem 0 0.625rem;
@@ -101,6 +130,7 @@
 .railNav,
 .railBottom {
   display: grid;
+  flex-shrink: 0;
   justify-items: center;
   gap: var(--ward-space-6);
 }
@@ -1841,8 +1871,6 @@
 }
 
 @media (max-width: 40rem) {
-  .console,
-  .consoleCollapsed,
   .patientWorkspace {
     display: block;
     min-height: 100dvh;
@@ -1850,7 +1878,16 @@
     overflow: visible;
   }
 
-  .clinicalRail {
+  /*
+   * Task 9 Ruling 4: the coordinator (`.screen`, coordinator.module.css) and mode-workspace
+   * (`.modeShell`, ward-management-modes.module.css) shells now render their eight Ward Flow
+   * mode links inside this rail, so it stays visible and reachable down to 320px there. The
+   * patient movement workspace (`.patientWorkspace`) is a single detail route, not one of the
+   * eight modes, and never gained rail-based navigation — it keeps its original phone-collapsed,
+   * rail-free layout. `WardManagementConsole` (formerly `.console`/`.consoleCollapsed` here) is
+   * deleted (Ruling 3), so this rule no longer needs to name it.
+   */
+  .patientWorkspace .clinicalRail {
     display: none;
   }
 

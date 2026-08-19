@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  Building2,
   CalendarDays,
   Check,
   CheckCircle2,
@@ -16,7 +15,6 @@ import {
   Info,
   LockKeyhole,
   MapPin,
-  Route,
   Scale,
   ShieldCheck,
   Sparkles,
@@ -39,18 +37,13 @@ import {
   roleLabels,
   roleTaskLabel,
   unitCapacity,
-  wardServiceOrder,
   type InboxItem,
   type WardRole,
 } from "@/components/ward-management/ward-derivations";
 import { WardNetworkWorkspace } from "@/components/ward-management/ward-management-network";
-import {
-  ClinicalRail,
-  WardModeNavigation,
-  type WardMode,
-} from "@/components/ward-management/ward-management-navigation";
+import { ClinicalRail, type WardMode } from "@/components/ward-management/ward-management-navigation";
 import { formatInstant } from "@/components/ward-management/ward-clock";
-import type { Movement, Unit } from "@/components/ward-management/ward-model";
+import type { Movement } from "@/components/ward-management/ward-model";
 import { wardMovements } from "@/components/ward-management/ward-movements";
 import { NOW_ANCHOR, allUnits, siteByCode, unitById } from "@/components/ward-management/ward-sites";
 
@@ -73,10 +66,6 @@ const roleFocusCopy: Record<WardRole, { title: string; detail: string }> = {
 
 const modeCopy: Record<WardMode, { title: string; description: string }> = {
   command: { title: "Ward Flow", description: "Statewide command view" },
-  constellation: {
-    title: "Operational constellation",
-    description: "Statewide demand, capacity and selected movement routes",
-  },
   network: {
     title: "Network diagram",
     description: "Services as nodes · movements as routes · fill shows bed pressure",
@@ -152,127 +141,6 @@ function ModeHeader({
         <span>15 Aug 2026 · WA</span>
       </div>
     </header>
-  );
-}
-
-function CompactQueue({
-  patients,
-  selected,
-  onSelect,
-}: {
-  patients: Movement[];
-  selected: Movement;
-  onSelect: (patient: Movement) => void;
-}) {
-  return (
-    <section className={`${styles.panel} ${styles.compactQueue}`} aria-label="Priority queue">
-      <header className={styles.panelHeader}>
-        <div>
-          <h2>Priority queue</h2>
-          <p>Tier first · eligibility orders within tier</p>
-        </div>
-        <span className={styles.statusNeutral}>{patients.length}</span>
-      </header>
-      <div className={styles.queueList}>
-        {patients.slice(0, 9).map((patient, index) => (
-          <button
-            type="button"
-            key={patient.id}
-            onClick={() => onSelect(patient)}
-            aria-pressed={selected.id === patient.id}
-            className={selected.id === patient.id ? styles.queueRowSelected : styles.queueRow}
-          >
-            <span className={styles.rowTop}>
-              <strong>
-                {index + 1}. {patient.id}
-              </strong>
-              <span
-                className={toneClass(patient.urgency === 1 ? "danger" : patient.urgency === 2 ? "warning" : "neutral")}
-              >
-                P{patient.urgency}
-              </span>
-            </span>
-            <span className={styles.rowMeta}>
-              {elapsedLabel(patient, NOW_ANCHOR)} · {patient.cohort} {patient.security} ·{" "}
-              {movementHealthService(patient) ?? "Unknown service"}
-            </span>
-            <span className={styles.rowMeta}>{patient.blocker}</span>
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function HospitalChip({ unit, selected, onSelect }: { unit: Unit; selected: boolean; onSelect: () => void }) {
-  const capacity = unitCapacity(unit);
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-pressed={selected}
-      className={selected ? styles.hospitalChipSelected : styles.hospitalChip}
-    >
-      <strong>{unit.name}</strong>
-      <span className={styles.hospitalState}>
-        <b>{capacity.available}</b> available · {capacity.held} held · {capacity.potential} potential
-      </span>
-      <span className={styles.hospitalState}>Confirmed {formatInstant(unit.allocatable.confirmedAt)}</span>
-    </button>
-  );
-}
-
-function NetworkCanvas({ selectedId, onSelect }: { selectedId: string | undefined; onSelect: (id: string) => void }) {
-  return (
-    <section className={styles.panel} aria-label="Statewide operational network">
-      <header className={styles.panelHeader}>
-        <div>
-          <h2>Statewide mental health flow</h2>
-          <p>Schematic service network · selective movement routes only</p>
-        </div>
-        <span className={styles.prototypeBadge}>Not geographic</span>
-      </header>
-      <div className={styles.networkCanvas}>
-        {wardServiceOrder.map((service) => {
-          const units = allUnits().filter((unit) => siteByCode(unit.siteCode)?.service === service);
-          const available = units.reduce((total, unit) => total + unit.allocatable.value, 0);
-          return (
-            <section className={styles.regionCluster} key={service} aria-labelledby={`constellation-${service}`}>
-              <header>
-                <span className={styles.regionTitle}>
-                  <Building2 aria-hidden="true" />
-                  <strong id={`constellation-${service}`}>{service}</strong>
-                </span>
-                <small>{available} available now</small>
-              </header>
-              <div className={styles.hospitalChipGrid}>
-                {units.map((unit) => (
-                  <HospitalChip
-                    key={unit.id}
-                    unit={unit}
-                    selected={selectedId === unit.id}
-                    onSelect={() => onSelect(unit.id)}
-                  />
-                ))}
-              </div>
-            </section>
-          );
-        })}
-        <section className={styles.flowHub} aria-label="Statewide flow coordination hub">
-          <div className={styles.routeSignal}>
-            North / country demand <ArrowRight aria-hidden="true" />
-          </div>
-          <div>
-            <Route aria-hidden="true" />
-            <strong>STATEWIDE FLOW</strong>
-            <span>Coordinated visibility, escalation and placement</span>
-          </div>
-          <div className={styles.routeSignal}>
-            <ArrowRight aria-hidden="true" /> Selected route to south
-          </div>
-        </section>
-      </div>
-    </section>
   );
 }
 
@@ -399,27 +267,6 @@ function DecisionPanel({
         Eligibility computed automatically · authorised human confirms or overrides · no automatic allocation
       </p>
     </aside>
-  );
-}
-
-function ConstellationView({ role }: { role: WardRole }) {
-  const [selectedPatient, setSelectedPatient] = useState(wardMovements[0]);
-  const [selectedId, setSelectedId] = useState(
-    destinationUnit(wardMovements[0])?.id ?? eligibleCandidates(wardMovements[0], NOW_ANCHOR)[0]?.unit.id,
-  );
-  const rolePatients = useMemo(() => sortByRole(wardMovements, role), [role]);
-
-  function selectPatient(patient: Movement) {
-    setSelectedPatient(patient);
-    setSelectedId(destinationUnit(patient)?.id ?? eligibleCandidates(patient, NOW_ANCHOR)[0]?.unit.id);
-  }
-
-  return (
-    <div className={styles.constellationGrid} data-testid="ward-constellation">
-      <CompactQueue patients={rolePatients} selected={selectedPatient} onSelect={selectPatient} />
-      <NetworkCanvas selectedId={selectedId} onSelect={setSelectedId} />
-      <DecisionPanel patient={selectedPatient} role={role} selectedId={selectedId} onSelectId={setSelectedId} />
-    </div>
   );
 }
 
@@ -875,7 +722,6 @@ function RoleFocus({ role }: { role: WardRole }) {
 }
 
 function ModeBody({ mode, role }: { mode: Exclude<WardMode, "command">; role: WardRole }) {
-  if (mode === "constellation") return <ConstellationView role={role} />;
   if (mode === "network") return <WardNetworkWorkspace />;
   if (mode === "queue") return <QueueView role={role} />;
   if (mode === "capacity") return <CapacityView />;
@@ -889,9 +735,8 @@ export function WardModeWorkspace({ mode }: { mode: Exclude<WardMode, "command">
   const [role, setRole] = useState<WardRole>("flow");
   return (
     <div className={styles.modeShell} data-testid={`ward-mode-${mode}`} data-role={role}>
-      <ClinicalRail />
+      <ClinicalRail activeMode={mode} />
       <ModeHeader mode={mode} role={role} onRoleChange={setRole} />
-      <WardModeNavigation active={mode} />
       <main id="main-content" className={styles.modeContent}>
         <RoleFocus role={role} />
         <ModeBody mode={mode} role={role} />

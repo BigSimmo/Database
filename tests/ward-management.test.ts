@@ -31,7 +31,6 @@ describe("Ward Flow synthetic prototype", () => {
     const hrefs = wardModeHrefs();
     expect(hrefs).toEqual([
       "/ward-management",
-      "/ward-management/constellation",
       "/ward-management/network",
       "/ward-management/queue",
       "/ward-management/capacity",

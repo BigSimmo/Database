@@ -31,26 +31,21 @@
   display: grid;
   min-width: 0;
   min-height: 0;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  /*
+   * Task 9 Ruling 4: the horizontal `WardModeNavigation` row this used to reserve is gone — the
+   * eight mode links live in `ClinicalRail` (grid-column 1) now — so `.main` is down to three
+   * rows: the governance banner, the scrollable body, and the exceptions drawer.
+   */
+  grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
 }
 
 /*
- * `ClinicalRail` (from the shared ward-management.module.css) sets `display: none` on itself at
- * <=40rem, but that only removes the element — a fixed `4.5rem` track in `.screen`'s own
- * grid-template-columns still reserves the width regardless of what occupies it, leaving a
- * blank 72px band down the left edge of the narrowest supported layout. Collapse to one column
- * at the same breakpoint the rail already hides at.
+ * `ClinicalRail` (shared ward-management.module.css) now carries Ward Flow's own mode
+ * navigation (Task 9 Ruling 4), so it stays visible and reachable down to 320px on this screen —
+ * it no longer collapses to `display: none` here, and `.screen`'s fixed `4.5rem` rail track
+ * stays reserved at every supported width rather than collapsing to one column.
  */
-@media (max-width: 40rem) {
-  .screen {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .main {
-    grid-column: 1;
-  }
-}
 
 .governanceBanner {
   display: flex;

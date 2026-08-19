@@ -1518,8 +1518,7 @@
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/services/service-group-nav.tsx",
         "src/components/tools/tools-search-results-page.tsx",
-        "src/components/ui/confirm-dialog.tsx",
-        "src/components/ward-management/ward-management-console.tsx"
+        "src/components/ui/confirm-dialog.tsx"
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
@@ -1547,8 +1546,7 @@
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/services/service-group-nav.tsx",
-        "src/components/tools/tools-search-results-page.tsx",
-        "src/components/ward-management/ward-management-console.tsx"
+        "src/components/tools/tools-search-results-page.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -3030,10 +3028,9 @@
     {
       "id": "ward-management",
       "disposition": "owned",
-      "documentedDisposition": "Ward Flow is a synthetic operational coordination surface with a command home, full-screen constellation, role-aware queue-first phone fallback, linked operational workspaces, and an explainable human-confirmed destination workflow.",
+      "documentedDisposition": "Ward Flow is a synthetic operational coordination surface with a coordinator command home, statewide flow diagram and explainable shortlist, rail-based mode navigation, role-aware queue-first phone fallback, linked operational workspaces, and an explainable human-confirmed destination workflow.",
       "routes": [
         "src/app/ward-management/capacity/page.tsx",
-        "src/app/ward-management/constellation/page.tsx",
         "src/app/ward-management/exceptions/page.tsx",
         "src/app/ward-management/governance/page.tsx",
         "src/app/ward-management/movements/page.tsx",
@@ -3083,7 +3080,6 @@
         "ClinicalRail",
         "CoordinatorScreen",
         "PatientMovementWorkspace",
-        "WardManagementConsole",
         "WardModeNavigation",
         "WardModeWorkspace",
         "WardNetworkWorkspace"
@@ -3091,16 +3087,6 @@
       "roots": [
         {
           "file": "src/app/ward-management/capacity/page.tsx",
-          "exists": true,
-          "imports": [],
-          "importedFamilies": [],
-          "literalCkbV2": false,
-          "dynamicCkbV2": false,
-          "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["WardModeWorkspace"]
-        },
-        {
-          "file": "src/app/ward-management/constellation/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -3197,17 +3183,17 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["CoordinatorScreen", "WardModeNavigation", "ClinicalRail"]
+          "sanctionedPatternsPresent": ["CoordinatorScreen", "ClinicalRail"]
         },
         {
           "file": "src/components/ward-management/ward-management-console.tsx",
           "exists": true,
-          "imports": ["Sheet"],
-          "importedFamilies": ["layout"],
+          "imports": [],
+          "importedFamilies": [],
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["WardManagementConsole", "WardModeNavigation", "ClinicalRail"]
+          "sanctionedPatternsPresent": ["ClinicalRail"]
         },
         {
           "file": "src/components/ward-management/ward-management-modes.tsx",
@@ -3217,12 +3203,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": [
-            "WardModeWorkspace",
-            "WardModeNavigation",
-            "ClinicalRail",
-            "WardNetworkWorkspace"
-          ]
+          "sanctionedPatternsPresent": ["WardModeWorkspace", "ClinicalRail", "WardNetworkWorkspace"]
         },
         {
           "file": "src/components/ward-management/ward-management-navigation.tsx",
@@ -3555,7 +3536,6 @@
       "src/app/reference/colour-coding/page.tsx",
       "src/app/safety-plan/page.tsx",
       "src/app/ward-management/capacity/page.tsx",
-      "src/app/ward-management/constellation/page.tsx",
       "src/app/ward-management/exceptions/page.tsx",
       "src/app/ward-management/governance/page.tsx",
       "src/app/ward-management/movements/page.tsx",
@@ -3618,7 +3598,6 @@
       "src/app/reference/colour-coding/page.tsx",
       "src/app/safety-plan/page.tsx",
       "src/app/ward-management/capacity/page.tsx",
-      "src/app/ward-management/constellation/page.tsx",
       "src/app/ward-management/exceptions/page.tsx",
       "src/app/ward-management/governance/page.tsx",
       "src/app/ward-management/movements/page.tsx",
@@ -3634,7 +3613,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 73,
+    "inheritedCkbV2RootCount": 72,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -3643,8 +3622,8 @@
     "registeredComponentCount": 54,
     "previewCount": 54,
     "productImportedComponentCount": 32,
-    "rootCount": 74,
-    "productionRouteCount": 61,
-    "nextUiEntryCount": 113
+    "rootCount": 73,
+    "productionRouteCount": 60,
+    "nextUiEntryCount": 112
   }
 }

@@ -3,7 +3,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { buildActionInbox } from "@/components/ward-management/ward-derivations";
-import { ClinicalRail, WardModeNavigation } from "@/components/ward-management/ward-management-navigation";
+import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import { movementById, wardMovements } from "@/components/ward-management/ward-movements";
 import { queueOrder } from "@/components/ward-management/ward-priority";
 import { allEmergencyDepartments, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
@@ -114,10 +114,9 @@ export function CoordinatorScreen() {
 
   return (
     <div className={styles.screen} data-testid="ward-coordinator">
-      <ClinicalRail />
+      <ClinicalRail activeMode="command" />
       <div className={styles.main}>
         <h1 className="sr-only">Ward Flow coordinator</h1>
-        <WardModeNavigation active="command" />
 
         <div className={styles.governanceBanner} data-testid="ward-coordinator-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
