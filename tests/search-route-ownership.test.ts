@@ -214,7 +214,11 @@ describe("shared-search route ownership", () => {
     expect(homeTemplateSource).not.toMatch(
       /mode-home-composer-slot block min-h-\[var\(--spacing-mode-home-composer-phone\)\]/,
     );
-    expect(globalsSource).toContain("--spacing-mode-home-composer-phone: 6.625rem");
+    // 162px: the settled phone composer block, measured across six mode homes.
+    // It must equal that height, not merely be non-zero — a reserve short of the
+    // settled height is what shifted the action/pill stacks on adoption, and a
+    // reserve above it would leave a permanent empty band.
+    expect(globalsSource).toContain("--spacing-mode-home-composer-phone: 10.125rem");
     expect(globalsSource).toContain("--spacing-mode-home-composer-wide: 5.5rem");
   });
 
