@@ -80,7 +80,7 @@ function waitForDifferentialCatalogQuery(page: Page, query: string) {
 }
 
 async function submitDifferentialSearch(page: Page, query: string) {
-  const input = page.locator('input[placeholder="Ask or search a presentation"]:visible').first();
+  const input = page.locator('input[placeholder="Ask or search a presentation..."]:visible').first();
   const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
 
   // Own the fill here rather than leaving it to callers. The server-rendered
@@ -1853,7 +1853,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await expect(page.getByTestId("differentials-home")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Differentials" })).toBeVisible();
-    await expect(page.locator('input[placeholder="Ask or search a presentation"]:visible').first()).toBeVisible();
+    await expect(page.locator('input[placeholder="Ask or search a presentation..."]:visible').first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Search presentations" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Compare differentials" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Differential actions" }).getByRole("button")).toHaveCount(2);
@@ -2303,7 +2303,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials");
 
-    const input = page.locator('input[placeholder="Ask or search a presentation"]:visible');
+    const input = page.locator('input[placeholder="Ask or search a presentation..."]:visible');
     const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
     await expect(input).toHaveCount(1, { timeout: 15_000 });
     await expect(submit).toHaveCount(1, { timeout: 15_000 });

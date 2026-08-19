@@ -7,6 +7,8 @@ import { ArrowRight, ChevronRight, GitCompareArrows, ListChecks, Search, Tags } 
 
 import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
 import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
+import { appModeIcons } from "@/lib/app-mode-icons";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 import {
   SearchResultsHeaderBand,
   type AppliedFilterChip,
@@ -80,9 +82,9 @@ function SpecifiersHome() {
     <ModeHomeMain testId="specifiers-home" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="specifiers"
-        title="Specifiers"
-        subtitle="Check specifier fit and exclusions."
-        icon={Tags}
+        title={sharedHomePresentation.specifiers.title}
+        subtitle={sharedHomePresentation.specifiers.subtitle}
+        icon={appModeIcons.specifiers}
         actionsLabel="Specifier workflows"
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actions={[

@@ -1,4 +1,6 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import * as nextEnv from "@next/env";
@@ -9,6 +11,223 @@ import {
   type BmjThirdPartyAttestationEvent,
 } from "@/lib/source-review";
 import type { DocumentLabel } from "@/lib/types";
+
+export type AuditableRecord = {
+  record: Record<string, unknown>;
+  recordType: string;
+  identifier: string;
+  title: string;
+  source: string;
+};
+
+export type ReviewAttributionViolation = {
+  record_type: string;
+  identifier: string;
+  title: string;
+  source: string;
+  review_status: string;
+  found_attribution: Record<string, unknown>;
+  reason: string;
+};
+
+export type ReviewAttributionAuditReport = {
+  audited_record_count: number;
+  reviewed_record_count: number;
+  unattributed_reviewed_record_count: number;
+  passed: boolean;
+  violations: ReviewAttributionViolation[];
+};
+
+const TRIVIAL_REVIEWER_PATTERNS = new Set([
+  "",
+  "unknown",
+  "none",
+  "n/a",
+  "na",
+  "null",
+  "undefined",
+  "todo",
+  "tbd",
+  "test",
+  "testing",
+  "placeholder",
+  "anonymous",
+  "anon",
+  "unattributed",
+  "unassigned",
+  "missing",
+  "pending",
+  "default",
+  "system",
+  "bot",
+  "automated",
+  "auto",
+]);
+
+const NIL_UUID = "00000000-0000-0000-0000-000000000000";
+
+export function isNonTrivialReviewerString(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (TRIVIAL_REVIEWER_PATTERNS.has(trimmed.toLowerCase())) return false;
+  if (trimmed === NIL_UUID) return false;
+  if (/^[^a-zA-Z0-9]+$/.test(trimmed)) return false;
+  return true;
+}
+
+export function isRecordMarkedReviewed(record: Record<string, unknown>): {
+  isReviewed: boolean;
+  rawStatus: string | null;
+} {
+  const metadata = metadataRecord(record.metadata);
+  const candidates = [record.reviewStatus, record.review_status, metadata.reviewStatus, metadata.review_status];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      const normalized = candidate.trim().toLowerCase();
+      if (normalized === "reviewed") {
+        return { isReviewed: true, rawStatus: candidate.trim() };
+      }
+    }
+  }
+
+  return { isReviewed: false, rawStatus: null };
+}
+
+export function extractReviewerAttribution(record: Record<string, unknown>): {
+  hasAttribution: boolean;
+  attribution: unknown;
+  foundFields: Record<string, unknown>;
+} {
+  const metadata = metadataRecord(record.metadata);
+  const reviewChecklist = metadataRecord(record.reviewChecklist);
+  const clinicalValidationEvidence = metadataRecord(metadata.clinical_validation_evidence);
+  const attestation = metadataRecord(record.attestation ?? metadata.attestation);
+
+  const candidateEntries: Array<[string, unknown]> = [
+    ["reviewedBy", record.reviewedBy],
+    ["reviewed_by", record.reviewed_by],
+    ["reviewedByClinician", record.reviewedByClinician],
+    ["reviewer", record.reviewer],
+    ["reviewer_id", record.reviewer_id],
+    ["reviewer_name", record.reviewer_name],
+    ["reviewerQualification", record.reviewerQualification],
+    ["reviewer_qualification", record.reviewer_qualification],
+    ["metadata.reviewedBy", metadata.reviewedBy],
+    ["metadata.reviewed_by", metadata.reviewed_by],
+    ["metadata.reviewer", metadata.reviewer],
+    ["metadata.reviewer_id", metadata.reviewer_id],
+    ["metadata.reviewer_name", metadata.reviewer_name],
+    ["metadata.reviewer_qualification", metadata.reviewer_qualification],
+    ["metadata.clinical_validation_evidence.attested_by", clinicalValidationEvidence.attested_by],
+    ["metadata.clinical_validation_evidence.reviewer_id", clinicalValidationEvidence.reviewer_id],
+    ["reviewChecklist.reviewedBy", reviewChecklist.reviewedBy],
+    ["reviewChecklist.reviewer", reviewChecklist.reviewer],
+    ["attestation.reviewedBy", attestation.reviewedBy],
+    ["attestation.reviewer", attestation.reviewer],
+    ["attestation.attested_by", attestation.attested_by],
+  ];
+
+  const foundFields: Record<string, unknown> = {};
+  for (const [key, value] of candidateEntries) {
+    if (value !== undefined && value !== null) {
+      foundFields[key] = value;
+    }
+  }
+
+  for (const [, value] of candidateEntries) {
+    if (isNonTrivialReviewerString(value)) {
+      return { hasAttribution: true, attribution: value.trim(), foundFields };
+    }
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const obj = value as Record<string, unknown>;
+      const innerCandidateKeys = [
+        "name",
+        "reviewer_name",
+        "full_name",
+        "id",
+        "reviewer_id",
+        "user_id",
+        "email",
+        "qualification",
+        "reviewer_qualification",
+        "title",
+      ];
+      for (const innerKey of innerCandidateKeys) {
+        const innerVal = obj[innerKey];
+        if (isNonTrivialReviewerString(innerVal)) {
+          return { hasAttribution: true, attribution: innerVal.trim(), foundFields };
+        }
+      }
+    }
+    if (Array.isArray(value) && value.length > 0) {
+      for (const item of value) {
+        if (isNonTrivialReviewerString(item)) {
+          return { hasAttribution: true, attribution: item.trim(), foundFields };
+        }
+        if (item && typeof item === "object" && !Array.isArray(item)) {
+          const obj = item as Record<string, unknown>;
+          for (const innerKey of ["name", "id", "reviewer_id", "email", "qualification"]) {
+            const innerVal = obj[innerKey];
+            if (isNonTrivialReviewerString(innerVal)) {
+              return { hasAttribution: true, attribution: innerVal.trim(), foundFields };
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return { hasAttribution: false, attribution: null, foundFields };
+}
+
+export function auditReviewAttribution(records: AuditableRecord[]): ReviewAttributionAuditReport {
+  const violations: ReviewAttributionViolation[] = [];
+  let reviewedCount = 0;
+
+  for (const item of records) {
+    const { isReviewed, rawStatus } = isRecordMarkedReviewed(item.record);
+    if (!isReviewed) continue;
+
+    reviewedCount += 1;
+    const { hasAttribution, foundFields } = extractReviewerAttribution(item.record);
+
+    if (!hasAttribution) {
+      violations.push({
+        record_type: item.recordType,
+        identifier: item.identifier,
+        title: item.title,
+        source: item.source,
+        review_status: rawStatus ?? "reviewed",
+        found_attribution: foundFields,
+        reason:
+          Object.keys(foundFields).length === 0
+            ? "Record is marked as reviewed but has no reviewer attribution (e.g. reviewedBy or reviewer field is missing)."
+            : `Record is marked as reviewed but reviewer attribution contains empty or trivial placeholder value(s): ${JSON.stringify(foundFields)}.`,
+      });
+    }
+  }
+
+  return {
+    audited_record_count: records.length,
+    reviewed_record_count: reviewedCount,
+    unattributed_reviewed_record_count: violations.length,
+    passed: violations.length === 0,
+    violations,
+  };
+}
+
+async function loadStaticJson<T>(relativePath: string): Promise<T | null> {
+  try {
+    const fullPath = join(process.cwd(), relativePath);
+    if (!existsSync(fullPath)) return null;
+    const raw = await readFile(fullPath, "utf8");
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
 
 const loadEnvConfig =
   nextEnv.loadEnvConfig ??
@@ -338,6 +557,94 @@ export async function main(argv = process.argv.slice(2)) {
     })),
     bmjAttestationEvents,
   );
+
+  const auditableRecords: AuditableRecord[] = documents.map((doc) => ({
+    record: doc as unknown as Record<string, unknown>,
+    recordType: isRegistryRecordSource(doc) ? "registry_record" : "document",
+    identifier: doc.id,
+    title: doc.title || doc.file_name,
+    source: doc.source_path || doc.file_name,
+  }));
+
+  const therapiesSource = await loadStaticJson<Array<Record<string, unknown>>>("src/data/therapies-source.json");
+  if (therapiesSource && Array.isArray(therapiesSource)) {
+    for (const therapy of therapiesSource) {
+      auditableRecords.push({
+        record: therapy,
+        recordType: "therapy",
+        identifier: stringValue(therapy.slug) !== "missing" ? (therapy.slug as string) : (therapy.name as string),
+        title: stringValue(therapy.name) !== "missing" ? (therapy.name as string) : "Unnamed therapy",
+        source: "src/data/therapies-source.json",
+      });
+    }
+  }
+
+  const pathwaysSource = await loadStaticJson<Array<Record<string, unknown>>>(
+    "public/therapy-compass-data/pathways.json",
+  );
+  if (pathwaysSource && Array.isArray(pathwaysSource)) {
+    for (const pathway of pathwaysSource) {
+      auditableRecords.push({
+        record: pathway,
+        recordType: "pathway",
+        identifier: stringValue(pathway.slug) !== "missing" ? (pathway.slug as string) : (pathway.name as string),
+        title: stringValue(pathway.name) !== "missing" ? (pathway.name as string) : "Unnamed pathway",
+        source: "public/therapy-compass-data/pathways.json",
+      });
+    }
+  }
+
+  const referenceSource = await loadStaticJson<{ measures?: Array<Record<string, unknown>> }>(
+    "public/therapy-compass-data/reference.json",
+  );
+  if (referenceSource && Array.isArray(referenceSource.measures)) {
+    for (const measure of referenceSource.measures) {
+      auditableRecords.push({
+        record: measure,
+        recordType: "measure",
+        identifier: stringValue(measure.name) !== "missing" ? (measure.name as string) : "unnamed_measure",
+        title: stringValue(measure.name) !== "missing" ? (measure.name as string) : "Unnamed measure",
+        source: "public/therapy-compass-data/reference.json",
+      });
+    }
+  }
+
+  const differentialsSource = await loadStaticJson<
+    { records?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>
+  >("data/differentials-snapshot.json");
+  const diffItems = Array.isArray(differentialsSource) ? differentialsSource : (differentialsSource?.records ?? []);
+  for (const diff of diffItems) {
+    auditableRecords.push({
+      record: diff,
+      recordType: "differential",
+      identifier:
+        stringValue(diff.id ?? diff.slug) !== "missing"
+          ? String(diff.id ?? diff.slug)
+          : String(diff.title ?? "unknown"),
+      title:
+        stringValue(diff.title ?? diff.name) !== "missing" ? String(diff.title ?? diff.name) : "Unnamed differential",
+      source: "data/differentials-snapshot.json",
+    });
+  }
+
+  const specifiersSource = await loadStaticJson<
+    { specifiers?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>
+  >("data/specifiers-content.json");
+  const specItems = Array.isArray(specifiersSource) ? specifiersSource : (specifiersSource?.specifiers ?? []);
+  for (const spec of specItems) {
+    auditableRecords.push({
+      record: spec,
+      recordType: "specifier",
+      identifier:
+        stringValue(spec.id ?? spec.slug) !== "missing"
+          ? String(spec.id ?? spec.slug)
+          : String(spec.title ?? "unknown"),
+      title: stringValue(spec.title ?? spec.name) !== "missing" ? String(spec.title ?? spec.name) : "Unnamed specifier",
+      source: "data/specifiers-content.json",
+    });
+  }
+
+  const reviewerAttributionAudit = auditReviewAttribution(auditableRecords);
   const debtPolicyFailures: string[] = [];
 
   if (debtPolicy) {
@@ -419,6 +726,7 @@ export async function main(argv = process.argv.slice(2)) {
     },
     debt_counts: debtCounts,
     operational_review_debt_counts: operationalDebtCounts,
+    reviewer_attribution: reviewerAttributionAudit,
     sample_review_due_documents: clinicalGovernanceDocuments
       .filter((document) => metadataRecord(document.metadata).document_status === "review_due")
       .slice(0, 10)
@@ -441,6 +749,7 @@ export async function main(argv = process.argv.slice(2)) {
     passed_required_metadata_gate: requiredMetadataMissingTotal === 0,
     source_authority: sourceAuthorityAudit,
     passed_source_authority_gate: sourceAuthorityAudit.passed,
+    passed_reviewer_attribution_gate: reviewerAttributionAudit.passed,
     debt_policy: debtPolicy
       ? {
           path: debtPolicy.path,
@@ -522,6 +831,15 @@ export async function main(argv = process.argv.slice(2)) {
       }
     }
     console.log(
+      `Reviewer attribution: audited=${report.reviewer_attribution.audited_record_count}, reviewed=${report.reviewer_attribution.reviewed_record_count}, violations=${report.reviewer_attribution.unattributed_reviewed_record_count}`,
+    );
+    if (report.reviewer_attribution.violations.length) {
+      console.log("Reviewer attribution governance violations:");
+      for (const violation of report.reviewer_attribution.violations) {
+        console.log(`- [${violation.record_type}] ${violation.identifier} (${violation.title}): ${violation.reason}`);
+      }
+    }
+    console.log(
       report.passed_required_metadata_gate
         ? "PASS: required source governance metadata is complete."
         : "FAIL: required source governance metadata has gaps.",
@@ -530,6 +848,11 @@ export async function main(argv = process.argv.slice(2)) {
       report.passed_source_authority_gate
         ? "PASS: recognised source authority metadata is complete and compatible."
         : "FAIL: recognised source authority metadata has missing or conflicting locality fields.",
+    );
+    console.log(
+      report.passed_reviewer_attribution_gate
+        ? "PASS: all reviewed records have non-empty, non-trivial reviewer attribution."
+        : "FAIL: un-attributed reviewed records found (governance violation).",
     );
     if (report.debt_policy) {
       console.log(
@@ -543,6 +866,7 @@ export async function main(argv = process.argv.slice(2)) {
 
   if (!report.passed_required_metadata_gate) process.exitCode = 1;
   if (!report.passed_source_authority_gate) process.exitCode = 1;
+  if (!report.passed_reviewer_attribution_gate) process.exitCode = 1;
   if (report.debt_policy && !report.debt_policy.passed) process.exitCode = 1;
 }
 

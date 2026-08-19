@@ -462,7 +462,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     // Retry fill-then-enabled together: the server-rendered composer is visible
     // before React controls it, and a fill landing in that gap is discarded by
     // hydration, leaving the search button disabled and the click a no-op.
-    const presentationInput = page.locator('input[placeholder="Ask or search a presentation"]:visible').first();
+    const presentationInput = page.locator('input[placeholder="Ask or search a presentation..."]:visible').first();
     const differentialSubmit = page.locator('button[aria-label="Search differential presentations"]:visible');
     await expect(async () => {
       await presentationInput.fill("acute confusion");

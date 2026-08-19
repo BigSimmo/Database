@@ -46,9 +46,10 @@ const clinicalRiskPatterns = [
   /^supabase\//,
   /^src\/app\/api\//,
   // Library-layer behavior carries the clinical logic (retrieval, ranking,
-  // answer generation, ingestion, source governance, privacy) so it keeps the
+  // answer generation, ingestion, source governance, privacy, mode gating,
+  // unreviewed content reachability, clinical content policy) so it keeps the
   // full token set.
-  /^src\/lib\/.*(?:auth|permission|privacy|security|rag|retriev|rank|search|answer|clinical|citation|source|document|upload|download)/i,
+  /^src\/lib\/.*(?:auth|permission|privacy|security|rag|retriev|rank|search|answer|clinical|citation|source|document|upload|download|therap|mode|review|policy|content|unreviewed|medication)/i,
   // Presentation surfaces (pages + components) are clinical-risk only when they
   // touch access control, privacy, patient data, or document upload/download —
   // NOT merely because a UI file lives under a clinically-named directory (the
@@ -91,6 +92,7 @@ const ragRankingPatterns = [
 const uiPatterns = [
   /^src\/app\/(?!api\/)/,
   /^src\/(?:components|styles)\//,
+  /^src\/lib\/(?:app-modes|app-mode-icons|search-route-ownership|ui-copy|mode-home-composer|mode-secondary-navigation|category-identity(?:-icons)?|brand-mark|brand-image|search-command-surface|search-navigation-context|search-scope-filter-chips|search-shell-props|document-flow-routes|document-viewer-navigation|differentials-navigation|therapy-compass-navigation|therapies)\.tsx?$/,
   /^public\//,
   /^tests\/ui-.*\.spec\.ts$/,
   /^playwright(?:\..*)?\.config\.ts$/,
@@ -171,7 +173,7 @@ function branchLikeTitle(title, headRef) {
 }
 
 function checkedChecklistEntries(value) {
-  return [...String(value ?? "").matchAll(/^\s*-\s*\[[xX]\]\s*(.+?)\s*$/gm)].map((match) => match[1].trim());
+  return [...String(value ?? "").matchAll(/^\s*[-*+]\s*\[[xX]\]\s*(.+?)\s*$/gm)].map((match) => match[1].trim());
 }
 
 function governanceMatcherGroupSatisfied(group, checkedEntries) {
@@ -199,8 +201,8 @@ export function collectSatisfiedGovernanceItems(value) {
 function governanceBoxStats(value) {
   const source = String(value ?? "");
   return {
-    checked: (source.match(/-\s*\[[xX]\]/g) ?? []).length,
-    unchecked: (source.match(/-\s*\[ \]/g) ?? []).length,
+    checked: (source.match(/[-*+]\s*\[[xX]\]/g) ?? []).length,
+    unchecked: (source.match(/[-*+]\s*\[ \]/g) ?? []).length,
   };
 }
 
@@ -579,6 +581,14 @@ function selfTest() {
   assert.equal(classifyPullRequestFiles(["src/data/therapies-index.json"]).clinicalRisk, true);
   assert.equal(classifyPullRequestFiles(["public/therapy-compass-data/therapies-home.json"]).clinicalRisk, true);
   assert.equal(classifyPullRequestFiles(["data/clinical-snapshot.json"]).clinicalRisk, true);
+  // Unreviewed clinical content switches and mode reachability in src/lib (#P5542X).
+  assert.equal(classifyPullRequestFiles(["src/lib/clinical-content-policy.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/app-modes.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/therapies.ts"]).clinicalRisk, true);
+  // Mode configuration, search routing, and UI copy modules are recognized as UI (#0HFDWD).
+  assert.equal(classifyPullRequestFiles(["src/lib/app-modes.ts"]).ui, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/search-route-ownership.ts"]).ui, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/ui-copy.ts"]).ui, true);
   // ...but an unrelated public asset is not clinical output.
   assert.equal(classifyPullRequestFiles(["public/favicon.ico"]).clinicalRisk, false);
   // End-to-end: a dashboard UI PR with Summary + UI verification + risk but no

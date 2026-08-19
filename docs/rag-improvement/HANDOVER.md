@@ -337,7 +337,8 @@ offline fixtures and validation only`.
    against an existing branch: it can discard unpushed packet commits. Never build on a stale head.
 2. Read: your packet here → the matching README section → `docs/rag-behaviour/README.md`
    (+ `safeguards.md` before touching any protected surface).
-3. Check the packet's status row AND the open PR list for a duplicate implementation
+3. Check the canonical queue in [`docs/outstanding-issues.md`](../outstanding-issues.md),
+   this file's status table (§2), AND the open PR list for a duplicate implementation
    (`#292`: an open ledger row is not proof nobody is building it — PR #1899 already covers
    A1 phase 1).
 4. State the RAG-impact flag to the owner in your first message if your packet touches a

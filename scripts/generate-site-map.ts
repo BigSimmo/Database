@@ -379,6 +379,32 @@ function renderModePageIndex() {
       detail:
         "Canonical all-tools results directory at `/tools`; the universal mode picker opens it directly. `/?mode=tools` remains a dashboard-mode alias.",
     },
+    {
+      mode: "Calculators",
+      home: appModeHomeHref("calculators"),
+      search: appModeHomeHref("calculators", { query: "PHQ-9", focus: true, run: true }),
+      detail: "Validated psychiatry scores and clinical decision calculators at `/calculators`.",
+    },
+    {
+      mode: "Therapy",
+      home: appModeHomeHref("therapy-compass"),
+      search: appModeHomeHref("therapy-compass", { query: "behavioural activation", focus: true, run: true }),
+      detail:
+        "`/therapy-compass/[slug]`, `/therapy-compass/search`, `/therapy-compass/recommend`, `/therapy-compass/compare`, `/therapy-compass/pathways`, `/therapy-compass/review`, `/therapy-compass/[slug]/brief`, and `/therapy-compass/[slug]/sheet`.",
+    },
+    {
+      mode: "Factsheets",
+      home: appModeHomeHref("factsheets"),
+      search: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
+      detail: "`/factsheets/[slug]` and `/factsheets/search`.",
+    },
+    {
+      mode: "Dictionary",
+      home: appModeHomeHref("dictionary"),
+      search: appModeHomeHref("dictionary", { query: "mental state examination", focus: true, run: true }),
+      detail:
+        "`/dictionary/[slug]`, `/dictionary/browse`, `/dictionary/compare`, `/dictionary/search`, `/dictionary/sources`, `/dictionary/topics`, and `/dictionary/topics/[slug]`.",
+    },
   ]);
 }
 

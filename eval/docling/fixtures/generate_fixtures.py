@@ -67,19 +67,36 @@ def draw_table(page: fitz.Page, top: float, table: dict) -> float:
     rows, cols = table["rows"], table["cols"]
     rect = usable_rect()
     col_width = (rect.x1 - rect.x0) / cols
-    bottom = top + rows * ROW_HEIGHT
+    row_height = float(table.get("rowHeight", ROW_HEIGHT))
+    bottom = top + rows * row_height
     if bottom > rect.y1:
         die(f"table {table['tableId']} does not fit on its page — reduce rows in the manifest")
-    for r in range(rows + 1):
-        y = top + r * ROW_HEIGHT
-        page.draw_line(fitz.Point(rect.x0, y), fitz.Point(rect.x1, y), width=0.5)
-    for c in range(cols + 1):
-        x = rect.x0 + c * col_width
-        page.draw_line(fitz.Point(x, top), fitz.Point(x, bottom), width=0.5)
+    
+    unruled = bool(table.get("unruled") or table.get("style") == "unruled")
+    rotated_headers = bool(table.get("rotatedHeaders") or table.get("rotated_headers"))
+
+    if not unruled:
+        for r in range(rows + 1):
+            y = top + r * row_height
+            page.draw_line(fitz.Point(rect.x0, y), fitz.Point(rect.x1, y), width=0.5)
+        for c in range(cols + 1):
+            x = rect.x0 + c * col_width
+            page.draw_line(fitz.Point(x, top), fitz.Point(x, bottom), width=0.5)
+    else:
+        # Unruled / booktabs style: horizontal rules only (top, mid/header, bottom)
+        page.draw_line(fitz.Point(rect.x0, top), fitz.Point(rect.x1, top), width=1.0)
+        page.draw_line(fitz.Point(rect.x0, top + row_height), fitz.Point(rect.x1, top + row_height), width=0.5)
+        page.draw_line(fitz.Point(rect.x0, bottom), fitz.Point(rect.x1, bottom), width=1.0)
+
     for cell in table["cells"]:
-        x = rect.x0 + cell["col"] * col_width + 3
-        y = top + cell["row"] * ROW_HEIGHT + ROW_HEIGHT - 6
-        page.insert_text(fitz.Point(x, y), cell["text"], fontname=BODY_FONT, fontsize=TABLE_SIZE)
+        r, c = cell["row"], cell["col"]
+        is_rotated = (r == 0 and rotated_headers) or bool(cell.get("rotate") == 90 or cell.get("rotated"))
+        x = rect.x0 + c * col_width + 3
+        y = top + r * row_height + row_height - 6
+        if is_rotated:
+            page.insert_text(fitz.Point(x + min(col_width, 16.0), y), cell["text"], fontname=BODY_FONT, fontsize=TABLE_SIZE, rotate=90)
+        else:
+            page.insert_text(fitz.Point(x, y), cell["text"], fontname=BODY_FONT, fontsize=TABLE_SIZE)
     return bottom
 
 
