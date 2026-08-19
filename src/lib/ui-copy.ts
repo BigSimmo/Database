@@ -91,7 +91,7 @@ export const sharedHomePresentation = {
     suggestions: ["depression severity", "anxiety screening", "alcohol use"],
   },
   "therapy-compass": {
-    title: "Therapy Compass",
+    title: "Therapy",
     subtitle: "Source-grounded therapy records.",
     suggestions: ["trauma-focused CBT", "behavioural activation", "insomnia"],
   },
