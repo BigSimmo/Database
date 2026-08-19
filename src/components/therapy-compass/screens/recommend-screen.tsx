@@ -5,7 +5,7 @@ import { ArrowRight, Check, Copy, Search, Shield, Sparkles } from "lucide-react"
 
 import { cardSurface } from "@/components/card-recipes";
 import { PageHeader } from "@/components/ui/page-header";
-import { pageContainer } from "@/components/ui-primitives";
+import { cn, pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
 
 import { useTcBindings } from "../bindings";
@@ -72,19 +72,7 @@ export function RecommendScreen() {
                 aria-pressed={on}
               >
                 {c.label}
-                {on ? (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    aria-hidden="true"
-                  >
-                    <path d="m5 12 5 5 9-11" />
-                  </svg>
-                ) : null}
+                {on ? <Check aria-hidden="true" size={14} /> : null}
               </button>
             );
           })}
@@ -138,16 +126,13 @@ export function RecommendScreen() {
                 text={`Open the record for the full protocol, or generate a patient sheet.`}
               >
                 <div className="flex gap-2 mt-2.5">
-                  <button
-                    type="button"
-                    className={`${therapyBtn} flex-1 h-[38px] border-0 rounded-md bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] text-sm-minus font-semibold cursor-pointer`}
-                    onClick={() => b.open(top.slug)}
-                  >
+                  <Button variant="primary" size="sm" block onClick={() => b.open(top.slug)}>
                     Open record
-                  </button>
-                  <button
-                    type="button"
-                    className={`${therapyBtn} flex-1 h-[38px] border border-[color:var(--clinical-accent-border)] rounded-md bg-[color:var(--surface)] text-[color:var(--clinical-accent-hover)] text-sm-minus font-semibold cursor-pointer`}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    block
                     onClick={() => {
                       if (!top.patientSheetAvailable) return;
                       b.openSheet(top.slug);
@@ -156,7 +141,7 @@ export function RecommendScreen() {
                     title={top.patientSheetAvailable ? undefined : "This record has no patient sheet"}
                   >
                     {top.patientSheetAvailable ? "Sheet" : "Sheet unavailable"}
-                  </button>
+                  </Button>
                 </div>
               </MatchCell>
             </div>
@@ -169,7 +154,10 @@ export function RecommendScreen() {
             {rest.map(({ therapy: t }, i) => (
               <div
                 key={t.slug}
-                className="grid grid-cols-1 sm:grid-cols-[auto_minmax(220px,_1.3fr)_1.1fr_1.1fr_auto] gap-5 items-center bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--e1)] py-4 px-5"
+                className={cn(
+                  cardSurface,
+                  "grid grid-cols-1 sm:grid-cols-[auto_minmax(220px,_1.3fr)_1.1fr_1.1fr_auto] gap-5 items-center py-4 px-5",
+                )}
               >
                 <span className="inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] text-sm-minus font-bold">
                   {i + 2}
@@ -190,16 +178,12 @@ export function RecommendScreen() {
                 <ColMini eyebrow="TREATS" text={summarise(top === t ? "" : t.bestUsedFor, 1) || t.bestUsedFor || "—"} />
                 <ColMini eyebrow="FIRST STEP" text={t.timeRequired || t.setting || "—"} />
                 <div className="flex gap-1.5">
-                  <button
-                    type="button"
-                    className={`${therapyBtn} h-[34px] py-0 px-3 border-0 rounded-md bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] text-xs font-semibold cursor-pointer`}
-                    onClick={() => b.open(t.slug)}
-                  >
+                  <Button variant="primary" size="sm" onClick={() => b.open(t.slug)}>
                     Open
-                  </button>
-                  <button
-                    type="button"
-                    className={`${therapyBtn} h-[34px] py-0 px-3 border border-[color:var(--border-strong)] rounded-md bg-[color:var(--surface)] text-[color:var(--text)] text-xs font-semibold cursor-pointer`}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => {
                       if (!t.patientSheetAvailable) return;
                       b.openSheet(t.slug);
@@ -208,7 +192,7 @@ export function RecommendScreen() {
                     title={t.patientSheetAvailable ? undefined : "This record has no patient sheet"}
                   >
                     {t.patientSheetAvailable ? "Sheet" : "Sheet unavailable"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}

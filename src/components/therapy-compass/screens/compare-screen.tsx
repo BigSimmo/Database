@@ -19,7 +19,7 @@ import {
 
 import { cardSurface } from "@/components/card-recipes";
 import { PageHeader } from "@/components/ui/page-header";
-import { pageContainer } from "@/components/ui-primitives";
+import { cn, pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Tabs } from "@/components/ui/tabs";
@@ -155,14 +155,17 @@ export function CompareScreen() {
             <span className="text-sm-minus font-semibold text-[color:var(--text-heading)] max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap">
               {t.name}
             </span>
-            <button
-              type="button"
-              className={`${therapyBtn} inline-flex items-center justify-center w-tap h-tap border-0 bg-transparent text-[color:var(--decoration-soft)] cursor-pointer rounded-sm`}
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={X}
+              className="h-tap w-tap gap-0 px-0 text-[color:var(--decoration-soft)]"
               onClick={() => b.removeCompare(t.slug)}
               title={`Remove ${t.name}`}
+              aria-label={`Remove ${t.name}`}
             >
-              <X aria-hidden="true" size={15} strokeWidth={1.9} />
-            </button>
+              <span className="sr-only">Remove {t.name}</span>
+            </Button>
           </span>
         ))}
       </div>
@@ -181,7 +184,7 @@ export function CompareScreen() {
       ) : (
         <>
           {/* decision summary */}
-          <div className={`${cardSurface} grid grid-cols-1 sm:grid-cols-[1.1fr_1fr_1fr] overflow-hidden mb-5`}>
+          <div className={cn(cardSurface, "grid grid-cols-1 sm:grid-cols-[1.1fr_1fr_1fr] overflow-hidden mb-5")}>
             <div className="py-5 px-[22px]">
               <div className="text-base-minus font-semibold text-[color:var(--text-heading)]">Decision summary</div>
             </div>
