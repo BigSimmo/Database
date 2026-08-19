@@ -1,12 +1,11 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import path, { join } from "node:path";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   formatBytes,
   getDirectoryDiskUsage,
   identifyMergedWorktrees,
-  identifyOrphanedWorktrees,
   parseArgs,
   parseWorktreePorcelain,
   verifyWorktreeSafetyBeforeRemove,
@@ -130,9 +129,9 @@ describe("clean-worktree identifyMergedWorktrees", () => {
 
   it("identifies clean merged candidates and can filter by drive", () => {
     const parsed = parseWorktreePorcelain(porcelain);
-    const mockIsMerged = (branch: string) => true;
+    const mockIsMerged = () => true;
     const mockStatus = (p: string) => (p.includes("dirty") ? " M file.ts\n" : "");
-    const mockAhead = (branch: string) => 0;
+    const mockAhead = () => 0;
 
     const all = identifyMergedWorktrees(parsed, {
       isMergedFn: mockIsMerged,
