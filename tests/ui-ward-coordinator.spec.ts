@@ -690,13 +690,14 @@ test.describe("Ward Flow coordinator screen", () => {
    * eligible), and the WF-004 half records a confirmation against a unit nobody selected. See the
    * final fix report for the captured failure output.
    */
-  test("never confirms against a default candidate the coordinator did not choose", async ({ page }) => {
+  test("never confirms or overrides against a default candidate the coordinator did not choose", async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1100 });
     await gotoCoordinator(page);
 
     const queue = page.getByRole("region", { name: "Priority queue" });
     const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
     const confirmButton = shortlist.getByTestId("ward-shortlist-confirm");
+    const overrideToggle = shortlist.getByTestId("ward-shortlist-override-toggle");
 
     // WF-017's default candidate passes all eight gates, so "unavailable" here cannot be an
     // accident of ineligibility — it can only be the missing human selection. Pinned against the
@@ -716,9 +717,14 @@ test.describe("Ward Flow coordinator screen", () => {
     // ...but nothing on screen claims a human pressed anything.
     await expect(shortlist.locator('[data-testid^="ward-shortlist-candidate-"][aria-pressed="true"]')).toHaveCount(0);
 
-    // ...and Confirm is unavailable, saying why rather than silently doing nothing.
+    // ...and BOTH halves of the human decision are unavailable, each saying why rather than
+    // silently doing nothing. Override is not a lesser path — the governing rule is "a human
+    // confirms OR overrides, always, with the reason recorded" — so a coordinator blocked from
+    // confirming an un-chosen default must not be able to override straight into it.
     await expect(confirmButton).toHaveAttribute("aria-disabled", "true");
+    await expect(overrideToggle).toHaveAttribute("aria-disabled", "true");
     await expect(shortlist).toContainText("Choose a candidate unit before confirming");
+    await expect(shortlist).toContainText("Choose a candidate unit before overriding");
     // `force` because Playwright's actionability check already refuses an `aria-disabled` control.
     // Bypassing it is the stronger proof: even a real activation must record nothing, since the
     // repo's unavailable-control pattern keeps the button focusable and clickable by design (it is
@@ -727,9 +733,18 @@ test.describe("Ward Flow coordinator screen", () => {
     await confirmButton.click({ force: true });
     await expect(shortlist).not.toContainText("Confirmed by a human coordinator");
 
-    // Choosing a candidate is what makes it available.
+    // A forced activation of Override must not even open the reason form — if it opened, the
+    // textarea would be addressed to the default unit and one submission would record an override
+    // against a ward nobody picked.
+    await overrideToggle.click({ force: true });
+    await expect(overrideToggle).toHaveAttribute("aria-expanded", "false");
+    await expect(shortlist.getByLabel(/Reason for overriding/)).toHaveCount(0);
+    await expect(shortlist).not.toContainText("Overridden by a human coordinator");
+
+    // Choosing a candidate is what makes both available.
     await shortlist.locator(`[data-testid="ward-shortlist-candidate-${wf017Default.unit.id}"]`).click();
     await expect(confirmButton).not.toHaveAttribute("aria-disabled", "true");
+    await expect(overrideToggle).not.toHaveAttribute("aria-disabled", "true");
     await confirmButton.click();
     await expect(shortlist).toContainText("Confirmed by a human coordinator");
     await expect(shortlist).toContainText(wf017Default.unit.name);
@@ -748,8 +763,11 @@ test.describe("Ward Flow coordinator screen", () => {
     await queue.locator('[data-testid="ward-queue-row-WF-004"]').click();
     await expect(shortlist).toContainText("Accepted destination:");
     await expect(confirmButton).toHaveAttribute("aria-disabled", "true");
+    await expect(overrideToggle).toHaveAttribute("aria-disabled", "true");
     await confirmButton.click({ force: true });
+    await overrideToggle.click({ force: true });
     await expect(shortlist).not.toContainText("Confirmed by a human coordinator");
+    await expect(shortlist).not.toContainText("Overridden by a human coordinator");
   });
 
   /**
@@ -860,6 +878,12 @@ test.describe("Ward Flow coordinator screen", () => {
 
     const overrideToggle = shortlist.getByTestId("ward-shortlist-override-toggle");
     await expect(overrideToggle).toBeVisible();
+    // Override, like Confirm, acts only on a candidate a human explicitly chose — never on the
+    // panel's default (whole-branch review Critical 2, extended to the other half of the control
+    // pair). Choosing RPH Adult Secure is what a coordinator would really do before overriding into
+    // it, and it is the same unit the recorded override below must name.
+    await expect(overrideToggle).toHaveAttribute("aria-disabled", "true");
+    await shortlist.locator('[data-testid="ward-shortlist-candidate-rph-adult-secure"]').click();
     await expect(overrideToggle).not.toHaveAttribute("aria-disabled", "true");
     await overrideToggle.click();
 

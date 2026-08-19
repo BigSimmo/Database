@@ -164,12 +164,20 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
   // default's gate list for orientation is still fine; acting on it is not.
   const hasExplicitSelection = selectedUnitId !== undefined && activeUnit !== undefined;
   const canConfirm = hasExplicitSelection && activeVerdict?.eligible === true;
-  const canOverride = activeUnit !== undefined;
+  // Override carries the SAME guard, for the same reason. It is not a lesser path: the phase's rule
+  // is "a human confirms OR overrides, always, with the reason recorded", so override is the other
+  // half of the same human decision and it too used to act on `shortlist[0]`. Guarding only Confirm
+  // was also incoherent — a coordinator blocked from confirming an un-chosen default could still
+  // override straight into it, reaching the same recorded outcome by the adjacent button. The typed
+  // reason is not a substitute for the choice: it explains WHY, never WHICH ward.
+  const canOverride = hasExplicitSelection;
   const confirmUnavailableReason = !hasExplicitSelection
     ? "Choose a candidate unit before confirming — nothing is confirmed against a default."
     : activeVerdict
       ? `Not eligible — ${candidateReason(activeVerdict)}`
       : "Eligibility could not be determined for this unit.";
+  const overrideUnavailableReason =
+    "Choose a candidate unit before overriding — nothing is overridden against a default.";
   const activeIsMoreRestrictive = activeUnit ? isMoreRestrictiveThanRequired(movement, activeUnit) : false;
 
   const { score, factors } = operationalScore(movement, now);
@@ -182,7 +190,7 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
 
   function handleOverrideSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!activeUnit) return;
+    if (!activeUnit || !canOverride) return;
     const reason = overrideReason.trim();
     if (reason.length === 0) return;
     setConfirmation({ kind: "override", unitId: activeUnit.id, at: now, reason });
@@ -433,7 +441,7 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
             data-testid="ward-shortlist-override-toggle"
             aria-disabled={canOverride ? undefined : "true"}
             aria-describedby={canOverride ? undefined : "ward-shortlist-override-unavailable"}
-            title={canOverride ? undefined : "Select a candidate unit before overriding."}
+            title={canOverride ? undefined : overrideUnavailableReason}
             aria-expanded={overrideOpen}
             className={styles.shortlistOverrideButton}
             onClick={canOverride ? () => setOverrideOpen((open) => !open) : ignoreUnavailableActivation}
@@ -448,11 +456,11 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
         ) : null}
         {!canOverride ? (
           <span id="ward-shortlist-override-unavailable" className="sr-only">
-            Select a candidate unit before overriding.
+            {overrideUnavailableReason}
           </span>
         ) : null}
 
-        {overrideOpen && activeUnit ? (
+        {overrideOpen && canOverride && activeUnit ? (
           <form className={styles.shortlistOverrideForm} onSubmit={handleOverrideSubmit}>
             <label className={styles.shortlistOverrideLabel} htmlFor="ward-shortlist-override-reason">
               Reason for overriding the shortlist for {activeUnit.name}
