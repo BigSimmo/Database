@@ -144,9 +144,6 @@ export function SettingsDialog({
 }) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const guideButtonRef = useRef<HTMLButtonElement | null>(null);
-  const visibleSettingsSections = SETTINGS_SECTIONS.filter(
-    (item) => item.id !== "development" || caringContactPrototypeVisible,
-  );
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // The title bar is sticky inside the scroll region on every breakpoint, so its
   // height is the amount of the scroll port a section would otherwise land
@@ -540,7 +537,7 @@ export function SettingsDialog({
       <div className="relative grid h-full max-h-full min-h-0 overflow-hidden lg:h-[min(88dvh,840px)] lg:grid-cols-[248px_minmax(0,1fr)]">
         <aside className="hidden border-r border-[color:var(--border-lux)] bg-[color:var(--surface)]/72 px-4 pb-5 pt-6 lg:flex lg:flex-col">
           <nav aria-label="Settings sections" className="grid gap-1">
-            {visibleSettingsSections.map((item) => {
+            {SETTINGS_SECTIONS.map((item) => {
               const Icon = item.icon;
               const active = item.id === activeSection;
               return (
@@ -1036,45 +1033,35 @@ export function SettingsDialog({
               </div>
             </SettingsSection>
 
-            {caringContactPrototypeVisible ? (
-              <SettingsSection
-                id="development"
-                title="Development"
-                note="In-progress surfaces, reachable only in development builds. Not clinical content."
-              >
-                <div className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
-                  <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Development page</p>
-                  <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    Index of the surfaces being built, including the Caring Contact prototype. Synthetic data only — no
-                    patient record, message or schedule on them is real.
-                  </p>
-                  <Link
-                    href="/mockups/development"
-                    onClick={onClose}
-                    className={cn(floatingControl, "mt-3 min-h-10 w-full gap-2 text-sm")}
-                    data-testid="settings-row-development-page"
-                  >
-                    <FlaskConical aria-hidden="true" className="h-4 w-4" />
-                    Open Development page
-                    <span className="ml-auto text-xs font-semibold text-[color:var(--text-muted)]">Temporary</span>
-                  </Link>
-                </div>
-              </SettingsSection>
-            ) : null}
+            <SettingsSection
+              id="development"
+              title="Development"
+              note="In-progress surfaces. Signing in with a developer account is required to open them. Not clinical content."
+            >
+              <div className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
+                <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Development page</p>
+                <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                  Index of the surfaces being built, including the Caring Contact prototype. Synthetic data only — no
+                  patient record, message or schedule on them is real.
+                </p>
+                <Link
+                  href="/mockups/development"
+                  onClick={onClose}
+                  className={cn(floatingControl, "mt-3 min-h-10 w-full gap-2 text-sm")}
+                  data-testid="settings-row-development-page"
+                >
+                  <FlaskConical aria-hidden="true" className="h-4 w-4" />
+                  Open Development page
+                  <span className="ml-auto text-xs font-semibold text-[color:var(--text-muted)]">Temporary</span>
+                </Link>
+              </div>
+            </SettingsSection>
           </div>
         </div>
       </div>
     </Sheet>
   );
 }
-
-// Temporary developer affordance: a way into the Caring Contact prototype while
-// it is being built. Mirrors `mockupsEnabled()` in src/lib/env.ts without
-// importing that server-only module: `NODE_ENV` and `NEXT_PUBLIC_*` are both
-// inlined at build time, so this evaluates to `false` in a production deploy
-// that has not opted in — exactly when `/mockups/*` would 404 anyway.
-const caringContactPrototypeVisible =
-  process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_MOCKUPS_ENABLED === "true";
 
 function SettingsSection({
   id,

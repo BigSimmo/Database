@@ -65,6 +65,10 @@ export default defineConfig({
     //    neither default active transitions nor reduced-motion accessibility fallbacks freeze
     //    or blank out UI elements.
     contextOptions: { reducedMotion: "reduce" },
+    // Phone PWA standalone mode emulation strategy (#71NT23):
+    // Validates the phone PWA bounded scroll shell (globals.css:3755-3793) by
+    // allowing phone scroll journeys to emulate `display-mode: standalone` either
+    // through Chromium CDP session or the forceCompiledStandalonePhoneCss fixture.
     // In production builds the PWA worker (public/sw.js) registers in every test,
     // claims the page, and serves every subsequent navigation — bypassing route
     // interception for navigations outright, and wedging Playwright-Firefox's

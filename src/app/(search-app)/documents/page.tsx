@@ -10,11 +10,15 @@ export const metadata: Metadata = {
 /**
  * The Documents mode home.
  *
- * `/` is the single shared home for every mode — the mode pill retargets the
- * composer rather than navigating — so Documents needs a home of its own, the same
- * way /dsm, /services and /tools do. The body comes from ClinicalDashboard, which
- * the shared shell mounts for this pathname (see `shouldRenderClinicalDashboard`);
- * this route is the content slot, mirroring the root `home-page-client.tsx`.
+ * `/` is the single shared home for every other mode — the mode pill retargets
+ * the composer rather than navigating — but Documents is a real workspace, not a
+ * duplicate landing page: it has its own browse/recent-documents/open-a-source-PDF
+ * affordances that don't exist anywhere else, the same way `/medications` has its
+ * own prescribing workspace. Folding it into the generic shared home silently
+ * deleted those affordances; this route keeps them. The body comes from
+ * ClinicalDashboard, which the shared shell mounts for this pathname (see
+ * `shouldRenderClinicalDashboard`); this route is the content slot, mirroring the
+ * root `home-page-client.tsx`.
  */
 export default function DocumentsHomeRoute() {
   return <DocumentsHomeClient />;

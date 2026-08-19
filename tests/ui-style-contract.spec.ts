@@ -244,9 +244,13 @@ test.describe("unlayered style rules render their effect", () => {
       throw new Error(`tap-carrier enumeration did not stabilise after 20 polls; last read: ${JSON.stringify(shapes)}`);
     };
 
+    // Forms results, not `/forms`: that path is a redirect onto the shared home
+    // since consolidation, and the shared home carries no `min-h-tap` element at
+    // all — the audit would enumerate an empty set and pass vacuously. The result
+    // rows are where this repo's tap carriers actually live.
     const runAudit = async (): Promise<string[]> => {
-      await page.goto("/forms", { waitUntil: "domcontentloaded" });
-      await page.getByRole("region", { name: "Forms tasks" }).waitFor({ state: "visible", timeout: 20_000 });
+      await page.goto("/forms/search?q=transport&run=1", { waitUntil: "domcontentloaded" });
+      await page.getByTestId("form-search-mobile-results").waitFor({ state: "visible", timeout: 20_000 });
       return waitForStableEnumeration();
     };
 

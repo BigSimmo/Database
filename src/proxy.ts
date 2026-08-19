@@ -1,10 +1,20 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { consolidatedModeHomeTarget, unsubmittedModeSearchTarget } from "@/lib/consolidated-mode-home-redirect";
 import { documentSourceRedirectTarget, isDocumentSourcePath } from "@/lib/document-source-redirect";
 import { env } from "@/lib/env";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
+import {
+  DEVELOPER_AREA_HEADER,
+  DEVELOPER_AREA_PATH_HEADER,
+  DEVELOPER_GATED_PATH_PREFIXES,
+} from "@/lib/developer-area/headers";
 import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-headers";
+
+function isDeveloperGatedPath(pathname: string) {
+  return DEVELOPER_GATED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
 
 // Next 16 renamed the `middleware` file convention to `proxy` (see
 // node_modules/next/dist/docs/.../file-conventions/proxy.md). Proxy defaults to
@@ -75,6 +85,15 @@ export async function proxy(request: NextRequest) {
     const headers = new Headers(request.headers);
     headers.set("x-nonce", nonce);
     headers.set("content-security-policy", csp);
+    // Untrusted: strip unconditionally so a client cannot set this header itself
+    // and spoof past the parent `/mockups` layout's production gate on a route
+    // that is not actually one of the two developer-gated subtrees below.
+    headers.delete(DEVELOPER_AREA_HEADER);
+    headers.delete(DEVELOPER_AREA_PATH_HEADER);
+    if (isDeveloperGatedPath(pathname)) {
+      headers.set(DEVELOPER_AREA_HEADER, "1");
+      headers.set(DEVELOPER_AREA_PATH_HEADER, `${pathname}${request.nextUrl.search}`);
+    }
     return headers;
   };
   // Every response the browser sees must carry the enforced CSP header.
@@ -101,6 +120,35 @@ export async function proxy(request: NextRequest) {
   // sanitised components of this request's own query, so it cannot become an
   // open redirect. The page remains as a backstop for any request the matcher
   // misses.
+  // Consolidated mode homes: every mode but Favourites, Tools and Medication now
+  // shares one home, so its bare path forwards — to `/?mode=<id>` unsubmitted, or
+  // to `<mode>/search` when the link carries a submitted query. Resolved here for
+  // the same reason as the document-source fallbacks below — a page `redirect()`
+  // under the streaming `(search-app)` layout emits a client-side meta refresh (a
+  // full second of empty shell) rather than a 307. The page keeps its own redirect
+  // as a backstop for anything this misses.
+  const consolidatedHomeTarget = consolidatedModeHomeTarget(pathname, request.nextUrl.searchParams);
+
+  if (consolidatedHomeTarget) {
+    const url = request.nextUrl.clone();
+    const [targetPathname, targetSearch = ""] = consolidatedHomeTarget.split("?");
+    url.pathname = targetPathname;
+    url.search = targetSearch;
+    return withCsp(NextResponse.redirect(url));
+  }
+
+  // The same forward for an unsubmitted `<mode>/search`: those four routes have no
+  // browse view, so an empty query would render the retired mode home a second time.
+  const unsubmittedSearchTarget = unsubmittedModeSearchTarget(pathname, request.nextUrl.searchParams);
+
+  if (unsubmittedSearchTarget) {
+    const url = request.nextUrl.clone();
+    const [targetPathname, targetSearch = ""] = unsubmittedSearchTarget.split("?");
+    url.pathname = targetPathname;
+    url.search = targetSearch;
+    return withCsp(NextResponse.redirect(url));
+  }
+
   if (isDocumentSourcePath(pathname)) {
     const url = request.nextUrl.clone();
     const target = documentSourceRedirectTarget(url.searchParams);
@@ -148,6 +196,13 @@ export function shouldBlockProductionMockups(
   environment: Record<string, string | undefined> = process.env,
 ) {
   if (!pathname.startsWith("/mockups") || environment.NODE_ENV !== "production") return false;
+
+  // `/mockups/development` and the Caring Contact prototype it links to carry
+  // their own signed-in-administrator gate (`DeveloperAreaGate`, applied in
+  // `src/app/mockups/layout.tsx` via the x-developer-area header set above) —
+  // let them through this blanket block so that gate can run instead of a bare
+  // 404. Every other /mockups/** path is unaffected.
+  if (isDeveloperGatedPath(pathname)) return false;
 
   // Mockups remain unavailable in every normal production process. The one
   // exception is the repository-owned, isolated Playwright server when its
