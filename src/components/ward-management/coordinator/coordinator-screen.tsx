@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { useMemo, useState } from "react";
 
+import { buildActionInbox } from "@/components/ward-management/ward-derivations";
 import { ClinicalRail, WardModeNavigation } from "@/components/ward-management/ward-management-navigation";
 import { movementById, wardMovements } from "@/components/ward-management/ward-movements";
 import { queueOrder } from "@/components/ward-management/ward-priority";
 import { allEmergencyDepartments, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 import styles from "./coordinator.module.css";
+import { ExceptionDrawer } from "./exception-drawer";
 import { FlowDiagram } from "./flow-diagram";
 import { PressureStrip } from "./pressure-strip";
 import { PriorityQueue } from "./priority-queue";
@@ -19,7 +20,8 @@ import { ShortlistPanel } from "./shortlist-panel";
  * (`edPressure` returns 8 departments, `queueOrder` returns 41 open movements) so the layout is
  * judged against real volume rather than three placeholder rows. Task 4 built out the pressure
  * strip and the queue's department filter; Task 5 built the real `PriorityQueue`; Task 6 built
- * the real `FlowDiagram`; Task 7 built the real `ShortlistPanel`.
+ * the real `FlowDiagram`; Task 7 built the real `ShortlistPanel`; Task 8 built the real
+ * `ExceptionDrawer` and the phone form.
  */
 export function CoordinatorScreen() {
   const [selectedMovementId, setSelectedMovementId] = useState<string | undefined>(undefined);
@@ -43,6 +45,13 @@ export function CoordinatorScreen() {
     ? wardMovements.filter((movement) => movement.originEdId === activeEdId)
     : wardMovements;
   const queue = queueOrder(filteredMovements, NOW_ANCHOR);
+
+  // The exception inbox is the coordinator's global work list, not a view scoped to whatever ED
+  // filter the queue happens to have selected — a breached legal deadline at a filtered-out
+  // department must not silently drop off the work list just because the queue is filtered.
+  // `wardMovements` and `NOW_ANCHOR` are both constants, so this only ever needs to compute once
+  // (same reasoning `ward-management-modes.tsx`'s own `buildActionInbox` call already uses).
+  const actionInbox = useMemo(() => buildActionInbox(wardMovements, NOW_ANCHOR), []);
 
   return (
     <div className={styles.screen} data-testid="ward-coordinator">
@@ -110,18 +119,12 @@ export function CoordinatorScreen() {
           </div>
         </div>
 
-        <div className={styles.exceptionsDrawer} data-open={exceptionsOpen}>
-          <button
-            type="button"
-            className={styles.exceptionsToggle}
-            aria-expanded={exceptionsOpen}
-            onClick={() => setExceptionsOpen((open) => !open)}
-          >
-            {exceptionsOpen ? <ChevronDown aria-hidden="true" /> : <ChevronUp aria-hidden="true" />}
-            <span>Exceptions</span>
-          </button>
-          {exceptionsOpen ? <p className={styles.placeholder}>Exceptions inbox. Built in a later task.</p> : null}
-        </div>
+        <ExceptionDrawer
+          items={actionInbox}
+          open={exceptionsOpen}
+          onToggle={() => setExceptionsOpen((open) => !open)}
+          onSelectMovement={setSelectedMovementId}
+        />
       </div>
     </div>
   );

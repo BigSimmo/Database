@@ -189,56 +189,66 @@ export type InboxItem = {
   movementId: string;
 };
 
-/** Every item here is computed from real movement fields — nothing is authored. */
+/**
+ * Every item here is computed from real movement fields — nothing is authored.
+ *
+ * RULING (Task 8): each category uses `.filter()`, never `.find()`. Measured against the real
+ * fixture at `NOW_ANCHOR`, five movements carry a breached statutory deadline, one has reached
+ * the parallel-referral cap, and two have transport accepted but not departed — a `.find()`-based
+ * inbox reported exactly one of each regardless, understating a legal breach count by four. This
+ * is the coordinator's work list, not a report: every qualifying movement gets its own row.
+ */
 export function buildActionInbox(movements: Movement[], now: Instant): InboxItem[] {
   const items: InboxItem[] = [];
 
-  const breachedLegal = movements.find(
+  const breachedLegal = movements.filter(
     (movement) => movement.legalForm && clockState(movement.legalForm.dueAt, now) === "breached",
   );
-  if (breachedLegal?.legalForm) {
+  for (const movement of breachedLegal) {
+    if (!movement.legalForm) continue;
     items.push({
-      id: `legal-${breachedLegal.id}`,
+      id: `legal-${movement.id}`,
       tone: "danger",
       icon: CircleAlert,
       title: "Legal timing breached",
-      detail: `${breachedLegal.id} · ${formatRemaining(minutesUntil(breachedLegal.legalForm.dueAt, now))}`,
-      owner: breachedLegal.owner,
-      movementId: breachedLegal.id,
+      detail: `${movement.id} · ${formatRemaining(minutesUntil(movement.legalForm.dueAt, now))}`,
+      owner: movement.owner,
+      movementId: movement.id,
     });
   }
 
   // This only detects that three parallel referrals were declined, not that the network is
   // actually exhausted — a movement can hit the cap with eligible units still untried. Name
   // it for what it measures rather than implying a broader search than was actually run.
-  const exhaustedReferrals = movements.find((movement) => movement.declines.length >= PARALLEL_REFERRAL_CAP);
-  if (exhaustedReferrals) {
+  const exhaustedReferrals = movements.filter((movement) => movement.declines.length >= PARALLEL_REFERRAL_CAP);
+  for (const movement of exhaustedReferrals) {
     items.push({
-      id: `declines-${exhaustedReferrals.id}`,
+      id: `declines-${movement.id}`,
       tone: "danger",
       icon: CircleAlert,
       title: "Parallel referral cap reached",
-      detail: `${exhaustedReferrals.id} · ${exhaustedReferrals.declines.length} declines`,
-      owner: exhaustedReferrals.owner,
-      movementId: exhaustedReferrals.id,
+      detail: `${movement.id} · ${movement.declines.length} declines`,
+      owner: movement.owner,
+      movementId: movement.id,
     });
   }
 
-  const stalledTransport = movements.find(
+  const stalledTransport = movements.filter(
     (movement) =>
       movement.transport?.acceptedAt !== undefined &&
       movement.transport.enRouteAt === undefined &&
       movement.transport.cancelledAt === undefined,
   );
-  if (stalledTransport?.transport) {
+  for (const movement of stalledTransport) {
+    if (!movement.transport) continue;
     items.push({
-      id: `transport-${stalledTransport.id}`,
+      id: `transport-${movement.id}`,
       tone: "warning",
       icon: Truck,
       title: "Transport awaiting departure",
-      detail: `${stalledTransport.id} · accepted ${formatInstant(stalledTransport.transport.acceptedAt as Instant)}`,
-      owner: stalledTransport.owner,
-      movementId: stalledTransport.id,
+      detail: `${movement.id} · accepted ${formatInstant(movement.transport.acceptedAt as Instant)}`,
+      owner: movement.owner,
+      movementId: movement.id,
     });
   }
 

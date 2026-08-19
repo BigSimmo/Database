@@ -1414,8 +1414,143 @@
   color: var(--clinical-accent);
 }
 
+/*
+ * Ruling 3: this count is always `items.length` from the same array the rows in
+ * `.exceptionsPanel` below are mapped from — a pill styled distinctly from the "Exceptions"
+ * label so the true count reads as its own field, not decoration, the same convention
+ * `.regionCount` uses elsewhere for "N open movements" / "N departments".
+ */
+.exceptionsToggleCount {
+  display: inline-flex;
+  min-width: var(--co-space-20);
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--clinical-accent-soft);
+  padding: 0 var(--co-space-8);
+  color: var(--clinical-accent);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+}
+
 .exceptionsDrawer[data-open="true"] .placeholder {
   margin-top: var(--co-space-8);
+}
+
+/*
+ * Task 8: the exceptions drawer is the coordinator's work list, not a report — every row
+ * `buildActionInbox` returns is real work, so this panel gets its own bounded, scrolling box
+ * (the same pattern `.queueList` already uses) rather than pushing the fixed-height chrome above
+ * it off screen when the inbox is long.
+ */
+.exceptionsPanel {
+  margin-top: var(--co-space-8);
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+.exceptionsList {
+  display: grid;
+  min-width: 0;
+  gap: var(--co-space-6);
+}
+
+.exceptionRow {
+  display: grid;
+  width: 100%;
+  min-height: var(--co-space-48);
+  grid-template-columns: 1.125rem minmax(0, 1fr);
+  align-items: start;
+  gap: var(--co-space-8);
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--co-space-8) var(--co-space-10);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+
+.exceptionRowBody {
+  display: grid;
+  min-width: 0;
+  gap: var(--co-space-2);
+}
+
+.exceptionRow:hover {
+  background: var(--surface-subtle);
+}
+
+/*
+ * Tone-coded like `.pressureCard`'s breaching state and `.diagramUnplacedUnit` elsewhere in this
+ * file: danger and warning are real, distinct facts about the movement (a legal breach is not
+ * merely "worth a look" the way a stalled transport job is), so each gets its own border and
+ * background rather than one generic "exception" tint. Colour is never the only signal — the icon
+ * below and `item.title`/`item.detail` text carry the same distinction in words.
+ */
+.exceptionRow[data-tone="danger"] {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+
+.exceptionRow[data-tone="warning"] {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+}
+
+.exceptionRow svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.exceptionIconDanger {
+  color: var(--danger-text);
+}
+
+.exceptionIconWarning {
+  color: var(--warning-text);
+}
+
+.exceptionTitle {
+  color: var(--text-heading);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+}
+
+.exceptionDetail {
+  color: var(--text);
+  font-size: var(--text-3xs);
+  line-height: var(--co-leading-body);
+}
+
+.exceptionOwner {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+}
+
+@media (forced-colors: active) {
+  .exceptionRow[data-tone="danger"],
+  .exceptionRow[data-tone="warning"] {
+    border-color: GrayText;
+  }
+}
+
+/*
+ * Task 8 ruling: after-hours coordination happens on a phone, and the screen collapses to
+ * queue, exceptions and one-tap confirm. A node/edge canvas is unreadable at 390px, and showing
+ * an unreadable one is worse than showing none — so the diagram is hidden outright rather than
+ * shrunk. The eight-department pressure strip is hidden alongside it: its own worst-first
+ * ordering exists to answer "which ED is worst", a question the queue already answers per-row via
+ * `.queueLegalBreach`, and the strip's `repeat(auto-fit, minmax(9rem, 1fr))` grid has no useful
+ * arrangement left once its track width drops under 390px. `.regionGrid` is already a single
+ * column below 90rem (see its own comment), so hiding the diagram here leaves the priority queue
+ * and the shortlist column stacked directly on top of each other — the shortlist's own Confirm
+ * button is one selection tap away, never behind a second navigation step.
+ */
+@media (max-width: 48rem) {
+  .pressureStrip,
+  .diagramRegion {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

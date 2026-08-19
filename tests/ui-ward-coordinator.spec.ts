@@ -1,9 +1,9 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
 
-import { candidateReason, eligibleCandidates } from "@/components/ward-management/ward-derivations";
+import { buildActionInbox, candidateReason, eligibleCandidates } from "@/components/ward-management/ward-derivations";
 import type { Movement } from "@/components/ward-management/ward-model";
 import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
-import { movementById } from "@/components/ward-management/ward-movements";
+import { movementById, wardMovements } from "@/components/ward-management/ward-movements";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 async function gotoCoordinator(page: Page) {
@@ -132,8 +132,45 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(shortlist).toContainText(String(secondId));
   });
 
-  // Implemented when the exceptions drawer is built out — Task 8.
-  test.fixme("the exceptions drawer drives movement selection", () => {});
+  // Task 8: the exceptions drawer is the coordinator's work list, not a report. Collapsed by
+  // default; its toggle's count and the drawer's own rendered rows must always agree (ruling 3 —
+  // the "48 open movements" defect in miniature is a header count that disagrees with the rows
+  // beneath it); selecting a row drives the same movement selection the queue does; and on a
+  // phone the diagram and pressure strip disappear while the queue and exceptions stay reachable.
+  test("keeps exceptions one tap away and collapses to a queue-first phone form", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const toggle = page.getByRole("button", { name: /Exceptions/ });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await toggle.click();
+    const drawer = page.getByRole("region", { name: "Exceptions" });
+    await expect(drawer).toBeVisible();
+    const items = drawer.locator('[data-testid^="ward-exception-"]');
+    await expect(items.first()).toBeVisible();
+
+    // Ruling 3: the toggle's count must be the true count — exactly what the drawer renders,
+    // computed independently here from the real fixture so a hard-coded toggle number cannot
+    // pass by coincidence.
+    const expectedCount = buildActionInbox(wardMovements, NOW_ANCHOR).length;
+    expect(expectedCount).toBeGreaterThan(1);
+    await expect(items).toHaveCount(expectedCount);
+    await expect(toggle).toContainText(String(expectedCount));
+
+    // Selecting an exception drives the same selection the queue does.
+    await items.first().click();
+    await expect(page.getByRole("complementary", { name: "Explainable shortlist" })).toBeVisible();
+
+    // Phone: queue and exceptions survive, the diagram does not, and nothing overflows.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("region", { name: "Priority queue" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Exceptions/ })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Statewide flow" })).toBeHidden();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(2);
+  });
 
   test("orders by clinical tier first and labels the score as operational, not clinical", async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1100 });
