@@ -2341,6 +2341,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByRole("main")).toBeVisible();
       await expect(page.getByRole("heading", { level: 1, name: "How Clinical KB handles your data" })).toBeVisible();
       await expect(page.getByRole("heading", { level: 2, name: "Before you use Clinical KB" })).toBeVisible();
+      // The scannable answer layer and the print affordance are the two things a
+      // reader arriving from the composer notice needs without opening anything.
+      await expect(page.getByRole("heading", { level: 2, name: "At a glance" })).toBeVisible();
+      // The footer control, not the sm+ header one: the header print button is
+      // hidden on a phone, and this assertion runs at 320px too.
+      await expect(page.getByRole("button", { name: "Print this page" })).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     });
   }
