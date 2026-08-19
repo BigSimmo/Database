@@ -45,3 +45,16 @@ export function awstWallTimeToInstant(calendarDay: string, hour: number, minute 
   const [year, month, day] = calendarDay.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day, hour - 8, minute, 0, 0));
 }
+
+/**
+ * The one AWST ISO-8601 form this domain records instants in: a wall-clock value carrying an
+ * explicit `+08:00` offset (AWST is UTC+8 year-round, so no daylight-saving branch exists).
+ *
+ * Shifting the instant forward 8 hours before formatting yields the AWST wall-clock value; the
+ * resulting "Z" is then relabelled "+08:00". Every module that stamps a time reuses this so the
+ * audit trail and the records beside it cannot drift into two formats.
+ */
+export function awstIsoTimestamp(instant: Date): string {
+  const shifted = new Date(instant.getTime() + 8 * 60 * 60 * 1000);
+  return shifted.toISOString().replace("Z", "+08:00");
+}

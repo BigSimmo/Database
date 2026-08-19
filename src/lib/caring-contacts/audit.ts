@@ -14,7 +14,7 @@
 //
 // Pure and deterministic given a clock: buildAuditEvent never reaches for a datastore or any clock
 // other than the one it is handed.
-import type { Clock } from "./clock";
+import { awstIsoTimestamp, type Clock } from "./clock";
 import type { ActorId, IdempotencyKey, TeamId } from "./ids";
 
 export type AuditOutcome = "allowed" | "denied" | "failed";
@@ -94,16 +94,6 @@ export function assertAuditEventFreeOfPatientData(
 }
 
 /**
- * AWST is UTC+8 year-round (see clock.ts's AWST_TIME_ZONE and awstWallTimeToInstant). Shifting the
- * instant forward 8 hours before formatting yields the AWST wall-clock value; the resulting "Z" is
- * then relabelled "+08:00" so the timestamp always carries an explicit numeric offset.
- */
-function toAwstIsoTimestamp(instant: Date): string {
-  const shifted = new Date(instant.getTime() + 8 * 60 * 60 * 1000);
-  return shifted.toISOString().replace("Z", "+08:00");
-}
-
-/**
  * Builds a frozen audit event from `input` and `clock`. Pure and deterministic given the clock:
  * the same input and the same clock always produce byte-identical output. Throws
  * `AuditEventContainsPatientDataError` before constructing anything if `input` fails the guard.
@@ -120,7 +110,7 @@ export function buildAuditEvent(input: AuditableChange, clock: Clock): AuditEven
     objectId: input.objectId,
     outcome: input.outcome,
     idempotencyKey: input.idempotencyKey,
-    timestamp: toAwstIsoTimestamp(clock.now()),
+    timestamp: awstIsoTimestamp(clock.now()),
   };
   return Object.freeze(event);
 }
