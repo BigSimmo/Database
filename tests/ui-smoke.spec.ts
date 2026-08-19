@@ -5428,18 +5428,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await expect(mobileFooter).toHaveAttribute("aria-hidden", "true");
     await expect(mobileFooter).toHaveAttribute("inert", "");
-    await expect(mobileHeader).toHaveAttribute("aria-hidden", "true");
-    await expect(mobileHeader).toHaveAttribute("inert", "");
+    // Only the dock hides. The header is pinned so "Close guide" and the view
+    // tabs stay reachable however far the reader has scrolled.
+    await expect(mobileHeader).toHaveAttribute("aria-hidden", "false");
+    await expect(mobileHeader).not.toHaveAttribute("inert");
+    await expect(dialog.getByRole("button", { name: "Close guide" })).toBeVisible();
 
-    // The hidden mobile header and footer must not be reachable by keyboard
-    // tabbing. Close guide now lives in the header, which is itself inert
-    // while hidden, so start from a content control instead.
+    // The hidden dock must not be reachable by keyboard tabbing.
     await dialog.getByRole("button", { name: "Ask a better question" }).focus();
     const tabStopCount = await dialog.locator('button, input, [href], [tabindex]:not([tabindex="-1"])').count();
     for (let tabIndex = 0; tabIndex <= tabStopCount; tabIndex += 1) {
       await page.keyboard.press("Tab");
       await expect.poll(() => mobileFooter.evaluate((element) => element.contains(document.activeElement))).toBe(false);
-      await expect.poll(() => mobileHeader.evaluate((element) => element.contains(document.activeElement))).toBe(false);
     }
 
     await guideScrollBody.evaluate((element) => {

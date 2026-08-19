@@ -52,7 +52,7 @@ describe("Clinical KB Guide Centre", () => {
     expect(within(dialog).queryByRole("heading", { name: "3-minute guided tour" })).not.toBeInTheDocument();
   });
 
-  it("shows a useful verification example and hides the shared header and bottom search chrome while scrolling down", async () => {
+  it("shows a useful verification example and hides only the bottom dock while scrolling down", async () => {
     vi.spyOn(window, "matchMedia").mockImplementation(
       () =>
         ({
@@ -82,16 +82,25 @@ describe("Clinical KB Guide Centre", () => {
     expect(content).not.toBeNull();
     expect(footer?.querySelector("[data-guide-tour-action-row]")).not.toBeNull();
     expect(header).toHaveClass("pt-[max(1rem,var(--safe-area-top))]");
+    // The header no longer collapses, so it never carries the hidden-state utilities.
+    expect(header).not.toHaveClass("max-h-48", "overflow-hidden");
 
     Object.defineProperty(scrollBody, "scrollHeight", { configurable: true, value: 1_600 });
     Object.defineProperty(scrollBody, "clientHeight", { configurable: true, value: 600 });
     Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 140 });
     fireEvent.scroll(scrollBody!);
     await waitFor(() => expect(footerLayer).toHaveClass("translate-y-full"));
-    expect(header).toHaveClass("max-h-0");
-    expect(header).not.toHaveClass("pt-[max(1rem,var(--safe-area-top))]");
-    expect(header).toHaveAttribute("aria-hidden", "true");
-    expect(header).toHaveAttribute("inert", "");
+    /**
+     * The header stays PINNED through the hide. It used to collapse with the
+     * dock, which took "Close guide" and the view tabs out of reach — scrolled
+     * down, the dialog had no exit — and cost 153px of a ~330px scroll range,
+     * so `collapseHasSafeRunway` refused to hide anything at all once these
+     * pages were shortened.
+     */
+    expect(header).not.toHaveClass("max-h-0");
+    expect(header).toHaveClass("pt-[max(1rem,var(--safe-area-top))]");
+    expect(header).toHaveAttribute("aria-hidden", "false");
+    expect(header).not.toHaveAttribute("inert");
     expect(footer).toHaveAttribute("aria-hidden", "true");
     expect(footer).toHaveAttribute("inert", "");
     expect(within(footer!).queryByRole("button", { name: "Start guided tour" })).not.toBeInTheDocument();
@@ -101,8 +110,6 @@ describe("Clinical KB Guide Centre", () => {
     Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 0 });
     fireEvent.scroll(scrollBody!);
     await waitFor(() => expect(footerLayer).not.toHaveClass("translate-y-full"));
-    expect(header).not.toHaveClass("max-h-0");
-    expect(header).toHaveClass("pt-[max(1rem,var(--safe-area-top))]");
     expect(header).toHaveAttribute("aria-hidden", "false");
     expect(header).not.toHaveAttribute("inert");
     expect(footer).toHaveAttribute("aria-hidden", "false");

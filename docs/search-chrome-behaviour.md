@@ -56,6 +56,22 @@ Four consequences worth keeping:
   the default was required, and it was, while the pill sat below the row.
 - The footer wrapper is the dock element, so its children need `relative z-10` to paint
   above the scrim.
+- **Only the dock hides; the Sheet header stays pinned.** This is not a symmetry violation —
+  AGENTS.md's header/footer symmetry rule is scoped to chrome that _shares a scroll
+  container_, and the Sheet header is a sibling of `.polished-scroll`, not inside it. Two
+  reasons it must stay:
+  - "Close guide" and the view tabs live in that header. Collapsing it inert left a reader
+    who had scrolled down with no way out of the dialog.
+  - The runway maths. Hiding is refused unless the release fits the remaining scroll
+    (`collapseHasSafeRunway` in `use-hide-on-scroll.ts`). The header is ~153px and the dock
+    reserve ~96px against a ~330px range on a 390x820 phone, so charging both refused
+    **every** hide once these pages were shortened. Charging only the dock (~96px) leaves a
+    ~233px post-collapse range, which clears the bar.
+- The dock's budget is read straight off `[data-guide-content]`'s padding, not through
+  `readChromeCollapseMetrics`. That helper resolves `universal-header-collapse` against the
+  **document**, which from inside a fullscreen modal is the shell header behind the dialog —
+  it releases nothing here, but it was being charged. Any future modal-owned dock should
+  compute its own reserve the same way rather than reusing the page-level helper.
 - The tour action is the dock's **only** control, so it takes the filled primary
   treatment — the role `differentials-mobile-compare-fab__button` fills on its own
   surface — not the outlined translucent framing reserved for dock _addons_

@@ -39,7 +39,7 @@ import {
   saveGuideProgress,
   type GuideProgress,
 } from "@/components/clinical-dashboard/guide-progress";
-import { readChromeCollapseMetrics, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, eyebrowText, floatingControl, primaryControl, textMuted } from "@/components/ui-primitives";
 
@@ -529,34 +529,45 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
   const [tourComplete, setTourComplete] = useState(false);
   const contentStartRef = useRef<HTMLDivElement | null>(null);
   const scrollBodyRef = useRef<HTMLDivElement | null>(null);
-  const headerRef = useRef<HTMLDivElement | null>(null);
-  const chromeScrollHide = useScrollHideReporter(
+  const dockScrollHide = useScrollHideReporter(
     false,
     false,
     `${view}:${activeTopicId}:${tourStepIndex}:${tourComplete}`,
   );
-  const chromeHidden = chromeScrollHide.hidden;
+  const dockHidden = dockScrollHide.hidden;
 
   function focusPageStart() {
     window.requestAnimationFrame(() => {
       if (scrollBodyRef.current) scrollBodyRef.current.scrollTop = 0;
-      chromeScrollHide.reset();
+      dockScrollHide.reset();
       contentStartRef.current?.querySelector<HTMLElement>("[data-guide-page-heading]")?.focus({ preventScroll: true });
     });
   }
 
+  /**
+   * Only the dock hides, so the only thing hiding releases is this dialog's own
+   * dock clearance — hence `reserve-only`, and hence the budget is read straight
+   * off `[data-guide-content]` rather than through `readChromeCollapseMetrics`.
+   *
+   * That helper resolves `universal-header-collapse` against the DOCUMENT, which
+   * from inside a fullscreen modal is the shell header sitting behind the dialog
+   * and releasing nothing. Charging it — plus this dialog's own 153px header,
+   * back when that collapsed too — made the budget larger than some guide pages'
+   * entire scroll range, and `collapseHasSafeRunway` then correctly refused every
+   * hide. Shortening these pages is what exposed it.
+   */
   function handleBodyScroll(event: UIEvent<HTMLDivElement>) {
     const target = event.currentTarget;
-    const collapseMetrics = readChromeCollapseMetrics(target);
-    const headerRelease = headerRef.current?.getBoundingClientRect().height ?? 0;
-    const reserveRelease = collapseMetrics.collapseBudget ?? 0;
-    chromeScrollHide.reportScroll({
+    const reserve = contentStartRef.current;
+    // `data-reserve-hidden-pad="0"`: the pad collapses to nothing, so the whole
+    // padding is what a hide gives back.
+    const reserveRelease = reserve ? Number.parseFloat(window.getComputedStyle(reserve).paddingBottom) || 0 : 0;
+    dockScrollHide.reportScroll({
       offset: target.scrollTop,
       maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
-      ...collapseMetrics,
-      collapseBudget: headerRelease + reserveRelease,
-      collapseKind: headerRelease > 0 ? "in-flow" : collapseMetrics.collapseKind,
-      combinedChrome: headerRelease > 0 && reserveRelease > 0,
+      collapseBudget: reserveRelease,
+      collapseKind: "reserve-only",
+      combinedChrome: false,
       source: target,
     });
   }
@@ -620,8 +631,8 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
       <div className="answer-footer-search-backdrop sm:hidden" aria-hidden="true" />
       <div
         data-guide-mobile-footer
-        aria-hidden={chromeHidden}
-        inert={chromeHidden || undefined}
+        aria-hidden={dockHidden}
+        inert={dockHidden || undefined}
         className="relative z-10 mx-auto grid w-full max-w-3xl min-w-0 gap-2"
       >
         <div data-guide-tour-action-row className="flex min-w-0 items-center justify-center gap-2">
@@ -686,14 +697,11 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
       bodyRef={scrollBodyRef}
       bodyTabIndex={0}
       onBodyScroll={handleBodyScroll}
-      headerRef={headerRef}
-      headerHidden={chromeHidden}
       headerBottom={<GuideTopNavigation view={view} onNavigate={navigate} />}
-      headerClassName={cn(
-        "guide-centre-header max-h-48 overflow-hidden pt-[max(1rem,env(safe-area-inset-top))] transition-[border-color,opacity] duration-[var(--duration-moderate)] motion-reduce:transition-none sm:pt-5",
-        chromeHidden &&
-          "max-h-0 border-transparent p-0 opacity-0 sm:max-h-48 sm:border-[color:var(--border)] sm:p-5 sm:opacity-100",
-      )}
+      // The header stays pinned. It used to collapse with the dock, which cost
+      // 153px of a ~330px scroll range and took "Close guide" and the view tabs
+      // out of reach with it — you could scroll down and have no way to leave.
+      headerClassName="guide-centre-header pt-[max(1rem,env(safe-area-inset-top))] transition-[border-color,opacity] duration-[var(--duration-moderate)] motion-reduce:transition-none sm:pt-5"
       mobilePlacement="fullscreen"
       footer={footer}
       footerVariant="compact"
@@ -709,7 +717,7 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
         // of the page than the control it exists to seat.
         "answer-footer-search-dock answer-footer-search-edge",
         "absolute inset-x-0 bottom-0 z-30 border-t-0 bg-transparent p-0 shadow-none transition-[transform,opacity] duration-[var(--duration-moderate)] motion-reduce:transition-none sm:static sm:border-t sm:border-[color:var(--border)] sm:bg-[color:var(--surface-raised)] sm:p-4",
-        chromeHidden &&
+        dockHidden &&
           "pointer-events-none translate-y-full opacity-0 sm:pointer-events-auto sm:translate-y-0 sm:opacity-100",
       )}
       testId="clinical-kb-guide-centre"
@@ -723,7 +731,7 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
         data-guide-content
         data-reserve-owner="guide-tour-dock"
         data-reserve-hidden-pad="0"
-        className={cn("space-y-4 p-3 sm:p-5", chromeHidden ? "pb-0 sm:pb-5" : "pb-24 sm:pb-5")}
+        className={cn("space-y-4 p-3 sm:p-5", dockHidden ? "pb-0 sm:pb-5" : "pb-24 sm:pb-5")}
       >
         {view === "home" ? (
           <>

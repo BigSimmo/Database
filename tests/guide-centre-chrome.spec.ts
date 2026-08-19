@@ -74,7 +74,7 @@ async function openGuide(page: Page) {
 }
 
 test.describe("Clinical KB Guide Centre chrome", () => {
-  test("phone header and bottom search chrome hide together and leave the tab order", async ({ page }) => {
+  test("the bottom dock hides and leaves the tab order while the header stays pinned", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockGuideShell(page);
     await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -96,15 +96,16 @@ test.describe("Clinical KB Guide Centre chrome", () => {
     });
     await expect(footer).toHaveAttribute("aria-hidden", "true");
     await expect(footer).toHaveAttribute("inert", "");
-    await expect(header).toHaveAttribute("aria-hidden", "true");
-    await expect(header).toHaveAttribute("inert", "");
+    // Pinned: "Close guide" and the view tabs must stay reachable while scrolled.
+    await expect(header).toHaveAttribute("aria-hidden", "false");
+    await expect(header).not.toHaveAttribute("inert");
+    await expect(dialog.getByRole("button", { name: "Close guide" })).toBeVisible();
 
     await dialog.getByRole("button", { name: "Ask a better question" }).focus();
     const tabStopCount = await dialog.locator('button, input, [href], [tabindex]:not([tabindex="-1"])').count();
     for (let tabIndex = 0; tabIndex <= tabStopCount; tabIndex += 1) {
       await page.keyboard.press("Tab");
       await expect.poll(() => footer.evaluate((element) => element.contains(document.activeElement))).toBe(false);
-      await expect.poll(() => header.evaluate((element) => element.contains(document.activeElement))).toBe(false);
     }
 
     await scrollBody.evaluate((element) => {
@@ -114,7 +115,6 @@ test.describe("Clinical KB Guide Centre chrome", () => {
     await expect(footer).toHaveAttribute("aria-hidden", "false");
     await expect(footer).not.toHaveAttribute("inert");
     await expect(header).toHaveAttribute("aria-hidden", "false");
-    await expect(header).not.toHaveAttribute("inert");
   });
 
   /**
