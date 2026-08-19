@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { SpecifiersHomePage } from "@/components/specifiers/specifiers-home-page";
 
@@ -25,5 +26,11 @@ function firstValue(value?: string | string[]) {
 export default async function SpecifiersSearchRoute(props: RouteProps) {
   const params = props.searchParams ? await props.searchParams : {};
   const query = (firstValue(params.q) ?? firstValue(params.query) ?? "").trim();
+  // An empty query would render the mode home a second time — the very page
+  // consolidation retired to /mockups/specifiers-home-detailed. Send it to the
+  // shared home instead, so one mode keeps exactly one home. `/calculators/search`
+  // already did this; these three were the inconsistent ones.
+  if (!query) redirect("/?mode=specifiers");
+
   return <SpecifiersHomePage query={query} autoRunSearch={query.length > 0} />;
 }

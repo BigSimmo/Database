@@ -108,3 +108,26 @@ export function consolidatedModeHomeTarget(pathname: string, search: URLSearchPa
 export const consolidatedModeHomeModeIds: ReadonlySet<AppModeId> = new Set<AppModeId>(
   Object.values(consolidatedModeHomePaths),
 );
+
+/**
+ * The same decision as `consolidatedModeHomeTarget`, for a page's own
+ * `searchParams` rather than a `URLSearchParams`.
+ *
+ * Each consolidated bare path keeps a page-level `redirect()` as a backstop for
+ * any request the proxy matcher misses. Without this the backstop resolved to a
+ * bare `/?mode=<id>`, so if it ever fired, `/forms?q=transport&run=1` arrived at
+ * the home having silently dropped the query, the submission and the navigation
+ * context — a worse answer than the proxy gives for the same URL. Routing both
+ * through one resolver means the fallback cannot disagree with the proxy.
+ */
+export function consolidatedModeHomeTargetForSearchParams(
+  pathname: string,
+  searchParams: Record<string, string | string[] | undefined>,
+): string | null {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (Array.isArray(value)) value.forEach((entry) => params.append(key, entry));
+    else if (value !== undefined) params.set(key, value);
+  }
+  return consolidatedModeHomeTarget(pathname, params);
+}

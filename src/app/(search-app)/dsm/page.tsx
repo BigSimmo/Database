@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { appModeSelectionHref } from "@/lib/app-modes";
+import { consolidatedModeHomeTargetForSearchParams } from "@/lib/consolidated-mode-home-redirect";
 
 /**
  * `DSM-5 Diagnosis` has no home page of its own any more.
@@ -13,6 +14,15 @@ import { appModeSelectionHref } from "@/lib/app-modes";
  * The previous detailed page is preserved, off the live routes, at
  * `/mockups/dsm-home-detailed`.
  */
-export default function DsmHomeRoute() {
-  redirect(appModeSelectionHref("dsm"));
+type DsmHomeRouteProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function DsmHomeRoute({ searchParams }: DsmHomeRouteProps) {
+  // Resolved through the same helper the proxy uses, so a request that reaches
+  // this backstop lands where the proxy would have sent it — including a
+  // submitted `?q=…&run=1`, which goes on to /dsm/search rather than
+  // arriving at the home with its query dropped.
+  const params = searchParams ? await searchParams : {};
+  redirect(consolidatedModeHomeTargetForSearchParams("/dsm", params) ?? appModeSelectionHref("dsm"));
 }

@@ -56,10 +56,18 @@ describe("calculator mode routing", () => {
    * cases pin that split, because routing a submitted query back at the bare path
    * would bounce through the redirect and loop.
    */
-  it("forwards the bare path to the shared home", () => {
+  it("forwards the bare path to the shared home, carrying a submitted query on", async () => {
     navigation.redirect.mockClear();
-    expect(() => CalculatorsRoute()).toThrow("NEXT_REDIRECT");
-    expect(navigation.redirect).toHaveBeenCalledWith("/?mode=calculators");
+    await expect(CalculatorsRoute({ searchParams: Promise.resolve({}) })).rejects.toThrow("NEXT_REDIRECT");
+    expect(navigation.redirect).toHaveBeenLastCalledWith("/?mode=calculators");
+
+    // The page-level backstop resolves through the same helper as the proxy, so a
+    // request that reaches it keeps its query instead of arriving at the home
+    // having silently dropped the search the user actually submitted.
+    await expect(CalculatorsRoute({ searchParams: Promise.resolve({ q: "PHQ-9", run: "1" }) })).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+    expect(navigation.redirect).toHaveBeenLastCalledWith("/calculators/search?q=PHQ-9&run=1&mode=calculators");
   });
 
   it("renders results only once a non-empty search is submitted", async () => {
