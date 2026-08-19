@@ -591,7 +591,7 @@ function PathwayContextCard({
           role="tabpanel"
           aria-labelledby={tabPathwayId}
           tabIndex={0}
-          className="mt-3 space-y-3 border-l border-[color:var(--border-strong)] pl-4 focus-visible:outline-none"
+          className="mt-3 space-y-3 border-l border-[color:var(--border-strong)] pl-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
           <div className="relative">
             <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
@@ -720,7 +720,7 @@ function PathwayContextCard({
           role="tabpanel"
           aria-labelledby={tabSourceId}
           tabIndex={0}
-          className="mt-3 space-y-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 focus-visible:outline-none"
+          className="mt-3 space-y-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
           <p className="text-sm font-semibold text-[color:var(--text-heading)]">
             {displayText(details?.sourceFacts?.documentTitle, form.title)}

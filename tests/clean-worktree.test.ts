@@ -105,6 +105,33 @@ describe("clean-worktree getDirectoryDiskUsage", () => {
   it("handles non-existent directory safely", () => {
     expect(getDirectoryDiskUsage("/non/existent/path/here")).toEqual({ bytes: 0, fileCount: 0 });
   });
+
+  it("uses lstatFn rather than statFn for symbolic links", () => {
+    const fakeEntries = [
+      { name: "regular.txt", isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false },
+      { name: "symlink.txt", isDirectory: () => false, isFile: () => false, isSymbolicLink: () => true },
+    ];
+    let statCalls = 0;
+    let lstatCalls = 0;
+
+    const usage = getDirectoryDiskUsage("fake-dir", {
+      existsFn: () => true,
+      readdirFn: (() => fakeEntries) as unknown as typeof import("node:fs").readdirSync,
+      statFn: (() => {
+        statCalls += 1;
+        return { size: 100 };
+      }) as unknown as typeof import("node:fs").statSync,
+      lstatFn: (() => {
+        lstatCalls += 1;
+        return { size: 20 };
+      }) as unknown as typeof import("node:fs").lstatSync,
+    });
+
+    expect(statCalls).toBe(1);
+    expect(lstatCalls).toBe(1);
+    expect(usage.fileCount).toBe(2);
+    expect(usage.bytes).toBe(120);
+  });
 });
 
 describe("clean-worktree identifyMergedWorktrees", () => {
@@ -234,5 +261,33 @@ describe("clean-worktree verifyWorktreeSafetyBeforeRemove", () => {
     });
     expect(result.safe).toBe(false);
     expect(result.reason).toContain("NOT fully corroborated");
+  });
+
+  it("blocks removal when the corroboration check itself fails (#6GW95D)", () => {
+    const result = verifyWorktreeSafetyBeforeRemove(candidate, {
+      mainPath: "C:/repo/main",
+      currentPath: "C:/repo/current",
+      existsFn: () => true,
+      statusFn: () => "",
+      branchFn: () => "feature-done",
+      aheadCountFn: () => 0,
+      confidenceFn: () => "inferred from patch-id; corroboration check failed — review before removing",
+    });
+    expect(result.safe).toBe(false);
+    expect(result.reason).toContain("corroboration check failed");
+  });
+
+  it("blocks removal when the confidence result is not a string (#6GW95D)", () => {
+    const result = verifyWorktreeSafetyBeforeRemove(candidate, {
+      mainPath: "C:/repo/main",
+      currentPath: "C:/repo/current",
+      existsFn: () => true,
+      statusFn: () => "",
+      branchFn: () => "feature-done",
+      aheadCountFn: () => 0,
+      confidenceFn: (() => null) as unknown as () => string,
+    });
+    expect(result.safe).toBe(false);
+    expect(result.reason).toContain("removal blocked");
   });
 });

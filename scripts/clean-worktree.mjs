@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -82,7 +82,7 @@ export function identifyOrphanedWorktrees(worktrees, { existsFn = existsSync, ma
  */
 export function getDirectoryDiskUsage(
   dirPath,
-  { readdirFn = readdirSync, statFn = statSync, existsFn = existsSync } = {},
+  { readdirFn = readdirSync, statFn = statSync, lstatFn = lstatSync, existsFn = existsSync } = {},
 ) {
   if (!dirPath || !existsFn(dirPath)) return { bytes: 0, fileCount: 0 };
   let totalBytes = 0;
@@ -100,8 +100,12 @@ export function getDirectoryDiskUsage(
       try {
         if (entry.isDirectory()) {
           walk(fullPath);
-        } else if (entry.isFile() || entry.isSymbolicLink()) {
+        } else if (entry.isFile()) {
           const st = statFn(fullPath);
+          totalBytes += st.size || 0;
+          fileCount += 1;
+        } else if (entry.isSymbolicLink()) {
+          const st = lstatFn(fullPath);
           totalBytes += st.size || 0;
           fileCount += 1;
         }
@@ -344,9 +348,16 @@ export function verifyWorktreeSafetyBeforeRemove(
     return { safe: false, reason: `branch has ${ahead} unlanded commit(s) ahead of ${baseRef}` };
   }
 
-  // Check confidence / corroboration
+  // Check confidence / corroboration. Both the "not fully corroborated" result and
+  // the "corroboration check failed" result are unsafe — the latter means the git
+  // checks themselves errored, so merge state is unknown and must not be treated as
+  // proven. A non-string result fails closed too rather than defaulting to safe.
   const confidence = confidenceFn(wt, baseRef);
-  if (typeof confidence === "string" && confidence.includes("NOT fully corroborated")) {
+  if (
+    typeof confidence !== "string" ||
+    confidence.includes("NOT fully corroborated") ||
+    confidence.includes("corroboration check failed")
+  ) {
     return { safe: false, reason: `removal blocked: ${confidence}` };
   }
 

@@ -8,6 +8,7 @@ import {
   ACTIVE_CI_RUN_STATES,
   autoMergeVerdict,
   changedFilesForRange,
+  defaultRunsFetch,
   driftVerdict,
   findInFlightCiRuns,
   findPrettierBin,
@@ -490,5 +491,23 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
   it("supports localRef === 'HEAD' in pushedTipMatchesHead", () => {
     expect(pushedTipMatchesHead([{ localSha: "sha123", localRef: "HEAD" }], "sha123").ok).toBe(true);
     expect(pushedTipMatchesHead([{ localSha: "sha123", localRef: "HEAD" }], "sha456").ok).toBe(false);
+  });
+
+  it("defaultRunsFetch scopes to ci.yml and pages past the default 10-run window (#HSSHRG)", () => {
+    let capturedArgs: string[] = [];
+    defaultRunsFetch("claude/my-fix", ((_cmd: string, args: string[]) => {
+      capturedArgs = args;
+      return "[]";
+    }) as unknown as typeof execFileSync);
+
+    expect(capturedArgs).toContain("run");
+    expect(capturedArgs).toContain("list");
+    expect(capturedArgs).toContain("--branch");
+    expect(capturedArgs).toContain("claude/my-fix");
+    expect(capturedArgs).toContain("--workflow");
+    expect(capturedArgs).toContain("ci.yml");
+    const limitIndex = capturedArgs.indexOf("--limit");
+    expect(limitIndex).not.toBe(-1);
+    expect(Number(capturedArgs[limitIndex + 1])).toBeGreaterThan(10);
   });
 });

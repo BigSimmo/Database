@@ -104,8 +104,10 @@ describe("MasterSearchHeader DOM", () => {
       expect(screen.getByRole("group", { name: "Search privacy notice" })).toBeInTheDocument();
     });
 
-    it("displays the patient-privacy warning on mobile layout when mobileHomeComposerPlacement is 'footer' (/tools)", () => {
-      // Emulate mobile phone screen width (< 640px)
+    it("omits the privacy notice on a footer-configured /tools result dock with no home slot", () => {
+      // Emulate mobile phone screen width (< 640px). A tools result route carries
+      // mobileHomeComposerPlacement="footer" but no desktop home composer slot, so
+      // the result dock must omit the notice to keep maximum content space.
       installMatchMediaStub(true);
 
       render(
@@ -117,9 +119,8 @@ describe("MasterSearchHeader DOM", () => {
         />,
       );
 
-      const privacyGroup = screen.getByRole("group", { name: "Search privacy notice" });
-      expect(privacyGroup).toBeInTheDocument();
-      expect(screen.getByTestId("answer-composer-privacy-warning")).toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Search privacy notice" })).toBeNull();
+      expect(screen.queryByTestId("answer-composer-privacy-warning")).toBeNull();
     });
 
     it("suppresses the privacy notice on mobile bottom dock when mobileHomeComposerPlacement is 'hero' and not home hero slot", () => {

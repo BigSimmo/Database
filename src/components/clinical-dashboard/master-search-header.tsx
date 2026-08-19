@@ -1814,9 +1814,12 @@ export function MasterSearchHeader({
     // Phones show the APP-5 notice on the home hero (the answer mode
     // home's in-flow composer) and footer mode homes (e.g. tools); result
     // bottom docks omit it so content keeps maximum screen space.
+    // `mobileHomeComposerPlacement === "footer"` alone is not enough: it is set
+    // for every /tools-prefixed route, so the home slot must also be present to
+    // distinguish the tools home from a tools result dock.
     // Tablet/desktop composers keep the site-wide notice everywhere.
     const showsComposerPrivacyNotice = usesPhoneSearchLayout
-      ? isDesktopHomeComposer || mobileHomeComposerPlacement === "footer"
+      ? isDesktopHomeComposer || (mobileHomeComposerPlacement === "footer" && Boolean(desktopHomeComposerSlotId))
       : true;
 
     const commandSurfacePlacement: CommandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";

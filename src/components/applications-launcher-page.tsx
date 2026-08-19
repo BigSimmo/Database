@@ -852,7 +852,7 @@ export function ApplicationsLauncherWorkspace({
           <DesktopComposerPortalSlot
             id={desktopComposerSlotId}
             data-composer-reserve={modeHomeComposerReservePendingValue}
-            className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
+            className="mode-home-composer-slot hidden w-full max-w-3xl sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
           />
         ) : (
           <ToolSearch

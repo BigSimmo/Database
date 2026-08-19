@@ -447,6 +447,8 @@ test.describe("phone PWA standalone mode bounded scroll shell (#71NT23)", () => 
       expect(initial.mainOverscrollBehaviorY, "main contains overscroll").toBe("contain");
       expect(initial.framePosition, "phone viewport frame is relative").toBe("relative");
       expect(initial.shellOverflowY, "shell bounds overflow").toBe("hidden");
+      expect(initial.shellHeight, "standalone shell matches viewport height").toBeCloseTo(phoneViewport.height, 0);
+      expect(initial.frameHeight, "phone viewport frame matches viewport height").toBeCloseTo(phoneViewport.height, 0);
       expect(initial.docScrollTop, "document remains un-scrolled").toBe(0);
 
       // Drag within the main scroller to trigger scroll-hide
@@ -478,11 +480,31 @@ test.describe("phone PWA standalone mode bounded scroll shell (#71NT23)", () => 
       const pageHeader = page.locator(selector).first();
       await expect(pageHeader).toBeVisible({ timeout: 20_000 });
 
+      const frame = page.locator(".phone-viewport-frame");
+      const frameBox = await frame.boundingBox();
+      expect(frameBox, "phone viewport frame is measurable").not.toBeNull();
+
+      const pageHeaderBox = await pageHeader.boundingBox();
+      expect(pageHeaderBox, "page header bounding box is measurable").not.toBeNull();
+      expect(pageHeaderBox!.x, "page header starts inside frame left bound").toBeGreaterThanOrEqual(frameBox!.x - 1);
+      expect(pageHeaderBox!.x + pageHeaderBox!.width, "page header stays inside frame right bound").toBeLessThanOrEqual(
+        frameBox!.x + frameBox!.width + 1,
+      );
+      expect(pageHeaderBox!.y, "page header starts at or below frame top").toBeGreaterThanOrEqual(frameBox!.y - 1);
+
       const overlayStack = page.locator('.phone-sticky-header-stack[data-phone-motion="overlay"]');
       if (phoneMotion === "overlay") {
         await expect(overlayStack).toHaveCount(1);
         const position = await overlayStack.evaluate((node) => getComputedStyle(node).position);
         expect(position, "overlay stack is absolute within relative frame in standalone mode").toBe("absolute");
+
+        const stackBox = await overlayStack.boundingBox();
+        expect(stackBox, "overlay stack bounding box is measurable").not.toBeNull();
+        expect(stackBox!.x, "overlay stack starts inside frame left bound").toBeGreaterThanOrEqual(frameBox!.x - 1);
+        expect(stackBox!.x + stackBox!.width, "overlay stack stays inside frame right bound").toBeLessThanOrEqual(
+          frameBox!.x + frameBox!.width + 1,
+        );
+        expect(stackBox!.y, "overlay stack starts at or below frame top").toBeGreaterThanOrEqual(frameBox!.y - 1);
       }
 
       await addPhoneScrollRunway(page);

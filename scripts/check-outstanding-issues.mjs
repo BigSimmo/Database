@@ -260,7 +260,8 @@ export function parseIssues(markdown) {
 // row plainly present in Open items, which made the optimistic-concurrency check
 // unreachable for exactly the rows that have it available (they carry a ULID).
 export function issueRowFingerprint(markdown, issueId) {
-  const id = String(issueId).trim();
+  const rawId = String(issueId).trim();
+  const id = rawId.toUpperCase();
   const legacy = id.match(/^#(\d+)$/);
   const number = legacy ? Number(legacy[1]) : null;
   if (legacy) {
@@ -661,6 +662,7 @@ function selfTest() {
 
   const fpLegacy = issueRowFingerprint(mixedLedger, "#001");
   const fpCrockford = issueRowFingerprint(mixedLedger, "#DREDWA");
+  const fpCrockfordLower = issueRowFingerprint(mixedLedger, "#dredwa");
   const fpAllDigit = issueRowFingerprint(mixedLedger, "#041061");
   const fpMissing = issueRowFingerprint(mixedLedger, "#999");
   const fpArchived = issueRowFingerprint(mixedLedger, "#002");
@@ -672,6 +674,10 @@ function selfTest() {
   if (!isValidIssueRowFingerprint(fpCrockford)) {
     failures += 1;
     console.error("self-test FAILED: issueRowFingerprint failed to resolve 26-char Crockford ULID #DREDWA");
+  }
+  if (!isValidIssueRowFingerprint(fpCrockfordLower) || fpCrockfordLower !== fpCrockford) {
+    failures += 1;
+    console.error("self-test FAILED: issueRowFingerprint failed to resolve lowercase Crockford display ID #dredwa");
   }
   if (!isValidIssueRowFingerprint(fpAllDigit)) {
     failures += 1;

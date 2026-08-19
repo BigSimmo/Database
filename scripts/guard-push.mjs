@@ -380,17 +380,23 @@ function defaultPrView(branch) {
   }
 }
 
-function defaultRunsFetch(branch) {
+export function defaultRunsFetch(branch, exec = execFileSync) {
   try {
-    const raw = execFileSync(
+    // Scope to the required CI workflow and page across the full run history. A
+    // bare `--limit 10` over every workflow can hide an older in-flight CI run
+    // behind newer non-CI runs, which would let the push through and cancel the
+    // run this guard exists to protect (#HSSHRG).
+    const raw = exec(
       "gh",
       [
         "run",
         "list",
         "--branch",
         branch,
+        "--workflow",
+        "ci.yml",
         "--limit",
-        "10",
+        "100",
         "--json",
         "databaseId,name,workflowName,status,conclusion,url,headSha",
       ],
