@@ -422,7 +422,7 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     ];
     const inFlight = findInFlightCiRuns(runs);
     expect(inFlight).toHaveLength(2);
-    expect(inFlight.map((r: any) => r.databaseId)).toEqual([1, 2]);
+    expect(inFlight.map((r: { databaseId: number }) => r.databaseId)).toEqual([1, 2]);
 
     const objPayload = {
       workflow_runs: [
@@ -430,7 +430,7 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
         { id: 11, path: ".github/workflows/ci.yml", status: "completed", conclusion: "failure" },
       ],
     };
-    expect(findInFlightCiRuns(objPayload).map((r: any) => r.id)).toEqual([10]);
+    expect(findInFlightCiRuns(objPayload).map((r: { id: number }) => r.id)).toEqual([10]);
   });
 
   it("blocks a push to an open PR when required CI is in-flight", () => {
@@ -460,7 +460,7 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
 
   it("inFlightCiGuard formats actionable blocked message with PR and run details", () => {
     const runs = [{ databaseId: 555, name: "CI", status: "in_progress", url: "https://github.com/run/555" }];
-    const result = inFlightCiGuard(["claude/my-fix"], [], {
+    const result = inFlightCiGuard(["claude/my-fix"], {
       prViewer: () => ({ state: "OPEN", number: 77 }),
       runFetcher: () => runs,
     });
@@ -475,7 +475,7 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     const previous = process.env.SKIP_IN_FLIGHT_CI_GUARD;
     process.env.SKIP_IN_FLIGHT_CI_GUARD = "1";
     try {
-      const result = inFlightCiGuard(["claude/my-fix"], [], {
+      const result = inFlightCiGuard(["claude/my-fix"], {
         prViewer: () => ({ state: "OPEN", number: 77 }),
         runFetcher: () => [{ databaseId: 555, name: "CI", status: "in_progress" }],
       });

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "cc60253d-6efe-44ab-a615-8584ab0983b6",
+  "createdOn": "2026-08-19",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "live-drift's Align migration history step fails on PGRST106 (supabase_migrations not exposed to PostgREST), so the job stays red and pinned issue #1963 cannot self-close even with zero drift",
+    "detail": "Exposed 2026-08-19 by Phase 6.2: live-drift run 32251326536 reported No unexpected schema drift (all 20 history rows allowed) but concluded failure because the next step, Align migration history for Supabase Preview (npm run check:migration-history, scripts/check-migration-history-alignment.ts, added in Phase 0 PR #1939), ran for the first time ever -- it was skipped on every earlier run because the compare step failed first, and the last green run (29700973962, 2026-07-19) predates it. It reads supabase_migrations.schema_migrations through PostgREST with Accept-Profile, which this project has never exposed (406 PGRST106: only public, graphql_public). The routing job therefore keeps #1963 open on job result even with an empty findings block. OPTIONS (owner decision): (a) expose supabase_migrations read-only to the service role in the dashboard; (b) rewrite the read onto the management API / supabase migration list using the SUPABASE_ACCESS_TOKEN secret (#183); (c) add a service-role RPC listing versions (new migration, own window). Until fixed, weekly live-drift stays red on that step alone; drift itself is green. Evidence: forensics section 6.2 completion step 6.",
+    "source": "Phase 6.2 session 2026-08-19; live-drift run 32251326536",
+    "issueUlid": "01M0CZ8XPMM54C4NDHX8VP2H8Z"
+  }
+}

@@ -405,11 +405,7 @@ function defaultRunsFetch(branch) {
   }
 }
 
-export function inFlightCiGuard(
-  branches,
-  ranges = [],
-  { prViewer = defaultPrView, runFetcher = defaultRunsFetch } = {},
-) {
+export function inFlightCiGuard(branches, { prViewer = defaultPrView, runFetcher = defaultRunsFetch } = {}) {
   if (process.env.SKIP_IN_FLIGHT_CI_GUARD === "1") {
     return { name: "in-flight-ci", ok: true, skipped: "SKIP_IN_FLIGHT_CI_GUARD=1" };
   }
@@ -1171,7 +1167,7 @@ function main() {
   // formatGuard reads the pushed blobs; drift/static only need the paths.
   const results = [
     autoMergeGuard(pushedBranches, forcePushBranches),
-    inFlightCiGuard(pushedBranches, ranges),
+    inFlightCiGuard(pushedBranches),
     formatGuard(collectChangedBlobs(ranges)),
     driftGuard(changedFiles),
     staticGuard(changedFiles, { ranges }),
@@ -1256,7 +1252,7 @@ function selfTest() {
     "inFlightCiVerdict never blocks base branch pushes",
   );
 
-  const mockBlockedGuard = inFlightCiGuard(["claude/feature"], [], {
+  const mockBlockedGuard = inFlightCiGuard(["claude/feature"], {
     prViewer: () => ({ state: "OPEN", number: 99 }),
     runFetcher: () => [activeCiRun],
   });

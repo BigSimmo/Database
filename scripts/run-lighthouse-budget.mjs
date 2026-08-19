@@ -64,6 +64,7 @@ import {
   processTimeoutMs,
   remainingMs,
 } from "./lighthouse-time-budget.mjs";
+import { routeWithLighthouseParams } from "./lib/lighthouse-route-params.mjs";
 import {
   appName,
   circularProjectPortRange,
@@ -255,6 +256,7 @@ process.once("exit", cleanup);
 const budget = loadBudget();
 const routes = budget.routes ?? [];
 const strategies = budget.strategies ?? ["mobile", "desktop"];
+
 /**
  * Pinned in `lighthouse-budget.json` so this runner and the live-domain workflow
  * share one version; `tests/check-lighthouse-budget.test.ts` fails if they drift.
@@ -385,7 +387,7 @@ try {
           ...npxInvocation.prefixArgs,
           "--yes",
           `lighthouse@${LIGHTHOUSE_VERSION}`,
-          `${baseUrl}${route}`,
+          `${baseUrl}${routeWithLighthouseParams(route)}`,
           "--output=json",
           `--output-path=${output}`,
           `--preset=${strategy === "desktop" ? "desktop" : "perf"}`,

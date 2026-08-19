@@ -239,7 +239,7 @@ test.describe("phone motion behaviour with OS Reduce Motion on", () => {
     await expect(progress).toBeVisible();
     let sweep = progress.locator('[data-slot="answer-activity-trace-sweep"]');
     await expect(sweep).toBeVisible();
-    let stateReduce = await sweep.evaluate((node) => {
+    const stateReduce = await sweep.evaluate((node) => {
       const style = getComputedStyle(node);
       return {
         animationName: style.animationName,
@@ -262,7 +262,7 @@ test.describe("phone motion behaviour with OS Reduce Motion on", () => {
     await expect(progress).toBeVisible();
     sweep = progress.locator('[data-slot="answer-activity-trace-sweep"]');
     await expect(sweep).toBeVisible();
-    let stateFull = await sweep.evaluate((node) => {
+    const stateFull = await sweep.evaluate((node) => {
       const style = getComputedStyle(node);
       return {
         animationName: style.animationName,

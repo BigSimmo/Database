@@ -121,9 +121,20 @@ credentials.
 5. Record completed cleanup reviews with `npm run ledger:append -- --ref <branch> --head <full-sha> --scope branch-cleanup --outcome <o> --checks <c>`. The scope cell must be exactly `branch-cleanup` for a later sweep to treat it as complete; `branch-cleanup-deletion-pending` deliberately does not count.
 6. Remove detached worktrees only when clean, unneeded, and absent from active `git worktree list` output.
 
-## Dev Drive Stale Worktree Pruning (Inbox `ec356a7d`)
+## Dev Drive Stale Worktree Pruning (Inbox `ec356a7d`, `#6SMMB4`)
 
 Worktrees accumulate across active multi-agent development fleets (e.g. on Dev Drive `D:` or secondary disks, where dozens of worktrees can hold ~19+ GB of duplicated `node_modules` at ~0.89 GB and ~50,000 files each). Stale worktrees compete for disk capacity, cause dependency drift, and contend on the cross-worktree test run coordinator lock (`scripts/run-heavy.mjs` / `scripts/test-run-lock.mjs`).
+
+### Dev Drive Trusted Package Cache (#6SMMB4)
+
+When operating multi-worktree fleets on a Windows Dev Drive (`D:`, ReFS), verify that the npm package cache (`D:\.npm-cache`) is registered as a Dev Drive trusted cache. If unverified or untrusted, Microsoft Defender real-time scanning inspects every `npm ci` extraction across all worktrees.
+
+From an **elevated administrator prompt**:
+
+```cmd
+fsutil devdrv query D:
+fsutil devdrv trust D:\.npm-cache
+```
 
 ### Safety Rules for Worktree Pruning
 
