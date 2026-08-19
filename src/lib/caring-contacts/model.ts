@@ -94,6 +94,13 @@ export function applyContactTransition(contact: Contact, action: ContactAction):
     case "cancel":
       return advance("cancelled");
     case "markMissed":
-      return contact.state === "scheduled" ? advance("missed") : { ok: false, reason: "contact-not-scheduled" };
+      // `processing` is accepted as well as `scheduled`. A provider timeout leaves a contact in
+      // `processing` having sent nothing, and without this it had no exit at all: `markSent` would
+      // claim a message that never left, `cancel` would say the plan stopped it, and the contact
+      // would sit in `processing` for ever -- neither sent nor accounted for. Recording it missed
+      // is the truthful ending, and it sends nothing.
+      return contact.state === "scheduled" || contact.state === "processing"
+        ? advance("missed")
+        : { ok: false, reason: "contact-not-missable" };
   }
 }

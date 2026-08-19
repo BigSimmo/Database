@@ -21,6 +21,7 @@ import {
 } from "@/lib/caring-contacts/ids";
 import { PROVISIONAL_MESSAGE_RULES } from "@/lib/caring-contacts/message-rules";
 import type { Actor, SystemActor } from "@/lib/caring-contacts/permissions";
+import { DEFAULT_CONTACT_RETRY_POLICY } from "@/lib/caring-contacts/service-rules";
 import type { EpisodePatientDetail, StoredContact } from "@/lib/caring-contacts/repository";
 import {
   driveTwelveMonthSimulation,
@@ -94,7 +95,8 @@ function simulationInput(overrides: Partial<SimulationInput> = {}): SimulationIn
     coordinator: COORDINATOR,
     dispatcher: DISPATCHER,
     auditor: AUDITOR,
-    retryPolicy: { maxAttempts: 3, retryIntervalMinutes: 45 },
+    // retryPolicy deliberately omitted: the governed default in ./service-rules is what the
+    // service actually runs, so the scenarios below exercise it rather than a fixture value.
     ...overrides,
   };
 }
@@ -264,6 +266,38 @@ describe("scenario 2: a transient failure retries inside the original window and
 });
 
 // ---------------------------------------------------------------------------
+// The retry policy is governed configuration, not a per-caller invention
+// ---------------------------------------------------------------------------
+
+describe("the retry policy has a governed home", () => {
+  it("is two retries, three attempts in total, and is the value the driver uses when none is given", async () => {
+    expect(DEFAULT_CONTACT_RETRY_POLICY).toEqual({ maxAttempts: 3, retryIntervalMinutes: 45 });
+
+    const run = await driveTwelveMonthSimulation(
+      simulationInput({ transport: scriptedTransport({ 1: ["transient", "transient", "delivered"] }) }),
+    );
+
+    const forFirst = run.attempts.filter((attempt) => attempt.sequence === 1);
+    expect(forFirst).toHaveLength(3);
+    expect(forFirst[1].at.getTime() - forFirst[0].at.getTime()).toBe(45 * 60_000);
+    expect(stateOf(run, 1)).toBe("delivered");
+  });
+
+  it("stays overridable, and an override does not disturb the default", async () => {
+    const run = await driveTwelveMonthSimulation(
+      simulationInput({
+        retryPolicy: { ...DEFAULT_CONTACT_RETRY_POLICY, maxAttempts: 1 },
+        transport: scriptedTransport({ 1: ["transient", "delivered"] }),
+      }),
+    );
+
+    expect(run.attempts.filter((attempt) => attempt.sequence === 1)).toHaveLength(1);
+    expect(stateOf(run, 1)).toBe("missed");
+    expect(DEFAULT_CONTACT_RETRY_POLICY.maxAttempts).toBe(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 3. Window boundary
 // ---------------------------------------------------------------------------
 
@@ -273,7 +307,8 @@ describe("scenario 3: retries that would leave the window are abandoned, never s
     const run = await driveTwelveMonthSimulation(
       simulationInput({
         plan: planInput({ sendingPreference: "earlyEvening" }),
-        retryPolicy: { maxAttempts: 3, retryIntervalMinutes: 45 },
+        // No retryPolicy: the governed default is 3 attempts 45 minutes apart, and the third
+        // landing outside the window is the interaction this scenario exists to prove.
         transport: scriptedTransport({ 3: ["transient", "transient", "delivered"] }),
       }),
     );

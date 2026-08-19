@@ -111,6 +111,26 @@ describe("contact lifecycle", () => {
     });
   });
 
+  it("lets a contact abandoned mid-processing be recorded as missed", () => {
+    // A provider timeout leaves the contact in `processing` with nothing sent. Before this it had
+    // no exit: the contact was stranded, neither sent nor accounted for.
+    const missed = applyContactTransition(baseContact("processing"), { type: "markMissed" });
+    expect(missed.ok && missed.value.state).toBe("missed");
+    expect(missed.ok && missed.value.version).toBe(2);
+  });
+
+  it("records a scheduled contact as missed when its window closes", () => {
+    const missed = applyContactTransition(baseContact("scheduled"), { type: "markMissed" });
+    expect(missed.ok && missed.value.state).toBe("missed");
+  });
+
+  it("refuses to record a sent contact as missed — the message really did leave", () => {
+    expect(applyContactTransition(baseContact("sent"), { type: "markMissed" })).toEqual({
+      ok: false,
+      reason: "contact-not-missable",
+    });
+  });
+
   it("rejects an out-of-order provider status", () => {
     const result = applyContactTransition(baseContact("scheduled"), {
       type: "providerStatus",

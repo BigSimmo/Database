@@ -18,6 +18,7 @@
 // reimplements any of them.
 import { buildAuditEvent, type AuditEvent, type AuditOutcome } from "./audit";
 import type { Clock } from "./clock";
+import { fingerprintOf } from "./fingerprint";
 import { applyHospitalStatusEvent, applyWithdrawalRequest, sendableContacts } from "./hospital-events";
 import { contactId } from "./ids";
 import type { PlanId, TeamId } from "./ids";
@@ -87,20 +88,6 @@ type WriteSpec<T> = {
   objectType?: string;
   stage: () => TransitionResult<StagedWrite<T>>;
 };
-
-/** Stable, order-independent serialisation, so a replayed request fingerprints identically. */
-function fingerprintOf(value: unknown): string {
-  if (value === null || value === undefined) return String(value);
-  if (value instanceof Date) return `D:${value.getTime()}`;
-  if (Array.isArray(value)) return `[${value.map(fingerprintOf).join(",")}]`;
-  if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .filter(([, entry]) => entry !== undefined)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    return `{${entries.map(([key, entry]) => `${key}:${fingerprintOf(entry)}`).join(",")}}`;
-  }
-  return `${typeof value}:${String(value)}`;
-}
 
 function clonePlanned(planned: PlannedContact): PlannedContact {
   const copy: PlannedContact = {

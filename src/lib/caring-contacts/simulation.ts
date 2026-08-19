@@ -16,8 +16,10 @@
 //                                  later day and be sent late;
 //   * whether a send may happen -> the store refuses; the driver does not pre-empt it.
 //
-// The one thing no module in Tasks 1-9 owns is a RETRY POLICY, so `retryPolicy` is a required
-// input rather than a constant invented here. See the task report for that finding.
+// The retry policy used to be a required caller input, because no module owned one. It now has a
+// governed home in ./service-rules, so `retryPolicy` is OPTIONAL and defaults to
+// DEFAULT_CONTACT_RETRY_POLICY. The driver still invents nothing -- it reads a value another
+// module owns, which is the same discipline, with the value somewhere a service owner can find it.
 //
 // Determinism: the only clock is the simulated one below, and the only source of provider
 // behaviour is the caller's `transport`. The same input always produces the same report.
@@ -28,17 +30,19 @@ import type { HospitalStatusEvent, WithdrawalOrigin } from "./hospital-events";
 import { idempotencyKey } from "./ids";
 import type { PathwayVersionId, PatientId, PlanId, ReferralId } from "./ids";
 import type { ProviderStatus, SendingPreference, TransitionResult } from "./model";
+import { DEFAULT_CONTACT_RETRY_POLICY, type ContactRetryPolicy } from "./service-rules";
 import { createInMemoryRepository } from "./in-memory-repository";
 import type { Actor, SystemActor } from "./permissions";
 import type { CaringContactRepository, EpisodePatientDetail, StoredContact, WriteContext } from "./repository";
 import { isWithinApprovedSendWindow, type PlannedContact } from "./schedule";
 
 /**
- * How many times a transient provider failure may be retried, and how far apart. No module in this
- * domain owns this policy, and inventing one here would be exactly the kind of rule this driver
- * must not add -- so the caller states it.
+ * How many times a transient provider failure may be retried, and how far apart.
+ *
+ * The type is ./service-rules' own, re-exported unchanged so existing callers keep resolving. This
+ * is a relocation, not a second policy shape.
  */
-export type RetryPolicy = { maxAttempts: number; retryIntervalMinutes: number };
+export type RetryPolicy = ContactRetryPolicy;
 
 export type TransportAttempt = {
   sequence: number;
@@ -93,7 +97,8 @@ export type SimulationInput = {
   dispatcher: SystemActor;
   /** Reads the audit trail for the report; holds no other capability. */
   auditor: Actor;
-  retryPolicy: RetryPolicy;
+  /** Defaults to DEFAULT_CONTACT_RETRY_POLICY. Override only to model a different service rule. */
+  retryPolicy?: RetryPolicy;
   events?: readonly SimulationEvent[];
   /** Defaults to a provider that accepts and delivers every message on the first attempt. */
   transport?: Transport;
@@ -150,6 +155,7 @@ function reasonOf(result: TransitionResult<unknown>): string {
 export async function driveTwelveMonthSimulation(input: SimulationInput): Promise<SimulationRun> {
   const skewMs = (input.clockSkewMinutes ?? 0) * MILLISECONDS_PER_MINUTE;
   const transport = input.transport ?? DEFAULT_TRANSPORT;
+  const retryPolicy = input.retryPolicy ?? DEFAULT_CONTACT_RETRY_POLICY;
   const attempts: TransportAttempt[] = [];
   const refusals: SimulationRefusal[] = [];
 
@@ -259,9 +265,9 @@ export async function driveTwelveMonthSimulation(input: SimulationInput): Promis
 
     let wentOut = false;
 
-    for (let attempt = 1; attempt <= input.retryPolicy.maxAttempts; attempt += 1) {
+    for (let attempt = 1; attempt <= retryPolicy.maxAttempts; attempt += 1) {
       const at = new Date(
-        planned.sendAt.getTime() + (attempt - 1) * input.retryPolicy.retryIntervalMinutes * MILLISECONDS_PER_MINUTE,
+        planned.sendAt.getTime() + (attempt - 1) * retryPolicy.retryIntervalMinutes * MILLISECONDS_PER_MINUTE,
       );
       advanceTo(at);
 
