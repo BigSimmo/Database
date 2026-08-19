@@ -670,14 +670,18 @@ test.describe("Ward Flow coordinator screen", () => {
 
     // Selecting WF-017's own eligible candidate makes referring available, and referring
     // records a real human decision on screen — never an automatic allocation triggered by
-    // merely selecting a row.
+    // merely selecting a row. Fix round 1: the record is `movement.referredUnitIds` itself
+    // (the "Parallel referral" badge), never a local optimistic flag, so this also proves the
+    // dispatch actually reached shared state rather than merely toggling local UI. WF-017
+    // already carries its own pre-existing "Parallel referral: BTY Adult Secure" from the
+    // fixture, so the pre-click assertion checks the SPECIFIC new referral is absent, not the
+    // phrase overall.
     await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
     await shortlist.locator('[data-testid="ward-shortlist-candidate-rph-adult-secure"]').click();
     await expect(referButton).not.toHaveAttribute("aria-disabled", "true");
-    await expect(shortlist).not.toContainText("Referred by a human coordinator");
+    await expect(shortlist).not.toContainText("Parallel referral: RPH Adult Secure");
     await referButton.click();
-    await expect(shortlist).toContainText("Referred by a human coordinator");
-    await expect(shortlist).toContainText("RPH Adult Secure");
+    await expect(shortlist).toContainText("Parallel referral: RPH Adult Secure");
   });
 
   /**
@@ -743,13 +747,14 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(shortlist.getByLabel(/Reason for overriding/)).toHaveCount(0);
     await expect(shortlist).not.toContainText("Overridden by a human coordinator");
 
-    // Choosing a candidate is what makes both available.
+    // Choosing a candidate is what makes both available. Fix round 1: the record below is
+    // `movement.referredUnitIds` itself (the "Parallel referral" badge), never a local
+    // optimistic flag.
     await shortlist.locator(`[data-testid="ward-shortlist-candidate-${wf017Default.unit.id}"]`).click();
     await expect(referButton).not.toHaveAttribute("aria-disabled", "true");
     await expect(overrideToggle).not.toHaveAttribute("aria-disabled", "true");
     await referButton.click();
-    await expect(shortlist).toContainText("Referred by a human coordinator");
-    await expect(shortlist).toContainText(wf017Default.unit.name);
+    await expect(shortlist).toContainText(`Parallel referral: ${wf017Default.unit.name}`);
 
     // WF-004 is the worst case the review found: a bed is already held elsewhere, and the default
     // candidate is a different ward entirely. The screen must never assert two destinations for
@@ -937,13 +942,82 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(shortlist).not.toContainText(/Confirm placement/);
   });
 
+  /**
+   * Task 5 fix round 1, Finding 1. `REFER_TO_UNITS` only accepts a movement at
+   * `placement_requested` or `destination_review`; WF-004 sits at `bed_held` — still open, still
+   * offering an eligible-shaped candidate on its shortlist — so Refer must never be reachable
+   * there, and must never claim success even under a forced activation. `force` is the stronger
+   * proof than merely checking `aria-disabled`: it proves the handler itself is inert, not only
+   * that the control looks disabled (the repo's `aria-disabled` pattern keeps a control
+   * focusable and clickable by design, so a forced click is a real, reachable activation).
+   */
+  test("never claims a referral succeeded on a non-referable movement", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const wf004 = requireMovement("WF-004");
+    expect(wf004.stage, "fixture assumption: WF-004 sits in a non-referable stage").toBe("bed_held");
+    const wf004Default = eligibleCandidates(wf004, NOW_ANCHOR, PARALLEL_REFERRAL_CAP)[0];
+    expect(
+      wf004Default,
+      "fixture assumption: WF-004 still has a candidate on offer despite being non-referable",
+    ).toBeTruthy();
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+
+    await queue.locator('[data-testid="ward-queue-row-WF-004"]').click();
+    await shortlist.locator(`[data-testid="ward-shortlist-candidate-${wf004Default.unit.id}"]`).click();
+
+    const refer = shortlist.getByRole("button", { name: /Refer/ });
+    await expect(refer).toHaveAttribute("aria-disabled", "true");
+    // The stated reason names the movement's own real stage, never a generic string.
+    await expect(refer).toHaveAttribute("title", /bed held/i);
+
+    await refer.click({ force: true });
+    await expect(shortlist).not.toContainText("Parallel referral");
+    await expect(shortlist).not.toContainText("Referred by a human coordinator");
+  });
+
+  /**
+   * Task 5 fix round 1, Finding 3: the first version of this test opened Exceptions with zero
+   * rejections ever raised and asserted `/refus/i`, which the empty-state copy itself contains —
+   * it could only ever catch the whole region disappearing. This raises a genuine refusal first
+   * (WF-004 again: Refer is unreachable there, but Override is deliberately NOT stage-gated —
+   * see the comment above `canOverride` in `shortlist-panel.tsx` — so it dispatches the same
+   * `REFER_TO_UNITS` event and the reducer refuses it for real) and then asserts the refusal's
+   * own specific content, including the reducer's real reason text.
+   */
   test("shows a refused transition instead of swallowing it", async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1100 });
     await gotoCoordinator(page);
 
+    const wf004 = requireMovement("WF-004");
+    const wf004Default = eligibleCandidates(wf004, NOW_ANCHOR, PARALLEL_REFERRAL_CAP)[0];
+    expect(wf004Default, "fixture assumption: WF-004 has a candidate to override into").toBeTruthy();
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+
+    await queue.locator('[data-testid="ward-queue-row-WF-004"]').click();
+    await shortlist.locator(`[data-testid="ward-shortlist-candidate-${wf004Default.unit.id}"]`).click();
+
+    const overrideToggle = shortlist.getByTestId("ward-shortlist-override-toggle");
+    await expect(overrideToggle).not.toHaveAttribute("aria-disabled", "true");
+    await overrideToggle.click();
+    await shortlist.getByLabel(/Reason for overriding/).fill("Testing a genuine reducer refusal.");
+    await shortlist.getByRole("button", { name: "Record override" }).click();
+
+    // The override never claims success — it was refused, and nothing here may say otherwise.
+    await expect(shortlist).not.toContainText("Overridden by a human coordinator");
+
+    // The refusal is visible, with its own real content — not merely the word "refus" surviving
+    // from an empty-state placeholder.
     const drawer = page.getByRole("button", { name: /Exceptions/ });
     await drawer.click();
-    // The refusals region exists even when empty, so a coordinator learns where to look.
-    await expect(page.getByRole("region", { name: "Exceptions" })).toContainText(/refus/i);
+    const exceptions = page.getByRole("region", { name: "Exceptions" });
+    await expect(exceptions).toContainText(/refus/i);
+    await expect(exceptions).toContainText("REFER_TO_UNITS");
+    await expect(exceptions).toContainText(`cannot refer a movement while it is ${wf004.stage}`);
   });
 });

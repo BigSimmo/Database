@@ -1,9 +1,20 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { EVENT_ROLE, type WardFlowEvent, type WardFlowRole } from "@/components/ward-management/ward-flow-events";
 import { EXAMINATION_TO_BED_WINDOW_MINUTES, PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
-import type { Movement, Rejection, Unit } from "@/components/ward-management/ward-model";
+import type { Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
 import { wardMovements } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
+
+/**
+ * Stages `REFER_TO_UNITS` accepts, exported so a UI surface can pre-check referability and gate
+ * its own control before dispatching — never optimistically claim a referral happened and let
+ * this be the thing that silently refuses it (Task 5 fix round 1: `ShortlistPanel` used to
+ * dispatch and unconditionally render success, so a movement at, say, `bed_held` — still open,
+ * still offering eligible candidates — showed "Referred by a human coordinator" while nothing
+ * had happened). A single shared constant, used here AND by `ward-derivations.ts`'s
+ * `referralBlockedReason`, so the two checks can never drift apart.
+ */
+export const REFERRABLE_MOVEMENT_STAGES: readonly MovementStage[] = ["placement_requested", "destination_review"];
 
 /**
  * The whole of Task 3 onward is proved against this shape. Units live in state, not just
@@ -191,7 +202,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           `cannot refer to ${event.unitIds.length} units at once — the parallel cap is ${PARALLEL_REFERRAL_CAP}`,
         );
       }
-      if (movement.stage !== "placement_requested" && movement.stage !== "destination_review") {
+      if (!REFERRABLE_MOVEMENT_STAGES.includes(movement.stage)) {
         return reject(state, event, `cannot refer a movement while it is ${movement.stage}`);
       }
       const unknown = event.unitIds.find((unitId) => !findUnit(state, unitId));

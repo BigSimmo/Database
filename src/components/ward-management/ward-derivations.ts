@@ -28,6 +28,7 @@ import {
 } from "@/components/ward-management/ward-model";
 import { bedReleases, wardMovements } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments, allUnits, siteByCode, unitById } from "@/components/ward-management/ward-sites";
+import { REFERRABLE_MOVEMENT_STAGES } from "@/components/ward-management/ward-flow-reducer";
 
 /** UI-only role concept; not part of the domain model. */
 export type WardRole = "flow" | "ed" | "ward";
@@ -97,6 +98,25 @@ export function elapsedLabel(movement: Movement, now: Instant) {
  */
 export function isOpen(movement: Movement): boolean {
   return !movement.closure && movement.stage !== "arrived";
+}
+
+/**
+ * Whether `wardFlowReducer`'s `REFER_TO_UNITS` case would actually accept a referral for this
+ * movement right now, and if not, why — named from the movement's own real stage via `stageCopy`,
+ * never a generic string. Built on the reducer's own exported `REFERRABLE_MOVEMENT_STAGES`
+ * (not a second, hand-copied stage list) so a UI surface's pre-check and the reducer's own guard
+ * can never silently drift apart.
+ *
+ * Task 5 fix round 1: `ShortlistPanel` used to dispatch `REFER_TO_UNITS` and unconditionally
+ * render "Referred by a human coordinator" regardless of what the reducer actually did with it.
+ * Nine of the eighteen hand-authored fixture movements sit in a non-referable stage (e.g.
+ * `bed_held`) while still open and still offering eligible candidates — for every one of them the
+ * old code showed a successful referral that never happened. This lets the Refer control state
+ * the real reason up front instead of advertising an action it cannot perform.
+ */
+export function referralBlockedReason(movement: Movement): string | undefined {
+  if (REFERRABLE_MOVEMENT_STAGES.includes(movement.stage)) return undefined;
+  return `${movement.id} cannot be referred while it is ${stageCopy[movement.stage].label.toLowerCase()} — referral is only available while placement is requested or a destination is under review.`;
 }
 
 /**

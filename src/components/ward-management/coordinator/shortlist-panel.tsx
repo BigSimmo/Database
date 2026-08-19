@@ -8,6 +8,7 @@ import {
   candidateReason,
   destinationUnit,
   eligibleCandidates,
+  referralBlockedReason,
   restrictionNotice,
   unitCapacity,
 } from "@/components/ward-management/ward-derivations";
@@ -29,16 +30,19 @@ type ShortlistPanelProps = {
 };
 
 /**
- * Task 5: the on-screen acknowledgement of the last human decision made against this movement.
- * The durable truth lives in `movement.referredUnitIds` (rendered as the "Parallel referral"
- * badges below, sourced from the live provider) — this is the transient "you just did this"
- * record, the same role `Confirmation` played before Refer replaced Confirm. Override still
- * carries the only place its reason is recorded anywhere: `REFER_TO_UNITS` has no reason field,
- * so a typed override reason is never written to shared state, only shown here.
+ * Task 5 fix round 1. Refer no longer carries any local "you just did this" record — see the
+ * comment above `handleRefer` for why: the "Parallel referral" badges above already render
+ * straight from `movement.referredUnitIds`, the reducer's own live output, so a second,
+ * optimistic local flag would only ever be a second place for the truth to diverge from.
+ *
+ * Override still needs local state, because the typed reason has nowhere else to live —
+ * `REFER_TO_UNITS` carries no reason field, so a typed override reason is never written to
+ * shared state. But this record is never trusted at face value: `overrideSucceeded` below reads
+ * `movement.referredUnitIds` fresh on every render and only renders a success message when those
+ * ids are actually present there, so a refused override (the movement was not in a referable
+ * stage, or any other reducer-side reason) can never be reported as one that happened.
  */
-type ReferralRecord =
-  | { kind: "refer"; unitIds: string[]; at: Instant }
-  | { kind: "override"; unitIds: string[]; at: Instant; reason: string };
+type OverrideRecord = { unitIds: string[]; at: Instant; reason: string };
 
 /**
  * Human labels for the eight `eligibility()` gates. Order here is irrelevant — the rendered list
@@ -112,7 +116,7 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
     [activeVerdict],
   );
 
-  const [confirmation, setConfirmation] = useState<ReferralRecord | undefined>(undefined);
+  const [overrideRecord, setOverrideRecord] = useState<OverrideRecord | undefined>(undefined);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
   const [confirmationMovementId, setConfirmationMovementId] = useState(movement?.id);
@@ -131,7 +135,7 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
   // effect body calling `setState` synchronously forces an extra, avoidable render pass.
   if (movement?.id !== confirmationMovementId) {
     setConfirmationMovementId(movement?.id);
-    setConfirmation(undefined);
+    setOverrideRecord(undefined);
     setOverrideOpen(false);
     setOverrideReason("");
     setReferTargets([]);
@@ -185,19 +189,32 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
   const referredCandidates = referTargets.map((unitId) => shortlist.find((candidate) => candidate.unit.id === unitId));
   const hasReferSelection = referTargets.length > 0;
   const allSelectedEligible = referredCandidates.every((candidate) => candidate?.verdict.eligible === true);
-  const canRefer = hasReferSelection && allSelectedEligible;
-  // Override carries the SAME "a human actually chose this" guard, for the same reason — it is not
-  // a lesser path. The phase's rule is "a human confirms OR overrides, always, with the reason
-  // recorded", so override is the other half of the same human decision. Unlike Refer, it does not
-  // require every selected ward to be eligible: overriding into an ineligible ward with a stated
-  // reason is exactly the escape hatch this control exists for.
+  // Fix round 1, Finding 1: `REFER_TO_UNITS` only accepts a movement at `placement_requested` or
+  // `destination_review` (`ward-flow-reducer.ts`'s `REFERRABLE_MOVEMENT_STAGES`) — nine of the
+  // eighteen hand-authored fixture movements sit outside that, at stages like `bed_held`, while
+  // still open and still offering eligible candidates. Refer used to dispatch anyway and
+  // unconditionally claim success, so a coordinator on one of those nine read "Referred by a
+  // human coordinator" while the reducer had silently refused every one of them. Folding this
+  // into `canRefer` stops the control from ever advertising an action it cannot perform — the
+  // stated reason below names the movement's own real stage, never a generic string.
+  const referralBlocked = referralBlockedReason(movement);
+  const canRefer = hasReferSelection && allSelectedEligible && referralBlocked === undefined;
+  // Override deliberately carries only the explicit-selection guard, NOT the stage guard above.
+  // It is the "a human decided to try anyway, with a stated reason" path — for an ineligible
+  // candidate (its original purpose) and, now, for a non-referable stage too. Its own success
+  // message is never optimistic either: `overrideSucceeded` below reads `movement.referredUnitIds`
+  // fresh, so an override attempted against a non-referable movement is refused by the reducer
+  // exactly like Refer would be, the refusal surfaces on the Exceptions drawer via `rejections`,
+  // and no local flag here is ever left claiming a success that did not happen.
   const canOverride = hasReferSelection;
   const firstIneligibleSelected = referredCandidates.find((candidate) => candidate && !candidate.verdict.eligible);
-  const referUnavailableReason = !hasReferSelection
-    ? "Choose at least one candidate ward before referring — nothing is referred against a default."
-    : firstIneligibleSelected
-      ? `Not eligible — ${candidateReason(firstIneligibleSelected.verdict)}. Use Override instead.`
-      : "Eligibility could not be determined for one of the selected wards.";
+  const referUnavailableReason = referralBlocked
+    ? referralBlocked
+    : !hasReferSelection
+      ? "Choose at least one candidate ward before referring — nothing is referred against a default."
+      : firstIneligibleSelected
+        ? `Not eligible — ${candidateReason(firstIneligibleSelected.verdict)}. Use Override instead.`
+        : "Eligibility could not be determined for one of the selected wards.";
   const overrideUnavailableReason =
     "Choose at least one candidate ward before overriding — nothing is overridden against a default.";
   const activeNotice = activeUnit ? restrictionNotice(movement, activeUnit) : undefined;
@@ -215,10 +232,16 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
     });
   }
 
+  /**
+   * Dispatches `REFER_TO_UNITS` and nothing else — deliberately no local "it worked" flag.
+   * `canRefer` already gates on `referralBlockedReason`, so this can only be reached when the
+   * reducer is expected to accept the event; the honest record of whether it actually did is
+   * `movement.referredUnitIds` on the next render (the "Parallel referral" badges above), sourced
+   * straight from the provider, never a value this function sets and then leaves behind.
+   */
   function handleRefer() {
     if (!canRefer) return;
     dispatch({ type: "REFER_TO_UNITS", role: "coordinator", now, movementId, unitIds: [...referTargets] });
-    setConfirmation({ kind: "refer", unitIds: [...referTargets], at: now });
     setOverrideOpen(false);
   }
 
@@ -228,13 +251,24 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
     const reason = overrideReason.trim();
     if (reason.length === 0) return;
     dispatch({ type: "REFER_TO_UNITS", role: "coordinator", now, movementId, unitIds: [...referTargets] });
-    setConfirmation({ kind: "override", unitIds: [...referTargets], at: now, reason });
+    setOverrideRecord({ unitIds: [...referTargets], at: now, reason });
     setOverrideOpen(false);
     setOverrideReason("");
   }
 
-  const confirmationUnits = confirmation
-    ? confirmation.unitIds.map((id) => unitById(id)?.name ?? "an unresolved unit")
+  // Structurally incapable of claiming an override succeeded when it did not: this checks the
+  // movement's OWN post-dispatch `referredUnitIds` — read fresh on every render from the live
+  // provider — not a flag captured once at click time. Override is not stage-gated (see the
+  // comment above `canOverride`), so a movement outside `REFERRABLE_MOVEMENT_STAGES` really can
+  // reach this dispatch; when the reducer refuses it, `referredUnitIds` is untouched, every id
+  // below is missing, `overrideSucceeded` is `false`, and nothing renders here — the refusal is
+  // instead visible through `rejections` on the Exceptions drawer.
+  const overrideSucceeded =
+    overrideRecord !== undefined &&
+    overrideRecord.unitIds.length > 0 &&
+    overrideRecord.unitIds.every((id) => movement.referredUnitIds.includes(id));
+  const overrideRecordUnits = overrideRecord
+    ? overrideRecord.unitIds.map((id) => unitById(id)?.name ?? "an unresolved unit")
     : [];
 
   return (
@@ -491,11 +525,13 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
           once.
         </p>
 
-        {confirmation ? (
+        {/* Task 5 fix round 1: rendered only when `overrideSucceeded` — a real check against
+            `movement.referredUnitIds`, not the mere existence of `overrideRecord`. A refused
+            override leaves this silent here; the refusal is visible on the Exceptions drawer
+            instead (`rejections`), never claimed as a success on this footer. */}
+        {overrideRecord && overrideSucceeded ? (
           <p className={styles.shortlistConfirmationRecord} data-testid="ward-shortlist-confirmation-record">
-            {confirmation.kind === "refer"
-              ? `Referred by a human coordinator to ${confirmationUnits.join(", ")} at ${formatInstant(confirmation.at)}. Up to ${PARALLEL_REFERRAL_CAP} parallel referrals allowed; no bed has been allocated automatically.`
-              : `Overridden by a human coordinator — referred to ${confirmationUnits.join(", ")} at ${formatInstant(confirmation.at)} — reason: "${confirmation.reason}". No bed was allocated automatically.`}
+            {`Overridden by a human coordinator — referred to ${overrideRecordUnits.join(", ")} at ${formatInstant(overrideRecord.at)} — reason: "${overrideRecord.reason}". No bed was allocated automatically.`}
           </p>
         ) : null}
 
