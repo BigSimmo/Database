@@ -37,7 +37,7 @@ const expectedPresentations = [
   },
   {
     modeId: "favourites",
-    title: "Clinical Favourites",
+    title: "Favourites",
     subtitle: "Saved notes, sources, and sets.",
     iconClass: "lucide-heart",
   },
@@ -129,11 +129,11 @@ describe("SharedHomeEmptyState", () => {
       expect(icon).toHaveClass(iconClass);
       expect(icon).toHaveAttribute("aria-hidden", "true");
 
-      // No mode home carries a caveat line under the composer any more, and no
-      // mode may reintroduce one as filler: the presentation table is exactly a
-      // title and a subtitle.
+      // No mode home carries a caveat line under the composer any more. The
+      // shared-home table now also feeds mode-specific starter suggestions, so
+      // the contract is title + subtitle + suggestions — and nothing else.
       const presentation: SharedHomePresentation = sharedHomePresentation[modeId];
-      expect(Object.keys(presentation).sort()).toEqual(["subtitle", "title"]);
+      expect(Object.keys(presentation).sort()).toEqual(["subtitle", "suggestions", "title"]);
     },
   );
 

@@ -17,65 +17,83 @@ import type { AppModeId } from "@/lib/app-modes";
 export type SharedHomePresentation = {
   title: string;
   subtitle: string;
+  suggestions: readonly string[];
 };
 
 /**
  * Per-mode copy for the one shared home at `/`.
  *
  * `/` is the single home page for every mode — the mode pill retargets the
- * composer rather than navigating (see `appModeSelectionHref`), so this table is
- * the *only* thing that changes between modes on that page. Each entry mirrors
- * the mode's own standalone home (`*-home-page.tsx`) so a clinician sees the
- * same words whichever door they came through.
+ * composer rather than navigating (see `appModeSelectionHref`), so this table
+ * drives the mode-specific hero title and subtitle on that page.
+ *
+ * Titles here provide full descriptive clinical labels (e.g. "Clinical Services",
+ * "Differential Diagnosis", "Medication Guidance", "Patient Factsheets",
+ * "Clinical Dictionary") while standalone mode surfaces and workspaces
+ * (`*-home-page.tsx`, `medication-prescribing-workspace.tsx`, etc.) present
+ * concise mode titles ("Services", "Differentials", "Medication", "Factsheets",
+ * "Dictionary") with matched subtitles and clinical intent.
  */
 export const sharedHomePresentation = {
   answer: {
     title: "Clinical Answers",
     subtitle: "Ask a clinical question or search your documents.",
+    suggestions: ["lithium level timing", "clozapine ANC monitoring", "ECT consent requirements"],
   },
   documents: {
     title: "Clinical Documents",
     subtitle: "Open, browse, and continue reading your clinical sources.",
+    suggestions: ["clozapine ANC thresholds", "lithium monitoring table", "QT prolongation quote"],
   },
   services: {
     title: "Clinical Services",
     subtitle: "Search by need, catchment, or route.",
+    suggestions: ["crisis ATSI phone WA", "perinatal psychiatry metro", "older adult CMH Fremantle"],
   },
   forms: {
     title: "Clinical Forms",
     subtitle: "The WA MHA 2014 forms register.",
+    suggestions: ["transport order", "Form 3A detention", "extension of transport"],
   },
   favourites: {
-    title: "Clinical Favourites",
+    title: "Favourites",
     subtitle: "Saved notes, sources, and sets.",
+    suggestions: ["ward round set", "pinned monitoring tables", "clozapine clinic"],
   },
   differentials: {
     title: "Differential Diagnosis",
     subtitle: "Match your catalogue to your library.",
+    suggestions: ["acute confusion", "first episode psychosis", "catatonia vs NMS"],
   },
   dsm: {
     title: "DSM-5 Diagnosis",
     subtitle: "Criteria, specifiers, and comparisons.",
+    suggestions: ["major depressive disorder", "F31.81", "panic disorder criteria"],
   },
   specifiers: {
     title: "Diagnostic Specifiers",
     subtitle: "Check specifier fit and exclusions.",
+    suggestions: ["depressed but racing thoughts", "returns every winter", "much better but not fully recovered"],
   },
   formulation: {
     title: "Clinical Formulation",
     subtitle: "Build a formulation from the evidence.",
+    suggestions: ["avoidance after panic", "rumination after rejection", "dissociation under threat"],
   },
   prescribing: {
     title: "Medication Guidance",
     subtitle: "Medication dosing and safety.",
+    suggestions: ["acamprosate renal", "naltrexone dose ceiling", "disulfiram counselling"],
   },
   tools: {
     title: "Clinical Tools",
     subtitle: "Clinical tools and applications.",
+    suggestions: ["renal calculator", "dose converter", "clinical forms"],
   },
   calculators: {
     title: "Clinical Calculators",
     subtitle: "Validated psychiatry scores with the indication, items, and next actions in one place.",
+    suggestions: ["depression severity", "anxiety screening", "alcohol use"],
   },
   "therapy-compass": {
     // "Therapy", not "Therapy Compass": the mode's own copy rule, pinned by
@@ -83,14 +101,17 @@ export const sharedHomePresentation = {
     // followed. This title became user-visible when that home was consolidated here.
     title: "Therapy",
     subtitle: "Source-grounded therapy records.",
+    suggestions: ["trauma-focused CBT", "behavioural activation", "insomnia"],
   },
   factsheets: {
     title: "Patient Factsheets",
     subtitle: "Plain-language patient handouts.",
+    suggestions: ["sertraline", "lithium monitoring", "CBT"],
   },
   dictionary: {
     title: "Clinical Dictionary",
     subtitle: "Source-governed psychiatric terms, abbreviations, and distinctions.",
+    suggestions: ["mental state examination", "auditory hallucination", "ACT"],
   },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 

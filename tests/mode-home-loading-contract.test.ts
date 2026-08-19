@@ -15,6 +15,9 @@ const MODE_HOME_LOADING_ROUTES = [
   "therapy-compass",
   "factsheets",
   "tools",
+  "medications",
+  "calculators",
+  "dictionary",
 ] as const;
 
 describe("mode-home loading contract", () => {

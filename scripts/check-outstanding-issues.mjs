@@ -260,7 +260,8 @@ export function parseIssues(markdown) {
 // row plainly present in Open items, which made the optimistic-concurrency check
 // unreachable for exactly the rows that have it available (they carry a ULID).
 export function issueRowFingerprint(markdown, issueId) {
-  const id = String(issueId).trim();
+  const rawId = String(issueId).trim();
+  const id = rawId.toUpperCase();
   const legacy = id.match(/^#(\d+)$/);
   const number = legacy ? Number(legacy[1]) : null;
   if (legacy) {
@@ -570,6 +571,26 @@ function selfTest() {
       0,
     ],
     [
+      "a 26-char Crockford ULID issue id (#DREDWA)",
+      good
+        .replace("`#001`", "`#DREDWA`")
+        .replace(
+          "| #001 | P2 | a |",
+          "| #DREDWA <!-- issue-ulid:01M09A9WXBDREDWA7KN2EB1JRA --> | P2 | Crockford ULID row |",
+        ),
+      0,
+    ],
+    [
+      "an all-digit Crockford display id (#041061)",
+      good
+        .replace("`#001`", "`#041061`")
+        .replace(
+          "| #001 | P2 | a |",
+          "| #041061 <!-- issue-ulid:01M00000000410610123456789 --> | P2 | All-digit Crockford locator |",
+        ),
+      0,
+    ],
+    [
       "a modern display id without its durable identity",
       good.replace("`#001`", "`#ABCDEF`").replace("| #001 | P2 | a |", "| #ABCDEF | P2 | a |"),
       2,
@@ -581,6 +602,14 @@ function selfTest() {
         .replace("| #001 | P2 | a |", "| #ABCDEF <!-- issue-ulid:0000000000ABCDEF0000000000 --> | P2 | a |")
         .replace("| #002 | b |", "| #ABCDEF0 <!-- issue-ulid:0000000000ABCDEF0000000000 --> | b |"),
       1,
+    ],
+    [
+      "an invalid 26-char ULID carrying forbidden Crockford characters (I/L/O/U)",
+      good.replace(
+        "| #001 | P2 | a |",
+        "| #DREDWA <!-- issue-ulid:01M09A9WXBDREDWA7KN2EBIJRA --> | P2 | Bad char I in ULID |",
+      ),
+      2,
     ],
   ];
   let failures = 0;
@@ -607,6 +636,63 @@ function selfTest() {
   }
   if (failures > 0) process.exit(1);
 
+  // Validate issueRowFingerprint on legacy numeric IDs and 26-char Crockford ULIDs
+  const mixedLedger = [
+    "<!-- issues:next-id=3 -->",
+    "## Recommended execution queue",
+    PRETTIER_IGNORE,
+    "| Order | ID(s) |",
+    "| --- | --- |",
+    "| 1 | `#001` |",
+    "| 2 | `#DREDWA` |",
+    "| 3 | `#041061` |",
+    "## Open items",
+    PRETTIER_IGNORE,
+    "| ID | Pri | Summary |",
+    "| --- | --- | --- |",
+    "| #001 | P2 | legacy row |",
+    "| #DREDWA <!-- issue-ulid:01M09A9WXBDREDWA7KN2EB1JRA --> | P2 | Crockford ULID row |",
+    "| #041061 <!-- issue-ulid:01M00000000410610123456789 --> | P2 | All-digit Crockford locator |",
+    "## Resolved / archive",
+    PRETTIER_IGNORE,
+    "| ID | Summary |",
+    "| --- | --- |",
+    "| #002 | b |",
+  ].join("\n");
+
+  const fpLegacy = issueRowFingerprint(mixedLedger, "#001");
+  const fpCrockford = issueRowFingerprint(mixedLedger, "#DREDWA");
+  const fpCrockfordLower = issueRowFingerprint(mixedLedger, "#dredwa");
+  const fpAllDigit = issueRowFingerprint(mixedLedger, "#041061");
+  const fpMissing = issueRowFingerprint(mixedLedger, "#999");
+  const fpArchived = issueRowFingerprint(mixedLedger, "#002");
+
+  if (!isValidIssueRowFingerprint(fpLegacy)) {
+    failures += 1;
+    console.error("self-test FAILED: issueRowFingerprint failed to resolve legacy numeric ID #001");
+  }
+  if (!isValidIssueRowFingerprint(fpCrockford)) {
+    failures += 1;
+    console.error("self-test FAILED: issueRowFingerprint failed to resolve 26-char Crockford ULID #DREDWA");
+  }
+  if (!isValidIssueRowFingerprint(fpCrockfordLower) || fpCrockfordLower !== fpCrockford) {
+    failures += 1;
+    console.error("self-test FAILED: issueRowFingerprint failed to resolve lowercase Crockford display ID #dredwa");
+  }
+  if (!isValidIssueRowFingerprint(fpAllDigit)) {
+    failures += 1;
+    console.error("self-test FAILED: issueRowFingerprint failed to resolve all-digit Crockford locator #041061");
+  }
+  if (fpMissing !== null) {
+    failures += 1;
+    console.error("self-test FAILED: issueRowFingerprint must return null for missing ID");
+  }
+  if (fpArchived !== null) {
+    failures += 1;
+    console.error("self-test FAILED: issueRowFingerprint must return null for archived ID");
+  }
+  if (failures > 0) process.exit(1);
+
   const deletionCases = [
     ["an unchanged id set", good, []],
     ["an open row deleted from both tables", good.replace("| #001 | P2 | a |\n", ""), ["#001"]],
@@ -616,12 +702,19 @@ function selfTest() {
       [],
     ],
     ["a newly allocated row", good.replace("| #001 | P2 | a |", "| #001 | P2 | a |\n| #003 | P3 | c |"), []],
+    [
+      "a Crockford ULID row deleted from both tables",
+      mixedLedger.replace("| #DREDWA <!-- issue-ulid:01M09A9WXBDREDWA7KN2EB1JRA --> | P2 | Crockford ULID row |\n", ""),
+      ["#DREDWA"],
+    ],
   ];
   for (const [name, current, expected] of deletionCases) {
-    const actual = missingIssueIds(good, current);
-    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    // Only compare expected if the base ledger matches the test case
+    const base = name.includes("Crockford") ? mixedLedger : good;
+    const resolvedActual = missingIssueIds(base, current);
+    if (JSON.stringify(resolvedActual) !== JSON.stringify(expected)) {
       failures += 1;
-      console.error(`self-test FAILED: ${name} — expected missing ${expected}, got ${actual}`);
+      console.error(`self-test FAILED: ${name} — expected missing ${expected}, got ${resolvedActual}`);
     }
   }
   if (failures > 0) process.exit(1);

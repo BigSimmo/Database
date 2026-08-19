@@ -1589,7 +1589,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       element.scrollTop = element.scrollHeight;
       element.style.scrollBehavior = previous;
     });
-    await expect(settings.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
+    await expect(settings.getByRole("button", { name: "Development", exact: true })).toHaveAttribute(
       "aria-current",
       "true",
     );

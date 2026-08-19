@@ -1555,6 +1555,25 @@ function DocumentSearchResultsPanelImpl({
             desktopComposerSlotId={desktopComposerSlotId}
           />
         )
+      ) : sortedMatches.length === 0 ? (
+        // Facet toggles empty this list without a navigation. The shared
+        // empty state leads with Remove / Clear all against the chips
+        // that caused it (F11); the band's `role="status"` already
+        // re-announced the zero count, so the empty state suppresses its
+        // own live region on the filtered path to avoid a double polite
+        // announcement for one interaction.
+        <div data-testid="document-filter-empty-results" className="w-full">
+          <SearchResultsEmptyState
+            modeId="documents"
+            query={trimmedQuery}
+            appliedFilters={appliedFilters}
+            onClearFilters={clearAllFilters}
+            onBrowseAll={onOpenLibrary}
+            browseAllLabel={
+              documentCount > 0 ? `Browse all ${documentCount.toLocaleString()} sources` : "Browse all sources"
+            }
+          />
+        </div>
       ) : (
         <>
           {showResultsControls && !showFilterControl ? browseLibraryControl : null}
@@ -1568,26 +1587,6 @@ function DocumentSearchResultsPanelImpl({
           ) : null}
           <div className="grid gap-3 sm:gap-4">
             <div className="min-w-0 space-y-2.5 sm:space-y-3">
-              {sortedMatches.length === 0 ? (
-                // Facet toggles empty this list without a navigation. The shared
-                // empty state leads with Remove / Clear all against the chips
-                // that caused it (F11); the band's `role="status"` already
-                // re-announced the zero count, so the empty state suppresses its
-                // own live region on the filtered path to avoid a double polite
-                // announcement for one interaction.
-                <div data-testid="document-filter-empty-results">
-                  <SearchResultsEmptyState
-                    modeId="documents"
-                    query={trimmedQuery}
-                    appliedFilters={appliedFilters}
-                    onClearFilters={clearAllFilters}
-                    onBrowseAll={onOpenLibrary}
-                    browseAllLabel={
-                      documentCount > 0 ? `Browse all ${documentCount.toLocaleString()} sources` : "Browse all sources"
-                    }
-                  />
-                </div>
-              ) : null}
               <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
                 {renderedMatches.map((document, index) => {
                   const relevanceDisplay = relevanceTone(document);

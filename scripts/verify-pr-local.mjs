@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { childProcessExitCode } from "./child-process-result.mjs";
-import { DEV_SERVER_BUILD_REFUSED_EXIT_CODE } from "./guard-next-build.mjs";
+import { DEV_SERVER_BUILD_REFUSED_EXIT_CODE, findRunningProjectServer } from "./guard-next-build.mjs";
 
 const isWindows = process.platform === "win32";
 // Live Supabase audits (check:locality-metadata) stay out of this unconditional gate.
@@ -154,7 +154,7 @@ export function summarizePrLocalRun(scripts, progress) {
     lines.push(`- failed: ${failedScript} (exit ${failedExitCode})`);
     if (failedScript === "build" && failedExitCode === DEV_SERVER_BUILD_REFUSED_EXIT_CODE) {
       lines.push(
-        `- note: production build was refused while the Clinical KB dev server is running (BUILD_REFUSED_DEV_SERVER). This is a failed gate, not a skip.`,
+        `- note: production build was refused while the Clinical KB dev server is running (BUILD_REFUSED_DEV_SERVER). This is a failed gate, not a skip. Advice: Stop the dev server process, clear .next, and re-run verify:pr-local (or set ALLOW_BUILD_WITH_DEV_SERVER=1).`,
       );
     }
   } else {
@@ -162,6 +162,33 @@ export function summarizePrLocalRun(scripts, progress) {
   }
   lines.push(`- not reached: ${notReached.length ? notReached.join(", ") : "(none)"}`);
   return lines.join("\n");
+}
+
+/**
+ * Pre-check for running dev server before executing PR-local build step (#G4M3DV).
+ * Warns early with actionable advice so an active `npm run ensure` / dev server
+ * process doesn't cause a surprising BUILD_REFUSED_DEV_SERVER failure.
+ */
+export async function checkDevServerPreflight(
+  scripts,
+  { findServer = findRunningProjectServer, warn = console.warn, env = process.env } = {},
+) {
+  if (!scripts.includes("build") || env.ALLOW_BUILD_WITH_DEV_SERVER === "1") {
+    return null;
+  }
+
+  const runningPort = await findServer();
+  if (runningPort) {
+    warn(
+      [
+        `\n[verify:pr-local] WARNING: Clinical KB dev server is running on http://localhost:${runningPort}.`,
+        "The upcoming 'build' step will fail with BUILD_REFUSED_DEV_SERVER (exit 76).",
+        "Advice: Stop the running dev server process before the build step, or set ALLOW_BUILD_WITH_DEV_SERVER=1.",
+      ].join("\n"),
+    );
+    return runningPort;
+  }
+  return null;
 }
 
 export function runPrLocalScripts(
@@ -196,7 +223,7 @@ function assertPlan(name, scope, expected, extended = false) {
   }
 }
 
-function selfTest() {
+async function selfTest() {
   assertPlan("docs-only", { docs_changed: true }, [...commonScripts, ...docsScripts]);
   assertPlan("workflow-only", { workflow_changed: true }, [
     ...commonScripts,
@@ -272,11 +299,41 @@ function selfTest() {
       "check:medication-lexicon-report",
     ],
   );
+
+  const warnings = [];
+  const warn = (msg) => warnings.push(msg);
+
+  const noBuildPort = await checkDevServerPreflight(["lint", "test"], {
+    findServer: async () => 3000,
+    warn,
+  });
+  if (noBuildPort !== null || warnings.length !== 0) {
+    throw new Error("checkDevServerPreflight: expected null and no warning when build is absent");
+  }
+
+  const allowedPort = await checkDevServerPreflight(["build"], {
+    findServer: async () => 3000,
+    warn,
+    env: { ALLOW_BUILD_WITH_DEV_SERVER: "1" },
+  });
+  if (allowedPort !== null || warnings.length !== 0) {
+    throw new Error("checkDevServerPreflight: expected null and no warning when ALLOW_BUILD_WITH_DEV_SERVER=1");
+  }
+
+  const runningPort = await checkDevServerPreflight(["build"], {
+    findServer: async () => 3000,
+    warn,
+    env: {},
+  });
+  if (runningPort !== 3000 || warnings.length === 0 || !warnings[0].includes("BUILD_REFUSED_DEV_SERVER")) {
+    throw new Error("checkDevServerPreflight: expected port 3000 and warning when dev server is running");
+  }
+
   console.log("PR-local verification plan self-test passed.");
 }
 
 if (process.argv.includes("--self-test")) {
-  selfTest();
+  await selfTest();
   process.exit(0);
 }
 
@@ -303,6 +360,8 @@ if (isDirectRun()) {
       console.log("- Chromium UI gate skipped: no UI-affecting changes detected");
     process.exit(0);
   }
+
+  await checkDevServerPreflight(scripts);
 
   const exitCode = runPrLocalScripts(scripts);
 

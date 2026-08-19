@@ -1,4 +1,5 @@
 import type { AppModeId } from "@/lib/app-modes";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 
 export type CommandSuggestion = {
   text: string;
@@ -43,7 +44,7 @@ export function commandDropdownCanDisplay({
 
 const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurfaceConfig>> = {
   documents: {
-    examples: ["clozapine ANC thresholds", "lithium monitoring table", "QT prolongation quote"],
+    examples: [...sharedHomePresentation.documents.suggestions],
     suggestions: [
       { text: "clozapine monitoring table", meta: "Tables" },
       { text: "clozapine ANC thresholds", meta: "Guidelines" },
@@ -52,7 +53,7 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["prescribing", "forms", "favourites"],
   },
   services: {
-    examples: ["crisis ATSI phone WA", "perinatal psychiatry metro", "older adult CMH Fremantle"],
+    examples: [...sharedHomePresentation.services.suggestions],
     suggestions: [
       { text: "crisis phone referral", meta: "Route" },
       { text: "crisis ATSI-specific", meta: "Eligibility" },
@@ -61,7 +62,7 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["documents", "favourites", "forms"],
   },
   forms: {
-    examples: ["transport order", "Form 3A detention", "extension of transport"],
+    examples: [...sharedHomePresentation.forms.suggestions],
     suggestions: [
       { text: "transport order form 4A", meta: "Forms" },
       { text: "transport order extension 4B", meta: "Forms" },
@@ -70,7 +71,7 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["documents", "services", "favourites"],
   },
   differentials: {
-    examples: ["acute confusion", "first episode psychosis", "catatonia vs NMS"],
+    examples: [...sharedHomePresentation.differentials.suggestions],
     suggestions: [
       { text: "acute confusion / encephalopathy", meta: "Presentation" },
       { text: "confusion post-ictal", meta: "Presentation" },
@@ -79,7 +80,7 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["documents", "prescribing", "forms"],
   },
   dsm: {
-    examples: ["major depressive disorder", "F31.81", "panic disorder criteria"],
+    examples: [...sharedHomePresentation.dsm.suggestions],
     suggestions: [
       { text: "major depressive disorder", meta: "Diagnosis" },
       { text: "bipolar II disorder", meta: "Compare" },
@@ -88,7 +89,7 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["differentials", "prescribing", "documents"],
   },
   prescribing: {
-    examples: ["acamprosate renal", "naltrexone dose ceiling", "disulfiram counselling"],
+    examples: [...sharedHomePresentation.prescribing.suggestions],
     suggestions: [
       { text: "acamprosate renal dosing", meta: "Safety" },
       { text: "acamprosate ceiling 1,998 mg/day", meta: "Dose" },
@@ -97,7 +98,7 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["documents", "differentials", "favourites"],
   },
   favourites: {
-    examples: ["ward round set", "pinned monitoring tables", "clozapine clinic"],
+    examples: [...sharedHomePresentation.favourites.suggestions],
     suggestions: [
       { text: "ward round set", meta: "Sets" },
       { text: "ward round medication pages", meta: "Items" },
@@ -106,7 +107,7 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["documents", "prescribing", "services"],
   },
   answer: {
-    examples: ["lithium level timing", "clozapine ANC monitoring", "ECT consent requirements"],
+    examples: [...sharedHomePresentation.answer.suggestions],
     suggestions: [
       { text: "lithium monitoring intervals", meta: "Guidelines" },
       { text: "clozapine rechallenge criteria", meta: "Safety" },
@@ -117,7 +118,7 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["documents", "prescribing", "services", "forms", "differentials"],
   },
   specifiers: {
-    examples: ["depressed but racing thoughts", "returns every winter", "much better but not fully recovered"],
+    examples: [...sharedHomePresentation.specifiers.suggestions],
     suggestions: [
       { text: "depressed but racing thoughts", meta: "Episode features" },
       { text: "returns every winter", meta: "Course and onset" },
@@ -126,7 +127,7 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["dsm", "differentials", "formulation", "documents"],
   },
   formulation: {
-    examples: ["avoidance after panic", "rumination after rejection", "dissociation under threat"],
+    examples: [...sharedHomePresentation.formulation.suggestions],
     suggestions: [
       { text: "avoidance after panic", meta: "Mechanism" },
       { text: "rumination after rejection", meta: "Pattern" },
@@ -135,7 +136,7 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["differentials", "documents", "answer"],
   },
   tools: {
-    examples: ["renal calculator", "dose converter", "clinical forms"],
+    examples: [...sharedHomePresentation.tools.suggestions],
     suggestions: [
       { text: "renal function calculator", meta: "Calculator" },
       { text: "dose converter", meta: "Medication tool" },
@@ -144,7 +145,7 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["documents", "prescribing", "forms", "favourites"],
   },
   calculators: {
-    examples: ["depression severity", "anxiety screening", "alcohol use"],
+    examples: [...sharedHomePresentation.calculators.suggestions],
     suggestions: [
       { text: "depression severity", meta: "PHQ-9" },
       { text: "anxiety screening", meta: "GAD-7" },
@@ -154,7 +155,7 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     remoteSearchEnabled: false,
   },
   factsheets: {
-    examples: ["sertraline", "lithium monitoring", "CBT"],
+    examples: [...sharedHomePresentation.factsheets.suggestions],
     suggestions: [
       { text: "sertraline (Zoloft)", meta: "Medications" },
       { text: "lithium monitoring", meta: "Tests & procedures" },
@@ -167,7 +168,7 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     // Every example is an entry that exists in the local catalogue
     // (src/lib/dictionary-data.ts), so the ticket never advertises a term the
     // search cannot resolve.
-    examples: ["mental state examination", "auditory hallucination", "ACT"],
+    examples: [...sharedHomePresentation.dictionary.suggestions],
     suggestions: [
       { text: "mental state examination", meta: "MSE" },
       { text: "auditory hallucination", meta: "Psychosis and perception" },
@@ -184,7 +185,7 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     // the ticket never advertises a query the catalogue cannot answer — the same
     // rule the dictionary entry above states. Measured match counts at the time
     // of writing: trauma-focused CBT 188, behavioural activation 30, insomnia 4.
-    examples: ["trauma-focused CBT", "behavioural activation", "insomnia"],
+    examples: [...sharedHomePresentation["therapy-compass"].suggestions],
     suggestions: [
       { text: "trauma-focused CBT", meta: "Trauma" },
       { text: "behavioural activation", meta: "Mood" },

@@ -5,7 +5,8 @@ import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 
 export type SectionHeadingProps = {
   id?: string;
-  title: string;
+  title?: string;
+  children?: ReactNode;
   /** Short kicker above the title (e.g. in record sections). */
   eyebrow?: string;
   /** Supporting copy. `body` and `description` are interchangeable aliases. */
@@ -22,19 +23,26 @@ export type SectionHeadingProps = {
   compactMobile?: boolean;
   compact?: boolean;
   stackActionOnCompact?: boolean;
+  /** Step number badge (e.g. governance sections) */
+  step?: string | number;
+  /** Display variant: default, menu-kicker (compact uppercase kicker for menus/drawers) */
+  variant?: "default" | "menu-kicker";
 };
 
 /**
- * Shared section heading recipe for dashboard modes, record sections, and tool panels.
+ * Shared section heading recipe for dashboard modes, record sections, menus, and tool panels.
  *
  * Consolidates local variants into a single component supporting:
  * 1. Eyebrow record headers (formulation, specifiers)
- * 2. Icon-badged panel headings with actions (clinical dashboard, caring contacts)
- * 3. Mobile responsiveness (hiding description, compact sizing)
+ * 2. Step-badged section headers (dictionary governance)
+ * 3. Menu kicker headings (search pins, drawer sub-sections)
+ * 4. Icon-badged panel headings with actions (clinical dashboard, caring contacts)
+ * 5. Mobile responsiveness (hiding description, compact sizing)
  */
 export function SectionHeading({
   id,
   title,
+  children,
   eyebrow,
   body,
   description,
@@ -48,10 +56,46 @@ export function SectionHeading({
   compactMobile = false,
   compact = false,
   stackActionOnCompact = false,
+  step,
+  variant = "default",
 }: SectionHeadingProps) {
-  const content = body ?? description;
+  const headingTitle = title ?? (typeof children === "string" ? children : undefined);
+  const content = body ?? description ?? (typeof children !== "string" ? children : undefined);
   const actionSlot = action ?? actions;
   const HeadingTag = `h${headingLevel}` as const;
+
+  // Menu-kicker mode (e.g. in search-pins menu, popovers, drawers)
+  if (variant === "menu-kicker") {
+    return (
+      <div data-testid={testId} className={cn("mb-1 flex min-h-10 items-center justify-between gap-2 px-2", className)}>
+        <HeadingTag
+          id={id}
+          className="text-2xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]"
+        >
+          {headingTitle}
+        </HeadingTag>
+        {actionSlot}
+      </div>
+    );
+  }
+
+  // Step-badged mode (e.g. dictionary governance)
+  if (step !== undefined) {
+    return (
+      <div
+        data-testid={testId}
+        className={cn("flex items-center gap-3 border-b border-[color:var(--border)] pb-3", className)}
+      >
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-2xs font-extrabold text-[color:var(--clinical-accent)]">
+          {step}
+        </span>
+        <HeadingTag id={id} className="text-lg font-extrabold text-[color:var(--text-heading)] sm:text-xl">
+          {headingTitle}
+        </HeadingTag>
+        {actionSlot}
+      </div>
+    );
+  }
 
   // Eyebrow / Record header mode (e.g. formulation, specifiers)
   if (eyebrow && !Icon) {
@@ -62,7 +106,7 @@ export function SectionHeading({
           id={id}
           className="text-xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-2xl"
         >
-          {title}
+          {headingTitle}
         </HeadingTag>
         {content ? (
           <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">{content}</p>
@@ -105,7 +149,7 @@ export function SectionHeading({
               compactMobile ? "text-base-minus sm:text-base" : "text-base-minus sm:text-base tracking-tight",
             )}
           >
-            {title}
+            {headingTitle}
           </HeadingTag>
           {content ? (
             <p className={cn("mt-1 text-sm leading-6", textMuted, hideDescriptionOnMobile && "hidden sm:block")}>

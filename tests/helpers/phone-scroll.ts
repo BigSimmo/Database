@@ -207,6 +207,86 @@ export function forceCompiledStandalonePhoneCss(page: Page): Promise<number> {
   });
 }
 
+/**
+ * Emulates an installed phone PWA environment with `display-mode: standalone`.
+ *
+ * Configures the phone viewport, safe-area CSS variables, and enables the
+ * standalone display-mode media feature via CDP (on Chromium) and by applying
+ * compiled standalone rules from globals.css across all browser engines.
+ */
+export async function emulatePhoneStandalonePwa(
+  page: Page,
+  path: string,
+  options: { safeAreaBottom?: number } = {},
+): Promise<number> {
+  await page.setViewportSize(phoneViewport);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  if (page.context().browser()?.browserType().name() === "chromium") {
+    try {
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send("Emulation.setEmulatedMedia", {
+        features: [{ name: "display-mode", value: "standalone" }],
+      });
+    } catch {
+      // Sandboxed Chromium without CDP access falls back to forced CSS below.
+    }
+  }
+  await gotoPhoneSurface(page, path, options.safeAreaBottom ?? 34);
+  const rulesCount = await forceCompiledStandalonePhoneCss(page);
+  await page.waitForTimeout(300);
+  return rulesCount;
+}
+
+export interface StandaloneShellGeometry {
+  shellHeight: number;
+  shellOverflowY: string;
+  frameHeight: number;
+  framePosition: string;
+  frameOverflow: string;
+  mainOverflowY: string;
+  mainOverscrollBehaviorY: string;
+  scrollOwner: "document" | "main";
+  headerPosition: string;
+  headerHidden: boolean;
+  docScrollTop: number;
+  mainScrollTop: number;
+  horizontalOverflow: number;
+}
+
+export function readStandaloneShellGeometry(page: Page): Promise<StandaloneShellGeometry> {
+  return page.evaluate(() => {
+    const shell =
+      document.querySelector<HTMLElement>(".phone-viewport-shell") ??
+      document.querySelector<HTMLElement>(".mobile-app-shell");
+    const frame = document.querySelector<HTMLElement>(".phone-viewport-frame");
+    const main = document.getElementById("main-content");
+    const header =
+      document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]') ??
+      document.querySelector<HTMLElement>("header#search");
+    const doc = document.scrollingElement ?? document.documentElement;
+    const mainOverflowY = main ? getComputedStyle(main).overflowY : "";
+    const mainOwnsScroll = Boolean(
+      main && /^(?:auto|scroll|overlay)$/.test(mainOverflowY) && main.scrollHeight > main.clientHeight + 1,
+    );
+
+    return {
+      shellHeight: shell?.getBoundingClientRect().height ?? 0,
+      shellOverflowY: shell ? getComputedStyle(shell).overflowY : "",
+      frameHeight: frame?.getBoundingClientRect().height ?? 0,
+      framePosition: frame ? getComputedStyle(frame).position : "",
+      frameOverflow: frame ? getComputedStyle(frame).overflow : "",
+      mainOverflowY,
+      mainOverscrollBehaviorY: main ? getComputedStyle(main).overscrollBehaviorY : "",
+      scrollOwner: mainOwnsScroll ? "main" : "document",
+      headerPosition: header ? getComputedStyle(header).position : "",
+      headerHidden: header?.getAttribute("data-scroll-hidden") === "true",
+      docScrollTop: doc.scrollTop,
+      mainScrollTop: main?.scrollTop ?? 0,
+      horizontalOverflow: Math.max(doc.scrollWidth, document.body?.scrollWidth ?? 0) - window.innerWidth,
+    };
+  });
+}
+
 export async function addPhoneScrollRunway(page: Page) {
   await page.evaluate(() => {
     const main = document.getElementById("main-content");
