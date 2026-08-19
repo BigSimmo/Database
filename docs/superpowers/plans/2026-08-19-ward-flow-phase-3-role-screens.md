@@ -262,7 +262,7 @@ export type Rejection = {
 
 In `ward-movements.ts`, give every movement `withdrawnReferrals: []`. Then, on the hand-authored records only:
 
-- at least three carry a `formedAt` between 60 and 240 minutes before their `openedAt` — community-formed patients whose examination window was already running when they arrived;
+- at least three carry a `formedAt` between 60 and 240 minutes before their `openedAt` — community-formed patients whose examination window was already running when they arrived — **and at least one of those three is at `peel-ed`**, which Task 11 asserts on;
 - at least one carries `arrivalMode: "police"` and at least two `"ambulance"`;
 - **the five movements currently on `3A` become `1A`** — they are awaiting examination, and 3A is
   not used;
@@ -271,6 +271,8 @@ In `ward-movements.ts`, give every movement `withdrawnReferrals: []`. Then, on t
   which nothing currently says. Their `dueAt` becomes the detention deadline rather than the
   examination deadline;
 - every movement already at stage `bed_held` gains a `bedHeldUntil` between `NOW_ANCHOR - 20` and `NOW_ANCHOR + 45`, so at least one hold is already lapsed and at least one is still running.
+
+**Preserve every existing `referredUnitIds` entry.** Five movements carry live referrals at seed — to `sjgm-adult-open`, `gry-adult-secure`, `fsh-older-adult`, `bty-adult-secure`, and the pair `bty-older-adult`/`gry-older-adult`. Task 8 stands on the `bty-adult-secure` one and Task 3 stands on `fsh-older-adult`; emptying any of them turns a later test green for the wrong reason.
 
 The 30 generated movements derive their values from their index, as their existing fields do. Add no free text that describes a person.
 
@@ -912,6 +914,7 @@ The primary screen becomes live and its main action becomes a referral. Spec §7
 
 - Consumes: `useWardFlow()`.
 - Produces: nothing new; the screen's props stop being derived from `wardMovements` and start coming from the provider.
+- **Renames one testid:** the primary control in `shortlist-panel.tsx` currently reads `data-testid="ward-shortlist-confirm"` with the label `Confirm placement`. It becomes `data-testid="ward-shortlist-refer"` labelled `Refer`. The candidate rows keep their existing `data-testid={`ward-shortlist-candidate-${unit.id}`}` — do not rename those. Tasks 7 and 12 select on `ward-shortlist-refer`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -930,7 +933,7 @@ test("refers a patient to up to three wards and records what it did", async ({ p
   const refer = shortlist.getByRole("button", { name: /Refer/ });
   await expect(refer).toHaveAttribute("aria-disabled", "true");
 
-  await shortlist.locator('[data-testid^="ward-candidate-"]').first().click();
+  await shortlist.locator('[data-testid^="ward-shortlist-candidate-"]').first().click();
   await expect(refer).not.toHaveAttribute("aria-disabled", "true");
   await refer.click();
 
@@ -1229,10 +1232,10 @@ test.describe("Ward screen", () => {
 
   test("shows one unit's own capacity and answers an incoming referral", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1024 });
-    await gotoWard(page, "rph-adult-secure");
+    await gotoWard(page, "bty-adult-secure");
 
     // One unit, not twenty-two.
-    await expect(page.getByTestId("ward-unit-screen")).toContainText("RPH Adult Secure");
+    await expect(page.getByTestId("ward-unit-screen")).toContainText("BTY Adult Secure");
     await expect(page.locator('[data-testid^="ward-unit-card-"]')).toHaveCount(1);
 
     // Its beds reconcile on screen.
@@ -1241,12 +1244,16 @@ test.describe("Ward screen", () => {
     await expect(beds).toContainText("Occupied");
 
     // A decline requires a reason from the fixed list, and out-of-catchment is offered.
-    const incoming = page.locator('[data-testid^="ward-incoming-"]').first();
-    if (await incoming.count()) {
-      await incoming.getByRole("button", { name: /Decline/ }).click();
-      const reasons = page.getByRole("group", { name: /Decline reason/ });
-      await expect(reasons).toContainText(/out of catchment/i);
-    }
+    // Unconditional: bty-adult-secure holds a live referral at seed, so this must not
+    // hide behind an `if (count())` that can silently never run.
+    const incoming = page.locator('[data-testid^="ward-incoming-"]');
+    await expect(incoming).not.toHaveCount(0);
+    await incoming
+      .first()
+      .getByRole("button", { name: /Decline/ })
+      .click();
+    const reasons = page.getByRole("group", { name: /Decline reason/ });
+    await expect(reasons).toContainText(/out of catchment/i);
   });
 });
 ```
@@ -1461,7 +1468,7 @@ test("walks one patient through all four roles in a single window", async ({ pag
   await firstRow.click();
 
   const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
-  await shortlist.locator('[data-testid^="ward-candidate-"]').first().click();
+  await shortlist.locator('[data-testid^="ward-shortlist-candidate-"]').first().click();
   await shortlist.getByRole("button", { name: /Refer/ }).click();
 
   // Switch to the ward the patient was referred to — by clicking, not navigating.
