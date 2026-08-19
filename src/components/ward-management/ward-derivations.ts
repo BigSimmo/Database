@@ -153,9 +153,38 @@ export function unitCapacity(unit: Unit) {
 }
 
 /**
- * Cohort-matching units ranked eligible-first, using the real eligibility gates. This is a
- * shortlist of candidates, never a destination — a unit appearing here has not been referred
- * or accepted; see `destinationUnit` for the movement's actual recorded destination.
+ * Whole-branch review Important 5: the security gate passes a Secure ward for an Open movement
+ * on purpose — a locked ward can physically hold an open-status patient, so it is not a
+ * *failure*. But it is also not a neutral match: placing a voluntary or open-status patient on
+ * a locked ward is a real clinical decision, and the gate row reads "Met" with the affirmative
+ * detail "Secure ward meets an open requirement", which hides that decision behind a tick.
+ *
+ * `ward-eligibility.ts` is a protected surface, so the gate's pass/fail semantics are deliberately
+ * untouched. This is the separate, surfaced fact the shortlist and the diagram render alongside
+ * the passing gate so a coordinator sees it before confirming.
+ */
+export function isMoreRestrictiveThanRequired(movement: Movement, unit: Unit): boolean {
+  return movement.security === "Open" && unit.security === "Secure";
+}
+
+/** The wording used wherever `isMoreRestrictiveThanRequired` is surfaced, so it reads identically
+ * on the shortlist row, the gate note, the suggestion badge and the diagram node. */
+export const MORE_RESTRICTIVE_NOTE = "More restrictive than required — a locked ward for an open-status movement";
+
+/**
+ * The units whose cohort matches this movement's, ranked eligible-first using the real
+ * eligibility gates, then truncated to `limit`.
+ *
+ * This is NOT a proximity ranking, and must never be described as one. `Unit` carries no
+ * distance, geo, locality or catchment field, and `Movement` carries no catchment either
+ * (see `movementHealthService`), so no surface in this prototype can honestly claim a
+ * "nearest" anything. Whole-branch review Critical 1 found exactly that claim on screen:
+ * WF-018, sitting in SCGH's own emergency department, was offered "RPH Older Adult" first and
+ * its own SCGH ward second under a heading reading "Nearest candidates". The tie order below is
+ * simply `allUnits()` array order.
+ *
+ * This is a shortlist of candidates, never a destination — a unit appearing here has not been
+ * referred or accepted; see `destinationUnit` for the movement's actual recorded destination.
  */
 export function eligibleCandidates(movement: Movement, now: Instant, limit = 3) {
   return allUnits()
@@ -217,17 +246,22 @@ export function buildActionInbox(movements: Movement[], now: Instant): InboxItem
     });
   }
 
-  // This only detects that three parallel referrals were declined, not that the network is
-  // actually exhausted — a movement can hit the cap with eligible units still untried. Name
-  // it for what it measures rather than implying a broader search than was actually run.
-  const exhaustedReferrals = movements.filter((movement) => movement.declines.length >= PARALLEL_REFERRAL_CAP);
-  for (const movement of exhaustedReferrals) {
+  // Whole-branch review Important 4: this counts DECLINES, and the title used to claim the
+  // PARALLEL REFERRAL CAP had been reached — two different denominators (`ward-priority.ts`
+  // documents the same distinction for the score). WF-009 carries five declines and zero live
+  // referrals, so the drawer announced a referral cap reached for a movement with nothing
+  // referred anywhere. The threshold is unchanged; only the claim is, so it now names exactly
+  // what it measures. `PARALLEL_REFERRAL_CAP` is still the threshold because three refusals is
+  // the point at which a coordinator should widen the search, not because three referrals are
+  // outstanding.
+  const heavilyDeclined = movements.filter((movement) => movement.declines.length >= PARALLEL_REFERRAL_CAP);
+  for (const movement of heavilyDeclined) {
     items.push({
       id: `declines-${movement.id}`,
       tone: "danger",
       icon: CircleAlert,
-      title: "Parallel referral cap reached",
-      detail: `${movement.id} · ${movement.declines.length} declines`,
+      title: "Multiple destinations declined",
+      detail: `${movement.id} · ${movement.declines.length} destinations have declined`,
       owner: movement.owner,
       movementId: movement.id,
     });

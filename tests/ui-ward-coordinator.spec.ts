@@ -1,6 +1,11 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
 
-import { buildActionInbox, candidateReason, eligibleCandidates } from "@/components/ward-management/ward-derivations";
+import {
+  buildActionInbox,
+  candidateReason,
+  eligibleCandidates,
+  isOpen,
+} from "@/components/ward-management/ward-derivations";
 import type { Movement } from "@/components/ward-management/ward-model";
 import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
 import { movementById, wardMovements } from "@/components/ward-management/ward-movements";
@@ -152,7 +157,10 @@ test.describe("Ward Flow coordinator screen", () => {
     // Ruling 3: the toggle's count must be the true count — exactly what the drawer renders,
     // computed independently here from the real fixture so a hard-coded toggle number cannot
     // pass by coincidence.
-    const expectedCount = buildActionInbox(wardMovements, NOW_ANCHOR).length;
+    // Whole-branch review Minor 6: the drawer is scoped to OPEN movements, so the independent
+    // count here must be too — computing it over all 48 records would agree with a screen that
+    // wrongly listed a closed patient's breached deadline.
+    const expectedCount = buildActionInbox(wardMovements.filter(isOpen), NOW_ANCHOR).length;
     expect(expectedCount).toBeGreaterThan(1);
     await expect(items).toHaveCount(expectedCount);
     await expect(toggle).toContainText(String(expectedCount));
@@ -388,8 +396,8 @@ test.describe("Ward Flow coordinator screen", () => {
     const movement = requireMovement("WF-009");
     const shortlist = eligibleCandidates(movement, NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
     // This test's whole premise is a shortlist with ZERO eligible candidates — WF-009 has been
-    // declined by five units, and its nearest three (by cohort, since `eligibleCandidates` sorts
-    // eligible-first but never filters) are all ineligible: two already declined it, one fails
+    // declined by five units, and its three cohort-matching candidates (since `eligibleCandidates`
+    // sorts eligible-first but never filters) are all ineligible: two already declined it, one fails
     // the security gate. If the fixture ever changes so this stops being true, the assertions
     // below must fail loudly here rather than vacuously pass on an empty or partially-eligible
     // set.
@@ -426,7 +434,7 @@ test.describe("Ward Flow coordinator screen", () => {
     }
 
     // The hub states the true eligible count — zero — never the shortlist size framed as routes.
-    await expect(diagram).toContainText(`no eligible destination; ${shortlist.length} nearest, all excluded`);
+    await expect(diagram).toContainText(`no eligible destination; ${shortlist.length} candidates, all excluded`);
   });
 
   test("distinguishes an accepted destination from an outstanding referral, and shows every parallel referral", async ({
@@ -471,6 +479,128 @@ test.describe("Ward Flow coordinator screen", () => {
   });
 
   /**
+   * Whole-branch review Important 3: routes were drawn only to the three candidates, so for 18 of
+   * the 41 open movements the unit the patient is actually going to had no connector at all while
+   * three arrows pointed at wards they are not going to — and the hub read "WF-004 — 3 eligible
+   * destinations" for a movement whose bed is already held elsewhere.
+   *
+   * WF-004 is the case the review named: its accepted unit is NOT among its candidates, so before
+   * the fix its destination connector count was zero. Both halves are asserted — the connector
+   * exists and is its own kind, and the hub leads with the recorded fact rather than a candidate
+   * count.
+   */
+  test("draws the recorded destination as its own connector and says so at the hub", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const diagram = page.getByRole("region", { name: "Statewide flow" });
+    await expect(diagram.locator("svg path[marker-end]").first()).toBeAttached({ timeout: 15_000 });
+    const queue = page.getByRole("region", { name: "Priority queue" });
+
+    const wf004 = requireMovement("WF-004");
+    const acceptedUnitId = wf004.acceptedUnitId;
+    expect(acceptedUnitId, "fixture assumption: WF-004 has an accepted destination").toBeTruthy();
+    const candidateIds = eligibleCandidates(wf004, NOW_ANCHOR, PARALLEL_REFERRAL_CAP).map(
+      (candidate) => candidate.unit.id,
+    );
+    expect(
+      candidateIds,
+      "fixture assumption: WF-004's accepted unit is not one of its candidates, so only the destination connector can reach it",
+    ).not.toContain(acceptedUnitId);
+
+    await queue.locator('[data-testid="ward-queue-row-WF-004"]').click();
+
+    const destinationConnectors = diagram.locator('svg path[data-connector-kind="destination"]');
+    await expect(destinationConnectors).toHaveCount(1);
+    await expect(destinationConnectors).toHaveAttribute("data-recorded", "accepted");
+
+    // The hub leads with the recorded destination, and never claims the movement is looking for
+    // three of them.
+    await expect(diagram).toContainText("accepted destination:");
+    await expect(diagram).not.toContainText("WF-004 — 3 eligible destinations");
+
+    // An outstanding referral is a different recorded fact and gets its own connector too —
+    // WF-013 carries two, so a single-referral implementation (`referredUnitIds[0]`) fails here.
+    const wf013 = requireMovement("WF-013");
+    expect(wf013.referredUnitIds.length, "fixture assumption: WF-013 carries two parallel referrals").toBe(2);
+    await queue.locator('[data-testid="ward-queue-row-WF-013"]').click();
+    await expect(diagram.locator('svg path[data-connector-kind="destination"]')).toHaveCount(2);
+    await expect(diagram.locator('svg path[data-connector-kind="destination"]').first()).toHaveAttribute(
+      "data-recorded",
+      "referred",
+    );
+
+    // A movement with no recorded destination draws none — the connector reports a fact, never a
+    // suggestion dressed as one.
+    const wf009 = requireMovement("WF-009");
+    expect(wf009.acceptedUnitId).toBeUndefined();
+    expect(wf009.referredUnitIds).toHaveLength(0);
+    await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
+    await expect(diagram.locator('svg path[data-connector-kind="destination"]')).toHaveCount(0);
+  });
+
+  /**
+   * Whole-branch review Important 5: `eligibility()` passes a Secure ward for an Open movement with
+   * the affirmative detail "Secure ward meets an open requirement", marked "Met" — so the screen
+   * offers a locked ward to a patient who does not need one, and can label it "Suggested
+   * destination". `ward-eligibility.ts` is a protected surface, so the gate is deliberately
+   * unchanged and the fact is surfaced instead. This pins that it really reaches the DOM, on the
+   * shortlist and on the diagram, and that it does NOT appear where it would be false.
+   */
+  test("states plainly when a candidate ward is more restrictive than the movement requires", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+    const diagram = page.getByRole("region", { name: "Statewide flow" });
+    await expect(diagram.locator("svg path[marker-end]").first()).toBeAttached({ timeout: 15_000 });
+
+    // WF-001 is an OPEN-status movement whose top candidate is a locked ward that passes every
+    // gate — the exact pairing the review found.
+    const wf001 = requireMovement("WF-001");
+    expect(wf001.security, "fixture assumption: WF-001 is an open-status movement").toBe("Open");
+    const candidates = eligibleCandidates(wf001, NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
+    const locked = candidates.filter((candidate) => candidate.unit.security === "Secure");
+    const open = candidates.filter((candidate) => candidate.unit.security === "Open");
+    expect(locked.length, "fixture assumption: WF-001 has at least one locked-ward candidate").toBeGreaterThan(0);
+    expect(
+      open.length,
+      "fixture assumption: WF-001 also has an open-ward candidate, so this is not blanket text",
+    ).toBeGreaterThan(0);
+
+    await queue.locator('[data-testid="ward-queue-row-WF-001"]').click();
+
+    // The locked candidates say so on their own rows; the open one does not.
+    for (const candidate of locked) {
+      await expect(shortlist.locator(`[data-testid="ward-shortlist-candidate-${candidate.unit.id}"]`)).toContainText(
+        "More restrictive than required",
+      );
+      await expect(diagram.locator(`[data-testid="ward-diagram-unit-${candidate.unit.id}"]`)).toContainText(
+        "More restrictive than required",
+      );
+    }
+    for (const candidate of open) {
+      await expect(
+        shortlist.locator(`[data-testid="ward-shortlist-candidate-${candidate.unit.id}"]`),
+      ).not.toContainText("More restrictive than required");
+    }
+
+    // And it is stated at the moment of decision — above the gate list, where the security check
+    // reads "Met" — for whichever unit's gates are on screen.
+    await shortlist.locator(`[data-testid="ward-shortlist-candidate-${locked[0].unit.id}"]`).click();
+    await expect(shortlist.getByTestId("ward-shortlist-restrictive-note")).toBeVisible();
+    await expect(shortlist.locator('[data-testid="ward-gate-security"][data-pass="true"]')).toHaveCount(1);
+    await shortlist.locator(`[data-testid="ward-shortlist-candidate-${open[0].unit.id}"]`).click();
+    await expect(shortlist.getByTestId("ward-shortlist-restrictive-note")).toHaveCount(0);
+
+    // A Secure movement on a Secure ward is a plain match — the note must not appear there, or it
+    // would be noise a coordinator learns to ignore.
+    await queue.locator('[data-testid="ward-queue-row-WF-004"]').click();
+    await expect(shortlist).not.toContainText("More restrictive than required");
+  });
+
+  /**
    * Task 7's own controller finding: the whole-branch review found a green tick rendered beside
    * "SJGS Adult Open is not authorised under the Mental Health Act". This test pins the fix at the
    * DOM level, not just at the derivation level (`ward-eligibility.test.ts` already proves the
@@ -480,7 +610,7 @@ test.describe("Ward Flow coordinator screen", () => {
    * a failing gate's icon (`if (await failing.count())`) — but WF-017's default candidate
    * (`rph-adult-secure`) passes all eight gates, so that conditional block would silently skip on
    * this fixture, exactly the "test that cannot fail" shape Phase 1 shipped once already. WF-009
-   * (queue row 2, declined by five units, whose own nearest three candidates are all ineligible —
+   * (queue row 2, declined by five units, whose own three candidates are all ineligible —
    * see `ward-derivations.ts`) is used instead to guarantee a failing gate is actually on screen
    * (Ruling 3), and the confirm journey is walked end to end rather than merely checking a button
    * is visible (Ruling 4).
@@ -547,6 +677,82 @@ test.describe("Ward Flow coordinator screen", () => {
   });
 
   /**
+   * Whole-branch review Critical 2. `ShortlistPanel` defaults `activeUnit` to `shortlist[0]` so the
+   * gate list is never empty, and Confirm used to act on that default — a unit the coordinator
+   * never picked, and which no candidate row reports as `aria-pressed`. On WF-004 (stage
+   * `bed_held`, accepted destination BTY Adult Secure) the default is RPH Adult Secure, so one tap
+   * wrote "Confirmed by a human coordinator: RPH Adult Secure" directly under "Accepted
+   * destination: BTY Adult Secure". A default that Confirm will act on is an auto-allocation with
+   * one tap of consent, which is the single thing this phase claims it never does.
+   *
+   * Proven red before the fix: with `canConfirm` restored to `activeUnit !== undefined && ...`,
+   * the first `aria-disabled` assertion below fails on WF-017 (whose default candidate is
+   * eligible), and the WF-004 half records a confirmation against a unit nobody selected. See the
+   * final fix report for the captured failure output.
+   */
+  test("never confirms against a default candidate the coordinator did not choose", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+    const confirmButton = shortlist.getByTestId("ward-shortlist-confirm");
+
+    // WF-017's default candidate passes all eight gates, so "unavailable" here cannot be an
+    // accident of ineligibility — it can only be the missing human selection. Pinned against the
+    // real fixture so this test fails loudly rather than passing vacuously if that changes.
+    const wf017 = requireMovement("WF-017");
+    const wf017Default = eligibleCandidates(wf017, NOW_ANCHOR, PARALLEL_REFERRAL_CAP)[0];
+    expect(wf017Default, "fixture assumption: WF-017 has at least one candidate").toBeTruthy();
+    expect(
+      wf017Default.verdict.eligible,
+      "fixture assumption: WF-017's default candidate is eligible, so only the missing selection can block Confirm",
+    ).toBe(true);
+
+    await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
+
+    // The default candidate's gates are shown (orientation is fine)...
+    await expect(shortlist.locator('[data-testid^="ward-gate-"]')).toHaveCount(8);
+    // ...but nothing on screen claims a human pressed anything.
+    await expect(shortlist.locator('[data-testid^="ward-shortlist-candidate-"][aria-pressed="true"]')).toHaveCount(0);
+
+    // ...and Confirm is unavailable, saying why rather than silently doing nothing.
+    await expect(confirmButton).toHaveAttribute("aria-disabled", "true");
+    await expect(shortlist).toContainText("Choose a candidate unit before confirming");
+    // `force` because Playwright's actionability check already refuses an `aria-disabled` control.
+    // Bypassing it is the stronger proof: even a real activation must record nothing, since the
+    // repo's unavailable-control pattern keeps the button focusable and clickable by design (it is
+    // `aria-disabled` + an inert handler, never native `disabled`, so the stated reason stays
+    // reachable to a keyboard and screen-reader user).
+    await confirmButton.click({ force: true });
+    await expect(shortlist).not.toContainText("Confirmed by a human coordinator");
+
+    // Choosing a candidate is what makes it available.
+    await shortlist.locator(`[data-testid="ward-shortlist-candidate-${wf017Default.unit.id}"]`).click();
+    await expect(confirmButton).not.toHaveAttribute("aria-disabled", "true");
+    await confirmButton.click();
+    await expect(shortlist).toContainText("Confirmed by a human coordinator");
+    await expect(shortlist).toContainText(wf017Default.unit.name);
+
+    // WF-004 is the worst case the review found: a bed is already held elsewhere, and the default
+    // candidate is a different ward entirely. The screen must never assert two destinations for
+    // one patient off a single tap.
+    const wf004 = requireMovement("WF-004");
+    expect(wf004.acceptedUnitId, "fixture assumption: WF-004 has an accepted destination").toBeTruthy();
+    const wf004Default = eligibleCandidates(wf004, NOW_ANCHOR, PARALLEL_REFERRAL_CAP)[0];
+    expect(
+      wf004Default.unit.id,
+      "fixture assumption: WF-004's default candidate is NOT its accepted destination",
+    ).not.toBe(wf004.acceptedUnitId);
+
+    await queue.locator('[data-testid="ward-queue-row-WF-004"]').click();
+    await expect(shortlist).toContainText("Accepted destination:");
+    await expect(confirmButton).toHaveAttribute("aria-disabled", "true");
+    await confirmButton.click({ force: true });
+    await expect(shortlist).not.toContainText("Confirmed by a human coordinator");
+  });
+
+  /**
    * Task 7 review Important 1: reversing the gate-list comparator to put failures LAST left the
    * rest of the suite green, because every other assertion checks text/icon correctness per row,
    * not the row ORDER. This pins the order itself, independent of gate count or wording, so a
@@ -602,7 +808,7 @@ test.describe("Ward Flow coordinator screen", () => {
   /**
    * Task 7 review Important 3: replacing the eligible-only lookup with the shortlist's raw first
    * entry labels an INELIGIBLE unit "Suggested destination" on a movement like WF-009 (all three
-   * nearest candidates ineligible) — precisely what ruling 5 forbids, since it would recommend a
+   * candidates ineligible) — precisely what ruling 5 forbids, since it would recommend a
    * ward that already refused the patient. The suite stayed green under that mutation because
    * nothing previously asserted the label's absence on an all-ineligible movement.
    */
@@ -613,7 +819,7 @@ test.describe("Ward Flow coordinator screen", () => {
     const queue = page.getByRole("region", { name: "Priority queue" });
     const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
 
-    // WF-009: every one of its three nearest candidates is ineligible, so there is no unit this
+    // WF-009: every one of its three candidates is ineligible, so there is no unit this
     // panel may honestly suggest.
     await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
     await expect(shortlist).not.toContainText("Suggested destination");
@@ -648,7 +854,7 @@ test.describe("Ward Flow coordinator screen", () => {
     const queue = page.getByRole("region", { name: "Priority queue" });
     const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
 
-    // WF-009: every nearest candidate is ineligible, so override is the only human path that can
+    // WF-009: every candidate is ineligible, so override is the only human path that can
     // place a patient here — exactly the scenario the control exists for.
     await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
 

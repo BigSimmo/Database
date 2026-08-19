@@ -7,12 +7,14 @@ import type { Instant } from "@/components/ward-management/ward-clock";
 import {
   candidateReason,
   eligibleCandidates,
+  isMoreRestrictiveThanRequired,
+  MORE_RESTRICTIVE_NOTE,
   unitCapacity,
   wardServiceOrder,
 } from "@/components/ward-management/ward-derivations";
 import { PARALLEL_REFERRAL_CAP, type Movement, type Unit } from "@/components/ward-management/ward-model";
 import { edPressure } from "@/components/ward-management/ward-pressure";
-import { allUnits, siteByCode } from "@/components/ward-management/ward-sites";
+import { allUnits, siteByCode, unitById } from "@/components/ward-management/ward-sites";
 
 import styles from "./coordinator.module.css";
 
@@ -26,7 +28,9 @@ type FlowDiagramProps = {
 type Point = { x: number; y: number };
 type ShortlistCandidate = ReturnType<typeof eligibleCandidates>[number];
 type Connector =
-  { id: string; path: string; kind: "demand" } | { id: string; path: string; kind: "route"; eligible: boolean };
+  | { id: string; path: string; kind: "demand" }
+  | { id: string; path: string; kind: "route"; eligible: boolean }
+  | { id: string; path: string; kind: "destination"; recorded: "accepted" | "referred" };
 
 /** Elbow: leave the source edge, run along a mid trunk, then enter the target edge. Same shape
  * as the Phase 1 network diagram's connector, kept identical rather than reinvented so the two
@@ -41,24 +45,69 @@ function capabilityLabel(unit: { security: string; cohort: string; beds: number 
 }
 
 /**
+ * Every unit this movement is actually recorded against: the acceptance, plus every live parallel
+ * referral. Not `destinationUnit()` -- that collapses both facts into one and only ever reads
+ * `referredUnitIds[0]`, which is how WF-013's second referral went missing (Task 6 review
+ * Important 2). Ids are returned rather than units so an id the fixture cannot resolve is still
+ * counted as recorded rather than silently disappearing.
+ */
+function recordedDestinationIds(movement: Movement | undefined): Set<string> {
+  if (!movement) return new Set();
+  const ids = new Set(movement.referredUnitIds);
+  if (movement.acceptedUnitId) ids.add(movement.acceptedUnitId);
+  return ids;
+}
+
+/**
  * The hub's one-line status. Must be true for every movement, not just the ones with a clean
- * eligible shortlist -- review Critical 1 found "Routing WF-009 to 3 shortlisted units" displayed
- * for a movement whose three nearest candidates were all ineligible (two already declined it, the
- * third fails the security gate), which reads as three viable routes where zero exist. This names
- * the actual eligible count, and is honest about a shortlist that is nearest-only, not viable,
- * when eligibility is zero or partial.
+ * eligible shortlist -- Task 6 review Critical 1 found "Routing WF-009 to 3 shortlisted units"
+ * displayed for a movement whose three candidates were all ineligible (two already declined it,
+ * the third fails the security gate), which reads as three viable routes where zero exist.
+ *
+ * Two further corrections from the whole-branch review:
+ *
+ * Critical 1 -- the word "nearest" is gone. `eligibleCandidates` ranks cohort-matching units
+ * eligible-first and breaks ties on array order; the model holds no distance data at all, so a
+ * proximity claim here was simply false.
+ *
+ * Important 3 -- a movement that ALREADY has a recorded destination is not looking for three of
+ * them. WF-004 sits at stage `bed_held` with a bed held at BTY Adult Secure, and this line read
+ * "WF-004 -- 3 eligible destinations". The recorded fact now leads; the candidate count follows
+ * as secondary context, because a coordinator may still be considering alternatives.
  */
 function hubStatusText(movement: Movement | undefined, shortlist: ShortlistCandidate[]) {
   if (!movement) return "Select a movement from the priority queue to route it";
+
+  // "Other" means other than the units already recorded against this movement -- a candidate that
+  // IS the accepted or referred unit must not be counted a second time as an alternative to itself.
+  const recordedIds = recordedDestinationIds(movement);
+  const otherCount = shortlist.filter((candidate) => !recordedIds.has(candidate.unit.id)).length;
+  const candidateTail = otherCount === 0 ? "" : `; ${otherCount} other candidate${otherCount === 1 ? "" : "s"} shown`;
+
+  if (movement.acceptedUnitId) {
+    const accepted = unitById(movement.acceptedUnitId);
+    return accepted
+      ? `${movement.id} — accepted destination: ${accepted.name}${candidateTail}`
+      : `${movement.id} — an accepted destination is recorded but could not be resolved`;
+  }
+  if (movement.referredUnitIds.length > 0) {
+    const names = movement.referredUnitIds
+      .map((id) => unitById(id)?.name)
+      .filter((name): name is string => Boolean(name));
+    return names.length === movement.referredUnitIds.length && names.length > 0
+      ? `${movement.id} — outstanding referral${names.length === 1 ? "" : "s"}: ${names.join(", ")}${candidateTail}`
+      : `${movement.id} — ${movement.referredUnitIds.length} outstanding referral${movement.referredUnitIds.length === 1 ? "" : "s"}, not all resolvable`;
+  }
+
   if (shortlist.length === 0) return `${movement.id} — no destinations found for this cohort`;
   const eligibleCount = shortlist.filter((candidate) => candidate.verdict.eligible).length;
   if (eligibleCount === shortlist.length) {
     return `${movement.id} — ${eligibleCount} eligible destination${eligibleCount === 1 ? "" : "s"}`;
   }
   if (eligibleCount === 0) {
-    return `${movement.id} — no eligible destination; ${shortlist.length} nearest, all excluded`;
+    return `${movement.id} — no eligible destination; ${shortlist.length} candidates, all excluded`;
   }
-  return `${movement.id} — ${eligibleCount} eligible of ${shortlist.length} nearest`;
+  return `${movement.id} — ${eligibleCount} eligible of ${shortlist.length} candidates`;
 }
 
 /**
@@ -67,9 +116,9 @@ function hubStatusText(movement: Movement | undefined, shortlist: ShortlistCandi
  * grouped by health service. Departments are always shown (ordered worst-first by `edPressure`)
  * and always connected to the hub -- that part of the network exists regardless of what a
  * coordinator has selected. Routes from the hub to specific units only appear once a movement is
- * selected, and only to that movement's own nearest-3 shortlist; with nothing selected, this
- * renders the network with nothing routed rather than a guessed selection (ruling: display less
- * rather than something plausible).
+ * selected, and only to that movement's own three cohort-matching candidates plus whatever unit it
+ * is already recorded against; with nothing selected, this renders the network with nothing routed
+ * rather than a guessed selection (ruling: display less rather than something plausible).
  *
  * `eligibleCandidates` sorts eligible-first but never filters -- it can and does return units
  * that fail a gate (already declined the movement, wrong security tier, stale capacity, ...).
@@ -160,8 +209,31 @@ export function FlowDiagram({ movement, now, selectedUnitId, onSelectUnit }: Flo
       });
     }
 
+    // Whole-branch review Important 3: routes were drawn ONLY to the three candidates, so for 18
+    // of the 41 open movements the unit the patient is actually going to had no connector at all
+    // while three arrows pointed at wards they are not going to. The recorded destination is a
+    // fact, not a suggestion, so it gets its own connector in its own visual language.
+    //
+    // Drawn IN ADDITION to any route connector for the same unit, not instead of it: seven open
+    // movements have a recorded destination that is also a candidate, and suppressing the route
+    // there would make the route count silently disagree with the routed node count. The two
+    // enter the node at different heights (destination high, route mid) so they read as two
+    // distinct lines rather than one drawn twice.
+    for (const unitId of recordedDestinationIds(movement)) {
+      const node = unitRefs.current.get(unitId);
+      if (!node) continue;
+      const box = node.getBoundingClientRect();
+      const to: Point = { x: box.left - base.left, y: box.top - base.top + box.height / 4 };
+      next.push({
+        id: `destination-${unitId}`,
+        path: elbowPath(hubRight, to),
+        kind: "destination",
+        recorded: movement?.acceptedUnitId === unitId ? "accepted" : "referred",
+      });
+    }
+
     setConnectors(next);
-  }, [pressure, shortlist]);
+  }, [pressure, shortlist, movement]);
 
   useLayoutEffect(() => {
     measure();
@@ -231,26 +303,42 @@ export function FlowDiagram({ movement, now, selectedUnitId, onSelectUnit }: Flo
             >
               <path d="M 0 0 L 7 3.5 L 0 7 z" className={styles.diagramArrowRouteIneligible} />
             </marker>
+            <marker
+              id="ward-flow-diagram-arrow-destination"
+              markerWidth="7"
+              markerHeight="7"
+              refX="6"
+              refY="3.5"
+              orient="auto"
+            >
+              <path d="M 0 0 L 7 3.5 L 0 7 z" className={styles.diagramArrowDestination} />
+            </marker>
           </defs>
           {connectors.map((connector) => {
-            const isRoute = connector.kind === "route";
-            const routeClass = isRoute
-              ? connector.eligible
-                ? styles.diagramConnectorRouteEligible
-                : styles.diagramConnectorRouteIneligible
-              : styles.diagramConnectorDemand;
-            const marker = !isRoute
-              ? "url(#ward-flow-diagram-arrow-demand)"
-              : connector.eligible
-                ? "url(#ward-flow-diagram-arrow-route-eligible)"
-                : "url(#ward-flow-diagram-arrow-route-ineligible)";
+            const connectorClass =
+              connector.kind === "route"
+                ? connector.eligible
+                  ? styles.diagramConnectorRouteEligible
+                  : styles.diagramConnectorRouteIneligible
+                : connector.kind === "destination"
+                  ? styles.diagramConnectorDestination
+                  : styles.diagramConnectorDemand;
+            const marker =
+              connector.kind === "route"
+                ? connector.eligible
+                  ? "url(#ward-flow-diagram-arrow-route-eligible)"
+                  : "url(#ward-flow-diagram-arrow-route-ineligible)"
+                : connector.kind === "destination"
+                  ? "url(#ward-flow-diagram-arrow-destination)"
+                  : "url(#ward-flow-diagram-arrow-demand)";
             return (
               <path
                 key={connector.id}
                 d={connector.path}
-                className={routeClass}
+                className={connectorClass}
                 data-connector-kind={connector.kind}
-                data-eligible={isRoute ? String(connector.eligible) : undefined}
+                data-eligible={connector.kind === "route" ? String(connector.eligible) : undefined}
+                data-recorded={connector.kind === "destination" ? connector.recorded : undefined}
                 markerEnd={marker}
               />
             );
@@ -367,6 +455,11 @@ function UnitNode({
   // not only the first -- gets its own badge on its own node.
   const isAccepted = movement?.acceptedUnitId === unit.id;
   const isReferred = !isAccepted && (movement?.referredUnitIds.includes(unit.id) ?? false);
+  // Whole-branch review Important 5. Shown for any unit this movement could be sent to -- a
+  // candidate, or a unit it is already recorded against -- never for the other 19 units on the
+  // board, where the comparison is meaningless because this movement is not going there.
+  const moreRestrictive =
+    movement !== undefined && (routed || isAccepted || isReferred) && isMoreRestrictiveThanRequired(movement, unit);
 
   return (
     <button
@@ -378,6 +471,7 @@ function UnitNode({
       data-eligible={candidate ? String(candidate.verdict.eligible) : undefined}
       data-accepted={isAccepted ? "true" : undefined}
       data-referred={isReferred ? "true" : undefined}
+      data-more-restrictive={moreRestrictive ? "true" : undefined}
       aria-pressed={selected}
       onClick={() => onSelectUnit(unit.id)}
     >
@@ -418,6 +512,7 @@ function UnitNode({
       ) : null}
       {isAccepted ? <span className={styles.diagramAcceptedBadge}>Accepted destination</span> : null}
       {isReferred ? <span className={styles.diagramReferredBadge}>Outstanding referral</span> : null}
+      {moreRestrictive ? <span className={styles.diagramRestrictiveBadge}>{MORE_RESTRICTIVE_NOTE}</span> : null}
     </button>
   );
 }

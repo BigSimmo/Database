@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import { buildActionInbox } from "@/components/ward-management/ward-derivations";
+import { buildActionInbox, isOpen } from "@/components/ward-management/ward-derivations";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import { movementById, wardMovements } from "@/components/ward-management/ward-movements";
 import { queueOrder } from "@/components/ward-management/ward-priority";
@@ -88,6 +88,17 @@ export function CoordinatorScreen() {
     };
   }, [isPhoneDiagramLayout, selectedMovementId]);
 
+  // Whole-branch review Critical 2, second half. Confirm now requires an explicit unit selection,
+  // but `selectedUnitId` is screen-level state that outlived the movement it was chosen for: pick
+  // a ward for patient A, then select patient B from the queue, and B inherited A's selection with
+  // Confirm already available against it. That is the same defect the panel-level fix closes, just
+  // sourced from a selection made for a different patient rather than from `shortlist[0]`. A unit
+  // choice belongs to the movement it was made against, so changing movement clears it.
+  function selectMovement(movementId: string | undefined) {
+    setSelectedMovementId(movementId);
+    setSelectedUnitId(undefined);
+  }
+
   // `movementById` returns `undefined` for an id the fixture cannot resolve — the diagram
   // receiving `undefined` renders the network with nothing routed rather than a guessed
   // selection (Task 6 conservative-failure rule), so no fallback is threaded through here.
@@ -110,7 +121,14 @@ export function CoordinatorScreen() {
   // department must not silently drop off the work list just because the queue is filtered.
   // `wardMovements` and `NOW_ANCHOR` are both constants, so this only ever needs to compute once
   // (same reasoning `ward-management-modes.tsx`'s own `buildActionInbox` call already uses).
-  const actionInbox = useMemo(() => buildActionInbox(wardMovements, NOW_ANCHOR), []);
+  //
+  // Whole-branch review Minor 6: the inbox is scoped to OPEN movements. `buildActionInbox` has no
+  // `isOpen` guard of its own and `wardMovements` carries all 48 records including the 7 closed
+  // ones, so passing the raw array put an arrived or did-not-proceed patient's breached deadline
+  // on a live work list. Latent on today's fixture — no closed movement currently qualifies for
+  // any of the three categories — but it is precisely the shape of Phase 1's "48 open movements"
+  // defect, which was also a closed record counted as live.
+  const actionInbox = useMemo(() => buildActionInbox(wardMovements.filter(isOpen), NOW_ANCHOR), []);
 
   return (
     <div className={styles.screen} data-testid="ward-coordinator">
@@ -135,7 +153,7 @@ export function CoordinatorScreen() {
               movements={queue}
               now={NOW_ANCHOR}
               selectedId={selectedMovementId}
-              onSelect={setSelectedMovementId}
+              onSelect={selectMovement}
               filterEdId={activeEdId}
               onClearFilter={() => setSelectedEdId(undefined)}
             />
@@ -191,7 +209,7 @@ export function CoordinatorScreen() {
           // job (a movement is now chosen), so it closes itself in the same tap rather than
           // leaving a coordinator to scroll past it to reach the shortlist underneath.
           onSelectMovement={(movementId) => {
-            setSelectedMovementId(movementId);
+            selectMovement(movementId);
             setExceptionsOpen(false);
           }}
         />

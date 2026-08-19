@@ -514,7 +514,8 @@
 
 .diagramConnectorDemand,
 .diagramConnectorRouteEligible,
-.diagramConnectorRouteIneligible {
+.diagramConnectorRouteIneligible,
+.diagramConnectorDestination {
   fill: none;
   vector-effect: non-scaling-stroke;
 }
@@ -551,6 +552,24 @@
 
 .diagramArrowRouteIneligible {
   fill: var(--danger-text);
+}
+
+/*
+ * Whole-branch review Important 3: the unit a movement is actually recorded against (accepted, or
+ * a live parallel referral) had no connector at all for 18 of the 41 open movements, while three
+ * candidate arrows pointed at wards the patient is not going to. This is a RECORDED FACT, not a
+ * suggestion, so it must not borrow either candidate treatment: solid and heavier than the
+ * eligible-candidate line, success-toned rather than accent-toned, and entering the node higher up
+ * its left edge so a unit that is both recorded and a candidate shows two separable lines rather
+ * than one drawn twice.
+ */
+.diagramConnectorDestination {
+  stroke: var(--success-text);
+  stroke-width: 0.1875rem;
+}
+
+.diagramArrowDestination {
+  fill: var(--success-text);
 }
 
 /*
@@ -900,6 +919,25 @@
 }
 
 /*
+ * Whole-branch review Important 5: the security gate passes a locked ward for an open-status
+ * movement, with the affirmative detail "Secure ward meets an open requirement". That is correct
+ * and `ward-eligibility.ts` is a protected surface, so the fact is surfaced here rather than the
+ * gate being changed. Solid border, not colour alone, so it survives forced-colors; wraps rather
+ * than truncating, because the whole point is that it is read.
+ */
+.diagramRestrictiveBadge {
+  justify-self: start;
+  border: 0.0625rem solid var(--warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  padding: 0 var(--co-space-6);
+  color: var(--warning-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+/*
  * Review Minor 6: a unit whose `siteByCode` lookup misses would otherwise vanish from every
  * service group with nothing on screen accounting for it. Rendered as an explicit anomaly
  * instead — never a normal actionable node (no button, no click handler), so it cannot be
@@ -1039,6 +1077,22 @@
   color: var(--danger-text);
 }
 
+/*
+ * Whole-branch review Important 5. Deliberately NOT pill-shaped like the badges above: those
+ * report what a movement is, this reports a restriction a coordinator has to weigh, and it must
+ * wrap to full sentences rather than being squeezed into a chip.
+ */
+.shortlistRestrictiveBadge {
+  justify-self: start;
+  border: 0.0625rem solid var(--warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  padding: var(--co-space-2) var(--co-space-8);
+  color: var(--warning-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+}
+
 .shortlistSectionHeading {
   margin: 0 0 var(--co-space-8);
   color: var(--text-heading);
@@ -1046,6 +1100,36 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/*
+ * Whole-branch review Critical 1: the candidate list used to be headed "Nearest candidates", a
+ * proximity claim nothing in the model can support. The heading now says only "Candidates" and
+ * this note carries the real ordering rule, so the reader is told how the list is sorted instead
+ * of being left to assume.
+ */
+.shortlistSectionNote {
+  margin: calc(-1 * var(--co-space-2)) 0 var(--co-space-8);
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--co-leading-body);
+}
+
+/*
+ * Whole-branch review Important 5, stated at the moment of decision: immediately above the gate
+ * list, where the security check will read "Met". Warning-toned with a real border so it is not
+ * carried by colour alone under forced-colors.
+ */
+.shortlistRestrictiveNote {
+  margin: 0 0 var(--co-space-8);
+  border: 0.0625rem solid var(--warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  padding: var(--co-space-6) var(--co-space-8);
+  color: var(--warning-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  line-height: var(--co-leading-body);
 }
 
 .shortlistCandidateList {
@@ -1121,6 +1205,15 @@
   color: var(--danger-text);
   font-size: var(--text-3xs);
   font-weight: 700;
+}
+
+/* Whole-branch review Important 5, on the candidate row itself, so the restriction is visible
+ * while scanning the list rather than only after opening the gates for that unit. */
+.shortlistCandidateRestrictive {
+  color: var(--warning-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  line-height: var(--co-leading-body);
 }
 
 /*

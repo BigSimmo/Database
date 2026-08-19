@@ -8,6 +8,8 @@ import {
   candidateReason,
   destinationUnit,
   eligibleCandidates,
+  isMoreRestrictiveThanRequired,
+  MORE_RESTRICTIVE_NOTE,
   unitCapacity,
 } from "@/components/ward-management/ward-derivations";
 import { eligibility, type GateResult } from "@/components/ward-management/ward-eligibility";
@@ -76,10 +78,13 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
 
   // The unit whose gates this panel currently explains. A selection carried over from another
   // page (the diagram shares the same `selectedUnitId` state) is honoured even when it falls
-  // outside this movement's own nearest-three shortlist — the truth about an arbitrary unit
-  // against this movement is still real data, never fabricated. With nothing selected, this
-  // defaults to the shortlist's own first (eligible-first) candidate, so the gate list is never
-  // empty the moment a movement is chosen.
+  // outside this movement's own candidate list — the truth about an arbitrary unit against this
+  // movement is still real data, never fabricated. With nothing selected, this defaults to the
+  // list's own first (eligible-first) candidate, so the gate list is never empty the moment a
+  // movement is chosen.
+  //
+  // Whole-branch review Critical 2: this default is ORIENTATION ONLY. It may never be the thing
+  // Confirm acts on — see `canConfirm` below.
   const activeUnit = useMemo(() => {
     if (selectedUnitId) return unitById(selectedUnitId);
     return shortlist[0]?.unit;
@@ -134,9 +139,9 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
   // each renders its own badge below from the raw movement fields — never only the first
   // referral, and never conflated with an acceptance (review Minor 6). `destinationUnit`
   // ("accepted, or else the first referral") is consulted only for ruling 5's exact condition:
-  // when it is `undefined`, the top ELIGIBLE candidate — never a merely-nearest ineligible one
-  // — is offered instead, and only ever labelled "Suggested destination": a computed suggestion
-  // must never sit unlabelled in the destination slot, and an ineligible nearest candidate must
+  // when it is `undefined`, the top ELIGIBLE candidate — never merely the first-listed ineligible
+  // one — is offered instead, and only ever labelled "Suggested destination": a computed
+  // suggestion must never sit unlabelled in the destination slot, and an ineligible candidate must
   // never be presented as a suggestion at all (review Important 3).
   const acceptedUnit = movement.acceptedUnitId ? unitById(movement.acceptedUnitId) : undefined;
   const referredUnits = movement.referredUnitIds.map((id) => ({ id, unit: unitById(id) }));
@@ -145,13 +150,27 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
     recordedDestination !== undefined || Boolean(movement.acceptedUnitId) || movement.referredUnitIds.length > 0;
   const topEligible = shortlist.find((candidate) => candidate.verdict.eligible);
 
-  const canConfirm = activeUnit !== undefined && activeVerdict?.eligible === true;
+  // Whole-branch review Critical 2. Confirm previously acted on `activeUnit`, which falls back to
+  // `shortlist[0]` — a system-chosen default that no human ever picked and that no candidate row
+  // reports as `aria-pressed`. On WF-004 (stage `bed_held`, accepted destination BTY Adult Secure)
+  // that default is RPH Adult Secure, so a single tap wrote "Confirmed by a human coordinator: RPH
+  // Adult Secure" directly beneath "Accepted destination: BTY Adult Secure" — the screen asserting
+  // two destinations for one patient, the second of them never chosen. On a phone the auto-scroll
+  // in `coordinator-screen.tsx` puts exactly that button under the coordinator's thumb.
+  //
+  // A default that Confirm will act on IS an auto-allocation with one tap of consent, which is the
+  // one thing this phase says it never does. So confirming now requires `selectedUnitId` — the real,
+  // explicit selection prop, the same value `aria-pressed` reports — not `activeUnit`. Showing the
+  // default's gate list for orientation is still fine; acting on it is not.
+  const hasExplicitSelection = selectedUnitId !== undefined && activeUnit !== undefined;
+  const canConfirm = hasExplicitSelection && activeVerdict?.eligible === true;
   const canOverride = activeUnit !== undefined;
-  const confirmUnavailableReason = !activeUnit
-    ? "Select a candidate unit before confirming."
+  const confirmUnavailableReason = !hasExplicitSelection
+    ? "Choose a candidate unit before confirming — nothing is confirmed against a default."
     : activeVerdict
       ? `Not eligible — ${candidateReason(activeVerdict)}`
       : "Eligibility could not be determined for this unit.";
+  const activeIsMoreRestrictive = activeUnit ? isMoreRestrictiveThanRequired(movement, activeUnit) : false;
 
   const { score, factors } = operationalScore(movement, now);
 
@@ -216,14 +235,37 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
             )}
           </>
         ) : topEligible ? (
-          <span className={styles.shortlistSuggestedBadge}>Suggested destination: {topEligible.unit.name}</span>
+          <>
+            <span className={styles.shortlistSuggestedBadge}>Suggested destination: {topEligible.unit.name}</span>
+            {/* Whole-branch review Important 5: on WF-001 (an OPEN-status movement) the top
+                eligible candidate is a locked ward, and the security gate passes it with an
+                affirmative "Secure ward meets an open requirement". The suggestion is not
+                withdrawn — the gate is a protected surface and a locked ward really can hold this
+                patient — but a coordinator must read the restriction here, in the destination
+                slot, rather than infer it from a ward's name. */}
+            {isMoreRestrictiveThanRequired(movement, topEligible.unit) ? (
+              <span className={styles.shortlistRestrictiveBadge} data-testid="ward-shortlist-suggested-restrictive">
+                {MORE_RESTRICTIVE_NOTE}
+              </span>
+            ) : null}
+          </>
         ) : (
           <span className={styles.shortlistUnresolvedBadge}>No eligible destination found yet.</span>
         )}
       </header>
 
       <section aria-label="Candidate units">
-        <h4 className={styles.shortlistSectionHeading}>Nearest candidates</h4>
+        {/* Whole-branch review Critical 1: this list was headed "Nearest candidates", a proximity
+            claim the model cannot support — `Unit` has no distance, geo, locality or catchment
+            field, and `eligibleCandidates` filters on cohort and sorts eligible-first, breaking
+            ties on `allUnits()` array order. WF-018, sitting in SCGH's own emergency department,
+            was shown RPH Older Adult above SCGH Older Adult under that heading. The subtitle
+            states the real ordering rather than leaving the reader to assume one. */}
+        <h4 className={styles.shortlistSectionHeading}>Candidates</h4>
+        <p className={styles.shortlistSectionNote}>
+          Units matching this movement&apos;s cohort, listed eligible first. Not ranked by distance — this prototype
+          holds no location data.
+        </p>
         {shortlist.length === 0 ? (
           <p className={styles.placeholder}>No cohort-matching units found.</p>
         ) : (
@@ -244,6 +286,7 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
                     type="button"
                     data-testid={`ward-shortlist-candidate-${candidate.unit.id}`}
                     data-eligible={String(candidate.verdict.eligible)}
+                    data-more-restrictive={isMoreRestrictiveThanRequired(movement, candidate.unit) ? "true" : undefined}
                     data-showing={isShown ? "true" : undefined}
                     aria-pressed={isSelected}
                     className={styles.shortlistCandidateRow}
@@ -260,6 +303,12 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
                     >
                       {candidateReason(candidate.verdict)}
                     </span>
+                    {/* Real visible text, not colour or an attribute alone — a coordinator
+                        scanning the list sees which of these wards is locked when the movement
+                        does not require one (review Important 5). */}
+                    {isMoreRestrictiveThanRequired(movement, candidate.unit) ? (
+                      <span className={styles.shortlistCandidateRestrictive}>{MORE_RESTRICTIVE_NOTE}</span>
+                    ) : null}
                   </button>
                 </li>
               );
@@ -272,6 +321,17 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
         <h4 className={styles.shortlistSectionHeading}>
           Eligibility checks{activeUnit ? ` for ${activeUnit.name}` : ""}
         </h4>
+        {/* The security gate below will read "Met — Secure ward meets an open requirement" for this
+            pairing, which is true and is deliberately left alone (`ward-eligibility.ts` is a
+            protected surface). What a tick cannot say is that this is a clinical decision rather
+            than a neutral match, so it is said here, immediately above the gate list a coordinator
+            reads before confirming (review Important 5). */}
+        {activeIsMoreRestrictive ? (
+          <p className={styles.shortlistRestrictiveNote} data-testid="ward-shortlist-restrictive-note">
+            {MORE_RESTRICTIVE_NOTE}. The security check below passes, but placing an open-status patient on a locked
+            ward is a decision for a human, not a match.
+          </p>
+        ) : null}
         {sortedGates.length === 0 ? (
           <p className={styles.placeholder}>Select a candidate unit to see its eligibility checks.</p>
         ) : (
