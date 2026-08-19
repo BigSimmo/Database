@@ -5,14 +5,14 @@ import type { ReactNode } from "react";
 
 import { mockupsEnabled } from "@/lib/env";
 import { DEVELOPER_AREA_HEADER } from "@/lib/developer-area/headers";
+import { PRIVATE_APP_ROBOTS_METADATA } from "@/lib/crawler-policy";
 
 import { MockupsLayoutClient } from "./mockups-layout-client";
 import "./mockups.css";
 
-// Design-exploration prototypes: shipped for shareability, but never indexed
-// (belt-and-braces alongside the robots.ts /mockups/ disallow).
+// Design-exploration prototypes: shipped for shareability, but never indexed.
 export const metadata: Metadata = {
-  robots: { index: false, follow: false },
+  robots: PRIVATE_APP_ROBOTS_METADATA,
 };
 
 export default async function MockupsLayout({ children }: { children: ReactNode }) {
