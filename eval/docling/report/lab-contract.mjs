@@ -144,15 +144,23 @@ function validateTable(fixture, table, index, seenTableIds, failures) {
       failures.push(`${label}: every cell needs integer row/col and non-empty text`);
       continue;
     }
-    if (cell.row < 0 || cell.row >= table.rows || cell.col < 0 || cell.col >= table.cols) {
+    const colSpan = Number.isInteger(cell.colSpan) && cell.colSpan > 1 ? cell.colSpan : 1;
+    const rowSpan = Number.isInteger(cell.rowSpan) && cell.rowSpan > 1 ? cell.rowSpan : 1;
+    if (cell.row < 0 || cell.row + rowSpan > table.rows || cell.col < 0 || cell.col + colSpan > table.cols) {
       failures.push(
         `${label}: cell (${cell.row},${cell.col}) is outside the declared ${table.rows}x${table.cols} grid`,
       );
     }
-    const position = `${cell.row}:${cell.col}`;
-    if (positions.has(position)) failures.push(`${label}: duplicate cell at (${cell.row},${cell.col})`);
-    positions.add(position);
-    if (cell.row === 0) headerCols.add(cell.col);
+    for (let r = 0; r < rowSpan; r++) {
+      for (let c = 0; c < colSpan; c++) {
+        const position = `${cell.row + r}:${cell.col + c}`;
+        if (positions.has(position)) failures.push(`${label}: duplicate cell at (${cell.row + r},${cell.col + c})`);
+        positions.add(position);
+      }
+    }
+    if (cell.row === 0) {
+      for (let c = 0; c < colSpan; c++) headerCols.add(cell.col + c);
+    }
   }
   if (headerCols.size !== table.cols) {
     failures.push(`${label}: header row 0 must fill all ${table.cols} columns — table recall scoring anchors on it`);

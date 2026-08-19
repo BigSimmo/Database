@@ -45,8 +45,13 @@ import {
   partitionClaimedJobRows,
   type RejectedClaimedJobRow,
 } from "./row-contracts";
-import { checkMedspacyPrerequisites, checkPythonPdfPrerequisites } from "./prerequisites";
+import {
+  checkDoclingShadowPrerequisites,
+  checkMedspacyPrerequisites,
+  checkPythonPdfPrerequisites,
+} from "./prerequisites";
 import { annotateChunkAssertions, defaultAssertionTargets } from "./assertion-tagging";
+import { runShadowExtraction } from "./shadow-extraction";
 import { buildTableFactRows } from "./table-facts";
 import { enrichmentRepairDecision, ingestionFailureDecision } from "./behavior";
 import { WorkerRuntimeControl, WorkerAbortError } from "./runtime-control";
@@ -1757,6 +1762,9 @@ async function processJob(job: JobRow) {
       },
       Math.min(60_000, jobLeaseHeartbeatMs),
     );
+    // Legacy extraction wall clock is recorded alongside any B4 shadow measurement so the
+    // docling-vs-legacy latency comparison uses the same document on the same host.
+    const legacyExtractionStartedAt = Date.now();
     try {
       extracted = await extractDocument({
         buffer,
@@ -1769,6 +1777,7 @@ async function processJob(job: JobRow) {
     } finally {
       clearInterval(heartbeat);
     }
+    const legacyExtractionWallMs = Date.now() - legacyExtractionStartedAt;
 
     await updateJobProgress(job.id, { stage: "saving pages", progress: 32 });
     const pageRows = buildDocumentPageRows(job.document_id, extracted);
@@ -1903,6 +1912,48 @@ async function processJob(job: JobRow) {
       await updateJob(job.id, { stage: "core index complete; enrichment deferred", progress: 98 });
     }
 
+    // Packet B4 — docling shadow extraction. Runs ONLY here: after the legacy generation is
+    // committed (the live index never depends on it) and before the final metadata merge
+    // (so the aggregate record rides the existing worker-owned write — no new write site,
+    // no document_index_quality / chunk / embedding / index-unit / table-fact write).
+    // Fail-open and bounded (worker/shadow-extraction.ts); null when the mode is "legacy"
+    // or the document is outside the cohort, in which case nothing is written.
+    let shadowExtraction: Awaited<ReturnType<typeof runShadowExtraction>> = null;
+    if (env.WORKER_DOCUMENT_EXTRACTOR_MODE === "shadow") {
+      // Fail-open: updateJobProgress throws on a lost lease, and a lost lease must not fail a
+      // job whose generation is already committed — swallow it exactly like the heartbeat.
+      await updateJobProgress(job.id, { stage: "indexed; shadow extraction (docling)", progress: 98 }).catch(() => {});
+      const shadowHeartbeat = setInterval(
+        () => {
+          updateJobProgress(job.id, { stage: "indexed; shadow extraction (docling)", progress: 98 }).catch(() => {});
+        },
+        Math.min(60_000, jobLeaseHeartbeatMs),
+      );
+      try {
+        shadowExtraction = await runShadowExtraction(
+          {
+            documentId: job.document_id,
+            indexGenerationId,
+            fileName: job.documents.file_name,
+            mimeType: job.documents.file_type,
+            buffer,
+            legacy: extracted,
+            legacyWallMs: legacyExtractionWallMs,
+            quality: { issues: finalQuality.issues, metrics: finalQuality.metrics },
+          },
+          {
+            config: {
+              mode: env.WORKER_DOCUMENT_EXTRACTOR_MODE,
+              cohortPercent: env.WORKER_SHADOW_EXTRACTION_COHORT_PERCENT,
+              pythonBin: env.WORKER_DOCLING_PYTHON_BIN,
+            },
+          },
+        );
+      } finally {
+        clearInterval(shadowHeartbeat);
+      }
+    }
+
     const repair = enrichmentRepairDecision({
       enrichmentStatus,
       enrichmentErrorMessage,
@@ -1945,6 +1996,9 @@ async function processJob(job: JobRow) {
           }),
       embedding_model: env.OPENAI_EMBEDDING_MODEL,
       ...metrics,
+      // B4: aggregate numbers only; absent (not null) outside shadow mode / the cohort so a
+      // legacy-mode run never touches an earlier shadow record on the row.
+      ...(shadowExtraction ? { shadow_extraction: shadowExtraction } : {}),
     };
 
     await updateDocument(job.document_id, job.documents.owner_id, {
@@ -2008,6 +2062,16 @@ async function main() {
     const medspacyPrereqs = await checkMedspacyPrerequisites();
     if (!medspacyPrereqs.ok) {
       console.warn(`medspaCy assertion prerequisite warning (tagging will fail open): ${medspacyPrereqs.detail}`);
+    }
+  }
+  if (env.WORKER_DOCUMENT_EXTRACTOR_MODE === "shadow") {
+    console.log(
+      `Docling shadow extraction enabled (packet B4): cohort ${env.WORKER_SHADOW_EXTRACTION_COHORT_PERCENT}% of ` +
+        "index-quality-selected PDFs after legacy commit; aggregate metadata only. Rollback: WORKER_DOCUMENT_EXTRACTOR_MODE=legacy.",
+    );
+    const doclingPrereqs = await checkDoclingShadowPrerequisites();
+    if (!doclingPrereqs.ok) {
+      console.warn(`Docling shadow prerequisite warning (shadow extraction will fail open): ${doclingPrereqs.detail}`);
     }
   }
 

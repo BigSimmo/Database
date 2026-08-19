@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "a20fc4ce-0608-4939-97c1-f2fb7f8a1285",
+  "createdOn": "2026-08-19",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "docling-lab-fixtures.v2: add unruled, merged-cell and rotated-header table fixtures to the Docling lab before any table-quality promotion argument",
+    "detail": "Gate B (PR #2154, run 32176604314 at 8a92378) passed with the table-heavy leg at parity-on-ceiling: the v1 fixture set under eval/docling/ cannot separate docling from the legacy extractor on tables because every fixture is ruled/simple. Packet B4 (PR #2170, squash 5437c309f) shipped shadow mode as measurements only. Before anyone argues docling table quality (a precondition for any promotion beyond shadow, README §B4), author docling-lab-fixtures.v2: unruled tables, merged/spanning cells, rotated headers, plus expected exact number/unit/comparator checks, and re-run the lab (docling-lab.yml dispatch = hosted CI, owner approval). Synthetic/public sources only; hashed lockfile unchanged; aggregate-only report. Stop: no worker, extractor, or database change; shadow numbers remain measurements until v2 says otherwise.",
+    "source": "RAG programme coordinator, post-B4 (2026-08-19)",
+    "issueUlid": "01M0CC6XPRVZN8G3PKYM1E30AW"
+  }
+}

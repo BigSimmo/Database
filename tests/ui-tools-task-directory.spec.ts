@@ -1,9 +1,23 @@
 import { expect, test, type Page } from "playwright/test";
 
+import { tools, type ToolArea } from "../src/components/tools-page-mockups/tool-fixtures";
+
 // Dedicated coverage for the additive "Concept 4 — Task directory" hybrid route.
 // Kept in its own file so it doesn't collide with the shared tests/ui-tools.spec.ts.
 
 const PATH = "/mockups/tools-task-directory";
+
+/*
+ * Counts come from the fixture the mockup itself renders, not from literals.
+ * "Add Ward Flow" (#2140) took the set from 9 to 10 and Admin from 3 to 4, which
+ * broke three assertions here — silently, because the Advisory UI lane that runs
+ * @mockup is `continue-on-error`. Deriving them means the next tool cannot.
+ */
+const CLINICAL_AREAS = new Set<ToolArea>(["reference", "assessment", "care"]);
+const ADMIN_AREAS = new Set<ToolArea>(["coordination", "personal"]);
+const TOTAL_TOOLS = tools.length;
+const CLINICAL_TOOLS = tools.filter((tool) => CLINICAL_AREAS.has(tool.area)).length;
+const ADMIN_TOOLS = tools.filter((tool) => ADMIN_AREAS.has(tool.area)).length;
 
 async function goto(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
@@ -28,7 +42,9 @@ test.describe("Tools task directory mockup (Concept 4) @mockup", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Task directory" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Assess" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Coordinate" })).toBeVisible();
-    await expect(page.getByTestId("tools-visible-count")).toContainText("Showing 9 of 9 tools");
+    await expect(page.getByTestId("tools-visible-count")).toContainText(
+      `Showing ${TOTAL_TOOLS} of ${TOTAL_TOOLS} tools`,
+    );
     await expectNoHorizontalOverflow(page);
   });
 
@@ -40,7 +56,7 @@ test.describe("Tools task directory mockup (Concept 4) @mockup", () => {
     await search.fill("medication");
     await expect(page.getByLabel("Open Medication Prescribing")).toBeVisible();
     await expect(page.getByLabel("Open Documents")).toHaveCount(0);
-    await expect(page.getByTestId("tools-visible-count")).toContainText("Showing 1 of 9 tools");
+    await expect(page.getByTestId("tools-visible-count")).toContainText(`Showing 1 of ${TOTAL_TOOLS} tools`);
 
     await search.fill("zzzzznotarealtool");
     await expect(page.getByTestId("tools-empty-state")).toBeVisible();
@@ -54,12 +70,15 @@ test.describe("Tools task directory mockup (Concept 4) @mockup", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await goto(page, PATH);
 
-    // Clinical = reference/assessment/care (6, incl. Safety plan + Calculators), Admin = coordination/personal (3).
-    await expect(page.getByRole("button", { name: /Clinical/ })).toContainText("6");
-    await expect(page.getByRole("button", { name: /Admin/ })).toContainText("3");
+    // Clinical = reference/assessment/care (incl. Safety plan + Calculators),
+    // Admin = coordination/personal. Both derived from the fixture above.
+    await expect(page.getByRole("button", { name: /Clinical/ })).toContainText(String(CLINICAL_TOOLS));
+    await expect(page.getByRole("button", { name: /Admin/ })).toContainText(String(ADMIN_TOOLS));
 
     await page.getByRole("button", { name: /Admin/ }).click();
-    await expect(page.getByTestId("tools-visible-count")).toContainText("Showing 3 of 9 tools");
+    await expect(page.getByTestId("tools-visible-count")).toContainText(
+      `Showing ${ADMIN_TOOLS} of ${TOTAL_TOOLS} tools`,
+    );
     await expect(page.getByLabel("Open Services").first()).toBeVisible();
     await expect(page.getByLabel("Open Differentials")).toHaveCount(0);
     await expectNoHorizontalOverflow(page);

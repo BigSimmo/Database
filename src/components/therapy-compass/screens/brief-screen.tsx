@@ -9,6 +9,7 @@ import { InformationPageFooter, InformationPageShell } from "@/components/inform
 import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
 import { BrowserPrintButton, PrintOutput } from "@/components/ui/print-output";
+import { cn } from "@/components/ui-primitives";
 import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "../bindings";
@@ -118,7 +119,7 @@ export function BriefScreen() {
           >
             <div className="grid grid-cols-1 sm:grid-cols-[300px_minmax(0,_1fr)] gap-4 items-start">
               {/* records list */}
-              <div className={`${cardSurface} p-4`}>
+              <div className={cn(cardSurface, "p-4")}>
                 <label className="relative flex items-center mb-3">
                   <Search
                     aria-hidden="true"
@@ -141,7 +142,10 @@ export function BriefScreen() {
                       <button
                         key={x.slug}
                         type="button"
-                        className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-left aria-[current=true]:border-[color:var(--clinical-accent-border)] aria-[current=true]:border-l-[3px] aria-[current=true]:border-l-[color:var(--clinical-accent)] aria-[current=true]:bg-[color:var(--clinical-accent-soft)]`}
+                        className={cn(
+                          therapyBtn,
+                          "transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-left aria-[current=true]:border-[color:var(--clinical-accent-border)] aria-[current=true]:border-l-[3px] aria-[current=true]:border-l-[color:var(--clinical-accent)] aria-[current=true]:bg-[color:var(--clinical-accent-soft)]",
+                        )}
                         onClick={() => b.select(x.slug)}
                         aria-current={active ? "true" : undefined}
                       >
@@ -177,7 +181,7 @@ export function BriefScreen() {
                 className="flex flex-col gap-4 min-w-0"
                 provenance={`Source: ${t.name} Therapy record · ${durationLabel} intervention · Review status: ${t.reviewStatus === "reviewed" ? "reviewed" : "source review required"}`}
               >
-                <div className={`${cardSurface} py-[22px] px-6`}>
+                <div className={cn(cardSurface, "py-[22px] px-6")}>
                   <div className="flex items-center justify-between gap-3 mb-[18px] flex-wrap">
                     <div className="flex items-center gap-3 flex-wrap">
                       <h2 className="m-0 text-lg font-semibold text-[color:var(--text-heading)]">{t.name}</h2>
@@ -216,7 +220,7 @@ export function BriefScreen() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-[1.6fr_1fr] gap-4 items-start">
-                  <div className={`${cardSurface} py-5 px-[22px] min-w-0`}>
+                  <div className={cn(cardSurface, "py-5 px-[22px] min-w-0")}>
                     <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-4">
                       {durationLabel} delivery
                     </div>
@@ -231,19 +235,19 @@ export function BriefScreen() {
                             </span>
                             <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
                               <div className="text-sm-minus leading-normal text-[color:var(--text-muted)]">{step}</div>
-                              <button
-                                data-print-hide
-                                type="button"
-                                className={`${therapyBtn} inline-flex min-h-tap items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-[color:var(--decoration-soft)] aria-[current=true]:border-[color:var(--clinical-accent-border)] aria-pressed:text-[color:var(--clinical-accent)]${copied === `step-${i}` ? " " : ""}`}
-                                onClick={() => copy(step, `step-${i}`)}
-                                title="Copy step"
-                              >
-                                {copied === `step-${i}` ? (
-                                  <Check aria-hidden="true" size={14} />
-                                ) : (
-                                  <Copy aria-hidden="true" size={14} />
-                                )}
-                              </button>
+                              <span data-print-hide className="contents">
+                                <Button
+                                  variant="toolbar"
+                                  size="sm"
+                                  icon={copied === `step-${i}` ? Check : Copy}
+                                  className="w-tap gap-0 px-0 text-[color:var(--decoration-soft)]"
+                                  onClick={() => copy(step, `step-${i}`)}
+                                  title="Copy step"
+                                  aria-label="Copy step"
+                                >
+                                  <span className="sr-only">Copy step</span>
+                                </Button>
+                              </span>
                             </div>
                           </div>
                         ))}
@@ -276,7 +280,7 @@ export function BriefScreen() {
                     ) : null}
                   </div>
 
-                  <div className={`${cardSurface} py-5 px-[22px]`}>
+                  <div className={cn(cardSurface, "py-5 px-[22px]")}>
                     <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-3.5">
                       Before use
                     </div>

@@ -124,7 +124,7 @@ describe("differentials navigation", () => {
 
   it("preserves compare-queue ids when returning to Search", () => {
     const href = differentialCompareSearchHref("Pain", ["wernicke-encephalopathy", "delirium"]);
-    expect(href).toContain("/differentials?");
+    expect(href).toContain("/differentials/search?");
     expect(href).toContain("q=Pain");
     expect(href).toContain("run=1");
     expect(href).toMatch(/ids=wernicke-encephalopathy%2Cdelirium|ids=wernicke-encephalopathy,delirium/);

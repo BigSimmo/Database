@@ -137,10 +137,10 @@ describe("PageSecondaryNavigation", () => {
       "href",
       "/factsheets/search?q=sertraline&category=Medicines&run=1",
     );
-    // Topics is the browse home: it reads neither param, and carries no
-    // focus=1 either — autofocusing the composer there would open the phone
-    // keyboard over the topics the user just asked to browse.
-    expect(screen.getByRole("link", { name: "Topics" })).toHaveAttribute("href", "/factsheets");
+    // Topics is the mode home — the shared lightweight one since `/factsheets`
+    // became a redirect. It reads neither param, and carries no focus=1 either:
+    // autofocusing the composer there would open the phone keyboard unbidden.
+    expect(screen.getByRole("link", { name: "Topics" })).toHaveAttribute("href", "/?mode=factsheets");
   });
 
   it("keeps the newly adopted factsheets bar off its record routes", () => {

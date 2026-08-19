@@ -90,3 +90,74 @@ Schema contracts and `.nullable()` invariants are verified by:
 
 - `tests/rag-retrieval-row-contract.test.ts`: Comprehensive unit tests covering valid rows, missing columns, dropped `source_metadata`, non-object metadata payloads, and score type invariants.
 - `npm run verify:pr-local`: PR verification gate ensuring all RAG contracts and fixture checks pass before handoff.
+
+---
+
+## RAG Improvement Programme Board & Lifecycle
+
+The Clinical RAG Improvement Programme coordinates enhancements to answer quality, retrieval precision, and safety infrastructure across multi-session workflows.
+
+### Programme Documentation Hierarchy
+
+1. **Programme Design & Architecture Guide:** `docs/rag-improvement/README.md`
+   - Defines track architecture (Track A: Answer Quality, Track B: Evaluation & Safety Infrastructure), promotion criteria, Gate A–F definitions, and binding constraints from refuted approaches.
+2. **Multi-Session Handover & Packet Status Table:** `docs/rag-improvement/HANDOVER.md`
+   - Serves as the primary operational board. Tracks packet status (S0–S7+, G1), work packet specifications, branch/PR assignments, session-start/end checklists, and paste-ready worker prompts.
+3. **Coordination & Babysit Manual:** `docs/rag-improvement/COORDINATION.md`
+   - Details the coordinator role, wave scheduling, approvals map, canary execution protocols, and babysit-to-merge playbook.
+4. **Safeguards & Historical Refutations:** `docs/rag-behaviour/safeguards.md` and `docs/rag-behaviour/refuted-approaches.md`
+   - Pin protected code surfaces, PR gate rules, and empirically refuted architectures (e.g. governance metadata ranking penalties/boosts, raw token streaming, comparator key ordering above relevance).
+
+### Programme Lifecycle & Execution Discipline
+
+- **Wave & Track Sequencing:**
+  - **Track A (Answer Quality):** Sequenced strictly consecutively (A1 fallback diagnosis `#231` -> A2 composition menu + A3 moderate length -> A4 follow-up suggestions) due to shared files and evidence dependencies.
+  - **Track B (Safety & Eval Infrastructure):** Executed in parallel work streams (B0 adversarial fixtures, B1 telemetry, B2 offline adversarial harness, B3–B4 Docling lab/shadow, B5 Ragas, B6 reranker, B7 DSPy).
+- **Single-Packet Session Boundary:** Each worker session implements exactly one packet from `docs/rag-improvement/HANDOVER.md`, opens a PR with the required evidence, updates its row in the status table, appends a review record to `docs/branch-review-ledger.md`, and stops at the open PR. Worker sessions never self-merge or dispatch unapproved provider-backed canaries.
+- **Canary Pair Protocol:** Any behavioral change on protected RAG ranking/answer surfaces requires a pre-merge baseline canary run on default `main` and a post-merge dispatch (`gh api repos/BigSimmo/Database/dispatches -f event_type=eval-canary`), compared via `npm run eval:retrieval:compare`. Regressions require immediate single-commit revert.
+
+---
+
+## Preflight Checks for RAG Surface Changes
+
+Before implementing any changes to RAG ranking, retrieval, synthesis, or evaluation surfaces, authors and agents must complete the following preflight checks:
+
+### 1. Board & Open PR Check
+
+- Review `docs/rag-improvement/HANDOVER.md` §2 status table and the open PR list (per `#292`) to verify the active packet state, dependencies, and avoid duplicate implementations.
+
+### 2. Protected Surface Identification
+
+- Verify whether the changed files touch protected RAG ranking surfaces (`scripts/pr-policy.mjs` `ragRankingPatterns`):
+  - `src/lib/rag/**` (retrieval pipeline, candidate sources, composition, routing, synthesis)
+  - `src/lib/clinical-search.ts`, `src/lib/retrieval-selection.ts`, `src/lib/released-search-order.ts`, `src/lib/ranking-config.ts`, `src/lib/evidence.ts`, `src/lib/result-sort.ts`, `src/lib/answer-ranking.ts`, `src/lib/evidence-relevance.ts`, `src/lib/semantic-rerank.ts`, `src/lib/eval-document-matching.ts`
+  - `scripts/eval-retrieval.ts`, `scripts/build-ranking-snapshot.ts`, `scripts/tune-search-weights.ts`
+  - `scripts/lib/clinical-aliases.ts`, `scripts/lib/ranking-tuning.ts`, `scripts/lib/ranking-snapshot-builder.ts`
+  - `scripts/fixtures/rag-retrieval-golden.json`, `scripts/fixtures/rag-ranking-candidate-snapshot.v1.json`
+  - Contract test pins: `tests/rag-fast-path-ordering.test.ts`, `tests/ranking-tuning.test.ts`, `tests/retrieval-selection.test.ts`, `tests/rag-second-stage-ranking.test.ts`, `tests/eval-retrieval.test.ts`, `tests/rag-imputation-contract.test.ts`
+  - Database schema & retrieval RPCs in `supabase/schema.sql` and `supabase/migrations/`
+
+### 3. Refuted Approaches Review
+
+- Check `docs/rag-behaviour/refuted-approaches.md` to confirm the proposed change does not re-walk known failure modes:
+  - Do not add `review_due`, `unknownCurrentness`, or governance metadata score boosts/penalties to ranking (Refutation 3).
+  - Do not reintroduce unverified raw token streaming (Refutation 6).
+  - Ensure all ranking score discriminators sit strictly below `relevance.score` in comparator chains.
+
+### 4. Offline Verification Ladder
+
+Execute the local offline verification ladder before opening a PR:
+
+- `npm run check:rag:fixtures` — validate golden retrieval fixture (36 cases) and ranking snapshot.
+- `npm run check:rag:adversarial-fixtures` — validate adversarial case fixtures and canary-string integrity.
+- `npm run eval:rag:offline` — run deterministic offline RAG test suites.
+- `npm run eval:rag:adversarial:offline` — execute offline adversarial regression harness.
+- `npm run test:focused -- --files <paths>` — run directly affected unit and contract tests.
+- `npm run verify:pr-local` — run full PR-local validation gate.
+
+### 5. PR Impact Declaration
+
+- Every PR touching protected RAG surfaces must declare its impact under `## Risk and rollout` in the PR body. `scripts/pr-policy.mjs` enforces this as a hard-blocking check:
+  - `RAG impact: no retrieval behaviour change — <reason>` (for refactors, tests, docs, or tooling)
+  - `RAG impact: behaviour change — canary pair <baseline run> -> <post run>` (for intentional ranking/retrieval changes)
+  - Non-RAG PRs may specify `RAG impact: none` or omit the line.

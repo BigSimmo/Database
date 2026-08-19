@@ -14,20 +14,8 @@
       "gzipBytes": 203889,
       "tolerancePct": 10
     },
-    "/therapy-compass": {
-      "gzipBytes": 210999,
-      "tolerancePct": 10
-    },
     "/documents/search": {
       "gzipBytes": 206572,
-      "tolerancePct": 10
-    },
-    "/dsm": {
-      "gzipBytes": 206586,
-      "tolerancePct": 10
-    },
-    "/forms": {
-      "gzipBytes": 230048,
       "tolerancePct": 10
     }
   },

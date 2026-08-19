@@ -1,8 +1,10 @@
-import { BookOpenCheck, GitCompareArrows, ListChecks, Search } from "lucide-react";
+import { GitCompareArrows, ListChecks, Search } from "lucide-react";
 
 import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
+import { appModeIcons } from "@/lib/app-mode-icons";
 import { dsmCategories } from "@/lib/dsm";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 
 const featuredCategories = dsmCategories
   .slice()
@@ -14,9 +16,9 @@ export function DsmHomePage() {
     <ModeHomeMain testId="dsm-home-main" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="dsm-home"
-        title="DSM-5 Diagnosis"
-        subtitle="Criteria, specifiers, and comparisons."
-        icon={BookOpenCheck}
+        title={sharedHomePresentation.dsm.title}
+        subtitle={sharedHomePresentation.dsm.subtitle}
+        icon={appModeIcons.dsm}
         actionsLabel="DSM-5 Diagnosis actions"
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actions={[
