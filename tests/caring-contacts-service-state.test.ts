@@ -103,4 +103,26 @@ describe("service safety stop", () => {
     expect(description).not.toMatch(/Rowan|Mira|\+61/);
     expect(describeServiceStop(runningService(team))).toBeNull();
   });
+
+  it("never leaks the incident note into the banner, even when the note names a patient", () => {
+    const stop = applyServiceStop(
+      runningService(team),
+      {
+        reason: "wrong-recipient",
+        actorId: actorId("ACTOR-STOP"),
+        note: "Rowan Whitlock's first message went to +61 491 570 156 instead of the number on file.",
+      },
+      clock,
+    );
+    if (!stop.ok) throw new Error(`expected the stop to be accepted, got ${stop.reason}`);
+
+    const description = describeServiceStop(stop.value) ?? "";
+    expect(description).not.toContain("Rowan");
+    expect(description).not.toContain("Whitlock");
+    expect(description).not.toContain("+61 491 570 156");
+    expect(description).not.toContain("491 570 156");
+    // Still a useful banner: the categorised reason and the approval count survive the exclusion.
+    expect(description).toContain("wrong recipient");
+    expect(description).toContain("0 of 3");
+  });
 });

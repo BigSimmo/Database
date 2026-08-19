@@ -44,18 +44,51 @@ export type ServiceRestartApproval = {
   approvedAt: string;
 };
 
+/**
+ * The state of the WHOLE service, not of one team.
+ *
+ * `reportedByTeamId` records which team reported the incident. It is provenance and nothing more:
+ * it does NOT scope the stop. A stop halts sending across every patient and every team, including
+ * teams that had no part in the incident, because the failure modes in spec 4.2 (wrong recipient,
+ * duplicate send, unauthorised content, privacy or security incident, loss of audit integrity) are
+ * evidence that the sending path itself cannot currently be trusted.
+ *
+ * **Storage must persist this as a single service-wide record, never one row per team.** A
+ * per-team table keyed on this field would look correct in the reporting team's screens while
+ * every other team kept sending straight through the incident -- which is the exact outcome the
+ * stop exists to prevent. The field is named `reportedByTeamId` rather than `teamId` so that
+ * mistake cannot be made by reading the type.
+ */
 export type ServiceState =
-  | { stopped: false; teamId: TeamId }
+  | { stopped: false; reportedByTeamId: TeamId }
   | {
       stopped: true;
-      teamId: TeamId;
+      reportedByTeamId: TeamId;
       reason: ServiceStopReason;
       stoppedBy: ActorId;
       /** AWST ISO-8601 instant with an explicit `+08:00` offset -- the same form ./audit records. */
       stoppedAt: string;
+      /**
+       * Free text written by a responder mid-incident: which message, which number, which patient.
+       * Treat it as patient data. It is deliberately NOT reachable from `describeServiceStop`,
+       * whose parameter type omits it -- see `ServiceStopBannerFacts`.
+       */
       note: string;
       restartApprovals: readonly ServiceRestartApproval[];
     };
+
+/**
+ * The only fields the banner may see.
+ *
+ * `note` is absent by construction, not by convention. `describeServiceStop` renders on every
+ * screen, including ones showing no patient at all, so it must never be able to leak the incident
+ * note -- and a doc comment asking a future editor not to interpolate a field that is sitting in
+ * scope is not a guarantee. Narrowing the parameter makes the leak a type error rather than a
+ * judgement call. `ServiceState` is structurally assignable to this, so callers just pass the state.
+ */
+export type ServiceStopBannerFacts =
+  | { stopped: false }
+  | { stopped: true; reason: ServiceStopReason; restartApprovals: readonly ServiceRestartApproval[] };
 
 /** The five confirmed events that stop the whole service under spec §4.2. */
 export const SERVICE_STOP_REASONS: readonly ServiceStopReason[] = Object.freeze([
@@ -92,8 +125,8 @@ const APPROVAL_ROLE_WORDING: Readonly<Record<ServiceRestartApprovalRole, string>
   clinicalProgrammeLead: "the clinical programme lead",
 });
 
-export function runningService(teamId: TeamId): ServiceState {
-  return Object.freeze({ stopped: false as const, teamId });
+export function runningService(reportedByTeamId: TeamId): ServiceState {
+  return Object.freeze({ stopped: false as const, reportedByTeamId });
 }
 
 /**
@@ -117,7 +150,7 @@ export function applyServiceStop(
     ok: true,
     value: Object.freeze({
       stopped: true as const,
-      teamId: state.teamId,
+      reportedByTeamId: state.reportedByTeamId,
       reason: input.reason,
       stoppedBy: input.actorId,
       stoppedAt: awstIsoTimestamp(clock.now()),
@@ -163,7 +196,7 @@ export function applyServiceRestartApproval(
   const everyRequiredRoleApproved = REQUIRED_RESTART_APPROVAL_ROLES.every((role) =>
     approvals.some((approval) => approval.role === role),
   );
-  if (everyRequiredRoleApproved) return { ok: true, value: runningService(state.teamId) };
+  if (everyRequiredRoleApproved) return { ok: true, value: runningService(state.reportedByTeamId) };
 
   return { ok: true, value: Object.freeze({ ...state, restartApprovals: approvals }) };
 }
@@ -181,12 +214,14 @@ export function serviceStopBlocksDispatch(state: ServiceState): boolean {
  * Banner text: why sending is stopped and how far the restart approvals have got. `null` while the
  * service is running.
  *
- * This is rendered on every screen, including ones showing no patient at all, so it carries no
- * patient information -- no name, no mobile number, no plan or patient identifier. In particular
- * it never includes the free-text `note`, which is written by a responder mid-incident and can
- * name the patient or the number involved.
+ * Takes `ServiceStopBannerFacts`, not the full `ServiceState`, so the incident `note` is not in
+ * scope here and cannot be interpolated into the banner by a later edit. The banner therefore
+ * carries no patient information -- no name, no mobile number, no plan or patient identifier.
+ *
+ * A stopped state can hold at most two approvals (the third restarts the service), so there is
+ * always at least one role outstanding to name.
  */
-export function describeServiceStop(state: ServiceState): string | null {
+export function describeServiceStop(state: ServiceStopBannerFacts): string | null {
   if (!state.stopped) return null;
 
   const recorded = state.restartApprovals.length;
@@ -195,14 +230,10 @@ export function describeServiceStop(state: ServiceState): string | null {
     (role) => !state.restartApprovals.some((approval) => approval.role === role),
   ).map((role) => APPROVAL_ROLE_WORDING[role]);
 
-  const stillNeeded =
-    outstanding.length === 0
-      ? "All approvals are in."
-      : `Still needed: ${formatList(outstanding)}, each from a different person.`;
-
   return (
     `All caring-contact sending is stopped for the whole service because ${STOP_REASON_WORDING[state.reason]}. ` +
-    `${recorded} of ${total} restart approvals recorded. ${stillNeeded}`
+    `${recorded} of ${total} restart approvals recorded. ` +
+    `Still needed: ${formatList(outstanding)}, each from a different person.`
   );
 }
 
