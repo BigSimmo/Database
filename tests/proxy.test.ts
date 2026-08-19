@@ -153,6 +153,40 @@ describe("production mockup boundary", () => {
     ).toBe(false);
     expect(shouldBlockProductionMockups("/applications", { NODE_ENV: "production" })).toBe(false);
   });
+
+  it("lets the developer-gated hub and Caring Contact subtree through the blanket block, without opting in the flag", () => {
+    // These two subtrees carry their own signed-in-administrator gate
+    // (DeveloperAreaGate) instead of the flat 404 — no NEXT_PUBLIC_MOCKUPS_ENABLED
+    // opt-in should be required, and no OTHER /mockups/** path should be affected.
+    for (const path of [
+      "/mockups/development",
+      "/mockups/caring-contacts",
+      "/mockups/caring-contacts/patients",
+      "/mockups/caring-contacts/patients/abc-123",
+    ]) {
+      expect(shouldBlockProductionMockups(path, { NODE_ENV: "production" })).toBe(false);
+    }
+    // A path that merely starts with the same characters is not a prefix match.
+    expect(shouldBlockProductionMockups("/mockups/development-notes", { NODE_ENV: "production" })).toBe(true);
+    expect(shouldBlockProductionMockups("/mockups/caring-contacts-archive", { NODE_ENV: "production" })).toBe(true);
+  });
+});
+
+describe("developer-area header (x-developer-area)", () => {
+  it("sets the header only for the two developer-gated paths, and strips a client-supplied copy elsewhere", async () => {
+    const developmentRequest = requestFor("/mockups/development");
+    const developmentResponse = await proxy(developmentRequest);
+    expect(developmentResponse.headers.get("x-middleware-request-x-developer-area")).toBe("1");
+    expect(developmentResponse.headers.get("x-middleware-request-x-developer-area-path")).toBe("/mockups/development");
+
+    const otherMockupRequest = requestFor("/mockups/tools-workflow-board");
+    otherMockupRequest.headers.set("x-developer-area", "1");
+    otherMockupRequest.headers.set("x-developer-area-path", "/mockups/development");
+    const otherMockupResponse = await proxy(otherMockupRequest);
+    // Spoofed header must not survive into the forwarded request.
+    expect(otherMockupResponse.headers.get("x-middleware-request-x-developer-area")).toBeNull();
+    expect(otherMockupResponse.headers.get("x-middleware-request-x-developer-area-path")).toBeNull();
+  });
 });
 
 describe("document-source fallback redirects", () => {

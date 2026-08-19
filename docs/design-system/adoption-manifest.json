@@ -955,6 +955,7 @@
         "src/components/clinical-dashboard/auth-panel.tsx",
         "src/components/clinical-dashboard/medication-considerations.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/developer-area/developer-gate-screen.tsx",
         "src/components/document-viewer/document-rail-panels.tsx"
       ],
       "productImportFiles": [
@@ -1910,6 +1911,7 @@
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/developer-area/developer-gate-screen.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
@@ -3930,6 +3932,6 @@
     "productImportedComponentCount": 34,
     "rootCount": 88,
     "productionRouteCount": 75,
-    "nextUiEntryCount": 128
+    "nextUiEntryCount": 131
   }
 }

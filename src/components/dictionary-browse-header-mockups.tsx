@@ -523,7 +523,9 @@ export function PhoneComposer() {
     <div className="absolute inset-x-0 bottom-0 z-30 border-t border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2">
       <div className="flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2">
         <Plus className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden="true" />
-        <span className="flex-1 text-xs font-medium text-[color:var(--text-soft)]">Search a term or abbreviation…</span>
+        <span className="flex-1 text-xs font-medium text-[color:var(--text-soft)]">
+          Search a term or abbreviation...
+        </span>
         <SendHorizontal className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden="true" />
       </div>
     </div>
