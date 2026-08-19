@@ -223,7 +223,10 @@ export async function GET(request: Request) {
     const ownedLabelsPromises = [];
     for (let i = 0; i < ownedIds.length; i += 100) {
       ownedLabelsPromises.push(
-        supabase.from("document_labels").select(LABEL_LIST_COLUMNS).in("document_id", ownedIds.slice(i, i + 100)),
+        supabase
+          .from("document_labels")
+          .select(LABEL_LIST_COLUMNS)
+          .in("document_id", ownedIds.slice(i, i + 100)),
       );
     }
     const publicLabelsPromises = [];
@@ -238,7 +241,10 @@ export async function GET(request: Request) {
     const ownedSummariesPromises = [];
     for (let i = 0; i < ownedIds.length; i += 100) {
       ownedSummariesPromises.push(
-        supabase.from("document_summaries").select(SUMMARY_LIST_COLUMNS).in("document_id", ownedIds.slice(i, i + 100)),
+        supabase
+          .from("document_summaries")
+          .select(SUMMARY_LIST_COLUMNS)
+          .in("document_id", ownedIds.slice(i, i + 100)),
       );
     }
     const publicSummariesPromises = [];
@@ -269,10 +275,7 @@ export async function GET(request: Request) {
 
     const labelsByDocument = new Map<string, unknown[]>();
     const labelRows = parseListRows(
-      [
-        ...ownedLabelsResults.flatMap((res) => res.data ?? []),
-        ...publicLabelsResults.flatMap((res) => res.data ?? []),
-      ],
+      [...ownedLabelsResults.flatMap((res) => res.data ?? []), ...publicLabelsResults.flatMap((res) => res.data ?? [])],
       labelListRowSchema,
     );
     for (const label of labelRows) {
