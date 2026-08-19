@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { appModeHomeHref, appModeIds } from "@/lib/app-modes";
+import { modeSecondaryNavigationRegistry } from "@/lib/mode-secondary-navigation";
 import {
   consolidatedModeHomeModeId,
+  unsubmittedModeSearchTarget,
   consolidatedModeHomeModeIds,
   consolidatedModeHomeTarget,
   isConsolidatedModeHomePath,
@@ -129,6 +131,64 @@ describe("consolidated mode home redirects", () => {
       const submitted = appModeHomeHref(modeId, { query: "clozapine", run: true });
       expect(target(new URL(submitted, "https://clinical.test").pathname)).toBeNull();
       expect(submitted.startsWith(`/${modeId}/search?`)).toBe(true);
+    }
+  });
+
+  /*
+   * An unsubmitted `/calculators/search` has nothing to show: its component
+   * falls back to the mode home, which the page consolidation retired. Resolved
+   * in the proxy so it is a 307 rather than the streamed meta refresh a
+   * page-level redirect would emit.
+   */
+  it("forwards an unsubmitted mode search to the shared home", () => {
+    const search = (pathname: string, query = "") => unsubmittedModeSearchTarget(pathname, new URLSearchParams(query));
+
+    expect(search("/calculators/search")).toBe("/?mode=calculators");
+    expect(search("/calculators/search", "q=+++")).toBe("/?mode=calculators");
+  });
+
+  /*
+   * The scope is deliberately narrow — only `/calculators/search`. Differentials,
+   * Formulation and Specifiers search routes are NOT here even though they look
+   * like the same shape: their components render a real browsable catalogue on an
+   * empty query — the same content their bare mode paths held before
+   * consolidation, relocated rather than duplicated
+   * (`tests/ui-phone-scroll-routes.spec.ts` pins the long list rendering at
+   * `/formulation/search` with no query). Factsheets, Dictionary and Therapy are
+   * absent for the separate reason below: they are linked from their own mode
+   * nav with no query at all, so redirecting them would break the tab pointing
+   * at them.
+   */
+  it("leaves query-free browse surfaces alone", () => {
+    const search = (pathname: string, query = "") => unsubmittedModeSearchTarget(pathname, new URLSearchParams(query));
+
+    for (const pathname of [
+      "/differentials/search",
+      "/formulation/search",
+      "/specifiers/search",
+      "/factsheets/search",
+      "/dictionary/search",
+      "/therapy-compass/search",
+    ]) {
+      expect(search(pathname)).toBeNull();
+    }
+    // A submitted search is never redirected, and `query` counts as submitted so a
+    // legacy deep link reaches the route's own canonicalisation instead of bouncing.
+    expect(search("/differentials/search", "q=pain&run=1")).toBeNull();
+    expect(search("/calculators/search", "query=PHQ-9")).toBeNull();
+  });
+
+  /*
+   * Every mode nav destination must survive the proxy. A future addition to the
+   * no-browse-view set that collides with a linked tab would strand that tab on
+   * the shared home; this walks the real registry rather than a copy of it.
+   */
+  it("never redirects a route the mode nav links to without a query", () => {
+    for (const entries of Object.values(modeSecondaryNavigationRegistry)) {
+      for (const entry of entries) {
+        if (!("href" in entry) || !entry.href || entry.href.includes("?")) continue;
+        expect(unsubmittedModeSearchTarget(entry.href, new URLSearchParams()), entry.href).toBeNull();
+      }
     }
   });
 });

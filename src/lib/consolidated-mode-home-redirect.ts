@@ -136,3 +136,78 @@ export function consolidatedModeHomeTargetForSearchParams(
   }
   return consolidatedModeHomeTarget(pathname, params);
 }
+
+/**
+ * `<mode>/search` routes that have no browse view of their own.
+ *
+ * Only `/calculators/search`: its component has no fallback content for an empty
+ * query, so an unsubmitted visit rendered nothing useful there. Redirecting it
+ * home is correct and has its own passing coverage
+ * (`tests/calculators-mode.dom.test.tsx`).
+ *
+ * `/differentials/search`, `/formulation/search` and `/specifiers/search` are
+ * deliberately NOT here, despite looking like the same shape: their components
+ * render a real browsable catalogue on an empty query — the same content
+ * `/differentials`, `/formulation` and `/specifiers` held before consolidation,
+ * relocated here rather than duplicated. That is pinned by
+ * `tests/ui-phone-scroll-routes.spec.ts` ("phone scroll stays smooth on
+ * /formulation/search"), which navigates there with no query and asserts the
+ * long mechanism list renders and scrolls. Two earlier passes added these three
+ * anyway, reasoning from the code shape alone without running that Playwright
+ * spec (`npm run test` doesn't cover `.spec.ts` files) — both broke the pinned
+ * behavior. Confirmed live a third time before writing this comment: with these
+ * three included, `/formulation/search` 307s to `/?mode=formulation` and the
+ * mechanism list never renders. Do not re-add them without first running
+ * `tests/ui-phone-scroll-routes.spec.ts` and confirming it still passes.
+ *
+ * `/factsheets/search`, `/dictionary/search` and `/therapy-compass/search` are
+ * absent for a different, unrelated reason: they're linked from their mode nav
+ * with no query at all (`modeSecondaryNavigationRegistry`), so they're browse
+ * surfaces too — redirecting them would break the tab that points at them.
+ */
+const modeSearchRoutesWithoutBrowseView = {
+  "/calculators/search": "calculators",
+} as const satisfies Record<string, AppModeId>;
+
+/**
+ * The shared-home URL an unsubmitted mode-search route forwards to, if any.
+ *
+ * Resolved in the proxy for the same reason as the bare paths: a page-level
+ * `redirect()` under the streaming `(search-app)` layout emits a client-side meta
+ * refresh rather than a 307, which is a second of empty shell. The pages keep
+ * their own redirect as a backstop, exactly as the bare paths do.
+ *
+ * `query` counts alongside `q` so a legacy `?query=` deep link is treated as
+ * submitted and reaches the route's own canonicalisation rather than bouncing home.
+ */
+export function unsubmittedModeSearchTarget(pathname: string, search: URLSearchParams): string | null {
+  if (!Object.hasOwn(modeSearchRoutesWithoutBrowseView, pathname)) return null;
+  const modeId = modeSearchRoutesWithoutBrowseView[pathname as keyof typeof modeSearchRoutesWithoutBrowseView];
+
+  const query = (search.get("q")?.trim() || search.get("query")?.trim()) ?? "";
+  if (query) return null;
+
+  const params = new URLSearchParams(search);
+  params.delete("q");
+  params.delete("query");
+  params.set("mode", modeId);
+  return `/?${params.toString()}`;
+}
+
+/**
+ * `[bare path, mode]` for every consolidated home, and `[search path, mode]` for
+ * every unsubmitted mode-search forward.
+ *
+ * Exported for `scripts/generate-site-map.ts`. The generator used to learn which
+ * routes redirect by regex-scraping `redirect("…")` out of page bodies, which
+ * stopped seeing these the moment the stubs began computing their target instead
+ * of naming it as a literal — so the site map described the bare paths as pages
+ * that render a home. Reading the map itself cannot drift from the map.
+ */
+export const consolidatedModeHomeRedirectEntries = Object.entries(consolidatedModeHomePaths) as ReadonlyArray<
+  readonly [string, AppModeId]
+>;
+
+export const unsubmittedModeSearchRedirectEntries = Object.entries(modeSearchRoutesWithoutBrowseView) as ReadonlyArray<
+  readonly [string, AppModeId]
+>;
