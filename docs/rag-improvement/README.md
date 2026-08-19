@@ -13,7 +13,7 @@ infrastructure, corrected.
 behaviour change needs a live eval-canary pair (provider-backed, ~$1–2, explicit approval per
 run). Nothing here authorises reindexing, migrations, or provider calls by itself.
 
-**Canonical task queue:** per `AGENTS.md`, canonical cross-session task tracking and deduplication live in [`docs/outstanding-issues.md`](../outstanding-issues.md). Always consult the canonical ledger and check open PRs before beginning work on any packet or RAG surface.
+**Canonical task queue:** per `AGENTS.md`, canonical cross-session task tracking and deduplication live in [`docs/outstanding-issues.md`](../outstanding-issues.md). Always consult the canonical ledger first. Check open PRs only when explicit owner approval for provider access exists; otherwise continue with local/offline evidence and note the duplicate-risk caveat.
 
 ---
 

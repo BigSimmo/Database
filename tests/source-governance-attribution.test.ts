@@ -356,14 +356,19 @@ describe("source governance reviewer attribution", () => {
         identifier: "doc-reviewed-empty-attribution",
         review_status: "reviewed",
         reason: expect.stringContaining("trivial placeholder"),
+        found_attribution: { reviewedBy: "[redacted]" },
       });
+      expect(report.violations[1].reason).not.toContain("   ");
 
       expect(report.violations[2]).toMatchObject({
         record_type: "differential",
         identifier: "diff-trivial-attribution",
         review_status: "reviewed",
         reason: expect.stringContaining("trivial placeholder"),
+        found_attribution: { reviewer: "[redacted]" },
       });
+      expect(report.violations[2].reason).toContain("reviewer");
+      expect(report.violations[2].reason).not.toContain("unknown");
     });
   });
 });

@@ -26,7 +26,7 @@ export type ReviewAttributionViolation = {
   title: string;
   source: string;
   review_status: string;
-  found_attribution: Record<string, unknown>;
+  found_attribution: Record<string, string>;
   reason: string;
 };
 
@@ -194,17 +194,21 @@ export function auditReviewAttribution(records: AuditableRecord[]): ReviewAttrib
     const { hasAttribution, foundFields } = extractReviewerAttribution(item.record);
 
     if (!hasAttribution) {
+      const attributionFieldNames = Object.keys(foundFields).sort();
+      const redactedAttributionFields = Object.fromEntries(
+        attributionFieldNames.map((fieldName) => [fieldName, "[redacted]"]),
+      );
       violations.push({
         record_type: item.recordType,
         identifier: item.identifier,
         title: item.title,
         source: item.source,
         review_status: rawStatus ?? "reviewed",
-        found_attribution: foundFields,
+        found_attribution: redactedAttributionFields,
         reason:
-          Object.keys(foundFields).length === 0
+          attributionFieldNames.length === 0
             ? "Record is marked as reviewed but has no reviewer attribution (e.g. reviewedBy or reviewer field is missing)."
-            : `Record is marked as reviewed but reviewer attribution contains empty or trivial placeholder value(s): ${JSON.stringify(foundFields)}.`,
+            : `Record is marked as reviewed but reviewer attribution contains empty or trivial placeholder value(s) in: ${attributionFieldNames.join(", ")}.`,
       });
     }
   }
@@ -227,7 +231,13 @@ async function loadStaticJson<T>(relativePath: string): Promise<T> {
     const raw = await readFile(fullPath, "utf8");
     return JSON.parse(raw) as T;
   } catch (error) {
-    throw new Error(`Failed to load source governance input: ${relativePath}`, { cause: error });
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(`Required source governance input is missing: ${relativePath}`, { cause: error });
+    }
+    throw new Error(
+      `Failed to load source governance input: ${relativePath}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
   }
 }
 

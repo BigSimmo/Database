@@ -17,6 +17,7 @@ import {
   renderBudgetTable,
   validateBaselineBrowserVersions,
 } from "../scripts/check-lighthouse-budget.mjs";
+import { routeWithLighthouseParams } from "../scripts/lib/lighthouse-route-params.mjs";
 import { measurementFailureReason } from "../scripts/lighthouse-measurement-outcome.mjs";
 import { deadlineAfter, processTimeoutMs, remainingMs } from "../scripts/lighthouse-time-budget.mjs";
 
@@ -506,10 +507,8 @@ describe("committed lighthouse-budget.json", () => {
   });
 
   it("disables local-dev install prompts during Lighthouse measurements", () => {
-    const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
-
-    expect(runner).toContain("routeWithLighthouseParams(route)");
-    expect(runner).toContain("pwa-dev=0");
+    expect(routeWithLighthouseParams("/forms")).toBe("/forms?pwa-dev=0");
+    expect(routeWithLighthouseParams("/forms?feature=abc")).toBe("/forms?feature=abc&pwa-dev=0");
   });
 });
 

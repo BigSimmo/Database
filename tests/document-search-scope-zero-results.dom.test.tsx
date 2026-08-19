@@ -1,12 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DocumentSearchResultsPanel } from "@/components/clinical-dashboard/document-search-results";
 import { removeScopeFilterValue, scopeFilterChips } from "@/lib/search-scope-filter-chips";
 import type { DocumentMatch, SearchScopeSummary } from "@/lib/types";
 
 let mockSearchParams = new URLSearchParams();
+afterEach(() => {
+  mockSearchParams = new URLSearchParams();
+});
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
@@ -325,6 +329,5 @@ describe("documents hoisted filtered-to-zero empty state", () => {
     expect(emptyStateContainer).toBeInTheDocument();
     expect(emptyStateContainer).toHaveClass("w-full");
     expect(screen.queryByTestId("document-result-card")).not.toBeInTheDocument();
-    mockSearchParams = new URLSearchParams();
   });
 });

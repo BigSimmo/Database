@@ -26,6 +26,7 @@ const legacyClinicalGovernanceEvidence = new Map([
         /\bprovenance\b/i,
         /\bclinical-content governance\b/i,
       ],
+      [/\blinked-source verification\b/i, /\bclinical use\b/i],
     ],
   ],
   [
@@ -150,7 +151,7 @@ function meaningfulText(value) {
 
 function checkedCommand(value, command) {
   const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`-\\s*\\[[xX]\\]\\s*[^\\n]*${escaped}`, "i").test(value);
+  return checkedChecklistEntries(value).some((entry) => new RegExp(escaped, "i").test(entry));
 }
 
 function explicitNotRun(value, scope = "verification") {
@@ -176,6 +177,10 @@ function checkedChecklistEntries(value) {
   return [...String(value ?? "").matchAll(/^\s*[-*+]\s*\[[xX]\]\s*(.+?)\s*$/gm)].map((match) => match[1].trim());
 }
 
+function uncheckedChecklistEntries(value) {
+  return [...String(value ?? "").matchAll(/^\s*[-*+]\s*\[\s\]\s*(.+?)\s*$/gm)].map((match) => match[1].trim());
+}
+
 function governanceMatcherGroupSatisfied(group, checkedEntries) {
   return group.every((matcher) => checkedEntries.some((entry) => matcher.test(entry)));
 }
@@ -192,18 +197,6 @@ function governanceItemSatisfied(checkedEntries, item) {
 export function collectSatisfiedGovernanceItems(value) {
   const checkedEntries = checkedChecklistEntries(value);
   return requiredClinicalGovernanceItems.filter((item) => governanceItemSatisfied(checkedEntries, item));
-}
-
-// Tolerant matching for the policy gate itself: affirm every item is checked
-// without demanding the exact required wording. Authors may lightly reword or
-// reformat the checklist, but a clinical-risk PR must leave no box unchecked
-// and must cover at least the required number of governance items.
-function governanceBoxStats(value) {
-  const source = String(value ?? "");
-  return {
-    checked: (source.match(/[-*+]\s*\[[xX]\]/g) ?? []).length,
-    unchecked: (source.match(/[-*+]\s*\[ \]/g) ?? []).length,
-  };
 }
 
 function fieldValue(value, field) {
@@ -312,8 +305,12 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
     if (!meaningfulText(governance)) {
       errors.push("Clinical-risk paths require the `## Clinical Governance Preflight` section.");
     } else {
-      const { checked, unchecked } = governanceBoxStats(governance);
-      if (unchecked > 0 || checked < requiredClinicalGovernanceItems.length) {
+      const satisfiedItems = collectSatisfiedGovernanceItems(governance);
+      const uncheckedItems = uncheckedChecklistEntries(governance);
+      const hasUncheckedRequiredItem = requiredClinicalGovernanceItems.some((item) =>
+        uncheckedItems.some((uncheckedItem) => uncheckedItem === item),
+      );
+      if (satisfiedItems.length < requiredClinicalGovernanceItems.length || hasUncheckedRequiredItem) {
         errors.push(
           `Check every Clinical Governance Preflight item before marking the PR ready (all ${requiredClinicalGovernanceItems.length} boxes checked, none left unchecked).`,
         );

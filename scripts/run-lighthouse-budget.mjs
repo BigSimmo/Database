@@ -64,6 +64,7 @@ import {
   processTimeoutMs,
   remainingMs,
 } from "./lighthouse-time-budget.mjs";
+import { routeWithLighthouseParams } from "./lib/lighthouse-route-params.mjs";
 import {
   appName,
   circularProjectPortRange,
@@ -256,13 +257,6 @@ const budget = loadBudget();
 const routes = budget.routes ?? [];
 const strategies = budget.strategies ?? ["mobile", "desktop"];
 
-function routeWithLighthouseParams(route) {
-  // Lighthouse is a synthetic unattended run. Keep local-dev PWA prompts off so
-  // browser-timed install eligibility cannot inject the fixed install sheet and
-  // register a non-product CLS spike in budget grading.
-  const separator = route.includes("?") ? "&" : "?";
-  return `${route}${separator}pwa-dev=0`;
-}
 /**
  * Pinned in `lighthouse-budget.json` so this runner and the live-domain workflow
  * share one version; `tests/check-lighthouse-budget.test.ts` fails if they drift.
