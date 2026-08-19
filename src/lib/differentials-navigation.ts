@@ -9,16 +9,29 @@ import { appModeHomeHref } from "@/lib/app-modes";
 /** Search home/results href that preserves compare-queue diagnosis ids. */
 export function differentialCompareSearchHref(query: string, selectedIds: Iterable<string> = []) {
   const trimmedQuery = query.trim();
-  const base = appModeHomeHref("differentials", {
+  const ids = Array.from(selectedIds, (id) => id.trim()).filter(Boolean);
+
+  // When there are selected IDs, always target /differentials/search so the
+  // edit-selection link lands on the search page regardless of whether there is
+  // a query.  /differentials is now a consolidated redirect — appModeHomeHref
+  // with no query returns /?mode=differentials (the shared home), which is the
+  // wrong destination for an edit-selection link.
+  if (ids.length) {
+    const params = new URLSearchParams();
+    if (trimmedQuery) {
+      params.set("q", trimmedQuery);
+      params.set("run", "1");
+    }
+    params.set("focus", "1");
+    params.set("ids", ids.join(","));
+    return `/differentials/search?${params.toString()}`;
+  }
+
+  return appModeHomeHref("differentials", {
     query: trimmedQuery || undefined,
     run: Boolean(trimmedQuery),
     focus: true,
   });
-  const ids = Array.from(selectedIds, (id) => id.trim()).filter(Boolean);
-  if (!ids.length) return base;
-  const url = new URL(base, "http://differential-compare.local");
-  url.searchParams.set("ids", ids.join(","));
-  return `${url.pathname}${url.search}${url.hash}`;
 }
 
 export function differentialRouteWithQuery(

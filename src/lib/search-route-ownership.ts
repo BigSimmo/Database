@@ -26,22 +26,14 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
  * navigation cannot flip the shell into dock reserve mid-transition.
  */
 const standaloneModeHomePaths = new Set<string>([
-  "/services",
-  "/forms",
+  // The four modes that still own a home of their own. Every other mode was
+  // consolidated onto the shared home at `/?mode=<id>`, whose composer the
+  // dashboard owns; their bare paths redirect and render nothing to reserve
+  // geometry for (`consolidatedModeHomePaths`).
   "/favourites",
-  "/differentials",
-  "/dsm",
-  "/specifiers",
-  "/formulation",
-  "/factsheets",
-  "/dictionary",
-  "/therapy-compass",
   "/tools",
-  "/calculators",
-  // Documents and Medication gained real homes when `/` became the single shared
-  // home for every mode. Like the others they own an in-flow hero composer.
-  "/documents",
   "/medications",
+  "/documents",
 ]);
 
 /**

@@ -831,9 +831,10 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
 
     // Re-selecting the current mode from its old home also returns to the shared
     // home; same-mode picks must not be mistaken for no-ops on deeper routes.
+    // `/forms` is that old home, and now redirects onto the shared one.
     await gotoLauncher(page, "/forms");
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
-    await expect(visibleByTestId(page, "forms-home")).toBeVisible();
+    await expect(visibleByTestId(page, "shared-home-empty-state")).toBeVisible();
 
     menu = await openAppModeMenu(page, "Forms");
     const currentFormsMode = menu.getByRole("menuitemradio", { name: /^Forms\b/ });
@@ -1005,17 +1006,19 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 390, height: 820 });
 
     for (const home of [
-      { path: "/services", testId: "services-home" },
-      { path: "/forms", testId: "forms-home" },
-      { path: "/differentials", testId: "differentials-home" },
-      { path: "/factsheets", testId: "factsheets-home-main" },
-      { path: "/favourites", testId: "favourites-hub" },
-      // The shared home at `/` is where the mode pill actually lands, so it gets
-      // the same hero treatment for every mode. These two borrow
-      // `resultKind: "tools"` as a benign search kind and used to inherit the
-      // Tools dock exception here, losing the hero pill, ticker and privacy line.
+      // Consolidated modes: the shared home is now the only home they have, and
+      // it must keep the in-flow hero pill for each of them. `factsheets` and
+      // `dictionary` borrow `resultKind: "tools"` as a benign search kind and
+      // used to inherit the Tools dock exception here, losing the hero pill,
+      // ticker and privacy line — which is why they are named individually.
+      { path: "/?mode=services", testId: "shared-home-empty-state" },
+      { path: "/?mode=forms", testId: "shared-home-empty-state" },
+      { path: "/?mode=differentials", testId: "shared-home-empty-state" },
       { path: "/?mode=factsheets", testId: "shared-home-empty-state" },
       { path: "/?mode=dictionary", testId: "shared-home-empty-state" },
+      // Still route-owned homes, and still held to the same contract.
+      { path: "/favourites", testId: "favourites-hub" },
+      { path: "/?mode=therapy-compass", testId: "shared-home-empty-state" },
       // /tools is the documented exception: phones use the shared footer dock
       // instead of the in-flow hero pill (docs/search-chrome-behaviour.md).
     ] as const) {
@@ -1070,7 +1073,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
   ] as const) {
     for (const home of [
       { path: "/?mode=answer", testId: "shared-home-empty-state" },
-      { path: "/services", testId: "services-home" },
+      { path: "/?mode=services", testId: "shared-home-empty-state" },
     ] as const) {
       test(`mode home search composer is present at ${viewport.name} width on ${home.path} @critical`, async ({
         page,
@@ -1116,11 +1119,22 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
 
   for (const home of [
     { path: "/?mode=answer", testId: "shared-home-empty-state", heroTestId: "shared-home-empty-state" },
-    { path: "/documents", testId: "document-search-empty-state", heroTestId: "document-search-empty-state" },
     { path: "/medications", testId: "medication-home", heroTestId: "medication-home" },
-    { path: "/services", testId: "services-home", heroTestId: "services-home-template" },
-    { path: "/forms", testId: "forms-home", heroTestId: "forms-home-template" },
-    { path: "/differentials", testId: "differentials-home", heroTestId: "differentials-home-template" },
+    // Consolidated modes share one hero, so each is checked through the shared
+    // home its bare path now redirects to. The copy differs per mode, which is
+    // what makes more than one row worth running.
+    {
+      path: "/?mode=documents",
+      testId: "shared-home-empty-state",
+      heroTestId: "shared-home-empty-state",
+    },
+    { path: "/?mode=services", testId: "shared-home-empty-state", heroTestId: "shared-home-empty-state" },
+    { path: "/?mode=forms", testId: "shared-home-empty-state", heroTestId: "shared-home-empty-state" },
+    {
+      path: "/?mode=differentials",
+      testId: "shared-home-empty-state",
+      heroTestId: "shared-home-empty-state",
+    },
   ] as const) {
     test(`mode home hero uses the shared mobile sizing on ${home.path}`, async ({ page }) => {
       await mockAnswerDashboardApi(page);
@@ -1190,7 +1204,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(page.getByTestId("service-quick-search-suggestions")).toHaveCount(0);
     await input.fill("crisis");
     await input.press("Enter");
-    await expect(page).toHaveURL(/\/services\?.*q=crisis/);
+    await expect(page).toHaveURL(/\/services\/search\?.*q=crisis/);
 
     // Phones keep the full search results in the page instead of opening a
     // command sheet over the small viewport.
@@ -1244,16 +1258,33 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
         heading: "Clinical Answers",
         headingLevel: 2,
       },
-      { path: "/documents", testId: "document-search-empty-state", heading: "Documents", headingLevel: 2 },
+      {
+        path: "/?mode=documents",
+        testId: "shared-home-empty-state",
+        heading: "Clinical Documents",
+        headingLevel: 2,
+      },
       {
         path: "/medications",
         testId: "medication-home",
         heading: "Medication Guidance",
         headingLevel: 2,
       },
-      { path: "/services", testId: "services-home", heading: "Clinical Services", headingLevel: 1 },
-      { path: "/forms", testId: "forms-home", heading: "Clinical Forms", headingLevel: 1 },
-      { path: "/differentials", testId: "differentials-home", heading: "Differential Diagnosis", headingLevel: 1 },
+      // Consolidated modes reach the same hero through the shared home; the
+      // heading is the mode's own `sharedHomePresentation` title at level 2.
+      {
+        path: "/?mode=services",
+        testId: "shared-home-empty-state",
+        heading: "Clinical Services",
+        headingLevel: 2,
+      },
+      { path: "/?mode=forms", testId: "shared-home-empty-state", heading: "Clinical Forms", headingLevel: 2 },
+      {
+        path: "/?mode=differentials",
+        testId: "shared-home-empty-state",
+        heading: "Differential Diagnosis",
+        headingLevel: 2,
+      },
     ] as const) {
       test(`mode home search is centered at ${viewport.name} width on ${home.path}`, async ({ page }) => {
         await mockAnswerDashboardApi(page);
@@ -1383,13 +1414,15 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
   test("mode home deep links preserve focus=1 on initial load", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
 
-    await gotoLauncher(page, "/services?focus=1");
-    await expect(page.getByTestId("services-home").getByTestId("global-search-input")).toBeVisible();
-    await expect(page.getByTestId("services-home").getByTestId("global-search-input")).toBeFocused();
-
-    await gotoLauncher(page, "/forms?focus=1");
-    await expect(visibleByTestId(page, "forms-home").getByTestId("global-search-input")).toBeVisible();
-    await expect(visibleByTestId(page, "forms-home").getByTestId("global-search-input")).toBeFocused();
+    // `focus=1` has to survive the consolidation hop: `/services?focus=1` is a
+    // 307 onto the shared home, and dropping the parameter there would land the
+    // visitor on a home with an unfocused composer for no visible reason.
+    for (const path of ["/services?focus=1", "/forms?focus=1"]) {
+      await gotoLauncher(page, path);
+      const composer = visibleByTestId(page, "shared-home-empty-state").getByTestId("global-search-input");
+      await expect(composer, path).toBeVisible();
+      await expect(composer, path).toBeFocused();
+    }
   });
 
   test("services mode shows source-backed records in search results", async ({ page }) => {
@@ -1578,7 +1611,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(formsSearchButton).toBeEnabled();
     await waitForReactEventHandler(formsSearchButton.locator("xpath=ancestor::form[1]"), "onSubmit");
     await formsSearchButton.click();
-    await expect(page).toHaveURL(/\/forms\?.*\bq=transport(?:\+|%20)forms\b/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/forms\/search\?.*\bq=transport(?:\+|%20)forms\b/, { timeout: 20_000 });
     await expect(page.getByTestId("form-search-results")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId("form-search-result-transport-crisis-form")).toContainText("Transport order");
     await expect(
@@ -1844,38 +1877,39 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  // The mode pill no longer opens mode homes, so reach /differentials the way a
-  // user now does: the sidebar's "More modes" sheet, or a direct link.
-  test("the differentials home renders inside the dashboard when opened directly", async ({ page }) => {
+  // `/differentials` no longer renders a home of its own: it redirects onto the
+  // shared one, which is where a direct link, a bookmark and the sidebar's "More
+  // modes" sheet all now land. The detailed home this used to assert (Recent
+  // work, Library matches, the Compare action row) is design scratch at
+  // /mockups/differentials-home-detailed and 404s in production.
+  test("a direct link to the differentials home lands on the shared home", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/differentials");
 
+    await expect(page).toHaveURL(/\/\?mode=differentials\b/, { timeout: 20_000 });
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
-    await expect(page.getByTestId("differentials-home")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "Differential Diagnosis" })).toBeVisible();
-    await expect(page.locator('input[placeholder="Ask or search a presentation"]:visible').first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Search presentations" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Compare differentials" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Differential actions" }).getByRole("button")).toHaveCount(2);
-    await expect(
-      page.getByTestId("differentials-home").getByRole("region", { name: /^(Recent work|Library matches)$/ }),
-    ).toBeVisible();
-    await expect(page.getByTestId("global-search-input")).toHaveCount(1);
-    const differentialsHomeSearch = page.getByTestId("differentials-home").getByTestId("global-search-input");
-    await expect(differentialsHomeSearch).toBeVisible();
-    // The shell's Suspense swap after client navigation can briefly detach the
-    // hero heading, so retry the geometry probe instead of measuring once.
+    const sharedHome = visibleByTestId(page, "shared-home-empty-state");
+    await expect(sharedHome).toBeVisible();
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "Differential Diagnosis" })).toBeVisible();
+    await expect(page.getByTestId("differentials-home")).toHaveCount(0);
+
+    // One composer, in the hero, carrying the mode's own placeholder.
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
+    const heroSearch = sharedHome.getByTestId("global-search-input");
+    await expect(heroSearch).toBeVisible();
+    await expect(heroSearch).toHaveAttribute("placeholder", "Ask or search a presentation");
+
+    // The hero heading sits above the composer, and the composer stays in the
+    // upper two thirds — the same geometry contract every mode home is held to.
     await expect(async () => {
-      const differentialsSearchBox = await differentialsHomeSearch.boundingBox();
-      const differentialsHeadingBox = await page
-        .getByRole("heading", { level: 1, name: "Differential Diagnosis" })
+      const searchBox = await heroSearch.boundingBox();
+      const headingBox = await sharedHome
+        .getByRole("heading", { level: 2, name: "Differential Diagnosis" })
         .boundingBox();
-      expect(differentialsSearchBox).not.toBeNull();
-      expect(differentialsHeadingBox).not.toBeNull();
-      expect((differentialsHeadingBox?.y ?? 0) + (differentialsHeadingBox?.height ?? 0)).toBeLessThan(
-        differentialsSearchBox?.y ?? 0,
-      );
-      expect((differentialsSearchBox?.y ?? 0) + (differentialsSearchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.62);
+      expect(searchBox).not.toBeNull();
+      expect(headingBox).not.toBeNull();
+      expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
+      expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.62);
     }).toPass({ timeout: 10_000 });
     await expectNoPageHorizontalOverflow(page);
   });
@@ -2633,7 +2667,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(queue.getByRole("link", { name: "Wernicke encephalopathy", exact: true })).toBeVisible();
     await expect(page.getByTestId("differential-compare-edit-selection")).toHaveAttribute(
       "href",
-      /\/differentials\?.*ids=wernicke-encephalopathy/,
+      /\/differentials\/search\?.*ids=wernicke-encephalopathy/,
     );
     await expect(page.getByTestId("differential-compare-open")).toBeVisible();
 
@@ -2698,7 +2732,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     const mobileComparison = page.getByLabel("Mobile differential comparison");
     const editSelection = mobileComparison.getByRole("link", { name: "Edit" });
     await expect(editSelection).toBeVisible();
-    await expect(editSelection).toHaveAttribute("href", /\/differentials\?.*ids=wernicke-encephalopathy/);
+    await expect(editSelection).toHaveAttribute("href", /\/differentials\/search\?.*ids=wernicke-encephalopathy/);
     await expect(mobileComparison.getByText("Wernicke encephalopathy", { exact: true }).first()).toBeVisible();
     const languageControl = page.getByRole("button", { name: "Language and region settings (coming soon)" });
     await expect(languageControl).toBeVisible();
@@ -2872,7 +2906,7 @@ test.describe("Clinical KB service detail page", () => {
 
     await page.getByTestId("service-actions-trigger").click();
     await page.getByTestId("service-actions-sheet").getByRole("button", { name: "Use in navigator" }).click();
-    await expect(page).toHaveURL(/\/services\?/);
+    await expect(page).toHaveURL(/\/services\/search\?/);
     await expect(page).toHaveURL(/run=1/);
     await expect(page).toHaveURL(/focus=1/);
   });
@@ -2909,7 +2943,9 @@ test.describe("Clinical KB service detail page", () => {
     await page.keyboard.press("Escape");
 
     await page.getByRole("link", { name: "Back to services" }).click();
-    await expect(page).toHaveURL(/\/services(?:\?|$)/);
+    // "/services" is a consolidated mode path: consolidatedModeHomeTarget redirects
+    // the bare path onto the shared home rather than rendering a standalone page.
+    await expect(page).toHaveURL(/\?mode=services(?:&|$)/);
   });
 });
 
@@ -3145,12 +3181,15 @@ test.describe("Responsive layout guards", () => {
     expect(appRequests).toEqual([]);
   });
 
-  test("differentials recent work remains touch-sized inside its mobile scroll row", async ({ page }) => {
+  // Tagged @mockup because the surface moved, not because the contract lapsed:
+  // the detailed differentials home was retired to /mockups when the mode moved
+  // onto the shared home, and /mockups 404s in production. The scroll row and its
+  // touch targets still ship in the bundle, so they are still worth guarding —
+  // just in the project that can reach them.
+  test("differentials recent work remains touch-sized inside its mobile scroll row @mockup", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 760 });
     await mockAnswerDashboardApi(page);
-    // Differentials home content lives on /differentials. Bare /?mode=differentials
-    // is the shared home with the mode preselected, not this template.
-    await gotoLauncher(page, "/differentials");
+    await gotoLauncher(page, "/mockups/differentials-home-detailed");
 
     const recentWork = page.getByTestId("differentials-home-template").getByRole("region", { name: "Recent work" });
     await expect(recentWork).toBeVisible();

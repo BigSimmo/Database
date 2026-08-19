@@ -1,5 +1,6 @@
 import type { ClinicalQueryMode } from "@/lib/types";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
+import { consolidatedModeHomeModeIds } from "@/lib/consolidated-mode-home-redirect";
 import { appendSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 
 export const appModeIds = [
@@ -494,6 +495,13 @@ export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOpti
     return documentsSearchHref({ ...options, query });
   }
 
+  // A consolidated mode has no home of its own: its bare path only redirects to
+  // the shared home. An unsubmitted href therefore targets `/?mode=<id>` directly
+  // rather than routing in-app navigation through that redirect for nothing.
+  if (consolidatedModeHomeModeIds.has(modeId) && !query) {
+    return appModeSelectionHref(modeId, options);
+  }
+
   if (namespaceIsolatedModes.has(modeId) && "href" in mode && mode.href) {
     const namespacedParams = new URLSearchParams();
     if (query) namespacedParams.set("q", query);
@@ -502,16 +510,12 @@ export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOpti
     appendSearchNavigationContext(namespacedParams, options);
 
     const suffix = namespacedParams.toString();
-    const namespacedHref =
-      query && modeId === "dsm"
-        ? "/dsm/search"
-        : query && modeId === "factsheets"
-          ? "/factsheets/search"
-          : query && modeId === "dictionary"
-            ? "/dictionary/search"
-            : query && modeId === "therapy-compass"
-              ? "/therapy-compass/search"
-              : mode.href;
+    // A submitted search resolves to the mode's own `/search` route. Every
+    // consolidated mode has one, because its bare path is now a redirect onto the
+    // shared home: routing a submitted query back to the bare path would bounce
+    // through that redirect and return here, an infinite loop
+    // (tests/app-modes.test.ts pins the no-loop property for every mode).
+    const namespacedHref = query && consolidatedModeHomeModeIds.has(modeId) ? `${mode.href}/search` : mode.href;
     return suffix ? `${namespacedHref}?${suffix}` : namespacedHref;
   }
 

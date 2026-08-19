@@ -108,9 +108,9 @@ describe("favourites auth gate DOM", () => {
     ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/documents" },
-      { name: "Services", href: "/services" },
+      { name: "Services", href: "/?mode=services" },
       { name: "Medication", href: "/medications" },
-      { name: "Factsheets", href: "/factsheets" },
+      { name: "Factsheets", href: "/?mode=factsheets" },
       { name: "Tools", href: "/tools" },
     ]);
     expect(screen.queryByRole("link", { name: "Favourites" })).toBeNull();

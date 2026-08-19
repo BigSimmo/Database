@@ -4,6 +4,10 @@ import { pathToFileURL } from "node:url";
 import { format } from "prettier";
 
 import { appModeDefinitions, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
+import {
+  consolidatedModeHomeRedirectEntries,
+  unsubmittedModeSearchRedirectEntries,
+} from "@/lib/consolidated-mode-home-redirect";
 import { documentsSearchHref, DOCUMENTS_MODE_HOME_ROUTE } from "@/lib/document-flow-routes";
 import { differentialRecords } from "@/lib/differentials";
 import { dsmDiagnoses } from "@/lib/dsm";
@@ -40,7 +44,30 @@ type SiteMapData = {
 
 const productRouteHandlerPaths = new Set(["/applications"]);
 
+/*
+ * Consolidated homes are read from the redirect map, not scraped out of page
+ * bodies. `discoverRedirects` finds a redirect by matching `redirect("literal")`,
+ * and these stubs compute their target so the query survives the hop — so the
+ * regex stopped seeing them and the map described them as pages rendering a home.
+ */
+const consolidatedRedirectTargets = Object.fromEntries(
+  consolidatedModeHomeRedirectEntries.map(([route, modeId]) => [route, `/?mode=${modeId}`]),
+);
+
+/*
+ * The four `<mode>/search` routes with no browse view. Conditional, not absolute:
+ * they forward only when the query is empty, and render results otherwise — so
+ * they are described rather than listed as plain redirects.
+ */
+const unsubmittedSearchRedirectDescriptions = Object.fromEntries(
+  unsubmittedModeSearchRedirectEntries.map(([route, modeId]) => [
+    route,
+    `Submitted ${modeId} results. An empty query forwards to \`/?mode=${modeId}\` so the retired mode home is not rendered a second time.`,
+  ]),
+);
+
 const documentedRedirectTargets: Record<string, string> = {
+  ...consolidatedRedirectTargets,
   "/applications": "/tools",
   // The source page redirects a valid id to the canonical `/documents/[id]` viewer
   // (page.tsx line 20) and only falls back to `/documents/search` for an invalid id
@@ -207,16 +234,40 @@ function discoverRoutes(kind: RouteKind): DiscoveredRoute[] {
     .sort((left, right) => left.route.localeCompare(right.route) || left.file.localeCompare(right.file));
 }
 
+/*
+ * Applied last, so a derived entry wins over any hand-written description left
+ * behind for a path that has since become a redirect. `/dsm` read "DSM-5
+ * Diagnosis home." long after it stopped rendering one.
+ */
+Object.assign(
+  routeDescriptions,
+  Object.fromEntries(
+    consolidatedModeHomeRedirectEntries.map(([route, modeId]) => [
+      route,
+      `Compatibility redirect to the shared home at \`/?mode=${modeId}\`; a submitted \`?q=…&run=1\` forwards to \`${route}/search\`.`,
+    ]),
+  ),
+  unsubmittedSearchRedirectDescriptions,
+);
+
+const conditionalRedirectRoutes = new Set(unsubmittedModeSearchRedirectEntries.map(([route]) => route));
+
 function discoverRedirects(routes: DiscoveredRoute[]): RedirectRoute[] {
-  return routes
-    .map((route) => {
-      const source = readFileSync(path.join(process.cwd(), route.file), "utf8");
-      const target =
-        documentedRedirectTargets[route.route] ?? source.match(/\bredirect\(\s*["']([^"']+)["']\s*\)/)?.[1];
-      return target ? { ...route, target } : null;
-    })
-    .filter((value): value is RedirectRoute => Boolean(value))
-    .sort((left, right) => left.route.localeCompare(right.route));
+  return (
+    routes
+      // The `<mode>/search` routes forward only an EMPTY query and render results
+      // otherwise, so listing them here would claim they never render anything.
+      // Their conditional behaviour is stated in `routeDescriptions` instead.
+      .filter((route) => !conditionalRedirectRoutes.has(route.route))
+      .map((route) => {
+        const source = readFileSync(path.join(process.cwd(), route.file), "utf8");
+        const target =
+          documentedRedirectTargets[route.route] ?? source.match(/\bredirect\(\s*["']([^"']+)["']\s*\)/)?.[1];
+        return target ? { ...route, target } : null;
+      })
+      .filter((value): value is RedirectRoute => Boolean(value))
+      .sort((left, right) => left.route.localeCompare(right.route))
+  );
 }
 
 function discoverNonRoutedMockupArtifacts() {
@@ -383,27 +434,28 @@ function renderModePageIndex() {
       mode: "Calculators",
       home: appModeHomeHref("calculators"),
       search: appModeHomeHref("calculators", { query: "PHQ-9", focus: true, run: true }),
-      detail: "Validated psychiatry scores and clinical decision calculators at `/calculators`.",
-    },
-    {
-      mode: "Therapy",
-      home: appModeHomeHref("therapy-compass"),
-      search: appModeHomeHref("therapy-compass", { query: "behavioural activation", focus: true, run: true }),
-      detail:
-        "`/therapy-compass/[slug]`, `/therapy-compass/search`, `/therapy-compass/recommend`, `/therapy-compass/compare`, `/therapy-compass/pathways`, `/therapy-compass/review`, `/therapy-compass/[slug]/brief`, and `/therapy-compass/[slug]/sheet`.",
+      detail: "`/calculators/search` scored results; an empty query forwards back to the shared home.",
     },
     {
       mode: "Factsheets",
       home: appModeHomeHref("factsheets"),
       search: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
-      detail: "`/factsheets/[slug]` and `/factsheets/search`.",
+      detail:
+        "`/factsheets/search` is also a query-free browse surface linked from the mode nav; `/factsheets/[slug]` records.",
     },
     {
       mode: "Dictionary",
       home: appModeHomeHref("dictionary"),
-      search: appModeHomeHref("dictionary", { query: "mental state examination", focus: true, run: true }),
+      search: appModeHomeHref("dictionary", { query: "MSE", focus: true, run: true }),
       detail:
-        "`/dictionary/[slug]`, `/dictionary/browse`, `/dictionary/compare`, `/dictionary/search`, `/dictionary/sources`, `/dictionary/topics`, and `/dictionary/topics/[slug]`.",
+        "`/dictionary/search` is also a query-free browse surface; `/dictionary/browse`, `/topics`, `/topics/[slug]`, `/compare`, `/sources` and `/dictionary/[slug]` records.",
+    },
+    {
+      mode: "Therapy",
+      home: appModeHomeHref("therapy-compass"),
+      search: appModeHomeHref("therapy-compass", { query: "CBT", focus: true, run: true }),
+      detail:
+        "Keeps a home of its own at `/therapy-compass`; `/search` (query-free browse), `/recommend`, `/compare`, `/pathways`, `/review`, and `/[slug]` records with `/brief` and `/sheet` outputs.",
     },
   ]);
 }

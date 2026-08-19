@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { appModeHomeHref } from "@/lib/app-modes";
 import { isStandaloneModeHomePath, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
 import {
   THERAPY_CATALOGUE_ASSETS,
@@ -236,9 +237,11 @@ describe("Therapy Compass production-mode wiring", () => {
       new URL("../src/components/therapy-compass/bindings.tsx", import.meta.url),
       "utf8",
     );
-    // The home route reads q/run and redirects a run-enabled deep link to the dedicated search route...
-    expect(routeSrc).toMatch(/searchParams/);
-    expect(routeSrc).toMatch(/redirect\(`\/therapy-compass\/search/);
+    // The bare path no longer renders a home: it forwards to the shared lightweight
+    // one, which resolves a submitted query onward to the dedicated search route.
+    // The query survives that hop because the proxy carries it (consolidatedModeHomeTarget).
+    expect(routeSrc).toMatch(/redirect\(appModeSelectionHref\("therapy-compass"\)\)/);
+    expect(appModeHomeHref("therapy-compass", { query: "CBT", run: true })).toBe("/therapy-compass/search?q=CBT&run=1");
     // ...and the provider derives the active screen from the pathname and seeds the query from ?q.
     expect(bindingsSrc).toMatch(/resolveTherapyRoute\(pathname\)/);
     expect(bindingsSrc).toMatch(/searchParams\.get\("q"\)/);
@@ -275,7 +278,10 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(homeSrc).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
     // Mode homes are pathname-gated so optimistic searchMode cannot flip hero→dock mid-nav.
     expect(shellSrc).toContain("isStandaloneModeHomePath(pathname)");
-    expect(isStandaloneModeHomePath("/therapy-compass")).toBe(true);
+    // `/therapy-compass` is no longer one of them — it redirects to the shared home,
+    // so there is no therapy-owned home render for the gate to protect. The screen
+    // itself is preserved as design scratch at /mockups/therapy-compass-home-detailed.
+    expect(isStandaloneModeHomePath("/therapy-compass")).toBe(false);
   });
 
   it("keeps the results-band shelf Clear filter-only so it cannot delete the query", () => {

@@ -249,20 +249,24 @@ test.describe("previously uncovered production routes", () => {
       page,
       "/therapy-compass",
       async (currentPage) => {
+        // `/therapy-compass` redirects onto the shared home, whose per-mode title
+        // is a level-2 heading under the page's sr-only "Clinical Guide" h1.
         await expect(currentPage.getByRole("main")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "Therapy", level: 1, exact: true })).toBeVisible({
+        await expect(currentPage.getByRole("heading", { name: "Therapy", level: 2, exact: true })).toBeVisible({
           timeout: 30_000,
         });
       },
       async (currentPage) => {
-        const search = currentPage
-          .getByRole("region", { name: "Common therapy searches" })
-          .getByRole("button", { name: "trauma-focused CBT", exact: true });
-        await expect(search).toBeEnabled();
-        await search.click();
+        // The "Common therapy searches" pills lived on the retired detailed home,
+        // which moved to /mockups when Therapy joined the shared home. The
+        // destination they opened is what this step is really about, so go there:
+        // a submitted therapy search, which is also where the mode nav renders.
+        await currentPage.goto("/therapy-compass/search?q=Anxiety+in+outpatient+care&run=1", {
+          waitUntil: "domcontentloaded",
+        });
         await expect(
-          currentPage.getByRole("heading", { name: "trauma-focused CBT", level: 1, exact: true }),
-        ).toBeVisible();
+          currentPage.getByRole("heading", { name: "Anxiety in outpatient care", level: 1, exact: true }),
+        ).toBeVisible({ timeout: 30_000 });
         await expect(visibleByTestId(currentPage, "search-query-ribbon")).toBeVisible();
         // The common-search pill lands on `/therapy-compass/search`, which is the
         // shared `ModeNav`. It portals into the header collapse host (outside
@@ -374,6 +378,9 @@ test.describe("previously uncovered production routes", () => {
     await expect(page.getByRole("heading", { name: "Therapy Comparison", level: 1 })).toBeVisible();
   });
 
+  // `/dsm` redirects onto the shared home, so the route this proves is the shared
+  // one with DSM preselected. Comparison moved with it: the Compare action was on
+  // the retired detailed home, and its live entry point is the DSM mode nav.
   test("DSM home renders responsively and opens comparison", async ({ page }) => {
     await proveRenderedRoute(
       page,
@@ -382,12 +389,15 @@ test.describe("previously uncovered production routes", () => {
         // Scope to the visible owner: Next streaming can leave a hidden duplicate
         // page root (#093), and bare getByTestId then fails Playwright strict mode
         // (Production UI shard 2 on PR #1729).
-        await expect(visibleByTestId(currentPage, "dsm-home-main")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "DSM-5 Diagnosis", level: 1 })).toBeVisible();
+        await expect(visibleByTestId(currentPage, "shared-home-empty-state")).toBeVisible();
+        await expect(currentPage.getByRole("heading", { name: "DSM-5 Diagnosis", level: 2 })).toBeVisible();
       },
       async (currentPage) => {
-        const compare = visibleByTestId(currentPage, "dsm-home-compare");
-        await expect(compare).toBeEnabled();
+        await currentPage.goto("/dsm/search?q=major+depressive&run=1", { waitUntil: "domcontentloaded" });
+        const compare = currentPage
+          .getByRole("navigation", { name: "DSM-5 Diagnosis pages" })
+          .getByRole("link", { name: "Compare", exact: true });
+        await expect(compare).toBeVisible();
         await compare.click();
         await expect(currentPage).toHaveURL(/\/dsm\/compare$/);
         await expect(currentPage.getByRole("heading", { name: "Compare DSM diagnoses", level: 1 })).toBeVisible();

@@ -58,10 +58,12 @@ test.beforeEach(async ({ page }) => {
 test("searches patient language, opens a mechanism guide, and carries it into the builder", async ({
   page,
 }, testInfo) => {
-  await gotoApp(page, "/formulation");
+  // `/formulation` is a 307 onto the shared home now; going there directly keeps
+  // the test on the surface it is actually asserting about.
+  await gotoApp(page, "/?mode=formulation");
 
   await expect(page.getByRole("heading", { name: "Clinical Formulation", exact: true })).toBeVisible();
-  await expect(page.getByTestId("formulation-home")).toBeVisible();
+  await expect(page.getByTestId("shared-home-empty-state")).toBeVisible();
 
   const search = page.getByTestId("global-search-input").filter({ visible: true }).first();
   await expect(search).toHaveAccessibleName(
@@ -70,7 +72,9 @@ test("searches patient language, opens a mechanism guide, and carries it into th
   await search.fill("I keep going over it");
   await page.getByRole("button", { name: "Find matching formulation mechanisms" }).click();
 
-  await expect(page).toHaveURL(/\/formulation\?.*q=I(?:\+|%20)keep(?:\+|%20)going(?:\+|%20)over(?:\+|%20)it.*run=1/);
+  await expect(page).toHaveURL(
+    /\/formulation\/search\?.*q=I(?:\+|%20)keep(?:\+|%20)going(?:\+|%20)over(?:\+|%20)it.*run=1/,
+  );
   const queryRibbon = page.getByTestId("search-query-ribbon");
   await expect(queryRibbon.getByRole("heading", { level: 1, name: "I keep going over it" })).toBeVisible();
   await expect(queryRibbon.getByRole("group", { name: "Filter formulation mechanisms" })).toBeVisible();

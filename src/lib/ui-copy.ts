@@ -91,6 +91,9 @@ export const sharedHomePresentation = {
     suggestions: ["depression severity", "anxiety screening", "alcohol use"],
   },
   "therapy-compass": {
+    // "Therapy", not "Therapy Compass": the mode's own copy rule, pinned by
+    // tests/therapy-compass-mode-wiring.test.ts, which the retired detailed home
+    // followed. This title became user-visible when that home was consolidated here.
     title: "Therapy",
     subtitle: "Source-grounded therapy records.",
     suggestions: ["trauma-focused CBT", "behavioural activation", "insomnia"],
