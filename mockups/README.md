@@ -43,7 +43,9 @@ Some document-search mockups include live handoff routes (for example `document-
 - Full three-direction study: [`/mockups/privacy-page-directions`](../src/app/mockups/privacy-page-directions/page.tsx)
 - Static comps: [`public/mockups/privacy-page-redesign-2026-08/`](../public/mockups/privacy-page-redesign-2026-08/README.md)
 
-## Dictionary Browse header study (2026-08-18)
+## Dictionary Browse header study (2026-08-18) — superseded
+
+> Superseded by the **Dictionary header system** study below (2026-08-19), which covers Search as well as Browse.
 
 Runnable study at [`/mockups/dictionary-browse-header`](../src/app/mockups/dictionary-browse-header/page.tsx). The
 brief was to drop the description line under **Browse terms** and the orphaned A–Z / Z–A sort pill that floats on its
@@ -59,7 +61,9 @@ modes already keep it; they differ in how much letter navigation stays on screen
 The current header is rendered side by side at the top of the page for comparison. Shared mockup chrome is suppressed
 because each frame draws its own top bar, mode nav and composer.
 
-## Dictionary Browse header, round two (2026-08-18)
+## Dictionary Browse header, round two (2026-08-18) — superseded
+
+> Superseded by the **Dictionary header system** study below (2026-08-19). Its two conclusions — letters as a phone dropdown, Abbreviations demoted to the filter sheet behind a load-bearing state chip — are carried into direction 02 there and tested against the Search tab this round never saw.
 
 Runnable study at [`/mockups/dictionary-browse-header-compact`](../src/app/mockups/dictionary-browse-header-compact/page.tsx),
 a follow-up to the round-one study above. Every version replaces the 27-chip horizontal letter rail with a **letter
@@ -78,6 +82,77 @@ Note for anyone extending these: the mockup stylesheet only emits Tailwind class
 no production file uses a bare `grid-cols-6` (only `xl:grid-cols-6`). The 26-letter pickers therefore pin
 `gridTemplateColumns` inline rather than depending on class generation — a bare `grid-cols-6` silently collapses them
 to one column.
+
+## Dictionary header system — Search + Browse (2026-08-19)
+
+Runnable study at [`/mockups/dictionary-header-system`](../src/app/mockups/dictionary-header-system/page.tsx).
+Supersedes both Browse-only rounds above. The review that prompted it was about the **Search terms** header: its
+scope chips sit outside every container the other browse modes use, and at 390 px the four of them wrap so that
+`Topics 12` lands alone on a second row. Neither of the two follow-on questions — is Abbreviations a scope or a
+filter, and where does the alphabet live — can be answered on one tab, so all three directions are drawn on both.
+
+Five findings, all verifiable in source:
+
+1. **The scope chips are not a design-system control.** Every other mode with a scope lens renders a
+   `SegmentedControl` inside `SearchResultsHeaderBand`'s `filterControls` slot — a contained strip on
+   `--surface-subtle` (`factsheets-search-page.tsx:128`, `tools-search-results-page.tsx:384`). Dictionary's four are
+   a hand-rolled `flex-wrap` chip row on the bare page background (`dictionary-catalogue-pages.tsx:177`). Nothing
+   contains them, which is why they read edge to edge.
+2. **They broke out of the card for a real reason.** The band renders `filterControls` as `hidden sm:block` whenever
+   `mobileControls` is supplied (`search-results-header-band.tsx:588`), so putting the lenses inside made all four
+   unreachable on a phone; the comment at `dictionary-catalogue-pages.tsx:174` records it. Every direction resolves
+   it identically — pass the Filter trigger as `utilityControls` instead. `hasPhoneUtilities` counts
+   `utilityControls` (`:266`), so the trigger still renders on a phone, and with no `mobileControls` the hide rule
+   never fires. **No shared-component change is needed.**
+3. **Four variable-width chips cannot hold one line at 390 px.** `SegmentedControl layout="equal"` already ships the
+   compression ladder that fixes it (`segmented-control.tsx:140`): equal segments shrink rather than wrap.
+4. **The two tabs disagree about what a scope control is** — hand-rolled chips on Search, a real `SegmentedControl`
+   on Browse — and about their container: Search is contained, Browse wraps its toolbar in a `border-y` band
+   spanning the whole viewport, which no other mode does (`:393`).
+5. **One flat row mixes three classes of object.** Definitions (96) and abbreviations (11) are terms; topics (12)
+   are governed collections with their own route. That is the lever each direction pulls.
+
+| Direction                                      | Header scopes                              | Abbreviations                       | Alphabet                        | Trade-off                                                                 |
+| ---------------------------------------------- | ------------------------------------------ | ----------------------------------- | ------------------------------- | ------------------------------------------------------------------------- |
+| 01 Band-native, all four scopes                | All · Definitions · Abbreviations · Topics | Header scope                        | Second `filterControls` row     | Fixes the wrap, not finding 5; four segments are tight at 320 px          |
+| 02 Three scopes, Abbreviations in sheet (rec.) | All · Definitions · Topics                 | `scope` prop on `ResultFilterSheet` | Owns the `filterControls` row   | Demoted state is invisible until opened — the shelf chip is load-bearing  |
+| 03 One toolbar, title retired on phone         | All · Definitions · Abbreviations          | Header scope                        | Compact `A–Z` on the count line | Phone loses its visual title; Topics demoted to a sheet facet plus a link |
+
+Direction 02 uses `ResultFilterSheet`'s existing `scope` prop (`result-filter-control.tsx:800`, rendered by
+`ResultFilterScopeSelector` at `:653`), already passed by `specifiers-home-page.tsx:410` and
+`services-navigator-page.tsx:940` — so the "Abbreviations toggle inside the opened filter bar" is an existing
+shipped pattern, not a new component.
+
+**Fidelity caveat.** The frames _redraw_ `SearchResultsHeaderBand`, `SegmentedControl` and `ResultFilterTrigger`
+with an explicit `compact` prop where production reads a `sm:` breakpoint. This is forced, not preferred: those
+components branch on the **viewport**, so a 390 px frame on a 1440 px screen renders their desktop layout and the
+phone column would be a lie. Each direction therefore also prints the literal props it would hand the real
+components, which is where buildability is actually checkable. Catalogue totals are real; per-letter counts are
+synthetic.
+
+Shared mockup chrome is suppressed (each frame draws its own mode nav and composer); the layout flag is now the
+`/mockups/dictionary-` prefix, covering all three studies.
+
+### Mockup stylesheet emission — two more classes that silently do nothing
+
+`mockups.css` re-emits Tailwind from `@source "../"` + `@source "../../components"`, so **only classes some scanned
+source already uses are generated**. The round-two study recorded this for a bare `grid-cols-6`; two more were
+measured on 2026-08-19 with `getComputedStyle` on live probe elements:
+
+| Class                                                | Emits? | Measured effect                                           |
+| ---------------------------------------------------- | ------ | --------------------------------------------------------- |
+| `xl:grid-cols-[minmax(0,1.6fr)_minmax(19rem,0.8fr)]` | **no** | `grid-template-columns: 1334px` — collapses to one column |
+| `xl:grid-cols-[2fr_1fr]`, `xl:grid-cols-2`           | **no** | same collapse                                             |
+| `lg:grid-cols-3` + `lg:col-span-2`                   | yes    | the working substitute used here                          |
+| `min-w-10`                                           | **no** | 27-letter rail chips rendered **18 px** wide, not 40      |
+| `w-10`, `min-w-tap`, `min-h-10`, `min-h-tap`         | yes    | —                                                         |
+
+The first row is not hypothetical and not confined to this study: `/mockups/dictionary-browse-header-compact`
+measures `grid-template-columns: 1334px` at 1440 px today, so **both earlier Dictionary studies have always stacked
+their desktop and phone frames vertically** instead of showing them side by side. They were left as they are — this
+is a latent presentation bug in shipped design scratch, not a regression from this change — but anyone editing them
+should switch them to `lg:grid-cols-3` first. Probe with `getComputedStyle` before trusting any arbitrary-value or
+less-common utility in a mockup; a silently-dropped class looks like a design decision.
 
 ## Phone Choose mode sheet YES comps
 

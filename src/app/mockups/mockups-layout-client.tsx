@@ -24,9 +24,11 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isStandaloneDocumentFlow = pathname === "/mockups/document-search";
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
   const isSearchHeadingMockup = pathname === "/mockups/search-heading";
-  // Draws its own phone/desktop frames with a top bar, mode nav and composer in
-  // every frame, because the header under study sits directly beneath them.
-  const isDictionaryBrowseHeaderMockup = pathname.startsWith("/mockups/dictionary-browse-header");
+  // Draws its own phone/desktop frames with a mode nav and composer in every
+  // frame, because the header under study sits directly beneath them. The
+  // prefix covers all three Dictionary header studies (the two Browse rounds
+  // and the Search + Browse system that supersedes them).
+  const isDictionaryHeaderMockup = pathname.startsWith("/mockups/dictionary-");
   // Renders the results header inside its own device frames; the shared composer
   // would read as a second, real search bar over the study.
   const isSearchRefineAdaptiveMockup = pathname === "/mockups/search-refine-adaptive";
@@ -126,7 +128,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPhoneModeSheetYesMockup &&
         !isSidebarLiveMockup &&
         !isCaringContactMockup &&
-        !isDictionaryBrowseHeaderMockup
+        !isDictionaryHeaderMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -149,7 +151,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPhoneModeSheetYesMockup &&
         !isSidebarLiveMockup &&
         !isCaringContactMockup &&
-        !isDictionaryBrowseHeaderMockup
+        !isDictionaryHeaderMockup
       }
     >
       {children}
