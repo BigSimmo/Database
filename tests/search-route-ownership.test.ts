@@ -9,6 +9,7 @@ import { consolidatedModeHomeModeIds } from "@/lib/consolidated-mode-home-redire
 import {
   isAlwaysStandaloneShellPath,
   isDashboardModeHref,
+  dashboardOwnedModeHomeModeId,
   isDashboardOwnedModeHomePath,
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
@@ -84,6 +85,24 @@ describe("shared-search route ownership", () => {
     for (const modeId of consolidatedModeHomeModeIds) {
       expect(isAlwaysStandaloneShellPath(`/${modeId}`)).toBe(true);
     }
+  });
+
+  /*
+   * A dashboard-owned mode home names its mode through the pathname, not `?mode=`.
+   * ClinicalDashboard's `?mode=` sync returns early without that parameter, and the
+   * dashboard stays mounted across a client navigation onto `/documents` (unlike
+   * /tools, /favourites and /medications, which are always-standalone and remount).
+   * So the pathname is the only thing that can tell it which mode it is now — with
+   * it missing, clicking Documents in the sidebar moved the URL while the header
+   * and highlight stayed on the previous mode.
+   */
+  it("names the mode behind a dashboard-owned mode home", () => {
+    expect(dashboardOwnedModeHomeModeId("/documents")).toBe("documents");
+    for (const pathname of ["/", "/tools", "/favourites", "/medications", "/documents/search", "/?mode=documents"]) {
+      expect(dashboardOwnedModeHomeModeId(pathname), pathname).toBeNull();
+    }
+    // Every path it names must also be one the dashboard actually renders.
+    expect(isDashboardOwnedModeHomePath("/documents")).toBe(true);
   });
 
   it("marks route-owned namespaced paths as always-standalone shell (no searchParams gate)", () => {

@@ -197,7 +197,7 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
-import { isDashboardModeHref } from "@/lib/search-route-ownership";
+import { dashboardOwnedModeHomeModeId, isDashboardModeHref } from "@/lib/search-route-ownership";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import {
   privateScopeReadyForRoute,
@@ -1520,6 +1520,31 @@ export function ClinicalDashboard({
     });
     return () => window.cancelAnimationFrame(frame);
   }, [searchParams, clearModeResultState, focusComposerInput]);
+
+  /*
+   * Keep the mode in step with a dashboard-owned mode home.
+   *
+   * `/documents` says which mode it is through its pathname, not a `?mode=`
+   * parameter, so the sync above returns early on it. The dashboard also stays
+   * mounted across a client navigation onto it — unlike `/tools`, `/favourites`
+   * and `/medications`, which are always-standalone and remount. The result was
+   * that clicking Documents in the sidebar from any other mode moved the URL to
+   * `/documents` while the header, placeholder and sidebar highlight all stayed
+   * on the previous mode. A full page load looked correct, which is what kept it
+   * hidden. Only reachable once `/?mode=<id>` became a real destination.
+   */
+  useEffect(() => {
+    if (!pathname) return;
+    const pathMode = dashboardOwnedModeHomeModeId(pathname);
+    if (!pathMode || pathMode === searchMode) return;
+    // An explicit `?mode=` still wins: it is the SSR source of truth and the sync
+    // above owns it, so this must not fight a mode the URL states outright.
+    if (searchParams.has("mode")) return;
+    // Deferred a frame, matching the `?mode=` sync above: this repo's lint bans a
+    // bare setState in an effect, and the two syncs must settle the same way.
+    const frame = window.requestAnimationFrame(() => setSearchMode(pathMode));
+    return () => window.cancelAnimationFrame(frame);
+  }, [pathname, searchParams, searchMode]);
 
   useHomeModeSeed({ pathname, searchParams, lastAppMode });
 
