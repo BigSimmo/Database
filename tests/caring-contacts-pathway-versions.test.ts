@@ -87,9 +87,35 @@ describe("pathway version lifecycle", () => {
     const routine = advance(version, { type: "retire", urgency: "routine" });
     expect(routine.state).toBe("retired");
     expect(retirementPausesFutureContacts(routine)).toBe(false);
+    expect(routine.retiredAt).not.toBeNull();
+    expect(routine.retiredAt).toMatch(/\+08:00$/);
 
     const urgent = advance(version, { type: "retire", urgency: "urgentSafety" });
     expect(retirementPausesFutureContacts(urgent)).toBe(true);
+    expect(urgent.retiredAt).not.toBeNull();
+    expect(urgent.retiredAt).toMatch(/\+08:00$/);
+  });
+
+  it("refuses retirement from every state except approved", () => {
+    const draft = draftVersion();
+    expect(applyPathwayVersionTransition(draft, { type: "retire", urgency: "routine" }, clock)).toEqual({
+      ok: false,
+      reason: "pathway-not-retirable",
+    });
+
+    const inReview = advance(draft, { type: "submitForReview" });
+    expect(applyPathwayVersionTransition(inReview, { type: "retire", urgency: "routine" }, clock)).toEqual({
+      ok: false,
+      reason: "pathway-not-retirable",
+    });
+
+    let approved = advance(inReview, { type: "approve", role: "clinicalProgrammeLead", actorId: actorId("A") });
+    approved = advance(approved, { type: "approve", role: "livedExperienceRepresentative", actorId: actorId("B") });
+    const retired = advance(approved, { type: "retire", urgency: "routine" });
+    expect(applyPathwayVersionTransition(retired, { type: "retire", urgency: "urgentSafety" }, clock)).toEqual({
+      ok: false,
+      reason: "pathway-not-retirable",
+    });
   });
 
   it("never mutates the snapshot an active plan depends on", () => {
@@ -107,5 +133,7 @@ describe("pathway version lifecycle", () => {
     );
     expect(published.snapshot).toEqual(original.snapshot);
     expect(Object.isFrozen(published.snapshot)).toBe(true);
+    expect(published.publishedAt).not.toBeNull();
+    expect(published.publishedAt).toMatch(/\+08:00$/);
   });
 });
