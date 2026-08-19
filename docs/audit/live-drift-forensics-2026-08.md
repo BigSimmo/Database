@@ -1712,3 +1712,241 @@ objects}`; classes `validation` (mandatory from 2026-08-18), `superseded`, `no_d
   names before the list existed; passes with 44 entries (8 `monitor-candidate`, including the three
   §1.3-absent indexes on those tables: `document_chunks_anchor_idx`,
   `document_index_units_heading_path_idx`, `documents_registry_projection_lookup_idx`).
+
+### 6.2 completion — 2026-08-19 (`#Q5JHBJ`; owner-authorised production window)
+
+_Worker session for `#Q5JHBJ` only (`#316`, `#231`, `#1K6T35` untouched). Pre-flight per `#292`: none of
+the seven open PRs (#2181, #2180, #2176, #2173, #2012, #2011, #2010) touches `supabase/**`,
+`scripts/check-drift.ts`, `tests/migration-history-guards.test.ts` or this file. D4 is OFF, so the only
+production writes are the explicit `db push` recorded below._
+
+#### Step 1 — classification of the fifteen (every one `validation`; none earned `superseded` or `no_ddl`)
+
+The fifteen are the live §3.7 list minus the five seeded `superseded` entries. Note that
+`20260702170000 fix_match_chunks_text_n1` (the `select 1;` placeholder) is **not** among them — it was
+recorded with statements — and `20260712171500 codify_live_ahead_functions` **is**.
+
+| Version          | File stem                              | Persistent effect on live                                                                                                    | Guard (all `validation`)                                     |
+| ---------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `20260701040000` | `drop_dead_drifted_hybrid_variants`    | drops 7 dead functions by 6-arg signature (the 7-arg `_v2`/`_v3` overloads in `schema.sql` are different objects)            | `20260819110000_validate_history_dropped_objects` (absence)  |
+| `20260702100000` | `add_claim_ingestion_jobs_comment`     | `comment on function claim_ingestion_jobs` — a pg_description write, so not `no_ddl` (body is not empty / `select 1;`)       | `20260819110100_validate_history_comments_and_retention`     |
+| `20260702110000` | `drop_redundant_indexes`               | drops `documents_owner_hash_idx`, `ingestion_jobs_claim_idx`                                                                 | `…110000_validate_history_dropped_objects` (absence)         |
+| `20260702120000` | `rag_retrieval_logs_retention`         | 2 table comments + `cron.schedule('purge-rag-retrieval-logs')` (only where the `cron` schema exists)                         | `…110100_validate_history_comments_and_retention`            |
+| `20260702130000` | `storage_cleanup_jobs_document_fk`     | orphan delete (not re-validatable) + FK `storage_cleanup_jobs_document_id_fkey` → `documents(id)` on delete set null         | `20260819110200_validate_history_document_foreign_keys`      |
+| `20260702140000` | `fix_reset_document_index_duplicate`   | `reset_document_index(uuid)` — no later creator                                                                              | `20260819110500_validate_history_function_bodies` (def_hash) |
+| `20260702150000` | `documents_owner_covering_index`       | `documents_owner_id_covering_idx` — no later creator with executed statements                                                | `20260819110300_validate_history_operational_index_shapes`   |
+| `20260702160000` | `fix_invoke_agent_url_to_guc`          | `invoke_indexing_v3_agent(integer)`; the `ALTER DATABASE SET` is privilege-guarded with an in-function fallback (not pinned) | `…110500_validate_history_function_bodies` (def_hash)        |
+| `20260702180000` | `promote_index_generation_id_columns`  | 6 `index_generation_id uuid` columns + 6 `*_document_generation_idx` + 3 functions                                           | `20260819110400_validate_history_index_generation_promotion` |
+| `20260712165915` | `reconcile_ingestion_index_shapes`     | drop-and-recreate of 3 ingestion indexes                                                                                     | `…110300_validate_history_operational_index_shapes`          |
+| `20260712170500` | `codify_live_operational_indexes`      | 44 `create index if not exists`; 42 persist (2 re-dropped by `172000`)                                                       | `…110300_validate_history_operational_index_shapes`          |
+| `20260712171000` | `reconcile_visual_eval_document_fks`   | 2 FKs `rag_visual_eval_{cases,runs}_document_id_fkey`                                                                        | `…110200_validate_history_document_foreign_keys`             |
+| `20260712171500` | `codify_live_ahead_functions`          | 12 functions (4 later re-created by `20260714110000` / `20260724120000`)                                                     | `…110500_validate_history_function_bodies` (def_hash ×12)    |
+| `20260712172000` | `drop_redundant_table_fact_indexes`    | drops `document_table_facts_document_id_idx`, `document_table_facts_owner_idx`                                               | `…110000_validate_history_dropped_objects` (absence)         |
+| `20260712173000` | `add_legacy_index_health_batch_repair` | `backfill_legacy_index_health_batch(integer)` — sole creator                                                                 | `…110500_validate_history_function_bodies` (def_hash)        |
+
+**Why nothing is `superseded`:** the class needs one later migration with executed statements that
+re-creates _every_ object the version creates, provable by `tests/migration-history-guards.test.ts`'s
+`createsObject` (functions/indexes/tables/views/policies/triggers only). `commit_document_index_generation`
+alone is re-created by `20260713062125`, but the other fourteen objects of `180000` are not, and no
+version's drops, columns, constraints or comments can be expressed that way. **Why nothing is
+`no_ddl`:** the class is defined (doc + test) as a file whose stripped body is empty or `select 1;`;
+`COMMENT ON` is a catalog write, so the two comment versions get an `obj_description` validation guard
+rather than a widened class. Phase 4's "43 names" for `170500` was a miscount: the file carries **44**
+`create index if not exists` statements, of which **42** persist.
+
+**Guard design (all six follow `20260804110240`):** `set local` search_path / lock_timeout /
+statement_timeout, one `do` block, validates only, exactly one `raise exception … Missing: %; Invalid:
+%; Mismatched: %`. Indexes: `to_regclass` + `indisvalid AND indisready` + the normalised
+`pg_get_indexdef` against the canonical definition pinned verbatim from
+`supabase/drift-manifest.json` `snapshot.indexes[].def` (the rendered form production and staging were
+measured against when live-drift reported zero index findings). Functions: the signature's `def_hash`
+read from `public.schema_drift_snapshot()` itself, so the hashing formula and the `search_path=''`
+rendering are identical by construction to the weekly check; ACLs are deliberately not pinned
+(`acldefault()` renders the function owner, which differs on a preview branch; `check:drift` compares
+ACLs every run). Columns: `pg_attribute` + `format_type = 'uuid'`. FKs: `pg_constraint` `contype f`,
+`confrelid = public.documents`, `confdeltype n`, `conkey = {document_id}`. Absences:
+`to_regprocedure` / `to_regclass` IS NULL with exact signatures (`extensions.vector`). Comments:
+`obj_description` present and carrying the distinctive phrase. Cron: `execute` against `cron.job` only
+when `to_regnamespace('cron')` is not null — staging and the scratch image have no pg_cron, and the
+original migration returns early there too. `schema.sql` and `drift-manifest.json` are **unchanged**
+(validation-only guards create nothing; manifest sha `328677d1c6f3` still matches).
+
+One repository test was sharpened rather than widened: the "validation guard must not create the
+objects it validates" check in `tests/migration-history-guards.test.ts` ran its `create index` regex on
+raw SQL, so the canonical `'create index … on …'` string literals that the `20260804110240` pattern
+itself pins would have failed it (the check had never been exercised — no `validation` entry existed).
+It now strips comments and string literals first, additionally requires `set local statement_timeout`,
+and pins that `20260804110240` satisfies the predicate while a real `create index` statement still
+fails it.
+
+#### Step 2 — hand-repair sweep: the chain reproduces every recorded repair (local chain replay)
+
+Every hand repair recorded in §2.3, §3.3, §Phase 4 and §Phase 4 completion was checked the same way:
+replay the **whole** `supabase/migrations` chain in version order into the scratch
+`supabase/postgres:17.6.1.127` image (`roles.sql` + storage scaffold first, each file in its own
+transaction like `supabase migration up` — the local stand-in for CI's `Migration replay` and the
+preview branch), then compare the replayed `schema_drift_snapshot()` to `supabase/drift-manifest.json`
+with the repo's own `compareDriftSnapshots()`:
+
+```
+Applied 210/210 (all six 20260819110* history guards included).
+Chain replay vs manifest (generated 2026-08-18T18:15:50.121Z from schema.sql 328677d1c6f3…): compared 6 extensions, 38 tables, 1 views, 93 functions, 210 indexes, 48 policies, 170 constraints, 26 triggers, 2 storage_buckets; live probe no_history_table, history rows 0.
+CHAIN == MANIFEST: no unexpected drift (migration_history excluded: bare image has no history table).
+```
+
+So the chain now reproduces, unaided, every state that was once repaired by hand: `token_estimate` and
+the `gen_random_uuid()` defaults (§3.3, via `20260818112000`), the three hybrid RPC bodies (§3.5, via
+`20260818113000`), `document_chunks_content_trgm_idx` (§3.3(d) / Phase 4 step 8, via
+`20260819100150`), the 20 restored indexes and 2 drops (§Phase 4 completion), the four duplicate-version
+bodies (§2.4 finding 2, by ordering), and every object the fifteen no-statements versions created (the
+six new guards pass at the end of the chain). **No further reconcile migration was needed and nothing
+was escalated.**
+
+The guards were also proven able to fail, per the "checks that cannot fail" rule — seven mutants run
+against the replayed database, each in its own rolled-back transaction:
+
+```
+MUTATION 110500 wrong def_hash: raised and named public.reset_document_index(uuid) def_hash
+MUTATION 110300 wrong index def: raised and named Mismatched: documents_owner_id_covering_idx
+MUTATION 110300 dropped index: raised and named Missing: audit_logs_owner_id_idx
+MUTATION 110000 present index: raised and named indexes: documents_owner_hash_idx
+MUTATION 110400 wrong column type: raised and named document_sections.index_generation_id (text)
+MUTATION 110200 fk cascade: raised and named Mismatched: storage_cleanup_jobs_document_id_fkey
+MUTATION 110100 comment removed: raised and named Missing: comment on table audit_logs
+scratch image cron schema present: f (cron branch skipped here; production has pg_cron)
+```
+
+#### Step 3 — gates
+
+- `npx vitest run tests/migration-history-guards.test.ts tests/drift-detection.test.ts tests/supabase-schema.test.ts tests/search-health-index-coverage.test.ts tests/migration-history-placeholders.test.ts tests/hosted-migration-role-guard.test.ts` — `Test Files 6 passed (6) · Tests 113 passed (113)`.
+- `npm run check:migration-role` — `Hosted migration-role guard passed: active hosted SQL/tooling uses postgres and immutable applied history is unchanged.`
+- `npm run check:drift -- --self-test` — `check-drift: all offline self-tests passed.`
+- `npm run format` — whole tree, exit 0 (committed).
+- `npm run verify:pr-local` — exit 0: `Test Files 682 passed | 2 skipped (684) · Tests 7398 passed | 57 skipped (7455)`, `Offline RAG fixture and manifest validation passed (36 golden cases, 26 suites)`, `failed: (none)` — none of this host's known environmental reds fired on this run.
+
+#### Step 4 — production window (`sjrfecxgysukkwxsowpy`; dedicated worktree, CLI 2.114.0, never linked from the main checkout)
+
+`supabase db query --linked --project-ref sjrfecxgysukkwxsowpy` reached production from the unlinked
+worktree (the CLI wrote only a `.temp/linked-project.json` marker, removed at the end; the main checkout
+stayed on `ikoiolksxqxfxgiyqpnu` throughout). Read-only pre-flight:
+
+```
+db postgres · usr postgres · total_rows 204 · latest_version 20260819100300 · documents 2851 · no_statements 20 · new_versions_present 0
+no_statements_versions: 20260701010000 20260701020000 20260701030000 20260701040000 20260701060000 20260702000000 20260702100000 20260702110000 20260702120000 20260702130000 20260702140000 20260702150000 20260702160000 20260702180000 20260712165915 20260712170500 20260712171000 20260712171500 20260712172000 20260712173000
+```
+
+**All six guards were dry-run read-only on production before anything was pushed and all six passed**
+(`rows: []`, no error). That pass was then shown to be meaningful rather than an ignored DO block: the
+`110500` guard with one deliberately wrong hash **failed on production** with `Mismatched:
+public.reset_document_index(uuid) def_hash 243f3960a32db0192d1cce2ebd050004` — i.e. the live hash is the
+manifest value the real guard pins — and the branches that could only be exercised on production were:
+`cron_schema true · purge_job_rows 1 · rrl_comment true · claim_comment true`.
+
+`supabase migration list --linked --project-ref sjrfecxgysukkwxsowpy`: **204** matched rows, **0**
+remote-only, pending = exactly the six new versions (`20260819110000`…`110500`), all after the remote
+tip, so no `--include-all`. Then the real push (dry-run first, identical plan):
+
+```
+$ supabase db push --linked --project-ref sjrfecxgysukkwxsowpy --skip-vault --yes
+Applying migration 20260819110000_validate_history_dropped_objects.sql...
+Applying migration 20260819110100_validate_history_comments_and_retention.sql...
+Applying migration 20260819110200_validate_history_document_foreign_keys.sql...
+Applying migration 20260819110300_validate_history_operational_index_shapes.sql...
+Applying migration 20260819110400_validate_history_index_generation_promotion.sql...
+Applying migration 20260819110500_validate_history_function_bodies.sql...
+{"upToDate":false,"dryRun":false,"migrations":[...6 files...],"seeds":[],"roles":[],"message":"Finished supabase db push."}
+```
+
+After: `migration list` **210** rows, pending **0**, remote-only **0**; `total_rows 210 ·
+latest_version 20260819110500 · documents 2851`; the probe still reports `ok` with **20** history rows
+(the probe lists rows, the allowlist clears them); and the six new rows carry executed statements — the
+CLI's per-statement shape, **not** the mark-applied shape — so none of them can ever surface in the probe:
+
+```
+20260819110000 validate_history_dropped_objects          stmt_count 4  no_statements false
+20260819110100 validate_history_comments_and_retention   stmt_count 4  no_statements false
+20260819110200 validate_history_document_foreign_keys    stmt_count 4  no_statements false
+20260819110300 validate_history_operational_index_shapes stmt_count 4  no_statements false
+20260819110400 validate_history_index_generation_promotion stmt_count 4  no_statements false
+20260819110500 validate_history_function_bodies          stmt_count 4  no_statements false
+```
+
+`migration repair` was never used; no vault secret was read or written; no data row was touched.
+
+#### Step 5 — staging (`ikoiolksxqxfxgiyqpnu`, Phase 2 method through `db query`)
+
+The Supabase MCP connector was not authenticated in this session, so the §2.2 method ran over the CLI's
+management-API `db query`: each file's content verbatim, then the explicit history row with the
+repository's version and name in the same call; `apply_migration` and `db push` not used. Identity read
+before every step (`documents = 0` abort condition, in code):
+
+```
+[before] staging ikoiolksxqxfxgiyqpnu · usr postgres · total_rows 204 · latest 20260819100300 · no_statements 0 · documents 0 · document_chunks 0 · new_versions_present 0
+20260819110000 · validate_history_dropped_objects · stmt_count 1 · bytes 4562 · md5 c213ec244b8a0331b10e08c1ce96242d · matches repo file true
+20260819110100 · validate_history_comments_and_retention · stmt_count 1 · bytes 4697 · md5 c733b24e5f00f0ebb11168ee21d97e27 · matches repo file true
+20260819110200 · validate_history_document_foreign_keys · stmt_count 1 · bytes 3662 · md5 d90bf2d0d7d9e296b7a072d1bfc94d67 · matches repo file true
+20260819110300 · validate_history_operational_index_shapes · stmt_count 1 · bytes 16230 · md5 a4834c1ef3135b9b0d337473b0946552 · matches repo file true
+20260819110400 · validate_history_index_generation_promotion · stmt_count 1 · bytes 9587 · md5 29bffb90c5ac9af8620bd510cff7f8ac · matches repo file true
+20260819110500 · validate_history_function_bodies · stmt_count 1 · bytes 5907 · md5 5dc3494b1f79df910df6f99b13af656a · matches repo file true
+[after] staging ikoiolksxqxfxgiyqpnu · usr postgres · total_rows 210 · latest 20260819110500 · no_statements 0 · documents 0 · document_chunks 0 · new_versions_present 6
+```
+
+Drift comparison exactly as Phase 4 step 6 (staging `schema_drift_snapshot()` fetched over the CLI;
+same manifest, allowlist, `compareDriftSnapshots()`, `historyEntryProblems` and staleness pre-check;
+`--prune-stale` NOT used):
+
+```
+Target: staging ikoiolksxqxfxgiyqpnu · documents 0 · migrations 210
+Drift manifest: generated 2026-08-18T18:15:50.121Z from schema.sql 328677d1c6f3…
+Compared 6 extensions, 38 tables, 1 views, 93 functions, 210 indexes, 48 policies, 170 constraints, 26 triggers, 2 storage_buckets against live (snapshot_version 2, probe ok, migration_history rows 0).
+Stale allowlist entries (20) — no longer matching (NOT pruned):
+  ? [migration_history] no_statements 20260701010000 … 20260712173000   (all twenty — production's rows, as §2.4 predicts)
+No unexpected drift.
+EXIT=0
+```
+
+#### Step 6 — live-drift dispatched on the branch: drift is ZERO; the job is red for a different, latent reason
+
+Dispatched on `claude/migration-history-drift-allowlist-37444c` (head `8dd014d04` — on `main` the
+allowlist would still be the seeded five): **Actions run
+[`32251326536`](https://github.com/BigSimmo/Database/actions/runs/32251326536)**, 2026-08-19T12:11:04Z.
+Step `Compare live schema drift`: **success**:
+
+```
+Drift manifest: generated 2026-08-18T18:15:50.121Z from schema.sql 328677d1c6f3…
+Compared 6 extensions, 38 tables, 1 views, 93 functions, 210 indexes, 48 policies, 170 constraints, 26 triggers, 2 storage_buckets against live.
+  ~ [migration_history] no_statements … ×20   (five superseded + fifteen validation — every row allowed, each printed with its guard reason)
+No unexpected schema drift between live and supabase/schema.sql.
+```
+
+| Category             | §Phase 4 step 7 (`32171070287`) | This run (`32251326536`) |
+| -------------------- | ------------------------------: | -----------------------: |
+| `missing_live`       |                               0 |                    **0** |
+| `unexpected_live`    |                               0 |                    **0** |
+| function `def_hash`  |               1 (merge-pending) |                    **0** |
+| `migration_history`  |                   15 unexpected |                    **0** |
+| **Total unexpected** |                          **16** |                    **0** |
+
+**`#316`'s live-drift finding set is empty for the first time since 2026-07-26.**
+
+**But the job concluded `failure`, and that is honest, not drift.** The next step, `Align migration
+history for Supabase Preview` (`npm run check:migration-history`, added by Phase 0 in PR #1939), ran for
+the **first time ever** — on every run since it was added the compare step failed first and it was
+`skipped`, and the last green run (`29700973962`, 2026-07-19) predates it. It fails with:
+
+```
+Local migration versions: 210
+Unable to read remote schema_migrations via Accept-Profile (status 406: {"code":"PGRST106","details":null,"hint":"Only the following schemas are exposed: public, graphql_public","message":"Invalid schema: supabase_migrations"})
+```
+
+`scripts/check-migration-history-alignment.ts` reads `supabase_migrations.schema_migrations` through
+PostgREST with `Accept-Profile: supabase_migrations`, which this project has never exposed to the Data
+API — so the step can only ever fail here. The routing job therefore kept pinned issue #1963 open ("Job
+result: failure") even though the findings block it captured is empty. This is a latent Phase 0 tooling
+defect that zero drift has now exposed, **not** a change this task should absorb into a migration PR:
+the fix is either an owner dashboard decision (expose `supabase_migrations` read-only to the service
+role) or rewriting the alignment read onto the management API / `supabase migration list` (which needs
+the `SUPABASE_ACCESS_TOKEN` secret of `#183`), or a service-role RPC listing versions (a new migration
+with its own window). Queued as its own ledger item from this session; until it is fixed the weekly job
+will stay red on that step alone and the pinned issue will not self-close — **the drift block, which is
+what the issue was opened for, is clear.**

@@ -57,13 +57,15 @@ describe("outstanding-issues writer", () => {
   // ledger-inbox.mjs reads null as "no such row" and refuses the request. That
   // made `npm run issues:done` unusable for any Crockford-id row, reporting
   // "is not in Open items" about a row sitting in Open items.
-  it("fingerprints open rows by either id generation", () => {
+  it("fingerprints open rows by either id generation and handles lowercase display IDs", () => {
     const withCrockfordRow = addIssue(ledger, { summary: "third" }, { date: "2026-02-02", issueUlid: TEST_ULID });
 
     const crockford = issueRowFingerprint(withCrockfordRow, TEST_ID);
+    const crockfordLower = issueRowFingerprint(withCrockfordRow, TEST_ID.toLowerCase());
     const legacy = issueRowFingerprint(withCrockfordRow, "#005");
 
     expect(crockford).toMatch(/^[0-9a-f]{64}$/);
+    expect(crockfordLower).toBe(crockford);
     expect(legacy).toMatch(/^[0-9a-f]{64}$/);
     expect(crockford).not.toBe(legacy);
 

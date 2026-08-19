@@ -7,18 +7,13 @@ import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template"
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { therapyHrefWithSearchParams, therapyScreenHref } from "@/lib/therapy-compass-navigation";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 
 import { TherapyReviewNotice } from "../therapy-review-notice";
 
 import { THERAPY_CATALOGUE_SUMMARY } from "../data/generated-assets";
 
-const SUGGESTIONS = [
-  "Anxiety in outpatient care",
-  "Low mood & motivation",
-  "Trauma-focused",
-  "5-minute grounding",
-  "Relapse prevention",
-];
+const SUGGESTIONS = sharedHomePresentation["therapy-compass"].suggestions;
 
 export function HomeScreen() {
   const router = useRouter();
@@ -37,7 +32,7 @@ export function HomeScreen() {
       <TherapyReviewNotice className="mb-3 sm:mb-4" />
       <ModeHomeTemplate
         testId="therapy-compass"
-        title="Therapy"
+        title={sharedHomePresentation["therapy-compass"].title}
         subtitle={therapyCountCopy}
         // The mode's identity glyph is derived from APP_MODE_ICON rather than
         // chosen here, so this medallion cannot drift from the one nav, the mode

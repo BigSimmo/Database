@@ -3,7 +3,7 @@
   "enforce": true,
   "$lighthouseVersion": "Pinned exactly, not `lighthouse@12`: a patch published between a baseline run and its follow-up would silently change the measurement. Kept in step with LIGHTHOUSE_VERSION in .github/workflows/live-web-vitals.yml by tests/check-lighthouse-budget.test.ts so the two Lighthouse entry points cannot drift apart.",
   "lighthouseVersion": "12.8.2",
-  "routes": ["/", "/therapy-compass", "/documents/search", "/dsm", "/forms"],
+  "routes": ["/", "/documents/search"],
   "strategies": ["mobile", "desktop"],
   "tolerance": {
     "lcpMs": {
@@ -26,32 +26,11 @@
       "fcpMs": 340.1535,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
-    "desktop-dsm": {
-      "lcpMs": 848.5132499999996,
-      "cls": 0.0137707091571825,
-      "tbtMs": 0,
-      "fcpMs": 385.2895,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
-    },
-    "desktop-forms": {
-      "lcpMs": 756.1562,
-      "cls": 0.0633683272433484,
-      "tbtMs": 0,
-      "fcpMs": 360.5781,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
-    },
     "desktop-root": {
       "lcpMs": 822.2584000000003,
       "cls": 0.007423798266351459,
       "tbtMs": 2.5,
       "fcpMs": 335.5646,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
-    },
-    "desktop-therapy-compass": {
-      "lcpMs": 849.4647500000004,
-      "cls": 0,
-      "tbtMs": 0,
-      "fcpMs": 400.9859,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "mobile-documents-search": {
@@ -61,34 +40,14 @@
       "fcpMs": 2271.699,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
-    "mobile-dsm": {
-      "lcpMs": 2274.153,
-      "cls": 0.03530337546450838,
-      "tbtMs": 318.44699999999875,
-      "fcpMs": 2274.153,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
-    },
-    "mobile-forms": {
-      "lcpMs": 2259.639,
-      "cls": 0.08828831243753035,
-      "tbtMs": 305.04699999999957,
-      "fcpMs": 2259.639,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
-    },
     "mobile-root": {
       "lcpMs": 2252.856,
       "cls": 0.01575010076343992,
       "tbtMs": 296.28300000000127,
       "fcpMs": 2252.856,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
-    },
-    "mobile-therapy-compass": {
-      "lcpMs": 2274.772,
-      "cls": 0,
-      "tbtMs": 325.6850000000004,
-      "fcpMs": 2274.772,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     }
   },
-  "updatedAt": "2026-08-18T16:00:09.578Z"
+  "updatedAt": "2026-08-18T16:00:09.578Z",
+  "$routes": "Only surfaces that still render. `/therapy-compass`, `/dsm` and `/forms` were removed when home consolidation turned them into redirect stubs: Lighthouse followed the 307 and graded `/?mode=<id>` against a baseline captured on the retired detailed home, which the checker reports as \"measured a different page than requested\". All three now render the same shared home as `/`, so removing them costs duplication rather than coverage. Restoring per-mode coverage means measuring the `<mode>/search` results routes, and those need baseline rows the dispatch-only refresh job records \u2014 do that rather than hand-writing numbers."
 }

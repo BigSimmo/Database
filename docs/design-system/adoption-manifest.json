@@ -955,6 +955,7 @@
         "src/components/clinical-dashboard/auth-panel.tsx",
         "src/components/clinical-dashboard/medication-considerations.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/developer-area/developer-gate-screen.tsx",
         "src/components/document-viewer/document-rail-panels.tsx"
       ],
       "productImportFiles": [
@@ -1910,6 +1911,7 @@
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/developer-area/developer-gate-screen.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
@@ -2226,9 +2228,11 @@
         "src/app/(search-app)/factsheets/search/page.tsx",
         "src/app/(search-app)/forms/[slug]/page.tsx",
         "src/app/(search-app)/forms/page.tsx",
+        "src/app/(search-app)/forms/search/page.tsx",
         "src/app/(search-app)/medications/[slug]/page.tsx",
         "src/app/(search-app)/services/[slug]/page.tsx",
-        "src/app/(search-app)/services/page.tsx"
+        "src/app/(search-app)/services/page.tsx",
+        "src/app/(search-app)/services/search/page.tsx"
       ],
       "routeRoots": true,
       "proofApplicability": "required",
@@ -2306,7 +2310,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["ModeHome"]
         },
         {
           "file": "src/app/(search-app)/dictionary/search/page.tsx",
@@ -2386,7 +2390,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["ModeHome"]
         },
         {
           "file": "src/app/(search-app)/dsm/search/page.tsx",
@@ -2416,7 +2420,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["ModeHome"]
         },
         {
           "file": "src/app/(search-app)/factsheets/search/page.tsx",
@@ -2446,7 +2450,17 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["ModeHome"]
+        },
+        {
+          "file": "src/app/(search-app)/forms/search/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["ModeHome"]
         },
         {
           "file": "src/app/(search-app)/medications/[slug]/page.tsx",
@@ -2476,7 +2490,17 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["ModeHome"]
+        },
+        {
+          "file": "src/app/(search-app)/services/search/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["ModeHome"]
         }
       ]
     },
@@ -2490,7 +2514,8 @@
         "src/app/(search-app)/differentials/diagnoses/page.tsx",
         "src/app/(search-app)/differentials/page.tsx",
         "src/app/(search-app)/differentials/presentations/[slug]/page.tsx",
-        "src/app/(search-app)/differentials/presentations/page.tsx"
+        "src/app/(search-app)/differentials/presentations/page.tsx",
+        "src/app/(search-app)/differentials/search/page.tsx"
       ],
       "routeRoots": true,
       "proofApplicability": "required",
@@ -2589,6 +2614,16 @@
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
           "sanctionedPatternsPresent": ["Differential"]
+        },
+        {
+          "file": "src/app/(search-app)/differentials/search/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Differential"]
         }
       ]
     },
@@ -2601,7 +2636,8 @@
         "src/app/(search-app)/formulation/builder/page.tsx",
         "src/app/(search-app)/formulation/compare/page.tsx",
         "src/app/(search-app)/formulation/map/page.tsx",
-        "src/app/(search-app)/formulation/page.tsx"
+        "src/app/(search-app)/formulation/page.tsx",
+        "src/app/(search-app)/formulation/search/page.tsx"
       ],
       "routeRoots": true,
       "proofApplicability": "required",
@@ -2690,6 +2726,16 @@
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
           "sanctionedPatternsPresent": ["Formulation"]
+        },
+        {
+          "file": "src/app/(search-app)/formulation/search/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Formulation"]
         }
       ]
     },
@@ -2702,7 +2748,8 @@
         "src/app/(search-app)/specifiers/builder/page.tsx",
         "src/app/(search-app)/specifiers/compare/page.tsx",
         "src/app/(search-app)/specifiers/map/page.tsx",
-        "src/app/(search-app)/specifiers/page.tsx"
+        "src/app/(search-app)/specifiers/page.tsx",
+        "src/app/(search-app)/specifiers/search/page.tsx"
       ],
       "routeRoots": true,
       "proofApplicability": "required",
@@ -2784,6 +2831,16 @@
         },
         {
           "file": "src/app/(search-app)/specifiers/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Specifier"]
+        },
+        {
+          "file": "src/app/(search-app)/specifiers/search/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -3154,7 +3211,11 @@
       "id": "tools-and-calculators",
       "disposition": "owned",
       "documentedDisposition": null,
-      "routes": ["src/app/(search-app)/calculators/page.tsx", "src/app/(search-app)/tools/page.tsx"],
+      "routes": [
+        "src/app/(search-app)/calculators/page.tsx",
+        "src/app/(search-app)/calculators/search/page.tsx",
+        "src/app/(search-app)/tools/page.tsx"
+      ],
       "routeRoots": true,
       "proofApplicability": "required",
       "nonVisualRoute": null,
@@ -3195,6 +3256,16 @@
       "roots": [
         {
           "file": "src/app/(search-app)/calculators/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/calculators/search/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -3692,6 +3763,7 @@
   "routeCoverage": {
     "discovered": [
       "src/app/(search-app)/calculators/page.tsx",
+      "src/app/(search-app)/calculators/search/page.tsx",
       "src/app/(search-app)/dictionary/[slug]/page.tsx",
       "src/app/(search-app)/dictionary/browse/page.tsx",
       "src/app/(search-app)/dictionary/compare/page.tsx",
@@ -3706,6 +3778,7 @@
       "src/app/(search-app)/differentials/page.tsx",
       "src/app/(search-app)/differentials/presentations/[slug]/page.tsx",
       "src/app/(search-app)/differentials/presentations/page.tsx",
+      "src/app/(search-app)/differentials/search/page.tsx",
       "src/app/(search-app)/documents/[id]/page.tsx",
       "src/app/(search-app)/documents/page.tsx",
       "src/app/(search-app)/documents/search/page.tsx",
@@ -3722,21 +3795,25 @@
       "src/app/(search-app)/favourites/page.tsx",
       "src/app/(search-app)/forms/[slug]/page.tsx",
       "src/app/(search-app)/forms/page.tsx",
+      "src/app/(search-app)/forms/search/page.tsx",
       "src/app/(search-app)/formulation/[slug]/page.tsx",
       "src/app/(search-app)/formulation/builder/page.tsx",
       "src/app/(search-app)/formulation/compare/page.tsx",
       "src/app/(search-app)/formulation/map/page.tsx",
       "src/app/(search-app)/formulation/page.tsx",
+      "src/app/(search-app)/formulation/search/page.tsx",
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
       "src/app/(search-app)/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
       "src/app/(search-app)/services/page.tsx",
+      "src/app/(search-app)/services/search/page.tsx",
       "src/app/(search-app)/specifiers/[slug]/page.tsx",
       "src/app/(search-app)/specifiers/builder/page.tsx",
       "src/app/(search-app)/specifiers/compare/page.tsx",
       "src/app/(search-app)/specifiers/map/page.tsx",
       "src/app/(search-app)/specifiers/page.tsx",
+      "src/app/(search-app)/specifiers/search/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/sheet/page.tsx",
@@ -3763,6 +3840,7 @@
     ],
     "declared": [
       "src/app/(search-app)/calculators/page.tsx",
+      "src/app/(search-app)/calculators/search/page.tsx",
       "src/app/(search-app)/dictionary/[slug]/page.tsx",
       "src/app/(search-app)/dictionary/browse/page.tsx",
       "src/app/(search-app)/dictionary/compare/page.tsx",
@@ -3777,6 +3855,7 @@
       "src/app/(search-app)/differentials/page.tsx",
       "src/app/(search-app)/differentials/presentations/[slug]/page.tsx",
       "src/app/(search-app)/differentials/presentations/page.tsx",
+      "src/app/(search-app)/differentials/search/page.tsx",
       "src/app/(search-app)/documents/[id]/page.tsx",
       "src/app/(search-app)/documents/page.tsx",
       "src/app/(search-app)/documents/search/page.tsx",
@@ -3793,21 +3872,25 @@
       "src/app/(search-app)/favourites/page.tsx",
       "src/app/(search-app)/forms/[slug]/page.tsx",
       "src/app/(search-app)/forms/page.tsx",
+      "src/app/(search-app)/forms/search/page.tsx",
       "src/app/(search-app)/formulation/[slug]/page.tsx",
       "src/app/(search-app)/formulation/builder/page.tsx",
       "src/app/(search-app)/formulation/compare/page.tsx",
       "src/app/(search-app)/formulation/map/page.tsx",
       "src/app/(search-app)/formulation/page.tsx",
+      "src/app/(search-app)/formulation/search/page.tsx",
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
       "src/app/(search-app)/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
       "src/app/(search-app)/services/page.tsx",
+      "src/app/(search-app)/services/search/page.tsx",
       "src/app/(search-app)/specifiers/[slug]/page.tsx",
       "src/app/(search-app)/specifiers/builder/page.tsx",
       "src/app/(search-app)/specifiers/compare/page.tsx",
       "src/app/(search-app)/specifiers/map/page.tsx",
       "src/app/(search-app)/specifiers/page.tsx",
+      "src/app/(search-app)/specifiers/search/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/sheet/page.tsx",
@@ -3838,7 +3921,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 81,
+    "inheritedCkbV2RootCount": 87,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -3847,8 +3930,8 @@
     "registeredComponentCount": 54,
     "previewCount": 54,
     "productImportedComponentCount": 34,
-    "rootCount": 82,
-    "productionRouteCount": 69,
-    "nextUiEntryCount": 122
+    "rootCount": 88,
+    "productionRouteCount": 75,
+    "nextUiEntryCount": 131
   }
 }
