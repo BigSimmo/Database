@@ -44,4 +44,19 @@ describe("Form confirm callouts", () => {
       true,
     );
   });
+
+  it("keeps a visible focus-visible outline on the keyboard-focusable tab panels", () => {
+    const form = getFormRecord("form-1a");
+    expect(form).toBeTruthy();
+    render(<FormDetailPage form={form!} />);
+
+    const panels = screen.getAllByRole("tabpanel");
+    expect(panels.length).toBeGreaterThan(0);
+    for (const panel of panels) {
+      expect(panel.tabIndex).toBe(0);
+      expect(panel.className).toContain("focus-visible:outline");
+      expect(panel.className).toContain("focus-visible:outline-2");
+      expect(panel.className).not.toContain("focus-visible:outline-none");
+    }
+  });
 });

@@ -680,9 +680,9 @@ function selfTest() {
     failures += 1;
     console.error("self-test FAILED: issueRowFingerprint failed to resolve 26-char Crockford ULID #DREDWA");
   }
-  if (fpCrockfordLower !== fpCrockford) {
+  if (!isValidIssueRowFingerprint(fpCrockfordLower) || fpCrockfordLower !== fpCrockford) {
     failures += 1;
-    console.error("self-test FAILED: issueRowFingerprint failed to resolve lowercase Crockford ID #dredwa");
+    console.error("self-test FAILED: issueRowFingerprint failed to resolve lowercase Crockford display ID #dredwa");
   }
   if (!isValidIssueRowFingerprint(fpAllDigit)) {
     failures += 1;

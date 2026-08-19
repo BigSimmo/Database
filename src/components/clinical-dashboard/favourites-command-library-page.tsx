@@ -332,7 +332,11 @@ function ContinueStrip({ item }: { item: FavouriteItem }) {
         <div className="flex min-w-0 flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3 sm:px-4">
           <div className="flex min-w-0 items-start gap-3 sm:flex-1">
             <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-            <Link href={item.href} className={cn("min-w-0 flex-1 text-left", focusRing)}>
+            <Link
+              href={item.href}
+              onClick={() => recordFavouriteOpened(item.id)}
+              className={cn("min-w-0 flex-1 text-left", focusRing)}
+            >
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <p className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--success)]">
                   Continue
@@ -348,6 +352,7 @@ function ContinueStrip({ item }: { item: FavouriteItem }) {
           </div>
           <Link
             href={item.href}
+            onClick={() => recordFavouriteOpened(item.id)}
             aria-label={`Continue ${item.title}`}
             className={cn(
               "inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)] sm:min-h-9 sm:w-auto",
@@ -463,7 +468,10 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
               "flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
               focusRing,
             )}
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              recordFavouriteOpened(item.id);
+              setOpen(false);
+            }}
           >
             <ExternalLink className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
             {actionLabel}
@@ -997,6 +1005,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
             <p className="mt-1 text-2xs font-medium text-[color:var(--text-muted)]">Saved action: {actionLabel}</p>
             <Link
               href={item.href}
+              onClick={() => recordFavouriteOpened(item.id)}
               className={cn(
                 "mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]",
                 focusRing,

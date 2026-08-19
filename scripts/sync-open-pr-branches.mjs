@@ -112,14 +112,13 @@ function main() {
       ]);
       behindBy = cmp.behind_by ?? 0;
       requiredCiInFlight =
-        behindBy > 0 && !shouldSkip(pr)
-          ? hasRequiredCiInFlight(
-              ghJson([
-                "api",
-                `repos/${repo}/actions/runs?head_sha=${encodeURIComponent(pr.headRefOid)}&event=pull_request&per_page=100`,
-              ]),
-            )
-          : false;
+        pr.headRefOid.length > 0 &&
+        hasRequiredCiInFlight(
+          ghJson([
+            "api",
+            `repos/${repo}/actions/runs?head_sha=${encodeURIComponent(pr.headRefOid)}&event=pull_request&per_page=100`,
+          ]),
+        );
     } catch {
       behindBy = 0;
       requiredCiInFlight = false;

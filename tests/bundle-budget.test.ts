@@ -317,7 +317,6 @@ describe("bundle baseline provenance", () => {
       resolveBaselineCommitDistance(gitHead, process.cwd(), mockExecNonNumeric as unknown as typeof execFileSync),
     ).toBeNull();
   });
-
   it("defines a default stale baseline commit distance threshold", () => {
     expect(STALE_BASELINE_COMMIT_DISTANCE_THRESHOLD).toBe(50);
   });

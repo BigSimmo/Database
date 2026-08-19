@@ -136,7 +136,7 @@ Phone-chrome work uses `npm run verify:phone-chrome`. Inspect its classification
 
 ### Phone sticky-header settle timing (screenshots and DOM measurements)
 
-The phone header stack (`.phone-sticky-header-stack`) is `position: fixed` and mounts collapsed. The top content reserve `max-sm:pt-[var(--phone-overlay-chrome-h)]` resolves to the full measured stack height only after mount via `usePhoneOverlayChromeReserve` across an 80ms quiet window (`phoneOverlayReserveGeometryQuietWindowMs`).
+The phone header stack (`.phone-sticky-header-stack`) uses `position: fixed` in browser tabs and `position: absolute` within the phone viewport frame in installed standalone mode, and mounts collapsed. The top content reserve `max-sm:pt-[var(--phone-overlay-chrome-h)]` resolves to the full measured stack height only after mount via `usePhoneOverlayChromeReserve` across an 80ms quiet window (`phoneOverlayReserveGeometryQuietWindowMs`). Standalone tests must assert the absolute-positioning contract.
 
 Playwright tests that evaluate DOM offsets (`getBoundingClientRect()`, `offsetTop`, etc.) or capture screenshots immediately at `networkidle` can observe premature unsettled geometry (such as content appearing at `y=72` under the header rather than at its settled `y=121` position, as discovered on `/dictionary/browse` in #XPY409).
 
@@ -162,22 +162,22 @@ await expect
   .toBe(true);
 ```
 
-Or when measuring a specific content element (`main` or `h1`), wait for its vertical offset to stabilize:
+Or when measuring a specific content element (`main` or `h1`), wait for its vertical offset to stabilize across frames:
 
 ```ts
-let lastTop: number | null = null;
 await expect
   .poll(
     async () => {
-      const top = await page
-        .locator("main, h1")
-        .first()
-        .evaluate((el) => Math.round(el.getBoundingClientRect().top));
-      const stable = top > 0 && top === lastTop;
-      lastTop = top;
-      return stable;
+      return page.evaluate(async () => {
+        const el = document.querySelector<HTMLElement>("main, h1");
+        if (!el) return false;
+        const first = Math.round(el.getBoundingClientRect().top);
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const second = Math.round(el.getBoundingClientRect().top);
+        return first > 0 && Math.abs(first - second) <= 1;
+      });
     },
-    { message: "expected main or h1 vertical offset to stabilize" },
+    { message: "expected content vertical offset to stabilize across animation frames" },
   )
   .toBe(true);
 ```
