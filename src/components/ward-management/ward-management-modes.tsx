@@ -614,7 +614,12 @@ function MovementsView() {
 
 function ExceptionsView() {
   const items = buildActionInbox(wardMovements, NOW_ANCHOR);
-  const overdue = items.filter((item) => item.tone === "danger").length;
+  // Task 8 review (Minor 7): `tone === "danger"` also matches the parallel-referral-cap
+  // category, which is a capacity dead end, not a passed deadline — counting it under a label
+  // that says "overdue" overstated the true breach count by one once Ruling 1 started emitting
+  // every qualifying movement instead of at most one. "Overdue" means a legal deadline has
+  // actually passed, so this counts only the `legal-` category, matching what the label claims.
+  const overdue = items.filter((item) => item.id.startsWith("legal-")).length;
   return (
     <div className={styles.pageGrid} data-testid="ward-exceptions-view">
       <section className={styles.panel}>

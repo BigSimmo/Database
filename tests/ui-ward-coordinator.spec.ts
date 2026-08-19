@@ -157,19 +157,49 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(items).toHaveCount(expectedCount);
     await expect(toggle).toContainText(String(expectedCount));
 
-    // Selecting an exception drives the same selection the queue does.
-    await items.first().click();
-    await expect(page.getByRole("complementary", { name: "Explainable shortlist" })).toBeVisible();
+    // Review Important 2: "the true count" means every row the header claims is actually ON
+    // SCREEN, not merely present in a DOM a nested scroller has clipped — a header reading "8"
+    // over a box showing 4 is the same defect this ruling exists to prevent, just moved one
+    // level down. Assert every row, not just the first, is really in the viewport.
+    const itemCount = await items.count();
+    for (let index = 0; index < itemCount; index += 1) {
+      await expect(items.nth(index)).toBeInViewport();
+    }
 
-    // Phone: queue and exceptions survive, the diagram does not, and nothing overflows.
+    // Review Critical 1: the shortlist `<aside>` renders unconditionally — it is already visible
+    // before any click — so "is it visible" proves nothing about whether the drawer actually
+    // drives selection. Click a SPECIFIC, known exception (WF-005) and assert both that the
+    // shortlist names that exact movement and that the underlying queue row shows the same
+    // movement as pressed, proving the drawer and the queue really are one shared selection.
+    const wf005Item = drawer.locator('[data-testid*="-WF-005"]').first();
+    await expect(wf005Item).toBeVisible();
+    await wf005Item.click();
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+    await expect(shortlist).toBeVisible();
+    await expect(shortlist).toContainText("WF-005");
+    await expect(page.getByTestId("ward-queue-row-WF-005")).toHaveAttribute("aria-pressed", "true");
+
+    // Phone: queue and exceptions survive, the diagram and the pressure strip do not (Minor 6:
+    // the brief required both hidden, not just the diagram), and nothing overflows.
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole("region", { name: "Priority queue" })).toBeVisible();
     await expect(page.getByRole("button", { name: /Exceptions/ })).toBeVisible();
     await expect(page.getByRole("region", { name: "Statewide flow" })).toBeHidden();
+    await expect(page.getByRole("region", { name: "Emergency department pressure" })).toBeHidden();
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
     expect(overflow).toBeLessThanOrEqual(2);
+
+    // Review Important 3: "one-tap confirm" means Confirm is actually reachable without a long
+    // scroll once a movement is selected on the phone — not merely present somewhere on a page
+    // that happens to be scrollable. Select via the drawer again (closing it in the same tap,
+    // same as the desktop step above) and assert Confirm is in the viewport with no scrolling.
+    await toggle.click();
+    const phoneDrawer = page.getByRole("region", { name: "Exceptions" });
+    await expect(phoneDrawer).toBeVisible();
+    await phoneDrawer.locator('[data-testid*="-WF-005"]').first().click();
+    await expect(page.getByTestId("ward-shortlist-confirm")).toBeInViewport();
   });
 
   test("orders by clinical tier first and labels the score as operational, not clinical", async ({ page }) => {
