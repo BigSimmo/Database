@@ -333,60 +333,6 @@
   font-weight: 750;
 }
 
-.flowHub {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  display: grid;
-  min-height: 7.25rem;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: var(--ward-space-12);
-  border: 0.0625rem solid var(--ward-blue-border);
-  border-radius: var(--radius-lg);
-  background: var(--ward-blue-soft);
-  padding: var(--ward-space-12) var(--ward-space-16);
-  color: var(--ward-blue);
-}
-
-.flowHub > div:nth-child(2) {
-  min-width: 11rem;
-  text-align: center;
-}
-
-.flowHub strong,
-.flowHub span {
-  display: block;
-}
-
-.flowHub strong {
-  color: var(--ward-heading);
-  font-size: var(--text-sm);
-}
-
-.flowHub span {
-  margin-top: 0.25rem;
-  font-size: var(--text-3xs);
-}
-
-.routeSignal {
-  display: flex;
-  align-items: center;
-  gap: var(--ward-space-6);
-  color: var(--ward-blue);
-  font-size: var(--text-3xs);
-  font-weight: 700;
-}
-
-.routeSignal:last-child {
-  justify-content: flex-end;
-}
-
-.routeSignal svg {
-  width: 1rem;
-  height: 1rem;
-  flex: 0 0 auto;
-}
-
 .decisionPanel {
   display: flex;
   min-height: 0;
