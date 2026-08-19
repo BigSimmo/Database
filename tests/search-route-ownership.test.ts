@@ -382,8 +382,10 @@ describe("shared-search route ownership", () => {
     expect(seedEffect).toMatch(/focus: searchParams\.get\("focus"\) === "1"/);
     expect(seedEffect).toContain("scopeFilters: navigationContext.scopeFilters");
     expect(seedEffect).toContain("Settings landing view also wins over last-mode");
+    // The hook also fills the mode on a dashboard-owned home, where the pathname
+    // is the only thing that names the mode, so it takes the mode pair too.
     expect(readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8")).toContain(
-      "useHomeModeSeed({ pathname, searchParams, lastAppMode })",
+      "useHomeModeSeed({ pathname, searchParams, lastAppMode, searchMode, setSearchMode })",
     );
   });
 });

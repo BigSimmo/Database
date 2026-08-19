@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { appModeSelectionHref } from "@/lib/app-modes";
+import { dashboardOwnedModeHomeModeId } from "@/lib/search-route-ownership";
 import { DEFAULT_APP_MODE } from "@/components/clinical-dashboard/use-last-app-mode";
 import { landingModeForPreference, readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { readSearchNavigationContext } from "@/lib/search-navigation-context";
@@ -26,12 +27,39 @@ export function useHomeModeSeed({
   pathname,
   searchParams,
   lastAppMode,
+  searchMode,
+  setSearchMode,
 }: {
   pathname: string | null;
   searchParams: ReadonlyURLSearchParams;
   lastAppMode: AppModeId;
+  searchMode: AppModeId;
+  setSearchMode: (mode: AppModeId) => void;
 }) {
   const homeModeSeededRef = useRef(false);
+
+  /*
+   * The same gap on a dashboard-owned mode home. `/documents` names its mode
+   * through the pathname rather than `?mode=`, so the dashboard's `?mode=` sync
+   * returns early on it — and the dashboard stays mounted across a client
+   * navigation onto it, unlike `/tools`, `/favourites` and `/medications`, which
+   * are always-standalone and remount. Nothing read the pathname, so clicking
+   * Documents in the sidebar moved the URL while the header, composer placeholder
+   * and highlight stayed on the mode the visitor came from; a full page load
+   * looked correct, which is what kept it hidden. Only reachable once
+   * `/?mode=<id>` became a real destination.
+   *
+   * Deferred a frame to match the `?mode=` sync and to satisfy the repo's ban on
+   * a bare setState in an effect.
+   */
+  useEffect(() => {
+    if (!pathname) return;
+    const pathMode = dashboardOwnedModeHomeModeId(pathname);
+    if (!pathMode || pathMode === searchMode) return;
+    if (searchParams.has("mode")) return;
+    const frame = window.requestAnimationFrame(() => setSearchMode(pathMode));
+    return () => window.cancelAnimationFrame(frame);
+  }, [pathname, searchParams, searchMode, setSearchMode]);
 
   useEffect(() => {
     if (homeModeSeededRef.current) return;
