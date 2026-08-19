@@ -107,9 +107,9 @@ plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
 
 Never commit: `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
 
-The product surface is **13 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
+The product surface is **15 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
 answer, documents, services, forms, favourites, differentials, dsm, specifiers, formulation,
-prescribing, tools, therapy-compass, factsheets.
+prescribing, tools, calculators, therapy-compass, factsheets, dictionary.
 
 ## The two flows that matter
 

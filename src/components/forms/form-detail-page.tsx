@@ -557,7 +557,7 @@ function PathwayContextCard({
           id={tabPathwayId}
           role="tab"
           aria-selected={activeTab === "pathway"}
-          aria-controls={activeTab === "pathway" ? panelPathwayId : undefined}
+          aria-controls={panelPathwayId}
           onClick={() => setActiveTab("pathway")}
           className={cn(
             "min-h-tap rounded-md px-3 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9",
@@ -573,7 +573,7 @@ function PathwayContextCard({
           id={tabSourceId}
           role="tab"
           aria-selected={activeTab === "source"}
-          aria-controls={activeTab === "source" ? panelSourceId : undefined}
+          aria-controls={panelSourceId}
           onClick={() => setActiveTab("source")}
           className={cn(
             "min-h-tap rounded-md px-3 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9",

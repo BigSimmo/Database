@@ -891,6 +891,7 @@ function GlobalStandaloneSearchShellBody({
             onCrossModeSearch={crossModeSearch}
             headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
             mobileSearchPlacement="bottom"
+            mobileHomeComposerPlacement={mobileHomeComposerPlacement}
             // Every phone dock is the compact single-row pill so content keeps
             // maximum screen space (mode homes and result views alike).
             mobileBottomSearchVariant="compact"

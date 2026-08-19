@@ -3,8 +3,10 @@ import type { ReactNode } from "react";
 
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 
-type SectionHeadingBaseProps = {
+export type SectionHeadingProps = {
   id?: string;
+  title?: string;
+  children?: ReactNode;
   /** Short kicker above the title (e.g. in record sections). */
   eyebrow?: string;
   /** Supporting copy. `body` and `description` are interchangeable aliases. */
@@ -26,10 +28,6 @@ type SectionHeadingBaseProps = {
   /** Display variant: default, menu-kicker (compact uppercase kicker for menus/drawers) */
   variant?: "default" | "menu-kicker";
 };
-
-export type SectionHeadingProps =
-  | (SectionHeadingBaseProps & { title: string; children?: ReactNode })
-  | (SectionHeadingBaseProps & { title?: string; children: string });
 
 /**
  * Shared section heading recipe for dashboard modes, record sections, menus, and tool panels.

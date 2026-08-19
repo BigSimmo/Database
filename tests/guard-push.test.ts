@@ -8,6 +8,7 @@ import {
   ACTIVE_CI_RUN_STATES,
   autoMergeVerdict,
   changedFilesForRange,
+  defaultRunsFetch,
   driftVerdict,
   findInFlightCiRuns,
   findPrettierBin,
@@ -422,7 +423,7 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     ];
     const inFlight = findInFlightCiRuns(runs);
     expect(inFlight).toHaveLength(2);
-    expect(inFlight.map((r: { databaseId: number }) => r.databaseId)).toEqual([1, 2]);
+    expect(inFlight.map((r: Record<string, unknown>) => r.databaseId)).toEqual([1, 2]);
 
     const objPayload = {
       workflow_runs: [
@@ -430,7 +431,7 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
         { id: 11, path: ".github/workflows/ci.yml", status: "completed", conclusion: "failure" },
       ],
     };
-    expect(findInFlightCiRuns(objPayload).map((r: { id: number }) => r.id)).toEqual([10]);
+    expect(findInFlightCiRuns(objPayload).map((r: Record<string, unknown>) => r.id)).toEqual([10]);
   });
 
   it("blocks a push to an open PR when required CI is in-flight", () => {
@@ -460,10 +461,9 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
 
   it("inFlightCiGuard formats actionable blocked message with PR and run details", () => {
     const runs = [{ databaseId: 555, name: "CI", status: "in_progress", url: "https://github.com/run/555" }];
-    const result = inFlightCiGuard(["claude/my-fix"], {
+    const result = inFlightCiGuard(["claude/my-fix"], [], {
       prViewer: () => ({ state: "OPEN", number: 77 }),
       runFetcher: () => runs,
-      ghAvailable: () => true,
     });
     expect(result.ok).toBe(false);
     expect(result.message).toContain("PR #77 on claude/my-fix has required CI run(s) currently IN-FLIGHT");
@@ -476,10 +476,9 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     const previous = process.env.SKIP_IN_FLIGHT_CI_GUARD;
     process.env.SKIP_IN_FLIGHT_CI_GUARD = "1";
     try {
-      const result = inFlightCiGuard(["claude/my-fix"], {
+      const result = inFlightCiGuard(["claude/my-fix"], [], {
         prViewer: () => ({ state: "OPEN", number: 77 }),
         runFetcher: () => [{ databaseId: 555, name: "CI", status: "in_progress" }],
-        ghAvailable: () => true,
       });
       expect(result.ok).toBe(true);
       expect(result.skipped).toBe("SKIP_IN_FLIGHT_CI_GUARD=1");
@@ -489,18 +488,26 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     }
   });
 
-  it("inFlightCiGuard fails open when gh is not available", () => {
-    const result = inFlightCiGuard(["claude/my-fix"], {
-      prViewer: () => ({ state: "OPEN", number: 77 }),
-      runFetcher: () => [{ databaseId: 555, name: "CI", status: "in_progress" }],
-      ghAvailable: () => false,
-    });
-    expect(result.ok).toBe(true);
-    expect(result.note).toContain("gh not available");
-  });
-
   it("supports localRef === 'HEAD' in pushedTipMatchesHead", () => {
     expect(pushedTipMatchesHead([{ localSha: "sha123", localRef: "HEAD" }], "sha123").ok).toBe(true);
     expect(pushedTipMatchesHead([{ localSha: "sha123", localRef: "HEAD" }], "sha456").ok).toBe(false);
+  });
+
+  it("defaultRunsFetch scopes to ci.yml and pages past the default 10-run window (#HSSHRG)", () => {
+    let capturedArgs: string[] = [];
+    defaultRunsFetch("claude/my-fix", ((_cmd: string, args: string[]) => {
+      capturedArgs = args;
+      return "[]";
+    }) as unknown as typeof execFileSync);
+
+    expect(capturedArgs).toContain("run");
+    expect(capturedArgs).toContain("list");
+    expect(capturedArgs).toContain("--branch");
+    expect(capturedArgs).toContain("claude/my-fix");
+    expect(capturedArgs).toContain("--workflow");
+    expect(capturedArgs).toContain("ci.yml");
+    const limitIndex = capturedArgs.indexOf("--limit");
+    expect(limitIndex).not.toBe(-1);
+    expect(Number(capturedArgs[limitIndex + 1])).toBeGreaterThan(10);
   });
 });

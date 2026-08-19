@@ -20,8 +20,7 @@
  *   npm run sync:pr-branches -- --apply
  */
 import { spawnSync } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 
 const APPLY = process.argv.includes("--apply");
 const BASE = "main";
@@ -173,9 +172,10 @@ export function runSyncOpenPrBranches() {
 }
 
 const isEntry =
-  Boolean(process.argv[1]) &&
+  process.argv[1] &&
   (import.meta.url === pathToFileURL(process.argv[1]).href ||
-    fileURLToPath(import.meta.url) === path.resolve(process.argv[1]));
+    process.argv[1].endsWith("sync-open-pr-branches.mjs") ||
+    process.argv[1].endsWith("sync-pr-branches.mjs"));
 
 if (isEntry) {
   try {

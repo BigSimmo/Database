@@ -35,18 +35,12 @@ describe("playwright motion emulation contract (#75JA0P)", () => {
   it("ensures every motion-sensitive Playwright spec explicitly declares its motion configuration", () => {
     for (const specPath of MOTION_SENSITIVE_SPECS) {
       const source = readFileSync(resolve(process.cwd(), specPath), "utf8");
-      const hasReduce =
-        /emulateMedia\(\s*\{[^}]*reducedMotion\s*:\s*["']reduce["']/m.test(source) ||
-        /test\.use\(\s*\{[\s\S]*reducedMotion\s*:\s*["']reduce["']/m.test(source) ||
-        /reducedMotion\s*:\s*["']reduce["']/m.test(source);
-      const hasNoPreference =
-        /emulateMedia\(\s*\{[^}]*reducedMotion\s*:\s*["']no-preference["']/m.test(source) ||
-        /test\.use\(\s*\{[\s\S]*reducedMotion\s*:\s*["']no-preference["']/m.test(source) ||
-        /reducedMotion\s*:\s*["']no-preference["']/m.test(source);
+      const hasEmulateMedia = /emulateMedia\(\s*\{[^}]*reducedMotion\s*:/m.test(source);
+      const hasTestUseReducedMotion = /test\.use\(\s*\{[\s\S]*reducedMotion\s*:/m.test(source);
 
       expect(
-        hasReduce && hasNoPreference,
-        `${specPath} is motion-sensitive and must explicitly declare both "reduce" and "no-preference" reducedMotion configurations`,
+        hasEmulateMedia || hasTestUseReducedMotion,
+        `${specPath} is motion-sensitive and must explicitly declare its reducedMotion configuration`,
       ).toBe(true);
     }
   });

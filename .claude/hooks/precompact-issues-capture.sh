@@ -55,6 +55,9 @@ echo "[issues] ${why} Anything this session discovered but has not written down 
 #
 # Kept under the git dir, never the worktree, so it can never be staged or committed.
 log_dir="$(git rev-parse --git-dir 2>/dev/null || git rev-parse --absolute-git-dir 2>/dev/null || true)"
+if [ -n "$log_dir" ] && command -v wslpath >/dev/null 2>&1 && [[ "$log_dir" =~ ^[A-Za-z]: ]]; then
+  log_dir="$(wslpath -u "$log_dir" 2>/dev/null || true)"
+fi
 if [ -z "$log_dir" ] && [ -f .git ]; then
   raw_gitdir="$(sed -E 's/^gitdir:[[:space:]]*//' .git 2>/dev/null || true)"
   if [ -n "$raw_gitdir" ]; then

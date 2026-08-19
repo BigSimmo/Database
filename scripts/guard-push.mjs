@@ -380,17 +380,23 @@ function defaultPrView(branch) {
   }
 }
 
-function defaultRunsFetch(branch) {
+export function defaultRunsFetch(branch, exec = execFileSync) {
   try {
-    const raw = execFileSync(
+    // Scope to the required CI workflow and page across the full run history. A
+    // bare `--limit 10` over every workflow can hide an older in-flight CI run
+    // behind newer non-CI runs, which would let the push through and cancel the
+    // run this guard exists to protect (#HSSHRG).
+    const raw = exec(
       "gh",
       [
         "run",
         "list",
         "--branch",
         branch,
+        "--workflow",
+        "ci.yml",
         "--limit",
-        "10",
+        "100",
         "--json",
         "databaseId,name,workflowName,status,conclusion,url,headSha",
       ],
@@ -407,12 +413,14 @@ function defaultRunsFetch(branch) {
 
 export function inFlightCiGuard(
   branches,
-  { prViewer = defaultPrView, runFetcher = defaultRunsFetch, ghAvailable = ghIsAvailable } = {},
+  _ranges = [],
+  { prViewer = defaultPrView, runFetcher = defaultRunsFetch } = {},
 ) {
+  void _ranges;
   if (process.env.SKIP_IN_FLIGHT_CI_GUARD === "1") {
     return { name: "in-flight-ci", ok: true, skipped: "SKIP_IN_FLIGHT_CI_GUARD=1" };
   }
-  if (!ghAvailable()) {
+  if (!ghIsAvailable()) {
     return { name: "in-flight-ci", ok: true, note: "gh not available — in-flight CI check skipped (fail-open)" };
   }
 
@@ -1170,7 +1178,7 @@ function main() {
   // formatGuard reads the pushed blobs; drift/static only need the paths.
   const results = [
     autoMergeGuard(pushedBranches, forcePushBranches),
-    inFlightCiGuard(pushedBranches),
+    inFlightCiGuard(pushedBranches, ranges),
     formatGuard(collectChangedBlobs(ranges)),
     driftGuard(changedFiles),
     staticGuard(changedFiles, { ranges }),
@@ -1255,10 +1263,9 @@ function selfTest() {
     "inFlightCiVerdict never blocks base branch pushes",
   );
 
-  const mockBlockedGuard = inFlightCiGuard(["claude/feature"], {
+  const mockBlockedGuard = inFlightCiGuard(["claude/feature"], [], {
     prViewer: () => ({ state: "OPEN", number: 99 }),
     runFetcher: () => [activeCiRun],
-    ghAvailable: () => true,
   });
   assert(mockBlockedGuard.ok === false, "inFlightCiGuard blocks on active CI run");
   assert(
