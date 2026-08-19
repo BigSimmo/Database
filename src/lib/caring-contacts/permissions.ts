@@ -1,7 +1,8 @@
 // src/lib/caring-contacts/permissions.ts
 import type { ActorId, TeamId } from "./ids";
 
-export type CaringContactRole = "coordinator" | "teamLead" | "auditor";
+export type CaringContactRole =
+  "coordinator" | "teamLead" | "auditor" | "clinicalProgrammeLead" | "livedExperienceRepresentative";
 
 /**
  * Roles held by software, not by a person. A system actor exists because a contact's provider
@@ -36,7 +37,17 @@ export type CaringContactAction =
   | "startContactDispatch"
   | "recordContactSent"
   | "recordContactProviderStatus"
-  | "recordContactMissed";
+  | "recordContactMissed"
+  | "createReferral"
+  | "returnReferralForClarification"
+  | "declineReferral"
+  | "publishPathwayVersion"
+  | "retirePathwayVersion"
+  | "reconcileProviderDispatch"
+  | "manageNotificationPreferences"
+  | "enterTrainingMode"
+  | "viewPatientRecord"
+  | "coverCoordinator";
 
 export type Actor = { id: ActorId; teamId: TeamId; roles: readonly CaringContactRole[] };
 
@@ -75,6 +86,16 @@ const ACTION_REGISTRY: Record<CaringContactAction, true> = {
   recordContactSent: true,
   recordContactProviderStatus: true,
   recordContactMissed: true,
+  createReferral: true,
+  returnReferralForClarification: true,
+  declineReferral: true,
+  publishPathwayVersion: true,
+  retirePathwayVersion: true,
+  reconcileProviderDispatch: true,
+  manageNotificationPreferences: true,
+  enterTrainingMode: true,
+  viewPatientRecord: true,
+  coverCoordinator: true,
 };
 
 export const ALL_ACTIONS: readonly CaringContactAction[] = Object.freeze(
@@ -101,6 +122,13 @@ const COORDINATOR_ACTIONS: readonly CaringContactAction[] = Object.freeze([
   "generateClinicalRecordSummary",
   "recordHospitalStatusEvent",
   "triggerServiceSafetyStop",
+  "createReferral",
+  "returnReferralForClarification",
+  "declineReferral",
+  "reconcileProviderDispatch",
+  "manageNotificationPreferences",
+  "enterTrainingMode",
+  "viewPatientRecord",
 ]);
 
 const TEAM_LEAD_ACTIONS: readonly CaringContactAction[] = Object.freeze([
@@ -120,6 +148,15 @@ const TEAM_LEAD_ACTIONS: readonly CaringContactAction[] = Object.freeze([
   "recordHospitalStatusEvent",
   "triggerServiceSafetyStop",
   "approveServiceRestart",
+  "createReferral",
+  "returnReferralForClarification",
+  "declineReferral",
+  "reconcileProviderDispatch",
+  "manageNotificationPreferences",
+  "enterTrainingMode",
+  "viewPatientRecord",
+  "retirePathwayVersion",
+  "coverCoordinator",
 ]);
 
 // Rule 6 carves triggerServiceSafetyStop out for every role, auditor included -- stopping
@@ -132,12 +169,44 @@ const TEAM_LEAD_ACTIONS: readonly CaringContactAction[] = Object.freeze([
 // the auditor to reading. The one hospital event that must never be blocked -- a recorded
 // death -- stays reachable for every role because the store accepts triggerServiceSafetyStop
 // as an alternative capability for that event alone (see in-memory-repository.ts).
-const AUDITOR_ACTIONS: readonly CaringContactAction[] = Object.freeze(["viewAccessTrail", "triggerServiceSafetyStop"]);
+const AUDITOR_ACTIONS: readonly CaringContactAction[] = Object.freeze([
+  "viewAccessTrail",
+  "triggerServiceSafetyStop",
+  "viewPatientRecord",
+  "manageNotificationPreferences",
+  "enterTrainingMode",
+]);
+
+// The two Phase 2 approver roles for pathway version dual approval. Both may approve; only
+// the clinical programme lead may publish, because publication is the clinical act while
+// approval (by either seat) and retirement (programme lead or team lead) are not. Neither
+// approver role gains a plan-mutating action -- their footprint outside pathway
+// governance and the always-available safety stop is deliberately read-only.
+const CLINICAL_PROGRAMME_LEAD_ACTIONS: readonly CaringContactAction[] = Object.freeze([
+  "approvePathwayVersion",
+  "publishPathwayVersion",
+  "retirePathwayVersion",
+  "approveServiceRestart",
+  "viewPatientRecord",
+  "manageNotificationPreferences",
+  "enterTrainingMode",
+  "triggerServiceSafetyStop",
+]);
+
+const LIVED_EXPERIENCE_REPRESENTATIVE_ACTIONS: readonly CaringContactAction[] = Object.freeze([
+  "approvePathwayVersion",
+  "viewPatientRecord",
+  "manageNotificationPreferences",
+  "enterTrainingMode",
+  "triggerServiceSafetyStop",
+]);
 
 export const ROLE_ACTIONS: Readonly<Record<CaringContactRole, readonly CaringContactAction[]>> = Object.freeze({
   coordinator: COORDINATOR_ACTIONS,
   teamLead: TEAM_LEAD_ACTIONS,
   auditor: AUDITOR_ACTIONS,
+  clinicalProgrammeLead: CLINICAL_PROGRAMME_LEAD_ACTIONS,
+  livedExperienceRepresentative: LIVED_EXPERIENCE_REPRESENTATIVE_ACTIONS,
 });
 
 // Exactly the four contact-status writes the dispatcher performs, and nothing else. It cannot

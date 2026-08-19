@@ -21,7 +21,13 @@ import {
 
 const TEAM_A = teamId("TEAM-A");
 const TEAM_B = teamId("TEAM-B");
-const ROLES: readonly CaringContactRole[] = ["coordinator", "teamLead", "auditor"];
+const ROLES: readonly CaringContactRole[] = [
+  "coordinator",
+  "teamLead",
+  "auditor",
+  "clinicalProgrammeLead",
+  "livedExperienceRepresentative",
+];
 const SYSTEM_ROLES: readonly CaringContactSystemRole[] = ["contactDispatcher"];
 
 const resourceIn = (team = TEAM_A): Resource => ({ teamId: team });
@@ -434,5 +440,90 @@ describe("every CaringContactAction is explicitly classified", () => {
       resourceIn(),
     );
     expect(decision).toEqual({ allowed: false, reason: "action-not-granted" });
+  });
+});
+
+describe("roles and actions added for the Phase 2 workspace", () => {
+  const team = teamId("TEAM-A");
+  const resource = { teamId: team };
+  const withRoles = (...roles: CaringContactRole[]): Actor => ({
+    id: actorId("ACTOR-1"),
+    teamId: team,
+    roles,
+  });
+
+  it("names every new action exactly once", () => {
+    const added = [
+      "createReferral",
+      "returnReferralForClarification",
+      "declineReferral",
+      "publishPathwayVersion",
+      "retirePathwayVersion",
+      "reconcileProviderDispatch",
+      "manageNotificationPreferences",
+      "enterTrainingMode",
+      "viewPatientRecord",
+      "coverCoordinator",
+    ] as const;
+    for (const action of added) {
+      expect(ALL_ACTIONS).toContain(action);
+      expect(ALL_ACTIONS.filter((candidate) => candidate === action)).toHaveLength(1);
+    }
+  });
+
+  it("gives both approval roles the power to approve a pathway version", () => {
+    for (const role of ["clinicalProgrammeLead", "livedExperienceRepresentative"] as const) {
+      expect(canPerformCaringContactAction(withRoles(role), "approvePathwayVersion", resource)).toEqual({
+        allowed: true,
+      });
+    }
+  });
+
+  it("lets only the clinical programme lead publish a pathway version", () => {
+    expect(
+      canPerformCaringContactAction(withRoles("clinicalProgrammeLead"), "publishPathwayVersion", resource),
+    ).toEqual({ allowed: true });
+    for (const role of ["coordinator", "teamLead", "auditor", "livedExperienceRepresentative"] as const) {
+      expect(canPerformCaringContactAction(withRoles(role), "publishPathwayVersion", resource)).toEqual({
+        allowed: false,
+        reason: "action-not-granted",
+      });
+    }
+  });
+
+  it("keeps the safety stop available to every human role", () => {
+    for (const role of [
+      "coordinator",
+      "teamLead",
+      "auditor",
+      "clinicalProgrammeLead",
+      "livedExperienceRepresentative",
+    ] as const) {
+      expect(canPerformCaringContactAction(withRoles(role), "triggerServiceSafetyStop", resource)).toEqual({
+        allowed: true,
+      });
+    }
+  });
+
+  it("keeps the auditor read-only — it may never change a plan", () => {
+    for (const action of [
+      "createReferral",
+      "publishPathwayVersion",
+      "reconcileProviderDispatch",
+      "coverCoordinator",
+    ] as const) {
+      expect(canPerformCaringContactAction(withRoles("auditor"), action, resource)).toEqual({
+        allowed: false,
+        reason: "action-not-granted",
+      });
+    }
+  });
+
+  it("still refuses a cross-team actor before it considers the action", () => {
+    const outsider: Actor = { id: actorId("ACTOR-2"), teamId: teamId("TEAM-B"), roles: ["clinicalProgrammeLead"] };
+    expect(canPerformCaringContactAction(outsider, "approvePathwayVersion", resource)).toEqual({
+      allowed: false,
+      reason: "cross-team-denied",
+    });
   });
 });
