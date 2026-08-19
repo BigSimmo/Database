@@ -165,7 +165,7 @@ describe("app mode search contract", () => {
     expect(isSearchableAppMode("dsm")).toBe(true);
     expect(config.kind).toBe("dsm");
     expect(config.resultKind).toBe("dsm");
-    expect(appModeHomeHref("dsm")).toBe("/dsm");
+    expect(appModeHomeHref("dsm")).toBe("/?mode=dsm");
     expect(appModeHomeHref("dsm", { query: "  bipolar II  ", run: true, focus: true })).toBe(
       "/dsm/search?q=bipolar+II&focus=1&run=1",
     );
@@ -181,7 +181,7 @@ describe("app mode search contract", () => {
     // Borrows the benign "tools" kind (like Therapy Compass) while keeping the shared composer.
     expect(config.kind).toBe("tools");
     expect(config.resultKind).toBe("tools");
-    expect(appModeHomeHref("factsheets")).toBe("/factsheets");
+    expect(appModeHomeHref("factsheets")).toBe("/?mode=factsheets");
     expect(appModeHomeHref("factsheets", { query: "  sertraline  ", run: true, focus: true })).toBe(
       "/factsheets/search?q=sertraline&focus=1&run=1",
     );
@@ -221,31 +221,31 @@ describe("app mode search contract", () => {
     expect(appModeHomeHref("documents", { query: "lithium monitoring", run: true, focus: true })).toBe(
       "/documents/search?mode=documents&q=lithium+monitoring&focus=1&run=1",
     );
-    expect(appModeHomeHref("services")).toBe("/services");
-    expect(appModeHomeHref("services", { focus: true })).toBe("/services?focus=1");
+    expect(appModeHomeHref("services")).toBe("/?mode=services");
+    expect(appModeHomeHref("services", { focus: true })).toBe("/?mode=services&focus=1");
     expect(appModeHomeHref("services", { query: "  13YARN  ", run: true, focus: true })).toBe(
-      "/services?q=13YARN&focus=1&run=1",
+      "/services/search?q=13YARN&focus=1&run=1",
     );
-    expect(appModeHomeHref("forms")).toBe("/forms");
-    expect(appModeHomeHref("forms", { focus: true })).toBe("/forms?focus=1");
+    expect(appModeHomeHref("forms")).toBe("/?mode=forms");
+    expect(appModeHomeHref("forms", { focus: true })).toBe("/?mode=forms&focus=1");
     expect(appModeHomeHref("forms", { query: "  transport forms  ", run: true, focus: true })).toBe(
-      "/forms?q=transport+forms&focus=1&run=1",
+      "/forms/search?q=transport+forms&focus=1&run=1",
     );
     expect(appModeHomeHref("favourites")).toBe("/favourites");
     expect(appModeHomeHref("favourites", { query: "  clozapine set  ", run: true, focus: true })).toBe(
       "/favourites?q=clozapine+set&focus=1&run=1",
     );
     expect(appModeHomeHref("differentials", { query: "  acute confusion  ", focus: true })).toBe(
-      "/differentials?q=acute+confusion&focus=1",
+      "/differentials/search?q=acute+confusion&focus=1",
     );
     expect(appModeHomeHref("specifiers", { query: "  depressed but racing thoughts  ", run: true, focus: true })).toBe(
-      "/specifiers?q=depressed+but+racing+thoughts&focus=1&run=1",
+      "/specifiers/search?q=depressed+but+racing+thoughts&focus=1&run=1",
     );
     expect(appModeHomeHref("formulation", { query: "  I keep going over it  ", run: true, focus: true })).toBe(
-      "/formulation?q=I+keep+going+over+it&focus=1&run=1",
+      "/formulation/search?q=I+keep+going+over+it&focus=1&run=1",
     );
     expect(appModeHomeHref("specifiers", { query: "  racing thoughts  ", run: true, focus: true })).toBe(
-      "/specifiers?q=racing+thoughts&focus=1&run=1",
+      "/specifiers/search?q=racing+thoughts&focus=1&run=1",
     );
     expect(appModeHomeHref("prescribing", { query: "  acamprosate renal dose  " })).toBe(
       "/?mode=prescribing&q=acamprosate+renal+dose",
@@ -257,7 +257,7 @@ describe("app mode search contract", () => {
       "/tools?q=medications&focus=1&run=1",
     );
     expect(appModeHomeHref("calculators", { query: "  PHQ-9  ", run: true, focus: true })).toBe(
-      "/calculators?q=PHQ-9&focus=1&run=1",
+      "/calculators/search?q=PHQ-9&focus=1&run=1",
     );
   });
 
@@ -411,17 +411,17 @@ describe("app mode search contract", () => {
       dsm: "/dsm/search?q=clozapine&run=1",
       factsheets: "/factsheets/search?q=clozapine&run=1",
       dictionary: "/dictionary/search?q=clozapine&run=1",
-      // Same route, submitted branch.
-      services: "/services?q=clozapine&run=1",
-      forms: "/forms?q=clozapine&run=1",
-      favourites: "/favourites?q=clozapine&run=1",
-      differentials: "/differentials?q=clozapine&run=1",
-      specifiers: "/specifiers?q=clozapine&run=1",
-      formulation: "/formulation?q=clozapine&run=1",
+      services: "/services/search?q=clozapine&run=1",
+      forms: "/forms/search?q=clozapine&run=1",
+      differentials: "/differentials/search?q=clozapine&run=1",
+      specifiers: "/specifiers/search?q=clozapine&run=1",
+      formulation: "/formulation/search?q=clozapine&run=1",
       "therapy-compass": "/therapy-compass/search?q=clozapine&run=1",
+      calculators: "/calculators/search?q=clozapine&run=1",
+      // Same route, submitted branch: these still own a home of their own.
+      favourites: "/favourites?q=clozapine&run=1",
       // Tools has no search route by design: it filters its launcher in place.
       tools: "/tools?q=clozapine&run=1",
-      calculators: "/calculators?q=clozapine&run=1",
     });
   });
 

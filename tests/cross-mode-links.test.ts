@@ -69,7 +69,7 @@ describe("buildCrossModeLinks", () => {
       subtitle: "Intensive home-based acute care",
     });
     expect(links[0]!.badges).toEqual([{ label: "Acute", tone: "info" }]);
-    expect(links[0]!.modeSearchHref).toContain("/services?");
+    expect(links[0]!.modeSearchHref).toContain("/services/search?");
     expect(links[0]!.modeSearchHref).toContain("run=1");
   });
 
