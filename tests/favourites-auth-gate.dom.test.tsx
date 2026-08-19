@@ -138,7 +138,7 @@ describe("favourites auth gate DOM", () => {
     authSession.status = "signed_out";
     render(<FavouritesCommandLibraryPage query="" demoMode={false} />);
 
-    expect(screen.getByRole("heading", { name: "Favourites" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Clinical Favourites" })).toBeVisible();
     expect(screen.getByText(/Sign up to save favourites and access them across devices/i)).toBeVisible();
     expect(screen.getByTestId("favourites-open-account-setup")).toBeVisible();
     expect(screen.getByRole("heading", { name: "Sign up to save favourites" })).toBeVisible();
@@ -149,7 +149,7 @@ describe("favourites auth gate DOM", () => {
     authSession.status = "signed_out";
     render(<FavouritesCommandLibraryPage query="" demoMode={true} />);
 
-    expect(screen.getByRole("heading", { name: "Favourites" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Clinical Favourites" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: "Sign up to save favourites" })).toBeNull();
     expect(screen.queryByTestId("favourites-open-account-setup")).toBeNull();
   });

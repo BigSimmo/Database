@@ -542,6 +542,7 @@ function FavouriteMobileCard({ item }: { item: FavouriteItem }) {
       <div className="mt-3 grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2">
         <Link
           href={item.href}
+          onClick={() => recordFavouriteOpened(item.id)}
           aria-label={`Open ${item.title}`}
           className={cn(
             "inline-flex h-tap min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm-minus font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
@@ -838,6 +839,7 @@ function FavouritesTable({
                     </button>
                     <Link
                       href={item.href}
+                      onClick={() => recordFavouriteOpened(item.id)}
                       className={cn("block min-w-0 max-w-full rounded-md text-left xl:hidden", focusRing)}
                     >
                       <span className="line-clamp-1 block text-sm-minus font-bold text-[color:var(--text-heading)]">
@@ -878,6 +880,7 @@ function FavouritesTable({
                     <div className="flex items-center justify-end gap-2">
                       <Link
                         href={item.href}
+                        onClick={() => recordFavouriteOpened(item.id)}
                         aria-label={`Open ${item.title}`}
                         className={cn(
                           "inline-flex h-9 min-w-16 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-2xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
@@ -1354,7 +1357,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
         <div className="mx-auto grid min-w-0 max-w-[40rem] gap-4 px-4 py-8 sm:px-6">
           <header data-testid="favourites-command-library" className="flex min-w-0 flex-wrap items-baseline gap-x-3">
             <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
-              Favourites
+              {sharedHomePresentation.favourites.title}
             </h1>
             <p className="text-pretty text-sm-minus font-medium leading-6 text-[color:var(--text-muted)]">
               Sign up to save favourites and access them across devices.
