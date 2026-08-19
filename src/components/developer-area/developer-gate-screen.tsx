@@ -74,7 +74,7 @@ export function DeveloperGateScreen({
           type="button"
           onClick={() => void auth.signOut()}
           data-testid="developer-gate-sign-out"
-          className={cn(floatingControl, "min-h-11 w-full justify-center gap-2 text-sm")}
+          className={cn(floatingControl, "min-h-12 w-full justify-center gap-2 text-sm")}
         >
           Sign out
         </button>
