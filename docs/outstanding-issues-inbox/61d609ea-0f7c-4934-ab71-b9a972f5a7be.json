@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "61d609ea-0f7c-4934-ab71-b9a972f5a7be",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "/tools on a phone is the only mode home with no visible patient-identifiable-information warning",
+    "detail": "Tools is the sole route setting mobileHomeComposerPlacement: 'footer' (src/lib/search-shell-props.ts). showsComposerPrivacyNotice in master-search-header.tsx:1813 is 'usesPhoneSearchLayout ? isDesktopHomeComposer : true', so the phone footer dock suppresses both the 'Do not enter patient-identifiable information.' line and the Privacy and data processing link. The composer placement matches the documented exception in docs/search-chrome-behaviour.md row 2, but the docs do not record that the exception costs the governance copy. Needs an owner decision for a clinical product. Found during the PR #2160 cross-mode audit.",
+    "source": "PR #2160 cross-mode home audit",
+    "issueUlid": "01M0BE9G1GD8JBCV161HS2GQQB"
+  }
+}
