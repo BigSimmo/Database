@@ -26,7 +26,7 @@ import {
   type TransportJob,
   type Unit,
 } from "@/components/ward-management/ward-model";
-import { bedReleases, wardMovements } from "@/components/ward-management/ward-movements";
+import { bedReleases } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments, allUnits, siteByCode, unitById } from "@/components/ward-management/ward-sites";
 import { REFERRABLE_MOVEMENT_STAGES } from "@/components/ward-management/ward-flow-reducer";
 
@@ -43,8 +43,9 @@ export const stageCopy: Record<MovementStage, { label: string; shortLabel: strin
   arrived: { label: "Arrived", shortLabel: "Arrived" },
 };
 
-/** Counts are derived from `wardMovements` so the pipeline strip can never advertise a
- * count no other surface can show. */
+/** Counts are derived from whatever `movements` list the caller passes — every screen now
+ * passes the live provider state (Task 6), so the pipeline strip can never advertise a count
+ * a different surface would compute differently from the same instant. */
 export function stageSummaries(movements: Movement[]) {
   return MOVEMENT_STAGES.map((id) => ({
     id,
@@ -52,8 +53,6 @@ export function stageSummaries(movements: Movement[]) {
     count: movements.filter((movement) => movement.stage === id).length,
   }));
 }
-
-export const movementStageSummary = stageSummaries(wardMovements);
 
 export const wardServiceOrder: HealthService[] = ["North Metro", "East Metro", "South Metro", "WACHS", "Private"];
 

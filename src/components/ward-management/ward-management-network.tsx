@@ -12,16 +12,16 @@ import {
   elapsedLabel,
   isOpen,
   movementHealthService,
-  movementStageSummary,
   stageCopy,
+  stageSummaries,
   transportStatusLabel,
   unitCapacity,
   wardServiceOrder,
 } from "@/components/ward-management/ward-derivations";
+import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { formatInstant } from "@/components/ward-management/ward-clock";
 import type { HealthService, Movement, Unit } from "@/components/ward-management/ward-model";
-import { wardMovements } from "@/components/ward-management/ward-movements";
-import { NOW_ANCHOR, allUnits, siteByCode, unitById } from "@/components/ward-management/ward-sites";
+import { NOW_ANCHOR, siteByCode, unitById } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-network.module.css";
 
@@ -134,7 +134,8 @@ function ServiceCard({
 }
 
 export function WardNetworkWorkspace() {
-  const [selectedPatientId, setSelectedPatientId] = useState(wardMovements[0].id);
+  const { movements, units } = useWardFlow();
+  const [selectedPatientId, setSelectedPatientId] = useState(movements[0].id);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [factorsOpen, setFactorsOpen] = useState(false);
   const [shortlistOpen, setShortlistOpen] = useState(true);
@@ -144,8 +145,8 @@ export function WardNetworkWorkspace() {
   // unconditionally, so the guard lives in the JSX at the bottom, not as an early return here
   // (Task 6 Critical 3).
   const patient = useMemo(
-    () => wardMovements.find((candidate) => candidate.id === selectedPatientId),
-    [selectedPatientId],
+    () => movements.find((candidate) => candidate.id === selectedPatientId),
+    [movements, selectedPatientId],
   );
   const candidates = useMemo(() => (patient ? candidatesFor(patient) : []), [patient]);
   const routedIds = useMemo(() => new Set(candidates.map((candidate) => candidate.unit.id)), [candidates]);
@@ -224,7 +225,7 @@ export function WardNetworkWorkspace() {
   const detail = selectedUnitId ? unitById(selectedUnitId) : null;
   // Arrived and self-discharged movements have left the pathway (spec §7), so this must not
   // be the raw stage-count sum — that includes them and overstates live demand.
-  const openMovements = wardMovements.filter(isOpen).length;
+  const openMovements = movements.filter(isOpen).length;
   const primary = candidates[0];
 
   if (!patient) {
@@ -242,7 +243,7 @@ export function WardNetworkWorkspace() {
       data-shortlist={shortlistOpen ? "open" : "collapsed"}
     >
       <section className={styles.pipeline} aria-label="Movement pipeline">
-        {movementStageSummary.map((stage, index) => (
+        {stageSummaries(movements).map((stage, index) => (
           <span className={styles.pipelineStage} key={stage.id}>
             <span className={styles.pipelineLabel}>
               {index + 1} {stage.label}
@@ -256,10 +257,10 @@ export function WardNetworkWorkspace() {
         <section className={styles.queuePanel} aria-label="Priority queue">
           <header className={styles.panelHeader}>
             <h2>Priority queue</h2>
-            <span className={styles.count}>{wardMovements.length}</span>
+            <span className={styles.count}>{movements.length}</span>
           </header>
           <div className={styles.queueList}>
-            {wardMovements.map((candidate) => (
+            {movements.map((candidate) => (
               <button
                 type="button"
                 key={candidate.id}
@@ -342,14 +343,14 @@ export function WardNetworkWorkspace() {
                     <header className={styles.clusterHeader}>
                       <strong id={`ward-network-${service}`}>{service.toUpperCase()}</strong>
                       <span>
-                        {allUnits()
+                        {units
                           .filter((unit) => siteByCode(unit.siteCode)?.service === service)
                           .reduce((sum, unit) => sum + unit.allocatable.value, 0)}{" "}
                         ready
                       </span>
                     </header>
                     <div className={styles.clusterCards}>
-                      {allUnits()
+                      {units
                         .filter((unit) => siteByCode(unit.siteCode)?.service === service)
                         .map((unit) => (
                           <ServiceCard

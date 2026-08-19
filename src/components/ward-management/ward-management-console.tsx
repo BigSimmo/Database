@@ -25,13 +25,13 @@ import {
   destinationUnit,
   eligibleCandidates,
   movementHealthService,
-  movementStageSummary,
   movementTimeline,
   stageCopy,
+  stageSummaries,
   transportStatusLabel,
 } from "@/components/ward-management/ward-derivations";
-import { MOVEMENT_STAGES, type MovementStage } from "@/components/ward-management/ward-model";
-import { movementById } from "@/components/ward-management/ward-movements";
+import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { MOVEMENT_STAGES, type Movement, type MovementStage } from "@/components/ward-management/ward-model";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
@@ -50,13 +50,15 @@ const stageIcons = {
 function MovementPipeline({
   activeStage,
   onStageChange,
+  stages,
 }: {
   activeStage: MovementStage;
   onStageChange: (stage: MovementStage) => void;
+  stages: ReturnType<typeof stageSummaries>;
 }) {
   return (
     <nav className={styles.movementPipeline} aria-label="Patient movement stages">
-      {movementStageSummary.map((stage, index) => {
+      {stages.map((stage, index) => {
         const Icon = stageIcons[stage.id];
         const active = stage.id === activeStage;
         return (
@@ -74,9 +76,7 @@ function MovementPipeline({
                 <b>{stage.count}</b>
               </span>
             </button>
-            {index < movementStageSummary.length - 1 ? (
-              <ArrowRight className={styles.stageArrow} aria-hidden="true" />
-            ) : null}
+            {index < stages.length - 1 ? <ArrowRight className={styles.stageArrow} aria-hidden="true" /> : null}
           </div>
         );
       })}
@@ -85,7 +85,11 @@ function MovementPipeline({
 }
 
 export function WardPatientWorkspace({ patientId }: { patientId: string }) {
-  const patient = movementById(patientId);
+  const { movements } = useWardFlow();
+  // Read the live, single source of truth rather than the frozen fixture — a patient just
+  // referred on the coordinator screen must resolve here too, and a missing id must render an
+  // explicit "not found" rather than ever substituting a different movement.
+  const patient: Movement | undefined = movements.find((candidate) => candidate.id === patientId);
   const [confirmed, setConfirmed] = useState(false);
   const [activeSection, setActiveSection] = useState<"overview" | "legal" | "transport" | "timeline">("overview");
   const [activeStage, setActiveStage] = useState<MovementStage>(patient?.stage ?? MOVEMENT_STAGES[0]);
@@ -164,7 +168,7 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
           </button>
         </section>
 
-        <MovementPipeline activeStage={activeStage} onStageChange={setActiveStage} />
+        <MovementPipeline activeStage={activeStage} onStageChange={setActiveStage} stages={stageSummaries(movements)} />
 
         <nav className={styles.workspaceTabs} aria-label="Patient movement sections">
           {(["overview", "legal", "transport", "timeline"] as const).map((section) => (

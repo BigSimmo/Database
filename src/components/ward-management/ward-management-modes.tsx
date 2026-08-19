@@ -32,20 +32,20 @@ import {
   elapsedLabel,
   isOpen,
   movementHealthService,
-  movementStageSummary,
   movementTimeline,
   roleLabels,
   roleTaskLabel,
+  stageSummaries,
   unitCapacity,
   type InboxItem,
   type WardRole,
 } from "@/components/ward-management/ward-derivations";
+import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { WardNetworkWorkspace } from "@/components/ward-management/ward-management-network";
 import { ClinicalRail, type WardMode } from "@/components/ward-management/ward-management-navigation";
 import { formatInstant } from "@/components/ward-management/ward-clock";
 import type { Movement } from "@/components/ward-management/ward-model";
-import { wardMovements } from "@/components/ward-management/ward-movements";
-import { NOW_ANCHOR, allUnits, siteByCode, unitById } from "@/components/ward-management/ward-sites";
+import { NOW_ANCHOR, siteByCode, unitById } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-modes.module.css";
 
@@ -271,8 +271,9 @@ function DecisionPanel({
 }
 
 function QueueView({ role }: { role: WardRole }) {
-  const [selected, setSelected] = useState(wardMovements[0]);
-  const rolePatients = useMemo(() => sortByRole(wardMovements, role).filter(isOpen), [role]);
+  const { movements } = useWardFlow();
+  const [selected, setSelected] = useState(movements[0]);
+  const rolePatients = useMemo(() => sortByRole(movements, role).filter(isOpen), [movements, role]);
   return (
     <div className={styles.pageGrid} data-testid="ward-queue-view">
       <section className={styles.panel}>
@@ -332,7 +333,7 @@ function QueueView({ role }: { role: WardRole }) {
 }
 
 function CapacityView() {
-  const units = allUnits();
+  const { units } = useWardFlow();
   const capacities = units.map((unit) => ({ unit, capacity: unitCapacity(unit) }));
   const totals = {
     available: capacities.reduce((sum, entry) => sum + entry.capacity.available, 0),
@@ -420,6 +421,8 @@ function CapacityView() {
 }
 
 function MovementsView() {
+  const { movements } = useWardFlow();
+  const stages = stageSummaries(movements);
   return (
     <section className={styles.panel} data-testid="ward-movements-view">
       <header className={styles.panelHeader}>
@@ -430,13 +433,13 @@ function MovementsView() {
         <span className={styles.prototypeBadge}>Shared record · role-owned actions</span>
       </header>
       <div className={styles.stageBoard}>
-        {movementStageSummary.map((stage) => (
+        {stages.map((stage) => (
           <section className={styles.stageColumn} key={stage.id} aria-labelledby={`movement-${stage.id}`}>
             <header>
               <h2 id={`movement-${stage.id}`}>{stage.label}</h2>
               <strong>{stage.count}</strong>
             </header>
-            {wardMovements
+            {movements
               .filter((patient) => patient.stage === stage.id)
               .slice(0, 4)
               .map((patient) => (
@@ -460,9 +463,10 @@ function MovementsView() {
 }
 
 function ExceptionsView() {
+  const { movements } = useWardFlow();
   // Whole-branch review Minor 6: same open-movement scoping as the coordinator screen — a closed
   // record must never appear on a live exception work list.
-  const items = buildActionInbox(wardMovements.filter(isOpen), NOW_ANCHOR);
+  const items = buildActionInbox(movements.filter(isOpen), NOW_ANCHOR);
   // Task 8 review (Minor 7): `tone === "danger"` also matches the parallel-referral-cap
   // category, which is a capacity dead end, not a passed deadline — counting it under a label
   // that says "overdue" overstated the true breach count by one once Ruling 1 started emitting
@@ -522,9 +526,8 @@ function ExceptionsView() {
 }
 
 function TransportView() {
-  const transportPatients = wardMovements
-    .filter((patient) => patient.stage !== "arrived" && patient.transport)
-    .slice(0, 8);
+  const { movements } = useWardFlow();
+  const transportPatients = movements.filter((patient) => patient.stage !== "arrived" && patient.transport).slice(0, 8);
   return (
     <div className={styles.pageGrid} data-testid="ward-transport-view">
       <section className={styles.panel}>
@@ -604,6 +607,7 @@ function TransportView() {
 }
 
 function GovernanceView() {
+  const { movements } = useWardFlow();
   const sources = [
     ["WA Health System Flow Centre", "https://www.health.wa.gov.au/Improving-WA-Health/System-Flow-Centre"],
     [
@@ -616,7 +620,7 @@ function GovernanceView() {
       "https://www.health.wa.gov.au/about-us/policy-frameworks/digital-health/mandatory-requirements/artificial-intelligence-policy",
     ],
   ];
-  const sample = wardMovements[0];
+  const sample = movements[0];
   const timeline = movementTimeline(sample);
   return (
     <div data-testid="ward-governance-view">
