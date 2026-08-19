@@ -26,6 +26,7 @@ const seededMovements: Movement[] = [
     referredUnitIds: [],
     declines: [],
     blocker: "Confirming destination options",
+    withdrawnReferrals: [],
   },
   {
     id: "WF-002",
@@ -43,6 +44,9 @@ const seededMovements: Movement[] = [
     referredUnitIds: ["fsh-older-adult"],
     declines: [],
     blocker: "Awaiting older-adult bed confirmation",
+    withdrawnReferrals: [],
+    formedAt: NOW_ANCHOR - 180 - 90,
+    arrivalMode: "ambulance",
   },
   {
     id: "WF-003",
@@ -53,8 +57,8 @@ const seededMovements: Movement[] = [
     security: "Secure",
     sex: "Female",
     specialling: false,
-    legalStatus: "Detained awaiting examination",
-    legalForm: { code: "3A", label: "Detention pending examination", kind: "detention", dueAt: NOW_ANCHOR + 210 },
+    legalStatus: "Involuntary inpatient",
+    legalForm: { code: "3B", label: "Inpatient treatment order", kind: "detention", dueAt: NOW_ANCHOR + 480 },
     statusChanges: [],
     stage: "accepted_awaiting_bed",
     owner: "Flow coordinator",
@@ -62,6 +66,9 @@ const seededMovements: Movement[] = [
     acceptedUnitId: "rph-adult-secure",
     declines: [],
     blocker: "Bed being made ready",
+    withdrawnReferrals: [],
+    arrivalMode: "ambulance",
+    examination: { at: NOW_ANCHOR - 60, outcome: "inpatient_order" },
   },
   {
     id: "WF-004",
@@ -86,6 +93,8 @@ const seededMovements: Movement[] = [
     acceptedUnitId: "bty-adult-secure",
     declines: [],
     blocker: "Escort provider organising secure transport",
+    withdrawnReferrals: [],
+    bedHeldUntil: NOW_ANCHOR - 10,
   },
   {
     id: "WF-005",
@@ -97,7 +106,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Detained awaiting examination",
-    legalForm: { code: "3A", label: "Detention pending examination", kind: "detention", dueAt: NOW_ANCHOR - 40 },
+    legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR - 40 },
     statusChanges: [],
     stage: "handover_ready",
     owner: "ED mental health team",
@@ -112,6 +121,8 @@ const seededMovements: Movement[] = [
       acceptedAt: NOW_ANCHOR - 30,
     },
     blocker: "Transport escort confirming departure time",
+    withdrawnReferrals: [],
+    formedAt: NOW_ANCHOR - 330 - 150,
   },
   {
     id: "WF-006",
@@ -143,6 +154,7 @@ const seededMovements: Movement[] = [
       enRouteAt: NOW_ANCHOR - 15,
     },
     blocker: "None — in transit",
+    withdrawnReferrals: [],
   },
   {
     id: "WF-007",
@@ -162,6 +174,7 @@ const seededMovements: Movement[] = [
     declines: [],
     blocker: "None — handover complete",
     closure: { at: NOW_ANCHOR - 5, outcome: "arrived", reason: "Handover complete at SCGH Older Adult" },
+    withdrawnReferrals: [],
   },
   {
     id: "WF-008",
@@ -185,6 +198,7 @@ const seededMovements: Movement[] = [
       outcome: "did_not_proceed",
       reason: "Patient self-discharged from ED before transport arrived",
     },
+    withdrawnReferrals: [],
   },
   {
     id: "WF-009",
@@ -195,8 +209,8 @@ const seededMovements: Movement[] = [
     security: "Secure",
     sex: "Male",
     specialling: true,
-    legalStatus: "Detained awaiting examination",
-    legalForm: { code: "3A", label: "Detention pending examination", kind: "detention", dueAt: NOW_ANCHOR + 150 },
+    legalStatus: "Involuntary inpatient",
+    legalForm: { code: "3B", label: "Inpatient treatment order", kind: "detention", dueAt: NOW_ANCHOR + 400 },
     statusChanges: [],
     stage: "destination_review",
     owner: "Flow coordinator",
@@ -233,6 +247,9 @@ const seededMovements: Movement[] = [
     // SJGS Adult Secure is not MHA-authorised) — the search really is exhausted, not just
     // capped at three parallel referrals.
     blocker: "No secure adult bed available across the network",
+    withdrawnReferrals: [],
+    arrivalMode: "police",
+    examination: { at: NOW_ANCHOR - 45, outcome: "inpatient_order" },
   },
   {
     id: "WF-010",
@@ -244,7 +261,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Detained awaiting examination",
-    legalForm: { code: "3A", label: "Detention pending examination", kind: "detention", dueAt: NOW_ANCHOR + 260 },
+    legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR + 260 },
     statusChanges: [
       { at: NOW_ANCHOR - 40, from: "Voluntary", to: "Detained awaiting examination", by: "Duty psychiatrist" },
     ],
@@ -253,6 +270,7 @@ const seededMovements: Movement[] = [
     referredUnitIds: ["sjgm-adult-open"],
     declines: [],
     blocker: "Awaiting destination response",
+    withdrawnReferrals: [],
   },
   {
     id: "WF-011",
@@ -277,6 +295,8 @@ const seededMovements: Movement[] = [
     acceptedUnitId: "fre-older-adult",
     declines: [],
     blocker: "Awaiting single-room clean",
+    withdrawnReferrals: [],
+    bedHeldUntil: NOW_ANCHOR + 20,
   },
   {
     id: "WF-012",
@@ -295,6 +315,7 @@ const seededMovements: Movement[] = [
     referredUnitIds: ["gry-adult-secure"],
     declines: [],
     blocker: "Awaiting specialling roster confirmation",
+    withdrawnReferrals: [],
   },
   {
     id: "WF-013",
@@ -312,6 +333,8 @@ const seededMovements: Movement[] = [
     referredUnitIds: ["bty-older-adult", "gry-older-adult"],
     declines: [],
     blocker: "Comparing two older-adult options",
+    withdrawnReferrals: [],
+    formedAt: NOW_ANCHOR - 200 - 120,
   },
   {
     id: "WF-014",
@@ -344,6 +367,7 @@ const seededMovements: Movement[] = [
       enRouteAt: NOW_ANCHOR - 10,
     },
     blocker: "None — in transit",
+    withdrawnReferrals: [],
   },
   {
     id: "WF-015",
@@ -363,6 +387,7 @@ const seededMovements: Movement[] = [
     declines: [],
     transport: { id: "TR-1015", provider: "St John WA", escortRequired: false, acceptedAt: NOW_ANCHOR - 15 },
     blocker: "Awaiting transport escort",
+    withdrawnReferrals: [],
   },
   {
     id: "WF-016",
@@ -382,6 +407,8 @@ const seededMovements: Movement[] = [
     acceptedUnitId: "sjgm-adult-open",
     declines: [],
     blocker: "Ward finalising bed clean",
+    withdrawnReferrals: [],
+    bedHeldUntil: NOW_ANCHOR + 45,
   },
   {
     id: "WF-017",
@@ -392,8 +419,8 @@ const seededMovements: Movement[] = [
     security: "Secure",
     sex: "Male",
     specialling: true,
-    legalStatus: "Detained awaiting examination",
-    legalForm: { code: "3A", label: "Detention pending examination", kind: "detention", dueAt: NOW_ANCHOR - 25 },
+    legalStatus: "Involuntary inpatient",
+    legalForm: { code: "3B", label: "Inpatient treatment order", kind: "detention", dueAt: NOW_ANCHOR + 5 },
     statusChanges: [],
     stage: "destination_review",
     owner: "ED mental health team",
@@ -407,6 +434,8 @@ const seededMovements: Movement[] = [
       },
     ],
     blocker: "Escalated to duty psychiatrist — breach imminent",
+    withdrawnReferrals: [],
+    examination: { at: NOW_ANCHOR - 10, outcome: "inpatient_order" },
   },
   {
     id: "WF-018",
@@ -424,6 +453,7 @@ const seededMovements: Movement[] = [
     referredUnitIds: [],
     declines: [],
     blocker: "Awaiting family collateral before destination decision",
+    withdrawnReferrals: [],
   },
 ];
 
@@ -453,11 +483,17 @@ function stageFields(
   cohort: Cohort,
   security: Security,
   index: number,
-): Pick<Movement, "acceptedUnitId" | "transport" | "closure"> {
+): Pick<Movement, "acceptedUnitId" | "transport" | "closure" | "bedHeldUntil"> {
   switch (stage) {
     case "accepted_awaiting_bed":
-    case "bed_held":
       return { acceptedUnitId: fallbackUnitId(cohort, security, index) };
+    case "bed_held":
+      // Bounds match the hand-authored records: NOW_ANCHOR - 20 to NOW_ANCHOR + 45, so a
+      // hold cannot be recorded without a time for it to expire at.
+      return {
+        acceptedUnitId: fallbackUnitId(cohort, security, index),
+        bedHeldUntil: NOW_ANCHOR - 20 + (index % 66),
+      };
     case "moving": {
       const acceptedAt = NOW_ANCHOR - (40 + (index % 15));
       return {
@@ -527,6 +563,7 @@ function routineMovements(count: number, startIndex: number): Movement[] {
       referredUnitIds: [],
       declines: [],
       blocker: index % 5 === 0 ? "Awaiting destination response" : "No blocker",
+      withdrawnReferrals: [],
       ...stageFields(stage, cohort, security, index),
     } satisfies Movement;
   });

@@ -23,6 +23,7 @@ export const DECLINE_REASONS = [
   "acuity_mix",
   "capability_mismatch",
   "bed_held_for_earlier_referral",
+  "out_of_catchment",
 ] as const;
 export type DeclineReason = (typeof DECLINE_REASONS)[number];
 
@@ -142,6 +143,29 @@ export type Movement = {
   transport?: TransportJob;
   blocker: string;
   closure?: MovementClosure;
+  /** When the referral for examination was made. May precede `openedAt` for a community-formed
+   *  patient — the legal clock and the department clock are different clocks. */
+  formedAt?: Instant;
+  /** How the patient reached the department. Police attendance is a real and invisible pressure. */
+  arrivalMode?: "self" | "ambulance" | "police";
+  /** When a held bed lapses. A hold cannot expire without a time to expire at. */
+  bedHeldUntil?: Instant;
+  /** The psychiatric examination a Form 1A refers the person for. Until it happens you often do
+   *  not know whether an authorised bed is needed at all. */
+  examination?: { at: Instant; outcome: "inpatient_order" | "community_order" | "revoked" };
+  /** Referrals ended because another unit accepted. A shrinking `referredUnitIds` tells nobody. */
+  withdrawnReferrals: { unitId: string; at: Instant; reason: string }[];
+  /** Recorded when the network is exhausted. */
+  escalation?: { at: Instant; triedUnitIds: string[]; contact: string };
+};
+
+/** A transition the reducer refused, surfaced on the coordinator screen rather than swallowed. */
+export type Rejection = {
+  id: string;
+  at: Instant;
+  movementId: string;
+  attempted: string;
+  reason: string;
 };
 
 export type BedRelease = {
