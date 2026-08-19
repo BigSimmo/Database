@@ -895,10 +895,8 @@ async function openGuide(page: Page) {
   await expect(settings).toBeVisible({ timeout: uiAssertionTimeoutMs });
   await settings.getByRole("button", { name: "Guide & help", exact: true }).click();
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByPlaceholder("Search the guide")).toBeVisible();
   await expect(dialog.getByRole("heading", { name: "How to verify an answer" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Verify an answer" })).toBeVisible();
-  await expect(dialog.getByText("3-minute guided tour")).toBeVisible();
   await expectNoPageHorizontalOverflow(page);
   return dialog;
 }
@@ -5414,7 +5412,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
   }
 
-  test("guide centre search, topic navigation, and tour progress remain accessible", async ({ page }) => {
+  test("guide centre topic navigation and tour progress remain accessible", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
     await mockPrivateUnauthenticatedApi(page);
@@ -5450,14 +5448,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await expect(mobileFooter).toHaveAttribute("aria-hidden", "false");
     await expect(mobileFooter).not.toHaveAttribute("inert");
-    const search = dialog.getByPlaceholder("Search the guide");
-    await search.fill("privacy");
-    await expect(dialog.getByText(/topics? found for “privacy”\./)).toBeVisible();
-    await dialog.getByRole("button", { name: /Privacy and safe use/ }).click();
+    // The dock carries the guided tour and nothing else — no composer, no input.
+    await expect(dialog.locator("[data-guide-universal-search]")).toHaveCount(0);
+    await expect(dialog.locator("input")).toHaveCount(0);
+
+    await dialog.getByRole("button", { name: "All topics" }).click();
+    await dialog.getByRole("button", { name: /Privacy & safe use/ }).click();
     await expect(dialog.getByRole("heading", { name: "Privacy and safe use" })).toBeFocused();
 
     await dialog.getByRole("button", { name: "Guide home" }).click();
-    await dialog.getByRole("button", { name: "Start guided tour" }).first().click();
+    await dialog.getByRole("button", { name: "Start guided tour" }).click();
     await expect(dialog.getByRole("heading", { level: 2, name: "The evidence-first workflow" })).toBeFocused();
     await dialog.getByRole("button", { name: "Continue" }).click();
     await expect(dialog.getByRole("heading", { level: 2, name: "Ask for one decision at a time" })).toBeFocused();
@@ -5475,8 +5475,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await dialog.getByRole("button", { name: "Close guide" }).click();
     await expect(dialog).toBeHidden();
     const reopenedDialog = await openGuide(page);
-    await expect(reopenedDialog.getByPlaceholder("Search the guide")).toHaveValue("");
-    await reopenedDialog.getByRole("button", { name: "Resume guided tour" }).first().click();
+    await reopenedDialog.getByRole("button", { name: "Resume guided tour" }).click();
     await expect(
       reopenedDialog.getByRole("heading", { level: 2, name: "Ask for one decision at a time" }),
     ).toBeFocused();

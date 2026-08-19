@@ -69,7 +69,7 @@ async function openGuide(page: Page) {
 
   const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByPlaceholder("Search the guide")).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "How to verify an answer" })).toBeVisible();
   return dialog;
 }
 
@@ -85,8 +85,10 @@ test.describe("Clinical KB Guide Centre chrome", () => {
     const footer = dialog.locator("[data-guide-mobile-footer]");
     const header = dialog.locator('[data-sheet-header="true"]');
 
-    await expect(footer.locator("[data-guide-universal-search]")).toBeVisible();
     await expect(footer.locator("[data-guide-tour-action-row]")).toBeVisible();
+    // No composer: the dock is the tour action and nothing else.
+    await expect(footer.locator("[data-guide-universal-search]")).toHaveCount(0);
+    await expect(footer.locator("input")).toHaveCount(0);
 
     await scrollBody.evaluate((element) => {
       element.scrollTop = 140;
@@ -129,11 +131,15 @@ test.describe("Clinical KB Guide Centre chrome", () => {
    *    `border-t border-[color:var(--border)] p-3`, so a transparent, borderless,
    *    flush-to-the-edge band means the unlayered dock rules actually beat those
    *    utilities at phone width.
-   * 2. The tour action really renders as the addon pill. Its overrides are
-   *    `max-sm:` variants layered over `primaryControl`'s own `bg-`/`text-`
-   *    utilities; tailwind-merge keeps BOTH (different variant keys), so which
-   *    one wins is decided by generated stylesheet order. Nothing but a real
-   *    browser at a real width can prove the filled slab did not come back.
+   * 2. The tour action really renders as the single filled primary pill. The
+   *    phone framing is `max-sm:` variants layered over `primaryControl`'s own
+   *    `bg-`/`text-` utilities; tailwind-merge keeps BOTH (different variant
+   *    keys), so which one wins is decided by generated stylesheet order.
+   *    Nothing but a real browser at a real width can prove the retired
+   *    translucent addon treatment did not come back.
+   * 3. The scrim really resolves to the COMPACT height. `data-footer-variant`
+   *    only redefines a custom property; jsdom would report the attribute
+   *    present and the height unchanged.
    */
   test("the phone footer paints as a flush glass dock, not a Sheet footer band", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
@@ -176,23 +182,37 @@ test.describe("Clinical KB Guide Centre chrome", () => {
     expect(painted.scrimDisplay).toBe("block");
     expect(painted.scrimHeight).toBeGreaterThan(0);
 
-    const action = dialog.locator("[data-guide-tour-action-row] button").last();
-    const addon = await action.evaluate((element) => {
+    // The compact variant is `max(7rem, safe-area + 5.5rem)`; the default it
+    // replaced is `max(10rem, safe-area + 8.5rem)`. At 390x820 with no inset that
+    // is 112px against 160px, so the bound below cannot pass on the default.
+    expect(painted.scrimHeight).toBeLessThan(160);
+    expect(painted.scrimHeight).toBeGreaterThan(80);
+
+    const actions = dialog.locator("[data-guide-tour-action-row] button");
+    await expect(actions).toHaveCount(1);
+    const pill = await actions.evaluate((element) => {
       const style = window.getComputedStyle(element);
+      // Resolve `--command` through a probe rather than hard-coding a hex, so a
+      // token change moves the expectation with it instead of failing the gate.
+      const probe = document.createElement("div");
+      probe.style.backgroundColor = "var(--command)";
+      element.parentElement?.append(probe);
+      const commandFill = window.getComputedStyle(probe).backgroundColor;
+      probe.remove();
       return {
         background: style.backgroundColor,
-        borderTopWidth: style.borderTopWidth,
+        commandFill,
         borderRadius: Number.parseFloat(style.borderTopLeftRadius),
         minHeight: Number.parseFloat(style.minHeight),
       };
     });
 
-    // Addon pill: outlined, pill-radius, and translucent rather than a filled
-    // slab — `color-mix(in srgb, var(--surface) 92%, transparent)` resolves to a
-    // colour carrying alpha, which a filled `--command` background never does.
-    expect(addon.borderTopWidth).toBe("1px");
-    expect(addon.borderRadius).toBeGreaterThan(100);
-    expect(addon.minHeight).toBeGreaterThanOrEqual(48);
-    expect(addon.background).toMatch(/\/\s*0?\.9|rgba\([^)]+,\s*0?\.9/);
+    // The dock's single call to action: pill-radius, tap-floor, and a FILLED
+    // `--command` background — an opaque colour, never the retired addon's
+    // `color-mix(in srgb, var(--surface) 92%, transparent)` alpha.
+    expect(pill.borderRadius).toBeGreaterThan(100);
+    expect(pill.minHeight).toBeGreaterThanOrEqual(48);
+    expect(pill.background).not.toMatch(/rgba\([^)]+,\s*0?\.\d/);
+    expect(pill.background).toBe(pill.commandFill);
   });
 });
