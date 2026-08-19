@@ -25,6 +25,7 @@ import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-
 import { cardSelected, cardSurface, focusRing } from "@/components/card-recipes";
 import { CategoryIconTile } from "@/components/category-icon-tile";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
+import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
 import { cn, controlBase, floatingControl } from "@/components/ui-primitives";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
@@ -353,7 +354,8 @@ export function ToolsSearchResultsPage({
         <DesktopComposerPortalSlot
           id={desktopComposerSlotId}
           data-testid="tools-results-home-composer"
-          className="mode-home-composer-slot mx-auto mb-4 hidden w-full max-w-3xl [&:not(:empty)]:block sm:mb-6"
+          data-composer-reserve={modeHomeComposerReservePendingValue}
+          className="mode-home-composer-slot mx-auto mb-4 block w-full max-w-3xl min-h-0 data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)] sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] [&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)] sm:mb-6"
         />
       ) : null}
       <section

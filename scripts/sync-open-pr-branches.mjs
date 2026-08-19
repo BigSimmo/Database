@@ -102,17 +102,27 @@ function main() {
 
   const plan = [];
   for (const pr of prs) {
-    const cmp = ghJson(["api", `repos/${repo}/compare/${BASE}...${pr.headRefName}`]);
-    const behindBy = cmp.behind_by ?? 0;
-    const requiredCiInFlight =
-      behindBy > 0 && !shouldSkip(pr)
-        ? hasRequiredCiInFlight(
-            ghJson([
-              "api",
-              `repos/${repo}/actions/runs?head_sha=${encodeURIComponent(pr.headRefOid)}&event=pull_request&per_page=100`,
-            ]),
-          )
-        : false;
+    let behindBy = 0;
+    let requiredCiInFlight = false;
+    try {
+      const cmp = ghJson([
+        "api",
+        `repos/${repo}/compare/${encodeURIComponent(BASE)}...${encodeURIComponent(pr.headRefName)}`,
+      ]);
+      behindBy = cmp.behind_by ?? 0;
+      requiredCiInFlight =
+        behindBy > 0 && !shouldSkip(pr)
+          ? hasRequiredCiInFlight(
+              ghJson([
+                "api",
+                `repos/${repo}/actions/runs?head_sha=${encodeURIComponent(pr.headRefOid)}&event=pull_request&per_page=100`,
+              ]),
+            )
+          : false;
+    } catch {
+      behindBy = 0;
+      requiredCiInFlight = false;
+    }
     const decision = classifyPr({ ...pr, requiredCiInFlight }, behindBy);
     plan.push({ pr, behindBy, requiredCiInFlight, ...decision });
   }
@@ -157,7 +167,17 @@ function main() {
   if (failed > 0) process.exitCode = 1;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+export function runSyncOpenPrBranches() {
+  main();
+}
+
+const isEntry =
+  process.argv[1] &&
+  (import.meta.url === pathToFileURL(process.argv[1]).href ||
+    process.argv[1].endsWith("sync-open-pr-branches.mjs") ||
+    process.argv[1].endsWith("sync-pr-branches.mjs"));
+
+if (isEntry) {
   try {
     main();
   } catch (error) {

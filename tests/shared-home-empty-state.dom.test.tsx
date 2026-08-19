@@ -37,7 +37,7 @@ const expectedPresentations = [
   },
   {
     modeId: "favourites",
-    title: "Clinical Favourites",
+    title: "Favourites",
     subtitle: "Saved notes, sources, and sets.",
     iconClass: "lucide-heart",
   },
