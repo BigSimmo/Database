@@ -35,10 +35,13 @@ const legacyClinicalGovernanceEvidence = new Map([
   ],
   [requiredClinicalGovernanceItems[2], [[/\bconfigured supabase project\/target\b/i]]],
   [requiredClinicalGovernanceItems[3], [[/\bservice-role credentials?\b/i, /\bserver-side only\b/i]]],
-  [requiredClinicalGovernanceItems[4], [[/\bclinical-content governance\b/i, /\bsource verification\b/i]]],
+  [
+    requiredClinicalGovernanceItems[4],
+    [[/\b(?:demo|synthetic)\b/i, /\b(?:separat(?:ed|ion)|real|production|clinical sources?)\b/i]],
+  ],
   [
     requiredClinicalGovernanceItems[5],
-    [[/\bprovenance\b/i, /\bclinical-content governance\b/i, /\bsource verification\b/i]],
+    [[/\b(?:source metadata|review status|reviewed|outdated|unknown[- ]source|conservative)\b/i]],
   ],
   [requiredClinicalGovernanceItems[6], [[/\bsamd\/tga assessment\b/i]]],
 ]);
@@ -151,7 +154,9 @@ function meaningfulText(value) {
 
 function checkedCommand(value, command) {
   const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return checkedChecklistEntries(value).some((entry) => new RegExp(escaped, "i").test(entry));
+  // The command must end at a token boundary so a checked entry such as
+  // `npm run verify:ui-disabled` does not satisfy a check for `npm run verify:ui`.
+  return checkedChecklistEntries(value).some((entry) => new RegExp(`${escaped}(?![\\w:-])`, "i").test(entry));
 }
 
 function explicitNotRun(value, scope = "verification") {
@@ -266,7 +271,7 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
     warnings.push("Complete the `## Summary` section with the outcome and affected area.");
   if (!meaningfulText(verification)) {
     warnings.push("Complete the `## Verification` section with exact results or a reason checks were not run.");
-  } else if (!/-\s*\[[xX]\]/.test(verification) && !explicitNotRun(verification)) {
+  } else if (checkedChecklistEntries(verification).length === 0 && !explicitNotRun(verification)) {
     warnings.push(
       "Verification should contain a checked result or an explicit `Verification not run: <reason>` entry.",
     );
@@ -372,6 +377,28 @@ function selfTest() {
       files: ["src/components/search.tsx"],
     }).warnings.join(" "),
     /verify:ui/,
+  );
+  // Command-token boundary: a checked `npm run verify:ui-disabled` entry must not
+  // satisfy the `npm run verify:ui` requirement for UI-classified PRs.
+  assert.match(
+    evaluatePullRequestPolicy({
+      title: "fix: update search behavior",
+      body: completeBody.replace("- [x] `npm run verify:ui`\n", "- [x] `npm run verify:ui-disabled`\n"),
+      headRef: "codex/search-fix",
+      files: ["src/components/search.tsx"],
+    }).warnings.join(" "),
+    /verify:ui/,
+  );
+  // Marker tolerance: `*` and `+` checklist markers satisfy the generic
+  // verification check, not just `-`.
+  assert.doesNotMatch(
+    evaluatePullRequestPolicy({
+      title: "docs: explain the review process",
+      body: "## Summary\n\n- Useful documentation.\n\n## Verification\n\n* [x] `npm run verify:pr-local`\n+ [x] `npm run typecheck`\n",
+      headRef: "codex/review-docs",
+      files: ["docs/process-hardening.md"],
+    }).warnings.join(" "),
+    /checked result/,
   );
   // Outline semantics: a ### sub-heading inside a required section must not
   // truncate it — checklist evidence after the sub-heading still counts.
@@ -643,6 +670,8 @@ function selfTest() {
 - [x] This change does not alter privacy controls, patient-data handling, authentication, authorization, or document-access behavior.
 - [x] Any Supabase service-role credentials used by the migration-history diagnostic remain CI/server-side only and are not exposed to clients.
 - [x] This change does not alter the configured Supabase project/target or perform a production database migration.
+- [x] This change does not alter demo/synthetic content separation from real clinical sources.
+- [x] This change does not alter source metadata, review status, or how outdated/unknown sources are handled.
 - [x] No SaMD/TGA assessment is required because this change has no clinical decision-support impact.`),
     requiredClinicalGovernanceItems,
     "legacy governance attestations should map onto required checklist coverage",
@@ -659,9 +688,18 @@ function selfTest() {
 - [x] This change does not alter citation requirements, source verification, provenance, or clinical-content governance.
 - [x] This change does not alter privacy controls, patient-data handling, authentication, authorization, or document-access behavior.
 - [x] Any Supabase service-role credentials used by the migration-history diagnostic remain CI/server-side only and are not exposed to clients.
+- [x] This change does not alter demo/synthetic content separation from real clinical sources.
+- [x] This change does not alter source metadata, review status, or how outdated/unknown sources are handled.
 - [x] No SaMD/TGA assessment is required because this change has no clinical decision-support impact.`),
     requiredClinicalGovernanceItems,
     "mixed canonical + legacy governance attestations should satisfy all required items",
+  );
+  assert.deepEqual(
+    collectSatisfiedGovernanceItems(
+      "- [x] This change does not alter citation requirements, source verification, provenance, or clinical-content governance.",
+    ),
+    [requiredClinicalGovernanceItems[0]],
+    "generic legacy phrasing must satisfy only the source-backed-claims item, not demo/synthetic or source-metadata items",
   );
   assert.equal(
     collectSatisfiedGovernanceItems("- [x] Legacy governance text without the expected policy keywords.").length,
