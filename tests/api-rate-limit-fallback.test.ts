@@ -158,7 +158,7 @@ describe("atomic streamed-summary limits", () => {
     expect(rpc).toHaveBeenCalledWith("consume_summary_rate_limits_atomic", {
       p_owner_id: null,
       p_subject_key: "anon:caller",
-      p_answer_limit: 15,
+      p_answer_limit: 6,
       p_answer_window_seconds: 60,
       p_summary_limit: 12,
       p_summary_window_seconds: 60,

@@ -3,10 +3,11 @@ import type { ClinicalQueryAnalysis } from "@/lib/types";
 const clearlyNonClinicalConsumerPattern =
   /\b(coffee\s*machine|espresso|kitchen|recipe|holiday|hotel|restaurant|car|mortgage|insurance|gaming|laptop|phone|television|tv|washing\s*machine|air\s*fryer|vacuum|flight|airline)\b/i;
 
-export const clearlyOutsideCorpusMedicalPattern = /(?!)/;
+export const clearlyOutsideCorpusMedicalPattern =
+  /\b(?:diabetic ketoacidosis|dka|community acquired pneumonia|pneumonia|antibiotic|ssri|adolescent depression|hyperkalaemia|hyperkalemia)\b/i;
 
 export const unavailableDocumentNoisePattern =
-  /\b(?:newly uploaded|future synthetic|not been uploaded|not uploaded|2027 revised)\b/i;
+  /\b(?:newly uploaded|future synthetic|not been uploaded|not uploaded|2027 revised|airport travel policy|gardening equipment checklist)\b/i;
 
 export const DEFAULT_SOFT_TAIL_CONFIDENCE_THRESHOLD = 0.42;
 
