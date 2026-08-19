@@ -85,9 +85,10 @@ describe("mode homes carry no caveat footer", () => {
 
   it("leaves no caveat copy in the shared-home presentation table", () => {
     // The copy route into the same defect: a mode could carry the line as data
-    // rather than as a component. Every entry is exactly a title and a subtitle.
+    // rather than as a component. The table now also carries starter
+    // suggestions, but it must not grow any caveat/footer field.
     for (const modeId of appModeIds) {
-      expect(Object.keys(sharedHomePresentation[modeId]).sort(), modeId).toEqual(["subtitle", "title"]);
+      expect(Object.keys(sharedHomePresentation[modeId]).sort(), modeId).toEqual(["subtitle", "suggestions", "title"]);
     }
   });
 });
