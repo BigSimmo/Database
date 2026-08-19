@@ -640,6 +640,7 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
             <>
               <button
                 type="button"
+                tabIndex={dockHidden ? -1 : undefined}
                 onClick={() => {
                   setTourStepIndex((index) => Math.max(0, index - 1));
                   focusPageStart();
@@ -651,22 +652,38 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
               </button>
               <button
                 type="button"
+                tabIndex={dockHidden ? -1 : undefined}
                 onClick={() => navigate("home")}
                 className="hidden min-h-tap rounded-lg px-3 text-sm font-semibold text-[color:var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex sm:items-center"
               >
                 Exit tour
               </button>
-              <button type="button" onClick={continueTour} className={cn(guideTourAction, "px-3 sm:px-5")}>
+              <button
+                type="button"
+                tabIndex={dockHidden ? -1 : undefined}
+                onClick={continueTour}
+                className={cn(guideTourAction, "px-3 sm:px-5")}
+              >
                 {tourStepIndex === guideTourSteps.length - 1 ? "Complete tour" : "Continue"}
                 <ChevronRight aria-hidden="true" className="size-icon-md" />
               </button>
             </>
           ) : view === "tour" && tourComplete ? (
-            <button type="button" onClick={() => navigate("home")} className={guideTourAction}>
+            <button
+              type="button"
+              tabIndex={dockHidden ? -1 : undefined}
+              onClick={() => navigate("home")}
+              className={guideTourAction}
+            >
               Return to Guide home
             </button>
           ) : (
-            <button type="button" onClick={() => navigate("tour")} className={cn(guideTourAction, "px-3 sm:px-5")}>
+            <button
+              type="button"
+              tabIndex={dockHidden ? -1 : undefined}
+              onClick={() => navigate("tour")}
+              className={cn(guideTourAction, "px-3 sm:px-5")}
+            >
               <PlayCircle aria-hidden="true" className="size-icon-md" />
               {tourPrimaryLabel}
             </button>
