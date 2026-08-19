@@ -382,10 +382,39 @@ describe("shared-search route ownership", () => {
     expect(seedEffect).toMatch(/focus: searchParams\.get\("focus"\) === "1"/);
     expect(seedEffect).toContain("scopeFilters: navigationContext.scopeFilters");
     expect(seedEffect).toContain("Settings landing view also wins over last-mode");
-    // The hook also fills the mode on a dashboard-owned home, where the pathname
-    // is the only thing that names the mode, so it takes the mode pair too.
-    expect(readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8")).toContain(
-      "useHomeModeSeed({ pathname, searchParams, lastAppMode, searchMode, setSearchMode })",
+    // The hook also owns the `?mode=` sync and the dashboard-owned-home arrival
+    // reset, so the dashboard hands it the pathname and the reset it needs.
+    const dashboard = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
+    expect(dashboard).toContain("useHomeModeSeed({");
+    for (const prop of ["pathname,", "searchParams,", "setSearchMode,", "stopSearch,", "clearModeResultState,"]) {
+      expect(dashboard.slice(dashboard.indexOf("useHomeModeSeed({"))).toContain(prop);
+    }
+    // The dashboard must not keep a second `?mode=` sync of its own.
+    expect(dashboard).not.toContain("lastSyncedSearchParamsRef.current = searchParamString");
+  });
+
+  it("resets composer, submission and result state when a dashboard-owned home is reached", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/use-home-mode-seed.ts"),
+      "utf8",
     );
+    const arrivalStart = source.indexOf("const previousPathnameRef");
+    expect(arrivalStart).toBeGreaterThan(-1);
+    const arrival = source.slice(arrivalStart, source.indexOf("Seed a cold `/` visit"));
+    // `/documents/search` -> `/documents` and Answer -> `/documents` both keep the
+    // dashboard mounted, so arriving at the home has to clear what came before it:
+    // `modeSearchSubmitted` alone decides whether the home or results render.
+    expect(arrival).toContain("stopSearchRef.current()");
+    expect(arrival).toContain("clearModeResultState()");
+    expect(arrival).toContain('setQuery("")');
+    expect(arrival).toContain("setModeSearchSubmitted(false)");
+    expect(arrival).toContain("setSearchMode(pathMode)");
+    // The reset must not be conditional on the mode actually changing: arriving on
+    // `/documents` from `/documents/search` keeps the same mode and stale results.
+    expect(arrival).not.toContain("pathMode === searchMode");
+    // Keyed on a pathname transition, so a search submitted from the home (query
+    // string only) cannot wipe the results the visitor just asked for, and a cold
+    // mount cannot clear a restored answer thread.
+    expect(arrival).toContain("previousPathname === null || previousPathname === pathname");
   });
 });
