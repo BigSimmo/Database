@@ -136,7 +136,7 @@ Phone-chrome work uses `npm run verify:phone-chrome`. Inspect its classification
 
 ### Phone sticky-header settle timing (screenshots and DOM measurements)
 
-The phone header stack (`.phone-sticky-header-stack`) is `position: fixed` and mounts collapsed. The top content reserve `max-sm:pt-[var(--phone-overlay-chrome-h)]` resolves to the full measured stack height only after mount via `usePhoneOverlayChromeReserve` across an 80ms quiet window (`phoneOverlayReserveGeometryQuietWindowMs`).
+The phone header stack (`.phone-sticky-header-stack`) is `position: fixed` in browser tabs, but `position: absolute` within the bounded frame in standalone mode (`display-mode: standalone`), and mounts collapsed. The top content reserve `max-sm:pt-[var(--phone-overlay-chrome-h)]` resolves to the full measured stack height only after mount via `usePhoneOverlayChromeReserve` across an 80ms quiet window (`phoneOverlayReserveGeometryQuietWindowMs`).
 
 Playwright tests that evaluate DOM offsets (`getBoundingClientRect()`, `offsetTop`, etc.) or capture screenshots immediately at `networkidle` can observe premature unsettled geometry (such as content appearing at `y=72` under the header rather than at its settled `y=121` position, as discovered on `/dictionary/browse` in #XPY409).
 
@@ -162,9 +162,10 @@ await expect
   .toBe(true);
 ```
 
-Or when measuring a specific content element (`main` or `h1`), wait for its vertical offset to stabilize:
+For geometry or screenshot stability, always use the stack-and-reserve convergence check above. A positive vertical offset check (`toBeGreaterThan(0)`) serves only as a basic element visibility check, not a settle gate:
 
 ```ts
+// Basic element visibility check (does not prove geometry settlement)
 await expect
   .poll(async () => {
     return page

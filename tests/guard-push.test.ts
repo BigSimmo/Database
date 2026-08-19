@@ -463,6 +463,7 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     const result = inFlightCiGuard(["claude/my-fix"], {
       prViewer: () => ({ state: "OPEN", number: 77 }),
       runFetcher: () => runs,
+      ghAvailable: () => true,
     });
     expect(result.ok).toBe(false);
     expect(result.message).toContain("PR #77 on claude/my-fix has required CI run(s) currently IN-FLIGHT");
@@ -478,6 +479,7 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
       const result = inFlightCiGuard(["claude/my-fix"], {
         prViewer: () => ({ state: "OPEN", number: 77 }),
         runFetcher: () => [{ databaseId: 555, name: "CI", status: "in_progress" }],
+        ghAvailable: () => true,
       });
       expect(result.ok).toBe(true);
       expect(result.skipped).toBe("SKIP_IN_FLIGHT_CI_GUARD=1");
@@ -485,6 +487,16 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
       if (previous === undefined) delete process.env.SKIP_IN_FLIGHT_CI_GUARD;
       else process.env.SKIP_IN_FLIGHT_CI_GUARD = previous;
     }
+  });
+
+  it("inFlightCiGuard fails open when gh is not available", () => {
+    const result = inFlightCiGuard(["claude/my-fix"], {
+      prViewer: () => ({ state: "OPEN", number: 77 }),
+      runFetcher: () => [{ databaseId: 555, name: "CI", status: "in_progress" }],
+      ghAvailable: () => false,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.note).toContain("gh not available");
   });
 
   it("supports localRef === 'HEAD' in pushedTipMatchesHead", () => {

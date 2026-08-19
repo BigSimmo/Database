@@ -807,7 +807,7 @@ export function ServicesNavigatorPage() {
           <DesktopComposerPortalSlot
             id={modeHomeDesktopComposerSlotId}
             data-composer-reserve={modeHomeComposerReservePendingValue}
-            className="mode-home-composer-slot hidden w-full min-w-0 [&:not(:empty)]:block"
+            className="mode-home-composer-slot block w-full min-w-0 min-h-0 data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)] sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] [&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
           />
 
           <SearchResultsHeaderBand

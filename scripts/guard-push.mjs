@@ -405,11 +405,14 @@ function defaultRunsFetch(branch) {
   }
 }
 
-export function inFlightCiGuard(branches, { prViewer = defaultPrView, runFetcher = defaultRunsFetch } = {}) {
+export function inFlightCiGuard(
+  branches,
+  { prViewer = defaultPrView, runFetcher = defaultRunsFetch, ghAvailable = ghIsAvailable } = {},
+) {
   if (process.env.SKIP_IN_FLIGHT_CI_GUARD === "1") {
     return { name: "in-flight-ci", ok: true, skipped: "SKIP_IN_FLIGHT_CI_GUARD=1" };
   }
-  if (!ghIsAvailable()) {
+  if (!ghAvailable()) {
     return { name: "in-flight-ci", ok: true, note: "gh not available — in-flight CI check skipped (fail-open)" };
   }
 
@@ -1255,6 +1258,7 @@ function selfTest() {
   const mockBlockedGuard = inFlightCiGuard(["claude/feature"], {
     prViewer: () => ({ state: "OPEN", number: 99 }),
     runFetcher: () => [activeCiRun],
+    ghAvailable: () => true,
   });
   assert(mockBlockedGuard.ok === false, "inFlightCiGuard blocks on active CI run");
   assert(

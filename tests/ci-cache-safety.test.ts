@@ -236,7 +236,7 @@ describe("CI cache safety", () => {
   });
 
   it("guards against in-flight CI cancellation churn during PR branch sync (#TF6TPJ)", async () => {
-    const { classifyPr, hasRequiredCiInFlight } = await import("../scripts/sync-pr-branches.mjs");
+    const { classifyPr, hasRequiredCiInFlight } = await import("../scripts/sync-open-pr-branches.mjs");
     expect(hasRequiredCiInFlight({ workflow_runs: [{ name: "CI", status: "in_progress" }] })).toBe(true);
     expect(hasRequiredCiInFlight({ workflow_runs: [{ name: "CI", status: "queued" }] })).toBe(true);
     expect(hasRequiredCiInFlight({ workflow_runs: [{ name: "CI", status: "pending" }] })).toBe(true);

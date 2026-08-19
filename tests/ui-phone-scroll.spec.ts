@@ -496,4 +496,21 @@ test.describe("phone PWA standalone mode bounded scroll shell (#71NT23)", () => 
       }
     });
   }
+
+  test("phone scroll under reducedMotion: 'reduce' hides header without animation races", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize(phoneViewport);
+    await gotoPhoneSurface(page, "/calculators");
+    await addPhoneScrollRunway(page);
+    await installFlipCounter(page);
+
+    await dragScrollBy(page, 720, 24);
+    await page.waitForTimeout(300);
+
+    const hidden = await page.evaluate(() => {
+      const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+      return collapse?.getAttribute("data-scroll-hidden") === "true";
+    });
+    expect(hidden, "header hides cleanly under reduced motion").toBe(true);
+  });
 });
