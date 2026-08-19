@@ -89,6 +89,10 @@ const BAND_ROUTE_ALLOWLIST = new Map<string, string>([
     "Composer-driven landing stub with no result list of its own; the band is mounted by document-search-results.tsx inside the dashboard shell.",
   ],
   [
+    "src/app/(search-app)/documents/page.tsx",
+    "Documents mode home is a content slot; the band is mounted by document-search-results.tsx inside the dashboard shell.",
+  ],
+  [
     "src/app/(search-app)/medications/page.tsx",
     "Medication mode home is a content slot; the band is mounted by medication-prescribing-workspace.tsx inside the dashboard shell.",
   ],

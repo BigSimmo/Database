@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 
 import { SpecifiersHomePage } from "@/components/specifiers/specifiers-home-page";
 
@@ -17,20 +16,20 @@ function firstValue(value?: string | string[]) {
 }
 
 /**
- * Submitted specifier searches.
+ * Submitted specifier searches — and the browsable specifier list when nothing is
+ * submitted yet.
  *
  * Split out of the bare `/specifiers` path when that became a redirect onto the shared
  * home: results need a route of their own, or `appModeHomeHref` would send a
- * submitted query back through the redirect and loop.
+ * submitted query back through the redirect and loop. An empty query renders the
+ * same browse experience `/specifiers` used to hold before consolidation — this is
+ * where it lives now, not a duplicate of it (`tests/ui-phone-scroll-routes.spec.ts`
+ * exercises this same browse-without-a-query pattern for the sibling formulation
+ * route).
  */
 export default async function SpecifiersSearchRoute(props: RouteProps) {
   const params = props.searchParams ? await props.searchParams : {};
   const query = (firstValue(params.q) ?? firstValue(params.query) ?? "").trim();
-  // An empty query would render the mode home a second time — the very page
-  // consolidation retired to /mockups/specifiers-home-detailed. Send it to the
-  // shared home instead, so one mode keeps exactly one home. `/calculators/search`
-  // already did this; these three were the inconsistent ones.
-  if (!query) redirect("/?mode=specifiers");
 
   return <SpecifiersHomePage query={query} autoRunSearch={query.length > 0} />;
 }

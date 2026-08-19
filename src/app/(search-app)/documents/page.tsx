@@ -1,22 +1,25 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 
-import { appModeSelectionHref } from "@/lib/app-modes";
+import { DocumentsHomeClient } from "./documents-home-client";
+
+export const metadata: Metadata = {
+  title: "Documents - Clinical KB",
+  description: "Browse indexed clinical sources, recent documents, and source PDFs.",
+};
 
 /**
- * `Documents` has no home page of its own any more.
+ * The Documents mode home.
  *
- * Every mode shares one lightweight home at `/?mode=<id>`, whose per-mode copy
- * lives in `sharedHomePresentation` (src/lib/ui-copy.ts). This path stays so
- * bookmarks and external deep links keep resolving, and forwards to that shared
- * home. Submitted searches render at `/documents/search`; the proxy carries the
- * query across, so a deep link never lands here without one.
- *
- * Nothing is preserved under `/mockups` for this one, unlike the other
- * consolidated modes. Its home was the same `ModeHomeTemplate` the shared home
- * uses, with the same subtitle — the only extras were three action shortcuts
- * (browse / continue reading / open a source PDF) and an indexed-source count,
- * which the owner accepted losing rather than carry a second home for.
+ * `/` is the single shared home for every other mode — the mode pill retargets
+ * the composer rather than navigating — but Documents is a real workspace, not a
+ * duplicate landing page: it has its own browse/recent-documents/open-a-source-PDF
+ * affordances that don't exist anywhere else, the same way `/medications` has its
+ * own prescribing workspace. Folding it into the generic shared home silently
+ * deleted those affordances; this route keeps them. The body comes from
+ * ClinicalDashboard, which the shared shell mounts for this pathname (see
+ * `shouldRenderClinicalDashboard`); this route is the content slot, mirroring the
+ * root `home-page-client.tsx`.
  */
 export default function DocumentsHomeRoute() {
-  redirect(appModeSelectionHref("documents"));
+  return <DocumentsHomeClient />;
 }

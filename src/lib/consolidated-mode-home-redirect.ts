@@ -9,12 +9,18 @@ import type { AppModeId } from "@/lib/app-modes";
  * to that shared home instead of rendering a second one. The retired detailed
  * pages are preserved off the live routes under `/mockups/<mode>-home-detailed`.
  *
- * Four modes are deliberately absent, because none of them is a duplicate of the
+ * Five modes are deliberately absent, because none of them is a duplicate of the
  * shared home — each is its mode's only functional surface, so folding it in
  * would delete a feature rather than de-duplicate a page:
  *   /tools        the launcher (categories, filters, saved)
  *   /favourites   the hub (Continue, Recent, sets, sort/view)
  *   /medications  the prescribing workspace (dose/safety/monitoring checks)
+ *   /documents    dashboard-owned: the shell mounts ClinicalDashboard for that
+ *                 pathname, so `/documents` renders a real Documents home —
+ *                 browse, recent documents and the document-search empty state
+ *                 — not a duplicate of the generic shared home. Folding it in
+ *                 here silently deleted those three affordances (`/issues`
+ *                 tracked this as a Production UI regression); restored.
  *   /            the shared home itself
  *
  * Sub-routes are deliberately NOT listed: `/dsm/search`, `/factsheets/[slug]`
@@ -31,7 +37,6 @@ const consolidatedModeHomePaths = {
   "/formulation": "formulation",
   "/differentials": "differentials",
   "/therapy-compass": "therapy-compass",
-  "/documents": "documents",
 } as const satisfies Record<string, AppModeId>;
 
 type ConsolidatedModeHomePath = keyof typeof consolidatedModeHomePaths;

@@ -22,11 +22,18 @@ describe("consolidated mode home redirects", () => {
     expect(target("/formulation")).toBe("/?mode=formulation");
     expect(target("/differentials")).toBe("/?mode=differentials");
     expect(target("/therapy-compass")).toBe("/?mode=therapy-compass");
-    expect(target("/documents")).toBe("/?mode=documents");
   });
 
   it("leaves every other path alone", () => {
-    for (const pathname of ["/", "/favourites", "/tools", "/medications", "/mockups/dsm-home-detailed"]) {
+    for (const pathname of [
+      "/",
+      "/favourites",
+      "/tools",
+      "/medications",
+      // Documents is dashboard-owned: the shell paints a real Documents home there.
+      "/documents",
+      "/mockups/dsm-home-detailed",
+    ]) {
       expect(target(pathname)).toBeNull();
       expect(isConsolidatedModeHomePath(pathname)).toBe(false);
     }

@@ -2149,7 +2149,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["ClinicalDashboard"]
         },
         {
           "file": "src/app/(search-app)/medications/page.tsx",
