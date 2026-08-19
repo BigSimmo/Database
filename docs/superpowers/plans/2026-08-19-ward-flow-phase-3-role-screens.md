@@ -631,7 +631,7 @@ Every rejection gets a stable `id` derived from `movementId`, `attempted` and th
 - [ ] **Step 5: Run tests to verify they pass**
 
 Run: `npx vitest run tests/ward-flow-reducer.test.ts`
-Expected: PASS, 12 tests.
+Expected: PASS, 13 tests. (The plan first said 12; the verbatim test code above has always contained 13 `it` blocks. The code is correct, the count was not.)
 
 - [ ] **Step 6: Prove the refusals are not vacuous**
 
@@ -775,7 +775,11 @@ describe("invariants across every reachable state", () => {
 - [ ] **Step 2: Run and fix**
 
 Run: `npx vitest run tests/ward-flow-contracts.test.ts`
-Expected: PASS, 6 tests. If the bed-accounting test fails, the fault is in Task 2's `HOLD_BED` or `PATIENT_ARRIVED` arithmetic — fix the reducer, never the assertion. Phase 1 shipped a bed grid that failed to reconcile on 10 of 22 units and it took a whole-branch review to find.
+Expected: PASS, 7 tests. (The plan first said 6; the verbatim test code above has always contained 7 `it` blocks.)
+
+**Correction made during execution — the walk's subject is `WF-001`, not `WF-009`.** `WF-009` arrives from the fixture with three declines already recorded against it, which made the declined-unit and withdrawal invariants assert about fixture state rather than about anything the walk caused: both passed with the reducer's own writes disabled. `WF-001` (`placement_requested`, Adult/Open) carries neither seed declines nor seed referrals, so every decline, referral and withdrawal the invariants inspect is one the walk itself produced. Read the built file, not the code block above, for the units and event payloads that follow from that change.
+
+If the bed-accounting test fails, the fault is in Task 2's `HOLD_BED` or `PATIENT_ARRIVED` arithmetic — fix the reducer, never the assertion. Phase 1 shipped a bed grid that failed to reconcile on 10 of 22 units and it took a whole-branch review to find.
 
 - [ ] **Step 3: Commit**
 
