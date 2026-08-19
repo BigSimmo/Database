@@ -218,14 +218,16 @@ export function auditReviewAttribution(records: AuditableRecord[]): ReviewAttrib
   };
 }
 
-async function loadStaticJson<T>(relativePath: string): Promise<T | null> {
+async function loadStaticJson<T>(relativePath: string): Promise<T> {
+  const fullPath = join(process.cwd(), relativePath);
+  if (!existsSync(fullPath)) {
+    throw new Error(`Required source governance input is missing: ${relativePath}`);
+  }
   try {
-    const fullPath = join(process.cwd(), relativePath);
-    if (!existsSync(fullPath)) return null;
     const raw = await readFile(fullPath, "utf8");
     return JSON.parse(raw) as T;
-  } catch {
-    return null;
+  } catch (error) {
+    throw new Error(`Failed to load source governance input: ${relativePath}`, { cause: error });
   }
 }
 
