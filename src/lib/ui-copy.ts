@@ -46,7 +46,7 @@ export const sharedHomePresentation = {
     subtitle: "The WA MHA 2014 forms register.",
   },
   favourites: {
-    title: "Favourites",
+    title: "Clinical Favourites",
     subtitle: "Saved notes, sources, and sets.",
   },
   differentials: {
