@@ -1,12 +1,28 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { DictionaryHomePage } from "@/components/dictionary/dictionary-home-page";
+import { appModeSelectionHref } from "@/lib/app-modes";
+import { consolidatedModeHomeTargetForSearchParams } from "@/lib/consolidated-mode-home-redirect";
 
-export const metadata: Metadata = {
-  title: "Clinical Dictionary | Clinical KB",
-  description: "Search source-governed psychiatric terminology, abbreviations, topics, and distinctions.",
+/**
+ * `Clinical Dictionary` has no home page of its own any more.
+ *
+ * Every mode shares one lightweight home at `/?mode=<id>`, whose per-mode copy
+ * lives in `sharedHomePresentation` (src/lib/ui-copy.ts). This route stays so
+ * bookmarks and external deep links to `/dictionary` keep working, and forwards to
+ * that shared home rather than rendering a second one.
+ *
+ * The previous detailed page is preserved, off the live routes, at
+ * `/mockups/dictionary-home-detailed`.
+ */
+type DictionaryHomeRouteProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default function DictionaryRoute() {
-  return <DictionaryHomePage />;
+export default async function DictionaryHomeRoute({ searchParams }: DictionaryHomeRouteProps) {
+  // Resolved through the same helper the proxy uses, so a request that reaches
+  // this backstop lands where the proxy would have sent it — including a
+  // submitted `?q=…&run=1`, which goes on to /dictionary/search rather than
+  // arriving at the home with its query dropped.
+  const params = searchParams ? await searchParams : {};
+  redirect(consolidatedModeHomeTargetForSearchParams("/dictionary", params) ?? appModeSelectionHref("dictionary"));
 }

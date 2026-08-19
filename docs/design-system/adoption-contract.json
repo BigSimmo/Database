@@ -136,9 +136,11 @@
         "src/app/(search-app)/factsheets/search/page.tsx",
         "src/app/(search-app)/forms/[slug]/page.tsx",
         "src/app/(search-app)/forms/page.tsx",
+        "src/app/(search-app)/forms/search/page.tsx",
         "src/app/(search-app)/medications/[slug]/page.tsx",
         "src/app/(search-app)/services/[slug]/page.tsx",
-        "src/app/(search-app)/services/page.tsx"
+        "src/app/(search-app)/services/page.tsx",
+        "src/app/(search-app)/services/search/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],
@@ -181,7 +183,8 @@
         "src/app/(search-app)/differentials/diagnoses/page.tsx",
         "src/app/(search-app)/differentials/page.tsx",
         "src/app/(search-app)/differentials/presentations/[slug]/page.tsx",
-        "src/app/(search-app)/differentials/presentations/page.tsx"
+        "src/app/(search-app)/differentials/presentations/page.tsx",
+        "src/app/(search-app)/differentials/search/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],
@@ -223,7 +226,8 @@
         "src/app/(search-app)/formulation/builder/page.tsx",
         "src/app/(search-app)/formulation/compare/page.tsx",
         "src/app/(search-app)/formulation/map/page.tsx",
-        "src/app/(search-app)/formulation/page.tsx"
+        "src/app/(search-app)/formulation/page.tsx",
+        "src/app/(search-app)/formulation/search/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],
@@ -265,7 +269,8 @@
         "src/app/(search-app)/specifiers/builder/page.tsx",
         "src/app/(search-app)/specifiers/compare/page.tsx",
         "src/app/(search-app)/specifiers/map/page.tsx",
-        "src/app/(search-app)/specifiers/page.tsx"
+        "src/app/(search-app)/specifiers/page.tsx",
+        "src/app/(search-app)/specifiers/search/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],
@@ -461,7 +466,11 @@
     {
       "id": "tools-and-calculators",
       "disposition": "owned",
-      "routes": ["src/app/(search-app)/calculators/page.tsx", "src/app/(search-app)/tools/page.tsx"],
+      "routes": [
+        "src/app/(search-app)/calculators/page.tsx",
+        "src/app/(search-app)/calculators/search/page.tsx",
+        "src/app/(search-app)/tools/page.tsx"
+      ],
       "routeRoots": true,
       "roots": [],
       "permittedComponentFamilies": ["controls", "feedback", "layout"],

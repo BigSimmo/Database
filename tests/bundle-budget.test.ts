@@ -279,7 +279,7 @@ describe("bundle baseline provenance", () => {
 });
 
 describe("committed route bundle budgets", () => {
-  it("covers the same five journeys as Lighthouse with enforced numeric baselines", () => {
+  it("covers the same journeys as Lighthouse with enforced numeric baselines", () => {
     const bundle = JSON.parse(readFileSync(path.resolve("bundle-budget.json"), "utf8"));
     const lighthouse = JSON.parse(readFileSync(path.resolve("lighthouse-budget.json"), "utf8"));
 

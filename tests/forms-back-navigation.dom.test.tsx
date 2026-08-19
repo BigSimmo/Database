@@ -20,6 +20,6 @@ describe("Form detail back navigation", () => {
   it("links to the canonical Forms home with focus", () => {
     render(<FormDetailPage form={formRecords[0]} />);
     const back = screen.getByRole("link", { name: /Forms/i });
-    expect(back).toHaveAttribute("href", "/forms?focus=1");
+    expect(back).toHaveAttribute("href", "/?mode=forms&focus=1");
   });
 });
