@@ -467,8 +467,9 @@ export function resolveBaselineCommitDistance(baselineSha, cwd = root, exec = ex
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
-    const n = Number.parseInt(count, 10);
-    return Number.isFinite(n) ? n : null;
+    if (!/^\d+$/.test(count)) return null;
+    const n = Number(count);
+    return Number.isSafeInteger(n) ? n : null;
   } catch {
     return null;
   }

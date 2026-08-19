@@ -306,6 +306,18 @@ describe("bundle baseline provenance", () => {
     expect(resolveBaselineCommitDistance("not-a-sha")).toBeNull();
   });
 
+  it("returns null when git output is malformed or non-numeric", () => {
+    const mockExecTrailing = vi.fn(() => "12 commits\n");
+    expect(
+      resolveBaselineCommitDistance(gitHead, process.cwd(), mockExecTrailing as unknown as typeof execFileSync),
+    ).toBeNull();
+
+    const mockExecNonNumeric = vi.fn(() => "fatal: bad revision\n");
+    expect(
+      resolveBaselineCommitDistance(gitHead, process.cwd(), mockExecNonNumeric as unknown as typeof execFileSync),
+    ).toBeNull();
+  });
+
   it("defines a default stale baseline commit distance threshold", () => {
     expect(STALE_BASELINE_COMMIT_DISTANCE_THRESHOLD).toBe(50);
   });

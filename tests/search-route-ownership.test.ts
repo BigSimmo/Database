@@ -178,10 +178,14 @@ describe("shared-search route ownership", () => {
       /const homePortalPending =\s*Boolean\(desktopHomeComposerSlotId\) && homeComposerMediaEligible && !desktopComposerPortalFallback/,
     );
     expect(headerSource).toMatch(
-      /const pagePortalPending =\s*Boolean\(desktopPageComposerSlotId\) && !usesPhoneSearchLayout && !desktopComposerPortalFallback/,
+      /const pagePortalPending =\s*Boolean\(desktopPageComposerSlotId\) &&\s*pageComposerMediaEligible &&\s*!usesPhoneSearchLayout &&\s*!desktopComposerPortalFallback/,
     );
     expect(headerSource).toContain("const portalPending = homePortalPending || pagePortalPending;");
     expect(headerSource).toContain("setHomeComposerMediaEligible(mediaQuery.matches)");
+    expect(headerSource).toContain("setPageComposerMediaEligible(mediaQuery.matches)");
+    expect(headerSource).toContain(
+      "const [pageComposerMediaEligible, setPageComposerMediaEligible] = useState(false);",
+    );
     expect(headerSource).toContain("const portalFallbackDelayMs = 8_000");
     expect(headerSource).toContain("let portalFailureStartedAt: number | null = null");
     expect(headerSource).toContain("portalFailureStartedAt = null");
@@ -404,6 +408,22 @@ describe("shared-search route ownership", () => {
     expect(seedEffect).toContain("Settings landing view also wins over last-mode");
     expect(readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8")).toContain(
       "useHomeModeSeed({ pathname, searchParams, lastAppMode })",
+    );
+  });
+
+  it("does not suppress the phone composer during initial render when a desktop page slot is present", () => {
+    const headerSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/master-search-header.tsx"),
+      "utf8",
+    );
+    // Gating pagePortalPending on confirmed non-phone media eligibility prevents
+    // desktop page slots from blanking the phone composer before media queries settle.
+    expect(headerSource).toContain("pageComposerMediaEligible");
+    expect(headerSource).toContain(
+      "const [pageComposerMediaEligible, setPageComposerMediaEligible] = useState(false);",
+    );
+    expect(headerSource).toMatch(
+      /const pagePortalPending =\s*Boolean\(desktopPageComposerSlotId\) &&\s*pageComposerMediaEligible &&\s*!usesPhoneSearchLayout &&\s*!desktopComposerPortalFallback/,
     );
   });
 });

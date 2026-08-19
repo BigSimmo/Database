@@ -165,14 +165,21 @@ await expect
 Or when measuring a specific content element (`main` or `h1`), wait for its vertical offset to stabilize:
 
 ```ts
+let lastTop: number | null = null;
 await expect
-  .poll(async () => {
-    return page
-      .locator("main, h1")
-      .first()
-      .evaluate((el) => Math.round(el.getBoundingClientRect().top));
-  })
-  .toBeGreaterThan(0);
+  .poll(
+    async () => {
+      const top = await page
+        .locator("main, h1")
+        .first()
+        .evaluate((el) => Math.round(el.getBoundingClientRect().top));
+      const stable = top > 0 && top === lastTop;
+      lastTop = top;
+      return stable;
+    },
+    { message: "expected main or h1 vertical offset to stabilize" },
+  )
+  .toBe(true);
 ```
 
 ## Visual regression and style contracts
