@@ -131,3 +131,66 @@ export function consolidatedModeHomeTargetForSearchParams(
   }
   return consolidatedModeHomeTarget(pathname, params);
 }
+
+/**
+ * `<mode>/search` routes that have no browse view of their own.
+ *
+ * These four render a component that falls back to the mode home when the query
+ * is empty — the very page consolidation retired to `/mockups/<mode>-home-detailed`
+ * — so an unsubmitted visit resurrected a second home in production. They belong
+ * on the shared home instead.
+ *
+ * Deliberately NOT every consolidated mode. `/factsheets/search`,
+ * `/dictionary/search` and `/therapy-compass/search` are linked from their mode
+ * nav with no query at all (`modeSecondaryNavigationRegistry`): they are browse
+ * surfaces, and redirecting them would break the tab that points at them.
+ */
+const modeSearchRoutesWithoutBrowseView = {
+  "/differentials/search": "differentials",
+  "/formulation/search": "formulation",
+  "/specifiers/search": "specifiers",
+  "/calculators/search": "calculators",
+} as const satisfies Record<string, AppModeId>;
+
+/**
+ * The shared-home URL an unsubmitted mode-search route forwards to, if any.
+ *
+ * Resolved in the proxy for the same reason as the bare paths: a page-level
+ * `redirect()` under the streaming `(search-app)` layout emits a client-side meta
+ * refresh rather than a 307, which is a second of empty shell. The pages keep
+ * their own redirect as a backstop, exactly as the bare paths do.
+ *
+ * `query` counts alongside `q` so a legacy `?query=` deep link is treated as
+ * submitted and reaches the route's own canonicalisation rather than bouncing home.
+ */
+export function unsubmittedModeSearchTarget(pathname: string, search: URLSearchParams): string | null {
+  if (!Object.hasOwn(modeSearchRoutesWithoutBrowseView, pathname)) return null;
+  const modeId = modeSearchRoutesWithoutBrowseView[pathname as keyof typeof modeSearchRoutesWithoutBrowseView];
+
+  const query = (search.get("q")?.trim() || search.get("query")?.trim()) ?? "";
+  if (query) return null;
+
+  const params = new URLSearchParams(search);
+  params.delete("q");
+  params.delete("query");
+  params.set("mode", modeId);
+  return `/?${params.toString()}`;
+}
+
+/**
+ * `[bare path, mode]` for every consolidated home, and `[search path, mode]` for
+ * every unsubmitted mode-search forward.
+ *
+ * Exported for `scripts/generate-site-map.ts`. The generator used to learn which
+ * routes redirect by regex-scraping `redirect("…")` out of page bodies, which
+ * stopped seeing these the moment the stubs began computing their target instead
+ * of naming it as a literal — so the site map described the bare paths as pages
+ * that render a home. Reading the map itself cannot drift from the map.
+ */
+export const consolidatedModeHomeRedirectEntries = Object.entries(consolidatedModeHomePaths) as ReadonlyArray<
+  readonly [string, AppModeId]
+>;
+
+export const unsubmittedModeSearchRedirectEntries = Object.entries(modeSearchRoutesWithoutBrowseView) as ReadonlyArray<
+  readonly [string, AppModeId]
+>;

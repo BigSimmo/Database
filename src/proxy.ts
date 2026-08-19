@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { consolidatedModeHomeTarget } from "@/lib/consolidated-mode-home-redirect";
+import { consolidatedModeHomeTarget, unsubmittedModeSearchTarget } from "@/lib/consolidated-mode-home-redirect";
 import { documentSourceRedirectTarget, isDocumentSourcePath } from "@/lib/document-source-redirect";
 import { env } from "@/lib/env";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
@@ -114,6 +114,18 @@ export async function proxy(request: NextRequest) {
   if (consolidatedHomeTarget) {
     const url = request.nextUrl.clone();
     const [targetPathname, targetSearch = ""] = consolidatedHomeTarget.split("?");
+    url.pathname = targetPathname;
+    url.search = targetSearch;
+    return withCsp(NextResponse.redirect(url));
+  }
+
+  // The same forward for an unsubmitted `<mode>/search`: those four routes have no
+  // browse view, so an empty query would render the retired mode home a second time.
+  const unsubmittedSearchTarget = unsubmittedModeSearchTarget(pathname, request.nextUrl.searchParams);
+
+  if (unsubmittedSearchTarget) {
+    const url = request.nextUrl.clone();
+    const [targetPathname, targetSearch = ""] = unsubmittedSearchTarget.split("?");
     url.pathname = targetPathname;
     url.search = targetSearch;
     return withCsp(NextResponse.redirect(url));
