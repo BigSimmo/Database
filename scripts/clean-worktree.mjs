@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -180,9 +180,9 @@ export function formatBytes(bytes) {
 export function identifyMergedWorktrees(
   worktrees,
   {
-    isMergedFn = (_branch, _baseRef) => false,
-    statusFn = (_path) => "",
-    aheadCountFn = (_branch, _baseRef) => 0,
+    isMergedFn = () => false,
+    statusFn = () => "",
+    aheadCountFn = () => 0,
     rawAheadCountFn = null,
     existsFn = existsSync,
     diskUsageFn = null,

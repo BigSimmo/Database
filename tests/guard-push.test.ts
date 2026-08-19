@@ -422,7 +422,7 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     ];
     const inFlight = findInFlightCiRuns(runs);
     expect(inFlight).toHaveLength(2);
-    expect(inFlight.map((r: any) => r.databaseId)).toEqual([1, 2]);
+    expect(inFlight.map((r: Record<string, unknown>) => r.databaseId)).toEqual([1, 2]);
 
     const objPayload = {
       workflow_runs: [
@@ -430,7 +430,7 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
         { id: 11, path: ".github/workflows/ci.yml", status: "completed", conclusion: "failure" },
       ],
     };
-    expect(findInFlightCiRuns(objPayload).map((r: any) => r.id)).toEqual([10]);
+    expect(findInFlightCiRuns(objPayload).map((r: Record<string, unknown>) => r.id)).toEqual([10]);
   });
 
   it("blocks a push to an open PR when required CI is in-flight", () => {

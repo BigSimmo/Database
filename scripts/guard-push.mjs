@@ -407,9 +407,10 @@ function defaultRunsFetch(branch) {
 
 export function inFlightCiGuard(
   branches,
-  ranges = [],
+  _ranges = [],
   { prViewer = defaultPrView, runFetcher = defaultRunsFetch } = {},
 ) {
+  void _ranges;
   if (process.env.SKIP_IN_FLIGHT_CI_GUARD === "1") {
     return { name: "in-flight-ci", ok: true, skipped: "SKIP_IN_FLIGHT_CI_GUARD=1" };
   }
