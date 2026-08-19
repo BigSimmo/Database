@@ -3881,54 +3881,56 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("document search mode lists matching documents and result actions @critical", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
-    // `/documents` redirects to the shared home now; the workspace this test is
-    // about is the search route, which the dashboard mounts for a submitted query.
-    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
+    // Documents has no home of its own since consolidation: `/documents` redirects
+    // to the shared home, where the composer starts empty and the mode's own
+    // affordances live in its actions menu rather than an always-visible
+    // "Start here" row. The dialogs those buttons open — the real coverage here —
+    // are unchanged, so this exercises them from their new entry point.
+    await gotoApp(page, "/?mode=documents");
 
     await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
-    await expect(page.getByTestId("answer-section-heading")).toHaveText("Document matches");
+    const sharedHome = visibleByTestId(page, "shared-home-empty-state");
+    await expect(sharedHome).toBeVisible();
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "Clinical Documents" })).toBeVisible();
+    // An empty composer cannot submit — the guarantee the retired home carried.
     await expect(page.getByRole("button", { name: "Find matching documents" })).toBeDisabled();
-    await expect(page.getByRole("main").getByRole("heading", { name: "Documents" })).toBeVisible();
-    await expect(page.getByTestId("document-search-workspace")).toBeVisible();
     await expect(visibleQuestionInput(page)).toBeVisible();
-    await expect(page.getByTestId("document-search-empty-state")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Start here" })).toBeVisible();
-    const searchInputBox = await visibleQuestionInput(page).boundingBox();
-    const startHereBox = await page.getByRole("region", { name: "Start here" }).boundingBox();
-    const documentsHeadingBox = await page.getByRole("main").getByRole("heading", { name: "Documents" }).boundingBox();
-    expect(searchInputBox).not.toBeNull();
-    expect(startHereBox).not.toBeNull();
-    expect(documentsHeadingBox).not.toBeNull();
-    expect((documentsHeadingBox?.y ?? 0) + (documentsHeadingBox?.height ?? 0)).toBeLessThan(searchInputBox?.y ?? 0);
-    // Phones keep the compact composer in the mode-home hero (above Start here),
-    // matching every other mode home — no fixed bottom dock on the empty home.
-    expect(searchInputBox?.y ?? 0).toBeLessThan(startHereBox?.y ?? 0);
+
+    // Phones keep the compact composer in the mode-home hero, matching every other
+    // mode — no fixed bottom dock on an unsubmitted home.
     await expect(page.locator('form.answer-footer-search-dock[data-footer-variant="compact"]')).toHaveCount(0);
     await expect(page.locator(".mode-home-composer-slot").getByTestId("global-search-input")).toHaveCount(1);
-    const recentDocumentsButton = page.getByRole("button", { name: /Recent documents/i }).first();
-    const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
-    const sourcePdfButton = page.getByRole("button", { name: /Open a source PDF/i }).first();
-    await expect(recentDocumentsButton).toBeVisible();
-    await expect(browseLibraryButton).toBeVisible();
-    await expect(sourcePdfButton).toBeVisible();
 
-    await recentDocumentsButton.click();
+    await page
+      .getByRole("button", { name: /Open documents options/i })
+      .first()
+      .click();
+    // Each dialog is opened from the mode's actions menu, and dismissing it closes
+    // the menu too — so the menu is reopened per action rather than assuming it
+    // survives. The dialogs themselves are unchanged by consolidation, which is
+    // what this journey is really guarding.
+    const openDocumentsAction = async (name: RegExp) => {
+      const trigger = page.getByRole("button", { name: /Open documents options/i }).first();
+      if ((await page.getByRole("menuitem", { name }).count()) === 0) await trigger.click();
+      await page.getByRole("menuitem", { name }).first().click();
+    };
+
+    await openDocumentsAction(/Recent documents/i);
     const recentDocumentsDialog = page.getByRole("dialog", { name: "Recent documents" });
     await expect(recentDocumentsDialog).toBeVisible();
     await expect(recentDocumentsDialog.getByPlaceholder("Find a document")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(recentDocumentsDialog).toHaveCount(0);
 
-    await browseLibraryButton.click();
+    await openDocumentsAction(/Browse library/i);
     const sourceLibraryDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(sourceLibraryDialog).toBeVisible();
     await expect(sourceLibraryDialog.getByPlaceholder("Find a document")).toBeFocused();
     await expect(sourceLibraryDialog.getByRole("group", { name: "Refine sources" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(sourceLibraryDialog).toHaveCount(0);
-    await expect(browseLibraryButton).toBeFocused();
 
-    await sourcePdfButton.click();
+    await openDocumentsAction(/Open source PDF/i);
     const sourcePdfDialog = page.getByRole("dialog", { name: "Source PDFs" });
     await expect(sourcePdfDialog).toBeVisible();
     await expect(sourcePdfDialog.getByPlaceholder("Find a source PDF")).toBeVisible();
@@ -4266,10 +4268,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     // Start on the Documents workspace rather than switching mode from `/`: the
     // mode pill no longer changes the page, and a mid-test navigation would reset
-    // the request counts this test exists to measure. `/documents` is a redirect
-    // onto the shared home since consolidation, so the workspace is a submitted
-    // /documents/search.
-    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
+    // the request counts this test exists to measure. `/documents` redirects to
+    // the shared home since consolidation, so that is where Documents mode opens.
+    await gotoApp(page, "/?mode=documents");
     // waitForDemoDashboardReady looks for "Open answer options"; the actions
     // trigger is named for the active mode, which is Documents on this route.
     await expect(visibleQuestionInput(page)).toBeEnabled();
@@ -4290,15 +4291,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("scope-command-popover")).toHaveCount(0);
     await page
       .getByRole("main")
-      .getByRole("heading", { name: "Documents" })
+      .getByRole("heading", { name: "Clinical Documents" })
       .first()
       .click({ position: { x: 2, y: 2 } });
     // Scope restore can land on the composer + trigger; the command listbox must
     // stay closed so it cannot cover Start-here actions (Browse library).
     await expect(page.getByRole("listbox", { name: /search suggestions/i })).toHaveCount(0);
 
+    // Browse library moved into the mode's actions menu when Documents joined the
+    // shared home; the deferral this test measures is unchanged — the request must
+    // not fire until the surface is actually opened.
     await page
-      .getByRole("button", { name: /Browse library/i })
+      .getByRole("button", { name: /Open documents options/i })
+      .first()
+      .click();
+    await page
+      .getByRole("menuitem", { name: /Browse library/i })
       .first()
       .click();
     await expect.poll(() => requestCounts.documents).toBe(1);
