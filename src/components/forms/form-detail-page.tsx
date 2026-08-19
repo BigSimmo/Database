@@ -312,18 +312,28 @@ function DetailCard({
   hasDetail?: boolean;
 }) {
   const label = displayText(card.label, "Priority fact");
+  const isInteractive = Boolean(hasDetail && onOpenDetail);
+
+  const titleNode = isInteractive ? (
+    <span className="block text-xs font-semibold leading-tight text-[color:var(--text-heading)] sm:text-sm sm:leading-5">
+      {displayText(card.title)}
+    </span>
+  ) : (
+    <h3 className="text-xs font-semibold leading-tight text-[color:var(--text-heading)] sm:text-sm sm:leading-5">
+      {displayText(card.title)}
+    </h3>
+  );
+
   const content = (
     <>
-      <h3 className="text-xs font-semibold leading-tight text-[color:var(--text-heading)] sm:text-sm sm:leading-5">
-        {displayText(card.title)}
-      </h3>
+      {titleNode}
       <p className={cn("mt-0.5 text-2xs font-medium leading-4 sm:mt-1 sm:text-xs sm:leading-5", textMuted)}>
         {displayText(card.detail)}
       </p>
     </>
   );
 
-  if (!hasDetail || !onOpenDetail) {
+  if (!isInteractive || !onOpenDetail) {
     return <DetailCardShell card={card}>{content}</DetailCardShell>;
   }
 
@@ -335,8 +345,9 @@ function DetailCard({
       <button
         type="button"
         onClick={onOpenDetail}
+        aria-haspopup="dialog"
         className="min-w-0 flex-1 rounded-md text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-        aria-label={`${label}: ${displayText(card.title)}. Open detail.`}
+        aria-label={`${label}: ${displayText(card.title)}${card.detail ? ` — ${card.detail.trim()}` : ""}. Open detail.`}
       >
         {content}
       </button>
@@ -368,6 +379,7 @@ function ActSectionsCard({
             key={entry.section}
             type="button"
             onClick={() => onOpenSection(entry.section)}
+            aria-haspopup="dialog"
             className={cn(
               "inline-flex min-h-12 min-w-12 items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-semibold text-[color:var(--text-heading)]",
               "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
@@ -492,6 +504,10 @@ function PathwayContextCard({
 }) {
   const details = formCatalogDetails(form);
   const [activeTab, setActiveTab] = useState<"pathway" | "source">("pathway");
+  const tabPathwayId = useId();
+  const tabSourceId = useId();
+  const panelPathwayId = `${tabPathwayId}-panel`;
+  const panelSourceId = `${tabSourceId}-panel`;
   const pathwayItems = (items: string[] | undefined, emptyTitle: string, emptyMeta: string) =>
     items?.length
       ? items.map((item) => {
@@ -538,8 +554,10 @@ function PathwayContextCard({
       >
         <button
           type="button"
+          id={tabPathwayId}
           role="tab"
           aria-selected={activeTab === "pathway"}
+          aria-controls={panelPathwayId}
           onClick={() => setActiveTab("pathway")}
           className={cn(
             "min-h-tap rounded-md px-3 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9",
@@ -552,8 +570,10 @@ function PathwayContextCard({
         </button>
         <button
           type="button"
+          id={tabSourceId}
           role="tab"
           aria-selected={activeTab === "source"}
+          aria-controls={panelSourceId}
           onClick={() => setActiveTab("source")}
           className={cn(
             "min-h-tap rounded-md px-3 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9",
@@ -566,7 +586,13 @@ function PathwayContextCard({
         </button>
       </div>
       {activeTab === "pathway" ? (
-        <div className="mt-3 space-y-3 border-l border-[color:var(--border-strong)] pl-4">
+        <div
+          id={panelPathwayId}
+          role="tabpanel"
+          aria-labelledby={tabPathwayId}
+          tabIndex={0}
+          className="mt-3 space-y-3 border-l border-[color:var(--border-strong)] pl-4 focus-visible:outline-none"
+        >
           <div className="relative">
             <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
             <p className="text-2xs font-bold uppercase text-[color:var(--text-muted)]">Before</p>
@@ -689,7 +715,13 @@ function PathwayContextCard({
           </div>
         </div>
       ) : (
-        <div className="mt-3 space-y-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+        <div
+          id={panelSourceId}
+          role="tabpanel"
+          aria-labelledby={tabSourceId}
+          tabIndex={0}
+          className="mt-3 space-y-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 focus-visible:outline-none"
+        >
           <p className="text-sm font-semibold text-[color:var(--text-heading)]">
             {displayText(details?.sourceFacts?.documentTitle, form.title)}
           </p>

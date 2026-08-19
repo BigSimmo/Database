@@ -35,7 +35,7 @@ import { Chip as DesignChip, type ChipStatusTone } from "@/components/ui/chip";
 import { cn } from "@/components/ui-primitives";
 import { useResultSort } from "@/components/use-result-sort";
 import { compactBestUseTitle } from "@/lib/compact-best-use-title";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { modeHomeComposerReservePendingValue, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import {
   readServiceCoreGroupSelection,
   serviceCoreGroupLabel,
@@ -806,6 +806,7 @@ export function ServicesNavigatorPage() {
         <>
           <DesktopComposerPortalSlot
             id={modeHomeDesktopComposerSlotId}
+            data-composer-reserve={modeHomeComposerReservePendingValue}
             className="mode-home-composer-slot hidden w-full min-w-0 [&:not(:empty)]:block"
           />
 

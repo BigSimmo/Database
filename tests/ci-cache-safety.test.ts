@@ -246,6 +246,20 @@ describe("CI cache safety", () => {
       reason: "required-ci-in-flight",
     });
   });
+
+  it("guards PR branches against in-flight CI cancellation during push (#HSSHRG)", async () => {
+    const { inFlightCiVerdict, findInFlightCiRuns } = await import("../scripts/guard-push.mjs");
+    const activeRuns = [{ name: "CI", status: "in_progress", conclusion: null }];
+    expect(findInFlightCiRuns(activeRuns)).toHaveLength(1);
+    expect(inFlightCiVerdict("claude/my-branch", { state: "OPEN", number: 99 }, activeRuns)).toEqual({
+      block: true,
+      reason: "required-ci-in-flight",
+      number: 99,
+      runs: activeRuns,
+    });
+    const prePushHook = readFileSync(new URL("../.githooks/pre-push", import.meta.url), "utf8");
+    expect(prePushHook).toContain("SKIP_IN_FLIGHT_CI_GUARD=1");
+  });
 });
 
 /*
