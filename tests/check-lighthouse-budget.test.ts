@@ -504,6 +504,13 @@ describe("committed lighthouse-budget.json", () => {
     expect(runner).toContain("--max-wait-for-load=60000");
     expect(runner).not.toMatch(/stdio:\s*"inherit",\s*\n\s*timeout,/);
   });
+
+  it("disables local-dev install prompts during Lighthouse measurements", () => {
+    const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
+
+    expect(runner).toContain("routeWithLighthouseParams(route)");
+    expect(runner).toContain("pwa-dev=0");
+  });
 });
 
 describe("Lighthouse time budget", () => {
