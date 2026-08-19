@@ -231,9 +231,13 @@ describe("claude hook scripts are checked in runnable", () => {
     })
     .filter((entry) => entry.path?.endsWith(".sh"));
 
-  it("finds the hook scripts", () => {
+  it("finds all expected hook scripts including session-start.sh, precompact-issues-capture.sh, and issues-surface.sh", () => {
     expect(listed.status).toBe(0);
     expect(entries.length).toBeGreaterThanOrEqual(3);
+    const scriptPaths = entries.map((entry) => entry.path);
+    expect(scriptPaths).toContain(".claude/hooks/session-start.sh");
+    expect(scriptPaths).toContain(".claude/hooks/precompact-issues-capture.sh");
+    expect(scriptPaths).toContain(".claude/hooks/issues-surface.sh");
   });
 
   it.each(entries.map((entry) => [entry.path, entry.mode, entry.object]))(
