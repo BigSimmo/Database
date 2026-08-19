@@ -1,9 +1,10 @@
 #!/bin/sh
-# Pre-push safety net. Delegates to scripts/guard-push.mjs, which runs five
-# guards: auto-merge ownership, format-before-push, drift-manifest freshness,
-# static gate (lint + source typecheck), and ledger-write discipline. The
-# auto-merge guard is not bypassable; the other guards have explicit override
-# env vars (see the script header), including SKIP_STATIC_GUARD=1.
+# Pre-push safety net. Delegates to scripts/guard-push.mjs, which runs six
+# guards: auto-merge ownership, in-flight CI push guard, format-before-push,
+# drift-manifest freshness, static gate (lint + source typecheck), and
+# ledger-write discipline. The auto-merge guard is not bypassable; the other
+# guards have explicit override env vars (see the script header), including
+# SKIP_IN_FLIGHT_CI_GUARD=1 and SKIP_STATIC_GUARD=1.
 #
 # Installed by scripts/install-git-hooks.mjs via `git config core.hooksPath
 # .githooks` (run automatically on npm install/ci). Git passes the pushed refs
@@ -16,6 +17,7 @@
 set -eu
 
 if [ "${GUARD_PUSH_DISABLE:-}" = "1" ]; then
+  export SKIP_IN_FLIGHT_CI_GUARD=1
   export SKIP_FORMAT_GUARD=1
   export SKIP_DRIFT_GUARD=1
   export SKIP_STATIC_GUARD=1

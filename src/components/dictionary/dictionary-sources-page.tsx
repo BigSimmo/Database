@@ -1,6 +1,7 @@
 import { ArrowUpRight, Check, Landmark, ScrollText, ShieldCheck, TriangleAlert } from "lucide-react";
 
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { cn } from "@/components/ui-primitives";
 import { dictionaryEntries, dictionarySources } from "@/lib/dictionary-data";
 
@@ -79,19 +80,6 @@ function StatTile({ label, value, hint, compact }: { label: string; value: strin
         </span>
         {hint ? <span className="mt-0.5 block text-xs leading-5 text-[color:var(--text-muted)]">{hint}</span> : null}
       </dd>
-    </div>
-  );
-}
-
-function SectionHeading({ id, step, title }: { id: string; step: string; title: string }) {
-  return (
-    <div className="flex items-center gap-3 border-b border-[color:var(--border)] pb-3">
-      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-2xs font-extrabold text-[color:var(--clinical-accent)]">
-        {step}
-      </span>
-      <h2 id={id} className="text-lg font-extrabold text-[color:var(--text-heading)] sm:text-xl">
-        {title}
-      </h2>
     </div>
   );
 }
