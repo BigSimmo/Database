@@ -18,12 +18,20 @@
 //
 // This module is types and named constants only. Both the in-memory store (Task 9) and the
 // Postgres store (Task 11) implement it, and both are exercised by the identical contract suite.
+import type { AccessedObjectType, AccessRecord } from "./access-audit";
+import type { AssignmentAction, PlanAssignment } from "./assignment";
 import type { AuditEvent } from "./audit";
 import type { Clock } from "./clock";
+import type { ContactDateChangeRequest, ContactMoveRequest } from "./contact-rescheduling";
 import type { HospitalStatusEvent, PlanException, PlanIncident, WithdrawalOrigin } from "./hospital-events";
-import type { ContactId, IdempotencyKey, PathwayVersionId, PatientId, PlanId, ReferralId } from "./ids";
-import type { Contact, Plan, PlanState, ProviderStatus, SendingPreference, TransitionResult } from "./model";
+import type { ActorId, ContactId, IdempotencyKey, PathwayVersionId, PatientId, PlanId, ReferralId } from "./ids";
+import type { Contact, Plan, PlanState, ProviderStatus, Referral, SendingPreference, TransitionResult } from "./model";
+import type { NotificationPreferences } from "./notification-preferences";
+import type { PathwayVersion, PathwayVersionAction } from "./pathway-versions";
 import type { CaringContactActor } from "./permissions";
+import type { ReferralAction } from "./referrals";
+import type { ServiceRestartApprovalRole, ServiceState, ServiceStopReason } from "./service-state";
+import type { TrainingCompetency, TrainingRecord } from "./training";
 import type { Episode, EpisodeState } from "./episode";
 import type { PlannedContact } from "./schedule";
 
@@ -83,6 +91,29 @@ export const REPOSITORY_REFUSALS = Object.freeze({
    * every unsent contact outright, so the refusal there is `contact-terminal`.
    */
   contactDispatchRequiresActivePlan: "contact-dispatch-requires-active-plan",
+  /**
+   * The service-wide safety stop (./service-state) blocks this write. Applied inside `runWrite`
+   * itself -- see the in-memory store -- to every mutating method except `stopService`,
+   * `approveServiceRestart`, and `recordHospitalStatusEvent`, so no future write can forget the
+   * gate by omission.
+   */
+  serviceStopped: "service-stopped",
+  /**
+   * Reserved for cross-workspace enforcement of ./training's `workspacesMayShareData`: a training
+   * workspace must never read or write live data, or vice versa. No method added in this task
+   * carries a workspace parameter to check against -- `WriteContext`/`ReadContext` name only an
+   * actor -- so this store cannot yet produce this refusal. It is declared now so the constant
+   * name is stable for whichever later task adds the workspace-scoped call site.
+   */
+  trainingWorkspaceIsolated: "training-workspace-isolated",
+  /** A referral id already used by another referral. */
+  referralAlreadyExists: "referral-already-exists",
+  /** A pathway version id already used by another version. */
+  pathwayVersionAlreadyExists: "pathway-version-already-exists",
+  /** That attempt's discrepancy already has a recorded resolution; a second one would overwrite it. */
+  dispatchDiscrepancyAlreadyResolved: "dispatch-discrepancy-already-resolved",
+  /** `resolveDispatchDiscrepancy` requires a non-blank note, the same convention every other named-reason write in this domain uses for free text. */
+  dispatchDiscrepancyNoteRequired: "dispatch-discrepancy-note-required",
 } as const);
 
 export type RepositoryRefusal = (typeof REPOSITORY_REFUSALS)[keyof typeof REPOSITORY_REFUSALS];
@@ -155,6 +186,44 @@ export type ContactProviderStatusInput = ContactStatusInput & { status: Provider
 
 export type RepositoryOptions = { auditSink?: AuditSink };
 
+export type CreateReferralInput = { referralId: ReferralId; patientId: PatientId };
+export type ReferralTransitionInput = { referralId: ReferralId; action: ReferralAction };
+export type SavePathwayVersionInput = { version: PathwayVersion };
+export type PathwayVersionTransitionInput = { pathwayVersionId: PathwayVersionId; action: PathwayVersionAction };
+
+/**
+ * One recorded dispatch attempt for one contact, the reconciliation surface between what the
+ * dispatcher expected and what the provider reported. `discrepancyResolution` is null until
+ * `resolveDispatchDiscrepancy` records one, and `unresolvedNoResend` is as final an answer as
+ * `confirmedDelivered` -- there is no method anywhere in this contract that re-dispatches a
+ * contact whose status is uncertain.
+ */
+export type DispatchRecord = {
+  contactId: ContactId;
+  planId: PlanId;
+  attempt: number;
+  startedAt: Date;
+  expectedStatus: ProviderStatus | null;
+  reportedStatus: ProviderStatus | null;
+  discrepancyResolvedAt: Date | null;
+  discrepancyResolution: DispatchDiscrepancyResolution | null;
+};
+export type DispatchDiscrepancyResolution = "confirmedDelivered" | "confirmedNotDelivered" | "unresolvedNoResend";
+export type ResolveDiscrepancyInput = {
+  contactId: ContactId;
+  attempt: number;
+  resolution: DispatchDiscrepancyResolution;
+  note: string;
+};
+export type AccessTrailQuery = {
+  fromIso?: string;
+  toIso?: string;
+  actorId?: ActorId;
+  objectType?: AccessedObjectType;
+  limit: number;
+  offset: number;
+};
+
 export interface CaringContactRepository {
   createPlan(input: CreatePlanInput, context: WriteContext): Promise<TransitionResult<PlanRecord>>;
   activatePlan(input: PlanLifecycleInput, context: WriteContext): Promise<TransitionResult<PlanRecord>>;
@@ -179,6 +248,93 @@ export interface CaringContactRepository {
     context: WriteContext,
   ): Promise<TransitionResult<StoredContact>>;
   recordContactMissed(input: ContactStatusInput, context: WriteContext): Promise<TransitionResult<StoredContact>>;
+
+  /**
+   * Moves a contact within its scheduled day, or changes its date with team-lead approval --
+   * Task 7's `moveContactWithinDay` / `changeContactDate` given somewhere to persist. Refuses the
+   * exact reasons those functions do, unchanged; adds `notFound`, `permissionDenied`, and
+   * `staleVersion` on top, the same as every other contact-status write.
+   */
+  rescheduleContact(
+    input: {
+      planId: PlanId;
+      contactId: ContactId;
+      expectedContactVersion: number;
+      change: ContactMoveRequest | ContactDateChangeRequest;
+    },
+    context: WriteContext,
+  ): Promise<TransitionResult<StoredContact>>;
+
+  // Referrals
+  createReferral(input: CreateReferralInput, context: WriteContext): Promise<TransitionResult<Referral>>;
+  transitionReferral(input: ReferralTransitionInput, context: WriteContext): Promise<TransitionResult<Referral>>;
+  listReferrals(context: ReadContext): Promise<Referral[]>;
+
+  // Pathway versions
+  savePathwayVersion(input: SavePathwayVersionInput, context: WriteContext): Promise<TransitionResult<PathwayVersion>>;
+  transitionPathwayVersion(
+    input: PathwayVersionTransitionInput,
+    context: WriteContext,
+  ): Promise<TransitionResult<PathwayVersion>>;
+  getPathwayVersion(id: PathwayVersionId, context: ReadContext): Promise<PathwayVersion | null>;
+  listPathwayVersions(context: ReadContext): Promise<PathwayVersion[]>;
+
+  // Service state
+  /**
+   * The one service-wide record -- never one per team. Visible unconditionally to every actor of
+   * every team: the whole point of the singleton is that a stop raised by one team's actor blocks
+   * dispatch for every other team's plans too, and the banner it feeds must render on every
+   * screen, including ones with no patient in view at all.
+   */
+  getServiceState(context: ReadContext): Promise<ServiceState>;
+  stopService(
+    input: { reason: ServiceStopReason; note: string },
+    context: WriteContext,
+  ): Promise<TransitionResult<ServiceState>>;
+  approveServiceRestart(
+    input: { role: ServiceRestartApprovalRole },
+    context: WriteContext,
+  ): Promise<TransitionResult<ServiceState>>;
+
+  // Assignment
+  getAssignment(planId: PlanId, context: ReadContext): Promise<PlanAssignment | null>;
+  applyAssignment(
+    input: { planId: PlanId; action: AssignmentAction },
+    context: WriteContext,
+  ): Promise<TransitionResult<PlanAssignment>>;
+
+  // Reconciliation
+  listDispatches(input: { fromIso: string; toIso: string }, context: ReadContext): Promise<DispatchRecord[]>;
+  /** Never resends. `unresolvedNoResend` is as final an outcome as any other -- see `DispatchRecord`. */
+  resolveDispatchDiscrepancy(
+    input: ResolveDiscrepancyInput,
+    context: WriteContext,
+  ): Promise<TransitionResult<DispatchRecord>>;
+
+  // Access trail
+  /**
+   * Records a view/search/export/administrative access. No `WriteContext` -- the caller already
+   * knows who is accessing what, `AccessRecord` carries it, and this is a best-effort append with
+   * no refusal to report: recording that "every search, view, decision, mutation, write-back and
+   * administrative access" happened must not itself be blockable by the service safety stop, or
+   * the trail would go dark for exactly the incidents (including `audit-integrity-loss`) it exists
+   * to prove happened.
+   */
+  recordAccess(record: AccessRecord): Promise<void>;
+  listAccessTrail(input: AccessTrailQuery, context: ReadContext): Promise<AuditEvent[]>;
+
+  // Preferences, training, retention
+  getNotificationPreferences(context: ReadContext): Promise<NotificationPreferences>;
+  saveNotificationPreferences(
+    input: NotificationPreferences,
+    context: WriteContext,
+  ): Promise<TransitionResult<NotificationPreferences>>;
+  getTrainingRecord(context: ReadContext): Promise<TrainingRecord>;
+  recordTrainingCompetency(
+    input: { competency: TrainingCompetency },
+    context: WriteContext,
+  ): Promise<TransitionResult<TrainingRecord>>;
+  markRetentionCleared(input: { planId: PlanId }, context: WriteContext): Promise<TransitionResult<void>>;
 
   /** Null for a plan that does not exist AND for one belonging to another team. */
   getPlan(planId: PlanId, context: ReadContext): Promise<PlanRecord | null>;

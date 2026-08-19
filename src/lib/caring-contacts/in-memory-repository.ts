@@ -16,34 +16,57 @@
 // ./hospital-events, the calendar in ./schedule, capability checks in ./permissions, the audit
 // record in ./audit, and the episode projection uses ./episode's own `Episode` type. Nothing here
 // reimplements any of them.
+import { buildAccessAuditEvent, type AccessRecord } from "./access-audit";
+import { applyAssignmentAction, unassigned, type AssignmentAction, type PlanAssignment } from "./assignment";
 import { buildAuditEvent, type AuditEvent, type AuditOutcome } from "./audit";
 import type { Clock } from "./clock";
+import { changeContactDate, moveContactWithinDay } from "./contact-rescheduling";
 import { fingerprintOf } from "./fingerprint";
 import { applyHospitalStatusEvent, applyWithdrawalRequest, sendableContacts } from "./hospital-events";
-import { contactId } from "./ids";
-import type { PlanId, TeamId } from "./ids";
+import { contactId, teamId } from "./ids";
+import type { ActorId, ContactId, PathwayVersionId, PlanId, TeamId } from "./ids";
 import { applyContactTransition, applyPlanTransition } from "./model";
-import type { Contact, ContactAction, ContactState, Plan, PlanState, TransitionResult } from "./model";
+import type { Contact, ContactAction, ContactState, Plan, PlanState, Referral, TransitionResult } from "./model";
+import { defaultNotificationPreferences, type NotificationPreferences } from "./notification-preferences";
+import { applyPathwayVersionTransition, type PathwayVersion } from "./pathway-versions";
 import {
   actorRoleNames,
   canPerformCaringContactAction,
   type CaringContactAction,
   type CaringContactActor,
 } from "./permissions";
+import { applyReferralTransition } from "./referrals";
+import {
+  applyServiceRestartApproval,
+  applyServiceStop,
+  runningService,
+  serviceStopBlocksDispatch,
+  type ServiceRestartApprovalRole,
+  type ServiceState,
+  type ServiceStopReason,
+} from "./service-state";
+import { emptyTrainingRecord, recordCompetency, type TrainingCompetency, type TrainingRecord } from "./training";
 import {
   REPOSITORY_REFUSALS,
   contactIdentifierFor,
+  type AccessTrailQuery,
   type CaringContactRepository,
   type ContactProviderStatusInput,
   type ContactStatusInput,
   type CreatePlanInput,
+  type CreateReferralInput,
+  type DispatchRecord,
   type HospitalStatusInput,
   type HospitalStatusOutcome,
+  type PathwayVersionTransitionInput,
   type PlanLifecycleInput,
   type PlanOutcome,
   type PlanRecord,
   type ReadContext,
+  type ReferralTransitionInput,
   type RepositoryOptions,
+  type ResolveDiscrepancyInput,
+  type SavePathwayVersionInput,
   type StoredContact,
   type StoredPlan,
   type WithdrawPlanInput,
@@ -53,6 +76,12 @@ import type { Episode } from "./episode";
 import { buildApprovedSchedule, type PlannedContact } from "./schedule";
 
 const TERMINAL_PLAN_STATES: readonly PlanState[] = ["withdrawn", "cancelled", "completed"];
+
+/**
+ * Names no real team. Seeds the running-service singleton before any stop has ever been raised,
+ * so `reportedByTeamId` never accidentally reads as a genuine team's identifier before one exists.
+ */
+const SERVICE_STATE_UNSET_TEAM: TeamId = teamId("service-state-unset");
 
 /** Contact states that mean the message already left. Used only for reporting counts. */
 const DISPATCHED_CONTACT_STATES: readonly ContactState[] = [
@@ -73,9 +102,25 @@ const READ_ACTIONS = Object.freeze({
   contacts: "viewReferral",
   auditTrail: "viewAccessTrail",
   episode: "generateClinicalRecordSummary",
+  referral: "viewReferral",
 } as const satisfies Record<string, CaringContactAction>);
 
-type StagedWrite<T> = { value: T; nextPlan: StoredPlan | null };
+/** Either governance action reading a pathway version's content is granted by. */
+const PATHWAY_VERSION_READ_ACTIONS: readonly CaringContactAction[] = Object.freeze([
+  "authorPathwayVersion",
+  "approvePathwayVersion",
+]);
+
+type StagedWrite<T> = {
+  value: T;
+  /**
+   * Applies the write's side effect to the store's maps. Synchronous and called exactly once,
+   * inside the same unbroken commit block as the audit-event push -- see `runWrite`. Absent for a
+   * write that changes nothing storage-side (there is currently none, but the type does not
+   * require one).
+   */
+  commit?: () => void;
+};
 
 type WriteSpec<T> = {
   /** Part of the idempotency fingerprint, so one key cannot cover two different operations. */
@@ -86,6 +131,13 @@ type WriteSpec<T> = {
   objectId: string;
   /** What the audit event says was acted on. Defaults to the plan. */
   objectType?: string;
+  /**
+   * True only for `stopService`, `approveServiceRestart`, and `recordHospitalStatusEvent` -- the
+   * three writes that must always be reachable regardless of the service-wide safety stop. Every
+   * other write is gated inside `runWrite` itself, so a future method cannot forget the gate by
+   * simply not checking for it.
+   */
+  bypassServiceStopGate?: boolean;
   stage: () => TransitionResult<StagedWrite<T>>;
 };
 
@@ -123,6 +175,16 @@ function isTerminalPlan(state: PlanState): boolean {
   return TERMINAL_PLAN_STATES.includes(state);
 }
 
+/** Storage key for one contact's one dispatch attempt. */
+function dispatchKey(id: ContactId, attempt: number): string {
+  return `${id}::${attempt}`;
+}
+
+/** Storage key for a per-actor, per-team record (notification preferences, training). */
+function actorScopeKey(teamId: TeamId, actorId: ActorId): string {
+  return `${teamId}::${actorId}`;
+}
+
 function outcomeFor(state: PlanState): PlanOutcome {
   return state === "withdrawn" || state === "cancelled" || state === "completed" ? state : "inProgress";
 }
@@ -152,6 +214,27 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
   const auditEvents: AuditEvent[] = [];
   const idempotency = new Map<string, { fingerprint: string; result: TransitionResult<unknown> }>();
 
+  // Group 1 storage. Each is its own map/singleton -- Task 10 adds a home for every rule Tasks
+  // 1-9 built, and delegates every transition to the module that owns the rule; nothing here
+  // re-derives a decision one of those modules already makes.
+  const referrals = new Map<string, Referral>();
+  const pathwayVersions = new Map<string, PathwayVersion>();
+  const assignments = new Map<string, PlanAssignment>();
+  const dispatches = new Map<string, DispatchRecord>();
+  /** Latest dispatch attempt number recorded for a contact, so the next one can be numbered. */
+  const dispatchAttempts = new Map<string, number>();
+  const notificationPreferences = new Map<string, NotificationPreferences>();
+  const trainingRecords = new Map<string, TrainingRecord>();
+  const retentionCleared = new Set<string>();
+
+  /**
+   * The one service-wide safety-stop record (Ruling 3: never one per team). `reportedByTeamId` on
+   * the running state is bookkeeping only -- overwritten with the reporting team the moment a stop
+   * is actually raised -- and is seeded with a value that names no real team so an unstopped store
+   * cannot be mistaken for one that has ever recorded an incident.
+   */
+  let serviceState: ServiceState = runningService(SERVICE_STATE_UNSET_TEAM);
+
   // Serialises writes so two calls issued at once cannot interleave between reading a version and
   // committing the next one. This is what `UPDATE ... WHERE version = $expected` gives the
   // Postgres store; without it, "simultaneous" here would be a false green.
@@ -167,6 +250,11 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
 
   function mayRead(actor: CaringContactActor, action: CaringContactAction, resourceTeamId: TeamId): boolean {
     return canPerformCaringContactAction(actor, action, { teamId: resourceTeamId }).allowed;
+  }
+
+  /** True if the actor holds ANY of the given read capabilities for the resource's team. */
+  function mayReadAny(actor: CaringContactActor, actions: readonly CaringContactAction[], resourceTeamId: TeamId): boolean {
+    return actions.some((action) => mayRead(actor, action, resourceTeamId));
   }
 
   /** Null for absent AND for another team's plan — a read must not tell those apart. */
@@ -194,9 +282,18 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
       // A true replay returns the original answer and appends nothing at all.
       if (previous && previous.fingerprint === fingerprint) return previous.result as TransitionResult<T>;
 
+      // The service-wide safety-stop gate. Lives here, not in each method, so a future write
+      // cannot forget it by simply not checking `serviceStopBlocksDispatch` itself. Checked after
+      // the replay short-circuit (a replay reports the ORIGINAL decision, not today's), and before
+      // `spec.stage()` so a refused write still produces exactly one "denied" audit event through
+      // the same path every other refusal does.
+      const blockedByServiceStop = !spec.bypassServiceStopGate && !previous && serviceStopBlocksDispatch(serviceState);
+
       const staged: TransitionResult<StagedWrite<T>> = previous
         ? { ok: false, reason: REPOSITORY_REFUSALS.idempotencyKeyReused }
-        : spec.stage();
+        : blockedByServiceStop
+          ? { ok: false, reason: REPOSITORY_REFUSALS.serviceStopped }
+          : spec.stage();
 
       const outcome: AuditOutcome = staged.ok ? "allowed" : "denied";
       const event = buildAuditEvent(
@@ -216,7 +313,7 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
 
       // Commit. Synchronous and unbroken: nothing may await between these statements, or a
       // change could become visible without its audit record.
-      if (staged.ok && staged.value.nextPlan) plans.set(staged.value.nextPlan.plan.id, staged.value.nextPlan);
+      if (staged.ok) staged.value.commit?.();
       auditEvents.push(event);
       const result: TransitionResult<T> = staged.ok ? { ok: true, value: staged.value.value } : staged;
       // A key reused for a different request must not overwrite the original write's result.
@@ -297,6 +394,8 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
     action: ContactAction,
     context: WriteContext,
     requiresActivePlan: boolean,
+    /** Extra side effect committed alongside the plan write -- reconciliation bookkeeping only. */
+    onCommitted?: (updated: StoredContact) => void,
   ): Promise<TransitionResult<StoredContact>> {
     return runWrite<StoredContact>({
       method,
@@ -320,7 +419,17 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         const contacts = [...stored.contacts];
         contacts[index] = { contact: moved.value, planned: contacts[index].planned };
         const nextPlan: StoredPlan = { ...stored, contacts };
-        return { ok: true, value: { value: cloneStoredContact(contacts[index]), nextPlan } };
+        const updated = contacts[index];
+        return {
+          ok: true,
+          value: {
+            value: cloneStoredContact(updated),
+            commit: () => {
+              plans.set(nextPlan.plan.id, nextPlan);
+              onCommitted?.(updated);
+            },
+          },
+        };
       },
     });
   }
@@ -344,7 +453,7 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         const moved = applyPlanTransition(resolved.value.plan, { type: transition });
         if (!moved.ok) return moved;
         const nextPlan = withPlan(resolved.value, moved.value);
-        return { ok: true, value: { value: toPlanRecord(nextPlan), nextPlan } };
+        return { ok: true, value: { value: toPlanRecord(nextPlan), commit: () => plans.set(nextPlan.plan.id, nextPlan) } };
       },
     });
   }
@@ -410,7 +519,7 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
               culturalIdentity: input.patientDetail.culturalIdentity,
             },
           };
-          return { ok: true, value: { value: toPlanRecord(nextPlan), nextPlan } };
+          return { ok: true, value: { value: toPlanRecord(nextPlan), commit: () => plans.set(nextPlan.plan.id, nextPlan) } };
         },
       });
     },
@@ -442,7 +551,7 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
           if (!withdrawal.ok) return withdrawal;
           const cancelled = cancelAllNonTerminalContacts(resolved.value.contacts);
           const nextPlan = withPlan(resolved.value, withdrawal.value.plan, cancelled.contacts);
-          return { ok: true, value: { value: toPlanRecord(nextPlan), nextPlan } };
+          return { ok: true, value: { value: toPlanRecord(nextPlan), commit: () => plans.set(nextPlan.plan.id, nextPlan) } };
         },
       });
     },
@@ -466,6 +575,10 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         context,
         auditAction: `recordHospitalStatusEvent:${input.event.type}`,
         objectId: input.planId,
+        // A death must always be recordable -- the same reasoning as the always-available
+        // triggerServiceSafetyStop capability above. A refusal here would leave a plan sending to
+        // someone who has died.
+        bypassServiceStopGate: true,
         stage: () => {
           const resolved = resolveForWrite(input, context.actor, actions);
           if (!resolved.ok) return resolved;
@@ -486,7 +599,7 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
             contactsCancelled: cancelled,
           };
           if (applied.value.incident) value.incident = applied.value.incident;
-          return { ok: true, value: { value, nextPlan } };
+          return { ok: true, value: { value, commit: () => plans.set(nextPlan.plan.id, nextPlan) } };
         },
       });
     },
@@ -499,6 +612,23 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         { type: "startProcessing" },
         context,
         true,
+        // Opens the reconciliation record this attempt will be resolved against. Numbered from
+        // the last attempt recorded for this contact, so a later manual re-dispatch (if the
+        // contact lifecycle ever grows one) would not collide with an earlier attempt's record.
+        (updated) => {
+          const nextAttempt = (dispatchAttempts.get(updated.contact.id) ?? 0) + 1;
+          dispatchAttempts.set(updated.contact.id, nextAttempt);
+          dispatches.set(dispatchKey(updated.contact.id, nextAttempt), {
+            contactId: updated.contact.id,
+            planId: input.planId,
+            attempt: nextAttempt,
+            startedAt: clock.now(),
+            expectedStatus: null,
+            reportedStatus: null,
+            discrepancyResolvedAt: null,
+            discrepancyResolution: null,
+          });
+        },
       );
     },
 
@@ -514,6 +644,15 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         { type: "providerStatus", status: input.status },
         context,
         false,
+        // Records what the provider actually reported against the open attempt, the half of the
+        // reconciliation pair `resolveDispatchDiscrepancy` compares against.
+        (updated) => {
+          const attempt = dispatchAttempts.get(updated.contact.id);
+          if (attempt === undefined) return;
+          const key = dispatchKey(updated.contact.id, attempt);
+          const record = dispatches.get(key);
+          if (record) dispatches.set(key, { ...record, reportedStatus: input.status });
+        },
       );
     },
 
@@ -528,6 +667,478 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         context,
         false,
       );
+    },
+
+    async rescheduleContact(input, context: WriteContext) {
+      const permission: CaringContactAction = "toHour" in input.change ? "moveContactWithinDay" : "changeContactDate";
+      return runWrite<StoredContact>({
+        method: "rescheduleContact",
+        input,
+        context,
+        auditAction: "rescheduleContact",
+        objectType: "contact",
+        objectId: input.contactId,
+        stage: () => {
+          const resolved = resolveContactForWrite(
+            { planId: input.planId, contactId: input.contactId, expectedContactVersion: input.expectedContactVersion },
+            context.actor,
+            permission,
+          );
+          if (!resolved.ok) return resolved;
+          const { stored, index } = resolved.value;
+          const currentPlanned = stored.contacts[index].planned;
+
+          // The stored `planned` is the source of truth, never the caller's copy: a request built
+          // from a stale or fabricated PlannedContact must not be able to smuggle a different
+          // calendarDay/sendAt past the two rules below.
+          const moved =
+            "toHour" in input.change
+              ? moveContactWithinDay({ contact: currentPlanned, toHour: input.change.toHour, toMinute: input.change.toMinute })
+              : changeContactDate(
+                  {
+                    contact: currentPlanned,
+                    toCalendarDay: input.change.toCalendarDay,
+                    reason: input.change.reason,
+                    teamLeadApprovalActorId: input.change.teamLeadApprovalActorId,
+                  },
+                  clock,
+                );
+          if (!moved.ok) return moved;
+
+          const contacts = [...stored.contacts];
+          // Only `planned` changes; `contact.state` is untouched. The version still advances, so a
+          // second, concurrent reschedule of the same contact is refused as stale, the same
+          // optimistic-concurrency guarantee every other contact write gives.
+          const updatedContact: Contact = { ...contacts[index].contact, version: contacts[index].contact.version + 1 };
+          contacts[index] = { contact: updatedContact, planned: moved.value };
+          const nextPlan: StoredPlan = { ...stored, contacts };
+          return {
+            ok: true,
+            value: { value: cloneStoredContact(contacts[index]), commit: () => plans.set(nextPlan.plan.id, nextPlan) },
+          };
+        },
+      });
+    },
+
+    // ---------------------------------------------------------------------
+    // Referrals
+    // ---------------------------------------------------------------------
+
+    async createReferral(input: CreateReferralInput, context: WriteContext) {
+      return runWrite<Referral>({
+        method: "createReferral",
+        input,
+        context,
+        auditAction: "createReferral",
+        objectType: "referral",
+        objectId: input.referralId,
+        stage: () => {
+          if (!canPerformCaringContactAction(context.actor, "createReferral", { teamId: context.actor.teamId }).allowed) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+          if (referrals.has(input.referralId)) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.referralAlreadyExists };
+          }
+          const referral: Referral = {
+            id: input.referralId,
+            teamId: context.actor.teamId,
+            patientId: input.patientId,
+            state: "awaitingHandover",
+            pathwayVersionId: null,
+          };
+          return { ok: true, value: { value: { ...referral }, commit: () => referrals.set(input.referralId, referral) } };
+        },
+      });
+    },
+
+    async transitionReferral(input: ReferralTransitionInput, context: WriteContext) {
+      const permission: CaringContactAction =
+        input.action.type === "accept"
+          ? "acceptReferral"
+          : input.action.type === "returnForClarification"
+            ? "returnReferralForClarification"
+            : "declineReferral";
+      return runWrite<Referral>({
+        method: "transitionReferral",
+        input,
+        context,
+        auditAction: "transitionReferral",
+        objectType: "referral",
+        objectId: input.referralId,
+        stage: () => {
+          const stored = referrals.get(input.referralId);
+          if (!stored || stored.teamId !== context.actor.teamId) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
+          }
+          if (!canPerformCaringContactAction(context.actor, permission, { teamId: stored.teamId }).allowed) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+          const transitioned = applyReferralTransition(stored, input.action);
+          if (!transitioned.ok) return transitioned;
+          return {
+            ok: true,
+            value: { value: { ...transitioned.value }, commit: () => referrals.set(input.referralId, transitioned.value) },
+          };
+        },
+      });
+    },
+
+    async listReferrals(context: ReadContext) {
+      return [...referrals.values()]
+        .filter((referral) => mayRead(context.actor, READ_ACTIONS.referral, referral.teamId))
+        .map((referral) => ({ ...referral }));
+    },
+
+    // ---------------------------------------------------------------------
+    // Pathway versions
+    // ---------------------------------------------------------------------
+
+    async savePathwayVersion(input: SavePathwayVersionInput, context: WriteContext) {
+      return runWrite<PathwayVersion>({
+        method: "savePathwayVersion",
+        input,
+        context,
+        auditAction: "savePathwayVersion",
+        objectType: "pathwayVersion",
+        objectId: input.version.id,
+        stage: () => {
+          if (
+            !canPerformCaringContactAction(context.actor, "authorPathwayVersion", { teamId: context.actor.teamId }).allowed
+          ) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+          if (pathwayVersions.has(input.version.id)) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.pathwayVersionAlreadyExists };
+          }
+          // The author's own team owns the version, regardless of whatever teamId the caller's
+          // object carries -- the same trust boundary createPlan draws around `actor.teamId`.
+          const version: PathwayVersion = { ...input.version, teamId: context.actor.teamId };
+          return {
+            ok: true,
+            value: { value: { ...version }, commit: () => pathwayVersions.set(version.id, version) },
+          };
+        },
+      });
+    },
+
+    async transitionPathwayVersion(input: PathwayVersionTransitionInput, context: WriteContext) {
+      const permission: CaringContactAction =
+        input.action.type === "submitForReview"
+          ? "authorPathwayVersion"
+          : input.action.type === "approve"
+            ? "approvePathwayVersion"
+            : input.action.type === "publish"
+              ? "publishPathwayVersion"
+              : "retirePathwayVersion";
+      return runWrite<PathwayVersion>({
+        method: "transitionPathwayVersion",
+        input,
+        context,
+        auditAction: "transitionPathwayVersion",
+        objectType: "pathwayVersion",
+        objectId: input.pathwayVersionId,
+        stage: () => {
+          const stored = pathwayVersions.get(input.pathwayVersionId);
+          if (!stored || stored.teamId !== context.actor.teamId) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
+          }
+          if (!canPerformCaringContactAction(context.actor, permission, { teamId: stored.teamId }).allowed) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+          const transitioned = applyPathwayVersionTransition(stored, input.action, clock);
+          if (!transitioned.ok) return transitioned;
+          return {
+            ok: true,
+            value: {
+              value: { ...transitioned.value },
+              commit: () => pathwayVersions.set(input.pathwayVersionId, transitioned.value),
+            },
+          };
+        },
+      });
+    },
+
+    async getPathwayVersion(id: PathwayVersionId, context: ReadContext) {
+      const stored = pathwayVersions.get(id);
+      if (!stored) return null;
+      if (!mayReadAny(context.actor, PATHWAY_VERSION_READ_ACTIONS, stored.teamId)) return null;
+      return { ...stored };
+    },
+
+    async listPathwayVersions(context: ReadContext) {
+      return [...pathwayVersions.values()]
+        .filter((version) => mayReadAny(context.actor, PATHWAY_VERSION_READ_ACTIONS, version.teamId))
+        .map((version) => ({ ...version }));
+    },
+
+    // ---------------------------------------------------------------------
+    // Service state — one record for the whole store, never one per team (Ruling 3).
+    // ---------------------------------------------------------------------
+
+    async getServiceState() {
+      return serviceState;
+    },
+
+    async stopService(input: { reason: ServiceStopReason; note: string }, context: WriteContext) {
+      return runWrite<ServiceState>({
+        method: "stopService",
+        input,
+        context,
+        auditAction: "stopService",
+        objectType: "serviceState",
+        objectId: "service",
+        bypassServiceStopGate: true,
+        stage: () => {
+          if (
+            !canPerformCaringContactAction(context.actor, "triggerServiceSafetyStop", { teamId: context.actor.teamId })
+              .allowed
+          ) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+          // The reporting team is stamped onto the pre-stop snapshot here, not inside
+          // applyServiceStop -- that function only ever carries `reportedByTeamId` forward, it
+          // never learns of one. It never scopes the stop: every team is blocked regardless.
+          const seeded: ServiceState = { ...serviceState, reportedByTeamId: context.actor.teamId };
+          const applied = applyServiceStop(seeded, { reason: input.reason, actorId: context.actor.id, note: input.note }, clock);
+          if (!applied.ok) return applied;
+          return { ok: true, value: { value: applied.value, commit: () => (serviceState = applied.value) } };
+        },
+      });
+    },
+
+    async approveServiceRestart(input: { role: ServiceRestartApprovalRole }, context: WriteContext) {
+      return runWrite<ServiceState>({
+        method: "approveServiceRestart",
+        input,
+        context,
+        auditAction: "approveServiceRestart",
+        objectType: "serviceState",
+        objectId: "service",
+        bypassServiceStopGate: true,
+        stage: () => {
+          if (
+            !canPerformCaringContactAction(context.actor, "approveServiceRestart", { teamId: context.actor.teamId }).allowed
+          ) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+          const applied = applyServiceRestartApproval(serviceState, { role: input.role, actorId: context.actor.id }, clock);
+          if (!applied.ok) return applied;
+          return { ok: true, value: { value: applied.value, commit: () => (serviceState = applied.value) } };
+        },
+      });
+    },
+
+    // ---------------------------------------------------------------------
+    // Assignment
+    // ---------------------------------------------------------------------
+
+    async getAssignment(planId: PlanId, context: ReadContext) {
+      const stored = visiblePlan(planId, context, READ_ACTIONS.plan);
+      if (!stored) return null;
+      return assignments.get(planId) ?? unassigned();
+    },
+
+    async applyAssignment(input: { planId: PlanId; action: AssignmentAction }, context: WriteContext) {
+      const permission: CaringContactAction =
+        input.action.type === "claim"
+          ? "claimPlan"
+          : input.action.type === "reassign"
+            ? "reassignPlan"
+            : "coverCoordinator";
+      return runWrite<PlanAssignment>({
+        method: "applyAssignment",
+        input,
+        context,
+        auditAction: "applyAssignment",
+        objectId: input.planId,
+        stage: () => {
+          const stored = plans.get(input.planId);
+          if (!stored || stored.plan.teamId !== context.actor.teamId) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
+          }
+          if (!canPerformCaringContactAction(context.actor, permission, { teamId: stored.plan.teamId }).allowed) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+          const current = assignments.get(input.planId) ?? unassigned();
+          const transitioned = applyAssignmentAction(current, input.action, clock);
+          if (!transitioned.ok) return transitioned;
+          return {
+            ok: true,
+            value: { value: { ...transitioned.value }, commit: () => assignments.set(input.planId, transitioned.value) },
+          };
+        },
+      });
+    },
+
+    // ---------------------------------------------------------------------
+    // Reconciliation
+    // ---------------------------------------------------------------------
+
+    async listDispatches(input: { fromIso: string; toIso: string }, context: ReadContext) {
+      if (
+        !canPerformCaringContactAction(context.actor, "reconcileProviderDispatch", { teamId: context.actor.teamId }).allowed
+      ) {
+        return [];
+      }
+      const from = new Date(input.fromIso).getTime();
+      const to = new Date(input.toIso).getTime();
+      return [...dispatches.values()]
+        .filter((record) => plans.get(record.planId)?.plan.teamId === context.actor.teamId)
+        .filter((record) => record.startedAt.getTime() >= from && record.startedAt.getTime() <= to)
+        .map((record) => ({ ...record }));
+    },
+
+    async resolveDispatchDiscrepancy(input: ResolveDiscrepancyInput, context: WriteContext) {
+      return runWrite<DispatchRecord>({
+        method: "resolveDispatchDiscrepancy",
+        input,
+        context,
+        auditAction: "resolveDispatchDiscrepancy",
+        objectType: "contact",
+        objectId: input.contactId,
+        stage: () => {
+          const key = dispatchKey(input.contactId, input.attempt);
+          const record = dispatches.get(key);
+          if (!record || plans.get(record.planId)?.plan.teamId !== context.actor.teamId) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
+          }
+          if (
+            !canPerformCaringContactAction(context.actor, "reconcileProviderDispatch", { teamId: context.actor.teamId })
+              .allowed
+          ) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+          if (record.discrepancyResolvedAt !== null) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.dispatchDiscrepancyAlreadyResolved };
+          }
+          if (input.note.trim() === "") {
+            return { ok: false, reason: REPOSITORY_REFUSALS.dispatchDiscrepancyNoteRequired };
+          }
+          // Only the resolution and its timestamp are recorded. Nothing here touches `contact` at
+          // all -- there is no re-dispatch, for any resolution including `unresolvedNoResend`.
+          const resolved: DispatchRecord = {
+            ...record,
+            discrepancyResolvedAt: clock.now(),
+            discrepancyResolution: input.resolution,
+          };
+          return { ok: true, value: { value: { ...resolved }, commit: () => dispatches.set(key, resolved) } };
+        },
+      });
+    },
+
+    // ---------------------------------------------------------------------
+    // Access trail
+    // ---------------------------------------------------------------------
+
+    async recordAccess(record: AccessRecord) {
+      // Deliberately outside runWrite: this is a best-effort append with no refusal to report (the
+      // interface returns void), no idempotency key, and no service-stop gate -- see the interface
+      // doc comment on why blocking it would be exactly the wrong thing to do mid-incident.
+      await serialise(async () => {
+        const event = buildAccessAuditEvent(record, clock);
+        await options.auditSink?.record(event);
+        auditEvents.push(event);
+      });
+    },
+
+    async listAccessTrail(input: AccessTrailQuery, context: ReadContext) {
+      if (!mayRead(context.actor, READ_ACTIONS.auditTrail, context.actor.teamId)) return [];
+      const from = input.fromIso ? new Date(input.fromIso).getTime() : null;
+      const to = input.toIso ? new Date(input.toIso).getTime() : null;
+      const filtered = auditEvents
+        .filter((event) => event.teamId === context.actor.teamId)
+        .filter((event) => (from === null ? true : new Date(event.timestamp).getTime() >= from))
+        .filter((event) => (to === null ? true : new Date(event.timestamp).getTime() <= to))
+        .filter((event) => (input.actorId === undefined ? true : event.actorId === input.actorId))
+        .filter((event) => (input.objectType === undefined ? true : event.objectType === input.objectType));
+      return filtered.slice(input.offset, input.offset + input.limit);
+    },
+
+    // ---------------------------------------------------------------------
+    // Preferences, training, retention
+    // ---------------------------------------------------------------------
+
+    async getNotificationPreferences(context: ReadContext) {
+      const key = actorScopeKey(context.actor.teamId, context.actor.id);
+      return notificationPreferences.get(key) ?? defaultNotificationPreferences(context.actor.id);
+    },
+
+    async saveNotificationPreferences(input: NotificationPreferences, context: WriteContext) {
+      return runWrite<NotificationPreferences>({
+        method: "saveNotificationPreferences",
+        input,
+        context,
+        auditAction: "saveNotificationPreferences",
+        objectType: "notificationPreferences",
+        objectId: context.actor.id,
+        stage: () => {
+          if (input.actorId !== context.actor.id) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+          if (
+            !canPerformCaringContactAction(context.actor, "manageNotificationPreferences", { teamId: context.actor.teamId })
+              .allowed
+          ) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+          const key = actorScopeKey(context.actor.teamId, context.actor.id);
+          const saved: NotificationPreferences = Object.freeze({
+            actorId: input.actorId,
+            optedIn: Object.freeze([...input.optedIn]),
+          });
+          return { ok: true, value: { value: saved, commit: () => notificationPreferences.set(key, saved) } };
+        },
+      });
+    },
+
+    async getTrainingRecord(context: ReadContext) {
+      const key = actorScopeKey(context.actor.teamId, context.actor.id);
+      return trainingRecords.get(key) ?? emptyTrainingRecord(context.actor.id);
+    },
+
+    async recordTrainingCompetency(input: { competency: TrainingCompetency }, context: WriteContext) {
+      return runWrite<TrainingRecord>({
+        method: "recordTrainingCompetency",
+        input,
+        context,
+        auditAction: "recordTrainingCompetency",
+        objectType: "trainingRecord",
+        objectId: context.actor.id,
+        stage: () => {
+          if (
+            !canPerformCaringContactAction(context.actor, "enterTrainingMode", { teamId: context.actor.teamId }).allowed
+          ) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+          const key = actorScopeKey(context.actor.teamId, context.actor.id);
+          const current = trainingRecords.get(key) ?? emptyTrainingRecord(context.actor.id);
+          const updated = recordCompetency(current, input.competency);
+          return { ok: true, value: { value: updated, commit: () => trainingRecords.set(key, updated) } };
+        },
+      });
+    },
+
+    async markRetentionCleared(input: { planId: PlanId }, context: WriteContext) {
+      return runWrite<void>({
+        method: "markRetentionCleared",
+        input,
+        context,
+        auditAction: "markRetentionCleared",
+        objectId: input.planId,
+        stage: () => {
+          const stored = plans.get(input.planId);
+          if (!stored || stored.plan.teamId !== context.actor.teamId) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
+          }
+          if (
+            !canPerformCaringContactAction(context.actor, "generateClinicalRecordSummary", { teamId: stored.plan.teamId })
+              .allowed
+          ) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+          return { ok: true, value: { value: undefined, commit: () => retentionCleared.add(input.planId) } };
+        },
+      });
     },
 
     async getPlan(planId: PlanId, context: ReadContext) {
