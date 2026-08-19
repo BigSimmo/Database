@@ -188,6 +188,23 @@ describe("Phase 3 model additions", () => {
     }
   });
 
+  it("puts a patient on 1A while awaiting examination and on 3B once examined", () => {
+    // Settled by the product owner: 1A means awaiting exam; 3B means in the department awaiting a
+    // bed. Form 3A is not used. The form therefore follows the examination, in both directions.
+    for (const movement of wardMovements) {
+      const code = movement.legalForm?.code;
+      if (code === "1A") expect(movement.examination).toBeUndefined();
+      if (code === "3B") expect(movement.examination?.outcome).toBe("inpatient_order");
+      expect(code).not.toBe("3A");
+    }
+  });
+
+  it("carries at least one patient on each of 1A and 3B", () => {
+    const codes = wardMovements.map((movement) => movement.legalForm?.code);
+    expect(codes).toContain("1A");
+    expect(codes).toContain("3B");
+  });
+
   it("keeps every new field free of anything that identifies a person", () => {
     const forbidden = /\b(name|dob|date of birth|mrn|medical record|address|diagnosis)\b/i;
     for (const movement of wardMovements.filter(isOpen)) {
@@ -247,7 +264,12 @@ In `ward-movements.ts`, give every movement `withdrawnReferrals: []`. Then, on t
 
 - at least three carry a `formedAt` between 60 and 240 minutes before their `openedAt` — community-formed patients whose examination window was already running when they arrived;
 - at least one carries `arrivalMode: "police"` and at least two `"ambulance"`;
-- at least one carries an `examination` with outcome `"inpatient_order"`;
+- **the five movements currently on `3A` become `1A`** — they are awaiting examination, and 3A is
+  not used;
+- **several movements gain an `examination` with outcome `"inpatient_order"` and move to `3B`** —
+  examined, ordered, and waiting in the department for a bed, which describes most of this board and
+  which nothing currently says. Their `dueAt` becomes the detention deadline rather than the
+  examination deadline;
 - every movement already at stage `bed_held` gains a `bedHeldUntil` between `NOW_ANCHOR - 20` and `NOW_ANCHOR + 45`, so at least one hold is already lapsed and at least one is still running.
 
 The 30 generated movements derive their values from their index, as their existing fields do. Add no free text that describes a person.
@@ -596,6 +618,9 @@ Specific rules the tests pin:
 - `ACCEPT_IN_PRINCIPLE` on a movement that already has an `acceptedUnitId` is refused with a reason containing "withdrawn". On success it appends one `withdrawnReferrals` entry per other referred unit, each reason naming the accepting unit.
 - `HOLD_BED` sets `bedHeldUntil = now + 60` and decrements the unit's `allocatable.value`. If the unit has no allocatable bed left, refuse with a reason containing `bed_held_for_earlier_referral`.
 - `PATIENT_ARRIVED` increments the receiving unit's `sexMix[movement.sex]`, decrements `empty.value`, and sets stage `arrived`.
+- `RECORD_EXAMINATION` with outcome `inpatient_order` moves the movement's `legalForm` from `1A` to
+  `3B` — awaiting examination becomes awaiting a bed — and sets the new `dueAt`. An outcome of
+  `revoked` closes the movement as did-not-proceed and clears the form.
 - `RAISE_REFERRAL` takes the next id from `referralSequence` (format `WF-9NN` so new referrals are distinguishable from fixture ids), sets `originEdId` from `edId`, `openedAt` to `now`, `owner` to the department, and `withdrawnReferrals: []`.
 - `ADVANCE_CLOCK` adds to `clockOffsetMinutes`; `RESET_SCENARIO` returns `seedWardFlowState()`.
 
@@ -714,6 +739,18 @@ describe("invariants across every reachable state", () => {
     for (const unitId of ["rph-adult-secure", "fsh-adult-secure"]) {
       if (unitId === target.acceptedUnitId) continue;
       expect(endedByDecline.has(unitId) || endedByWithdrawal.has(unitId)).toBe(true);
+    }
+  });
+
+  it("never lets the statutory form disagree with the examination", () => {
+    // 1A is awaiting exam; 3B is awaiting a bed after one. An event that records an examination
+    // must not leave a patient claiming to still be awaiting it.
+    for (const state of walk()) {
+      for (const movement of state.movements) {
+        const code = movement.legalForm?.code;
+        if (code === "1A") expect(movement.examination).toBeUndefined();
+        if (code === "3B") expect(movement.examination?.outcome).toBe("inpatient_order");
+      }
     }
   });
 

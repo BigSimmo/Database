@@ -71,6 +71,21 @@ Seven reasons, not six. In metropolitan WA this is among the commonest reasons a
 it generates more argument than any other. Without it the decline data can never show why
 placements actually fail, which is the stated purpose of recording a fixed reason at all.
 
+### The statutory form follows the examination
+
+Settled by the product owner 2026-08-19. **Only two detention-pathway forms appear: 1A and 3B.**
+
+- **Form 1A — awaiting examination.** The person has been referred and not yet examined.
+- **Form 3B — in an emergency department awaiting a bed.** The person has been examined, carries an
+  inpatient order, and is waiting for the bed.
+
+This is derivable from data the model now holds, so it is an invariant rather than an authored
+choice: **a movement on 1A has no `examination` recorded; a movement on 3B has one, with outcome
+`inpatient_order`.** A contract test pins both directions. Form 3A is not used.
+
+`4A` (transport order) and `4C` (transfer between authorised hospitals) are orthogonal — they
+concern moving a person, not detaining them — and are unaffected.
+
 ### The fixture
 
 All 48 movements need the new fields populated coherently — the 18 hand-authored ones deliberately,
@@ -390,10 +405,8 @@ be declared in `docs/design-system/adoption-contract.json` followed by
 
 ## 18. Open questions for the product owner
 
-Neither blocks planning; both get baked in during this phase.
+Answered 2026-08-19: the statutory form question is settled above. One remains.
 
-- **Form 3A or 3B.** All five detention forms in the fixture were set to `3A`. The spec and the
-  context document both list `3A/3B`, and the distinction is clinical.
 - **A voluntary patient on a locked ward.** The security gate currently treats an open-security
   patient offered a secure ward as more restrictive than required. A _voluntary_ patient on a
   locked ward is the sharper case — if they cannot leave, the door is doing what an order should.
