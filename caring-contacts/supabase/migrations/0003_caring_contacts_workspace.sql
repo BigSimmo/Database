@@ -18,6 +18,16 @@
 --     `reported_by_team_id` -- attribution, never a scoping key. The name is deliberately not
 --     `team_id` so the old mistake cannot be made by reading the column list.
 --
+--   * EVERY INCIDENT GETS ITS OWN IMMUTABLE ROW. `service_stops` holds one row per incident and
+--     `service_state` is a singleton pointing at the current one. That is what lets
+--     `service_restart_approvals.stop_id` be a REAL foreign key: a key onto the singleton's own
+--     `stop_id` could not be, because that column is cleared on restart and replaced by the next
+--     incident's, so the key would either refuse the second incident outright or -- with ON UPDATE
+--     CASCADE -- silently rewrite the first incident's three approvals onto the new stop and
+--     present a brand-new live incident as already three-person approved. Immutable incident rows
+--     move that guarantee out of "the store must remember a WHERE clause" and into "the schema
+--     cannot express the wrong thing".
+--
 --   * RESTART APPROVALS ARE KEYED ON THE STOP, NEVER ON THE TEAM. Three roles held by three
 --     different people must approve a restart. Keyed on the team, the approvals recorded for a
 --     first incident would permanently bar their approvers from approving any later one, so a
@@ -71,6 +81,35 @@ $$;
 -- The service-wide safety stop
 -- ---------------------------------------------------------------------------
 
+-- One row per incident, written when the stop is recorded and never rewritten afterwards.
+-- `restarted_at` is the ONLY field that changes after insert; everything else is the record of
+-- what a responder found and when, and the restart approvals hang off `stop_id` by foreign key.
+--
+-- TO WHOEVER WRITES THE POSTGRES STORE: there is no stopId anywhere in the domain. Neither
+-- `ServiceState` nor `stopService({ reason, note })` in src/lib/caring-contacts/service-state.ts
+-- mentions one, so THE STORE MUST MINT THE UUID ITSELF on every stop and carry it into both this
+-- table and `service_state.stop_id`. If it does not, `service_state_stop_is_identified` below
+-- turns a safety stop into a refused write -- the one write in this system that must never fail.
+create table if not exists caring_contacts.service_stops (
+  stop_id uuid primary key,
+  -- The five categorised reasons, copied verbatim from `ServiceStopReason` in
+  -- src/lib/caring-contacts/service-state.ts.
+  reason text not null,
+  -- Free text written by a responder mid-incident. Treat it as patient data.
+  note text,
+  stopped_by text not null,
+  stopped_at timestamptz not null default now(),
+  -- Attribution only. It does NOT scope the stop: a stop halts sending for every team.
+  reported_by_team_id text references caring_contacts.teams (id),
+  restarted_at timestamptz,
+  constraint service_stops_reason_is_known check (
+    reason in (
+      'wrong-recipient', 'duplicate-send', 'unauthorised-content',
+      'privacy-or-security-incident', 'audit-integrity-loss'
+    )
+  )
+);
+
 -- Convert the per-team table into a singleton. Guarded on the old column so a replay, where the
 -- rename has already happened, is a no-op.
 do $$
@@ -116,6 +155,12 @@ select caring_contacts.add_constraint_if_absent(
     )
   )$def$
 );
+-- The singleton names the CURRENT incident, or null while the service is running.
+select caring_contacts.add_constraint_if_absent(
+  'service_state',
+  'service_state_stop_fk',
+  'foreign key (stop_id) references caring_contacts.service_stops (stop_id)'
+);
 -- Stopping must never be blocked, so this asks only for what the responder already has in hand:
 -- the reason they are stopping and the identifier the restart approvals will be keyed to. It
 -- cannot refuse a genuine stop, and without it a stop could exist that no approval could name.
@@ -125,12 +170,11 @@ select caring_contacts.add_constraint_if_absent(
   'check (stopped = false or (stop_id is not null and stopped_reason is not null))'
 );
 
--- The restart approvals. `stop_id` is deliberately NOT a foreign key to service_state.stop_id:
--- the singleton row's stop_id is cleared on restart and replaced by the next incident's, so a
--- foreign key would either refuse the second incident outright or -- with ON UPDATE CASCADE --
--- silently rewrite the first incident's three approvals onto the new stop, presenting a fresh
--- incident as already approved by three people. The uniques below are what enforce the rule, and
--- the historical rows stay exactly as they were recorded.
+-- The restart approvals. `stop_id` points at the immutable INCIDENT row above, never at the
+-- singleton's own `stop_id` -- see the header note. An approval therefore names one specific
+-- incident permanently, an approval for an incident nobody recorded is refused outright, and the
+-- rows from a closed incident stay exactly as they were recorded without ever being reachable
+-- from the next one.
 create table if not exists caring_contacts.service_restart_approvals (
   id bigint generated always as identity primary key,
   stop_id uuid not null,
@@ -143,8 +187,11 @@ create table if not exists caring_contacts.service_restart_approvals (
   constraint service_restart_approvals_role_is_known check (
     role in ('incidentLead', 'privacySecurityOwner', 'clinicalProgrammeLead')
   ),
-  -- One approval per role, and one approval per person, PER STOP. Together they are what makes a
-  -- single-person restart impossible in the database rather than only in TypeScript.
+  -- Together the two uniques below are what makes a single-person restart impossible in the
+  -- database rather than only in TypeScript.
+  constraint service_restart_approvals_stop_fk
+    foreign key (stop_id) references caring_contacts.service_stops (stop_id),
+  -- One approval per role, and one approval per person, PER INCIDENT.
   constraint service_restart_approvals_unique_stop_role unique (stop_id, role),
   constraint service_restart_approvals_unique_stop_actor unique (stop_id, actor_id)
 );
@@ -187,6 +234,13 @@ select caring_contacts.add_constraint_if_absent(
 -- attaches without a join, and `author_id` is denormalised so the no-self-approval rule can be a
 -- CHECK. Both are kept honest by the composite foreign key: they must be the parent's own team
 -- and the parent's own author, not whatever the writer felt like claiming.
+--
+-- ONE TRAP, stated rather than left to be discovered: `pathway_versions.author_id` is nullable
+-- while this column is not, so a version with NO author can never have an approval recorded
+-- against it, and the refusal names the composite foreign key rather than the missing author.
+-- That is arguably the right behaviour -- an unauthored version has nothing to approve -- and the
+-- domain type `PathwayVersion.authorId` is non-optional, so it should not arise in practice. It
+-- is a consequence of the parent column's nullability, not a decision taken here.
 create table if not exists caring_contacts.pathway_version_approvals (
   id bigint generated always as identity primary key,
   pathway_version_id text not null,
@@ -212,6 +266,9 @@ create table if not exists caring_contacts.pathway_version_approvals (
 -- ---------------------------------------------------------------------------
 -- Plans: the two links that were bare text until now (Phase 1 open item 2)
 -- ---------------------------------------------------------------------------
+-- Referencable target for the assignment tables below, redundant given the primary key on `id`.
+select caring_contacts.add_constraint_if_absent('plans', 'plans_id_team_key', 'unique (id, team_id)');
+
 select caring_contacts.add_constraint_if_absent(
   'plans',
   'plans_referral_fk',
@@ -226,8 +283,14 @@ select caring_contacts.add_constraint_if_absent(
 -- ---------------------------------------------------------------------------
 -- Assignment and cover
 -- ---------------------------------------------------------------------------
+-- `plan_id` is joined to the plan by a COMPOSITE key for the same reason `plans` is joined to its
+-- referral by one. A bare `plan_id references plans (id)` would accept a row written by TEAM-SOUTH
+-- against TEAM-NORTH's plan while claiming `team_id = 'TEAM-SOUTH'`: foreign-key checks bypass
+-- row-level security, and the policy's WITH CHECK validates only the team the writer CLAIMED, not
+-- the team that owns the plan. The row would then be visible to the wrong team and invisible to
+-- the right one, which misplaces the assignment's entire scope.
 create table if not exists caring_contacts.plan_assignments (
-  plan_id text primary key references caring_contacts.plans (id) on delete cascade,
+  plan_id text primary key,
   team_id text not null references caring_contacts.teams (id),
   owner_id text,
   claimed_at timestamptz,
@@ -236,6 +299,8 @@ create table if not exists caring_contacts.plan_assignments (
   -- working day to UTC and move somebody's cover by eight hours.
   coverage_from text,
   coverage_until text,
+  constraint plan_assignments_plan_fk
+    foreign key (plan_id, team_id) references caring_contacts.plans (id, team_id) on delete cascade,
   constraint plan_assignments_coverage_is_calendar_days check (
     (coverage_from is null or coverage_from ~ '^\d{4}-\d{2}-\d{2}$')
     and (coverage_until is null or coverage_until ~ '^\d{4}-\d{2}-\d{2}$')
@@ -244,13 +309,16 @@ create table if not exists caring_contacts.plan_assignments (
 
 create table if not exists caring_contacts.plan_reassignments (
   id bigint generated always as identity primary key,
-  plan_id text not null references caring_contacts.plans (id) on delete cascade,
+  plan_id text not null,
   team_id text not null references caring_contacts.teams (id),
   from_actor_id text,
   to_actor_id text,
   -- A handover with no stated reason is not a handover anybody can review later.
   reason text not null,
-  at timestamptz not null default now()
+  at timestamptz not null default now(),
+  -- Composite for the same reason as plan_assignments_plan_fk above.
+  constraint plan_reassignments_plan_fk
+    foreign key (plan_id, team_id) references caring_contacts.plans (id, team_id) on delete cascade
 );
 
 create index if not exists plan_reassignments_plan_id_idx on caring_contacts.plan_reassignments (plan_id);
@@ -330,7 +398,7 @@ begin
 end
 $$;
 
--- The two service-wide tables, and the ONE deliberate exception to the team-scope rule.
+-- The three service-wide tables, and the ONE deliberate exception to the team-scope rule.
 --
 -- 0002 says every policy compares the row's team against `caring_contacts.current_team_id()`.
 -- These two do not, and that is the point: a team-scoped policy on a service-wide stop IS the
@@ -347,7 +415,7 @@ do $$
 declare
   service_wide_table text;
 begin
-  foreach service_wide_table in array array['service_state', 'service_restart_approvals']
+  foreach service_wide_table in array array['service_stops', 'service_state', 'service_restart_approvals']
   loop
     execute format('alter table caring_contacts.%I enable row level security', service_wide_table);
     execute format('alter table caring_contacts.%I force row level security', service_wide_table);
@@ -382,9 +450,15 @@ $$;
 -- 0001 runs before these tables exist, so the list there would name relations that are not yet
 -- created on a first apply.
 -- ---------------------------------------------------------------------------
+-- `service_stops` and `service_state` are included even though `service_state` is not new. As
+-- first built, restarting the service was forced to write an audit event and STOPPING it was not,
+-- which is the asymmetry backwards: raising the service-wide safety stop is the most
+-- audit-worthy mutation in the system. 0001's "stopping must never be blocked" is not a
+-- counter-argument -- every write goes through the store's audited transaction anyway, and an
+-- `audit-integrity-loss` stop exists precisely to preserve that trail.
 select caring_contacts.attach_audit_guard(array[
-  'service_restart_approvals', 'pathway_version_approvals', 'plan_assignments',
-  'plan_reassignments', 'notification_preferences', 'training_records'
+  'service_stops', 'service_state', 'service_restart_approvals', 'pathway_version_approvals',
+  'plan_assignments', 'plan_reassignments', 'notification_preferences', 'training_records'
 ]);
 
 drop function if exists caring_contacts.add_constraint_if_absent(text, text, text);

@@ -47,6 +47,10 @@ const PATIENT_BEARING_TABLES: readonly string[] = Object.freeze([
   "plan_assignments",
   "plan_reassignments",
   "pathway_version_approvals",
+  // Per-actor rather than per-patient, but their row-level security is load-bearing in exactly
+  // the same way: a preference or training record leaking across teams still names a person.
+  "notification_preferences",
+  "training_records",
 ]);
 
 let pool: Pool;
@@ -103,6 +107,7 @@ describe("caring-contact migrations", () => {
       "service_state",
       "retention_state",
       "cultural_identity_reports",
+      "service_stops",
       "pathway_version_approvals",
       "plan_assignments",
       "plan_reassignments",
@@ -377,20 +382,31 @@ describe("the workspace schema", () => {
     });
   }
 
-  /** Records a stop against the singleton row, upserting because there is only ever one row. */
-  async function recordStop(teamId: string, stopId: string): Promise<void> {
+  /**
+   * Records a stop: one immutable `service_stops` row for the incident, then the singleton
+   * pointed at it. The singleton is upserted because there is only ever one row.
+   */
+  async function recordStop(teamId: string, stopId: string, audited = true): Promise<void> {
     await registerTeam(teamId);
     await runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
-      await insertAuditEvent(client, {
-        teamId,
-        actorId: "ACTOR-RESPONDER",
-        actorRoles: ["teamLead"],
-        action: "stopService",
-        objectType: "service",
-        objectId: stopId,
-        outcome: "allowed",
-        idempotencyKey: `stop-${stopId}`,
-      });
+      if (audited) {
+        await insertAuditEvent(client, {
+          teamId,
+          actorId: "ACTOR-RESPONDER",
+          actorRoles: ["teamLead"],
+          action: "stopService",
+          objectType: "service",
+          objectId: stopId,
+          outcome: "allowed",
+          idempotencyKey: `stop-${stopId}`,
+        });
+      }
+      await client.query(
+        `insert into caring_contacts.service_stops
+           (stop_id, reason, note, stopped_by, stopped_at, reported_by_team_id)
+         values ($1, 'wrong-recipient', 'A message reached the wrong number.', 'ACTOR-RESPONDER', now(), $2)`,
+        [stopId, teamId],
+      );
       await client.query(
         `insert into caring_contacts.service_state
            (stopped, stopped_by, stopped_at, reported_by_team_id, stop_id, stopped_reason, stop_note, updated_at)
@@ -409,7 +425,7 @@ describe("the workspace schema", () => {
     });
   }
 
-  async function restartService(teamId: string): Promise<void> {
+  async function restartService(teamId: string, stopId: string): Promise<void> {
     await runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
       await insertAuditEvent(client, {
         teamId,
@@ -417,7 +433,7 @@ describe("the workspace schema", () => {
         actorRoles: ["teamLead"],
         action: "restartService",
         objectType: "service",
-        objectId: "service",
+        objectId: stopId,
         outcome: "allowed",
         idempotencyKey: "restart-service",
       });
@@ -425,6 +441,8 @@ describe("the workspace schema", () => {
         `update caring_contacts.service_state
          set stopped = false, stop_id = null, stopped_reason = null, stop_note = null, updated_at = now()`,
       );
+      // `restarted_at` is the ONLY field of a recorded incident that ever changes.
+      await client.query("update caring_contacts.service_stops set restarted_at = now() where stop_id = $1", [stopId]);
     });
   }
 
@@ -496,6 +514,94 @@ describe("the workspace schema", () => {
            (plan_id, team_id, owner_id, claimed_at, coverage_from, coverage_until)
          values ($1, $2, $3, now(), '2026-03-02', '2026-03-09')`,
         [planId, teamId, ownerId],
+      );
+    });
+  }
+
+  async function recordReassignment(teamId: string, planId: string, actorId: string): Promise<void> {
+    await runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
+      await insertAuditEvent(client, {
+        teamId,
+        actorId,
+        actorRoles: ["teamLead"],
+        action: "reassignPlan",
+        objectType: "plan",
+        objectId: planId,
+        outcome: "allowed",
+        idempotencyKey: `reassign-${planId}-${actorId}`,
+      });
+      await client.query(
+        `insert into caring_contacts.plan_reassignments
+           (plan_id, team_id, from_actor_id, to_actor_id, reason, at)
+         values ($1, $2, 'ACTOR-PREVIOUS', $3, 'Cover while the previous owner is on leave.', now())`,
+        [planId, teamId, actorId],
+      );
+    });
+  }
+
+  async function approvePathwayVersion(
+    teamId: string,
+    pathwayVersionId: string,
+    role: string,
+    actorId: string,
+    authorId: string,
+  ): Promise<void> {
+    await runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
+      await insertAuditEvent(client, {
+        teamId,
+        actorId,
+        actorRoles: ["teamLead"],
+        action: "approvePathwayVersion",
+        objectType: "pathwayVersion",
+        objectId: pathwayVersionId,
+        outcome: "allowed",
+        idempotencyKey: `approve-${pathwayVersionId}-${role}-${actorId}`,
+      });
+      await client.query(
+        `insert into caring_contacts.pathway_version_approvals
+           (pathway_version_id, team_id, author_id, role, actor_id, approved_at)
+         values ($1, $2, $3, $4, $5, now())`,
+        [pathwayVersionId, teamId, authorId, role, actorId],
+      );
+    });
+  }
+
+  async function setNotificationPreference(teamId: string, actorId: string): Promise<void> {
+    await runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
+      await insertAuditEvent(client, {
+        teamId,
+        actorId,
+        actorRoles: ["coordinator"],
+        action: "setNotificationPreferences",
+        objectType: "actor",
+        objectId: actorId,
+        outcome: "allowed",
+        idempotencyKey: `prefs-${actorId}`,
+      });
+      await client.query(
+        `insert into caring_contacts.notification_preferences (actor_id, team_id, opted_in)
+         values ($1, $2, array['dailyDigest'])`,
+        [actorId, teamId],
+      );
+    });
+  }
+
+  async function setTrainingRecord(teamId: string, actorId: string): Promise<void> {
+    await runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
+      await insertAuditEvent(client, {
+        teamId,
+        actorId,
+        actorRoles: ["coordinator"],
+        action: "recordTrainingCompletion",
+        objectType: "actor",
+        objectId: actorId,
+        outcome: "allowed",
+        idempotencyKey: `training-${actorId}`,
+      });
+      await client.query(
+        `insert into caring_contacts.training_records (actor_id, team_id, completed)
+         values ($1, $2, array['caringContactsInduction'])`,
+        [actorId, teamId],
       );
     });
   }
@@ -600,7 +706,7 @@ describe("the workspace schema", () => {
       for (const approver of RESTART_APPROVERS) {
         await approveRestart(TEAM_NORTH, STOP_ONE, approver.role, approver.actorId);
       }
-      await restartService(TEAM_NORTH);
+      await restartService(TEAM_NORTH, STOP_ONE);
 
       await recordStop(TEAM_NORTH, STOP_TWO);
       for (const approver of RESTART_APPROVERS) {
@@ -729,6 +835,211 @@ describe("the workspace schema", () => {
         { column_name: "coverage_from", data_type: "text" },
         { column_name: "coverage_until", data_type: "text" },
       ]);
+    });
+  });
+
+  describe("a stop is an immutable incident row, so an earlier incident's approvals cannot be reused", () => {
+    it("gives a NEW stop zero approvals of its own", async () => {
+      // The hazard this guards: after a restart the first incident's three approval rows survive,
+      // by design, as the record of what happened. Nothing may let them be counted toward the
+      // NEXT incident — a store reading approvals without filtering on the current stop would
+      // present a brand-new live incident as already three-person approved, which is a
+      // zero-approval restart of exactly the failure the three-person rule exists to prevent.
+      await recordStop(TEAM_NORTH, STOP_ONE);
+      for (const approver of RESTART_APPROVERS) {
+        await approveRestart(TEAM_NORTH, STOP_ONE, approver.role, approver.actorId);
+      }
+      await restartService(TEAM_NORTH, STOP_ONE);
+      await recordStop(TEAM_NORTH, STOP_TWO);
+
+      const rows = await runInTeamSession(pool, { teamId: TEAM_NORTH }, async (client) => {
+        const result = await client.query<{ count: string }>(
+          `select count(*)::text as count
+           from caring_contacts.service_restart_approvals a
+           join caring_contacts.service_state s on s.stop_id = a.stop_id`,
+        );
+        return result.rows;
+      });
+
+      expect(Number(rows[0].count)).toBe(0);
+
+      // …while the first incident's record is untouched, because it is what happened.
+      const { rows: history } = await pool.query<{ count: string }>(
+        "select count(*)::text as count from caring_contacts.service_restart_approvals where stop_id = $1",
+        [STOP_ONE],
+      );
+      expect(Number(history[0].count)).toBe(3);
+    });
+
+    it("refuses an approval that names a stop that was never recorded", async () => {
+      await recordStop(TEAM_NORTH, STOP_ONE);
+
+      await expect(
+        approveRestart(TEAM_NORTH, "33333333-3333-4333-8333-333333333333", "incidentLead", "ACTOR-X"),
+      ).rejects.toThrow(/service_restart_approvals_stop_fk/);
+    });
+
+    it("keeps the closed incident readable after the restart", async () => {
+      await recordStop(TEAM_NORTH, STOP_ONE);
+      await restartService(TEAM_NORTH, STOP_ONE);
+
+      const rows = await runInTeamSession(pool, { teamId: TEAM_SOUTH }, async (client) => {
+        const result = await client.query<{ stop_id: string; restarted_at: string | null }>(
+          "select stop_id, restarted_at from caring_contacts.service_stops",
+        );
+        return result.rows;
+      });
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0].stop_id).toBe(STOP_ONE);
+      expect(rows[0].restarted_at).not.toBeNull();
+    });
+  });
+
+  describe("stopping the service is audited like every other change", () => {
+    it("REFUSES a stop written with no audit event in the same transaction", async () => {
+      await expect(recordStop(TEAM_NORTH, STOP_ONE, false)).rejects.toThrow(/caring-contacts-audit-required/);
+
+      const { rows } = await pool.query<{ count: string }>(
+        "select count(*)::text as count from caring_contacts.service_stops",
+      );
+      expect(Number(rows[0].count)).toBe(0);
+    });
+  });
+
+  describe("assignment records cannot be attached to another team's plan", () => {
+    beforeEach(async () => {
+      await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-N", patientId: "PATIENT-N" });
+      await registerTeam(TEAM_SOUTH);
+    });
+
+    it("refuses an assignment TEAM-SOUTH writes for TEAM-NORTH's plan", async () => {
+      // A bare `plan_id references plans (id)` would accept this: foreign-key checks bypass
+      // row-level security, and the policy's WITH CHECK only validates the team the writer
+      // CLAIMED. The row would then be visible to TEAM-SOUTH and invisible to TEAM-NORTH, which
+      // misplaces the assignment's whole scope. The key is composite so it cannot be claimed.
+      await expect(claimAssignment(TEAM_SOUTH, "PLAN-N", "ACTOR-SOUTH")).rejects.toThrow(/plan_assignments_plan_fk/);
+    });
+
+    it("refuses a reassignment record TEAM-SOUTH writes for TEAM-NORTH's plan", async () => {
+      await expect(recordReassignment(TEAM_SOUTH, "PLAN-N", "ACTOR-SOUTH")).rejects.toThrow(
+        /plan_reassignments_plan_fk/,
+      );
+    });
+
+    it("accepts both records from the team that owns the plan", async () => {
+      await expect(claimAssignment(TEAM_NORTH, "PLAN-N", "ACTOR-NORTH")).resolves.toBeUndefined();
+      await expect(recordReassignment(TEAM_NORTH, "PLAN-N", "ACTOR-NORTH")).resolves.toBeUndefined();
+    });
+  });
+
+  describe("pathway version approvals", () => {
+    // seedPlan creates `PLAN-N-PATHWAY` in TEAM-NORTH, authored by SEED-AUTHOR.
+    const PATHWAY = "PLAN-N-PATHWAY";
+
+    beforeEach(async () => {
+      await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-N", patientId: "PATIENT-N" });
+    });
+
+    it("records an approval by somebody other than the author", async () => {
+      await expect(
+        approvePathwayVersion(TEAM_NORTH, PATHWAY, "clinicalProgrammeLead", "ACTOR-CLINICAL", "SEED-AUTHOR"),
+      ).resolves.toBeUndefined();
+    });
+
+    it("refuses the author approving the content they wrote", async () => {
+      // The same rule the parent row carries: no single actor may both author and approve the
+      // same clinical message content.
+      await expect(
+        approvePathwayVersion(TEAM_NORTH, PATHWAY, "clinicalProgrammeLead", "SEED-AUTHOR", "SEED-AUTHOR"),
+      ).rejects.toThrow(/pathway_version_approvals_no_self_approval/);
+    });
+
+    it("refuses a second approval in the same role", async () => {
+      await approvePathwayVersion(TEAM_NORTH, PATHWAY, "clinicalProgrammeLead", "ACTOR-CLINICAL", "SEED-AUTHOR");
+
+      await expect(
+        approvePathwayVersion(TEAM_NORTH, PATHWAY, "clinicalProgrammeLead", "ACTOR-OTHER", "SEED-AUTHOR"),
+      ).rejects.toThrow(/pathway_version_approvals_unique_version_role/);
+    });
+
+    it("refuses one person supplying both approvals by changing role", async () => {
+      await approvePathwayVersion(TEAM_NORTH, PATHWAY, "clinicalProgrammeLead", "ACTOR-CLINICAL", "SEED-AUTHOR");
+
+      await expect(
+        approvePathwayVersion(TEAM_NORTH, PATHWAY, "livedExperienceRepresentative", "ACTOR-CLINICAL", "SEED-AUTHOR"),
+      ).rejects.toThrow(/pathway_version_approvals_unique_version_actor/);
+    });
+
+    it("refuses a role the domain does not define", async () => {
+      await expect(
+        approvePathwayVersion(TEAM_NORTH, PATHWAY, "chiefExecutive", "ACTOR-CLINICAL", "SEED-AUTHOR"),
+      ).rejects.toThrow(/pathway_version_approvals_role_is_known/);
+    });
+
+    it("refuses an approval that reaches across teams for its pathway version", async () => {
+      // The `team_id` half of the same composite key. Ruling 21 denormalises the team onto this
+      // row so the standard policy attaches without a join; the key is what stops a writer
+      // claiming a team the version does not belong to and relocating the row's whole scope.
+      await registerTeam(TEAM_SOUTH);
+
+      await expect(
+        approvePathwayVersion(TEAM_SOUTH, PATHWAY, "clinicalProgrammeLead", "ACTOR-SOUTH", "SEED-AUTHOR"),
+      ).rejects.toThrow(/pathway_version_approvals_version_fk/);
+    });
+
+    it("refuses an approval that misstates the author it is exempt from", async () => {
+      // `author_id` is denormalised so the no-self-approval rule can be a CHECK. The composite
+      // foreign key is what stops a writer simply naming a different author to escape it.
+      await expect(
+        approvePathwayVersion(TEAM_NORTH, PATHWAY, "clinicalProgrammeLead", "SEED-AUTHOR", "SOMEBODY-ELSE"),
+      ).rejects.toThrow(/pathway_version_approvals_version_fk/);
+    });
+  });
+
+  describe("per-person workspace settings are team-scoped like everything else", () => {
+    beforeEach(async () => {
+      await registerTeam(TEAM_NORTH);
+      await registerTeam(TEAM_SOUTH);
+    });
+
+    it("shows a team its own notification preferences and none of another team's", async () => {
+      await setNotificationPreference(TEAM_NORTH, "ACTOR-NORTH");
+
+      const mine = await runInTeamSession(
+        pool,
+        { teamId: TEAM_NORTH },
+        async (client) =>
+          (await client.query<{ actor_id: string }>("select actor_id from caring_contacts.notification_preferences"))
+            .rows,
+      );
+      const theirs = await runInTeamSession(
+        pool,
+        { teamId: TEAM_SOUTH },
+        async (client) => (await client.query("select actor_id from caring_contacts.notification_preferences")).rows,
+      );
+
+      expect(mine.map((row) => row.actor_id)).toEqual(["ACTOR-NORTH"]);
+      expect(theirs).toEqual([]);
+    });
+
+    it("shows a team its own training records and none of another team's", async () => {
+      await setTrainingRecord(TEAM_NORTH, "ACTOR-NORTH");
+
+      const mine = await runInTeamSession(
+        pool,
+        { teamId: TEAM_NORTH },
+        async (client) =>
+          (await client.query<{ actor_id: string }>("select actor_id from caring_contacts.training_records")).rows,
+      );
+      const theirs = await runInTeamSession(
+        pool,
+        { teamId: TEAM_SOUTH },
+        async (client) => (await client.query("select actor_id from caring_contacts.training_records")).rows,
+      );
+
+      expect(mine.map((row) => row.actor_id)).toEqual(["ACTOR-NORTH"]);
+      expect(theirs).toEqual([]);
     });
   });
 });

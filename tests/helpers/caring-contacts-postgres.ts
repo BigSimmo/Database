@@ -108,6 +108,7 @@ export const CARING_CONTACTS_DATA_TABLES: readonly string[] = Object.freeze([
   // resulting cascade of failures would read as a schema fault rather than as leaked state.
   "caring_contacts.service_restart_approvals",
   "caring_contacts.service_state",
+  "caring_contacts.service_stops",
   "caring_contacts.actors",
   "caring_contacts.teams",
 ]);
