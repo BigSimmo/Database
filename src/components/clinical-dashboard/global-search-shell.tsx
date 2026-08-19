@@ -420,7 +420,9 @@ function GlobalStandaloneSearchShellBody({
   const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
   const differentialsCompareAddonActive =
     searchMode === "differentials" &&
-    (pathname === "/differentials/diagnoses" || (pathname === "/differentials" && hasSubmittedModeSearch));
+    // `/differentials` is absent on purpose: it redirects to the shared home, so a
+    // branch naming it can never be true and would only read as live ownership.
+    (pathname === "/differentials/diagnoses" || pathname === "/differentials/search");
   // No shell-owned route claims the Patient details dock addon. `/medications`
   // is a standalone mode home (composer in the hero, no dock to portal into),
   // and `/medications/[slug]` already opens the same sheet from its own nav

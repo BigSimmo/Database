@@ -21,7 +21,14 @@ export type InformationPageMode =
   | "dsm"
   | "documents";
 
-const TOOL_SUFFIXES = new Set(["builder", "compare", "map"]);
+// Reserved route suffixes, not record slugs. `search` is here because home
+// consolidation gave every consolidated mode a `<mode>/search` results route:
+// without it, `/formulation/search` reads as the record `search`, the route is
+// classified as an information page, and information pages suppress the
+// composer — so a submitted search rendered its results with no way to refine
+// them. `/factsheets` and `/dictionary` had already hand-excluded "search" for
+// the same reason, which is the signal this belonged in the shared set.
+const TOOL_SUFFIXES = new Set(["builder", "compare", "map", "search"]);
 
 /**
  * `/services/some-slug`, but not `/services`, a tool suffix, or a deeper path.
