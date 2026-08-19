@@ -5,6 +5,13 @@ import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
+import {
+  AUTOMATED_REPLY_RESPONSE,
+  EXACT_MESSAGE_GSM7,
+  EXACT_PATIENT_VISIBLE_MESSAGE,
+  PATIENT_VISIBLE_NO_REPLY_NOTICE,
+} from "@/lib/caring-contacts/message-copy";
+import { calculateGsm7, type Gsm7Evidence } from "@/lib/caring-contacts/message-policy";
 
 import {
   ROWAN_SELECTED_SENDING_PREFERENCE,
@@ -13,53 +20,16 @@ import {
   syntheticTemplates,
 } from "./fixtures";
 import { DefinitionRow, OperationalStatus } from "./prototype-primitives";
-import { FICTIONAL_CONTACTS_BY_ROLE, type SyntheticPathway, type SyntheticTemplate } from "./types";
+import type { SyntheticPathway, SyntheticTemplate } from "./types";
 
-// PROVISIONAL — not clinically approved. Corrected 2026-08-19 under production-build spec §2.1, which
-// replaced the non-receiving sender with a receiving-capable number that auto-responds and discards.
-// The previous wording ("Replies are not received, stored, analysed or monitored") became untrue the
-// moment the number could receive: replies ARE received, then discarded unread. Stating something false
-// about a safety boundary is the failure this programme can least afford, so the claim now describes only
-// what remains true — that nobody reads them. Final wording is a clinical decision owned by the
-// lived-experience and clinical-programme approval gate (docs/caring-contacts/message-review-pack.md §1).
-export const PATIENT_VISIBLE_NO_REPLY_NOTICE = "No one reads replies to this number";
-
-export const EXACT_PATIENT_VISIBLE_MESSAGE = `Hi Rowan, Alex from Example Aftercare Team is thinking of you. This is a one-way message. ${PATIENT_VISIBLE_NO_REPLY_NOTICE}. For timing changes call ${FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine}, 9 am-6 pm. In an emergency call 000. Fictional Support Line: ${FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact}. - Alex`;
-
-// PROVISIONAL — not clinically approved. Required by production-build spec §2.1: the automated response
-// sent to anyone who replies. It must name where a person IS available, immediately after saying that
-// nobody reads this channel, so that reaching out is answered rather than met with silence. Content is
-// discarded after this response is sent; nothing is stored, counted per patient, or shown to staff.
-export const AUTOMATED_REPLY_RESPONSE = `This number is not read. Your message has not been seen by anyone and has not been kept. To talk to someone, call ${FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine}, 9 am-6 pm every day. In an emergency call 000. Fictional Support Line: ${FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact}.`;
-
-const GSM_7_BASIC_CHARACTERS = new Set(
-  "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà",
-);
-const GSM_7_EXTENSION_CHARACTERS = new Set("\f^{}\\[~]|€");
-
-export type Gsm7Evidence = {
-  valid: boolean;
-  septets: number;
-  segments: number;
-  invalidCharacters: string[];
+export {
+  calculateGsm7,
+  type Gsm7Evidence,
+  AUTOMATED_REPLY_RESPONSE,
+  EXACT_MESSAGE_GSM7,
+  EXACT_PATIENT_VISIBLE_MESSAGE,
+  PATIENT_VISIBLE_NO_REPLY_NOTICE,
 };
-
-export function calculateGsm7(value: string): Gsm7Evidence {
-  let septets = 0;
-  const invalidCharacters: string[] = [];
-
-  for (const character of value) {
-    if (GSM_7_BASIC_CHARACTERS.has(character)) septets += 1;
-    else if (GSM_7_EXTENSION_CHARACTERS.has(character)) septets += 2;
-    else if (!invalidCharacters.includes(character)) invalidCharacters.push(character);
-  }
-
-  if (invalidCharacters.length > 0) return { valid: false, septets, segments: 0, invalidCharacters };
-  const segments = septets === 0 ? 0 : septets <= 160 ? 1 : Math.ceil(septets / 153);
-  return { valid: true, septets, segments, invalidCharacters };
-}
-
-export const EXACT_MESSAGE_GSM7 = calculateGsm7(EXACT_PATIENT_VISIBLE_MESSAGE);
 
 export type ActivationGovernanceState = {
   pathway: SyntheticPathway;
