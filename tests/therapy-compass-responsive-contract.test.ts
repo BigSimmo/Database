@@ -30,16 +30,23 @@ const otherSource = read(`${therapyPath}/screens/other-screen.tsx`);
  * A fixed multi-column grid must collapse to a single column on phones via
  * Tailwind's mobile-first `grid-cols-1` + `sm:grid-cols-*`.
  *
- * Both className spellings count. This used to read only `className="…"`, so a
- * grid written as `className={`${cardSurface} grid-cols-1 sm:grid-cols-…`}` was
- * invisible to the check — not failing it, simply never counted. Adopting the
- * shared `cardSurface` recipe moved several of these grids to the template form
- * and exposed the hole: the compare grid still stacked on phones exactly as
- * before, and the count silently fell to zero. Matching both forms is the
- * stronger condition, because it measures the reflow rather than the quoting.
+ * All three className spellings count. This used to read only `className="…"`,
+ * so a grid written as `className={`${cardSurface} grid-cols-1 sm:grid-cols-…`}`
+ * was invisible to the check — not failing it, simply never counted. Adopting
+ * the shared `cardSurface` recipe moved several of these grids to the template
+ * form and exposed the hole: the compare grid still stacked on phones exactly
+ * as before, and the count silently fell to zero. The same hole reopened when
+ * `${cardSurface} …` template literals were replaced by `cn(cardSurface, "…")`
+ * calls — the class list moved into a second string argument the old pattern
+ * never looked inside. Matching all three forms is the stronger condition,
+ * because it measures the reflow rather than the authoring style.
  */
 function responsiveStackCount(source: string) {
-  return source.match(/className=(?:"|\{`)[^"`]*\bgrid-cols-1\b[^"`]*\bsm:grid-cols-/g)?.length ?? 0;
+  return (
+    source
+      .match(/className=(?:"[^"]*"|\{`[^`]*`\}|\{cn\([\s\S]*?\)\})/g)
+      ?.filter((block) => /\bgrid-cols-1\b/.test(block) && /\bsm:grid-cols-/.test(block)).length ?? 0
+  );
 }
 
 function openingTagWith(source: string, tagName: string, attributes: string[]) {

@@ -1431,10 +1431,12 @@ describe("SearchResultsEmptyState", () => {
     // owns that role on every search route, and a second one made singular
     // `getByRole("status")` queries across the suite ambiguous.
     expect(screen.getByText("No matches for “unmatched therapy”")).toBeVisible();
-    // `searchCommandSurfaceByMode` is a `Partial<Record<…>>` with no
-    // therapy-compass entry, so this mode has neither an example nor a
-    // cross-mode route. The body must not tell the reader to "try an example, or
-    // jump to another mode" when the panel renders no control for either.
+    // No `onTryExample` or `onCrossMode` handler is passed here — matching the
+    // real Therapy call site (therapy-compass/screens/search-screen.tsx) — so
+    // this panel has neither an example nor a cross-mode route to offer, even
+    // though the mode now carries a full `searchCommandSurfaceByMode` entry. The
+    // body must not tell the reader to "try an example, or jump to another mode"
+    // when the panel renders no control for either.
     expect(screen.getByText("Check the spelling, or try a broader term.")).toBeVisible();
     expect(screen.queryByRole("button", { name: /^Try:/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Search in / })).toBeNull();

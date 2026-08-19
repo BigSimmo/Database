@@ -68,7 +68,7 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     await expect(mockup.locator("aside").getByRole("heading", { name: "Risk & Safety" })).toBeVisible();
 
     await page.locator('[data-testid="global-search-input"]:visible').fill("");
-    await expect(mockup.getByRole("heading", { level: 1, name: "All" })).toBeVisible();
+    await expect(mockup.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
     const renderedResultCount = await mockup.getByRole("article").count();
     expect(renderedResultCount).toBeGreaterThan(4);
     await expect(mockup.getByText(`${renderedResultCount} tools`, { exact: true })).toBeVisible();
