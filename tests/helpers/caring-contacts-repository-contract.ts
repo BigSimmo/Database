@@ -179,7 +179,17 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         const store = await newStore();
         const mine = await store.createPlan(createInput(), writeContext(COORDINATOR_A, "key-create"));
         const theirs = await store.createPlan(
-          createInput({ planId: planId("PLAN-2"), patientId: patientId("PATIENT-2") }),
+          // The other team's plan names the other team's OWN referral and pathway version. A
+          // referral belongs to exactly one team, so two teams sharing one referral id was
+          // fixture convenience rather than anything the domain allows; migration 0003 makes
+          // both links same-team foreign keys and refuses it outright. The assertions below are
+          // unchanged -- this test is about idempotency keys being scoped per team.
+          createInput({
+            planId: planId("PLAN-2"),
+            patientId: patientId("PATIENT-2"),
+            referralId: referralId("REFERRAL-3"),
+            pathwayVersionId: pathwayVersionId("PATHWAY-2"),
+          }),
           writeContext(COORDINATOR_B, "key-create"),
         );
 

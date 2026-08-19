@@ -91,12 +91,22 @@ export const CARING_CONTACTS_DATA_TABLES: readonly string[] = Object.freeze([
   "caring_contacts.contact_dispatches",
   "caring_contacts.cultural_identity_reports",
   "caring_contacts.retention_state",
+  "caring_contacts.plan_reassignments",
+  "caring_contacts.plan_assignments",
   "caring_contacts.contacts",
   "caring_contacts.plans",
   "caring_contacts.referrals",
+  "caring_contacts.pathway_version_approvals",
   "caring_contacts.pathway_versions",
+  "caring_contacts.notification_preferences",
+  "caring_contacts.training_records",
   "caring_contacts.idempotency_records",
   "caring_contacts.audit_events",
+  // The service stop is a singleton rather than per-team data, and it is truncated between tests
+  // ON PURPOSE. It is the one row whose presence changes the answer for every other test in the
+  // file: a stop left standing would have the domain refuse every subsequent send, and the
+  // resulting cascade of failures would read as a schema fault rather than as leaked state.
+  "caring_contacts.service_restart_approvals",
   "caring_contacts.service_state",
   "caring_contacts.actors",
   "caring_contacts.teams",
@@ -183,6 +193,79 @@ export async function insertAuditEvent(client: PoolClient, event: AuditEventRow)
   );
 }
 
+/** A minimal, synthetic governed-content snapshot. No real clinical wording lives in a fixture. */
+const SEED_PATHWAY_SNAPSHOT = Object.freeze({
+  cadenceLabels: ["Contact 1", "Contact 2"],
+  messageTextByType: Object.freeze({
+    standard: "Thinking of you.",
+    first: "Thinking of you after your stay.",
+    closing: "This is the last of these notes. Thinking of you.",
+  }),
+});
+
+export type SeedPlanParentsOptions = {
+  teamId: string;
+  referralIds: readonly string[];
+  pathwayVersionIds: readonly string[];
+  patientId?: string;
+};
+
+/**
+ * Creates the referral and pathway-version rows a plan may name, for suites that write plans
+ * through the STORE rather than through `seedPlan`.
+ *
+ * Migration 0003 turns `plans.referral_id` and `plans.pathway_version_id` into real, same-team
+ * foreign keys, so a plan naming a referral nobody created is now refused by the database. The
+ * shared store contract in ./caring-contacts-repository-contract names `REFERRAL-1`, `REFERRAL-2`
+ * and `PATHWAY-1` without creating them, which was legitimate while the columns were bare text.
+ * This is the same "make an invalid fixture valid" repair `seedPlan` needed; it loosens no
+ * assertion. It becomes unnecessary once the Postgres store implements `createReferral` and
+ * `savePathwayVersion` and the contract creates its own parents.
+ */
+export async function seedPlanParents(pool: Pool, options: SeedPlanParentsOptions): Promise<void> {
+  const { teamId } = options;
+  const patientId = options.patientId ?? "PATIENT-SEED";
+
+  await runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
+    await client.query("insert into caring_contacts.teams (id) values ($1) on conflict (id) do nothing", [teamId]);
+    await insertAuditEvent(client, {
+      teamId,
+      actorId: "SEED-ACTOR",
+      actorRoles: ["coordinator"],
+      action: "createReferral",
+      objectType: "referral",
+      objectId: options.referralIds.join(","),
+      outcome: "allowed",
+      idempotencyKey: `seed-parents-${teamId}`,
+    });
+    for (const pathwayVersionId of options.pathwayVersionIds) {
+      await client.query(
+        `insert into caring_contacts.pathway_versions
+           (id, team_id, state, author_id, approver_id, published_at, snapshot)
+         values ($1, $2, 'approved', 'SEED-AUTHOR', 'SEED-APPROVER', now(), $3::jsonb)
+         on conflict (id) do nothing`,
+        [pathwayVersionId, teamId, JSON.stringify(SEED_PATHWAY_SNAPSHOT)],
+      );
+    }
+    for (const referralId of options.referralIds) {
+      await client.query(
+        `insert into caring_contacts.referrals (id, team_id, patient_id, state, pathway_version_id)
+         values ($1, $2, $3, 'accepted', $4)
+         on conflict (id) do nothing`,
+        [referralId, teamId, patientId, options.pathwayVersionIds[0] ?? null],
+      );
+    }
+  });
+}
+
+/**
+ * Empties the audit trail. Runs as the migration superuser deliberately: a fixture's own audited
+ * transaction is bookkeeping, not part of the trail a store contract is asserting about.
+ */
+export async function clearCaringContactsAuditEvents(pool: Pool): Promise<void> {
+  await pool.query("delete from caring_contacts.audit_events");
+}
+
 export type SeedPlanOptions = {
   teamId: string;
   planId: string;
@@ -210,6 +293,23 @@ export async function seedPlan(pool: Pool, options: SeedPlanOptions): Promise<vo
       idempotencyKey: `seed-${planId}`,
     });
     const terminal = ["withdrawn", "cancelled", "completed"].includes(state);
+    // The parent rows the two composite foreign keys on `plans` now require. Both are created in
+    // this same audited transaction and in this same team, because `plans (referral_id, team_id)`
+    // and `plans (pathway_version_id, team_id)` are same-team keys: a fixture that reached across
+    // teams for either one would be refused by the database exactly as a real write would be.
+    await client.query(
+      `insert into caring_contacts.pathway_versions
+         (id, team_id, state, author_id, approver_id, published_at, snapshot)
+       values ($1, $2, 'approved', 'SEED-AUTHOR', 'SEED-APPROVER', now(), $3::jsonb)
+       on conflict (id) do nothing`,
+      [`${planId}-PATHWAY`, teamId, JSON.stringify(SEED_PATHWAY_SNAPSHOT)],
+    );
+    await client.query(
+      `insert into caring_contacts.referrals (id, team_id, patient_id, state, pathway_version_id)
+       values ($1, $2, $3, 'accepted', $4)
+       on conflict (id) do nothing`,
+      [`${planId}-REFERRAL`, teamId, patientId, `${planId}-PATHWAY`],
+    );
     await client.query(
       `insert into caring_contacts.plans
          (id, team_id, patient_id, referral_id, pathway_version_id, state, version, outcome,

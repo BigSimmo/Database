@@ -12,6 +12,9 @@
 //   3. a second non-terminal plan for one patient is refused by a unique partial index;
 //   4. a second dispatch record for one (contact, attempt) is refused by a unique constraint;
 //   5. a change committed without an audit event in the same transaction FAILS.
+import { readdirSync } from "node:fs";
+import path from "node:path";
+
 import type { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -41,6 +44,9 @@ const PATIENT_BEARING_TABLES: readonly string[] = Object.freeze([
   "audit_events",
   "retention_state",
   "idempotency_records",
+  "plan_assignments",
+  "plan_reassignments",
+  "pathway_version_approvals",
 ]);
 
 let pool: Pool;
@@ -97,6 +103,12 @@ describe("caring-contact migrations", () => {
       "service_state",
       "retention_state",
       "cultural_identity_reports",
+      "pathway_version_approvals",
+      "plan_assignments",
+      "plan_reassignments",
+      "notification_preferences",
+      "training_records",
+      "service_restart_approvals",
     ]) {
       expect(tables).toContain(expected);
     }
@@ -337,6 +349,386 @@ describe("caring-contact migrations", () => {
         "select count(*)::text as count from caring_contacts.contacts where plan_id = 'PLAN-N'",
       );
       expect(Number(rows[0].count)).toBe(2);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Migration 0003 — the workspace schema.
+//
+// Every assertion below is made against the RUNNING DATABASE as `caring_contacts_app`, never by
+// reading the SQL text and never as the migration superuser. A superuser bypasses row-level
+// security outright, and a regex over a migration file proves that a string was written rather
+// than that the database refuses anything.
+// ---------------------------------------------------------------------------
+describe("the workspace schema", () => {
+  const STOP_ONE = "11111111-1111-4111-8111-111111111111";
+  const STOP_TWO = "22222222-2222-4222-8222-222222222222";
+
+  const RESTART_APPROVERS = Object.freeze([
+    { role: "incidentLead", actorId: "ACTOR-INCIDENT-LEAD" },
+    { role: "privacySecurityOwner", actorId: "ACTOR-PRIVACY-OWNER" },
+    { role: "clinicalProgrammeLead", actorId: "ACTOR-PROGRAMME-LEAD" },
+  ] as const);
+
+  async function registerTeam(teamId: string): Promise<void> {
+    await runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
+      await client.query("insert into caring_contacts.teams (id) values ($1) on conflict do nothing", [teamId]);
+    });
+  }
+
+  /** Records a stop against the singleton row, upserting because there is only ever one row. */
+  async function recordStop(teamId: string, stopId: string): Promise<void> {
+    await registerTeam(teamId);
+    await runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
+      await insertAuditEvent(client, {
+        teamId,
+        actorId: "ACTOR-RESPONDER",
+        actorRoles: ["teamLead"],
+        action: "stopService",
+        objectType: "service",
+        objectId: stopId,
+        outcome: "allowed",
+        idempotencyKey: `stop-${stopId}`,
+      });
+      await client.query(
+        `insert into caring_contacts.service_state
+           (stopped, stopped_by, stopped_at, reported_by_team_id, stop_id, stopped_reason, stop_note, updated_at)
+         values (true, 'ACTOR-RESPONDER', now(), $1, $2, 'wrong-recipient', 'A message reached the wrong number.', now())
+         on conflict (singleton) do update set
+           stopped = true,
+           stopped_by = excluded.stopped_by,
+           stopped_at = excluded.stopped_at,
+           reported_by_team_id = excluded.reported_by_team_id,
+           stop_id = excluded.stop_id,
+           stopped_reason = excluded.stopped_reason,
+           stop_note = excluded.stop_note,
+           updated_at = excluded.updated_at`,
+        [teamId, stopId],
+      );
+    });
+  }
+
+  async function restartService(teamId: string): Promise<void> {
+    await runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
+      await insertAuditEvent(client, {
+        teamId,
+        actorId: "ACTOR-RESPONDER",
+        actorRoles: ["teamLead"],
+        action: "restartService",
+        objectType: "service",
+        objectId: "service",
+        outcome: "allowed",
+        idempotencyKey: "restart-service",
+      });
+      await client.query(
+        `update caring_contacts.service_state
+         set stopped = false, stop_id = null, stopped_reason = null, stop_note = null, updated_at = now()`,
+      );
+    });
+  }
+
+  async function approveRestart(teamId: string, stopId: string, role: string, actorId: string): Promise<void> {
+    await runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
+      await insertAuditEvent(client, {
+        teamId,
+        actorId,
+        actorRoles: ["teamLead"],
+        action: "approveServiceRestart",
+        objectType: "service",
+        objectId: stopId,
+        outcome: "allowed",
+        idempotencyKey: `approve-${stopId}-${role}-${actorId}`,
+      });
+      await client.query(
+        `insert into caring_contacts.service_restart_approvals
+           (stop_id, role, actor_id, approved_at, approved_by_team_id)
+         values ($1, $2, $3, now(), $4)`,
+        [stopId, role, actorId, teamId],
+      );
+    });
+  }
+
+  /** Inserts a plan naming the referral and pathway version given, creating no parent rows. */
+  async function insertPlanNaming(options: {
+    teamId: string;
+    planId: string;
+    patientId: string;
+    referralId: string;
+    pathwayVersionId: string;
+  }): Promise<void> {
+    await runInTeamSession(pool, { teamId: options.teamId, auditToken: nextAuditToken() }, async (client) => {
+      await insertAuditEvent(client, {
+        teamId: options.teamId,
+        actorId: "ACTOR-COORDINATOR",
+        actorRoles: ["coordinator"],
+        action: "createPlan",
+        objectType: "plan",
+        objectId: options.planId,
+        outcome: "allowed",
+        idempotencyKey: `create-${options.planId}`,
+      });
+      await client.query(
+        `insert into caring_contacts.plans
+           (id, team_id, patient_id, referral_id, pathway_version_id, state, version, outcome,
+            discharge_at, sending_preference, patient_name, patient_mobile_number, patient_identifiers)
+         values ($1, $2, $3, $4, $5, 'active', 1, 'inProgress', '2026-03-02T02:00:00.000Z', 'morning',
+                 'Seed Patient', '+61 491 570 156', array['UR-1'])`,
+        [options.planId, options.teamId, options.patientId, options.referralId, options.pathwayVersionId],
+      );
+    });
+  }
+
+  async function claimAssignment(teamId: string, planId: string, ownerId: string): Promise<void> {
+    await runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
+      await insertAuditEvent(client, {
+        teamId,
+        actorId: ownerId,
+        actorRoles: ["coordinator"],
+        action: "claimPlan",
+        objectType: "plan",
+        objectId: planId,
+        outcome: "allowed",
+        idempotencyKey: `claim-${planId}-${ownerId}`,
+      });
+      await client.query(
+        `insert into caring_contacts.plan_assignments
+           (plan_id, team_id, owner_id, claimed_at, coverage_from, coverage_until)
+         values ($1, $2, $3, now(), '2026-03-02', '2026-03-09')`,
+        [planId, teamId, ownerId],
+      );
+    });
+  }
+
+  it("keeps every caring-contact migration out of the Clinical KB migration directory", () => {
+    const caringContactMigrations = readdirSync(path.join(process.cwd(), "caring-contacts", "supabase", "migrations"));
+    expect(caringContactMigrations).toContain("0003_caring_contacts_workspace.sql");
+    const repositoryMigrations = readdirSync(path.join(process.cwd(), "supabase", "migrations"));
+    for (const file of caringContactMigrations) {
+      expect(repositoryMigrations).not.toContain(file);
+    }
+  });
+
+  describe("the service stop is a singleton, not one row per team", () => {
+    it("refuses a second service_state row outright", async () => {
+      await recordStop(TEAM_NORTH, STOP_ONE);
+
+      await expect(
+        runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, (client) =>
+          client.query(
+            `insert into caring_contacts.service_state
+               (stopped, stopped_by, stopped_at, reported_by_team_id, stop_id, stopped_reason)
+             values (true, 'ACTOR-OTHER', now(), $1, $2, 'duplicate-send')`,
+            [TEAM_NORTH, STOP_TWO],
+          ),
+        ),
+      ).rejects.toThrow(/service_state_pkey/);
+    });
+
+    it("refuses a row that tries to escape the singleton key", async () => {
+      await recordStop(TEAM_NORTH, STOP_ONE);
+
+      await expect(
+        runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, (client) =>
+          client.query(
+            `insert into caring_contacts.service_state
+               (singleton, stopped, stopped_by, stopped_at, reported_by_team_id, stop_id, stopped_reason)
+             values (false, true, 'ACTOR-OTHER', now(), $1, $2, 'duplicate-send')`,
+            [TEAM_NORTH, STOP_TWO],
+          ),
+        ),
+      ).rejects.toThrow(/service_state_is_singleton/);
+    });
+
+    it("shows a stop raised by one team to EVERY other team", async () => {
+      // Contrast this deliberately with "returns ZERO ROWS to another team" above: a plan raised by
+      // TEAM-NORTH is invisible to TEAM-SOUTH, and that is the whole point of the team-scope policy.
+      // The service stop is the one thing that must NOT behave that way. A team-scoped stop would
+      // read as "the service is running" to every team but the one that reported the incident,
+      // while the sending path they had all been told to halt kept running.
+      await registerTeam(TEAM_SOUTH);
+      await recordStop(TEAM_NORTH, STOP_ONE);
+
+      const rows = await runInTeamSession(pool, { teamId: TEAM_SOUTH }, async (client) => {
+        const result = await client.query<{ stopped: boolean; reported_by_team_id: string }>(
+          "select stopped, reported_by_team_id from caring_contacts.service_state",
+        );
+        return result.rows;
+      });
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0].stopped).toBe(true);
+      expect(rows[0].reported_by_team_id).toBe(TEAM_NORTH);
+    });
+
+    it("still shows a session that names NO team nothing at all", async () => {
+      await recordStop(TEAM_NORTH, STOP_ONE);
+
+      const rows = await runInTeamSession(pool, { teamId: null }, async (client) => {
+        const result = await client.query("select stopped from caring_contacts.service_state");
+        return result.rows;
+      });
+
+      expect(rows).toEqual([]);
+    });
+  });
+
+  describe("restart approvals are keyed on the stop, never on the team", () => {
+    it("refuses a second approval from the same person under a different role", async () => {
+      await recordStop(TEAM_NORTH, STOP_ONE);
+      await approveRestart(TEAM_NORTH, STOP_ONE, "incidentLead", "ACTOR-X");
+
+      await expect(approveRestart(TEAM_NORTH, STOP_ONE, "privacySecurityOwner", "ACTOR-X")).rejects.toThrow(
+        /service_restart_approvals_unique_stop_actor/,
+      );
+    });
+
+    it("refuses a second approval in the same role from a different person", async () => {
+      await recordStop(TEAM_NORTH, STOP_ONE);
+      await approveRestart(TEAM_NORTH, STOP_ONE, "incidentLead", "ACTOR-X");
+
+      await expect(approveRestart(TEAM_NORTH, STOP_ONE, "incidentLead", "ACTOR-Y")).rejects.toThrow(
+        /service_restart_approvals_unique_stop_role/,
+      );
+    });
+
+    it("lets the SAME three people approve a LATER stop", async () => {
+      // Keyed on the team, the approvals recorded for a first incident would permanently bar their
+      // approvers from approving any later one, so a team's second incident could never be
+      // restarted. Keyed on the stop, "three different people per restart" holds per incident.
+      await recordStop(TEAM_NORTH, STOP_ONE);
+      for (const approver of RESTART_APPROVERS) {
+        await approveRestart(TEAM_NORTH, STOP_ONE, approver.role, approver.actorId);
+      }
+      await restartService(TEAM_NORTH);
+
+      await recordStop(TEAM_NORTH, STOP_TWO);
+      for (const approver of RESTART_APPROVERS) {
+        await expect(approveRestart(TEAM_NORTH, STOP_TWO, approver.role, approver.actorId)).resolves.toBeUndefined();
+      }
+
+      const { rows } = await pool.query<{ count: string }>(
+        "select count(*)::text as count from caring_contacts.service_restart_approvals",
+      );
+      expect(Number(rows[0].count)).toBe(6);
+    });
+  });
+
+  describe("a plan may only name a referral and pathway version that exist, in its own team", () => {
+    beforeEach(async () => {
+      await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-N", patientId: "PATIENT-N" });
+    });
+
+    it("refuses a plan whose pathway version has no parent row", async () => {
+      await expect(
+        insertPlanNaming({
+          teamId: TEAM_NORTH,
+          planId: "PLAN-BAD-PATHWAY",
+          patientId: "PATIENT-BAD-PATHWAY",
+          referralId: "PLAN-N-REFERRAL",
+          pathwayVersionId: "PATHWAY-THAT-WAS-NEVER-CREATED",
+        }),
+      ).rejects.toThrow(/plans_pathway_version_fk/);
+    });
+
+    it("refuses a plan whose referral has no parent row", async () => {
+      await expect(
+        insertPlanNaming({
+          teamId: TEAM_NORTH,
+          planId: "PLAN-BAD-REFERRAL",
+          patientId: "PATIENT-BAD-REFERRAL",
+          referralId: "REFERRAL-THAT-WAS-NEVER-CREATED",
+          pathwayVersionId: "PLAN-N-PATHWAY",
+        }),
+      ).rejects.toThrow(/plans_referral_fk/);
+    });
+
+    it("refuses a plan that reaches across teams for its referral", async () => {
+      // Foreign-key checks are performed by the system and are NOT subject to row-level security,
+      // so a bare key would happily let TEAM-NORTH's plan point at TEAM-SOUTH's referral. The key
+      // is composite so the team travels with the link.
+      await seedPlan(pool, { teamId: TEAM_SOUTH, planId: "PLAN-S", patientId: "PATIENT-S" });
+
+      await expect(
+        insertPlanNaming({
+          teamId: TEAM_NORTH,
+          planId: "PLAN-CROSS-TEAM",
+          patientId: "PATIENT-CROSS-TEAM",
+          referralId: "PLAN-S-REFERRAL",
+          pathwayVersionId: "PLAN-N-PATHWAY",
+        }),
+      ).rejects.toThrow(/plans_referral_fk/);
+    });
+
+    it("accepts a plan whose referral and pathway version both belong to its own team", async () => {
+      await expect(
+        insertPlanNaming({
+          teamId: TEAM_NORTH,
+          planId: "PLAN-SECOND",
+          patientId: "PATIENT-SECOND",
+          referralId: "PLAN-N-REFERRAL",
+          pathwayVersionId: "PLAN-N-PATHWAY",
+        }),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe("the new workspace tables carry the same guarantees as the old ones", () => {
+    beforeEach(async () => {
+      await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-N", patientId: "PATIENT-N" });
+    });
+
+    it("returns ZERO ROWS from plan_assignments to another team", async () => {
+      await claimAssignment(TEAM_NORTH, "PLAN-N", "ACTOR-NORTH");
+      await registerTeam(TEAM_SOUTH);
+
+      const rows = await runInTeamSession(pool, { teamId: TEAM_SOUTH }, async (client) => {
+        const result = await client.query("select plan_id from caring_contacts.plan_assignments");
+        return result.rows;
+      });
+
+      expect(rows).toEqual([]);
+    });
+
+    it("shows a team its own assignment, so the denial above means scoping and not absence", async () => {
+      await claimAssignment(TEAM_NORTH, "PLAN-N", "ACTOR-NORTH");
+
+      const rows = await runInTeamSession(pool, { teamId: TEAM_NORTH }, async (client) => {
+        const result = await client.query<{ plan_id: string }>("select plan_id from caring_contacts.plan_assignments");
+        return result.rows;
+      });
+
+      expect(rows.map((row) => row.plan_id)).toEqual(["PLAN-N"]);
+    });
+
+    it("REFUSES an assignment written with no audit event in the same transaction", async () => {
+      await expect(
+        runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, (client) =>
+          client.query(
+            `insert into caring_contacts.plan_assignments (plan_id, team_id, owner_id, claimed_at)
+             values ('PLAN-N', $1, 'ACTOR-NORTH', now())`,
+            [TEAM_NORTH],
+          ),
+        ),
+      ).rejects.toThrow(/caring-contacts-audit-required/);
+
+      const { rows } = await pool.query<{ count: string }>(
+        "select count(*)::text as count from caring_contacts.plan_assignments",
+      );
+      expect(Number(rows[0].count)).toBe(0);
+    });
+
+    it("keeps coverage windows as AWST calendar days rather than instants", async () => {
+      const { rows } = await pool.query<{ column_name: string; data_type: string }>(
+        `select column_name, data_type from information_schema.columns
+         where table_schema = 'caring_contacts' and table_name = 'plan_assignments'
+           and column_name in ('coverage_from', 'coverage_until')
+         order by column_name`,
+      );
+      expect(rows).toEqual([
+        { column_name: "coverage_from", data_type: "text" },
+        { column_name: "coverage_until", data_type: "text" },
+      ]);
     });
   });
 });

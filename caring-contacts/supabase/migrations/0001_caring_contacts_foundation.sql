@@ -275,13 +275,19 @@ begin
 end;
 $$;
 
-do $$
+-- Attaching the guard is driven from a list rather than written out per table, so a table added
+-- without the guard is a visible omission from a list. It is a FUNCTION rather than an inline
+-- loop because later migrations create audited tables that do not exist when this file runs, and
+-- they must attach the guard through the same mechanism instead of hand-writing their own
+-- triggers. It executes DDL, so it is revoked from PUBLIC and left to the migration role.
+create or replace function caring_contacts.attach_audit_guard(p_tables text[])
+returns void
+language plpgsql
+as $$
 declare
   audited_table text;
 begin
-  foreach audited_table in array array[
-    'referrals', 'plans', 'contacts', 'contact_dispatches', 'cultural_identity_reports'
-  ]
+  foreach audited_table in array p_tables
   loop
     execute format('drop trigger if exists require_audit on caring_contacts.%I', audited_table);
     execute format(
@@ -292,8 +298,14 @@ begin
       audited_table
     );
   end loop;
-end
+end;
 $$;
+
+revoke execute on function caring_contacts.attach_audit_guard(text[]) from public;
+
+select caring_contacts.attach_audit_guard(array[
+  'referrals', 'plans', 'contacts', 'contact_dispatches', 'cultural_identity_reports'
+]);
 
 -- ---------------------------------------------------------------------------
 -- Cross-team questions the application must be able to ask without seeing the answer's contents

@@ -7,7 +7,12 @@
 --   1. DENY BY DEFAULT. Every table has RLS enabled and FORCED, and every policy compares the row's
 --      team against `caring_contacts.current_team_id()`. A session that names no team resolves that
 --      to NULL, `team_id = NULL` is NULL rather than true, and no row matches. There is no policy
---      anywhere that is unconditionally true.
+--      anywhere that is unconditionally true. Migration 0003 adds ONE deliberate exception to the
+--      team comparison: `service_state` and `service_restart_approvals` are service-wide, not
+--      per-team, and use `caring_contacts.current_team_id() is not null` instead. A team-scoped
+--      policy on a service-wide safety stop would let every team but the reporting one read zero
+--      rows and conclude the service was running mid-incident. That policy is still false for an
+--      unscoped session, so deny-by-default holds and the claim above still stands.
 --   2. A CROSS-TEAM SELECT RETURNS ZERO ROWS. It is not an error and not a refusal, because both
 --      would confirm that the row exists. The other team's plan is indistinguishable from a plan
 --      that was never created.
@@ -52,8 +57,11 @@ declare
 begin
   -- Every table keyed by team_id.
   foreach scoped_table in array array[
+    -- `service_state` is deliberately absent: migration 0003 converts it into a service-wide
+    -- singleton with no `team_id` column at all, so a team-scoped policy here would not merely be
+    -- wrong, it would fail to compile on replay.
     'actors', 'referrals', 'pathway_versions', 'plans', 'contacts', 'contact_dispatches',
-    'audit_events', 'service_state', 'retention_state', 'cultural_identity_reports',
+    'audit_events', 'retention_state', 'cultural_identity_reports',
     'idempotency_records'
   ]
   loop
