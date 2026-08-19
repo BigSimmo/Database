@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -18,7 +18,9 @@ import {
   MOCKUP_ROUTE_SEGMENT,
   normalizeManifestRoute,
   partitionRouteClientChunks,
+  resolveBaselineCommitDistance,
   resolveBaselineSource,
+  STALE_BASELINE_COMMIT_DISTANCE_THRESHOLD,
 } from "../scripts/check-bundle-budget.mjs";
 
 const buf = (n: number) => Buffer.alloc(n, "a"); // highly compressible; gzip < raw
@@ -242,6 +244,17 @@ describe("compareToBudget", () => {
     expect(v.status).toBe("warn");
   });
 
+  it("triggers a drift warning when growth exceeds warnTolerancePct while within tolerance", () => {
+    const v = compareToBudget(
+      { totalGzipBytes: 1060 },
+      { enforce: true, tolerancePct: 10, warnTolerancePct: 5, totalGzipBytes: 1000 },
+    );
+    expect(v.status).toBe("warn");
+    expect(v.isDriftWarning).toBe(true);
+    expect(v.overPct).toBeCloseTo(6, 5);
+    expect(v.reason).toContain("drift warning > 5%");
+  });
+
   it("treats exactly-at-tolerance as ok", () => {
     const v = compareToBudget({ totalGzipBytes: 1100 }, { enforce: true, tolerancePct: 10, totalGzipBytes: 1000 });
     expect(v.status).toBe("ok");
@@ -275,6 +288,26 @@ describe("bundle baseline provenance", () => {
   it("falls back to the current Git head and rejects malformed candidates", () => {
     expect(resolveBaselineSource({ GITHUB_SHA: "not-a-sha" }, () => "b".repeat(40))).toBe("b".repeat(40));
     expect(resolveBaselineSource({}, () => "still-not-a-sha")).toBeNull();
+  });
+
+  it("resolves baseline commit distance using git rev-list", () => {
+    const mockExec = vi.fn(() => "15\n");
+    const count = resolveBaselineCommitDistance(gitHead, process.cwd(), mockExec as unknown as typeof execFileSync);
+    expect(count).toBe(15);
+    expect(mockExec).toHaveBeenCalledWith(
+      "git",
+      ["-C", process.cwd(), "rev-list", "--count", `${gitHead.toLowerCase()}..HEAD`],
+      expect.any(Object),
+    );
+  });
+
+  it("returns null for malformed or absent baseline commit SHA", () => {
+    expect(resolveBaselineCommitDistance(null)).toBeNull();
+    expect(resolveBaselineCommitDistance("not-a-sha")).toBeNull();
+  });
+
+  it("defines a default stale baseline commit distance threshold", () => {
+    expect(STALE_BASELINE_COMMIT_DISTANCE_THRESHOLD).toBe(50);
   });
 });
 

@@ -79,6 +79,7 @@ import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-
 import {
   desktopPageComposerSlotId,
   differentialsMobileCompareAddonSlotId,
+  modeHomeComposerReservePendingValue,
   modeHomeDesktopComposerSlotId,
 } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
@@ -986,7 +987,8 @@ function GlobalStandaloneSearchShellBody({
               <DesktopComposerPortalSlot
                 id={desktopPageComposerSlotId}
                 data-testid="desktop-page-search-composer-slot"
-                className="hidden sm:block sm:empty:hidden"
+                data-composer-reserve={modeHomeComposerReservePendingValue}
+                className="hidden sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
               />
             ) : null}
             {/*

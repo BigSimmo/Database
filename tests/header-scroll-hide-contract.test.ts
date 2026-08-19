@@ -275,12 +275,18 @@ describe("shared header hide/reveal wiring", () => {
       '"document-mobile-search-edge universal-top-search-edge relative z-20 mx-auto w-full max-w-3xl px-4 py-3 lg:max-w-4xl"',
     );
     expect(shellSource).toContain('data-testid="desktop-page-search-composer-slot"');
-    expect(shellSource).toContain('className="hidden sm:block sm:empty:hidden"');
+    expect(shellSource).toContain('data-composer-reserve={modeHomeComposerReservePendingValue}');
+    expect(shellSource).toContain(
+      'className="hidden sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"',
+    );
     // Dashboard result slot lives in a budget-extracted helper so ClinicalDashboard
     // stays under the maintainability no-growth ceiling.
     expect(dashboardSource).toContain("DashboardDesktopResultComposerSlot");
     expect(dashboardResultComposerSlotSource).toContain('data-testid="desktop-page-search-composer-slot"');
-    expect(dashboardResultComposerSlotSource).toContain('className="hidden sm:block sm:empty:hidden"');
+    expect(dashboardResultComposerSlotSource).toContain('data-composer-reserve={modeHomeComposerReservePendingValue}');
+    expect(dashboardResultComposerSlotSource).toContain(
+      'className="hidden sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"',
+    );
     expect(behaviourDocSource).toContain("Tablet and desktop search are page-owned");
   });
 

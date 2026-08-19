@@ -56,7 +56,8 @@ import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/univ
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { canAccessFavouritesMode } from "@/lib/app-modes";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { modeHomeComposerReservePendingValue, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 import { useAuthSession } from "@/lib/supabase/client";
 
 type FavouriteType =
@@ -188,6 +189,7 @@ function toCommandItem(
   item: PrototypeFavouriteItem,
   lastOpenedMap: Record<string, number>,
   pinnedIds: ReadonlySet<string>,
+  demoMode: boolean = false,
 ): FavouriteItem {
   const type =
     item.type === "sources" && item.primaryAction === "Run"
@@ -204,7 +206,9 @@ function toCommandItem(
     lastUsed:
       lastOpenedMap[item.id] !== undefined
         ? formatLastOpened(lastOpenedMap[item.id])
-        : (lastUsedByItemId[item.id] ?? "Saved"),
+        : demoMode && lastUsedByItemId[item.id]
+          ? lastUsedByItemId[item.id]
+          : "Saved",
     action: item.primaryAction,
     href: item.href,
     icon: item.icon ?? fallbackIconByType[item.type],
@@ -234,8 +238,9 @@ function buildFavouriteSets(items: FavouriteItem[]): FavouriteSet[] {
 }
 
 function getMostRecentlyUsedItem(items: FavouriteItem[]): FavouriteItem | null {
-  if (items.length === 0) return null;
-  return [...items].sort((first, second) => lastUsedScore(second.lastUsed) - lastUsedScore(first.lastUsed))[0] ?? null;
+  const withOpened = items.filter((item) => lastUsedScore(item.lastUsed) > 1000);
+  if (withOpened.length === 0) return null;
+  return [...withOpened].sort((first, second) => lastUsedScore(second.lastUsed) - lastUsedScore(first.lastUsed))[0] ?? null;
 }
 
 function filterAndSortItems(
@@ -606,31 +611,38 @@ function FavouritesDashboardBand({
             View all
           </button>
         </div>
-        <ul className="divide-y divide-[color:var(--border)]">
-          {recentItems.map((item) => (
-            <li key={item.id} className="flex min-w-0 items-center gap-2.5 px-3.5 py-2.5">
-              <Chip size="compact" appearance={typeAppearance[item.type]}>
-                {item.type}
-              </Chip>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-sm font-bold text-[color:var(--text-heading)]">{item.title}</span>
-                <span className="truncate text-2xs font-medium text-[color:var(--text-muted)]">
-                  {item.set} · {item.lastUsed}
+        {recentItems.length === 0 ? (
+          <p className="px-3.5 py-4 text-xs font-medium text-[color:var(--text-muted)]">
+            Recently opened favourites will appear here as you use them.
+          </p>
+        ) : (
+          <ul className="divide-y divide-[color:var(--border)]">
+            {recentItems.map((item) => (
+              <li key={item.id} className="flex min-w-0 items-center gap-2.5 px-3.5 py-2.5">
+                <Chip size="compact" appearance={typeAppearance[item.type]}>
+                  {item.type}
+                </Chip>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm font-bold text-[color:var(--text-heading)]">{item.title}</span>
+                  <span className="truncate text-2xs font-medium text-[color:var(--text-muted)]">
+                    {item.set} · {item.lastUsed}
+                  </span>
                 </span>
-              </span>
-              <Link
-                href={item.href}
-                aria-label={`Open ${item.title}`}
-                className={cn(
-                  "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
-                  focusRing,
-                )}
-              >
-                Open
-              </Link>
-            </li>
-          ))}
-        </ul>
+                <Link
+                  href={item.href}
+                  onClick={() => recordFavouriteOpened(item.id)}
+                  aria-label={`Open ${item.title}`}
+                  className={cn(
+                    "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
+                    focusRing,
+                  )}
+                >
+                  Open
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section
@@ -1120,7 +1132,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const items = useMemo(
     () =>
       [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map((item) =>
-        toCommandItem(item, lastOpenedMap, pinnedIds),
+        toCommandItem(item, lastOpenedMap, pinnedIds, demoMode),
       ),
     [demoMode, savedRegistryFavourites, lastOpenedMap, pinnedIds],
   );
@@ -1175,7 +1187,8 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     continueItem !== null && filteredItems.some((item) => item.id === continueItem.id) && filteredItems.length > 0;
   const recentItems = useMemo(
     () =>
-      [...items]
+      items
+        .filter((item) => lastOpenedScore(item.lastUsed) > 1000)
         .sort((first, second) => lastOpenedScore(second.lastUsed) - lastOpenedScore(first.lastUsed))
         .slice(0, recentPreviewLimit),
     [items],
@@ -1398,7 +1411,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 saying here, and it is not a heading. */}
             <header data-testid="favourites-command-library" className="flex min-w-0 flex-wrap items-baseline gap-x-3">
               <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
-                Favourites
+                {sharedHomePresentation.favourites.title}
               </h1>
               <p className="nums text-sm font-medium text-[color:var(--text-muted)]">
                 {items.length} {items.length === 1 ? "item" : "items"}
@@ -1416,7 +1429,8 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
 
             <DesktopComposerPortalSlot
               id={modeHomeDesktopComposerSlotId}
-              className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
+              data-composer-reserve={modeHomeComposerReservePendingValue}
+              className="mode-home-composer-slot block w-full max-w-3xl min-h-0 data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)] sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] [&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
             />
 
             <SearchResultsHeaderBand

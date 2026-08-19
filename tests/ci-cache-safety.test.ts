@@ -234,6 +234,20 @@ describe("CI cache safety", () => {
     });
     expect(pushTrigger).toContain('branches: [main, "release/**"]');
   });
+
+  it("guards against in-flight CI cancellation churn during PR branch sync (#TF6TPJ)", async () => {
+    const { classifyPr, hasRequiredCiInFlight } = await import("../scripts/sync-pr-branches.mjs");
+    expect(hasRequiredCiInFlight({ workflow_runs: [{ name: "CI", status: "in_progress" }] })).toBe(true);
+    expect(hasRequiredCiInFlight({ workflow_runs: [{ name: "CI", status: "queued" }] })).toBe(true);
+    expect(hasRequiredCiInFlight({ workflow_runs: [{ name: "CI", status: "pending" }] })).toBe(true);
+    expect(hasRequiredCiInFlight({ workflow_runs: [{ name: "CI", status: "completed" }] })).toBe(false);
+    expect(
+      classifyPr({ title: "feature", labels: [], requiredCiInFlight: true }, 5),
+    ).toEqual({
+      action: "skip",
+      reason: "required-ci-in-flight",
+    });
+  });
 });
 
 /*

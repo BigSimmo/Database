@@ -55,7 +55,7 @@ export function canonicalLegacyIssueId(number) {
 }
 
 export function isIssueDisplayId(value) {
-  const id = String(value ?? "");
+  const id = String(value ?? "").trim().toUpperCase();
   if (DISPLAY_ISSUE_ID_PATTERN.test(id)) return true;
   if (!LEGACY_ISSUE_ID_PATTERN.test(id)) return false;
   const number = Number(id.slice(1));

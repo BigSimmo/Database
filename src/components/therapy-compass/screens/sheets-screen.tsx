@@ -172,13 +172,13 @@ export function SheetsScreen() {
                   <span className="text-2xs text-[color:var(--tc-paper-muted)]">Prepared for you</span>
                 </div>
 
-                <h1
+                <h2
                   contentEditable
                   suppressContentEditableWarning
                   className="mt-0 mx-0 mb-1.5 text-3xl-minus font-bold text-[color:var(--tc-paper-ink)] tracking-tight"
                 >
                   {sheetTitle}
-                </h1>
+                </h2>
                 <p
                   contentEditable
                   suppressContentEditableWarning

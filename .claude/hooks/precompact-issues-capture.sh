@@ -54,10 +54,21 @@ echo "[issues] ${why} Anything this session discovered but has not written down 
 # wrong. Either answer is actionable; "unverified" is not.
 #
 # Kept under the git dir, never the worktree, so it can never be staged or committed.
-log_dir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
+log_dir="$(git rev-parse --git-dir 2>/dev/null || git rev-parse --absolute-git-dir 2>/dev/null || true)"
+if [ -z "$log_dir" ] && [ -f .git ]; then
+  raw_gitdir="$(sed -E 's/^gitdir:[[:space:]]*//' .git 2>/dev/null || true)"
+  if [ -n "$raw_gitdir" ]; then
+    if command -v wslpath >/dev/null 2>&1 && [[ "$raw_gitdir" =~ ^[A-Za-z]: ]]; then
+      log_dir="$(wslpath -u "$raw_gitdir" 2>/dev/null || true)"
+    elif [ -d "$raw_gitdir" ]; then
+      log_dir="$raw_gitdir"
+    fi
+  fi
+fi
 if [ -n "$log_dir" ] && [ -d "$log_dir" ]; then
+  timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date +%s 2>/dev/null || echo unknown)"
   printf '%s precompact trigger=%s\n' \
-    "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)" \
+    "$timestamp" \
     "${trigger:-unknown}" \
     >>"$log_dir/claude-precompact.log" 2>/dev/null || true
 fi

@@ -1309,7 +1309,7 @@ export function MasterSearchHeader({
       let cancelled = false;
       queueMicrotask(() => {
         if (cancelled) return;
-        if (composerSlotKind === "home" && composerSlotId) {
+        if (composerSlotId) {
           setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
         }
         setDesktopComposerPortalActive(false);
@@ -1370,7 +1370,7 @@ export function MasterSearchHeader({
         portalFailureStartedAt = null;
         if (host.parentNode !== slot) slot.appendChild(host);
         // Portal host keeps height via `:not(:empty)`; drop the pending marker.
-        if (composerSlotKind === "home") setModeHomeComposerReservePending(slot, false);
+        setModeHomeComposerReservePending(slot, false);
         setDesktopComposerPortalHost(host);
         setDesktopComposerPortalActive(true);
         setDesktopComposerPortalFallback(false);
@@ -1385,7 +1385,7 @@ export function MasterSearchHeader({
           portalFailureStartedAt = null;
           setDesktopComposerPortalFallback(false);
           // Viewport never hosts this hero slot — collapse the SSR reserve band.
-          if (composerSlotKind === "home") setModeHomeComposerReservePending(homeSlot, false);
+          setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
           return;
         }
         const now = window.performance.now();
@@ -1405,14 +1405,14 @@ export function MasterSearchHeader({
             );
           }
           // Keep the SSR pending reserve while we retry adoption.
-          if (composerSlotKind === "home") setModeHomeComposerReservePending(homeSlot, true);
+          setModeHomeComposerReservePending(document.getElementById(composerSlotId), true);
         } else {
           // A missing/unhydrated page slot must not remove search forever. Home
           // routes suppress the header fallback during the bounded retry window
           // because ModeHomeTemplate already reserves the settled hero geometry;
           // only surface the fallback after portal adoption has genuinely failed.
           // Collapse the empty hero band once the header fallback takes over.
-          if (composerSlotKind === "home") setModeHomeComposerReservePending(homeSlot, false);
+          setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
           setDesktopComposerPortalFallback(true);
         }
       }
@@ -1432,7 +1432,7 @@ export function MasterSearchHeader({
       observer.disconnect();
       mediaQuery.removeEventListener("change", syncTarget);
       host.parentNode?.removeChild(host);
-      if (composerSlotKind === "home") {
+      if (composerSlotId) {
         setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
       }
       setDesktopComposerPortalActive(false);
@@ -2481,16 +2481,19 @@ export function MasterSearchHeader({
   const portalPlacement = desktopHomeComposerSlotId ? "desktop-home" : "desktop-page";
   const homePortalPending =
     Boolean(desktopHomeComposerSlotId) && homeComposerMediaEligible && !desktopComposerPortalFallback;
+  const pagePortalPending =
+    Boolean(desktopPageComposerSlotId) && !usesPhoneSearchLayout && !desktopComposerPortalFallback;
+  const portalPending = homePortalPending || pagePortalPending;
   const searchComposer = searchComposerVisible ? (
     <>
-      {/* ModeHomeTemplate reserves the final hero-composer height in SSR, so a
-          temporary header fallback would make the stack 204px and move all main
-          content up 132px when the portal attaches. Generic page slots do not
-          reserve geometry and retain the immediate fallback. A failed home
-          adoption restores it after the bounded retry window above. */}
+      {/* ModeHomeTemplate and desktop page slots reserve their settled geometry
+          in SSR, so a temporary header fallback would make the stack grow and
+          shift all main content when the portal attaches (CLS 0.118 on desktop
+          /documents/search). A failed adoption restores the header fallback after
+          the bounded retry window above. */}
       {desktopComposerPortalActive && desktopComposerPortalHost
         ? null
-        : homePortalPending
+        : portalPending
           ? null
           : renderSearchComposer("default")}
       {desktopComposerPortalActive && desktopComposerPortalHost
