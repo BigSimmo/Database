@@ -1082,7 +1082,14 @@
   background: var(--surface-subtle);
 }
 
-.shortlistCandidateRow[aria-pressed="true"] {
+/*
+ * `data-showing`, not `aria-pressed` — this highlight marks which candidate's gates the panel
+ * is currently displaying, including the default (nothing explicitly selected) candidate.
+ * `aria-pressed` is reserved for the real, explicit selection the component was given
+ * (`selectedUnitId`), so a screen reader is never told a control is pressed when nobody
+ * pressed it (review Minor 5).
+ */
+.shortlistCandidateRow[data-showing="true"] {
   border-color: var(--clinical-accent-border);
   background: var(--clinical-accent-soft);
   box-shadow: var(--shadow-inset);
@@ -1093,7 +1100,7 @@
   border-color: var(--danger-border);
 }
 
-.shortlistCandidateRow[aria-pressed="true"][data-eligible="false"] {
+.shortlistCandidateRow[data-showing="true"][data-eligible="false"] {
   background: var(--danger-bg);
   box-shadow: none;
 }
@@ -1368,7 +1375,7 @@
 }
 
 @media (forced-colors: active) {
-  .shortlistCandidateRow[aria-pressed="true"] {
+  .shortlistCandidateRow[data-showing="true"] {
     border: 0.125rem solid Highlight;
   }
 

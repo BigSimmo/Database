@@ -478,4 +478,132 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(shortlist).toContainText("Confirmed by a human coordinator");
     await expect(shortlist).toContainText("RPH Adult Secure");
   });
+
+  /**
+   * Task 7 review Important 1: reversing the gate-list comparator to put failures LAST left the
+   * rest of the suite green, because every other assertion checks text/icon correctness per row,
+   * not the row ORDER. This pins the order itself, independent of gate count or wording, so a
+   * future edit that buries a failing gate anywhere but first is caught regardless of exactly how
+   * many gates fail.
+   */
+  test("keeps failing gates ordered before passing gates", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+
+    // WF-009's default candidate (RPH Adult Secure) fails exactly one of the eight gates
+    // (prior_decline) — enough to prove ordering without depending on how many gates fail.
+    await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
+    const passFlags = await shortlist
+      .locator('[data-testid^="ward-gate-"]')
+      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-pass")));
+    expect(passFlags).toHaveLength(8);
+    const lastFalseIndex = passFlags.lastIndexOf("false");
+    const firstTrueIndex = passFlags.indexOf("true");
+    expect(
+      lastFalseIndex,
+      "at least one failing gate must be present for this assertion to mean anything",
+    ).toBeGreaterThanOrEqual(0);
+    expect(
+      firstTrueIndex,
+      "at least one passing gate must be present for this assertion to mean anything",
+    ).toBeGreaterThanOrEqual(0);
+    expect(lastFalseIndex, "every failing gate must render before every passing gate").toBeLessThan(firstTrueIndex);
+  });
+
+  /**
+   * Task 7 review Important 2: adding `.slice(0, 3)` to the declines list silently dropped two of
+   * WF-009's five recorded declines and the suite stayed green, because nothing previously counted
+   * the rendered rows against the movement's own real decline count.
+   */
+  test("renders every recorded decline, never a truncated subset", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+
+    const movement = requireMovement("WF-009");
+    expect(movement.declines.length, "fixture assumption: WF-009 carries five declines").toBe(5);
+
+    await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
+    await expect(shortlist.locator('[data-testid="ward-decline-row"]')).toHaveCount(movement.declines.length);
+  });
+
+  /**
+   * Task 7 review Important 3: replacing the eligible-only lookup with the shortlist's raw first
+   * entry labels an INELIGIBLE unit "Suggested destination" on a movement like WF-009 (all three
+   * nearest candidates ineligible) — precisely what ruling 5 forbids, since it would recommend a
+   * ward that already refused the patient. The suite stayed green under that mutation because
+   * nothing previously asserted the label's absence on an all-ineligible movement.
+   */
+  test("never labels an ineligible candidate as the suggested destination", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+
+    // WF-009: every one of its three nearest candidates is ineligible, so there is no unit this
+    // panel may honestly suggest.
+    await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
+    await expect(shortlist).not.toContainText("Suggested destination");
+    await expect(shortlist).toContainText("No eligible destination found yet.");
+
+    // WF-017: carries a recorded outstanding referral (a fact, never a computed suggestion), so
+    // "Suggested destination" must not appear here either. That referral — BTY Adult Secure,
+    // selectable via the diagram's shared selection state — passes every gate, so presenting it
+    // as fact carries no hidden risk of recommending a failing unit.
+    await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
+    await expect(shortlist).toContainText("Outstanding referral: BTY Adult Secure");
+    await expect(shortlist).not.toContainText("Suggested destination");
+
+    const diagram = page.getByRole("region", { name: "Statewide flow" });
+    await diagram.locator('[data-testid="ward-diagram-unit-bty-adult-secure"]').click();
+    const btyGates = shortlist.locator('[data-testid^="ward-gate-"]');
+    await expect(btyGates).toHaveCount(8);
+    await expect(shortlist.locator('[data-testid^="ward-gate-"][data-pass="false"]')).toHaveCount(0);
+  });
+
+  /**
+   * Task 7 review Important 4: override is half of the phase's central governance claim ("a human
+   * confirms OR overrides, always, with the reason recorded"), and previously had zero test
+   * coverage in either ward spec — proven only by reading the source. This walks it end to end:
+   * reachable, reason-gated (an empty submission records nothing), and the recorded reason is
+   * visible on screen afterwards.
+   */
+  test("the override path is a real, reason-gated confirmation path", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+
+    // WF-009: every nearest candidate is ineligible, so override is the only human path that can
+    // place a patient here — exactly the scenario the control exists for.
+    await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
+
+    const overrideToggle = shortlist.getByTestId("ward-shortlist-override-toggle");
+    await expect(overrideToggle).toBeVisible();
+    await expect(overrideToggle).not.toHaveAttribute("aria-disabled", "true");
+    await overrideToggle.click();
+
+    const reasonField = shortlist.getByLabel(/Reason for overriding/);
+    const submitButton = shortlist.getByRole("button", { name: "Record override" });
+    await expect(reasonField).toBeVisible();
+
+    // A reason is required — submitting empty must record nothing.
+    await submitButton.click();
+    await expect(shortlist).not.toContainText("Overridden by a human coordinator");
+
+    // A real reason produces a real, human-attributed record, visible on screen.
+    const reasonText = "Duty psychiatrist directs placement despite the prior decline; bed confirmed by phone.";
+    await reasonField.fill(reasonText);
+    await submitButton.click();
+    await expect(shortlist).toContainText("Overridden by a human coordinator");
+    await expect(shortlist).toContainText(reasonText);
+    await expect(shortlist).toContainText("RPH Adult Secure");
+  });
 });

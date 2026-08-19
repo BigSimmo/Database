@@ -129,17 +129,21 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
 
   const legalBreached = movement.legalForm ? clockState(movement.legalForm.dueAt, now) === "breached" : false;
 
-  // The destination slot. `destinationUnit` conflates acceptance with an outstanding referral
-  // into one field, so the accepted/referred distinction is read directly off the movement (same
-  // reasoning `flow-diagram.tsx` already applies). When nothing is recorded, the top ELIGIBLE
-  // candidate — never a merely-nearest ineligible one — is offered, and only ever labelled
-  // "Suggested destination": a computed suggestion must never sit unlabelled in the destination
-  // slot, and an ineligible nearest candidate must never be presented as a suggestion at all.
-  const hasRecordedReferral = Boolean(movement.acceptedUnitId) || movement.referredUnitIds.length > 0;
-  const recordedUnit = destinationUnit(movement);
+  // The destination slot. An accepted unit and every outstanding referral are independent facts
+  // a coordinator acts on differently (same reasoning `flow-diagram.tsx` already applies), so
+  // each renders its own badge below from the raw movement fields — never only the first
+  // referral, and never conflated with an acceptance (review Minor 6). `destinationUnit`
+  // ("accepted, or else the first referral") is consulted only for ruling 5's exact condition:
+  // when it is `undefined`, the top ELIGIBLE candidate — never a merely-nearest ineligible one
+  // — is offered instead, and only ever labelled "Suggested destination": a computed suggestion
+  // must never sit unlabelled in the destination slot, and an ineligible nearest candidate must
+  // never be presented as a suggestion at all (review Important 3).
+  const acceptedUnit = movement.acceptedUnitId ? unitById(movement.acceptedUnitId) : undefined;
+  const referredUnits = movement.referredUnitIds.map((id) => ({ id, unit: unitById(id) }));
+  const recordedDestination = destinationUnit(movement);
+  const hasRecordedReferral =
+    recordedDestination !== undefined || Boolean(movement.acceptedUnitId) || movement.referredUnitIds.length > 0;
   const topEligible = shortlist.find((candidate) => candidate.verdict.eligible);
-  const extraReferralCount =
-    !movement.acceptedUnitId && movement.referredUnitIds.length > 1 ? movement.referredUnitIds.length - 1 : 0;
 
   const canConfirm = activeUnit !== undefined && activeVerdict?.eligible === true;
   const canOverride = activeUnit !== undefined;
@@ -187,16 +191,30 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
         </span>
 
         {hasRecordedReferral ? (
-          recordedUnit ? (
-            <span className={movement.acceptedUnitId ? styles.shortlistAcceptedBadge : styles.shortlistReferredBadge}>
-              {movement.acceptedUnitId ? "Accepted destination" : "Outstanding referral"}: {recordedUnit.name}
-              {extraReferralCount > 0
-                ? ` (+${extraReferralCount} more referral${extraReferralCount === 1 ? "" : "s"})`
-                : ""}
-            </span>
-          ) : (
-            <span className={styles.shortlistUnresolvedBadge}>Recorded destination could not be resolved.</span>
-          )
+          <>
+            {movement.acceptedUnitId ? (
+              acceptedUnit ? (
+                <span className={styles.shortlistAcceptedBadge}>Accepted destination: {acceptedUnit.name}</span>
+              ) : (
+                <span className={styles.shortlistUnresolvedBadge}>Accepted destination could not be resolved.</span>
+              )
+            ) : null}
+            {/* Every outstanding referral, not only `referredUnitIds[0]` — a movement can carry
+                up to PARALLEL_REFERRAL_CAP live referrals at once, and each is a fact a coordinator
+                acts on (review Minor 6: a hidden parallel referral is exactly the trust failure the
+                cap and this record exist to prevent). */}
+            {referredUnits.map(({ id, unit }) =>
+              unit ? (
+                <span key={id} className={styles.shortlistReferredBadge}>
+                  Outstanding referral: {unit.name}
+                </span>
+              ) : (
+                <span key={id} className={styles.shortlistUnresolvedBadge}>
+                  Outstanding referral to an unresolved unit.
+                </span>
+              ),
+            )}
+          </>
         ) : topEligible ? (
           <span className={styles.shortlistSuggestedBadge}>Suggested destination: {topEligible.unit.name}</span>
         ) : (
@@ -211,14 +229,23 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
         ) : (
           <ul className={styles.shortlistCandidateList}>
             {shortlist.map((candidate) => {
-              const selected = activeUnit?.id === candidate.unit.id;
+              // `data-showing` is purely visual — which candidate's gates this panel is
+              // currently displaying, including the default (nothing explicitly selected)
+              // case. `aria-pressed` is reserved for the real, explicit selection state
+              // (`selectedUnitId`, the prop this component was actually given) — a
+              // screen-reader user must never be told a control is pressed when nobody
+              // pressed it, and a default-only "selection" is not clearable the way a real
+              // one is (review Minor 5).
+              const isShown = activeUnit?.id === candidate.unit.id;
+              const isSelected = selectedUnitId === candidate.unit.id;
               return (
                 <li key={candidate.unit.id}>
                   <button
                     type="button"
                     data-testid={`ward-shortlist-candidate-${candidate.unit.id}`}
                     data-eligible={String(candidate.verdict.eligible)}
-                    aria-pressed={selected}
+                    data-showing={isShown ? "true" : undefined}
+                    aria-pressed={isSelected}
                     className={styles.shortlistCandidateRow}
                     onClick={() => onSelectUnit(candidate.unit.id)}
                   >
@@ -281,7 +308,11 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
             {movement.declines.map((decline, index) => {
               const unit = unitById(decline.unitId);
               return (
-                <li key={`${decline.unitId}-${index}`} className={styles.shortlistDeclineRow}>
+                <li
+                  key={`${decline.unitId}-${index}`}
+                  data-testid="ward-decline-row"
+                  className={styles.shortlistDeclineRow}
+                >
                   <strong>{unit ? unit.name : "Unresolved unit"}</strong>
                   <span>
                     {decline.reason.replace(/_/g, " ")}
