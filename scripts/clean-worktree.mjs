@@ -204,7 +204,7 @@ export function identifyMergedWorktrees(
 
     // Filter by drive if requested (e.g. "D" for Dev Drive)
     if (targetDrive) {
-      const match = /^([a-zA-Z]):/.exec(resolvedPath);
+      const match = /^([a-zA-Z]):/.exec(wt.path) || /^([a-zA-Z]):/.exec(resolvedPath);
       if (!match || match[1].toUpperCase() !== targetDrive) continue;
     }
 
@@ -255,9 +255,7 @@ export function identifyMergedWorktrees(
     }
 
     const aheadNote =
-      Number.isFinite(rawAhead) && rawAhead > 0
-        ? `(${rawAhead} upstream commits accounted for by squash); `
-        : "";
+      Number.isFinite(rawAhead) && rawAhead > 0 ? `(${rawAhead} upstream commits accounted for by squash); ` : "";
 
     merged.push({
       ...wt,

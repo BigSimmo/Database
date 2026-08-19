@@ -17,7 +17,7 @@ const created: string[] = [];
 afterEach(() => {
   for (const root of created.splice(0)) {
     try {
-      rmSync(root, { recursive: true, force: true });
+      rmSync(root, { recursive: true, force: true, maxRetries: 5 });
     } catch {
       // Ignore cleanup error
     }
