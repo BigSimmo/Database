@@ -83,7 +83,7 @@ function requestJson(port) {
 export async function findRunningProjectServer(rootDir = projectRoot) {
   const expectedProjectId = localProjectId(rootDir);
   const stablePort = stableProjectPort(rootDir);
-  const maxPort = Math.min(stablePort + 50, projectPortEnd);
+  const maxPort = projectPortEnd;
 
   for (let port = stablePort; port <= maxPort; port += 1) {
     const payload = await requestJson(port);
