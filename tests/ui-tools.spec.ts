@@ -1248,12 +1248,12 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       {
         path: "/medications",
         testId: "medication-home",
-        heading: "Medication",
+        heading: "Medication Guidance",
         headingLevel: 2,
       },
-      { path: "/services", testId: "services-home", heading: "Services", headingLevel: 1 },
-      { path: "/forms", testId: "forms-home", heading: "Forms", headingLevel: 1 },
-      { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
+      { path: "/services", testId: "services-home", heading: "Clinical Services", headingLevel: 1 },
+      { path: "/forms", testId: "forms-home", heading: "Clinical Forms", headingLevel: 1 },
+      { path: "/differentials", testId: "differentials-home", heading: "Differential Diagnosis", headingLevel: 1 },
     ] as const) {
       test(`mode home search is centered at ${viewport.name} width on ${home.path}`, async ({ page }) => {
         await mockAnswerDashboardApi(page);
@@ -1852,7 +1852,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
 
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await expect(page.getByTestId("differentials-home")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "Differentials" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Differential Diagnosis" })).toBeVisible();
     await expect(page.locator('input[placeholder="Ask or search a presentation"]:visible').first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Search presentations" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Compare differentials" })).toBeVisible();
@@ -1868,7 +1868,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(async () => {
       const differentialsSearchBox = await differentialsHomeSearch.boundingBox();
       const differentialsHeadingBox = await page
-        .getByRole("heading", { level: 1, name: "Differentials" })
+        .getByRole("heading", { level: 1, name: "Differential Diagnosis" })
         .boundingBox();
       expect(differentialsSearchBox).not.toBeNull();
       expect(differentialsHeadingBox).not.toBeNull();

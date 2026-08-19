@@ -63,7 +63,7 @@ test("searches clinical language without provenance fields and carries a result 
 }, testInfo) => {
   await gotoApp(page, "/specifiers");
 
-  await expect(page.getByRole("heading", { name: "Specifiers", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Diagnostic Specifiers", exact: true })).toBeVisible();
   await expect(page.getByTestId("specifiers-home")).toBeVisible();
 
   const search = page.getByTestId("global-search-input").filter({ visible: true }).first();

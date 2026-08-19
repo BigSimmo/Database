@@ -356,7 +356,7 @@ describe("source governance reviewer attribution", () => {
         identifier: "doc-reviewed-empty-attribution",
         review_status: "reviewed",
         reason: expect.stringContaining("trivial placeholder"),
-        found_attribution: { reviewedBy: "[redacted]" },
+        found_attribution: { "metadata.reviewedBy": "[redacted]" },
       });
       expect(report.violations[1].reason).not.toContain("   ");
 

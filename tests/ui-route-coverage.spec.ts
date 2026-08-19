@@ -257,11 +257,11 @@ test.describe("previously uncovered production routes", () => {
       async (currentPage) => {
         const search = currentPage
           .getByRole("region", { name: "Common therapy searches" })
-          .getByRole("button", { name: "Anxiety in outpatient care", exact: true });
+          .getByRole("button", { name: "trauma-focused CBT", exact: true });
         await expect(search).toBeEnabled();
         await search.click();
         await expect(
-          currentPage.getByRole("heading", { name: "Anxiety in outpatient care", level: 1, exact: true }),
+          currentPage.getByRole("heading", { name: "trauma-focused CBT", level: 1, exact: true }),
         ).toBeVisible();
         await expect(visibleByTestId(currentPage, "search-query-ribbon")).toBeVisible();
         // The common-search pill lands on `/therapy-compass/search`, which is the
