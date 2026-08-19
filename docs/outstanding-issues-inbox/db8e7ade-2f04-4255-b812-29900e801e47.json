@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "db8e7ade-2f04-4255-b812-29900e801e47",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "/favourites and /?mode=favourites render visibly different homes for the same mode",
+    "detail": "The standalone hero lockup was deliberately deleted from favourites-command-library-page.tsx (ledger #164), but the dashboard variant FavouritesHub (src/components/clinical-dashboard/favourites-hub.tsx:179) still renders ModeHomeHero with 'Favourites / Saved notes, sources, and sets.' So the same mode looks different depending on the door. Decide which treatment is canonical and apply it to both. Found during the PR #2160 cross-mode audit.",
+    "source": "PR #2160 cross-mode home audit",
+    "issueUlid": "01M0BEA1Q5V0EDR4MJSWW1F5GD"
+  }
+}

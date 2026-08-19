@@ -869,11 +869,13 @@ export function SearchResultsEmptyState({
   const filtered = appliedFilters.length > 0;
   const Title = headingLevel ? (`h${headingLevel}` as "h2" | "h3" | "h4" | "h5" | "h6") : "p";
   // What the panel can actually offer, decided before the copy describes it.
-  // `searchCommandSurfaceByMode` is a `Partial<Record<…>>` and therapy-compass
-  // has no entry, so there is neither an example nor a cross-mode route there —
-  // yet the body said "Try an example, or jump to another mode", naming two
-  // controls the reader could not see. Copy that promises absent affordances is
-  // the same defect class as a label that does not match its handler.
+  // Both halves need a handler as well as data: most hosts render this panel
+  // without `onTryExample`/`onCrossMode` (only Services, Calculators and Forms
+  // wire the first), so a mode with a full `searchCommandSurfaceByMode` entry can
+  // still have no example and no cross-mode route to offer — yet the body said
+  // "Try an example, or jump to another mode", naming two controls the reader
+  // could not see. Copy that promises absent affordances is the same defect class
+  // as a label that does not match its handler.
   const hasExample = Boolean(config?.examples[0] && onTryExample);
   const hasCrossMode = crossModes.length > 0 && Boolean(onCrossMode);
   // Degraded outranks filtered, which outranks a plain miss. A search whose

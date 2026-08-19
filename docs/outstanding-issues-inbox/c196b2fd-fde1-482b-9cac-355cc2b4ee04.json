@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c196b2fd-fde1-482b-9cac-355cc2b4ee04",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Three mode homes override the canonical APP_MODE_ICON glyph (services, forms, dictionary)",
+    "detail": "services uses Users (canonical route), forms uses FileText (canonical fileSignature — and identical to the Documents home tile), dictionary uses BookOpen (canonical bookMarked). Same class as the therapy-compass magnifier fixed in PR #2160, which now derives from appModeIcons. Each remaining one needs its own visual-baseline re-adoption, so they were left out of that PR. Found during the PR #2160 cross-mode audit.",
+    "source": "PR #2160 cross-mode home audit",
+    "issueUlid": "01M0BE9FPF0EKBGCMBD20EHNDF"
+  }
+}

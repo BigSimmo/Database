@@ -178,6 +178,24 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     // src/lib/app-modes.ts — so the command panel must not query the remote index.
     remoteSearchEnabled: false,
   },
+  "therapy-compass": {
+    // Every example was run through the real scorer (`scoreTherapyCandidate`,
+    // src/lib/therapy-ranking.ts) against the generated 205-record catalogue, so
+    // the ticket never advertises a query the catalogue cannot answer — the same
+    // rule the dictionary entry above states. Measured match counts at the time
+    // of writing: trauma-focused CBT 188, behavioural activation 30, insomnia 4.
+    examples: ["trauma-focused CBT", "behavioural activation", "insomnia"],
+    suggestions: [
+      { text: "trauma-focused CBT", meta: "Trauma" },
+      { text: "behavioural activation", meta: "Mood" },
+      { text: "insomnia", meta: "CBT" },
+    ],
+    crossModes: ["documents", "dsm", "answer"],
+    // Therapy reads the local generated catalogue under
+    // public/therapy-compass-data — like Dictionary and Calculators, its command
+    // panel must not query the remote index.
+    remoteSearchEnabled: false,
+  },
 };
 
 export function searchCommandSurfaceConfig(modeId: AppModeId): SearchCommandSurfaceConfig | null {

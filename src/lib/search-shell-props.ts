@@ -80,7 +80,7 @@ export function searchShellPropsForPathname(pathname: string): SearchShellPathPr
   }
 
   if (pathname.startsWith("/therapy-compass")) {
-    return { initialMode: "therapy-compass" };
+    return { initialMode: "therapy-compass", desktopSearchPlacement: "hero" };
   }
 
   if (pathname.startsWith("/factsheets")) {

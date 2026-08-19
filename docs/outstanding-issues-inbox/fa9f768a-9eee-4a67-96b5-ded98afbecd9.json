@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "fa9f768a-9eee-4a67-96b5-ded98afbecd9",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Mode-home composer reserve does not account for the suggestion ticket, so every ticket-bearing home carries a ~0.035 CLS shift",
+    "detail": "ModeHomeTemplate reserves the composer slot with --spacing-mode-home-composer-phone (6.625rem) / --spacing-mode-home-composer-wide (5.5rem), but the portal content is UniversalSearchCommandSurface, which renders SmartRotatingHint (phone ticket) and the sm+ rotating line/prompt-chip row ABOVE the composer inside that same slot. The reserve therefore under-accounts, and the portal attaching post-hydration shifts content — the defect class chrome invariant 15 exists to prevent. Evidence from the PR #2160 Lighthouse run: mobile-dsm baseline CLS 0.0353, mobile-forms 0.088, mobile-root 0.016, while mobile-therapy-compass was 0.000 purely because Therapy had no command-surface entry and so rendered no ticket. Restoring the ticket moved Therapy to 0.032, matching its peers. Fix: raise the reserve tokens to include the hint row height (or reserve it separately), which should take every mode home toward ~0. Touches all 15 mode homes, so it needs verify:phone-chrome plus Lighthouse and visual baseline re-adoption — deliberately not bundled into PR #2160.",
+    "source": "PR #2160 Lighthouse budget failure",
+    "issueUlid": "01M0BF075ZJVYQEMAJJ5Y2R1WF"
+  }
+}
