@@ -154,7 +154,13 @@ const seededMovements: Movement[] = [
       enRouteAt: NOW_ANCHOR - 15,
     },
     blocker: "None — in transit",
-    withdrawnReferrals: [],
+    withdrawnReferrals: [
+      {
+        unitId: "fsh-adult-secure",
+        at: NOW_ANCHOR - 470,
+        reason: "Referral withdrawn once RGH Adult Secure confirmed the bed",
+      },
+    ],
   },
   {
     id: "WF-007",
@@ -250,6 +256,17 @@ const seededMovements: Movement[] = [
     withdrawnReferrals: [],
     arrivalMode: "police",
     examination: { at: NOW_ANCHOR - 45, outcome: "inpatient_order" },
+    escalation: {
+      at: NOW_ANCHOR - 3,
+      triedUnitIds: [
+        "rph-adult-secure",
+        "gry-adult-secure",
+        "bty-adult-secure",
+        "fsh-adult-secure",
+        "rgh-adult-secure",
+      ],
+      contact: "State bed coordination desk",
+    },
   },
   {
     id: "WF-010",
@@ -453,7 +470,13 @@ const seededMovements: Movement[] = [
     referredUnitIds: [],
     declines: [],
     blocker: "Awaiting family collateral before destination decision",
-    withdrawnReferrals: [],
+    withdrawnReferrals: [
+      {
+        unitId: "scgh-older-adult",
+        at: NOW_ANCHOR - 10,
+        reason: "Referral withdrawn — the unit filled the bed from an earlier request",
+      },
+    ],
   },
 ];
 

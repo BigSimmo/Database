@@ -72,13 +72,23 @@ describe("Phase 3 model additions", () => {
 
   it("keeps every new field free of anything that identifies a person", () => {
     const forbidden = /\b(name|dob|date of birth|mrn|medical record|address|diagnosis)\b/i;
+    // A guard that checks properties and never reads strings is how the Phase 1 privacy
+    // defect survived (plan Global Constraints). Accumulate every string this loop actually
+    // inspects and assert there is a real, non-trivial number of them — so a future edit that
+    // empties withdrawnReferrals/escalation back out of the fixture turns this test red
+    // instead of leaving it vacuously green.
+    const inspected: string[] = [];
     for (const movement of wardMovements.filter(isOpen)) {
       for (const withdrawn of movement.withdrawnReferrals) {
-        expect(withdrawn.reason).not.toMatch(forbidden);
+        inspected.push(withdrawn.reason);
       }
       if (movement.escalation) {
-        expect(movement.escalation.contact).not.toMatch(forbidden);
+        inspected.push(movement.escalation.contact);
       }
+    }
+    expect(inspected.length).toBeGreaterThanOrEqual(3);
+    for (const text of inspected) {
+      expect(text).not.toMatch(forbidden);
     }
   });
 });
