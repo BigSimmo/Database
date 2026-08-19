@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ff1ea3f9-2bdc-4a9f-86de-185ec1b6c9e5",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#FEWQZ5",
+    "outcome": "Done — all three stages landed in PR #2122 (squash 092633eb). B3: 19 control-recipe call sites converted to the shared Button and commandControl/outlineControl/iconControl deleted. C: all 16 therapy card surfaces converged on card-recipes cardSurface, with the hero accent edge kept on the left as heroAccentEdge reading the shared --cat-accent. D: six page headers adopted the shared PageHeader; three h1 remain and are tracked separately as #D6G8TC. Verified by verify:cheap (673 files, 7276 tests), verify:ui (447 passed) and check:design-system-contract; ratchets fell (legacy shadow aliases 104 to 89, padding 53 to 52, gaps 30 to 28) and none rose.",
+    "baseRowFingerprint": "7b5fdb9a549a2a27814e8cdc0f54123556a5f285c093a0968e357d9a23463730"
+  }
+}

@@ -86,6 +86,7 @@ function renderManifest(current, previous, summary) {
     "// not download and parse a record projection before its LCP can paint.",
     "export const THERAPY_CATALOGUE_SUMMARY = {",
     `  totalCount: ${summary.totalCount},`,
+    `  needsReviewCount: ${summary.needsReviewCount},`,
     `  defaultBriefSlug: ${JSON.stringify(summary.defaultBriefSlug)},`,
     `  defaultSheetSlug: ${JSON.stringify(summary.defaultSheetSlug)},`,
     "} as const;\n",
@@ -152,6 +153,10 @@ const browserHomeProjected = therapies
 
 const catalogueSummary = {
   totalCount: browserHomeProjected.length,
+  // Records still awaiting qualified-clinician sign-off. Therapy ships its review
+  // state rather than hiding unreviewed records, so the library notice states this
+  // count; computing it here keeps the notice from drifting away from the data.
+  needsReviewCount: browserHomeProjected.filter((therapy) => therapy.reviewStatus !== "reviewed").length,
   defaultBriefSlug: browserHomeProjected.find((therapy) => therapy.briefInterventionAvailable)?.slug ?? null,
   defaultSheetSlug: browserHomeProjected.find((therapy) => therapy.patientSheetAvailable)?.slug ?? null,
 };
@@ -160,11 +165,13 @@ if (checkOnly) {
   const summaryBlock = extractConstObjectBody(currentManifest, "THERAPY_CATALOGUE_SUMMARY");
   const recordedSummary = {
     totalCount: Number(summaryBlock.match(/totalCount: (\d+)/)?.[1] ?? Number.NaN),
+    needsReviewCount: Number(summaryBlock.match(/needsReviewCount: (\d+)/)?.[1] ?? Number.NaN),
     defaultBriefSlug: summaryBlock.match(/defaultBriefSlug: (null|"[^"]+")/)?.[1] ?? "",
     defaultSheetSlug: summaryBlock.match(/defaultSheetSlug: (null|"[^"]+")/)?.[1] ?? "",
   };
   if (
     recordedSummary.totalCount !== catalogueSummary.totalCount ||
+    recordedSummary.needsReviewCount !== catalogueSummary.needsReviewCount ||
     recordedSummary.defaultBriefSlug !== JSON.stringify(catalogueSummary.defaultBriefSlug) ||
     recordedSummary.defaultSheetSlug !== JSON.stringify(catalogueSummary.defaultSheetSlug)
   ) {

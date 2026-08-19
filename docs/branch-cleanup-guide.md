@@ -121,6 +121,85 @@ credentials.
 5. Record completed cleanup reviews with `npm run ledger:append -- --ref <branch> --head <full-sha> --scope branch-cleanup --outcome <o> --checks <c>`. The scope cell must be exactly `branch-cleanup` for a later sweep to treat it as complete; `branch-cleanup-deletion-pending` deliberately does not count.
 6. Remove detached worktrees only when clean, unneeded, and absent from active `git worktree list` output.
 
+## Dev Drive Stale Worktree Pruning (Inbox `ec356a7d`)
+
+Worktrees accumulate across active multi-agent development fleets (e.g. on Dev Drive `D:` or secondary disks, where dozens of worktrees can hold ~19+ GB of duplicated `node_modules` at ~0.89 GB and ~50,000 files each). Stale worktrees compete for disk capacity, cause dependency drift, and contend on the cross-worktree test run coordinator lock (`scripts/run-heavy.mjs` / `scripts/test-run-lock.mjs`).
+
+### Safety Rules for Worktree Pruning
+
+- **Never pass `--force` to `git worktree remove`.** If git refuses removal due to untracked files, submodules, or uncommitted changes, that refusal is a critical safety signal, not an obstacle to override.
+- **Never remove a worktree that is ahead of `origin/main` or has uncommitted work.** `git status --porcelain` in the candidate directory must be clean (`""`).
+- **Never prune blind while agent sessions (Codex/Gemini/Claude) are active.** Sessions may have created new commits, modified files, or acquired test locks since the initial scan.
+- **Ignore `C:` session worktrees entirely.** These paths belong to active Codex and Antigravity chat sessions.
+
+### Step-by-Step Worktree Pruning Workflow
+
+1. **Confirm fleet quiescence:**
+   Ensure no background test runner, dev server, or agent session is active or holding an execution lease.
+
+2. **Scan landed candidates (list-only preflight):**
+   Run `clean-worktree.mjs` with `--merged` and `--squashed` to identify worktrees whose branch has landed on `origin/main` (either by direct ancestry or squash-merge patch-id equivalence):
+
+   ```bash
+   node scripts/clean-worktree.mjs --merged --squashed
+   ```
+
+   _(Note: `--merged` and `--squashed` are strictly list-only by default; they will never delete anything without `--remove`.)_
+
+3. **Evaluate confidence ratings on each candidate:**
+   - `proven`: Every commit on the branch is reachable from `origin/main` (`git merge-base --is-ancestor`).
+   - `inferred from patch-id, corroborated`: The branch's full diff matches a squashed commit on `origin/main`, and all changed files are byte-identical to `origin/main`.
+   - `inferred from patch-id, NOT fully corroborated`: The branch diff matched a squashed commit, but some changed files differ from `origin/main` (frequently normal base churn on append-only docs like `docs/outstanding-issues.md`). Review differences with `git diff origin/main...<branch>` before removing. Skip any candidate where you cannot confirm all unique work is landed.
+
+4. **Execute bounded safe removal:**
+   After verifying candidate confidence and confirming that trees are clean and not ahead of `origin/main`:
+
+   ```bash
+   # Bounded batch removal
+   node scripts/clean-worktree.mjs --merged --squashed --remove --batch-size 5
+   ```
+
+   Or remove an individual verified worktree directly:
+
+   ```bash
+   git worktree remove <path>
+   ```
+
+5. **Prune disconnected or orphaned metadata:**
+
+   ```bash
+   npm run clean:worktree
+   ```
+
+## Merge-Loss Audit Verification (#311, #324)
+
+Merge loss occurs when merge commits or manual conflict resolutions silently revert changes from previously landed PRs without failing tests (for example, bad merge commit `acf78bf` reverting PRs #1800, #1803, #1804, #1796, and #1811 because the reverts took each PR's tests at the same time).
+
+The merge-loss audit tool was promoted into `scripts/audit-merge-loss.mjs` (#311) and provides verification of post-merge integrity (#324):
+
+```bash
+# Run advisory merge-loss audit over the default 14-day window on origin/main
+npm run audit:merge-loss
+
+# Audit a custom window or target branch
+npm run audit:merge-loss -- --since 30 --ref origin/main
+
+# Output findings as structured JSON
+npm run audit:merge-loss -- --json
+
+# Run in strict mode (exits non-zero on any finding)
+npm run audit:merge-loss -- --strict
+
+# Run self-tests directly
+node scripts/audit-merge-loss.mjs --self-test
+```
+
+### Interpreting Findings
+
+- **Advisory by design:** The audit exits `0` by default because an intentional revert is byte-identical at blob level to an accidental merge resolution revert. A finding is a prompt for human review, not an automatic defect.
+- **Classification hierarchy:** Findings sort merge-resolution reverts first (high likelihood of accidental loss) before single-parent commits (usually deliberate reverts with explanatory commit messages).
+- **Remediation:** If an accidental revert is confirmed, restore the lost files on a new branch and submit a PR to re-land the changes.
+
 ## Final Verification
 
 After each cleanup pass:

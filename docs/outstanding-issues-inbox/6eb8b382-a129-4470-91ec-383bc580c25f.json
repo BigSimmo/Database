@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "6eb8b382-a129-4470-91ec-383bc580c25f",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Mode home copy drift: three placeholder-punctuation conventions, inconsistent heading levels, and a stale docs/site-map.md mode index",
+    "detail": "Placeholders use ASCII '...' (answer, documents, services, forms, favourites, dsm, specifiers, formulation, prescribing, tools, calculators), Unicode '…' (therapy-compass, factsheets, dictionary), and no terminator at all on differentials ('Ask or search a presentation'). Heading level is h2 on answer/documents/prescribing and h1 elsewhere, so the Documents home has an h2 and no h1 anywhere on the page. docs/site-map.md's mode page index covers 11 modes — Therapy, Factsheets, Dictionary and Calculators have no row — and CLAUDE.md still says '13 app modes' when app-modes.ts defines 15. Pick one convention per axis and refresh the generated docs. Found during the PR #2160 cross-mode audit.",
+    "source": "PR #2160 cross-mode home audit",
+    "issueUlid": "01M0BEA22B97VQK5QN24JSPFCM"
+  }
+}

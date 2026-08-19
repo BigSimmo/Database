@@ -286,6 +286,7 @@
         "src/components/therapy-compass/screens/other-screen.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/screens/recommend-screen.tsx",
+        "src/components/therapy-compass/screens/search-screen.tsx",
         "src/components/therapy-compass/therapy-card.tsx",
         "src/components/therapy-compass/workspace.tsx",
         "src/components/ui/confirm-dialog.tsx",
@@ -300,6 +301,7 @@
         "src/components/therapy-compass/screens/other-screen.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/screens/recommend-screen.tsx",
+        "src/components/therapy-compass/screens/search-screen.tsx",
         "src/components/therapy-compass/therapy-card.tsx",
         "src/components/therapy-compass/workspace.tsx",
         "src/components/ui/print-output.tsx"
@@ -420,6 +422,7 @@
         "tests/citations.test.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/document-viewer-shell.dom.test.tsx",
+        "tests/probe-generation-quality.test.ts",
         "tests/rag-claim-support.test.ts",
         "tests/rag-eval-source-governance.test.ts",
         "tests/source-backed-recovery-cross-reference.test.ts",
@@ -1151,20 +1154,24 @@
         "src/components/information-page-shell.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
+        "src/components/therapy-compass/screens/detail-screen.tsx",
         "src/components/therapy-compass/screens/other-screen.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/screens/recommend-screen.tsx",
-        "src/components/therapy-compass/screens/sheets-screen.tsx"
+        "src/components/therapy-compass/screens/sheets-screen.tsx",
+        "src/components/therapy-compass/workspace.tsx"
       ],
       "productImportFiles": [
         "src/components/dsm/dsm-page-header.tsx",
         "src/components/information-page-shell.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
+        "src/components/therapy-compass/screens/detail-screen.tsx",
         "src/components/therapy-compass/screens/other-screen.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/screens/recommend-screen.tsx",
-        "src/components/therapy-compass/screens/sheets-screen.tsx"
+        "src/components/therapy-compass/screens/sheets-screen.tsx",
+        "src/components/therapy-compass/workspace.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1572,7 +1579,8 @@
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/tools/tools-search-results-page.tsx",
-        "src/components/ui/confirm-dialog.tsx"
+        "src/components/ui/confirm-dialog.tsx",
+        "src/components/ward-management/ward-management-console.tsx"
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
@@ -1599,7 +1607,8 @@
         "src/components/forms/form-detail-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
-        "src/components/tools/tools-search-results-page.tsx"
+        "src/components/tools/tools-search-results-page.tsx",
+        "src/components/ward-management/ward-management-console.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1613,6 +1622,8 @@
         "tests/document-filter-panel.dom.test.tsx",
         "tests/document-organization.test.ts",
         "tests/factsheet-save.dom.test.tsx",
+        "tests/guide-centre-chrome.spec.ts",
+        "tests/guide-centre-design-contract.dom.test.tsx",
         "tests/header-scroll-hide-contract.test.ts",
         "tests/image-lightbox-geometry.test.ts",
         "tests/in-page-nav-route-sections.dom.test.tsx",
@@ -3205,6 +3216,225 @@
       ]
     },
     {
+      "id": "ward-management",
+      "disposition": "owned",
+      "documentedDisposition": "Ward Flow is a synthetic operational coordination surface with a command home, full-screen constellation, role-aware queue-first phone fallback, linked operational workspaces, and an explainable human-confirmed destination workflow.",
+      "routes": [
+        "src/app/ward-management/capacity/page.tsx",
+        "src/app/ward-management/constellation/page.tsx",
+        "src/app/ward-management/exceptions/page.tsx",
+        "src/app/ward-management/governance/page.tsx",
+        "src/app/ward-management/movements/page.tsx",
+        "src/app/ward-management/network/page.tsx",
+        "src/app/ward-management/page.tsx",
+        "src/app/ward-management/patients/[patientId]/page.tsx",
+        "src/app/ward-management/queue/page.tsx",
+        "src/app/ward-management/transport/page.tsx"
+      ],
+      "routeRoots": true,
+      "proofApplicability": "required",
+      "nonVisualRoute": null,
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "permittedComponentFamilies": ["controls", "feedback", "layout"],
+      "sanctionedSpecialPatterns": [
+        "ClinicalRail",
+        "CoordinatorScreen",
+        "PatientMovementWorkspace",
+        "WardManagementConsole",
+        "WardModeNavigation",
+        "WardModeWorkspace",
+        "WardNetworkWorkspace"
+      ],
+      "roots": [
+        {
+          "file": "src/app/ward-management/capacity/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["WardModeWorkspace"]
+        },
+        {
+          "file": "src/app/ward-management/constellation/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["WardModeWorkspace"]
+        },
+        {
+          "file": "src/app/ward-management/exceptions/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["WardModeWorkspace"]
+        },
+        {
+          "file": "src/app/ward-management/governance/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["WardModeWorkspace"]
+        },
+        {
+          "file": "src/app/ward-management/movements/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["WardModeWorkspace"]
+        },
+        {
+          "file": "src/app/ward-management/network/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["WardModeWorkspace"]
+        },
+        {
+          "file": "src/app/ward-management/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CoordinatorScreen"]
+        },
+        {
+          "file": "src/app/ward-management/patients/[patientId]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/ward-management/queue/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["WardModeWorkspace"]
+        },
+        {
+          "file": "src/app/ward-management/transport/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["WardModeWorkspace"]
+        },
+        {
+          "file": "src/components/ward-management/coordinator/coordinator-screen.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CoordinatorScreen", "WardModeNavigation", "ClinicalRail"]
+        },
+        {
+          "file": "src/components/ward-management/ward-management-console.tsx",
+          "exists": true,
+          "imports": ["Sheet"],
+          "importedFamilies": ["layout"],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["WardManagementConsole", "WardModeNavigation", "ClinicalRail"]
+        },
+        {
+          "file": "src/components/ward-management/ward-management-modes.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": [
+            "WardModeWorkspace",
+            "WardModeNavigation",
+            "ClinicalRail",
+            "WardNetworkWorkspace"
+          ]
+        },
+        {
+          "file": "src/components/ward-management/ward-management-navigation.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["WardModeNavigation", "ClinicalRail"]
+        },
+        {
+          "file": "src/components/ward-management/ward-management-network.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["WardNetworkWorkspace"]
+        }
+      ]
+    },
+    {
       "id": "privacy-safety-and-reference",
       "disposition": "owned",
       "documentedDisposition": null,
@@ -3519,7 +3749,17 @@
       "src/app/(search-app)/tools/page.tsx",
       "src/app/privacy/page.tsx",
       "src/app/reference/colour-coding/page.tsx",
-      "src/app/safety-plan/page.tsx"
+      "src/app/safety-plan/page.tsx",
+      "src/app/ward-management/capacity/page.tsx",
+      "src/app/ward-management/constellation/page.tsx",
+      "src/app/ward-management/exceptions/page.tsx",
+      "src/app/ward-management/governance/page.tsx",
+      "src/app/ward-management/movements/page.tsx",
+      "src/app/ward-management/network/page.tsx",
+      "src/app/ward-management/page.tsx",
+      "src/app/ward-management/patients/[patientId]/page.tsx",
+      "src/app/ward-management/queue/page.tsx",
+      "src/app/ward-management/transport/page.tsx"
     ],
     "declared": [
       "src/app/(search-app)/calculators/page.tsx",
@@ -3580,7 +3820,17 @@
       "src/app/(search-app)/tools/page.tsx",
       "src/app/privacy/page.tsx",
       "src/app/reference/colour-coding/page.tsx",
-      "src/app/safety-plan/page.tsx"
+      "src/app/safety-plan/page.tsx",
+      "src/app/ward-management/capacity/page.tsx",
+      "src/app/ward-management/constellation/page.tsx",
+      "src/app/ward-management/exceptions/page.tsx",
+      "src/app/ward-management/governance/page.tsx",
+      "src/app/ward-management/movements/page.tsx",
+      "src/app/ward-management/network/page.tsx",
+      "src/app/ward-management/page.tsx",
+      "src/app/ward-management/patients/[patientId]/page.tsx",
+      "src/app/ward-management/queue/page.tsx",
+      "src/app/ward-management/transport/page.tsx"
     ],
     "undeclared": [],
     "missing": [],
@@ -3588,17 +3838,17 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 66,
+    "inheritedCkbV2RootCount": 81,
     "dynamicCkbV2RootCount": 0,
-    "v2MountedSurfaceCount": 14,
-    "declaredV2SurfaceCount": 14
+    "v2MountedSurfaceCount": 15,
+    "declaredV2SurfaceCount": 15
   },
   "summary": {
     "registeredComponentCount": 54,
     "previewCount": 54,
     "productImportedComponentCount": 34,
-    "rootCount": 67,
-    "productionRouteCount": 59,
-    "nextUiEntryCount": 112
+    "rootCount": 82,
+    "productionRouteCount": 69,
+    "nextUiEntryCount": 122
   }
 }

@@ -1,11 +1,14 @@
 "use client";
 
-import { GitCompareArrows, Network, Search, Sparkles, Waypoints } from "lucide-react";
+import { GitCompareArrows, Network, Sparkles, Waypoints } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
+import { appModeIcons } from "@/lib/app-mode-icons";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { therapyHrefWithSearchParams, therapyScreenHref } from "@/lib/therapy-compass-navigation";
+
+import { TherapyReviewNotice } from "../therapy-review-notice";
 
 import { THERAPY_CATALOGUE_SUMMARY } from "../data/generated-assets";
 
@@ -28,11 +31,19 @@ export function HomeScreen() {
 
   return (
     <ModeHomeMain testId="therapy-compass-home" contentAlign="startOnPhone">
+      {/* Above the hero, not in the footer: the catalogue-wide review caveat is
+          the first thing a reader of this library needs, and the quiet footer
+          line is not load-bearing enough to carry it alone. */}
+      <TherapyReviewNotice className="mb-3 sm:mb-4" />
       <ModeHomeTemplate
         testId="therapy-compass"
         title="Therapy"
         subtitle={therapyCountCopy}
-        icon={Search}
+        // The mode's identity glyph is derived from APP_MODE_ICON rather than
+        // chosen here, so this medallion cannot drift from the one nav, the mode
+        // picker and the shared home `/` all render. It was a hard-coded magnifier,
+        // which made the same mode show two different identities by door.
+        icon={appModeIcons["therapy-compass"]}
         actionsLabel="Therapy workflows"
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actions={[
