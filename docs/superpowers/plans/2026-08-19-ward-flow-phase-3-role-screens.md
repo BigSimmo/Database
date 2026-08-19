@@ -904,6 +904,8 @@ The primary screen becomes live and its main action becomes a referral. Spec §7
 - Modify: `src/components/ward-management/coordinator/coordinator-screen.tsx`
 - Modify: `src/components/ward-management/coordinator/shortlist-panel.tsx`
 - Modify: `src/components/ward-management/coordinator/exception-drawer.tsx`
+- Modify: `src/components/ward-management/ward-derivations.ts`
+- Create: `tests/ward-restriction-notice.test.ts`
 - Modify: `tests/ui-ward-coordinator.spec.ts`
 
 **Interfaces:**
@@ -950,7 +952,77 @@ test("shows a refused transition instead of swallowing it", async ({ page }) => 
 
 - [ ] **Step 2: Run to verify it fails.**
 
-- [ ] **Step 3: Rewire**
+- [ ] **Step 3: Add the restriction notice derivation and its test**
+
+Two warnings, not one. Write `tests/ward-restriction-notice.test.ts` first and watch it fail:
+
+```ts
+import { describe, expect, it } from "vitest";
+
+import { restrictionNotice } from "../src/components/ward-management/ward-derivations";
+import { wardMovements } from "../src/components/ward-management/ward-movements";
+import { allUnits } from "../src/components/ward-management/ward-sites";
+
+const unit = (id: string) => allUnits().find((candidate) => candidate.id === id)!;
+
+describe("restriction notice", () => {
+  it("says nothing when the ward's security matches what the patient needs", () => {
+    const open = wardMovements.find((m) => m.security === "Open" && m.legalStatus !== "Voluntary")!;
+    expect(restrictionNotice(open, unit("scgh-adult-open"))).toBeUndefined();
+  });
+
+  it("flags a secure ward for an open-security patient as more restrictive than required", () => {
+    const open = wardMovements.find((m) => m.security === "Open" && m.legalStatus !== "Voluntary")!;
+    const notice = restrictionNotice(open, unit("rph-adult-secure"));
+    expect(notice?.level).toBe("more_restrictive");
+    expect(notice?.text).toMatch(/more restrictive/i);
+  });
+
+  it("flags a voluntary patient on a locked ward separately and more prominently", () => {
+    const voluntary = wardMovements.find((m) => m.legalStatus === "Voluntary")!;
+    const notice = restrictionNotice(voluntary, unit("rph-adult-secure"));
+    expect(notice?.level).toBe("voluntary_on_locked");
+    expect(notice?.text).toMatch(/voluntary/i);
+    // It prompts a review; it never asserts that anything unlawful has happened.
+    expect(notice?.text).not.toMatch(/unlawful|illegal|breach/i);
+  });
+
+  it("prefers the voluntary warning when both would apply", () => {
+    const voluntaryOpen = wardMovements.find((m) => m.legalStatus === "Voluntary" && m.security === "Open")!;
+    expect(restrictionNotice(voluntaryOpen, unit("rph-adult-secure"))?.level).toBe("voluntary_on_locked");
+  });
+});
+```
+
+Then add to `ward-derivations.ts`:
+
+```ts
+export type RestrictionNotice = { level: "voluntary_on_locked" | "more_restrictive"; text: string };
+
+/**
+ * A ward tighter than the patient needs raises one of two warnings, and they are different things.
+ * A voluntary person who cannot leave a locked ward is detained in fact without an order, which is
+ * sharper than merely over-restrictive and gets its own flag. Neither blocks a placement and
+ * neither touches an eligibility gate — `ward-eligibility.ts` is a protected surface.
+ */
+export function restrictionNotice(movement: Movement, unit: Unit): RestrictionNotice | undefined {
+  if (unit.security !== "Secure") return undefined;
+  if (movement.legalStatus === "Voluntary") {
+    return {
+      level: "voluntary_on_locked",
+      text: "Voluntary patient on a locked ward — review legal status before admission",
+    };
+  }
+  if (movement.security === "Open") {
+    return { level: "more_restrictive", text: "More restrictive than this movement requires" };
+  }
+  return undefined;
+}
+```
+
+Run `npx vitest run tests/ward-restriction-notice.test.ts` — expected PASS, 4 tests.
+
+- [ ] **Step 4: Rewire**
 
 In `coordinator-screen.tsx`, replace the direct `wardMovements` import and the `NOW_ANCHOR` constant with `const { movements, units, rejections, now, dispatch } = useWardFlow();`, and pass `movements`, `units` and `now` down to every region. `queueOrder(movements, now)`, `edPressure(now, movements)`, `buildActionInbox(movements.filter(isOpen), now)`.
 
@@ -959,11 +1031,11 @@ In `shortlist-panel.tsx`:
 - "Confirm placement" becomes **"Refer to selected wards"**, dispatching `REFER_TO_UNITS` with every explicitly selected candidate, capped at three. Selection becomes multi-select; the existing explicit-selection guard stays — nothing is referable until a human has chosen.
 - Each referred ward is labelled a parallel referral.
 - Override keeps its reason-gated path and dispatches the same event with the reason recorded.
-- **The security wording changes** from "Secure ward meets an open requirement" to wording that says the ward is _more restrictive than required_, and candidate ordering ranks a security-matching ward above an over-restrictive one. `ward-eligibility.ts` is protected — do not change gate semantics, only the rendered text and the ordering.
+- **The security wording changes.** Render `restrictionNotice(movement, unit)` from Step 3 on every candidate row and every routed diagram node — the voluntary-on-locked warning more prominently than the more-restrictive one, both carried in text so they survive `forced-colors` rather than relying on colour. Candidate ordering ranks a security-matching ward above an over-restrictive one. `ward-eligibility.ts` is protected — do not change gate semantics, only the rendered text and the ordering.
 
 In `exception-drawer.tsx`, add a refusals section rendering `rejections`, newest first, present even when empty.
 
-- [ ] **Step 4: Run the gates**
+- [ ] **Step 5: Run the gates**
 
 ```bash
 npx tsc --noEmit -p tsconfig.json
@@ -974,14 +1046,14 @@ PLAYWRIGHT_BASE_URL=<url> npx playwright test tests/ui-ward-coordinator.spec.ts 
 
 Read lint's output, not its exit code.
 
-- [ ] **Step 5: Screenshot**
+- [ ] **Step 6: Screenshot**
 
 Capture `artifacts/ward-management/phase3-coordinator-live.png` at 1600×1100 with a patient selected and two wards chosen. **Look at it.** Does the screen say what it did, and does anything claim a placement that has not happened?
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-npm run format && git add -A src/components/ward-management/coordinator tests
+npm run format && git add -A src/components/ward-management/coordinator src/components/ward-management/ward-derivations.ts tests
 git commit -m "feat(ward-flow): make the coordinator screen live and refer rather than place"
 ```
 
@@ -1185,7 +1257,7 @@ test.describe("Ward screen", () => {
 
 `data-testid="ward-unit-screen"`. The unit resolved by `unitById(unitId)`; **an unresolved id renders an explicit empty state naming the id, never a substituted unit**.
 
-Regions: this unit's five-state bed grid; incoming referrals awaiting an answer, each labelled a parallel referral where it is one, with **accept in principle**, **hold a bed** and **decline** (a reason from the seven, no free text); who is accepted, held or en route here; and what was withdrawn and why, drawn from `withdrawnReferrals`.
+Regions: this unit's five-state bed grid; incoming referrals awaiting an answer, each labelled a parallel referral where it is one and each carrying `restrictionNotice(movement, unit)` where it applies — the ward is the party who would be holding the person, so it sees the voluntary-on-locked warning too — with **accept in principle**, **hold a bed** and **decline** (a reason from the seven, no free text); who is accepted, held or en route here; and what was withdrawn and why, drawn from `withdrawnReferrals`.
 
 `CONFIRM_CAPACITY` lets the ward restate what it can allocate. It writes to its own unit only.
 

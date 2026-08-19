@@ -45,6 +45,7 @@ Decided by the product owner. Not open for re-litigation.
 | 6   | Parallel referral withdrawal | **Instant and automatic**, with the reason shown to the ward and **recorded against the movement**.                |
 | 7   | The coordinator's action     | **Refer to up to three wards**, not single placement. Acceptance becomes the ward's move.                          |
 | 8   | Security gate                | A locked ward still passes an open patient, worded as _more restrictive than required_; matching wards rank first. |
+| 9   | Voluntary on a locked ward   | **Its own distinct flag**, more prominent than the above, prompting a review of legal status. Never blocks.        |
 
 ---
 
@@ -70,6 +71,24 @@ because its transitions depend on them.
 Seven reasons, not six. In metropolitan WA this is among the commonest reasons a ward refuses, and
 it generates more argument than any other. Without it the decline data can never show why
 placements actually fail, which is the stated purpose of recording a fixed reason at all.
+
+### Two different restriction warnings, not one
+
+Settled by the product owner 2026-08-19. A ward more restrictive than a patient needs raises one of
+two notices, and they are **not** the same thing.
+
+- **More restrictive than required.** The movement's `security` is `Open` and the unit's is
+  `Secure`. An operational observation: the bed will do, it is simply tighter than needed, and a
+  security-matching ward should have ranked above it.
+- **Voluntary patient on a locked ward.** The movement's `legalStatus` is `Voluntary` and the
+  unit's security is `Secure`. This is the sharper case and gets its own, more prominent flag: a
+  voluntary person who cannot leave a locked ward is detained in fact without an order. The flag
+  prompts a review of legal status before admission. It does not assert that anything unlawful has
+  happened, and it never blocks the placement — the coordinator and the ward decide.
+
+Both are display flags derived by a pure function. **`ward-eligibility.ts` is a protected surface
+and neither changes any gate's pass or fail.** Both appear on the coordinator's shortlist and
+diagram **and on the ward screen**, because the ward is the party who would be holding the person.
 
 ### The statutory form follows the examination
 
