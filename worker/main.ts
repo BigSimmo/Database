@@ -265,15 +265,25 @@ async function completeJob(job: JobRow, stage: string) {
   }
   if (!isMissingSchemaError(error)) throw supabaseStageError("complete ingestion job", error);
 
-  await updateJob(job.id, {
-    status: "completed",
-    stage,
-    progress: 100,
-    locked_at: null,
-    locked_by: null,
-    completed_at: new Date().toISOString(),
-  });
-  await markSupersededSiblingJobs(job);
+  const { error: updateError } = await supabase
+    .from("ingestion_jobs")
+    .update({
+      status: "completed",
+      stage,
+      progress: 100,
+      locked_at: null,
+      locked_by: null,
+      completed_at: new Date().toISOString(),
+    })
+    .eq("id", job.id)
+    .eq("locked_by", workerId);
+  if (updateError) throw supabaseStageError("complete ingestion job fallback", updateError);
+
+  try {
+    await markSupersededSiblingJobs(job);
+  } catch (siblingError) {
+    console.warn("Non-fatal error superseding sibling jobs", safeErrorLogDetails(siblingError));
+  }
   await updateBatch(job.batch_id);
   invalidateRagCachesForDocumentMutation(job.documents.owner_id ?? "anonymous");
 }
@@ -1676,6 +1686,7 @@ function extractionMetrics(
 async function loadEnrichmentRows(documentId: string) {
   const chunks: unknown[] = [];
   const images: unknown[] = [];
+  const MAX_ENRICHMENT_CHUNKS = 5000;
 
   for (let start = 0; ; start += 1000) {
     const { data, error } = await supabase
@@ -1688,6 +1699,11 @@ async function loadEnrichmentRows(documentId: string) {
       .range(start, start + 999);
     if (error) throw new Error(error.message);
     chunks.push(...(data ?? []));
+    if (chunks.length > MAX_ENRICHMENT_CHUNKS) {
+      throw new Error(
+        `Document ${documentId} exceeded maximum enrichment chunk limit of ${MAX_ENRICHMENT_CHUNKS}. Aborting enrichment to prevent memory exhaustion.`,
+      );
+    }
     if (!data || data.length < 1000) break;
   }
 
@@ -1732,9 +1748,12 @@ async function processJob(job: JobRow) {
     const buffer = await downloadDocument(job.documents.storage_path);
     await updateJobProgress(job.id, { stage: "extracting text/images", progress: 20 });
     // Finding #7: Ingestion Worker Heartbeat. Prevent stale locks during long PDF extractions.
+    let leaseLost = false;
     const heartbeat = setInterval(
       () => {
-        updateJobProgress(job.id, { stage: "extracting text/images", progress: 20 }).catch(() => {});
+        updateJobProgress(job.id, { stage: "extracting text/images", progress: 20 }).catch(() => {
+          leaseLost = true;
+        });
       },
       Math.min(60_000, jobLeaseHeartbeatMs),
     );
@@ -1744,6 +1763,9 @@ async function processJob(job: JobRow) {
         fileName: job.documents.file_name,
         mimeType: job.documents.file_type,
       });
+      if (leaseLost) {
+        throw new Error("Ingestion lease lost during document extraction; aborting job processing.");
+      }
     } finally {
       clearInterval(heartbeat);
     }

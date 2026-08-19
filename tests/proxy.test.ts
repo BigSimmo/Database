@@ -60,8 +60,8 @@ describe("proxy content-security-policy", () => {
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("frame-ancestors 'none'");
-    expect(csp).toContain("img-src 'self' data: blob: https://*.supabase.co");
-    expect(csp).toContain("connect-src 'self' https://*.supabase.co;");
+    expect(csp).toContain("img-src 'self' data: blob: https://*.supabase.co;");
+    expect(csp).toContain("connect-src 'self' https://*.supabase.co https://*.ingest.sentry.io");
     // OpenAI calls are server-side only; the browser must not be allowed to
     // reach the provider origin (2026-07-13 audit, finding 12).
     expect(csp).not.toContain("api.openai.com");
@@ -179,5 +179,27 @@ describe("document-source fallback redirects", () => {
   it("leaves the document reader route itself untouched", async () => {
     const response = await proxy(requestFor(`/documents/${demoId}?page=2`));
     expect(response.headers.get("location")).toBeNull();
+  });
+});
+
+describe("cross-site mutation blocking", () => {
+  it("blocks cross-site POST requests to API routes with 403", async () => {
+    const request = new NextRequest(new URL("http://localhost/api/documents"), {
+      method: "POST",
+      headers: { "sec-fetch-site": "cross-site" },
+    });
+    const response = await proxy(request);
+    expect(response.status).toBe(403);
+    const body = await response.json();
+    expect(body.code).toBe("cross_site_forbidden");
+  });
+
+  it("allows same-origin API mutations", async () => {
+    const request = new NextRequest(new URL("http://localhost/api/documents"), {
+      method: "POST",
+      headers: { "sec-fetch-site": "same-origin" },
+    });
+    const response = await proxy(request);
+    expect(response.status).not.toBe(403);
   });
 });

@@ -81,7 +81,7 @@ const apiRateLimitDefaults = {
 } as const satisfies Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>;
 
 const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {
-  answer: { limit: 6, windowSeconds: 60 },
+  answer: { limit: 15, windowSeconds: 60 },
   search: { limit: 60, windowSeconds: 60 },
   document_read: { limit: 45, windowSeconds: 60 },
   document_upload: { limit: 3, windowSeconds: 60 },

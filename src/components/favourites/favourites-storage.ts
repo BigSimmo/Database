@@ -58,6 +58,8 @@ export function subscribeFavouritesStorage(listener: () => void): () => void {
   };
 }
 
+const FAVOURITES_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+
 export function loadFavouriteLastOpened(): Record<string, number> {
   if (typeof window === "undefined") {
     return getDefaultInitialTimestamps();
@@ -69,7 +71,14 @@ export function loadFavouriteLastOpened(): Record<string, number> {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-        const result: Record<string, number> = { ...getDefaultInitialTimestamps(), ...parsed };
+        const now = Date.now();
+        const pruned: Record<string, number> = {};
+        for (const [key, ts] of Object.entries(parsed)) {
+          if (typeof ts === "number" && Number.isFinite(ts) && now - ts < FAVOURITES_TTL_MS) {
+            pruned[key] = ts;
+          }
+        }
+        const result: Record<string, number> = { ...getDefaultInitialTimestamps(), ...pruned };
         inMemoryLastOpened = result;
         return result;
       }

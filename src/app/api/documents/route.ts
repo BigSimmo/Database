@@ -220,20 +220,50 @@ export async function GET(request: Request) {
     }
 
     const ownedIds = [...ownedDocumentIds];
-    const emptyResult = () => Promise.resolve({ data: [], error: null });
+
+    async function queryInBatches<T>(
+      ids: string[],
+      batchSize: number,
+      queryFn: (batch: string[]) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+    ) {
+      if (ids.length === 0) return { data: [] as T[], error: null };
+      const batches: string[][] = [];
+      for (let i = 0; i < ids.length; i += batchSize) {
+        batches.push(ids.slice(i, i + batchSize));
+      }
+      const results = await Promise.all(batches.map((batch) => queryFn(batch)));
+      const combined: T[] = [];
+      for (const res of results) {
+        if (res.error) return { data: null, error: res.error };
+        if (res.data) combined.push(...res.data);
+      }
+      return { data: combined, error: null };
+    }
+
     const [ownedLabelsResult, publicLabelsResult, ownedSummariesResult, publicSummariesResult] = await Promise.all([
-      ownedIds.length
-        ? supabase.from("document_labels").select(LABEL_LIST_COLUMNS).in("document_id", ownedIds)
-        : emptyResult(),
-      publicDocumentIds.length
-        ? supabase.from("document_labels").select(PUBLIC_LABEL_LIST_COLUMNS).in("document_id", publicDocumentIds)
-        : emptyResult(),
-      ownedIds.length
-        ? supabase.from("document_summaries").select(SUMMARY_LIST_COLUMNS).in("document_id", ownedIds)
-        : emptyResult(),
-      publicDocumentIds.length
-        ? supabase.from("document_summaries").select(PUBLIC_SUMMARY_LIST_COLUMNS).in("document_id", publicDocumentIds)
-        : emptyResult(),
+      queryInBatches(
+        ownedIds,
+        100,
+        async (batch) => await supabase.from("document_labels").select(LABEL_LIST_COLUMNS).in("document_id", batch),
+      ),
+      queryInBatches(
+        publicDocumentIds,
+        100,
+        async (batch) =>
+          await supabase.from("document_labels").select(PUBLIC_LABEL_LIST_COLUMNS).in("document_id", batch),
+      ),
+      queryInBatches(
+        ownedIds,
+        100,
+        async (batch) =>
+          await supabase.from("document_summaries").select(SUMMARY_LIST_COLUMNS).in("document_id", batch),
+      ),
+      queryInBatches(
+        publicDocumentIds,
+        100,
+        async (batch) =>
+          await supabase.from("document_summaries").select(PUBLIC_SUMMARY_LIST_COLUMNS).in("document_id", batch),
+      ),
     ]);
 
     for (const result of [ownedLabelsResult, publicLabelsResult, ownedSummariesResult, publicSummariesResult]) {

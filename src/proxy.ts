@@ -67,6 +67,22 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  if (
+    ["POST", "PUT", "PATCH", "DELETE"].includes(request.method) &&
+    pathname.startsWith("/api/") &&
+    !pathname.startsWith("/api/webhooks/")
+  ) {
+    const secFetchSite = request.headers.get("sec-fetch-site");
+    if (secFetchSite === "cross-site") {
+      const response = NextResponse.json(
+        { error: "Cross-site request blocked.", code: "cross_site_forbidden" },
+        { status: 403 },
+      );
+      response.headers.set("content-security-policy", csp);
+      return response;
+    }
+  }
+
   // Request headers Next.js reads during SSR: `x-nonce` for our own inline
   // <script>, and the CSP header from which Next extracts the nonce for its
   // scripts. Rebuilt from the *current* request each call so session-cookie
