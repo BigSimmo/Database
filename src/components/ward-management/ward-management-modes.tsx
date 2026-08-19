@@ -45,7 +45,7 @@ import { WardNetworkWorkspace } from "@/components/ward-management/ward-manageme
 import { ClinicalRail, type WardMode } from "@/components/ward-management/ward-management-navigation";
 import { formatInstant } from "@/components/ward-management/ward-clock";
 import type { Movement } from "@/components/ward-management/ward-model";
-import { NOW_ANCHOR, siteByCode, unitById } from "@/components/ward-management/ward-sites";
+import { siteByCode, unitById } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-modes.module.css";
 
@@ -110,6 +110,7 @@ function ModeHeader({
   role: WardRole;
   onRoleChange: (role: WardRole) => void;
 }) {
+  const { now } = useWardFlow();
   const copy = modeCopy[mode];
   return (
     <header className={styles.modeHeader}>
@@ -137,7 +138,7 @@ function ModeHeader({
       </label>
       <div className={styles.headerMeta}>
         <span className={styles.prototypeBadge}>Synthetic prototype</span>
-        <span>Updated {formatInstant(NOW_ANCHOR)}</span>
+        <span>Updated {formatInstant(now)}</span>
         <span>15 Aug 2026 · WA</span>
       </div>
     </header>
@@ -156,12 +157,13 @@ function DecisionPanel({
   onSelectId: (id: string) => void;
 }) {
   const [confirmed, setConfirmed] = useState(false);
-  const candidates = useMemo(() => eligibleCandidates(patient, NOW_ANCHOR, 3), [patient]);
+  const { now } = useWardFlow();
+  const candidates = useMemo(() => eligibleCandidates(patient, now, 3), [patient, now]);
   // Never fall back to candidates[0] when the id in play isn't one of this movement's own
   // shortlisted candidates — that would silently describe the wrong unit (Task 6 Critical 1).
   const selected = candidates.find((candidate) => candidate.unit.id === selectedId);
   const offShortlistUnit = !selected && selectedId ? unitById(selectedId) : undefined;
-  const offShortlistVerdict = offShortlistUnit ? eligibility(patient, offShortlistUnit, NOW_ANCHOR) : undefined;
+  const offShortlistVerdict = offShortlistUnit ? eligibility(patient, offShortlistUnit, now) : undefined;
   const recordedDestination = destinationUnit(patient);
   const isSuggested = selected !== undefined && selected.unit.id !== recordedDestination?.id;
 
@@ -195,7 +197,7 @@ function DecisionPanel({
         <div>
           <dt>Wait / eligibility</dt>
           <dd>
-            {elapsedLabel(patient, NOW_ANCHOR)}
+            {elapsedLabel(patient, now)}
             {selected ? ` · ${candidateReason(selected.verdict)}` : ""}
           </dd>
         </div>
@@ -271,7 +273,7 @@ function DecisionPanel({
 }
 
 function QueueView({ role }: { role: WardRole }) {
-  const { movements } = useWardFlow();
+  const { movements, now } = useWardFlow();
   const [selected, setSelected] = useState(movements[0]);
   const rolePatients = useMemo(() => sortByRole(movements, role).filter(isOpen), [movements, role]);
   return (
@@ -298,7 +300,7 @@ function QueueView({ role }: { role: WardRole }) {
           </thead>
           <tbody>
             {rolePatients.map((patient) => {
-              const top = eligibleCandidates(patient, NOW_ANCHOR, 1)[0];
+              const top = eligibleCandidates(patient, now, 1)[0];
               return (
                 <tr key={patient.id} data-selected={selected.id === patient.id}>
                   <td>
@@ -307,7 +309,7 @@ function QueueView({ role }: { role: WardRole }) {
                     </button>
                   </td>
                   <td>P{patient.urgency}</td>
-                  <td>{elapsedLabel(patient, NOW_ANCHOR)}</td>
+                  <td>{elapsedLabel(patient, now)}</td>
                   <td>
                     {patient.cohort} · {patient.security}
                   </td>
@@ -325,7 +327,7 @@ function QueueView({ role }: { role: WardRole }) {
       <DecisionPanel
         patient={selected}
         role={role}
-        selectedId={destinationUnit(selected)?.id ?? eligibleCandidates(selected, NOW_ANCHOR)[0]?.unit.id}
+        selectedId={destinationUnit(selected)?.id ?? eligibleCandidates(selected, now)[0]?.unit.id}
         onSelectId={() => undefined}
       />
     </div>
@@ -333,7 +335,7 @@ function QueueView({ role }: { role: WardRole }) {
 }
 
 function CapacityView() {
-  const { units } = useWardFlow();
+  const { units, now } = useWardFlow();
   const capacities = units.map((unit) => ({ unit, capacity: unitCapacity(unit) }));
   const totals = {
     available: capacities.reduce((sum, entry) => sum + entry.capacity.available, 0),
@@ -372,7 +374,7 @@ function CapacityView() {
         </thead>
         <tbody>
           {capacities.map(({ unit, capacity }) => {
-            const fresh = NOW_ANCHOR - unit.allocatable.confirmedAt <= unit.allocatable.staleAfterMinutes;
+            const fresh = now - unit.allocatable.confirmedAt <= unit.allocatable.staleAfterMinutes;
             return (
               <tr key={unit.id}>
                 <td>
@@ -421,7 +423,7 @@ function CapacityView() {
 }
 
 function MovementsView() {
-  const { movements } = useWardFlow();
+  const { movements, now } = useWardFlow();
   const stages = stageSummaries(movements);
   return (
     <section className={styles.panel} data-testid="ward-movements-view">
@@ -449,8 +451,7 @@ function MovementsView() {
                     <span className={toneClass(patient.urgency === 1 ? "danger" : "neutral")}>P{patient.urgency}</span>
                   </span>
                   <span className={styles.rowMeta}>
-                    {elapsedLabel(patient, NOW_ANCHOR)} · {movementHealthService(patient) ?? "Unknown"} ·{" "}
-                    {patient.security}
+                    {elapsedLabel(patient, now)} · {movementHealthService(patient) ?? "Unknown"} · {patient.security}
                   </span>
                   <span className={styles.rowMeta}>{patient.owner}</span>
                 </Link>
@@ -463,10 +464,10 @@ function MovementsView() {
 }
 
 function ExceptionsView() {
-  const { movements } = useWardFlow();
+  const { movements, now } = useWardFlow();
   // Whole-branch review Minor 6: same open-movement scoping as the coordinator screen — a closed
   // record must never appear on a live exception work list.
-  const items = buildActionInbox(movements.filter(isOpen), NOW_ANCHOR);
+  const items = buildActionInbox(movements.filter(isOpen), now);
   // Task 8 review (Minor 7): `tone === "danger"` also matches the parallel-referral-cap
   // category, which is a capacity dead end, not a passed deadline — counting it under a label
   // that says "overdue" overstated the true breach count by one once Ruling 1 started emitting

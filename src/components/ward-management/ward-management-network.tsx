@@ -19,9 +19,9 @@ import {
   wardServiceOrder,
 } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
-import { formatInstant } from "@/components/ward-management/ward-clock";
+import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
 import type { HealthService, Movement, Unit } from "@/components/ward-management/ward-model";
-import { NOW_ANCHOR, siteByCode, unitById } from "@/components/ward-management/ward-sites";
+import { siteByCode, unitById } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-network.module.css";
 
@@ -48,12 +48,12 @@ function capabilityLabel(unit: Unit) {
   return `${unit.security} · ${cohortLabel}`;
 }
 
-function candidatesFor(patient: Movement): Candidate[] {
+function candidatesFor(patient: Movement, now: Instant): Candidate[] {
   // Only the movement's actual recorded destination may show a real transport state — the
   // other two candidates are computed shortlist entries the movement was never referred to,
   // and must not inherit a transport job that belongs to a different unit (Task 6 Important 3).
   const recordedDestinationId = destinationUnit(patient)?.id;
-  return eligibleCandidates(patient, NOW_ANCHOR, 3).map((candidate, index) => ({
+  return eligibleCandidates(patient, now, 3).map((candidate, index) => ({
     unit: candidate.unit,
     verdict: candidate.verdict,
     rank: index + 1,
@@ -74,8 +74,8 @@ function originServiceFit(patient: Movement, unit: Unit) {
   return { label: "Escalation", tone: "warning" as const };
 }
 
-function settingFit(patient: Movement, unit: Unit) {
-  const verdict = eligibility(patient, unit, NOW_ANCHOR);
+function settingFit(patient: Movement, unit: Unit, now: Instant) {
+  const verdict = eligibility(patient, unit, now);
   const cohortOk = verdict.gates.find((gate) => gate.gate === "cohort")?.pass ?? false;
   const securityOk = verdict.gates.find((gate) => gate.gate === "security")?.pass ?? false;
   if (cohortOk && securityOk) return { label: "Exact match", tone: "good" as const };
@@ -134,7 +134,7 @@ function ServiceCard({
 }
 
 export function WardNetworkWorkspace() {
-  const { movements, units } = useWardFlow();
+  const { movements, units, now } = useWardFlow();
   const [selectedPatientId, setSelectedPatientId] = useState(movements[0].id);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [factorsOpen, setFactorsOpen] = useState(false);
@@ -148,7 +148,7 @@ export function WardNetworkWorkspace() {
     () => movements.find((candidate) => candidate.id === selectedPatientId),
     [movements, selectedPatientId],
   );
-  const candidates = useMemo(() => (patient ? candidatesFor(patient) : []), [patient]);
+  const candidates = useMemo(() => (patient ? candidatesFor(patient, now) : []), [patient, now]);
   const routedIds = useMemo(() => new Set(candidates.map((candidate) => candidate.unit.id)), [candidates]);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -274,7 +274,7 @@ export function WardNetworkWorkspace() {
               >
                 <span className={styles.queueTop}>
                   <strong>{candidate.id}</strong>
-                  <span className={styles.elapsed}>{elapsedLabel(candidate, NOW_ANCHOR)}</span>
+                  <span className={styles.elapsed}>{elapsedLabel(candidate, now)}</span>
                 </span>
                 <span className={styles.queueMeta}>
                   <span className={styles.tier} data-tier={candidate.urgency}>
@@ -414,7 +414,7 @@ export function WardNetworkWorkspace() {
             {patient.legalForm ? `${patient.legalForm.label} (${patient.legalForm.code})` : "No legal form required"}
           </p>
           <p className={styles.patientSubLine}>
-            {stageCopy[patient.stage].label} · waiting {elapsedLabel(patient, NOW_ANCHOR)}
+            {stageCopy[patient.stage].label} · waiting {elapsedLabel(patient, now)}
           </p>
 
           <div className={styles.tableScroll}>
@@ -446,7 +446,7 @@ export function WardNetworkWorkspace() {
                 <tr>
                   <th scope="row">Open/secure fit</th>
                   {candidates.map((candidate) => {
-                    const fit = settingFit(patient, candidate.unit);
+                    const fit = settingFit(patient, candidate.unit, now);
                     return (
                       <td key={candidate.unit.id} data-tone={fit.tone}>
                         {fit.label}

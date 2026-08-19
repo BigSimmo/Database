@@ -33,7 +33,6 @@ import {
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { MOVEMENT_STAGES, type Movement, type MovementStage } from "@/components/ward-management/ward-model";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
-import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management.module.css";
 
@@ -85,7 +84,7 @@ function MovementPipeline({
 }
 
 export function WardPatientWorkspace({ patientId }: { patientId: string }) {
-  const { movements } = useWardFlow();
+  const { movements, now } = useWardFlow();
   // Read the live, single source of truth rather than the frozen fixture — a patient just
   // referred on the coordinator screen must resolve here too, and a missing id must render an
   // explicit "not found" rather than ever substituting a different movement.
@@ -122,10 +121,8 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
   // suggested/top-eligible unit, so `destination` here is always the real recorded destination
   // or nothing.
   const destination = destinationUnit(patient);
-  const verdict = destination ? eligibility(patient, destination, NOW_ANCHOR) : undefined;
-  const candidates = eligibleCandidates(patient, NOW_ANCHOR).filter(
-    (candidate) => candidate.unit.id !== destination?.id,
-  );
+  const verdict = destination ? eligibility(patient, destination, now) : undefined;
+  const candidates = eligibleCandidates(patient, now).filter((candidate) => candidate.unit.id !== destination?.id);
   const timeline = movementTimeline(patient);
 
   return (
