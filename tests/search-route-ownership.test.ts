@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
+import { consolidatedModeHomeModeIds } from "@/lib/consolidated-mode-home-redirect";
+
 import {
   isAlwaysStandaloneShellPath,
   isDashboardModeHref,
@@ -57,26 +59,31 @@ describe("shared-search route ownership", () => {
   });
 
   it("classifies standalone mode homes from pathname alone", () => {
-    for (const pathname of [
-      "/services",
-      "/forms",
-      "/favourites",
-      "/differentials",
-      "/dsm",
-      "/specifiers",
-      "/formulation",
-      "/factsheets",
-      "/therapy-compass",
-      "/tools",
-      "/calculators",
-      "/documents",
-      "/medications",
-    ]) {
+    for (const pathname of ["/favourites", "/tools", "/medications", "/documents"]) {
       expect(isStandaloneModeHomePath(pathname)).toBe(true);
     }
     expect(isStandaloneModeHomePath("/")).toBe(false);
     expect(isStandaloneModeHomePath("/services/crisis")).toBe(false);
     expect(isStandaloneModeHomePath("/dsm/search")).toBe(false);
+  });
+
+  /*
+   * Consolidated modes own no composer at their bare path.
+   *
+   * The ten consolidated modes no longer render a home of their own —
+   * they redirect onto the one shared home at `/?mode=<id>`, whose composer the
+   * dashboard owns. Claiming standalone ownership for a path that renders nothing
+   * would reserve hero composer geometry on a route that never paints, so these
+   * must classify false while their SUB-routes keep standalone shell treatment.
+   */
+  it("does not claim composer ownership for consolidated mode homes", () => {
+    for (const modeId of consolidatedModeHomeModeIds) {
+      expect(isStandaloneModeHomePath(`/${modeId}`)).toBe(false);
+    }
+    // Each namespace still needs the standalone shell for its own sub-routes.
+    for (const modeId of consolidatedModeHomeModeIds) {
+      expect(isAlwaysStandaloneShellPath(`/${modeId}`)).toBe(true);
+    }
   });
 
   it("marks route-owned namespaced paths as always-standalone shell (no searchParams gate)", () => {

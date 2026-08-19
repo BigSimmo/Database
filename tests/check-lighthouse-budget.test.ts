@@ -20,8 +20,21 @@ import {
 import { measurementFailureReason } from "../scripts/lighthouse-measurement-outcome.mjs";
 import { deadlineAfter, processTimeoutMs, remainingMs } from "../scripts/lighthouse-time-budget.mjs";
 
-/** Kept in step with lighthouse-budget.json. */
+/**
+ * Synthetic fixture routes for the unit cases below — deliberately more than the
+ * committed budget measures, so run-expansion and completeness have several rows
+ * to work with. The committed list is asserted separately as COMMITTED_ROUTES.
+ */
 const ROUTES = ["/", "/therapy-compass", "/documents/search", "/dsm", "/forms"];
+
+/**
+ * What lighthouse-budget.json actually measures. `/therapy-compass`, `/dsm` and
+ * `/forms` left the budget when home consolidation turned them into redirect
+ * stubs — Lighthouse followed the 307 and graded `/?mode=<id>` against a baseline
+ * captured on the retired detailed home. All three now render the same shared home
+ * as `/`, so their removal costs duplication rather than coverage.
+ */
+const COMMITTED_ROUTES = ["/", "/documents/search"];
 
 const budget = (overrides: Record<string, unknown> = {}) => ({
   enforce: true,
@@ -425,7 +438,7 @@ describe("committed lighthouse-budget.json", () => {
   };
 
   it("measures the routes this suite grades", () => {
-    expect(committed.routes).toEqual(ROUTES);
+    expect(committed.routes).toEqual(COMMITTED_ROUTES);
   });
 
   it("pins the same Lighthouse version as the live-domain workflow", () => {

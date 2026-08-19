@@ -1,52 +1,29 @@
 import { redirect } from "next/navigation";
-import { Suspense } from "react";
 
-import { ServicesHomePage } from "@/components/services/services-home-page";
-import { ServicesNavigatorPage } from "@/components/services/services-navigator-page";
-import { defaultServiceSlug } from "@/lib/services";
+import { appModeSelectionHref } from "@/lib/app-modes";
+import { consolidatedModeHomeTargetForSearchParams } from "@/lib/consolidated-mode-home-redirect";
 
-import ServicesLoading from "./loading";
+/**
+ * `Clinical Services` has no home page of its own any more.
+ *
+ * Every mode shares one lightweight home at `/?mode=<id>`, whose per-mode copy
+ * lives in `sharedHomePresentation` (src/lib/ui-copy.ts). This path stays so
+ * bookmarks and external deep links keep resolving, and forwards to that shared
+ * home. Submitted searches render at `/services/search`; the proxy carries the
+ * query across, so a deep link never lands here without one.
+ *
+ * The previous detailed page is preserved, off the live routes, at
+ * `/mockups/services-home-detailed`.
+ */
+type ServicesHomeRouteProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
-type ServicesSearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
-
-function readFirstSearchParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function toURLSearchParams(params: Awaited<ServicesSearchParams>) {
-  const normalized = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (Array.isArray(value)) {
-      value.forEach((item) => normalized.append(key, item));
-    } else if (value !== undefined) {
-      normalized.set(key, value);
-    }
-  }
-  return normalized;
-}
-
-export default async function ServicesIndexRoute({ searchParams }: { searchParams: ServicesSearchParams }) {
-  const resolvedSearchParams = await searchParams;
-  const hasSubmittedSearch = readFirstSearchParam(resolvedSearchParams.run) === "1";
-  const primaryQuery = readFirstSearchParam(resolvedSearchParams.q)?.trim();
-  const legacyQuery = readFirstSearchParam(resolvedSearchParams.query)?.trim();
-
-  if (hasSubmittedSearch && !primaryQuery && legacyQuery) {
-    const canonicalSearchParams = toURLSearchParams(resolvedSearchParams);
-    canonicalSearchParams.set("q", legacyQuery);
-    canonicalSearchParams.delete("query");
-    redirect(`/services?${canonicalSearchParams.toString()}`);
-  }
-
-  if (!hasSubmittedSearch) {
-    // Computed server-side so the client route chunk never bundles the
-    // services snapshot behind @/lib/services.
-    return <ServicesHomePage defaultServiceSlug={defaultServiceSlug() ?? null} />;
-  }
-
-  return (
-    <Suspense fallback={<ServicesLoading />}>
-      <ServicesNavigatorPage />
-    </Suspense>
-  );
+export default async function ServicesHomeRoute({ searchParams }: ServicesHomeRouteProps) {
+  // Resolved through the same helper the proxy uses, so a request that reaches
+  // this backstop lands where the proxy would have sent it — including a
+  // submitted `?q=…&run=1`, which goes on to /services/search rather than
+  // arriving at the home with its query dropped.
+  const params = searchParams ? await searchParams : {};
+  redirect(consolidatedModeHomeTargetForSearchParams("/services", params) ?? appModeSelectionHref("services"));
 }
