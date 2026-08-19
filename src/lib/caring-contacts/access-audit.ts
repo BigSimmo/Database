@@ -16,7 +16,7 @@
 //
 // A denied read is still an access attempt and still belongs in the trail -- `outcome` is part of
 // `AccessRecord` precisely so a caller can record "denied" rather than dropping the event.
-import { buildAuditEvent, type AuditEvent, type AuditOutcome } from "./audit";
+import { AuditEventContainsPatientDataError, buildAuditEvent, type AuditEvent, type AuditOutcome } from "./audit";
 import { awstIsoTimestamp, type Clock } from "./clock";
 import { idempotencyKey as makeIdempotencyKey, type ActorId, type TeamId } from "./ids";
 
@@ -46,12 +46,38 @@ export function accessActionName(kind: AccessKind, objectType: AccessedObjectTyp
 }
 
 /**
+ * An allowlist, not a name detector. `audit.ts`'s mobile-number scan catches a phone number
+ * anywhere in a field, but a patient name has no digits to catch, and a denylist of "name-shaped"
+ * strings cannot be made reliable -- a two-word name and a legitimate free-text identifier are
+ * indistinguishable in general. What *is* reliably knowable is the closed set of shapes an
+ * `objectId` legitimately takes in this domain: a namespaced synthetic id (`SYN-PLAN-001`), a
+ * slug-style actor id (`demo-coordinator`), a bare object-type name (`patientDirectory`), or a
+ * uuid. None of those needs whitespace, punctuation beyond hyphen/underscore/colon, or unbounded
+ * length -- and a search term or a patient name almost always does. The surface being searched
+ * (`objectType`, `kind`) is what gets recorded; the query itself is never an identifier and must
+ * never reach `objectId`. Do not replace this allowlist with a name heuristic: heuristics regress
+ * the moment a new plausible name shape appears, allowlists on a closed id grammar do not.
+ */
+const OBJECT_ID_SHAPE_PATTERN = /^[A-Za-z0-9_:-]{1,128}$/;
+
+function assertObjectIdIsAnIdentifierShape(objectId: string): void {
+  if (!OBJECT_ID_SHAPE_PATTERN.test(objectId)) {
+    throw new AuditEventContainsPatientDataError(
+      "objectId is not identifier-shaped -- a search term or a name must never be recorded as an objectId",
+    );
+  }
+}
+
+/**
  * Builds a frozen `AuditEvent` for a read/administrative access, through the same constructor a
- * write uses. `buildAuditEvent` runs the patient-data guard, so a search term or a name reaching
- * `objectId` throws `AuditEventContainsPatientDataError` before anything is written -- this
- * function does not run a second scan, so there is exactly one place the guard can drift.
+ * write uses. Validates `objectId` against the identifier-shape allowlist above before anything
+ * else runs, then delegates to `buildAuditEvent`, whose own mobile-number/forbidden-field scan
+ * still runs on the assembled event as a second, independent line of defence -- this function
+ * does not replace that scan, it adds a check the scan cannot make.
  */
 export function buildAccessAuditEvent(record: AccessRecord, clock: Clock): AuditEvent {
+  assertObjectIdIsAnIdentifierShape(record.objectId);
+
   const action = accessActionName(record.kind, record.objectType);
   const timestamp = awstIsoTimestamp(clock.now());
   const idempotencyKey = makeIdempotencyKey(

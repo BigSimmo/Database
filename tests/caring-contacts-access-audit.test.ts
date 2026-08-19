@@ -43,4 +43,24 @@ describe("access auditing", () => {
       ),
     ).toThrow(AuditEventContainsPatientDataError);
   });
+
+  it("refuses a patient name with no digits in it, not only a phone number", () => {
+    expect(() =>
+      buildAccessAuditEvent({ ...base, kind: "search", objectType: "patientDirectory", objectId: "Rowan Whitlock" }, clock),
+    ).toThrow(AuditEventContainsPatientDataError);
+  });
+
+  it("accepts every identifier shape this domain actually mints", () => {
+    const legitimateObjectIds = [
+      "SYN-PLAN-001",
+      "SYN-CONTACT-004",
+      "demo-coordinator",
+      "patientDirectory",
+      "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    ];
+    for (const objectId of legitimateObjectIds) {
+      const event = buildAccessAuditEvent({ ...base, kind: "view", objectType: "plan", objectId }, clock);
+      expect(event.objectId).toBe(objectId);
+    }
+  });
 });
