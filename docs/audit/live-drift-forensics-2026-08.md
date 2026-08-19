@@ -1712,3 +1712,69 @@ objects}`; classes `validation` (mandatory from 2026-08-18), `superseded`, `no_d
   names before the list existed; passes with 44 entries (8 `monitor-candidate`, including the three
   §1.3-absent indexes on those tables: `document_chunks_anchor_idx`,
   `document_index_units_heading_path_idx`, `documents_registry_projection_lookup_idx`).
+
+### 6.2 completion — 2026-08-19 (`#Q5JHBJ`; owner-authorised production window)
+
+_Worker session for `#Q5JHBJ` only (`#316`, `#231`, `#1K6T35` untouched). Pre-flight per `#292`: none of
+the seven open PRs (#2181, #2180, #2176, #2173, #2012, #2011, #2010) touches `supabase/**`,
+`scripts/check-drift.ts`, `tests/migration-history-guards.test.ts` or this file. D4 is OFF, so the only
+production writes are the explicit `db push` recorded below._
+
+#### Step 1 — classification of the fifteen (every one `validation`; none earned `superseded` or `no_ddl`)
+
+The fifteen are the live §3.7 list minus the five seeded `superseded` entries. Note that
+`20260702170000 fix_match_chunks_text_n1` (the `select 1;` placeholder) is **not** among them — it was
+recorded with statements — and `20260712171500 codify_live_ahead_functions` **is**.
+
+| Version          | File stem                              | Persistent effect on live                                                                                                    | Guard (all `validation`)                                     |
+| ---------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `20260701040000` | `drop_dead_drifted_hybrid_variants`    | drops 7 dead functions by 6-arg signature (the 7-arg `_v2`/`_v3` overloads in `schema.sql` are different objects)            | `20260819110000_validate_history_dropped_objects` (absence)  |
+| `20260702100000` | `add_claim_ingestion_jobs_comment`     | `comment on function claim_ingestion_jobs` — a pg_description write, so not `no_ddl` (body is not empty / `select 1;`)       | `20260819110100_validate_history_comments_and_retention`     |
+| `20260702110000` | `drop_redundant_indexes`               | drops `documents_owner_hash_idx`, `ingestion_jobs_claim_idx`                                                                 | `…110000_validate_history_dropped_objects` (absence)         |
+| `20260702120000` | `rag_retrieval_logs_retention`         | 2 table comments + `cron.schedule('purge-rag-retrieval-logs')` (only where the `cron` schema exists)                         | `…110100_validate_history_comments_and_retention`            |
+| `20260702130000` | `storage_cleanup_jobs_document_fk`     | orphan delete (not re-validatable) + FK `storage_cleanup_jobs_document_id_fkey` → `documents(id)` on delete set null         | `20260819110200_validate_history_document_foreign_keys`      |
+| `20260702140000` | `fix_reset_document_index_duplicate`   | `reset_document_index(uuid)` — no later creator                                                                              | `20260819110500_validate_history_function_bodies` (def_hash) |
+| `20260702150000` | `documents_owner_covering_index`       | `documents_owner_id_covering_idx` — no later creator with executed statements                                                | `20260819110300_validate_history_operational_index_shapes`   |
+| `20260702160000` | `fix_invoke_agent_url_to_guc`          | `invoke_indexing_v3_agent(integer)`; the `ALTER DATABASE SET` is privilege-guarded with an in-function fallback (not pinned) | `…110500_validate_history_function_bodies` (def_hash)        |
+| `20260702180000` | `promote_index_generation_id_columns`  | 6 `index_generation_id uuid` columns + 6 `*_document_generation_idx` + 3 functions                                           | `20260819110400_validate_history_index_generation_promotion` |
+| `20260712165915` | `reconcile_ingestion_index_shapes`     | drop-and-recreate of 3 ingestion indexes                                                                                     | `…110300_validate_history_operational_index_shapes`          |
+| `20260712170500` | `codify_live_operational_indexes`      | 44 `create index if not exists`; 42 persist (2 re-dropped by `172000`)                                                       | `…110300_validate_history_operational_index_shapes`          |
+| `20260712171000` | `reconcile_visual_eval_document_fks`   | 2 FKs `rag_visual_eval_{cases,runs}_document_id_fkey`                                                                        | `…110200_validate_history_document_foreign_keys`             |
+| `20260712171500` | `codify_live_ahead_functions`          | 12 functions (4 later re-created by `20260714110000` / `20260724120000`)                                                     | `…110500_validate_history_function_bodies` (def_hash ×12)    |
+| `20260712172000` | `drop_redundant_table_fact_indexes`    | drops `document_table_facts_document_id_idx`, `document_table_facts_owner_idx`                                               | `…110000_validate_history_dropped_objects` (absence)         |
+| `20260712173000` | `add_legacy_index_health_batch_repair` | `backfill_legacy_index_health_batch(integer)` — sole creator                                                                 | `…110500_validate_history_function_bodies` (def_hash)        |
+
+**Why nothing is `superseded`:** the class needs one later migration with executed statements that
+re-creates _every_ object the version creates, provable by `tests/migration-history-guards.test.ts`'s
+`createsObject` (functions/indexes/tables/views/policies/triggers only). `commit_document_index_generation`
+alone is re-created by `20260713062125`, but the other fourteen objects of `180000` are not, and no
+version's drops, columns, constraints or comments can be expressed that way. **Why nothing is
+`no_ddl`:** the class is defined (doc + test) as a file whose stripped body is empty or `select 1;`;
+`COMMENT ON` is a catalog write, so the two comment versions get an `obj_description` validation guard
+rather than a widened class. Phase 4's "43 names" for `170500` was a miscount: the file carries **44**
+`create index if not exists` statements, of which **42** persist.
+
+**Guard design (all six follow `20260804110240`):** `set local` search_path / lock_timeout /
+statement_timeout, one `do` block, validates only, exactly one `raise exception … Missing: %; Invalid:
+%; Mismatched: %`. Indexes: `to_regclass` + `indisvalid AND indisready` + the normalised
+`pg_get_indexdef` against the canonical definition pinned verbatim from
+`supabase/drift-manifest.json` `snapshot.indexes[].def` (the rendered form production and staging were
+measured against when live-drift reported zero index findings). Functions: the signature's `def_hash`
+read from `public.schema_drift_snapshot()` itself, so the hashing formula and the `search_path=''`
+rendering are identical by construction to the weekly check; ACLs are deliberately not pinned
+(`acldefault()` renders the function owner, which differs on a preview branch; `check:drift` compares
+ACLs every run). Columns: `pg_attribute` + `format_type = 'uuid'`. FKs: `pg_constraint` `contype f`,
+`confrelid = public.documents`, `confdeltype n`, `conkey = {document_id}`. Absences:
+`to_regprocedure` / `to_regclass` IS NULL with exact signatures (`extensions.vector`). Comments:
+`obj_description` present and carrying the distinctive phrase. Cron: `execute` against `cron.job` only
+when `to_regnamespace('cron')` is not null — staging and the scratch image have no pg_cron, and the
+original migration returns early there too. `schema.sql` and `drift-manifest.json` are **unchanged**
+(validation-only guards create nothing; manifest sha `328677d1c6f3` still matches).
+
+One repository test was sharpened rather than widened: the "validation guard must not create the
+objects it validates" check in `tests/migration-history-guards.test.ts` ran its `create index` regex on
+raw SQL, so the canonical `'create index … on …'` string literals that the `20260804110240` pattern
+itself pins would have failed it (the check had never been exercised — no `validation` entry existed).
+It now strips comments and string literals first, additionally requires `set local statement_timeout`,
+and pins that `20260804110240` satisfies the predicate while a real `create index` statement still
+fails it.

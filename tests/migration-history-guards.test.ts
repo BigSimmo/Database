@@ -63,6 +63,18 @@ function stripSql(sql: string): string {
     .trim();
 }
 
+/**
+ * Executable SQL only: comments and single-quoted string literals removed. A
+ * validation guard pins the canonical `create index … on …` text of the objects
+ * it proves as a string literal (the 20260804110240 pattern), which is data, not
+ * a statement — the create-index check must not mistake it for a build.
+ */
+function executableSql(sql: string): string {
+  return stripSql(sql).replace(/'(?:[^']|'')*'/g, "''");
+}
+
+const CREATE_INDEX_STATEMENT = /create\s+(?:unique\s+)?index\s+(?:concurrently\s+)?(?:if\s+not\s+exists\s+)?[a-z_]/i;
+
 describe("migration-history probe and guard-migration contract", () => {
   it("the v2 snapshot migration exists and check:drift knows its name", () => {
     expect(existsSync(join(migrationsDir, HISTORY_PROBE_MIGRATION))).toBe(true);
@@ -103,8 +115,12 @@ describe("migration-history probe and guard-migration contract", () => {
         // A validation guard never builds: it raises when the objects are
         // missing/invalid/mismatched (the 20260804110240 pattern).
         expect(guardSql, `${label}: validation guard must raise`).toMatch(/raise\s+exception/i);
-        expect(guardSql, `${label}: validation guard must not create the objects it validates`).not.toMatch(
-          /create\s+(?:unique\s+)?index\s+(?:concurrently\s+)?(?:if\s+not\s+exists\s+)?[a-z_]/i,
+        expect(
+          executableSql(guardSql),
+          `${label}: validation guard must not create the objects it validates`,
+        ).not.toMatch(CREATE_INDEX_STATEMENT);
+        expect(guardSql, `${label}: validation guard must scope its timeouts with set local`).toMatch(
+          /set\s+local\s+statement_timeout/i,
         );
         for (const object of guard.objects ?? []) {
           expect(guardSql, `${label}: guard does not mention object ${object}`).toContain(object);
@@ -131,6 +147,18 @@ describe("migration-history probe and guard-migration contract", () => {
         ).toBe(true);
       }
     }
+  });
+
+  it("the reference validation guard 20260804110240 satisfies the validation predicate", () => {
+    // The pattern every validation guard copies pins canonical `create index …`
+    // text inside string literals; the executable-SQL check must keep accepting
+    // it while still rejecting a real build statement.
+    const reference = readMigration("20260804110240_restore_rag_search_health_indexes.sql");
+    expect(reference).toMatch(/raise\s+exception/i);
+    expect(executableSql(reference)).not.toMatch(CREATE_INDEX_STATEMENT);
+    expect(executableSql(`${reference}\ncreate index if not exists oops_idx on public.documents(id);`)).toMatch(
+      CREATE_INDEX_STATEMENT,
+    );
   });
 
   it("no pre-contract class is used for a version at or after the contract date", () => {
