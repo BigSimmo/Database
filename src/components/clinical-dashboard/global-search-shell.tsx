@@ -160,7 +160,7 @@ export function GlobalSearchShell(props: GlobalSearchShellProps) {
           // fallback and resolved content briefly coexisted. A route-agnostic mode-home
           // skeleton (the same one `loading.tsx` shows during navigation) reserves the
           // layout so the first frame reads as "loading" instead of a blank background.
-          <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
+          <div className="min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-dvh">
             <ModeHomeRouteLoading />
           </div>
         )
