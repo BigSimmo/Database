@@ -1,4 +1,4 @@
-import { MOVEMENT_STAGES } from "@/components/ward-management/ward-model";
+import { EXAMINATION_TO_BED_WINDOW_MINUTES, MOVEMENT_STAGES } from "@/components/ward-management/ward-model";
 import type { BedRelease, Cohort, Movement, MovementStage, Security } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR, allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
 
@@ -58,7 +58,12 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Involuntary inpatient",
-    legalForm: { code: "3B", label: "Inpatient treatment order", kind: "detention", dueAt: NOW_ANCHOR + 480 },
+    legalForm: {
+      code: "3B",
+      label: "Inpatient treatment order",
+      kind: "detention",
+      dueAt: NOW_ANCHOR - 60 + EXAMINATION_TO_BED_WINDOW_MINUTES,
+    },
     statusChanges: [],
     stage: "accepted_awaiting_bed",
     owner: "Flow coordinator",
@@ -216,7 +221,12 @@ const seededMovements: Movement[] = [
     sex: "Male",
     specialling: true,
     legalStatus: "Involuntary inpatient",
-    legalForm: { code: "3B", label: "Inpatient treatment order", kind: "detention", dueAt: NOW_ANCHOR + 400 },
+    legalForm: {
+      code: "3B",
+      label: "Inpatient treatment order",
+      kind: "detention",
+      dueAt: NOW_ANCHOR - 100 + EXAMINATION_TO_BED_WINDOW_MINUTES,
+    },
     statusChanges: [],
     stage: "destination_review",
     owner: "Flow coordinator",
@@ -255,7 +265,7 @@ const seededMovements: Movement[] = [
     blocker: "No secure adult bed available across the network",
     withdrawnReferrals: [],
     arrivalMode: "police",
-    examination: { at: NOW_ANCHOR - 45, outcome: "inpatient_order" },
+    examination: { at: NOW_ANCHOR - 100, outcome: "inpatient_order" },
     escalation: {
       at: NOW_ANCHOR - 3,
       triedUnitIds: [
@@ -437,7 +447,12 @@ const seededMovements: Movement[] = [
     sex: "Male",
     specialling: true,
     legalStatus: "Involuntary inpatient",
-    legalForm: { code: "3B", label: "Inpatient treatment order", kind: "detention", dueAt: NOW_ANCHOR + 5 },
+    legalForm: {
+      code: "3B",
+      label: "Inpatient treatment order",
+      kind: "detention",
+      dueAt: NOW_ANCHOR - 260 + EXAMINATION_TO_BED_WINDOW_MINUTES,
+    },
     statusChanges: [],
     stage: "destination_review",
     owner: "ED mental health team",
@@ -452,7 +467,7 @@ const seededMovements: Movement[] = [
     ],
     blocker: "Escalated to duty psychiatrist — breach imminent",
     withdrawnReferrals: [],
-    examination: { at: NOW_ANCHOR - 10, outcome: "inpatient_order" },
+    examination: { at: NOW_ANCHOR - 260, outcome: "inpatient_order" },
   },
   {
     id: "WF-018",

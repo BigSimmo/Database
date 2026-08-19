@@ -1,7 +1,7 @@
 // tests/ward-model-phase3.test.ts
 import { describe, expect, it } from "vitest";
 
-import { DECLINE_REASONS } from "../src/components/ward-management/ward-model";
+import { DECLINE_REASONS, EXAMINATION_TO_BED_WINDOW_MINUTES } from "../src/components/ward-management/ward-model";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 import { isOpen } from "../src/components/ward-management/ward-derivations";
@@ -89,6 +89,19 @@ describe("Phase 3 model additions", () => {
     expect(inspected.length).toBeGreaterThanOrEqual(3);
     for (const text of inspected) {
       expect(text).not.toMatch(forbidden);
+    }
+  });
+
+  it("derives every 3B deadline from its own examination rather than inventing one", () => {
+    // Fix round 2: all three 3B records once carried a hand-picked dueAt with no relationship
+    // to their examination.at. Task 2's reducer derives dueAt as
+    // examination.at + EXAMINATION_TO_BED_WINDOW_MINUTES when it records an inpatient order —
+    // the fixture must derive it the same way, or a reducer-produced 3B and a fixture-seeded 3B
+    // render as though they mean the same thing when they do not.
+    const inpatientOrdered = wardMovements.filter((movement) => movement.examination?.outcome === "inpatient_order");
+    expect(inpatientOrdered.length).toBeGreaterThan(0);
+    for (const movement of inpatientOrdered) {
+      expect(movement.legalForm?.dueAt).toBe(movement.examination!.at + EXAMINATION_TO_BED_WINDOW_MINUTES);
     }
   });
 });
