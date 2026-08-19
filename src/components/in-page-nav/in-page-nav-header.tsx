@@ -253,7 +253,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
   return (
     <>
       <PhoneHeaderCollapsePortal>
-        <header
+        <div
           data-testid={`${testIdPrefix}-detail-header`}
           data-print-hide
           data-inpage-sticky-header=""
@@ -423,7 +423,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
           ) : documentSections.length > 0 ? (
             <DocumentSectionTrack sections={documentSections} activeId={activeSection?.id ?? null} />
           ) : null}
-        </header>
+        </div>
       </PhoneHeaderCollapsePortal>
       {/* Both sheets are siblings of the portal, never children of it: a sheet
           inside the collapse row would be carried away with the header when the

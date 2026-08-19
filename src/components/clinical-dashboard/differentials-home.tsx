@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 
 import { ModeHomeTemplate } from "@/components/mode-home-template";
+import { appModeIcons } from "@/lib/app-mode-icons";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 import {
   SearchResultsHeaderBand,
   type AppliedFilterChip,
@@ -1409,9 +1411,9 @@ export function DifferentialsHome({
     <div data-testid="differentials-home" className="w-full">
       <ModeHomeTemplate
         testId="differentials-home-template"
-        title="Differentials"
-        subtitle="Match your catalogue to your library."
-        icon={BrainCircuit}
+        title={sharedHomePresentation.differentials.title}
+        subtitle={sharedHomePresentation.differentials.subtitle}
+        icon={appModeIcons.differentials}
         headingLevel={1}
         desktopComposerSlotId={desktopComposerSlotId}
         actionsLabel="Differential actions"

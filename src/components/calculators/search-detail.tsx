@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
-  Calculator,
   Clock3,
   History,
   Info,
@@ -18,6 +17,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { ModeHomeHero } from "@/components/mode-home-template";
+import { appModeIcons } from "@/lib/app-mode-icons";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 import { chatComposerInput, chatComposerShell, chatSendButton, cn, eyebrowText } from "@/components/ui-primitives";
 
 import {
@@ -237,9 +238,9 @@ export function CalculatorSearchHome({
     <main className="mx-auto grid w-full max-w-5xl content-start gap-5 px-4 pb-40 pt-[clamp(1.5rem,5vh,3rem)] text-[color:var(--text)] sm:px-6 lg:px-8">
       <ModeHomeHero
         testId="calculators-search"
-        title="Calculators"
-        subtitle="Validated psychiatry scores with the indication, items, and next actions in one place."
-        icon={Calculator}
+        title={sharedHomePresentation.calculators.title}
+        subtitle={sharedHomePresentation.calculators.subtitle}
+        icon={appModeIcons.calculators}
       />
 
       <form
