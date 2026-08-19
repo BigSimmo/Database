@@ -67,19 +67,83 @@ def draw_table(page: fitz.Page, top: float, table: dict) -> float:
     rows, cols = table["rows"], table["cols"]
     rect = usable_rect()
     col_width = (rect.x1 - rect.x0) / cols
-    bottom = top + rows * ROW_HEIGHT
+    row_height = float(table.get("rowHeight", ROW_HEIGHT))
+    unruled = bool(table.get("unruled") or table.get("style") == "unruled")
+    rotated_headers = bool(table.get("rotatedHeaders") or table.get("rotated_headers"))
+    header_row_height = float(
+        table.get("headerRowHeight", row_height if not rotated_headers else max(row_height, TABLE_SIZE * 4.5))
+    )
+    row_heights = [header_row_height] + [row_height] * max(0, rows - 1)
+    row_edges = [top]
+    for height in row_heights:
+        row_edges.append(row_edges[-1] + height)
+    col_edges = [rect.x0 + idx * col_width for idx in range(cols + 1)]
+    bottom = row_edges[-1]
     if bottom > rect.y1:
         die(f"table {table['tableId']} does not fit on its page — reduce rows in the manifest")
-    for r in range(rows + 1):
-        y = top + r * ROW_HEIGHT
-        page.draw_line(fitz.Point(rect.x0, y), fitz.Point(rect.x1, y), width=0.5)
-    for c in range(cols + 1):
-        x = rect.x0 + c * col_width
-        page.draw_line(fitz.Point(x, top), fitz.Point(x, bottom), width=0.5)
+
+    hidden_horizontal_segments: set[tuple[int, int]] = set()
+    hidden_vertical_segments: set[tuple[int, int]] = set()
     for cell in table["cells"]:
-        x = rect.x0 + cell["col"] * col_width + 3
-        y = top + cell["row"] * ROW_HEIGHT + ROW_HEIGHT - 6
-        page.insert_text(fitz.Point(x, y), cell["text"], fontname=BODY_FONT, fontsize=TABLE_SIZE)
+        r, c = cell["row"], cell["col"]
+        col_span = max(1, int(cell.get("colSpan", 1)))
+        row_span = max(1, int(cell.get("rowSpan", 1)))
+        for interior_row in range(r + 1, min(rows, r + row_span)):
+            for col_segment in range(c, min(cols, c + col_span)):
+                hidden_horizontal_segments.add((interior_row, col_segment))
+        for interior_col in range(c + 1, min(cols, c + col_span)):
+            for row_segment in range(r, min(rows, r + row_span)):
+                hidden_vertical_segments.add((interior_col, row_segment))
+
+    if not unruled:
+        for row_boundary in range(rows + 1):
+            y = row_edges[row_boundary]
+            for col_segment in range(cols):
+                if (row_boundary, col_segment) in hidden_horizontal_segments:
+                    continue
+                page.draw_line(
+                    fitz.Point(col_edges[col_segment], y),
+                    fitz.Point(col_edges[col_segment + 1], y),
+                    width=0.5,
+                )
+        for col_boundary in range(cols + 1):
+            x = col_edges[col_boundary]
+            for row_segment in range(rows):
+                if (col_boundary, row_segment) in hidden_vertical_segments:
+                    continue
+                page.draw_line(
+                    fitz.Point(x, row_edges[row_segment]),
+                    fitz.Point(x, row_edges[row_segment + 1]),
+                    width=0.5,
+                )
+    else:
+        # Unruled / booktabs style: horizontal rules only (top, mid/header, bottom)
+        page.draw_line(fitz.Point(rect.x0, top), fitz.Point(rect.x1, top), width=1.0)
+        page.draw_line(fitz.Point(rect.x0, row_edges[1]), fitz.Point(rect.x1, row_edges[1]), width=0.5)
+        page.draw_line(fitz.Point(rect.x0, bottom), fitz.Point(rect.x1, bottom), width=1.0)
+
+    for cell in table["cells"]:
+        r, c = cell["row"], cell["col"]
+        col_span = max(1, int(cell.get("colSpan", 1)))
+        row_span = max(1, int(cell.get("rowSpan", 1)))
+        is_rotated = (r == 0 and rotated_headers) or bool(cell.get("rotate") == 90 or cell.get("rotated"))
+        x0 = col_edges[c]
+        x1 = col_edges[min(cols, c + col_span)]
+        y0 = row_edges[r]
+        y1 = row_edges[min(rows, r + row_span)]
+        cell_rect = fitz.Rect(x0, y0, x1, y1)
+        x = cell_rect.x0 + 3
+        y = cell_rect.y1 - 6
+        if is_rotated:
+            page.insert_text(
+                fitz.Point(cell_rect.x0 + min(cell_rect.width, 16.0), cell_rect.y1 - 4),
+                cell["text"],
+                fontname=BODY_FONT,
+                fontsize=TABLE_SIZE,
+                rotate=90,
+            )
+        else:
+            page.insert_text(fitz.Point(x, y), cell["text"], fontname=BODY_FONT, fontsize=TABLE_SIZE)
     return bottom
 
 

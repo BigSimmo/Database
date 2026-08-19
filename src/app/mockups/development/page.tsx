@@ -6,14 +6,18 @@ import { CARING_CONTACT_MOCKUP_ROUTES } from "@/components/caring-contacts/mocku
 
 export const metadata: Metadata = {
   title: "Development · Clinical KB",
-  description: "In-progress surfaces, off by default in a production deploy.",
+  description: "In-progress surfaces, reachable only to a signed-in developer account in a production deploy.",
 };
 
-// The index of what is being built. It lives under /mockups so it inherits the
-// namespace's production gate (`mockupsEnabled()` in the mockups layout) rather
-// than needing a second one: always on outside production, and 404 in a
-// production deploy unless that deploy sets NEXT_PUBLIC_MOCKUPS_ENABLED=true —
-// exactly like the surfaces it links to.
+// The index of what is being built. This page and the Caring Contact routes it
+// links to require a signed-in administrator account in production
+// (`DeveloperAreaGate`, applied in the `development` and `caring-contacts`
+// layouts) — everywhere else /mockups/** stays 404'd, unchanged.
+//
+// Ward Flow is listed here as a convenience bookmark only: `/ward-management`
+// is an already-merged, normal, publicly reachable route (see
+// `src/lib/tools-catalog.ts`), not a mockup, and carries none of this page's
+// gating.
 const DEVELOPMENT_SURFACES = [
   {
     id: "caring-contacts",
@@ -28,6 +32,20 @@ const DEVELOPMENT_SURFACES = [
       { label: "Schedule", href: CARING_CONTACT_MOCKUP_ROUTES.schedule },
       { label: "Templates", href: CARING_CONTACT_MOCKUP_ROUTES.templates },
       { label: "System states", href: CARING_CONTACT_MOCKUP_ROUTES.systemStates },
+    ],
+  },
+  {
+    id: "ward-management",
+    name: "Ward Flow",
+    summary:
+      "Coordinate synthetic psychiatry demand, bed capacity, referrals, and patient movement across WA: priority queue, ward capacity, explainable destination matches, and owned movement actions.",
+    href: "/ward-management",
+    status: "Live route",
+    entries: [
+      { label: "Queue", href: "/ward-management/queue" },
+      { label: "Capacity", href: "/ward-management/capacity" },
+      { label: "Transport", href: "/ward-management/transport" },
+      { label: "Movements", href: "/ward-management/movements" },
     ],
   },
 ] as const;
