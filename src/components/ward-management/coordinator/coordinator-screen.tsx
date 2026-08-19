@@ -3,10 +3,10 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { buildActionInbox, isOpen } from "@/components/ward-management/ward-derivations";
+import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
-import { movementById, wardMovements } from "@/components/ward-management/ward-movements";
 import { queueOrder } from "@/components/ward-management/ward-priority";
-import { allEmergencyDepartments, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
 
 import styles from "./coordinator.module.css";
 import { ExceptionDrawer } from "./exception-drawer";
@@ -34,6 +34,12 @@ import { ShortlistPanel } from "./shortlist-panel";
 const PHONE_DIAGRAM_MEDIA_QUERY = "(max-width: 48rem)";
 
 export function CoordinatorScreen() {
+  // Task 5: the screen's props stop being derived from the frozen `wardMovements` fixture and
+  // `NOW_ANCHOR` constant and start coming from the shared provider (`WardFlowProvider`, already
+  // wrapping every `/ward-management` route via `src/app/ward-management/layout.tsx`). `units`
+  // is not destructured here — nothing this screen renders yet reads live unit state, and an
+  // unused destructured value would be dead weight rather than real wiring.
+  const { movements, rejections, now, dispatch } = useWardFlow();
   const [selectedMovementId, setSelectedMovementId] = useState<string | undefined>(undefined);
   const [selectedUnitId, setSelectedUnitId] = useState<string | undefined>(undefined);
   const [selectedEdId, setSelectedEdId] = useState<string | undefined>(undefined);
@@ -78,7 +84,7 @@ export function CoordinatorScreen() {
     let inner = 0;
     const outer = requestAnimationFrame(() => {
       inner = requestAnimationFrame(() => {
-        const confirmButton = shortlistColumnRef.current?.querySelector('[data-testid="ward-shortlist-confirm"]');
+        const confirmButton = shortlistColumnRef.current?.querySelector('[data-testid="ward-shortlist-refer"]');
         confirmButton?.scrollIntoView({ block: "nearest" });
       });
     });
@@ -99,10 +105,13 @@ export function CoordinatorScreen() {
     setSelectedUnitId(undefined);
   }
 
-  // `movementById` returns `undefined` for an id the fixture cannot resolve — the diagram
-  // receiving `undefined` renders the network with nothing routed rather than a guessed
-  // selection (Task 6 conservative-failure rule), so no fallback is threaded through here.
-  const selectedMovement = selectedMovementId ? movementById(selectedMovementId) : undefined;
+  // The provider's own `movements` array — never `movementById`, which reads the frozen fixture
+  // and would never see a referral this screen just dispatched. An id the live array cannot
+  // resolve still renders as `undefined` (Task 6 conservative-failure rule), so no fallback is
+  // threaded through here.
+  const selectedMovement = selectedMovementId
+    ? movements.find((movement) => movement.id === selectedMovementId)
+    : undefined;
 
   const selectedEd = selectedEdId ? allEmergencyDepartments().find((ed) => ed.id === selectedEdId) : undefined;
   // A `selectedEdId` this lookup cannot name must not leave the queue silently filtered with no
@@ -111,24 +120,22 @@ export function CoordinatorScreen() {
   const activeEdId = selectedEd?.id;
   // A one-line filter, not a derivation: it keys on a field the model already carries
   // (`Movement.originEdId`), so it belongs here rather than in a ward-*.ts module.
-  const filteredMovements = activeEdId
-    ? wardMovements.filter((movement) => movement.originEdId === activeEdId)
-    : wardMovements;
-  const queue = queueOrder(filteredMovements, NOW_ANCHOR);
+  const filteredMovements = activeEdId ? movements.filter((movement) => movement.originEdId === activeEdId) : movements;
+  const queue = queueOrder(filteredMovements, now);
 
   // The exception inbox is the coordinator's global work list, not a view scoped to whatever ED
   // filter the queue happens to have selected — a breached legal deadline at a filtered-out
   // department must not silently drop off the work list just because the queue is filtered.
-  // `wardMovements` and `NOW_ANCHOR` are both constants, so this only ever needs to compute once
-  // (same reasoning `ward-management-modes.tsx`'s own `buildActionInbox` call already uses).
+  // `movements` and `now` are both live now (Task 5), not constants, so this must recompute
+  // whenever either changes rather than caching a single mount-time snapshot forever.
   //
   // Whole-branch review Minor 6: the inbox is scoped to OPEN movements. `buildActionInbox` has no
-  // `isOpen` guard of its own and `wardMovements` carries all 48 records including the 7 closed
+  // `isOpen` guard of its own and `movements` carries all 48 records including the 7 closed
   // ones, so passing the raw array put an arrived or did-not-proceed patient's breached deadline
   // on a live work list. Latent on today's fixture — no closed movement currently qualifies for
   // any of the three categories — but it is precisely the shape of Phase 1's "48 open movements"
   // defect, which was also a closed record counted as live.
-  const actionInbox = useMemo(() => buildActionInbox(wardMovements.filter(isOpen), NOW_ANCHOR), []);
+  const actionInbox = useMemo(() => buildActionInbox(movements.filter(isOpen), now), [movements, now]);
 
   return (
     <div className={styles.screen} data-testid="ward-coordinator">
@@ -146,12 +153,12 @@ export function CoordinatorScreen() {
         </div>
 
         <div className={styles.body}>
-          <PressureStrip now={NOW_ANCHOR} selectedEdId={selectedEdId} onSelectEd={setSelectedEdId} />
+          <PressureStrip now={now} selectedEdId={selectedEdId} onSelectEd={setSelectedEdId} />
 
           <div className={styles.regionGrid} data-testid="ward-coordinator-region-grid">
             <PriorityQueue
               movements={queue}
-              now={NOW_ANCHOR}
+              now={now}
               selectedId={selectedMovementId}
               onSelect={selectMovement}
               filterEdId={activeEdId}
@@ -177,7 +184,7 @@ export function CoordinatorScreen() {
               {isPhoneDiagramLayout ? null : (
                 <FlowDiagram
                   movement={selectedMovement}
-                  now={NOW_ANCHOR}
+                  now={now}
                   selectedUnitId={selectedUnitId}
                   onSelectUnit={(unitId) => setSelectedUnitId((current) => (current === unitId ? undefined : unitId))}
                 />
@@ -191,9 +198,10 @@ export function CoordinatorScreen() {
                 </header>
                 <ShortlistPanel
                   movement={selectedMovement}
-                  now={NOW_ANCHOR}
+                  now={now}
                   selectedUnitId={selectedUnitId}
                   onSelectUnit={(unitId) => setSelectedUnitId((current) => (current === unitId ? undefined : unitId))}
+                  dispatch={dispatch}
                 />
               </aside>
             </div>
@@ -202,6 +210,7 @@ export function CoordinatorScreen() {
 
         <ExceptionDrawer
           items={actionInbox}
+          rejections={rejections}
           open={exceptionsOpen}
           onToggle={() => setExceptionsOpen((open) => !open)}
           // Task 8 review Important 3: on a phone the open drawer's own panel is what stands

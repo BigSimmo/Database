@@ -207,7 +207,7 @@ test.describe("Ward Flow coordinator screen", () => {
     const phoneDrawer = page.getByRole("region", { name: "Exceptions" });
     await expect(phoneDrawer).toBeVisible();
     await phoneDrawer.locator('[data-testid*="-WF-005"]').first().click();
-    await expect(page.getByTestId("ward-shortlist-confirm")).toBeInViewport();
+    await expect(page.getByTestId("ward-shortlist-refer")).toBeInViewport();
   });
 
   test("orders by clinical tier first and labels the score as operational, not clinical", async ({ page }) => {
@@ -571,10 +571,12 @@ test.describe("Ward Flow coordinator screen", () => {
 
     await queue.locator('[data-testid="ward-queue-row-WF-001"]').click();
 
-    // The locked candidates say so on their own rows; the open one does not.
+    // The locked candidates say so on their own rows; the open one does not. The shortlist row
+    // reads `restrictionNotice`'s own wording (Task 5) — the diagram node is untouched this task
+    // and still reads the older `MORE_RESTRICTIVE_NOTE` text, so the two assertions differ.
     for (const candidate of locked) {
       await expect(shortlist.locator(`[data-testid="ward-shortlist-candidate-${candidate.unit.id}"]`)).toContainText(
-        "More restrictive than required",
+        "More restrictive than this movement requires",
       );
       await expect(diagram.locator(`[data-testid="ward-diagram-unit-${candidate.unit.id}"]`)).toContainText(
         "More restrictive than required",
@@ -583,7 +585,7 @@ test.describe("Ward Flow coordinator screen", () => {
     for (const candidate of open) {
       await expect(
         shortlist.locator(`[data-testid="ward-shortlist-candidate-${candidate.unit.id}"]`),
-      ).not.toContainText("More restrictive than required");
+      ).not.toContainText("More restrictive than this movement requires");
     }
 
     // And it is stated at the moment of decision — above the gate list, where the security check
@@ -597,7 +599,7 @@ test.describe("Ward Flow coordinator screen", () => {
     // A Secure movement on a Secure ward is a plain match — the note must not appear there, or it
     // would be noise a coordinator learns to ignore.
     await queue.locator('[data-testid="ward-queue-row-WF-004"]').click();
-    await expect(shortlist).not.toContainText("More restrictive than required");
+    await expect(shortlist).not.toContainText("More restrictive than this movement requires");
   });
 
   /**
@@ -632,11 +634,11 @@ test.describe("Ward Flow coordinator screen", () => {
       await expect(gate).toContainText(pass === "true" ? "Met" : "Not met");
     }
 
-    // Nothing is allocated until a human confirms — before any candidate selection or click.
+    // Nothing is allocated until a human refers — before any candidate selection or click.
     await expect(shortlist).toContainText("No automatic allocation");
-    await expect(shortlist).not.toContainText("Confirmed by a human coordinator");
+    await expect(shortlist).not.toContainText("Referred by a human coordinator");
     await expect(shortlist).not.toContainText("Overridden by a human coordinator");
-    await expect(shortlist.getByRole("button", { name: /Confirm/ })).toBeVisible();
+    await expect(shortlist.getByRole("button", { name: /Refer/ })).toBeVisible();
 
     // WF-009 (queue row 2): guaranteed to surface a failing gate on its default candidate, unlike
     // WF-017 above — this is the unconditional proof the brief's own guarded assertion could skip.
@@ -658,45 +660,45 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(failing.first().locator("svg.lucide-circle-check")).toHaveCount(0);
     await expect(failing.first().locator("svg.lucide-circle-alert")).toHaveCount(1);
 
-    // Selecting an ineligible candidate (WF-009's default) leaves confirming unavailable, with
-    // the reason stated rather than the control silently vanishing.
-    const confirmButton = shortlist.getByRole("button", { name: /Confirm/ });
-    await expect(confirmButton).toHaveAttribute("aria-disabled", "true");
-    await expect(shortlist).not.toContainText("Confirmed by a human coordinator");
+    // Selecting an ineligible candidate (WF-009's default) leaves referring unavailable, with
+    // the reason stated rather than the control silently vanishing. Nothing has been clicked on
+    // this movement yet, so this is really "nothing selected" — the same guard the default-candidate
+    // test below exercises directly.
+    const referButton = shortlist.getByRole("button", { name: /Refer/ });
+    await expect(referButton).toHaveAttribute("aria-disabled", "true");
+    await expect(shortlist).not.toContainText("Referred by a human coordinator");
 
-    // Selecting WF-017's own eligible candidate makes confirming available, and confirming
-    // records a real human confirmation on screen — never an automatic allocation triggered by
+    // Selecting WF-017's own eligible candidate makes referring available, and referring
+    // records a real human decision on screen — never an automatic allocation triggered by
     // merely selecting a row.
     await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
     await shortlist.locator('[data-testid="ward-shortlist-candidate-rph-adult-secure"]').click();
-    await expect(confirmButton).not.toHaveAttribute("aria-disabled", "true");
-    await expect(shortlist).not.toContainText("Confirmed by a human coordinator");
-    await confirmButton.click();
-    await expect(shortlist).toContainText("Confirmed by a human coordinator");
+    await expect(referButton).not.toHaveAttribute("aria-disabled", "true");
+    await expect(shortlist).not.toContainText("Referred by a human coordinator");
+    await referButton.click();
+    await expect(shortlist).toContainText("Referred by a human coordinator");
     await expect(shortlist).toContainText("RPH Adult Secure");
   });
 
   /**
-   * Whole-branch review Critical 2. `ShortlistPanel` defaults `activeUnit` to `shortlist[0]` so the
-   * gate list is never empty, and Confirm used to act on that default — a unit the coordinator
-   * never picked, and which no candidate row reports as `aria-pressed`. On WF-004 (stage
-   * `bed_held`, accepted destination BTY Adult Secure) the default is RPH Adult Secure, so one tap
-   * wrote "Confirmed by a human coordinator: RPH Adult Secure" directly under "Accepted
-   * destination: BTY Adult Secure". A default that Confirm will act on is an auto-allocation with
-   * one tap of consent, which is the single thing this phase claims it never does.
+   * Whole-branch review Critical 2, carried into Task 5. `ShortlistPanel` defaults `activeUnit`
+   * to `shortlist[0]` so the gate list is never empty, but Refer and Override now act only on
+   * `referTargets` — the real, explicit multi-select state a candidate-row click drives — never
+   * on that default. On WF-004 (stage `bed_held`, accepted destination BTY Adult Secure) the
+   * default is RPH Adult Secure; a default that Refer could act on would be an auto-allocation
+   * with one tap of consent, which is the single thing this phase claims it never does.
    *
-   * Proven red before the fix: with `canConfirm` restored to `activeUnit !== undefined && ...`,
+   * Proven red before the fix: with `canRefer` restored to `activeUnit !== undefined && ...`,
    * the first `aria-disabled` assertion below fails on WF-017 (whose default candidate is
-   * eligible), and the WF-004 half records a confirmation against a unit nobody selected. See the
-   * final fix report for the captured failure output.
+   * eligible), and the WF-004 half records a referral against a unit nobody selected.
    */
-  test("never confirms or overrides against a default candidate the coordinator did not choose", async ({ page }) => {
+  test("never refers or overrides against a default candidate the coordinator did not choose", async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1100 });
     await gotoCoordinator(page);
 
     const queue = page.getByRole("region", { name: "Priority queue" });
     const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
-    const confirmButton = shortlist.getByTestId("ward-shortlist-confirm");
+    const referButton = shortlist.getByTestId("ward-shortlist-refer");
     const overrideToggle = shortlist.getByTestId("ward-shortlist-override-toggle");
 
     // WF-017's default candidate passes all eight gates, so "unavailable" here cannot be an
@@ -707,7 +709,7 @@ test.describe("Ward Flow coordinator screen", () => {
     expect(wf017Default, "fixture assumption: WF-017 has at least one candidate").toBeTruthy();
     expect(
       wf017Default.verdict.eligible,
-      "fixture assumption: WF-017's default candidate is eligible, so only the missing selection can block Confirm",
+      "fixture assumption: WF-017's default candidate is eligible, so only the missing selection can block Refer",
     ).toBe(true);
 
     await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
@@ -720,18 +722,18 @@ test.describe("Ward Flow coordinator screen", () => {
     // ...and BOTH halves of the human decision are unavailable, each saying why rather than
     // silently doing nothing. Override is not a lesser path — the governing rule is "a human
     // confirms OR overrides, always, with the reason recorded" — so a coordinator blocked from
-    // confirming an un-chosen default must not be able to override straight into it.
-    await expect(confirmButton).toHaveAttribute("aria-disabled", "true");
+    // referring an un-chosen default must not be able to override straight into it.
+    await expect(referButton).toHaveAttribute("aria-disabled", "true");
     await expect(overrideToggle).toHaveAttribute("aria-disabled", "true");
-    await expect(shortlist).toContainText("Choose a candidate unit before confirming");
-    await expect(shortlist).toContainText("Choose a candidate unit before overriding");
+    await expect(shortlist).toContainText("Choose at least one candidate ward before referring");
+    await expect(shortlist).toContainText("Choose at least one candidate ward before overriding");
     // `force` because Playwright's actionability check already refuses an `aria-disabled` control.
     // Bypassing it is the stronger proof: even a real activation must record nothing, since the
     // repo's unavailable-control pattern keeps the button focusable and clickable by design (it is
     // `aria-disabled` + an inert handler, never native `disabled`, so the stated reason stays
     // reachable to a keyboard and screen-reader user).
-    await confirmButton.click({ force: true });
-    await expect(shortlist).not.toContainText("Confirmed by a human coordinator");
+    await referButton.click({ force: true });
+    await expect(shortlist).not.toContainText("Referred by a human coordinator");
 
     // A forced activation of Override must not even open the reason form — if it opened, the
     // textarea would be addressed to the default unit and one submission would record an override
@@ -743,10 +745,10 @@ test.describe("Ward Flow coordinator screen", () => {
 
     // Choosing a candidate is what makes both available.
     await shortlist.locator(`[data-testid="ward-shortlist-candidate-${wf017Default.unit.id}"]`).click();
-    await expect(confirmButton).not.toHaveAttribute("aria-disabled", "true");
+    await expect(referButton).not.toHaveAttribute("aria-disabled", "true");
     await expect(overrideToggle).not.toHaveAttribute("aria-disabled", "true");
-    await confirmButton.click();
-    await expect(shortlist).toContainText("Confirmed by a human coordinator");
+    await referButton.click();
+    await expect(shortlist).toContainText("Referred by a human coordinator");
     await expect(shortlist).toContainText(wf017Default.unit.name);
 
     // WF-004 is the worst case the review found: a bed is already held elsewhere, and the default
@@ -762,11 +764,11 @@ test.describe("Ward Flow coordinator screen", () => {
 
     await queue.locator('[data-testid="ward-queue-row-WF-004"]').click();
     await expect(shortlist).toContainText("Accepted destination:");
-    await expect(confirmButton).toHaveAttribute("aria-disabled", "true");
+    await expect(referButton).toHaveAttribute("aria-disabled", "true");
     await expect(overrideToggle).toHaveAttribute("aria-disabled", "true");
-    await confirmButton.click({ force: true });
+    await referButton.click({ force: true });
     await overrideToggle.click({ force: true });
-    await expect(shortlist).not.toContainText("Confirmed by a human coordinator");
+    await expect(shortlist).not.toContainText("Referred by a human coordinator");
     await expect(shortlist).not.toContainText("Overridden by a human coordinator");
   });
 
@@ -848,7 +850,7 @@ test.describe("Ward Flow coordinator screen", () => {
     // selectable via the diagram's shared selection state — passes every gate, so presenting it
     // as fact carries no hidden risk of recommending a failing unit.
     await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
-    await expect(shortlist).toContainText("Outstanding referral: BTY Adult Secure");
+    await expect(shortlist).toContainText("Parallel referral: BTY Adult Secure");
     await expect(shortlist).not.toContainText("Suggested destination");
 
     const diagram = page.getByRole("region", { name: "Statewide flow" });
@@ -902,5 +904,46 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(shortlist).toContainText("Overridden by a human coordinator");
     await expect(shortlist).toContainText(reasonText);
     await expect(shortlist).toContainText("RPH Adult Secure");
+  });
+
+  /**
+   * Task 5: the screen goes live. Selecting a candidate row is what makes Refer available —
+   * never a default — and Refer dispatches a real `REFER_TO_UNITS` event through the provider,
+   * so the referral is a fact in shared state (`movement.referredUnitIds`), not merely a local
+   * "you clicked a button" note. The Correction applied to this task's brief: the candidate rows
+   * use `data-testid="ward-shortlist-candidate-<unit id>"` (never `ward-candidate-`), and the
+   * primary control is `data-testid="ward-shortlist-refer"` labelled "Refer" — Tasks 7 and 12
+   * both select on that testid.
+   */
+  test("refers a patient to up to three wards and records what it did", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    await queue.locator('[data-testid^="ward-queue-row-"]').first().click();
+
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+
+    // Nothing is referable until a human picks a ward.
+    const refer = shortlist.getByRole("button", { name: /Refer/ });
+    await expect(refer).toHaveAttribute("aria-disabled", "true");
+
+    await shortlist.locator('[data-testid^="ward-shortlist-candidate-"]').first().click();
+    await expect(refer).not.toHaveAttribute("aria-disabled", "true");
+    await refer.click();
+
+    // The referral is recorded on the screen, and the parallel cap is stated.
+    await expect(shortlist).toContainText(/parallel referral/i);
+    await expect(shortlist).not.toContainText(/Confirm placement/);
+  });
+
+  test("shows a refused transition instead of swallowing it", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const drawer = page.getByRole("button", { name: /Exceptions/ });
+    await drawer.click();
+    // The refusals region exists even when empty, so a coordinator learns where to look.
+    await expect(page.getByRole("region", { name: "Exceptions" })).toContainText(/refus/i);
   });
 });

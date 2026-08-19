@@ -1,18 +1,18 @@
 "use client";
 
 import { CheckCircle2, CircleAlert } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type Dispatch, type FormEvent } from "react";
 
 import { clockState, formatInstant, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
 import {
   candidateReason,
   destinationUnit,
   eligibleCandidates,
-  isMoreRestrictiveThanRequired,
-  MORE_RESTRICTIVE_NOTE,
+  restrictionNotice,
   unitCapacity,
 } from "@/components/ward-management/ward-derivations";
 import { eligibility, type GateResult } from "@/components/ward-management/ward-eligibility";
+import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { PARALLEL_REFERRAL_CAP, type Movement, type Unit } from "@/components/ward-management/ward-model";
 import { operationalScore } from "@/components/ward-management/ward-priority";
 import { allEmergencyDepartments, unitById } from "@/components/ward-management/ward-sites";
@@ -25,10 +25,20 @@ type ShortlistPanelProps = {
   now: Instant;
   selectedUnitId: string | undefined;
   onSelectUnit: (unitId: string) => void;
+  dispatch: Dispatch<WardFlowEvent>;
 };
 
-type Confirmation =
-  { kind: "confirm"; unitId: string; at: Instant } | { kind: "override"; unitId: string; at: Instant; reason: string };
+/**
+ * Task 5: the on-screen acknowledgement of the last human decision made against this movement.
+ * The durable truth lives in `movement.referredUnitIds` (rendered as the "Parallel referral"
+ * badges below, sourced from the live provider) — this is the transient "you just did this"
+ * record, the same role `Confirmation` played before Refer replaced Confirm. Override still
+ * carries the only place its reason is recorded anywhere: `REFER_TO_UNITS` has no reason field,
+ * so a typed override reason is never written to shared state, only shown here.
+ */
+type ReferralRecord =
+  | { kind: "refer"; unitIds: string[]; at: Instant }
+  | { kind: "override"; unitIds: string[]; at: Instant; reason: string };
 
 /**
  * Human labels for the eight `eligibility()` gates. Order here is irrelevant — the rendered list
@@ -70,7 +80,7 @@ function legalFormLine(movement: Movement, now: Instant) {
  * driven by something other than the gate's own `pass` boolean. Every icon below reads directly
  * off `gate.pass`; nothing else is permitted to decide it (see the report's red/green proof).
  */
-export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: ShortlistPanelProps) {
+export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, dispatch }: ShortlistPanelProps) {
   const shortlist = useMemo(
     () => (movement ? eligibleCandidates(movement, now, PARALLEL_REFERRAL_CAP) : []),
     [movement, now],
@@ -84,7 +94,7 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
   // movement is chosen.
   //
   // Whole-branch review Critical 2: this default is ORIENTATION ONLY. It may never be the thing
-  // Confirm acts on — see `canConfirm` below.
+  // Refer acts on — see `canRefer` below.
   const activeUnit = useMemo(() => {
     if (selectedUnitId) return unitById(selectedUnitId);
     return shortlist[0]?.unit;
@@ -102,21 +112,29 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
     [activeVerdict],
   );
 
-  const [confirmation, setConfirmation] = useState<Confirmation | undefined>(undefined);
+  const [confirmation, setConfirmation] = useState<ReferralRecord | undefined>(undefined);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
   const [confirmationMovementId, setConfirmationMovementId] = useState(movement?.id);
+  // Task 5: which candidate wards a human has explicitly picked to refer to, capped at
+  // `PARALLEL_REFERRAL_CAP`. This is a separate, multi-select truth from `selectedUnitId` (which
+  // stays single-valued and shared with the diagram, driving only which candidate's gates are
+  // shown) — a coordinator can refer to up to three wards at once, but the diagram and the gate
+  // list can only ever explain one at a time.
+  const [referTargets, setReferTargets] = useState<string[]>([]);
 
-  // A confirmation or an open override form belongs to the movement it was made against — moving
-  // to a different movement must never leave a stale "Confirmed" record from the last one on
-  // screen, or a half-typed override reason attached to the wrong patient. Reset during render
-  // (React's documented "adjusting state when a prop changes" pattern) rather than in an effect —
-  // an effect body calling `setState` synchronously forces an extra, avoidable render pass.
+  // A confirmation, an open override form, or a referral selection all belong to the movement
+  // they were made against — moving to a different movement must never leave a stale "Referred"
+  // record from the last one on screen, a half-typed override reason attached to the wrong
+  // patient, or a ward selection meant for a different patient. Reset during render (React's
+  // documented "adjusting state when a prop changes" pattern) rather than in an effect — an
+  // effect body calling `setState` synchronously forces an extra, avoidable render pass.
   if (movement?.id !== confirmationMovementId) {
     setConfirmationMovementId(movement?.id);
     setConfirmation(undefined);
     setOverrideOpen(false);
     setOverrideReason("");
+    setReferTargets([]);
   }
 
   if (!movement) {
@@ -124,6 +142,11 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
       <p className={styles.placeholder}>Select a movement from the priority queue to see its explainable shortlist.</p>
     );
   }
+
+  // TypeScript's narrowing of `movement` above does not reach into the `handleRefer` /
+  // `handleOverrideSubmit` closures defined further down, so this plain string is what they
+  // close over instead of re-checking `movement` themselves.
+  const movementId = movement.id;
 
   const originEd = allEmergencyDepartments().find((ed) => ed.id === movement.originEdId);
   // Neutral "currently at" language, never framed as an authorisation requirement — authorisation
@@ -149,56 +172,70 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
   const hasRecordedReferral =
     recordedDestination !== undefined || Boolean(movement.acceptedUnitId) || movement.referredUnitIds.length > 0;
   const topEligible = shortlist.find((candidate) => candidate.verdict.eligible);
+  const topEligibleNotice = topEligible ? restrictionNotice(movement, topEligible.unit) : undefined;
 
-  // Whole-branch review Critical 2. Confirm previously acted on `activeUnit`, which falls back to
-  // `shortlist[0]` — a system-chosen default that no human ever picked and that no candidate row
-  // reports as `aria-pressed`. On WF-004 (stage `bed_held`, accepted destination BTY Adult Secure)
-  // that default is RPH Adult Secure, so a single tap wrote "Confirmed by a human coordinator: RPH
-  // Adult Secure" directly beneath "Accepted destination: BTY Adult Secure" — the screen asserting
-  // two destinations for one patient, the second of them never chosen. On a phone the auto-scroll
-  // in `coordinator-screen.tsx` puts exactly that button under the coordinator's thumb.
-  //
-  // A default that Confirm will act on IS an auto-allocation with one tap of consent, which is the
-  // one thing this phase says it never does. So confirming now requires `selectedUnitId` — the real,
-  // explicit selection prop, the same value `aria-pressed` reports — not `activeUnit`. Showing the
-  // default's gate list for orientation is still fine; acting on it is not.
-  const hasExplicitSelection = selectedUnitId !== undefined && activeUnit !== undefined;
-  const canConfirm = hasExplicitSelection && activeVerdict?.eligible === true;
-  // Override carries the SAME guard, for the same reason. It is not a lesser path: the phase's rule
-  // is "a human confirms OR overrides, always, with the reason recorded", so override is the other
-  // half of the same human decision and it too used to act on `shortlist[0]`. Guarding only Confirm
-  // was also incoherent — a coordinator blocked from confirming an un-chosen default could still
-  // override straight into it, reaching the same recorded outcome by the adjacent button. The typed
-  // reason is not a substitute for the choice: it explains WHY, never WHICH ward.
-  const canOverride = hasExplicitSelection;
-  const confirmUnavailableReason = !hasExplicitSelection
-    ? "Choose a candidate unit before confirming — nothing is confirmed against a default."
-    : activeVerdict
-      ? `Not eligible — ${candidateReason(activeVerdict)}`
-      : "Eligibility could not be determined for this unit.";
+  // Whole-branch review Critical 2, carried forward into Task 5's Refer/Override. The old Confirm
+  // acted on `activeUnit`, which falls back to `shortlist[0]` — a system-chosen default that no
+  // human ever picked and that no candidate row reported as `aria-pressed`. A default that Refer
+  // will act on IS an auto-allocation with one tap of consent, which is the one thing this phase
+  // says it never does. So referring now requires `referTargets` — the real, explicit multi-select
+  // state driven by the same candidate-row clicks `aria-pressed` reports below — never a fallback
+  // to a default nobody chose. Showing the default's gate list for orientation is still fine;
+  // acting on it is not.
+  const referredCandidates = referTargets.map((unitId) => shortlist.find((candidate) => candidate.unit.id === unitId));
+  const hasReferSelection = referTargets.length > 0;
+  const allSelectedEligible = referredCandidates.every((candidate) => candidate?.verdict.eligible === true);
+  const canRefer = hasReferSelection && allSelectedEligible;
+  // Override carries the SAME "a human actually chose this" guard, for the same reason — it is not
+  // a lesser path. The phase's rule is "a human confirms OR overrides, always, with the reason
+  // recorded", so override is the other half of the same human decision. Unlike Refer, it does not
+  // require every selected ward to be eligible: overriding into an ineligible ward with a stated
+  // reason is exactly the escape hatch this control exists for.
+  const canOverride = hasReferSelection;
+  const firstIneligibleSelected = referredCandidates.find((candidate) => candidate && !candidate.verdict.eligible);
+  const referUnavailableReason = !hasReferSelection
+    ? "Choose at least one candidate ward before referring — nothing is referred against a default."
+    : firstIneligibleSelected
+      ? `Not eligible — ${candidateReason(firstIneligibleSelected.verdict)}. Use Override instead.`
+      : "Eligibility could not be determined for one of the selected wards.";
   const overrideUnavailableReason =
-    "Choose a candidate unit before overriding — nothing is overridden against a default.";
-  const activeIsMoreRestrictive = activeUnit ? isMoreRestrictiveThanRequired(movement, activeUnit) : false;
+    "Choose at least one candidate ward before overriding — nothing is overridden against a default.";
+  const activeNotice = activeUnit ? restrictionNotice(movement, activeUnit) : undefined;
 
   const { score, factors } = operationalScore(movement, now);
 
-  function handleConfirm() {
-    if (!activeUnit || !canConfirm) return;
-    setConfirmation({ kind: "confirm", unitId: activeUnit.id, at: now });
+  /** Adds or removes a unit from the referral selection, capped at `PARALLEL_REFERRAL_CAP` — a
+   * click past the cap on a NOT-yet-selected unit is a no-op (never silently swaps out an earlier
+   * choice), but a click on an already-selected unit can always toggle it back off. */
+  function toggleReferTarget(unitId: string) {
+    setReferTargets((current) => {
+      if (current.includes(unitId)) return current.filter((id) => id !== unitId);
+      if (current.length >= PARALLEL_REFERRAL_CAP) return current;
+      return [...current, unitId];
+    });
+  }
+
+  function handleRefer() {
+    if (!canRefer) return;
+    dispatch({ type: "REFER_TO_UNITS", role: "coordinator", now, movementId, unitIds: [...referTargets] });
+    setConfirmation({ kind: "refer", unitIds: [...referTargets], at: now });
     setOverrideOpen(false);
   }
 
   function handleOverrideSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!activeUnit || !canOverride) return;
+    if (!canOverride) return;
     const reason = overrideReason.trim();
     if (reason.length === 0) return;
-    setConfirmation({ kind: "override", unitId: activeUnit.id, at: now, reason });
+    dispatch({ type: "REFER_TO_UNITS", role: "coordinator", now, movementId, unitIds: [...referTargets] });
+    setConfirmation({ kind: "override", unitIds: [...referTargets], at: now, reason });
     setOverrideOpen(false);
     setOverrideReason("");
   }
 
-  const confirmedUnit = confirmation ? unitById(confirmation.unitId) : undefined;
+  const confirmationUnits = confirmation
+    ? confirmation.unitIds.map((id) => unitById(id)?.name ?? "an unresolved unit")
+    : [];
 
   return (
     <div className={styles.shortlistBody} data-testid={`ward-shortlist-${movement.id}`}>
@@ -226,18 +263,19 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
                 <span className={styles.shortlistUnresolvedBadge}>Accepted destination could not be resolved.</span>
               )
             ) : null}
-            {/* Every outstanding referral, not only `referredUnitIds[0]` — a movement can carry
-                up to PARALLEL_REFERRAL_CAP live referrals at once, and each is a fact a coordinator
-                acts on (review Minor 6: a hidden parallel referral is exactly the trust failure the
-                cap and this record exist to prevent). */}
+            {/* Every parallel referral, not only `referredUnitIds[0]` — a movement can carry up
+                to PARALLEL_REFERRAL_CAP live referrals at once, and each is a fact a coordinator
+                acts on (review Minor 6: a hidden parallel referral is exactly the trust failure
+                the cap and this record exist to prevent). "Parallel referral" is the label Task
+                5's Refer action uses everywhere this fact is surfaced. */}
             {referredUnits.map(({ id, unit }) =>
               unit ? (
                 <span key={id} className={styles.shortlistReferredBadge}>
-                  Outstanding referral: {unit.name}
+                  Parallel referral: {unit.name}
                 </span>
               ) : (
                 <span key={id} className={styles.shortlistUnresolvedBadge}>
-                  Outstanding referral to an unresolved unit.
+                  Parallel referral to an unresolved unit.
                 </span>
               ),
             )}
@@ -250,10 +288,20 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
                 affirmative "Secure ward meets an open requirement". The suggestion is not
                 withdrawn — the gate is a protected surface and a locked ward really can hold this
                 patient — but a coordinator must read the restriction here, in the destination
-                slot, rather than infer it from a ward's name. */}
-            {isMoreRestrictiveThanRequired(movement, topEligible.unit) ? (
-              <span className={styles.shortlistRestrictiveBadge} data-testid="ward-shortlist-suggested-restrictive">
-                {MORE_RESTRICTIVE_NOTE}
+                slot, rather than infer it from a ward's name. Task 5: `restrictionNotice` covers
+                both this and the sharper voluntary-on-locked warning; the badge renders whichever
+                one applies rather than assuming the older, narrower case. */}
+            {topEligibleNotice ? (
+              <span
+                className={
+                  topEligibleNotice.level === "voluntary_on_locked"
+                    ? styles.shortlistRestrictiveBadgeProminent
+                    : styles.shortlistRestrictiveBadge
+                }
+                data-testid="ward-shortlist-suggested-restrictive"
+                data-level={topEligibleNotice.level}
+              >
+                {topEligibleNotice.text}
               </span>
             ) : null}
           </>
@@ -281,24 +329,27 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
             {shortlist.map((candidate) => {
               // `data-showing` is purely visual — which candidate's gates this panel is
               // currently displaying, including the default (nothing explicitly selected)
-              // case. `aria-pressed` is reserved for the real, explicit selection state
-              // (`selectedUnitId`, the prop this component was actually given) — a
-              // screen-reader user must never be told a control is pressed when nobody
-              // pressed it, and a default-only "selection" is not clearable the way a real
-              // one is (review Minor 5).
+              // case. `aria-pressed` is Task 5's real, explicit MULTI-select state
+              // (`referTargets`) — a screen-reader user must never be told a control is pressed
+              // when nobody pressed it, and a default-only "selection" is not clearable the way
+              // a real one is (review Minor 5, extended to referral selection).
               const isShown = activeUnit?.id === candidate.unit.id;
-              const isSelected = selectedUnitId === candidate.unit.id;
+              const isSelected = referTargets.includes(candidate.unit.id);
+              const notice = restrictionNotice(movement, candidate.unit);
               return (
                 <li key={candidate.unit.id}>
                   <button
                     type="button"
                     data-testid={`ward-shortlist-candidate-${candidate.unit.id}`}
                     data-eligible={String(candidate.verdict.eligible)}
-                    data-more-restrictive={isMoreRestrictiveThanRequired(movement, candidate.unit) ? "true" : undefined}
+                    data-more-restrictive={notice ? "true" : undefined}
                     data-showing={isShown ? "true" : undefined}
                     aria-pressed={isSelected}
                     className={styles.shortlistCandidateRow}
-                    onClick={() => onSelectUnit(candidate.unit.id)}
+                    onClick={() => {
+                      onSelectUnit(candidate.unit.id);
+                      toggleReferTarget(candidate.unit.id);
+                    }}
                   >
                     <span className={styles.shortlistCandidateName}>{candidate.unit.name}</span>
                     <span className={styles.shortlistCandidateCapacity}>{capacityLine(candidate.unit)}</span>
@@ -313,9 +364,20 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
                     </span>
                     {/* Real visible text, not colour or an attribute alone — a coordinator
                         scanning the list sees which of these wards is locked when the movement
-                        does not require one (review Important 5). */}
-                    {isMoreRestrictiveThanRequired(movement, candidate.unit) ? (
-                      <span className={styles.shortlistCandidateRestrictive}>{MORE_RESTRICTIVE_NOTE}</span>
+                        does not require one, and the voluntary-on-locked case reads more
+                        prominently than the plain over-restrictive one (review Important 5,
+                        Task 5). */}
+                    {notice ? (
+                      <span
+                        className={
+                          notice.level === "voluntary_on_locked"
+                            ? styles.shortlistCandidateRestrictiveProminent
+                            : styles.shortlistCandidateRestrictive
+                        }
+                        data-level={notice.level}
+                      >
+                        {notice.text}
+                      </span>
                     ) : null}
                   </button>
                 </li>
@@ -333,11 +395,21 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
             pairing, which is true and is deliberately left alone (`ward-eligibility.ts` is a
             protected surface). What a tick cannot say is that this is a clinical decision rather
             than a neutral match, so it is said here, immediately above the gate list a coordinator
-            reads before confirming (review Important 5). */}
-        {activeIsMoreRestrictive ? (
-          <p className={styles.shortlistRestrictiveNote} data-testid="ward-shortlist-restrictive-note">
-            {MORE_RESTRICTIVE_NOTE}. The security check below passes, but placing an open-status patient on a locked
-            ward is a decision for a human, not a match.
+            reads before referring (review Important 5, Task 5: wording now comes from
+            `restrictionNotice`, which distinguishes the sharper voluntary-on-locked case). */}
+        {activeNotice ? (
+          <p
+            className={
+              activeNotice.level === "voluntary_on_locked"
+                ? styles.shortlistRestrictiveNoteProminent
+                : styles.shortlistRestrictiveNote
+            }
+            data-testid="ward-shortlist-restrictive-note"
+            data-level={activeNotice.level}
+          >
+            {activeNotice.level === "voluntary_on_locked"
+              ? `${activeNotice.text}. The security check below passes, but a voluntary patient held on a locked ward is a decision for a human, not a match.`
+              : `${activeNotice.text}. The security check below passes, but placing an open-status patient on a locked ward is a decision for a human, not a match.`}
           </p>
         ) : null}
         {sortedGates.length === 0 ? (
@@ -414,27 +486,30 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
       </details>
 
       <footer className={styles.shortlistActions}>
-        <p className={styles.shortlistAutoAllocationNote}>System suggests, you decide. No automatic allocation.</p>
+        <p className={styles.shortlistAutoAllocationNote}>
+          System suggests, you decide. No automatic allocation — up to {PARALLEL_REFERRAL_CAP} parallel referrals at
+          once.
+        </p>
 
-        {confirmation && confirmedUnit ? (
+        {confirmation ? (
           <p className={styles.shortlistConfirmationRecord} data-testid="ward-shortlist-confirmation-record">
-            {confirmation.kind === "confirm"
-              ? `Confirmed by a human coordinator: ${confirmedUnit.name} at ${formatInstant(confirmation.at)}. No bed was allocated automatically.`
-              : `Overridden by a human coordinator: ${confirmedUnit.name} at ${formatInstant(confirmation.at)} — reason: "${confirmation.reason}". No bed was allocated automatically.`}
+            {confirmation.kind === "refer"
+              ? `Referred by a human coordinator to ${confirmationUnits.join(", ")} at ${formatInstant(confirmation.at)}. Up to ${PARALLEL_REFERRAL_CAP} parallel referrals allowed; no bed has been allocated automatically.`
+              : `Overridden by a human coordinator — referred to ${confirmationUnits.join(", ")} at ${formatInstant(confirmation.at)} — reason: "${confirmation.reason}". No bed was allocated automatically.`}
           </p>
         ) : null}
 
         <div className={styles.shortlistActionRow}>
           <button
             type="button"
-            data-testid="ward-shortlist-confirm"
-            aria-disabled={canConfirm ? undefined : "true"}
-            aria-describedby={canConfirm ? undefined : "ward-shortlist-confirm-unavailable"}
-            title={canConfirm ? undefined : confirmUnavailableReason}
+            data-testid="ward-shortlist-refer"
+            aria-disabled={canRefer ? undefined : "true"}
+            aria-describedby={canRefer ? undefined : "ward-shortlist-refer-unavailable"}
+            title={canRefer ? undefined : referUnavailableReason}
             className={styles.shortlistConfirmButton}
-            onClick={canConfirm ? handleConfirm : ignoreUnavailableActivation}
+            onClick={canRefer ? handleRefer : ignoreUnavailableActivation}
           >
-            Confirm placement
+            Refer
           </button>
           <button
             type="button"
@@ -449,9 +524,9 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
             Override
           </button>
         </div>
-        {!canConfirm ? (
-          <span id="ward-shortlist-confirm-unavailable" className="sr-only">
-            {confirmUnavailableReason}
+        {!canRefer ? (
+          <span id="ward-shortlist-refer-unavailable" className="sr-only">
+            {referUnavailableReason}
           </span>
         ) : null}
         {!canOverride ? (
@@ -460,10 +535,11 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit }: 
           </span>
         ) : null}
 
-        {overrideOpen && canOverride && activeUnit ? (
+        {overrideOpen && canOverride ? (
           <form className={styles.shortlistOverrideForm} onSubmit={handleOverrideSubmit}>
             <label className={styles.shortlistOverrideLabel} htmlFor="ward-shortlist-override-reason">
-              Reason for overriding the shortlist for {activeUnit.name}
+              Reason for overriding the shortlist for{" "}
+              {referredCandidates.map((c) => c?.unit.name ?? "an unresolved unit").join(", ")}
             </label>
             <textarea
               id="ward-shortlist-override-reason"

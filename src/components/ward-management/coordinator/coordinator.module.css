@@ -1093,6 +1093,23 @@
   font-weight: 700;
 }
 
+/*
+ * Task 5: the voluntary-on-locked warning (`restrictionNotice`'s sharper level) reads more
+ * prominently than the plain over-restrictive one — a voluntary person who cannot leave a locked
+ * ward is detained in fact without an order. Danger-toned rather than warning-toned, with the same
+ * "never colour alone" real-text discipline as the warning variant above.
+ */
+.shortlistRestrictiveBadgeProminent {
+  justify-self: start;
+  border: 0.0625rem solid var(--danger-border);
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  padding: var(--co-space-2) var(--co-space-8);
+  color: var(--danger-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+}
+
 .shortlistSectionHeading {
   margin: 0 0 var(--co-space-8);
   color: var(--text-heading);
@@ -1127,6 +1144,20 @@
   background: var(--warning-bg);
   padding: var(--co-space-6) var(--co-space-8);
   color: var(--warning-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  line-height: var(--co-leading-body);
+}
+
+/* Task 5: same shape as `.shortlistRestrictiveNote`, danger-toned for the sharper
+ * voluntary-on-locked case (see `.shortlistRestrictiveBadgeProminent` above). */
+.shortlistRestrictiveNoteProminent {
+  margin: 0 0 var(--co-space-8);
+  border: 0.0625rem solid var(--danger-border);
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  padding: var(--co-space-6) var(--co-space-8);
+  color: var(--danger-text);
   font-size: var(--text-3xs);
   font-weight: 700;
   line-height: var(--co-leading-body);
@@ -1211,6 +1242,15 @@
  * while scanning the list rather than only after opening the gates for that unit. */
 .shortlistCandidateRestrictive {
   color: var(--warning-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  line-height: var(--co-leading-body);
+}
+
+/* Task 5: the voluntary-on-locked case, danger-toned to read more prominently on the row itself
+ * (see `.shortlistRestrictiveBadgeProminent` above for the same distinction on the badge). */
+.shortlistCandidateRestrictiveProminent {
+  color: var(--danger-text);
   font-size: var(--text-3xs);
   font-weight: 700;
   line-height: var(--co-leading-body);
@@ -1623,6 +1663,57 @@
 }
 
 .exceptionOwner {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+}
+
+/*
+ * Task 5: the refusals list. A refused transition (`wardFlowReducer`'s `reject`) is otherwise
+ * silent — this section is present even with zero rows so a coordinator learns where to look
+ * before the first refusal ever happens, the same "present even when empty" reasoning
+ * `.exceptionsPanel` already applies to the exceptions list above it.
+ */
+.refusalsSection {
+  margin-top: var(--co-space-12);
+  border-top: 0.0625rem solid var(--border);
+  padding-top: var(--co-space-8);
+}
+
+.refusalsHeading {
+  margin: 0 0 var(--co-space-6);
+  color: var(--text-heading);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+}
+
+.refusalsList {
+  display: grid;
+  min-width: 0;
+  gap: var(--co-space-6);
+}
+
+.refusalRow {
+  display: grid;
+  gap: var(--co-space-2);
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--co-space-8) var(--co-space-10);
+  background: var(--surface);
+}
+
+.refusalAttempt {
+  color: var(--text-heading);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+}
+
+.refusalReason {
+  color: var(--text);
+  font-size: var(--text-3xs);
+  line-height: var(--co-leading-body);
+}
+
+.refusalAt {
   color: var(--text-muted);
   font-size: var(--text-3xs);
 }

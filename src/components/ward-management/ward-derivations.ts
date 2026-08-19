@@ -171,6 +171,28 @@ export function isMoreRestrictiveThanRequired(movement: Movement, unit: Unit): b
  * on the shortlist row, the gate note, the suggestion badge and the diagram node. */
 export const MORE_RESTRICTIVE_NOTE = "More restrictive than required — a locked ward for an open-status movement";
 
+export type RestrictionNotice = { level: "voluntary_on_locked" | "more_restrictive"; text: string };
+
+/**
+ * A ward tighter than the patient needs raises one of two warnings, and they are different things.
+ * A voluntary person who cannot leave a locked ward is detained in fact without an order, which is
+ * sharper than merely over-restrictive and gets its own flag. Neither blocks a placement and
+ * neither touches an eligibility gate — `ward-eligibility.ts` is a protected surface.
+ */
+export function restrictionNotice(movement: Movement, unit: Unit): RestrictionNotice | undefined {
+  if (unit.security !== "Secure") return undefined;
+  if (movement.legalStatus === "Voluntary") {
+    return {
+      level: "voluntary_on_locked",
+      text: "Voluntary patient on a locked ward — review legal status before admission",
+    };
+  }
+  if (movement.security === "Open") {
+    return { level: "more_restrictive", text: "More restrictive than this movement requires" };
+  }
+  return undefined;
+}
+
 /**
  * The units whose cohort matches this movement's, ranked eligible-first using the real
  * eligibility gates, then truncated to `limit`.
@@ -183,15 +205,39 @@ export const MORE_RESTRICTIVE_NOTE = "More restrictive than required — a locke
  * its own SCGH ward second under a heading reading "Nearest candidates". The tie order below is
  * simply `allUnits()` array order.
  *
+ * Task 5: within that same top-`limit` set, a candidate matching the movement's own security
+ * requirement is ranked ahead of a restricted one — see the two-pass reasoning in the body below.
+ *
  * This is a shortlist of candidates, never a destination — a unit appearing here has not been
  * referred or accepted; see `destinationUnit` for the movement's actual recorded destination.
  */
 export function eligibleCandidates(movement: Movement, now: Instant, limit = 3) {
-  return allUnits()
+  // Eligible-first cut FIRST, restrictiveness reorder SECOND, deliberately in two passes rather
+  // than one combined sort. A single combined sort could pull in a unit that was previously
+  // outside the top `limit` (a candidate ranked 4th purely because it is restrictive would climb
+  // into a 3-slot shortlist ahead of one that was already in it) — a real membership change, not
+  // just a reorder, and `/ward-management/network` shows this same shortlist. Truncating on
+  // eligibility alone first keeps the returned SET identical to before this ordering rule
+  // existed; only the ORDER within that set can move.
+  const eligibleFirst = allUnits()
     .filter((unit) => unit.cohort === movement.cohort)
     .map((unit) => ({ unit, verdict: eligibility(movement, unit, now) }))
     .sort((a, b) => Number(b.verdict.eligible) - Number(a.verdict.eligible))
     .slice(0, limit);
+  // Within that fixed set, a candidate matching the movement's own security requirement is
+  // ranked ahead of one `restrictionNotice` flags as tighter than required (Task 5) — a locked
+  // ward can still genuinely hold an open-status patient, it just should not be the one a
+  // coordinator is steered toward first. Eligibility stays the primary key here too, so this
+  // pass can never demote an eligible candidate below an ineligible one. `Array.prototype.sort`
+  // is stable, so any remaining tie falls back to the eligible-first cut's own order, which is
+  // itself `allUnits()` array order.
+  return [...eligibleFirst].sort((a, b) => {
+    const eligibleDiff = Number(b.verdict.eligible) - Number(a.verdict.eligible);
+    if (eligibleDiff !== 0) return eligibleDiff;
+    const aRestricted = restrictionNotice(movement, a.unit) ? 1 : 0;
+    const bRestricted = restrictionNotice(movement, b.unit) ? 1 : 0;
+    return aRestricted - bRestricted;
+  });
 }
 
 /**
