@@ -221,6 +221,7 @@ export function MasterSearchHeader({
   sharedHomeIdentity = false,
   mobileSearchPlacement = "default",
   mobileBottomSearchVariant = "default",
+  mobileHomeComposerPlacement = "hero",
   desktopSearchPlacement = "default",
   searchComposerVisible = true,
   showPhoneSuggestionTickerOnHome = false,
@@ -280,6 +281,10 @@ export function MasterSearchHeader({
    *  content keeps maximum screen space. Every phone dock uses it now; the
    *  "default" value remains for hosts that need the taller legacy dock. */
   mobileBottomSearchVariant?: "default" | "compact";
+  /** Which placement the home hero vs footer uses on phones. Tools uses "footer"
+   *  so its search pill sits in the bottom dock like a submitted search while
+   *  retaining the home privacy notice. */
+  mobileHomeComposerPlacement?: "hero" | "footer";
   /** Show the compact phone suggestion ticker only for standalone-mode homes. */
   showPhoneSuggestionTickerOnHome?: boolean;
   desktopSearchPlacement?: "default" | "hero";
@@ -1806,11 +1811,13 @@ export function MasterSearchHeader({
     // Differentials compare addon is dock chrome (search pill + Compare bar).
     // Hide/reveal the whole dock together; do not pin for the addon slot.
     const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
-    // Phones show the APP-5 notice only on the home hero (the answer mode
-    // home's in-flow composer); every phone bottom dock is a compact
-    // result/entry pill without it, so content keeps maximum screen space.
+    // Phones show the APP-5 notice on the home hero (the answer mode
+    // home's in-flow composer) and footer mode homes (e.g. tools); result
+    // bottom docks omit it so content keeps maximum screen space.
     // Tablet/desktop composers keep the site-wide notice everywhere.
-    const showsComposerPrivacyNotice = usesPhoneSearchLayout ? isDesktopHomeComposer : true;
+    const showsComposerPrivacyNotice = usesPhoneSearchLayout
+      ? isDesktopHomeComposer || mobileHomeComposerPlacement === "footer"
+      : true;
 
     const commandSurfacePlacement: CommandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
     const commandDropdownDisplayable = commandDropdownDisplayableByPlacement[commandSurfacePlacement];
@@ -1830,6 +1837,8 @@ export function MasterSearchHeader({
 
     return (
       <form
+        role="search"
+        aria-label="Clinical search"
         onSubmit={submit}
         data-composer-placement={placement}
         onTouchStart={(e) => {
@@ -2018,7 +2027,7 @@ export function MasterSearchHeader({
             {/* The clear button is a flex sibling (not absolutely positioned): the
               unlayered .answer-footer-search-input padding beats a conditional
               pr-* utility, which let text run under an overlaid button. */}
-            <label className="flex min-w-0 flex-1 items-center overflow-hidden">
+            <div className="flex min-w-0 flex-1 items-center overflow-hidden">
               <input
                 ref={bindQueryInputRef}
                 data-testid="global-search-input"
@@ -2056,7 +2065,7 @@ export function MasterSearchHeader({
                   <X aria-hidden="true" className="size-icon-md" />
                 </button>
               )}
-            </label>
+            </div>
             <span className="answer-footer-search-divider" aria-hidden="true" />
             <button
               type="submit"
@@ -2089,12 +2098,14 @@ export function MasterSearchHeader({
             surface may duplicate it. Phones show it only on the home hero —
             see showsComposerPrivacyNotice. */}
         {showsComposerPrivacyNotice ? (
-          <PrivacyInputNotice
-            id={composerPrivacyWarningId}
-            testId={composerPrivacyWarningId}
-            className="mt-1.5 justify-center px-3 text-center"
-            returnMode={searchMode === "answer" ? undefined : searchMode}
-          />
+          <div role="group" aria-label="Search privacy notice">
+            <PrivacyInputNotice
+              id={composerPrivacyWarningId}
+              testId={composerPrivacyWarningId}
+              className="mt-1.5 justify-center px-3 text-center"
+              returnMode={searchMode === "answer" ? undefined : searchMode}
+            />
+          </div>
         ) : null}
         {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can
             open it even when the footer chip row is not shown. */}
