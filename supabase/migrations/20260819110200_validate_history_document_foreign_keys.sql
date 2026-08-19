@@ -9,7 +9,7 @@
 -- Each must be a FOREIGN KEY on (document_id) referencing public.documents(id) with ON DELETE SET
 -- NULL -- the shape supabase/schema.sql declares and supabase/drift-manifest.json pins
 -- ('FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE SET NULL'). The check reads
--- pg_constraint columns (contype / confrelid / confdeltype / conkey) rather than comparing
+-- pg_constraint columns (contype / confrelid / confdeltype / conkey / confkey) rather than comparing
 -- pg_get_constraintdef text, so the result does not depend on the session search_path rendering
 -- 'documents' versus 'public.documents'.
 --
@@ -28,7 +28,15 @@ declare
   table_oid regclass;
   con record;
   document_column smallint;
+  documents_id_column smallint;
 begin
+  select a.attnum
+    into documents_id_column
+  from pg_attribute as a
+  where a.attrelid = to_regclass('public.documents')
+    and a.attname = 'id'
+    and not a.attisdropped;
+
   for required in
     select *
     from (
@@ -47,7 +55,7 @@ begin
       continue;
     end if;
 
-    select c.contype, c.confrelid, c.confdeltype, c.conkey
+    select c.contype, c.confrelid, c.confdeltype, c.conkey, c.confkey
       into con
     from pg_constraint as c
     where c.conrelid = table_oid
@@ -68,7 +76,8 @@ begin
     if con.contype <> 'f'
        or con.confrelid is distinct from to_regclass('public.documents')::oid
        or con.confdeltype <> 'n'
-       or con.conkey is distinct from array[document_column]::smallint[] then
+       or con.conkey is distinct from array[document_column]::smallint[]
+       or con.confkey is distinct from array[documents_id_column]::smallint[] then
       mismatched_constraints := array_append(mismatched_constraints, required.constraint_name);
     end if;
   end loop;

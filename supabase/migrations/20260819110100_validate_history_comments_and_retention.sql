@@ -26,7 +26,8 @@ declare
   mismatched_objects text[] := array[]::text[];
   function_oid regprocedure;
   comment_text text;
-  cron_job_present boolean;
+  cron_schedule text;
+  cron_command text;
 begin
   -- 20260702100000: claim_ingestion_jobs function comment
   function_oid := to_regprocedure('public.claim_ingestion_jobs(text,integer,integer)');
@@ -67,11 +68,15 @@ begin
 
   -- 20260702120000: the nightly purge job, only where pg_cron is installed
   if to_regnamespace('cron') is not null then
-    execute 'select exists (select 1 from cron.job where jobname = $1)'
-      into cron_job_present
+    execute 'select schedule, command from cron.job where jobname = $1 limit 1'
+      into cron_schedule, cron_command
       using 'purge-rag-retrieval-logs';
-    if not coalesce(cron_job_present, false) then
+    if cron_schedule is null and cron_command is null then
       missing_objects := array_append(missing_objects, 'cron job purge-rag-retrieval-logs');
+    elsif cron_schedule <> '0 3 * * *'
+       or position('delete from public.rag_retrieval_logs' in cron_command) = 0
+       or position('where created_at < now() - interval ''90 days''' in cron_command) = 0 then
+      mismatched_objects := array_append(mismatched_objects, 'cron job purge-rag-retrieval-logs');
     end if;
   end if;
 
