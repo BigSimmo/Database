@@ -24,6 +24,8 @@ import {
 } from "@/components/formulation/formulation-ui";
 import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
 import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
+import { appModeIcons } from "@/lib/app-mode-icons";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 import {
   SearchResultsHeaderBand,
   type AppliedFilterChip,
@@ -77,9 +79,9 @@ function FormulationHome() {
     <ModeHomeMain testId="formulation-home" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="formulation"
-        title="Formulation"
-        subtitle="Build a formulation from the evidence."
-        icon={Network}
+        title={sharedHomePresentation.formulation.title}
+        subtitle={sharedHomePresentation.formulation.subtitle}
+        icon={appModeIcons.formulation}
         actionsLabel="Formulation workflows"
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actions={[

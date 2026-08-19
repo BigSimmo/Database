@@ -80,11 +80,12 @@ function requestJson(port) {
   });
 }
 
-async function findRunningProjectServer() {
-  const expectedProjectId = localProjectId(projectRoot);
-  const stablePort = stableProjectPort(projectRoot);
+export async function findRunningProjectServer(rootDir = projectRoot) {
+  const expectedProjectId = localProjectId(rootDir);
+  const stablePort = stableProjectPort(rootDir);
+  const maxPort = projectPortEnd;
 
-  for (let port = stablePort; port <= projectPortEnd; port += 1) {
+  for (let port = stablePort; port <= maxPort; port += 1) {
     const payload = await requestJson(port);
     if (payload?.appName === appName && payload?.projectId === expectedProjectId) return port;
   }

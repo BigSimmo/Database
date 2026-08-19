@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { DEV_SERVER_BUILD_REFUSED_EXIT_CODE } from "../scripts/guard-next-build.mjs";
-import { runPrLocalScripts, summarizePrLocalRun } from "../scripts/verify-pr-local.mjs";
+import { checkDevServerPreflight, runPrLocalScripts, summarizePrLocalRun } from "../scripts/verify-pr-local.mjs";
 
 const script = path.resolve("scripts/verify-pr-local.mjs");
 
@@ -108,5 +108,59 @@ describe("verify-pr-local CLI", () => {
     expect(summary).toContain("completed: check:runtime, build");
     expect(summary).toContain("failed: (none)");
     expect(summary).toContain("not reached: (none)");
+  });
+
+  it("selects extended UI checks for mode configuration, routing, and UI copy changes (#0HFDWD)", () => {
+    for (const file of [
+      "src/lib/app-modes.ts",
+      "src/lib/search-route-ownership.ts",
+      "src/lib/ui-copy.ts",
+      "src/lib/therapies.ts",
+    ]) {
+      const output = dryRun(file, "--extended");
+      expect(output).toContain("- npm run verify:ui");
+    }
+  });
+
+  it("preflights running dev server before build step and emits clear advice (#G4M3DV)", async () => {
+    const warn = vi.fn();
+    const findServer = vi.fn().mockResolvedValue(3000);
+
+    const port = await checkDevServerPreflight(["check:runtime", "build"], {
+      findServer,
+      warn,
+      env: {} as unknown as NodeJS.ProcessEnv,
+    });
+
+    expect(port).toBe(3000);
+    expect(findServer).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledOnce();
+    const warningMessage = String(warn.mock.calls[0]?.[0] ?? "");
+    expect(warningMessage).toContain("http://localhost:3000");
+    expect(warningMessage).toContain("BUILD_REFUSED_DEV_SERVER");
+    expect(warningMessage).toContain("ALLOW_BUILD_WITH_DEV_SERVER=1");
+  });
+
+  it("skips dev server preflight when build is absent or ALLOW_BUILD_WITH_DEV_SERVER is set", async () => {
+    const warn = vi.fn();
+    const findServer = vi.fn().mockResolvedValue(3000);
+
+    const noBuildPort = await checkDevServerPreflight(["check:runtime", "lint"], {
+      findServer,
+      warn,
+      env: {} as unknown as NodeJS.ProcessEnv,
+    });
+    expect(noBuildPort).toBeNull();
+    expect(findServer).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+
+    const allowedPort = await checkDevServerPreflight(["build"], {
+      findServer,
+      warn,
+      env: { ALLOW_BUILD_WITH_DEV_SERVER: "1" } as unknown as NodeJS.ProcessEnv,
+    });
+    expect(allowedPort).toBeNull();
+    expect(findServer).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
   });
 });

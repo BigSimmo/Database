@@ -337,9 +337,11 @@ offline fixtures and validation only`.
    against an existing branch: it can discard unpushed packet commits. Never build on a stale head.
 2. Read: your packet here → the matching README section → `docs/rag-behaviour/README.md`
    (+ `safeguards.md` before touching any protected surface).
-3. Check the packet's status row AND the open PR list for a duplicate implementation
-   (`#292`: an open ledger row is not proof nobody is building it — PR #1899 already covers
-   A1 phase 1).
+3. Check the canonical queue in [`docs/outstanding-issues.md`](../outstanding-issues.md)
+   and this file's status table (§2). Check the open PR list for duplicate implementation
+   only when explicit owner approval for provider access exists; otherwise proceed with
+   local/offline evidence and note the duplicate-risk caveat (`#292`: an open ledger row is
+   not proof nobody is building it — PR #1899 already covers A1 phase 1).
 4. State the RAG-impact flag to the owner in your first message if your packet touches a
    protected surface (all of Track A does).
 5. Confirm what is NOT authorised: live canary dispatches, provider-backed evals
