@@ -15,6 +15,7 @@
       "/data/**",
       "/src/**",
       "/worker/**",
+      "/eval/docling/requirements.txt",
       "/scripts/build-worker.mjs",
       "/scripts/check-node-engine.cjs",
       "/scripts/enable-server-only-stub.mjs",
