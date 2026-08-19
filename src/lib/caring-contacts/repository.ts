@@ -98,14 +98,6 @@ export const REPOSITORY_REFUSALS = Object.freeze({
    * gate by omission.
    */
   serviceStopped: "service-stopped",
-  /**
-   * Reserved for cross-workspace enforcement of ./training's `workspacesMayShareData`: a training
-   * workspace must never read or write live data, or vice versa. No method added in this task
-   * carries a workspace parameter to check against -- `WriteContext`/`ReadContext` name only an
-   * actor -- so this store cannot yet produce this refusal. It is declared now so the constant
-   * name is stable for whichever later task adds the workspace-scoped call site.
-   */
-  trainingWorkspaceIsolated: "training-workspace-isolated",
   /** A referral id already used by another referral. */
   referralAlreadyExists: "referral-already-exists",
   /** A pathway version id already used by another version. */

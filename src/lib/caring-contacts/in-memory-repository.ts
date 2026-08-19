@@ -175,6 +175,21 @@ function isTerminalPlan(state: PlanState): boolean {
   return TERMINAL_PLAN_STATES.includes(state);
 }
 
+/**
+ * A read must never hand out the stored assignment itself. `ownerId`, `claimedAt` and `coveredBy`
+ * are all mutable, so a caller holding the live object could rewrite who owns a plan in place --
+ * with no version bump and no audit event. Same reason `toPlanRecord` and `cloneStoredContact`
+ * copy above.
+ */
+function cloneAssignment(assignment: PlanAssignment): PlanAssignment {
+  return {
+    ownerId: assignment.ownerId,
+    claimedAt: assignment.claimedAt,
+    coveredBy: assignment.coveredBy === null ? null : { ...assignment.coveredBy },
+    reassignmentHistory: assignment.reassignmentHistory.map((entry) => ({ ...entry })),
+  };
+}
+
 /** Storage key for one contact's one dispatch attempt. */
 function dispatchKey(id: ContactId, attempt: number): string {
   return `${id}::${attempt}`;
@@ -253,7 +268,11 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
   }
 
   /** True if the actor holds ANY of the given read capabilities for the resource's team. */
-  function mayReadAny(actor: CaringContactActor, actions: readonly CaringContactAction[], resourceTeamId: TeamId): boolean {
+  function mayReadAny(
+    actor: CaringContactActor,
+    actions: readonly CaringContactAction[],
+    resourceTeamId: TeamId,
+  ): boolean {
     return actions.some((action) => mayRead(actor, action, resourceTeamId));
   }
 
@@ -317,7 +336,13 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
       auditEvents.push(event);
       const result: TransitionResult<T> = staged.ok ? { ok: true, value: staged.value.value } : staged;
       // A key reused for a different request must not overwrite the original write's result.
-      if (!previous) idempotency.set(scope, { fingerprint, result });
+      //
+      // A `service-stopped` refusal is deliberately NOT remembered. Idempotency keys are stable
+      // across retries, so caching it would poison that key permanently: the identical retry sent
+      // after the three-role restart approval would be refused for a reason that is no longer
+      // true, and the resume path is the entire point of a safety stop. Every OTHER refusal is
+      // still recorded, so the general replay semantics -- one key, one answer -- are unchanged.
+      if (!previous && !blockedByServiceStop) idempotency.set(scope, { fingerprint, result });
       return result;
     });
   }
@@ -453,7 +478,10 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         const moved = applyPlanTransition(resolved.value.plan, { type: transition });
         if (!moved.ok) return moved;
         const nextPlan = withPlan(resolved.value, moved.value);
-        return { ok: true, value: { value: toPlanRecord(nextPlan), commit: () => plans.set(nextPlan.plan.id, nextPlan) } };
+        return {
+          ok: true,
+          value: { value: toPlanRecord(nextPlan), commit: () => plans.set(nextPlan.plan.id, nextPlan) },
+        };
       },
     });
   }
@@ -519,7 +547,10 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
               culturalIdentity: input.patientDetail.culturalIdentity,
             },
           };
-          return { ok: true, value: { value: toPlanRecord(nextPlan), commit: () => plans.set(nextPlan.plan.id, nextPlan) } };
+          return {
+            ok: true,
+            value: { value: toPlanRecord(nextPlan), commit: () => plans.set(nextPlan.plan.id, nextPlan) },
+          };
         },
       });
     },
@@ -551,7 +582,10 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
           if (!withdrawal.ok) return withdrawal;
           const cancelled = cancelAllNonTerminalContacts(resolved.value.contacts);
           const nextPlan = withPlan(resolved.value, withdrawal.value.plan, cancelled.contacts);
-          return { ok: true, value: { value: toPlanRecord(nextPlan), commit: () => plans.set(nextPlan.plan.id, nextPlan) } };
+          return {
+            ok: true,
+            value: { value: toPlanRecord(nextPlan), commit: () => plans.set(nextPlan.plan.id, nextPlan) },
+          };
         },
       });
     },
@@ -693,7 +727,11 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
           // calendarDay/sendAt past the two rules below.
           const moved =
             "toHour" in input.change
-              ? moveContactWithinDay({ contact: currentPlanned, toHour: input.change.toHour, toMinute: input.change.toMinute })
+              ? moveContactWithinDay({
+                  contact: currentPlanned,
+                  toHour: input.change.toHour,
+                  toMinute: input.change.toMinute,
+                })
               : changeContactDate(
                   {
                     contact: currentPlanned,
@@ -733,7 +771,9 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         objectType: "referral",
         objectId: input.referralId,
         stage: () => {
-          if (!canPerformCaringContactAction(context.actor, "createReferral", { teamId: context.actor.teamId }).allowed) {
+          if (
+            !canPerformCaringContactAction(context.actor, "createReferral", { teamId: context.actor.teamId }).allowed
+          ) {
             return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
           }
           if (referrals.has(input.referralId)) {
@@ -746,7 +786,10 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
             state: "awaitingHandover",
             pathwayVersionId: null,
           };
-          return { ok: true, value: { value: { ...referral }, commit: () => referrals.set(input.referralId, referral) } };
+          return {
+            ok: true,
+            value: { value: { ...referral }, commit: () => referrals.set(input.referralId, referral) },
+          };
         },
       });
     },
@@ -777,7 +820,10 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
           if (!transitioned.ok) return transitioned;
           return {
             ok: true,
-            value: { value: { ...transitioned.value }, commit: () => referrals.set(input.referralId, transitioned.value) },
+            value: {
+              value: { ...transitioned.value },
+              commit: () => referrals.set(input.referralId, transitioned.value),
+            },
           };
         },
       });
@@ -803,16 +849,35 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         objectId: input.version.id,
         stage: () => {
           if (
-            !canPerformCaringContactAction(context.actor, "authorPathwayVersion", { teamId: context.actor.teamId }).allowed
+            !canPerformCaringContactAction(context.actor, "authorPathwayVersion", { teamId: context.actor.teamId })
+              .allowed
           ) {
             return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
           }
           if (pathwayVersions.has(input.version.id)) {
             return { ok: false, reason: REPOSITORY_REFUSALS.pathwayVersionAlreadyExists };
           }
-          // The author's own team owns the version, regardless of whatever teamId the caller's
-          // object carries -- the same trust boundary createPlan draws around `actor.teamId`.
-          const version: PathwayVersion = { ...input.version, teamId: context.actor.teamId };
+          // AUTHORED CONTENT ONLY (Ruling 14). The caller supplies the identifier and the
+          // snapshot; every governance field below is constructed here, server-side, whatever the
+          // caller sent. `authorPathwayVersion` is held by the plain coordinator role, so trusting
+          // a caller's `state`/`approvals` would let one actor seed a version straight into
+          // `approved` and have a later legitimate publish succeed on a version nobody approved --
+          // publication is not a state of its own, it is a `publishedAt` recorded on an already
+          // approved version (see ./pathway-versions). A caller-supplied `authorId` would equally
+          // defeat `self-approval-denied`, which compares approvals against the STORED author.
+          // Every governance transition therefore lives in `transitionPathwayVersion` alone, the
+          // same trust boundary `createReferral` above draws around `state`.
+          const version: PathwayVersion = {
+            id: input.version.id,
+            teamId: context.actor.teamId,
+            state: "draft",
+            authorId: context.actor.id,
+            approvals: Object.freeze([]),
+            publishedAt: null,
+            retiredAt: null,
+            retirementUrgency: null,
+            snapshot: input.version.snapshot,
+          };
           return {
             ok: true,
             value: { value: { ...version }, commit: () => pathwayVersions.set(version.id, version) },
@@ -876,7 +941,16 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
     // ---------------------------------------------------------------------
 
     async getServiceState() {
-      return serviceState;
+      // Frozen on the way out. A caller holding a mutable stopped state could rewrite the reason,
+      // the note, who raised it, or the restart approvals of a live incident in place -- with no
+      // audit event and nothing to show it happened. ./service-state already freezes every value
+      // it constructs, so today this is belt and braces; the read contract belongs to this store
+      // rather than to whichever module happens to build the value.
+      if (serviceState.stopped) {
+        serviceState.restartApprovals.forEach((approval) => Object.freeze(approval));
+        Object.freeze(serviceState.restartApprovals);
+      }
+      return Object.freeze(serviceState);
     },
 
     async stopService(input: { reason: ServiceStopReason; note: string }, context: WriteContext) {
@@ -899,7 +973,11 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
           // applyServiceStop -- that function only ever carries `reportedByTeamId` forward, it
           // never learns of one. It never scopes the stop: every team is blocked regardless.
           const seeded: ServiceState = { ...serviceState, reportedByTeamId: context.actor.teamId };
-          const applied = applyServiceStop(seeded, { reason: input.reason, actorId: context.actor.id, note: input.note }, clock);
+          const applied = applyServiceStop(
+            seeded,
+            { reason: input.reason, actorId: context.actor.id, note: input.note },
+            clock,
+          );
           if (!applied.ok) return applied;
           return { ok: true, value: { value: applied.value, commit: () => (serviceState = applied.value) } };
         },
@@ -917,11 +995,16 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         bypassServiceStopGate: true,
         stage: () => {
           if (
-            !canPerformCaringContactAction(context.actor, "approveServiceRestart", { teamId: context.actor.teamId }).allowed
+            !canPerformCaringContactAction(context.actor, "approveServiceRestart", { teamId: context.actor.teamId })
+              .allowed
           ) {
             return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
           }
-          const applied = applyServiceRestartApproval(serviceState, { role: input.role, actorId: context.actor.id }, clock);
+          const applied = applyServiceRestartApproval(
+            serviceState,
+            { role: input.role, actorId: context.actor.id },
+            clock,
+          );
           if (!applied.ok) return applied;
           return { ok: true, value: { value: applied.value, commit: () => (serviceState = applied.value) } };
         },
@@ -935,7 +1018,8 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
     async getAssignment(planId: PlanId, context: ReadContext) {
       const stored = visiblePlan(planId, context, READ_ACTIONS.plan);
       if (!stored) return null;
-      return assignments.get(planId) ?? unassigned();
+      const assignment = assignments.get(planId);
+      return assignment === undefined ? unassigned() : cloneAssignment(assignment);
     },
 
     async applyAssignment(input: { planId: PlanId; action: AssignmentAction }, context: WriteContext) {
@@ -959,12 +1043,24 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
           if (!canPerformCaringContactAction(context.actor, permission, { teamId: stored.plan.teamId }).allowed) {
             return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
           }
+          // A claim records who TOOK the work, and the audit event for this write names the
+          // caller. Letting the ledger name somebody else would leave the two records of "who
+          // owns this plan" contradicting each other. Refused rather than quietly rebound, so the
+          // attempt is observable -- the same rule `saveNotificationPreferences` applies to its
+          // own `actorId`. Scoped to `claim` alone: `startCoverage`'s `actorId` and `reassign`'s
+          // `toActorId` legitimately name a third party, which is the point of both.
+          if (input.action.type === "claim" && input.action.actorId !== context.actor.id) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
           const current = assignments.get(input.planId) ?? unassigned();
           const transitioned = applyAssignmentAction(current, input.action, clock);
           if (!transitioned.ok) return transitioned;
           return {
             ok: true,
-            value: { value: { ...transitioned.value }, commit: () => assignments.set(input.planId, transitioned.value) },
+            value: {
+              value: cloneAssignment(transitioned.value),
+              commit: () => assignments.set(input.planId, transitioned.value),
+            },
           };
         },
       });
@@ -976,7 +1072,8 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
 
     async listDispatches(input: { fromIso: string; toIso: string }, context: ReadContext) {
       if (
-        !canPerformCaringContactAction(context.actor, "reconcileProviderDispatch", { teamId: context.actor.teamId }).allowed
+        !canPerformCaringContactAction(context.actor, "reconcileProviderDispatch", { teamId: context.actor.teamId })
+          .allowed
       ) {
         return [];
       }
@@ -1076,8 +1173,9 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
             return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
           }
           if (
-            !canPerformCaringContactAction(context.actor, "manageNotificationPreferences", { teamId: context.actor.teamId })
-              .allowed
+            !canPerformCaringContactAction(context.actor, "manageNotificationPreferences", {
+              teamId: context.actor.teamId,
+            }).allowed
           ) {
             return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
           }
@@ -1131,8 +1229,9 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
             return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
           }
           if (
-            !canPerformCaringContactAction(context.actor, "generateClinicalRecordSummary", { teamId: stored.plan.teamId })
-              .allowed
+            !canPerformCaringContactAction(context.actor, "generateClinicalRecordSummary", {
+              teamId: stored.plan.teamId,
+            }).allowed
           ) {
             return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
           }

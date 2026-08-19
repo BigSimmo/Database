@@ -27,6 +27,7 @@ import {
   type PlanRecord,
   type WriteContext,
 } from "@/lib/caring-contacts/repository";
+import { FICTIONAL_CONTACTS_BY_ROLE } from "@/lib/caring-contacts/synthetic-contacts";
 
 import { describeCaringContactRepositoryContract } from "./helpers/caring-contacts-repository-contract";
 
@@ -51,9 +52,7 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
   // roles.
   const teamLead2 = actorWith("CC10-ACTOR-8", "CC10-TEAM-NORTH", ["teamLead"]);
   const clinicalProgrammeLead = actorWith("CC10-ACTOR-4", "CC10-TEAM-NORTH", ["clinicalProgrammeLead"]);
-  const livedExperienceRepresentative = actorWith("CC10-ACTOR-5", "CC10-TEAM-NORTH", [
-    "livedExperienceRepresentative",
-  ]);
+  const livedExperienceRepresentative = actorWith("CC10-ACTOR-5", "CC10-TEAM-NORTH", ["livedExperienceRepresentative"]);
   const coordinatorB = actorWith("CC10-ACTOR-6", "CC10-TEAM-SOUTH", ["coordinator"]);
   const roleless = actorWith("CC10-ACTOR-7", "CC10-TEAM-NORTH", []);
   const dispatcher: SystemActor = {
@@ -64,7 +63,7 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
 
   const PATIENT_DETAIL: EpisodePatientDetail = {
     patientName: "Rowan Sample",
-    patientMobileNumber: "+61 491 570 999",
+    patientMobileNumber: FICTIONAL_CONTACTS_BY_ROLE.rowanPatientMobile,
     patientIdentifiers: ["UR-CC10-0001"],
     culturalIdentity: null,
   };
@@ -80,7 +79,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
 
   let planCounter = 0;
   /** A store holding one plan already moved to `active`, on a fresh planId/patientId each call. */
-  async function createActivePlan(store: CaringContactRepository, options: { actor?: Actor } = {}): Promise<PlanRecord> {
+  async function createActivePlan(
+    store: CaringContactRepository,
+    options: { actor?: Actor } = {},
+  ): Promise<PlanRecord> {
     planCounter += 1;
     const suffix = String(planCounter);
     const actor = options.actor ?? coordinator;
@@ -218,7 +220,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
         writeContext(coordinator, "claim-1"),
       );
       await store.applyAssignment(
-        { planId: plan.plan.id, action: { type: "reassign", toActorId: actorId("CC10-ACTOR-NEW"), reason: "annual leave" } },
+        {
+          planId: plan.plan.id,
+          action: { type: "reassign", toActorId: actorId("CC10-ACTOR-NEW"), reason: "annual leave" },
+        },
         writeContext(teamLead, "reassign-1"),
       );
       const assignment = await store.getAssignment(plan.plan.id, { actor: coordinator });
@@ -257,7 +262,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
       const store = createInMemoryRepository(clock, {});
       await createActivePlan(store, { actor: coordinator });
       await createActivePlan(store, { actor: coordinatorB });
-      await store.stopService({ reason: "audit-integrity-loss", note: "trail gap found" }, writeContext(coordinator, "stop-3"));
+      await store.stopService(
+        { reason: "audit-integrity-loss", note: "trail gap found" },
+        writeContext(coordinator, "stop-3"),
+      );
 
       const seenByTeamA = await store.getServiceState({ actor: coordinator });
       const seenByTeamB = await store.getServiceState({ actor: coordinatorB });
@@ -268,7 +276,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
     it("also gates a new write method beyond pausePlan, proving the gate is not method-specific", async () => {
       const store = createInMemoryRepository(clock, {});
       const plan = await createActivePlan(store);
-      await store.stopService({ reason: "unauthorised-content", note: "unapproved wording sent" }, writeContext(coordinator, "stop-4"));
+      await store.stopService(
+        { reason: "unauthorised-content", note: "unapproved wording sent" },
+        writeContext(coordinator, "stop-4"),
+      );
 
       const claim = await store.applyAssignment(
         { planId: plan.plan.id, action: { type: "claim", actorId: coordinator.id } },
@@ -288,24 +299,36 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
   // Service safety stop lifecycle: stopService / approveServiceRestart refusals.
   // -------------------------------------------------------------------------
   describe("stopService and approveServiceRestart", () => {
-    it("refuses a second stop while one is already recorded, and a blank note", async () => {
+    it("refuses a second stop while one is already recorded", async () => {
       const store = createInMemoryRepository(clock, {});
-      const first = await store.stopService({ reason: "wrong-recipient", note: "first incident" }, writeContext(coordinator, "s1"));
+      const first = await store.stopService(
+        { reason: "wrong-recipient", note: "first incident" },
+        writeContext(coordinator, "s1"),
+      );
       expect(first.ok).toBe(true);
 
-      const second = await store.stopService({ reason: "duplicate-send", note: "second incident" }, writeContext(teamLead, "s2"));
+      const second = await store.stopService(
+        { reason: "duplicate-send", note: "second incident" },
+        writeContext(teamLead, "s2"),
+      );
       expect(second).toEqual({ ok: false, reason: "service-already-stopped" });
     });
 
     it("refuses a blank note on the first stop", async () => {
       const store = createInMemoryRepository(clock, {});
-      const stop = await store.stopService({ reason: "wrong-recipient", note: "  " }, writeContext(coordinator, "s-blank"));
+      const stop = await store.stopService(
+        { reason: "wrong-recipient", note: "  " },
+        writeContext(coordinator, "s-blank"),
+      );
       expect(stop).toEqual({ ok: false, reason: "service-stop-note-required" });
     });
 
     it("refuses stopService for an actor without triggerServiceSafetyStop (the dispatcher)", async () => {
       const store = createInMemoryRepository(clock, {});
-      const stop = await store.stopService({ reason: "wrong-recipient", note: "n/a" }, writeContext(dispatcher, "s-dispatcher"));
+      const stop = await store.stopService(
+        { reason: "wrong-recipient", note: "n/a" },
+        writeContext(dispatcher, "s-dispatcher"),
+      );
       expect(stop).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.permissionDenied });
     });
 
@@ -333,7 +356,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
       expect(sameActor).toEqual({ ok: false, reason: "restart-approval-actor-already-recorded" });
 
       const second = unwrap(
-        await store.approveServiceRestart({ role: "privacySecurityOwner" }, writeContext(clinicalProgrammeLead, "approve-2")),
+        await store.approveServiceRestart(
+          { role: "privacySecurityOwner" },
+          writeContext(clinicalProgrammeLead, "approve-2"),
+        ),
       );
       expect(second.stopped).toBe(true);
 
@@ -344,21 +370,97 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
 
       // Once running again, an ordinary write is no longer blocked.
       const plan = await createActivePlan(store);
-      const paused = await store.pausePlan({ planId: plan.plan.id, expectedVersion: plan.plan.version }, writeContext(coordinator, "pause-after-restart"));
+      const paused = await store.pausePlan(
+        { planId: plan.plan.id, expectedVersion: plan.plan.version },
+        writeContext(coordinator, "pause-after-restart"),
+      );
       expect(paused.ok).toBe(true);
     });
 
     it("refuses a restart approval while the service is running", async () => {
       const store = createInMemoryRepository(clock, {});
-      const approval = await store.approveServiceRestart({ role: "incidentLead" }, writeContext(teamLead, "approve-not-stopped"));
+      const approval = await store.approveServiceRestart(
+        { role: "incidentLead" },
+        writeContext(teamLead, "approve-not-stopped"),
+      );
       expect(approval).toEqual({ ok: false, reason: "service-not-stopped" });
     });
 
     it("refuses approveServiceRestart for an actor without the grant (coordinator)", async () => {
       const store = createInMemoryRepository(clock, {});
       await store.stopService({ reason: "wrong-recipient", note: "incident" }, writeContext(coordinator, "s-perm"));
-      const approval = await store.approveServiceRestart({ role: "incidentLead" }, writeContext(coordinator, "approve-perm"));
+      const approval = await store.approveServiceRestart(
+        { role: "incidentLead" },
+        writeContext(coordinator, "approve-perm"),
+      );
       expect(approval).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.permissionDenied });
+    });
+
+    it("does not poison the idempotency key with a service-stopped refusal -- the same retry succeeds after the restart", async () => {
+      const store = createInMemoryRepository(clock, {});
+      const plan = await createActivePlan(store);
+      await store.stopService(
+        { reason: "duplicate-send", note: "a duplicate send was seen this morning" },
+        writeContext(coordinator, "s-poison"),
+      );
+
+      const refused = await store.pausePlan(
+        { planId: plan.plan.id, expectedVersion: plan.plan.version },
+        writeContext(coordinator, "pause-retry"),
+      );
+      expect(refused).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.serviceStopped });
+
+      unwrap(await store.approveServiceRestart({ role: "incidentLead" }, writeContext(teamLead, "poison-approve-1")));
+      unwrap(
+        await store.approveServiceRestart(
+          { role: "privacySecurityOwner" },
+          writeContext(clinicalProgrammeLead, "poison-approve-2"),
+        ),
+      );
+      const restarted = unwrap(
+        await store.approveServiceRestart(
+          { role: "clinicalProgrammeLead" },
+          writeContext(teamLead2, "poison-approve-3"),
+        ),
+      );
+      expect(restarted.stopped).toBe(false);
+
+      // The SAME key as the refused attempt. Idempotency keys are stable across retries, so a
+      // remembered service-stop refusal would refuse this write forever with a reason that is no
+      // longer true -- and the resume path is the entire point of a safety stop.
+      const retried = await store.pausePlan(
+        { planId: plan.plan.id, expectedVersion: plan.plan.version },
+        writeContext(coordinator, "pause-retry"),
+      );
+      expect(retried.ok).toBe(true);
+    });
+
+    it("still replays every OTHER refusal against the same key, even once its cause is gone", async () => {
+      const store = createInMemoryRepository(clock, {});
+      const late = planId("CC10-PLAN-LATE");
+
+      const refused = await store.markRetentionCleared({ planId: late }, writeContext(coordinator, "late-key"));
+      expect(refused).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.notFound });
+
+      unwrap(
+        await store.createPlan(
+          {
+            planId: late,
+            referralId: referralId("CC10-REFERRAL-LATE"),
+            patientId: patientId("CC10-PATIENT-LATE"),
+            pathwayVersionId: pathwayVersionId("CC10-PATHWAY-SEED"),
+            dischargeAt: new Date("2026-03-02T02:00:00.000Z"),
+            sendingPreference: "morning",
+            patientDetail: PATIENT_DETAIL,
+          },
+          writeContext(coordinator, "late-create"),
+        ),
+      );
+
+      // The plan exists now, but this key already has an answer: replaying it returns the ORIGINAL
+      // refusal rather than recomputing one. Only `service-stopped` is exempt from that.
+      const replay = await store.markRetentionCleared({ planId: late }, writeContext(coordinator, "late-key"));
+      expect(replay).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.notFound });
     });
   });
 
@@ -369,7 +471,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
     it("creates a referral, refuses a duplicate id, and refuses a role without the grant", async () => {
       const store = createInMemoryRepository(clock, {});
       const created = unwrap(
-        await store.createReferral({ referralId: referralId("CC10-REF-1"), patientId: patientId("CC10-PAT-1") }, writeContext(coordinator, "cr-1")),
+        await store.createReferral(
+          { referralId: referralId("CC10-REF-1"), patientId: patientId("CC10-PAT-1") },
+          writeContext(coordinator, "cr-1"),
+        ),
       );
       expect(created.state).toBe("awaitingHandover");
 
@@ -388,11 +493,17 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
 
     it("accepts a referral onto a pathway version, and refuses an unknown referral id", async () => {
       const store = createInMemoryRepository(clock, {});
-      await store.createReferral({ referralId: referralId("CC10-REF-3"), patientId: patientId("CC10-PAT-4") }, writeContext(coordinator, "cr-4"));
+      await store.createReferral(
+        { referralId: referralId("CC10-REF-3"), patientId: patientId("CC10-PAT-4") },
+        writeContext(coordinator, "cr-4"),
+      );
 
       const accepted = unwrap(
         await store.transitionReferral(
-          { referralId: referralId("CC10-REF-3"), action: { type: "accept", pathwayVersionId: pathwayVersionId("CC10-PATHWAY-SEED") } },
+          {
+            referralId: referralId("CC10-REF-3"),
+            action: { type: "accept", pathwayVersionId: pathwayVersionId("CC10-PATHWAY-SEED") },
+          },
           writeContext(coordinator, "tr-1"),
         ),
       );
@@ -408,19 +519,31 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
 
     it("refuses re-accepting a referral already accepted, and a blank decline reason", async () => {
       const store = createInMemoryRepository(clock, {});
-      await store.createReferral({ referralId: referralId("CC10-REF-5"), patientId: patientId("CC10-PAT-5") }, writeContext(coordinator, "cr-5"));
+      await store.createReferral(
+        { referralId: referralId("CC10-REF-5"), patientId: patientId("CC10-PAT-5") },
+        writeContext(coordinator, "cr-5"),
+      );
       await store.transitionReferral(
-        { referralId: referralId("CC10-REF-5"), action: { type: "accept", pathwayVersionId: pathwayVersionId("CC10-PATHWAY-SEED") } },
+        {
+          referralId: referralId("CC10-REF-5"),
+          action: { type: "accept", pathwayVersionId: pathwayVersionId("CC10-PATHWAY-SEED") },
+        },
         writeContext(coordinator, "tr-3"),
       );
 
       const reaccept = await store.transitionReferral(
-        { referralId: referralId("CC10-REF-5"), action: { type: "accept", pathwayVersionId: pathwayVersionId("CC10-PATHWAY-SEED") } },
+        {
+          referralId: referralId("CC10-REF-5"),
+          action: { type: "accept", pathwayVersionId: pathwayVersionId("CC10-PATHWAY-SEED") },
+        },
         writeContext(coordinator, "tr-4"),
       );
       expect(reaccept).toEqual({ ok: false, reason: "referral-not-awaiting-handover" });
 
-      await store.createReferral({ referralId: referralId("CC10-REF-6"), patientId: patientId("CC10-PAT-6") }, writeContext(coordinator, "cr-6"));
+      await store.createReferral(
+        { referralId: referralId("CC10-REF-6"), patientId: patientId("CC10-PAT-6") },
+        writeContext(coordinator, "cr-6"),
+      );
       const blankDecline = await store.transitionReferral(
         { referralId: referralId("CC10-REF-6"), action: { type: "decline", reason: "  " } },
         writeContext(coordinator, "tr-5"),
@@ -430,7 +553,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
 
     it("scopes listReferrals to the actor's own team and the viewReferral grant", async () => {
       const store = createInMemoryRepository(clock, {});
-      await store.createReferral({ referralId: referralId("CC10-REF-7"), patientId: patientId("CC10-PAT-7") }, writeContext(coordinator, "cr-7"));
+      await store.createReferral(
+        { referralId: referralId("CC10-REF-7"), patientId: patientId("CC10-PAT-7") },
+        writeContext(coordinator, "cr-7"),
+      );
 
       expect(await store.listReferrals({ actor: coordinator })).toHaveLength(1);
       expect(await store.listReferrals({ actor: coordinatorB })).toEqual([]);
@@ -461,20 +587,29 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
       await store.savePathwayVersion({ version }, writeContext(teamLead, "sv-4"));
 
       const submitted = unwrap(
-        await store.transitionPathwayVersion({ pathwayVersionId: version.id, action: { type: "submitForReview" } }, writeContext(teamLead, "pv-1")),
+        await store.transitionPathwayVersion(
+          { pathwayVersionId: version.id, action: { type: "submitForReview" } },
+          writeContext(teamLead, "pv-1"),
+        ),
       );
       expect(submitted.state).toBe("inReview");
 
       // The author holds approvePathwayVersion too, but may not approve their own version.
       const selfApproval = await store.transitionPathwayVersion(
-        { pathwayVersionId: version.id, action: { type: "approve", role: "clinicalProgrammeLead", actorId: teamLead.id } },
+        {
+          pathwayVersionId: version.id,
+          action: { type: "approve", role: "clinicalProgrammeLead", actorId: teamLead.id },
+        },
         writeContext(teamLead, "pv-2"),
       );
       expect(selfApproval).toEqual({ ok: false, reason: "self-approval-denied" });
 
       const firstApproval = unwrap(
         await store.transitionPathwayVersion(
-          { pathwayVersionId: version.id, action: { type: "approve", role: "clinicalProgrammeLead", actorId: clinicalProgrammeLead.id } },
+          {
+            pathwayVersionId: version.id,
+            action: { type: "approve", role: "clinicalProgrammeLead", actorId: clinicalProgrammeLead.id },
+          },
           writeContext(clinicalProgrammeLead, "pv-3"),
         ),
       );
@@ -484,7 +619,11 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
         await store.transitionPathwayVersion(
           {
             pathwayVersionId: version.id,
-            action: { type: "approve", role: "livedExperienceRepresentative", actorId: livedExperienceRepresentative.id },
+            action: {
+              type: "approve",
+              role: "livedExperienceRepresentative",
+              actorId: livedExperienceRepresentative.id,
+            },
           },
           writeContext(livedExperienceRepresentative, "pv-4"),
         ),
@@ -526,7 +665,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
       const version = draftPathwayVersion();
       await store.savePathwayVersion({ version }, writeContext(coordinator, "sv-5"));
       const earlyApprove = await store.transitionPathwayVersion(
-        { pathwayVersionId: version.id, action: { type: "approve", role: "clinicalProgrammeLead", actorId: clinicalProgrammeLead.id } },
+        {
+          pathwayVersionId: version.id,
+          action: { type: "approve", role: "clinicalProgrammeLead", actorId: clinicalProgrammeLead.id },
+        },
         writeContext(clinicalProgrammeLead, "pv-9"),
       );
       expect(earlyApprove).toEqual({ ok: false, reason: "pathway-not-in-review" });
@@ -545,6 +687,71 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
 
       expect(await store.listPathwayVersions({ actor: coordinator })).toHaveLength(1);
       expect(await store.listPathwayVersions({ actor: auditor })).toEqual([]);
+    });
+
+    // ---- Ruling 14: a save persists authored content, never governance. ----
+    it("persists authored content only -- state, approvals, authorId and publication are constructed server-side (Ruling 14)", async () => {
+      const store = createInMemoryRepository(clock, {});
+      const forged: PathwayVersion = {
+        ...draftPathwayVersion(),
+        // Everything one actor holding authorPathwayVersion might try to seed past the governance
+        // lifecycle in a single call. `approved` is the state that actually lands the exploit:
+        // publication is not a state of its own, so an approved version publishes on a
+        // `publishedAt` alone -- see ./pathway-versions.
+        state: "approved",
+        authorId: teamLead.id,
+        approvals: [
+          { role: "clinicalProgrammeLead", actorId: clinicalProgrammeLead.id, approvedAt: "2026-03-02T11:00:00+08:00" },
+          {
+            role: "livedExperienceRepresentative",
+            actorId: livedExperienceRepresentative.id,
+            approvedAt: "2026-03-02T11:00:00+08:00",
+          },
+        ],
+        publishedAt: "2026-03-02T11:00:00+08:00",
+        retiredAt: "2026-03-02T12:00:00+08:00",
+        retirementUrgency: "urgentSafety",
+      };
+
+      const saved = unwrap(await store.savePathwayVersion({ version: forged }, writeContext(coordinator, "sv-forged")));
+      expect(saved.state).toBe("draft");
+      expect(saved.approvals).toEqual([]);
+      expect(saved.authorId).toBe(coordinator.id);
+      expect(saved.publishedAt).toBeNull();
+      expect(saved.retiredAt).toBeNull();
+      expect(saved.retirementUrgency).toBeNull();
+      // The authored content itself is kept verbatim: this write persists content, not governance.
+      expect(saved.snapshot).toEqual(forged.snapshot);
+
+      // The stored record says the same, not merely the copy that came back.
+      const stored = await store.getPathwayVersion(forged.id, { actor: coordinator });
+      expect(stored?.state).toBe("draft");
+      expect(stored?.approvals).toEqual([]);
+      expect(stored?.authorId).toBe(coordinator.id);
+      expect(stored?.publishedAt).toBeNull();
+    });
+
+    it("refuses to publish a version a caller tried to seed as already approved -- dual approval is not bypassable by a save", async () => {
+      const store = createInMemoryRepository(clock, {});
+      const forged: PathwayVersion = {
+        ...draftPathwayVersion(),
+        state: "approved",
+        approvals: [
+          { role: "clinicalProgrammeLead", actorId: clinicalProgrammeLead.id, approvedAt: "2026-03-02T11:00:00+08:00" },
+          {
+            role: "livedExperienceRepresentative",
+            actorId: livedExperienceRepresentative.id,
+            approvedAt: "2026-03-02T11:00:00+08:00",
+          },
+        ],
+      };
+      unwrap(await store.savePathwayVersion({ version: forged }, writeContext(coordinator, "sv-forged-2")));
+
+      const published = await store.transitionPathwayVersion(
+        { pathwayVersionId: forged.id, action: { type: "publish", actorId: clinicalProgrammeLead.id } },
+        writeContext(clinicalProgrammeLead, "pv-forged-publish"),
+      );
+      expect(published).toEqual({ ok: false, reason: "pathway-not-approved" });
     });
   });
 
@@ -585,7 +792,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
     it("refuses reassignPlan for a role that lacks the grant, and an inverted coverage window", async () => {
       const store = createInMemoryRepository(clock, {});
       const plan = await createActivePlan(store);
-      await store.applyAssignment({ planId: plan.plan.id, action: { type: "claim", actorId: coordinator.id } }, writeContext(coordinator, "aa-5"));
+      await store.applyAssignment(
+        { planId: plan.plan.id, action: { type: "claim", actorId: coordinator.id } },
+        writeContext(coordinator, "aa-5"),
+      );
 
       const deniedReassign = await store.applyAssignment(
         { planId: plan.plan.id, action: { type: "reassign", toActorId: teamLead.id, reason: "leave" } },
@@ -594,7 +804,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
       expect(deniedReassign).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.permissionDenied });
 
       const invertedWindow = await store.applyAssignment(
-        { planId: plan.plan.id, action: { type: "startCoverage", actorId: teamLead.id, from: "2026-03-10", until: "2026-03-05" } },
+        {
+          planId: plan.plan.id,
+          action: { type: "startCoverage", actorId: teamLead.id, from: "2026-03-10", until: "2026-03-05" },
+        },
         writeContext(teamLead, "aa-7"),
       );
       expect(invertedWindow).toEqual({ ok: false, reason: "coverage-window-invalid" });
@@ -618,6 +831,119 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
         reassignmentHistory: [],
       });
       expect(await store.getAssignment(plan.plan.id, { actor: coordinatorB })).toBeNull();
+    });
+
+    it("refuses a claim that names an actor other than the caller, so the ledger and the audit trail cannot disagree", async () => {
+      const store = createInMemoryRepository(clock, {});
+      const plan = await createActivePlan(store);
+
+      // The audit event names the caller. If the ledger were allowed to name somebody else, the
+      // two records of "who took this work" would contradict each other.
+      const impersonated = await store.applyAssignment(
+        { planId: plan.plan.id, action: { type: "claim", actorId: teamLead.id } },
+        writeContext(coordinator, "claim-impersonate"),
+      );
+      expect(impersonated).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.permissionDenied });
+      expect(await store.getAssignment(plan.plan.id, { actor: coordinator })).toMatchObject({ ownerId: null });
+
+      const own = unwrap(
+        await store.applyAssignment(
+          { planId: plan.plan.id, action: { type: "claim", actorId: coordinator.id } },
+          writeContext(coordinator, "claim-own"),
+        ),
+      );
+      expect(own.ownerId).toBe(coordinator.id);
+    });
+
+    it("still lets coverage and reassignment name a third party, which is the whole point of both", async () => {
+      const store = createInMemoryRepository(clock, {});
+      const plan = await createActivePlan(store);
+      unwrap(
+        await store.applyAssignment(
+          { planId: plan.plan.id, action: { type: "claim", actorId: coordinator.id } },
+          writeContext(coordinator, "third-claim"),
+        ),
+      );
+
+      const covered = unwrap(
+        await store.applyAssignment(
+          {
+            planId: plan.plan.id,
+            action: { type: "startCoverage", actorId: teamLead2.id, from: "2026-03-03", until: "2026-03-10" },
+          },
+          writeContext(teamLead, "third-cover"),
+        ),
+      );
+      expect(covered.coveredBy?.actorId).toBe(teamLead2.id);
+
+      const reassigned = unwrap(
+        await store.applyAssignment(
+          {
+            planId: plan.plan.id,
+            action: { type: "reassign", toActorId: actorId("CC10-ACTOR-COVER"), reason: "annual leave" },
+          },
+          writeContext(teamLead, "third-reassign"),
+        ),
+      );
+      expect(reassigned.ownerId).toBe(actorId("CC10-ACTOR-COVER"));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Reads must not hand out a live internal reference: a caller holding one could rewrite plan
+  // ownership or a live incident's account in place, with no version bump and no audit event.
+  // -------------------------------------------------------------------------
+  describe("reads hand back something a caller cannot rewrite in place", () => {
+    it("returns a copy from getAssignment, so plan ownership cannot be rewritten without a write", async () => {
+      const store = createInMemoryRepository(clock, {});
+      const plan = await createActivePlan(store);
+      unwrap(
+        await store.applyAssignment(
+          { planId: plan.plan.id, action: { type: "claim", actorId: coordinator.id } },
+          writeContext(coordinator, "copy-claim"),
+        ),
+      );
+      unwrap(
+        await store.applyAssignment(
+          {
+            planId: plan.plan.id,
+            action: { type: "startCoverage", actorId: teamLead2.id, from: "2026-03-03", until: "2026-03-10" },
+          },
+          writeContext(teamLead, "copy-cover"),
+        ),
+      );
+
+      const first = await store.getAssignment(plan.plan.id, { actor: coordinator });
+      if (first === null) throw new Error("expected an assignment");
+      first.ownerId = actorId("CC10-ACTOR-IMPOSTER");
+      first.claimedAt = "1970-01-01T08:00:00+08:00";
+      if (first.coveredBy !== null) first.coveredBy.actorId = actorId("CC10-ACTOR-IMPOSTER");
+
+      const second = await store.getAssignment(plan.plan.id, { actor: coordinator });
+      expect(second?.ownerId).toBe(coordinator.id);
+      expect(second?.claimedAt).not.toBe("1970-01-01T08:00:00+08:00");
+      expect(second?.coveredBy?.actorId).toBe(teamLead2.id);
+    });
+
+    it("returns a service state a caller cannot rewrite in place", async () => {
+      const store = createInMemoryRepository(clock, {});
+      unwrap(
+        await store.stopService(
+          { reason: "wrong-recipient", note: "the original account of the incident" },
+          writeContext(coordinator, "copy-stop"),
+        ),
+      );
+
+      const first = await store.getServiceState({ actor: coordinator });
+      expect(Object.isFrozen(first)).toBe(true);
+      if (!first.stopped) throw new Error("expected a stopped service");
+      expect(Object.isFrozen(first.restartApprovals)).toBe(true);
+
+      const second = await store.getServiceState({ actor: auditor });
+      if (!second.stopped) throw new Error("expected a stopped service");
+      expect(second.note).toBe("the original account of the incident");
+      expect(second.stoppedBy).toBe(coordinator.id);
+      expect(second.reason).toBe("wrong-recipient");
     });
   });
 
@@ -674,7 +1000,12 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
           planId: plan.plan.id,
           contactId: contact.contact.id,
           expectedContactVersion: contact.contact.version,
-          change: { contact: contact.planned, toCalendarDay: targetDay, reason: "  ", teamLeadApprovalActorId: teamLead.id },
+          change: {
+            contact: contact.planned,
+            toCalendarDay: targetDay,
+            reason: "  ",
+            teamLeadApprovalActorId: teamLead.id,
+          },
         },
         writeContext(teamLead, "rc-3"),
       );
@@ -685,7 +1016,12 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
           planId: plan.plan.id,
           contactId: contact.contact.id,
           expectedContactVersion: contact.contact.version,
-          change: { contact: contact.planned, toCalendarDay: targetDay, reason: "patient request", teamLeadApprovalActorId: null },
+          change: {
+            contact: contact.planned,
+            toCalendarDay: targetDay,
+            reason: "patient request",
+            teamLeadApprovalActorId: null,
+          },
         },
         writeContext(teamLead, "rc-4"),
       );
@@ -697,7 +1033,12 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
             planId: plan.plan.id,
             contactId: contact.contact.id,
             expectedContactVersion: contact.contact.version,
-            change: { contact: contact.planned, toCalendarDay: targetDay, reason: "patient request", teamLeadApprovalActorId: teamLead.id },
+            change: {
+              contact: contact.planned,
+              toCalendarDay: targetDay,
+              reason: "patient request",
+              teamLeadApprovalActorId: teamLead.id,
+            },
           },
           writeContext(teamLead, "rc-5"),
         ),
@@ -715,7 +1056,12 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
           planId: plan.plan.id,
           contactId: contact.contact.id,
           expectedContactVersion: contact.contact.version,
-          change: { contact: contact.planned, toCalendarDay: "2026-03-20", reason: "cover", teamLeadApprovalActorId: teamLead.id },
+          change: {
+            contact: contact.planned,
+            toCalendarDay: "2026-03-20",
+            reason: "cover",
+            teamLeadApprovalActorId: teamLead.id,
+          },
         },
         writeContext(coordinator, "rc-6"),
       );
@@ -827,7 +1173,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
     it("still records access while the service is stopped -- the trail must not go dark mid-incident", async () => {
       const store = createInMemoryRepository(clock, {});
       const plan = await createActivePlan(store);
-      await store.stopService({ reason: "audit-integrity-loss", note: "trail gap" }, writeContext(coordinator, "s-access"));
+      await store.stopService(
+        { reason: "audit-integrity-loss", note: "trail gap" },
+        writeContext(coordinator, "s-access"),
+      );
 
       await store.recordAccess({
         actorId: auditor.id,
@@ -857,7 +1206,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
       });
 
       expect(await store.listAccessTrail({ limit: 10, offset: 0 }, { actor: coordinator })).toEqual([]);
-      expect((await store.listAccessTrail({ limit: 10, offset: 0 }, { actor: auditor })).length).toBeGreaterThan(0);
+      // Naming the recorded access, not merely counting: the plan writes above already put events
+      // in this trail, so a non-empty count alone would pass without the access ever being visible.
+      const auditorTrail = await store.listAccessTrail({ limit: 10, offset: 0 }, { actor: auditor });
+      expect(auditorTrail.map((event) => event.action)).toContain("access:view:plan");
     });
 
     it("applies the objectType and limit/offset filters", async () => {
@@ -884,7 +1236,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
         outcome: "allowed",
       });
 
-      const onlyDirectory = await store.listAccessTrail({ limit: 10, offset: 0, objectType: "patientDirectory" }, { actor: auditor });
+      const onlyDirectory = await store.listAccessTrail(
+        { limit: 10, offset: 0, objectType: "patientDirectory" },
+        { actor: auditor },
+      );
       expect(onlyDirectory).toHaveLength(1);
 
       const firstOfTwo = await store.listAccessTrail({ limit: 2, offset: 0, objectType: "plan" }, { actor: auditor });
@@ -928,7 +1283,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
 
     it("keeps preferences scoped per actor, not shared across the team", async () => {
       const store = createInMemoryRepository(clock, {});
-      await store.saveNotificationPreferences({ actorId: coordinator.id, optedIn: ["pathwayRetired"] }, writeContext(coordinator, "np-4"));
+      await store.saveNotificationPreferences(
+        { actorId: coordinator.id, optedIn: ["pathwayRetired"] },
+        writeContext(coordinator, "np-4"),
+      );
       const teamLeadPrefs = await store.getNotificationPreferences({ actor: teamLead });
       expect(teamLeadPrefs).toEqual({ actorId: teamLead.id, optedIn: [] });
     });
@@ -952,7 +1310,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
       );
       expect(replayedCompetency.completed).toEqual(["activation"]);
 
-      const denied = await store.recordTrainingCompetency({ competency: "withdrawal" }, writeContext(dispatcher, "tc-3"));
+      const denied = await store.recordTrainingCompetency(
+        { competency: "withdrawal" },
+        writeContext(dispatcher, "tc-3"),
+      );
       expect(denied).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.permissionDenied });
     });
 
@@ -977,7 +1338,10 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
       const cleared = await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(coordinator, "mrc-2"));
       expect(cleared).toEqual({ ok: true, value: undefined });
 
-      const missing = await store.markRetentionCleared({ planId: planId("CC10-PLAN-MISSING") }, writeContext(coordinator, "mrc-3"));
+      const missing = await store.markRetentionCleared(
+        { planId: planId("CC10-PLAN-MISSING") },
+        writeContext(coordinator, "mrc-3"),
+      );
       expect(missing).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.notFound });
     });
 
@@ -989,6 +1353,141 @@ describe("CaringContactRepository storage extension (Task 10)", () => {
       const refused = await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(coordinator, "mrc-4"));
       expect(refused).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.serviceStopped });
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Every new write group routes through the audited write path.
+  //
+  // The shared `runWrite` helper is only proof that a write CAN audit; it says nothing about
+  // whether a given method goes through it. A method that committed straight to its own map would
+  // pass every other test in this file -- `recordAccess` already commits outside `runWrite` by
+  // design, so this is not hypothetical. One representative write per new group, checked for the
+  // exact event it must append and for the fact that it appends exactly one.
+  // -------------------------------------------------------------------------
+  describe("every new write group appends its own audit event", () => {
+    const auditedWrites: readonly {
+      group: string;
+      action: string;
+      /** Sets the store up, then returns the single write whose audit events are measured. */
+      arrange: (store: CaringContactRepository) => Promise<() => Promise<{ ok: boolean }>>;
+    }[] = [
+      {
+        group: "referrals",
+        action: "createReferral",
+        arrange: async (store) => () =>
+          store.createReferral(
+            { referralId: referralId("CC10-REF-AUDIT"), patientId: patientId("CC10-PAT-AUDIT") },
+            writeContext(coordinator, "audit-referral"),
+          ),
+      },
+      {
+        group: "pathway versions",
+        action: "savePathwayVersion",
+        arrange: async (store) => {
+          const version = draftPathwayVersion();
+          return () => store.savePathwayVersion({ version }, writeContext(coordinator, "audit-pathway"));
+        },
+      },
+      {
+        group: "service state",
+        action: "stopService",
+        arrange: async (store) => () =>
+          store.stopService(
+            { reason: "wrong-recipient", note: "a message reached a number nobody recognised" },
+            writeContext(coordinator, "audit-stop"),
+          ),
+      },
+      {
+        group: "assignment",
+        action: "applyAssignment",
+        arrange: async (store) => {
+          const plan = await createActivePlan(store);
+          return () =>
+            store.applyAssignment(
+              { planId: plan.plan.id, action: { type: "claim", actorId: coordinator.id } },
+              writeContext(coordinator, "audit-assignment"),
+            );
+        },
+      },
+      {
+        group: "dispatch reconciliation",
+        action: "resolveDispatchDiscrepancy",
+        arrange: async (store) => {
+          const plan = await createActivePlan(store);
+          const contact = (await store.listSendableContacts(plan.plan.id, { actor: coordinator }))[0];
+          await store.startContactDispatch(
+            { planId: plan.plan.id, contactId: contact.contact.id, expectedContactVersion: contact.contact.version },
+            writeContext(dispatcher, "audit-dispatch"),
+          );
+          return () =>
+            store.resolveDispatchDiscrepancy(
+              {
+                contactId: contact.contact.id,
+                attempt: 1,
+                resolution: "confirmedDelivered",
+                note: "confirmed in the portal",
+              },
+              writeContext(coordinator, "audit-resolve"),
+            );
+        },
+      },
+      {
+        group: "notification preferences",
+        action: "saveNotificationPreferences",
+        arrange: async (store) => () =>
+          store.saveNotificationPreferences(
+            { actorId: coordinator.id, optedIn: ["serviceSafetyStop"] },
+            writeContext(coordinator, "audit-prefs"),
+          ),
+      },
+      {
+        group: "training",
+        action: "recordTrainingCompetency",
+        arrange: async (store) => () =>
+          store.recordTrainingCompetency({ competency: "activation" }, writeContext(coordinator, "audit-training")),
+      },
+      {
+        group: "retention",
+        action: "markRetentionCleared",
+        arrange: async (store) => {
+          const plan = await createActivePlan(store);
+          return () =>
+            store.markRetentionCleared({ planId: plan.plan.id }, writeContext(coordinator, "audit-retention"));
+        },
+      },
+      {
+        group: "contact rescheduling",
+        action: "rescheduleContact",
+        arrange: async (store) => {
+          const plan = await createActivePlan(store);
+          const contact = (await store.listSendableContacts(plan.plan.id, { actor: coordinator }))[0];
+          return () =>
+            store.rescheduleContact(
+              {
+                planId: plan.plan.id,
+                contactId: contact.contact.id,
+                expectedContactVersion: contact.contact.version,
+                change: { contact: contact.planned, toHour: 14, toMinute: 0 },
+              },
+              writeContext(coordinator, "audit-reschedule"),
+            );
+        },
+      },
+    ];
+
+    for (const { group, action, arrange } of auditedWrites) {
+      it(`appends exactly one "${action}" event for a ${group} write`, async () => {
+        const store = createInMemoryRepository(clock, {});
+        const write = await arrange(store);
+        const before = await store.listAuditEvents({ actor: auditor });
+
+        const result = await write();
+        expect(result.ok).toBe(true);
+
+        const after = await store.listAuditEvents({ actor: auditor });
+        expect(after.slice(before.length).map((event) => event.action)).toEqual([action]);
+      });
+    }
   });
 
   // -------------------------------------------------------------------------
