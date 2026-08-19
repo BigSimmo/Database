@@ -808,15 +808,10 @@ async function openMobileClinicalGuideMenu(page: Page) {
       .evaluateAll((links) => links.map((link) => ({ name: link.textContent, href: link.getAttribute("href") }))),
   ).toEqual([
     { name: "Answer", href: "/?mode=answer" },
-    // Documents owns a real home: the shell mounts ClinicalDashboard for
-    // /documents, so it paints browse and recent documents rather than the
-    // shared hero. Every other consolidated mode links at the shared home
-    // directly — pointing a pinned entry at its old bare path would spend a
-    // 307 arriving in the same place.
     { name: "Documents", href: "/documents" },
-    { name: "Services", href: "/?mode=services" },
+    { name: "Services", href: "/services" },
     { name: "Medication", href: "/medications" },
-    { name: "Factsheets", href: "/?mode=factsheets" },
+    { name: "Factsheets", href: "/factsheets" },
     { name: "Tools", href: "/tools" },
   ]);
   await expect(navigation.getByRole("button", { name: "More modes" })).toBeVisible();
@@ -1359,9 +1354,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/documents" },
-      { name: "Services", href: "/?mode=services" },
+      { name: "Services", href: "/services" },
       { name: "Medication", href: "/medications" },
-      { name: "Factsheets", href: "/?mode=factsheets" },
+      { name: "Factsheets", href: "/factsheets" },
       { name: "Tools", href: "/tools" },
     ]);
     expect(
@@ -1447,12 +1442,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    // The Documents workspace lives at its search route since consolidation, and
-    // the dashboard only mounts it for a submitted query; `/documents` itself
-    // redirects to the shared home.
-    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
+    await gotoApp(page, "/documents");
     await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
-    await expect(page.getByTestId("document-search-workspace")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("document-search-workspace")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
   });
 
@@ -1587,7 +1579,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       element.scrollTop = element.scrollHeight;
       element.style.scrollBehavior = previous;
     });
-    await expect(settings.getByRole("button", { name: "Development", exact: true })).toHaveAttribute(
+    await expect(settings.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
       "aria-current",
       "true",
     );
@@ -3282,7 +3274,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
 
     await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1&run=1");
-    await expect(page).toHaveURL(/\/differentials\/search\?q=acute\+confusion&focus=1&run=1\b/);
+    await expect(page).toHaveURL(/\/differentials\?q=acute\+confusion&focus=1&run=1$/);
     // Submitted differentials deep links resolve to the standalone results
     // surface (`autoRunSearch`), not the mode-home template. Production
     // hydration can briefly overlap the outgoing server tree and the settled
@@ -3319,8 +3311,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
     // The breadcrumb row went with the in-page header: its back control is the
     // one route out to the mode home, and a breadcrumb under it is a second.
-    // The one route out of a record is the mode home, which is the shared home now.
-    await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/?mode=dsm");
+    await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/dsm");
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -3391,7 +3382,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=specifiers&q=anxious+distress&focus=1&run=1");
 
     // /?mode=specifiers → /specifiers (Specifiers is its own mode, distinct from Formulation)
-    await expect(page).toHaveURL(/\/specifiers\/search\?q=anxious\+distress&focus=1&run=1\b/);
+    await expect(page).toHaveURL(/\/specifiers\?q=anxious\+distress&focus=1&run=1$/);
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { level: 1, name: "anxious distress" })).toBeVisible();
     await expect(queryRibbon.getByRole("group", { name: "Filter specifier results" })).toBeVisible();
@@ -3402,7 +3393,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=formulation&q=I+keep+going+over+it&focus=1&run=1");
 
-    await expect(page).toHaveURL(/\/formulation\/search\?q=I\+keep\+going\+over\+it&focus=1&run=1\b/);
+    await expect(page).toHaveURL(/\/formulation\?q=I\+keep\+going\+over\+it&focus=1&run=1$/);
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { level: 1, name: "I keep going over it" })).toBeVisible();
     await expect(queryRibbon.getByRole("group", { name: "Filter formulation mechanisms" })).toBeVisible();
@@ -5066,7 +5057,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("non-answer phone header keeps the in-flow collapse hide", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockDemoApi(page);
-    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
+    await gotoApp(page, "/documents");
 
     const header = page.locator("header.universal-header");
     const collapseHost = page.getByTestId("universal-header-collapse");
