@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import {
   Check,
@@ -20,6 +20,7 @@ import type {
   ModeActionItem,
   ModeActionModeOption,
 } from "@/components/clinical-dashboard/mode-action-popup";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -91,15 +92,6 @@ function PinIcons({ pin }: { pin: SearchPin }) {
         </span>
       ) : null}
     </span>
-  );
-}
-
-function SectionHeading({ children, action }: { children: string; action?: ReactNode }) {
-  return (
-    <div className="mb-1 flex min-h-10 items-center justify-between gap-2 px-2">
-      <h3 className="text-2xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">{children}</h3>
-      {action}
-    </div>
   );
 }
 
@@ -445,6 +437,8 @@ export function SearchPinsMenu({
   return (
     <div className="mode-action-body polished-scroll p-2.5" data-testid="pins-and-search-menu">
       <SectionHeading
+        variant="menu-kicker"
+        headingLevel={3}
         action={
           <button
             type="button"
@@ -552,7 +546,9 @@ export function SearchPinsMenu({
       </div>
 
       <div className="my-2 border-t border-[color:var(--border)] pt-2">
-        <SectionHeading>Search in</SectionHeading>
+        <SectionHeading variant="menu-kicker" headingLevel={3}>
+          Search in
+        </SectionHeading>
         <button
           type="button"
           onClick={onCurrentSearch}
@@ -619,7 +615,9 @@ export function SearchPinsMenu({
       </div>
 
       <div className="border-t border-[color:var(--border)] pt-2">
-        <SectionHeading>Useful actions</SectionHeading>
+        <SectionHeading variant="menu-kicker" headingLevel={3}>
+          Useful actions
+        </SectionHeading>
         <div className="grid grid-cols-2 gap-1.5" role="menu" aria-label="Useful actions">
           {actions.map((action) => {
             const Icon: LucideIcon = action.icon;
