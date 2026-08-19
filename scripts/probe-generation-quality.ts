@@ -12,14 +12,88 @@
  *
  * Output is provider-safe by default: routing/degraded reasons, retry reasons (including
  * the new generation_quality_gate:<reason> entries), timings, and counts — no answer or
- * source prose unless --show-answer is passed. Nothing is written to rag_queries
- * (logQuery: false) and nothing is cached (skipCache: true).
+ * source prose unless --show-answer is passed. When --show-answer is passed, the generated
+ * answer text and formatted citations are printed so developers can inspect answer quality.
+ * Nothing is written to rag_queries (logQuery: false) and nothing is cached (skipCache: true).
  */
 import { isDemoMode } from "@/lib/env";
 import { answerQuestionWithScope } from "@/lib/rag/rag";
+import type { Citation } from "@/lib/types";
+
+export function formatCitations(citations: Citation[]): string[] {
+  if (!citations.length) return ["(no citations)"];
+  return citations.map((citation, index) => {
+    const page = citation.page_number !== null && citation.page_number !== undefined ? ` p${citation.page_number}` : "";
+    const chunk = citation.chunk_index !== undefined ? ` c${citation.chunk_index}` : "";
+    const title = citation.title ? ` "${citation.title}"` : "";
+    const provenance = citation.provenance ? ` [${citation.provenance}]` : "";
+    return `  [${index + 1}] ${citation.file_name}${page}${chunk}${title}${provenance}`;
+  });
+}
+
+export function formatAnswerSection(answerText: string, citations: Citation[]): string {
+  const lines: string[] = [
+    "--- answer text (requested with --show-answer) ---",
+    answerText.trim() || "(empty answer)",
+    "",
+    "--- citations ---",
+    ...formatCitations(citations),
+  ];
+  return lines.join("\n");
+}
+
+export function selfTest(): void {
+  const sampleCitations: Citation[] = [
+    {
+      chunk_id: "c1",
+      document_id: "d1",
+      title: "Clinical Practice Guideline",
+      file_name: "cpg.pdf",
+      page_number: 3,
+      chunk_index: 0,
+      provenance: "model_selected",
+    },
+  ];
+  const formattedCitations = formatCitations(sampleCitations);
+  if (!formattedCitations[0].includes('cpg.pdf p3 c0 "Clinical Practice Guideline" [model_selected]')) {
+    throw new Error(`selfTest failed: formatted citations mismatch: ${JSON.stringify(formattedCitations)}`);
+  }
+
+  const emptyFormatted = formatCitations([]);
+  if (emptyFormatted[0] !== "(no citations)") {
+    throw new Error(`selfTest failed: empty citations mismatch: ${JSON.stringify(emptyFormatted)}`);
+  }
+
+  const formattedSection = formatAnswerSection("Sample answer text", sampleCitations);
+  if (!formattedSection.includes("Sample answer text") || !formattedSection.includes("--- citations ---")) {
+    throw new Error(`selfTest failed: formattedSection mismatch: ${formattedSection}`);
+  }
+
+  console.log("probe-generation-quality: all offline self-tests passed.");
+}
 
 async function main() {
   const args = process.argv.slice(2);
+
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(`probe-generation-quality — run cache-bypassed live answer and report generation-quality gate diagnostics.
+
+Usage:
+  node scripts/run-tsx.mjs scripts/probe-generation-quality.ts "Question?" [options]
+
+Options:
+  --show-answer  Print the generated answer text and formatted citations
+  --self-test    Run offline verification of answer/citation formatting helpers
+  --help, -h     Show this help message
+`);
+    return;
+  }
+
+  if (args.includes("--self-test")) {
+    selfTest();
+    return;
+  }
+
   const showAnswer = args.includes("--show-answer");
   const query =
     args
@@ -75,8 +149,7 @@ async function main() {
   console.log(JSON.stringify(report, null, 2));
 
   if (showAnswer) {
-    console.log("--- answer text (requested with --show-answer) ---");
-    console.log(answer.answer);
+    console.log(`\n${formatAnswerSection(answer.answer, answer.citations)}\n`);
   }
 
   if (gateReasons.length) {
@@ -88,7 +161,10 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error("probe-generation-quality failed:", error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+const invokedDirectly = process.argv[1] && /probe-generation-quality\.(ts|mts|js)$/.test(process.argv[1]);
+if (invokedDirectly) {
+  main().catch((error) => {
+    console.error("probe-generation-quality failed:", error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
+}
