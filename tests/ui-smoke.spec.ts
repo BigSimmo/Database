@@ -808,9 +808,12 @@ async function openMobileClinicalGuideMenu(page: Page) {
       .evaluateAll((links) => links.map((link) => ({ name: link.textContent, href: link.getAttribute("href") }))),
   ).toEqual([
     { name: "Answer", href: "/?mode=answer" },
-    // Consolidated modes link at the shared home directly. Pointing a pinned
-    // entry at its old bare path would spend a 307 arriving in the same place.
-    { name: "Documents", href: "/?mode=documents" },
+    // Documents owns a real home: the shell mounts ClinicalDashboard for
+    // /documents, so it paints browse and recent documents rather than the
+    // shared hero. Every other consolidated mode links at the shared home
+    // directly — pointing a pinned entry at its old bare path would spend a
+    // 307 arriving in the same place.
+    { name: "Documents", href: "/documents" },
     { name: "Services", href: "/?mode=services" },
     { name: "Medication", href: "/medications" },
     { name: "Factsheets", href: "/?mode=factsheets" },
@@ -1357,7 +1360,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         ),
     ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
-      { name: "Documents", href: "/?mode=documents" },
+      { name: "Documents", href: "/documents" },
       { name: "Services", href: "/?mode=services" },
       { name: "Medication", href: "/medications" },
       { name: "Factsheets", href: "/?mode=factsheets" },
@@ -1401,7 +1404,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     for (const route of [
       { path: "/?mode=answer", label: "Answer" },
-      { path: "/?mode=documents", label: "Documents" },
+      { path: "/documents", label: "Documents" },
       { path: "/favourites", label: "Favourites" },
       { path: "/medications", label: "Medication" },
       { path: "/tools", label: "Tools" },
@@ -3830,10 +3833,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("tablet document chrome keeps one new-chat action and readable Sources rows", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 900 });
     await mockDemoApi(page);
-    // Documents' own empty-state home retired with consolidation; the mode's
-    // unsubmitted surface is the shared home.
-    await gotoApp(page, "/?mode=documents");
-    await expect(page.getByTestId("shared-home-empty-state")).toBeVisible({ timeout: 30_000 });
+    await gotoApp(page, "/documents");
+    await expect(page.getByTestId("document-search-empty-state")).toBeVisible({ timeout: 30_000 });
 
     const visibleNewChatCount = await page.getByRole("button", { name: /new chat/i }).evaluateAll(
       (buttons) =>
@@ -3881,9 +3882,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("document search mode lists matching documents and result actions @critical", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
-    // `/documents` redirects to the shared home now; the workspace this test is
-    // about is the search route, which the dashboard mounts for a submitted query.
-    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
+    // `/` is the shared home for every mode now, so the Documents home lives at
+    // its own route — reached from the sidebar, like every other mode home.
+    await gotoApp(page, "/documents");
 
     await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Document matches");
@@ -4264,12 +4265,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
       if (pathname === "/api/ingestion/quality") requestCounts.quality += 1;
     });
 
-    // Start on the Documents workspace rather than switching mode from `/`: the
-    // mode pill no longer changes the page, and a mid-test navigation would reset
-    // the request counts this test exists to measure. `/documents` is a redirect
-    // onto the shared home since consolidation, so the workspace is a submitted
-    // /documents/search.
-    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
+    // Start on the Documents home rather than switching mode from `/`: the mode
+    // pill no longer changes the page, and a mid-test navigation would reset the
+    // request counts this test exists to measure.
+    await gotoApp(page, "/documents");
     // waitForDemoDashboardReady looks for "Open answer options"; the actions
     // trigger is named for the active mode, which is Documents on this route.
     await expect(visibleQuestionInput(page)).toBeEnabled();
