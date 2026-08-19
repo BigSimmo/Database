@@ -63,7 +63,7 @@ because its transitions depend on them.
 | `bedHeldUntil`       | `Instant \| undefined`                                                                       | A hold cannot expire without a time to expire at.                                                                                                                                                                                                                                                                                                                                   |
 | `examination`        | `{ at: Instant; outcome: "inpatient_order" \| "community_order" \| "revoked" } \| undefined` | A Form 1A refers a person **for examination**. Until that happens you often do not know whether an authorised bed is needed at all. The bed decision turns on this hinge and the model had no hinge.                                                                                                                                                                                |
 | `withdrawnReferrals` | `{ unitId: string; at: Instant; reason: string }[]`                                          | The spec said the withdrawn ward is told why. A shrinking `referredUnitIds` tells nobody anything.                                                                                                                                                                                                                                                                                  |
-| `escalation`         | `{ at: Instant; triedUnitIds: string[]; contact: string } \| undefined`                      | See section 10.                                                                                                                                                                                                                                                                                                                                                                     |
+| `escalation`         | `{ at: Instant; triedUnitIds: string[]; contact: string } \| undefined`                      | See section 11.                                                                                                                                                                                                                                                                                                                                                                     |
 
 ### `DECLINE_REASONS` gains `out_of_catchment`
 
@@ -228,7 +228,37 @@ how long since the last stamp.
 
 ---
 
-## 8. Role switching and identity
+## 8. The other ten routes must read the provider too
+
+The coordinator screen is not the only surface bound to the frozen fixture. Every other Ward Flow
+route reads `wardMovements` — or `allUnits()` — directly at import:
+
+- the eight specialist boards served by `ward-management-modes.tsx` (`/queue`, `/capacity`,
+  `/movements`, `/exceptions`, `/transport`, `/governance`) and `ward-management-network.tsx`
+  (`/network`);
+- the patient workspace at `/patients/[patientId]`, served by `ward-management-console.tsx`.
+
+Left alone, a coordinator would refer a patient, click through to the queue board, and see the
+world before the referral. Two surfaces describing one patient and disagreeing is the defect class
+this project has found in every review it has run — structural this time rather than a slip.
+
+All of them are rewired to read the provider. The provider sits in the layout above them, so they
+already have access; the work is mechanical, but `ward-management-modes.tsx` serves eight routes
+from one file and needs care.
+
+**One specific trap.** `movementStageSummary` in `ward-derivations.ts` is a module-level constant:
+
+```ts
+export const movementStageSummary = stageSummaries(wardMovements);
+```
+
+It is computed once when the file loads, not when anything renders, so it can never reflect live
+state no matter what else is fixed. Three surfaces consume it. It becomes a function called with
+the current movements, and the constant is deleted.
+
+---
+
+## 9. Role switching and identity
 
 The URL carries identity. The switcher offers the four roles and infers _where_ you are standing
 from the currently selected patient — switch to Ward with WF-017 selected and you arrive at the
@@ -239,7 +269,7 @@ inventing a location for it.
 
 ---
 
-## 9. Failure behaviour
+## 10. Failure behaviour
 
 **The reducer refuses impossible transitions rather than absorbing them**, and every refusal is
 recorded in `rejections` and rendered on the coordinator screen. Named cases:
@@ -258,7 +288,7 @@ synthetic data only, including free text; determinism; design tokens; 3rem tap t
 
 ---
 
-## 10. When there is no bed anywhere
+## 11. When there is no bed anywhere
 
 Moved into Phase 3 from Phase 4. For older adults and secure beds — which this model deliberately
 makes scarce — exhausting the network is not an exceptional case, it is a normal night. A phase
@@ -271,7 +301,7 @@ options and what would have to change for each to work, stays in Phase 4.
 
 ---
 
-## 11. Deliberate simplifications, recorded rather than hidden
+## 12. Deliberate simplifications, recorded rather than hidden
 
 - **"The ward accepts" is an organisation accepting, not a person.** In practice acceptance is
   often consultant-to-consultant. The prototype has no authentication and no authority model.
@@ -282,7 +312,7 @@ options and what would have to change for each to work, stays in Phase 4.
 
 ---
 
-## 12. Out of scope
+## 13. Out of scope
 
 Deferred to Phase 4: the statutory clock board, the full escalation board, shift handover, patient
 search, governance and capacity extensions, and the exception categories the model does not compute
@@ -293,7 +323,7 @@ bed releases.
 
 ---
 
-## 13. How it gets proved
+## 14. How it gets proved
 
 - **The reducer, exhaustively, in Vitest.** Every transition and every refusal. This is the bulk of
   the proof and it needs no browser.
@@ -311,20 +341,30 @@ bed releases.
 
 ---
 
-## 14. Build order
+## 15. Build order
 
-1. Model additions and the fixture — before anything else, because the reducer depends on them.
-2. The reducer and its tests, including every refusal.
-3. The provider, the clock, and the coordinator rewire — nothing else has anywhere to send answers.
-4. Ward screen — closes the loop on the coordinator screen.
-5. Transport officer phone.
-6. Live tracker.
-7. ED screen, with both clocks and the access target.
-8. Role switcher, then the end-to-end journey.
+1. **Documentation truth first.** `docs/ward-flow-context.md` — the file written to be read cold —
+   still describes Phase 2 as not started, still lists the retired `/constellation` route, and still
+   says no operational score exists. A fresh session reads that page first. Correct it before any
+   code.
+2. Model additions and the fixture — before anything else executable, because the reducer depends
+   on them.
+3. The reducer and its tests, including every refusal.
+4. The provider, the clock, and the coordinator rewire — nothing else has anywhere to send answers.
+5. **Every other Ward Flow route reads the provider** (section 8). Do this immediately after the
+   coordinator, not at the end: the window between the two is exactly when the application shows
+   two different truths.
+6. **The coordinator's phone form pins Confirm to the bottom** rather than scrolling to it. The
+   officer's screen inherits this pattern, so it must exist before that screen is built.
+7. Ward screen — closes the loop on the coordinator screen.
+8. Transport officer phone.
+9. Live tracker.
+10. ED screen, with both clocks and the access target.
+11. Role switcher, then the end-to-end journey.
 
 ---
 
-## 15. Risks
+## 16. Risks
 
 - **Ticking clocks and browser tests.** Mitigated by injecting a fixed `now` everywhere except the
   live provider.
@@ -338,10 +378,24 @@ bed releases.
 
 ---
 
-## 16. Repository conventions this phase must satisfy
+## 17. Repository conventions this phase must satisfy
 
 New routes need a literal `<Link href="...">` in the rail navigation — hrefs built from an array are
 invisible to `tests/route-reachability.test.ts` and the route fails as an orphan. Every route must
 be declared in `docs/design-system/adoption-contract.json` followed by
 `npm run design-system:adoption:update`. Any new Playwright spec must be added to **both**
 `testMatch` and `productionSpecPattern` in `playwright.config.ts`, or it silently runs zero tests.
+
+---
+
+## 18. Open questions for the product owner
+
+Neither blocks planning; both get baked in during this phase.
+
+- **Form 3A or 3B.** All five detention forms in the fixture were set to `3A`. The spec and the
+  context document both list `3A/3B`, and the distinction is clinical.
+- **A voluntary patient on a locked ward.** The security gate currently treats an open-security
+  patient offered a secure ward as more restrictive than required. A _voluntary_ patient on a
+  locked ward is the sharper case — if they cannot leave, the door is doing what an order should.
+  Whether that combination warrants its own distinct flag is a clinical judgement, not an
+  engineering one.
