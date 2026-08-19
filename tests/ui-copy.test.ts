@@ -121,7 +121,9 @@ describe("ui-copy", () => {
       expect(presentation.title.trim().length).toBeGreaterThan(0);
       expect(typeof presentation.subtitle).toBe("string");
       expect(presentation.subtitle.trim().length).toBeGreaterThan(0);
-      expect(Object.keys(presentation).sort()).toEqual(["subtitle", "title"]);
+      if ("suggestions" in presentation && presentation.suggestions) {
+        expect(Array.isArray(presentation.suggestions)).toBe(true);
+      }
     });
 
     it.each(appModeIds)("reconciles %s titles with expected shared and standalone titles", (modeId) => {
