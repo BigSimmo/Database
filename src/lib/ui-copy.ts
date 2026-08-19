@@ -24,10 +24,15 @@ export type SharedHomePresentation = {
  * Per-mode copy for the one shared home at `/`.
  *
  * `/` is the single home page for every mode — the mode pill retargets the
- * composer rather than navigating (see `appModeSelectionHref`), so this table is
- * the *only* thing that changes between modes on that page. Each entry mirrors
- * the mode's own standalone home (`*-home-page.tsx`) so a clinician sees the
- * same words whichever door they came through.
+ * composer rather than navigating (see `appModeSelectionHref`), so this table
+ * drives the mode-specific hero title and subtitle on that page.
+ *
+ * Titles here provide full descriptive clinical labels (e.g. "Clinical Services",
+ * "Differential Diagnosis", "Medication Guidance", "Patient Factsheets",
+ * "Clinical Dictionary") while standalone mode surfaces and workspaces
+ * (`*-home-page.tsx`, `medication-prescribing-workspace.tsx`, etc.) present
+ * concise mode titles ("Services", "Differentials", "Medication", "Factsheets",
+ * "Dictionary") with matched subtitles and clinical intent.
  */
 export const sharedHomePresentation = {
   answer: {
@@ -51,7 +56,7 @@ export const sharedHomePresentation = {
     suggestions: ["transport order", "Form 3A detention", "extension of transport"],
   },
   favourites: {
-    title: "Clinical Favourites",
+    title: "Favourites",
     subtitle: "Saved notes, sources, and sets.",
     suggestions: ["ward round set", "pinned monitoring tables", "clozapine clinic"],
   },

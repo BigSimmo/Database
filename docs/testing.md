@@ -134,6 +134,54 @@ Blocking tests run with zero retries. CI publishes list, JUnit, and JSON reports
 
 Phone-chrome work uses `npm run verify:phone-chrome`. Inspect its classification with `-- --dry-run` or provide an explicit changed set with `-- --files pathA,pathB`. The default `--full=auto` escalates shared shell/header/footer, scroll-coordinator, reserve, or global-style changes to `verify:ui` only after focused ownership and journey checks pass. Page-local owners and test-helper changes remain focused; use `--full=always` for deliberate extra confidence or `--full=never` only when the dry run records why the recommended broad gate is unavailable. Physical Safari and cold-launch PWA paint still follow [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
 
+### Phone sticky-header settle timing (screenshots and DOM measurements)
+
+The phone header stack (`.phone-sticky-header-stack`) uses `position: fixed` in browser tabs and `position: absolute` within the phone viewport frame in installed standalone mode, and mounts collapsed. The top content reserve `max-sm:pt-[var(--phone-overlay-chrome-h)]` resolves to the full measured stack height only after mount via `usePhoneOverlayChromeReserve` across an 80ms quiet window (`phoneOverlayReserveGeometryQuietWindowMs`). Standalone tests must assert the absolute-positioning contract.
+
+Playwright tests that evaluate DOM offsets (`getBoundingClientRect()`, `offsetTop`, etc.) or capture screenshots immediately at `networkidle` can observe premature unsettled geometry (such as content appearing at `y=72` under the header rather than at its settled `y=121` position, as discovered on `/dictionary/browse` in #XPY409).
+
+**Required settle assertion pattern before reading DOM offsets or taking screenshots:**
+
+```ts
+import { expect, type Page } from "@playwright/test";
+
+// Wait for the phone header stack and overlay reserve to settle
+await expect
+  .poll(
+    async () => {
+      return page.evaluate(() => {
+        const stack = document.querySelector<HTMLElement>(".phone-sticky-header-stack");
+        const reserve = getComputedStyle(document.documentElement).getPropertyValue("--phone-overlay-chrome-h");
+        const stackHeight = stack ? Math.round(stack.getBoundingClientRect().height) : 0;
+        const reservePx = parseFloat(reserve) || 0;
+        return stackHeight > 0 && Math.abs(stackHeight - reservePx) <= 1;
+      });
+    },
+    { message: "expected phone-sticky-header-stack and --phone-overlay-chrome-h to settle" },
+  )
+  .toBe(true);
+```
+
+Or when measuring a specific content element (`main` or `h1`), wait for its vertical offset to stabilize across frames:
+
+```ts
+await expect
+  .poll(
+    async () => {
+      return page.evaluate(async () => {
+        const el = document.querySelector<HTMLElement>("main, h1");
+        if (!el) return false;
+        const first = Math.round(el.getBoundingClientRect().top);
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const second = Math.round(el.getBoundingClientRect().top);
+        return first > 0 && Math.abs(first - second) <= 1;
+      });
+    },
+    { message: "expected content vertical offset to stabilize across animation frames" },
+  )
+  .toBe(true);
+```
+
 ## Visual regression and style contracts
 
 Appearance is verified at two levels, because they fail differently.

@@ -563,6 +563,42 @@ only for routes without an addon row; addon routes refine by that row's height.
 The clearance is only visible near scroll top, where the header is always
 revealed, so it costs no usable height.
 
+### Phone sticky-header mount and settle timing
+
+The phone header stack (`.phone-sticky-header-stack`) is `position: fixed` (in browser tabs) and
+mounts collapsed; the page reserve `max-sm:pt-[var(--phone-overlay-chrome-h)]` resolves to the settled
+height only after mount and across the evidence-calibrated 80ms geometry quiet window
+(`phoneOverlayReserveGeometryQuietWindowMs` in `use-phone-overlay-chrome-reserve.ts`).
+
+A Playwright screenshot or `page.evaluate()` DOM measurement run immediately at `networkidle` can
+therefore read premature geometry before the stack settles (for example, reading `main` at `y=72` with
+the mode-nav rail appearing to overlap it, when the settled layout has `main` at `y=121` with zero overlap).
+Measured on `/dictionary/browse` (#XPY409): unsettled `h1` `y=88` (appeared obscured behind the rail),
+settled `y=161` with both pre- and post-redesign versions settling to `y=161`. The apparent overlap was
+purely a measurement artifact.
+
+**Required Playwright settle assertion pattern:**
+Always assert that `.phone-sticky-header-stack` and `--phone-overlay-chrome-h` have converged to a matching,
+settled non-zero height before capturing viewport screenshots or asserting vertical bounding-box offsets:
+
+```ts
+// Wait for phone-sticky-header-stack and --phone-overlay-chrome-h to settle
+await expect
+  .poll(
+    async () => {
+      return page.evaluate(() => {
+        const stack = document.querySelector<HTMLElement>(".phone-sticky-header-stack");
+        const reserve = getComputedStyle(document.documentElement).getPropertyValue("--phone-overlay-chrome-h");
+        const stackHeight = stack ? Math.round(stack.getBoundingClientRect().height) : 0;
+        const reservePx = parseFloat(reserve) || 0;
+        return stackHeight > 0 && Math.abs(stackHeight - reservePx) <= 1;
+      });
+    },
+    { message: "expected phone-sticky-header-stack and --phone-overlay-chrome-h to settle" },
+  )
+  .toBe(true);
+```
+
 **Keep the resting state transform-free — a transform is a containing block.** A
 non-`none` `transform`, _including `translateY(0)`_, makes an element a containing
 block for `position: fixed` descendants. So does a non-`none` `translate`. A phone
