@@ -3,8 +3,8 @@
 **Why this file exists.** The Phase 2A build ran through a session ledger under `.superpowers/sdd/`,
 which is git-ignored scratch. Every ruling taken on the owner's behalf, every deferred finding and the
 resume point lived only there and in one conversation. Both are losable — a `git clean -fdx` or deleting
-the worktree would destroy them. This is the tracked copy, verbatim, as of head 6bf9f6362 plus the
-Task 10 review outcome recorded after it.
+the worktree would destroy them. This is the tracked copy, verbatim, as of head 944ce3201 (Task 10
+complete and reviewed clean).
 
 The live ledger remains at `.superpowers/sdd/2026-08-19-caring-contact-phase-2a-foundations/progress.md`
 and stays authoritative while the plan is running. Re-copy it here at each checkpoint.
@@ -77,28 +77,31 @@ Task 3: accepted deviation — describeServiceStop takes a discriminated { stopp
 Task 3: CARRY INTO TASKS 10 AND 11 — the single-record rule for the safety stop is currently held only by the reportedByTeamId name and a doc comment. Nothing stops the storage task building a per-team table anyway. Ruling: [9] requires the schema itself to enforce one row (fixed-key singleton), and every dispatch path must read it regardless of the dispatching team. This must be a migration constraint and a test, not a convention.
 
 ## RESUME POINT
+
 Next task: Task 4 (pathway versions and dual approval). Brief already extracted at task-4-brief.md; task-5-brief.md also extracted.
 BASE for Task 4 = 6434817b2. Model guidance from the owner: Sonnet 5 for ordinary tasks; Opus 5 for the service safety stop (done), anything displaying delivery or clinical state, the 24-overlay modality contract (Tasks 17 and 18), and the final whole-branch review. Task 11 (migration plus RLS) is also Opus by the repo's own effort calibration.
 Carry into Task 4's dispatch: Ruling: [1] — PathwayVersionSnapshot needs MessageType imported from ./model, which the brief's Consumes list omits.
 Carry into Task 5's dispatch: Ruling: [1] — DuplicateReferralOutcome needs PlanId imported from ./ids, which the brief's Consumes list omits.
 
 ## Owner decisions closed 2026-08-19 (previously open from Phase 1)
+
 - Patient-visible wording: KEEP AS WRITTEN. Still flagged provisional and not clinically approved; lived-experience and clinical sign-off still required before any real use. No code change — the pinned 252/218 septet strings stand.
 - Retention: SEVEN YEARS confirmed. DEFAULT_RETENTION_POLICY already { years: 7 }. No code change.
 - Cross-team duplicate prevention: CONFIRMED as built. The partial unique index stays on (patient_id) rather than (team_id, patient_id), accepting that a second team can infer a plan exists elsewhere, because two teams sending two sets of caring contacts is the worse outcome. Phase 1 decision 6 is now the owner's decision, not mine.
-Task 4: review — spec OK, implementation correct (all five approval sequences hand-traced; snapshot untouched by every branch; self-approval delegated, not re-implemented). ONE Important: pathway-not-retirable implemented with zero test coverage, and publishedAt/retiredAt values never asserted. The gap is in the brief I wrote, not the implementation. Fix round 1 dispatched.
-Task 4: fix round 1/5 (1 addressed, 0 open — all three non-approved states covered with exact refusal objects, publish/retire timestamps asserted against /\+08:00$/, implementation file untouched; commits 33d38ca..9c43268)
-Task 4: complete (commits 6434817..9c43268, review clean) — 7 passed.
-Task 5+6+7: Ruling: [10] Tasks 5, 6 and 7 are dispatched as ONE batch with three separate commits. — Why: three small independent pure-transition modules in three different new files, each with complete test code in its brief and no interface between them; one dispatch per task would make three agents rebuild the same context, and Phase 1 batched two such tasks for the same reason. — Cost if wrong: one review surface covers three modules, so a finding in any one of them holds up the other two.
-Task 5: complete (commit 9634deb, batch review clean) — referrals.
-Task 6: complete (commit 9f51d5b, batch review clean) — assignment, reassignment history, coverage.
-Task 7: complete (commit 664ec7d, batch review clean) — within-day moves and approved date changes.
-Tasks 5-7: all 11 refusal reasons across the three modules now have a test asserting the exact refusal object; the implementer found and closed 5 gaps the briefs had left.
-Tasks 5-7: Ruling: [11] The reviewer's one Important finding — Task 7's brief names APPROVED_SEND_WINDOW under Consumes but the module only needs isWithinApprovedSendWindow — is a defect in the brief, not the code. No change. — Why: the module must not re-derive 09:00-18:00, and it does not; adding an unused import to satisfy a list I wrote would be strictly worse than the brief being over-specified. — Cost if wrong: none; the constant remains exported and importable if a later task needs it.
-Task 6: minor (deferred): coverage window boundary equality (day == from, day == until) is implemented inclusive on both ends but only interior and after-until dates are asserted. Boundaries are where off-by-one bugs live. FLAG FOR THE FINAL WHOLE-BRANCH REVIEW.
-Task 6: minor (deferred): PlanAssignment mixes AWST instant strings (claimedAt, reassignment at) with bare calendar days (coverage from/until). Reviewer confirmed the 10-character calendar-day branch in effectiveResponder is a sound distinction, not a guess, and that a full ISO instant still maps to its true AWST day. Suggested later cleanup: name them claimedAtIso/fromDay or brand the two string shapes. Not blocking.
+  Task 4: review — spec OK, implementation correct (all five approval sequences hand-traced; snapshot untouched by every branch; self-approval delegated, not re-implemented). ONE Important: pathway-not-retirable implemented with zero test coverage, and publishedAt/retiredAt values never asserted. The gap is in the brief I wrote, not the implementation. Fix round 1 dispatched.
+  Task 4: fix round 1/5 (1 addressed, 0 open — all three non-approved states covered with exact refusal objects, publish/retire timestamps asserted against /\+08:00$/, implementation file untouched; commits 33d38ca..9c43268)
+  Task 4: complete (commits 6434817..9c43268, review clean) — 7 passed.
+  Task 5+6+7: Ruling: [10] Tasks 5, 6 and 7 are dispatched as ONE batch with three separate commits. — Why: three small independent pure-transition modules in three different new files, each with complete test code in its brief and no interface between them; one dispatch per task would make three agents rebuild the same context, and Phase 1 batched two such tasks for the same reason. — Cost if wrong: one review surface covers three modules, so a finding in any one of them holds up the other two.
+  Task 5: complete (commit 9634deb, batch review clean) — referrals.
+  Task 6: complete (commit 9f51d5b, batch review clean) — assignment, reassignment history, coverage.
+  Task 7: complete (commit 664ec7d, batch review clean) — within-day moves and approved date changes.
+  Tasks 5-7: all 11 refusal reasons across the three modules now have a test asserting the exact refusal object; the implementer found and closed 5 gaps the briefs had left.
+  Tasks 5-7: Ruling: [11] The reviewer's one Important finding — Task 7's brief names APPROVED_SEND_WINDOW under Consumes but the module only needs isWithinApprovedSendWindow — is a defect in the brief, not the code. No change. — Why: the module must not re-derive 09:00-18:00, and it does not; adding an unused import to satisfy a list I wrote would be strictly worse than the brief being over-specified. — Cost if wrong: none; the constant remains exported and importable if a later task needs it.
+  Task 6: minor (deferred): coverage window boundary equality (day == from, day == until) is implemented inclusive on both ends but only interior and after-until dates are asserted. Boundaries are where off-by-one bugs live. FLAG FOR THE FINAL WHOLE-BRANCH REVIEW.
+  Task 6: minor (deferred): PlanAssignment mixes AWST instant strings (claimedAt, reassignment at) with bare calendar days (coverage from/until). Reviewer confirmed the 10-character calendar-day branch in effectiveResponder is a sound distinction, not a guess, and that a full ISO instant still maps to its true AWST day. Suggested later cleanup: name them claimedAtIso/fromDay or brand the two string shapes. Not blocking.
 
 ## OWNER CLARIFICATION 2026-08-19 — the workspace is a standalone application
+
 Caring Contacts does NOT reuse the Clinical KB navigation. It is its own application living inside the
 same deployment, and it owns its own sidebar: every one of its headings/destinations goes in ITS side
 rail, not in the host app's nav. This confirms the shell design in Task 15 (own rail, own header, own
@@ -127,14 +130,16 @@ Task 8: complete (commits 664ec7d..3272c87, review clean).
 Task 9: complete (commits 2074119, 8a5a4aa, review clean) — notification preferences and training separation.
 
 ## CHECKPOINT 1 PASSED — end of Group 1, the rules layer is complete
-npm run test    -> Test Files 691 passed | 2 skipped (693) / Tests 7604 passed | 29 skipped (7633)  PASS
-npm run typecheck -> exit 0, no diagnostics  PASS
-npm run lint    -> exit 0, no output  PASS
+
+npm run test -> Test Files 691 passed | 2 skipped (693) / Tests 7604 passed | 29 skipped (7633) PASS
+npm run typecheck -> exit 0, no diagnostics PASS
+npm run lint -> exit 0, no output PASS
 Note: typecheck first failed with DATABASE_HEAVY_RUN_ADMISSION_BUSY because the exclusive vitest lease
 was held by the concurrent full test run; it passed cleanly on rerun. That is the repo's cross-worktree
 run coordinator behaving correctly, not a defect.
 
 ## RESUME POINT (supersedes the earlier one)
+
 Group 1 (Tasks 1-9, the sealed rules layer) is COMPLETE and reviewed. Next: Task 10 (extend the storage
 contract and the in-memory store). Briefs 1-9 extracted; 10 onwards not yet.
 BASE for Task 10 = 3272c8701.
@@ -152,6 +157,7 @@ Model guidance: Sonnet 5 for ordinary tasks; Opus 5 for Task 11 (migration + RLS
 24-overlay modality contract), anything displaying delivery or clinical state, and the final review.
 
 ## Owner-directed actions on the two carried risks, 2026-08-19
+
 Risk 1 (size limit): Ruling: [13] Task 15 gains a hard requirement rather than only a measurement step —
 the workspace's client code must sit behind a lazy route boundary from the first commit, so the Clinical KB
 dashboard never downloads it and the workspace can never charge its weight to the host app's ceiling. The
@@ -179,6 +185,7 @@ on. Either wire it when training-scoped reads arrive in Plan 2B, or remove it. D
 constant that nothing can ever return.
 
 ## RESUME POINT (supersedes all earlier ones)
+
 1. FIRST: review Task 10. BASE = 88e774c95, HEAD = 6bf9f6362. Generate the package with
    scripts/review-package and dispatch a task reviewer. Task 10 is unreviewed.
 2. THEN: Task 11 (migration 0003 + Postgres implementation). Use Opus 5 — migration plus row-level
@@ -209,17 +216,17 @@ in-memory store. Rulings 3, 6 and 9 independently confirmed applied and genuinel
 independently re-traced and confirmed NOT a no-op (exactly the four reported tests read the gate).
 
 Task 10 review findings entering the fix loop:
-  C1 savePathwayVersion persists caller-supplied state/approvals/authorId/publishedAt verbatim, so one
-     actor holding authorPathwayVersion can save {state:"published", approvals:[]} and publish governed
-     clinical message content past the dual-approval control Task 4 built. Governance bypass.
-  I2 No test asserts that ANY of the 20 new writes emits an audit event. Mutation B only reddened
-     pre-existing plan-write tests, so brief Step 5's proof was never actually obtained for a new method.
-  I3 A service-stopped refusal is cached against the idempotency key, so the natural retry after the
-     restart is refused forever with a reason that is no longer true.
-  I4 getAssignment and getServiceState return live internal references; every other read clones. A caller
-     can rewrite plan ownership or an incident note in place with no version bump and no audit event.
-  I5 applyAssignment never binds a claim's actorId to the writing actor, so the assignment ledger and the
-     audit event can disagree about who owns the work.
+C1 savePathwayVersion persists caller-supplied state/approvals/authorId/publishedAt verbatim, so one
+actor holding authorPathwayVersion can save {state:"published", approvals:[]} and publish governed
+clinical message content past the dual-approval control Task 4 built. Governance bypass.
+I2 No test asserts that ANY of the 20 new writes emits an audit event. Mutation B only reddened
+pre-existing plan-write tests, so brief Step 5's proof was never actually obtained for a new method.
+I3 A service-stopped refusal is cached against the idempotency key, so the natural retry after the
+restart is refused forever with a reason that is no longer true.
+I4 getAssignment and getServiceState return live internal references; every other read clones. A caller
+can rewrite plan ownership or an incident note in place with no version bump and no audit event.
+I5 applyAssignment never binds a claim's actorId to the writing actor, so the assignment ledger and the
+audit event can disagree about who owns the work.
 
 Ruling: [14] savePathwayVersion persists AUTHORED CONTENT ONLY and constructs every governance field
 server-side — state "draft", approvals [], authorId from the write context, publishedAt/retiredAt/
@@ -264,3 +271,204 @@ through to a default rather than failing to compile on a new variant; malformed 
 listDispatches/listAccessTrail yield NaN comparisons and an empty list indistinguishable from "none";
 in-memory-repository.ts is now 1201 lines holding eight storage concerns and should split rather than
 extend again.
+
+## Task 11 pre-dispatch conflict scan (controller, before writing any SQL)
+
+Read of the CURRENT schema, not of the brief's description of it:
+
+- `caring_contacts.service_state` (0001:205) is `team_id text primary key references teams (id)` — a PER-TEAM
+  table — and 0002 gives it the standard `team_id = caring_contacts.current_team_id()` policy. As it stands
+  today, a stop raised by TEAM-NORTH is INVISIBLE to TEAM-SOUTH: row-level security itself enforces the leak
+  Ruling 9 exists to prevent. Task 10's in-memory store is service-wide and its cross-team test passes, so
+  the two stores currently disagree about the single most safety-critical behaviour in the workspace.
+- The Task 11 brief's own Step-1 test asserts `unique (team_id, role)` and `unique (team_id, actor_id)`,
+  which is exactly what Ruling 4 overruled at pre-flight.
+- `plans.referral_id` and `plans.pathway_version_id` are `text not null` with NO foreign key, and
+  `tests/helpers/caring-contacts-postgres.ts:195 seedPlan` inserts `${planId}-REFERRAL` /
+  `${planId}-PATHWAY` with no parent rows anywhere. Adding the real foreign keys the brief asks for will
+  break every existing migration and Postgres-repository test until that helper seeds the parents.
+- `pathway_versions.state` already CHECKs exactly the four states `model.ts:20` declares
+  (draft/inReview/approved/retired). Publishing is `published_at`, not a fifth state. No CHECK change needed.
+- `pathway_version_approvals` as the brief describes it carries no `team_id`, so the blanket
+  "team_id = current_team_id()" policy the brief mandates for every new table cannot attach to it as written.
+
+Ruling: [18] The Task 11 brief's Step-1 assertions are REWRITTEN to `unique (stop_id, role)` and
+`unique (stop_id, actor_id)`, and `service_restart_approvals` is keyed on `stop_id`, never `team_id`.
+— Why: Ruling 4 already decided this at pre-flight for a reason that still holds — keyed on team, the
+approvals from a first stop permanently bar their approvers from approving any later stop, so a team's
+second incident could become unrestartable. The brief was written before that ruling. This is not a loosened
+assertion: the test does not exist yet, and the replacement is the stronger constraint. — Cost if wrong:
+one column and two unique keys; the three-person rule is identical either way.
+
+Ruling: [19] Migration 0003 CONVERTS `service_state` from a per-team table into a schema-enforced SINGLETON
+— one fixed-key row — dropping the `team_id` primary key, keeping the old team column only as nullable
+`reported_by_team_id` attribution, and dropping `restart_approved_by` in favour of the `service_restart_approvals`
+child table. — Why: Ruling 9 requires the stop to be read by every dispatch path regardless of team, and the
+current per-team primary key makes the per-team table the only thing the schema can express; leaving it
+would let every other team keep sending during another team's incident, which is the precise failure spec
+§4.2 forbids, and would put the Postgres store in direct contradiction with the in-memory store's passing
+cross-team test. — Cost if wrong: if a per-team stop were ever genuinely wanted, the singleton row becomes
+a per-team table again and `reported_by_team_id` returns to being the key.
+
+Ruling: [20] `service_state` and `service_restart_approvals` do NOT get the blanket
+`team_id = caring_contacts.current_team_id()` policy the brief mandates for every new table. They get
+`using (caring_contacts.current_team_id() is not null)` with the same `with check`. — Why: a team-scoped
+policy on a service-wide singleton is the leak itself — every other team would read zero rows and conclude
+the service is running. Scoping instead on "this session has named SOME team" keeps 0002's deny-by-default
+property intact (an unscoped session still matches no row, so the existing "denies a session that names no
+team at all" proof extends rather than weakens) while making the one stop row visible to everyone who must
+obey it. No policy becomes unconditionally true. — Cost if wrong: if the stop should have been invisible to
+teams other than the reporter, the policy narrows back to team scope — but that is the behaviour Ruling 9
+was made to forbid.
+
+Ruling: [21] Every OTHER new table keeps the brief's standard team-scope policy, and the child approval
+table `pathway_version_approvals` carries a denormalised `team_id` so that policy attaches unchanged rather
+than joining to its parent. — Why: a policy that joins to the parent table is evaluated per row on every
+statement and is easy to get subtly wrong; a denormalised team column matched by foreign key to the parent
+is what every other table in this schema already does. — Cost if wrong: one redundant column, kept correct
+by its foreign key.
+
+Ruling: [22] `tests/helpers/caring-contacts-postgres.ts` `seedPlan` is EXTENDED to seed the parent referral
+and pathway-version rows before the plan. — Why: the new foreign keys are the point of the task (they close
+Phase 1 open item 2), and a fixture that was only valid because no key existed must become valid, not be
+exempted. This modifies a fixture to make it legitimate; it deletes and loosens no assertion. — Cost if
+wrong: none — if the foreign keys were later dropped the extra seed rows are harmless.
+
+Structural gap found in the Task 11 scan that the Task 10 review could not see (the file is outside that
+diff): `tests/helpers/caring-contacts-repository-contract.ts` is a 721-line factory-driven suite whose own
+header states "Task 9 runs it against the in-memory store; Task 11 runs this same function against the
+Postgres store rather than writing a second suite, which is why it takes a factory instead of calling a
+constructor." Task 10 put ALL behavioural tests for its 21 new methods in
+`tests/caring-contacts-repository.test.ts`, which constructs `createInMemoryRepository` directly and is
+therefore in-memory-only. As things stand, Task 11 would implement 21 Postgres methods against ZERO
+behavioural proof — including the service-stop gate, the cross-team singleton, and the dual-approval
+construction just fixed under Ruling 14 — and the two stores could disagree on every one of them silently.
+That is precisely the drift the contract file was created to prevent.
+
+Ruling: [23] The behavioural tests Task 10 wrote for the new methods MOVE into the shared contract suite,
+so both stores are held to them; only assertions that genuinely poke in-memory internals stay behind.
+— Why: the contract file is the definition of what a CaringContactRepository does, and the safety-critical
+behaviours (service stop gates every mutation, the stop is service-wide, a saved pathway version is always
+an unapproved draft, a service-stopped refusal is not cached against the idempotency key, every write is
+audited) are worth nothing if only one of the two implementations is held to them. — Cost if wrong: the
+Postgres suite becomes slower and needs a real database to prove behaviour the in-memory store already
+proved cheaply; if that cost is judged too high the move is reversible by copying the tests back.
+
+Ruling: [24] Task 11 is dispatched as TWO sequential subtasks rather than one. 11a: migration 0003, the
+`seedPlan` helper extension, and the schema/RLS proofs in `tests/caring-contacts-migrations.test.ts`.
+11b: move the Task 10 behavioural tests into the shared contract (which turns the Postgres suite red for
+exactly the right reason), then implement the ~21 methods in `postgres-repository.ts` until it is green.
+— Why: the brief's single task is a 928-line store gaining 21 methods PLUS a schema conversion PLUS an RLS
+redesign PLUS a test relocation; one dispatch would produce a diff too large to review as a unit, and 11b's
+red-then-green sequencing is only honest if 11a's schema already exists. — Cost if wrong: two review
+surfaces instead of one, and the branch sits with a red Postgres suite between the two commits — which is
+already true today and is stated in the resume point.
+
+Docker/Postgres BASELINE RE-VERIFIED on the durable container, before any Task 11 work:
+CARING_CONTACTS_DATABASE_URL=postgres://postgres:caring-contacts-local@127.0.0.1:54329/postgres
+npm run caring-contacts:db:test
+-> Test Files 2 passed (2)
+Tests 55 passed (55)
+So the earlier 7 failed / 48 passed was entirely the `--rm` container being removed mid-run, not a schema
+defect. 55/55 is the number Task 11a must hold at or above; any migration-test failure from here is real.
+
+Task 10: fix round 1/5 dispatched to a fresh implementer on Opus 5 (the original implementer belonged to a
+previous session and was unreachable), carrying Rulings 14, 15 and 16 plus the five findings.
+Task 10: fix round 1/5 result — commit 944ce3201, 101 passed (was 84), eslint and prettier clean, tsc shows
+only the known deliberate postgres-repository.ts error. Implementer returned DONE_WITH_CONCERNS with five
+concerns, two of which are substantive and are recorded below. Scoped re-review dispatched over
+711f95027..944ce3201 (the docs commits d14a60160 and 711f95027 are disjoint and excluded).
+
+Task 10 fix round 1, implementer concern worth keeping: the `getServiceState` half of Important 4 did NOT
+reproduce. `service-state.ts` already Object.freezes every value it constructs, including the
+restartApprovals array and each approval, so the returned singleton was already deeply immutable. The
+implementer proved this by mutation — removing its own added freeze left the suite green (a no-op mutation
+that proves nothing), while removing the UPSTREAM freeze in applyServiceStop did turn the test red. It
+reports service-state.ts byte-identical to HEAD. The getAssignment half was a real defect and is fixed with
+a clone. Pending the re-reviewer's adjudication of whether the added freeze earns its place or is redundant.
+
+Task 10 fix round 1, implementer concern worth keeping: the Important 2 mutation had to be redone. The first
+attempt (replacing createReferral wholesale) reddened three tests, but two of those were catching permission
+checks the mutation had also dropped — it conflated two defects and would have over-credited the new audit
+test. The targeted re-run kept every permission and duplicate check and moved only the commit outside
+runWrite; exactly one test failed, the new audit test. This is the third time on this branch that a proposed
+mutation turned out to prove something other than what it claimed. The rule stands and is earning its keep:
+before trusting a mutation, confirm it changes a value some assertion actually reads.
+
+Task 10 fix round 1, deferred minors added: pathway-versions.ts has no draft factory, so savePathwayVersion
+and its test helper now build the same draft shape independently — worth a factory when Task 11b needs the
+same construction for the Postgres store. And getServiceState relies on shallow freezing rather than a
+structural clone, so a future nested mutable field on ServiceState would escape it; a clone would be durable
+but breaks the reference identity the existing singleton test reads.
+
+Ruling: [25] The two new foreign keys `plans.referral_id` and `plans.pathway_version_id` are COMPOSITE
+same-team keys — `(referral_id, team_id) references referrals (id, team_id)` and likewise for pathway
+versions — each backed by a redundant `UNIQUE (id, team_id)` on the parent, rather than bare single-column
+keys. — Why: foreign-key checks are performed by the system and are NOT subject to row-level security, so a
+bare key lets a TEAM-NORTH plan point at a TEAM-SOUTH referral; in a schema that goes as far as answering
+cross-team existence questions through SECURITY DEFINER functions returning a bare boolean, a link that
+silently crosses teams is the wrong default. — Cost if wrong: if a pathway version is ever meant to be a
+SHARED library across teams rather than team-owned, the composite key is exactly wrong and must become a
+bare key; the brief tells the implementer to stop and report rather than force it if it meets that.
+Two redundant unique constraints otherwise.
+
+Task 11a and 11b briefs written to task-11a-brief.md and task-11b-brief.md, carrying Rulings 2, 4, 9 and
+19-25, plus two harness traps found by reading the existing helper: migrations apply in sorted filename
+order so 0003 must DROP 0002's team-scoped service_state policy rather than add a second one (Postgres ORs
+permissive policies, so an added policy would be redundant rather than a replacement); and
+CARING_CONTACTS_DATA_TABLES is a hand-maintained child-first truncation list that every new table must join
+or rows leak between tests as order-dependent failures.
+
+Task 10: fix round 1/5 (7 addressed, 0 open — pathway-version governance bypass closed with all nine
+PathwayVersion fields enumerated server-side and no spread; per-group audit-event test covering nine write
+groups; service-stopped refusal no longer cached, proven with the SAME key after three restart approvals;
+getAssignment deep-cloned; claim refused when it names another actor while coverage/reassign still name
+third parties; trainingWorkspaceIsolated deleted; ACMA fictitious number adopted; two overclaiming titles
+corrected. Commits 711f9502..944ce320)
+Task 10: complete (commits 88e774c95..944ce3201, review clean) — 101 passed, up from 84.
+Task 10: the re-reviewer independently verified rather than trusting the report — it checked the nine-field
+literal against the PathwayVersion type itself, read all of runWrite to confirm the idempotency change was
+not widened beyond the one refusal, grepped every REMOVED line in the diff for `expect(` and found exactly
+one removed assertion (replaced in place by a strictly stronger one) and one rename, and confirmed
+service-state.ts carries no hunk at all. No expectation value was changed anywhere, so the narrow
+authorised exception for a test asserting the vulnerability was never needed.
+Task 10: reviewer adjudication accepted — the getServiceState half of Important 4 WAS a false positive in
+the original review. service-state.ts freezes at all three construction sites (runningService,
+applyServiceStop, applyServiceRestartApproval), every non-array field is a primitive, so the singleton was
+already deeply immutable. The added freeze is redundant defence and stands because it moves the read
+contract into the store rather than borrowing it from another module; its covering test pins a real
+falsifiable property, just not one the new line creates.
+
+Task 10 deferred minors added by the re-review (carry to the FINAL WHOLE-BRANCH REVIEW):
+
+- savePathwayVersion stores `input.version.snapshot` BY REFERENCE, so a caller holding the input object
+  can still mutate stored authored clinical content in place, with no version bump and no audit event.
+  Pre-existing (the old spread aliased it too) and outside Ruling 14, but it is now the ONLY
+  caller-supplied field left and is the same class as the Important 4 finding. This is authored clinical
+  message content — treat it as the highest-value of the deferred minors. The Postgres store will not
+  inherit it (jsonb serialisation copies), so after Task 11b the two stores will differ here.
+- Ruling 15 side effect, inherent not a defect: after a service-stopped refusal the idempotency key is
+  released, so a DIFFERENT later request reusing that key is processed rather than refused as
+  idempotency-key-reused.
+- getServiceState performs Object.freeze on the internal singleton — a read with a (currently no-op)
+  side effect on stored state; a hazard only if a future path intends to build a state and mutate it
+  later. Pairs with the implementer's own concern that a shallow freeze would not reach a future nested
+  mutable field.
+- Report-accuracy nit, not code: the stated reason for freezing rather than cloning (that a clone would
+  break the singleton-identity test) does not hold — that test uses toEqual, not toBe. The decision
+  stands regardless, since the finding permitted freezing.
+- Audit test residual limit, beyond what the brief required: it proves an event is appended, not that
+  the commit is ORDERED inside the audited path. A method that committed and then separately pushed an
+  event would still pass.
+
+## RESUME POINT (supersedes all earlier ones)
+
+Group 1 (Tasks 1-9) and Task 10 are COMPLETE and reviewed. HEAD = 944ce3201.
+NEXT: Task 11a (migration 0003), brief at task-11a-brief.md, then Task 11b (shared-contract move + the
+Postgres store), brief at task-11b-brief.md. Both split by Ruling 24. Task 11a carries Rulings 2, 4, 9,
+19, 20, 21, 22 and 25; Task 11b carries Rulings 3, 14, 15 and 23.
+Docker is RUNNING; container `caring-contacts-pg` on 127.0.0.1:54329; baseline is 55/55 passing.
+`npm run typecheck` stays RED on db/postgres-repository.ts until Task 11b. That is expected.
+Then Tasks 12-19. Ruling 13 binds Task 15 (lazy route boundary from the first commit). The owner's
+clarification binds Task 15 and all of Plan 2B: Caring Contacts is a standalone application owning its own
+sidebar; its destinations go in ITS rail, never the host app's nav.
