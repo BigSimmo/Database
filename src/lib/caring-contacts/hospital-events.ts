@@ -54,7 +54,9 @@ export type PlanTransition = {
 export type WithdrawalOrigin = "patient" | "clinician" | "thirdParty";
 export type WithdrawalRequest = { origin: WithdrawalOrigin };
 
-const PAUSE_EVENT_TYPES = ["readmission", "mobileChanged", "thirdPartyPauseRequest"] as const;
+// Type-only: the pause-raising event kinds are never needed as a runtime value, so this is a union
+// rather than an `as const` array whose value would sit unused in the bundle.
+type PauseEventType = "readmission" | "mobileChanged" | "thirdPartyPauseRequest";
 const WITHDRAWAL_ORIGINS: readonly string[] = ["patient", "clinician", "thirdParty"];
 
 /**
@@ -124,7 +126,7 @@ function applyDeathCorrection(plan: Plan): TransitionResult<PlanTransition> {
 
 function applyPauseEvent(
   plan: Plan,
-  event: Extract<HospitalStatusEvent, { type: (typeof PAUSE_EVENT_TYPES)[number] }>,
+  event: Extract<HospitalStatusEvent, { type: PauseEventType }>,
 ): TransitionResult<PlanTransition> {
   const held = holdPlan(plan);
   if (!held.ok) return held;
