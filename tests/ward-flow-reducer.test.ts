@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
-import { PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
+import { EXAMINATION_TO_BED_WINDOW_MINUTES, PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 
 const NOW = NOW_ANCHOR;
 
@@ -277,5 +277,188 @@ describe("purity", () => {
       unitIds: ["rph-adult-secure"],
     });
     expect(JSON.stringify(state)).toBe(snapshot);
+  });
+});
+
+describe("examination", () => {
+  it("moves a Form 1A to a Form 3B when the examination confirms an inpatient order", () => {
+    // WF-001 is seeded on 1A ("Referral for examination", no examination recorded yet).
+    const next = wardFlowReducer(seeded(), {
+      type: "RECORD_EXAMINATION",
+      role: "ed",
+      now: NOW,
+      movementId: "WF-001",
+      outcome: "inpatient_order",
+    });
+    const target = movement(next, "WF-001");
+    expect(target.examination).toEqual({ at: NOW, outcome: "inpatient_order" });
+    expect(target.legalForm?.code).toBe("3B");
+    expect(target.legalForm?.dueAt).toBe(NOW + EXAMINATION_TO_BED_WINDOW_MINUTES);
+  });
+
+  it("closes the movement without an inpatient bed when the examination is revoked", () => {
+    const next = wardFlowReducer(seeded(), {
+      type: "RECORD_EXAMINATION",
+      role: "ed",
+      now: NOW,
+      movementId: "WF-001",
+      outcome: "revoked",
+    });
+    const target = movement(next, "WF-001");
+    expect(target.legalForm).toBeUndefined();
+    expect(target.closure?.outcome).toBe("did_not_proceed");
+  });
+});
+
+describe("capacity confirmation", () => {
+  it("writes the ward's restated allocatable count to that unit only", () => {
+    const next = wardFlowReducer(seeded(), {
+      type: "CONFIRM_CAPACITY",
+      role: "ward",
+      now: NOW,
+      unitId: "rph-older-adult",
+      value: 3,
+    });
+    const unit = next.units.find((candidate) => candidate.id === "rph-older-adult")!;
+    expect(unit.allocatable.value).toBe(3);
+    expect(unit.allocatable.confirmedAt).toBe(NOW);
+    // Untouched: a sibling unit's allocatable count must not move.
+    const sibling = next.units.find((candidate) => candidate.id === "rph-adult-secure")!;
+    expect(sibling.allocatable.value).toBe(1);
+  });
+});
+
+describe("decline", () => {
+  it("drops the unit from the live referral and records why", () => {
+    // WF-010 is seeded at destination_review, referred only to sjgm-adult-open.
+    const next = wardFlowReducer(seeded(), {
+      type: "DECLINE",
+      role: "ward",
+      now: NOW,
+      movementId: "WF-010",
+      unitId: "sjgm-adult-open",
+      reason: "out_of_catchment",
+    });
+    const target = movement(next, "WF-010");
+    expect(target.declines).toContainEqual({
+      unitId: "sjgm-adult-open",
+      at: NOW,
+      reason: "out_of_catchment",
+      note: undefined,
+    });
+    expect(target.referredUnitIds).not.toContain("sjgm-adult-open");
+    expect(target.stage).toBe("destination_review");
+  });
+});
+
+describe("escalation", () => {
+  it("stamps what was tried and who is being contacted", () => {
+    // WF-010 carries no escalation at seed time.
+    const next = wardFlowReducer(seeded(), {
+      type: "RECORD_ESCALATION",
+      role: "coordinator",
+      now: NOW,
+      movementId: "WF-010",
+      triedUnitIds: ["sjgm-adult-open", "rph-adult-secure"],
+      contact: "State bed coordination desk",
+    });
+    expect(movement(next, "WF-010").escalation).toEqual({
+      at: NOW,
+      triedUnitIds: ["sjgm-adult-open", "rph-adult-secure"],
+      contact: "State bed coordination desk",
+    });
+  });
+});
+
+describe("demo controls", () => {
+  it("advances the clock offset by the given number of minutes", () => {
+    const next = wardFlowReducer(seeded(), { type: "ADVANCE_CLOCK", role: "demo", now: NOW, minutes: 15 });
+    expect(next.clockOffsetMinutes).toBe(15);
+  });
+
+  it("resets a genuinely mutated state back to the seed, not just back to itself", () => {
+    let state = seeded();
+    state = wardFlowReducer(state, {
+      type: "REFER_TO_UNITS",
+      role: "coordinator",
+      now: NOW,
+      movementId: "WF-009",
+      unitIds: ["rph-adult-secure"],
+    });
+    state = wardFlowReducer(state, { type: "ADVANCE_CLOCK", role: "demo", now: NOW, minutes: 30 });
+    // Sanity: the mutation actually took, so the reset below is proving something real.
+    expect(movement(state, "WF-009").referredUnitIds).toEqual(["rph-adult-secure"]);
+    expect(state.clockOffsetMinutes).toBe(30);
+
+    const reset = wardFlowReducer(state, { type: "RESET_SCENARIO", role: "demo", now: NOW });
+    expect(movement(reset, "WF-009").referredUnitIds).toEqual([]);
+    expect(reset.clockOffsetMinutes).toBe(0);
+    expect(reset.rejections).toEqual([]);
+  });
+});
+
+describe("arrival capacity floor", () => {
+  it("refuses an arrival once the unit's physically empty beds are exhausted", () => {
+    // A ward can CONFIRM_CAPACITY an allocatable count above what is physically empty — nothing
+    // in HOLD_BED's own guard prevents that, since it only bounds `allocatable.value`. That makes
+    // over-arriving a real, reachable sequence, not a hypothetical: hold and arrive one patient
+    // against rph-adult-secure's single seeded allocatable bed (empty 2 -> 1), have the ward
+    // restate a larger allocatable count than physically exists, then hold and arrive a second
+    // patient (empty 1 -> 0), then attempt a third. The third must be refused rather than driving
+    // `empty.value` negative.
+    const walkToArrival = (state: ReturnType<typeof seeded>, movementId: string) => {
+      const steps = [
+        { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
+        { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
+        { type: "HOLD_BED", role: "ward", unitId: "rph-adult-secure" },
+        { type: "HANDOVER_READY", role: "ed" },
+        { type: "TRANSPORT_ACCEPTED", role: "officer" },
+        { type: "TRANSPORT_EN_ROUTE", role: "officer" },
+        { type: "PATIENT_COLLECTED", role: "officer" },
+        { type: "PATIENT_ARRIVED", role: "officer" },
+      ] as const;
+      let next = state;
+      for (const step of steps) {
+        next = wardFlowReducer(next, { ...step, now: NOW, movementId } as never);
+      }
+      return next;
+    };
+
+    let state = seeded();
+    state = walkToArrival(state, "WF-009"); // empty 2 -> 1, allocatable 1 -> 0
+    state = wardFlowReducer(state, {
+      type: "CONFIRM_CAPACITY",
+      role: "ward",
+      now: NOW,
+      unitId: "rph-adult-secure",
+      value: 5,
+    });
+    state = walkToArrival(state, "WF-017"); // empty 1 -> 0, allocatable 5 -> 4
+
+    const before = state.units.find((unit) => unit.id === "rph-adult-secure")!.empty.value;
+    expect(before).toBe(0);
+
+    // A third referral raised fresh, so its stage starts clean regardless of fixture state.
+    const raised = wardFlowReducer(state, {
+      type: "RAISE_REFERRAL",
+      role: "ed",
+      now: NOW,
+      edId: "jhc-ed",
+      draft: {
+        cohort: "Adult",
+        security: "Secure",
+        sex: "Male",
+        specialling: false,
+        legalStatus: "Voluntary",
+        urgency: 3,
+      },
+    });
+    const thirdId = raised.movements[raised.movements.length - 1].id;
+    const final = walkToArrival(raised, thirdId);
+
+    expect(movement(final, thirdId).stage).not.toBe("arrived");
+    expect(final.rejections.some((rejection) => rejection.reason.includes("no_bed"))).toBe(true);
+    const after = final.units.find((unit) => unit.id === "rph-adult-secure")!;
+    expect(after.empty.value).toBe(0);
   });
 });

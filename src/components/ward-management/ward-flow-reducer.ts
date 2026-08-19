@@ -1,6 +1,6 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { EVENT_ROLE, type WardFlowEvent, type WardFlowRole } from "@/components/ward-management/ward-flow-events";
-import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
+import { EXAMINATION_TO_BED_WINDOW_MINUTES, PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
 import type { Movement, Rejection, Unit } from "@/components/ward-management/ward-model";
 import { wardMovements } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
@@ -163,7 +163,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
             code: "3B",
             label: "Inpatient treatment order",
             kind: "detention",
-            dueAt: event.now + 240,
+            dueAt: event.now + EXAMINATION_TO_BED_WINDOW_MINUTES,
           },
         };
         return replaceMovement(state, movement.id, updated);
@@ -369,6 +369,13 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       }
       const unit = findUnit(state, movement.acceptedUnitId);
       if (!unit) return reject(state, event, `no unit found for id ${movement.acceptedUnitId}`);
+      if (unit.empty.value <= 0) {
+        // Reachable in practice: HOLD_BED's own floor check only bounds `allocatable.value`, and
+        // CONFIRM_CAPACITY can raise `allocatable.value` back above `empty.value` after earlier
+        // arrivals have already consumed the physically empty beds. Without this guard a later
+        // arrival would drive `empty.value` negative.
+        return reject(state, event, `no physically empty bed remains at ${unit.name} (no_bed)`);
+      }
 
       const updatedUnit: Unit = {
         ...unit,

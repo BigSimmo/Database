@@ -41,6 +41,15 @@ export type LegalForm = {
 };
 
 /**
+ * Minutes given to a Form 3B's `dueAt` when an examination confirms an inpatient order (1A → 3B).
+ * This is a **synthetic prototype figure awaiting clinical confirmation, not a legal timeframe** —
+ * it does not correspond to any Mental Health Act deadline and must not be read as one. It is
+ * pulled out as one named, reviewable constant precisely so it stays easy to challenge and replace
+ * once a real figure is supplied, rather than sitting as an unnamed literal inside a reducer branch.
+ */
+export const EXAMINATION_TO_BED_WINDOW_MINUTES = 240;
+
+/**
  * A capacity number is meaningless without where it came from and when.
  * `feed` knows which beds are physically empty; `ward` knows which are actually allocatable
  * once staffing, sex mix, acuity mix, single rooms and holds are accounted for.

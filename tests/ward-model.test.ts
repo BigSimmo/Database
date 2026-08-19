@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { DECLINE_REASONS, MOVEMENT_STAGES, PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
+import {
+  DECLINE_REASONS,
+  EXAMINATION_TO_BED_WINDOW_MINUTES,
+  MOVEMENT_STAGES,
+  PARALLEL_REFERRAL_CAP,
+} from "../src/components/ward-management/ward-model";
 import { allEmergencyDepartments, allUnits, siteByCode, wardSites } from "../src/components/ward-management/ward-sites";
 import { requiresAuthorisedDestination } from "../src/components/ward-management/ward-eligibility";
 import { isOpen, unitCapacity } from "../src/components/ward-management/ward-derivations";
@@ -30,6 +35,12 @@ describe("ward model constants", () => {
 
   it("caps parallel referrals so wards are not spammed", () => {
     expect(PARALLEL_REFERRAL_CAP).toBe(3);
+  });
+
+  it("pins the synthetic 1A-to-3B examination window as one named, reviewable figure", () => {
+    // Not a legal timeframe — see the constant's own doc comment. Pinned so the number lives as
+    // one line a reviewer can challenge, rather than an unnamed literal inside a reducer branch.
+    expect(EXAMINATION_TO_BED_WINDOW_MINUTES).toBe(240);
   });
 });
 
