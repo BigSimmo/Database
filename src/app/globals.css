@@ -120,11 +120,24 @@
      client host adopts them. Without this structural reserve, Therapy moved the
      entire action stack when hydration relocated the composer (CLS 0.248).
      These are layout tokens, not a second v2 colour/theme source. */
-  /* Re-measured after the privacy notice stopped spending a full 48px tap box
-     on its own wrapped line: the settled phone composer block is 106px, so the
-     old 7.625rem (122px) left a 16px empty band under it. The wide value was
-     already exact (88px) and the notice is a single 16px line from sm up. */
-  --spacing-mode-home-composer-phone: 6.625rem;
+  /* Re-measured 2026-08-19 at 390px across six mode homes (therapy-compass,
+     dsm, forms, factsheets, specifiers, and the shared `/` home): every one
+     settles at 162px, not the 106px this reserved. The 56px difference is the
+     smart-search hint, which `UniversalSearchCommandSurface` renders INSIDE
+     this slot above the composer — the earlier measurement counted only the
+     composer pill plus the privacy notice, before that hint existed. Under-
+     reserving it meant the slot grew on portal adoption and pushed the action
+     and pill stacks down on every ticket-bearing mode home (measured CLS:
+     specifiers 0.055, dsm 0.047, therapy 0.042, `/` 0.020, forms 0.019,
+     factsheets 0.017). The phone hint is a fixed 48px row, so 162px is exact
+     and the settled layout is unchanged — only the pre-adoption reserve grows.
+
+     The wide value is knowingly still short (88px against a settled 160px at
+     1280 and 199px at 800). It is NOT simply raised to match: the sm+ surface
+     swaps the phone ticket for a prompt-chip row that rewraps with viewport
+     width, so no single static value is correct at every width. That needs a
+     different mechanism and is tracked separately. */
+  --spacing-mode-home-composer-phone: 10.125rem;
   --spacing-mode-home-composer-wide: 5.5rem;
 
   /* Hero medallion. Scales continuously with the viewport the way --text-hero
