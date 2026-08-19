@@ -241,9 +241,7 @@ describe("CI cache safety", () => {
     expect(hasRequiredCiInFlight({ workflow_runs: [{ name: "CI", status: "queued" }] })).toBe(true);
     expect(hasRequiredCiInFlight({ workflow_runs: [{ name: "CI", status: "pending" }] })).toBe(true);
     expect(hasRequiredCiInFlight({ workflow_runs: [{ name: "CI", status: "completed" }] })).toBe(false);
-    expect(
-      classifyPr({ title: "feature", labels: [], requiredCiInFlight: true }, 5),
-    ).toEqual({
+    expect(classifyPr({ title: "feature", labels: [], requiredCiInFlight: true }, 5)).toEqual({
       action: "skip",
       reason: "required-ci-in-flight",
     });

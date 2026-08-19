@@ -240,7 +240,9 @@ function buildFavouriteSets(items: FavouriteItem[]): FavouriteSet[] {
 function getMostRecentlyUsedItem(items: FavouriteItem[]): FavouriteItem | null {
   const withOpened = items.filter((item) => lastUsedScore(item.lastUsed) > 1000);
   if (withOpened.length === 0) return null;
-  return [...withOpened].sort((first, second) => lastUsedScore(second.lastUsed) - lastUsedScore(first.lastUsed))[0] ?? null;
+  return (
+    [...withOpened].sort((first, second) => lastUsedScore(second.lastUsed) - lastUsedScore(first.lastUsed))[0] ?? null
+  );
 }
 
 function filterAndSortItems(

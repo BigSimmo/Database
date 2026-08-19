@@ -464,30 +464,57 @@ function selfTest() {
   // Crockford ULID operations (#DREDWA and all-digit #041061)
   const resolvedDredwa = resolveIssue(fixture, "#DREDWA", "Resolved Crockford item", { date: "2026-03-05" });
   const dredwaMoved = parseIssues(resolvedDredwa).rows.find((r) => r.id === "#DREDWA");
-  check("done archives #DREDWA preserving ULID comment", dredwaMoved && dredwaMoved.table === "archive" && dredwaMoved.ulid === "01M09A9WXBDREDWA7KN2EB1JRA");
+  check(
+    "done archives #DREDWA preserving ULID comment",
+    dredwaMoved && dredwaMoved.table === "archive" && dredwaMoved.ulid === "01M09A9WXBDREDWA7KN2EB1JRA",
+  );
   check("done drops #DREDWA from queue", !resolvedDredwa.includes("`#DREDWA`"));
 
   const updatedDredwa = updateIssue(fixture, "#DREDWA", { pri: "P1", detail: "promoted crockford" });
   const dredwaUpdated = parseIssues(updatedDredwa).rows.find((r) => r.id === "#DREDWA");
-  check("update modifies #DREDWA in place", dredwaUpdated && dredwaUpdated.table === "open" && splitCells(dredwaUpdated.raw)[1] === "P1" && dredwaUpdated.raw.includes("promoted crockford"));
+  check(
+    "update modifies #DREDWA in place",
+    dredwaUpdated &&
+      dredwaUpdated.table === "open" &&
+      splitCells(dredwaUpdated.raw)[1] === "P1" &&
+      dredwaUpdated.raw.includes("promoted crockford"),
+  );
 
   const resolvedTf6tpj = resolveIssue(fixture, "#TF6TPJ", "Resolved TF6TPJ item", { date: "2026-03-05" });
   const tf6tpjMoved = parseIssues(resolvedTf6tpj).rows.find((r) => r.id === "#TF6TPJ");
-  check("done archives #TF6TPJ preserving ULID", tf6tpjMoved && tf6tpjMoved.table === "archive" && tf6tpjMoved.ulid === "01M0BEKPPPTF6TPJJMJ4WW5KWJ");
+  check(
+    "done archives #TF6TPJ preserving ULID",
+    tf6tpjMoved && tf6tpjMoved.table === "archive" && tf6tpjMoved.ulid === "01M0BEKPPPTF6TPJJMJ4WW5KWJ",
+  );
   check("done drops #TF6TPJ from queue", !resolvedTf6tpj.includes("`#TF6TPJ`"));
 
   const updatedTf6tpj = updateIssue(fixture, "#TF6TPJ", { pri: "P3", summary: "TF6TPJ summary updated" });
   const tf6tpjUpdated = parseIssues(updatedTf6tpj).rows.find((r) => r.id === "#TF6TPJ");
-  check("update modifies #TF6TPJ in place", tf6tpjUpdated && tf6tpjUpdated.table === "open" && splitCells(tf6tpjUpdated.raw)[1] === "P3" && tf6tpjUpdated.raw.includes("TF6TPJ summary updated"));
+  check(
+    "update modifies #TF6TPJ in place",
+    tf6tpjUpdated &&
+      tf6tpjUpdated.table === "open" &&
+      splitCells(tf6tpjUpdated.raw)[1] === "P3" &&
+      tf6tpjUpdated.raw.includes("TF6TPJ summary updated"),
+  );
 
   // Also test all-digit Crockford ULID operations on the dynamically added row (testId is #041061)
   const resolvedAllDigit = resolveIssue(added, testId, "Resolved all-digit added item", { date: "2026-03-05" });
   const allDigitMoved = parseIssues(resolvedAllDigit).rows.find((r) => r.id === testId);
-  check("done archives all-digit Crockford #041061", allDigitMoved && allDigitMoved.table === "archive" && allDigitMoved.ulid === testUlid);
+  check(
+    "done archives all-digit Crockford #041061",
+    allDigitMoved && allDigitMoved.table === "archive" && allDigitMoved.ulid === testUlid,
+  );
 
   const updatedAllDigit = updateIssue(added, testId, { pri: "P3", summary: "all digit summary updated" });
   const allDigitUpdated = parseIssues(updatedAllDigit).rows.find((r) => r.id === testId);
-  check("update modifies all-digit Crockford #041061 in place", allDigitUpdated && allDigitUpdated.table === "open" && splitCells(allDigitUpdated.raw)[1] === "P3" && allDigitUpdated.raw.includes("all digit summary updated"));
+  check(
+    "update modifies all-digit Crockford #041061 in place",
+    allDigitUpdated &&
+      allDigitUpdated.table === "open" &&
+      splitCells(allDigitUpdated.raw)[1] === "P3" &&
+      allDigitUpdated.raw.includes("all digit summary updated"),
+  );
 
   // refusals
   const rejects = (label, run) => {

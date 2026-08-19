@@ -67,10 +67,7 @@ export function SectionHeading({
   // Menu-kicker mode (e.g. in search-pins menu, popovers, drawers)
   if (variant === "menu-kicker") {
     return (
-      <div
-        data-testid={testId}
-        className={cn("mb-1 flex min-h-10 items-center justify-between gap-2 px-2", className)}
-      >
+      <div data-testid={testId} className={cn("mb-1 flex min-h-10 items-center justify-between gap-2 px-2", className)}>
         <HeadingTag
           id={id}
           className="text-2xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]"

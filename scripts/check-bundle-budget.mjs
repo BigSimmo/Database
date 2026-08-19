@@ -547,28 +547,43 @@ export function selfTest() {
   };
 
   // compareToBudget
-  const okVerdict = compareToBudget({ totalGzipBytes: 1000 }, { enforce: true, tolerancePct: 10, totalGzipBytes: 1000 });
+  const okVerdict = compareToBudget(
+    { totalGzipBytes: 1000 },
+    { enforce: true, tolerancePct: 10, totalGzipBytes: 1000 },
+  );
   check("compareToBudget: exact baseline is ok", okVerdict.status === "ok" && !okVerdict.isDriftWarning);
 
   const driftVerdict = compareToBudget(
     { totalGzipBytes: 1060 },
     { enforce: true, tolerancePct: 10, warnTolerancePct: 5, totalGzipBytes: 1000 },
   );
-  check("compareToBudget: 6% growth triggers drift warning", driftVerdict.status === "warn" && driftVerdict.isDriftWarning);
+  check(
+    "compareToBudget: 6% growth triggers drift warning",
+    driftVerdict.status === "warn" && driftVerdict.isDriftWarning,
+  );
 
   const failVerdict = compareToBudget(
     { totalGzipBytes: 1150 },
     { enforce: true, tolerancePct: 10, warnTolerancePct: 5, totalGzipBytes: 1000 },
   );
-  check("compareToBudget: 15% growth fails when enforcing", failVerdict.status === "fail" && !failVerdict.isDriftWarning);
+  check(
+    "compareToBudget: 15% growth fails when enforcing",
+    failVerdict.status === "fail" && !failVerdict.isDriftWarning,
+  );
 
   const noBaselineVerdict = compareToBudget({ totalGzipBytes: 1000 }, { enforce: true, totalGzipBytes: null });
-  check("compareToBudget: no baseline warns", noBaselineVerdict.status === "warn" && noBaselineVerdict.baseline === null);
+  check(
+    "compareToBudget: no baseline warns",
+    noBaselineVerdict.status === "warn" && noBaselineVerdict.baseline === null,
+  );
 
   const zeroBaselineOk = compareToBudget({ totalGzipBytes: 0 }, { enforce: true, tolerancePct: 10, totalGzipBytes: 0 });
   check("compareToBudget: zero baseline unchanged is ok", zeroBaselineOk.status === "ok");
 
-  const zeroBaselineGrew = compareToBudget({ totalGzipBytes: 50 }, { enforce: true, tolerancePct: 10, totalGzipBytes: 0 });
+  const zeroBaselineGrew = compareToBudget(
+    { totalGzipBytes: 50 },
+    { enforce: true, tolerancePct: 10, totalGzipBytes: 0 },
+  );
   check("compareToBudget: zero baseline growth fails", zeroBaselineGrew.status === "fail");
 
   // resolveBaselineCommitDistance
@@ -593,7 +608,10 @@ export function selfTest() {
   // clientRouteAndChunkNamesFromManifestSource
   const manifestSrc = 'globalThis.__RSC_MANIFEST["/page"]={"clientModules":{"a":{"chunks":["static/chunks/a.js"]}}};';
   const parsed = clientRouteAndChunkNamesFromManifestSource(manifestSrc);
-  check("clientRouteAndChunkNamesFromManifestSource parses chunks", parsed && parsed.route === "/" && parsed.chunks.has("a.js"));
+  check(
+    "clientRouteAndChunkNamesFromManifestSource parses chunks",
+    parsed && parsed.route === "/" && parsed.chunks.has("a.js"),
+  );
 
   if (failures.length > 0) {
     console.error("[bundle-budget] self-test FAILED:");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import {
   Check,
@@ -94,8 +94,6 @@ function PinIcons({ pin }: { pin: SearchPin }) {
     </span>
   );
 }
-
-
 
 type EditorState = { pinId: string | null; name: string; destinationIds: SearchPinDestinationId[] };
 

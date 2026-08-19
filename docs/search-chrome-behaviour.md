@@ -583,15 +583,20 @@ settled non-zero height before capturing viewport screenshots or asserting verti
 
 ```ts
 // Wait for phone-sticky-header-stack and --phone-overlay-chrome-h to settle
-await expect.poll(async () => {
-  return page.evaluate(() => {
-    const stack = document.querySelector<HTMLElement>(".phone-sticky-header-stack");
-    const reserve = getComputedStyle(document.documentElement).getPropertyValue("--phone-overlay-chrome-h");
-    const stackHeight = stack ? Math.round(stack.getBoundingClientRect().height) : 0;
-    const reservePx = parseFloat(reserve) || 0;
-    return stackHeight > 0 && Math.abs(stackHeight - reservePx) <= 1;
-  });
-}, { message: "expected phone-sticky-header-stack and --phone-overlay-chrome-h to settle" }).toBe(true);
+await expect
+  .poll(
+    async () => {
+      return page.evaluate(() => {
+        const stack = document.querySelector<HTMLElement>(".phone-sticky-header-stack");
+        const reserve = getComputedStyle(document.documentElement).getPropertyValue("--phone-overlay-chrome-h");
+        const stackHeight = stack ? Math.round(stack.getBoundingClientRect().height) : 0;
+        const reservePx = parseFloat(reserve) || 0;
+        return stackHeight > 0 && Math.abs(stackHeight - reservePx) <= 1;
+      });
+    },
+    { message: "expected phone-sticky-header-stack and --phone-overlay-chrome-h to settle" },
+  )
+  .toBe(true);
 ```
 
 **Keep the resting state transform-free — a transform is a containing block.** A

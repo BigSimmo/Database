@@ -233,8 +233,12 @@ describe("shared-search route ownership", () => {
     // Bespoke mode homes (favourites and tools) satisfy Chrome Invariant 15 with pending reserve & min-h tokens
     for (const bespokeSource of [favouritesPageSource, favouritesHubSource, toolsPageSource]) {
       expect(bespokeSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
-      expect(bespokeSource).toContain("data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)]");
-      expect(bespokeSource).toContain("sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)]");
+      expect(bespokeSource).toContain(
+        "data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)]",
+      );
+      expect(bespokeSource).toContain(
+        "sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)]",
+      );
       expect(bespokeSource).toContain("[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)]");
       expect(bespokeSource).toContain("sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]");
     }

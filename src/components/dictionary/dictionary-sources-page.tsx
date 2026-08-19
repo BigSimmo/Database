@@ -84,8 +84,6 @@ function StatTile({ label, value, hint, compact }: { label: string; value: strin
   );
 }
 
-
-
 export function DictionarySourcesPage() {
   const coverage = organisationCoverage();
   const australianSources = dictionarySources.filter((source) => source.region === "Australia").length;

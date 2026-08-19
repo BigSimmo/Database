@@ -698,10 +698,7 @@ function selfTest() {
     ["a newly allocated row", good.replace("| #001 | P2 | a |", "| #001 | P2 | a |\n| #003 | P3 | c |"), []],
     [
       "a Crockford ULID row deleted from both tables",
-      mixedLedger.replace(
-        "| #DREDWA <!-- issue-ulid:01M09A9WXBDREDWA7KN2EB1JRA --> | P2 | Crockford ULID row |\n",
-        "",
-      ),
+      mixedLedger.replace("| #DREDWA <!-- issue-ulid:01M09A9WXBDREDWA7KN2EB1JRA --> | P2 | Crockford ULID row |\n", ""),
       ["#DREDWA"],
     ],
   ];

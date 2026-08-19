@@ -146,23 +146,33 @@ Playwright tests that evaluate DOM offsets (`getBoundingClientRect()`, `offsetTo
 import { expect, type Page } from "@playwright/test";
 
 // Wait for the phone header stack and overlay reserve to settle
-await expect.poll(async () => {
-  return page.evaluate(() => {
-    const stack = document.querySelector<HTMLElement>(".phone-sticky-header-stack");
-    const reserve = getComputedStyle(document.documentElement).getPropertyValue("--phone-overlay-chrome-h");
-    const stackHeight = stack ? Math.round(stack.getBoundingClientRect().height) : 0;
-    const reservePx = parseFloat(reserve) || 0;
-    return stackHeight > 0 && Math.abs(stackHeight - reservePx) <= 1;
-  });
-}, { message: "expected phone-sticky-header-stack and --phone-overlay-chrome-h to settle" }).toBe(true);
+await expect
+  .poll(
+    async () => {
+      return page.evaluate(() => {
+        const stack = document.querySelector<HTMLElement>(".phone-sticky-header-stack");
+        const reserve = getComputedStyle(document.documentElement).getPropertyValue("--phone-overlay-chrome-h");
+        const stackHeight = stack ? Math.round(stack.getBoundingClientRect().height) : 0;
+        const reservePx = parseFloat(reserve) || 0;
+        return stackHeight > 0 && Math.abs(stackHeight - reservePx) <= 1;
+      });
+    },
+    { message: "expected phone-sticky-header-stack and --phone-overlay-chrome-h to settle" },
+  )
+  .toBe(true);
 ```
 
 Or when measuring a specific content element (`main` or `h1`), wait for its vertical offset to stabilize:
 
 ```ts
-await expect.poll(async () => {
-  return page.locator("main, h1").first().evaluate((el) => Math.round(el.getBoundingClientRect().top));
-}).toBeGreaterThan(0);
+await expect
+  .poll(async () => {
+    return page
+      .locator("main, h1")
+      .first()
+      .evaluate((el) => Math.round(el.getBoundingClientRect().top));
+  })
+  .toBeGreaterThan(0);
 ```
 
 ## Visual regression and style contracts
