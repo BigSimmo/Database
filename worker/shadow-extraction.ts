@@ -388,7 +388,11 @@ export const runDoclingShadowScript: ShadowScriptRunner = async (input) => {
         };
         const timer = setTimeout(() => {
           timedOut = true;
-          void terminateProcessTree(child);
+          // Settle once the tree kill has run even if no `close` event follows (finish is
+          // idempotent, so a racing `close` still wins with its real exit code).
+          void terminateProcessTree(child)
+            .catch(() => undefined)
+            .then(() => finish({ exitCode: null, timedOut: true, spawnErrorCode: null }));
         }, input.timeoutMs);
         timer.unref();
         child.stdout?.on("data", () => {

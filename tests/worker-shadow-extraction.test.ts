@@ -467,6 +467,13 @@ describe("worker/main.ts + env + image contract (source text)", () => {
     expect(finalMetadataIndex).toBeGreaterThan(shadowCallIndex);
     expect(finalWriteIndex).toBeGreaterThan(finalMetadataIndex);
     expect(workerMain).toContain('if (env.WORKER_DOCUMENT_EXTRACTOR_MODE === "shadow") {');
+    // Fail-open: the stage update before the shadow run must swallow a lost lease, otherwise
+    // shadow mode could fail a job whose generation is already committed.
+    const shadowStageUpdate = workerMain.slice(
+      workerMain.indexOf('await updateJobProgress(job.id, { stage: "indexed; shadow extraction (docling)"'),
+      workerMain.indexOf("const shadowHeartbeat = setInterval("),
+    );
+    expect(shadowStageUpdate).toMatch(/\.catch\(\s*\(\)\s*=>\s*\{\}\s*,?\s*\)/);
     // The record travels only inside finalMetadata (deep-merged by apply_document_metadata_patch).
     expect(workerMain.match(/shadow_extraction: shadowExtraction/g)).toHaveLength(1);
     expect(workerMain).toContain("...(shadowExtraction ? { shadow_extraction: shadowExtraction } : {})");

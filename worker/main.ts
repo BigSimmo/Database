@@ -1898,7 +1898,9 @@ async function processJob(job: JobRow) {
     // or the document is outside the cohort, in which case nothing is written.
     let shadowExtraction: Awaited<ReturnType<typeof runShadowExtraction>> = null;
     if (env.WORKER_DOCUMENT_EXTRACTOR_MODE === "shadow") {
-      await updateJobProgress(job.id, { stage: "indexed; shadow extraction (docling)", progress: 98 });
+      // Fail-open: updateJobProgress throws on a lost lease, and a lost lease must not fail a
+      // job whose generation is already committed — swallow it exactly like the heartbeat.
+      await updateJobProgress(job.id, { stage: "indexed; shadow extraction (docling)", progress: 98 }).catch(() => {});
       const shadowHeartbeat = setInterval(
         () => {
           updateJobProgress(job.id, { stage: "indexed; shadow extraction (docling)", progress: 98 }).catch(() => {});

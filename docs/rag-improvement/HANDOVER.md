@@ -313,7 +313,7 @@ offline fixtures and validation only`.
 - **Done:** PR open with the harness plus a Gate B decision record template; the benchmark
   verdict itself is a separate owner-reviewed run.
 
-### S7+ — gated packets (do not start without an explicit owner decision)
+### S8+ — gated packets (do not start without an explicit owner decision)
 
 - **B4 Docling shadow** — only after Gate B passes; worker-only,
   `WORKER_DOCUMENT_EXTRACTOR_MODE` default `legacy`; `ingestion-worker-reviewer` subagent
@@ -495,6 +495,6 @@ canary pair …`, Clinical Governance Preflight. Ledger append, HANDOVER S1d row
 
 ---
 
-_When all Track A packets and B0–B3 are merged, revisit §S7+ with the owner: Gate B verdict
-for Docling shadow, whether Ragas/reranker experiments are still wanted, and whether the
-DSPy dataset effort should start._
+_When all Track A packets and B0–B4 are merged, revisit §S8+ with the owner (Gate B verdict
+was PASS 2026-08-18; B4 opened as PR #2170): whether Ragas/reranker experiments are still
+wanted, and whether the DSPy dataset effort should start._
