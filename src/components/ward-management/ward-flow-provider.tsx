@@ -12,7 +12,7 @@ import {
 } from "react";
 
 import type { Instant } from "@/components/ward-management/ward-clock";
-import { wallClockNow } from "@/components/ward-management/ward-clock";
+import { elapsedMinutesSinceMount, wallClockNow } from "@/components/ward-management/ward-clock";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
 import type { Movement, Rejection, Unit } from "@/components/ward-management/ward-model";
@@ -46,12 +46,14 @@ type WardFlowProviderProps = {
 export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps) {
   const [state, dispatch] = useReducer(wardFlowReducer, undefined, seedWardFlowState);
 
-  // `wallClockNow()` is read at most once per mount, and only from here — this is the one
-  // place in the app permitted to call it (see ward-clock.ts). A pinned `initialNow` (tests,
-  // deterministic renders) never touches the wall clock at all. Lazy `useState` initializers
-  // run exactly once, on mount, the same guarantee the brief's ref-based sketch relied on —
-  // but this repo's `react-hooks/refs` lint rule (eslint.config.mjs) forbids reading
-  // `ref.current` back out during render, which the ref version below (`elapsed`) would do.
+  // `wallClockNow()` — the only wall-clock read this component is allowed to make (see
+  // ward-clock.ts) — is called here on every unpinned render, not just once per mount: the
+  // `elapsed` line below calls it again to compute the live offset. A pinned `initialNow`
+  // (tests, deterministic renders) never touches the wall clock at all. `mountedAt` itself is
+  // still captured exactly once, via a lazy `useState` initializer — reading `ref.current`
+  // back out during render (the brief's original ref-based sketch) is what this repo's
+  // `react-hooks/refs` lint rule (eslint.config.mjs) forbids; `useState` gives the same
+  // once-per-mount guarantee without it.
   const [mountedAt] = useState<Instant>(() => initialNow ?? wallClockNow());
 
   // The tick count itself is never read: `setTicks` exists only to force a re-render every
@@ -65,8 +67,11 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
 
   // `ticks` only exists to force a re-render on the interval; the actual elapsed time is
   // recomputed from the wall clock each time so a missed/delayed timer tick still reports the
-  // true elapsed minutes rather than a fixed 30s-per-tick approximation.
-  const elapsed = initialNow !== undefined ? 0 : Math.max(0, wallClockNow() - mountedAt);
+  // true elapsed minutes rather than a fixed 30s-per-tick approximation. A plain subtraction
+  // here would go negative — and silently freeze every deadline on every screen — for any
+  // session left open across midnight, because `wallClockNow()` wraps to 0 at 24:00;
+  // `elapsedMinutesSinceMount` unwraps that rollover.
+  const elapsed = initialNow !== undefined ? 0 : elapsedMinutesSinceMount(mountedAt, wallClockNow());
   const now = NOW_ANCHOR + elapsed + state.clockOffsetMinutes;
 
   const value = useMemo<WardFlowContextValue>(
