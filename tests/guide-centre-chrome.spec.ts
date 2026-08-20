@@ -101,12 +101,32 @@ test.describe("Clinical KB Guide Centre chrome", () => {
     await expect(header).not.toHaveAttribute("inert");
     await expect(dialog.getByRole("button", { name: "Close guide" })).toBeVisible();
 
-    await dialog.getByRole("button", { name: "Ask a better question" }).focus();
-    const tabStopCount = await dialog.locator('button, input, [href], [tabindex]:not([tabindex="-1"])').count();
-    for (let tabIndex = 0; tabIndex <= tabStopCount; tabIndex += 1) {
-      await page.keyboard.press("Tab");
-      await expect.poll(() => footer.evaluate((element) => element.contains(document.activeElement))).toBe(false);
-    }
+    /**
+     * The invariant is that a HIDDEN dock is not keyboard-reachable, and the way
+     * to test it is to try to focus it directly. The old tab sweep could not:
+     * tabbing scrolls the container, and a scroll back up legitimately reveals
+     * the dock. Measured 2026-08-19 at 390x820, the very first Tab already put
+     * `scrollTop` at 0 and `aria-hidden` at "false", so the sweep asserted
+     * against a dock that was correctly visible and focusable every time — it
+     * failed CI while testing nothing. (It is also why pinning `tabIndex={-1}`
+     * on the dock buttons could not fix it.)
+     */
+    const dockWhileHidden = await footer.evaluate((element) => {
+      const button = element.querySelector("button");
+      const before = document.activeElement;
+      button?.focus({ preventScroll: true });
+      return {
+        hidden: element.getAttribute("aria-hidden") === "true",
+        inert: element.hasAttribute("inert"),
+        focusMovedIntoDock: element.contains(document.activeElement),
+        focusMovedAtAll: document.activeElement !== before,
+      };
+    });
+    // Guard the guard: a dock that was not hidden would make the rest vacuous.
+    expect(dockWhileHidden.hidden).toBe(true);
+    expect(dockWhileHidden.inert).toBe(true);
+    expect(dockWhileHidden.focusMovedIntoDock).toBe(false);
+    expect(dockWhileHidden.focusMovedAtAll).toBe(false);
 
     await scrollBody.evaluate((element) => {
       element.scrollTop = 0;
