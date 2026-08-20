@@ -184,57 +184,305 @@ the client publishable key (build-time, app bundle only) or
 
 ### Shadow extraction mode (packet B4 — docling, default OFF)
 
-Authorised by the Gate B PASS of 2026-08-18
-(`docs/rag-improvement/gate-b-decision-record-2026-08-18.md`); design in
-`docs/rag-improvement/README.md` §B4, code in `worker/shadow-extraction.ts` +
-`worker/python/shadow_docling_extract.py`.
-
-- **What it does.** With `WORKER_DOCUMENT_EXTRACTOR_MODE=shadow`, after a job's legacy
-  index generation has been **committed**, docling additionally parses the same PDF on a
-  deterministic cohort (`WORKER_SHADOW_EXTRACTION_COHORT_PERCENT`, default 2 % of PDFs whose
-  index-quality signals flag tables, OCR, or unrecovered layout) and writes one aggregate,
-  numbers-only record to `documents.metadata.shadow_extraction` (page / character / table /
-  cell / numeric-token counts, wall ms, peak RSS, outcome, deltas vs legacy). Nothing else
-  changes: no chunks, embeddings, index units, table facts, or `document_index_quality`
-  rows are written by the shadow path, and search/ranking never read the record.
-- **What ships in the image.** `Dockerfile.worker` builds a second venv
-  `/opt/docling-venv` from the Gate B lab lock (`eval/docling/requirements.txt`,
-  `docling==2.120.2`, CPU-only torch) and bakes docling's models into
-  `/opt/docling-models`; the image sets `WORKER_DOCLING_PYTHON_BIN`,
-  `DOCLING_ARTIFACTS_PATH`, `TORCHDYNAMO_DISABLE=1` (eager torch — the image has no C++
-  toolchain) and `HF_HUB_OFFLINE=1` (no run-time model fetch). The image is several GB
-  larger and the build ~10 min longer than before B4. `validate-runtime` proves the
-  docling venv at every build.
-- **Preconditions before enabling (operator).** (1) Memory headroom: docling peaked at
-  ~1.4 GiB in the Gate B lab; the worker service must have that above its legacy
-  baseline, because a container OOM kill during the ≤ 120 s docling window is the one
-  failure the fail-open code cannot catch (the index is already committed, but the job
-  would sit `processing` until the 45-min reclaim and burn an attempt). Railway worker
-  CPU/RAM are not recorded in-repo — confirm in the dashboard. (2) Expected cost at 2 %:
-  ≤ ~57 cohort documents per full reindex, each ≤ 120 s (documents over 40 pages are
-  recorded as `skipped_page_cap`, never run; at most one docling process per worker).
-- **Enable.** Set `WORKER_DOCUMENT_EXTRACTOR_MODE=shadow` (optionally
-  `WORKER_SHADOW_EXTRACTION_COHORT_PERCENT=1..5`) on the Railway `worker` service and
-  redeploy. Startup logs show `Docling shadow extraction enabled (packet B4)`; a
-  `Docling shadow prerequisite warning` means the venv is missing and every cohort
-  document will record `runtime_unavailable` — fix the image, the legacy path is
-  unaffected.
-- **Observe.** `documents.metadata->'shadow_extraction'` per cohort document: `outcome`
-  (`ok`, `extraction_failed`, `timeout`, `runtime_unavailable`, `process_error`,
-  `skipped_page_cap`, `skipped_concurrent`), `wall_ms`, `peak_rss_bytes`, `docling` /
-  `legacy` / `delta` counts, `cohort_signals`, `index_generation_id`. Reading live rows is
-  a provider action — approve it explicitly.
-- **Kill switch / rollback.** Set `WORKER_DOCUMENT_EXTRACTOR_MODE=legacy` (or unset) and
-  redeploy. No migration, no reindex; existing `shadow_extraction` records stay on their
-  rows as inert history.
-- **Gate B caveats that still bind.** The table-heavy leg passed at parity-on-ceiling, so
-  shadow numbers must not be read as a table-quality promotion argument until
-  `docling-lab-fixtures.v2` exists; and docling's eager-mode latency is why the cohort is
-  bounded three ways above.
+`WORKER_DOCUMENT_EXTRACTOR_MODE`, `WORKER_SHADOW_EXTRACTION_COHORT_PERCENT` and
+`WORKER_DOCLING_PYTHON_BIN` are documented in full in [§3](#3-docling-shadow-extraction-packet-b4--default-off):
+preconditions, safe values, the cost cap, what to watch, and the one-step rollback. The
+shipped default is `legacy` and nothing in this run recipe enables it.
 
 ---
 
-## 3. Verify
+## 3. Docling shadow extraction (packet B4 — default OFF)
+
+Shadow extraction runs the **docling** parser a second time over a small cohort of PDFs that
+have _already been indexed by the legacy extractor_, and records numbers comparing the two.
+It is a measurement facility. It does not change how any document is indexed, retrieved, or
+answered.
+
+Authorised by the Gate B PASS of 2026-08-18
+([`rag-improvement/gate-b-decision-record-2026-08-18.md`](rag-improvement/gate-b-decision-record-2026-08-18.md));
+design in [`rag-improvement/README.md`](rag-improvement/README.md) §B4; implementation in
+`worker/shadow-extraction.ts` + `worker/python/shadow_docling_extract.py` (PR #2170, squash
+`5437c309f`), pinned by `tests/worker-shadow-extraction.test.ts`.
+
+This section is the **Gate F** artifact for B4 (README §Gates A–F: _flag, one-step rollback,
+runbook, cost cap, redacted telemetry_). Enabling shadow mode is an operator action on the
+Railway `worker` service — nothing in the repository turns it on, and the shipped default is
+`legacy`.
+
+### 3.1 What it does, and what it never writes
+
+Per ingestion job, in `worker/main.ts` → `processJob`:
+
+1. The legacy extractor runs and the index generation is **committed**
+   (`commit_document_index_generation`). The live index is complete at this point and does
+   not depend on anything below.
+2. Only if `WORKER_DOCUMENT_EXTRACTOR_MODE=shadow`, the cohort predicate runs. A document is
+   selected when **all three** hold: it is a PDF; its index-quality assessment carries at
+   least one of the `tables` / `ocr` / `layout` signals; and its deterministic bucket
+   (`sha256("docling-shadow-v1:<document id>")`, first 32 bits mod 100) is below the
+   configured percentage.
+3. Docling parses the same file in a separate process from `/opt/docling-venv`, bounded by
+   the caps in §3.4.
+4. One aggregate record is merged into `documents.metadata.shadow_extraction` on the
+   existing worker-owned metadata write — no new write site.
+
+**What it never writes.** No chunk, embedding, index unit, table fact,
+`document_index_quality` row, page row, or image is written by the shadow path, and no
+existing artifact is modified. It adds **no writer and no state transition** to the ingestion
+state machine ([`ingestion-state-machine.md`](ingestion-state-machine.md) §2, W1). Search,
+retrieval, and ranking never read the record. `runShadowExtraction` cannot throw: any
+internal failure, spawn failure, or timeout becomes a recorded outcome or a skipped run,
+never a failed job.
+
+**Redacted by construction.** The record holds numbers, `null`, and a fixed vocabulary of
+short strings (outcome, docling version, an exception class name). The Python runner never
+emits extracted text, table cells, or file names; the Node side validates the payload against
+a numbers-only schema that **strips unknown keys**, so extracted content cannot reach
+`documents.metadata` even if the runner changed. Subprocess stdout is discarded; only a
+bounded stderr tail reaches a warning log, through `safeErrorLogDetails`.
+
+**Retrieval is not delayed; the queue is.** `commit_document_index_generation` sets
+`documents.status = 'indexed'` as part of the commit in step 1, before the shadow window
+opens, so a cohort document is retrievable throughout it — there is no user-facing search
+delay to look for. What is delayed is the **ingestion job**: it stays `processing` for the
+duration of the docling run (up to 120 s) before the final metadata merge and
+`complete_ingestion_job`. So the effect is on queue drain rate and on `jobs_processing` /
+`jobs_pending`, which is why §3.6 watches those and not answer latency.
+
+### 3.2 Preconditions before enabling
+
+1. **The running image must be built from `main` at or after PR #2170 (`5437c309f`).** That
+   build adds the second venv `/opt/docling-venv` (from the Gate B lab's hashed lock,
+   `docling==2.120.2`, CPU-only torch), bakes docling's models into `/opt/docling-models`,
+   and sets `WORKER_DOCLING_PYTHON_BIN`, `DOCLING_ARTIFACTS_PATH`, `TORCHDYNAMO_DISABLE=1`
+   and `HF_HUB_OFFLINE=1`. On an older image that variable is unset and **every** cohort
+   document records `runtime_unavailable` while legacy indexing continues normally.
+2. **Memory headroom of roughly 1.5 GiB above the worker's current peak.** Gate B measured
+   docling peak RSS **1,504,313,344 B (~1.40 GiB)** against the lab's 6 GiB cap. Docling runs
+   as a _separate_ process while the Node worker still holds the PDF buffer, so what matters
+   is headroom above today's peak, not a total figure. **How to check:** Railway → project
+   `Database` → `worker` service → **Metrics** → memory across a busy ingest window, and the
+   service's memory limit under the current plan. Neither the limit nor the observed peak is
+   recorded in this repository; reading them is an operator dashboard action. This is the
+   precondition that matters most, because a container OOM kill during the docling window is
+   the one failure the fail-open code cannot catch — the index is already committed, but the
+   job would sit `processing` until the 45-minute stale reclaim
+   (`WORKER_STALE_AFTER_MINUTES`) and burn an attempt.
+3. **Confirm `WORKER_CONCURRENCY` is 1** (the shipped default). At most one docling process
+   runs per worker regardless of concurrency; with concurrency above 1 the extra cohort hits
+   record `skipped_concurrent` instead of measuring anything.
+4. **Have a way to read `documents.metadata`.** There is no npm script that reads, exports, or
+   clears these records. The read is a Supabase SQL-editor or dashboard action against the
+   live project, and is provider access requiring explicit approval each time.
+5. **Expect ingestion traffic.** Records are written only when a document is indexed or
+   reindexed; shadow mode never backfills. A quiet queue produces zero records, and that is
+   not a fault.
+
+### 3.3 The variables and their safe values
+
+| Variable                                  | Safe value                                                | Contract (`src/lib/env.ts`)                                                                                |
+| ----------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `WORKER_DOCUMENT_EXTRACTOR_MODE`          | `legacy` (shipped default) → `shadow` to enable           | enum `legacy` \| `shadow`; parsed **once at process start**, so a change needs a restart                   |
+| `WORKER_SHADOW_EXTRACTION_COHORT_PERCENT` | `2`                                                       | integer, **min 1 / max 5**; a value outside that window fails env validation and the worker will not start |
+| `WORKER_DOCLING_PYTHON_BIN`               | leave as the image default `/opt/docling-venv/bin/python` | set by `Dockerfile.worker`; unset ⇒ shadow records `runtime_unavailable` without spawning anything         |
+
+**Why 2 is the approved starting value.** It is the owner-approved default recorded in
+`src/lib/env.ts` and `.env.example`, and the bottom of the 1–5 % window README §B4
+authorises. Two properties make it the right place to start rather than a compromise:
+
+- The cohort is **deterministic and salted** (`docling-shadow-v1`), and the predicate is
+  `bucket < percent`. Raising 2 → 3 → 5 later is therefore additive rather than disruptive:
+  it never re-rolls the cohort, and every measurement already taken stays valid and stays in
+  the cohort. Starting low does not throw away work.
+  **But it is not free.** Shadow mode never backfills (§3.2, precondition 5), so documents in
+  the newly included buckets are measured only when they are next ingested or **reindexed**.
+  Widening the sample across the existing corpus therefore costs a reindex of those
+  documents, and until one runs the larger cohort exists on paper but not in the data. Decide
+  deliberately: start at 2 for the safety of a small blast radius, and treat a later increase
+  as a reindex decision, not a variable edit.
+- The selection is even: at `percent = 2` the bucket predicate picks 1.5–2.5 % of document
+  ids across a 20,000-id sample (pinned by `tests/worker-shadow-extraction.test.ts`).
+
+**What 5 would cost** is the table below — roughly 2.5× the cohort, the added worker time,
+and the memory exposure, for the same per-document bounds.
+
+### 3.4 Cost and throughput cap
+
+Measured inputs, from the Gate B decision record (2026-08-18):
+
+- docling **~9–19 s/doc on 2 CPUs**, against legacy's **~1 s/doc**;
+- highest recorded P95 wall time **12,558 ms**; max peak RSS **1,504,313,344 B**.
+
+Hard bounds in `worker/shadow-extraction.ts` — these constants **are** the cost cap:
+
+- **120,000 ms** per document, after which the process tree is killed and the run is recorded
+  as `timeout`;
+- **40 pages** — a longer document is recorded as `skipped_page_cap` and never run;
+- **one docling process per worker** at a time.
+
+Corpus size for the projections: **2851 documents** (measured 2026-08-19, recorded against
+ledger `#1K6T35`).
+
+|                                                | 2 % (approved start) | 5 % (top of the authorised window) |
+| ---------------------------------------------- | -------------------- | ---------------------------------- |
+| Cohort per full pass over the corpus           | ≤ ~57 documents      | ≤ ~142 documents                   |
+| Added worker time at the Gate B 9–19 s band    | ~9–18 min            | ~21–45 min                         |
+| Added worker time at the 120 s timeout ceiling | ≤ ~114 min           | ≤ ~284 min (~4.7 h)                |
+| Added time per **non-cohort** document         | 0                    | 0                                  |
+| Added time per **cohort** document             | ≤ 120 s              | ≤ 120 s                            |
+
+Three qualifications, all of which matter:
+
+- **Plan against the ceiling row, not the band.** The 9–19 s figures were measured on small
+  lab fixtures; `worker/shadow-extraction.ts` says so in as many words, and that is why the
+  40-page cap exists. Real guideline PDFs are longer, so treat 9–19 s as a floor rather than a
+  forecast.
+- **Both cohort counts are upper bounds.** The real cohort is the subset of bucket hits that
+  are PDFs **and** carry a `tables` / `ocr` / `layout` signal, so it will be smaller.
+- **This is added _extraction_ time only.** What proportion of a full reindex's wall clock it
+  represents is not derivable from this repository — per-document embedding, OCR, and
+  captioning times are not measured here.
+
+Do not buy more measurements by raising the cohort above 5, or by lengthening
+`SHADOW_EXTRACTION_TIMEOUT_MS` or `SHADOW_EXTRACTION_MAX_PAGES`. Those are code changes
+outside the Gate B authorisation, and they are the cap this section exists to state.
+
+### 3.5 Enabling
+
+1. Work through every precondition in §3.2 first.
+2. On the Railway `worker` service (project `Database`, production environment) set:
+
+   ```text
+   WORKER_DOCUMENT_EXTRACTOR_MODE=shadow
+   ```
+
+   Leave `WORKER_SHADOW_EXTRACTION_COHORT_PERCENT` unset (it defaults to `2`) or set it to `2`
+   explicitly. Leave `WORKER_DOCLING_PYTHON_BIN` alone — the image sets it.
+
+3. Redeploy or restart the service so the new environment is parsed.
+4. Confirm the startup line in the worker logs:
+
+   ```text
+   Docling shadow extraction enabled (packet B4): cohort 2% of index-quality-selected PDFs after legacy commit; aggregate metadata only. Rollback: WORKER_DOCUMENT_EXTRACTOR_MODE=legacy.
+   ```
+
+   A following `Docling shadow prerequisite warning (shadow extraction will fail open): …`
+   means the docling venv is missing or broken: legacy indexing is unaffected, but every
+   cohort document will record `runtime_unavailable` until the image is rebuilt. That probe is
+   bounded at 120 s, so a broken venv delays worker start by up to two minutes and never fails
+   it.
+
+### 3.6 What to watch in the first 24 hours
+
+**Three places to look.**
+
+1. **Worker logs.** The startup line above; a
+   `Shadow extraction outcome=… exit_code=… wall_ms=…` warning for every non-`ok` run; and
+   the job progress stage `indexed; shadow extraction (docling)` at 98 %, which is the shadow
+   window itself.
+2. **Queue health** — `npm run reindex:health` (provider access; approve it explicitly).
+   `jobs_pending` must keep draining exactly as it did before the change. This is the signal
+   that matters most in the first hours.
+3. **The aggregate record**, `documents.metadata->'shadow_extraction'`. There is no script for
+   this; read it in the Supabase SQL editor (read-only, provider access, approve each time):
+
+   ```sql
+   select
+     d.metadata->'shadow_extraction'->>'outcome'                        as outcome,
+     count(*)                                                           as documents,
+     max((d.metadata->'shadow_extraction'->>'wall_ms')::numeric)        as max_wall_ms,
+     max((d.metadata->'shadow_extraction'->>'peak_rss_bytes')::numeric) as max_peak_rss_bytes
+   from public.documents d
+   where d.metadata ? 'shadow_extraction'
+     and (d.metadata->'shadow_extraction'->>'measured_at')::timestamptz > now() - interval '24 hours'
+   group by 1
+   order by documents desc;
+   ```
+
+**Expected volume.** Roughly one record per 50 signalled PDFs ingested; at most ~57 records if
+a full reindex is run (§3.4). Zero records on a quiet queue is normal.
+
+**What "healthy" looks like.**
+
+| Field                             | Healthy                                                         | Investigate                                                                                      |
+| --------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `outcome` = `ok`                  | the large majority of records                                   | —                                                                                                |
+| `outcome` = `runtime_unavailable` | **0**                                                           | any → the running image has no working docling venv (§3.2 precondition 1)                        |
+| `outcome` = `process_error`       | **0**                                                           | any → a crash outside the two clean exit codes                                                   |
+| `outcome` = `skipped_concurrent`  | **0** at `WORKER_CONCURRENCY=1`                                 | any → two jobs raced the single docling slot; expected only if concurrency was raised            |
+| `outcome` = `timeout`             | rare                                                            | sustained → real PDFs far exceed the Gate B profile and the §3.4 budget no longer holds          |
+| `outcome` = `skipped_page_cap`    | some, routinely                                                 | not a fault — documents over 40 pages are recorded, never run                                    |
+| `wall_ms`                         | seconds to low tens of seconds (Gate B highest P95 12,558 ms)   | a p95 approaching 120,000                                                                        |
+| `peak_rss_bytes`                  | around **1.4 GiB** (Gate B max 1,504,313,344 B)                 | sustained above ~2 GiB → the headroom confirmed in §3.2 no longer covers it                      |
+| `delta.page_count`                | **0**                                                           | non-zero → the two engines disagree on page count for the same file                              |
+| `delta.text_character_ratio`      | near **1.0**                                                    | well below 1.0 → docling recovered materially less text than legacy on real documents            |
+| `delta.numeric_token_ratio`       | near **1.0** (Gate B was exact parity, 162/162 assertions both) | a drop is precisely the measurement this packet exists to collect — record it, do not act on one |
+| `delta.table_count`               | may be positive                                                 | **not** a promotion argument — see §3.8                                                          |
+
+`wall_ms` and `peak_rss_bytes` are the two fields that decide whether the cost model in §3.4
+survived contact with the real corpus. Read them first.
+
+### 3.7 Rollback triggers and the one-step rollback
+
+**Roll back immediately, diagnose afterwards, if any of these occur.**
+
+1. The worker container OOM-kills or enters a restart loop after the change (§3.2 precondition
+   2 — this is the failure the fail-open code cannot catch).
+2. `jobs_pending` stops falling, or rises, across a normal ingest window.
+3. Any ingestion job fails and shadow extraction is the only change. Shadow is fail-open by
+   contract, so a job failure attributable to it means that contract is broken.
+
+**Roll back at the next convenient moment** (legacy indexing is unaffected in all three):
+
+4. Every cohort record shows `runtime_unavailable` — the image is wrong, and shadow mode is
+   producing nothing while still costing a process spawn per cohort document.
+5. Sustained `timeout` outcomes. **Proposed operating rule, not a measured threshold:** more
+   than 10 % of cohort runs timing out over the window. Nothing in the repository fixes this
+   number; agree it with the owner or replace it.
+6. `peak_rss_bytes` sustained above the headroom confirmed in §3.2.
+
+**The one-step rollback.** On the Railway `worker` service, set:
+
+```text
+WORKER_DOCUMENT_EXTRACTOR_MODE=legacy
+```
+
+Deleting the variable entirely is equivalent — the schema default is `legacy`.
+
+**Time to take effect.** The mode is parsed once at process start, so it applies from the next
+worker restart. The container sets `STOPSIGNAL SIGTERM` and drains its active batch before
+exiting 0 (§1), so the worst-case worker-side delay is the current batch plus at most one
+120-second docling window. Railway's own behaviour on a variable change — restart versus a
+full rebuild — is **not** recorded in this repository; confirm it in the dashboard, and budget
+for a rebuild if that is what it does. No migration, no reindex, and no code or image change
+is required.
+
+Existing `shadow_extraction` records stay on their document rows as inert history. Nothing
+reads them, and nothing in the repository clears them.
+
+### 3.8 What this evidence may not be used for
+
+**No promotion argument based on table quality may be made from shadow numbers until
+`docling-lab-fixtures.v2` lands.** This is a binding caveat carried by the Gate B PASS itself:
+the table-heavy leg passed at _parity-on-ceiling_, not by a demonstrated gain, because every
+table fixture in `docling-lab-fixtures.v1` is cleanly ruled and puts **both** engines at cell
+F1 1.0. A corpus that cannot separate the two engines cannot support a claim that one is
+better.
+
+`delta.table_count` in the shadow record is a count of detected tables, not a quality measure,
+and a positive delta says nothing about whether the extra tables are correct.
+
+The v2 hardness corpus — unruled tables, merged and spanning cells, rotated headers, with
+exact number/unit/comparator checks — is queued as issue request `a20fc4ce` under
+`docs/outstanding-issues-inbox/` (P3, raised 2026-08-19). Until that lab re-run is recorded,
+shadow numbers are measurements and nothing more.
+
+The second Gate B caveat is already load-bearing above: docling's eager-mode latency of
+9–19 s/doc is why the cohort is bounded three ways in §3.4.
+
+---
+
+## 4. Verify
 
 1. **Startup.** Logs show `Clinical KB worker started. worker=<id>`. If a
    `PDF/OCR prerequisite warning` appears, the Python/Tesseract layer did not
@@ -265,7 +513,7 @@ Authorised by the Gate B PASS of 2026-08-18
 
 ---
 
-## 4. Troubleshooting & environment notes
+## 5. Troubleshooting & environment notes
 
 - **Strict Node 24 web container engines (#334):** Package manifests enforce
   strict Node 24 (`>=24.15.0 <25`) and npm 11 engines. If a web container
@@ -282,6 +530,9 @@ Authorised by the Gate B PASS of 2026-08-18
 ---
 
 ## Rollback
+
+This section is the **image** rollback. To turn off docling shadow extraction without
+changing the image, use the one-step flag rollback in §3.7 instead.
 
 Redeploy the previous image tag. The worker holds no durable local state; all
 artifact writes are idempotent per generation/chunk-key, and completion is
