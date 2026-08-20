@@ -280,6 +280,7 @@
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/detail-screen.tsx",
@@ -295,6 +296,7 @@
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/detail-screen.tsx",
@@ -510,11 +512,13 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/answer/AnswerFooter.tsx",
+        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/ui/retrieval-state-banner.tsx",
         "src/components/ui/verification-notice.tsx"
       ],
       "productImportFiles": [
         "src/components/answer/AnswerFooter.tsx",
+        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/ui/retrieval-state-banner.tsx",
         "src/components/ui/verification-notice.tsx"
       ],
@@ -559,6 +563,7 @@
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
         "tests/medication-interaction-surfaces.dom.test.tsx",
+        "tests/privacy-ui.test.ts",
         "tests/ui-forms-section-nav.spec.ts",
         "tests/ui-v2-components.dom.test.tsx"
       ],
@@ -1153,6 +1158,7 @@
       "directImportFiles": [
         "src/components/dsm/dsm-page-header.tsx",
         "src/components/information-page-shell.tsx",
+        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/detail-screen.tsx",
@@ -1165,6 +1171,7 @@
       "productImportFiles": [
         "src/components/dsm/dsm-page-header.tsx",
         "src/components/information-page-shell.tsx",
+        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/detail-screen.tsx",
