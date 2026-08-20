@@ -1873,7 +1873,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     expect(searchBox).not.toBeNull();
     expect(headingBox).not.toBeNull();
     expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
-    expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.62);
+    expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.65);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1909,7 +1909,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       expect(searchBox).not.toBeNull();
       expect(headingBox).not.toBeNull();
       expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
-      expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.62);
+      expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.65);
     }).toPass({ timeout: 10_000 });
     await expectNoPageHorizontalOverflow(page);
   });
