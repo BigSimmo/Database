@@ -4105,7 +4105,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
       expect(Math.max(...actionGeometry.widths) - Math.min(...actionGeometry.widths)).toBeLessThanOrEqual(1);
       expect(actionGeometry.actionFontSize).toBe(actionGeometry.expectedActionFontSize);
       expect(actionGeometry.actionDirection).toBe("row");
-      expect(actionGeometry.actionFontWeight).toBe("800");
+      // 600, not 800. The result cards spend hierarchy on size and space rather
+      // than weight (one accent per card), so the action rail reads at the same
+      // semibold as the title above it. Still pinned: an un-weighted action rail
+      // is what this assertion exists to catch.
+      expect(actionGeometry.actionFontWeight).toBe("600");
       for (const action of await documentResults.getByTestId("document-result-actions").locator(":scope > *").all()) {
         await expectMinTouchTarget(action, 48);
       }
