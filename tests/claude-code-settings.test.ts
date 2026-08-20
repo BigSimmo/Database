@@ -86,6 +86,13 @@ describe("claude code permissions", () => {
       expect(deny, `${target} must stay denied — a staging key leaked on 2026-08-18`).toContain(target);
     }
   });
+
+  it("soft-denies live supabase inspection in auto mode", () => {
+    const allow = (settings.autoMode?.allow ?? []) as string[];
+    const softDeny = (settings.autoMode?.soft_deny ?? []) as string[];
+    expect(allow.some((rule) => rule.includes("supabase"))).toBe(false);
+    expect(softDeny.some((rule) => rule.includes("supabase migration list"))).toBe(true);
+  });
 });
 
 describe("claude hook registrations", () => {
