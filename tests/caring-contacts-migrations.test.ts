@@ -409,16 +409,14 @@ describe("the workspace schema", () => {
       );
       await client.query(
         `insert into caring_contacts.service_state
-           (stopped, stopped_by, stopped_at, reported_by_team_id, stop_id, stopped_reason, stop_note, updated_at)
-         values (true, 'ACTOR-RESPONDER', now(), $1, $2, 'wrong-recipient', 'A message reached the wrong number.', now())
+           (stopped, stopped_by, stopped_at, reported_by_team_id, stop_id, updated_at)
+         values (true, 'ACTOR-RESPONDER', now(), $1, $2, now())
          on conflict (singleton) do update set
            stopped = true,
            stopped_by = excluded.stopped_by,
            stopped_at = excluded.stopped_at,
            reported_by_team_id = excluded.reported_by_team_id,
            stop_id = excluded.stop_id,
-           stopped_reason = excluded.stopped_reason,
-           stop_note = excluded.stop_note,
            updated_at = excluded.updated_at`,
         [teamId, stopId],
       );
@@ -439,7 +437,7 @@ describe("the workspace schema", () => {
       });
       await client.query(
         `update caring_contacts.service_state
-         set stopped = false, stop_id = null, stopped_reason = null, stop_note = null, updated_at = now()`,
+         set stopped = false, stop_id = null, updated_at = now()`,
       );
       // `restarted_at` is the ONLY field of a recorded incident that ever changes.
       await client.query("update caring_contacts.service_stops set restarted_at = now() where stop_id = $1", [stopId]);
@@ -623,8 +621,8 @@ describe("the workspace schema", () => {
         runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, (client) =>
           client.query(
             `insert into caring_contacts.service_state
-               (stopped, stopped_by, stopped_at, reported_by_team_id, stop_id, stopped_reason)
-             values (true, 'ACTOR-OTHER', now(), $1, $2, 'duplicate-send')`,
+               (stopped, stopped_by, stopped_at, reported_by_team_id, stop_id)
+             values (true, 'ACTOR-OTHER', now(), $1, $2)`,
             [TEAM_NORTH, STOP_TWO],
           ),
         ),
@@ -638,8 +636,8 @@ describe("the workspace schema", () => {
         runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, (client) =>
           client.query(
             `insert into caring_contacts.service_state
-               (singleton, stopped, stopped_by, stopped_at, reported_by_team_id, stop_id, stopped_reason)
-             values (false, true, 'ACTOR-OTHER', now(), $1, $2, 'duplicate-send')`,
+               (singleton, stopped, stopped_by, stopped_at, reported_by_team_id, stop_id)
+             values (false, true, 'ACTOR-OTHER', now(), $1, $2)`,
             [TEAM_NORTH, STOP_TWO],
           ),
         ),
@@ -1040,6 +1038,99 @@ describe("the workspace schema", () => {
 
       expect(mine.map((row) => row.actor_id)).toEqual(["ACTOR-NORTH"]);
       expect(theirs).toEqual([]);
+    });
+  });
+
+  describe("a recorded incident cannot be rewritten", () => {
+    // `service_stops` is the durable record of safety incidents, and `audit-integrity-loss` is
+    // itself one of the five stop reasons — so a history table whose closed rows can be silently
+    // rewritten undercuts the very thing it was added for. Immutable by convention plus a primary
+    // key is not the standard this schema holds anywhere else.
+    async function updateIncident(teamId: string, stopId: string, setClause: string): Promise<void> {
+      await runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
+        await insertAuditEvent(client, {
+          teamId,
+          actorId: "ACTOR-RESPONDER",
+          actorRoles: ["teamLead"],
+          action: "updateServiceStop",
+          objectType: "service",
+          objectId: stopId,
+          outcome: "allowed",
+          idempotencyKey: `update-${stopId}`,
+        });
+        await client.query(`update caring_contacts.service_stops set ${setClause} where stop_id = $1`, [stopId]);
+      });
+    }
+
+    beforeEach(async () => {
+      await recordStop(TEAM_NORTH, STOP_ONE);
+    });
+
+    it("refuses a rewrite of the reason the incident was recorded under", async () => {
+      // A valid reason, so the five-value check cannot fire first and answer a different question.
+      await expect(updateIncident(TEAM_NORTH, STOP_ONE, "reason = 'duplicate-send'")).rejects.toThrow(
+        /caring-contacts-service-stop-immutable/,
+      );
+
+      const { rows } = await pool.query<{ reason: string }>(
+        "select reason from caring_contacts.service_stops where stop_id = $1",
+        [STOP_ONE],
+      );
+      expect(rows[0].reason).toBe("wrong-recipient");
+    });
+
+    it("refuses a rewrite of who recorded the incident", async () => {
+      await expect(updateIncident(TEAM_NORTH, STOP_ONE, "stopped_by = 'ACTOR-SOMEBODY-ELSE'")).rejects.toThrow(
+        /caring-contacts-service-stop-immutable/,
+      );
+    });
+
+    it("refuses a rewrite of the responder's note", async () => {
+      await expect(updateIncident(TEAM_NORTH, STOP_ONE, "note = 'Nothing happened.'")).rejects.toThrow(
+        /caring-contacts-service-stop-immutable/,
+      );
+    });
+
+    it("still lets the restart be recorded against it", async () => {
+      // The one field of a recorded incident that is meant to change.
+      await expect(updateIncident(TEAM_NORTH, STOP_ONE, "restarted_at = now()")).resolves.toBeUndefined();
+
+      const { rows } = await pool.query<{ restarted_at: string | null }>(
+        "select restarted_at from caring_contacts.service_stops where stop_id = $1",
+        [STOP_ONE],
+      );
+      expect(rows[0].restarted_at).not.toBeNull();
+    });
+  });
+
+  describe("the current incident's reason and note are held in exactly one place", () => {
+    it("reports a stopped state's reason and note through the incident row", async () => {
+      await recordStop(TEAM_NORTH, STOP_ONE);
+
+      // Read from a DIFFERENT team, so this also re-proves the service-wide policy reaches the
+      // join every screen will make.
+      const rows = await runInTeamSession(pool, { teamId: TEAM_SOUTH }, async (client) => {
+        const result = await client.query<{ stopped: boolean; reason: string; note: string }>(
+          `select s.stopped, i.reason, i.note
+           from caring_contacts.service_state s
+           join caring_contacts.service_stops i on i.stop_id = s.stop_id`,
+        );
+        return result.rows;
+      });
+
+      expect(rows).toEqual([{ stopped: true, reason: "wrong-recipient", note: "A message reached the wrong number." }]);
+    });
+
+    it("keeps NO second copy of the reason or note on the singleton", async () => {
+      // Two copies of a safety incident's reason can drift, and the worst place for that to
+      // surface is the banner rendering the stale one on every screen. There is no constraint
+      // policing the two copies because there is only one copy.
+      const { rows } = await pool.query<{ column_name: string }>(
+        `select column_name from information_schema.columns
+         where table_schema = 'caring_contacts' and table_name = 'service_state'
+           and column_name in ('stopped_reason', 'stop_note')`,
+      );
+      expect(rows).toEqual([]);
     });
   });
 });

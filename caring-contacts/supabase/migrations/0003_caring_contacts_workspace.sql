@@ -26,7 +26,8 @@
 --     CASCADE -- silently rewrite the first incident's three approvals onto the new stop and
 --     present a brand-new live incident as already three-person approved. Immutable incident rows
 --     move that guarantee out of "the store must remember a WHERE clause" and into "the schema
---     cannot express the wrong thing".
+--     cannot express the wrong thing". Immutability is enforced by a trigger, not by convention,
+--     and `service_stops` is also the SINGLE place the current incident's reason and note live.
 --
 --   * RESTART APPROVALS ARE KEYED ON THE STOP, NEVER ON THE TEAM. Three roles held by three
 --     different people must approve a restart. Keyed on the team, the approvals recorded for a
@@ -110,6 +111,36 @@ create table if not exists caring_contacts.service_stops (
   )
 );
 
+-- Only `restarted_at` may ever change. Enforced rather than left to convention: this table is the
+-- durable record of safety incidents, and `audit-integrity-loss` is itself one of the five stop
+-- reasons -- a history whose closed rows can be silently rewritten undercuts the very thing it
+-- was added for. The primary key alone only guarantees that a stop_id is never reused; it says
+-- nothing about the reason or the responder recorded against it.
+create or replace function caring_contacts.assert_service_stop_immutable()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.stop_id is distinct from old.stop_id
+    or new.reason is distinct from old.reason
+    or new.note is distinct from old.note
+    or new.stopped_by is distinct from old.stopped_by
+    or new.stopped_at is distinct from old.stopped_at
+    or new.reported_by_team_id is distinct from old.reported_by_team_id
+  then
+    raise exception
+      'caring-contacts-service-stop-immutable: a recorded incident may only change its restarted_at';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists service_stops_immutable on caring_contacts.service_stops;
+create trigger service_stops_immutable
+  before update on caring_contacts.service_stops
+  for each row execute function caring_contacts.assert_service_stop_immutable();
+
 -- Convert the per-team table into a singleton. Guarded on the old column so a replay, where the
 -- rename has already happened, is a no-op.
 do $$
@@ -130,12 +161,18 @@ $$;
 
 alter table caring_contacts.service_state add column if not exists singleton boolean not null default true;
 alter table caring_contacts.service_state add column if not exists stop_id uuid;
-alter table caring_contacts.service_state add column if not exists stopped_reason text;
-alter table caring_contacts.service_state add column if not exists stop_note text;
 
 -- Superseded by service_restart_approvals: a single text column could only ever hold one name,
 -- which is the single-person restart the three-role rule exists to make impossible.
 alter table caring_contacts.service_state drop column if exists restart_approved_by;
+
+-- The current incident's reason and note live ONCE, on `service_stops`, reached by `stop_id`.
+-- They were briefly held here as well; two copies of a safety incident's reason can drift, and
+-- the worst place for that to surface is the banner rendering the stale one on every screen.
+-- Removing the duplication needs no constraint to police it. Dropping these columns also drops
+-- the checks that named them, which is why the narrowed check is (re)added below.
+alter table caring_contacts.service_state drop column if exists stopped_reason;
+alter table caring_contacts.service_state drop column if exists stop_note;
 
 select caring_contacts.add_constraint_if_absent(
   'service_state', 'service_state_is_singleton', 'check (singleton)'
@@ -143,31 +180,20 @@ select caring_contacts.add_constraint_if_absent(
 select caring_contacts.add_constraint_if_absent(
   'service_state', 'service_state_pkey', 'primary key (singleton)'
 );
--- The five categorised reasons, copied verbatim from `ServiceStopReason` in
--- src/lib/caring-contacts/service-state.ts.
-select caring_contacts.add_constraint_if_absent(
-  'service_state',
-  'service_state_stopped_reason_is_known',
-  $def$check (
-    stopped_reason is null or stopped_reason in (
-      'wrong-recipient', 'duplicate-send', 'unauthorised-content',
-      'privacy-or-security-incident', 'audit-integrity-loss'
-    )
-  )$def$
-);
 -- The singleton names the CURRENT incident, or null while the service is running.
 select caring_contacts.add_constraint_if_absent(
   'service_state',
   'service_state_stop_fk',
   'foreign key (stop_id) references caring_contacts.service_stops (stop_id)'
 );
--- Stopping must never be blocked, so this asks only for what the responder already has in hand:
--- the reason they are stopping and the identifier the restart approvals will be keyed to. It
--- cannot refuse a genuine stop, and without it a stop could exist that no approval could name.
+-- Stopping must never be blocked, so this asks only for the identifier the incident row and the
+-- restart approvals are both keyed to -- which the responder's own stop already minted. The
+-- reason is carried by `service_stops.reason not null` on the far side of `service_state_stop_fk`,
+-- so it needs no second check here. Without this, a stop could exist that no approval could name.
 select caring_contacts.add_constraint_if_absent(
   'service_state',
   'service_state_stop_is_identified',
-  'check (stopped = false or (stop_id is not null and stopped_reason is not null))'
+  'check (stopped = false or stop_id is not null)'
 );
 
 -- The restart approvals. `stop_id` points at the immutable INCIDENT row above, never at the
