@@ -46,7 +46,7 @@ const standaloneModeHomePaths = new Set<string>([
  * short-circuits always-standalone paths before the dashboard gate) and would
  * wrongly imply keystroke auto-run should follow the documents-home contract.
  */
-const dashboardOwnedModeHomePaths = new Set<string>(["/documents"]);
+const dashboardOwnedModeHomePaths = { "/documents": "documents" } as const satisfies Record<string, AppModeId>;
 
 export function isStandaloneModeHomePath(pathname: string): boolean {
   return standaloneModeHomePaths.has(pathname);
@@ -54,7 +54,21 @@ export function isStandaloneModeHomePath(pathname: string): boolean {
 
 /** Exact pathnames that mount ClinicalDashboard for an unsubmitted mode home. */
 export function isDashboardOwnedModeHomePath(pathname: string): boolean {
-  return dashboardOwnedModeHomePaths.has(pathname);
+  return Object.hasOwn(dashboardOwnedModeHomePaths, pathname);
+}
+
+/**
+ * The mode a dashboard-owned mode home represents, or null.
+ *
+ * These homes carry no `?mode=` in the URL — the pathname alone says which mode
+ * they are — so the dashboard's `?mode=` sync cannot see them. It stays mounted
+ * across a client navigation onto one, which is why the mode has to be read from
+ * the pathname or it silently keeps whichever mode the visitor arrived from.
+ */
+export function dashboardOwnedModeHomeModeId(pathname: string): AppModeId | null {
+  return Object.hasOwn(dashboardOwnedModeHomePaths, pathname)
+    ? dashboardOwnedModeHomePaths[pathname as keyof typeof dashboardOwnedModeHomePaths]
+    : null;
 }
 
 /**
@@ -119,7 +133,7 @@ export function shouldRenderClinicalDashboard({
   return (
     !isMedicationDetailRoute &&
     (pathname === "/" ||
-      dashboardOwnedModeHomePaths.has(pathname) ||
+      isDashboardOwnedModeHomePath(pathname) ||
       shouldRenderDashboardSearch({ hasSubmittedSearch, mode, pathname }))
   );
 }
