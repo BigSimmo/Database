@@ -241,11 +241,13 @@ a numbers-only schema that **strips unknown keys**, so extracted content cannot 
 `documents.metadata` even if the runner changed. Subprocess stdout is discarded; only a
 bounded stderr tail reaches a warning log, through `safeErrorLogDetails`.
 
-**One thing does change for users.** A cohort document's job stays `processing` for the
-duration of the docling run (up to 120 s), and `documents.status` only flips to `indexed`
-when the job completes. Retrieval filters on `status = 'indexed'`, so a **cohort** document
-becomes searchable up to about two minutes later than it would in legacy mode. Its content,
-chunks, and citations are identical.
+**Retrieval is not delayed; the queue is.** `commit_document_index_generation` sets
+`documents.status = 'indexed'` as part of the commit in step 1, before the shadow window
+opens, so a cohort document is retrievable throughout it — there is no user-facing search
+delay to look for. What is delayed is the **ingestion job**: it stays `processing` for the
+duration of the docling run (up to 120 s) before the final metadata merge and
+`complete_ingestion_job`. So the effect is on queue drain rate and on `jobs_processing` /
+`jobs_pending`, which is why §3.6 watches those and not answer latency.
 
 ### 3.2 Preconditions before enabling
 
@@ -289,9 +291,15 @@ chunks, and citations are identical.
 authorises. Two properties make it the right place to start rather than a compromise:
 
 - The cohort is **deterministic and salted** (`docling-shadow-v1`), and the predicate is
-  `bucket < percent`. Raising 2 → 3 → 5 later is therefore purely additive: it never re-rolls
-  the cohort or discards a document already measured. There is no reason to start high "to
-  get a bigger sample", because starting low costs you nothing later.
+  `bucket < percent`. Raising 2 → 3 → 5 later is therefore additive rather than disruptive:
+  it never re-rolls the cohort, and every measurement already taken stays valid and stays in
+  the cohort. Starting low does not throw away work.
+  **But it is not free.** Shadow mode never backfills (§3.2, precondition 5), so documents in
+  the newly included buckets are measured only when they are next ingested or **reindexed**.
+  Widening the sample across the existing corpus therefore costs a reindex of those
+  documents, and until one runs the larger cohort exists on paper but not in the data. Decide
+  deliberately: start at 2 for the safety of a small blast radius, and treat a later increase
+  as a reindex decision, not a variable edit.
 - The selection is even: at `percent = 2` the bucket predicate picks 1.5–2.5 % of document
   ids across a 20,000-id sample (pinned by `tests/worker-shadow-extraction.test.ts`).
 
