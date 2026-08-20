@@ -274,8 +274,16 @@ function DecisionPanel({
 
 function QueueView({ role }: { role: WardRole }) {
   const { movements, now } = useWardFlow();
-  const [selected, setSelected] = useState(movements[0]);
+  const [selectedId, setSelectedId] = useState(movements[0].id);
   const rolePatients = useMemo(() => sortByRole(movements, role).filter(isOpen), [movements, role]);
+  // Hold only the id and derive the record from the live `movements` list on every render —
+  // matching `WardNetworkWorkspace` (Task 6 fix round 3, Finding 2). Holding the movement object
+  // itself would freeze it at whatever it looked like on mount, so a referral made elsewhere would
+  // never show up here even though `movements` had already moved on. `selectedId` is only ever set
+  // from a real movement's own id (see the queue button below), so the `.find()` can't miss today —
+  // but the guard still lives in the JSX below, not as an early return, so every hook above it keeps
+  // running unconditionally regardless of future callers.
+  const selected = useMemo(() => movements.find((candidate) => candidate.id === selectedId), [movements, selectedId]);
   return (
     <div className={styles.pageGrid} data-testid="ward-queue-view">
       <section className={styles.panel}>
@@ -302,9 +310,9 @@ function QueueView({ role }: { role: WardRole }) {
             {rolePatients.map((patient) => {
               const top = eligibleCandidates(patient, now, 1)[0];
               return (
-                <tr key={patient.id} data-selected={selected.id === patient.id}>
+                <tr key={patient.id} data-selected={selected?.id === patient.id}>
                   <td>
-                    <button type="button" onClick={() => setSelected(patient)} className={styles.secondaryButton}>
+                    <button type="button" onClick={() => setSelectedId(patient.id)} className={styles.secondaryButton}>
                       {patient.id}
                     </button>
                   </td>
@@ -324,12 +332,21 @@ function QueueView({ role }: { role: WardRole }) {
           </tbody>
         </table>
       </section>
-      <DecisionPanel
-        patient={selected}
-        role={role}
-        selectedId={destinationUnit(selected)?.id ?? eligibleCandidates(selected, now)[0]?.unit.id}
-        onSelectId={() => undefined}
-      />
+      {selected ? (
+        <DecisionPanel
+          patient={selected}
+          role={role}
+          selectedId={destinationUnit(selected)?.id ?? eligibleCandidates(selected, now)[0]?.unit.id}
+          onSelectId={() => undefined}
+        />
+      ) : (
+        // Never fall back to `movements[0]` or any other record here — showing a different
+        // patient under the selected patient's heading is the exact class of defect this project
+        // keeps finding (Task 6 Critical 1, Task 6 fix round 3 Finding 2).
+        <aside className={`${styles.panel} ${styles.decisionPanel}`} aria-label="AI best-fit review unavailable">
+          <p className={styles.microCopy}>No synthetic movement matches the current selection.</p>
+        </aside>
+      )}
     </div>
   );
 }

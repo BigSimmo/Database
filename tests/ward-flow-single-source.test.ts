@@ -9,15 +9,29 @@ const WARD_DIR = "src/components/ward-management";
 const ALLOWED = new Set(["ward-movements.ts", "ward-flow-reducer.ts", "ward-pressure.ts", "ward-derivations.ts"]);
 
 /**
- * Files allowed to hold both the live clock and the frozen epoch. Empty on purpose: Task 6 fix
- * round 1 found no case where a component that reads `useWardFlow()` genuinely needs
- * `NOW_ANCHOR` rather than `now` — `ward-flow-provider.tsx` (which legitimately reads
- * `NOW_ANCHOR` to derive `now` in the first place) never calls its own `useWardFlow()` hook, and
- * every fixture/reducer module that reads `NOW_ANCHOR` is not a component at all. If a real
- * exception is ever found, name it here with the reason rather than loosening the two regexes
- * below to quietly stop catching the class.
+ * Files allowed to read `NOW_ANCHOR` at all — Task 6 fix round 3, replacing the earlier "both the
+ * clock and the epoch" rule (see the report's fix round 2 section), which only text-matched a
+ * file's own named import of `NOW_ANCHOR` alongside a real `useWardFlow()` call. That rule was
+ * provably evadable three ways: a helper that reads `NOW_ANCHOR` internally and is called from a
+ * component (the component itself never imports `NOW_ANCHOR`), a namespace import
+ * (`import * as sites from ".../ward-sites"` then `sites.NOW_ANCHOR`, which the named-import regex
+ * never matched), and any component that never calls `useWardFlow()` at all — which sat outside
+ * the rule entirely regardless of what it read. Rather than attempt transitive import analysis
+ * (out of scope — see the findings), the rule inverts: every file under `WARD_DIR` may read
+ * `NOW_ANCHOR` only if it is named here, whether or not it also calls `useWardFlow()`.
+ * `readsNowAnchor` below scans for the bare identifier after stripping comments and string
+ * literals, so it catches every reading form (named import, namespace-qualified property access,
+ * bare re-export) without needing a separate regex per form.
+ *
+ * Verified by hand (`grep -rln "NOW_ANCHOR" src/components/ward-management`, Task 6 fix round 3)
+ * before writing this list: these three are the only files under `WARD_DIR` that mention
+ * `NOW_ANCHOR` outside a comment.
  */
-const CLOCK_EXEMPT = new Set<string>();
+const NOW_ANCHOR_ALLOWLIST = new Set([
+  "ward-sites.ts", // declares the constant and uses it to build the fixture's capacity timestamps
+  "ward-movements.ts", // the movement fixture; every synthetic timestamp derives from it
+  "ward-flow-provider.tsx", // the provider, which reads it once to derive the live `now`
+]);
 
 function walk(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
@@ -36,25 +50,56 @@ function isScannable(file: string): boolean {
 }
 
 /**
- * True only for a real invocation — `const { now } = useWardFlow();`, `return useWardFlow();` —
- * never for the hook's own declaration. `ward-flow-provider.tsx` contains the literal substring
- * `useWardFlow()` as part of `export function useWardFlow(): WardFlowContextValue {`, so a bare
- * `/useWardFlow\(\)/` match would misidentify the one file that defines the hook as a file that
- * calls it. Requiring `=` or `return` immediately before the call is what a real destructure or
- * direct read always has and a function declaration never does.
+ * Strips `//` and `/* *\/` comments and the contents of every string/template literal, character
+ * by character rather than with a single regex, so a URL or any other comment-shaped text inside a
+ * string can never be mistaken for a real comment, and — the case this scan exists to get right —
+ * a doc comment that merely *names* `NOW_ANCHOR` in prose is removed before the identifier scan
+ * ever runs. `coordinator-screen.tsx` carries exactly that trap: a Task 5 doc comment names
+ * `NOW_ANCHOR` while the file itself only ever reads the live `now`, and this file must stay green
+ * against it.
  */
-function callsUseWardFlow(source: string): boolean {
-  return /(?:=|return)\s*useWardFlow\(\)/.test(source);
+function stripCommentsAndStrings(source: string): string {
+  let out = "";
+  let i = 0;
+  const n = source.length;
+  while (i < n) {
+    const two = source.slice(i, i + 2);
+    if (two === "//") {
+      i += 2;
+      while (i < n && source[i] !== "\n") i++;
+      continue;
+    }
+    if (two === "/*") {
+      i += 2;
+      while (i < n && source.slice(i, i + 2) !== "*/") i++;
+      i += 2;
+      continue;
+    }
+    const ch = source[i];
+    if (ch === '"' || ch === "'" || ch === "`") {
+      const quote = ch;
+      i++;
+      while (i < n && source[i] !== quote) {
+        if (source[i] === "\\") i++;
+        i++;
+      }
+      i++;
+      continue;
+    }
+    out += ch;
+    i++;
+  }
+  return out;
 }
 
 /**
- * True only for a real named import of `NOW_ANCHOR` from `ward-sites` — never for a comment that
- * merely mentions the constant. `coordinator-screen.tsx` carries exactly that trap: a Task 5
- * doc comment names `NOW_ANCHOR` while the file itself only ever reads the live `now`, and a
- * bare `/NOW_ANCHOR/` substring match would have flagged it as an offender it is not.
+ * True for any real read of `NOW_ANCHOR` — a named import, a namespace-qualified property access
+ * (`sites.NOW_ANCHOR`), or a bare use of the identifier — never for a mention inside a comment or
+ * a string. Deliberately not scoped to "import" forms alone: that scoping is what let the previous
+ * rule (fix round 2) miss a namespace import entirely (Finding 1).
  */
-function importsNowAnchor(source: string): boolean {
-  return /import\s*\{[^}]*\bNOW_ANCHOR\b[^}]*\}\s*from\s*"[^"]*ward-sites"/.test(source);
+function readsNowAnchor(source: string): boolean {
+  return /\bNOW_ANCHOR\b/.test(stripCommentsAndStrings(source));
 }
 
 describe("one source of truth", () => {
@@ -79,29 +124,26 @@ describe("one source of truth", () => {
   });
 
   /**
-   * Task 6 fix round 1 pinned one call site (the movements board's elapsed label) to the live
-   * clock. Fix round 2 exists because pinning one call site guards an instance, not the class:
-   * every other `NOW_ANCHOR` read in the same three files was equally frozen and equally
-   * untested, since every other test in this suite pins the clock with `initialNow` and never
-   * advances it. This test is scoped by the rule itself — a component may read the live clock or
-   * the frozen epoch, never both — rather than by naming the three files, so a route added later
-   * that makes the same mistake is caught automatically instead of needing a fourth fix round.
+   * Task 6 fix round 3, Finding 1: the previous version of this guard ("has no component holding
+   * both the live clock and the frozen epoch", fix round 2) only ever flagged a file that BOTH
+   * called `useWardFlow()` AND imported `NOW_ANCHOR` by name — provably evadable via helper
+   * indirection, a namespace import, or simply never calling `useWardFlow()` at all. This test is
+   * scoped by declaration, not by co-occurrence with the clock hook: every file under `WARD_DIR`
+   * must be on the named allow-list to read `NOW_ANCHOR` at all, so a route added later that reads
+   * the frozen epoch — whether or not it also reads the live clock — is caught automatically.
    */
-  it("scans a non-empty set of ward-management source files for the clock-consistency check", () => {
+  it("scans a non-empty set of ward-management source files for the NOW_ANCHOR allow-list check", () => {
     // Same failure mode as the fixture-import guard above, checked again here rather than only
     // relied upon there: this specific check must not be able to pass by scanning nothing.
     const scanned = walk(WARD_DIR).filter(isScannable);
     expect(scanned.length).toBeGreaterThan(0);
   });
 
-  it("has no component holding both the live clock and the frozen epoch", () => {
+  it("restricts every read of NOW_ANCHOR to the named allow-list", () => {
     const offenders = walk(WARD_DIR)
       .filter(isScannable)
-      .filter((file) => !CLOCK_EXEMPT.has(file.split(/[\\/]/).pop()!))
-      .filter((file) => {
-        const source = readFileSync(file, "utf8");
-        return callsUseWardFlow(source) && importsNowAnchor(source);
-      });
+      .filter((file) => !NOW_ANCHOR_ALLOWLIST.has(file.split(/[\\/]/).pop()!))
+      .filter((file) => readsNowAnchor(readFileSync(file, "utf8")));
     expect(offenders).toEqual([]);
   });
 });
