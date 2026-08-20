@@ -97,7 +97,12 @@ validation of the synthetic adversarial fixture dataset and its baseline record;
 `eval-rag-adversarial-offline.mjs` (packet B2: fixture validation then the offline Vitest
 adversarial harness `tests/rag-adversarial-harness.test.ts`; `npm run eval:rag:adversarial:offline`,
 routed by `ci-change-scope.mjs` to RAG-surface PRs only; fails closed on missing fixture,
-network attempt, or round-trip budget breach).
+network attempt, or round-trip budget breach),
+`blind-answer-pairs.ts` (Gate E offline blinded A/B pairing over two
+`eval-answer-quality --dump-answers` artefacts — `build` emits reading-pack/verdict-sheet/
+assignment-key under `output/` or `.local/` only, `unblind` resolves recorded verdicts back to
+version labels; pure file transformation, no provider access, node-builtin imports only;
+`/issues` `#E0N0QC`; run via `node scripts/run-tsx.mjs scripts/blind-answer-pairs.ts`).
 Golden fixtures:
 `scripts/fixtures/rag-retrieval-golden.json`, `scripts/fixtures/assertion-golden.json`.
 Adversarial fixtures: `scripts/fixtures/rag-adversarial-cases.v1.json` (+ its schema) and

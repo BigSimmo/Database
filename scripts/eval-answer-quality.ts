@@ -5,7 +5,7 @@
 // This is a SEPARATE, opt-in script (npm run eval:answer-quality) — it does not touch eval:quality
 // or add spend to any existing run. All metrics are reported informationally; the script exits 0
 // unless --fail-on-threshold is passed with an explicit floor, so it can be calibrated safely.
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
@@ -33,6 +33,7 @@ type Args = {
   failOnThreshold: boolean;
   targetingFloor?: number;
   dumpAnswers?: string;
+  extraCases?: string;
 };
 
 export function parseArgs(argv: string[]): Args {
@@ -66,6 +67,7 @@ export function parseArgs(argv: string[]): Args {
     } else if (token === "--limit") args.limit = Number(value);
     else if (token === "--targeting-floor") args.targetingFloor = Number(value);
     else if (token === "--dump-answers") args.dumpAnswers = value;
+    else if (token === "--extra-cases") args.extraCases = value;
     else throw new Error(`Unknown option: ${token}`);
   }
   if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit <= 0)) {
@@ -77,8 +79,41 @@ export function parseArgs(argv: string[]): Args {
   if (args.failOnThreshold && args.targetingFloor === undefined) {
     throw new Error("--fail-on-threshold requires --targeting-floor.");
   }
+  if (args.extraCases && !args.dumpAnswers) {
+    throw new Error("--extra-cases requires --dump-answers (capture-only questions exist only for answer capture).");
+  }
   if (args.dumpAnswers) resolveLocalDiagnosticOutputPath(args.dumpAnswers);
   return args;
+}
+
+// Owner-chosen live questions for the Gate E blinded read (ledger #E0N0QC). Capture-only: they
+// are answered and dumped, but never scored, aggregated, or counted toward --fail-on-threshold,
+// and they must not collide with the fixed answerQualityEvalCases ids.
+export type ExtraCaptureCase = { id: string; question: string };
+
+export function parseExtraCaptureCases(jsonText: string, reservedIds: ReadonlySet<string>): ExtraCaptureCase[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch {
+    throw new Error("--extra-cases file must be valid JSON.");
+  }
+  const questions = (parsed as { questions?: unknown } | null)?.questions;
+  if (!Array.isArray(questions) || questions.length === 0) {
+    throw new Error('--extra-cases file must contain a non-empty "questions" array.');
+  }
+  const seen = new Set<string>();
+  return questions.map((entry, index) => {
+    const record = (entry ?? {}) as Record<string, unknown>;
+    const id = typeof record.id === "string" ? record.id.trim() : "";
+    const question = typeof record.question === "string" ? record.question.trim() : "";
+    if (!id) throw new Error(`--extra-cases entry ${index + 1} needs a non-empty string id.`);
+    if (!question) throw new Error(`--extra-cases entry "${id}" needs a non-empty question.`);
+    if (seen.has(id)) throw new Error(`--extra-cases duplicate id: ${id}`);
+    if (reservedIds.has(id)) throw new Error(`--extra-cases id collides with a fixed answer-quality case: ${id}`);
+    seen.add(id);
+    return { id, question };
+  });
 }
 
 export function answerTargetingThresholdFailure(args: {
@@ -224,10 +259,10 @@ export function buildRagDiagnosticDumpRecord(id: string, question: string, answe
   const generationLatencyMs = answer.latencyTimings?.generation_latency_ms ?? 0;
   const providerAttempted = Boolean(
     hasOpenAIUsage ||
-    observedProviderRequestIdCount > 0 ||
-    answer.modelUsed ||
-    generationLatencyMs > 0 ||
-    /(?:^|;\s*)generation_fallback:provider_/i.test(answer.routingReason ?? ""),
+      observedProviderRequestIdCount > 0 ||
+      answer.modelUsed ||
+      generationLatencyMs > 0 ||
+      /(?:^|;\s*)generation_fallback:provider_/i.test(answer.routingReason ?? ""),
   );
   return {
     id: displaySafeDiagnosticText(id, 160),
@@ -238,6 +273,19 @@ export function buildRagDiagnosticDumpRecord(id: string, question: string, answe
     grounded: answer.grounded,
     confidence: answer.confidence,
     model: answer.modelUsed ? displaySafeDiagnosticText(answer.modelUsed, 160) : null,
+    // Gate-outcome fields for the Gate E blinded read (#E0N0QC). All defensive/nullable so this
+    // exact file also runs unmodified in a prompt-v18 (4ea310e48) capture worktree.
+    answer_quality_tier: answer.answerQualityTier ?? null,
+    degraded_mode: answer.degradedMode
+      ? {
+          active: Boolean(answer.degradedMode.active),
+          reason: answer.degradedMode.reason ? displaySafeDiagnosticText(answer.degradedMode.reason, 400) : null,
+        }
+      : null,
+    fallback_reason: answer.fallbackReason ? displaySafeDiagnosticText(answer.fallbackReason, 400) : null,
+    generation_quality_gate_reasons: (answer.latencyTimings?.answer_retry_reasons ?? [])
+      .filter((reason): reason is string => typeof reason === "string" && reason.startsWith("generation_quality_gate:"))
+      .map((reason) => displaySafeDiagnosticText(reason.slice("generation_quality_gate:".length), 200)),
     provider_attempted: providerAttempted,
     observed_provider_request_id_count: observedProviderRequestIdCount,
     openai_usage: openAIUsage,
@@ -274,23 +322,34 @@ export function buildAnswerDumpRecord(
     ...buildRagDiagnosticDumpRecord(testCase.id, testCase.question, answer),
     intent: testCase.expectedIntent,
     targeting: { applicable: targeting.applicable, score: targeting.score, reason: targeting.reason },
+    capture_only: false as const,
+  };
+}
+
+// Dump record for an owner-supplied capture-only question: same scrubbed shape, no scoring.
+export function buildCaptureOnlyDumpRecord(extraCase: ExtraCaptureCase, answer: RagAnswer) {
+  return {
+    ...buildRagDiagnosticDumpRecord(extraCase.id, extraCase.question, answer),
+    intent: null,
+    targeting: null,
+    capture_only: true as const,
   };
 }
 
 const METRICS: AnswerQualityMetric[] = ["relevance", "readability", "artifact_leaks", "intent_coverage", "fail_closed"];
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const cases = selectAnswerQualityCases(args);
-  const [{ requireOpenAIEnv, requireServerEnv }, { answerQuestionWithScope }, supabase] = await Promise.all([
-    import("@/lib/env"),
-    import("@/lib/rag/rag"),
-    loadAdminClient(),
-  ]);
-  requireServerEnv();
-  requireOpenAIEnv();
+export type AnswerQualityCaseOutcome = {
+  testCase: AnswerQualityEvalCase;
+  metricScores: ReturnType<typeof scoreAnswerQualityEvalCase>;
+  targeting: ReturnType<typeof scoreAnswerTargeting>;
+  answer: RagAnswer;
+};
 
-  const ownerId = await resolveEvalOwnerId(supabase, args);
+// Pure aggregation over GOLDEN-case outcomes only. Capture-only extra cases (--extra-cases)
+// cannot enter this summary by construction: they carry no AnswerQualityEvalCase, and main()
+// routes them through buildCaptureOnlyDumpRecord into the dump alone — so metric rates,
+// targeting stats, and --fail-on-threshold always describe the fixed fixture.
+export function summarizeAnswerQuality(outcomes: AnswerQualityCaseOutcome[]) {
   const metricTotals: Record<AnswerQualityMetric, number> = {
     relevance: 0,
     readability: 0,
@@ -303,20 +362,11 @@ async function main() {
   let targetingHit = 0;
   const targetingMisses: Array<{ id: string; intent: string; reason: string; answer_length: number }> = [];
   const caseResults: Array<Record<string, unknown>> = [];
-  const dumpRecords: Array<ReturnType<typeof buildAnswerDumpRecord>> = [];
 
-  for (const testCase of cases) {
-    const answer = (await withProviderBackoff(`answer-quality:${testCase.id}`, () =>
-      answerQuestionWithScope({ query: testCase.question, ownerId, logQuery: false, skipCache: true }),
-    )) as RagAnswer;
-
-    const metricScores = scoreAnswerQualityEvalCase(testCase, answer);
+  for (const { testCase, metricScores, targeting, answer } of outcomes) {
     for (const score of metricScores) {
       metricTotals[score.metric] += score.score;
     }
-
-    const targeting = scoreAnswerTargeting(testCase, answer);
-    if (args.dumpAnswers) dumpRecords.push(buildAnswerDumpRecord(testCase, answer, targeting));
     const bucket = targetingByIntent.get(testCase.expectedIntent) ?? { applicable: 0, hit: 0 };
     if (targeting.applicable) {
       bucket.applicable += 1;
@@ -351,7 +401,7 @@ async function main() {
     });
   }
 
-  const caseCount = cases.length;
+  const caseCount = outcomes.length;
   const metricRates = Object.fromEntries(
     METRICS.map((metric) => [metric, caseCount ? Number((metricTotals[metric] / caseCount).toFixed(4)) : 0]),
   ) as Record<AnswerQualityMetric, number>;
@@ -363,7 +413,7 @@ async function main() {
     ]),
   );
 
-  const summary = {
+  return {
     case_count: caseCount,
     metric_labels: answerQualityMetricLabels,
     metric_rates: metricRates,
@@ -374,21 +424,65 @@ async function main() {
     targeting_misses: targetingMisses,
     case_results: caseResults,
   };
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const cases = selectAnswerQualityCases(args);
+  const extraCases = args.extraCases
+    ? parseExtraCaptureCases(
+        await readFile(resolve(args.extraCases), "utf8"),
+        new Set(answerQualityEvalCases.map((testCase) => testCase.id)),
+      )
+    : [];
+  const [{ requireOpenAIEnv, requireServerEnv }, { answerQuestionWithScope }, supabase] = await Promise.all([
+    import("@/lib/env"),
+    import("@/lib/rag/rag"),
+    loadAdminClient(),
+  ]);
+  requireServerEnv();
+  requireOpenAIEnv();
+
+  const ownerId = await resolveEvalOwnerId(supabase, args);
+  const outcomes: AnswerQualityCaseOutcome[] = [];
+  const dumpRecords: Array<ReturnType<typeof buildAnswerDumpRecord> | ReturnType<typeof buildCaptureOnlyDumpRecord>> =
+    [];
+
+  for (const testCase of cases) {
+    const answer = (await withProviderBackoff(`answer-quality:${testCase.id}`, () =>
+      answerQuestionWithScope({ query: testCase.question, ownerId, logQuery: false, skipCache: true }),
+    )) as RagAnswer;
+
+    const metricScores = scoreAnswerQualityEvalCase(testCase, answer);
+    const targeting = scoreAnswerTargeting(testCase, answer);
+    outcomes.push({ testCase, metricScores, targeting, answer });
+    if (args.dumpAnswers) dumpRecords.push(buildAnswerDumpRecord(testCase, answer, targeting));
+  }
+
+  // Owner-chosen capture-only questions (Gate E): answered and dumped, never scored.
+  for (const extraCase of extraCases) {
+    const answer = (await withProviderBackoff(`answer-quality:extra:${extraCase.id}`, () =>
+      answerQuestionWithScope({ query: extraCase.question, ownerId, logQuery: false, skipCache: true }),
+    )) as RagAnswer;
+    dumpRecords.push(buildCaptureOnlyDumpRecord(extraCase, answer));
+  }
+
+  const summary = summarizeAnswerQuality(outcomes);
 
   if (args.json) {
     console.log(JSON.stringify(summary, null, 2));
   } else {
-    console.log(`Answer-quality eval: ${caseCount} case(s).`);
+    console.log(`Answer-quality eval: ${summary.case_count} case(s).`);
     console.log("  metric_rates:");
-    for (const metric of METRICS) console.log(`    ${metric}=${metricRates[metric]}`);
-    console.log(`  targeting_rate=${targetingRate} (applicable=${targetingApplicable})`);
+    for (const metric of METRICS) console.log(`    ${metric}=${summary.metric_rates[metric]}`);
+    console.log(`  targeting_rate=${summary.targeting_rate} (applicable=${summary.targeting_applicable})`);
     console.log("  targeting_by_intent:");
-    for (const [intent, value] of Object.entries(targetingByIntentRates)) {
+    for (const [intent, value] of Object.entries(summary.targeting_by_intent)) {
       console.log(`    ${intent}=${value.rate} (${value.hit}/${value.applicable})`);
     }
-    if (targetingMisses.length) {
+    if (summary.targeting_misses.length) {
       console.log("  targeting_misses:");
-      for (const miss of targetingMisses) {
+      for (const miss of summary.targeting_misses) {
         console.log(`    [${miss.intent}] ${miss.id}: ${miss.reason} :: answer_length=${miss.answer_length}`);
       }
     }
@@ -399,16 +493,29 @@ async function main() {
     await mkdir(dirname(dumpPath), { recursive: true });
     await writeFile(
       dumpPath,
-      `${JSON.stringify({ generated_at: new Date().toISOString(), case_count: caseCount, cases: dumpRecords }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          generated_at: new Date().toISOString(),
+          case_count: summary.case_count,
+          capture_only_count: extraCases.length,
+          cases: dumpRecords,
+        },
+        null,
+        2,
+      )}\n`,
     );
     // Non-JSON mode only, mirroring the --json-out no-stdout-interference convention.
-    if (!args.json) console.log(`  answer dump written: ${dumpPath} (${dumpRecords.length} case(s))`);
+    if (!args.json) {
+      console.log(
+        `  answer dump written: ${dumpPath} (${dumpRecords.length} record(s), ${extraCases.length} capture-only)`,
+      );
+    }
   }
 
   const thresholdFailure = answerTargetingThresholdFailure({
     failOnThreshold: args.failOnThreshold,
     targetingFloor: args.targetingFloor,
-    targetingRate,
+    targetingRate: summary.targeting_rate,
   });
   if (thresholdFailure) {
     console.error(`FAIL: ${thresholdFailure}`);
