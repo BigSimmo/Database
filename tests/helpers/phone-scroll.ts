@@ -200,7 +200,7 @@ export function forceCompiledStandalonePhoneCss(page: Page): Promise<number> {
     }
     const style = document.createElement("style");
     style.dataset.testid = "forced-standalone-phone-css";
-    style.textContent = `@layer components { ${standaloneRules.join("\n")} }`;
+    style.textContent = standaloneRules.join("\n");
     document.head.append(style);
     window.dispatchEvent(new Event("resize"));
     return standaloneRules.length;
