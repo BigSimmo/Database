@@ -34,8 +34,11 @@ export function useHomeModeSeed({
   const homeModeSeededRef = useRef(false);
 
   useEffect(() => {
+    if (pathname !== "/") {
+      homeModeSeededRef.current = false;
+      return;
+    }
     if (homeModeSeededRef.current) return;
-    if (pathname !== "/") return;
     if (searchParams.has("mode") || searchParams.has("q") || searchParams.has("query")) return;
     homeModeSeededRef.current = true;
     if (landingModeForPreference(readAppPreferences().landing)) return;

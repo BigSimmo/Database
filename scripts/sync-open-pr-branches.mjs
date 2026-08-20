@@ -102,6 +102,19 @@ function main() {
 
   const plan = [];
   for (const pr of prs) {
+    const skipReason = shouldSkip(pr) || (pr.autoMergeRequest ? "auto-merge-armed" : null);
+    if (skipReason) {
+      plan.push({
+        pr,
+        behindBy: 0,
+        requiredCiInFlight: false,
+        stateUnavailable: false,
+        action: "skip",
+        reason: skipReason,
+      });
+      continue;
+    }
+
     let behindBy = 0;
     let requiredCiInFlight = false;
     let stateUnavailable = false;
@@ -112,13 +125,14 @@ function main() {
       ]);
       behindBy = cmp.behind_by ?? 0;
       requiredCiInFlight =
-        pr.headRefOid.length > 0 &&
-        hasRequiredCiInFlight(
-          ghJson([
-            "api",
-            `repos/${repo}/actions/runs?head_sha=${encodeURIComponent(pr.headRefOid)}&event=pull_request&per_page=100`,
-          ]),
-        );
+        behindBy > 0 && pr.headRefOid?.length > 0
+          ? hasRequiredCiInFlight(
+              ghJson([
+                "api",
+                `repos/${repo}/actions/runs?head_sha=${encodeURIComponent(pr.headRefOid)}&event=pull_request&per_page=100`,
+              ]),
+            )
+          : false;
     } catch {
       behindBy = 0;
       requiredCiInFlight = false;

@@ -177,10 +177,11 @@ describe("shared-search route ownership", () => {
     expect(headerSource).toMatch(
       /const homePortalPending =\s*Boolean\(desktopHomeComposerSlotId\) && homeComposerMediaEligible && !desktopComposerPortalFallback/,
     );
+    expect(headerSource).toContain("const portalPending = homePortalPending;");
     expect(headerSource).toMatch(
-      /const pagePortalPending =\s*Boolean\(desktopPageComposerSlotId\) &&\s*pageComposerMediaEligible &&\s*!usesPhoneSearchLayout &&\s*!desktopComposerPortalFallback/,
+      /const isPageDesktopComposerPending =\s*isDefaultComposer && Boolean\(desktopPageComposerSlotId\) && !desktopComposerPortalFallback/,
     );
-    expect(headerSource).toContain("const portalPending = homePortalPending || pagePortalPending;");
+    expect(headerSource).toContain('isPageDesktopComposerPending && "sm:hidden"');
     expect(headerSource).toContain("setHomeComposerMediaEligible(mediaQuery.matches)");
     expect(headerSource).toContain("setPageComposerMediaEligible(mediaQuery.matches)");
     expect(headerSource).toContain(
@@ -411,19 +412,18 @@ describe("shared-search route ownership", () => {
     );
   });
 
-  it("does not suppress the phone composer during initial render when a desktop page slot is present", () => {
+  it("keeps the phone composer rendered during SSR while preserving desktop layout reservation", () => {
     const headerSource = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/master-search-header.tsx"),
       "utf8",
     );
-    // Gating pagePortalPending on confirmed non-phone media eligibility prevents
-    // desktop page slots from blanking the phone composer before media queries settle.
-    expect(headerSource).toContain("pageComposerMediaEligible");
-    expect(headerSource).toContain(
-      "const [pageComposerMediaEligible, setPageComposerMediaEligible] = useState(false);",
+    // SSR and unknown media state must not blank out search for phone viewports
+    expect(headerSource).not.toMatch(
+      /const pagePortalPending =\s*Boolean\(desktopPageComposerSlotId\) && !usesPhoneSearchLayout/,
     );
     expect(headerSource).toMatch(
-      /const pagePortalPending =\s*Boolean\(desktopPageComposerSlotId\) &&\s*pageComposerMediaEligible &&\s*!usesPhoneSearchLayout &&\s*!desktopComposerPortalFallback/,
+      /const isPageDesktopComposerPending =\s*isDefaultComposer && Boolean\(desktopPageComposerSlotId\) && !desktopComposerPortalFallback/,
     );
+    expect(headerSource).toContain('isPageDesktopComposerPending && "sm:hidden"');
   });
 });

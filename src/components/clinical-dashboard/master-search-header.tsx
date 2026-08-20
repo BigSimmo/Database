@@ -1788,6 +1788,9 @@ export function MasterSearchHeader({
   function renderSearchComposer(placement: "default" | "desktop-home" | "desktop-page") {
     const isDesktopHomeComposer = placement === "desktop-home";
     const isDesktopPageComposer = placement === "desktop-page";
+    const isDefaultComposer = placement === "default";
+    const isPageDesktopComposerPending =
+      isDefaultComposer && Boolean(desktopPageComposerSlotId) && !desktopComposerPortalFallback;
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
@@ -1908,6 +1911,7 @@ export function MasterSearchHeader({
                       "universal-top-search-edge mx-auto box-border w-full px-3 py-3 sm:px-4",
                       stickySearchOwnedByOuterStack ? "relative z-20" : cn("sticky z-20", stickySearchTopClass),
                     ),
+          isPageDesktopComposerPending && "sm:hidden",
           usesBottomComposerPlacement && "answer-footer-search-edge",
           usesPhoneFooterDock && "answer-footer-search-dock",
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
@@ -2500,19 +2504,18 @@ export function MasterSearchHeader({
   const portalPlacement = desktopHomeComposerSlotId ? "desktop-home" : "desktop-page";
   const homePortalPending =
     Boolean(desktopHomeComposerSlotId) && homeComposerMediaEligible && !desktopComposerPortalFallback;
-  const pagePortalPending =
-    Boolean(desktopPageComposerSlotId) &&
-    pageComposerMediaEligible &&
-    !usesPhoneSearchLayout &&
-    !desktopComposerPortalFallback;
-  const portalPending = homePortalPending || pagePortalPending;
+  const portalPending = homePortalPending;
   const searchComposer = searchComposerVisible ? (
     <>
       {/* ModeHomeTemplate and desktop page slots reserve their settled geometry
           in SSR, so a temporary header fallback would make the stack grow and
           shift all main content when the portal attaches (CLS 0.118 on desktop
-          /documents/search). A failed adoption restores the header fallback after
-          the bounded retry window above. */}
+          /documents/search). Mode home routes suppress the header fallback entirely
+          because the hero slot in the page body reserves geometry during SSR;
+          generic page slots keep the phone fallback rendered during SSR and
+          unknown media state while applying sm:hidden so the desktop fallback
+          never renders over the reserved page slot. A failed adoption restores
+          the header fallback after the bounded retry window above. */}
       {desktopComposerPortalActive && desktopComposerPortalHost
         ? null
         : portalPending
