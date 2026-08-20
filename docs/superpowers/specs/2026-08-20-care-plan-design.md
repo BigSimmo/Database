@@ -1,4 +1,4 @@
-# ED Care Plans — Standalone Synthetic Application Design
+# Care Plan — Standalone Synthetic Application Design
 
 **Status:** User-approved product and visual direction; implementation plan complete; implementation not started.
 
@@ -8,9 +8,9 @@ Build a complete, linked, synthetic application for finding people with recurren
 
 The primary usability target is that an authorised ED clinician can find the correct synthetic patient, confirm whether a Current Plan exists, understand its first-minute continuity guidance, and reach the CMHT contact within 30 seconds.
 
-The product name is **ED Care Plans**, with the descriptor **Continuity for recurrent presentations**. Patient-facing and clinician-facing copy must not use “frequent flyer”. “Frequent presenter” is reserved for discussion of the service workflow, not as a label for a person.
+The product name is **Care Plan**, with the descriptor **Continuity for recurrent presentations**. Patient-facing and clinician-facing copy must not use “frequent flyer”. “Frequent presenter” is reserved for discussion of the service workflow, not as a label for a person.
 
-The canonical domain language is defined in [`docs/ed-care-plans-context.md`](../../ed-care-plans-context.md).
+The canonical domain language is defined in [`docs/care-plan-context.md`](../../care-plan-context.md).
 
 ## Evidence and governance grounding
 
@@ -33,11 +33,30 @@ Primary public references:
 
 These sources ground the prototype's workflow and language. They do not validate the application for clinical use, establish a local identification policy, or substitute for WA Health governance review.
 
+## Naming
+
+The product is **Care Plan**, descriptor **Continuity for recurrent presentations** (renamed from ED Care Plans on 21 August 2026). The documents inside it keep their glossary names, which are deliberately not the product name so that "the app" and "the document" can never be confused in code, copy, or conversation:
+
+- **Management Plan** — the clinician-facing continuity document. The main object of the product.
+- **Patient Plan** — the patient-facing edition of that Management Plan, in the person's own voice.
+- **Personal Safety Plan** — the person's own distress plan, which is theirs rather than a clinical document.
+
+## Read primacy
+
+Decided 21 August 2026 by the user: _"the plan is for clinicians to look up and see the management plan; it is rarely for changing or updating — this is the main use."_
+
+This is the ordering principle for the whole product, not a preference. Where reading and authoring compete for screen space, navigation depth, attention, or implementation effort, **reading wins**. Concretely:
+
+- The search-to-read journey is never more than two actions from any route.
+- Authoring, comparison, approval, and withdrawal controls never occupy space that first-minute reading content needs, and never appear above it.
+- A reader who has no authoring permission sees a clean reading surface, not a surface full of unavailable controls.
+- Build order follows the same rule: the complete reading experience, including print, is finished and reviewed before any authoring surface is built.
+
 ## Product boundary
 
 ### Included
 
-- A linked route suite under `/mockups/ed-care-plans`.
+- A linked route suite under `/mockups/care-plan`.
 - Deterministic synthetic patients, clinicians, EDs, CMHTs, plans, presentations, and audit events.
 - A multi-site fictional WA health-service context with three fictional EDs and several fictional CMHTs.
 - Adults and older adults.
@@ -56,7 +75,8 @@ These sources ground the prototype's workflow and language. They do not validate
 - Real patient, clinician, service, site, caseload, or utilisation data.
 - Persistent storage, local storage, cookies for patient state, databases, APIs, analytics, or network calls.
 - EDIS, EMR, PAS, PSOLIS, pharmacy, ambulance, police, CMHT, email-provider, or identity-provider integration.
-- Automatic identification, enrolment, diagnosis, risk scoring, clinical-severity scoring, treatment recommendation, allocation, or plan generation.
+- Automatic identification, enrolment, diagnosis, risk scoring, clinical-severity scoring, treatment recommendation, allocation, or clinical plan generation.
+- Any language model, AI service, or provider call, including for the Patient Plan transformation, which is deterministic and offline.
 - Medication ordering or a parallel medication record.
 - Automated email or messaging.
 - A general staff inbox, chat, comments feed, or social activity.
@@ -74,7 +94,9 @@ These sources ground the prototype's workflow and language. They do not validate
 6. Objective presentation activity may be displayed and sorted. Authorised users may manually refer a patient for identification review.
 7. CMHT email actions launch the user's email client but must not pre-populate patient identifiers or clinical content and must not record that an email was sent or received.
 8. The application remains a synthetic, reset-on-refresh prototype. “Created” and “stored” mean held in the current in-memory prototype session only.
-9. (Added 21 August 2026, user decision.) The prototype is built so that real persistence could later be added without redesigning the domain: the reducer stays pure, prototype state stays plain serialisable data, and every change goes through one dispatched action. No storage layer, adapter, persistence flag, or migration scaffolding is built now, and this decision does not weaken any synthetic-only, privacy, or production-readiness boundary stated elsewhere in this specification.
+9. (Added 21 August 2026.) Reading is the primary use. Authoring, approval, comparison, and withdrawal are supporting machinery and never take precedence over the reading surface in layout, navigation depth, or build order.
+10. (Added 21 August 2026.) The Patient Plan is produced by a deterministic offline transformation that flags what it cannot convert, requires clinician approval before the patient receives it, and never auto-converts the agreed-approach section.
+11. (Added 21 August 2026.) The prototype is built so that real persistence could later be added without redesigning the domain: the reducer stays pure, prototype state stays plain serialisable data, and every change goes through one dispatched action. No storage layer, adapter, persistence flag, or migration scaffolding is built now, and this decision does not weaken any synthetic-only, privacy, or production-readiness boundary stated elsewhere in this specification.
 
 ## Visual direction
 
@@ -110,27 +132,31 @@ The approved primary shell is **Direction A — Clinical Snapshot**.
 
 The linked application uses the following route families:
 
-| Route                                                                        | Purpose                                                                                     |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `/mockups/ed-care-plans`                                                     | Search-first Home and Clinical Snapshot                                                     |
-| `/mockups/ed-care-plans/patients`                                            | Full patient directory and presentation-activity view                                       |
-| `/mockups/ed-care-plans/patients/[patientId]`                                | Patient overview and first-minute snapshot                                                  |
-| `/mockups/ed-care-plans/patients/[patientId]/management-plan`                | Full Current Plan, draft summary, review state, and version history entry points            |
-| `/mockups/ed-care-plans/patients/[patientId]/management-plan/edit`           | Create or edit a draft version                                                              |
-| `/mockups/ed-care-plans/patients/[patientId]/management-plan/review`         | Compare, return for changes, and approve a submitted version                                |
-| `/mockups/ed-care-plans/patients/[patientId]/safety-plan`                    | Current patient-owned Personal Safety Plan                                                  |
-| `/mockups/ed-care-plans/patients/[patientId]/safety-plan/edit`               | Co-produce or revise a Personal Safety Plan Version                                         |
-| `/mockups/ed-care-plans/patients/[patientId]/safety-plan/print`              | Print-optimised patient copy                                                                |
-| `/mockups/ed-care-plans/patients/[patientId]/presentations`                  | Longitudinal ED Presentation timeline                                                       |
-| `/mockups/ed-care-plans/patients/[patientId]/presentations/new`              | Record a concise ED Presentation                                                            |
-| `/mockups/ed-care-plans/patients/[patientId]/presentations/[presentationId]` | View an episode, plan-use feedback, outcome, and amendments                                 |
-| `/mockups/ed-care-plans/patients/[patientId]/history`                        | Combined plan, presentation-amendment, print, and contact-action audit chronology           |
-| `/mockups/ed-care-plans/reviews`                                             | Awaiting Approval, Review Suggested, contact verification, and manual identification queues |
-| `/mockups/ed-care-plans/team`                                                | Synthetic CMHT and plan-owner directory                                                     |
-| `/mockups/ed-care-plans/governance`                                          | Prototype boundary, roles, lifecycle rules, and unresolved identification policy            |
-| `/mockups/ed-care-plans/system-states`                                       | Deterministic degraded-state specimens and scenario controls                                |
+| Route                                                                    | Purpose                                                                                     |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `/mockups/care-plan`                                                     | Search-first Home and Clinical Snapshot                                                     |
+| `/mockups/care-plan/patients`                                            | Full patient directory and presentation-activity view                                       |
+| `/mockups/care-plan/patients/[patientId]`                                | Patient overview and first-minute snapshot                                                  |
+| `/mockups/care-plan/patients/[patientId]/management-plan`                | Full Current Plan, draft summary, review state, and version history entry points            |
+| `/mockups/care-plan/patients/[patientId]/management-plan/edit`           | Create or edit a draft version                                                              |
+| `/mockups/care-plan/patients/[patientId]/management-plan/review`         | Compare, return for changes, and approve a submitted version                                |
+| `/mockups/care-plan/patients/[patientId]/management-plan/print`          | Print-optimised clinician summary to carry to the bedside or send with a handover           |
+| `/mockups/care-plan/patients/[patientId]/patient-plan`                   | The patient-facing edition of the Management Plan, with its own version and approval state  |
+| `/mockups/care-plan/patients/[patientId]/patient-plan/edit`              | Create the patient edition from the Current Plan, fill its flagged gaps, and approve it     |
+| `/mockups/care-plan/patients/[patientId]/patient-plan/print`             | Print-optimised patient copy, including their resources                                     |
+| `/mockups/care-plan/patients/[patientId]/safety-plan`                    | Current patient-owned Personal Safety Plan                                                  |
+| `/mockups/care-plan/patients/[patientId]/safety-plan/edit`               | Co-produce or revise a Personal Safety Plan Version                                         |
+| `/mockups/care-plan/patients/[patientId]/safety-plan/print`              | Print-optimised patient copy                                                                |
+| `/mockups/care-plan/patients/[patientId]/presentations`                  | Longitudinal ED Presentation timeline                                                       |
+| `/mockups/care-plan/patients/[patientId]/presentations/new`              | Record a concise ED Presentation                                                            |
+| `/mockups/care-plan/patients/[patientId]/presentations/[presentationId]` | View an episode, plan-use feedback, outcome, and amendments                                 |
+| `/mockups/care-plan/patients/[patientId]/history`                        | Combined plan, presentation-amendment, print, and contact-action audit chronology           |
+| `/mockups/care-plan/reviews`                                             | Awaiting Approval, Review Suggested, contact verification, and manual identification queues |
+| `/mockups/care-plan/team`                                                | Synthetic CMHT and plan-owner directory                                                     |
+| `/mockups/care-plan/governance`                                          | Prototype boundary, roles, lifecycle rules, and unresolved identification policy            |
+| `/mockups/care-plan/system-states`                                       | Deterministic degraded-state specimens and scenario controls                                |
 
-The route suite is linked from the login-gated Developer hub rather than production navigation. Each route has a literal inbound link or an explicitly documented parameterised child relationship so repository reachability checks remain truthful.
+The route suite is reachable on the live site at `psychiatry.tools` for a signed-in administrator, by adding `/mockups/care-plan` to the developer-gated path prefixes, exactly as the Caring Contact prototype already is. Every other `/mockups/**` path continues to return 404 in production. This is deliberate (user decision, 21 August 2026): the application holds no real information, it sits behind an existing administrator sign-in, and being able to open it on a phone in a meeting is most of what a prototype is for. It is linked from the login-gated Developer hub rather than production navigation. Each route has a literal inbound link or an explicitly documented parameterised child relationship so repository reachability checks remain truthful.
 
 ## Patient workspace
 
@@ -157,9 +183,17 @@ All five are required before a version can be approved. They are the entire summ
 
 1. **How to approach this person.** The engagement approach that works for them.
 2. **What helps.** Concrete things that reduce distress.
-3. **What makes it worse.** Concrete things to avoid.
-4. **What we have agreed to do.** The agreed ED approach, including the usual disposition and the agreed threshold for admission.
+3. **What makes it worse.** Concrete things to avoid, written about what the service does rather than about what the person does.
+
+   Written carelessly this section becomes a list of the patient's faults, which is the single most common way documents like this cause harm. It describes the corridor, the repeated history-taking, the security presence, the unexplained wait — things the department controls and can change. Where a person's own response genuinely must be recorded, it is written as a response to circumstances, never as a trait. Every fixture models this, because whatever the fixtures do is what every real plan written in this tool will imitate.
+
+4. **What we have agreed to do.** The agreed ED approach, including the usual disposition and any agreed position on admission.
+
+   This section carries a wording rule, because it is the one most open to misuse. A continuity plan that states an agreed position on admission can be read at 3am as a pre-authorised refusal by a clinician who has never met the person, and the person is not present to argue with it. Refusing to write it down is worse — the decision still gets made, just unaccountably. So the section must: name who agreed the position and when; be phrased as an agreed default rather than a ceiling on care; and never use prohibitive constructions. `Should not be admitted`, `do not admit`, `admission is not indicated`, and equivalents are banned outright in fixture content, interface copy, and any example. Every rendering of this section sits adjacent to section 5.
+
 5. **What would make this presentation different.** The explicit “this plan does not apply — assess afresh” boundary. This section is visually distinct from the other four and is never collapsed, truncated, or hidden behind a disclosure.
+
+   It is additionally **pinned**: a one-line form of it appears directly beneath the patient's name, above all plan content, at every viewport and in print, as well as in its numbered place in the sequence. On a phone the five sections are a long card and a hurried reader stops before the end — which is precisely the reader this section exists for. The pinned line links to the full section; it never replaces it.
 
 The summary card also shows, as metadata rather than content: version, Current state, approver and approval date, owner, review state, primary CMHT contact with operating hours, and a link to the Personal Safety Plan.
 
@@ -195,7 +229,7 @@ The workflow is:
 4. Compare the submitted version against the Current version.
 5. Return it to Draft with a reason or approve it with an explicit confirmation.
 6. On approval, atomically make the submitted version Current and the previous Current version Superseded.
-7. Withdraw a Current version only with an explicit reason and confirmation, leaving the patient with no Current Plan rather than silently restoring an older version.
+7. Withdraw a Current version only with an explicit reason and confirmation, leaving the patient with no Current Plan rather than silently restoring an older version. Withdrawal is restricted to a named `senior_clinician`, the same role that approves, because removing a plan from use is as consequential as putting one into it. Afterwards the patient's record reads `Plan withdrawn on <date> — <reason>` with the withdrawing clinician named, never a bare `No Current Plan`; superseded versions stay readable in history. A patient who has never had a plan and a patient whose plan was withdrawn must never look the same.
 
 An overdue Current Plan remains visible with a prominent warning. It is not silently hidden, downgraded to Draft, or represented as expired. A replacement draft never suppresses the Current version while approval is pending.
 
@@ -203,7 +237,9 @@ An overdue Current Plan remains visible with a prominent warning. It is not sile
 
 Each ED Presentation records only the continuity information this application owns. Revised 21 August 2026 after user review: the earlier draft required all of the fields below, which is two to three minutes of typing at the end of a shift, in a second system, partly duplicating the hospital record. Work that heavy does not get done, and an empty feedback loop makes the Review Suggested queue and roughly a third of the application scaffolding for something that never runs.
 
-**Required — the roughly thirty-second set.** Fictional ED site; disposition; whether the plan was available; whether it was used; whether it helped; and one free-text note for anything worth flagging. Arrival date and time default to now and stay editable.
+**Required — the roughly thirty-second set.** Fictional ED site; disposition; whether the plan was available; whether it was used; whether it helped; and one required line of free text labelled `In one line: why they came and what happened`. Arrival date and time default to now and stay editable.
+
+That single line is deliberately doing the work the separate structured `presenting indication` and `assessment outcome` fields would otherwise do. It costs the recorder no more time, it is always filled in, and it is what the presentation-activity view needs in order to be useful. One line of prose from the clinician who was actually there beats two structured boxes that get skipped.
 
 **Required conditionally.** A review reason whenever review is suggested, and a deviation reason whenever a deviation is recorded.
 
@@ -226,7 +262,7 @@ The complete field set is:
 
 The record does not duplicate a full ED note, diagnosis list, medication chart, risk assessment, or narrative clinical history.
 
-ED Presentation records are append-only in the domain model. A correction creates a visible Presentation Amendment with author, time, reason, and replacement value. Plan-use feedback that suggests review creates a Review Trigger without automatically changing the plan.
+ED Presentation records are append-only in the domain model. A correction creates a visible Presentation Amendment with author, time, reason, and replacement value. Amendable fields are the disposition, the assessment outcome, the one-line account, and the plan-use answers (availability, use, and helpfulness) as one group. Extending amendment to the plan-use answers does not let anyone rewrite history — every amendment is visible and attributed — and refusing it would mean a clinician who mis-taps `the plan helped` can never correct it, which is exactly the kind of friction that makes people stop using a tool. Plan-use feedback that suggests review creates a Review Trigger without automatically changing the plan.
 
 ## Personal Safety Plan
 
@@ -240,7 +276,7 @@ The Personal Safety Plan is written in the patient's voice and uses seven practi
 6. Family, friends, and supports I can contact.
 7. Professional and emergency support.
 
-It has independent `draft`, `current`, and `superseded` versions plus `within_review`, `due_soon`, and `overdue` review states. The patient-confirmation state records `confirmed`, `discussed_not_confirmed`, `declined`, or `unavailable`. A clinician records the collaboration; senior-clinician approval is not required.
+It has independent `draft`, `current`, and `superseded` versions plus `within_review`, `due_soon`, and `overdue` review states. The patient-confirmation state records `confirmed`, `discussed_not_confirmed`, `declined`, or `unavailable`. A clinician records the collaboration; senior-clinician approval is not required. Any clinical role may create or revise one, including an ED clinician mid-shift: the emergency department at 2am is very often exactly when a safety plan gets made, and a tool that refuses it there is useless at the moment it matters most. Only `plan_coordinator`, which is deliberately a non-clinical coordination role, cannot author one.
 
 The print route:
 
@@ -250,6 +286,12 @@ The print route:
 - Shows a synthetic-prototype watermark and a printed-at timestamp.
 - Removes navigation, action controls, audit history, and unrelated presentation data.
 - Uses browser print/PDF capability with repository print styles; no PDF dependency is added.
+
+## Printing the clinician plan
+
+The Management Plan summary prints as well as the Personal Safety Plan. An ED clinician may want the five first-minute sections on paper to carry to the bedside, and a community team may want them for a handover. The print view carries the patient identifiers, the pinned safety boundary, the five sections in order, the version and approval metadata, the CMHT contact block, a `check the electronic record` warning, a printed-at timestamp, the synthetic-prototype watermark, and a confidential-document footer. It omits navigation, actions, audit history, and drafts.
+
+Both print views, and any later one, are built on the repository's existing `PrintOutput` and `BrowserPrintButton` primitives in `src/components/ui/print-output.tsx`, alongside the two working printed screens in Therapy Compass. Where those primitives are missing something genuinely general — page-break control per section, a monochrome state treatment, a standard confidential footer — the general capability is added to the shared primitive and consumed from there, not reimplemented locally. Route-scoped print CSS is limited to what is genuinely specific to this application's layout.
 
 ## CMHT and contact actions
 
@@ -269,6 +311,63 @@ Each CMHT record includes:
 
 Current public crisis details must be source-verified when implemented. As verified on 20 August 2026, the prototype may present `000` for emergencies, MHERL for metropolitan Perth and Peel, and Rurallink for regional and remote WA, with the explicit statement that MHERL is not an emergency service.
 
+## Patient Plan
+
+The Patient Plan is the patient-facing edition of an approved Management Plan Version, written in the person's own voice with recovery-focused language, together with a set of resources chosen for them. It is distinct from the Personal Safety Plan, which is the person's own plan for managing distress rather than a rendering of the clinical one.
+
+### How it is produced
+
+A deterministic, offline transformation. No language model, no network call, no provider, no clinical text leaving the machine — the application's provider-free boundary is unchanged.
+
+Naive term-substitution over clinical prose produces confident nonsense, so the transformation does not attempt to rewrite arbitrary sentences. It works because the Management Plan is already eleven fields with known meanings:
+
+- Each clinical field maps to a known patient-voice heading.
+- A curated plain-language dictionary replaces clinical vocabulary with everyday words.
+- Framing shifts to second person, present tense, strengths-based and recovery-focused.
+- **Anything the transformation cannot convert with confidence becomes a visible gap for the clinician to write, never a guess.** The output is an incomplete draft by design.
+
+Section 4, the agreed ED approach and any position on admission, is **never** auto-converted under any circumstances. It is always presented as a gap for a person to word. It is the section where a wording slip does the most harm and the one a patient is most likely to read as a judgment about them.
+
+The transformation is a pure function of an approved Management Plan Version. Replacing it later with a language-model implementation must not require redesigning the surrounding screens, the version model, or the approval step.
+
+### Sections
+
+Eight, in this order:
+
+1. Why we wrote this together.
+2. What matters to you.
+3. What helps you.
+4. What makes things harder.
+5. What we agreed will happen when you come to the emergency department.
+6. If something new is happening.
+7. Who's involved in your care.
+8. Things that might help.
+
+Physical health and medication is deliberately absent. The person has their own record, and duplicating medication detail onto a printed sheet that leaves the building is a privacy cost with no corresponding benefit.
+
+### Approval
+
+A Patient Plan Version has its own draft and current states and its own approval, separate from the Management Plan's. Any clinical role may approve one — requiring a senior clinician would mean people wait days for their own copy, which defeats the purpose — and the approving clinician is named on the version and on the print. Approval is mandatory: an automatic rewrite of a clinical document into patient-facing language can drift in meaning, and this is the copy that leaves the building. A Patient Plan Version cannot be approved while any flagged gap is unfilled.
+
+### Currency
+
+Each Patient Plan Version names the Management Plan Version it was derived from. When a newer Management Plan Version becomes Current, the Patient Plan is marked `Based on an earlier version — needs updating`, stays fully readable, and raises a Review Trigger. It is never silently regenerated, never hidden, and never withdrawn automatically: the person may be holding a printed copy of it, and the application's account of what they were given must stay truthful.
+
+### Resources
+
+Four kinds, all synthetic except the already-verified public crisis lines:
+
+- The person's own community team, care coordinator, and consented supports.
+- Local services in the fictional health service, typed so the list can carry practical categories — housing, financial, transport, carer support, alcohol and other drugs, cultural and peer support — alongside clinical ones. Housing and money are frequently the actual reason someone keeps presenting, and a resource list that cannot mention them is the wrong list.
+- The verified national and WA crisis contacts, with the same caveats used elsewhere in this specification.
+- Self-help and psychoeducation reading.
+
+Resources are hand-authored per patient in this prototype. They are structured so that a later revision of this application can source them from the existing Services and Factsheets modes; that integration is recorded intent, not present scope, and no production module is imported now.
+
+### Print
+
+The patient copy prints with plain language, generous spacing, and monochrome safety, carrying the person's preferred name, the version and approval date, the eight sections, their resources, the verified crisis contacts, the synthetic watermark, and a printed-at timestamp. It omits navigation, clinical vocabulary, audit history, ED presentation data, and the Management Plan's internal metadata.
+
 ## Identification review
 
 The prototype includes an Identification Policy record with:
@@ -279,7 +378,9 @@ The prototype includes an Identification Policy record with:
 - Manual referral enabled.
 - A visible explanation that local clinical and privacy governance must define eligibility before operational use.
 
-Patient lists may display objective counts such as “7 ED presentations in 12 months” and sort by activity. They must not convert those counts into an automatic label, mandatory care pathway, severity claim, or risk score.
+Patient lists display objective activity: the count over a named window, which fictional EDs the person attended and how often at each, and a compact reverse-chronological line per presentation giving the date, the site, and the one-line account of why they came and what happened. They must not convert any of that into an automatic label, mandatory care pathway, severity claim, or risk score.
+
+Sorting by presentation count is available **only inside the Identification Review workflow**, where finding people who attend often is the stated and governed purpose of the screen. It is not offered on the general patient directory or on any other surface. The glossary bans `frequent presenter` as a label for a person; a sortable ranking of everyone by attendance is the same ranking without the word, and confining it to the one screen that has a reason for it is more honest than either banning it outright or leaving it lying around the application. Wherever the ranking is offered, the statement that counts do not determine eligibility is on the same screen.
 
 An authorised synthetic user may manually add a patient to `Identification review` with a reason. The queue action initiates multidisciplinary review; it does not create or approve a plan.
 
@@ -299,6 +400,10 @@ The displayed synthetic user and role explain why an action is available. This i
 ## Patient, carer, communication, and cultural preferences
 
 The Management Plan records whether participation was `co_produced`, `discussed`, `declined`, or `patient_unavailable`. It may record consented support people and whether their involvement is current.
+
+A version may be approved at any participation state — sometimes a plan must be written for a person who cannot or will not engage, and blocking that would make the tool refuse the situations it exists for. But it is never invisible that this happened. A version whose participation is `declined` or `patient_unavailable` carries a persistent `Written without this person's involvement` marker on every view, print, and queue entry, and its approval raises an open Review Trigger so that involving the person stays on somebody's list.
+
+The Management Plan also records whether the person has been shown their plan, and whether a Patient Plan edition exists and is current. A plan written about someone who has never seen it is the thing this category of document is most criticised for, so the state is recorded rather than left unasked.
 
 The patient-owned summary can include:
 
@@ -350,7 +455,7 @@ Primary entities are:
 - `IdentificationPolicy` and `IdentificationReview`.
 - `AuditEvent`.
 
-All fixture IDs use a `SYN-` prefix, and every patient-facing route displays the fictional-data boundary. Refresh returns the application to deterministic fixtures. The provider performs no persistence or network access.
+All fixture IDs use a `SYN-` prefix, and every patient-facing route displays the fictional-data boundary. Refresh returns the application to deterministic fixtures. The shell states this in plain words about _state_, not only about data — something to the effect of `Nothing is saved. Reloading this page starts over.` — because the synthetic-data label does not warn a person demonstrating the tool that an accidental reload will discard the draft they are showing someone. The provider performs no persistence or network access.
 
 ## Error and degraded-state behaviour
 
@@ -427,6 +532,16 @@ No live Supabase, OpenAI, email, identity, hospital, CMHT, analytics, or provide
 - An approved version defaults its next review date 12 months ahead, the author can change it, and the amber warning begins 28 days before it.
 - An ED Presentation saves with only site, disposition, plan availability, plan use, plan helpfulness, and the note completed; the optional detail fields never block the save and render as `Not recorded` when empty.
 - An Identification Review can be closed with a recorded decision and reason, leaves the queue when closed, remains visible in the patient's history, and creates no plan on any decision.
+- The pinned safety boundary is visible above all plan content at 320 px, 390 px, desktop, dark mode, forced colours, and in print.
+- No fixture, interface string, or example contains a prohibitive admission construction.
+- A version approved at `declined` or `patient_unavailable` participation shows the `written without this person's involvement` marker everywhere and raises a Review Trigger.
+- A withdrawn plan never renders identically to a patient who never had one.
+- Sort-by-count exists only within the Identification Review workflow and nowhere else.
+- The Management Plan summary prints, and both print views consume the shared `PrintOutput` primitive rather than reimplementing print behaviour.
+- The Patient Plan transformation produces visible gaps rather than guesses, never auto-converts the agreed-approach section, and cannot be approved with a gap unfilled.
+- A Patient Plan derived from a superseded Management Plan Version is marked as needing updating, stays readable, and is never regenerated or hidden automatically.
+- No language model, network call, or provider is reachable from any part of the application, including the Patient Plan transformation.
+- The shell states in plain words that nothing is saved and reloading starts over.
 - Presentation corrections are visible amendments rather than silent overwrites.
 - Plan-use feedback can create a Review Trigger but cannot change a plan automatically.
 - Objective presentation counts never become an automatic patient label or eligibility decision.

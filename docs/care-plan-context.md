@@ -1,6 +1,6 @@
-# ED Care Plans — domain glossary
+# Care Plan — domain glossary
 
-The ubiquitous language for the ED Care Plans context. This glossary defines the clinical-workflow concepts without describing schemas, routes, components, or implementation choices.
+The ubiquitous language for the Care Plan context. This glossary defines the clinical-workflow concepts without describing schemas, routes, components, or implementation choices.
 
 ## People and services
 
@@ -131,5 +131,5 @@ Confirmation that a CMHT's shared contact details and operating hours were check
 _Avoid_: Service availability guarantee
 
 **Audit Event**:
-An attributed record that a meaningful workflow action occurred inside ED Care Plans. It describes only evidence the application actually has.
+An attributed record that a meaningful workflow action occurred inside Care Plan. It describes only evidence the application actually has.
 _Avoid_: Activity feed, communication log
