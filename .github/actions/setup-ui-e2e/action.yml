@@ -26,11 +26,21 @@ runs:
     # installed even on a browser-cache hit. `install-deps` shells out to `apt-get
     # update`, which occasionally hangs indefinitely against the runner's default
     # azure.archive.ubuntu.com mirror (no timeout of its own) and silently burns the
-    # whole job until something external cancels it. Bound each attempt and retry so a
-    # stuck mirror fails fast instead of stalling the job for the better part of an hour.
+    # whole job until something external cancels it. Rewrite the flaky azure mirror
+    # to archive.ubuntu.com, set bounded APT timeouts, and bound each attempt with
+    # retries so a stuck mirror fails fast and recovers instead of stalling the job.
     - name: Install Chromium
       shell: bash
       run: |
+        if command -v sudo >/dev/null 2>&1; then
+          sudo sed -i 's/azure\.archive\.ubuntu\.com/archive.ubuntu.com/g' /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list 2>/dev/null || true
+          sudo mkdir -p /etc/apt/apt.conf.d
+          sudo tee /etc/apt/apt.conf.d/99flaky-mirror-resilience >/dev/null << 'EOF'
+        Acquire::Retries "3";
+        Acquire::http::Timeout "30";
+        Acquire::https::Timeout "30";
+        EOF
+        fi
         install_chromium() {
           if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
             npx playwright install-deps chromium

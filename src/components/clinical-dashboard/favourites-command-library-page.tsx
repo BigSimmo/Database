@@ -1367,7 +1367,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
         <div className="mx-auto grid min-w-0 max-w-[40rem] gap-4 px-4 py-8 sm:px-6">
           <header data-testid="favourites-command-library" className="flex min-w-0 flex-wrap items-baseline gap-x-3">
             <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
-              Favourites
+              {sharedHomePresentation.favourites.title}
             </h1>
             <p className="text-pretty text-sm-minus font-medium leading-6 text-[color:var(--text-muted)]">
               Sign up to save favourites and access them across devices.
