@@ -463,12 +463,16 @@ export function resolveBaselineCommitDistance(baselineSha, cwd = root, exec = ex
     return null;
   }
   try {
-    const count = exec("git", ["-C", cwd, "rev-list", "--count", `${baselineSha.trim().toLowerCase()}..HEAD`], {
+    const raw = exec("git", ["-C", cwd, "rev-list", "--count", `${baselineSha.trim().toLowerCase()}..HEAD`], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+    });
+    const count = typeof raw === "string" ? raw.trim() : "";
+    if (!/^\d+$/.test(count)) {
+      return null;
+    }
     const n = Number.parseInt(count, 10);
-    return Number.isFinite(n) ? n : null;
+    return Number.isSafeInteger(n) ? n : null;
   } catch {
     return null;
   }
@@ -589,6 +593,10 @@ export function selfTest() {
   // resolveBaselineCommitDistance
   const nullSha = resolveBaselineCommitDistance("not-a-sha");
   check("resolveBaselineCommitDistance: invalid sha returns null", nullSha === null);
+
+  const nonNumericExec = () => "12trailing\n";
+  const nonNumeric = resolveBaselineCommitDistance("a".repeat(40), root, nonNumericExec);
+  check("resolveBaselineCommitDistance: non-numeric count returns null", nonNumeric === null);
 
   const mockExec = () => "12\n";
   const distance = resolveBaselineCommitDistance("a".repeat(40), root, mockExec);

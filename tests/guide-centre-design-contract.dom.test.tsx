@@ -26,13 +26,17 @@ it("keeps Guide chrome on approved elevation and non-layout transitions", () => 
 });
 
 /**
- * The phone footer is the SHARED edge-to-edge composer dock, not a Sheet footer
- * band. Its own surface/border/elevation are sm+ only: on phones they painted an
- * opaque `--surface-raised` slab across the content behind the search pill, which
- * is exactly the "big cover" every other phone composer avoids by staying
- * transparent behind a localized `.answer-footer-search-backdrop` scrim.
+ * The phone footer is the SHARED edge-to-edge dock, not a Sheet footer band. Its
+ * own surface/border/elevation are sm+ only: on phones they painted an opaque
+ * `--surface-raised` slab across the content behind the action, which is exactly
+ * the "big cover" every other phone composer avoids by staying transparent behind
+ * a localized `.answer-footer-search-backdrop` scrim.
+ *
+ * It carries the COMPACT scrim variant. The default 10rem height was sized for a
+ * search composer plus an action row; the dock now holds a single control, so the
+ * taller scrim would tint far more page than the control it seats.
  */
-it("gives the Guide footer the shared phone composer dock chrome", () => {
+it("gives the Guide footer the shared phone dock chrome at the compact scrim height", () => {
   render(<GuideDialog open onClose={vi.fn()} />);
 
   const dialog = screen.getByRole("dialog", { name: "Clinical KB guide" });
@@ -41,6 +45,7 @@ it("gives the Guide footer the shared phone composer dock chrome", () => {
   expect(footer).not.toBeNull();
   expect(footer).toHaveClass("answer-footer-search-dock");
   expect(footer).toHaveClass("answer-footer-search-edge");
+  expect(footer).toHaveAttribute("data-footer-variant", "compact");
 
   // Phone band chrome is off; the sm+ Sheet footer keeps it.
   expect(footer).toHaveClass("border-t-0", "bg-transparent", "shadow-none", "p-0");
@@ -54,32 +59,35 @@ it("gives the Guide footer the shared phone composer dock chrome", () => {
 });
 
 /**
- * Inside the dock the tour action is an ADDON, and every dock addon in this repo
- * is an outlined translucent pill — `Patient details`
- * (`patient-details-fab__button`) and Compare's quiet state. A filled primary
- * control there puts back a smaller version of the opaque cover the dock
- * conversion removed, because the band behind it is deliberately transparent.
- * From `sm` the footer is a real band and the primary treatment is correct.
+ * The tour action is the dock's ONLY control, so it takes the filled primary
+ * treatment — the role `differentials-mobile-compare-fab__button` fills on its own
+ * surface — not the quiet outlined framing reserved for dock addons.
+ *
+ * This inverted on 2026-08-19. While a search composer shared the dock the action
+ * was an addon and a filled slab beside the pill put back a smaller version of the
+ * opaque cover the dock conversion removed. With the composer gone there is
+ * nothing to compete with and nothing left to cover, so the phone-scoped
+ * translucent override must NOT come back — only the pill radius and elevation
+ * stay phone-scoped.
  */
-it("renders the Guide tour action as a dock addon pill on phones only", () => {
+it("renders the Guide tour action as the dock's single filled primary pill", () => {
   render(<GuideDialog open onClose={vi.fn()} />);
 
   const dialog = screen.getByRole("dialog", { name: "Clinical KB guide" });
   const row = dialog.querySelector<HTMLElement>("[data-guide-tour-action-row]");
   expect(row).not.toBeNull();
 
-  const action = row?.querySelector<HTMLElement>("button:last-of-type");
+  // One control in the dock at rest — no composer, no secondary duplicates of the tabs.
+  expect(row?.querySelectorAll("button")).toHaveLength(1);
+
+  const action = row?.querySelector<HTMLElement>("button");
   expect(action).not.toBeNull();
 
-  // Addon framing, phone-scoped.
-  expect(action).toHaveClass(
-    "max-sm:rounded-full",
-    "max-sm:border",
-    "max-sm:border-[color:var(--border-strong)]",
-    "max-sm:bg-[color-mix(in_srgb,var(--surface)_92%,transparent)]",
-    "max-sm:shadow-[var(--e3)]",
-  );
-
-  // The sm+ primary treatment is still the base, not replaced.
+  // Filled primary at every breakpoint; only the floating pill framing is phone-scoped.
   expect(action).toHaveClass("bg-[color:var(--command)]", "text-[color:var(--command-contrast)]");
+  expect(action).toHaveClass("max-sm:rounded-full", "max-sm:shadow-[var(--e3)]");
+
+  // The retired addon framing must not return.
+  expect(action).not.toHaveClass("max-sm:bg-[color-mix(in_srgb,var(--surface)_92%,transparent)]");
+  expect(action).not.toHaveClass("max-sm:border-[color:var(--border-strong)]");
 });
