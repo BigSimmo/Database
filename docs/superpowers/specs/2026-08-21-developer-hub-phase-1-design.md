@@ -203,7 +203,7 @@ only client boundary.
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": { "sha": "<40-char>", "committed_at": "<ISO 8601>" },
-  "counts": { "open": 67, "p1": 2, "p2": 33, "p3": 32, "queued": 11, "pending": 3, "resolved": 271 },
+  "counts": { "open": 67, "p1": 2, "p2": 33, "p3": 32, "queued": 11, "pending": 3, "resolved": 336 },
   "queue": [
     {
       "order": 1,
