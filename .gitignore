@@ -162,3 +162,6 @@ ds-bundle/
 dist/
 test-output*.txt
 docs/archive/staging-tenancy-evidence-*
+
+# Subagent-driven-development coordination scratch (ledger, briefs, review packages)
+.superpowers/
