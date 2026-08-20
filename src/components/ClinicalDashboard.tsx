@@ -1488,40 +1488,24 @@ export function ClinicalDashboard({
     };
   }, []);
 
-  useEffect(() => {
-    const searchParamString = searchParams.toString();
-    if (lastSyncedSearchParamsRef.current === searchParamString) return;
-    lastSyncedSearchParamsRef.current = searchParamString;
-    const nextSearchContext = readSearchNavigationContext(new URLSearchParams(searchParamString));
-    setQueryMode(nextSearchContext.queryMode);
-    setScopeFilters(nextSearchContext.scopeFilters);
-    if (searchParams.get("run") === "1") return;
-
-    const mode = searchParams.get("mode");
-    if (!isAppModeId(mode) || !isAppModeVisible(mode)) return;
-
-    if (modeChangeFromUiRef.current) {
-      modeChangeFromUiRef.current = false;
-      return;
-    }
-
-    const nextQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
-    const shouldFocusComposer = searchParams.get("focus") === "1";
-    const hasUrlQuery = searchParams.has("q") || searchParams.has("query");
-    const frame = window.requestAnimationFrame(() => {
-      if (mode === "differentials") clearModeResultState();
-      setSearchMode(mode);
-      if (hasUrlQuery) setQuery(nextQuery);
-      setModeSearchSubmitted(false);
-      setLoading(false);
-      setError(null);
-      setAnswerProgress(null);
-      if (shouldFocusComposer) focusComposerInput(true);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [searchParams, clearModeResultState, focusComposerInput]);
-
-  useHomeModeSeed({ pathname, searchParams, lastAppMode });
+  useHomeModeSeed({
+    pathname,
+    searchParams,
+    lastAppMode,
+    setSearchMode,
+    setQuery,
+    setQueryMode,
+    setScopeFilters,
+    setModeSearchSubmitted,
+    setLoading,
+    setError,
+    setAnswerProgress,
+    clearModeResultState,
+    focusComposerInput,
+    stopSearch,
+    modeChangeFromUiRef,
+    lastSyncedSearchParamsRef,
+  });
 
   useEffect(() => {
     if (urlSearchBootstrappedRef.current) return;
