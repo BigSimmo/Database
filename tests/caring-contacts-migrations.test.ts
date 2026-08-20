@@ -1101,6 +1101,80 @@ describe("the workspace schema", () => {
       );
       expect(rows[0].restarted_at).not.toBeNull();
     });
+
+    it("refuses to clear a restart that was already recorded", async () => {
+      // null -> a value is the restart being recorded, and that stays allowed. The reverse is a
+      // silent rewrite of a closed incident: a restarted stop that reads as never restarted.
+      await updateIncident(TEAM_NORTH, STOP_ONE, "restarted_at = now()");
+
+      await expect(updateIncident(TEAM_NORTH, STOP_ONE, "restarted_at = null")).rejects.toThrow(
+        /caring-contacts-service-stop-immutable/,
+      );
+
+      const { rows } = await pool.query<{ restarted_at: string | null }>(
+        "select restarted_at from caring_contacts.service_stops where stop_id = $1",
+        [STOP_ONE],
+      );
+      expect(rows[0].restarted_at).not.toBeNull();
+    });
+
+    it("refuses to move a restart that was already recorded", async () => {
+      // Backdating a restart is the same rewrite as clearing it, and reads as a shorter outage
+      // than the one that happened. The comparison is made in the database so the assertion is
+      // about the stored instant rather than about how a driver renders it.
+      await updateIncident(TEAM_NORTH, STOP_ONE, "restarted_at = timestamptz '2026-03-02 11:00:00+08'");
+
+      await expect(
+        updateIncident(TEAM_NORTH, STOP_ONE, "restarted_at = timestamptz '2020-01-01 00:00:00+08'"),
+      ).rejects.toThrow(/caring-contacts-service-stop-immutable/);
+
+      const { rows } = await pool.query<{ unchanged: boolean }>(
+        `select restarted_at = timestamptz '2026-03-02 11:00:00+08' as unchanged
+         from caring_contacts.service_stops where stop_id = $1`,
+        [STOP_ONE],
+      );
+      expect(rows[0].unchanged).toBe(true);
+    });
+
+    it("freezes every column of the incident except restarted_at, including any added later", async () => {
+      // The guard is an ALLOWLIST -- everything frozen but the one named exception -- so this
+      // test reads the real column list from the live table instead of naming columns here. A
+      // hand-written list here would go stale exactly as a hand-written list in the trigger did,
+      // and this table is being extended while the build is in flight. Add a column, and this
+      // test fails until the guard covers it.
+      const { rows: columns } = await pool.query<{ column_name: string }>(
+        `select column_name from information_schema.columns
+         where table_schema = 'caring_contacts' and table_name = 'service_stops'
+         order by ordinal_position`,
+      );
+      const columnNames = columns.map((row) => row.column_name);
+
+      // Without these two, an empty or restarted_at-less list would iterate over nothing and
+      // report green while proving nothing at all.
+      expect(columnNames.length).toBeGreaterThan(0);
+      expect(columnNames).toContain("restarted_at");
+
+      const frozen = columnNames.filter((name) => name !== "restarted_at");
+      expect(frozen.length).toBeGreaterThan(0);
+
+      // `null` is a value distinct from everything the fixture wrote, and a BEFORE ROW trigger
+      // runs ahead of NOT NULL and foreign-key checking, so the guard's own exception is the one
+      // that surfaces. Asserted on the message rather than on "it threw", so a not-null violation
+      // cannot be mistaken for the guard doing its job. Every column is attempted before the
+      // assertion, so a failure names all of them rather than only the first.
+      const notRefusedByTheGuard: string[] = [];
+      for (const column of frozen) {
+        const outcome = await updateIncident(TEAM_NORTH, STOP_ONE, `${column} = null`).then(
+          () => "the update was ALLOWED",
+          (error: unknown) => String(error),
+        );
+        if (!/caring-contacts-service-stop-immutable/.test(outcome)) {
+          notRefusedByTheGuard.push(`${column}: ${outcome}`);
+        }
+      }
+
+      expect(notRefusedByTheGuard).toEqual([]);
+    });
   });
 
   describe("the current incident's reason and note are held in exactly one place", () => {

@@ -122,15 +122,25 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  if new.stop_id is distinct from old.stop_id
-    or new.reason is distinct from old.reason
-    or new.note is distinct from old.note
-    or new.stopped_by is distinct from old.stopped_by
-    or new.stopped_at is distinct from old.stopped_at
-    or new.reported_by_team_id is distinct from old.reported_by_team_id
-  then
+  -- An ALLOWLIST, not a blocklist. The whole row is compared as jsonb with the one mutable field
+  -- removed, rather than naming the frozen columns: a hand-written list defaults any column added
+  -- LATER to mutable, silently, and this table is being extended while the build is in flight. The
+  -- safe default for an immutability guard is that everything is frozen except the named exception,
+  -- so a new column is covered the moment it exists. `to_jsonb` and the `jsonb - text` operator
+  -- both live in pg_catalog, which Postgres searches implicitly even under `set search_path = ''`.
+  if to_jsonb(new) - 'restarted_at' is distinct from to_jsonb(old) - 'restarted_at' then
     raise exception
       'caring-contacts-service-stop-immutable: a recorded incident may only change its restarted_at';
+  end if;
+  -- And `restarted_at` is WRITE-ONCE, not merely writable. null -> a value is the restart being
+  -- recorded, and that stays allowed; once set, any further change is a rewrite of a closed
+  -- incident. Clearing it back to null would make a restarted stop read as never restarted, and
+  -- moving it would report a shorter outage than the one that happened. Both are exactly the
+  -- silent rewriting this trigger exists to prevent, so "the only field that changes" has to mean
+  -- it changes ONCE.
+  if old.restarted_at is not null and new.restarted_at is distinct from old.restarted_at then
+    raise exception
+      'caring-contacts-service-stop-immutable: a recorded restart is never rewritten';
   end if;
   return new;
 end;
@@ -140,6 +150,24 @@ drop trigger if exists service_stops_immutable on caring_contacts.service_stops;
 create trigger service_stops_immutable
   before update on caring_contacts.service_stops
   for each row execute function caring_contacts.assert_service_stop_immutable();
+
+-- DELETE is deliberately NOT blocked here, and that is a decision rather than an oversight.
+-- `caring_contacts_app` holds DELETE on this table, and a restarted incident with no approval rows
+-- is referenced by nothing -- the singleton's `stop_id` is cleared on restart -- so a
+-- delete-then-reinsert of the same `stop_id` could rewrite an incident wholesale. That is a real
+-- gap in an immutability story and it is left open knowingly.
+--
+-- Owner decision, 2026-08-21: patient case notes stay an available capability and the record is
+-- KEPT, built brief and lightweight now to be extended later. So this table needs no purge or
+-- de-identification path at this stage, and DELETE is left where a future removal path can still
+-- reach it. `note` is still free text a responder wrote mid-incident, so the
+-- `-- Treat it as patient data.` classification on that column stands and every privacy control
+-- over it stands with it -- retained is not the same as not sensitive.
+--
+-- If DELETE is ever blocked, a removal path MUST land in the same change. The guard above already
+-- forbids nulling `note` by UPDATE, so blocking DELETE alone would make that field permanently
+-- unremovable -- the worst of both dispositions. Tracked for the phase that builds case notes
+-- properly: docs/outstanding-issues-inbox/049e0356-b6ad-4382-8f34-958d2681c60e.json.
 
 -- Convert the per-team table into a singleton. Guarded on the old column so a replay, where the
 -- rename has already happened, is a no-op.

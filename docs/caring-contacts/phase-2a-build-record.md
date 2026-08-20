@@ -756,3 +756,34 @@ error" as covering the Ruling 31 hunk); and nothing requires that `service_stops
 the incident the singleton points at while stopped, which is store discipline rather than a schema defect.
 
 Task 11a fix round 3 dispatched (Opus) implementing Rulings 32 and 33 and the Ruling 34 comment.
+
+## OWNER DECISION 2026-08-21 — the responder note, and what Ruling 34 now means
+
+Asked because Ruling 34 surfaced a real gap: `service_stops.note` is commented as patient data, retention
+is seven years, and nothing can remove it.
+
+**Decision, verbatim in substance:** keep the option to have case notes for patients, and the patient
+record is KEPT. Build this part brief and lightweight now, to be built on further in the future.
+
+What that settles, and what it does not:
+
+- Ruling 34 STANDS, and its reasoning is now stronger rather than weaker. DELETE stays unblocked, but no
+  longer as the reluctant preservation of a purge route — the record is deliberately kept, so no purge or
+  de-identification path is owed at this stage.
+- NO code change is owed by this decision beyond wording. The Ruling 34 comment must not say the note is
+  left deletable because it has no retention path; it should say the record is deliberately retained, and
+  that the note is intended to grow into a lightweight patient case-note capability later.
+- The `-- Treat it as patient data.` comment on the column STAYS TRUE and stays. Retained is not the same
+  as not sensitive: the field can still contain whatever a person typed mid-incident, so every existing
+  privacy control over it — the banner narrowing at Ruling 8, the audit-event scans at Ruling 12 — remains
+  binding. This decision changes its DISPOSITION (kept, not purged), not its CLASSIFICATION.
+- What is owed, later: when patient case notes are actually built in a subsequent phase, their retention
+  disposition must be settled deliberately at that moment rather than inherited by accident from this
+  lightweight start. Recorded durably in the repository inbox as a P2 so it survives the loss of this
+  ledger — `docs/outstanding-issues-inbox/049e0356-b6ad-4382-8f34-958d2681c60e.json`, per the owner's
+  explicit yes to cross-project tracking.
+- Standing prohibition carried from Ruling 34: do NOT close the DELETE hole by blocking DELETE alone. With
+  UPDATE already blocked by the immutability trigger, that would make the note permanently unremovable —
+  the worst of both dispositions. If DELETE is ever blocked, a removal path must land in the same change.
+
+Nothing real is or has been involved: synthetic fictional data only, no patient record of any kind exists.
