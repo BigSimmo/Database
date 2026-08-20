@@ -269,6 +269,7 @@ function filterAndSortItems(
   const effectiveSort: SortMode = viewMode === "recent" ? "last-used" : sortMode;
 
   return items
+    .filter((item) => viewMode !== "recent" || lastUsedScore(item.lastUsed) > 1000)
     .filter((item) => selectedTypeIds.size === 0 || selectedTypeIds.has(item.tabId))
     .filter((item) => selectedSetTitles.size === 0 || selectedSetTitles.has(item.set))
     .filter((item) => !pinnedOnly || item.pinned === true)
