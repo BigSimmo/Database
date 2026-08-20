@@ -235,7 +235,10 @@ export function buildBlindArtifacts(input: BlindBuildInput) {
     packLines.push("### Verdict", "", `Record it in verdict-sheet.md under \`${id}\`.`, "");
     sheetLines.push(`${id}: verdict= notes=`);
   });
-  const readingPack = `${packLines.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd()}\n`;
+  const readingPack = `${packLines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd()}\n`;
   const verdictSheet = `${sheetLines.join("\n").trimEnd()}\n`;
 
   const key: AssignmentKey = {
@@ -309,7 +312,9 @@ export function buildUnblindedReport(key: AssignmentKey, verdicts: Map<string, B
     const bLabel = pair.a_is === "before" ? key.after_label : key.before_label;
     const resolved = verdict === "A" ? aLabel : verdict === "B" ? bLabel : verdict;
     tallies.set(resolved, (tallies.get(resolved) ?? 0) + 1);
-    lines.push(`- ${pair.id}: ${verdict} -> ${resolved} (A was ${aLabel}, B was ${bLabel})${notes ? ` — ${notes}` : ""}`);
+    lines.push(
+      `- ${pair.id}: ${verdict} -> ${resolved} (A was ${aLabel}, B was ${bLabel})${notes ? ` — ${notes}` : ""}`,
+    );
   }
   lines.push("", "## Tally", "");
   for (const [labelName, count] of tallies) lines.push(`- ${labelName}: ${count}`);

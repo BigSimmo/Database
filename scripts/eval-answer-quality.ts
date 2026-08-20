@@ -259,10 +259,10 @@ export function buildRagDiagnosticDumpRecord(id: string, question: string, answe
   const generationLatencyMs = answer.latencyTimings?.generation_latency_ms ?? 0;
   const providerAttempted = Boolean(
     hasOpenAIUsage ||
-      observedProviderRequestIdCount > 0 ||
-      answer.modelUsed ||
-      generationLatencyMs > 0 ||
-      /(?:^|;\s*)generation_fallback:provider_/i.test(answer.routingReason ?? ""),
+    observedProviderRequestIdCount > 0 ||
+    answer.modelUsed ||
+    generationLatencyMs > 0 ||
+    /(?:^|;\s*)generation_fallback:provider_/i.test(answer.routingReason ?? ""),
   );
   return {
     id: displaySafeDiagnosticText(id, 160),
