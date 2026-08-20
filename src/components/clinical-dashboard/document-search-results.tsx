@@ -220,6 +220,14 @@ function loadedSourceCountHint(count: number) {
   return `${count.toLocaleString()} loaded ${count === 1 ? "source" : "sources"}`;
 }
 
+// What the option DISPLAYS. The announced name keeps the full phrase above, so
+// a reader still hears the unit; the visible column is a bare numeral. Spelling
+// "0 loaded sources" seven times down a phone sheet made every option wide
+// enough to wrap onto its own line and repeated the same two words in each one.
+function loadedSourceCountLabel(count: number) {
+  return count.toLocaleString();
+}
+
 function relevanceTone(document: DocumentMatch) {
   const verdict = document.relevance?.verdict as string | undefined;
   const percent = documentRelevancePercent(document);
@@ -462,10 +470,10 @@ function DocumentResultMoreMenu({
         }}
         className={cn(
           documentActionClass,
-          "min-h-12 w-full min-w-0 rounded-br-xl px-2 !text-sm font-bold text-[color:var(--text-heading)]",
+          "min-h-12 w-full min-w-0 rounded-br-xl px-2 !text-sm !font-semibold text-[color:var(--text)]",
         )}
       >
-        <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
         More
       </button>
       {open && menuPosition
@@ -1165,6 +1173,7 @@ function DocumentSearchResultsPanelImpl({
               label: documentDisplayTitle(document),
               searchText: `${document.title} ${document.file_name}`,
               hint: loadedSourceCountHint(count),
+              hintLabel: loadedSourceCountLabel(count),
               disabled: count === 0 && !draftSelectedDocumentIds.has(document.id),
             };
           }),
@@ -1200,13 +1209,16 @@ function DocumentSearchResultsPanelImpl({
         },
       ]
     : [];
-  for (const group of governanceGroups) {
+  for (const [groupIndex, group] of governanceGroups.entries()) {
     const selected = new Set((activeDraft.scopeFilters[group.key] as string[] | undefined) ?? []);
     documentFilterGroups.push(
       resultFilterFacetGroup({
         id: group.key,
         label: group.label,
-        description: "Source governance is applied before document retrieval.",
+        // The three governance groups are adjacent and share one rule, so the
+        // rule is stated once above the first of them. Repeating it verbatim
+        // under each heading spent three lines saying the same thing.
+        description: groupIndex === 0 ? "Source governance is applied before document retrieval." : undefined,
         selected,
         options: group.values.map((value) => {
           const count = projectedDocumentScopeCount({
@@ -1220,6 +1232,7 @@ function DocumentSearchResultsPanelImpl({
             value,
             label: group.labels[value] ?? value,
             hint: loadedSourceCountHint(count),
+            hintLabel: loadedSourceCountLabel(count),
             disabled: loadedSourceCountsAreComplete && count === 0 && !selected.has(value),
           };
         }),
@@ -1229,6 +1242,11 @@ function DocumentSearchResultsPanelImpl({
   }
 
   if (filterPanelOpen) {
+    const anyLocalityCount = filterDocumentsByRetrievalScope(
+      draftSourceDocuments,
+      { ...activeDraft.scopeFilters, locality: undefined },
+      draftSelectedDocumentIds,
+    ).length;
     documentFilterGroups.push(
       resultFilterGroup({
         id: "locality",
@@ -1239,13 +1257,8 @@ function DocumentSearchResultsPanelImpl({
           {
             value: "all",
             label: "Any locality",
-            hint: loadedSourceCountHint(
-              filterDocumentsByRetrievalScope(
-                draftSourceDocuments,
-                { ...activeDraft.scopeFilters, locality: undefined },
-                draftSelectedDocumentIds,
-              ).length,
-            ),
+            hint: loadedSourceCountHint(anyLocalityCount),
+            hintLabel: loadedSourceCountLabel(anyLocalityCount),
           },
           ...(["local", "non_local"] as const).map((value) => {
             const count = filterDocumentsByRetrievalScope(
@@ -1257,6 +1270,7 @@ function DocumentSearchResultsPanelImpl({
               value,
               label: value === "local" ? "Local" : "Non-local",
               hint: loadedSourceCountHint(count),
+              hintLabel: loadedSourceCountLabel(count),
               disabled: loadedSourceCountsAreComplete && count === 0 && activeDraft.scopeFilters.locality !== value,
             };
           }),
@@ -1295,6 +1309,7 @@ function DocumentSearchResultsPanelImpl({
             value,
             label: value,
             hint: loadedSourceCountHint(count),
+            hintLabel: loadedSourceCountLabel(count),
             disabled: loadedSourceCountsAreComplete && count === 0 && !selected.has(value),
           };
         }),
@@ -1367,7 +1382,7 @@ function DocumentSearchResultsPanelImpl({
         panelId={filterPanelId}
         testId="document-filter-panel"
         title="Filter documents"
-        description="Set retrieval scope and refine the matches already returned. Source-scope counts cover loaded sources; changes run together across the full indexed library."
+        description="Set retrieval scope, then refine the matches. Changes apply together."
         chromeResetKey={query}
         groups={documentFilterGroups}
         applicationMode="staged"
@@ -1575,7 +1590,10 @@ function DocumentSearchResultsPanelImpl({
               <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
                 {renderedMatches.map((document, index) => {
                   const relevanceDisplay = relevanceTone(document);
-                  const relevanceVariant = relevanceDisplay.short === "High relevance" ? "high" : "relevant";
+                  // One accent per card. `high` is accent TEXT on the raised
+                  // surface (no fill), so a top hit showing both "Best match"
+                  // and "High relevance" still has a single filled accent.
+                  const relevanceVariant = relevanceDisplay.short === "High relevance" ? "high" : "neutral";
                   const openHref = documentOpenHref(document);
                   return (
                     <article
@@ -1585,7 +1603,7 @@ function DocumentSearchResultsPanelImpl({
                         sourceCard,
                         "content-auto",
                         "relative overflow-visible p-0 shadow-[var(--e1)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] motion-reduce:transition-none",
-                        index === 0 && "border-t-[3px] border-t-[color:var(--clinical-accent)]",
+                        index === 0 && "border-t-2 border-t-[color:var(--clinical-accent)]",
                       )}
                     >
                       <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-start gap-3 p-3 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-4 sm:p-4">
@@ -1594,14 +1612,18 @@ function DocumentSearchResultsPanelImpl({
                           <h3 className="flex min-w-0 items-start gap-2">
                             <span
                               data-testid="document-result-rank"
-                              className="nums mt-2 grid h-8 min-w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
+                              // An ordinal, not a status. The list order already
+                              // says which result is first, and a filled accent
+                              // chip competed with the title beside it for the
+                              // one accent this card is allowed to spend.
+                              className="nums mt-2.5 grid h-7 min-w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] px-1.5 text-2xs font-semibold text-[color:var(--text-muted)]"
                               aria-hidden="true"
                             >
                               {index + 1}
                             </span>
                             <Link
                               href={openHref}
-                              className="inline-flex min-h-12 min-w-0 items-center rounded-md text-base font-extrabold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-lg sm:leading-6"
+                              className="inline-flex min-h-12 min-w-0 items-center rounded-md text-base font-semibold leading-snug text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-lg sm:leading-6"
                             >
                               <span className="sr-only">Result {index + 1}: </span>
                               <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
@@ -1609,17 +1631,14 @@ function DocumentSearchResultsPanelImpl({
                           </h3>
                           <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-2.5">
                             {index === 0 ? (
-                              <DocumentBadge
-                                variant="best"
-                                className="min-h-7 rounded-lg px-2.5 text-2xs [font-weight:700]"
-                              >
+                              <DocumentBadge variant="best" className="min-h-7 rounded-lg px-2.5 text-2xs">
                                 Best match
                               </DocumentBadge>
                             ) : null}
                             <DocumentBadge
                               variant={relevanceVariant}
                               icon={Target}
-                              className="min-h-7 rounded-lg px-2.5 text-2xs [font-weight:600]"
+                              className="min-h-7 rounded-lg px-2.5 text-2xs"
                             >
                               {relevanceDisplay.short}
                               <span className="sr-only">, {relevanceDisplay.detail}</span>
@@ -1627,24 +1646,24 @@ function DocumentSearchResultsPanelImpl({
                             <DocumentBadge
                               variant="neutral"
                               icon={BookOpen}
-                              className="min-h-7 rounded-lg px-2.5 text-2xs [font-weight:600]"
+                              className="min-h-7 rounded-lg px-2.5 text-2xs"
                             >
                               {documentPageLabel(document)}
                             </DocumentBadge>
                             {document.tableCount > 0 ? (
                               <DocumentBadge
-                                variant="relevant"
+                                variant="neutral"
                                 icon={ListChecks}
-                                className="min-h-7 rounded-lg px-2.5 text-2xs [font-weight:600]"
+                                className="min-h-7 rounded-lg px-2.5 text-2xs"
                               >
                                 {document.tableCount} table{document.tableCount === 1 ? "" : "s"}
                               </DocumentBadge>
                             ) : null}
                             {document.imageCount > 0 ? (
                               <DocumentBadge
-                                variant="relevant"
+                                variant="neutral"
                                 icon={FileImage}
-                                className="min-h-7 rounded-lg px-2.5 text-2xs [font-weight:600]"
+                                className="min-h-7 rounded-lg px-2.5 text-2xs"
                               >
                                 {document.imageCount} image{document.imageCount === 1 ? "" : "s"}
                               </DocumentBadge>
@@ -1667,7 +1686,7 @@ function DocumentSearchResultsPanelImpl({
                         <DocumentActionLink
                           href={openHref}
                           icon={FileText}
-                          className="min-h-12 min-w-0 rounded-bl-xl bg-[color:var(--clinical-accent-soft)] px-2 !text-sm !font-extrabold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-border)] [&_svg]:h-5 [&_svg]:w-5"
+                          className="min-h-12 min-w-0 rounded-bl-xl bg-[color:var(--clinical-accent-soft)] px-2 !text-sm !font-semibold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-border)]"
                           aria-label={`Open ${document.title}`}
                         >
                           Open
@@ -1675,7 +1694,7 @@ function DocumentSearchResultsPanelImpl({
                         <DocumentActionButton
                           onClick={() => onAnswerFromDocument(document.document_id)}
                           icon={MessageSquareText}
-                          className="min-h-12 min-w-0 px-2 !text-sm font-bold text-[color:var(--text-heading)] [&_svg]:h-5 [&_svg]:w-5"
+                          className="min-h-12 min-w-0 px-2 !text-sm !font-semibold text-[color:var(--text)]"
                           aria-label={`Ask about ${document.title}`}
                         >
                           Ask
