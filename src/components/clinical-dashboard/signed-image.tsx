@@ -7,8 +7,20 @@ import { CircleAlert, Maximize2 } from "lucide-react";
 import { cn, Skeleton } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
 import { getCachedSignedUrl } from "@/lib/signed-url-cache";
-import { useSignedImageUrl } from "@/components/clinical-dashboard/use-signed-image-url";
+import { type SignedImageFailure, useSignedImageUrl } from "@/components/clinical-dashboard/use-signed-image-url";
 import { ImageLightbox } from "@/components/clinical-dashboard/image-lightbox";
+
+const AUTOMATIC_RETRY_DELAYS_MS = [250, 1_000] as const;
+
+function automaticRetryDelay(failure: SignedImageFailure | null, attempt: number) {
+  const baseDelay = AUTOMATIC_RETRY_DELAYS_MS[attempt];
+  if (!failure?.retryable || baseDelay === undefined) return null;
+  // A 429 without a server cooldown is unsafe to guess at: another immediate
+  // request can only deepen the rate limit. When supplied, Retry-After is the
+  // earliest permissible retry, never an optional hint.
+  if (failure.status === 429 && failure.retryAfterMs === null) return null;
+  return Math.max(baseDelay, failure.retryAfterMs ?? 0);
+}
 
 /**
  * Shared renderer for a private image served through a signed-URL endpoint.
@@ -81,7 +93,16 @@ export const SignedImage = memo(function SignedImage({
   const frameRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [retryDisabled, setRetryDisabled] = useState(false);
-  const { url, failed, retry, markFailed } = useSignedImageUrl(endpoint, shouldLoad);
+  const [automaticRetryCount, setAutomaticRetryCount] = useState(0);
+  const [seenEndpoint, setSeenEndpoint] = useState(endpoint);
+  if (endpoint !== seenEndpoint) {
+    setSeenEndpoint(endpoint);
+    setAutomaticRetryCount(0);
+    setLoaded(false);
+  }
+  const { url, failed, failure, retry, markFailed } = useSignedImageUrl(endpoint, shouldLoad);
+  const nextAutomaticRetryDelay = automaticRetryDelay(failure, automaticRetryCount);
+  const automaticRetryPending = nextAutomaticRetryDelay !== null;
 
   // Defer the request until the frame is near the viewport. A cached URL seeds
   // `shouldLoad` synchronously, so already-fetched images skip the observer.
@@ -107,9 +128,26 @@ export const SignedImage = memo(function SignedImage({
     return () => observer.disconnect();
   }, [rootMargin, shouldLoad]);
 
+  // A signed-URL request or the image download can fail transiently while a
+  // reader scrolls through a long evidence rail. Recover nearby images without
+  // requiring a click, but cap the retries so a missing or unsupported asset
+  // still settles on the existing explicit failure action.
+  useEffect(() => {
+    if (nextAutomaticRetryDelay === null) return () => undefined;
+
+    const timer = window.setTimeout(() => {
+      setLoaded(false);
+      setShouldLoad(true);
+      setAutomaticRetryCount((current) => current + 1);
+      retry();
+    }, nextAutomaticRetryDelay);
+    return () => window.clearTimeout(timer);
+  }, [nextAutomaticRetryDelay, retry]);
+
   function retryImage() {
     if (retryDisabled) return;
     setRetryDisabled(true);
+    setAutomaticRetryCount(0);
     setLoaded(false);
     setShouldLoad(true);
     retry();
@@ -121,7 +159,7 @@ export const SignedImage = memo(function SignedImage({
     markFailed();
   }
 
-  if (failed) {
+  if (failed && !automaticRetryPending) {
     return (
       <div
         ref={frameRef}
@@ -188,7 +226,10 @@ export const SignedImage = memo(function SignedImage({
           // reader is actually looking at. next/image already emits
           // `decoding="async"`, so this is the missing half of that pair.
           fetchPriority={priority ? "high" : "low"}
-          onLoad={() => setLoaded(true)}
+          onLoad={() => {
+            setLoaded(true);
+            setAutomaticRetryCount(0);
+          }}
           onError={handleImageError}
           className={cn(
             "rounded-lg object-contain transition-opacity duration-[var(--duration-deliberate)] motion-reduce:transition-none",
