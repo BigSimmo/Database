@@ -51,6 +51,8 @@ describe("SignedImage", () => {
     // through the public `/_next/image` optimizer cache.
     expect(markup).toContain('src="/demo-documents/airway.png"');
     expect(markup).not.toContain("/_next/image");
+    // Batch-prefetched cache hits must not turn into eager offscreen downloads.
+    expect(markup).toContain('loading="lazy"');
     expect(markup).toContain('alt="Airway diagram"');
     // A seeded frame is active, not deferred.
     expect(markup).not.toContain("Image preview will load when visible");
