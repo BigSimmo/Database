@@ -9,11 +9,6 @@ export type Instant = number;
 
 export type ClockState = "breached" | "critical" | "due" | "clear";
 
-export function wallClockNow(): Instant {
-  const date = new Date();
-  return date.getHours() * 60 + date.getMinutes();
-}
-
 export function minutesUntil(due: Instant, now: Instant) {
   return due - now;
 }

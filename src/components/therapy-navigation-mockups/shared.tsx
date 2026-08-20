@@ -83,15 +83,6 @@ export const categories: Array<{ name: string; count: number }> = [
   { name: "Group CBT", count: 4 },
 ];
 
-export const pathwayNames = [
-  "Anxiety pathway",
-  "Mood pathway",
-  "Crisis/risk pathway",
-  "Psychosis pathway",
-  "Trauma pathway",
-  "Sleep pathway",
-];
-
 /* -- Destination model shared by all three directions -------------------- */
 
 export type DestinationGroup = "library" | "workspace" | "therapy";

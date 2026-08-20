@@ -1,6 +1,0 @@
-interface:
-  display_name: "Fix Alias"
-  short_description: "Compatibility alias for Database failure triage"
-  default_prompt: "Use $verify-triage-fix only as a compatibility alias for $fix."
-policy:
-  allow_implicit_invocation: false

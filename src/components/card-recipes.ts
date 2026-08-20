@@ -101,11 +101,3 @@ export const cardSelectedDanger =
  * anything else.
  */
 export const cardAccentEdge = "border-t-[3px] border-t-[color:var(--cat-accent)]";
-
-/** Padding steps. Named so a card's density is a choice rather than a literal. */
-export const cardPadding = {
-  /** Dense rows and compact list items. */
-  compact: "p-3",
-  /** The default card. */
-  standard: "p-4",
-} as const;

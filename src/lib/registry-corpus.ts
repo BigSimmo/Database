@@ -777,16 +777,3 @@ export function reembedRegistryRecordAfterEdit(
     kind: target.corpusKind,
   });
 }
-
-/** Best effort reembed registry record after edit. */
-export async function bestEffortReembedRegistryRecordAfterEdit(args: {
-  supabase: AdminClient;
-  target: RegistryCorpusEditTarget;
-  scope: string;
-}) {
-  return bestEffortRegistryCorpusSync(
-    registryCorpusEmbeddingEnabled(),
-    () => reembedRegistryRecordAfterEdit(args.supabase, args.target),
-    args.scope,
-  );
-}

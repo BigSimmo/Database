@@ -41,9 +41,9 @@ test.describe("Ward Flow command view", () => {
 
   // "supports role-aware queue review and human-confirmed destination choice" and "collapses
   // the queue, opens the action inbox, and reaches the patient workspace" asserted against
-  // WardManagementConsole, which Task 3 stopped rendering at /ward-management. That component is
-  // unreferenced now and is deleted in Task 9; the equivalent coverage on the coordinator screen
-  // has no home yet. See the fixme placeholders in tests/ui-ward-coordinator.spec.ts.
+  // WardManagementConsole, which Task 3 stopped rendering at /ward-management and which has since
+  // been deleted. The equivalent coverage on the coordinator screen has no home yet. See the fixme
+  // placeholders in tests/ui-ward-coordinator.spec.ts.
 
   test("opens every Ward Flow mode", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1024 });

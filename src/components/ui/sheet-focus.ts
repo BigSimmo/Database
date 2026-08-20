@@ -71,10 +71,6 @@ export function isTopmostSheet(id: string) {
   return openSheets[openSheets.length - 1]?.id === id;
 }
 
-export function hasOpenSheet() {
-  return openSheets.length > 0;
-}
-
 /**
  * Whether a closing sheet may still return focus to `target`.
  *

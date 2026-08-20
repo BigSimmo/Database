@@ -39,8 +39,8 @@ test.describe("Ward Flow coordinator screen", () => {
   });
 
   // The equivalent coverage for these two lived on WardManagementConsole, which Task 3 stopped
-  // rendering at /ward-management. Task 9 deletes that component; until then the behaviour has
-  // no home on the coordinator screen and these stay fixme so the gap is visible in the runner
+  // rendering at /ward-management and which has since been deleted. The behaviour still has no
+  // home on the coordinator screen, so these stay fixme and the gap is visible in the runner
   // (not just in a ledger row) rather than silently dropped.
 
   // Implemented when the shortlist region stops being a placeholder — Task 5/7.

@@ -38,17 +38,3 @@ export const caringContactMockupRoute = {
     return withQuery(route, "overlay", overlay);
   },
 } as const;
-
-export const PRIMARY_CARING_CONTACT_DESTINATIONS = [
-  { href: CARING_CONTACT_MOCKUP_ROUTES.today, label: "Today" },
-  { href: CARING_CONTACT_MOCKUP_ROUTES.patients, label: "Patients" },
-  { href: CARING_CONTACT_MOCKUP_ROUTES.schedule, label: "Schedule" },
-  { href: CARING_CONTACT_MOCKUP_ROUTES.templates, label: "Templates" },
-] as const;
-
-export const SUPPORTING_CARING_CONTACT_DESTINATIONS = [
-  { href: CARING_CONTACT_MOCKUP_ROUTES.team, label: "Team" },
-  { href: CARING_CONTACT_MOCKUP_ROUTES.guidance, label: "Guidance" },
-  { href: CARING_CONTACT_MOCKUP_ROUTES.reports, label: "Reports" },
-  { href: CARING_CONTACT_MOCKUP_ROUTES.systemStates, label: "System states" },
-] as const;

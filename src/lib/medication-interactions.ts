@@ -136,10 +136,6 @@ export function catalogueMedicationOptions(): MedicationOption[] {
   return cachedOptions;
 }
 
-export function isCatalogueMedicationSlug(slug: string): boolean {
-  return Object.hasOwn(INDEX.names, slug);
-}
-
 export const SEVERITY_TONE: Record<InteractionSeverity, SemanticTone> = {
   critical: "danger",
   high: "danger",

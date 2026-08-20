@@ -35,10 +35,6 @@
   "aliases": {
     "workflows": "skills",
     "database-flightplan": "plan",
-    "verify-triage-fix": "fix",
-    "clinical-change-proof": "clinical",
-    "live-design-sweep": "ui",
-    "rag-change-lab": "rag",
     "operator-closeout": "operations",
     "session-lifecycle": "task"
   }

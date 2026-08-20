@@ -1,7 +1,7 @@
-import { ArrowLeft, type LucideIcon } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { Breadcrumb, PageHeader, type Crumb } from "@/components/ui/page-header";
+import { Breadcrumb, type Crumb } from "@/components/ui/page-header";
 import { cn, pageContainer } from "@/components/ui-primitives";
 
 /**
@@ -97,52 +97,6 @@ export function InformationPageBreadcrumbs({
   ];
 
   return <Breadcrumb items={items} className={cn("min-h-tap", className)} />;
-}
-
-/**
- * Title stack used above record body content (eyebrow → h1 → subtitle →
- * badges/actions). A projection onto `PageHeader`, which owns the `<h1>`: the
- * prop names stay because they are the vocabulary the record pages speak, and
- * `subtitle`/`badges` are `description`/`meta` under different names.
- */
-export function InformationPageHeader({
-  eyebrow,
-  title,
-  subtitle,
-  badges,
-  actions,
-  icon,
-  className,
-}: {
-  eyebrow?: string;
-  /**
-   * A page title is a string. It was `ReactNode` while this component owned its
-   * own `<h1>`; `PageHeader` takes a string so the title cannot smuggle block
-   * content into a heading.
-   */
-  title: string;
-  subtitle?: ReactNode;
-  badges?: ReactNode;
-  actions?: ReactNode;
-  /**
-   * Narrowed from `ReactNode` to the icon component `PageHeader` takes, so the
-   * leading tile is rendered by the one component that owns that treatment
-   * rather than by whatever node a caller happened to pass.
-   */
-  icon?: LucideIcon;
-  className?: string;
-}) {
-  return (
-    <PageHeader
-      title={title}
-      eyebrow={eyebrow}
-      description={subtitle}
-      icon={icon}
-      actions={actions}
-      meta={badges}
-      className={className}
-    />
-  );
 }
 
 /** Optional clinical decision-support / safety footer line. */

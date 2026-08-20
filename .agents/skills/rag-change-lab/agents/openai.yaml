@@ -1,6 +1,0 @@
-interface:
-  display_name: "RAG Alias"
-  short_description: "Compatibility alias for Database RAG validation"
-  default_prompt: "Use $rag-change-lab only as a compatibility alias for $rag."
-policy:
-  allow_implicit_invocation: false
