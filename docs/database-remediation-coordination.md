@@ -105,7 +105,7 @@ no mark-applied path was used, and production received zero writes. Verified rea
 `ok`; ten `work_mem` values = D1; live-drift run `32131517648` = **0 function mismatches**,
 20 `missing_live`, 2 `unexpected_live`, 15 `migration_history`. The RPC track of `#316` is closed.
 
-**KEY FINDING — D4 DECIDED (auto-deploy disabled).** The Supabase GitHub integration (Branching, production
+**KEY FINDING — D4: auto-deploy is ON (2026-08-20 evidence below; the "disabled" reading was wrong).** The Supabase GitHub integration (Branching, production
 bound to git `main`, branch record from 2026-06-27) auto-applies every migration merged to `main`
 onto production — live-drift bracketed `110000–112000` to ~34 s after #2106 merged. This undermines
 the explicit-window model the plan and playbook assume: a merged migration IS a production deploy.
@@ -150,15 +150,19 @@ needs the same migration by the Phase 2 method. Until that window runs, the week
 this one step and #1963 will not self-close.
 
 **Update 2026-08-20 (window) — the alignment fix is LIVE on production; staging is one version behind;
-D4 is UNRESOLVED again.** PR #2198 merged before the window (squash `a341832af`), and the pre-flight
+D4 is CONFIRMED ON.** PR #2198 merged before the window (squash `a341832af`), and the pre-flight
 found `20260820120000` **already applied** — `stmt_count 3`, executed statements, not mark-applied — so
 `db push` was never run against production. Verified read-only: `prosecdef true`, `provolatile s`,
 `search_path=""`, `proacl postgres=X/postgres | service_role=X/postgres`, and the function returns
 `probe: ok` with `version_count 211` against 211 history rows and 211 local files. No guard migration is
-owed. **Two things for the owner:** (1) `created_by` is NULL on every recent row, so nothing proves how
-it arrived; the 2026-08-19 "D4 is OFF" test only showed migrations sitting pending _while a PR was
-open_, which never contradicted §3.7's 34-second deploy after #2106's squash-merge — re-verify the
-dashboard toggle and, until then, assume merging a migration PR deploys it. (2) Staging
+owed. **Two things for the owner:** (1) **D4 is settled — auto-deploy is ON, by direct evidence.**
+`created_by` is NULL on every recent history row, so the database itself proves nothing, but
+`list_branches(sjrfecxgysukkwxsowpy)` still returns a live Git branch record binding **production** to
+git `main`: `{"name":"main","is_default":true,"git_branch":"main","project_ref":"sjrfecxgysukkwxsowpy",
+"created_at":"2026-06-27","updated_at":"2026-07-04"}`. `updated_at` predates 2026-08-19, so whatever was
+changed that day never touched this binding — the §3.7 mechanism is intact. The 2026-08-19 "D4 is OFF"
+test only showed migrations sitting pending _while a PR was open_, which never exercised
+deploy-on-merge. No dashboard re-check is needed to act: **merging a migration PR deploys it.** (2) Staging
 (`ikoiolksxqxfxgiyqpnu`) is at 210 rows without the function; its pending set is exactly one version,
 but both write paths were denied by the session auto-mode classifier (live-Supabase confirmation rule
 from PR #2196), so Phase 4's staging parity is open again by one version until an operator applies it.

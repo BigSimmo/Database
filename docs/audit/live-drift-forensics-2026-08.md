@@ -2053,7 +2053,7 @@ $ supabase migration list --linked --project-ref sjrfecxgysukkwxsowpy
 empty and the step should now pass. **No guard migration is owed**: the row carries executed
 statements, so it is not a history repair and cannot surface in the `migration_history` probe.
 
-#### The D4 conclusion needs re-testing — the 2026-08-19 test could not detect deploy-on-merge
+#### D4 ANSWERED: auto-deploy is ON — the 2026-08-19 test could not detect deploy-on-merge
 
 `created_by` and `idempotency_key` are NULL for every row from `20260818090000` to `20260820120000`,
 including the ones this programme applied by operator `db push`, so the history table carries **no
@@ -2067,9 +2067,28 @@ distinction is the whole of D4:
 
 The 2026-08-19 observation recorded as "D4 is OFF" was that the four `20260819` migrations _sat
 pending while the PR was open_. That tests deploy-while-open, **not** deploy-on-merge, so it never
-contradicted §3.7 — and today's result fits both observations at once. **Treat D4 as UNRESOLVED and
-re-verify in the Supabase dashboard before relying on merge being safe.** Until then, assume merging a
-migration PR deploys it to production.
+contradicted §3.7 — and today's result fits both observations at once.
+
+**Settled the same day by reading the platform instead of the history table.**
+`list_branches(sjrfecxgysukkwxsowpy)` returns exactly one record:
+
+```json
+{
+  "name": "main",
+  "is_default": true,
+  "git_branch": "main",
+  "project_ref": "sjrfecxgysukkwxsowpy",
+  "created_at": "2026-06-27T14:10:20.550361+00:00",
+  "updated_at": "2026-07-04T08:15:07.640507+00:00"
+}
+```
+
+Production is **still bound to git `main`**, and `updated_at` predates 2026-08-19 — so whatever was
+changed that day never touched this binding. That is the §3.7 mechanism, intact. **D4 is ON: merging a
+migration PR deploys it to production.** Deploy-then-merge ordering is therefore both unnecessary and
+unenforceable; the operative control is _merge approval_, not a separate push. The stale "D4 is OFF"
+instructions this created on the coordination board were the P1 the Codex review of PR #2201 raised,
+and they are corrected.
 
 #### Staging is one version behind — blocked, not skipped
 
