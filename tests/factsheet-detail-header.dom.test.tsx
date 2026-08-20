@@ -59,6 +59,16 @@ describe("factsheet detail header", () => {
     expect(within(printPortal as HTMLElement).getAllByRole("heading", { level: 2 }).length).toBeGreaterThan(0);
   });
 
+  it("associates printable fact values with row headers", () => {
+    renderFactsheet("sertraline");
+    const printPortal = document.querySelector(".factsheet-print-portal");
+    expect(printPortal).not.toBeNull();
+
+    const rowHeaders = within(printPortal as HTMLElement).getAllByRole("rowheader");
+    expect(rowHeaders.length).toBeGreaterThan(0);
+    for (const rowHeader of rowHeaders) expect(rowHeader).toHaveAttribute("scope", "row");
+  });
+
   it("names the way back without spending the row on its label", () => {
     renderFactsheet("sertraline");
     const back = screen.getByRole("link", { name: "Back to all factsheets" });

@@ -90,6 +90,11 @@ describe("mode menu destination prefetch", () => {
     window.localStorage.clear();
   });
 
+  it("exposes the shared composer as a semantic search input", () => {
+    render(<MasterSearchHeader {...headerProps()} />);
+    expect(screen.getByTestId("global-search-input")).toHaveAttribute("type", "search");
+  });
+
   it("keeps calculator submission enabled when document data is unavailable", async () => {
     const user = userEvent.setup();
     const onAsk = vi.fn();
