@@ -1,17 +1,19 @@
-import { BookOpen, GitCompareArrows, LibraryBig, List, Quote, Tags } from "lucide-react";
+import { GitCompareArrows, LibraryBig, List, Quote, Tags } from "lucide-react";
 
-import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
+import { appModeIcons } from "@/lib/app-mode-icons";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { dictionaryEntries, dictionaryTopics } from "@/lib/dictionary-data";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 
 export function DictionaryHomePage() {
   return (
     <ModeHomeMain testId="dictionary-home-main" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="dictionary-home"
-        title="Dictionary"
-        subtitle="Source-governed psychiatric terms, abbreviations, and distinctions."
-        icon={BookOpen}
+        title={sharedHomePresentation.dictionary.title}
+        subtitle={sharedHomePresentation.dictionary.subtitle}
+        icon={appModeIcons.dictionary}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Dictionary tasks"
         actions={[
@@ -63,12 +65,6 @@ export function DictionaryHomePage() {
           },
           { label: "Source governance", shortLabel: "Sources", href: "/dictionary/sources", tone: "info" },
         ]}
-        footer={
-          <ModeHomeVerificationFooter
-            label="Source-checked reference terminology"
-            body="Not patient-specific guidance"
-          />
-        }
       />
     </ModeHomeMain>
   );

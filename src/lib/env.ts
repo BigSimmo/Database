@@ -261,6 +261,25 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  // Packet B4 (docs/rag-improvement/README.md §B4; Gate B PASS 2026-08-18). "legacy"
+  // (default) = the current extractor only, byte-for-byte unchanged. "shadow" = after the
+  // legacy index generation is COMMITTED, docling additionally runs on a small
+  // index-quality-selected cohort of PDFs and only an aggregate numeric record lands in
+  // documents.metadata.shadow_extraction — no chunk, embedding, index, or table-fact writes.
+  // Kill switch and one-step rollback: set back to "legacy" (no migration, no reindex).
+  WORKER_DOCUMENT_EXTRACTOR_MODE: z.enum(["legacy", "shadow"]).default("legacy"),
+  // Deterministic percentage of eligible documents that shadow-run (zod-bounded to the
+  // authorised 1–5 % window; the owner-approved default is 2 %). See worker/shadow-extraction.ts.
+  WORKER_SHADOW_EXTRACTION_COHORT_PERCENT: z.coerce.number().int().min(1).max(5).default(2),
+  // Interpreter of the docling venv (Dockerfile.worker sets /opt/docling-venv/bin/python).
+  // Unset ⇒ shadow mode records `runtime_unavailable` without spawning anything.
+  WORKER_DOCLING_PYTHON_BIN: z
+    .string()
+    .optional()
+    .transform((value) => {
+      const trimmed = value?.trim();
+      return trimmed ? trimmed : undefined;
+    }),
   PYTHON_BIN: z.string().default(resolvePythonBin()),
   NEXT_PUBLIC_DEMO_MODE: z.enum(["true", "false"]).optional().default("false"),
   DOCUMENT_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(600),

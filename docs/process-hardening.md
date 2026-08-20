@@ -94,6 +94,7 @@ artifact before release; see
 - **Does not change:** required-check scoping, per-commit verification rigor, or the
   deliberate "1 PR per work order" convention for tracked staged rollouts (maturity
   backlog, `#086`) or anything crossing a clinical-risk/RAG-ranking-surface path.
+- **Clinical vs. operational risk bundling detection (#178):** While low-risk same-scope tasks should bundle to reduce CI churn, bundling operational-risk changes with clinical or UI changes is an anti-pattern. `scripts/pr-policy.mjs` detects when `operationalRisk` paths (`.github/workflows/`, `package.json`, `package-lock.json`, root tool configs, `Dockerfile`, `railway.json`, `nixpacks.toml`) are bundled with `clinicalRisk` (`supabase/`, `src/app/api/`, clinical/RAG/auth libs, clinical reference datasets) or `ui` surfaces (`src/app/`, `src/components/`, `public/`, UI specs). The PR policy emits an advisory warning (`Operational-risk changes are bundled with <classes> changes. Split the PR where practical so each risk class remains independently revertible.`) to keep operational infra and patient-safety or visual regressions independently revertible.
 
 ## Anti-conflict and silent-CI signal (2026-07-30)
 
@@ -665,7 +666,9 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   must use an outcome-focused title, complete Summary and Verification evidence, and provide risk/rollback
   evidence for clinical or operationally sensitive paths. UI changes require `verify:ui` evidence (or an
   explicit reason it could not run), while clinical-risk changes must fully disposition the governance
-  checklist. The `pull_request_target` job checks out the trusted `github.workflow_sha` revision, has
+  checklist. `scripts/pr-policy.mjs` also flags operational risk bundled with clinical or UI risk (#178),
+  warning authors to split infrastructure/tooling from clinical/UI features for independent revertibility.
+  The `pull_request_target` job checks out the trusted `github.workflow_sha` revision, has
   read-only permissions, and never executes PR-head code. Drafts remain non-blocking until marked ready; merge-queue runs emit the
   same stable `PR policy` check name.
 - **Default-branch failure attribution** (`scripts/ci-triage.mjs`): triage now compares a failed PR only

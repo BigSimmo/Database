@@ -221,6 +221,7 @@ export function MasterSearchHeader({
   sharedHomeIdentity = false,
   mobileSearchPlacement = "default",
   mobileBottomSearchVariant = "default",
+  mobileHomeComposerPlacement = "hero",
   desktopSearchPlacement = "default",
   searchComposerVisible = true,
   showPhoneSuggestionTickerOnHome = false,
@@ -280,6 +281,10 @@ export function MasterSearchHeader({
    *  content keeps maximum screen space. Every phone dock uses it now; the
    *  "default" value remains for hosts that need the taller legacy dock. */
   mobileBottomSearchVariant?: "default" | "compact";
+  /** Which placement the home hero vs footer uses on phones. Tools uses "footer"
+   *  so its search pill sits in the bottom dock like a submitted search while
+   *  retaining the home privacy notice. */
+  mobileHomeComposerPlacement?: "hero" | "footer";
   /** Show the compact phone suggestion ticker only for standalone-mode homes. */
   showPhoneSuggestionTickerOnHome?: boolean;
   desktopSearchPlacement?: "default" | "hero";
@@ -1309,7 +1314,7 @@ export function MasterSearchHeader({
       let cancelled = false;
       queueMicrotask(() => {
         if (cancelled) return;
-        if (composerSlotKind === "home" && composerSlotId) {
+        if (composerSlotId) {
           setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
         }
         setDesktopComposerPortalActive(false);
@@ -1370,7 +1375,7 @@ export function MasterSearchHeader({
         portalFailureStartedAt = null;
         if (host.parentNode !== slot) slot.appendChild(host);
         // Portal host keeps height via `:not(:empty)`; drop the pending marker.
-        if (composerSlotKind === "home") setModeHomeComposerReservePending(slot, false);
+        setModeHomeComposerReservePending(slot, false);
         setDesktopComposerPortalHost(host);
         setDesktopComposerPortalActive(true);
         setDesktopComposerPortalFallback(false);
@@ -1385,7 +1390,7 @@ export function MasterSearchHeader({
           portalFailureStartedAt = null;
           setDesktopComposerPortalFallback(false);
           // Viewport never hosts this hero slot — collapse the SSR reserve band.
-          if (composerSlotKind === "home") setModeHomeComposerReservePending(homeSlot, false);
+          setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
           return;
         }
         const now = window.performance.now();
@@ -1405,14 +1410,14 @@ export function MasterSearchHeader({
             );
           }
           // Keep the SSR pending reserve while we retry adoption.
-          if (composerSlotKind === "home") setModeHomeComposerReservePending(homeSlot, true);
+          setModeHomeComposerReservePending(document.getElementById(composerSlotId), true);
         } else {
           // A missing/unhydrated page slot must not remove search forever. Home
           // routes suppress the header fallback during the bounded retry window
           // because ModeHomeTemplate already reserves the settled hero geometry;
           // only surface the fallback after portal adoption has genuinely failed.
           // Collapse the empty hero band once the header fallback takes over.
-          if (composerSlotKind === "home") setModeHomeComposerReservePending(homeSlot, false);
+          setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
           setDesktopComposerPortalFallback(true);
         }
       }
@@ -1432,7 +1437,7 @@ export function MasterSearchHeader({
       observer.disconnect();
       mediaQuery.removeEventListener("change", syncTarget);
       host.parentNode?.removeChild(host);
-      if (composerSlotKind === "home") {
+      if (composerSlotId) {
         setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
       }
       setDesktopComposerPortalActive(false);
@@ -1806,11 +1811,16 @@ export function MasterSearchHeader({
     // Differentials compare addon is dock chrome (search pill + Compare bar).
     // Hide/reveal the whole dock together; do not pin for the addon slot.
     const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
-    // Phones show the APP-5 notice only on the home hero (the answer mode
-    // home's in-flow composer); every phone bottom dock is a compact
-    // result/entry pill without it, so content keeps maximum screen space.
+    // Phones show the APP-5 notice on the home hero (the answer mode
+    // home's in-flow composer) and footer mode homes (e.g. tools); result
+    // bottom docks omit it so content keeps maximum screen space.
+    // `mobileHomeComposerPlacement === "footer"` alone is not enough: it is set
+    // for every /tools-prefixed route, so the home slot must also be present to
+    // distinguish the tools home from a tools result dock.
     // Tablet/desktop composers keep the site-wide notice everywhere.
-    const showsComposerPrivacyNotice = usesPhoneSearchLayout ? isDesktopHomeComposer : true;
+    const showsComposerPrivacyNotice = usesPhoneSearchLayout
+      ? isDesktopHomeComposer || (mobileHomeComposerPlacement === "footer" && Boolean(desktopHomeComposerSlotId))
+      : true;
 
     const commandSurfacePlacement: CommandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
     const commandDropdownDisplayable = commandDropdownDisplayableByPlacement[commandSurfacePlacement];
@@ -1830,6 +1840,8 @@ export function MasterSearchHeader({
 
     return (
       <form
+        role="search"
+        aria-label="Search"
         onSubmit={submit}
         data-composer-placement={placement}
         onTouchStart={(e) => {
@@ -2018,7 +2030,7 @@ export function MasterSearchHeader({
             {/* The clear button is a flex sibling (not absolutely positioned): the
               unlayered .answer-footer-search-input padding beats a conditional
               pr-* utility, which let text run under an overlaid button. */}
-            <label className="flex min-w-0 flex-1 items-center overflow-hidden">
+            <div className="flex min-w-0 flex-1 items-center overflow-hidden">
               <input
                 ref={bindQueryInputRef}
                 data-testid="global-search-input"
@@ -2056,7 +2068,7 @@ export function MasterSearchHeader({
                   <X aria-hidden="true" className="size-icon-md" />
                 </button>
               )}
-            </label>
+            </div>
             <span className="answer-footer-search-divider" aria-hidden="true" />
             <button
               type="submit"
@@ -2089,12 +2101,14 @@ export function MasterSearchHeader({
             surface may duplicate it. Phones show it only on the home hero —
             see showsComposerPrivacyNotice. */}
         {showsComposerPrivacyNotice ? (
-          <PrivacyInputNotice
-            id={composerPrivacyWarningId}
-            testId={composerPrivacyWarningId}
-            className="mt-1.5 justify-center px-3 text-center"
-            returnMode={searchMode === "answer" ? undefined : searchMode}
-          />
+          <div role="group" aria-label="Search privacy notice">
+            <PrivacyInputNotice
+              id={composerPrivacyWarningId}
+              testId={composerPrivacyWarningId}
+              className="mt-1.5 justify-center px-3 text-center"
+              returnMode={searchMode === "answer" ? undefined : searchMode}
+            />
+          </div>
         ) : null}
         {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can
             open it even when the footer chip row is not shown. */}
@@ -2481,16 +2495,19 @@ export function MasterSearchHeader({
   const portalPlacement = desktopHomeComposerSlotId ? "desktop-home" : "desktop-page";
   const homePortalPending =
     Boolean(desktopHomeComposerSlotId) && homeComposerMediaEligible && !desktopComposerPortalFallback;
+  const pagePortalPending =
+    Boolean(desktopPageComposerSlotId) && !usesPhoneSearchLayout && !desktopComposerPortalFallback;
+  const portalPending = homePortalPending || pagePortalPending;
   const searchComposer = searchComposerVisible ? (
     <>
-      {/* ModeHomeTemplate reserves the final hero-composer height in SSR, so a
-          temporary header fallback would make the stack 204px and move all main
-          content up 132px when the portal attaches. Generic page slots do not
-          reserve geometry and retain the immediate fallback. A failed home
-          adoption restores it after the bounded retry window above. */}
+      {/* ModeHomeTemplate and desktop page slots reserve their settled geometry
+          in SSR, so a temporary header fallback would make the stack grow and
+          shift all main content when the portal attaches (CLS 0.118 on desktop
+          /documents/search). A failed adoption restores the header fallback after
+          the bounded retry window above. */}
       {desktopComposerPortalActive && desktopComposerPortalHost
         ? null
-        : homePortalPending
+        : portalPending
           ? null
           : renderSearchComposer("default")}
       {desktopComposerPortalActive && desktopComposerPortalHost

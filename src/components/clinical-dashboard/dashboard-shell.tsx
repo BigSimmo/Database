@@ -14,53 +14,7 @@ const sheetMediaQueries = {
 
 type UtilityDrawerSheetBreakpoint = keyof typeof sheetMediaQueries;
 
-export function SectionHeading({
-  icon: Icon,
-  title,
-  description,
-  action,
-  testId,
-  hideDescriptionOnMobile = false,
-  compactMobile = false,
-}: {
-  icon: LucideIcon;
-  title: string;
-  description?: string;
-  action?: ReactNode;
-  testId?: string;
-  hideDescriptionOnMobile?: boolean;
-  compactMobile?: boolean;
-}) {
-  const alignWhenCompact = compactMobile && hideDescriptionOnMobile ? "items-center sm:items-start" : "items-start";
-
-  return (
-    <div
-      data-testid={testId}
-      className={cn("flex flex-wrap justify-between", alignWhenCompact, compactMobile ? "gap-2 sm:gap-3" : "gap-3")}
-    >
-      <div className={cn("flex min-w-0", alignWhenCompact, compactMobile ? "gap-2 sm:gap-3" : "gap-3")}>
-        <span
-          data-section-heading-icon
-          className={cn(
-            "grid shrink-0 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary)]",
-            compactMobile ? "h-7 w-7 sm:h-9 sm:w-9" : "h-9 w-9",
-          )}
-        >
-          <Icon className={cn(compactMobile ? "size-icon-md sm:size-icon-lg" : "size-icon-lg")} />
-        </span>
-        <div className="min-w-0">
-          <h2 className="text-base-minus font-semibold text-[color:var(--text-heading)] sm:text-base">{title}</h2>
-          {description && (
-            <p className={cn("mt-1 text-sm leading-6", textMuted, hideDescriptionOnMobile && "hidden sm:block")}>
-              {description}
-            </p>
-          )}
-        </div>
-      </div>
-      {action}
-    </div>
-  );
-}
+export { SectionHeading, type SectionHeadingProps } from "@/components/ui/section-heading";
 
 export function UtilityDrawer({
   id,

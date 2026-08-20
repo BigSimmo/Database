@@ -1,10 +1,12 @@
 import Link from "next/link";
+import type { ComponentType } from "react";
 import {
   BookOpenCheck,
   ChevronRight,
   Search,
   ClipboardList,
   GitCompareArrows,
+  Gauge,
   ListChecks,
   MessageSquareText,
   ShieldCheck,
@@ -18,6 +20,43 @@ import { InformationPageShell } from "@/components/information-page-shell";
 import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
 import { dsmCriteria, resolveDsmDifferential, type DsmDiagnosis, type DsmLabeledText } from "@/lib/dsm";
+
+/**
+ * Explicit singular and plural rather than appending "s", because the one that
+ * matters here is irregular: "1 criterion" / "4 criteria".
+ *
+ * The zero branch is unreachable in the shipped catalogue — criteria, specifiers
+ * and differentials are each populated on all 146 records — but the JSON is a
+ * vendored upstream snapshot, so a re-export could introduce one and "0 criteria"
+ * would read as a rendering fault rather than as a fact about the record.
+ */
+function countLabel(count: number, singular: string, plural: string) {
+  if (count === 0) return "None in this record";
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+/** One label/value pair in the at-a-glance row. Non-interactive by design. */
+function SummaryTile({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
+      <dt className="flex items-center gap-1.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
+        <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        {label}
+      </dt>
+      <dd className="mt-1.5 text-xs font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm-minus">
+        {value}
+      </dd>
+    </div>
+  );
+}
 
 function CriteriaRow({ criterion, index }: { criterion: DsmLabeledText; index: number }) {
   return (
@@ -38,6 +77,19 @@ function CriteriaRow({ criterion, index }: { criterion: DsmLabeledText; index: n
 export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
   const criteria = dsmCriteria(diagnosis);
   const compareHref = `/dsm/compare?ids=${encodeURIComponent(diagnosis.slug)}`;
+
+  // "4 criteria, A-D" / "1 criterion, A". Twelve records carry a single criterion,
+  // so the range is appended only when there are at least two to span — otherwise
+  // it would read "A-A". Labels fall back to the ordinal the list rows already use.
+  const criteriaCountLabel = countLabel(criteria.length, "criterion", "criteria");
+  const firstCriterionLabel = criteria[0]?.label || "1";
+  const lastCriterionLabel = criteria.at(-1)?.label || String(criteria.length);
+  const criteriaSummary =
+    criteria.length > 1
+      ? `${criteriaCountLabel}, ${firstCriterionLabel}\u2013${lastCriterionLabel}`
+      : criteria.length === 1
+        ? `${criteriaCountLabel}, ${firstCriterionLabel}`
+        : criteriaCountLabel;
 
   return (
     <>
@@ -71,20 +123,38 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
         />
 
         <div className={cn(pageContainer, "space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8")}>
-          <section aria-label="What matters now" className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-            {criteria.slice(0, 4).map((criterion, index) => (
-              <div
-                key={`${criterion.label}-${criterion.text}`}
-                className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
-              >
-                <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
-                  Criterion {criterion.label || index + 1}
-                </p>
-                <p className="mt-1.5 line-clamp-4 text-xs font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm-minus">
-                  {criterion.text}
-                </p>
-              </div>
-            ))}
+          {/*
+            The shape of the record, not its content. This row previously rendered
+            `criteria.slice(0, 4)` verbatim, which the `#criteria` panel below already
+            lists in full — so every diagnosis stated its criteria twice, the second
+            time truncated. It also rendered `min(criteria.length, 4)` cards, and only
+            86 of 146 records carry four or more criteria, so the row was a ragged one
+            to four tiles rather than a stable strip.
+
+            Every field read here is populated on all 146 records, so this is always
+            exactly four tiles. `icd_code` and the category are deliberately absent:
+            the page header already carries both as chips, and repeating them would be
+            the same defect in a new place.
+          */}
+          <section aria-label="At a glance" className="grid gap-2.5">
+            <dl className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+              <SummaryTile icon={ListChecks} label="Criteria" value={criteriaSummary} />
+              <SummaryTile
+                icon={SlidersHorizontal}
+                label="Specifiers"
+                value={countLabel(diagnosis.specifiers.length, "specifier", "specifiers")}
+              />
+              <SummaryTile
+                icon={GitCompareArrows}
+                label="Differentials"
+                value={countLabel(diagnosis.differentials.length, "consideration", "considerations")}
+              />
+              <SummaryTile
+                icon={Gauge}
+                label="Severity specifier"
+                value={diagnosis.severity_specifier_supported ? "Supported" : "Not listed"}
+              />
+            </dl>
           </section>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">

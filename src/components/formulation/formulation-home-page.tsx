@@ -23,7 +23,9 @@ import {
   formulationCard,
 } from "@/components/formulation/formulation-ui";
 import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
-import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
+import { appModeIcons } from "@/lib/app-mode-icons";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 import {
   SearchResultsHeaderBand,
   type AppliedFilterChip,
@@ -77,9 +79,9 @@ function FormulationHome() {
     <ModeHomeMain testId="formulation-home" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="formulation"
-        title="Formulation"
-        subtitle="Build a formulation from the evidence."
-        icon={Network}
+        title={sharedHomePresentation.formulation.title}
+        subtitle={sharedHomePresentation.formulation.subtitle}
+        icon={appModeIcons.formulation}
         actionsLabel="Formulation workflows"
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actions={[
@@ -117,15 +119,7 @@ function FormulationHome() {
             <ChevronRight className="h-3.5 w-3.5" aria-hidden />
           </Link>
         }
-        footer={
-          <div className="grid gap-3">
-            <FormulationThreadStrip />
-            <ModeHomeVerificationFooter
-              label="Hypothesis-led decision support"
-              body="Check fit, alternatives, risk, and context before using a draft"
-            />
-          </div>
-        }
+        footer={<FormulationThreadStrip />}
       />
     </ModeHomeMain>
   );

@@ -95,7 +95,7 @@ npm run docs:check-links
 - [maturity-backlog-workorders.md](maturity-backlog-workorders.md) — actionable work orders tracking the repository-maturity audit backlog
 - [no-unchecked-indexed-access-migration-plan.md](no-unchecked-indexed-access-migration-plan.md) — staged multi-PR rollout for the `noUncheckedIndexedAccess` TypeScript flag (ledger `#211`)
 - [ledger-id-scheme-proposal.md](ledger-id-scheme-proposal.md) — design for collision-free outstanding-issue ids so concurrent sessions stop contending on `issues:next-id` (ledger `#168`)
-- [pr-handoff-stop-cross-agent-gap.md](pr-handoff-stop-cross-agent-gap.md) — why the PR-handoff stop rule is hook-enforced for Claude Code but prose-only for Codex and Cursor, and what parity would require (ledger `#258`)
+- [pr-handoff-stop-cross-agent-gap.md](pr-handoff-stop-cross-agent-gap.md) — why the PR-babysit budget is hook-enforced for Claude Code but prose-only for Codex and Cursor, and what parity would require (ledger `#258`)
 - [framework-dependency-modernization-checklist.md](framework-dependency-modernization-checklist.md) — ordered Next.js 16, runtime, dependency, Turbopack, and verification migration program
 - [search-rag-master-plan.md](search-rag-master-plan.md) / [search-rag-master-context.md](search-rag-master-context.md) — search/RAG roadmap and shared context
 - [rag-improvement/README.md](rag-improvement/README.md) — reviewed/updated RAG improvement programme: answer-quality track (intent-aware related information, length) + corrected eval/safety infra track

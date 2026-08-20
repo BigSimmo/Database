@@ -1,6 +1,15 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -35,6 +44,13 @@ import { afterEach, describe, expect, it } from "vitest";
 const sourceHook = join(process.cwd(), ".claude/hooks/session-start.sh");
 const NODE_VERSION = "24.19.0";
 const scratchRoots: string[] = [];
+const bashCommand =
+  process.platform === "win32"
+    ? ([
+        "C:\\Program Files\\Git\\bin\\bash.exe",
+        join(process.env.ProgramFiles || "C:\\Program Files", "Git/bin/bash.exe"),
+      ].find((p) => existsSync(p)) ?? "bash")
+    : "bash";
 
 afterEach(() => {
   for (const root of scratchRoots.splice(0)) {
@@ -80,11 +96,15 @@ function stubEnvironment(): { home: string; project: string; hook: string } {
 }
 
 function runHook(hook: string, env: Record<string, string | undefined>, cwd: string) {
-  const base = { ...process.env, CLAUDE_CODE_REMOTE: "true", ...env };
+  const normalizedEnv: Record<string, string | undefined> = {};
   for (const [key, value] of Object.entries(env)) {
+    normalizedEnv[key] = typeof value === "string" ? value.replace(/\\/g, "/") : value;
+  }
+  const base = { ...process.env, CLAUDE_CODE_REMOTE: "true", ...normalizedEnv };
+  for (const [key, value] of Object.entries(normalizedEnv)) {
     if (value === undefined) delete (base as Record<string, string | undefined>)[key];
   }
-  return spawnSync("bash", [hook], { cwd, env: base as NodeJS.ProcessEnv, encoding: "utf8" });
+  return spawnSync(bashCommand, [hook.replace(/\\/g, "/")], { cwd, env: base as NodeJS.ProcessEnv, encoding: "utf8" });
 }
 
 describe("session-start hook", () => {
@@ -107,9 +127,9 @@ describe("session-start hook", () => {
     const exportLine = result.stdout.split(/\r?\n/).find((line) => line.startsWith("export PATH="));
     expect(exportLine).toBeDefined();
 
-    const caller = spawnSync("bash", ["-c", `${exportLine}; node -v`], {
+    const caller = spawnSync(bashCommand, ["-c", `${exportLine}; node -v`], {
       cwd: project,
-      env: { ...process.env, HOME: home },
+      env: { ...process.env, HOME: home.replace(/\\/g, "/") },
       encoding: "utf8",
     });
     expect(caller.status, `caller exited ${caller.status}: ${caller.stderr}`).toBe(0);
@@ -211,9 +231,13 @@ describe("claude hook scripts are checked in runnable", () => {
     })
     .filter((entry) => entry.path?.endsWith(".sh"));
 
-  it("finds the hook scripts", () => {
+  it("finds all expected hook scripts including session-start.sh, precompact-issues-capture.sh, and issues-surface.sh", () => {
     expect(listed.status).toBe(0);
     expect(entries.length).toBeGreaterThanOrEqual(3);
+    const scriptPaths = entries.map((entry) => entry.path);
+    expect(scriptPaths).toContain(".claude/hooks/session-start.sh");
+    expect(scriptPaths).toContain(".claude/hooks/precompact-issues-capture.sh");
+    expect(scriptPaths).toContain(".claude/hooks/issues-surface.sh");
   });
 
   it.each(entries.map((entry) => [entry.path, entry.mode, entry.object]))(

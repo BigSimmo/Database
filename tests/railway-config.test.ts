@@ -98,6 +98,8 @@ describe("Railway config as code", () => {
     "src/lib/rag/rag.ts",
     "worker/main.ts",
     "worker/python/requirements.txt",
+    // B4: the worker image builds its docling venv from the Gate B lab lock.
+    "eval/docling/requirements.txt",
     "scripts/build-worker.mjs",
     "scripts/enable-server-only-stub.mjs",
     "scripts/register-server-only.mjs",

@@ -118,15 +118,29 @@ corpus of that size, and it stays.
 
 Facet groups only. Density scales with option and group volume across three tiers:
 
-| Options / Groups            | Renderer                                                                               |
-| --------------------------- | -------------------------------------------------------------------------------------- |
-| ≤ 5 options                 | chips, single row / wrapping chips                                                     |
-| 6–20 options                | dense full-width vertical list with right-aligned count column and group headings      |
-| > 3 groups, or > 20 options | list/chips plus find-a-filter and collapse-by-default, every group behind a disclosure |
+| Options / Groups                | Renderer                                                                               |
+| ------------------------------- | -------------------------------------------------------------------------------------- |
+| ≤ 5 options, no counts          | chips, single row / wrapping chips                                                     |
+| 2–5 options **carrying counts** | the row renderer below, in a two-column grid                                           |
+| 6–20 options                    | dense full-width vertical list with right-aligned count column and group headings      |
+| > 3 groups, or > 20 options     | list/chips plus find-a-filter and collapse-by-default, every group behind a disclosure |
 
 `ResultFilterSheet` computes the threshold across facet groups. Facet groups containing 6–20 options
 render as compact full-width rows with a right-aligned count column for fast scanning. When a sheet
 exceeds 3 groups or 20 total options, it additionally adds find-a-filter and collapse-by-default chrome.
+
+**A counted chip is not a chip.** A two-to-five-option group whose options carry counts uses the same
+row renderer as the 6–20 tier, laid out in two columns. A chip carrying a count is wide enough that
+four of them wrap one per line and leave most of each row empty — documents' Source status (4) and
+Clinical validation (3) were exactly that, a ragged single column down a phone sheet. Two columns
+halve the height and align the counts. A group with no counts keeps the wrapping chip row, which is
+still the right renderer for short bare labels.
+
+**`hint` is announced, `hintLabel` is displayed.** `hint` carries the unit (`"1 loaded source"`) and
+is what the option's accessible name is built from; `hintLabel` is the short visible form (`"1"`).
+Set both when a count has a unit — spelling the unit into every visible option is what made the
+counted rows too wide to sit two-up in the first place. `hintLabel` alone is never enough: the
+announced name must keep the unit.
 
 Collapse rules, when they apply: groups start collapsed; a group holding a selection opens
 itself; an explicit user collapse beats that; an active needle forces every matched group open

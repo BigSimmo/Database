@@ -220,6 +220,19 @@ export function searchDictionary(filters: DictionaryFilters): DictionarySearchHi
   });
 }
 
+/**
+ * The letter a hit files under in the browse index.
+ *
+ * Exported because the alphabetical control has to offer exactly the letters the
+ * list can actually show. Deriving that from a second copy of this expression is
+ * how an index comes to offer a letter that strands the reader on an empty page.
+ */
+export function dictionaryBrowseLetter(hit: DictionarySearchHit) {
+  const title =
+    hit.type === "entry" ? hit.entry.term : hit.type === "abbreviation" ? hit.abbreviation : hit.topic.title;
+  return title.charAt(0).toLocaleUpperCase();
+}
+
 export function browseDictionary(params: {
   view: "az" | "abbreviations";
   letter: string;
@@ -237,9 +250,7 @@ export function browseDictionary(params: {
   };
   let hits = searchDictionary(filters).filter((hit) => {
     if (!params.letter || params.letter === "all") return true;
-    const title =
-      hit.type === "entry" ? hit.entry.term : hit.type === "abbreviation" ? hit.abbreviation : hit.topic.title;
-    return title.charAt(0).toLocaleUpperCase() === params.letter.toLocaleUpperCase();
+    return dictionaryBrowseLetter(hit) === params.letter.toLocaleUpperCase();
   });
   if (params.sort === "za") hits = hits.reverse();
   return hits;

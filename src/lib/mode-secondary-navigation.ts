@@ -61,11 +61,15 @@ export const modeSecondaryNavigationRegistry = {
     { id: "compare", label: "Compare", href: "/therapy-compass/compare" },
     { id: "pathways", label: "Pathways", href: "/therapy-compass/pathways" },
   ],
-  // Two genuinely distinct surfaces: `/factsheets` is the browse home (category
-  // chips + a featured grid) and `/factsheets/search` is a separate component
-  // with filters, a view toggle and result rows. `/factsheets/[slug]` is a
-  // record and never reaches here — `hasLocalInformationPageNavigation` returns
-  // null for it first.
+  // Two genuinely distinct surfaces: the mode home and `/factsheets/search`, a
+  // separate component with filters, a view toggle and result rows.
+  // `/factsheets/[slug]` is a record and never reaches here —
+  // `hasLocalInformationPageNavigation` returns null for it first.
+  //
+  // Topics resolves through `appModeHomeHref`, so it followed factsheets onto the
+  // shared lightweight home when `/factsheets` became a redirect. The label still
+  // says Topics while the destination is that home; renaming it is a copy decision
+  // left to the owner rather than folded into the consolidation.
   // No `focus: true` on Topics, unlike the Search/Find entry of every mode
   // above. Those tabs are the mode's search affordance, so focusing the composer
   // on arrival is the point. Topics is a browse destination — autofocusing there

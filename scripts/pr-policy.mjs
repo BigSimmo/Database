@@ -26,6 +26,7 @@ const legacyClinicalGovernanceEvidence = new Map([
         /\bprovenance\b/i,
         /\bclinical-content governance\b/i,
       ],
+      [/\blinked-source verification\b/i, /\bclinical use\b/i],
     ],
   ],
   [
@@ -34,10 +35,13 @@ const legacyClinicalGovernanceEvidence = new Map([
   ],
   [requiredClinicalGovernanceItems[2], [[/\bconfigured supabase project\/target\b/i]]],
   [requiredClinicalGovernanceItems[3], [[/\bservice-role credentials?\b/i, /\bserver-side only\b/i]]],
-  [requiredClinicalGovernanceItems[4], [[/\bclinical-content governance\b/i, /\bsource verification\b/i]]],
+  [
+    requiredClinicalGovernanceItems[4],
+    [[/\b(?:demo|synthetic)\b/i, /\b(?:separat(?:ed|ion)|real|production|clinical sources?)\b/i]],
+  ],
   [
     requiredClinicalGovernanceItems[5],
-    [[/\bprovenance\b/i, /\bclinical-content governance\b/i, /\bsource verification\b/i]],
+    [[/\b(?:source metadata|review status|reviewed|outdated|unknown[- ]source|conservative)\b/i]],
   ],
   [requiredClinicalGovernanceItems[6], [[/\bsamd\/tga assessment\b/i]]],
 ]);
@@ -46,9 +50,10 @@ const clinicalRiskPatterns = [
   /^supabase\//,
   /^src\/app\/api\//,
   // Library-layer behavior carries the clinical logic (retrieval, ranking,
-  // answer generation, ingestion, source governance, privacy) so it keeps the
+  // answer generation, ingestion, source governance, privacy, mode gating,
+  // unreviewed content reachability, clinical content policy) so it keeps the
   // full token set.
-  /^src\/lib\/.*(?:auth|permission|privacy|security|rag|retriev|rank|search|answer|clinical|citation|source|document|upload|download)/i,
+  /^src\/lib\/.*(?:auth|permission|privacy|security|rag|retriev|rank|search|answer|clinical|citation|source|document|upload|download|therap|mode|review|policy|content|unreviewed|medication)/i,
   // Presentation surfaces (pages + components) are clinical-risk only when they
   // touch access control, privacy, patient data, or document upload/download —
   // NOT merely because a UI file lives under a clinically-named directory (the
@@ -91,6 +96,7 @@ const ragRankingPatterns = [
 const uiPatterns = [
   /^src\/app\/(?!api\/)/,
   /^src\/(?:components|styles)\//,
+  /^src\/lib\/(?:app-modes|app-mode-icons|search-route-ownership|ui-copy|mode-home-composer|mode-secondary-navigation|category-identity(?:-icons)?|brand-mark|brand-image|search-command-surface|search-navigation-context|search-scope-filter-chips|search-shell-props|document-flow-routes|document-viewer-navigation|differentials-navigation|therapy-compass-navigation|therapies)\.tsx?$/,
   /^public\//,
   /^tests\/ui-.*\.spec\.ts$/,
   /^playwright(?:\..*)?\.config\.ts$/,
@@ -148,7 +154,9 @@ function meaningfulText(value) {
 
 function checkedCommand(value, command) {
   const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`-\\s*\\[[xX]\\]\\s*[^\\n]*${escaped}`, "i").test(value);
+  // The command must end at a token boundary so a checked entry such as
+  // `npm run verify:ui-disabled` does not satisfy a check for `npm run verify:ui`.
+  return checkedChecklistEntries(value).some((entry) => new RegExp(`${escaped}(?![\\w:-])`, "i").test(entry));
 }
 
 function explicitNotRun(value, scope = "verification") {
@@ -171,7 +179,11 @@ function branchLikeTitle(title, headRef) {
 }
 
 function checkedChecklistEntries(value) {
-  return [...String(value ?? "").matchAll(/^\s*-\s*\[[xX]\]\s*(.+?)\s*$/gm)].map((match) => match[1].trim());
+  return [...String(value ?? "").matchAll(/^\s*[-*+]\s*\[[xX]\]\s*(.+?)\s*$/gm)].map((match) => match[1].trim());
+}
+
+function uncheckedChecklistEntries(value) {
+  return [...String(value ?? "").matchAll(/^\s*[-*+]\s*\[\s\]\s*(.+?)\s*$/gm)].map((match) => match[1].trim());
 }
 
 function governanceMatcherGroupSatisfied(group, checkedEntries) {
@@ -190,18 +202,6 @@ function governanceItemSatisfied(checkedEntries, item) {
 export function collectSatisfiedGovernanceItems(value) {
   const checkedEntries = checkedChecklistEntries(value);
   return requiredClinicalGovernanceItems.filter((item) => governanceItemSatisfied(checkedEntries, item));
-}
-
-// Tolerant matching for the policy gate itself: affirm every item is checked
-// without demanding the exact required wording. Authors may lightly reword or
-// reformat the checklist, but a clinical-risk PR must leave no box unchecked
-// and must cover at least the required number of governance items.
-function governanceBoxStats(value) {
-  const source = String(value ?? "");
-  return {
-    checked: (source.match(/-\s*\[[xX]\]/g) ?? []).length,
-    unchecked: (source.match(/-\s*\[ \]/g) ?? []).length,
-  };
 }
 
 function fieldValue(value, field) {
@@ -271,7 +271,7 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
     warnings.push("Complete the `## Summary` section with the outcome and affected area.");
   if (!meaningfulText(verification)) {
     warnings.push("Complete the `## Verification` section with exact results or a reason checks were not run.");
-  } else if (!/-\s*\[[xX]\]/.test(verification) && !explicitNotRun(verification)) {
+  } else if (checkedChecklistEntries(verification).length === 0 && !explicitNotRun(verification)) {
     warnings.push(
       "Verification should contain a checked result or an explicit `Verification not run: <reason>` entry.",
     );
@@ -310,8 +310,12 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
     if (!meaningfulText(governance)) {
       errors.push("Clinical-risk paths require the `## Clinical Governance Preflight` section.");
     } else {
-      const { checked, unchecked } = governanceBoxStats(governance);
-      if (unchecked > 0 || checked < requiredClinicalGovernanceItems.length) {
+      const satisfiedItems = collectSatisfiedGovernanceItems(governance);
+      const uncheckedItems = uncheckedChecklistEntries(governance);
+      const hasUncheckedRequiredItem = requiredClinicalGovernanceItems.some((item) =>
+        uncheckedItems.some((uncheckedItem) => uncheckedItem === item),
+      );
+      if (satisfiedItems.length < requiredClinicalGovernanceItems.length || hasUncheckedRequiredItem) {
         errors.push(
           `Check every Clinical Governance Preflight item before marking the PR ready (all ${requiredClinicalGovernanceItems.length} boxes checked, none left unchecked).`,
         );
@@ -373,6 +377,28 @@ function selfTest() {
       files: ["src/components/search.tsx"],
     }).warnings.join(" "),
     /verify:ui/,
+  );
+  // Command-token boundary: a checked `npm run verify:ui-disabled` entry must not
+  // satisfy the `npm run verify:ui` requirement for UI-classified PRs.
+  assert.match(
+    evaluatePullRequestPolicy({
+      title: "fix: update search behavior",
+      body: completeBody.replace("- [x] `npm run verify:ui`\n", "- [x] `npm run verify:ui-disabled`\n"),
+      headRef: "codex/search-fix",
+      files: ["src/components/search.tsx"],
+    }).warnings.join(" "),
+    /verify:ui/,
+  );
+  // Marker tolerance: `*` and `+` checklist markers satisfy the generic
+  // verification check, not just `-`.
+  assert.doesNotMatch(
+    evaluatePullRequestPolicy({
+      title: "docs: explain the review process",
+      body: "## Summary\n\n- Useful documentation.\n\n## Verification\n\n* [x] `npm run verify:pr-local`\n+ [x] `npm run typecheck`\n",
+      headRef: "codex/review-docs",
+      files: ["docs/process-hardening.md"],
+    }).warnings.join(" "),
+    /checked result/,
   );
   // Outline semantics: a ### sub-heading inside a required section must not
   // truncate it — checklist evidence after the sub-heading still counts.
@@ -579,6 +605,14 @@ function selfTest() {
   assert.equal(classifyPullRequestFiles(["src/data/therapies-index.json"]).clinicalRisk, true);
   assert.equal(classifyPullRequestFiles(["public/therapy-compass-data/therapies-home.json"]).clinicalRisk, true);
   assert.equal(classifyPullRequestFiles(["data/clinical-snapshot.json"]).clinicalRisk, true);
+  // Unreviewed clinical content switches and mode reachability in src/lib (#P5542X).
+  assert.equal(classifyPullRequestFiles(["src/lib/clinical-content-policy.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/app-modes.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/therapies.ts"]).clinicalRisk, true);
+  // Mode configuration, search routing, and UI copy modules are recognized as UI (#0HFDWD).
+  assert.equal(classifyPullRequestFiles(["src/lib/app-modes.ts"]).ui, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/search-route-ownership.ts"]).ui, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/ui-copy.ts"]).ui, true);
   // ...but an unrelated public asset is not clinical output.
   assert.equal(classifyPullRequestFiles(["public/favicon.ico"]).clinicalRisk, false);
   // End-to-end: a dashboard UI PR with Summary + UI verification + risk but no
@@ -636,6 +670,8 @@ function selfTest() {
 - [x] This change does not alter privacy controls, patient-data handling, authentication, authorization, or document-access behavior.
 - [x] Any Supabase service-role credentials used by the migration-history diagnostic remain CI/server-side only and are not exposed to clients.
 - [x] This change does not alter the configured Supabase project/target or perform a production database migration.
+- [x] This change does not alter demo/synthetic content separation from real clinical sources.
+- [x] This change does not alter source metadata, review status, or how outdated/unknown sources are handled.
 - [x] No SaMD/TGA assessment is required because this change has no clinical decision-support impact.`),
     requiredClinicalGovernanceItems,
     "legacy governance attestations should map onto required checklist coverage",
@@ -652,9 +688,18 @@ function selfTest() {
 - [x] This change does not alter citation requirements, source verification, provenance, or clinical-content governance.
 - [x] This change does not alter privacy controls, patient-data handling, authentication, authorization, or document-access behavior.
 - [x] Any Supabase service-role credentials used by the migration-history diagnostic remain CI/server-side only and are not exposed to clients.
+- [x] This change does not alter demo/synthetic content separation from real clinical sources.
+- [x] This change does not alter source metadata, review status, or how outdated/unknown sources are handled.
 - [x] No SaMD/TGA assessment is required because this change has no clinical decision-support impact.`),
     requiredClinicalGovernanceItems,
     "mixed canonical + legacy governance attestations should satisfy all required items",
+  );
+  assert.deepEqual(
+    collectSatisfiedGovernanceItems(
+      "- [x] This change does not alter citation requirements, source verification, provenance, or clinical-content governance.",
+    ),
+    [requiredClinicalGovernanceItems[0]],
+    "generic legacy phrasing must satisfy only the source-backed-claims item, not demo/synthetic or source-metadata items",
   );
   assert.equal(
     collectSatisfiedGovernanceItems("- [x] Legacy governance text without the expected policy keywords.").length,

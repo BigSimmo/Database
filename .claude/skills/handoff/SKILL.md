@@ -85,12 +85,15 @@ force-push, or discard work.
 7. **Record** the review with `npm run ledger:append`, passing `--ref <branch>`, `--head`
    (the full 40-character SHA), `--scope`, `--outcome`, and `--checks`. Do not hand-write
    the row into `docs/branch-review-ledger.md`.
-8. **Stop.** Report the PR URL and a short summary, then end the turn. Do not follow the
-   PR from here — no CI polling, no `gh run watch`, no re-runs, no branch sync, no replies
-   to review bots, no `Monitor`/`ScheduleWakeup`/cron parked on it. That tail is the
-   wasted-usage loop AGENTS.md "Stop when the pull request is open" rules out, and
-   `.claude/hooks/pr-handoff-stop.sh` denies those commands, the equivalent GitHub MCP
-   tools, and that loop machinery for the rest of the session.
+8. **Babysit CI for up to 30 minutes, then stop.** Opening the PR starts a budget, not an
+   exit: watch the required checks, re-run a failed job, sync a behind-but-clean branch, and
+   push a fix for what this change broke. Look roughly every five minutes — wait with
+   `ScheduleWakeup`/`Monitor`, never tight polling — and stop the moment CI settles or the
+   30 minutes are up. Never park a cron job on the PR; it outlives the session and is denied
+   throughout. Then report the PR URL, a short summary, and plainly where CI stands (green,
+   red with the failing check named, or still running), and end the turn. See AGENTS.md
+   "Babysit the pull request, then stop"; `.claude/hooks/pr-handoff-stop.sh` enforces the
+   ceiling by denying the follow tools once the budget is spent.
 
 ## Requires explicit confirmation (do not do automatically)
 

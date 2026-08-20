@@ -28,6 +28,9 @@ Legend: **⏸ PAUSE** = provider action, needs your approval · **✅ verify** =
 4. Staging soak + rollback rehearsal                                      [Railway]
 5. Production deploy                                                       [Railway]
 6. Post-deploy: worker, registry seed, auth conn cap, observability wiring
+7. Environment post-restore recovery controls (#326)
+8. Operational notes & diagnostics (#248, #305, #315)
+9. Ledger queue derivation & credential discipline (#327, #042)
 ```
 
 ---
@@ -170,11 +173,18 @@ Following a Supabase database restore or disaster recovery failover, verify all 
 4. **Cron Job Schedule Registration:** Verify pg_cron extensions and scheduled maintenance jobs (cache retention, query log sweeps) are active.
 5. **Storage Bucket Policies:** Confirm private document storage buckets (`documents`, `document-images`) have active RLS policies preventing unauthenticated public reads.
 
-## 8. Operational notes & diagnostics (#248, #305, #315)
+## 8. Operational notes & diagnostics (#248, #305, #315, #102, #6SMMB4)
 
-- **Search-Health Indexes (#248):** Ensure migration `20260705180000_search_schema_health.sql` is active on live and all 20 required indexes are present.
+- **Search-Health Indexes (#248):** Ensure migration `20260705180000_reconcile_search_health_indexes.sql` is active on live and `search_schema_health()` reports `ok: true` with no `missing` entries (`npm run check:indexing`) — treat its `required_indexes` list as the recovery criterion, not a fixed count, since later migrations extend it.
+- **Concurrent Document Index Recipe (#102):** When applying additive document index optimizations on a busy database (`documents_title_bare_trgm_idx`, `documents_file_name_bare_trgm_idx`, and `documents_status_id_idx`), pre-create indexes concurrently (`CREATE INDEX CONCURRENTLY IF NOT EXISTS`) before applying the committed migration and registering in `search_schema_health()` to avoid write lock contention. Validate each index with `pg_index.indisvalid`. Note that bare-column trigrams and composite `(status, id)` indexes on the RAG path are canary-gated due to unordered `LIMIT 12` selection in candidate retrieval ([operator-apply-performance-latency-remediation.md](operator-apply-performance-latency-remediation.md)).
 - **Canary Latency & Cost Boundaries (#305):** Retrieval latency p90 SLO is ≤ 20s. Canary cost metrics provide lower-bound estimates without cache warmup.
 - **UI Smoke Reporter Stranding (#315):** When debugging rare UI smoke test timeouts, inspect reporter stranding in Playwright hooks rather than assuming layout regressions.
+- **Dev Drive Trusted Package Cache (#6SMMB4):** On Windows workstations hosting worktrees on a Dev Drive (e.g. `D:`, ReFS), verify that the local npm package cache (`D:\.npm-cache`) is registered as a trusted Dev Drive cache. If unverified or not registered, Microsoft Defender real-time scanning runs over every `npm ci` across all worktrees. From an **elevated administrator prompt**, inspect and register the trusted cache:
+  ```cmd
+  fsutil devdrv query D:
+  fsutil devdrv trust D:\.npm-cache
+  ```
+  Confirming or trusting the cache on the volume exempts package extractions from Defender real-time scan overhead during multi-worktree operations.
 
 ## 9. Ledger queue derivation & credential discipline (#327, #042)
 

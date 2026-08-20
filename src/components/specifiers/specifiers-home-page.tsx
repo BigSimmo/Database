@@ -6,7 +6,9 @@ import { useId, useMemo, useState } from "react";
 import { ArrowRight, ChevronRight, GitCompareArrows, ListChecks, Search, Tags } from "lucide-react";
 
 import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
-import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
+import { appModeIcons } from "@/lib/app-mode-icons";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 import {
   SearchResultsHeaderBand,
   type AppliedFilterChip,
@@ -80,9 +82,9 @@ function SpecifiersHome() {
     <ModeHomeMain testId="specifiers-home" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="specifiers"
-        title="Specifiers"
-        subtitle="Check specifier fit and exclusions."
-        icon={Tags}
+        title={sharedHomePresentation.specifiers.title}
+        subtitle={sharedHomePresentation.specifiers.subtitle}
+        icon={appModeIcons.specifiers}
         actionsLabel="Specifier workflows"
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actions={[
@@ -120,15 +122,7 @@ function SpecifiersHome() {
             <ChevronRight className="h-3.5 w-3.5" aria-hidden />
           </Link>
         }
-        footer={
-          <div className="grid gap-3">
-            <SpecifierPathwayStrip />
-            <ModeHomeVerificationFooter
-              label="Diagnostic decision support"
-              body="Review criteria and exclusions before documenting"
-            />
-          </div>
-        }
+        footer={<SpecifierPathwayStrip />}
       />
     </ModeHomeMain>
   );

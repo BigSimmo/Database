@@ -165,7 +165,7 @@ describe("app mode search contract", () => {
     expect(isSearchableAppMode("dsm")).toBe(true);
     expect(config.kind).toBe("dsm");
     expect(config.resultKind).toBe("dsm");
-    expect(appModeHomeHref("dsm")).toBe("/dsm");
+    expect(appModeHomeHref("dsm")).toBe("/?mode=dsm");
     expect(appModeHomeHref("dsm", { query: "  bipolar II  ", run: true, focus: true })).toBe(
       "/dsm/search?q=bipolar+II&focus=1&run=1",
     );
@@ -181,7 +181,7 @@ describe("app mode search contract", () => {
     // Borrows the benign "tools" kind (like Therapy Compass) while keeping the shared composer.
     expect(config.kind).toBe("tools");
     expect(config.resultKind).toBe("tools");
-    expect(appModeHomeHref("factsheets")).toBe("/factsheets");
+    expect(appModeHomeHref("factsheets")).toBe("/?mode=factsheets");
     expect(appModeHomeHref("factsheets", { query: "  sertraline  ", run: true, focus: true })).toBe(
       "/factsheets/search?q=sertraline&focus=1&run=1",
     );
@@ -221,31 +221,31 @@ describe("app mode search contract", () => {
     expect(appModeHomeHref("documents", { query: "lithium monitoring", run: true, focus: true })).toBe(
       "/documents/search?mode=documents&q=lithium+monitoring&focus=1&run=1",
     );
-    expect(appModeHomeHref("services")).toBe("/services");
-    expect(appModeHomeHref("services", { focus: true })).toBe("/services?focus=1");
+    expect(appModeHomeHref("services")).toBe("/?mode=services");
+    expect(appModeHomeHref("services", { focus: true })).toBe("/?mode=services&focus=1");
     expect(appModeHomeHref("services", { query: "  13YARN  ", run: true, focus: true })).toBe(
-      "/services?q=13YARN&focus=1&run=1",
+      "/services/search?q=13YARN&focus=1&run=1",
     );
-    expect(appModeHomeHref("forms")).toBe("/forms");
-    expect(appModeHomeHref("forms", { focus: true })).toBe("/forms?focus=1");
+    expect(appModeHomeHref("forms")).toBe("/?mode=forms");
+    expect(appModeHomeHref("forms", { focus: true })).toBe("/?mode=forms&focus=1");
     expect(appModeHomeHref("forms", { query: "  transport forms  ", run: true, focus: true })).toBe(
-      "/forms?q=transport+forms&focus=1&run=1",
+      "/forms/search?q=transport+forms&focus=1&run=1",
     );
     expect(appModeHomeHref("favourites")).toBe("/favourites");
     expect(appModeHomeHref("favourites", { query: "  clozapine set  ", run: true, focus: true })).toBe(
       "/favourites?q=clozapine+set&focus=1&run=1",
     );
     expect(appModeHomeHref("differentials", { query: "  acute confusion  ", focus: true })).toBe(
-      "/differentials?q=acute+confusion&focus=1",
+      "/differentials/search?q=acute+confusion&focus=1",
     );
     expect(appModeHomeHref("specifiers", { query: "  depressed but racing thoughts  ", run: true, focus: true })).toBe(
-      "/specifiers?q=depressed+but+racing+thoughts&focus=1&run=1",
+      "/specifiers/search?q=depressed+but+racing+thoughts&focus=1&run=1",
     );
     expect(appModeHomeHref("formulation", { query: "  I keep going over it  ", run: true, focus: true })).toBe(
-      "/formulation?q=I+keep+going+over+it&focus=1&run=1",
+      "/formulation/search?q=I+keep+going+over+it&focus=1&run=1",
     );
     expect(appModeHomeHref("specifiers", { query: "  racing thoughts  ", run: true, focus: true })).toBe(
-      "/specifiers?q=racing+thoughts&focus=1&run=1",
+      "/specifiers/search?q=racing+thoughts&focus=1&run=1",
     );
     expect(appModeHomeHref("prescribing", { query: "  acamprosate renal dose  " })).toBe(
       "/?mode=prescribing&q=acamprosate+renal+dose",
@@ -257,7 +257,7 @@ describe("app mode search contract", () => {
       "/tools?q=medications&focus=1&run=1",
     );
     expect(appModeHomeHref("calculators", { query: "  PHQ-9  ", run: true, focus: true })).toBe(
-      "/calculators?q=PHQ-9&focus=1&run=1",
+      "/calculators/search?q=PHQ-9&focus=1&run=1",
     );
   });
 
@@ -316,7 +316,7 @@ describe("app mode search contract", () => {
     expect(isAppModeVisible("prescribing", "production")).toBe(true);
     expect(isAppModeVisible("tools", "production")).toBe(true);
     expect(isAppModeVisible("calculators", "production")).toBe(true);
-    expect(isAppModeVisible("therapy-compass", "production")).toBe(false);
+    expect(isAppModeVisible("therapy-compass", "production")).toBe(true);
     expect(isAppModeVisible("factsheets", "production")).toBe(true);
     expect(productionModes).not.toContain("evidence");
     expect(productionModes).toContain("services");
@@ -329,7 +329,7 @@ describe("app mode search contract", () => {
     expect(productionModes).toContain("prescribing");
     expect(productionModes).toContain("tools");
     expect(productionModes).toContain("calculators");
-    expect(productionModes).not.toContain("therapy-compass");
+    expect(productionModes).toContain("therapy-compass");
     expect(productionModes).toContain("factsheets");
     expect(developmentModes).toEqual(
       expect.arrayContaining([
@@ -352,12 +352,16 @@ describe("app mode search contract", () => {
     expect(developmentModes).not.toContain("evidence");
   });
 
-  it("keeps Therapy Compass behind clinical review in production", () => {
+  // Therapy was `devOnly` while its catalogue awaited clinician sign-off, which
+  // hid the mode and 404'd all 205 records for real users. The owner's decision
+  // is to ship it with its review state disclosed instead, so production and
+  // development must now agree — a re-added `devOnly: true` fails here.
+  it("keeps Therapy reachable in production with its review state disclosed, not hidden", () => {
     expect(isAppModeId("therapy-compass")).toBe(true);
     expect(isAppModeVisible("therapy-compass", "development")).toBe(true);
-    expect(isAppModeVisible("therapy-compass", "production")).toBe(false);
+    expect(isAppModeVisible("therapy-compass", "production")).toBe(true);
     expect(visibleAppModeDefinitions("development").map((mode) => mode.id)).toContain("therapy-compass");
-    expect(visibleAppModeDefinitions("production").map((mode) => mode.id)).not.toContain("therapy-compass");
+    expect(visibleAppModeDefinitions("production").map((mode) => mode.id)).toContain("therapy-compass");
   });
 
   it("gates Favourites mode to authenticated or demo sessions", () => {
@@ -407,17 +411,17 @@ describe("app mode search contract", () => {
       dsm: "/dsm/search?q=clozapine&run=1",
       factsheets: "/factsheets/search?q=clozapine&run=1",
       dictionary: "/dictionary/search?q=clozapine&run=1",
-      // Same route, submitted branch.
-      services: "/services?q=clozapine&run=1",
-      forms: "/forms?q=clozapine&run=1",
-      favourites: "/favourites?q=clozapine&run=1",
-      differentials: "/differentials?q=clozapine&run=1",
-      specifiers: "/specifiers?q=clozapine&run=1",
-      formulation: "/formulation?q=clozapine&run=1",
+      services: "/services/search?q=clozapine&run=1",
+      forms: "/forms/search?q=clozapine&run=1",
+      differentials: "/differentials/search?q=clozapine&run=1",
+      specifiers: "/specifiers/search?q=clozapine&run=1",
+      formulation: "/formulation/search?q=clozapine&run=1",
       "therapy-compass": "/therapy-compass/search?q=clozapine&run=1",
+      calculators: "/calculators/search?q=clozapine&run=1",
+      // Same route, submitted branch: these still own a home of their own.
+      favourites: "/favourites?q=clozapine&run=1",
       // Tools has no search route by design: it filters its launcher in place.
       tools: "/tools?q=clozapine&run=1",
-      calculators: "/calculators?q=clozapine&run=1",
     });
   });
 

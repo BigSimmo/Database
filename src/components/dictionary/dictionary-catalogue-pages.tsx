@@ -9,6 +9,7 @@ import {
   ResultFilterSheet,
   ResultFilterTrigger,
   resultFilterFacetGroup,
+  resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { DictionaryResultRow } from "@/components/dictionary/dictionary-result-row";
@@ -17,9 +18,11 @@ import { type PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { cn } from "@/components/ui-primitives";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import {
   allDictionaryEntries,
   browseDictionary,
+  dictionaryBrowseLetter,
   dictionaryKindLabel,
   dictionaryTopicEntries,
   findDictionaryTopic,
@@ -259,13 +262,18 @@ export function DictionarySearchPage() {
               })}
             </section>
           ) : (
-            <div className="px-4 py-12 text-center">
+            // The empty state wears the same card as the result list. Bare on
+            // the page background it read as a rendering failure rather than an
+            // answer, and the advice named a filter even when none was applied.
+            <div className="border-y border-[color:var(--border)] px-4 py-12 text-center sm:rounded-xl sm:border-x sm:bg-[color:var(--surface)]">
               <Search className="mx-auto size-icon-xl text-[color:var(--decoration-soft)]" aria-hidden="true" />
               <h2 className="mt-3 text-lg font-extrabold text-[color:var(--text-heading)]">
                 No matching dictionary entries
               </h2>
-              <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-                Keep the search term and remove a filter, or try a broader term.
+              <p className="mx-auto mt-1 max-w-md text-sm text-[color:var(--text-muted)]">
+                {activeCount
+                  ? "Keep the search term and remove a filter, or try a broader term."
+                  : "Try a broader term, check the spelling, or browse the catalogue A–Z."}
               </p>
               {activeCount ? (
                 <button
@@ -275,7 +283,15 @@ export function DictionarySearchPage() {
                 >
                   Clear filters
                 </button>
-              ) : null}
+              ) : (
+                <Link
+                  href="/dictionary/browse"
+                  className="mt-4 inline-flex min-h-tap items-center gap-1.5 rounded-lg px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+                >
+                  Browse all terms
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              )}
             </div>
           )}
         </div>
@@ -312,6 +328,18 @@ export function DictionaryBrowsePage() {
   const sort = searchParams.get("sort") === "za" ? "za" : "az";
   const [filterOpen, setFilterOpen] = useState(false);
   const hits = browseDictionary({ view, letter, topics, kinds, sort });
+  // Both counts come from the same predicate as the list, so a segment's number
+  // is what pressing it actually returns (docs/filter-contract.md).
+  const viewCount = (candidate: "az" | "abbreviations") =>
+    browseDictionary({ view: candidate, letter, topics, kinds, sort }).length;
+  // Letters the current view and facets can actually fill. The rest stay
+  // visible — the alphabet is a fixed mental model — but inert, so the index
+  // can never strand the reader on an empty page.
+  const availableLetters = new Set(
+    browseDictionary({ view, letter: "all", topics, kinds, sort }).map(dictionaryBrowseLetter),
+  );
+  // Sort lives in the sheet but is not a filter: it reorders rather than
+  // narrows, so counting it in the badge would claim results were withheld.
   const activeCount = topics.length + kinds.length;
   const clearFilters = () =>
     replace((next) => {
@@ -319,6 +347,17 @@ export function DictionaryBrowsePage() {
       next.delete("kind");
     });
   const groups = [
+    resultFilterGroup({
+      id: "sort",
+      label: "Sort",
+      value: sort,
+      options: [
+        { value: "az", label: "A–Z" },
+        { value: "za", label: "Z–A" },
+      ],
+      onChange: (value) => setOne("sort", value, "az"),
+      note: "one only",
+    }),
     resultFilterFacetGroup({
       id: "topics",
       label: "Topics",
@@ -341,97 +380,149 @@ export function DictionaryBrowsePage() {
   return (
     <>
       <InformationPageShell width="bleed" gap={false} testId="dictionary-browse-main">
-        <header className="mx-auto w-full max-w-[76rem] px-4 pb-4 pt-5 sm:px-6 sm:pt-7">
-          <p className="text-xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
+        <header className="mx-auto w-full max-w-[76rem] px-4 pb-3 pt-4 sm:px-6 sm:pt-7">
+          {/* Desktop-only: on a phone the mode-nav rail sitting directly above
+              already reads "Browse", so the kicker repeats it for a whole band. */}
+          <p className="hidden text-xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)] sm:block">
             Complete catalogue
           </p>
-          <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
+          <h1 className="text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:mt-1 sm:text-4xl">
             Browse terms
           </h1>
-          <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-            Scan the same source-linked result system by letter or abbreviation.
-          </p>
         </header>
         <div className="border-y border-[color:var(--border)] bg-[color:var(--surface)]">
-          <div className="mx-auto grid w-full max-w-[76rem] gap-3 px-4 py-3 sm:px-6">
+          <div className="mx-auto grid w-full max-w-[76rem] gap-2 px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
             <div className="flex flex-wrap items-center gap-2">
-              <div
-                className="inline-flex min-h-tap overflow-hidden rounded-lg border border-[color:var(--border)] sm:min-h-10"
-                role="group"
-                aria-label="Browse view"
-              >
-                {(["az", "abbreviations"] as const).map((option) => (
+              <SegmentedControl
+                label="Browse view"
+                value={view}
+                onChange={(next) => setOne("view", next, "az")}
+                options={[
+                  { value: "az", label: "Definitions", hint: String(viewCount("az")) },
+                  { value: "abbreviations", label: "Abbreviations", hint: String(viewCount("abbreviations")) },
+                ]}
+                layout="equal"
+                ariaControls="dictionary-browse-results"
+                // Equal segments need an explicit desktop width: shrink-to-fit
+                // derives the width from spans that are themselves truncating,
+                // which settles on a box too narrow for "Abbreviations".
+                className="w-full sm:w-[22rem]"
+              />
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                {/* Phone takes the alphabet as a native select — 27 chips cost a
+                    whole band and a horizontal scroll, and the native picker is
+                    a better target than any of them. The rail below is the same
+                    control at a width that can afford it. */}
+                <label className="flex min-h-tap min-w-0 flex-1 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-3 pr-2 text-sm shadow-[var(--shadow-inset)] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)] sm:hidden">
+                  <span className="shrink-0 font-bold text-[color:var(--text-muted)]">Alphabetical</span>
+                  <select
+                    value={letter}
+                    onChange={(event) => setOne("letter", event.target.value, "all")}
+                    aria-label="Alphabetical index"
+                    className="min-w-0 flex-1 cursor-pointer appearance-none bg-transparent font-extrabold text-[color:var(--clinical-accent)] outline-none"
+                  >
+                    <option value="all">All letters</option>
+                    {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((value) => (
+                      <option key={value} value={value} disabled={!availableLetters.has(value)}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
+                </label>
+                <span className="ml-auto">
+                  <ResultFilterTrigger
+                    panelId="dictionary-browse-filters"
+                    testId="dictionary-browse-filter-trigger"
+                    open={filterOpen}
+                    activeCount={activeCount}
+                    onToggle={() => setFilterOpen((open) => !open)}
+                    title="Filter and sort browse results"
+                  />
+                </span>
+              </div>
+            </div>
+            {/* Wraps rather than scrolls: 27 chips overrun the 76rem container by
+                a chip's width, and a rail that clips Z is worse than a rail that
+                takes two rows on the narrower desktop widths. */}
+            <nav aria-label="Browse by letter" className="hidden flex-wrap gap-1 pb-1 sm:flex">
+              {["all", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((value) => {
+                const empty = value !== "all" && !availableLetters.has(value);
+                return (
                   <button
-                    key={option}
+                    key={value}
                     type="button"
-                    aria-pressed={view === option}
-                    onClick={() => setOne("view", option, "az")}
+                    aria-current={letter === value ? "page" : undefined}
+                    disabled={empty}
+                    onClick={() => setOne("letter", value, "all")}
                     className={cn(
-                      "min-w-[8rem] px-3 text-sm font-bold",
-                      view === option
-                        ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                        : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+                      "grid min-h-tap min-w-tap place-items-center rounded-md border text-xs font-extrabold sm:min-h-10 sm:min-w-10",
+                      letter === value
+                        ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                        : empty
+                          ? "border-[color:var(--border)] text-[color:var(--disabled)]"
+                          : "border-[color:var(--border)] text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-subtle)]",
                     )}
                   >
-                    {option === "az" ? "A–Z" : "Abbreviations"}
+                    {value === "all" ? "All" : value}
                   </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setFilterOpen(true)}
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] sm:min-h-10"
-              >
-                <Filter className="size-icon-sm" aria-hidden="true" /> Filters{" "}
-                {activeCount ? <span className="nums text-[color:var(--clinical-accent)]">{activeCount}</span> : null}
-              </button>
-              <button
-                type="button"
-                onClick={() => setOne("sort", sort === "az" ? "za" : "az", "az")}
-                className="ml-auto inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text-muted)] sm:min-h-10"
-              >
-                {sort === "az" ? "A–Z" : "Z–A"}
-                <ChevronDown className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
-            <nav aria-label="Browse by letter" className="flex gap-1 overflow-x-auto pb-1">
-              {["all", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-current={letter === value ? "page" : undefined}
-                  onClick={() => setOne("letter", value, "all")}
-                  className={cn(
-                    "grid min-h-tap min-w-tap place-items-center rounded-md border text-xs font-extrabold sm:min-h-10 sm:min-w-10",
-                    letter === value
-                      ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                      : "border-[color:var(--border)] text-[color:var(--clinical-accent)]",
-                  )}
-                >
-                  {value === "all" ? "All" : value}
-                </button>
-              ))}
+                );
+              })}
             </nav>
           </div>
         </div>
-        <div className="mx-auto w-full max-w-[76rem] py-2 sm:px-4 sm:py-4">
-          <p className="px-4 pb-2 text-xs font-semibold text-[color:var(--text-muted)] sm:px-0">
-            {hits.length} showing
-          </p>
-          <section className="border-y border-[color:var(--border)] sm:border-x" aria-label="Browse results">
-            {hits.map((hit) => (
-              <DictionaryResultRow
-                key={
-                  hit.type === "entry"
-                    ? hit.entry.slug
-                    : hit.type === "abbreviation"
-                      ? hit.abbreviation
-                      : hit.topic.slug
-                }
-                hit={hit}
-              />
-            ))}
-          </section>
+        <div id="dictionary-browse-results" className="mx-auto w-full max-w-[76rem] px-0 py-3 sm:px-6 sm:py-4">
+          {hits.length ? (
+            <section
+              aria-label="Browse results"
+              className="border-y border-[color:var(--border)] sm:overflow-hidden sm:rounded-xl sm:border-x sm:bg-[color:var(--surface)]"
+            >
+              {hits.map((hit) => (
+                <DictionaryResultRow
+                  key={
+                    hit.type === "entry"
+                      ? hit.entry.slug
+                      : hit.type === "abbreviation"
+                        ? hit.abbreviation
+                        : hit.topic.slug
+                  }
+                  hit={hit}
+                />
+              ))}
+            </section>
+          ) : (
+            <div className="px-4 py-12 text-center">
+              <BookOpenText className="mx-auto size-icon-xl text-[color:var(--decoration-soft)]" aria-hidden="true" />
+              <h2 className="mt-3 text-lg font-extrabold text-[color:var(--text-heading)]">
+                {letter === "all" ? "No terms match these filters" : `No terms under ${letter}`}
+              </h2>
+              <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+                {letter === "all"
+                  ? "Remove a filter, or switch between definitions and abbreviations."
+                  : "Choose another letter, or widen the filters."}
+              </p>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                {letter === "all" ? null : (
+                  <button
+                    type="button"
+                    onClick={() => setOne("letter", "all", "all")}
+                    className="min-h-tap rounded-lg px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+                  >
+                    Show all letters
+                  </button>
+                )}
+                {activeCount ? (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="min-h-tap rounded-lg px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+                  >
+                    Clear filters
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          )}
         </div>
         <InformationPageFooter>
           All published entries link a source · Specialist clinical approval remains pending
@@ -442,10 +533,20 @@ export function DictionaryBrowsePage() {
         onClose={() => setFilterOpen(false)}
         panelId="dictionary-browse-filters"
         testId="dictionary-browse-filters"
-        title="Filter browse results"
+        title="Filter and sort"
         groups={groups}
         onClearAll={activeCount ? clearFilters : undefined}
-        summary={{ count: hits.length, noun: hits.length === 1 ? "term" : "terms" }}
+        summary={{
+          count: hits.length,
+          noun:
+            view === "abbreviations"
+              ? hits.length === 1
+                ? "abbreviation"
+                : "abbreviations"
+              : hits.length === 1
+                ? "term"
+                : "terms",
+        }}
         onApply={() => setFilterOpen(false)}
       />
     </>
@@ -472,6 +573,14 @@ export function DictionaryTopicsPage() {
     .filter((kind): kind is DictionaryEntryKind => dictionaryEntryKinds.includes(kind as DictionaryEntryKind));
   const sort = searchParams.get("sort") === "za" ? "za" : "az";
   const [filterOpen, setFilterOpen] = useState(false);
+  // Clears both narrowing inputs: `kind` from the filter sheet and a `q` carried
+  // in from a deep link. Either one alone can empty the list, so a Clear that
+  // only dropped `kind` would leave a `?q=` visitor stuck on an empty page.
+  const clearTopicFilters = () =>
+    replace((next) => {
+      next.delete("kind");
+      next.delete("q");
+    });
   const visible = dictionaryTopics
     .filter((topic) => topicMatches(topic.slug, query, kinds))
     .sort((a, b) => (sort === "az" ? a.title.localeCompare(b.title) : b.title.localeCompare(a.title)));
@@ -488,7 +597,9 @@ export function DictionaryTopicsPage() {
     <>
       <InformationPageShell width="bleed" gap={false} testId="dictionary-topics-main">
         <div className="mx-auto grid w-full max-w-[76rem] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:py-8">
-          <main className="min-w-0">
+          {/* A `div`, not a `main`: `InformationPageShell` already renders the
+              route's `<main>`, and a nested one is a duplicate landmark. */}
+          <div className="min-w-0">
             <header>
               <p className="text-xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
                 Governed collections
@@ -558,6 +669,30 @@ export function DictionaryTopicsPage() {
                   </Link>
                 );
               })}
+              {/* Reachable from a `?kind=`/`?q=` deep link. Without this the
+                  section collapsed to a bare rule under "0 collections". */}
+              {visible.length ? null : (
+                <div className="px-4 py-12 text-center">
+                  <Layers3 className="mx-auto size-icon-xl text-[color:var(--decoration-soft)]" aria-hidden="true" />
+                  <h2 className="mt-3 text-lg font-extrabold text-[color:var(--text-heading)]">
+                    No matching collections
+                  </h2>
+                  <p className="mx-auto mt-1 max-w-md text-sm text-[color:var(--text-muted)]">
+                    {kinds.length
+                      ? "No governed collection carries a term of that kind."
+                      : "Nothing in the governed collections matches that search."}
+                  </p>
+                  {kinds.length || query ? (
+                    <button
+                      type="button"
+                      onClick={clearTopicFilters}
+                      className="mt-4 min-h-tap rounded-lg px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+                    >
+                      Show all collections
+                    </button>
+                  ) : null}
+                </div>
+              )}
             </section>
             <div className="mt-3 grid border-y border-[color:var(--border)] lg:hidden">
               <DisclosureLink
@@ -571,7 +706,7 @@ export function DictionaryTopicsPage() {
                 href="/dictionary/compare"
               />
             </div>
-          </main>
+          </div>
           <aside className="hidden border-l border-[color:var(--border)] pl-6 lg:block">
             <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">Browse by kind</h2>
             <div className="mt-2 grid">
@@ -617,7 +752,7 @@ export function DictionaryTopicsPage() {
         testId="dictionary-topic-filters"
         title="Filter topics"
         groups={groups}
-        onClearAll={kinds.length ? () => replace((next) => next.delete("kind")) : undefined}
+        onClearAll={kinds.length ? clearTopicFilters : undefined}
         summary={{ count: visible.length, noun: visible.length === 1 ? "topic" : "topics" }}
         onApply={() => setFilterOpen(false)}
       />
@@ -715,7 +850,7 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
       />
       <InformationPageShell width="bleed" gap={false} testId="dictionary-topic-detail-main">
         <div className="mx-auto grid w-full max-w-[76rem] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:py-8">
-          <main id="dictionary-topic-terms" className="min-w-0 scroll-mt-page-section">
+          <div id="dictionary-topic-terms" className="min-w-0 scroll-mt-page-section">
             <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
               {topic.title}
             </h1>
@@ -825,7 +960,7 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
                 </div>
               </details>
             </div>
-          </main>
+          </div>
           <aside
             id="dictionary-topic-details-desktop"
             aria-label="Collection details"

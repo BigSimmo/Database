@@ -182,6 +182,56 @@ the client publishable key (build-time, app bundle only) or
 - `PYTHON_BIN=python` — do not set a Windows `TESSERACT_CMD` path; the container
   resolves both from the venv/PATH.
 
+### Shadow extraction mode (packet B4 — docling, default OFF)
+
+Authorised by the Gate B PASS of 2026-08-18
+(`docs/rag-improvement/gate-b-decision-record-2026-08-18.md`); design in
+`docs/rag-improvement/README.md` §B4, code in `worker/shadow-extraction.ts` +
+`worker/python/shadow_docling_extract.py`.
+
+- **What it does.** With `WORKER_DOCUMENT_EXTRACTOR_MODE=shadow`, after a job's legacy
+  index generation has been **committed**, docling additionally parses the same PDF on a
+  deterministic cohort (`WORKER_SHADOW_EXTRACTION_COHORT_PERCENT`, default 2 % of PDFs whose
+  index-quality signals flag tables, OCR, or unrecovered layout) and writes one aggregate,
+  numbers-only record to `documents.metadata.shadow_extraction` (page / character / table /
+  cell / numeric-token counts, wall ms, peak RSS, outcome, deltas vs legacy). Nothing else
+  changes: no chunks, embeddings, index units, table facts, or `document_index_quality`
+  rows are written by the shadow path, and search/ranking never read the record.
+- **What ships in the image.** `Dockerfile.worker` builds a second venv
+  `/opt/docling-venv` from the Gate B lab lock (`eval/docling/requirements.txt`,
+  `docling==2.120.2`, CPU-only torch) and bakes docling's models into
+  `/opt/docling-models`; the image sets `WORKER_DOCLING_PYTHON_BIN`,
+  `DOCLING_ARTIFACTS_PATH`, `TORCHDYNAMO_DISABLE=1` (eager torch — the image has no C++
+  toolchain) and `HF_HUB_OFFLINE=1` (no run-time model fetch). The image is several GB
+  larger and the build ~10 min longer than before B4. `validate-runtime` proves the
+  docling venv at every build.
+- **Preconditions before enabling (operator).** (1) Memory headroom: docling peaked at
+  ~1.4 GiB in the Gate B lab; the worker service must have that above its legacy
+  baseline, because a container OOM kill during the ≤ 120 s docling window is the one
+  failure the fail-open code cannot catch (the index is already committed, but the job
+  would sit `processing` until the 45-min reclaim and burn an attempt). Railway worker
+  CPU/RAM are not recorded in-repo — confirm in the dashboard. (2) Expected cost at 2 %:
+  ≤ ~57 cohort documents per full reindex, each ≤ 120 s (documents over 40 pages are
+  recorded as `skipped_page_cap`, never run; at most one docling process per worker).
+- **Enable.** Set `WORKER_DOCUMENT_EXTRACTOR_MODE=shadow` (optionally
+  `WORKER_SHADOW_EXTRACTION_COHORT_PERCENT=1..5`) on the Railway `worker` service and
+  redeploy. Startup logs show `Docling shadow extraction enabled (packet B4)`; a
+  `Docling shadow prerequisite warning` means the venv is missing and every cohort
+  document will record `runtime_unavailable` — fix the image, the legacy path is
+  unaffected.
+- **Observe.** `documents.metadata->'shadow_extraction'` per cohort document: `outcome`
+  (`ok`, `extraction_failed`, `timeout`, `runtime_unavailable`, `process_error`,
+  `skipped_page_cap`, `skipped_concurrent`), `wall_ms`, `peak_rss_bytes`, `docling` /
+  `legacy` / `delta` counts, `cohort_signals`, `index_generation_id`. Reading live rows is
+  a provider action — approve it explicitly.
+- **Kill switch / rollback.** Set `WORKER_DOCUMENT_EXTRACTOR_MODE=legacy` (or unset) and
+  redeploy. No migration, no reindex; existing `shadow_extraction` records stay on their
+  rows as inert history.
+- **Gate B caveats that still bind.** The table-heavy leg passed at parity-on-ceiling, so
+  shadow numbers must not be read as a table-quality promotion argument until
+  `docling-lab-fixtures.v2` exists; and docling's eager-mode latency is why the cohort is
+  bounded three ways above.
+
 ---
 
 ## 3. Verify
@@ -212,6 +262,22 @@ the client publishable key (build-time, app bundle only) or
    This is fenced against retry/reindex overlap races. See
    [`reindex-runbook.md`](reindex-runbook.md) and
    `deployment-architecture.md` §3 (queue durability).
+
+---
+
+## 4. Troubleshooting & environment notes
+
+- **Strict Node 24 web container engines (#334):** Package manifests enforce
+  strict Node 24 (`>=24.15.0 <25`) and npm 11 engines. If a web container
+  environment boots with Node 22 on `PATH`, `npm ci` fails `EBADENGINE` before
+  work starts. Do not drop engine-strict; export `/opt/node24/bin` at the front of
+  `PATH` to satisfy repository engine contracts before running `npm ci` or building
+  the worker:
+
+  ```bash
+  export PATH="/opt/node24/bin:$PATH"
+  node -v # must report v24.x
+  ```
 
 ---
 

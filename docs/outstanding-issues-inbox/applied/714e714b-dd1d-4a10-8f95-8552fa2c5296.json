@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "714e714b-dd1d-4a10-8f95-8552fa2c5296",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Hoist the filtered-zero empty state out of the documents results grid so it can sit flush under the results band",
+    "detail": "SearchResultsEmptyState renders the filtered-to-zero case nested two divs inside the results grid in document-search-results.tsx (grid gap-3 wrapper, with a conditional 'N results after filters' pill above it), not adjacent to SearchResultsHeaderBand. That nesting blocks the inline treatment evaluated for PR #2147: recovery cannot share the band's bottom edge, the band's data-tone lead is not adjacent so the panel has no state mark, and the filter chips are not near enough for the panel to point at them instead of duplicating them. PR #2147 therefore shipped the self-contained rail panel, which does not depend on adjacency. Hoisting the state to a sibling of the band would let the panel drop its own rail, its named-removal row and its eyebrow — roughly a third less height on phones. Only the documents nesting was verified; the other five consumers (favourites, calculators, forms, services, therapy-compass) were not checked and may nest the same way.",
+    "source": "PR #2147 design review; document-search-results.tsx:1558",
+    "issueUlid": "01M0B36TGQGBBYTAN7G28RJHWW"
+  }
+}

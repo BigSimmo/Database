@@ -37,7 +37,7 @@ const expectedPresentations = [
   },
   {
     modeId: "favourites",
-    title: "Clinical Favourites",
+    title: "Favourites",
     subtitle: "Saved notes, sources, and sets.",
     iconClass: "lucide-heart",
   },
@@ -85,7 +85,7 @@ const expectedPresentations = [
   },
   {
     modeId: "therapy-compass",
-    title: "Therapy Compass",
+    title: "Therapy",
     subtitle: "Source-grounded therapy records.",
     iconClass: "lucide-compass",
   },
@@ -129,13 +129,11 @@ describe("SharedHomeEmptyState", () => {
       expect(icon).toHaveClass(iconClass);
       expect(icon).toHaveAttribute("aria-hidden", "true");
 
-      // A mode carrying a review-before-use caveat must show it here; a mode
-      // without one must not gain filler text.
+      // No mode home carries a caveat line under the composer any more. The
+      // shared-home table now also feeds mode-specific starter suggestions, so
+      // the contract is title + subtitle + suggestions — and nothing else.
       const presentation: SharedHomePresentation = sharedHomePresentation[modeId];
-      const verification = presentation.verification;
-      if (verification) {
-        expect(screen.getByText(verification.body)).toBeInTheDocument();
-      }
+      expect(Object.keys(presentation).sort()).toEqual(["subtitle", "suggestions", "title"]);
     },
   );
 

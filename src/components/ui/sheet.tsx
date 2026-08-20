@@ -71,6 +71,13 @@ type SheetBaseProps = {
   bodyTabIndex?: number;
   onBodyScroll?: UIEventHandler<HTMLDivElement>;
   footerClassName?: string;
+  /**
+   * Stamps `data-footer-variant` on the footer wrapper. Only meaningful when the
+   * footer opts into the shared phone dock chrome (`.answer-footer-search-dock`),
+   * where `globals.css` reads it to pick the scrim height: `compact` is for a dock
+   * carrying a single control row rather than a composer plus an action row.
+   */
+  footerVariant?: "default" | "compact";
   /** Side placement is opt-in so existing dialogs keep their centred layout. */
   placement?: "default" | "left" | "right" | "responsive-right";
   mobilePlacement?: "bottom" | "top" | "fullscreen";
@@ -132,6 +139,7 @@ export function Sheet({
   bodyTabIndex,
   onBodyScroll,
   footerClassName,
+  footerVariant,
   placement = "default",
   mobilePlacement = "bottom",
   mobileSize = "content",
@@ -551,7 +559,10 @@ export function Sheet({
           {children}
         </div>
         {footer ? (
-          <div className={cn("shrink-0 border-t border-[color:var(--border)] p-3 sm:p-4", footerClassName)}>
+          <div
+            data-footer-variant={footerVariant}
+            className={cn("shrink-0 border-t border-[color:var(--border)] p-3 sm:p-4", footerClassName)}
+          >
             {footer}
           </div>
         ) : null}
