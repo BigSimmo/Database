@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "069da585-8008-4a56-868b-40d44a1aa51c",
+  "createdOn": "2026-08-19",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "OpenAI zero-data-retention status contradicts itself: cross-border doc says no, ledger #053 says verified",
+    "detail": "docs/openai-cross-border-basis.md §8 (dated 2026-07-14) records ZDR 'no', DPA executed 'no', Australia data residency 'not enabled'. Completed ledger row #053 (2026-08-18) states the cross-border package was executed and 'verified OpenAI data controls with input/output data sharing disabled and API zero data retention'. One of the two is wrong. This blocks the /privacy page from telling clinicians what actually happens to question text at the provider: the page currently states only code-verifiable request controls (store:false, no raw owner identifier, requested prompt-cache lifetime) and deliberately makes no ZDR or no-training claim, which is correct under either reading but weaker than it could be. Next step: an operator confirms the live OpenAI project's data controls, then either §8's status table is filled in and the page's External provider processing section is strengthened, or #053 is corrected.",
+    "source": "src/lib/privacy-page-content.tsx, docs/openai-cross-border-basis.md §8, docs/privacy-impact-assessment.md PIA-1/PIA-6",
+    "issueUlid": "01M0DEHBN9HVTYATME7CZQZ82C"
+  }
+}

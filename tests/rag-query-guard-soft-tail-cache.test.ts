@@ -44,7 +44,7 @@ describe("shouldSkipUnsupportedSoftTailCacheWrite", () => {
   });
 
   it("does not skip deterministic exclusion patterns outside the soft-tail bucket", () => {
-    const query = "Show me the airport travel policy";
+    const query = "Show me the newly uploaded guideline";
     const analysis = analyzeClinicalQuery(query);
     expect(isUnsupportedSoftTailAnalysis(query, analysis)).toBe(false);
 

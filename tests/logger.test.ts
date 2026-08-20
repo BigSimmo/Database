@@ -40,4 +40,15 @@ describe("redactLogContext", () => {
     const out = redactLogContext({ cause: new Error("boom") }) as { cause: Record<string, unknown> };
     expect(out.cause).toMatchObject({ name: "Error", message: "boom" });
   });
+
+  it("redacts sensitive value patterns under arbitrary key names", () => {
+    const out = redactLogContext({
+      extra: "Patient record: MRN 12345678",
+      notes: "NHS: 987 654 3210",
+      normal: "Standard operational log line",
+    });
+    expect(out.extra).toBe("[redacted]");
+    expect(out.notes).toBe("[redacted]");
+    expect(out.normal).toBe("Standard operational log line");
+  });
 });

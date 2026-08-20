@@ -6,21 +6,57 @@ import { appModeDefinitions, appModeHomeHref } from "@/lib/app-modes";
 import { tools } from "@/components/tools-page-mockups/tool-fixtures";
 import { differentialRecords } from "@/lib/differentials";
 import { dsmDiagnoses } from "@/lib/dsm";
+import { formulationMechanisms } from "@/lib/formulation";
 import { formRecords } from "@/lib/forms";
 import { serviceRecords } from "@/lib/services";
+import { specifierRecords } from "@/lib/specifiers";
+import { therapySlugs } from "@/lib/therapies";
+import { factsheetSlugs } from "@/components/factsheets/factsheets-data";
+import { dictionaryEntries, dictionaryTopics } from "@/lib/dictionary-data";
 import { collectSiteMapData, renderSiteMap } from "../scripts/generate-site-map";
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 const siteMapPath = path.join(process.cwd(), "docs", "site-map.md");
 const siteMap = readFileSync(siteMapPath, "utf8");
 
+const staticKnownRoutes = new Set([
+  "/formulation/builder",
+  "/formulation/compare",
+  "/formulation/map",
+  "/specifiers/builder",
+  "/specifiers/compare",
+  "/specifiers/map",
+  "/dictionary/browse",
+  "/dictionary/compare",
+  "/dictionary/search",
+  "/dictionary/sources",
+  "/dictionary/topics",
+  "/therapy-compass/compare",
+  "/therapy-compass/pathways",
+  "/therapy-compass/recommend",
+  "/therapy-compass/review",
+  "/therapy-compass/search",
+  "/documents/search",
+  "/documents/source",
+  "/documents/source/evidence",
+  "/factsheets/search",
+]);
+
 const acceptedDynamicPatterns = [
   /^\/documents\/[^/?#]+(?:[?#].*)?$/,
   /^\/services\/[^/?#]+(?:[?#].*)?$/,
   /^\/forms\/[^/?#]+(?:[?#].*)?$/,
   /^\/differentials\/diagnoses\/[^/?#]+(?:[?#].*)?$/,
+  /^\/differentials\/presentations\/[^/?#]+(?:[?#].*)?$/,
   /^\/dsm\/diagnoses\/[^/?#]+(?:[?#].*)?$/,
   /^\/medications\/[^/?#]+(?:[?#].*)?$/,
+  /^\/factsheets\/[^/?#]+(?:[?#].*)?$/,
+  /^\/dictionary\/[^/?#]+(?:[?#].*)?$/,
+  /^\/dictionary\/topics\/[^/?#]+(?:[?#].*)?$/,
+  /^\/formulation\/[^/?#]+(?:[?#].*)?$/,
+  /^\/specifiers\/[^/?#]+(?:[?#].*)?$/,
+  /^\/therapy-compass\/[^/?#]+(?:[?#].*)?$/,
+  /^\/ward-management\/patients\/[^/?#]+(?:[?#].*)?$/,
 ];
 
 function pathOnly(href: string) {
@@ -29,13 +65,27 @@ function pathOnly(href: string) {
 
 function routePatternForHref(href: string) {
   const pathname = pathOnly(href);
+  if (staticKnownRoutes.has(pathname)) return pathname;
+  if (/^\/therapy-compass\/[^/?#]+\/brief(?:[?#].*)?$/.test(href)) return "/therapy-compass/[slug]/brief";
+  if (/^\/therapy-compass\/[^/?#]+\/sheet(?:[?#].*)?$/.test(href)) return "/therapy-compass/[slug]/sheet";
+  if (/^\/dsm\/diagnoses\/[^/?#]+\/differentials(?:[?#].*)?$/.test(href)) return "/dsm/diagnoses/[slug]/differentials";
+  if (/^\/dictionary\/topics\/[^/?#]+(?:[?#].*)?$/.test(href)) return "/dictionary/topics/[slug]";
+
   if (acceptedDynamicPatterns.some((pattern) => pattern.test(href))) {
     if (pathname.startsWith("/documents/")) return "/documents/[id]";
     if (pathname.startsWith("/services/")) return "/services/[slug]";
     if (pathname.startsWith("/forms/")) return "/forms/[slug]";
     if (pathname.startsWith("/differentials/diagnoses/")) return "/differentials/diagnoses/[slug]";
+    if (pathname.startsWith("/differentials/presentations/")) return "/differentials/presentations/[slug]";
     if (pathname.startsWith("/dsm/diagnoses/")) return "/dsm/diagnoses/[slug]";
     if (pathname.startsWith("/medications/")) return "/medications/[slug]";
+    if (pathname.startsWith("/factsheets/")) return "/factsheets/[slug]";
+    if (pathname.startsWith("/dictionary/topics/")) return "/dictionary/topics/[slug]";
+    if (pathname.startsWith("/dictionary/")) return "/dictionary/[slug]";
+    if (pathname.startsWith("/formulation/")) return "/formulation/[slug]";
+    if (pathname.startsWith("/specifiers/")) return "/specifiers/[slug]";
+    if (pathname.startsWith("/therapy-compass/")) return "/therapy-compass/[slug]";
+    if (pathname.startsWith("/ward-management/patients/")) return "/ward-management/patients/[patientId]";
   }
   return pathname;
 }
@@ -103,6 +153,12 @@ describe("tracked sitemap", () => {
     for (const form of formRecords) expectDocumentedRoute(form.slug);
     for (const record of differentialRecords) expectDocumentedRoute(record.slug);
     for (const record of dsmDiagnoses) expectDocumentedRoute(record.slug);
+    for (const mechanism of formulationMechanisms) expectDocumentedRoute(mechanism.id);
+    for (const specifier of specifierRecords) expectDocumentedRoute(specifier.slug);
+    for (const slug of therapySlugs()) expectDocumentedRoute(slug);
+    for (const slug of factsheetSlugs()) expectDocumentedRoute(slug);
+    for (const entry of dictionaryEntries) expectDocumentedRoute(entry.slug);
+    for (const topic of dictionaryTopics) expectDocumentedRoute(topic.slug);
     expectDocumentedRoute("acamprosate");
   });
 
