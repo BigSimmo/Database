@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "8da919a5-4e1b-417c-89df-7a1692a61f17",
+  "createdOn": "2026-08-20",
+  "action": "update",
+  "payload": {
+    "id": "#EH9VA6",
+    "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987): scripts/ledger-inbox.mjs now implements a reconcile lock - RECONCILE_LOCK_NAME outstanding-issues-reconcile.lock, reconcileLockPath(), and recoverReconcileTransaction() with a journal plus backup for crash recovery. That addresses same-machine concurrent reconciliation. NOT VERIFIED and the substance of this row: whether it also prevents the recorded failure, which was two reconcile PRs open simultaneously on GitHub on 2026-08-18 - a filesystem lock in one worktree cannot see another branch's open PR. Decide whether the remaining gap needs a separate interlock or is accepted.",
+    "baseRowFingerprint": "a682230350ab96c2aa629bc5f7b1a5e6f0a770b1c51a5140bd6e7e07ae175951"
+  }
+}

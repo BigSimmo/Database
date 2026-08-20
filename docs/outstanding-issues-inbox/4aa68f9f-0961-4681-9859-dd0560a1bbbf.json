@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4aa68f9f-0961-4681-9859-dd0560a1bbbf",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#DREDWA",
+    "outcome": "Resolved 2026-08-21. Verified on main at 1cc0d2987: Crockford/ULID-style id fixtures are now present in the shared ledger test surfaces - 12 matching occurrences in tests/outstanding-issues-writer.test.ts and 10 in scripts/outstanding-issues.mjs, including the all-digit case that defeats id-shape branching. The writer entry points are therefore driven through both id generations. Verification: grep count for the Crockford fixture markers in both files.",
+    "baseRowFingerprint": "7ca4d5abe3a1d16386a354ab0980be98fc8c03279c02d56657d83b48964a1613"
+  }
+}
