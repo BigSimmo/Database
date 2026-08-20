@@ -1,16 +1,3 @@
-# Caring Contacts Phase 2A — tracked build record
-
-**Why this file exists.** The Phase 2A build ran through a session ledger under `.superpowers/sdd/`,
-which is git-ignored scratch. Every ruling taken on the owner's behalf, every deferred finding and the
-resume point lived only there and in one conversation. Both are losable — a `git clean -fdx` or deleting
-the worktree would destroy them. This is the tracked copy, verbatim, as of head 6afce3893.
-
-**Start here instead if you are picking this work up:** `docs/caring-contacts/phase-2a-handoff.md`.
-The task briefs and implementer reports are archived verbatim in
-`docs/caring-contacts/phase-2a-sdd-archive/`.
-
----
-
 # SDD ledger — plan: docs/superpowers/plans/2026-08-19-caring-contact-phase-2a-foundations.md
 
 Spec: docs/superpowers/specs/2026-08-19-caring-contact-production-build-design.md (read).
