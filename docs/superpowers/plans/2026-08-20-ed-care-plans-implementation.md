@@ -13,7 +13,8 @@
 ## Revision history
 
 - **2026-08-20 (Codex):** original nine-task plan, written against the approved specification.
-- **2026-08-21 (Claude session, user-approved):** four user decisions applied — (1) build the synthetic prototype now but keep the domain shaped for later real storage (see the future-persistence seam in Global Constraints); (2) keep the full multi-service workflow including named senior-clinician approval; (3) deliver Tasks 1–5 as Stage A, stop for user review, then Tasks 6–9 as Stage B; (4) local task commits authorised. Also corrected: the target worktree/branch, the stale "preflight already run" line, and the verified import homes of the shared UI primitives.
+- **2026-08-21 (Claude session, second pass — design review with the user):** five content decisions applied after a proper brainstorming pass the first Claude pass had skipped. (1) Management Plan content cut from nineteen fields to eleven in two tiers, removing four duplicate field pairs and promoting the two safety-critical sections into the first-minute summary. (2) The first-minute summary is exactly five sections, with `whatWouldMakeThisDifferent` never collapsed. (3) The ED Presentation record now requires only a roughly thirty-second set, with the richer fields behind a disclosure, because the earlier full record would not have been completed and would have left the review loop empty. (4) The review clock, previously undefined in the specification, is a 12-month editable default with a 28-day amber window, shared by both plan types. (5) Identification Reviews can now be closed with a recorded decision — previously they could be opened but never closed, so the queue would have filled permanently.
+- **2026-08-21 (Claude session, first pass, user-approved):** four user decisions applied — (1) build the synthetic prototype now but keep the domain shaped for later real storage (see the future-persistence seam in Global Constraints); (2) keep the full multi-service workflow including named senior-clinician approval; (3) deliver Tasks 1–5 as Stage A, stop for user review, then Tasks 6–9 as Stage B; (4) local task commits authorised. Also corrected: the target worktree/branch, the stale "preflight already run" line, and the verified import homes of the shared UI primitives.
 
 ## Global Constraints
 
@@ -23,6 +24,11 @@
 - No API, provider, production-data, deployment, migration, or live-canary action is authorised.
 - Every patient, clinician, team, presentation, plan, review, amendment, and audit identifier begins with `SYN-`. Public crisis telephone numbers are the only intentional non-fictional contact fixtures.
 - `IdentificationPolicy.status` is exactly `pending_governance`, `thresholdCount` is exactly `null`, and `thresholdLookbackMonths` is exactly `null`. Raw Presentation Activity may show counts over named observation windows; no count creates eligibility, a patient label, a risk state, or a plan.
+- Management Plan content is exactly the eleven fields in `ManagementPlanContent`, in two tiers. The five first-minute keys plus `whyThisPlanExists` are required for approval; the other five may be empty and render as `Not recorded`. Do not reintroduce the superseded nineteen-field shape, and do not add a field that restates another (the duplicate pairs it removed were helps/helpful, worse/unhelpful, engagement/agreed-approach, and pattern/triggers).
+- `whatWouldMakeThisDifferent` is the safety boundary. It is always visible on the summary card, visually distinct from the other four sections, and never collapsed, truncated, clipped, or placed behind a disclosure at any viewport or in print.
+- The review clock is `REVIEW_INTERVAL_MONTHS = 12` and `REVIEW_DUE_SOON_DAYS = 28`, shared by both plan types. The interval is an editable per-version default, never an enforced rule, and is deliberately unlike the identification threshold, which stays null.
+- An ED Presentation requires only site, disposition, plan availability, plan use, plan helpfulness, and the free-text note; arrival date and time default to `PROTOTYPE_NOW` and stay editable. A review reason is required whenever review is suggested, and a deviation reason whenever a deviation is recorded. Presenting indication, assessment outcome, CMHT contact attempt and outcome, and the deviation flag sit behind a disclosure and never block the save.
+- An Identification Review closes by recording one `IdentificationDecision` plus a reason. Closing never creates or approves a plan; on `proceed_to_plan` the interface offers to start a draft and the user chooses.
 - Each patient has one longitudinal Management Plan. Only a named user whose role is `senior_clinician` can approve an `awaiting_approval` version. Approval atomically produces exactly one `current` version and marks the former Current version `superseded`.
 - A Draft or Awaiting Approval version never hides or replaces the Current Plan. Withdrawal leaves `currentVersionId: null` and never restores a superseded version.
 - A Personal Safety Plan is patient-owned, independently versioned, and does not use the Management Plan senior-approval transition.
@@ -138,26 +144,45 @@ export type PrototypeScenario =
   | "print-failure";
 
 export type ManagementPlanContent = {
-  purposeAndApplicability: string;
-  preferredEngagement: readonly string[];
-  whatUsuallyHelps: readonly string[];
-  whatMayIncreaseDistress: readonly string[];
-  immediateContinuityConsiderations: readonly string[];
-  patientGoalsAndPreferences: readonly string[];
-  usualPresentationPattern: readonly string[];
-  contextualTriggers: readonly string[];
-  mustAssessAfresh: readonly string[];
+  // First-minute tier. All five are required before a version can be approved,
+  // and together they are the entire Current Plan summary card, in this order.
+  howToApproach: readonly string[];
+  whatHelps: readonly string[];
+  whatMakesItWorse: readonly string[];
   agreedEdApproach: readonly string[];
-  escalationAndDispositionGuidance: readonly string[];
-  helpfulInterventions: readonly string[];
-  unhelpfulInterventions: readonly string[];
-  physicalHealthReminders: readonly string[];
-  medicationRecordReminders: readonly string[];
-  coordination: readonly string[];
-  communicationPreferences: readonly string[];
-  accessibilityAndSensoryPreferences: readonly string[];
-  culturalSpiritualAndSupportPreferences: readonly string[];
+  whatWouldMakeThisDifferent: readonly string[];
+  // Full-plan tier. Only whyThisPlanExists is required; the rest may be empty
+  // and render as `Not recorded` rather than being silently omitted.
+  whyThisPlanExists: string;
+  whatThePersonWants: readonly string[];
+  practicalNeeds: readonly string[];
+  physicalHealthAndMedication: readonly string[];
+  whoElseIsInvolved: readonly string[];
+  reviewTriggers: readonly string[];
 };
+
+export const MANAGEMENT_PLAN_REQUIRED_CONTENT_KEYS = [
+  "howToApproach",
+  "whatHelps",
+  "whatMakesItWorse",
+  "agreedEdApproach",
+  "whatWouldMakeThisDifferent",
+  "whyThisPlanExists",
+] as const satisfies readonly (keyof ManagementPlanContent)[];
+
+export const FIRST_MINUTE_CONTENT_KEYS = [
+  "howToApproach",
+  "whatHelps",
+  "whatMakesItWorse",
+  "agreedEdApproach",
+  "whatWouldMakeThisDifferent",
+] as const satisfies readonly (keyof ManagementPlanContent)[];
+
+/** Review clock. Default next-review interval and the amber warning window,
+ *  shared by the Management Plan and the Personal Safety Plan. The interval is
+ *  an editable default per version, never an enforced rule. */
+export const REVIEW_INTERVAL_MONTHS = 12;
+export const REVIEW_DUE_SOON_DAYS = 28;
 
 export type SafetyPlanContent = {
   warningSigns: readonly string[];
@@ -274,10 +299,18 @@ export type EdPresentation = {
   patientId: SyntheticId;
   arrivedAt: string;
   siteId: SyntheticId;
+  /** Optional detail. Empty string means the recorder did not fill it in; render
+   *  as `Not recorded`, never as an invented or inferred value. */
   presentingIndication: string;
+  /** Optional detail, as above. */
   assessmentOutcome: string;
+  /** Required free text: anything worth flagging. May be an empty string only
+   *  when the recorder explicitly had nothing to add. */
+  note: string;
   disposition: Disposition;
+  /** Optional detail, as above. */
   cmhtContactAttempt: "not_attempted" | "attempted";
+  /** Optional detail, as above. */
   cmhtContactOutcome: string;
   managementPlanVersionId: SyntheticId | null;
   planAvailability: PlanAvailability;
@@ -315,6 +348,8 @@ export type ReviewTrigger = {
   resolution: string | null;
 };
 
+export type IdentificationDecision = "proceed_to_plan" | "not_needed_now" | "revisit_later";
+
 export type IdentificationReview = {
   id: SyntheticId;
   patientId: SyntheticId;
@@ -322,6 +357,10 @@ export type IdentificationReview = {
   referredBy: SyntheticId;
   referredAt: string;
   status: "open" | "closed";
+  decision: IdentificationDecision | null;
+  decisionReason: string | null;
+  decidedBy: SyntheticId | null;
+  decidedAt: string | null;
 };
 
 export type AuditEventType =
@@ -341,6 +380,7 @@ export type AuditEventType =
   | "email_intent_opened"
   | "call_intent_opened"
   | "identification_review_created"
+  | "identification_review_closed"
   | "cmht_contact_verified"
   | "review_trigger_resolved";
 
@@ -478,9 +518,12 @@ it("builds a generic CMHT email intent without patient information", () => {
 
 - [ ] Give every fictional CMHT a reserved-example shared mailbox, fictional Australian mobile, hours, timezone, coordinator, after-hours path, verification date, and verification state. Add the separately labelled official crisis-contact fixtures and source URLs specified in Global Constraints.
 - [ ] Add enough ED Presentation fixtures to derive each displayed activity count from presentation timestamps. Rowan must show `7 ED presentations in rolling 12 months`; this is observation-only copy and is never compared with policy.
-- [ ] Implement in `domain.ts`: `searchPatients`, `getPatientById`, `getCurrentManagementPlanVersion`, `getOpenManagementDraft`, `getCurrentSafetyPlanVersion`, `countPresentationActivity`, `buildPatientSnapshot`, `buildCmhtMailto`, `buildCmhtTel`, `getReviewQueues`, `canPerformAction`, and `assertSingleCurrentVersion`.
+- [ ] Write fixture plan content against the eleven-field two-tier shape. Every fixture Current version fills all five first-minute keys and `whyThisPlanExists`; at least one fixture leaves two full-plan keys empty so the `Not recorded` path has coverage. Fixture prose must be plausible clinical continuity guidance in the glossary's preferred language, and `whatWouldMakeThisDifferent` must always name concrete new findings that would void the plan rather than generic caution.
+- [ ] Derive fixture `reviewDueAt` values from `PROTOTYPE_NOW` and `REVIEW_INTERVAL_MONTHS` so that the fixture set covers `within_review`, `due_soon` (inside `REVIEW_DUE_SOON_DAYS`), and `overdue` without hardcoding unrelated dates.
+- [ ] Implement in `domain.ts`: `searchPatients`, `getPatientById`, `getCurrentManagementPlanVersion`, `getOpenManagementDraft`, `getCurrentSafetyPlanVersion`, `countPresentationActivity`, `buildPatientSnapshot`, `buildCmhtMailto`, `buildCmhtTel`, `getReviewQueues`, `canPerformAction`, `deriveReviewState`, and `assertSingleCurrentVersion`.
 - [ ] Make `searchPatients` trim and case-fold input and match only synthetic full name, preferred name, alias, MRN, and ISO/display DOB. Do not search plan, presentation, safety-plan, cultural, support-person, or clinical text.
-- [ ] Make `getReviewQueues` return exactly `{ awaitingApproval, reviewSuggested, contactVerification, identificationReview }`, each ordered oldest-actionable-first and never severity-ranked.
+- [ ] Make `getReviewQueues` return exactly `{ awaitingApproval, reviewSuggested, contactVerification, identificationReview }`, each ordered oldest-actionable-first and never severity-ranked. The `identificationReview` queue contains only referrals whose `status` is `open`.
+- [ ] Make `deriveReviewState(reviewDueAt, now)` return `overdue` past the date, `due_soon` within `REVIEW_DUE_SOON_DAYS` of it, and `within_review` otherwise, with a test pinning both boundaries exactly.
 - [ ] Finish the remaining tests: all entity IDs are synthetic; Current selection is unique; Draft stays separate; raw activity derives from episodes; public contacts match the exact authorised list; no fixture uses stigmatising labels; safe URI builders contain no patient field.
 - [ ] Run `npm run test -- tests/ed-care-plans-domain.test.ts`. Expected GREEN: the new domain test file passes with zero failures.
 - [ ] Run `npx prettier --write src/components/ed-care-plans/mockups/types.ts src/components/ed-care-plans/mockups/fixtures.ts src/components/ed-care-plans/mockups/domain.ts tests/ed-care-plans-domain.test.ts` and rerun the same test command.
@@ -573,6 +616,12 @@ export type EdCarePlansPrototypeAction =
   | { type: "record-safety-plan-print-intent"; patientId: SyntheticId }
   | { type: "record-contact-intent"; patientId: SyntheticId; cmhtId: SyntheticId; channel: "email" | "call" }
   | { type: "create-identification-review"; patientId: SyntheticId; reason: string }
+  | {
+      type: "close-identification-review";
+      reviewId: SyntheticId;
+      decision: IdentificationDecision;
+      decisionReason: string;
+    }
   | { type: "verify-cmht-contact"; cmhtId: SyntheticId }
   | { type: "resolve-review-trigger"; triggerId: SyntheticId; resolution: string }
   | { type: "apply-scenario"; scenario: PrototypeScenario }
@@ -587,6 +636,7 @@ export type EdCarePlansPrototypeAction =
 - [ ] Make `amend-presentation` append original/replacement/reason/actor/time evidence while keeping the episode immutable. Restrict amendable fields to the union in the action.
 - [ ] Make Safety Plan publication require an editable Draft, supersede the prior Current Safety Plan, and set the new version Current without consulting senior-approval state.
 - [ ] Make contact-intent actions append only intent audit events; make manual identification referral append an Identification Review and audit event without creating a Management Plan or Review Trigger.
+- [ ] Make `close-identification-review` require an `open` review and a non-empty reason, set `status: "closed"` with the decision, reason, actor, and time, and append one `identification_review_closed` audit event. It must create no plan and no version on any decision, including `proceed_to_plan`. Closing an already-closed review leaves state unchanged and sets a specific `lastOutcome`.
 - [ ] Add `EdCarePlansPrototypeProvider`, `useEdCarePlansPrototype`, and an online/offline listener to `prototype-provider.tsx`. The provider calls `useReducer` once and performs no persistence.
 - [ ] Complete reducer tests for draft/current separation, non-senior approval refusal, return reason, withdrawal, formal review, Review Trigger creation/deduplication, Safety Plan independence, manual referral, intent-only audit language, degraded-state refusal, reset, and scenario reconstruction.
 - [ ] Run `npm run test -- tests/ed-care-plans-domain.test.ts tests/ed-care-plans-prototype-state.test.ts`. Expected GREEN: both files pass with zero failures.
@@ -771,9 +821,10 @@ it("requires named senior approval before an awaiting version becomes Current", 
 ```
 
 - [ ] Run `npm run test -- tests/ed-care-plans-linked-routes.dom.test.tsx -t "Management Plan|senior approval|return for changes|withdraw"`. Confirm RED for missing Management Plan surfaces.
+- [ ] Render the Current summary card as exactly `FIRST_MINUTE_CONTENT_KEYS` in order, with `whatWouldMakeThisDifferent` visually distinct and never collapsed; add a DOM test and a print-media test pinning that it is present and unclipped. Render empty optional full-plan sections as `Not recorded`.
 - [ ] Implement the read page with Current summary first, full structured sections second, review state, open triggers, owner/approver metadata, separate proposed version, version list, and fresh-assessment boundary repeated near clinical guidance.
-- [ ] Use `ManagementPlanForm` for both new Draft and edit Draft. Initialise from Current when creating a replacement; expose owner, next review date, revision reason, structured inputs for the six first-minute sections, and patient/communication/cultural preferences; preserve unchanged full-plan sections from the source version.
-- [ ] Validate required fields in the form, render a linked error summary, focus the first invalid field, and dispatch `create-management-draft`/`save-management-draft` only after local validation.
+- [ ] Use `ManagementPlanForm` for both new Draft and edit Draft. Initialise from Current when creating a replacement. Expose owner, next review date (defaulted from `REVIEW_INTERVAL_MONTHS`, editable), revision reason, the five first-minute sections, and the six full-plan sections with the optional five clearly marked optional. Preserve unchanged sections from the source version.
+- [ ] Validate exactly `MANAGEMENT_PLAN_REQUIRED_CONTENT_KEYS` plus owner, next review date, and revision reason. Render a linked error summary, focus the first invalid field, and dispatch `create-management-draft`/`save-management-draft` only after local validation. Do not require the optional five.
 - [ ] Add `Save Draft` and `Submit for senior approval`. Submission uses `ConfirmDialog`, changes only Draft to Awaiting Approval, then navigates to the review route. The existing Current remains visible.
 - [ ] Implement `ManagementPlanDiff` as semantic sections with `Added`, `Changed`, `Removed`, and `Unchanged` labels; compare the submitted version against the Current version without clinical interpretation.
 - [ ] On the review page, show named author, owner, proposed approver, revision reason, current/proposed versions, patient participation, and change table. Do not allow edits while Awaiting Approval.
@@ -824,8 +875,6 @@ npm run test -- tests/ed-care-plans-domain.test.ts tests/ed-care-plans-prototype
 it("records plan-use feedback and creates a Review Suggested item without changing the plan", async () => {
   const user = userEvent.setup();
   renderRoute(edCarePlansRoute.newPresentation("SYN-PATIENT-001"));
-  await user.type(screen.getByLabelText("Presenting indication"), "Escalating distress and reduced sleep.");
-  await user.type(screen.getByLabelText("Assessment outcome"), "Discharged with CMHT follow-up confirmed.");
   await user.selectOptions(screen.getByLabelText("Disposition"), "discharged_home");
   await user.selectOptions(screen.getByLabelText("Was the Current Plan used?"), "partially_used");
   await user.selectOptions(screen.getByLabelText("Was the plan helpful?"), "mixed");
@@ -841,9 +890,9 @@ it("records plan-use feedback and creates a Review Suggested item without changi
 - [ ] Run `npm run test -- tests/ed-care-plans-linked-routes.dom.test.tsx -t "ED Presentation|plan-use|amendment"`. Confirm RED because the episode surfaces do not exist.
 - [ ] Implement `PresentationTimeline` as a descending semantic list with date/site, indication, outcome, disposition, linked plan version, plan-use summary, CMHT attempt outcome, Review Suggested text, and visible amendment count. Use a line-and-node treatment visually and retain complete text equivalents.
 - [ ] Implement the list page with objective rolling counts, explicit observation windows, site filter, disposition filter, and `Record ED presentation` link. Do not add eligibility or severity labels.
-- [ ] Implement `PresentationForm` with persistent labels for arrival date/time, fictional ED, concise indication, concise assessment outcome, disposition, CMHT contact attempt/outcome, plan availability, use, helpfulness, deviation/reason, and review suggestion/reason.
+- [ ] Implement `PresentationForm` with the required set visible by default and persistent labels: fictional ED, disposition, plan availability, plan use, plan helpfulness, and `Anything worth flagging?` free text. Arrival date and time default to `PROTOTYPE_NOW` and stay editable. Put presenting indication, assessment outcome, CMHT contact attempt/outcome, and the deviation flag behind one `Add more detail` disclosure that is closed on open and never blocks the save.
 - [ ] Default the linked Management Plan Version to the Current version at form open; if none exists, show `No Current Plan was available` and submit `managementPlanVersionId: null`. Never link a Draft as the available plan.
-- [ ] Require indication, outcome, disposition, site, plan availability/use/helpfulness, and review reason when feedback/deviation/disposition creates a trigger. Use an error summary and focus the first invalid field.
+- [ ] Require site, disposition, plan availability, plan use, and plan helpfulness; require a review reason whenever review is suggested and a deviation reason whenever a deviation is recorded. Presenting indication and assessment outcome are never required. Use an error summary and focus the first invalid field.
 - [ ] On save, call `nextPresentationId(state)`, dispatch `record-presentation` with that ID, announce only local synthetic recording, and navigate to the matching detail route. The reducer validates the caller-provided synthetic ID before appending.
 - [ ] Implement the detail page with the original immutable episode, recording clinician/time, linked plan version, plan-use feedback, outcome, Review Trigger, and an `Amend recorded outcome` action.
 - [ ] The amendment Sheet permits only assessment outcome or disposition, shows the original value, and requires replacement plus reason. On save, display original and latest amendment together; do not replace the original DOM text.
@@ -932,6 +981,7 @@ it("creates a manual Identification Review without creating a plan or applying e
 - [ ] Run `npm run test -- tests/ed-care-plans-linked-routes.dom.test.tsx -t "Identification Review|Awaiting Approval queue|Governance|System states|Audit history"`. Confirm RED because the operational surfaces do not exist.
 - [ ] Implement Reviews with `Tabs` for exactly `Awaiting Approval`, `Review Suggested`, `Contact Verification`, and `Identification Review`. Each item shows reason, source/time, owner, next action, and direct patient/plan route; no severity order or dashboard scoring.
 - [ ] Add manual-referral Sheet from Patients and patient Overview, require a reason, dispatch `create-identification-review`, and show the item in Reviews. The action does not create a plan or change Presentation Activity.
+- [ ] Add referral closure to the Identification Review queue: a Sheet offering exactly `Proceed to a plan`, `Not needed at this stage`, and `Revisit later`, with a required reason. On confirm it dispatches `close-identification-review` and the item leaves the queue. On `Proceed to a plan` offer a link to start a draft; never create one automatically. Show the closed decision, reason, author, and time in the patient's History.
 - [ ] Add Review Trigger resolution with required resolution text and contact-verification action with last/next verified evidence. Both are role-gated and audited.
 - [ ] Implement Team as a directory of fictional CMHTs and plan owners showing catchment, shared mailbox, duty telephone, operating hours/timezone, coordinator, after-hours path, verification state/date, and current owned-plan count.
 - [ ] Implement Governance with the exact prototype boundary, illustrated role responsibilities, lifecycle rules, audit-evidence limits, privacy/print/contact rules, and an Identification Policy panel that displays `Pending local governance`, `No approved threshold count`, `No approved threshold lookback`, and `Manual referral enabled`.

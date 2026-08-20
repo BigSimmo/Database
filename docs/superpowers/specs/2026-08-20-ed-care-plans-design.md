@@ -147,27 +147,32 @@ The workspace uses four primary patient sections: `Overview`, `Management Plan`,
 
 ## Management Plan content
 
-The collapsed Current Plan summary shows:
+Revised 21 August 2026 after user review. The earlier draft carried nineteen content sections. Four pairs of those sections said the same thing twice (`what usually helps` against `helpful interventions`; `what may increase distress` against `unhelpful interventions`; `preferred engagement` against `agreed ED approach`; `usual presentation pattern` against `contextual triggers`), which would leave an author unsure which box a sentence belongs in and a reader seeing the same guidance twice. The two safety-critical items — what has actually been agreed, and what would make this presentation different — sat below the fold in the full plan rather than in the first-minute summary. And nineteen required fields is an authoring burden heavy enough that plans would not get written at all.
 
-- Preferred engagement approach.
-- What usually helps.
-- What may increase distress.
-- Immediate continuity considerations.
-- CMHT coordination expectation.
-- Current owner, approver, and review state.
+The content is therefore eleven fields in two tiers.
 
-The full plan adds:
+### First-minute tier — the Current Plan summary card
 
-- Purpose and applicability.
-- Patient goals and preferences.
-- Usual presentation pattern and known contextual triggers.
-- Assessment considerations and explicit “must assess afresh” boundary.
-- Agreed ED approach and escalation/disposition guidance.
-- Helpful and unhelpful interventions.
-- Physical-health and medication-record reminders without reproducing orders.
-- CMHT, primary-care, and consented support-person coordination.
-- Patient and carer involvement state.
-- Review triggers and the reason for the current version.
+All five are required before a version can be approved. They are the entire summary card, in this order:
+
+1. **How to approach this person.** The engagement approach that works for them.
+2. **What helps.** Concrete things that reduce distress.
+3. **What makes it worse.** Concrete things to avoid.
+4. **What we have agreed to do.** The agreed ED approach, including the usual disposition and the agreed threshold for admission.
+5. **What would make this presentation different.** The explicit “this plan does not apply — assess afresh” boundary. This section is visually distinct from the other four and is never collapsed, truncated, or hidden behind a disclosure.
+
+The summary card also shows, as metadata rather than content: version, Current state, approver and approval date, owner, review state, primary CMHT contact with operating hours, and a link to the Personal Safety Plan.
+
+### Full-plan tier — read when there is time
+
+Only `Why this plan exists` is required; the remaining five may be empty and are then displayed as `Not recorded` rather than omitted silently.
+
+6. **Why this plan exists.** Purpose, applicability, and the person's usual presentation pattern and known contextual triggers.
+7. **What the person wants.** Their goals, preferences, and communication preferences.
+8. **Practical needs.** Interpreter, accessibility, sensory, cultural, spiritual, family, community, Aboriginal Liaison, and peer-support preferences, recorded consent-aware.
+9. **Physical health and medication.** Allergies, physical-health reminders, and a pointer to the authoritative medication record. Never orders, doses, or a parallel medication list.
+10. **Who else is involved.** CMHT, primary care, and consented support people, with whether their involvement is current.
+11. **What should trigger the next review.** Distinct from the version's own revision reason, which is version metadata rather than plan content.
 
 Every view of the plan states that it supports continuity and never replaces fresh triage, physical assessment, mental-state assessment, immediate risk assessment, clinical judgment, or legal obligations.
 
@@ -177,6 +182,10 @@ A Management Plan has one or more versions. Version state and review state remai
 
 - Version states: `draft`, `awaiting_approval`, `current`, `superseded`, `withdrawn`.
 - Review states for a Current version: `within_review`, `due_soon`, `overdue`.
+
+The review clock (decided 21 August 2026; the earlier draft defined the three states but never their durations). On approval the next review date defaults to **12 months** ahead and remains editable by the author on every version. A Current version is `due_soon` within **28 days** of that date and `overdue` after it. The default is a suggestion that saves the author work; it is editable per plan and is not a governance rule about a patient, which is why it is treated differently from the identification threshold below.
+
+The Personal Safety Plan uses the same 12-month default and 28-day warning window.
 
 The workflow is:
 
@@ -192,7 +201,15 @@ An overdue Current Plan remains visible with a prominent warning. It is not sile
 
 ## ED Presentation record
 
-Each ED Presentation records only the continuity information this application owns:
+Each ED Presentation records only the continuity information this application owns. Revised 21 August 2026 after user review: the earlier draft required all of the fields below, which is two to three minutes of typing at the end of a shift, in a second system, partly duplicating the hospital record. Work that heavy does not get done, and an empty feedback loop makes the Review Suggested queue and roughly a third of the application scaffolding for something that never runs.
+
+**Required — the roughly thirty-second set.** Fictional ED site; disposition; whether the plan was available; whether it was used; whether it helped; and one free-text note for anything worth flagging. Arrival date and time default to now and stay editable.
+
+**Required conditionally.** A review reason whenever review is suggested, and a deviation reason whenever a deviation is recorded.
+
+**Optional — behind a disclosure, never blocking the save.** Presenting indication, assessment outcome, CMHT contact attempt and outcome, and the deviation flag itself. Optional fields left empty display as `Not recorded`; they are never silently dropped and never invented.
+
+The complete field set is:
 
 - Arrival date and time.
 - Fictional ED site.
@@ -266,6 +283,8 @@ Patient lists may display objective counts such as “7 ED presentations in 12 m
 
 An authorised synthetic user may manually add a patient to `Identification review` with a reason. The queue action initiates multidisciplinary review; it does not create or approve a plan.
 
+Closing a review (added 21 August 2026; the earlier draft opened referrals but gave them no way to close, so the queue would have filled permanently and become useless). When the multidisciplinary group has discussed the patient, an authorised user records one decision — `proceed_to_plan`, `not_needed_now`, or `revisit_later` — plus a short reason, and the referral closes. The decision, its reason, its author, and its time remain visible in the patient's history, so a later reader can see that coordinated care was considered and what was concluded. On `proceed_to_plan` the interface offers to start a Management Plan draft; it never creates one automatically, and closing a referral never approves anything.
+
 ## Roles and permissions boundary
 
 The prototype illustrates, but does not enforce, these responsibilities:
@@ -290,6 +309,8 @@ The patient-owned summary can include:
 - Interpreter and accessibility needs.
 - Sensory and environmental preferences.
 - Cultural, spiritual, family, community, Aboriginal Liaison, or peer-support preferences.
+
+These are not additional content fields. They live inside the eleven fields defined under **Management Plan content**: preferred name and pronouns are patient identity shown in the workspace header; communication preferences and what helps the person feel safe and heard belong to `What the person wants`; interpreter, accessibility, sensory, environmental, cultural, spiritual, family, community, Aboriginal Liaison, and peer-support preferences belong to `Practical needs`; and anything that an ED clinician must act on within the first minute belongs to `What helps` or `What makes it worse` instead. Do not add a twelfth field for them.
 
 Non-participation is never labelled non-compliance. Sensitive details are shown only when needed for the approved synthetic scenario and are not made searchable.
 
@@ -401,6 +422,11 @@ No live Supabase, OpenAI, email, identity, hospital, CMHT, analytics, or provide
 - A replacement draft never obscures or replaces the Current Plan before approval.
 - Approving a version creates exactly one Current version and supersedes the prior Current version.
 - An overdue Current Plan remains readable and unmistakably overdue.
+- The Current Plan summary card is exactly the five first-minute sections, in the specified order.
+- `What would make this presentation different` is visible on the summary card at every supported viewport, in dark mode, in forced colours, and in print, and is never collapsed, truncated, or clipped.
+- An approved version defaults its next review date 12 months ahead, the author can change it, and the amber warning begins 28 days before it.
+- An ED Presentation saves with only site, disposition, plan availability, plan use, plan helpfulness, and the note completed; the optional detail fields never block the save and render as `Not recorded` when empty.
+- An Identification Review can be closed with a recorded decision and reason, leaves the queue when closed, remains visible in the patient's history, and creates no plan on any decision.
 - Presentation corrections are visible amendments rather than silent overwrites.
 - Plan-use feedback can create a Review Trigger but cannot change a plan automatically.
 - Objective presentation counts never become an automatic patient label or eligibility decision.
