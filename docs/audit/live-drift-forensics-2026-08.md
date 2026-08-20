@@ -2018,6 +2018,9 @@ is worse than the red job it replaces. When neither path works, the error names 
 
 ### What is still owed
 
+_Superseded by the 2026-08-20 window section below: the migration was already applied on production
+before the window opened, and D4 is no longer treated as OFF. Kept as the pre-window record._
+
 The migration is **not deployed**. D4 is OFF, so merging does not apply it, and until it is applied
 `check:drift` will report `migration_history_versions` as a missing function — i.e. merging before the
 window trades one red for another. **Deploy from the branch first, then merge**, which is the order
