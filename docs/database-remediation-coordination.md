@@ -128,7 +128,22 @@ open PR #2130 queues 7 more requests but carries **no** reconcile transaction. O
 link a dedicated worktree for production reads and `supabase unlink` after; `supabase db query
 --linked --project-ref <ref>` works read-only via the management API without a DB password.
 
-**Where the programme stands after Phase 6.2 (2026-08-19, later the same day).** Drift is **green on both tiers**: the fifteen `migration_history` rows now carry `validation` guards, live-drift run `32251326536` (dispatched on the 6.2 branch) reports `No unexpected schema drift` with all 20 history rows allowed, and the staging comparison is green with the 20 production-scoped entries reading stale as designed. `#316`'s finding set is empty for the first time since 2026-07-26. **Two things still need the owner, not a worker:** (1) the live-drift job is red on its `Align migration history` step alone — `check:migration-history` cannot read `supabase_migrations` over PostgREST (PGRST106), a Phase 0 step that had never run before because drift always failed first; until it is fixed (expose the schema read-only / wire `SUPABASE_ACCESS_TOKEN` `#183` and use `supabase migration list` / add a versions RPC) the weekly job stays red and pinned issue #1963 will not self-close even though its drift block is empty; (2) PITR is still off on production (Phase 4 escalation). **Next dispatches:** merge the 6.2 PR (its CI `Migration replay` and Supabase Preview are the last chain proofs), then Phase 5 close-out (after-EXPLAIN set, `#231` re-test on healthy latency, `check:production-readiness`), then one serialized `issues:reconcile`. Every future migration still needs its own approved window and its own `db push` (D4 OFF).
+**Where the programme stands after Phase 6.2 (2026-08-19, later the same day).** Drift is **green on both tiers**: the fifteen `migration_history` rows now carry `validation` guards, live-drift run `32251326536` (dispatched on the 6.2 branch) reports `No unexpected schema drift` with all 20 history rows allowed, and the staging comparison is green with the 20 production-scoped entries reading stale as designed. `#316`'s finding set is empty for the first time since 2026-07-26. **Two things still need the owner, not a worker:** (1) the live-drift job is red on its `Align migration history` step alone — `check:migration-history` cannot read `supabase_migrations` over PostgREST (PGRST106), a Phase 0 step that had never run before because drift always failed first; until it is fixed (expose the schema read-only / wire `SUPABASE_ACCESS_TOKEN` `#183` and use `supabase migration list` / add a versions RPC) the weekly job stays red and pinned issue #1963 will not self-close even though its drift block is empty; (2) PITR is still off on production (Phase 4 escalation).
+
+**Update 2026-08-20 — the alignment step is fixed in the repo, not yet on production.** Drift stayed
+empty on a second run (`32378402265`, `main`, weekly cron: `Compare live schema drift: success` /
+`No unexpected schema drift`), confirming Phase 6.2 held. The PGRST106 defect was repaired by
+`20260820120000_migration_history_versions_rpc.sql` — a `security definer`, service-role-only read of
+the history version list — plus an RPC-first rewrite of
+`scripts/check-migration-history-alignment.ts`, `schema.sql` mirror, regenerated manifest (94
+functions) and `tests/migration-history-alignment.test.ts`. Exposing `supabase_migrations` to the Data
+API and adding a management-API token to CI were both considered and rejected (forensics §Alignment-step
+repair). **Deploy order matters: `db push` from the branch FIRST, then merge** — D4 is OFF, so merging
+alone applies nothing and would make `check:drift` report a missing function in the meantime. Staging
+needs the same migration by the Phase 2 method. Until that window runs, the weekly job stays red on
+this one step and #1963 will not self-close.
+
+**Next dispatches:** merge the 6.2 PR (its CI `Migration replay` and Supabase Preview are the last chain proofs), then Phase 5 close-out (after-EXPLAIN set, `#231` re-test on healthy latency, `check:production-readiness`), then one serialized `issues:reconcile`. Every future migration still needs its own approved window and its own `db push` (D4 OFF).
 
 **Where the programme stands after Phase 4 (2026-08-19).****Where the programme stands after Phase 4 (2026-08-19).** The index track of `#316` is closed on both
 tiers and staging is at full parity, so the remaining live-drift findings are exactly one category:
