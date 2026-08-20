@@ -1,5 +1,8 @@
 import {
   FICTIONAL_CONTACTS_BY_ROLE,
+  type SyntheticAuditEvent,
+  type SyntheticDeliveryEvent,
+  type SyntheticEpisode,
   type SyntheticPathway,
   type SyntheticPatient,
   type SyntheticPlannedContact,
@@ -127,6 +130,19 @@ export const syntheticTeamMembers = [
   { id: "SYN-TEAM-003", displayName: "Taylor Fiction", role: "Authorised clinician" },
 ] satisfies readonly SyntheticTeamMember[];
 
+export const syntheticEpisodes = [
+  {
+    id: "SYN-EPISODE-001",
+    patientId: "SYN-PATIENT-001",
+    referralId: "SYN-REFERRAL-002",
+    state: "Active",
+    coordinatorId: "SYN-TEAM-001",
+    pathwayId: "SYN-PATHWAY-001",
+    openedAt: "2026-08-15T09:35:00+08:00",
+    selectedSendingPreference: ROWAN_SELECTED_SENDING_PREFERENCE,
+  },
+] satisfies readonly SyntheticEpisode[];
+
 export const syntheticPlannedContacts = [
   ["Day 1", "2026-08-15T10:00:00+08:00", "Delivered"],
   ["Week 1", "2026-08-22T10:00:00+08:00", "Scheduled"],
@@ -180,3 +196,23 @@ export const syntheticTemplates = [
     approvalEvidence: null,
   },
 ] satisfies readonly SyntheticTemplate[];
+
+export const syntheticDeliveryEvents = [
+  {
+    id: "SYN-DELIVERY-001",
+    contactId: "SYN-CONTACT-001",
+    occurredAt: "2026-08-15T10:00:14+08:00",
+    state: "Delivered",
+    operationalNote: "Transport receipt recorded; this does not show that the contact was read.",
+  },
+] satisfies readonly SyntheticDeliveryEvent[];
+
+export const syntheticAuditEvents = [
+  {
+    id: "SYN-AUDIT-001",
+    occurredAt: "2026-08-15T09:35:00+08:00",
+    actorId: "SYN-TEAM-003",
+    action: "Accepted fictional referral",
+    objectId: "SYN-REFERRAL-002",
+  },
+] satisfies readonly SyntheticAuditEvent[];

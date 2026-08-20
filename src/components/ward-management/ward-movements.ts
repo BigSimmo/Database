@@ -539,6 +539,10 @@ export function movementById(id: string): Movement | undefined {
   return wardMovements.find((movement) => movement.id === id);
 }
 
+export function movementsByStage(stage: MovementStage): Movement[] {
+  return wardMovements.filter((movement) => movement.stage === stage);
+}
+
 /**
  * Beds expected to free up, each attributed to a named confirmer and nothing about the
  * departing patient — the whole point of this list is capacity, not identity.

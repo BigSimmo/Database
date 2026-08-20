@@ -1,12 +1,18 @@
 "use client";
 
-import { Eye, LockKeyhole, MessageSquareText } from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye, LockKeyhole, MessageSquareText } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 
-import { OperationalStatus } from "./prototype-primitives";
+import {
+  ROWAN_SELECTED_SENDING_PREFERENCE,
+  syntheticPatients,
+  syntheticTeamMembers,
+  syntheticTemplates,
+} from "./fixtures";
+import { DefinitionRow, OperationalStatus } from "./prototype-primitives";
 import { FICTIONAL_CONTACTS_BY_ROLE, type SyntheticPathway, type SyntheticTemplate } from "./types";
 
 export const PATIENT_VISIBLE_NO_REPLY_NOTICE = "Replies are not received, stored, analysed or monitored";
@@ -142,5 +148,79 @@ export function CompactMessagePreview({ stageName }: { stageName: string }) {
         </div>
       </Sheet>
     </>
+  );
+}
+
+export function PersonalisationScreen({ onBack, onContinue }: { onBack: () => void; onContinue: () => void }) {
+  const patient = syntheticPatients[1];
+  const coordinator = syntheticTeamMembers[0];
+  const template = syntheticTemplates[0];
+
+  return (
+    <section className="min-w-0 pb-24 md:pb-0" data-testid="caring-contact-screen-personalisation">
+      <div className="mb-[var(--gap-block)] rounded-[var(--radius-lg)] border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] p-[var(--pad-card)] forced-colors:border-[CanvasText]">
+        <p className="text-xs font-semibold uppercase tracking-[var(--tracking-eyebrow)] text-[color:var(--clinical-accent)]">
+          Patient identity remains in flow
+        </p>
+        <p className="mt-1 break-words font-semibold">
+          {patient.fullName} · {patient.id} · 3 Nov 1987
+        </p>
+      </div>
+
+      <div className="grid min-w-0 gap-[var(--gap-block)] lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.72fr)]">
+        <div className="min-w-0 rounded-[var(--radius-xl)] border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-[var(--pad-panel)]">
+          <p className="text-xs font-semibold uppercase tracking-[var(--tracking-eyebrow)] text-[color:var(--clinical-accent)]">
+            Stage 3 of 4
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight" data-caring-contact-stage-heading tabIndex={-1}>
+            Personalisation
+          </h2>
+          <p className="mt-2 max-w-[var(--measure)] text-sm text-[color:var(--text-muted)]">
+            Choose only governed substitutions. Free text, generated authoring and dynamic translation are absent.
+          </p>
+
+          <dl className="mt-[var(--gap-block)] text-sm">
+            <DefinitionRow term="Preferred name">
+              {patient.preferredName} · imported from the fictional referral
+            </DefinitionRow>
+            <DefinitionRow term="Team identity">Example Aftercare Team · neutral sender label</DefinitionRow>
+            <DefinitionRow term="Coordinator signature">{coordinator.displayName}</DefinitionRow>
+            <DefinitionRow term="Approved variant">
+              {template.variant} · {template.version}
+            </DefinitionRow>
+            <DefinitionRow term="Approval evidence">
+              <span className="font-medium text-[color:var(--text)]">Two-person approval complete</span>
+              <span className="mt-1 block">{template.approvalEvidence?.clinicalProgrammeLead}</span>
+              <span className="mt-1 block">{template.approvalEvidence?.livedExperienceContentReviewer}</span>
+            </DefinitionRow>
+            <DefinitionRow term="Segment evidence">
+              {EXACT_MESSAGE_GSM7.septets} septets · {EXACT_MESSAGE_GSM7.segments} of 2 SMS segments · GSM-7 encoding
+            </DefinitionRow>
+            <DefinitionRow term="Selected sending preference">
+              {ROWAN_SELECTED_SENDING_PREFERENCE.windowLabel} · applies to all 10 planned contacts
+            </DefinitionRow>
+            <DefinitionRow term="First send">
+              15 Aug 2026 · {ROWAN_SELECTED_SENDING_PREFERENCE.windowLabel}
+            </DefinitionRow>
+          </dl>
+
+          <div className="mt-[var(--gap-block)] flex flex-col-reverse gap-[var(--gap-inline)] sm:flex-row sm:justify-between">
+            <Button variant="secondary" icon={ArrowLeft} onClick={onBack}>
+              Back to pathway selection
+            </Button>
+            <div className="flex flex-col gap-[var(--gap-inline)] sm:flex-row">
+              <CompactMessagePreview stageName="Personalisation" />
+              <Button variant="primary" trailingIcon={ArrowRight} onClick={onContinue}>
+                Continue to review and activation
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <aside aria-label="Wide exact message preview" className="hidden min-w-0 lg:block">
+          <MessagePreview />
+        </aside>
+      </div>
+    </section>
   );
 }

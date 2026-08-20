@@ -36,6 +36,7 @@
 !/.agents/skills/api/
 !/.agents/skills/audit/
 !/.agents/skills/catalog.json
+!/.agents/skills/clinical-change-proof/
 !/.agents/skills/clinical/
 !/.agents/skills/data/
 !/.agents/skills/database-flightplan/
@@ -51,6 +52,7 @@
 !/.agents/skills/incident/
 !/.agents/skills/ingest/
 !/.agents/skills/ledger/
+!/.agents/skills/live-design-sweep/
 !/.agents/skills/migrate/
 !/.agents/skills/operations/
 !/.agents/skills/operator-closeout/
@@ -58,6 +60,7 @@
 !/.agents/skills/plan/
 !/.agents/skills/privacy/
 !/.agents/skills/prompt-perfector/
+!/.agents/skills/rag-change-lab/
 !/.agents/skills/rag/
 !/.agents/skills/recovery/
 !/.agents/skills/reindex/
@@ -71,6 +74,7 @@
 !/.agents/skills/task/
 !/.agents/skills/test/
 !/.agents/skills/ui/
+!/.agents/skills/verify-triage-fix/
 !/.agents/skills/workflows/
 /skills-lock.json
 
