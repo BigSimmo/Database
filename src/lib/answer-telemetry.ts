@@ -150,3 +150,20 @@ export async function logAnswerDiagnostics(args: {
 }
 
 export const DEFAULT_RETRIEVAL_LOG_RETENTION_DAYS = 90;
+
+export async function pruneExpiredRetrievalLogs(
+  supabase: ReturnType<typeof createAdminClient>,
+  retentionDays: number = DEFAULT_RETRIEVAL_LOG_RETENTION_DAYS,
+): Promise<{ deletedCount: number | null; error: Error | null }> {
+  try {
+    const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
+    const { count, error } = await supabase
+      .from("rag_retrieval_logs")
+      .delete({ count: "exact" })
+      .lt("created_at", cutoffDate);
+    if (error) throw new Error(error.message);
+    return { deletedCount: count, error: null };
+  } catch (err) {
+    return { deletedCount: null, error: err instanceof Error ? err : new Error(String(err)) };
+  }
+}

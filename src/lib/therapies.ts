@@ -39,6 +39,10 @@ export function findTherapyRecord(slug: string): TherapyIndexRecord | undefined 
   return bySlug.get(slug);
 }
 
+export function therapyRecordExists(slug: string): boolean {
+  return bySlug.has(slug);
+}
+
 export function therapySlugs(): string[] {
   return therapyRecords.map((record) => record.slug);
 }
@@ -56,6 +60,11 @@ export function therapySheetSlugs(): string[] {
 /** True when a therapy still awaits qualified-clinician sign-off. */
 export function therapyNeedsReview(record: TherapyIndexRecord): boolean {
   return record.reviewStatus !== "reviewed";
+}
+
+/** Count of records still awaiting sign-off — drives the library review notice. */
+export function therapyNeedsReviewCount(): number {
+  return therapyRecords.filter(therapyNeedsReview).length;
 }
 
 export type TherapySearchMatch = { record: TherapyIndexRecord; score: number };
