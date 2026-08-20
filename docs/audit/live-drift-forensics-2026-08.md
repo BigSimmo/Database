@@ -1950,3 +1950,76 @@ the `SUPABASE_ACCESS_TOKEN` secret of `#183`), or a service-role RPC listing ver
 with its own window). Queued as its own ledger item from this session; until it is fixed the weekly job
 will stay red on that step alone and the pinned issue will not self-close — **the drift block, which is
 what the issue was opened for, is clear.**
+
+## Alignment-step repair — 2026-08-20 (repo-side; production deploy still owed)
+
+_Follow-on from Phase 6.2 step 6. Repo-only session: no hosted mutation, no provider gate run. The
+three GitHub reads (open-PR list, issue #1963, live-drift run `32378402265`) were owner-requested._
+
+### The finding restated, re-measured on `main`
+
+live-drift run [`32378402265`](https://github.com/BigSimmo/Database/actions/runs/32378402265),
+2026-08-20T14:09:03Z, `main`, weekly cron. Step conclusions:
+
+```
+Compare live schema drift: success
+Align migration history for Supabase Preview: failure
+```
+
+Compare step, decisive lines:
+
+```
+Compared 6 extensions, 38 tables, 1 views, 93 functions, 210 indexes, 48 policies, 170 constraints, 26 triggers, 2 storage_buckets against live.
+No unexpected schema drift between live and supabase/schema.sql.
+```
+
+Alignment step, decisive line:
+
+```
+Unable to read remote schema_migrations via Accept-Profile (status 406: {"code":"PGRST106","details":null,"hint":"Only the following schemas are exposed: public, graphql_public","message":"Invalid schema: supabase_migrations"})
+```
+
+So the drift block has now been empty for **two consecutive runs** (`32251326536` on the 6.2 branch,
+`32378402265` on `main`), and issue #1963 is still open solely because a sibling step cannot read a
+table it was never able to read. `#316`'s finding set stays empty.
+
+### Fix: least-privilege RPC, not a widened API surface and not a new credential
+
+`20260820120000_migration_history_versions_rpc.sql` adds
+`public.migration_history_versions()` — `stable`, `security definer`, `set search_path to ''`,
+dynamic read guarded by `to_regclass`, returning `{probe, versions}` for every history row.
+`revoke ... from public, anon, authenticated` + `grant ... to service_role`, exactly the
+`schema_drift_snapshot()` pattern (`20260706200000` / `20260818090000`).
+
+Two alternatives were rejected and are recorded so the choice is not re-litigated:
+
+| Option                                                | Why not                                                                                                                  |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Expose `supabase_migrations` to the Data API          | Widens the public PostgREST surface of a clinical project for one weekly read, and lives in dashboard config, not in git |
+| Read via the management API + `SUPABASE_ACCESS_TOKEN` | Puts an account-scoped token into CI secrets — far broader authority than the read needs; also still blocked on `#183`   |
+
+`scripts/check-migration-history-alignment.ts` now tries the RPC first and falls back to the old
+Accept-Profile read **only** when the function itself is absent (404 / `PGRST202`). Every other outcome
+raises, including `probe: no_history_table` — a check that reports "aligned" because it could not look
+is worse than the red job it replaces. When neither path works, the error names the remedy.
+
+### Repo-side proof
+
+- `npm run drift:manifest` — full scratch replay of `supabase/schema.sql` into
+  `supabase/postgres:17.6.1.127`: "Replay complete in 58s". This executes the new function body in a
+  real Postgres, so the SQL is proven, not merely reviewed. Manifest now carries **94** functions
+  (was 93) with `public.migration_history_versions()` at
+  `acl: ["postgres=X/postgres", "service_role=X/postgres"]` — least privilege confirmed by replay,
+  no `PUBLIC` execute. `schema_sha256` `6fe4883e03fa…`.
+- `tests/migration-history-alignment.test.ts` — 7 tests: RPC preferred and Accept-Profile never sent;
+  fallback only on an absent function; unexpected RPC failure surfaces rather than falling back;
+  `no_history_table` is an error; migration-vs-`schema.sql` byte parity; read-only + service-role-only
+  shape.
+
+### What is still owed
+
+The migration is **not deployed**. D4 is OFF, so merging does not apply it, and until it is applied
+`check:drift` will report `migration_history_versions` as a missing function — i.e. merging before the
+window trades one red for another. **Deploy from the branch first, then merge**, which is the order
+Phase 4 used (§Phase 4 completion). Staging needs the same migration by the Phase 2 method to hold the
+parity Phase 4 restored.

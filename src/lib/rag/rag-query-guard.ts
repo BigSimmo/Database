@@ -9,6 +9,8 @@ export const clearlyOutsideCorpusMedicalPattern =
 export const unavailableDocumentNoisePattern =
   /\b(?:newly uploaded|future synthetic|not been uploaded|not uploaded|2027 revised|airport travel policy|gardening equipment checklist)\b/i;
 
+export const DEFAULT_SOFT_TAIL_CONFIDENCE_THRESHOLD = 0.42;
+
 function unsupportedSoftTailEligible(analysis: ClinicalQueryAnalysis) {
   if (analysis.queryClass !== "unsupported_or_general") return false;
   if (analysis.documentTitleIntent || analysis.medications.length || analysis.thresholdTerms.length) return false;
@@ -21,7 +23,7 @@ export function shouldShortCircuitUnsupportedSearch(query: string, analysis: Cli
   if (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0) return true;
   if (!unsupportedSoftTailEligible(analysis)) return false;
   if (clearlyNonClinicalConsumerPattern.test(query)) return true;
-  return analysis.confidence <= 0.42 && analysis.expandedTerms.length <= 5;
+  return analysis.confidence <= DEFAULT_SOFT_TAIL_CONFIDENCE_THRESHOLD && analysis.expandedTerms.length <= 5;
 }
 
 // True only for queries that would short-circuit via the soft tail itself, not a pattern guard.
@@ -30,7 +32,7 @@ export function isUnsupportedSoftTailAnalysis(query: string, analysis: ClinicalQ
   if (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0) return false;
   if (!unsupportedSoftTailEligible(analysis)) return false;
   if (clearlyNonClinicalConsumerPattern.test(query)) return false;
-  return analysis.confidence <= 0.42 && analysis.expandedTerms.length <= 5;
+  return analysis.confidence <= DEFAULT_SOFT_TAIL_CONFIDENCE_THRESHOLD && analysis.expandedTerms.length <= 5;
 }
 
 /**
