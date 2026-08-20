@@ -421,7 +421,6 @@ export function MasterSearchHeader({
   // match (e.g. future `sm-up` hero + phone dock), so we never blank search
   // for the 8s fallback window on a viewport that never hosts the hero slot.
   const [homeComposerMediaEligible, setHomeComposerMediaEligible] = useState(() => Boolean(desktopHomeComposerSlotId));
-  const [pageComposerMediaEligible, setPageComposerMediaEligible] = useState(false);
   // Phone-only hide-on-scroll: never hide while a header-owned surface is open
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
@@ -1322,7 +1321,6 @@ export function MasterSearchHeader({
         setDesktopComposerPortalHost(null);
         setDesktopComposerPortalFallback(false);
         setHomeComposerMediaEligible(false);
-        setPageComposerMediaEligible(false);
       });
       return () => {
         cancelled = true;
@@ -1366,8 +1364,6 @@ export function MasterSearchHeader({
     const syncTarget = () => {
       if (composerSlotKind === "home") {
         setHomeComposerMediaEligible(mediaQuery.matches);
-      } else {
-        setPageComposerMediaEligible(mediaQuery.matches);
       }
       const homeSlot = composerSlotKind === "home" ? document.getElementById(composerSlotId) : null;
       const slot = mediaQuery.matches ? (homeSlot ?? document.getElementById(composerSlotId)) : null;
@@ -1447,7 +1443,6 @@ export function MasterSearchHeader({
       setDesktopComposerPortalActive(false);
       setDesktopComposerPortalHost(null);
       setDesktopComposerPortalFallback(false);
-      setPageComposerMediaEligible(false);
     };
   }, [desktopHomeComposerSlotId, desktopPageComposerSlotId, heroComposerBreakpoint, searchComposerVisible]);
 

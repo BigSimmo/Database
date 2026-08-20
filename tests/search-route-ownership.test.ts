@@ -183,10 +183,6 @@ describe("shared-search route ownership", () => {
     );
     expect(headerSource).toContain('isPageDesktopComposerPending && "sm:hidden"');
     expect(headerSource).toContain("setHomeComposerMediaEligible(mediaQuery.matches)");
-    expect(headerSource).toContain("setPageComposerMediaEligible(mediaQuery.matches)");
-    expect(headerSource).toContain(
-      "const [pageComposerMediaEligible, setPageComposerMediaEligible] = useState(false);",
-    );
     expect(headerSource).toContain("const portalFallbackDelayMs = 8_000");
     expect(headerSource).toContain("let portalFailureStartedAt: number | null = null");
     expect(headerSource).toContain("portalFailureStartedAt = null");
