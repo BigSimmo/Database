@@ -3,10 +3,18 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { authorizationIdentity } from "@/lib/authorization-header";
+import { isRetryableApiStatus, parseRetryAfterMs } from "@/lib/api-client-error";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { useAuthSession } from "@/lib/supabase/client";
 
-type SignedUrlResponse = { status: number; data: { url?: string } | null };
+type SignedUrlResponse = { status: number; data: { url?: string } | null; retryAfterMs: number | null };
+
+export type SignedImageFailure = {
+  source: "response" | "network" | "image";
+  status: number | null;
+  retryable: boolean;
+  retryAfterMs: number | null;
+};
 
 /**
  * One in-flight request per endpoint *and identity*, shared by every consumer
@@ -32,7 +40,7 @@ function beginSignedUrlRequest(key: string, endpoint: string, headers: Record<st
   const request = fetch(endpoint, { headers })
     .then(async (response): Promise<SignedUrlResponse> => {
       const data = response.ok ? await response.json() : null;
-      return { status: response.status, data };
+      return { status: response.status, data, retryAfterMs: parseRetryAfterMs(response) };
     })
     .finally(() => {
       inFlightSignedUrlRequests.delete(key);
@@ -41,12 +49,8 @@ function beginSignedUrlRequest(key: string, endpoint: string, headers: Record<st
   return request;
 }
 
-/** Drop any shared request for this endpoint so a retry genuinely refetches. */
-function dropInFlightSignedUrlRequests(endpoint: string) {
-  for (const key of inFlightSignedUrlRequests.keys()) {
-    if (key.startsWith(`${endpoint}\u0000`)) inFlightSignedUrlRequests.delete(key);
-  }
-}
+// In-flight requests are removed automatically in .finally when they settle.
+// Active in-flight requests are preserved during retries so sibling consumers share them.
 
 /**
  * Resolve a private image's signed URL through its `/signed-url` endpoint, with
@@ -58,9 +62,17 @@ function dropInFlightSignedUrlRequests(endpoint: string) {
  */
 export function useSignedImageUrl(endpoint: string, enabled: boolean) {
   const [url, setUrl] = useState(() => getCachedSignedUrl(endpoint)?.url ?? null);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<SignedImageFailure | null>(null);
   const [attempt, setAttempt] = useState(0);
   const { authorizationHeader, session, markSessionExpired } = useAuthSession();
+
+  const [seenEndpoint, setSeenEndpoint] = useState(endpoint);
+  if (endpoint !== seenEndpoint) {
+    setSeenEndpoint(endpoint);
+    setUrl(getCachedSignedUrl(endpoint)?.url ?? null);
+    setFailure(null);
+  }
+
   // Drop painted URLs during render when the auth *identity* changes (sign-out /
   // expiry / account switch). Auth also clears the module LRU; without this,
   // mounted consumers keep showing the prior user's URL until refetch settles.
@@ -75,7 +87,7 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
   if (authIdentity !== seenAuthIdentity) {
     setSeenAuthIdentity(authIdentity);
     setUrl(null);
-    setFailed(false);
+    setFailure(null);
   }
 
   useEffect(() => {
@@ -87,7 +99,7 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
       window.requestAnimationFrame(() => {
         if (!active) return;
         setUrl(cached.url);
-        setFailed(false);
+        setFailure(null);
       });
       return () => {
         active = false;
@@ -102,7 +114,7 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
     const key = signedUrlRequestKey(endpoint, authorizationHeader);
     const request = inFlightSignedUrlRequests.get(key) ?? beginSignedUrlRequest(key, endpoint, authorizationHeader);
     request
-      .then(({ status, data }) => {
+      .then(({ status, data, retryAfterMs }) => {
         if (!active) return;
         // A request restarted after sign-out has no identity and is expected to
         // receive 401. Likewise, a request from an old identity can settle
@@ -115,13 +127,20 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
           // account switch can hand the next user the prior bearer URL.
           setCachedSignedUrl(endpoint, { ...data, url: data.url });
           setUrl(data.url);
-          setFailed(false);
+          setFailure(null);
         } else {
-          setFailed(true);
+          setFailure({
+            source: "response",
+            status,
+            retryable: isRetryableApiStatus(status),
+            retryAfterMs,
+          });
         }
       })
       .catch(() => {
-        if (active) setFailed(true);
+        if (active) {
+          setFailure({ source: "network", status: null, retryable: true, retryAfterMs: null });
+        }
       });
     return () => {
       active = false;
@@ -131,19 +150,17 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
   // Drop the cached URL and refetch (e.g. after a 403 on an expired URL).
   const retry = useCallback(() => {
     clearCachedSignedUrl(endpoint);
-    dropInFlightSignedUrlRequests(endpoint);
     setUrl(null);
-    setFailed(false);
+    setFailure(null);
     setAttempt((current) => current + 1);
   }, [endpoint]);
 
   // Mark the current URL dead (e.g. <img> onError) so the frame shows its failure state.
   const markFailed = useCallback(() => {
     clearCachedSignedUrl(endpoint);
-    dropInFlightSignedUrlRequests(endpoint);
     setUrl(null);
-    setFailed(true);
+    setFailure({ source: "image", status: null, retryable: true, retryAfterMs: null });
   }, [endpoint]);
 
-  return { url, failed, retry, markFailed };
+  return { url, failed: failure !== null, failure, retry, markFailed };
 }
