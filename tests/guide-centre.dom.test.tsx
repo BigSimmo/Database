@@ -24,32 +24,35 @@ function renderGuide() {
 }
 
 describe("Clinical KB Guide Centre", () => {
-  it("uses the normal search pill chrome and provides useful results, clearing, and no-results states", async () => {
-    const user = userEvent.setup();
+  /**
+   * The guide carries NO composer. The bottom dock is the guided-tour action and
+   * nothing else, so a text input reappearing anywhere in this dialog means the
+   * "search the guide" chat surface has come back.
+   */
+  it("ships no search composer anywhere in the dialog", () => {
     const { dialog } = renderGuide();
-    const search = within(dialog).getByPlaceholderText("Search the guide");
-    expect(search.closest(".answer-footer-search-pill")).not.toBeNull();
 
-    const submit = within(dialog).getByRole("button", { name: "Submit guide search" });
-    expect(submit).toHaveClass("chat-send-button");
-
-    await user.type(search, "privacy");
-    expect(within(dialog).getByRole("heading", { name: "Search results" })).toBeVisible();
-    expect(within(dialog).getByRole("button", { name: /Privacy and safe use/ })).toBeVisible();
-    expect(within(dialog).getByText(/topics? found for “privacy”/)).toBeVisible();
-
-    await user.click(submit);
-    expect(within(dialog).getByRole("heading", { name: "Search results" })).toBeVisible();
-    expect(search).toHaveValue("privacy");
-
-    await user.clear(search);
-    await user.type(search, "no matching phrase anywhere");
-    expect(within(dialog).getByRole("heading", { name: "No matching guide topic" })).toBeVisible();
-    await user.click(within(dialog).getByRole("button", { name: "Clear guide search" }));
-    expect(within(dialog).getByRole("heading", { name: "How to verify an answer" })).toBeVisible();
+    expect(dialog.querySelector("[data-guide-universal-search]")).toBeNull();
+    expect(dialog.querySelector("input")).toBeNull();
+    expect(dialog.querySelector(".answer-footer-search-pill")).toBeNull();
+    expect(within(dialog).queryByPlaceholderText("Search the guide")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("search")).not.toBeInTheDocument();
   });
 
-  it("shows a useful verification example and hides the shared header and bottom search chrome while scrolling down", async () => {
+  /**
+   * "Guided tour" used to be three simultaneous controls: the tab, the in-content
+   * TourPreview card and the docked action. Only the tab and the docked action
+   * remain, and the SINGULAR query below is what keeps the card from returning —
+   * `getByRole` throws on a second match.
+   */
+  it("offers exactly one guided-tour action outside the tab bar", () => {
+    const { dialog } = renderGuide();
+
+    expect(within(dialog).getByRole("button", { name: "Start guided tour" })).toBeVisible();
+    expect(within(dialog).queryByRole("heading", { name: "3-minute guided tour" })).not.toBeInTheDocument();
+  });
+
+  it("shows a useful verification example and hides only the bottom dock while scrolling down", async () => {
     vi.spyOn(window, "matchMedia").mockImplementation(
       () =>
         ({
@@ -77,35 +80,41 @@ describe("Clinical KB Guide Centre", () => {
     expect(footer).not.toBeNull();
     expect(header).not.toBeNull();
     expect(content).not.toBeNull();
-    expect(footer?.querySelector("[data-guide-universal-search]")).not.toBeNull();
     expect(footer?.querySelector("[data-guide-tour-action-row]")).not.toBeNull();
     expect(header).toHaveClass("pt-[max(1rem,var(--safe-area-top))]");
+    // The header no longer collapses, so it never carries the hidden-state utilities.
+    expect(header).not.toHaveClass("max-h-48", "overflow-hidden");
 
     Object.defineProperty(scrollBody, "scrollHeight", { configurable: true, value: 1_600 });
     Object.defineProperty(scrollBody, "clientHeight", { configurable: true, value: 600 });
     Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 140 });
     fireEvent.scroll(scrollBody!);
     await waitFor(() => expect(footerLayer).toHaveClass("translate-y-full"));
-    expect(header).toHaveClass("max-h-0");
-    expect(header).not.toHaveClass("pt-[max(1rem,var(--safe-area-top))]");
-    expect(header).toHaveAttribute("aria-hidden", "true");
-    expect(header).toHaveAttribute("inert", "");
-    expect(footer).toHaveAttribute("aria-hidden", "true");
-    expect(footer).toHaveAttribute("inert", "");
-    expect(within(footer!).queryByRole("button", { name: "Start guided tour" })).not.toBeInTheDocument();
-    expect(content).toHaveClass("pb-0");
-    expect(content).not.toHaveClass("pb-40");
-
-    Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 0 });
-    fireEvent.scroll(scrollBody!);
-    await waitFor(() => expect(footerLayer).not.toHaveClass("translate-y-full"));
+    /**
+     * The header stays PINNED through the hide. It used to collapse with the
+     * dock, which took "Close guide" and the view tabs out of reach — scrolled
+     * down, the dialog had no exit — and cost 153px of a ~330px scroll range,
+     * so `collapseHasSafeRunway` refused to hide anything at all once these
+     * pages were shortened.
+     */
     expect(header).not.toHaveClass("max-h-0");
     expect(header).toHaveClass("pt-[max(1rem,var(--safe-area-top))]");
     expect(header).toHaveAttribute("aria-hidden", "false");
     expect(header).not.toHaveAttribute("inert");
+    expect(footer).toHaveAttribute("aria-hidden", "true");
+    expect(footer).toHaveAttribute("inert", "");
+    expect(within(footer!).queryByRole("button", { name: "Start guided tour" })).not.toBeInTheDocument();
+    expect(content).toHaveClass("pb-0");
+    expect(content).not.toHaveClass("pb-24");
+
+    Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 0 });
+    fireEvent.scroll(scrollBody!);
+    await waitFor(() => expect(footerLayer).not.toHaveClass("translate-y-full"));
+    expect(header).toHaveAttribute("aria-hidden", "false");
+    expect(header).not.toHaveAttribute("inert");
     expect(footer).toHaveAttribute("aria-hidden", "false");
     expect(footer).not.toHaveAttribute("inert");
-    expect(content).toHaveClass("pb-40");
+    expect(content).toHaveClass("pb-24");
   });
 
   it("keeps the guide footer available while the desktop body scrolls", () => {
@@ -121,7 +130,7 @@ describe("Clinical KB Guide Centre", () => {
     expect(footerLayer).not.toHaveClass("translate-y-full");
     expect(footer).toHaveAttribute("aria-hidden", "false");
     expect(footer).not.toHaveAttribute("inert");
-    expect(content).toHaveClass("pb-40");
+    expect(content).toHaveClass("pb-24");
   });
 
   it("wires every quick task to its complete guide topic", async () => {
@@ -161,34 +170,32 @@ describe("Clinical KB Guide Centre", () => {
     }
   });
 
-  it("wires the contextual footer controls across home, topics, topic, and tour views", async () => {
+  it("wires the docked tour controls, including Previous on phones", async () => {
     const user = userEvent.setup();
     const { dialog } = renderGuide();
+    const actionRow = () => within(dialog.querySelector<HTMLElement>("[data-guide-tour-action-row]")!);
 
-    await user.click(within(dialog).getByRole("button", { name: "Browse all topics" }));
-    expect(within(dialog).getByRole("heading", { name: "All guide topics" })).toBeVisible();
-    await user.click(within(dialog).getAllByRole("button", { name: "Guide home" }).at(-1)!);
+    await user.click(actionRow().getByRole("button", { name: "Start guided tour" }));
+    // Previous is present but inert on the first step; it is no longer `sm:`-only,
+    // because removing the composer freed the room a phone step-back needs.
+    expect(actionRow().getByRole("button", { name: "Previous" })).toBeDisabled();
 
-    await user.click(within(dialog).getByRole("button", { name: "Ask a question" }));
-    expect(within(dialog).getByRole("heading", { name: "Ask better questions" })).toBeVisible();
-    await user.click(within(dialog).getAllByRole("button", { name: "Guide home" }).at(-1)!);
-
-    await user.click(within(dialog).getAllByRole("button", { name: "Start guided tour" }).at(-1)!);
-    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+    await user.click(actionRow().getByRole("button", { name: "Continue" }));
     expect(within(dialog).getByRole("heading", { level: 2, name: "Ask for one decision at a time" })).toBeVisible();
-    await user.click(within(dialog).getByRole("button", { name: "Previous" }));
+    await user.click(actionRow().getByRole("button", { name: "Previous" }));
     expect(within(dialog).getByRole("heading", { level: 2, name: "The evidence-first workflow" })).toBeVisible();
-    await user.click(within(dialog).getByRole("button", { name: "Exit tour" }));
+    await user.click(actionRow().getByRole("button", { name: "Exit tour" }));
     expect(within(dialog).getByRole("heading", { name: "How to verify an answer" })).toBeVisible();
+
+    // The tab bar navigates; the dock no longer duplicates it.
+    expect(within(dialog).queryByRole("button", { name: "Browse all topics" })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Ask a question" })).not.toBeInTheDocument();
   });
 
-  it("persists tour progress locally without persisting the guide search query", async () => {
+  it("persists tour progress locally across sessions", async () => {
     const user = userEvent.setup();
     const firstRender = renderGuide();
-    const search = within(firstRender.dialog).getByPlaceholderText("Search the guide");
-    await user.type(search, "citation");
-    await user.click(within(firstRender.dialog).getByRole("button", { name: "Clear guide search" }));
-    await user.click(within(firstRender.dialog).getAllByRole("button", { name: "Start guided tour" })[0]);
+    await user.click(within(firstRender.dialog).getByRole("button", { name: "Start guided tour" }));
     expect(
       within(firstRender.dialog).getByRole("heading", { level: 2, name: "The evidence-first workflow" }),
     ).toBeVisible();
@@ -201,9 +208,8 @@ describe("Clinical KB Guide Centre", () => {
 
     cleanup();
     const secondRender = renderGuide();
-    expect(within(secondRender.dialog).getByPlaceholderText("Search the guide")).toHaveValue("");
     expect(within(secondRender.dialog).getAllByText("Guide progress · 1 of 5").length).toBeGreaterThan(0);
-    await user.click(within(secondRender.dialog).getAllByRole("button", { name: "Resume guided tour" })[0]);
+    await user.click(within(secondRender.dialog).getByRole("button", { name: "Resume guided tour" }));
     expect(
       within(secondRender.dialog).getByRole("heading", { level: 2, name: "Ask for one decision at a time" }),
     ).toBeVisible();
@@ -212,7 +218,7 @@ describe("Clinical KB Guide Centre", () => {
   it("moves through every tour step and records completion", async () => {
     const user = userEvent.setup();
     const { dialog } = renderGuide();
-    await user.click(within(dialog).getAllByRole("button", { name: "Start guided tour" })[0]);
+    await user.click(within(dialog).getByRole("button", { name: "Start guided tour" }));
 
     for (const heading of [
       "Ask for one decision at a time",
@@ -242,11 +248,11 @@ describe("Clinical KB Guide Centre", () => {
       }),
     );
     const { dialog, onClose } = renderGuide();
-    await user.click(within(dialog).getAllByRole("button", { name: "Review guided tour" })[0]);
+    await user.click(within(dialog).getByRole("button", { name: "Review guided tour" }));
     expect(within(dialog).getByRole("heading", { name: "Guided tour complete" })).toBeVisible();
     await user.click(within(dialog).getByRole("button", { name: "Return to Guide home" }));
     expect(within(dialog).getByRole("heading", { name: "How to verify an answer" })).toBeVisible();
-    await user.click(within(dialog).getAllByRole("button", { name: "Review guided tour" })[0]);
+    await user.click(within(dialog).getByRole("button", { name: "Review guided tour" }));
     await user.click(within(dialog).getByRole("button", { name: "Review tour" }));
     expect(within(dialog).getByRole("heading", { level: 2, name: "The evidence-first workflow" })).toBeVisible();
     await user.click(within(dialog).getByRole("button", { name: "Guided tour" }));
