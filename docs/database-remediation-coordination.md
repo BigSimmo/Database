@@ -143,6 +143,20 @@ alone applies nothing and would make `check:drift` report a missing function in 
 needs the same migration by the Phase 2 method. Until that window runs, the weekly job stays red on
 this one step and #1963 will not self-close.
 
+**Update 2026-08-20 (window) — the alignment fix is LIVE on production; staging is one version behind;
+D4 is UNRESOLVED again.** PR #2198 merged before the window (squash `a341832af`), and the pre-flight
+found `20260820120000` **already applied** — `stmt_count 3`, executed statements, not mark-applied — so
+`db push` was never run against production. Verified read-only: `prosecdef true`, `provolatile s`,
+`search_path=""`, `proacl postgres=X/postgres | service_role=X/postgres`, and the function returns
+`probe: ok` with `version_count 211` against 211 history rows and 211 local files. No guard migration is
+owed. **Two things for the owner:** (1) `created_by` is NULL on every recent row, so nothing proves how
+it arrived; the 2026-08-19 "D4 is OFF" test only showed migrations sitting pending _while a PR was
+open_, which never contradicted §3.7's 34-second deploy after #2106's squash-merge — re-verify the
+dashboard toggle and, until then, assume merging a migration PR deploys it. (2) Staging
+(`ikoiolksxqxfxgiyqpnu`) is at 210 rows without the function; its pending set is exactly one version,
+but both write paths were denied by the session auto-mode classifier (live-Supabase confirmation rule
+from PR #2196), so Phase 4's staging parity is open again by one version until an operator applies it.
+
 **Next dispatches:** merge the 6.2 PR (its CI `Migration replay` and Supabase Preview are the last chain proofs), then Phase 5 close-out (after-EXPLAIN set, `#231` re-test on healthy latency, `check:production-readiness`), then one serialized `issues:reconcile`. Every future migration still needs its own approved window and its own `db push` (D4 OFF).
 
 **Where the programme stands after Phase 4 (2026-08-19).****Where the programme stands after Phase 4 (2026-08-19).** The index track of `#316` is closed on both

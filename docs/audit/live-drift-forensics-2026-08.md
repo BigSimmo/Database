@@ -2023,3 +2023,60 @@ The migration is **not deployed**. D4 is OFF, so merging does not apply it, and 
 window trades one red for another. **Deploy from the branch first, then merge**, which is the order
 Phase 4 used (§Phase 4 completion). Staging needs the same migration by the Phase 2 method to hold the
 parity Phase 4 restored.
+
+### Window 2026-08-20 — production already applied; staging still owed
+
+_Owner-authorised window. Worktree linked to production (`sjrfecxgysukkwxsowpy`), the main checkout
+left on its staging link. Every call carried an explicit `--project-ref`._
+
+**PR #2198 was merged before the window** (squash `a341832af`), the reverse of the intended
+deploy-then-merge order. The pre-flight then found the migration **already applied**:
+
+```
+$ supabase migration list --linked --project-ref sjrfecxgysukkwxsowpy
+… {"local":"20260820120000","remote":"20260820120000","time":"2026-08-20 12:00:00"}
+```
+
+`db push` was therefore never run against production in this window. Read-only verification:
+
+| Check                                     | Result                                                     |
+| ----------------------------------------- | ---------------------------------------------------------- |
+| history row shape                         | `stmt_count 3` — executed statements, **not** mark-applied |
+| `prosecdef` / `provolatile` / `proconfig` | `true` / `s` / `search_path=""`                            |
+| `proacl`                                  | `postgres=X/postgres \| service_role=X/postgres`           |
+| function output                           | `probe: ok`, `version_count: 211`, `table_rows: 211`       |
+
+211 remote versions against 211 local migration files, so the alignment check's `remoteOnly` set is
+empty and the step should now pass. **No guard migration is owed**: the row carries executed
+statements, so it is not a history repair and cannot surface in the `migration_history` probe.
+
+#### The D4 conclusion needs re-testing — the 2026-08-19 test could not detect deploy-on-merge
+
+`created_by` and `idempotency_key` are NULL for every row from `20260818090000` to `20260820120000`,
+including the ones this programme applied by operator `db push`, so the history table carries **no
+provenance signal** and cannot say how this row arrived. Two explanations remain open, and the
+distinction is the whole of D4:
+
+1. **Supabase Branching applies on merge.** §3.7 measured exactly this — migrations `110000`–`112000`
+   bracketed to **34 s** after #2106's squash-merge. A Supabase preview branch existed on #2198
+   (project `gjpnznsmbylfkzfeeuki`, "Migrations ✅" 17:08:58 UTC) and the PR merged minutes later.
+2. Someone ran `db push` against production in the same hour.
+
+The 2026-08-19 observation recorded as "D4 is OFF" was that the four `20260819` migrations _sat
+pending while the PR was open_. That tests deploy-while-open, **not** deploy-on-merge, so it never
+contradicted §3.7 — and today's result fits both observations at once. **Treat D4 as UNRESOLVED and
+re-verify in the Supabase dashboard before relying on merge being safe.** Until then, assume merging a
+migration PR deploys it to production.
+
+#### Staging is one version behind — blocked, not skipped
+
+Staging (`ikoiolksxqxfxgiyqpnu`, verified before every call) reads **210** history rows, latest
+`20260819110500`, `to_regprocedure('public.migration_history_versions()') is null`. Its pending set is
+exactly `['20260820120000']` with zero remote-only versions, so a single `db push` (or the Phase 2
+`execute_sql` method) closes it.
+
+Both write paths were **denied by the session's auto-mode classifier** — `supabase db push` and the
+MCP `execute_sql` alike — under the live-Supabase confirmation rule added by PR #2196 the same day.
+Read-only calls were unaffected, which is why every verification above exists. This is an
+authorisation gap, not a technical one: **staging parity, closed by Phase 4, is open again by one
+version until an operator applies it.**
