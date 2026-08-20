@@ -180,4 +180,34 @@ describe("clinical safety findings", () => {
 
     expect(sorted.map((finding) => finding.kind)).toEqual(["contraindication", "monitoring", "caveat"]);
   });
+
+  it("extracts contraindication findings when words like 'contraindicated' or 'contraindications' are used", () => {
+    const contraindicatedAnswer: RagAnswer = {
+      answer: "This medication is contraindicated in pregnancy.",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: [
+        {
+          id: "chunk-contra",
+          document_id: "doc-contra",
+          title: "Obstetrics Guide",
+          file_name: "obs.pdf",
+          page_number: 5,
+          chunk_index: 0,
+          section_heading: "Safety in Pregnancy",
+          content: "This therapy is strictly contraindicated in pregnancy due to teratogenicity risk.",
+          image_ids: [],
+          similarity: 0.95,
+          images: [],
+        },
+      ],
+    };
+
+    const findings = extractSafetyFindings(contraindicatedAnswer);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].kind).toBe("contraindication");
+    expect(findings[0].label).toBe("Contraindication");
+    expect(findings[0].text).toContain("contraindicated in pregnancy");
+  });
 });
