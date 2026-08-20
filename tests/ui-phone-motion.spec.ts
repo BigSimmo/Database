@@ -198,4 +198,78 @@ test.describe("phone motion behaviour with OS Reduce Motion on", () => {
     await expect(sweep).toBeVisible();
     expect(await sweep.evaluate((node) => getComputedStyle(node).animationName)).toBe("none");
   });
+
+  test("runs active animations under OS default no-preference motion", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await stubAnswerStream(page);
+    await seedMotionPreference(page, "system");
+
+    const progress = await startAnswer(page);
+    await expect(progress).toBeVisible();
+
+    const sweep = progress.locator('[data-slot="answer-activity-trace-sweep"]');
+    await expect(sweep).toBeVisible();
+    expect(await sweep.evaluate((node) => getComputedStyle(node).animationName)).toBe("answer-ecg-scroll");
+
+    const spinner = progress.getByLabel("Answer generation stages").locator('li[data-state="current"] svg');
+    expect(await spinner.evaluate((node) => getComputedStyle(node).animationName)).not.toBe("none");
+
+    const transforms = await sweep.evaluate(async (node) => {
+      const animation = node.getAnimations()[0];
+      animation.pause();
+      animation.currentTime = 0;
+      await new Promise(requestAnimationFrame);
+      const resting = getComputedStyle(node).transform;
+      animation.currentTime = 1_600;
+      await new Promise(requestAnimationFrame);
+      return { resting, mid: getComputedStyle(node).transform };
+    });
+    expect(transforms.mid).not.toBe(transforms.resting);
+  });
+
+  test("contract: motion-sensitive components explicitly declare both reduce and no-preference behaviors", async ({
+    page,
+  }) => {
+    await stubAnswerStream(page);
+
+    // 1. Reduced motion: animations suppressed, indicators remain visible and legible
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await seedMotionPreference(page, "system");
+    let progress = await startAnswer(page);
+    await expect(progress).toBeVisible();
+    let sweep = progress.locator('[data-slot="answer-activity-trace-sweep"]');
+    await expect(sweep).toBeVisible();
+    const stateReduce = await sweep.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return {
+        animationName: style.animationName,
+        opacity: Number.parseFloat(style.opacity),
+        display: style.display,
+        visibility: style.visibility,
+      };
+    });
+    expect(stateReduce.animationName).toBe("none");
+    expect(stateReduce.opacity).toBeGreaterThan(0.3);
+    expect(stateReduce.display).not.toBe("none");
+    expect(stateReduce.visibility).not.toBe("hidden");
+
+    // 2. Full motion: animations active and traveling
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await seedMotionPreference(page, "system");
+    await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
+    await dismissBlockingPwaNotice(page);
+    progress = await startAnswer(page);
+    await expect(progress).toBeVisible();
+    sweep = progress.locator('[data-slot="answer-activity-trace-sweep"]');
+    await expect(sweep).toBeVisible();
+    const stateFull = await sweep.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return {
+        animationName: style.animationName,
+        opacity: Number.parseFloat(style.opacity),
+      };
+    });
+    expect(stateFull.animationName).toBe("answer-ecg-scroll");
+    expect(stateFull.opacity).toBeGreaterThan(0);
+  });
 });

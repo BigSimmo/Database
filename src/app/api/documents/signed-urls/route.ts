@@ -1,1 +1,2 @@
-export { runtime, POST } from "@/app/api/images/signed-urls/route";
+export const runtime = "nodejs";
+export { POST } from "@/app/api/images/signed-urls/route";

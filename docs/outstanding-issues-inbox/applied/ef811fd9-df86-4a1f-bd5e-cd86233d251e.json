@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ef811fd9-df86-4a1f-bd5e-cd86233d251e",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Mode home suggestion data is duplicated across three unrelated sources",
+    "detail": "searchCommandSurfaceByMode examples/suggestions (src/lib/search-command-surface.ts) drive the Try this ticket, rotating hint and prompt chips; per-page pills arrays (e.g. therapy-compass/screens/home-screen.tsx:14, services-home-page.tsx) drive the mode-home pill row; src/lib/tools-catalog.ts:348 is a third. Only the first drives the ticket, so after PR #2160 the Therapy home advertises two different suggestion sets — its five pills and the three ticket examples. Reconcile to one source per mode. Found during the PR #2160 cross-mode audit.",
+    "source": "PR #2160 cross-mode home audit",
+    "issueUlid": "01M0BEA27H90Y0FDZXZY53CRKF"
+  }
+}

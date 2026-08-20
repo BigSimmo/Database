@@ -558,7 +558,9 @@ test.describe("Clinical KB accessibility coverage", () => {
     test.setTimeout(300_000);
     await page.emulateMedia({ colorScheme: "dark" });
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/therapy-compass", { waitUntil: "domcontentloaded" });
+    // `/therapy-compass` redirects to the shared home since consolidation; going
+    // there directly keeps this on the surface it is asserting about.
+    await page.goto("/?mode=therapy-compass", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Therapy", exact: true })).toBeVisible({
       timeout: 60_000,

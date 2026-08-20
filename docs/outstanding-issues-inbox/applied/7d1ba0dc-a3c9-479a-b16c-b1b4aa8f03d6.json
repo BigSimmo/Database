@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "7d1ba0dc-a3c9-479a-b16c-b1b4aa8f03d6",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "The RAG improvement programme carries its own status table with no session-start link back to the ledger",
+    "detail": "NARROWED 2026-08-18 before filing: an earlier read of this found zero ledger references to docs/rag-improvement/. That is no longer true — #231 now cites it (5 mentions), so the ledger-to-programme direction exists. What remains is the reverse direction and ownership. docs/rag-improvement/HANDOVER.md instructs every implementing session to read its packet, then README.md, then docs/rag-behaviour/, and to update a per-session status table (section 2) — it does not tell that session to read docs/outstanding-issues.md or to check open PRs for the surface its packet touches. So a session entering through HANDOVER.md never sees the canonical queue, and no row owns the programme itself. AGENTS.md designates docs/outstanding-issues.md as the single universal cross-session ledger and warns that detailed runbooks must not become a second status ledger; a per-session status table is close to that line. This is the documented precondition for #292 (two assistants shipped the same queued conversion four hours apart, one PR closed as a duplicate) and #301 (two sessions built #262 part 3 in parallel), and it is not hypothetical for this programme: the same check-before-filing discipline is what stopped this very row from being filed with a stale premise. Next (cheap, docs-only, no behaviour change): add to HANDOVER.md section 4's session-start checklist a step to read the recommended queue and check open PRs for the packet's surface, and decide whether the programme warrants one owning ledger row so its state is visible from the canonical side. Stop: do not duplicate the programme's tracks as ledger rows — that would create the second queue this row exists to prevent, in the other direction. Design authority stays with docs/rag-improvement/README.md and protected-surface rules with docs/rag-behaviour/.",
+    "source": "session 2026-08-12/08-18 cross-session review; verified against origin/main 622f1fb",
+    "issueUlid": "01M0BES6Y8EP1BQSS7J06GXRF3"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "95093e96-5953-48a0-a8bc-508d625fb57e",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "Therapy keeps a private eight-component UI kit whose shared equivalents it imports zero times, including the badge that carries review status",
+    "detail": "Measured 2026-08-18 on main at adf93a75, after PRs #2122 and #2150. src/components/therapy-compass/ui.tsx exports Tag, TagRow, StatusBadge, IconTile, LoadingState, EmptyState, Eyebrow and Meter. Shared equivalents exist and Therapy imports them zero times: ui/chip.tsx for Tag/TagRow (Chip is imported in exactly one therapy file), ui/status-mark.tsx for StatusBadge, ui/error-state.tsx for EmptyState, ui/progress.tsx for Meter, the eyebrowText primitive for Eyebrow, and category-icon-tile.tsx for IconTile. This is the same class of duplication card-recipes.ts was written to end for cards, one layer down, and it survived the #2122 convergence because that work targeted Button, card surfaces and page headers only. Highest-consequence piece: StatusBadge renders the Needs source review label, which since #2150 is the per-record half of the only protection standing between an unreviewed therapy record and a clinical decision - and it is a module-private implementation no shared contract governs. Two migration hazards to respect. (1) StatusBadge pairs its warning tone with a TriangleAlert glyph via reviewStatusMeta in data/select.ts; any swap must preserve that shape channel or the warning becomes colour-only and trips the status-colour boundary ratchet. (2) Meter's colour-only status was deliberately fixed in commit 8c791a1ad by naming the completeness band in text; a naive swap to shared Progress would regress it. Suggested order: Eyebrow and Tag/TagRow first (lowest risk, no status semantics), then EmptyState and IconTile, then Meter and StatusBadge last with the colour-only contract tests extended first. Stop rule: do not fold any of these into ui-primitives.tsx; COMPONENTS.md section 0.4 lists that module as over-budget and slated to split. Related: #ZF006G tracks the parallel SectionHeading duplication across four modes.",
+    "issueUlid": "01M0BC5ER3NEBJAMD4VC43PGZV"
+  }
+}

@@ -19,7 +19,9 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useId, useMemo, useState } from "react";
 
-import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeTemplate } from "@/components/mode-home-template";
+import { appModeIcons } from "@/lib/app-mode-icons";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
   ResultFilterSheet,
@@ -282,9 +284,9 @@ function MedicationHome({
   return (
     <ModeHomeTemplate
       testId="medication-home"
-      title="Medication"
-      subtitle="Medication dosing and safety."
-      icon={Pill}
+      title={sharedHomePresentation.prescribing.title}
+      subtitle={sharedHomePresentation.prescribing.subtitle}
+      icon={appModeIcons.prescribing}
       headingLevel={2}
       desktopComposerSlotId={desktopComposerSlotId}
       actionsLabel="Medication prompts"
@@ -303,15 +305,12 @@ function MedicationHome({
         onClick: () => onSuggestedSearch(item.query),
       }))}
       footer={
-        <div className="grid gap-3">
-          <StatusNotice
-            realDataReady={realDataReady}
-            authUnavailable={authUnavailable}
-            apiUnavailable={apiUnavailable}
-            setupWarning={setupWarning}
-          />
-          <ModeHomeVerificationFooter label="Prescribing support" body="Confirm against source" />
-        </div>
+        <StatusNotice
+          realDataReady={realDataReady}
+          authUnavailable={authUnavailable}
+          apiUnavailable={apiUnavailable}
+          setupWarning={setupWarning}
+        />
       }
     />
   );

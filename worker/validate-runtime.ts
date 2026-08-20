@@ -2,7 +2,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { builtinModules } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { env } from "../src/lib/env";
-import { checkPythonPdfPrerequisites, checkMedspacyPrerequisites } from "./prerequisites";
+import {
+  checkPythonPdfPrerequisites,
+  checkMedspacyPrerequisites,
+  checkDoclingShadowPrerequisites,
+} from "./prerequisites";
 
 const NODE_BUILTINS = new Set(builtinModules);
 
@@ -13,6 +17,9 @@ type ValidationResult = {
   externals: { spec: string; resolved: string; ok: boolean }[];
   python: Awaited<ReturnType<typeof checkPythonPdfPrerequisites>>;
   medspacy?: Awaited<ReturnType<typeof checkMedspacyPrerequisites>>;
+  /** Packet B4: present only when WORKER_DOCLING_PYTHON_BIN is set (Dockerfile.worker sets it). */
+  doclingShadow?: Awaited<ReturnType<typeof checkDoclingShadowPrerequisites>>;
+  doclingPipCheck?: { ok: boolean; detail: string };
   pipCheck: { ok: boolean; detail: string };
   errors: string[];
 };
@@ -31,9 +38,8 @@ function npmMajor(): number | null {
   return match ? Number(match[1].split(".")[0]) : null;
 }
 
-async function runPipCheck(): Promise<{ ok: boolean; detail: string }> {
+async function runPipCheck(pythonBin: string = env.PYTHON_BIN): Promise<{ ok: boolean; detail: string }> {
   const { execFile } = await import("node:child_process");
-  const pythonBin = env.PYTHON_BIN;
   return new Promise((resolve) => {
     execFile(pythonBin, ["-m", "pip", "check"], { timeout: 60_000 }, (error, stdout, stderr) => {
       if (error) {
@@ -130,6 +136,20 @@ export async function validateRuntime(options: ValidateRuntimeOptions = {}): Pro
     result.pipCheck = await runPipCheck();
     if (!result.pipCheck.ok) {
       errors.push(`pip check failed: ${result.pipCheck.detail}`);
+    }
+
+    // Packet B4: when the docling interpreter is configured (Dockerfile.worker ENV), the
+    // docling venv must import and be pip-consistent — proven at image build, offline.
+    // Unset is not an error: legacy-only workers never need docling.
+    if (env.WORKER_DOCLING_PYTHON_BIN) {
+      result.doclingShadow = await checkDoclingShadowPrerequisites();
+      if (!result.doclingShadow.ok) {
+        errors.push(`docling shadow-extraction check failed: ${result.doclingShadow.detail}`);
+      }
+      result.doclingPipCheck = await runPipCheck(env.WORKER_DOCLING_PYTHON_BIN);
+      if (!result.doclingPipCheck.ok) {
+        errors.push(`docling venv pip check failed: ${result.doclingPipCheck.detail}`);
+      }
     }
   }
 

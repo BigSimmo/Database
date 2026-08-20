@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "2c95ad4c-bbc7-4043-9c79-8afd529fa4c2",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "7a93a5a2-d3b9-4f3d-9747-22049300cd64",
+    "reason": "Superseded and partly stale. Queued by the 2026-08-18 coordination session before Phase 4 ran; it records D4 as 'owner decision pending' and lists Phase 4 as REMAINING, both of which are now wrong (D4 is decided OFF, Phase 4 completed 2026-08-19). Its evidence is preserved in full in docs/audit/live-drift-forensics-2026-08.md section 3.7 and on the coordination board, and its still-current facts (the RPC-divergence track closing, the D4 platform finding) are carried forward verbatim into the replacement update queued in this same batch. Cancelled together with b048dbdd so exactly one mutation lands on #316."
+  }
+}

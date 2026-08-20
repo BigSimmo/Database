@@ -1,0 +1,387 @@
+.screen {
+  --co-space-2: 0.125rem;
+  --co-space-6: 0.375rem;
+  --co-space-8: 0.5rem;
+  --co-space-10: 0.625rem;
+  --co-space-12: 0.75rem;
+  --co-space-14: 0.875rem;
+  --co-space-20: 1.25rem;
+  --co-space-48: 3rem;
+  --co-leading-compact: 1.1;
+  --co-leading-tight: 1.2;
+  --co-leading-body: 1.4;
+  --co-leading-prose: 1.5;
+  display: grid;
+  height: 100dvh;
+  min-height: 44rem;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.main {
+  grid-column: 2;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+/*
+ * `ClinicalRail` (from the shared ward-management.module.css) sets `display: none` on itself at
+ * <=40rem, but that only removes the element — a fixed `4.5rem` track in `.screen`'s own
+ * grid-template-columns still reserves the width regardless of what occupies it, leaving a
+ * blank 72px band down the left edge of the narrowest supported layout. Collapse to one column
+ * at the same breakpoint the rail already hides at.
+ */
+@media (max-width: 40rem) {
+  .screen {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .main {
+    grid-column: 1;
+  }
+}
+
+.governanceBanner {
+  display: flex;
+  min-height: var(--co-space-48);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--co-space-12);
+  border-bottom: 0.0625rem solid var(--border);
+  background: var(--surface-chrome);
+  padding: var(--co-space-8) var(--co-space-20);
+}
+
+.governanceBanner p {
+  min-width: 0;
+  flex: 1 1 12rem;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--co-leading-body);
+}
+
+.governanceBanner strong {
+  color: var(--text-heading);
+}
+
+.prototypeBadge {
+  display: inline-flex;
+  min-height: 1.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--co-space-6);
+  border: 0.0625rem solid var(--clinical-accent-border);
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--clinical-accent-soft);
+  padding: var(--co-space-2) var(--co-space-8);
+  color: var(--clinical-accent);
+  font-size: var(--text-3xs);
+  font-weight: 680;
+  line-height: var(--co-leading-compact);
+  white-space: nowrap;
+}
+
+.body {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--co-space-10);
+  overflow: auto;
+  padding: var(--co-space-12) var(--co-space-20);
+  background: var(--surface-subtle);
+}
+
+.pressureStrip,
+.queueRegion,
+.diagramRegion,
+.shortlistRegion {
+  min-width: 0;
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--e0);
+}
+
+.pressureStrip {
+  padding: var(--co-space-12) var(--co-space-14);
+}
+
+.regionHeader {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--co-space-12);
+  margin-bottom: var(--co-space-8);
+}
+
+.regionHeader h2 {
+  color: var(--text-heading);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: var(--co-leading-tight);
+}
+
+.regionCount {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.clearSelectionButton {
+  display: inline-flex;
+  min-height: var(--co-space-48);
+  flex: 0 0 auto;
+  align-items: center;
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 0 var(--co-space-12);
+  color: var(--clinical-accent);
+  font-size: var(--text-3xs);
+  font-weight: 650;
+}
+
+/*
+ * Grid, not the old flex/overflow-x strip: a fixed per-card min-width plus `overflow-x: auto`
+ * fit about five and a half of eight departments at 1600px and sliced the sixth mid-word behind
+ * a scroller (Task 4 ruling 1 — every department must be visible at once at that width, since
+ * the strip's only job is a one-second read). `auto-fit` sizes eight columns comfortably at
+ * 1600px and wraps onto more rows as the region narrows, without ever clipping a card.
+ */
+.pressureList {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--co-space-8);
+}
+
+.pressureCard,
+.pressureCardSelected {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--co-space-48);
+  align-content: start;
+  gap: var(--co-space-2);
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--co-space-8) var(--co-space-10);
+  background: var(--surface-subtle);
+  color: var(--text);
+  text-align: left;
+}
+
+.pressureCard:hover {
+  background: var(--surface);
+}
+
+.pressureCardSelected {
+  border-color: var(--clinical-accent-border);
+  background: var(--clinical-accent-soft);
+  box-shadow: var(--shadow-inset);
+}
+
+/*
+ * The worst department leads the list by data (breach count beats wait length beats volume —
+ * see `edPressure`), but ordering alone reads as arbitrary at a glance. A department with a
+ * breached legal deadline gets the danger tint regardless of selection state, so the reason it
+ * leads is visible on the card itself, not just implied by its position (Task 4 ruling — "the
+ * worst card must say why it is worst").
+ */
+.pressureCard[data-breaching="true"],
+.pressureCardSelected[data-breaching="true"] {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+
+.pressureSiteCode {
+  overflow: hidden;
+  color: var(--text-heading);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pressureStats {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--co-leading-body);
+}
+
+.filterNotice {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--co-space-8);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--co-leading-body);
+}
+
+.pressureBreach {
+  color: var(--danger-text);
+  font-weight: 700;
+}
+
+/*
+ * Mobile-first: below 90rem (1440px, the brief's "Layout at >=1440px" threshold) the three
+ * regions stack full-width so nothing is ever forced narrower than its content — the previous
+ * `max-width: 90rem` rule only shrank the three tracks' minimums, which still overflowed well
+ * above the 320px floor this shell must survive (Task 3 review Important 2). Task 8 owns the
+ * real phone composition (hiding the diagram, one-tap confirm); this only keeps the frame from
+ * breaking in the meantime.
+ */
+.regionGrid {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--co-space-10);
+}
+
+@media (min-width: 90rem) {
+  .regionGrid {
+    grid-template-columns: 14rem minmax(38rem, 1fr) 23rem;
+  }
+}
+
+.queueRegion {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  padding: var(--co-space-12);
+}
+
+/* The 14rem queue column is too narrow for "Priority queue" and the open-movement count to
+   share one line without the heading wrapping mid-word; stack them instead of fighting for
+   width. */
+.queueRegion .regionHeader {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--co-space-2);
+}
+
+.queueList {
+  display: grid;
+  min-height: 0;
+  gap: var(--co-space-6);
+  overflow-y: auto;
+}
+
+.queueRow,
+.queueRowSelected {
+  display: grid;
+  width: 100%;
+  min-height: var(--co-space-48);
+  gap: var(--co-space-2);
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--co-space-6) var(--co-space-8);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+
+.queueRow:hover {
+  background: var(--surface-subtle);
+}
+
+.queueRowSelected {
+  border-color: var(--clinical-accent-border);
+  background: var(--clinical-accent-soft);
+  box-shadow: var(--shadow-inset);
+}
+
+.queueRow strong,
+.queueRowSelected strong {
+  color: var(--text-heading);
+  font-size: var(--text-2xs);
+}
+
+.queueRow span,
+.queueRowSelected span {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--co-leading-body);
+}
+
+.diagramRegion,
+.shortlistRegion {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  padding: var(--co-space-14);
+}
+
+.shortlistColumn {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+
+.shortlistColumn > .shortlistRegion {
+  width: 100%;
+}
+
+.placeholder {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--co-leading-prose);
+}
+
+.exceptionsDrawer {
+  border-top: 0.0625rem solid var(--border);
+  background: var(--surface-chrome);
+  padding: var(--co-space-8) var(--co-space-20);
+}
+
+.exceptionsToggle {
+  display: inline-flex;
+  min-height: var(--co-space-48);
+  align-items: center;
+  gap: var(--co-space-8);
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 0 var(--co-space-14);
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.exceptionsToggle svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--clinical-accent);
+}
+
+.exceptionsDrawer[data-open="true"] .placeholder {
+  margin-top: var(--co-space-8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .queueRowSelected {
+    border: 0.125rem solid Highlight;
+  }
+}

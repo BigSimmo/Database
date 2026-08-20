@@ -53,6 +53,15 @@ where created_at > now() - interval '24 hours'
 group by 1;
 ```
 
+### Database latency — Sentry production DB span SLO (#183)
+
+Sentry metric alert criteria for production database query span duration. Guards against unindexed queries, table locks, RPC latency spikes, and connection pool exhaustion:
+
+- **Metric:** `transaction.duration` / span duration for `span.op:db` spans in environment `production`.
+- **SLO:** p95 ≤ 500 ms over a 5-minute rolling evaluation window.
+- **Warn / Alert:** p95 > 500 ms over 5 minutes.
+- **Operational context:** Sustained breaches indicate Postgres RPC regression (such as unindexed embedding comparisons or table scans) or lock contention. Investigate via Supabase database insights, query performance metrics, and `search_schema_health()`. Requires `SENTRY_AUTH_TOKEN` for programmatic alert provisioning (#183).
+
 ### Quality — source-gap rate
 
 Share of answered queries whose confidence collapsed to a gap
@@ -124,6 +133,26 @@ probe also counts legacy `fallback_reason ILIKE '%generation_fallback:%'` rows s
 recent pre-flag provider failures remain visible until they age out. Keep `degraded` for
 the broader source-only UI state and `fallback_reason` as diagnostic detail;
 neither is narrow enough for provider health on its own.
+
+### Sentry Production DB Span SLO (#183)
+
+Production database query spans instrumented via Sentry PostgREST tracing
+(`src/lib/observability/supabase-tracing.ts`) capture execution latency for
+database RPCs and table queries without recording sensitive query parameters or
+clinical text (`docs/error-tracking.md`).
+
+- **Target / Filter:** Production database query spans (`span.op:db` where
+  `environment: production`).
+- **SLO:** Database query span duration p95 ≤ 500 ms under normal production load.
+- **Metric alert criteria:** Sentry metric alert triggers when production
+  database query span `p95(span.duration) > 500ms` over a **5-minute rolling window**.
+- **Triage & Diagnostics:**
+  - Check Sentry Queries dashboard (**Dashboards → Sentry Built → Queries** and
+    **Explore → Traces**) to identify slow database operations, unindexed query
+    scans, connection pool exhaustion, or transaction lock contention.
+  - Cross-reference with `/api/health?deep=1` degradation counters (`slo`,
+    `cache`, `coalescing`) and Supabase project metrics to isolate backend query
+    slowdowns from application-layer bottlenecks.
 
 ## 3. Weekly production eval canary
 
@@ -233,6 +262,28 @@ regression triage does not relearn them:
   run-over-run metric table (and `--case <id>` a per-case rr trend) from
   downloaded artifacts — the durable trend record without any new
   infrastructure.
+
+### 3.2 Canary Latency & Cost SLOs (#305)
+
+The weekly production canary evaluation (`.github/workflows/eval-canary.yml`)
+tracks multi-stage retrieval latency against hard budgets and computes un-cached
+cost lower bounds:
+
+- **Retrieval Latency Budget (p90 ≤ 20 s):** Multi-stage retrieval evaluation
+  enforces an explicit latency budget of **p90 ≤ 20 s** across all evaluated cases
+  (with a 25 s per-case timeout ceiling). Answer generation flows nearing this
+  threshold risk triggering `OPENAI_ANSWER_TIMEOUT_MS` (30 s) timeouts and
+  falling back into degraded source-only responses.
+- **Canary Cold Cost Lower Bounds:**
+  - The weekly canary executes 36 committed retrieval cases (plus captured
+    cases; embedding API calls occur only on forced-vector probes) and generates
+    answers for 44 golden cases.
+  - Cost metrics reported by the canary reflect a **cold lower bound** on
+    execution costs because the CI runner runs without pre-warmed in-memory or
+    shared response caches.
+  - Telemetry rows are recorded in `rag_queries` for timing and routing
+    analysis, but all evaluation queries are non-mutating and preserve
+    underlying knowledge base state.
 
 ## 4. Degradation counters on `/api/health` (shipped)
 

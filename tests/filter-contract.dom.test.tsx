@@ -14,16 +14,16 @@ afterEach(() => {
 });
 
 describe("filter contract and density rendering", () => {
-  it("renders facet groups with <= 5 options as compact wrapping chips", () => {
+  it("renders facet groups with <= 5 UNCOUNTED options as compact wrapping chips", () => {
     const onToggle = vi.fn();
     const group = resultFilterFacetGroup({
       id: "small-facet",
       label: "Category",
       selected: new Set(["a"]),
       options: [
-        { value: "a", label: "Option A", hint: "3" },
-        { value: "b", label: "Option B", hint: "5" },
-        { value: "c", label: "Option C", hint: "2" },
+        { value: "a", label: "Option A" },
+        { value: "b", label: "Option B" },
+        { value: "c", label: "Option C" },
       ],
       onToggle,
     });
@@ -44,6 +44,54 @@ describe("filter contract and density rendering", () => {
     expect(buttonA.className).toContain("inline-flex");
     expect(buttonA.className.split(/\s+/)).not.toContain("w-full");
     expect(buttonA.className).toContain("min-h-tap");
+  });
+
+  // A chip carrying a count is wide enough that four of them wrap one per line
+  // and leave most of each row empty — documents' Source status (4 options) and
+  // Clinical validation (3) were exactly that. Counted groups of 2–5 therefore
+  // use the row renderer in two columns instead. See docs/filter-contract.md §5.
+  it("renders facet groups with 2–5 COUNTED options as two-column rows, not chips", () => {
+    const onToggle = vi.fn();
+    const group = resultFilterFacetGroup({
+      id: "counted-facet",
+      label: "Source status",
+      selected: new Set(["current"]),
+      options: [
+        { value: "current", label: "Current", hint: "12 loaded sources", hintLabel: "12" },
+        { value: "review_due", label: "Review due", hint: "3 loaded sources", hintLabel: "3" },
+        { value: "outdated", label: "Outdated", hint: "1 loaded source", hintLabel: "1" },
+        { value: "unknown", label: "Unknown", hint: "0 loaded sources", hintLabel: "0" },
+      ],
+      onToggle,
+    });
+
+    render(
+      <ResultFilterSheet
+        open={true}
+        onClose={vi.fn()}
+        panelId="counted-filter-panel"
+        testId="counted-filter-panel"
+        title="Filter documents"
+        groups={[group]}
+      />,
+    );
+
+    const groupEl = screen.getByRole("group", { name: "Source status" });
+    // Two-up only where a column can hold a label; the narrowest phones stay
+    // single-column rather than truncating one.
+    expect(groupEl.className).toContain("grid-cols-1");
+    expect(groupEl.className).toContain("min-[380px]:grid-cols-2");
+
+    const current = screen.getByRole("button", { name: /^Current/ });
+    expect(current.className).toContain("w-full");
+    expect(current.className.split(/\s+/)).not.toContain("inline-flex");
+    // The phone floor is 48px and the pointer floor is the filter system's 40px.
+    expect(current.className).toContain("min-h-tap");
+    expect(current.className).toContain("sm:min-h-10");
+
+    // The announced name keeps the unit; only the visible column is shortened.
+    expect(current).toHaveAccessibleName("Current (12 loaded sources)");
+    expect(current).toHaveTextContent(/^Current12$/);
   });
 
   it("renders facet groups with 6–20 options as dense full-width vertical list with right-aligned counts", async () => {
