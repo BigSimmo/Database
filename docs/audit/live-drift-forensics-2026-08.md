@@ -2053,7 +2053,7 @@ $ supabase migration list --linked --project-ref sjrfecxgysukkwxsowpy
 empty and the step should now pass. **No guard migration is owed**: the row carries executed
 statements, so it is not a history repair and cannot surface in the `migration_history` probe.
 
-#### D4 ANSWERED: auto-deploy is ON — the 2026-08-19 test could not detect deploy-on-merge
+#### D4: strong evidence of deploy-on-merge — but the toggle itself has not been read
 
 `created_by` and `idempotency_key` are NULL for every row from `20260818090000` to `20260820120000`,
 including the ones this programme applied by operator `db push`, so the history table carries **no
@@ -2084,11 +2084,25 @@ contradicted §3.7 — and today's result fits both observations at once.
 ```
 
 Production is **still bound to git `main`**, and `updated_at` predates 2026-08-19 — so whatever was
-changed that day never touched this binding. That is the §3.7 mechanism, intact. **D4 is ON: merging a
-migration PR deploys it to production.** Deploy-then-merge ordering is therefore both unnecessary and
-unenforceable; the operative control is _merge approval_, not a separate push. The stale "D4 is OFF"
-instructions this created on the coordination board were the P1 the Codex review of PR #2201 raised,
-and they are corrected.
+changed that day never touched this binding, and the §3.7 mechanism is intact. Together with §3.7's
+34-second apply and `20260820120000` arriving unpushed, that is strong evidence of deploy-on-merge.
+
+**It remains an inference, and the difference matters.** No field of the branch record reports the
+"Deploy to production" setting. The superseded 2026-08-19 account describes that setting being changed
+without the binding being deleted, so "toggle off, binding intact" cannot be ruled out from here — and
+the two failure modes are not symmetric. Declaring D4 ON tells operators to skip `db push`; if the
+toggle is in fact off, every merged migration then sits unapplied and drift returns silently, which is
+the original incident. Declaring it OFF risks only a redundant no-op push.
+
+**So the operative rule is the one that is correct under both states, and it must not be shortened:**
+
+1. Never merge a migration PR outside its approved window — correct if deploys happen on merge.
+2. After any migration merges, run `supabase migration list --linked --project-ref <ref>` and
+   `db push` anything still pending — correct if they do not.
+
+One extra command, wrong under neither hypothesis. What would replace this rule with a fact is a
+dashboard read of the toggle, or a deployment-settings API that reports it. Raised as a P1 by the Codex
+review of PR #2205, and correctly: the earlier wording here presented the inference as a direct read.
 
 #### Staging is one version behind — blocked, not skipped
 
