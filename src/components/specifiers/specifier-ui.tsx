@@ -234,15 +234,7 @@ export function SpecifierSafetyNote({
   );
 }
 
-export function SectionHeading({ eyebrow, title, body }: { eyebrow?: string; title: string; body?: string }) {
-  return (
-    <header className="grid gap-1.5">
-      {eyebrow ? <p className={eyebrowText}>{eyebrow}</p> : null}
-      <h2 className="text-xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-2xl">{title}</h2>
-      {body ? <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">{body}</p> : null}
-    </header>
-  );
-}
+export { SectionHeading } from "@/components/ui/section-heading";
 // ── Catalog additions (small stylistic upgrades borrowed from the Specifiers v2 design) ──
 
 type CategoryTone = { color: string; background: string; borderColor: string };

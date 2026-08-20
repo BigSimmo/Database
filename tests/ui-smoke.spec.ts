@@ -808,10 +808,15 @@ async function openMobileClinicalGuideMenu(page: Page) {
       .evaluateAll((links) => links.map((link) => ({ name: link.textContent, href: link.getAttribute("href") }))),
   ).toEqual([
     { name: "Answer", href: "/?mode=answer" },
+    // Documents owns a real home: the shell mounts ClinicalDashboard for
+    // /documents, so it paints browse and recent documents rather than the
+    // shared hero. Every other consolidated mode links at the shared home
+    // directly — pointing a pinned entry at its old bare path would spend a
+    // 307 arriving in the same place.
     { name: "Documents", href: "/documents" },
-    { name: "Services", href: "/services" },
+    { name: "Services", href: "/?mode=services" },
     { name: "Medication", href: "/medications" },
-    { name: "Factsheets", href: "/factsheets" },
+    { name: "Factsheets", href: "/?mode=factsheets" },
     { name: "Tools", href: "/tools" },
   ]);
   await expect(navigation.getByRole("button", { name: "More modes" })).toBeVisible();
@@ -895,10 +900,8 @@ async function openGuide(page: Page) {
   await expect(settings).toBeVisible({ timeout: uiAssertionTimeoutMs });
   await settings.getByRole("button", { name: "Guide & help", exact: true }).click();
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByPlaceholder("Search the guide")).toBeVisible();
   await expect(dialog.getByRole("heading", { name: "How to verify an answer" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Verify an answer" })).toBeVisible();
-  await expect(dialog.getByText("3-minute guided tour")).toBeVisible();
   await expectNoPageHorizontalOverflow(page);
   return dialog;
 }
@@ -1356,9 +1359,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/documents" },
-      { name: "Services", href: "/services" },
+      { name: "Services", href: "/?mode=services" },
       { name: "Medication", href: "/medications" },
-      { name: "Factsheets", href: "/factsheets" },
+      { name: "Factsheets", href: "/?mode=factsheets" },
       { name: "Tools", href: "/tools" },
     ]);
     expect(
@@ -1444,9 +1447,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    await gotoApp(page, "/documents");
+    // The Documents workspace lives at its search route since consolidation, and
+    // the dashboard only mounts it for a submitted query; `/documents` itself
+    // redirects to the shared home.
+    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
     await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
-    await expect(page.getByTestId("document-search-workspace")).toBeVisible();
+    await expect(page.getByTestId("document-search-workspace")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
   });
 
@@ -1581,7 +1587,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       element.scrollTop = element.scrollHeight;
       element.style.scrollBehavior = previous;
     });
-    await expect(settings.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
+    await expect(settings.getByRole("button", { name: "Development", exact: true })).toHaveAttribute(
       "aria-current",
       "true",
     );
@@ -3276,7 +3282,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
 
     await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1&run=1");
-    await expect(page).toHaveURL(/\/differentials\?q=acute\+confusion&focus=1&run=1$/);
+    await expect(page).toHaveURL(/\/differentials\/search\?q=acute\+confusion&focus=1&run=1\b/);
     // Submitted differentials deep links resolve to the standalone results
     // surface (`autoRunSearch`), not the mode-home template. Production
     // hydration can briefly overlap the outgoing server tree and the settled
@@ -3313,7 +3319,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
     // The breadcrumb row went with the in-page header: its back control is the
     // one route out to the mode home, and a breadcrumb under it is a second.
-    await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/dsm");
+    // The one route out of a record is the mode home, which is the shared home now.
+    await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/?mode=dsm");
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -3384,7 +3391,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=specifiers&q=anxious+distress&focus=1&run=1");
 
     // /?mode=specifiers → /specifiers (Specifiers is its own mode, distinct from Formulation)
-    await expect(page).toHaveURL(/\/specifiers\?q=anxious\+distress&focus=1&run=1$/);
+    await expect(page).toHaveURL(/\/specifiers\/search\?q=anxious\+distress&focus=1&run=1\b/);
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { level: 1, name: "anxious distress" })).toBeVisible();
     await expect(queryRibbon.getByRole("group", { name: "Filter specifier results" })).toBeVisible();
@@ -3395,7 +3402,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=formulation&q=I+keep+going+over+it&focus=1&run=1");
 
-    await expect(page).toHaveURL(/\/formulation\?q=I\+keep\+going\+over\+it&focus=1&run=1$/);
+    await expect(page).toHaveURL(/\/formulation\/search\?q=I\+keep\+going\+over\+it&focus=1&run=1\b/);
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { level: 1, name: "I keep going over it" })).toBeVisible();
     await expect(queryRibbon.getByRole("group", { name: "Filter formulation mechanisms" })).toBeVisible();
@@ -4090,7 +4097,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
       expect(Math.max(...actionGeometry.widths) - Math.min(...actionGeometry.widths)).toBeLessThanOrEqual(1);
       expect(actionGeometry.actionFontSize).toBe(actionGeometry.expectedActionFontSize);
       expect(actionGeometry.actionDirection).toBe("row");
-      expect(actionGeometry.actionFontWeight).toBe("800");
+      // 600, not 800. The result cards spend hierarchy on size and space rather
+      // than weight (one accent per card), so the action rail reads at the same
+      // semibold as the title above it. Still pinned: an un-weighted action rail
+      // is what this assertion exists to catch.
+      expect(actionGeometry.actionFontWeight).toBe("600");
       for (const action of await documentResults.getByTestId("document-result-actions").locator(":scope > *").all()) {
         await expectMinTouchTarget(action, 48);
       }
@@ -5059,7 +5070,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("non-answer phone header keeps the in-flow collapse hide", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockDemoApi(page);
-    await gotoApp(page, "/documents");
+    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
 
     const header = page.locator("header.universal-header");
     const collapseHost = page.getByTestId("universal-header-collapse");
@@ -5414,7 +5425,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
   }
 
-  test("guide centre search, topic navigation, and tour progress remain accessible", async ({ page }) => {
+  test("guide centre topic navigation and tour progress remain accessible", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
     await mockPrivateUnauthenticatedApi(page);
@@ -5430,19 +5441,38 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await expect(mobileFooter).toHaveAttribute("aria-hidden", "true");
     await expect(mobileFooter).toHaveAttribute("inert", "");
-    await expect(mobileHeader).toHaveAttribute("aria-hidden", "true");
-    await expect(mobileHeader).toHaveAttribute("inert", "");
+    // Only the dock hides. The header is pinned so "Close guide" and the view
+    // tabs stay reachable however far the reader has scrolled.
+    await expect(mobileHeader).toHaveAttribute("aria-hidden", "false");
+    await expect(mobileHeader).not.toHaveAttribute("inert");
+    await expect(dialog.getByRole("button", { name: "Close guide" })).toBeVisible();
 
-    // The hidden mobile header and footer must not be reachable by keyboard
-    // tabbing. Close guide now lives in the header, which is itself inert
-    // while hidden, so start from a content control instead.
-    await dialog.getByRole("button", { name: "Ask a better question" }).focus();
-    const tabStopCount = await dialog.locator('button, input, [href], [tabindex]:not([tabindex="-1"])').count();
-    for (let tabIndex = 0; tabIndex <= tabStopCount; tabIndex += 1) {
-      await page.keyboard.press("Tab");
-      await expect.poll(() => mobileFooter.evaluate((element) => element.contains(document.activeElement))).toBe(false);
-      await expect.poll(() => mobileHeader.evaluate((element) => element.contains(document.activeElement))).toBe(false);
-    }
+    /**
+     * The invariant is that a HIDDEN dock is not keyboard-reachable, and the way
+     * to test it is to try to focus it directly. The old tab sweep could not:
+     * tabbing scrolls the container, and a scroll back up legitimately reveals
+     * the dock. Measured 2026-08-19 at 390x820, the very first Tab already put
+     * `scrollTop` at 0 and `aria-hidden` at "false", so the sweep asserted
+     * against a dock that was correctly visible and focusable every time — it
+     * failed CI while testing nothing. (It is also why pinning `tabIndex={-1}`
+     * on the dock buttons could not fix it.)
+     */
+    const dockWhileHidden = await mobileFooter.evaluate((element) => {
+      const button = element.querySelector("button");
+      const before = document.activeElement;
+      button?.focus({ preventScroll: true });
+      return {
+        hidden: element.getAttribute("aria-hidden") === "true",
+        inert: element.hasAttribute("inert"),
+        focusMovedIntoDock: element.contains(document.activeElement),
+        focusMovedAtAll: document.activeElement !== before,
+      };
+    });
+    // Guard the guard: a dock that was not hidden would make the rest vacuous.
+    expect(dockWhileHidden.hidden).toBe(true);
+    expect(dockWhileHidden.inert).toBe(true);
+    expect(dockWhileHidden.focusMovedIntoDock).toBe(false);
+    expect(dockWhileHidden.focusMovedAtAll).toBe(false);
 
     await guideScrollBody.evaluate((element) => {
       element.scrollTop = 0;
@@ -5450,14 +5480,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await expect(mobileFooter).toHaveAttribute("aria-hidden", "false");
     await expect(mobileFooter).not.toHaveAttribute("inert");
-    const search = dialog.getByPlaceholder("Search the guide");
-    await search.fill("privacy");
-    await expect(dialog.getByText(/topics? found for “privacy”\./)).toBeVisible();
-    await dialog.getByRole("button", { name: /Privacy and safe use/ }).click();
+    // The dock carries the guided tour and nothing else — no composer, no input.
+    await expect(dialog.locator("[data-guide-universal-search]")).toHaveCount(0);
+    await expect(dialog.locator("input")).toHaveCount(0);
+
+    await dialog.getByRole("button", { name: "All topics" }).click();
+    await dialog.getByRole("button", { name: /Privacy & safe use/ }).click();
     await expect(dialog.getByRole("heading", { name: "Privacy and safe use" })).toBeFocused();
 
     await dialog.getByRole("button", { name: "Guide home" }).click();
-    await dialog.getByRole("button", { name: "Start guided tour" }).first().click();
+    await dialog.getByRole("button", { name: "Start guided tour" }).click();
     await expect(dialog.getByRole("heading", { level: 2, name: "The evidence-first workflow" })).toBeFocused();
     await dialog.getByRole("button", { name: "Continue" }).click();
     await expect(dialog.getByRole("heading", { level: 2, name: "Ask for one decision at a time" })).toBeFocused();
@@ -5475,8 +5507,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await dialog.getByRole("button", { name: "Close guide" }).click();
     await expect(dialog).toBeHidden();
     const reopenedDialog = await openGuide(page);
-    await expect(reopenedDialog.getByPlaceholder("Search the guide")).toHaveValue("");
-    await reopenedDialog.getByRole("button", { name: "Resume guided tour" }).first().click();
+    await reopenedDialog.getByRole("button", { name: "Resume guided tour" }).click();
     await expect(
       reopenedDialog.getByRole("heading", { level: 2, name: "Ask for one decision at a time" }),
     ).toBeFocused();

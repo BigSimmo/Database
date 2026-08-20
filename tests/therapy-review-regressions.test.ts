@@ -29,16 +29,53 @@ describe("Therapy review regression contracts", () => {
     );
   });
 
-  it("keeps Therapy unavailable in production until clinical review is complete", () => {
+  // Replaces the former "keeps Therapy unavailable in production" contract. That
+  // gate hid the mode and 404'd all 205 records for real users; the owner's
+  // decision is to ship the library with its review state disclosed. These
+  // assertions pin the disclosure so the caveat cannot be dropped once the mode
+  // is reachable — the reachability half is pinned in tests/app-modes.test.ts.
+  it("keeps Therapy reachable with its review state disclosed instead of hidden", () => {
     const layout = source("src/app/(search-app)/therapy-compass/layout.tsx");
     const modes = source("src/lib/app-modes.ts");
     const therapies = source("src/lib/therapies.ts");
 
-    expect(layout).toContain('isAppModeVisible("therapy-compass", "production")');
-    expect(layout).toContain("notFound()");
-    expect(modes).toMatch(/id: "therapy-compass"[\s\S]*?devOnly: true/);
-    expect(therapies).toContain('environment === "production"');
-    expect(therapies).toContain("therapyNeedsReview(record)");
+    // No environment gate may reappear on the route or the catalogue.
+    expect(layout).not.toContain("notFound()");
+    expect(modes).not.toMatch(/id: "therapy-compass"[\s\S]*?devOnly: true/);
+    expect(therapies).not.toContain('environment === "production"');
+    // Review status must survive as a label, not be deleted along with the gate.
+    expect(therapies).toContain("export function therapyNeedsReview");
+  });
+
+  it("keeps the catalogue-wide review notice on the Therapy library, above the hero", () => {
+    const notice = source("src/components/therapy-compass/therapy-review-notice.tsx");
+    const home = source("src/components/therapy-compass/screens/home-screen.tsx");
+
+    expect(notice).toContain('role="note"');
+    expect(notice).toContain("THERAPY_CATALOGUE_SUMMARY.needsReviewCount");
+    expect(notice).toContain("No therapy record in this library has completed clinician review yet.");
+    // Non-interactive: a caveat the reader can dismiss is not a caveat.
+    expect(notice).not.toContain("<button");
+    expect(notice).not.toContain("onClick");
+    // Above the hero, not buried in the quiet footer line.
+    expect(home).toContain("<TherapyReviewNotice");
+    expect(home.indexOf("<TherapyReviewNotice")).toBeLessThan(home.indexOf("<ModeHomeTemplate"));
+  });
+
+  it("keeps the per-record review badge on every Therapy surface that shows a record", () => {
+    for (const path of [
+      "src/components/therapy-compass/therapy-card.tsx",
+      "src/components/therapy-compass/screens/detail-screen.tsx",
+      "src/components/therapy-compass/screens/brief-screen.tsx",
+      "src/components/therapy-compass/screens/sheets-screen.tsx",
+      "src/components/therapy-compass/screens/compare-screen.tsx",
+      "src/components/therapy-compass/screens/pathways-screen.tsx",
+    ]) {
+      expect(source(path), `${path} must still surface reviewStatus`).toContain("reviewStatus");
+    }
+    // Discovery outside the mode carries it too, so an unreviewed therapy is
+    // flagged in universal search rather than only on its own page.
+    expect(source("src/lib/universal-search.ts")).toContain("Needs source review");
   });
 
   it("adds the favourites check without validating existing rows in the same migration", () => {

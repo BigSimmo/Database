@@ -123,22 +123,25 @@ How `check:drift` treats it (`scripts/check-drift.ts`):
   repo-ahead mechanism, not a special case. Deployment is a separately approved
   production migration window (plan approval map, Phase 6.1, after Phase 4).
 
-**Expected first live run after deployment.** Only five versions are seeded in
-the allowlist (below); the remaining §1.1 rows — `20260701040000
-drop_dead_drifted_hybrid_variants`, `20260702100000
-add_claim_ingestion_jobs_comment`, `20260702110000 drop_redundant_indexes`,
-`20260702120000 rag_retrieval_logs_retention`, `20260702130000
-storage_cleanup_jobs_document_fk`, `20260702140000
-fix_reset_document_index_duplicate`, `20260702150000
-documents_owner_covering_index`, `20260702160000 fix_invoke_agent_url_to_guc`,
-`20260702180000 promote_index_generation_id_columns`, and the 2026-07-12 batch
-`20260712165915`…`20260712173000` — have **no repo-provable guard** and will be
-reported as findings. That is the intended behaviour ("a history-repair row
-without a validating guard migration becomes permanent, visible drift"); the
-follow-up is to author fail-fast guard migrations for them (Phase 4.4 batches
-cover the index ones) and allowlist each with a `validation` guard, not to
-allowlist them bare. Versions the live probe does not report surface as stale
-entries, which is how a wrong seed is caught.
+**Live state after Phase 6.2 (2026-08-19).** The probe went live on production on
+2026-08-18 (forensics §3.7) and reported exactly twenty no-statements rows: the
+2026-07-01…07-02 cluster and the 2026-07-12 batch of §1.1. All twenty are now
+covered — five seeded `superseded` entries (`20260701010000`, `020000`, `030000`,
+`060000`, `20260702000000`) and fifteen `validation` entries pointing at the six
+Phase 6.2 guard migrations `20260819110000`…`20260819110500` (dropped objects,
+comments + retention cron, document foreign keys, operational index shapes, the
+`index_generation_id` promotion, function bodies; see forensics §"6.2
+completion" for the per-version classification). Those guards were applied to
+production by a real `supabase db push` and to staging by the Phase 2 method, so
+their own history rows carry statements and can never themselves surface in the
+probe. **Any `[migration_history] no_statements` line from now on is therefore
+new history repair**, not known backlog: it means someone marked a version
+applied without executing it and without shipping a guard — the exact event the
+contract forbids. Treat it as a P1 finding: author the guard first, never
+allowlist bare. Versions the live probe does not report surface as stale
+entries, which is how a wrong seed is caught; against staging every
+`migration_history` entry reads stale by design (staging's chain was replayed
+with statements), so never run `--prune-stale` there.
 
 ## Guard-migration contract
 

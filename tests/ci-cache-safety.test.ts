@@ -234,6 +234,32 @@ describe("CI cache safety", () => {
     });
     expect(pushTrigger).toContain('branches: [main, "release/**"]');
   });
+
+  it("guards against in-flight CI cancellation churn during PR branch sync (#TF6TPJ)", async () => {
+    const { classifyPr, hasRequiredCiInFlight } = await import("../scripts/sync-pr-branches.mjs");
+    expect(hasRequiredCiInFlight({ workflow_runs: [{ name: "CI", status: "in_progress" }] })).toBe(true);
+    expect(hasRequiredCiInFlight({ workflow_runs: [{ name: "CI", status: "queued" }] })).toBe(true);
+    expect(hasRequiredCiInFlight({ workflow_runs: [{ name: "CI", status: "pending" }] })).toBe(true);
+    expect(hasRequiredCiInFlight({ workflow_runs: [{ name: "CI", status: "completed" }] })).toBe(false);
+    expect(classifyPr({ title: "feature", labels: [], requiredCiInFlight: true }, 5)).toEqual({
+      action: "skip",
+      reason: "required-ci-in-flight",
+    });
+  });
+
+  it("guards PR branches against in-flight CI cancellation during push (#HSSHRG)", async () => {
+    const { inFlightCiVerdict, findInFlightCiRuns } = await import("../scripts/guard-push.mjs");
+    const activeRuns = [{ name: "CI", status: "in_progress", conclusion: null }];
+    expect(findInFlightCiRuns(activeRuns)).toHaveLength(1);
+    expect(inFlightCiVerdict("claude/my-branch", { state: "OPEN", number: 99 }, activeRuns)).toEqual({
+      block: true,
+      reason: "required-ci-in-flight",
+      number: 99,
+      runs: activeRuns,
+    });
+    const prePushHook = readFileSync(new URL("../.githooks/pre-push", import.meta.url), "utf8");
+    expect(prePushHook).toContain("SKIP_IN_FLIGHT_CI_GUARD=1");
+  });
 });
 
 /*

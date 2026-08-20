@@ -34,52 +34,7 @@ export function ProductSection({
   );
 }
 
-export function SectionHeading({
-  id,
-  title,
-  description,
-  icon: Icon,
-  action,
-  compact = false,
-  stackActionOnCompact = false,
-}: {
-  id?: string;
-  title: string;
-  description?: string;
-  icon?: LucideIcon;
-  action?: ReactNode;
-  compact?: boolean;
-  stackActionOnCompact?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex min-w-0 items-start justify-between gap-4",
-        stackActionOnCompact && "flex-col sm:flex-row",
-        compact ? "px-4 py-3" : "px-5 py-4 sm:px-6",
-      )}
-    >
-      <div className="flex min-w-0 items-start gap-3">
-        {Icon ? (
-          <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-[var(--radius-md)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] forced-colors:border forced-colors:border-[CanvasText]">
-            <Icon aria-hidden="true" className="size-icon-md" />
-          </span>
-        ) : null}
-        <div className="min-w-0">
-          <h2 id={id} className="text-lg font-semibold tracking-tight text-[color:var(--text-heading)]">
-            {title}
-          </h2>
-          {description ? (
-            <p className="mt-1 max-w-[var(--measure)] text-sm leading-5 text-[color:var(--text-muted)]">
-              {description}
-            </p>
-          ) : null}
-        </div>
-      </div>
-      {action ? <div className={cn("shrink-0", stackActionOnCompact && "w-full sm:w-auto")}>{action}</div> : null}
-    </div>
-  );
-}
+export { SectionHeading, type SectionHeadingProps } from "@/components/ui/section-heading";
 
 export function PersonAvatar({ initials, size = "md" }: { initials: string; size?: "sm" | "md" | "lg" }) {
   return (

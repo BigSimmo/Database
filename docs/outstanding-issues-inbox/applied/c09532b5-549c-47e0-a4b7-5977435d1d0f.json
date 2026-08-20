@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c09532b5-549c-47e0-a4b7-5977435d1d0f",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Mode homes: two competing title systems disagree for 8 of 13 modes (sharedHomePresentation vs hard-coded standalone titles)",
+    "detail": "src/lib/ui-copy.ts sharedHomePresentation drives the shared home /, while each standalone *-home-page.tsx hard-codes its own title. Its doc comment claims each entry mirrors the standalone home 'so a clinician sees the same words whichever door they came through' — untrue today: Documents/Clinical Documents, Services/Clinical Services, Forms/Clinical Forms, Differentials/Differential Diagnosis, Specifiers/Diagnostic Specifiers, Formulation/Clinical Formulation, Medication/Medication Guidance, Therapy/Therapy Compass. Either derive one list from the other or correct the comment. Found during the PR #2160 cross-mode audit.",
+    "source": "PR #2160 cross-mode home audit",
+    "issueUlid": "01M0BE929PTWKWE4Q142YGCRTF"
+  }
+}

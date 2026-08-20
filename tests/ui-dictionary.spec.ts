@@ -1,8 +1,14 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "playwright/test";
 
+/*
+ * `/dictionary` is deliberately absent: it has no home of its own any more. The
+ * bare path redirects to the shared lightweight home at `/?mode=dictionary`,
+ * which is covered by the shared-home suites rather than here. The retired
+ * detailed home lives at `/mockups/dictionary-home-detailed`, which 404s in
+ * production and is out of scope for a production-route sweep.
+ */
 const routes = [
-  { path: "/dictionary", testId: "dictionary-home-main" },
   { path: "/dictionary/search?q=MSE", testId: "dictionary-search-main" },
   { path: "/dictionary/browse", testId: "dictionary-browse-main" },
   { path: "/dictionary/topics", testId: "dictionary-topics-main" },
@@ -72,7 +78,7 @@ for (const viewport of [
   { name: "phone", width: 390, height: 844 },
   { name: "compact phone", width: 320, height: 760 },
 ] as const) {
-  test(`renders all eight routes without overflow at ${viewport.name}`, async ({ page }) => {
+  test(`renders every Dictionary route without overflow at ${viewport.name}`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     for (const route of routes) await expectDictionaryRoute(page, route);
   });

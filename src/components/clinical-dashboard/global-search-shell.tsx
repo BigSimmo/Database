@@ -79,6 +79,7 @@ import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-
 import {
   desktopPageComposerSlotId,
   differentialsMobileCompareAddonSlotId,
+  modeHomeComposerReservePendingValue,
   modeHomeDesktopComposerSlotId,
 } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
@@ -159,7 +160,7 @@ export function GlobalSearchShell(props: GlobalSearchShellProps) {
           // fallback and resolved content briefly coexisted. A route-agnostic mode-home
           // skeleton (the same one `loading.tsx` shows during navigation) reserves the
           // layout so the first frame reads as "loading" instead of a blank background.
-          <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
+          <div className="min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-dvh">
             <ModeHomeRouteLoading />
           </div>
         )
@@ -419,7 +420,9 @@ function GlobalStandaloneSearchShellBody({
   const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
   const differentialsCompareAddonActive =
     searchMode === "differentials" &&
-    (pathname === "/differentials/diagnoses" || (pathname === "/differentials" && hasSubmittedModeSearch));
+    // `/differentials` is absent on purpose: it redirects to the shared home, so a
+    // branch naming it can never be true and would only read as live ownership.
+    (pathname === "/differentials/diagnoses" || pathname === "/differentials/search");
   // No shell-owned route claims the Patient details dock addon. `/medications`
   // is a standalone mode home (composer in the hero, no dock to portal into),
   // and `/medications/[slug]` already opens the same sheet from its own nav
@@ -888,6 +891,7 @@ function GlobalStandaloneSearchShellBody({
             onCrossModeSearch={crossModeSearch}
             headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
             mobileSearchPlacement="bottom"
+            mobileHomeComposerPlacement={mobileHomeComposerPlacement}
             // Every phone dock is the compact single-row pill so content keeps
             // maximum screen space (mode homes and result views alike).
             mobileBottomSearchVariant="compact"
@@ -986,7 +990,8 @@ function GlobalStandaloneSearchShellBody({
               <DesktopComposerPortalSlot
                 id={desktopPageComposerSlotId}
                 data-testid="desktop-page-search-composer-slot"
-                className="hidden sm:block sm:empty:hidden"
+                data-composer-reserve={modeHomeComposerReservePendingValue}
+                className="hidden sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
               />
             ) : null}
             {/*

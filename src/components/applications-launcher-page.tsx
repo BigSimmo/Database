@@ -36,7 +36,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { TOOL_AREA_LABEL, toolIdentity } from "@/lib/category-identity";
 import { categoryGlyph } from "@/lib/category-identity-icons";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { modeHomeComposerReservePendingValue, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { useAuthSession } from "@/lib/supabase/client";
 import {
   toolCatalogRecordsForSession,
@@ -70,14 +70,16 @@ const statusLabels: Record<LauncherStatus, string> = {
 };
 
 // Glyph and accent both come from `src/lib/category-identity.ts` now. Two maps
-// used to live here — a 13-entry `launcherIconById` and an `iconToneClasses`
+// used to live here — a 14-entry `launcherIconById` and an `iconToneClasses`
 // keyed by a union of areas *and* three ad-hoc tool ids, reconciled by an
 // `appIconTone` function that overrode the area for `differentials`, `forms` and
 // `medication-prescribing`. The tools *search results* page carried its own
 // 8-entry copy with a different fallback, so five tools showed one glyph on the
 // launcher and a generic grid glyph in results, and every results tile was
 // painted the same purple regardless of area. Both surfaces now read the one
-// registry, so a tool looks like itself wherever it is reached.
+// registry, so a tool looks like itself wherever it is reached — including
+// Ward Flow's `ward-management` tool, which is keyed through the same registry
+// rather than a local map.
 function launcherAppsForSession(canAccessFavourites: boolean): LauncherApp[] {
   return toolCatalogRecordsForSession({
     authenticated: canAccessFavourites,
@@ -849,7 +851,8 @@ export function ApplicationsLauncherWorkspace({
         {desktopComposerSlotId ? (
           <DesktopComposerPortalSlot
             id={desktopComposerSlotId}
-            className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
+            data-composer-reserve={modeHomeComposerReservePendingValue}
+            className="mode-home-composer-slot hidden w-full max-w-3xl sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
           />
         ) : (
           <ToolSearch

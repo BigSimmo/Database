@@ -1,17 +1,29 @@
-import { SpecifiersHomePage } from "@/components/specifiers/specifiers-home-page";
+import { redirect } from "next/navigation";
 
-type SpecifiersRouteProps = {
-  searchParams?: Promise<{ query?: string | string[]; q?: string | string[]; run?: string | string[] }>;
+import { appModeSelectionHref } from "@/lib/app-modes";
+import { consolidatedModeHomeTargetForSearchParams } from "@/lib/consolidated-mode-home-redirect";
+
+/**
+ * `Diagnostic Specifiers` has no home page of its own any more.
+ *
+ * Every mode shares one lightweight home at `/?mode=<id>`, whose per-mode copy
+ * lives in `sharedHomePresentation` (src/lib/ui-copy.ts). This path stays so
+ * bookmarks and external deep links keep resolving, and forwards to that shared
+ * home. Submitted searches render at `/specifiers/search`; the proxy carries the
+ * query across, so a deep link never lands here without one.
+ *
+ * The previous detailed page is preserved, off the live routes, at
+ * `/mockups/specifiers-home-detailed`.
+ */
+type SpecifiersHomeRouteProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function firstSearchParam(value?: string | string[]) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-export default async function SpecifiersRoute({ searchParams }: SpecifiersRouteProps) {
+export default async function SpecifiersHomeRoute({ searchParams }: SpecifiersHomeRouteProps) {
+  // Resolved through the same helper the proxy uses, so a request that reaches
+  // this backstop lands where the proxy would have sent it — including a
+  // submitted `?q=…&run=1`, which goes on to /specifiers/search rather than
+  // arriving at the home with its query dropped.
   const params = searchParams ? await searchParams : {};
-  const query = (firstSearchParam(params.q) ?? firstSearchParam(params.query) ?? "").trim();
-  const hasSubmittedSearch = firstSearchParam(params.run) === "1" && query.length > 0;
-
-  return <SpecifiersHomePage query={query} autoRunSearch={hasSubmittedSearch} />;
+  redirect(consolidatedModeHomeTargetForSearchParams("/specifiers", params) ?? appModeSelectionHref("specifiers"));
 }

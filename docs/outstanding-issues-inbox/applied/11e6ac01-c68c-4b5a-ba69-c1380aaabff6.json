@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "11e6ac01-c68c-4b5a-ba69-c1380aaabff6",
+  "createdOn": "2026-08-19",
+  "action": "done",
+  "payload": {
+    "id": "#9DGA6R",
+    "outcome": "Resolved 2026-08-19 by PR #2170 (branch claude/docling-worker-shadow-mode-b6fa17): typed WORKER_DOCUMENT_EXTRACTOR_MODE=legacy|shadow (default legacy) + WORKER_SHADOW_EXTRACTION_COHORT_PERCENT (1-5, owner-approved 2) + WORKER_DOCLING_PYTHON_BIN; docling runs only after commitDocumentIndexGeneration on an index-quality-selected PDF cohort (tables / OCR / layout proxy), aggregate numbers-only record in documents.metadata.shadow_extraction via the existing metadata merge, no chunk/embedding/index/table-fact/document_index_quality writes, bounded 120 s / 40 pages / one process, fail-open (lost lease swallowed); docling venv + models provisioned in Dockerfile.worker from the Gate B lab lock (CI container build green); rollback WORKER_DOCUMENT_EXTRACTOR_MODE=legacy. Evidence: verify:pr-local heavy plan exit 0 (7292 tests), ingestion-worker-reviewer approve-with-nits (fixed). Both Gate B caveats carried in the PR body; enabling shadow in production is an operator Railway-variable step gated by docs/worker-deploy-runbook.md preconditions.",
+    "baseRowFingerprint": "f32eda79effa39fc7fa81d99bfe744b5204aeb857b98cfd02ec33b1017f39f03"
+  }
+}

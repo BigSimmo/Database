@@ -120,11 +120,27 @@
      client host adopts them. Without this structural reserve, Therapy moved the
      entire action stack when hydration relocated the composer (CLS 0.248).
      These are layout tokens, not a second v2 colour/theme source. */
-  /* Re-measured after the privacy notice stopped spending a full 48px tap box
-     on its own wrapped line: the settled phone composer block is 106px, so the
-     old 7.625rem (122px) left a 16px empty band under it. The wide value was
-     already exact (88px) and the notice is a single 16px line from sm up. */
-  --spacing-mode-home-composer-phone: 6.625rem;
+  /* Re-measured 2026-08-19 at 390px across six mode homes (therapy-compass,
+     dsm, forms, factsheets, specifiers, and the shared `/` home): every one
+     settles at 162px, not the 106px this reserved. The 56px difference is the
+     smart-search hint, which `UniversalSearchCommandSurface` renders INSIDE
+     this slot above the composer: a 48px hint row plus the 8px flex gap that
+     separates it from the composer (`gap-2` on `.universal-command-surface` —
+     the `gap-1` in that same expression is the bottom-dock placement, not this
+     slot). The earlier measurement counted only the composer pill plus the
+     privacy notice, before that hint existed. Under-reserving it meant the slot
+     grew on portal adoption and pushed the action and pill stacks down on every
+     ticket-bearing mode home (measured CLS: specifiers 0.055, dsm 0.047,
+     therapy 0.042, `/` 0.020, forms 0.019, factsheets 0.017). Both the hint row
+     and its gap are fixed-height on phone, so 162px is exact: the settled
+     layout is unchanged and only the pre-adoption reserve grows.
+
+     The wide value is knowingly still short (88px against a settled 160px at
+     1280 and 199px at 800). It is NOT simply raised to match: the sm+ surface
+     swaps the phone ticket for a prompt-chip row that rewraps with viewport
+     width, so no single static value is correct at every width. That needs a
+     different mechanism and is tracked separately. */
+  --spacing-mode-home-composer-phone: 10.125rem;
   --spacing-mode-home-composer-wide: 5.5rem;
 
   /* Hero medallion. Scales continuously with the viewport the way --text-hero
@@ -263,10 +279,6 @@
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
-
-  --spring-tight: cubic-bezier(0.175, 0.885, 0.32, 1.15);
-  --spring-bouncy: cubic-bezier(0.34, 1.3, 0.64, 1);
-  --spring-gentle: cubic-bezier(0.25, 1, 0.5, 1);
 
   --animate-fade-up: fade-up 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-overlay-in: overlay-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -472,12 +484,6 @@
   --z-modal: 100;
   --z-toast: 110;
   --panel-gloss: color-mix(in srgb, var(--surface-lux) 82%, transparent);
-
-  /* Motion primitives (shared by both themes). The duration values live with
-     the easing tokens lower in this block (120/180/240ms); they are not
-     redeclared here to avoid shadowed, dead definitions. */
-  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
 
   /* Selection emphasis: crisp accent ring + shadow tinted to the same hue as
      the elevation ladder (these were the last flat-grey shadows in the set). */
@@ -1107,24 +1113,6 @@ summary::-webkit-details-marker {
   :root {
     --mode-home-copy-reserve: calc(var(--text-hero) * var(--leading-display) + 0.25rem + 1.25rem);
   }
-}
-
-/* Shared-home verification reserve.
- *
- * The same jump the copy reserve above prevents, one block lower. On `/` the
- * mode pill swaps the whole page's copy in place, and each mode's
- * review-before-use caveat is a different length — measured in Chromium across
- * every entry in sharedHomePresentation, the footer renders at 0, 18, 36 or
- * 52px. Because the mode home is vertically centred, that difference moves the
- * composer: Formulation sat 8px above Specifiers at 320px before this reserve.
- *
- * Flat rather than banded, unlike the copy reserve: Calculators' caveat wraps
- * to three lines at every phone width, so a per-width band would resolve to the
- * same value three times. 3 line boxes (leading-4) + the footer's own pt-0.5 +
- * two gap-y-0.5 wrap gaps. Dead space below the shortest caveat costs nothing
- * visible — it lands inside the centring gap, with no content beneath it. */
-:root {
-  --mode-home-verification-reserve: calc(3 * 1rem + 0.125rem + 2 * 0.125rem);
 }
 
 .mode-home-composer-slot {

@@ -68,9 +68,17 @@ function main() {
     const python = venvPython(venvDir);
     run(python, ["-m", "pip", "install", "setuptools", "wheel"]);
     run(python, ["-m", "pip", "install", `pip-tools==${PIP_TOOLS_VERSION}`]);
-    run(python, ["-m", "piptools", "compile", "--generate-hashes", "--output-file", OUT_FILE, IN_FILE], {
-      env: { ...process.env, CUSTOM_COMPILE_COMMAND: GENERATE_COMMAND },
-    });
+    // --allow-unsafe pins setuptools/wheel INTO the lock. Without it pip-tools omits
+    // them as "unsafe", and the image build's `pip install --require-hashes` then
+    // refuses torch's `setuptools>=77.0.3` runtime requirement as an unpinned
+    // dependency — the exact failure of docling-lab run 32164356999 (2026-08-18).
+    run(
+      python,
+      ["-m", "piptools", "compile", "--generate-hashes", "--allow-unsafe", "--output-file", OUT_FILE, IN_FILE],
+      {
+        env: { ...process.env, CUSTOM_COMPILE_COMMAND: GENERATE_COMMAND },
+      },
+    );
     assertLockShape();
     console.log(`Generated ${OUT_FILE} for Python ${REQUIRED_PYTHON}`);
   } finally {
