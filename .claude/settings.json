@@ -203,13 +203,13 @@
   "autoMode": {
     "allow": [
       "$defaults",
-      "Bash(supabase migration list:*) and other read-only `supabase` inspection subcommands inside the BigSimmo/Database repo",
       "Bash(npm run ledger:lookup:*) in the BigSimmo/Database repo",
       "Bash(npm run verify:pr-local:*) in the BigSimmo/Database repo",
       "Bash(npm run test:focused:*) in the BigSimmo/Database repo"
     ],
     "soft_deny": [
       "$defaults",
+      "Bash(supabase migration list:*) and other read-only `supabase` inspection subcommands inside the BigSimmo/Database repo — live linked provider inspection requires confirmation",
       "Bash(supabase db push:*) and Bash(supabase db reset:*) — schema mutation against the live `Clinical KB Database` project (ref sjrfecxgysukkwxsowpy)",
       "Bash(supabase functions deploy:*) — deploying Edge Functions to the live Supabase project",
       "Bash(npm run verify:release:*) and any non-offline `npm run eval:*` — provider-backed (live Supabase + OpenAI spend)"
