@@ -4312,6 +4312,29 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
 }
 
+/* Data-handling page (/privacy) print export.
+ * The page is written to be filed in a governance pack, so a printed copy has to
+ * carry the title, the fact summary and every section heading. The transitional
+ * element-name rules above (`header`, `nav`, `button { display: none }`) would
+ * drop all three, because this page's section headings are disclosure triggers
+ * and its summary tiles are buttons. Chrome that genuinely should not print is
+ * removed by `data-print-hide` / `print:hidden` instead, and the two-column
+ * reading layout collapses to one column once the sticky index is gone.
+ * Scoped to the route so no other page's print behaviour changes. */
+@media print {
+  .privacy-page header {
+    display: block !important;
+  }
+
+  .privacy-page [data-print-keep] {
+    display: flex !important;
+  }
+
+  .privacy-page [data-print-stack] {
+    display: block !important;
+  }
+}
+
 /* Phone reserve padding animates while the short-lived reserve-transition
    marker is active (hide and reveal). Mode/route flips of
    --mobile-composer-reserve (hero ↔ dock) must snap — those clear the marker
