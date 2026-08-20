@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4ac63981-491c-4ab5-afa5-9ce319a5a10f",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#43SSS0",
+    "outcome": "Resolved 2026-08-21: verified on origin/main a341832af. --spring-tight, --spring-bouncy and --spring-gentle no longer appear in src/app/globals.css and no var(--spring-*) consumer remains anywhere in src. Residual not re-queued: the comment at src/lib/tailwind-merge.ts:42 still names --spring-* as an example.",
+    "baseRowFingerprint": "6149767334ce65fe06d8bf51484682b910d9ef0a1c78b93d49284ed1428a1130"
+  }
+}

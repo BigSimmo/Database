@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "17e75361-d767-4c72-96ea-7d1bf34959c6",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#ZF006G",
+    "outcome": "Resolved 2026-08-21 by PR #2159: verified on origin/main a341832af. src/components/ui/section-heading.tsx:42 is now the only SectionHeading definition in src; dashboard-shell, formulation-ui, specifier-ui and caring-contacts product-ui re-export it, and dictionary-sources-page and search-pins-menu import it. Five independent implementations became one shared recipe.",
+    "baseRowFingerprint": "f38c6f1947fb845da03b8d01d4a4723699d337e0ebbdaff0c7c1f9d194f64270"
+  }
+}

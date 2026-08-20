@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "29d09ba7-2ee1-4801-98a1-4e7f94644ecd",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#TAQKCN",
+    "outcome": "Resolved 2026-08-21: verified on origin/main a341832af. recommend-screen.tsx now renders the lucide <Check aria-hidden size={14} /> in the QUICK CONSTRAINTS pills, and a grep for '<svg' across src/components/therapy-compass returns no matches, so no hand-drawn glyph remains in the mode.",
+    "baseRowFingerprint": "10ef4984ff763c80ddbbf926efd5cb0974db91b1b3e33fc95631585b1042e8d9"
+  }
+}

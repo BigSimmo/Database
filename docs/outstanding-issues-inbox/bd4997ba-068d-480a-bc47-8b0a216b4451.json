@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "bd4997ba-068d-480a-bc47-8b0a216b4451",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#D6G8TC",
+    "outcome": "Resolved 2026-08-21: verified on origin/main a341832af. A grep for '<h1' across src/components/therapy-compass now returns only a comment line in compare-screen.tsx; detail-screen, other-screen and sheets-screen all render the shared PageHeader, and the generated patient-handout title in sheets-screen is an h2, so the sheet route no longer renders two h1 elements at once.",
+    "baseRowFingerprint": "b4f770cc8142bf3827911b5010d8e86f94143be98a5193efa803b556408608d0"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5ce31276-9d07-4e4b-a486-b7f41decaa87",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#JVYQEM",
+    "outcome": "Resolved 2026-08-21 for the measured phone case: commit 180db07b4 (2026-08-19) 'fix(chrome): reserve the smart-search hint in the phone mode-home composer slot' raised --spacing-mode-home-composer-phone from 6.625rem to 10.125rem, which accounts for SmartRotatingHint rendering above the composer inside the same slot. NOT re-measured: --spacing-mode-home-composer-wide is unchanged at 5.5rem and the sm+ rotating line and prompt-chip row was not checked, so raise a fresh row if a desktop shift is later observed rather than reopening this one.",
+    "baseRowFingerprint": "0bb1409b0da2428870573be1e788cef36978acc437a7c8e2c975e7813f1c928b"
+  }
+}
