@@ -26,34 +26,46 @@ Every task's requirements implicitly include all of these.
 - **Do not edit `docs/outstanding-issues.md`.** It is serial-only; `check:ledger-write-discipline` rejects direct edits.
 - **Run `npm run format` and commit the result** before any push.
 
+### Execution constraints (added 2026-08-21 after a failed first run)
+
+These cost ~3 hours and ~1.2M tokens to learn. Do not rediscover them.
+
+- **`npm run test:focused` does NOT work for these tasks.** Every task here adds a test file, and focused selection fails closed on exactly that: `Focused test selection is unsafe: test or configuration paths changed`. **Every test command in this plan is `npm run test`** (the full suite). Where a task below still shows `test:focused`, it is wrong — use `npm run test`.
+- **Pass an explicit `timeout` on every Bash call that runs tests.** The Bash tool's default is 120s and it silently moves anything longer to the background, which ends a subagent's turn. The full suite behind the run-coordinator queue always exceeds 120s. Use `timeout: 600000` — that is the cap; larger values are rejected.
+- **The full suite needs an _exclusive_ run-coordinator lease** and this machine has 25+ sibling worktrees competing for it, so expect to queue. **Never** force, bypass, or override the lock, never set `CLINICAL_KB_HEAVY_LOCK_PATH`, and never invoke vitest around `scripts/run-vitest.mjs`. Waiting is correct.
+- **Never run an install.** The controller provisions dependencies via `node scripts/setup-codex-worktree.mjs`. If a module seems missing, report it rather than installing.
+- **Verify you are in a real worktree before committing.** Run `git rev-parse --abbrev-ref HEAD` and confirm it reports `claude/developer-button-settings-fb9b51`. If it reports anything else, STOP and report — this worktree was destroyed once mid-run, after which every git command silently resolved to the main checkout on another session's branch. Committing there would have written this work into someone else's uncommitted changes.
+
 ## File Structure
 
-| File | Responsibility |
-| --- | --- |
-| `scripts/generate-outstanding-issues-snapshot.mjs` | Parse ledger + inbox + git revision → write snapshot. Owns all markdown parsing. |
-| `scripts/check-outstanding-issues-snapshot.mjs` | Regenerate in memory, compare, fail on mismatch. |
-| `data/outstanding-issues-snapshot.json` | Generated. Never hand-edited. |
-| `src/lib/developer-area/ledger-snapshot.ts` | Import the JSON, validate version, expose typed accessors + freshness. |
-| `src/lib/developer-area/hub-panels.ts` | Panel registry: one entry per panel with group, phase, target. |
-| `src/components/developer-area/developer-hub-nav-header.tsx` | `"use client"`. Owns `developerHubNavSections`, mounts `InPageNavHeader`. |
-| `src/components/developer-area/hub/environment-strip.tsx` | Environment facts row. |
-| `src/components/developer-area/hub/freshness-stamp.tsx` | Content date vs build date. Reused by later phases. |
-| `src/components/developer-area/hub/panel-card.tsx` | One panel card, live or placeholder. |
-| `src/components/developer-area/hub/ledger-item.tsx` | One ledger row with `<details>` expansion. |
-| `src/app/mockups/development/page.tsx` | Hub page (Server Component). Modified. |
-| `src/app/mockups/development/ledger/page.tsx` | Ledger page (Server Component). |
-| `src/components/clinical-dashboard/settings-dialog.tsx:1037-1054` | Rename entry to "Developer". Modified. |
+| File                                                              | Responsibility                                                                   |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `scripts/generate-outstanding-issues-snapshot.mjs`                | Parse ledger + inbox + git revision → write snapshot. Owns all markdown parsing. |
+| `scripts/check-outstanding-issues-snapshot.mjs`                   | Regenerate in memory, compare, fail on mismatch.                                 |
+| `data/outstanding-issues-snapshot.json`                           | Generated. Never hand-edited.                                                    |
+| `src/lib/developer-area/ledger-snapshot.ts`                       | Import the JSON, validate version, expose typed accessors + freshness.           |
+| `src/lib/developer-area/hub-panels.ts`                            | Panel registry: one entry per panel with group, phase, target.                   |
+| `src/components/developer-area/developer-hub-nav-header.tsx`      | `"use client"`. Owns `developerHubNavSections`, mounts `InPageNavHeader`.        |
+| `src/components/developer-area/hub/environment-strip.tsx`         | Environment facts row.                                                           |
+| `src/components/developer-area/hub/freshness-stamp.tsx`           | Ledger content date and how old it is now. Reused by later phases.               |
+| `src/components/developer-area/hub/panel-card.tsx`                | One panel card, live or placeholder.                                             |
+| `src/components/developer-area/hub/ledger-item.tsx`               | One ledger row with `<details>` expansion.                                       |
+| `src/app/mockups/development/page.tsx`                            | Hub page (Server Component). Modified.                                           |
+| `src/app/mockups/development/ledger/page.tsx`                     | Ledger page (Server Component).                                                  |
+| `src/components/clinical-dashboard/settings-dialog.tsx:1037-1054` | Rename entry to "Developer". Modified.                                           |
 
 ---
 
 ### Task 1: Snapshot generator and parser
 
 **Files:**
+
 - Create: `scripts/generate-outstanding-issues-snapshot.mjs`
 - Create: `tests/outstanding-issues-snapshot.test.ts`
 - Create (generated): `data/outstanding-issues-snapshot.json`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `buildSnapshot({ ledgerMarkdown, inboxRecords, revision }) => Snapshot`, exported from the script for testing. `Snapshot` shape is § 5 of the spec.
 
@@ -151,12 +163,46 @@ describe("buildSnapshot", () => {
     const snapshot = buildSnapshot({ ledgerMarkdown: LEDGER, inboxRecords: [], revision: null });
     expect(snapshot.ledger_revision).toBeNull();
   });
+
+  // Hazard 1: 62 of the real ledger's rows carry a ULID in an HTML comment
+  // inside the ID cell. Taking the cell verbatim breaks the queue→row join.
+  it("strips the issue-ulid HTML comment out of an ID cell", () => {
+    const withUlid = LEDGER.replace(
+      "| #316 | P1 | issue |",
+      "| #316 <!-- issue-ulid:01M0A10Q19SZGPAH22TYYY2366 --> | P1 | issue |",
+    );
+    const snapshot = buildSnapshot({ ledgerMarkdown: withUlid, inboxRecords: [], revision: REVISION });
+    const row = snapshot.open.find((item) => item.id === "#316");
+    expect(row).toBeDefined();
+    expect(row.id).not.toMatch(/<!--/);
+  });
+
+  // Hazard 2: the real ledger contains 8 escaped pipes. A naive split turns
+  // each into a column boundary and rejects a valid row as malformed.
+  it("keeps an escaped pipe inside a cell instead of splitting on it", () => {
+    const withEscapedPipe = LEDGER.replace("Route the drift check.", "Compare index a \\| index b before routing.");
+    const snapshot = buildSnapshot({ ledgerMarkdown: withEscapedPipe, inboxRecords: [], revision: REVISION });
+    expect(snapshot.counts.open).toBe(3);
+    expect(snapshot.open.find((item) => item.id === "#316").detail).toContain("index a");
+  });
+
+  // Hazard 3: `## Resolved / archive` holds three tables. A one-shot
+  // header-skip counts the 2nd and 3rd header rows as resolved items.
+  it("does not count a second archive table's header row as data", () => {
+    const twoTables = `${LEDGER}
+| ID | Type | Summary | Outcome | Resolved |
+| ---- | ----- | ----- | ----- | ---------- |
+| #337 | task | Second table row | Done | 2026-08-17 |
+`;
+    const snapshot = buildSnapshot({ ledgerMarkdown: twoTables, inboxRecords: [], revision: REVISION });
+    expect(snapshot.counts.resolved).toBe(2);
+  });
 });
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `npm run test:focused -- --files tests/outstanding-issues-snapshot.test.ts`
+Run: `npm run test` (full suite — see Execution constraints; Bash `timeout: 600000`)
 Expected: FAIL — cannot resolve `scripts/generate-outstanding-issues-snapshot.mjs`.
 
 - [ ] **Step 3: Write the generator**
@@ -172,26 +218,46 @@ const INBOX_DIR = "docs/outstanding-issues-inbox";
 const OUTPUT_PATH = "data/outstanding-issues-snapshot.json";
 export const SNAPSHOT_VERSION = "outstanding-issues-snapshot-v1";
 
+// Reuse the repo's escape-aware splitter. The ledger contains 8 escaped pipes
+// (`\|`); a naive `line.split("|")` turns each into a column boundary and the
+// row then fails the arity check as "malformed" when it is perfectly valid.
+import { splitCells } from "./outstanding-issues.mjs";
+
 const ID_PATTERN = /#[A-Za-z0-9]+/g;
+
+/**
+ * An ID cell is not just an ID. 62 of the ledger's rows carry a trailing HTML
+ * comment holding the issue ULID:
+ *   `| #SZGPAH <!-- issue-ulid:01M0A10Q19SZGPAH22TYYY2366 --> |`
+ * Taking the cell verbatim yields an "id" containing markup, which then fails
+ * to match the queue's `#SZGPAH` and silently breaks the queue→row detail join.
+ */
+function normalizeId(cell) {
+  const withoutComments = cell.replace(/<!--[\s\S]*?-->/g, " ");
+  const match = withoutComments.match(/#[A-Za-z0-9]+/);
+  if (!match) throw new Error(`Row has no parsable ID: ${cell.slice(0, 80)}`);
+  return match[0];
+}
 
 function tableRowsUnder(markdown, heading, expectedColumns) {
   const lines = markdown.split("\n");
   const start = lines.findIndex((line) => line.trim() === heading);
   if (start === -1) throw new Error(`Ledger is missing the "${heading}" heading.`);
   const rows = [];
-  let seenHeader = false;
   for (let index = start + 1; index < lines.length; index += 1) {
     const line = lines[index];
     if (line.startsWith("## ")) break;
-    if (!line.startsWith("|")) continue;
-    const cells = line.split("|").slice(1, -1).map((cell) => cell.trim());
-    if (!seenHeader) {
-      seenHeader = true;
-      continue;
-    }
+    if (!line.trim().startsWith("|")) continue;
+    const cells = splitCells(line).map((cell) => cell.trim());
+    // Per-row header detection, NOT a one-shot flag: `## Resolved / archive`
+    // holds three separate tables, and the 2nd and 3rd header rows have the
+    // same cell count as data rows, so a one-shot flag counts them as items.
+    if (cells[0] === "ID" || cells[0] === "Order") continue;
     if (cells.every((cell) => /^:?-{2,}:?$/.test(cell))) continue;
     if (cells.length !== expectedColumns) {
-      throw new Error(`Malformed row under "${heading}" at line ${index + 1}: expected ${expectedColumns} cells, got ${cells.length} — ${line.slice(0, 80)}`);
+      throw new Error(
+        `Malformed row under "${heading}" at line ${index + 1}: expected ${expectedColumns} cells, got ${cells.length} — ${line.slice(0, 80)}`,
+      );
     }
     rows.push(cells);
   }
@@ -200,7 +266,7 @@ function tableRowsUnder(markdown, heading, expectedColumns) {
 
 export function buildSnapshot({ ledgerMarkdown, inboxRecords, revision }) {
   const openRows = tableRowsUnder(ledgerMarkdown, "## Open items", 7).map((cells) => ({
-    id: cells[0],
+    id: normalizeId(cells[0]),
     priority: cells[1],
     type: cells[2],
     summary: cells[3],
@@ -218,7 +284,15 @@ export function buildSnapshot({ ledgerMarkdown, inboxRecords, revision }) {
     // pointing at an approach its row had already refuted. A composite ID cell
     // has no single row to speak for it, so it keeps the queue's Outcome cell.
     const detail = ids.length === 1 && detailById.has(ids[0]) ? detailById.get(ids[0]) : cells[6];
-    return { order: Number(cells[0]), ids, acuity: cells[2], capability: cells[3], timing: cells[4], estimate: cells[5], detail };
+    return {
+      order: Number(cells[0]),
+      ids,
+      acuity: cells[2],
+      capability: cells[3],
+      timing: cells[4],
+      estimate: cells[5],
+      detail,
+    };
   });
 
   const resolvedCount = tableRowsUnder(ledgerMarkdown, "## Resolved / archive", 5).length;
@@ -284,7 +358,7 @@ if (import.meta.url === `file://${process.argv[1]?.replace(/\\/g, "/")}`) {
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `npm run test:focused -- --files tests/outstanding-issues-snapshot.test.ts`
+Run: `npm run test` (full suite — see Execution constraints; Bash `timeout: 600000`)
 Expected: PASS, 7 tests.
 
 - [ ] **Step 5: Generate the real snapshot and eyeball it**
@@ -305,11 +379,13 @@ git commit -m "feat(developer-hub): generate the outstanding-issues snapshot at 
 ### Task 2: The staleness gate
 
 **Files:**
+
 - Create: `scripts/check-outstanding-issues-snapshot.mjs`
 - Modify: `package.json` (scripts)
 - Create: `tests/outstanding-issues-snapshot-gate.test.ts`
 
 **Interfaces:**
+
 - Consumes: `generate()` and `SNAPSHOT_VERSION` from Task 1.
 - Produces: `compareSnapshots(committed, regenerated) => string[]` — a list of human-readable differences, empty when in step.
 
@@ -322,7 +398,11 @@ git commit -m "feat(developer-hub): generate the outstanding-issues snapshot at 
 import { describe, expect, it } from "vitest";
 import { compareSnapshots } from "../scripts/check-outstanding-issues-snapshot.mjs";
 
-const BASE = { version: "outstanding-issues-snapshot-v1", counts: { open: 2, p1: 1 }, open: [{ id: "#1" }, { id: "#2" }] };
+const BASE = {
+  version: "outstanding-issues-snapshot-v1",
+  counts: { open: 2, p1: 1 },
+  open: [{ id: "#1" }, { id: "#2" }],
+};
 
 describe("compareSnapshots", () => {
   it("reports no differences when in step", () => {
@@ -345,7 +425,7 @@ describe("compareSnapshots", () => {
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `npm run test:focused -- --files tests/outstanding-issues-snapshot-gate.test.ts`
+Run: `npm run test` (full suite — see Execution constraints; Bash `timeout: 600000`)
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Write the gate**
@@ -365,7 +445,9 @@ export function compareSnapshots(committed, regenerated) {
   }
   for (const key of Object.keys(regenerated.counts)) {
     if (committed?.counts?.[key] !== regenerated.counts[key]) {
-      differences.push(`counts.${key}: committed ${committed?.counts?.[key]} vs regenerated ${regenerated.counts[key]}`);
+      differences.push(
+        `counts.${key}: committed ${committed?.counts?.[key]} vs regenerated ${regenerated.counts[key]}`,
+      );
     }
   }
   for (const key of ["queue", "open", "pending", "ledger_revision"]) {
@@ -392,7 +474,9 @@ function main() {
     console.error(`[snapshot] Fix with: ${FIX}`);
     process.exit(1);
   }
-  console.log(`[snapshot] in step with ${OUTPUT_PATH} (${regenerated.counts.open} open, ${regenerated.counts.pending} pending)`);
+  console.log(
+    `[snapshot] in step with ${OUTPUT_PATH} (${regenerated.counts.open} open, ${regenerated.counts.pending} pending)`,
+  );
 }
 
 if (import.meta.url === `file://${process.argv[1]?.replace(/\\/g, "/")}`) main();
@@ -400,7 +484,7 @@ if (import.meta.url === `file://${process.argv[1]?.replace(/\\/g, "/")}`) main()
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `npm run test:focused -- --files tests/outstanding-issues-snapshot-gate.test.ts`
+Run: `npm run test` (full suite — see Execution constraints; Bash `timeout: 600000`)
 Expected: PASS, 3 tests.
 
 - [ ] **Step 5: Prove the gate actually catches staleness**
@@ -437,15 +521,17 @@ git commit -m "feat(developer-hub): fail the build when the issues snapshot fall
 ### Task 3: The typed reader
 
 **Files:**
+
 - Create: `src/lib/developer-area/ledger-snapshot.ts`
 - Create: `tests/developer-ledger-snapshot.test.ts`
 
 **Interfaces:**
+
 - Consumes: `data/outstanding-issues-snapshot.json` from Task 1.
 - Produces:
   - `type LedgerSnapshot`, `type LedgerOpenItem`, `type LedgerQueueEntry`, `type LedgerPendingRequest`
   - `loadLedgerSnapshot(): LedgerSnapshot`
-  - `type Freshness = { contentAt: string | null; builtAt: string; gapHours: number | null }`
+  - `type Freshness = { contentAt: string | null; viewedAt: string; ageHours: number | null }`
   - `resolveFreshness(snapshot: LedgerSnapshot, now: Date): Freshness`
   - `openItemsByPriority(snapshot): Record<"P1" | "P2" | "P3", LedgerOpenItem[]>`
 
@@ -470,23 +556,26 @@ describe("ledger snapshot", () => {
   });
 
   it("reports a gap between ledger content and build", () => {
-    const snapshot = { ...loadLedgerSnapshot(), ledger_revision: { sha: "a".repeat(40), committed_at: "2026-08-20T00:00:00Z" } };
+    const snapshot = {
+      ...loadLedgerSnapshot(),
+      ledger_revision: { sha: "a".repeat(40), committed_at: "2026-08-20T00:00:00Z" },
+    };
     const freshness = resolveFreshness(snapshot, new Date("2026-08-21T00:00:00Z"));
-    expect(freshness.gapHours).toBe(24);
+    expect(freshness.ageHours).toBe(24);
   });
 
   it("says the revision is unknown rather than fabricating a date", () => {
     const snapshot = { ...loadLedgerSnapshot(), ledger_revision: null };
     const freshness = resolveFreshness(snapshot, new Date("2026-08-21T00:00:00Z"));
     expect(freshness.contentAt).toBeNull();
-    expect(freshness.gapHours).toBeNull();
+    expect(freshness.ageHours).toBeNull();
   });
 });
 ```
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `npm run test:focused -- --files tests/developer-ledger-snapshot.test.ts`
+Run: `npm run test` (full suite — see Execution constraints; Bash `timeout: 600000`)
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Write the reader**
@@ -541,20 +630,20 @@ export function loadLedgerSnapshot(): LedgerSnapshot {
   if (snapshot.version !== LEDGER_SNAPSHOT_VERSION) {
     // Loud, not a render fallback: an unrecognised shape means the page would
     // silently under-report outstanding work, which is the `#338` failure.
-    throw new Error(`Unrecognised ledger snapshot version ${snapshot.version}; expected ${LEDGER_SNAPSHOT_VERSION}. Run: npm run snapshot:issues`);
+    throw new Error(
+      `Unrecognised ledger snapshot version ${snapshot.version}; expected ${LEDGER_SNAPSHOT_VERSION}. Run: npm run snapshot:issues`,
+    );
   }
   return snapshot;
 }
 
-export type Freshness = { contentAt: string | null; builtAt: string; gapHours: number | null };
+export type Freshness = { contentAt: string | null; viewedAt: string; ageHours: number | null };
 
 export function resolveFreshness(snapshot: LedgerSnapshot, now: Date): Freshness {
   const contentAt = snapshot.ledger_revision?.committed_at ?? null;
-  const builtAt = now.toISOString();
-  const gapHours = contentAt
-    ? Math.round((now.getTime() - new Date(contentAt).getTime()) / 3_600_000)
-    : null;
-  return { contentAt, builtAt, gapHours };
+  const viewedAt = now.toISOString();
+  const ageHours = contentAt ? Math.round((now.getTime() - new Date(contentAt).getTime()) / 3_600_000) : null;
+  return { contentAt, viewedAt, ageHours };
 }
 
 export function openItemsByPriority(snapshot: LedgerSnapshot): Record<LedgerPriority, LedgerOpenItem[]> {
@@ -568,7 +657,7 @@ export function openItemsByPriority(snapshot: LedgerSnapshot): Record<LedgerPrio
 
 - [ ] **Step 4: Run to verify it passes**
 
-Run: `npm run test:focused -- --files tests/developer-ledger-snapshot.test.ts`
+Run: `npm run test` (full suite — see Execution constraints; Bash `timeout: 600000`)
 Expected: PASS, 4 tests. If TypeScript rejects the JSON import, confirm `resolveJsonModule` is on in `tsconfig.json` — the nine existing `data/*.json` imports prove it is.
 
 - [ ] **Step 5: Commit**
@@ -583,10 +672,12 @@ git commit -m "feat(developer-hub): typed reader and freshness for the ledger sn
 ### Task 4: The panel registry
 
 **Files:**
+
 - Create: `src/lib/developer-area/hub-panels.ts`
 - Create: `tests/developer-hub-panels.test.ts`
 
 **Interfaces:**
+
 - Produces: `type HubPanelGroup = "work" | "clinical" | "system" | "reference"`, `type HubPanel`, `HUB_PANELS: readonly HubPanel[]`, `panelsInGroup(group): HubPanel[]`.
 
 A panel is `{ id, name, summary, group, phase, href? }`. `phase: 1` means built now and must carry an `href`; `phase: 2 | 3 | 4` means placeholder and must not. That invariant is what a later phase flips with a one-line change.
@@ -611,7 +702,10 @@ describe("hub panels", () => {
   });
 
   it("places every panel in exactly one group", () => {
-    const total = (["work", "clinical", "system", "reference"] as const).reduce((sum, group) => sum + panelsInGroup(group).length, 0);
+    const total = (["work", "clinical", "system", "reference"] as const).reduce(
+      (sum, group) => sum + panelsInGroup(group).length,
+      0,
+    );
     expect(total).toBe(HUB_PANELS.length);
   });
 
@@ -620,18 +714,37 @@ describe("hub panels", () => {
     expect(ledger?.phase).toBe(1);
     expect(ledger?.href).toBe("/mockups/development/ledger");
   });
+
+  it("keeps the existing prototypes reachable as real destinations", () => {
+    for (const id of ["caring-contact", "ward-flow"]) {
+      const panel = HUB_PANELS.find((entry) => entry.id === id);
+      expect(panel?.phase, `${id} should be built`).toBe(1);
+      expect(panel?.href, `${id} needs a destination`).toBeTruthy();
+    }
+  });
+
+  it("never points a card at its own section", () => {
+    // A card whose href is a fragment on this same page is a self-link, not a
+    // destination. Both original offenders (`environment`, `prototypes`) were
+    // removed for this reason.
+    for (const panel of HUB_PANELS) {
+      expect(panel.href?.startsWith("#"), `${panel.id} self-links`).not.toBe(true);
+    }
+  });
 });
 ```
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `npm run test:focused -- --files tests/developer-hub-panels.test.ts`
+Run: `npm run test` (full suite — see Execution constraints; Bash `timeout: 600000`)
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Write the registry**
 
 ```typescript
 // src/lib/developer-area/hub-panels.ts
+import { CARING_CONTACT_MOCKUP_ROUTES } from "@/components/caring-contacts/mockups/routes";
+
 export type HubPanelGroup = "work" | "clinical" | "system" | "reference";
 
 export type HubPanel = {
@@ -645,26 +758,108 @@ export type HubPanel = {
 };
 
 export const HUB_PANELS: readonly HubPanel[] = [
-  { id: "task-ledger", name: "Task ledger", summary: "Outstanding work, in recommended order", group: "work", phase: 1, href: "/mockups/development/ledger" },
-  { id: "work-in-flight", name: "Work in flight", summary: "Open changes, their checks, and whether reviewed", group: "work", phase: 2 },
+  {
+    id: "task-ledger",
+    name: "Task ledger",
+    summary: "Outstanding work, in recommended order",
+    group: "work",
+    phase: 1,
+    href: "/mockups/development/ledger",
+  },
+  {
+    id: "work-in-flight",
+    name: "Work in flight",
+    summary: "Open changes, their checks, and whether reviewed",
+    group: "work",
+    phase: 2,
+  },
   { id: "decision-log", name: "Decision log", summary: "Why things are the way they are", group: "work", phase: 4 },
 
-  { id: "source-review", name: "Source review queue", summary: "Documents shaping answers most, with no qualified human sign-off", group: "clinical", phase: 3 },
-  { id: "source-currency", name: "Source currency", summary: "Age, publisher, jurisdiction, superseded guidance", group: "clinical", phase: 3 },
-  { id: "governance-debt", name: "Governance debt", summary: "Missing metadata and unattributed reviews", group: "clinical", phase: 3 },
-  { id: "answer-quality", name: "Answer quality", summary: "Retrieval scores and document quality signals", group: "clinical", phase: 3 },
-  { id: "hazard-register", name: "Hazard register", summary: "Known clinical risks and their mitigations", group: "clinical", phase: 4 },
+  {
+    id: "source-review",
+    name: "Source review queue",
+    summary: "Documents shaping answers most, with no qualified human sign-off",
+    group: "clinical",
+    phase: 3,
+  },
+  {
+    id: "source-currency",
+    name: "Source currency",
+    summary: "Age, publisher, jurisdiction, superseded guidance",
+    group: "clinical",
+    phase: 3,
+  },
+  {
+    id: "governance-debt",
+    name: "Governance debt",
+    summary: "Missing metadata and unattributed reviews",
+    group: "clinical",
+    phase: 3,
+  },
+  {
+    id: "answer-quality",
+    name: "Answer quality",
+    summary: "Retrieval scores and document quality signals",
+    group: "clinical",
+    phase: 3,
+  },
+  {
+    id: "hazard-register",
+    name: "Hazard register",
+    summary: "Known clinical risks and their mitigations",
+    group: "clinical",
+    phase: 4,
+  },
 
-  { id: "environment", name: "Environment", summary: "Which database, which build, live or demo", group: "system", phase: 1, href: "#developer-hub-environment" },
-  { id: "database-drift", name: "Database drift", summary: "Schema and function differences against the repo", group: "system", phase: 3 },
+  // No `environment` card: the environment strip renders as its own section on
+  // the hub, so a card pointing at `#developer-hub-environment` would be a
+  // self-link, not a destination.
+  {
+    id: "database-drift",
+    name: "Database drift",
+    summary: "Schema and function differences against the repo",
+    group: "system",
+    phase: 3,
+  },
   { id: "ingestion", name: "Ingestion", summary: "Stuck, failed, and queued document jobs", group: "system", phase: 3 },
   { id: "errors", name: "Errors and alerts", summary: "What is failing for real users", group: "system", phase: 4 },
   { id: "test-health", name: "Test health", summary: "Unstable and quarantined tests", group: "system", phase: 2 },
-  { id: "budgets", name: "Speed and weight", summary: "Page weight and performance budgets", group: "system", phase: 4 },
+  {
+    id: "budgets",
+    name: "Speed and weight",
+    summary: "Page weight and performance budgets",
+    group: "system",
+    phase: 4,
+  },
 
-  { id: "documentation", name: "Documentation", summary: "Every document, its age, and its broken links", group: "reference", phase: 2 },
+  {
+    id: "documentation",
+    name: "Documentation",
+    summary: "Every document, its age, and its broken links",
+    group: "reference",
+    phase: 2,
+  },
   { id: "routes", name: "Routes and modes", summary: "Every page and all 15 modes", group: "reference", phase: 2 },
-  { id: "prototypes", name: "Prototypes", summary: "Caring contact and Ward flow", group: "reference", phase: 1, href: "#developer-hub-reference" },
+  // Two real prototype cards, not one generic self-linking "Prototypes" card.
+  // This is also what preserves the Caring Contact and Ward Flow entries the
+  // spec requires to survive the hub rewrite. Import the Caring Contact route
+  // from `@/components/caring-contacts/mockups/routes` — do not hardcode it.
+  {
+    id: "caring-contact",
+    name: "Caring contact",
+    summary: "Coordination prototype: 13 routes and its system states",
+    group: "reference",
+    phase: 1,
+    href: CARING_CONTACT_MOCKUP_ROUTES.today,
+  },
+  {
+    id: "ward-flow",
+    name: "Ward flow",
+    summary: "Queue, capacity, transport, movements",
+    group: "reference",
+    phase: 1,
+    href: "/ward-management",
+  },
   { id: "commands", name: "Commands", summary: "What each repository command does", group: "reference", phase: 4 },
 ];
 
@@ -675,7 +870,7 @@ export function panelsInGroup(group: HubPanelGroup): HubPanel[] {
 
 - [ ] **Step 4: Run to verify it passes**
 
-Run: `npm run test:focused -- --files tests/developer-hub-panels.test.ts`
+Run: `npm run test` (full suite — see Execution constraints; Bash `timeout: 600000`)
 Expected: PASS, 4 tests.
 
 - [ ] **Step 5: Commit**
@@ -690,9 +885,11 @@ git commit -m "feat(developer-hub): panel registry covering all four phases"
 ### Task 5: The nav-header sibling
 
 **Files:**
+
 - Create: `src/components/developer-area/developer-hub-nav-header.tsx`
 
 **Interfaces:**
+
 - Consumes: `InPageNavHeader`, `PageSection`, `useInPageSectionNav`.
 - Produces: `developerHubNavSections: readonly PageSection[]` and `DeveloperHubNavHeader({ actions? })`.
 
@@ -761,12 +958,14 @@ git commit -m "feat(developer-hub): nav-header sibling owning the hub section ta
 ### Task 6: Hub presentation components
 
 **Files:**
+
 - Create: `src/components/developer-area/hub/freshness-stamp.tsx`
 - Create: `src/components/developer-area/hub/environment-strip.tsx`
 - Create: `src/components/developer-area/hub/panel-card.tsx`
 - Create: `tests/developer-hub-components.dom.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `Freshness` (Task 3), `HubPanel` (Task 4), `ignoreUnavailableActivation` from `@/components/ui-primitives`.
 - Produces: `FreshnessStamp({ freshness })`, `EnvironmentStrip({ demoMode, documentCount, buildSha, email })`, `PanelCard({ panel })`.
 
@@ -784,24 +983,41 @@ afterEach(cleanup);
 
 describe("FreshnessStamp", () => {
   it("always renders, and says so when the revision is unknown", () => {
-    render(<FreshnessStamp freshness={{ contentAt: null, builtAt: "2026-08-21T00:00:00Z", gapHours: null }} />);
+    render(<FreshnessStamp freshness={{ contentAt: null, viewedAt: "2026-08-21T00:00:00Z", ageHours: null }} />);
     expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/revision unknown/i);
   });
 
   it("reports the gap between ledger content and build", () => {
-    render(<FreshnessStamp freshness={{ contentAt: "2026-08-20T00:00:00Z", builtAt: "2026-08-21T00:00:00Z", gapHours: 24 }} />);
+    render(
+      <FreshnessStamp
+        freshness={{ contentAt: "2026-08-20T00:00:00Z", viewedAt: "2026-08-21T00:00:00Z", ageHours: 24 }}
+      />,
+    );
     expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/24 hours/i);
   });
 });
 
 describe("PanelCard", () => {
   it("links a built panel", () => {
-    render(<PanelCard panel={{ id: "task-ledger", name: "Task ledger", summary: "s", group: "work", phase: 1, href: "/mockups/development/ledger" }} />);
+    render(
+      <PanelCard
+        panel={{
+          id: "task-ledger",
+          name: "Task ledger",
+          summary: "s",
+          group: "work",
+          phase: 1,
+          href: "/mockups/development/ledger",
+        }}
+      />,
+    );
     expect(screen.getByRole("link", { name: /task ledger/i })).toHaveAttribute("href", "/mockups/development/ledger");
   });
 
   it("marks a planned panel unavailable with a reachable reason, never native disabled", () => {
-    render(<PanelCard panel={{ id: "work-in-flight", name: "Work in flight", summary: "s", group: "work", phase: 2 }} />);
+    render(
+      <PanelCard panel={{ id: "work-in-flight", name: "Work in flight", summary: "s", group: "work", phase: 2 }} />,
+    );
     const button = screen.getByRole("button", { name: /work in flight/i });
     expect(button).toHaveAttribute("aria-disabled", "true");
     expect(button).not.toHaveAttribute("disabled");
@@ -813,7 +1029,7 @@ describe("PanelCard", () => {
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `npm run test:focused -- --files tests/developer-hub-components.dom.test.tsx`
+Run: `npm run test` (full suite — see Execution constraints; Bash `timeout: 600000`)
 Expected: FAIL — modules not found.
 
 - [ ] **Step 3: Write `freshness-stamp.tsx`**
@@ -840,11 +1056,11 @@ export function FreshnessStamp({ freshness }: { freshness: Freshness }) {
       <Clock aria-hidden="true" className="size-icon-sm" />
       {freshness.contentAt ? (
         <span>
-          Ledger content as of {formatDate(freshness.contentAt)} · site built {formatDate(freshness.builtAt)} ·{" "}
-          {freshness.gapHours} hours apart
+          Ledger content as of {formatDate(freshness.contentAt)} · {formatDate(freshness.viewedAt)} ·{" "}
+          {freshness.ageHours} hours old
         </span>
       ) : (
-        <span>Ledger revision unknown · site built {formatDate(freshness.builtAt)}</span>
+        <span>Ledger revision unknown · viewed {formatDate(freshness.viewedAt)}</span>
       )}
     </p>
   );
@@ -931,7 +1147,7 @@ export function EnvironmentStrip({
 
 - [ ] **Step 6: Run to verify the tests pass**
 
-Run: `npm run test:focused -- --files tests/developer-hub-components.dom.test.tsx`
+Run: `npm run test` (full suite — see Execution constraints; Bash `timeout: 600000`)
 Expected: PASS, 4 tests.
 
 - [ ] **Step 7: Commit**
@@ -946,10 +1162,12 @@ git commit -m "feat(developer-hub): freshness stamp, environment strip, and pane
 ### Task 7: The hub page
 
 **Files:**
+
 - Modify: `src/app/mockups/development/page.tsx` (full rewrite)
 - Modify: `tests/in-page-nav-route-sections.dom.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `DeveloperHubNavHeader` + `developerHubNavSections` (Task 5), `panelsInGroup` (Task 4), `loadLedgerSnapshot` (Task 3), the Task 6 components.
 - Produces: the route. Section headings carry ids matching `developerHubNavSections`.
 
@@ -1034,7 +1252,7 @@ In `tests/in-page-nav-route-sections.dom.test.tsx`, import `developerHubNavSecti
 
 - [ ] **Step 3: Run the anchor test**
 
-Run: `npm run test:focused -- --files tests/in-page-nav-route-sections.dom.test.tsx`
+Run: `npm run test` (full suite — see Execution constraints; Bash `timeout: 600000`)
 Expected: PASS. If a section is reported missing, the anchor id and the `PageSection.id` disagree — fix the page, and **do not** add it to `absent` to silence it. `absent` is for sections no fixture can render, not for ones you broke.
 
 - [ ] **Step 4: Commit**
@@ -1049,11 +1267,13 @@ git commit -m "feat(developer-hub): grouped hub page with in-page section naviga
 ### Task 8: The ledger page
 
 **Files:**
+
 - Create: `src/app/mockups/development/ledger/page.tsx`
 - Create: `src/components/developer-area/hub/ledger-item.tsx`
 - Create: `tests/developer-ledger-page.dom.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `loadLedgerSnapshot`, `resolveFreshness`, `openItemsByPriority` (Task 3), `FreshnessStamp` (Task 6).
 - Produces: the route.
 
@@ -1104,7 +1324,7 @@ describe("developer ledger page", () => {
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `npm run test:focused -- --files tests/developer-ledger-page.dom.test.tsx`
+Run: `npm run test` (full suite — see Execution constraints; Bash `timeout: 600000`)
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Write `ledger-item.tsx`**
@@ -1131,8 +1351,12 @@ export function LedgerItem({ item }: { item: LedgerOpenItem }) {
     >
       <div className="flex flex-wrap items-baseline gap-2">
         <span className="font-mono text-xs text-[color:var(--text-muted)]">{item.id}</span>
-        <span className={`rounded-lg px-2 py-0.5 text-xs font-bold ${PRIORITY_CLASS[item.priority] ?? ""}`}>{item.priority}</span>
-        <span className="rounded-lg border border-[color:var(--border)] px-2 py-0.5 text-xs text-[color:var(--text-muted)]">{item.type}</span>
+        <span className={`rounded-lg px-2 py-0.5 text-xs font-bold ${PRIORITY_CLASS[item.priority] ?? ""}`}>
+          {item.priority}
+        </span>
+        <span className="rounded-lg border border-[color:var(--border)] px-2 py-0.5 text-xs text-[color:var(--text-muted)]">
+          {item.type}
+        </span>
       </div>
       <p className="text-sm leading-6 text-[color:var(--text-heading)]">{item.summary}</p>
       <details>
@@ -1153,7 +1377,7 @@ Render, in order: a `<Link href="/mockups/development">` back control; `<h1>Task
 
 - [ ] **Step 5: Run to verify the tests pass**
 
-Run: `npm run test:focused -- --files tests/developer-ledger-page.dom.test.tsx`
+Run: `npm run test` (full suite — see Execution constraints; Bash `timeout: 600000`)
 Expected: PASS, 4 tests.
 
 - [ ] **Step 6: Commit**
@@ -1168,6 +1392,7 @@ git commit -m "feat(developer-hub): task ledger page with progressive item detai
 ### Task 9: Rename the Settings entry to "Developer"
 
 **Files:**
+
 - Modify: `src/components/clinical-dashboard/settings-dialog.tsx:80` and `:1037-1054`
 - Modify: `tests/settings-dialog-actions.dom.test.tsx`
 
@@ -1177,7 +1402,7 @@ In `tests/settings-dialog-actions.dom.test.tsx`, change the expected link text f
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `npm run test:focused -- --files tests/settings-dialog-actions.dom.test.tsx`
+Run: `npm run test` (full suite — see Execution constraints; Bash `timeout: 600000`)
 Expected: FAIL — the link still reads "Open Development page".
 
 - [ ] **Step 3: Rename in the dialog**
@@ -1186,7 +1411,7 @@ At line 80 change `navLabel: "Development"` to `navLabel: "Developer"`. At lines
 
 - [ ] **Step 4: Run to verify it passes**
 
-Run: `npm run test:focused -- --files tests/settings-dialog-actions.dom.test.tsx`
+Run: `npm run test` (full suite — see Execution constraints; Bash `timeout: 600000`)
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -1201,6 +1426,7 @@ git commit -m "feat(settings): rename the Development entry to Developer"
 ### Task 10: Documentation and verification
 
 **Files:**
+
 - Modify: `docs/codebase-index.md`
 - Modify: `docs/site-map.md` (generated)
 
@@ -1226,7 +1452,7 @@ Expected: PASS. Paste the decisive line — exit code 0 alone is not proof.
 - [ ] **Step 5: Run the phone-chrome gate**
 
 Run: `npm run ensure` then `npm run verify:phone-chrome`
-Required despite the desktop-first design: `InPageNavHeader` is shared chrome, so a defect here degrades phone behaviour on pages that *are* used on a phone. Grep the output for the "N passed" line — under lock contention this gate exits 1 on timeout rather than soft-skipping green.
+Required despite the desktop-first design: `InPageNavHeader` is shared chrome, so a defect here degrades phone behaviour on pages that _are_ used on a phone. Grep the output for the "N passed" line — under lock contention this gate exits 1 on timeout rather than soft-skipping green.
 
 - [ ] **Step 6: Commit**
 
@@ -1243,6 +1469,6 @@ git commit -m "docs(developer-hub): index the hub routes and modules"
 
 **Placeholder scan.** No TBD/TODO. Every code step carries real code. Task 8 step 4 describes composition rather than pasting the full page: every element it names has its testid pinned by the step-1 test, so it is specified by its test rather than left vague.
 
-**Type consistency.** `LedgerSnapshot`, `LedgerOpenItem`, `LedgerQueueEntry`, `Freshness`, `HubPanel`, `HubPanelGroup` are defined in Tasks 3–4 and used unchanged afterwards. `developerHubNavSections` ids match the `GROUPS` anchors in Task 7 and the `href` anchors in Task 4's registry (`#developer-hub-environment`, `#developer-hub-reference`).
+**Type consistency.** `LedgerSnapshot`, `LedgerOpenItem`, `LedgerQueueEntry`, `Freshness`, `HubPanel`, `HubPanelGroup` are defined in Tasks 3–4 and used unchanged afterwards. `developerHubNavSections` ids match the `GROUPS` anchors in Task 7 and and no registry href is a same-page fragment (both self-linking cards were removed).
 
 **Known gap, deliberate.** Task 6's `EnvironmentStrip` is called with `demoMode={false}` and nulls in Task 7 — the component and its contract exist, the real values are not wired. Wiring `isDemoMode()` and the build SHA is small but touches environment plumbing, so it is left to Phase 2 rather than smuggled into Phase 1. The strip renders honestly ("build unknown") rather than inventing values.

@@ -40,16 +40,16 @@ Section 6 is the whole answer to this and is the load-bearing part of this spec.
 
 ### Decisions taken (owner, 2026-08-21)
 
-| Decision | Choice | Consequence |
-| --- | --- | --- |
-| Freshness | Build-time snapshot with an honest age stamp | § 6 |
-| Content | Queue + open items + pending inbox requests | § 5 |
-| Primary use | Decide what to do next — not browse/search | No search or filter UI |
-| Page shape | Option C — hub page, own route for heavy panels | § 4.4 |
-| Alert band | Only computed signals | § 8.1 |
-| Item detail | Summary + next action, expandable | § 8.2 |
-| Device | Desktop-first **design** | Phone-chrome **gate** still required, § 9 |
-| Entry label | "Developer" | Settings dialog + its test |
+| Decision    | Choice                                          | Consequence                               |
+| ----------- | ----------------------------------------------- | ----------------------------------------- |
+| Freshness   | Build-time snapshot with an honest age stamp    | § 6                                       |
+| Content     | Queue + open items + pending inbox requests     | § 5                                       |
+| Primary use | Decide what to do next — not browse/search      | No search or filter UI                    |
+| Page shape  | Option C — hub page, own route for heavy panels | § 4.4                                     |
+| Alert band  | Only computed signals                           | § 8.1                                     |
+| Item detail | Summary + next action, expandable               | § 8.2                                     |
+| Device      | Desktop-first **design**                        | Phone-chrome **gate** still required, § 9 |
+| Entry label | "Developer"                                     | Settings dialog + its test                |
 
 ### Explicitly out of scope
 
@@ -73,10 +73,10 @@ against its live rows.
 
 ### 3.1 Two independent ranking scales — never merge them
 
-| Term                 | Applies to         | Values                        | Means                              |
-| -------------------- | ------------------ | ----------------------------- | ---------------------------------- |
-| **Priority** (`Pri`) | every open row     | `P1`, `P2`, `P3`              | how much the item matters          |
-| **Acuity**           | queue entries only | `A1`, `A2`, `A3`, `Optional`  | how urgently it should be started  |
+| Term                 | Applies to         | Values                       | Means                             |
+| -------------------- | ------------------ | ---------------------------- | --------------------------------- |
+| **Priority** (`Pri`) | every open row     | `P1`, `P2`, `P3`             | how much the item matters         |
+| **Acuity**           | queue entries only | `A1`, `A2`, `A3`, `Optional` | how urgently it should be started |
 
 These are disjoint in practice. At time of writing the `P1` rows are `#316` and `#CCZ4HB`, while
 the single `A1` queue entry is `#231` — three different items. A shared "urgent" badge would
@@ -96,6 +96,19 @@ assuming digits would silently drop the newest items — the ones most worth see
 containing several IDs ("composite") is retained verbatim and not split.
 
 **Follow-up (not this change):** correct the Conventions prose so it matches the file.
+
+**An ID cell is not just an ID.** 62 of the live rows carry a trailing HTML comment holding the
+issue ULID — `| #SZGPAH <!-- issue-ulid:01M0A10Q19SZGPAH22TYYY2366 --> |`. Taking the cell verbatim
+yields an "id" containing markup, which then fails to match the queue's plain `#SZGPAH` and silently
+breaks the queue→row detail join. The parser strips HTML comments and extracts the `#…` token.
+
+### 3.2b Cells may contain escaped pipes
+
+The ledger contains 8 escaped pipes (`\|`), written by `escapeCell` in `scripts/outstanding-issues.mjs`
+so that prose like `a | b` survives in a markdown table. A naive `line.split("|")` turns each into a
+column boundary, and the row is then rejected as malformed when it is perfectly valid. The generator
+reuses that module's `splitCells`, which honours the escape. Both hazards were found by running the
+parser against real data, not by reading the ledger's stated conventions — which describe neither.
 
 ### 3.3 Other terms
 
@@ -142,15 +155,15 @@ Phase 1 follows that pattern exactly.
 
 ### 4.3 Components
 
-| Unit                                                | Responsibility                                  | Depends on                      |
-| --------------------------------------------------- | ----------------------------------------------- | ------------------------------- |
-| `scripts/generate-outstanding-issues-snapshot.mjs`  | Parse the ledger + inbox, write the snapshot     | ledger markdown, inbox JSON, git |
-| `src/lib/developer-area/ledger-snapshot.ts`         | Import the JSON, expose typed accessors, freshness | the snapshot                  |
-| `src/lib/developer-area/hub-panels.ts`              | The panel registry: one entry per panel, with group, phase, and target | none |
-| `src/app/mockups/development/page.tsx`              | Render the hub                                   | `hub-panels.ts`, `ledger-snapshot.ts` (counts only) |
-| `src/app/mockups/development/ledger/page.tsx`       | Render the ledger page                           | `ledger-snapshot.ts`            |
-| `src/components/developer-area/hub/*`               | Panel cards, group sections, environment strip, freshness stamp | none          |
-| `scripts/check-outstanding-issues-snapshot.mjs`     | Regenerate and compare; fail on mismatch         | generator                       |
+| Unit                                               | Responsibility                                                         | Depends on                                          |
+| -------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------- |
+| `scripts/generate-outstanding-issues-snapshot.mjs` | Parse the ledger + inbox, write the snapshot                           | ledger markdown, inbox JSON, git                    |
+| `src/lib/developer-area/ledger-snapshot.ts`        | Import the JSON, expose typed accessors, freshness                     | the snapshot                                        |
+| `src/lib/developer-area/hub-panels.ts`             | The panel registry: one entry per panel, with group, phase, and target | none                                                |
+| `src/app/mockups/development/page.tsx`             | Render the hub                                                         | `hub-panels.ts`, `ledger-snapshot.ts` (counts only) |
+| `src/app/mockups/development/ledger/page.tsx`      | Render the ledger page                                                 | `ledger-snapshot.ts`                                |
+| `src/components/developer-area/hub/*`              | Panel cards, group sections, environment strip, freshness stamp        | none                                                |
+| `scripts/check-outstanding-issues-snapshot.mjs`    | Regenerate and compare; fail on mismatch                               | generator                                           |
 
 The parser lives in the generator, not in the app: parsing runs once at build, and no markdown
 parsing code reaches the client bundle.
@@ -173,7 +186,7 @@ must never require a database read to render.
 
 Sections are declared as `PageSection` (`src/components/in-page-nav/page-section-index.ts`) for
 **all** panel groups including phases 2–4. `useResolvedPageSections` resolves each declared
-section to the first *visible* member of its `targetIds` and drops the rest, so an unbuilt panel
+section to the first _visible_ member of its `targetIds` and drops the rest, so an unbuilt panel
 produces no dead jump and a later phase needs no navigation change. Section headings carry
 `inPageAnchor` (`src/components/in-page-nav/in-page-nav-classes.ts`); without it a jump lands
 under the header.
@@ -190,8 +203,7 @@ only client boundary.
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": { "sha": "<40-char>", "committed_at": "<ISO 8601>" },
-  "generated_at": "<ISO 8601>",
-  "counts": { "open": 67, "p1": 2, "p2": 33, "p3": 32, "queued": 11, "pending": 3 },
+  "counts": { "open": 67, "p1": 2, "p2": 33, "p3": 32, "queued": 11, "pending": 3, "resolved": 271 },
   "queue": [
     {
       "order": 1,
@@ -239,23 +251,30 @@ exact command to fix it, and joins the existing `check:outstanding-issues` famil
 `verify:cheap` and CI. **The snapshot cannot silently fall behind, because falling behind stops
 the site deploying.** This is the mechanism `ISSUES-LIST.html` lacked.
 
-**6.3 The page states its own age and cannot hide it.** The header always renders: when the ledger
-content last changed (`ledger_revision.committed_at`), when the site was built (`generated_at`),
-and the gap between them. The stamp is not conditional and has no "fresh" short-circuit that could
+**6.3 The page states its own age and cannot hide it.** The header always renders when the ledger
+content last changed (`ledger_revision.committed_at`) and how many hours old that is at read time.
+
+It does **not** claim a build time. The snapshot carries no `generated_at`: it must be byte-
+deterministic or § 6.2's gate would fail on every regeneration. And the page cannot derive one — the
+route is dynamic because `DeveloperAreaGate` reads cookies, so render time is request time, not
+build time. Ledger-content age is the honest signal and still exposes a stale deploy: edit the
+ledger and the displayed age stays large until the site redeploys.
+
+The stamp is not conditional and has no "fresh" short-circuit that could
 suppress it.
 
 ## 7. Failure behaviour
 
 Conservative, and loud at build time rather than quiet at read time.
 
-| Condition                                  | Behaviour                                                        |
-| ------------------------------------------ | ---------------------------------------------------------------- |
-| Ledger file missing or unparseable         | Generator exits non-zero. Build fails.                            |
-| Snapshot missing at build                  | Import fails. Build fails. Never an empty page.                   |
-| Snapshot `version` unrecognised            | Build fails.                                                      |
-| Snapshot disagrees with ledger             | `check:` gate fails with the fix command.                         |
-| Inbox unreadable                           | Generator fails — under-reporting outstanding work is a real fault. |
-| A table row is malformed                   | Generator fails and names the line. No silent row-dropping.       |
+| Condition                                   | Behaviour                                                                        |
+| ------------------------------------------- | -------------------------------------------------------------------------------- |
+| Ledger file missing or unparseable          | Generator exits non-zero. Build fails.                                           |
+| Snapshot missing at build                   | Import fails. Build fails. Never an empty page.                                  |
+| Snapshot `version` unrecognised             | Build fails.                                                                     |
+| Snapshot disagrees with ledger              | `check:` gate fails with the fix command.                                        |
+| Inbox unreadable                            | Generator fails — under-reporting outstanding work is a real fault.              |
+| A table row is malformed                    | Generator fails and names the line. No silent row-dropping.                      |
 | Ledger revision unavailable (shallow clone) | Snapshot records `null`; page shows "revision unknown", never a fabricated date. |
 
 No case renders a page that looks like "no outstanding work" when the truth is unknown.
@@ -314,16 +333,16 @@ data-hiding one.
 
 ## 9. Verification
 
-| Check                                       | Covers                                                                                                        |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Unit tests for the parser                   | Both ID schemes; composite IDs; priority/acuity separation; malformed row fails; queue prose from row's Detail |
-| Unit test for the freshness stamp           | Renders in all states including unknown revision                                                               |
-| `check:outstanding-issues-snapshot` self-test | The gate detects a deliberately stale snapshot                                                                |
-| DOM test of the ledger page                 | P1 and A1 render as distinct treatments; counts match the snapshot                                             |
-| DOM test of the hub                         | Placeholder cards are `aria-disabled` with a reason, never bare                                                |
-| `tests/in-page-nav-route-sections.dom.test.tsx` | Every declared hub section resolves to a **rendered** anchor. Asserted against real DOM, never by grepping for `id=` — that shortcut is the failure `/issues #256` records |
-| `npm run verify:phone-chrome`               | Required **despite** the desktop-first design decision. `InPageNavHeader` is shared chrome, so a defect here degrades phone behaviour on pages that are used on a phone. The decision reduces design effort on this page; it does not remove the shared-surface gate. Run before any `verify:ui` escalation |
-| `npm run verify:pr-local`                   | Handoff gate for the whole change                                                                              |
+| Check                                           | Covers                                                                                                                                                                                                                                                                                                      |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit tests for the parser                       | Both ID schemes; composite IDs; priority/acuity separation; malformed row fails; queue prose from row's Detail                                                                                                                                                                                              |
+| Unit test for the freshness stamp               | Renders in all states including unknown revision                                                                                                                                                                                                                                                            |
+| `check:outstanding-issues-snapshot` self-test   | The gate detects a deliberately stale snapshot                                                                                                                                                                                                                                                              |
+| DOM test of the ledger page                     | P1 and A1 render as distinct treatments; counts match the snapshot                                                                                                                                                                                                                                          |
+| DOM test of the hub                             | Placeholder cards are `aria-disabled` with a reason, never bare                                                                                                                                                                                                                                             |
+| `tests/in-page-nav-route-sections.dom.test.tsx` | Every declared hub section resolves to a **rendered** anchor. Asserted against real DOM, never by grepping for `id=` — that shortcut is the failure `/issues #256` records                                                                                                                                  |
+| `npm run verify:phone-chrome`                   | Required **despite** the desktop-first design decision. `InPageNavHeader` is shared chrome, so a defect here degrades phone behaviour on pages that are used on a phone. The decision reduces design effort on this page; it does not remove the shared-surface gate. Run before any `verify:ui` escalation |
+| `npm run verify:pr-local`                       | Handoff gate for the whole change                                                                                                                                                                                                                                                                           |
 
 Provider-backed gates are not required: Phase 1 touches no OpenAI or Supabase surface.
 
