@@ -4,34 +4,56 @@ import { describe, expect, it } from "vitest";
 
 const WARD_DIR = "src/components/ward-management";
 
+/**
+ * Scope for the `NOW_ANCHOR` read-restriction rule. Task 6 fix round 4: widened from `WARD_DIR`
+ * after fix round 3's guard was proven to check only reads inside
+ * `src/components/ward-management` while its own test name claimed "every read of NOW_ANCHOR" —
+ * a probe file at `src/lib/ward-probe/frozen.ts` (outside `WARD_DIR`, deleted after proving the
+ * point) named-imported `NOW_ANCHOR` and the fix-round-3 suite stayed fully green. The repo has
+ * roughly 200 modules under `src/lib` alone, so a ward screen importing a time helper from
+ * outside `WARD_DIR` is an ordinary shape, not an exotic one. The fixture-import rule below
+ * (`ALLOWED`) stays scoped to `WARD_DIR` — only the `NOW_ANCHOR` rule widens.
+ */
+const SRC_DIR = "src";
+
 /** Files allowed to read the frozen fixture: the seed itself, and derivations that take it as a
- *  default parameter. Everything else must read the provider, or two surfaces will disagree. */
+ *  default parameter. Everything else must read the provider, or two surfaces will disagree.
+ *  Scoped to `WARD_DIR`, not `SRC_DIR` — the fixture only ever needs importing from within the
+ *  ward-management feature, so bare basenames are unambiguous here and this rule is unchanged
+ *  from fix round 3. */
 const ALLOWED = new Set(["ward-movements.ts", "ward-flow-reducer.ts", "ward-pressure.ts", "ward-derivations.ts"]);
 
 /**
- * Files allowed to read `NOW_ANCHOR` at all — Task 6 fix round 3, replacing the earlier "both the
- * clock and the epoch" rule (see the report's fix round 2 section), which only text-matched a
- * file's own named import of `NOW_ANCHOR` alongside a real `useWardFlow()` call. That rule was
- * provably evadable three ways: a helper that reads `NOW_ANCHOR` internally and is called from a
- * component (the component itself never imports `NOW_ANCHOR`), a namespace import
- * (`import * as sites from ".../ward-sites"` then `sites.NOW_ANCHOR`, which the named-import regex
- * never matched), and any component that never calls `useWardFlow()` at all — which sat outside
- * the rule entirely regardless of what it read. Rather than attempt transitive import analysis
- * (out of scope — see the findings), the rule inverts: every file under `WARD_DIR` may read
- * `NOW_ANCHOR` only if it is named here, whether or not it also calls `useWardFlow()`.
- * `readsNowAnchor` below scans for the bare identifier after stripping comments and string
- * literals, so it catches every reading form (named import, namespace-qualified property access,
- * bare re-export) without needing a separate regex per form.
+ * Files allowed to read `NOW_ANCHOR` anywhere under `SRC_DIR` — Task 6 fix round 4, widening fix
+ * round 3's rule (which was scoped only to `WARD_DIR` despite its test name claiming "every
+ * read"). Keys are full paths from the repo root with forward slashes, not bare basenames: across
+ * the whole of `src` a bare basename can collide with an unrelated same-named file elsewhere in
+ * the tree, which would silently exempt it. `readsNowAnchor` below scans for the bare identifier
+ * after stripping comments and string literals, so it catches every reading form (named import,
+ * namespace-qualified property access, bare re-export) without needing a separate regex per form.
  *
- * Verified by hand (`grep -rln "NOW_ANCHOR" src/components/ward-management`, Task 6 fix round 3)
- * before writing this list: these three are the only files under `WARD_DIR` that mention
- * `NOW_ANCHOR` outside a comment.
+ * Verified by hand (`grep -rln "NOW_ANCHOR" src`, Task 6 fix round 4) before writing this list:
+ * six files under `src` mention the string `NOW_ANCHOR` at all, but three of those — `ward-derivations.ts`,
+ * `ward-flow-reducer.ts`, and `coordinator-screen.tsx` — only name it in a comment (confirmed by
+ * inspecting each match with context). These three are the only files anywhere under `src` with a
+ * real (non-comment, non-string) read of the identifier.
  */
 const NOW_ANCHOR_ALLOWLIST = new Set([
-  "ward-sites.ts", // declares the constant and uses it to build the fixture's capacity timestamps
-  "ward-movements.ts", // the movement fixture; every synthetic timestamp derives from it
-  "ward-flow-provider.tsx", // the provider, which reads it once to derive the live `now`
+  "src/components/ward-management/ward-sites.ts", // declares the constant and uses it to build the fixture's capacity timestamps
+  "src/components/ward-management/ward-movements.ts", // the movement fixture; every synthetic timestamp derives from it
+  "src/components/ward-management/ward-flow-provider.tsx", // the provider, which reads it once to derive the live `now`
 ]);
+
+/**
+ * Normalises a walked path to forward-slash form so it can be compared against the
+ * forward-slash keys in `NOW_ANCHOR_ALLOWLIST`. `walk` below builds paths with `node:path`'s
+ * `join`, which emits backslashes on Windows — comparing those raw against forward-slash keys
+ * would never match, silently exempting nothing (failing the whole suite on every legitimate
+ * reader) or, if the comparison were ever inverted by mistake, silently exempting everything.
+ */
+function normalizePath(file: string): string {
+  return file.split("\\").join("/");
+}
 
 function walk(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
@@ -43,7 +65,7 @@ function walk(dir: string): string[] {
  * `.tsx` alone left the `.ts` entries in `ALLOWED` inert, and let a `.ts` module reintroduce a
  * direct fixture import completely unseen by this test (Task 6 review of the brief's own draft).
  * Scanning both extensions keeps every name in `ALLOWED` doing real work, and the zero-match
- * guard below stops a typo'd `WARD_DIR` from silently passing with nothing scanned at all.
+ * guard below stops a typo'd directory constant from silently passing with nothing scanned at all.
  */
 function isScannable(file: string): boolean {
   return file.endsWith(".tsx") || file.endsWith(".ts");
@@ -95,8 +117,8 @@ function stripCommentsAndStrings(source: string): string {
 /**
  * True for any real read of `NOW_ANCHOR` — a named import, a namespace-qualified property access
  * (`sites.NOW_ANCHOR`), or a bare use of the identifier — never for a mention inside a comment or
- * a string. Deliberately not scoped to "import" forms alone: that scoping is what let the previous
- * rule (fix round 2) miss a namespace import entirely (Finding 1).
+ * a string. Deliberately not scoped to "import" forms alone: that scoping is what let the fix
+ * round 2 rule miss a namespace import entirely.
  */
 function readsNowAnchor(source: string): boolean {
   return /\bNOW_ANCHOR\b/.test(stripCommentsAndStrings(source));
@@ -124,25 +146,23 @@ describe("one source of truth", () => {
   });
 
   /**
-   * Task 6 fix round 3, Finding 1: the previous version of this guard ("has no component holding
-   * both the live clock and the frozen epoch", fix round 2) only ever flagged a file that BOTH
-   * called `useWardFlow()` AND imported `NOW_ANCHOR` by name — provably evadable via helper
-   * indirection, a namespace import, or simply never calling `useWardFlow()` at all. This test is
-   * scoped by declaration, not by co-occurrence with the clock hook: every file under `WARD_DIR`
-   * must be on the named allow-list to read `NOW_ANCHOR` at all, so a route added later that reads
-   * the frozen epoch — whether or not it also reads the live clock — is caught automatically.
+   * Task 6 fix round 4: the fix-round-3 guard scanned only `WARD_DIR` while its test name claimed
+   * to restrict "every read" of `NOW_ANCHOR` — a file placed anywhere else under `src` (proven
+   * with a probe at `src/lib/ward-probe/frozen.ts`) could import the frozen epoch and this suite
+   * stayed green. This test is scoped to `SRC_DIR`, the whole source tree, so a reader placed in
+   * any module — ward-management or not — is caught.
    */
-  it("scans a non-empty set of ward-management source files for the NOW_ANCHOR allow-list check", () => {
+  it("scans a non-empty set of src source files for the NOW_ANCHOR allow-list check", () => {
     // Same failure mode as the fixture-import guard above, checked again here rather than only
     // relied upon there: this specific check must not be able to pass by scanning nothing.
-    const scanned = walk(WARD_DIR).filter(isScannable);
+    const scanned = walk(SRC_DIR).filter(isScannable);
     expect(scanned.length).toBeGreaterThan(0);
   });
 
-  it("restricts every read of NOW_ANCHOR to the named allow-list", () => {
-    const offenders = walk(WARD_DIR)
+  it("restricts every read of NOW_ANCHOR under src to the named allow-list", () => {
+    const offenders = walk(SRC_DIR)
       .filter(isScannable)
-      .filter((file) => !NOW_ANCHOR_ALLOWLIST.has(file.split(/[\\/]/).pop()!))
+      .filter((file) => !NOW_ANCHOR_ALLOWLIST.has(normalizePath(file)))
       .filter((file) => readsNowAnchor(readFileSync(file, "utf8")));
     expect(offenders).toEqual([]);
   });
