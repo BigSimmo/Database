@@ -900,10 +900,8 @@ async function openGuide(page: Page) {
   await expect(settings).toBeVisible({ timeout: uiAssertionTimeoutMs });
   await settings.getByRole("button", { name: "Guide & help", exact: true }).click();
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByPlaceholder("Search the guide")).toBeVisible();
   await expect(dialog.getByRole("heading", { name: "How to verify an answer" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Verify an answer" })).toBeVisible();
-  await expect(dialog.getByText("3-minute guided tour")).toBeVisible();
   await expectNoPageHorizontalOverflow(page);
   return dialog;
 }
@@ -5427,7 +5425,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
   }
 
-  test("guide centre search, topic navigation, and tour progress remain accessible", async ({ page }) => {
+  test("guide centre topic navigation and tour progress remain accessible", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
     await mockPrivateUnauthenticatedApi(page);
@@ -5443,19 +5441,38 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await expect(mobileFooter).toHaveAttribute("aria-hidden", "true");
     await expect(mobileFooter).toHaveAttribute("inert", "");
-    await expect(mobileHeader).toHaveAttribute("aria-hidden", "true");
-    await expect(mobileHeader).toHaveAttribute("inert", "");
+    // Only the dock hides. The header is pinned so "Close guide" and the view
+    // tabs stay reachable however far the reader has scrolled.
+    await expect(mobileHeader).toHaveAttribute("aria-hidden", "false");
+    await expect(mobileHeader).not.toHaveAttribute("inert");
+    await expect(dialog.getByRole("button", { name: "Close guide" })).toBeVisible();
 
-    // The hidden mobile header and footer must not be reachable by keyboard
-    // tabbing. Close guide now lives in the header, which is itself inert
-    // while hidden, so start from a content control instead.
-    await dialog.getByRole("button", { name: "Ask a better question" }).focus();
-    const tabStopCount = await dialog.locator('button, input, [href], [tabindex]:not([tabindex="-1"])').count();
-    for (let tabIndex = 0; tabIndex <= tabStopCount; tabIndex += 1) {
-      await page.keyboard.press("Tab");
-      await expect.poll(() => mobileFooter.evaluate((element) => element.contains(document.activeElement))).toBe(false);
-      await expect.poll(() => mobileHeader.evaluate((element) => element.contains(document.activeElement))).toBe(false);
-    }
+    /**
+     * The invariant is that a HIDDEN dock is not keyboard-reachable, and the way
+     * to test it is to try to focus it directly. The old tab sweep could not:
+     * tabbing scrolls the container, and a scroll back up legitimately reveals
+     * the dock. Measured 2026-08-19 at 390x820, the very first Tab already put
+     * `scrollTop` at 0 and `aria-hidden` at "false", so the sweep asserted
+     * against a dock that was correctly visible and focusable every time — it
+     * failed CI while testing nothing. (It is also why pinning `tabIndex={-1}`
+     * on the dock buttons could not fix it.)
+     */
+    const dockWhileHidden = await mobileFooter.evaluate((element) => {
+      const button = element.querySelector("button");
+      const before = document.activeElement;
+      button?.focus({ preventScroll: true });
+      return {
+        hidden: element.getAttribute("aria-hidden") === "true",
+        inert: element.hasAttribute("inert"),
+        focusMovedIntoDock: element.contains(document.activeElement),
+        focusMovedAtAll: document.activeElement !== before,
+      };
+    });
+    // Guard the guard: a dock that was not hidden would make the rest vacuous.
+    expect(dockWhileHidden.hidden).toBe(true);
+    expect(dockWhileHidden.inert).toBe(true);
+    expect(dockWhileHidden.focusMovedIntoDock).toBe(false);
+    expect(dockWhileHidden.focusMovedAtAll).toBe(false);
 
     await guideScrollBody.evaluate((element) => {
       element.scrollTop = 0;
@@ -5463,14 +5480,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await expect(mobileFooter).toHaveAttribute("aria-hidden", "false");
     await expect(mobileFooter).not.toHaveAttribute("inert");
-    const search = dialog.getByPlaceholder("Search the guide");
-    await search.fill("privacy");
-    await expect(dialog.getByText(/topics? found for “privacy”\./)).toBeVisible();
-    await dialog.getByRole("button", { name: /Privacy and safe use/ }).click();
+    // The dock carries the guided tour and nothing else — no composer, no input.
+    await expect(dialog.locator("[data-guide-universal-search]")).toHaveCount(0);
+    await expect(dialog.locator("input")).toHaveCount(0);
+
+    await dialog.getByRole("button", { name: "All topics" }).click();
+    await dialog.getByRole("button", { name: /Privacy & safe use/ }).click();
     await expect(dialog.getByRole("heading", { name: "Privacy and safe use" })).toBeFocused();
 
     await dialog.getByRole("button", { name: "Guide home" }).click();
-    await dialog.getByRole("button", { name: "Start guided tour" }).first().click();
+    await dialog.getByRole("button", { name: "Start guided tour" }).click();
     await expect(dialog.getByRole("heading", { level: 2, name: "The evidence-first workflow" })).toBeFocused();
     await dialog.getByRole("button", { name: "Continue" }).click();
     await expect(dialog.getByRole("heading", { level: 2, name: "Ask for one decision at a time" })).toBeFocused();
@@ -5488,8 +5507,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await dialog.getByRole("button", { name: "Close guide" }).click();
     await expect(dialog).toBeHidden();
     const reopenedDialog = await openGuide(page);
-    await expect(reopenedDialog.getByPlaceholder("Search the guide")).toHaveValue("");
-    await reopenedDialog.getByRole("button", { name: "Resume guided tour" }).first().click();
+    await reopenedDialog.getByRole("button", { name: "Resume guided tour" }).click();
     await expect(
       reopenedDialog.getByRole("heading", { level: 2, name: "Ask for one decision at a time" }),
     ).toBeFocused();
