@@ -170,3 +170,13 @@ test("phone forms search hides header and footer after submit without stale focu
   );
   expect(Number.parseFloat(afterHide.reservePb) || 0, "hidden reserve releases the bottom rail").toBeLessThanOrEqual(1);
 });
+
+test("phone route flips under reducedMotion: 'reduce' preserve layout and scroll owner", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize(phoneViewport);
+  await gotoPhoneSurface(page, "/calculators");
+  await addPhoneScrollRunway(page);
+  const initial = await readGeometry(page);
+  expect(initial.scrollOwner, "browser route uses document scrolling").toBe("document");
+  expect(initial.headerHidden, "header visible at top").toBe(false);
+});
