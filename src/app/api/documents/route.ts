@@ -220,29 +220,62 @@ export async function GET(request: Request) {
     }
 
     const ownedIds = [...ownedDocumentIds];
-    const emptyResult = () => Promise.resolve({ data: [], error: null });
-    const [ownedLabelsResult, publicLabelsResult, ownedSummariesResult, publicSummariesResult] = await Promise.all([
-      ownedIds.length
-        ? supabase.from("document_labels").select(LABEL_LIST_COLUMNS).in("document_id", ownedIds)
-        : emptyResult(),
-      publicDocumentIds.length
-        ? supabase.from("document_labels").select(PUBLIC_LABEL_LIST_COLUMNS).in("document_id", publicDocumentIds)
-        : emptyResult(),
-      ownedIds.length
-        ? supabase.from("document_summaries").select(SUMMARY_LIST_COLUMNS).in("document_id", ownedIds)
-        : emptyResult(),
-      publicDocumentIds.length
-        ? supabase.from("document_summaries").select(PUBLIC_SUMMARY_LIST_COLUMNS).in("document_id", publicDocumentIds)
-        : emptyResult(),
+    const ownedLabelsPromises = [];
+    for (let i = 0; i < ownedIds.length; i += 100) {
+      ownedLabelsPromises.push(
+        supabase
+          .from("document_labels")
+          .select(LABEL_LIST_COLUMNS)
+          .in("document_id", ownedIds.slice(i, i + 100)),
+      );
+    }
+    const publicLabelsPromises = [];
+    for (let i = 0; i < publicDocumentIds.length; i += 100) {
+      publicLabelsPromises.push(
+        supabase
+          .from("document_labels")
+          .select(PUBLIC_LABEL_LIST_COLUMNS)
+          .in("document_id", publicDocumentIds.slice(i, i + 100)),
+      );
+    }
+    const ownedSummariesPromises = [];
+    for (let i = 0; i < ownedIds.length; i += 100) {
+      ownedSummariesPromises.push(
+        supabase
+          .from("document_summaries")
+          .select(SUMMARY_LIST_COLUMNS)
+          .in("document_id", ownedIds.slice(i, i + 100)),
+      );
+    }
+    const publicSummariesPromises = [];
+    for (let i = 0; i < publicDocumentIds.length; i += 100) {
+      publicSummariesPromises.push(
+        supabase
+          .from("document_summaries")
+          .select(PUBLIC_SUMMARY_LIST_COLUMNS)
+          .in("document_id", publicDocumentIds.slice(i, i + 100)),
+      );
+    }
+
+    const [ownedLabelsResults, publicLabelsResults, ownedSummariesResults, publicSummariesResults] = await Promise.all([
+      Promise.all(ownedLabelsPromises),
+      Promise.all(publicLabelsPromises),
+      Promise.all(ownedSummariesPromises),
+      Promise.all(publicSummariesPromises),
     ]);
 
-    for (const result of [ownedLabelsResult, publicLabelsResult, ownedSummariesResult, publicSummariesResult]) {
-      if (result.error) throw new Error(result.error.message);
+    for (const res of [
+      ...ownedLabelsResults,
+      ...publicLabelsResults,
+      ...ownedSummariesResults,
+      ...publicSummariesResults,
+    ]) {
+      if (res.error) throw new Error(res.error.message);
     }
 
     const labelsByDocument = new Map<string, unknown[]>();
     const labelRows = parseListRows(
-      [...(ownedLabelsResult.data ?? []), ...(publicLabelsResult.data ?? [])],
+      [...ownedLabelsResults.flatMap((res) => res.data ?? []), ...publicLabelsResults.flatMap((res) => res.data ?? [])],
       labelListRowSchema,
     );
     for (const label of labelRows) {
@@ -253,7 +286,10 @@ export async function GET(request: Request) {
       labelsByDocument.set(label.document_id, existing);
     }
     const summaryRows = parseListRows(
-      [...(ownedSummariesResult.data ?? []), ...(publicSummariesResult.data ?? [])],
+      [
+        ...ownedSummariesResults.flatMap((res) => res.data ?? []),
+        ...publicSummariesResults.flatMap((res) => res.data ?? []),
+      ],
       summaryListRowSchema,
     );
     const summariesByDocument = new Map(
