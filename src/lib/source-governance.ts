@@ -97,6 +97,19 @@ function pushUnique(warnings: SourceGovernanceWarning[], warning: SourceGovernan
   warnings.push(warning);
 }
 
+export function resolveEvidenceWarningSeverity(relevance: EvidenceRelevance): {
+  severity: SourceGovernanceWarning["severity"];
+  uiToken: SourceGovernanceUiToken;
+  isDanger: boolean;
+} {
+  const isDanger = relevance.verdict === "none";
+  return {
+    severity: isDanger ? "danger" : "warning",
+    uiToken: isDanger ? "destructive" : "warning",
+    isDanger,
+  };
+}
+
 export function sourceGovernanceWarnings(args: {
   results: SearchResult[];
   relevance?: EvidenceRelevance | null;
@@ -105,11 +118,11 @@ export function sourceGovernanceWarnings(args: {
   const warnings: SourceGovernanceWarning[] = [];
 
   if (args.relevance && !args.relevance.isSourceBacked) {
-    const isDanger = args.relevance.verdict === "none";
+    const { isDanger, severity, uiToken } = resolveEvidenceWarningSeverity(args.relevance);
     pushUnique(warnings, {
       code: SOURCE_GOVERNANCE_CODES.WEAK_EVIDENCE,
-      severity: isDanger ? "danger" : "warning",
-      uiToken: isDanger ? "destructive" : "warning",
+      severity,
+      uiToken,
       message: isDanger
         ? WEAK_EVIDENCE_DANGER_MESSAGE
         : args.relevance.supportReason || "The retrieved evidence is weak or nearby-only.",

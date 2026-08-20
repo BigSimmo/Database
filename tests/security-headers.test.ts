@@ -39,10 +39,11 @@ describe("security headers", () => {
         expect(sources).not.toContain("https:");
       });
 
-      it("allows the Supabase origin in connect-src for signed-URL/API fetches", () => {
+      it("allows the Supabase and Sentry origins in connect-src for signed-URL/API/telemetry fetches", () => {
         const connectSrc = csp.split(";").find((directive) => directive.trim().startsWith("connect-src"));
         expect(connectSrc).toBeDefined();
         expect(connectSrc).toContain("https://*.supabase.co");
+        expect(connectSrc).toContain("https://*.ingest.sentry.io");
         // OpenAI calls are server-side only; the browser must not be allowed
         // to reach the provider origin (2026-07-13 audit, finding 12).
         expect(connectSrc).not.toContain("api.openai.com");
