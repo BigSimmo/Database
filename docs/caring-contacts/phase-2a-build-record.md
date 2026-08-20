@@ -608,3 +608,151 @@ alternative — a composite FK holding both copies in sync — keeps the duplica
 police it, where removing the duplication needs neither. NOW is the cheapest possible moment: nothing writes
 this table yet, so no drift can already exist and no store code must change. — Cost if wrong: a reader
 wanting the reason without a join must do one join.
+
+## Session resumed 2026-08-21 — the unverified commit 6afce3893 is now VERIFIED
+
+The prior session was terminated by an account spend limit immediately after reporting
+`93 passed. Now the mutations.` That run was never confirmed and none of the deliberate-breakage checks
+were performed, so `6afce3893` was committed carrying an explicit UNVERIFIED label. All four steps of the
+recovery procedure in that commit's own message have now been carried out.
+
+Environment: Docker running; container `caring-contacts-pg` (postgres:17) already up on 127.0.0.1:54329.
+
+TRAP HIT AND WORKED AROUND — the exit code lied, exactly as the branch's own rule warns. The first run
+reported exit 0 while having run NO tests: the cross-worktree lock coordinator died with
+`EPERM: operation not permitted, rename ...owner.json.tmp -> owner.json` (scripts/test-run-lock.mjs:120,
+via updateSentinel at :276) because a concurrent Playwright holder in another worktree rewrote the sentinel
+at the same moment. A Windows rename race in ACQUISITION, not a test result. Runs are now made through a
+retry wrapper that treats any output lacking a `Test Files` summary line as an admission failure to retry
+rather than a verdict to report. Exclusive-lease waits are 15 minutes (defaultExclusiveWaitTimeoutMs) and
+two other worktrees held the lease for ~40 minutes total, so each run took 1-3 attempts.
+
+1. BASELINE at HEAD, unmutated — VERIFIED, claim confirmed:
+   Test Files 2 passed (2)
+   Tests 93 passed (93)
+   87 was the last previously-verified count at 8d7319c54; the six new tests are real and the claimed 93
+   was true.
+
+2. MUTATION A (Ruling 30) — commented out the `create trigger service_stops_immutable` statement
+   (migration lines 140-142), leaving the `drop trigger if exists` and the function in place.
+   Confirmed FIRST that this changes a value an assertion reads: without the trigger the forbidden UPDATE
+   commits, so both the `rejects.toThrow` and the follow-up `rows[0].reason` assertion change.
+   Result — exactly the three intended tests reddened, and for the RIGHT reason:
+   Tests 3 failed | 90 passed (93)
+   x refuses a rewrite of the reason the incident was recorded under
+   x refuses a rewrite of who recorded the incident
+   x refuses a rewrite of the responder's note
+   Each failed with `AssertionError: promise resolved "undefined" instead of rejecting` — i.e. the rewrite
+   actually succeeded, rather than failing for some incidental reason. The fourth test of that block,
+   "still lets the restart be recorded against it", STAYED GREEN, which is the intended split: the trigger
+   blocks every rewrite except `restarted_at`. Ruling 30 is load-bearing, not decorative.
+
+3. MUTATION B (Ruling 31) — replaced the two `drop column if exists` statements (lines 174-175) with
+   `add column if not exists`, restoring the duplicated `stopped_reason` / `stop_note` on `service_state`.
+   Result — exactly one test reddened, the intended one:
+   Tests 1 failed | 92 passed (93)
+   x keeps NO second copy of the reason or note on the singleton
+
+4. REVERTED both mutations by restoring the file from a byte-level backup; `git diff` empty and
+   `git status` clean, so the tree is byte-identical to `6afce3893`. Confirming re-run:
+   Test Files 2 passed (2)
+   Tests 93 passed (93)
+
+Independently re-verified the two DELIBERATE reds rather than trusting the handoff:
+
+- retention: `grep -ic retention` gives repository.ts=2, in-memory-repository.ts=6, matching Ruling 26's
+  recorded counts exactly, and `years\s*:\s*7` still appears ONLY in retention.ts. So it is genuinely the
+  word-mention half tripping and no period is hard-coded. Ruling 26's fix remains correct as written.
+- typecheck: the interface declares 38 methods, in-memory implements 38, postgres implements 16 — a gap of
+  22, matching the "~21 methods" description. The red is the missing methods and nothing else.
+
+Task 11a fix round 2: mutations run and confirmed; scoped re-review over 8d7319c54..HEAD dispatched (Opus,
+per the owner's model split for migrations and RLS).
+
+## Task 11a fix round 2: scoped re-review over 8d7319c54..HEAD (Opus) — CHANGES REQUIRED
+
+Verdict: 0 Critical, 3 Important, 2 Minor. Scope confirmed clean by the reviewer: `6afce3893` touches
+exactly the migration and its test file; the two later commits are docs-only; nothing under
+`supabase/migrations/`; no hosted project ref; no prohibited vocabulary; no real names or numbers.
+
+The reviewer independently confirmed several things rather than trusting the report, and two of its
+negative results are worth keeping:
+
+- NOTHING WAS LOOSENED. All nine removed lines in the test file are SQL fixture fragments naming the
+  dropped columns. Zero `expect(` removed, zero assertions weakened, zero tests deleted. And removing
+  `service_state_stopped_reason_is_known` is not a loosening: the five-value restriction survives on the
+  single remaining copy as `service_stops_reason_is_known`, on a column that is now `not null` AND
+  unrewritable. The narrowed constraint is STRICTER than what it replaced, where the old
+  `service_state.stopped_reason` was nullable free text that could be rewritten at will.
+- THE FEARED REPLAY DEFECT DOES NOT EXIST. I asked it to hunt the case where the old wide
+  `service_state_stop_is_identified` survives a replay so the narrowed one is never installed. It checked
+  `git log -S` and found the constraint has had exactly two prior definitions, at 8b557608e and 8d7319c54,
+  and BOTH name `stopped_reason` — so in every schema state this file has ever produced, dropping the
+  column also drops the old check, and `add_constraint_if_absent` then installs the narrowed one. High
+  confidence. The same mechanism disposes of `service_state_stopped_reason_is_known`.
+- `expect(rows).toEqual([...])` cannot pass vacuously on an empty array — Vitest compares length. Two of
+  the six new tests were untouched by either of my mutations: "still lets the restart be recorded against
+  it" (a negative control against over-blocking, which would stay green with no trigger at all, so it
+  proves nothing about the trigger and should be read as a control) and "reports a stopped state's reason
+  and note through the incident row" (unmutated evidence rather than weak evidence; its real mutation
+  would be breaking the join or the FK, neither of which I tried).
+
+I verified all three Important findings against the SQL myself before ruling. All three are factually
+correct: `service_stops` has exactly seven columns and the trigger enumerates six; `grant select, insert,
+update, delete on all tables` at line 394 does include `service_stops`.
+
+Ruling: [32] `restarted_at` becomes WRITE-ONCE — null to a value stays allowed (that IS the restart being
+recorded), but once non-null any further change, including back to null, raises. — Why: as built the
+seventh column is entirely unconstrained, so `set restarted_at = null` silently makes a restarted incident
+read as never-restarted. That is precisely the "closed rows can be silently rewritten" failure Ruling 30
+was written to prevent, and the file's own header already claims restarted_at "is the ONLY field that
+changes after insert" — implemented as changes FREELY rather than written ONCE. The existing test only
+proves the field can be set, never that it cannot be unset. — Cost if wrong: if a restart timestamp ever
+needs legitimate correction it becomes a new row or a migration, which is already true of every other
+column on this table.
+
+Ruling: [33] The guard flips from a BLOCKLIST of six named columns to an ALLOWLIST — a whole-row
+`to_jsonb(new) - 'restarted_at' is distinct from to_jsonb(old) - 'restarted_at'` — plus a data-driven test
+that reads the real column list of `service_stops` from `information_schema` at runtime and asserts every
+column except `restarted_at` is refused. — Why: the defect is the POLARITY, not a present gap; the
+enumeration is complete today, but it defaults any column added later to mutable, silently, with no test
+able to notice, on a table being actively extended mid-phase. `to_jsonb` and `jsonb - text` are both in
+`pg_catalog`, which is searched implicitly even under `set search_path = ''`. The data-driven test is what
+gives this teeth: it fails automatically if a future column is added without coverage, whichever
+implementation is in use. — Cost if wrong: a whole-row diff is a more opaque idiom than named columns,
+mitigated by a comment.
+HONEST LIMIT, recorded so nobody later reads more into it: because the six-column enumeration is already
+complete, this change is behaviour-preserving TODAY and no mutation can distinguish it from the old form.
+Its value is future-proofing. The implementer was told explicitly not to invent a mutation that appears to
+prove otherwise.
+
+Ruling: [34] DELETE is deliberately NOT blocked in this round, and the reason is recorded in the SQL as a
+comment. — Why: this is NOT a scope decision, it is that blocking DELETE would make things WORSE.
+`service_stops.note` is commented in the schema as "Free text written by a responder mid-incident. Treat it
+as patient data." Retention is a confirmed SEVEN YEARS, and `retention.ts` covers episodes and audit events
+ONLY — it has no path that touches `service_stops`. So `note` is patient data with no retention path at
+all, and DELETE is the only remaining route by which it could ever be removed, because the immutability
+trigger already forbids nulling it by UPDATE. Adding a DELETE block here would close the last door on a
+7-year retention obligation as a side effect of an unrelated review finding. The reviewer was right that
+delete-then-reinsert-same-stop_id is genuinely reachable (a restarted incident with zero approval rows is
+referenced by nothing once the singleton's stop_id is cleared) and right that it contradicts the file's own
+"the schema cannot express the wrong thing" standard; it is left open deliberately, not by oversight.
+— Cost if wrong: a store bug or a deliberate purge could rewrite one incident's history wholesale. The
+store is the guard until the retention question below is answered.
+
+NEW CARRIED RISK, and it is the more important half of Ruling 34 — FLAG FOR THE OWNER AND THE FINAL
+WHOLE-BRANCH REVIEW: `service_stops.note` is explicitly marked patient data, retention is seven years, and
+NOTHING can remove it. `retention.ts` does not reach this table; UPDATE is blocked by the immutability
+trigger; DELETE is the only path and is exactly what Ruling 34 declined to close. This is a genuine gap in
+the retention story, not a defect introduced by this commit — the column arrived with Ruling 28 at
+8d7319c54. It needs a deliberate decision: either the note is out of scope for retention (say so and record
+why), or a privileged de-identification path is designed for it in Plan 2B. Do not resolve it by quietly
+blocking DELETE, which would leave the data permanently unremovable.
+
+Two reviewer minors accepted as non-blocking: the replay test re-applies the NEW file over a schema built
+by the NEW file, so the old-to-new upgrade path is exercised by no test (near-zero practical exposure since
+these migrations have never been applied to a persistent database, but nobody should read "replays without
+error" as covering the Ruling 31 hunk); and nothing requires that `service_stops.restarted_at` is null for
+the incident the singleton points at while stopped, which is store discipline rather than a schema defect.
+
+Task 11a fix round 3 dispatched (Opus) implementing Rulings 32 and 33 and the Ruling 34 comment.
