@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -28,25 +28,116 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   clearSignedUrlCache();
 });
 
 describe("SignedImage failure/retry (jsdom)", () => {
+  it("automatically recovers from a transient first-load failure", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({ error: "temporary" }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ url: "/demo/recovered.png" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <SignedImage
+        endpoint={ENDPOINT}
+        alt="Recovered diagram"
+        failureLabel="Image preview failed."
+        retryLabel="Retry"
+      />,
+    );
+
+    const img = await screen.findByRole("img", { name: "Recovered diagram" }, { timeout: 2_000 });
+    expect(img.getAttribute("src")?.endsWith("/demo/recovered.png")).toBe(true);
+    expect(screen.queryByText("Image preview failed.")).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("automatically recovers from a network failure", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("network unavailable"))
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ url: "/demo/network-recovered.png" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<SignedImage endpoint={ENDPOINT} alt="Network recovered diagram" />);
+
+    const img = await screen.findByRole("img", { name: "Network recovered diagram" }, { timeout: 2_000 });
+    expect(img.getAttribute("src")?.endsWith("/demo/network-recovered.png")).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([401, 404])("does not automatically retry terminal HTTP %s failures", async (status) => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status, json: async () => ({ error: "terminal" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<SignedImage endpoint={ENDPOINT} alt="Unavailable diagram" failureLabel="Image preview failed." />);
+
+    expect(await screen.findByText("Image preview failed.", {}, { timeout: 500 })).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("honours Retry-After before automatically retrying a rate limit", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        headers: new Headers({ "retry-after": "1" }),
+        json: async () => ({ error: "rate limited" }),
+      })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ url: "/demo/rate-recovered.png" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<SignedImage endpoint={ENDPOINT} alt="Rate recovered diagram" />);
+
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const img = await screen.findByRole("img", { name: "Rate recovered diagram" }, { timeout: 1_500 });
+    expect(img.getAttribute("src")?.endsWith("/demo/rate-recovered.png")).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("automatically refreshes the signed URL when the image download fails", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ url: "/demo/expired.png" }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ url: "/demo/refreshed.png" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<SignedImage endpoint={ENDPOINT} alt="Refreshed diagram" failureLabel="Image preview failed." />);
+
+    const img = await screen.findByRole("img", { name: "Refreshed diagram" });
+    fireEvent.error(img);
+
+    await waitFor(
+      () =>
+        expect(screen.getByRole("img", { name: "Refreshed diagram" }).getAttribute("src")).toContain("refreshed.png"),
+      { timeout: 2_000 },
+    );
+    expect(screen.queryByText("Image preview failed.")).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("shows a retryable failure state, then recovers when retry succeeds", async () => {
     const user = userEvent.setup();
-    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({ error: "boom" }) });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: "boom" }) });
     vi.stubGlobal("fetch", fetchMock);
 
     render(
       <SignedImage endpoint={ENDPOINT} alt="Airway diagram" failureLabel="Image preview failed." retryLabel="Retry" />,
     );
 
-    // The first fetch fails → polite status region with a retry action.
-    expect(await screen.findByText("Image preview failed.")).toBeInTheDocument();
+    // The initial request and both bounded automatic retries fail, then the
+    // component settles on its polite manual-recovery action.
+    expect(await screen.findByText("Image preview failed.", {}, { timeout: 3_000 })).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
     const retry = screen.getByRole("button", { name: "Retry" });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
 
     // Retry: the next fetch resolves with a URL and the image recovers.
     fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ url: "/demo/airway.png" }) });
@@ -59,7 +150,7 @@ describe("SignedImage failure/retry (jsdom)", () => {
     expect(src.endsWith("/demo/airway.png")).toBe(true);
     expect(src).not.toContain("/_next/image");
     expect(screen.queryByText("Image preview failed.")).not.toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("opens the fullscreen lightbox when a loaded zoomable image is activated, and closes on Escape", async () => {
@@ -120,7 +211,7 @@ describe("SignedImage failure/retry (jsdom)", () => {
     expect(img).toHaveAttribute("fetchpriority", "high");
   });
 
-  it("tells the browser a deferred figure may decode last", async () => {
+  it("keeps native lazy loading for a deferred figure", async () => {
     // `decoding="async"` (next/image's default) governs when the decode blocks;
     // fetch priority governs whether this image contends with the page's own
     // above-the-fold work at all. A long secondary figure rail should not.
@@ -132,8 +223,50 @@ describe("SignedImage failure/retry (jsdom)", () => {
     render(<SignedImage endpoint={ENDPOINT} alt="Rail crop" />);
 
     const img = await screen.findByRole("img", { name: "Rail crop" });
+    expect(img).toHaveAttribute("loading", "lazy");
     expect(img).toHaveAttribute("fetchpriority", "low");
     expect(img).toHaveAttribute("decoding", "async");
+  });
+
+  it("does not request a signed URL until its frame reaches the observer boundary", async () => {
+    let observerCallback: IntersectionObserverCallback | null = null;
+    const disconnect = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ url: "/demo/intersected.png" }),
+    });
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        constructor(callback: IntersectionObserverCallback) {
+          observerCallback = callback;
+        }
+        observe() {}
+        unobserve() {}
+        disconnect = disconnect;
+        takeRecords() {
+          return [];
+        }
+        root = null;
+        rootMargin = "";
+        thresholds = [];
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<SignedImage endpoint={ENDPOINT} alt="Observed diagram" />);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole("img", { name: "Observed diagram" })).not.toBeInTheDocument();
+
+    act(() => {
+      observerCallback?.([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+    });
+
+    expect(await screen.findByRole("img", { name: "Observed diagram" })).toHaveAttribute("loading", "lazy");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(disconnect).toHaveBeenCalled();
   });
 
   it("defers on the root margin its caller asked for, not only the shared default", async () => {
