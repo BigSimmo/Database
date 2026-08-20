@@ -1,6 +1,6 @@
 # Ward Flow Phase 3 — session handover
 
-Written 2026-08-20, when the originating chat session ended. Everything a fresh Claude Code
+Written 2026-08-20; refreshed 2026-08-21 after Task 6 closed. Everything a fresh Claude Code
 session needs to continue Phase 3 with full context. Read this file first, then
 `docs/ward-flow-phase-3-ledger.md`, then the plan.
 
@@ -14,8 +14,8 @@ session needs to continue Phase 3 with full context. Read this file first, then
 | ---------------- | ----------------------------------------------------------------- |
 | Worktree         | `C:\Users\joshs\.codex\worktrees\ward-management-design\Database` |
 | Branch           | `codex/ward-management-design`                                    |
-| HEAD at handover | `18f57736f`                                                       |
-| State            | Clean tree, **59 commits ahead of `origin/main`, none pushed**    |
+| HEAD at handover | `f4963f28a`                                                       |
+| State            | Clean tree, **63 commits ahead of `origin/main`, none pushed**    |
 | Dev server       | `npm run ensure` → `http://localhost:3718` (never assume a port)  |
 
 The 59 commits exist **only on this machine**. Nothing is pushed and no PR exists — that was
@@ -53,53 +53,64 @@ Tasks 7–12 have not started. Their briefs are already extracted.
 
 ### Task-by-task state
 
-| Task                             | State                       | Commits                                           |
-| -------------------------------- | --------------------------- | ------------------------------------------------- |
-| 1 — model and fixture            | complete                    | `f3b1f74f0`, `39042cd61`, `2d59219d0`             |
-| 2 — the reducer                  | complete                    | `3b76b093e`, `e7faa7b5a`                          |
-| 3 — the contracts                | complete                    | `f01a4f8f3`, `cbdd47f71` (+ plan fix `e2b72a300`) |
-| 4 — provider, clock, layout      | complete                    | `0612fdfa0`, `9ae334230`                          |
-| 5 — coordinator rewire           | complete                    | `4d36099ca`, `868853b58`                          |
-| 6 — the other nine routes        | **fix round 3 outstanding** | `af90428ce`, `b5caa5345`, `18f57736f`             |
-| 7 — coordinator phone pin        | not started                 | —                                                 |
-| 8 — the ward screen              | not started                 | —                                                 |
-| 9 — transport officer phone      | not started                 | —                                                 |
-| 10 — live tracker                | not started                 | —                                                 |
-| 11 — emergency department screen | not started                 | —                                                 |
-| 12 — role switcher + journey     | not started                 | —                                                 |
+| Task                             | State                    | Commits                                           |
+| -------------------------------- | ------------------------ | ------------------------------------------------- |
+| 1 — model and fixture            | complete                 | `f3b1f74f0`, `39042cd61`, `2d59219d0`             |
+| 2 — the reducer                  | complete                 | `3b76b093e`, `e7faa7b5a`                          |
+| 3 — the contracts                | complete                 | `f01a4f8f3`, `cbdd47f71` (+ plan fix `e2b72a300`) |
+| 4 — provider, clock, layout      | complete                 | `0612fdfa0`, `9ae334230`                          |
+| 5 — coordinator rewire           | complete                 | `4d36099ca`, `868853b58`                          |
+| 6 — the other nine routes        | complete (5 fix rounds)  | `af90428ce` … `f4963f28a`                         |
+| 6A — the ED clock counts up      | **next — brief written** | —                                                 |
+| 7 — coordinator phone pin        | not started              | —                                                 |
+| 8 — the ward screen              | not started              | —                                                 |
+| 9 — transport officer phone      | not started              | —                                                 |
+| 10 — live tracker                | not started              | —                                                 |
+| 11 — emergency department screen | not started              | —                                                 |
+| 12 — role switcher + journey     | not started              | —                                                 |
 
-### The outstanding work, in full (ruling F12)
+### What changed on 2026-08-21, and what is outstanding now
 
-Two findings from the Task 6 review, neither a correctness bug in shipped code:
+**Task 6 is complete** at `f4963f28a`, after five fix rounds. Three of those went to a single
+static guard — the one asserting that no screen reads the frozen epoch `NOW_ANCHOR` instead of
+the live clock. It overclaimed in three successive forms, each found by someone deliberately
+trying to defeat it rather than by running it:
 
-1. **The class-level clock guard in `tests/ward-flow-single-source.test.ts` overclaims.** It
-   asserts that no component reading `useWardFlow()` also reads `NOW_ANCHOR`, but it only
-   text-matches each file's _own_ imports. The reviewer proved the hole: it added a helper that
-   reads `NOW_ANCHOR` internally, had `WardPatientWorkspace` call that helper, and the guard
-   stayed green with a frozen clock read in the tree. Helper indirection, a namespace import,
-   and any component not calling `useWardFlow()` all evade it.
+1. **Co-occurrence scoping** (ruling F12) — it flagged a file only if it both called
+   `useWardFlow()` and named-imported `NOW_ANCHOR`, so helper indirection, a namespace import,
+   and any component outside the rule all walked past it.
+2. **Directory scoping** (ruling F18) — rebuilt as a named allow-list, but walking only
+   `src/components/ward-management` while its test name claimed "every read". A probe file one
+   directory out left it green.
+3. **A hand-rolled scanner** (ruling F20) — it stripped comments and strings character by
+   character with no concept of a regex literal, so a quote inside a regex desynced it and
+   blinded it to the rest of that file. Two real files under `src` carry exactly that pattern.
 
-   **The decided fix — invert the rule, do not attempt transitive import analysis.** Assert that
-   `NOW_ANCHOR` is imported only by an explicit named allow-list: the fixture, `ward-sites.ts`
-   itself, the provider, and tests. Every other reader fails, regardless of whether it calls
-   `useWardFlow()`. Stronger, still a cheap text match, and it closes both evasions because a
-   new reader must be declared to pass. Rename the guard and its comment to state exactly what
-   it enforces.
+It is now a cheap `includes("NOW_ANCHOR")` pre-filter plus a real TypeScript-parser walk over the
+six files that survive it — more correct than the scanner, and about twice as fast.
 
-   Prove it three ways: it fails on the helper-indirection case; it fails on a direct import;
-   and it fails if the allow-list is emptied or the scan matches zero files.
+**The clinician answered the standing open question** (§7, now closed): the post-examination
+number is not a countdown at all. It counts **up** — how long the patient has been in the
+department — and it feeds priority. That invalidates a modelled deadline rather than retuning it.
+It is now **Task 6A**, inserted before Task 7, with its brief already written at
+`.superpowers/sdd/2026-08-19-ward-flow-phase-3-role-screens/task-6a-brief.md`. Rulings F15 to F17
+and F23 carry the reasoning. The short version:
 
-2. **`src/components/ward-management/ward-management-modes.tsx:277`, `QueueView`,** holds
-   `useState(movements[0])` — capturing a movement object by value rather than holding an id and
-   re-deriving from live `movements`. Not exploitable today (nothing on that route mutates state
-   and it remounts on navigation), but it is the "captured once, silently stale" shape Task 6
-   exists to remove. `ward-management-network.tsx` already does it the safe way — hold the id,
-   `.find()` against current state. Match that. If the `.find()` can miss, render an explicit
-   absence; never fall back to another record.
+- `EXAMINATION_TO_BED_WINDOW_MINUTES` and the Form 3B `legalForm.dueAt` are deleted, and `dueAt`
+  becomes optional so a 3B honestly carries none. Seven surfaces must then handle absence
+  explicitly instead of rendering a fabricated number.
+- **But the four hours are real** — they were attached to the wrong quantity. Spec §7 requires the
+  **emergency department access target**, a departmental performance measure counted up from
+  `openedAt`. It returns as its own named constant that must never touch a `LegalForm`. Without
+  this, Task 6A would delete a feature Task 11 requires.
+- The Form 1A examination countdown is untouched and stays a countdown. That assumption was
+  stated back to the clinician rather than buried.
 
-   This touches a component serving several routes, so the browser gate must be re-run.
-
-After that lands and is verified, Task 6 is complete and Task 7 is next.
+**A machine trap now seen three times.** This box's vitest worker pool is unreliable under load.
+A multi-file jsdom invocation returned `Test Files 1 passed (1) / Tests 1 passed (1)` with
+`Errors 2` — two of three files never ran, while the summary line read like a pass.
+`VITEST_MAX_WORKERS=1` did not help. Run jsdom suites one file per invocation and check the
+counts. **The count is the evidence, never the word "passed".**
 
 ## 4. How the user wants this run
 
@@ -169,24 +180,28 @@ happened repeatedly during the phase.
   instead.
 - Two unused-variable lint warnings in the reducer files are **pre-existing** and not Phase 3's.
 
-## 7. One open question for the user, not blocking
+## 7. The open question, answered 2026-08-21
 
-When a patient is examined in the emergency department and ordered to an inpatient bed, what
-should the countdown on screen represent, and over what period?
+Asked: when a patient is examined in the emergency department and ordered to an inpatient bed,
+what should the on-screen countdown represent, and over what period?
 
-`EXAMINATION_TO_BED_WINDOW_MINUTES` in `src/components/ward-management/ward-model.ts` currently
-holds **240** (four hours) as a synthetic placeholder, explicitly commented as awaiting clinical
-confirmation and not a legal timeframe. Every 3B deadline in the fixture derives from it, and a
-test pins that derivation, so changing the answer is a one-line change.
+Answered, verbatim: _"It is just counting how long they have been in ED determining priority. So
+counting up."_
+
+So there is no post-examination deadline. See §3 for what that invalidates and what replaces it.
+Three things remain unconfirmed and were stated to the clinician rather than assumed silently:
+that the Form 1A pre-examination countdown stays a countdown; that being detained and examined
+confers no priority bonus of its own beyond elapsed time; and whether four hours is the correct
+access target for WA metro emergency departments.
 
 ## 8. Resuming — the opening move
 
 1. Confirm you are in `C:\Users\joshs\.codex\worktrees\ward-management-design\Database` on
-   `codex/ward-management-design`, and that `git status` is clean at `18f57736f` or later.
+   `codex/ward-management-design`, and that `git status` is clean at `f4963f28a` or later.
 2. Read `docs/ward-flow-phase-3-ledger.md` in full. It is the recovery map — the commits it names
    exist in git even when nothing else remembers them.
 3. Invoke `superpowers:subagent-driven-development` with the plan file. It will find the existing
    ledger at `.superpowers/sdd/2026-08-19-ward-flow-phase-3-role-screens/progress.md` and resume;
    **do not re-dispatch tasks 1–5**, which are recorded complete.
-4. Dispatch the Task 6 fix round described in section 3 above, verify it yourself, then continue
-   to Task 7.
+4. Tasks 1-6 are complete. Dispatch **Task 6A** from its written brief, verify it yourself, then
+   continue to Task 7. Tasks 7-12 are the six screen tasks, and each owes the user screenshots.

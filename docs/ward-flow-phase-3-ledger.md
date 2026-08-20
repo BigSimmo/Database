@@ -1,10 +1,8 @@
-> **Committed copy taken 2026-08-20 for session handover.** The live ledger this was copied
+> **Committed copy refreshed 2026-08-21.** The live ledger this was copied
 > from is `.superpowers/sdd/2026-08-19-ward-flow-phase-3-role-screens/progress.md`, which is
 > gitignored and does not travel with a clone or push. A continuing session should keep
 > appending to that live copy — the skill's scripts expect it there — and refresh this file at
 > the next handover. Start with `docs/ward-flow-phase-3-handover.md`.
-
-# SDD ledger — plan: docs/superpowers/plans/2026-08-19-ward-flow-phase-3-role-screens.md
 
 Spec: docs/superpowers/specs/2026-08-19-ward-flow-phase-3-role-screens-design.md (reachable, 19 sections)
 Worktree: C:/Users/joshs/.codex/worktrees/ward-management-design/Database — branch codex/ward-management-design
@@ -264,3 +262,125 @@ Second finding, small: `ward-management-modes.tsx:277`'s `QueueView` holds `useS
 Also corrected: this is nine routes, not the ten the plan and my briefs have been saying — the coordinator, seven mode routes, and the patient workspace.
 
 Fix round 3 dispatched, and it is the last for this task.
+
+## Session 2 — resumed 2026-08-20
+
+New controller session. Confirmed the worktree, branch `codex/ward-management-design`, clean tree at f3ebd8ccf (60 commits ahead of origin/main, none pushed). Live ledger and the committed copy at `docs/ward-flow-phase-3-ledger.md` agree apart from Prettier reflow, so no ledger work was lost with the previous session.
+
+Independent baseline taken before dispatching anything, not read from the previous session's report: `tsc --noEmit` clean, and 58 unit tests green across the seven Phase 3 suites.
+
+Ruling F13 — dispatch a fresh implementer for Task 6 fix round 3 rather than resuming the original. The skill routes rounds 1-3 back to the original implementer, but that agent died with the previous Claude Code process and cannot be resumed across sessions. The fresh agent gets the brief, the accumulated report file and the findings verbatim, which is the persistent memory the skill names for exactly this case. Cost if wrong: the fresh implementer re-derives context the original held, costing turns rather than correctness.
+
+Ruling F14 — the Phase 3 unit suites must be run in two invocations, not one. Running all seven together fails 2 of 7 with `[vitest-pool-runner]: Timeout waiting for worker to respond`, while the same files pass when the jsdom `.dom.test.tsx` pair is run separately (53 node-env + 5 jsdom = 58). This is environment contention between jsdom and node pools on this machine, not a source defect. Recorded because a single-invocation run reports 5 files passed and looks green at a glance while silently dropping two suites — the "gate that did not run" shape, and this phase's standing instruction is to read gate output rather than exit codes. Cost if wrong: two extra seconds per verification run.
+
+Task 6 fix round 3 dispatched (fresh implementer, sonnet) carrying `task-6-fix-round-3-findings.md`: the inverted `NOW_ANCHOR` allow-list guard under F12, and the `QueueView` captured-movement fix. BASE f3ebd8ccf.
+
+### The open clinical question is answered — and it invalidates a modelled deadline
+
+The user answered the standing question about the post-examination clock: **"It is just counting how long they have been in ED determining priority. So counting up."**
+
+So there is no post-examination deadline at all. The number on screen is elapsed time in the emergency department, ascending, and it feeds placement priority. `EXAMINATION_TO_BED_WINDOW_MINUTES = 240` was not merely the wrong value — the quantity it represents does not exist.
+
+What the code does today, read rather than assumed:
+
+- `ward-model.ts:50` holds the constant; `ward-flow-reducer.ts:177` derives `dueAt = event.now + 240` when `RECORD_EXAMINATION` records an inpatient order; three fixture records (WF-003, WF-009, WF-017) derive their 3B `dueAt` the same way under ruling F5.
+- Seven surfaces read `legalForm.dueAt` and treat it as statutory: the priority queue's breach row, the shortlist panel's `"passed its deadline N min ago"`, `buildActionInbox`'s "Legal timing breached" exception, the pressure strip's breach counts, the console's "due <time>" line, and `operationalScore`'s 30-point "Statutory timing" factor.
+- So a 3B patient currently renders a fabricated statutory breach and is awarded 30 priority points for it. That is the "surface stating something the data does not support" class this phase exists to catch, now confirmed clinically false by the user rather than merely suspected.
+
+What is already right and must not be rebuilt: `elapsedLabel` counts up from `openedAt`, and `operationalScore`'s "Time waiting" factor already awards up to 40 points at one point per 15 minutes elapsed. That _is_ the user's rule. The defect is the fabricated deadline layered on top of it, not a missing count-up.
+
+Ruling F15 — delete the modelled post-examination deadline rather than retune its value, and make `LegalForm.dueAt` optional so a 3B form can honestly carry none. Retuning the constant would keep every surface asserting a statutory breach the Act does not impose; the user's answer says the quantity is not a deadline, so no value for it is correct. Making `dueAt` optional forces each of the seven readers to handle absence explicitly instead of rendering a fabricated number, which is the same discipline applied to the shortlist's missing-record case. The 1A (awaiting examination) countdown is untouched and stays a countdown — the user's answer was scoped to the post-examination case, and this assumption is stated back to him rather than buried. Cost if wrong: if a real post-examination timeframe is later supplied, it returns as an optional field on the same type plus one derivation — the readers' absence handling stays correct either way.
+
+Ruling F16 — land this as its own task inserted between Task 6 and Task 7, not as a controller-side edit and not deferred into Task 11. Two reasons. The Task 6 fix implementer is live in `ward-management-modes.tsx` and `tests/ward-flow-single-source.test.ts` right now, so editing alongside it would collide. More importantly Tasks 8 to 12 render this quantity — Task 11 _is_ the ED screen — so correcting the meaning after they are built means retrofitting five screens instead of one model. Controller-side fixes also skip review, which is the one thing this phase's defect record says never to do. Cost if wrong: one extra task-and-review cycle before Task 7 starts.
+
+Ruling F17 — the Playwright assertion at `tests/ui-ward-coordinator.spec.ts:269`, which ruling F5 satisfied by engineering WF-017's 3B breach to the top of the queue, must be re-satisfied from a genuinely breached 1A instead. Checked the fixture: WF-001 (`dueAt: NOW_ANCHOR - 15`) and the movement at ward-movements.ts:114 (`dueAt: NOW_ANCHOR - 40`) both carry real breached examination deadlines, so a true breach is available without inventing one. Under no circumstances relax that assertion to keep it green — it is the check that a breached statutory deadline reaches the surface, and it is now the only kind of legal breach the prototype claims. Cost if wrong: the queue's top row is a different patient in the demo.
+
+### Task 6 fix round 3 — returned and independently verified
+
+Fix round 3 returned DONE at c8f7b22ec (three files: the guard, `ward-management-modes.tsx`, and a new `tests/ward-flow-queue-selection.dom.test.tsx`).
+
+Verified myself, not taken on report. Gates re-run in this session: `tsc --noEmit` clean (after deleting the corrupted `.next/dev/types/validator.ts` artefact — the known trap, hit again), node-env suites **53 passed**, jsdom suites **6 passed** (up from 5, the one new test), ward browser gate **24 passed (4.1m)**. Every number in the implementer's report matches what I measured.
+
+Mutation-tested the new guard myself with three mutations of my own, each printed back from the file before running and reverted after:
+
+- **Namespace import** — `import * as wardSites from ".../ward-sites"` plus `wardSites.NOW_ANCHOR` in `coordinator-screen.tsx`: KILLED. This is the form the fix-round-2 rule missed entirely.
+- **Helper indirection** — a new `ward-frozen-helper.ts` reading `NOW_ANCHOR` internally: KILLED, and it flags the helper file itself with no component calling it. That is what actually closes the hole the reviewer found under F12: the helper cannot exist unflagged, so there is nothing for a component to hide behind.
+- **Emptied allow-list**: KILLED, naming exactly `ward-sites.ts`, `ward-movements.ts` and `ward-flow-provider.tsx`. Every entry is doing real work — no inert names, which is the defect the older `ALLOWED` set carried.
+
+The `QueueView` fix matches `WardNetworkWorkspace`: id in state, `useMemo` `.find()` against live `movements`, and an explicit "No synthetic movement matches the current selection" panel instead of any fallback record. The absence guard sits in the JSX, so hooks above it still run unconditionally.
+
+Ruling F18 — the rebuilt guard is scoped to one directory while its name claims the whole rule, so fix round 4 is required rather than closing the task here. I probed it: a file at `src/lib/ward-probe/frozen.ts` importing `NOW_ANCHOR` and re-exporting a frozen elapsed helper leaves the suite **5 passed**, fully green. The test is named "restricts every read of NOW_ANCHOR to the named allow-list" and it restricts every read _inside `src/components/ward-management`_. This repo has roughly 200 modules under `src/lib`, and a ward screen importing a time helper from there is an ordinary thing to do, so the escape is not exotic. It is also the identical defect to F12 one layer out — a check promising more than it delivers, which is precisely what stops anyone looking harder — and the fix is to widen the scan to `src` while keeping the fixture-import rule where it is. Cost if wrong: the scan walks a few hundred more files and the allow-list needs path-qualified keys rather than bare basenames to avoid a collision.
+
+Fix round 4 dispatched. Findings 1 and 2 look correct to me but have not been reviewed yet, so the scoped re-review after round 4 covers c8f7b22ec and the round-4 commit together rather than round 4 alone.
+
+### Task 6 fix round 4 — agent lost to a usage limit, work recovered and verified
+
+The fix round 4 implementer was terminated mid-run by a hard usage limit (resets 03:50 Perth), the same failure mode that ended the previous session. It had committed nothing, but unlike the earlier loss it left a complete, correct change in the working tree: `SRC_DIR = "src"`, path-qualified allow-list keys, a `normalizePath` helper for the Windows separator mismatch, and both test bodies rescoped. Its final self-instruction was to revert its last mutation — which it had in fact already done, and no probe directory survived.
+
+**My own error, recorded because it nearly cost the work.** Reaching for a proof run I ran `git checkout -- tests/ward-flow-single-source.test.ts` _before_ taking a backup, which reverted the uncommitted round-4 work to HEAD and destroyed it. Nothing was stashed and nothing was committed, so git held no copy.
+
+Ruling F19 — reconstruct from the diff already read into context and apply it as a patch that git verifies, rather than retyping the file or re-dispatching under a usage limit. `git apply --check` passed, which means every context line matched the HEAD file byte-for-byte; only the added lines came from transcription, and the five mutation proofs below exercise exactly those. A hand-retyped file would have had no such verification, and re-dispatching was unavailable. Cost if wrong: a transcription error in an added line, which the proof set and `tsc` would have to catch — and did have to catch, since that is now the only thing standing behind those lines. Byte check: 8245 bytes, **0 CR bytes**, Prettier reports the file unchanged.
+
+All five proofs run by me against the reconstructed file, each printed back from disk before the run:
+
+- **Out-of-tree named import** — `src/lib/ward-probe/frozen.ts`, the exact probe that defeated round 3: KILLED, naming the file. The F18 gap is closed.
+- **Out-of-tree namespace import** — `import * as sites` then `sites.NOW_ANCHOR`: KILLED.
+- **Emptied allow-list**: KILLED, naming exactly `ward-sites.ts`, `ward-movements.ts` and `ward-flow-provider.tsx` — every entry doing real work, no inert names. This also proves the forward-slash normalisation matches on Windows, since a broken `normalizePath` would have made the populated list fail instead.
+- **Zero-match tripwire** — `SRC_DIR` pointed at an empty directory: KILLED.
+- **Comment trap** — `coordinator-screen.tsx` names `NOW_ANCHOR` at line 38 in a doc comment and is not allow-listed: stays GREEN, so the comment/string stripping still works.
+
+Gates, all re-run by me at 845b7d456: `tsc --noEmit` clean; node-env suites **53 passed**; the wider ward suites (`ward-management`, `ward-priority`, `ward-pressure`, `ward-derivations`, `ward-model`) **58 passed**, run because widening a scan to all of `src` can surface readers the ward suites never touch; jsdom suites **6 passed**. Browser gate deliberately not re-run and said so plainly: this commit changes one test file and no `src` file, and I ran the gate myself at c8f7b22ec (**24 passed, 4.1m**).
+
+Trap worth carrying forward: the first jsdom invocation returned `Test Files no tests / Tests no tests` and exited 0. Re-running the identical command gave 3 files / 6 passed. This environment can report a vitest run that silently collected nothing while looking successful — the purest form of the "gate that did not run" shape this phase keeps guarding against. Always read the file and test counts, never the exit code.
+
+Cost noted, not acted on: widening the scan took the guard's own runtime from ~80 ms to ~7 s. Acceptable for a static guard that runs in the unit suite; flagged so nobody is surprised.
+
+### Scoped re-review of rounds 3 and 4 — two ADDRESSED, one real Critical
+
+Reviewer verdicts: Finding 1 (guard evadability) ADDRESSED; Finding 2 (`QueueView` stale selection) ADDRESSED and live-verified with a real dispatch test; Finding 3 (guard scope) ADDRESSED on its literal requirements, but the widening exposed a defect in the mechanism underneath.
+
+**Critical, and I reproduced it myself rather than taking the report.** `stripCommentsAndStrings` has no concept of a regex literal. A quote character inside a regex opens a phantom string and desyncs comment/string tracking for the remainder of the file, so every later line is invisible to the scan. Two real files under `src` carry exactly that pattern — `clinical-dashboard/search-utils.ts:331` (`/"[^"]+"|(?:^|\s)'[^']+'(?=\s|$)/`) and `lib/document-summary-badges.ts:61` — and both are newly in scope precisely because round 4 widened the walk to `src`.
+
+My reproduction: appended a plain `import { NOW_ANCHOR } from "@/components/ward-management/ward-sites"; export const leaked = NOW_ANCHOR;` to the end of `search-utils.ts`, printed the appended lines back from disk, and ran the guard: **5 passed**, fully green, with an ordinary named import of the frozen epoch in the tree. Restored from backup, tree clean. This is a genuine false negative in the exact property round 4 claims to hold — the third time this guard has promised more than it delivers.
+
+Ruling F20 — replace the hand-rolled scanner with the TypeScript compiler's own parser behind a cheap substring pre-filter, rather than teaching the scanner about regex literals. Distinguishing a regex literal from a division operator requires the preceding token, which is the classic reason ad-hoc JavaScript scanners are wrong; a heuristic there would buy a fourth version of the same overclaim. Meanwhile only **6 files under all of `src` contain the string `NOW_ANCHOR` at all**, so `source.includes("NOW_ANCHOR")` discards every other file instantly and the exact parser runs on six. That is both more correct and faster than what it replaces, and it deletes the hand-rolled scanner rather than patching it. Cost if wrong: the test gains a `typescript` import (already a repo dependency, used by `tsc`) and the guard's correctness now rests on the same parser the build already trusts.
+
+Ruling F21 — treat the guard as load-bearing right now rather than parking this at the round cap. It would be defensible to park a tripwire nothing currently trips: no file under `src` reads `NOW_ANCHOR` outside the allow-list today, and the false negative only fires in a file carrying a quote-bearing regex ahead of the read, which the two known files do and a new ward screen would not. But Tasks 7 to 12 add six screens in exactly the area this guard polices, so it has to work _during_ the remaining work, not after it. Cost if wrong: one more fix round spent on a test file at the cap.
+
+Ruling F22 — dispatch round 5 on the same model tier rather than escalating as the skill's rounds 4-5 rule directs. The escalation exists for an implementer that cannot see its own problem; here the diagnosis and the replacement design are both settled and written down, which makes this transcription plus proof rather than design. The account also hit a hard usage limit mid-round-4, so spending a more expensive tier on specified work risks losing the round to the ceiling again. Cost if wrong: one round at the cap, after which I adjudicate rather than dispatch again.
+
+Fix round 5 dispatched — the last for this task. BASE 845b7d456.
+
+### Pre-flight scan of the remaining tasks — one real defect found before dispatch
+
+Scanned briefs 7 to 12 against the state the branch is actually in, prompted by the clinician's clock answer. No brief references `dueAt`, `EXAMINATION_TO_BED_WINDOW_MINUTES`, or a Form 3B deadline, so ruling F15 breaks nothing by name. But Task 11 requires "the four-hour access target", and the spec is explicit at §7:
+
+> Time against the four-hour access target is shown, because that is the number a department is judged on and mental health patients are its largest breachers.
+
+Ruling F23 — refine F15 rather than let it delete a required feature. The four-hour figure is real, but it was attached to entirely the wrong quantity. It is the **emergency department access target** — a departmental performance measure counted **up from `openedAt`**, the time the patient has been in the department — and the spec names it as such, distinct from the Mental Health Act clocks it lists separately. What Task 2 built under ruling F1 instead bolted 240 minutes onto `legalForm.dueAt` for a Form 3B, derived from `examination.at`, and rendered it through surfaces that call it statutory timing and count it as a legal breach. So the number was not wrong; its meaning, its anchor, and its rendering all were. Ledger entry F1 even recorded at the time that "4 hours is the ED access target rather than a detention window", and it was wired to the legal form anyway.
+
+Therefore: `EXAMINATION_TO_BED_WINDOW_MINUTES` and the post-examination `legalForm.dueAt` are deleted as F15 requires, and a separately named ED access-target constant of 240 minutes is introduced for Task 11, measured from `openedAt`, labelled on screen as a departmental access target and never as a legal or statutory deadline. This also matches the clinician's answer exactly — a count-up from arrival in the department, which is what an access target is.
+
+Cost if wrong: if the access target is not four hours in WA metro EDs, it is one named constant on one screen. If the two had been left conflated instead, Task 11 would have rendered a performance measure and a detention clock as the same kind of thing on a screen a clinician reads — the precise failure this phase exists to prevent.
+
+Task 6A's brief amended accordingly before dispatch.
+
+### Task 6 fix round 5 — landed and independently verified
+
+Returned at f4963f28a. `stripCommentsAndStrings` is deleted; `readsNowAnchor` now does a cheap `source.includes("NOW_ANCHOR")` pre-filter and then parses the survivors with `ts.createSourceFile`, walking for an identifier node named `NOW_ANCHOR`. Comments and string contents are not identifier nodes, so they are excluded by construction rather than by a scanner that has to be right about regex literals.
+
+Verified myself, not from the report:
+
+- **The regression that caused the round**: appended a plain `import { NOW_ANCHOR } … ; export const leaked = NOW_ANCHOR;` to `search-utils.ts` — the file whose quote-bearing regex blinded the v4 scanner — printed the lines back from disk, ran the guard: **KILLED**, naming `search-utils.ts`. The Critical is closed.
+- **No new false positive**: `export const note = "NOW_ANCHOR is the frozen epoch…"` in the same non-allow-listed file stays **5 passed**. A mention is not a read.
+- Restored `search-utils.ts` from backup both times and confirmed `git status` clean each time, so the file is byte-identical to its commit.
+
+Gates re-run by me at f4963f28a: `tsc --noEmit` clean; node-env suites **53 passed**; wider ward suites **58 passed**; jsdom **6 passed** (1 + 4 + 1, run one file at a time — see below). Browser gate not re-run: this commit changes one test file and no `src` file, and I ran it myself at c8f7b22ec (**24 passed, 4.1m**).
+
+Trap, now seen three times and worth treating as standing: this machine's vitest worker pool is unreliable under load. A three-file jsdom invocation returned `Test Files 1 passed (1) / Tests 1 passed (1)` with `Errors 2` — two of the three files never ran, while the summary line looked like a pass. `VITEST_MAX_WORKERS=1` did not fix it and produced the same truncated result. Running each jsdom file in its own invocation gave the true 1 + 4 + 1. **The count is the evidence, never the word "passed".** The implementer hit the same thing and reported ~78 resident `node.exe` processes, consistent with contention rather than regression.
+
+Guard runtime improved as predicted by F20: roughly 12.5s under v4's whole-tree character scan, 5–8s under v5's pre-filter-plus-parser. More correct and faster.
+
+Implementer's third concern is accurate and needs no action: `task-6-report.md` has no round-4 section because the round-4 agent was killed by the usage limit before it could report. That round's full record lives in this ledger instead, and the work itself is committed at 845b7d456.
+
+**Task 6: complete.** Commits af90428ce, b5caa5345, 18f57736f, c8f7b22ec, 845b7d456, f4963f28a. Five fix rounds, three of them spent on one static guard that overclaimed in three successive forms — co-occurrence scoping, directory scoping, and a hand-rolled scanner. Each was found by someone deliberately trying to defeat the check rather than by running it.
