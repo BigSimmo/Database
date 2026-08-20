@@ -112,11 +112,33 @@ Five findings, all verifiable in source:
 5. **One flat row mixes three classes of object.** Definitions (96) and abbreviations (11) are terms; topics (12)
    are governed collections with their own route. That is the lever each direction pulls.
 
-| Direction                                      | Header scopes                              | Abbreviations                       | Alphabet                        | Trade-off                                                                 |
-| ---------------------------------------------- | ------------------------------------------ | ----------------------------------- | ------------------------------- | ------------------------------------------------------------------------- |
-| 01 Band-native, all four scopes                | All · Definitions · Abbreviations · Topics | Header scope                        | Second `filterControls` row     | Fixes the wrap, not finding 5; four segments are tight at 320 px          |
-| 02 Three scopes, Abbreviations in sheet (rec.) | All · Definitions · Topics                 | `scope` prop on `ResultFilterSheet` | Owns the `filterControls` row   | Demoted state is invisible until opened — the shelf chip is load-bearing  |
-| 03 One toolbar, title retired on phone         | All · Definitions · Abbreviations          | Header scope                        | Compact `A–Z` on the count line | Phone loses its visual title; Topics demoted to a sheet facet plus a link |
+| Direction                                                       | Header scopes                                               | Abbreviations                       | Alphabet                                   | Trade-off                                                                 |
+| --------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------- |
+| 01 Band-native, all four scopes                                 | All · Definitions · Abbreviations · Topics                  | Header scope                        | Second `filterControls` row                | Fixes the wrap, not finding 5; four segments are tight at 320 px          |
+| 02 Three scopes, Abbreviations in sheet                         | All · Definitions · Topics                                  | `scope` prop on `ResultFilterSheet` | Owns the `filterControls` row              | Demoted state is invisible until opened — the shelf chip is load-bearing  |
+| 03 One toolbar, title retired on phone                          | All · Definitions · Abbreviations                           | Header scope                        | Compact `A–Z` on the count line            | Phone loses its visual title; Topics demoted to a sheet facet plus a link |
+| **04 One line: shrunk index + coloured kind toggle (selected)** | All · Definitions · Abbreviations · Topics, tinted per kind | Coloured toggle on the index line   | Chip on phone, full-width ruler on desktop | Spends the colour budget — purple now means abbreviations mode-wide       |
+
+**Direction 04 is the selected direction** (2026-08-19, from review feedback on 02). Two moves:
+
+- **Phone Browse is one line.** The alphabet gives up the full row it owned in 02 and shrinks to an `A–Z All ⌄` chip;
+  the space it returns carries a coloured two-state kind toggle, so Definitions/Abbreviations is visible and
+  switchable without opening the sheet. Measured at 390 px: toggle 182 px, chip 80 px, same line, same 58 px height
+  (the chip uses `self-stretch` to match the toggle's pad ring rather than sitting 10 px shorter and centred).
+- **Desktop is not the phone stretched.** The toggle is promoted onto the band's primary line beside sort and
+  filter, which leaves the strip line entirely to an **A–Z ruler**: 27 keys, each `flex-1 min-w-0`, so it is exactly
+  one line at any width _by construction_ — there is nothing to wrap and no fixed cell width to emit. It replaces the
+  production rail of 27 bordered chips that wraps into a two-row block whose height changes with the viewport,
+  moving the results beneath it. Unavailable letters stay visible but inert, carried by weight and opacity rather
+  than a disabled box.
+
+The colour language is two existing tokens, not a new component: `definitions → --clinical-accent`,
+`abbreviations → --tone-purple`, both paired with `--clinical-accent-contrast`. That pairing is what survives a theme
+flip rather than being a lucky guess in light mode — light is `#ffffff` on `#634f8f`, dark is `#082e4d` on `#b0a0d8`;
+the background lightens as the text darkens. A leading dot carries the pairing on the _inactive_ side too, so the
+colour is taught before it is used. Purple-for-abbreviations is not invented here — the round-two study reached for
+the same tone for the same meaning. Caveat: under forced colors `--tone-purple` resolves to `CanvasText` and
+`--clinical-accent-contrast` to `ButtonText`, so the active fill relies on its border for separation there.
 
 Direction 02 uses `ResultFilterSheet`'s existing `scope` prop (`result-filter-control.tsx:800`, rendered by
 `ResultFilterScopeSelector` at `:653`), already passed by `specifiers-home-page.tsx:410` and

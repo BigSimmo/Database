@@ -44,7 +44,7 @@ const TOPICS = 12;
 const WITHOUT_ABBREVIATIONS = TOTAL - ABBREVIATIONS;
 
 type Tab = "search" | "browse";
-type DirectionId = "banded" | "sheeted" | "toolbar";
+type DirectionId = "banded" | "sheeted" | "toolbar" | "refined";
 type SearchScope = "all" | "definitions" | "abbreviations" | "topics";
 type BrowseScope = "definitions" | "abbreviations";
 /** Direction B's demoted abbreviation control, as a sheet scope. */
@@ -137,7 +137,6 @@ const directions: ReadonlyArray<{
     alphabet: "Owns the whole filterControls row on Browse",
     strengths: ["Comfortable at 320px", "Uses a shipped prop, no new component", "Header stops mixing object classes"],
     cost: "A view switch demoted into a sheet is invisible until you open it. The applied-filter chip on the band's shelf is therefore load-bearing, not decoration — without it the header claims 119 results while listing 11. This is the same conclusion the round-two Browse study reached independently.",
-    recommended: true,
   },
   {
     id: "toolbar",
@@ -151,6 +150,20 @@ const directions: ReadonlyArray<{
     alphabet: "Compact A–Z trigger on the count line",
     strengths: ["Results start highest up the page", "Three roomy segments", "Nothing about terms is hidden"],
     cost: "Phone loses its visual page title and depends entirely on the mode nav above staying put — if that ever scroll-hides, the page has no name. Topics becomes a sheet facet plus a link, which is a demotion for a surface that has twelve populated collections.",
+  },
+  {
+    id: "refined",
+    number: "04",
+    name: "One line: shrunk index + coloured kind toggle",
+    thesis: "Kind is a two-state choice. Give it a two-state control, and give it a colour.",
+    summary:
+      "The chosen direction, developed from 02. On Browse the alphabet stops taking a whole row — it shrinks to a chip — and the space it gives back carries a coloured kind toggle, so Definitions and Abbreviations are visible and switchable without opening anything. Colour does the work a label would otherwise need: definitions are accent, abbreviations are purple, and a leading dot teaches that pairing on the inactive side too. Desktop is not the phone stretched: the same toggle sits on one refined line beside a full A–Z index that no longer wraps into a block.",
+    searchScopes: "All 119 · Definitions 96 · Abbreviations 11 · Topics 12, each tinted to its kind",
+    abbreviations: "Coloured toggle on the index line",
+    alphabet: "Shrunk to a chip on phone, one inline rail on desktop",
+    strengths: ["One line, both controls", "Colour carries kind", "Desktop rail stops wrapping"],
+    cost: "It spends the colour budget: purple now means abbreviations everywhere in this mode, and any later tone has to fit around that. The tinted scope segments on Search are a fourth colour language on a page that already has accent, success and warning — worth it only if the kind pairing is adopted consistently.",
+    recommended: true,
   },
 ];
 
@@ -168,6 +181,7 @@ function StudySegmented<T extends string>({
   options,
   compact,
   layout = "equal",
+  tinted = false,
 }: {
   label: string;
   value: T;
@@ -175,6 +189,8 @@ function StudySegmented<T extends string>({
   options: ReadonlyArray<{ value: T; label: string; hint?: string }>;
   compact: boolean;
   layout?: "equal" | "fit";
+  /** Direction 04: the active segment takes the colour of the kind it selects. */
+  tinted?: boolean;
 }) {
   return (
     <div
@@ -195,6 +211,13 @@ function StudySegmented<T extends string>({
             aria-checked={checked}
             aria-label={option.hint ? `${option.label} (${option.hint})` : undefined}
             onClick={() => onChange(option.value)}
+            style={
+              tinted && checked
+                ? { backgroundColor: kindTone[option.value]?.fill, color: "var(--clinical-accent-contrast)" }
+                : tinted
+                  ? { color: kindTone[option.value]?.ink }
+                  : undefined
+            }
             className={cn(
               "flex min-h-tap min-w-0 items-center justify-center whitespace-nowrap rounded-full font-semibold leading-none transition motion-reduce:transition-none",
               focusRing,
@@ -209,6 +232,7 @@ function StudySegmented<T extends string>({
                 : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
             )}
           >
+            {tinted ? <KindDot tone={kindTone[option.value]?.fill ?? "var(--border)"} active={checked} /> : null}
             <span className="min-w-0 truncate">{option.label}</span>
             {option.hint ? (
               <span className={cn("nums shrink-0", checked ? "opacity-80" : "text-[color:var(--text-muted)]")}>
@@ -417,6 +441,221 @@ function StudyBand({
         </div>
       ) : null}
     </section>
+  );
+}
+
+/* ------------------------ the kind colour language ----------------------- */
+
+/**
+ * Direction 04's whole premise: kind is a two-state choice on Browse, so it
+ * gets a two-state control — and a colour, so the answer survives being read
+ * at a glance. Purple for abbreviations is not invented here; the round-two
+ * study reached for the same tone for the same meaning.
+ *
+ * Both tones pair with `--clinical-accent-contrast`, which is the pairing that
+ * makes this survive a theme flip rather than a lucky guess in light mode:
+ * light theme is #ffffff on #634f8f, dark theme is #082e4d on #b0a0d8. The
+ * background lightens and the text darkens together.
+ */
+const kindTone: Record<string, { fill: string; soft: string; border: string; ink: string }> = {
+  definitions: {
+    fill: "var(--clinical-accent)",
+    soft: "var(--clinical-accent-soft)",
+    border: "var(--clinical-accent-border)",
+    ink: "var(--clinical-accent)",
+  },
+  abbreviations: {
+    fill: "var(--tone-purple)",
+    soft: "var(--tone-purple-soft)",
+    border: "var(--tone-purple-border)",
+    ink: "var(--tone-purple)",
+  },
+  topics: {
+    fill: "var(--tone-indigo)",
+    soft: "var(--surface-inset)",
+    border: "var(--border)",
+    ink: "var(--tone-indigo)",
+  },
+  all: {
+    fill: "var(--clinical-accent)",
+    soft: "var(--clinical-accent-soft)",
+    border: "var(--clinical-accent-border)",
+    ink: "var(--text-muted)",
+  },
+};
+
+/** The dot that teaches the pairing while a side is still inactive. */
+function KindDot({ tone, active }: { tone: string; active: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className="h-2 w-2 shrink-0 rounded-full"
+      style={{ backgroundColor: active ? "currentColor" : tone }}
+    />
+  );
+}
+
+function KindToggle({
+  value,
+  onChange,
+  compact,
+  counts,
+}: {
+  value: BrowseScope;
+  onChange: (next: BrowseScope) => void;
+  compact: boolean;
+  counts: Record<BrowseScope, number>;
+}) {
+  const options: ReadonlyArray<{ value: BrowseScope; label: string; short: string }> = [
+    { value: "definitions", label: "Definitions", short: "Terms" },
+    { value: "abbreviations", label: "Abbreviations", short: "Abbrev" },
+  ];
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Entry kind"
+      className={cn(
+        "inline-flex min-w-0 items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]",
+        // 48px inner on a phone (the tap floor), 40px on a pointer — the same
+        // two-tier height the band's own sort and filter controls use, so the
+        // toggle does not grow the primary line it now sits on.
+        compact ? "min-w-0 flex-1 p-1" : "p-0.5",
+      )}
+    >
+      {options.map((option) => {
+        const active = value === option.value;
+        const tone = kindTone[option.value];
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            aria-label={`${option.label}, ${counts[option.value]} entries`}
+            onClick={() => onChange(option.value)}
+            style={
+              active ? { backgroundColor: tone.fill, color: "var(--clinical-accent-contrast)" } : { color: tone.ink }
+            }
+            className={cn(
+              "inline-flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full font-bold leading-none transition motion-reduce:transition-none",
+              focusRing,
+              compact ? "min-h-tap flex-1 px-2 text-2xs" : "min-h-10 px-3.5 text-xs",
+              active ? "shadow-[var(--e1)]" : "hover:bg-[color:var(--surface)]",
+            )}
+          >
+            <KindDot tone={tone.fill} active={active} />
+            <span className="min-w-0 truncate">{compact ? option.short : option.label}</span>
+            <span className={cn("nums shrink-0", active ? "opacity-80" : "opacity-70")}>{counts[option.value]}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * The shrunk alphabet. It gave up a whole row so the kind toggle could share
+ * the line, so it has to say what it is in about 5rem: the glyph pair carries
+ * "alphabetical" and the value carries the state.
+ */
+function LetterChipTrigger({ value, onOpen }: { value: string; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-haspopup="dialog"
+      aria-label={`Alphabetical index — ${value === "all" ? "all letters" : value}`}
+      className={cn(
+        // `self-stretch`, so the chip matches the toggle's outer height exactly
+        // rather than sitting 10px shorter and centred against it. The toggle
+        // carries a 4px pad ring around its own 48px tap floor; without this
+        // the two controls on one line read as two different sizes of control.
+        "inline-flex min-h-tap shrink-0 items-center gap-1 self-stretch rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-extrabold text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)]",
+        focusRing,
+      )}
+    >
+      <span className="shrink-0 tracking-tight text-[color:var(--text-muted)]">A–Z</span>
+      <span className="shrink-0 text-[color:var(--clinical-accent)]">{value === "all" ? "All" : value}</span>
+      <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)]" />
+    </button>
+  );
+}
+
+/**
+ * The desktop index, refined into a ruler.
+ *
+ * Production renders 27 bordered chips that wrap into a two-row block. Two
+ * things are wrong with that: the boxes draw more attention than the letters
+ * inside them, and a wrapping block means the index's height changes with the
+ * viewport, so the results below it move. This spans the full width and gives
+ * every letter an equal `flex-1` share, so it is exactly one line at every
+ * width by construction — nothing to wrap, and no fixed cell width to emit.
+ * Availability is carried by weight and opacity instead of a disabled box.
+ */
+function IndexRuler({
+  value,
+  onSelect,
+  available,
+}: {
+  value: string;
+  onSelect: (next: string) => void;
+  available: (letter: string) => boolean;
+}) {
+  return (
+    <nav
+      aria-label="Browse by letter"
+      // An inline floor, not a `min-w-[36rem]` class: arbitrary-value widths are
+      // not emitted by the mockup stylesheet, and without a floor the equal
+      // `flex-1` shares collapse to 4px cells whenever this study is itself read
+      // on a phone. The frame scrolls instead, which is what a real 1216px
+      // container would never need to do.
+      style={{ minWidth: "34rem" }}
+      className="flex min-w-0 items-center gap-0.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
+    >
+      <button
+        type="button"
+        aria-current={value === "all" ? "page" : undefined}
+        onClick={() => onSelect("all")}
+        className={cn(
+          "inline-flex min-h-10 shrink-0 items-center rounded-lg px-3 text-2xs font-extrabold",
+          focusRing,
+          value === "all"
+            ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+            : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+        )}
+      >
+        All
+      </button>
+      <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-[color:var(--border)]" />
+      {letters.map((option) => {
+        const usable = available(option);
+        const active = value === option;
+        return (
+          <button
+            key={option}
+            type="button"
+            disabled={!usable}
+            aria-current={active ? "page" : undefined}
+            onClick={() => onSelect(option)}
+            className={cn(
+              // `flex-1 min-w-0` is the whole mechanism: 26 equal shares of
+              // whatever is left, so the ruler fits any width without a fixed
+              // cell size — which also sidesteps `w-7` never being emitted by
+              // the mockup stylesheet.
+              "grid min-h-10 min-w-0 flex-1 place-items-center rounded-md text-xs transition motion-reduce:transition-none",
+              focusRing,
+              active
+                ? "bg-[color:var(--clinical-accent)] font-extrabold text-[color:var(--clinical-accent-contrast)]"
+                : usable
+                  ? "font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]"
+                  : "font-medium text-[color:var(--disabled)]",
+            )}
+          >
+            {option}
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -929,6 +1168,79 @@ function DirectionHeader({
     );
   }
 
+  /* ---- direction 04: one line — shrunk index + coloured kind toggle ---- */
+  if (direction === "refined") {
+    // A 96-term catalogue fills nearly every letter; an 11-abbreviation one
+    // does not. The index must never strand the reader on an empty page, so
+    // availability is derived from the kind actually being browsed.
+    const thin = state.browseScope === "abbreviations";
+    const available = (letter: string) => !(thin && "JKQUVWXYZ".includes(letter)) && !"XZ".includes(letter);
+    const counts: Record<BrowseScope, number> = { definitions: DEFINITIONS, abbreviations: ABBREVIATIONS };
+
+    const strip =
+      tab === "search" ? (
+        <StudySegmented
+          label="Result type"
+          compact={compact}
+          tinted
+          value={state.searchScope}
+          onChange={state.setSearchScope}
+          options={[
+            { value: "all", label: "All", hint: String(TOTAL) },
+            { value: "definitions", label: "Definitions", hint: String(DEFINITIONS) },
+            { value: "abbreviations", label: "Abbreviations", hint: String(ABBREVIATIONS) },
+            { value: "topics", label: "Topics", hint: String(TOPICS) },
+          ]}
+        />
+      ) : compact ? (
+        // The one line the review asked for: the index gives up the row it used
+        // to own, and the space it returns is exactly what the kind toggle needs.
+        <div className="flex min-w-0 items-center gap-1.5">
+          <KindToggle compact value={state.browseScope} onChange={state.setBrowseScope} counts={counts} />
+          <LetterChipTrigger value={state.letter} onOpen={() => state.setLetterOpen(true)} />
+        </div>
+      ) : (
+        // Desktop is not the phone stretched. The toggle is promoted onto the
+        // primary line beside sort and filter, which leaves this line entirely
+        // to the ruler — one strip line here too, but a far wider one.
+        <IndexRuler value={state.letter} onSelect={state.setLetter} available={available} />
+      );
+
+    return (
+      <>
+        <PageTitle tab={tab} compact={compact} />
+        <div className={cn(compact ? "px-4" : "px-6")}>
+          <StudyBand
+            compact={compact}
+            count={count}
+            noun={noun}
+            query={query}
+            sort={state.sort}
+            onSort={state.setSort}
+            trigger={
+              !compact && tab === "browse" ? (
+                <>
+                  <KindToggle
+                    compact={false}
+                    value={state.browseScope}
+                    onChange={state.setBrowseScope}
+                    counts={counts}
+                  />
+                  {trigger}
+                </>
+              ) : (
+                trigger
+              )
+            }
+            strip={strip}
+            shelf={shelfChips(direction, state)}
+            onClearShelf={() => state.setTopicFacets([])}
+          />
+        </div>
+      </>
+    );
+  }
+
   /* ---- direction 03: one toolbar, no phone title ---- */
   const strip =
     tab === "search" ? (
@@ -1342,6 +1654,27 @@ const propsProof: Record<DirectionId, readonly string[]> = {
     "  }}",
     "  groups={[sortGroup, letterGroup, topicFacets]}",
     "/>",
+  ],
+  refined: [
+    "// Browse — one strip line, both controls.",
+    "<SearchResultsHeaderBand",
+    '  modeId="dictionary"',
+    "  utilityControls={<ResultFilterTrigger … />}",
+    "  filterControls={",
+    '    <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">',
+    '      <SegmentedControl label="Entry kind" layout="equal"',
+    "        options={[definitions, abbreviations]}   // tinted per kind",
+    '        className="rounded-full" />',
+    '      <LetterTrigger className="sm:hidden" />    {/* phone: a chip */}',
+    '      <LetterIndex className="hidden sm:flex" /> {/* desktop: one line */}',
+    "    </div>",
+    "  }",
+    "/>",
+    "",
+    "// The tint is two tokens, not a new component:",
+    "//   definitions   -> --clinical-accent",
+    "//   abbreviations -> --tone-purple",
+    "// Both pair with --clinical-accent-contrast, which flips with the theme.",
   ],
   toolbar: [
     "// Phone: the mode nav above already reads Search / Browse.",
