@@ -5,7 +5,6 @@ import {
   guideTopics,
   guideTourStepIds,
   guideTourSteps,
-  searchGuideTopics,
 } from "@/components/clinical-dashboard/guide-content";
 import {
   completeGuideStep,
@@ -45,14 +44,6 @@ describe("Clinical KB Guide Centre content", () => {
       expect(words, topic.id).toBeGreaterThanOrEqual(120);
       expect(words, topic.id).toBeLessThanOrEqual(220);
     }
-  });
-
-  it("ranks headings before keywords and body-only matches while preserving topic order for ties", () => {
-    expect(searchGuideTopics("answer anatomy")[0]?.topic.id).toBe("answer-anatomy");
-    expect(searchGuideTopics("patient identifiable")[0]?.topic.id).toBe("privacy-safe-use");
-    expect(searchGuideTopics("source").map((result) => result.topic.id)[0]).toBe("sources-citations");
-    expect(searchGuideTopics("zyxwvu qqqqq")).toEqual([]);
-    expect(searchGuideTopics("   ")).toEqual([]);
   });
 
   it("lists only the keyboard controls that are currently implemented", () => {

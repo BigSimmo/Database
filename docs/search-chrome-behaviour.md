@@ -15,7 +15,7 @@ This repo uses one shared search experience across the global shell, dashboard r
 | Record page breadcrumb header                       | Same header row without the disclosure or track; view mode inline from `sm`         | None — portals into the phone collapse row, sticky at `sm+`                    |
 | Calculators (`/calculators`)                        | In-flow hero composer at home; shared compact dock after submission                 | Page content at home; shell reserve for submitted results                      |
 | Info/detail pages with no composer                  | No fixed composer                                                                   | Idle shell padding only                                                        |
-| Guide Centre dialog (`GuideDialog`)                 | Shared edge-to-edge phone dock inside the Sheet footer; Sheet footer band from `sm` | `[data-guide-content]` bottom pad (`guide-search-dock` reserve owner)          |
+| Guide Centre dialog (`GuideDialog`)                 | No composer — tour-action dock inside the Sheet footer; Sheet footer band from `sm` | `[data-guide-content]` bottom pad (`guide-tour-dock` reserve owner)            |
 
 The Tools row is scoped to the **mounted Tools directory**, not to `resultKind: "tools"`. Factsheets,
 Dictionary and Therapy Compass borrow that result kind purely as a benign search kind, and on the
@@ -24,13 +24,20 @@ shared-home row above. `shouldShowSharedHome` already excludes `mode=tools`, whi
 `showSharedHome` is the correct opt-back-in for `heroComposerBreakpoint` and `centeredModeHome` in
 `ClinicalDashboard.tsx`.
 
-### The Guide Centre footer is a dock, not a footer band
+### The Guide Centre footer is a dock, not a footer band — and carries no composer
 
-`GuideDialog` renders its search composer through the shared `Sheet` footer slot, and
-`Sheet` always wraps that slot in `border-t border-[color:var(--border)] p-3 sm:p-4`
+**The Guide Centre has no search.** It was removed on 2026-08-19: eight topics behind a
+dedicated "All topics" tab did not need keyword lookup, and the composer was the single
+largest piece of chrome on the surface — a chat pill at the bottom of a reference dialog
+reads as a place to type, which this surface is not. Do not reintroduce one. The dock is
+the guided-tour action and nothing else; `tests/guide-centre.dom.test.tsx` and
+`tests/ui-smoke.spec.ts` both assert the dialog contains no `input`.
+
+`GuideDialog` still renders that action through the shared `Sheet` footer slot, and
+`Sheet` always wraps the slot in `border-t border-[color:var(--border)] p-3 sm:p-4`
 (`src/components/ui/sheet.tsx`). On phones that band is the wrong chrome: an opaque
 `--surface-raised` slab with a hard top border reads as a cover over the content behind
-the composer, which is exactly what every other phone composer avoids.
+the control, which is exactly what every phone composer avoids.
 
 So the guide footer carries `answer-footer-search-dock answer-footer-search-edge` and
 renders one `.answer-footer-search-backdrop` child, the same pair the shell dock uses.
@@ -40,24 +47,46 @@ tapering to zero at the physical edge. The band's own border, surface and elevat
 `sm:` only, and the scrim is `sm:hidden`, so the tablet/desktop dialog footer is
 unchanged.
 
-Two consequences worth keeping:
+Four consequences worth keeping:
 
-- The dock stays on the **default** scrim height, not `document-mobile-search-compact`:
-  the tour action row sits above the pill, the same shape the differentials-compare and
-  patient-details dock addons take, and the compact 5rem scrim would end mid-row.
+- The dock takes the **compact** scrim (`data-footer-variant="compact"`, stamped by
+  `Sheet`'s `footerVariant` prop). The default `max(10rem, safe-area + 8.5rem)` was sized
+  for a composer _plus_ an action row; with one control row it tints far more page than
+  the control it seats. This inverted when search was removed — the old note here said
+  the default was required, and it was, while the pill sat below the row.
 - The footer wrapper is the dock element, so its children need `relative z-10` to paint
   above the scrim.
-- The band's glass and the addon pill are proven in a **browser**, not by class presence:
+- **Only the dock hides; the Sheet header stays pinned.** This is not a symmetry violation —
+  AGENTS.md's header/footer symmetry rule is scoped to chrome that _shares a scroll
+  container_, and the Sheet header is a sibling of `.polished-scroll`, not inside it. Two
+  reasons it must stay:
+  - "Close guide" and the view tabs live in that header. Collapsing it inert left a reader
+    who had scrolled down with no way out of the dialog.
+  - The runway maths. Hiding is refused unless the release fits the remaining scroll
+    (`collapseHasSafeRunway` in `use-hide-on-scroll.ts`). The header is ~153px and the dock
+    reserve ~96px against a ~330px range on a 390x820 phone, so charging both refused
+    **every** hide once these pages were shortened. Charging only the dock (~96px) leaves a
+    ~233px post-collapse range, which clears the bar.
+- The dock's budget is read straight off `[data-guide-content]`'s padding, not through
+  `readChromeCollapseMetrics`. That helper resolves `universal-header-collapse` against the
+  **document**, which from inside a fullscreen modal is the shell header behind the dialog —
+  it releases nothing here, but it was being charged. Any future modal-owned dock should
+  compute its own reserve the same way rather than reusing the page-level helper.
+- The tour action is the dock's **only** control, so it takes the filled primary
+  treatment — the role `differentials-mobile-compare-fab__button` fills on its own
+  surface — not the outlined translucent framing reserved for dock _addons_
+  (`patient-details-fab__button`, Compare's `--empty` state). That framing was correct
+  while a composer shared the dock: a filled slab beside the pill put back a smaller
+  version of the cover the dock conversion removed. With nothing to compete with and
+  nothing left to cover, the surface's single call to action should read as one. Only the
+  pill radius and elevation stay `max-sm:`; from `sm` the footer is a real band where the
+  square-cornered `primaryControl` is correct.
+- The band's glass and the pill are proven in a **browser**, not by class presence:
   `tests/guide-centre-chrome.spec.ts` asserts the painted background, border, flush
-  geometry and scrim, plus the pill's rendered border/radius/alpha. jsdom cannot evaluate
-  the `max-sm:` media query, and tailwind-merge keeps both the base and the variant
+  geometry and the resolved scrim height, plus the pill's rendered radius and fill. jsdom
+  cannot evaluate the `max-sm:` media query or resolve the custom property
+  `data-footer-variant` redefines, and tailwind-merge keeps both the base and the variant
   utility, so stylesheet order — not the class list — decides which one wins.
-- The tour action is a dock **addon**, so on phones it takes the addon-pill treatment the
-  other two addons use — `patient-details-fab__button` and Compare's quiet
-  `--empty` state: an outlined translucent pill, never a filled primary control. A filled
-  button there puts back a smaller version of the cover the dock conversion removed,
-  because the band behind it is transparent by design. Those overrides are `max-sm:`
-  only; from `sm` the footer is a real band and the primary treatment is correct.
 
 ## Default in-page navigation template
 
