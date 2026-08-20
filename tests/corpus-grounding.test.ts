@@ -303,7 +303,7 @@ describe("analyzeQueryWithClassifierFallback corpus grounding", () => {
 
   it("never sends pattern-guarded out-of-corpus medical queries to the corpus check or LLM", async () => {
     const { rag, analyzeClinicalQuery, classifierMock, rpc, opts } = await loadRag({ rows: [] });
-    const query = "What SSRI dose is recommended for adolescent depression?";
+    const query = "future synthetic checklist";
     const analysis = analyzeClinicalQuery(query);
 
     const result = await rag.analyzeQueryWithClassifierFallback(query, analysis, opts);

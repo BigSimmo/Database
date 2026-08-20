@@ -126,13 +126,15 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
     const fetchRecord = async () => {
       const { data, error } = await supabase
         .from("differential_records")
-        .select("*")
+        .select(
+          "id,owner_id,kind,slug,title,subtitle,status,clinical_hinge,tags,payload,source,source_status,validation_status,last_reviewed_at,review_due_at,created_at,updated_at",
+        )
         .eq("owner_id", access.ownerId)
         .eq("kind", kind)
         .eq("slug", normalizedSlug)
         .maybeSingle();
       if (error) throw new Error(error.message);
-      return (data as DifferentialRecordRow | null) ?? null;
+      return (data as unknown as DifferentialRecordRow | null) ?? null;
     };
 
     let row = await fetchRecord();
