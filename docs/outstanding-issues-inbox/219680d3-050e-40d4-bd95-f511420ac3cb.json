@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "219680d3-050e-40d4-bd95-f511420ac3cb",
+  "createdOn": "2026-08-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Close the two operator unknowns the B4 shadow-extraction runbook could not answer from the repository: Railway variable-change behaviour and a read path for the shadow records",
+    "detail": "docs/worker-deploy-runbook.md section 3 (added 2026-08-21) is the Gate F runbook for packet B4 docling shadow extraction. Three values in it could not be verified from the repository and are flagged as such in the text. (1) ROLLBACK TIME TO EFFECT: the one-step rollback is WORKER_DOCUMENT_EXTRACTOR_MODE=legacy on the Railway worker service, but whether Railway restarts or fully rebuilds the service on a variable change is not recorded anywhere in this repo, so the runbook can only bound the worker-side cost (SIGTERM batch drain plus at most one 120 s docling window). One dashboard observation settles it; record the answer in section 3.7. (2) NO READ PATH: no npm script reads, exports, or clears documents.metadata.shadow_extraction, so the first-24-hours watch in section 3.6 is a hand-run SQL query in the Supabase editor. A small read-only aggregation script (outcome counts, wall_ms and peak_rss_bytes percentiles, delta ratios) would make the watch repeatable and reviewable instead of ad hoc. (3) TIMEOUT ROLLBACK THRESHOLD: section 3.7 trigger 5 proposes rolling back when more than 10 percent of cohort runs time out. That number is a proposed operating rule, not a measured value, and needs owner ratification or replacement once real-corpus wall_ms data exists. Also unverified: the memory headroom precondition in section 3.2 asks the operator to confirm the Railway worker memory limit and observed peak, neither of which is in-repo. Stop: no code, worker, or provider change is implied by this row; it is documentation completion plus one small offline read-only script.",
+    "source": "docs/worker-deploy-runbook.md section 3 (Gate F runbook PR, 2026-08-21); PR #2170 squash 5437c309f",
+    "issueUlid": "01M0G2J7891VFSYF1ZZPN5H78Z"
+  }
+}
