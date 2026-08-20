@@ -135,7 +135,7 @@ the task before you start.
   (`ledger:lookup` / `ledger:append` / `ledger:dedupe` / `ledger:rotate`). Never hand-write a row.
 - `merge-branch-review-ledger.mjs` — the `merge=ledger` union driver from `.gitattributes`;
   `check-branch-review-ledger.mjs` fails if that protection is lost.
-- `sync-open-pr-branches.mjs` (`sync:pr-branches`) — anti-churn sync for stale open PR heads;
+- `sync-open-pr-branches.mjs` (`sync:pr-branches`), `sync-pr-branches.mjs` (compatibility entry point) — anti-churn sync for stale open PR heads;
   refuses a missing or bot `gh` identity. `sweep-merged-branches.mjs` — merged-branch sweep.
 - `reconciliation-preflight.mjs`, `reconciliation-evidence-pack.mjs` — broad chat/worktree
   reconciliation entry point and its evidence bundle; see `docs/reconciliation-playbook.md`.

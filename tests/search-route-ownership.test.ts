@@ -196,10 +196,11 @@ describe("shared-search route ownership", () => {
     expect(headerSource).toMatch(
       /const homePortalPending =\s*Boolean\(desktopHomeComposerSlotId\) && homeComposerMediaEligible && !desktopComposerPortalFallback/,
     );
+    expect(headerSource).toContain("const portalPending = homePortalPending;");
     expect(headerSource).toMatch(
-      /const pagePortalPending =\s*Boolean\(desktopPageComposerSlotId\) && !usesPhoneSearchLayout && !desktopComposerPortalFallback/,
+      /const isPageDesktopComposerPending =\s*isDefaultComposer && Boolean\(desktopPageComposerSlotId\) && !desktopComposerPortalFallback/,
     );
-    expect(headerSource).toContain("const portalPending = homePortalPending || pagePortalPending;");
+    expect(headerSource).toContain('isPageDesktopComposerPending && "sm:hidden"');
     expect(headerSource).toContain("setHomeComposerMediaEligible(mediaQuery.matches)");
     expect(headerSource).toContain("const portalFallbackDelayMs = 8_000");
     expect(headerSource).toContain("let portalFailureStartedAt: number | null = null");
@@ -455,5 +456,20 @@ describe("shared-search route ownership", () => {
     // string only) cannot wipe the results the visitor just asked for, and a cold
     // mount cannot clear a restored answer thread.
     expect(arrival).toContain("previousPathname === null || previousPathname === pathname");
+  });
+
+  it("keeps the phone composer rendered during SSR while preserving desktop layout reservation", () => {
+    const headerSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/master-search-header.tsx"),
+      "utf8",
+    );
+    // SSR and unknown media state must not blank out search for phone viewports
+    expect(headerSource).not.toMatch(
+      /const pagePortalPending =\s*Boolean\(desktopPageComposerSlotId\) && !usesPhoneSearchLayout/,
+    );
+    expect(headerSource).toMatch(
+      /const isPageDesktopComposerPending =\s*isDefaultComposer && Boolean\(desktopPageComposerSlotId\) && !desktopComposerPortalFallback/,
+    );
+    expect(headerSource).toContain('isPageDesktopComposerPending && "sm:hidden"');
   });
 });
