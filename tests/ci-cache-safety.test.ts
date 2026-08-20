@@ -72,7 +72,20 @@ describe("CI cache safety", () => {
 
   it("installs Playwright system dependencies when browser caches hit", () => {
     expect(uiSetup).toMatch(/cache-hit.*?install-deps chromium.*?install chromium/s);
+    expect(lighthouseChromiumSetup).toMatch(/cache-hit.*?install-deps chromium.*?install chromium/s);
     expect(workflow).toMatch(/cache-hit.*?install-deps\n\s+npx playwright install/s);
+  });
+
+  it("hardens Playwright browser and dependency installation against flaky Ubuntu mirrors and apt hangs", () => {
+    expect(lighthouseChromiumSetup).toContain("azure\\.archive\\.ubuntu\\.com/archive.ubuntu.com");
+    expect(lighthouseChromiumSetup).toContain("timeout 180");
+    expect(lighthouseChromiumSetup).toContain("Acquire::Retries");
+    expect(uiSetup).toContain("azure\\.archive\\.ubuntu\\.com/archive.ubuntu.com");
+    expect(uiSetup).toContain("timeout 180");
+    expect(uiSetup).toContain("Acquire::Retries");
+    expect(workflow).toContain("azure\\.archive\\.ubuntu\\.com/archive.ubuntu.com");
+    expect(workflow).toContain("timeout 180");
+    expect(workflow).toContain("Acquire::Retries");
   });
 
   it("rejects a refreshed Lighthouse baseline that has zero or mixed browser identities", () => {
