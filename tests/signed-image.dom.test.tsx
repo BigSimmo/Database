@@ -328,6 +328,52 @@ describe("SignedImage failure/retry (jsdom)", () => {
     expect(src).not.toContain("height=");
     expect(src).not.toContain("resize=");
   });
+
+  it("deduplicates automatic retry requests when two mounted instances share an endpoint", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({ error: "temporary" }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ url: "/demo/shared-recovered.png" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <div>
+        <SignedImage endpoint={ENDPOINT} alt="Shared diagram 1" />
+        <SignedImage endpoint={ENDPOINT} alt="Shared diagram 2" />
+      </div>,
+    );
+
+    const img1 = await screen.findByRole("img", { name: "Shared diagram 1" }, { timeout: 2_000 });
+    const img2 = await screen.findByRole("img", { name: "Shared diagram 2" }, { timeout: 2_000 });
+
+    expect(img1.getAttribute("src")?.endsWith("/demo/shared-recovered.png")).toBe(true);
+    expect(img2.getAttribute("src")?.endsWith("/demo/shared-recovered.png")).toBe(true);
+    // 1 initial failed request + 1 deduplicated retry request = exactly 2 fetches
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("resets failure state and automatic retry count when endpoint changes", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({ error: "not found" }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ url: "/demo/new-endpoint.png" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { rerender } = render(
+      <SignedImage endpoint="/api/images/first/signed-url" alt="First diagram" failureLabel="First failed" />,
+    );
+
+    expect(await screen.findByText("First failed")).toBeInTheDocument();
+
+    rerender(
+      <SignedImage endpoint="/api/images/second/signed-url" alt="Second diagram" failureLabel="Second failed" />,
+    );
+
+    const img = await screen.findByRole("img", { name: "Second diagram" });
+    expect(img.getAttribute("src")?.endsWith("/demo/new-endpoint.png")).toBe(true);
+    expect(screen.queryByText("First failed")).not.toBeInTheDocument();
+    expect(screen.queryByText("Second failed")).not.toBeInTheDocument();
+  });
 });
 
 describe("SignedImage expand affordance (jsdom)", () => {

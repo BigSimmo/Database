@@ -94,6 +94,12 @@ export const SignedImage = memo(function SignedImage({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [retryDisabled, setRetryDisabled] = useState(false);
   const [automaticRetryCount, setAutomaticRetryCount] = useState(0);
+  const [seenEndpoint, setSeenEndpoint] = useState(endpoint);
+  if (endpoint !== seenEndpoint) {
+    setSeenEndpoint(endpoint);
+    setAutomaticRetryCount(0);
+    setLoaded(false);
+  }
   const { url, failed, failure, retry, markFailed } = useSignedImageUrl(endpoint, shouldLoad);
   const nextAutomaticRetryDelay = automaticRetryDelay(failure, automaticRetryCount);
   const automaticRetryPending = nextAutomaticRetryDelay !== null;

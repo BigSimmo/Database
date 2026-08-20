@@ -49,12 +49,8 @@ function beginSignedUrlRequest(key: string, endpoint: string, headers: Record<st
   return request;
 }
 
-/** Drop any shared request for this endpoint so a retry genuinely refetches. */
-function dropInFlightSignedUrlRequests(endpoint: string) {
-  for (const key of inFlightSignedUrlRequests.keys()) {
-    if (key.startsWith(`${endpoint}\u0000`)) inFlightSignedUrlRequests.delete(key);
-  }
-}
+// In-flight requests are removed automatically in .finally when they settle.
+// Active in-flight requests are preserved during retries so sibling consumers share them.
 
 /**
  * Resolve a private image's signed URL through its `/signed-url` endpoint, with
@@ -69,6 +65,14 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
   const [failure, setFailure] = useState<SignedImageFailure | null>(null);
   const [attempt, setAttempt] = useState(0);
   const { authorizationHeader, session, markSessionExpired } = useAuthSession();
+
+  const [seenEndpoint, setSeenEndpoint] = useState(endpoint);
+  if (endpoint !== seenEndpoint) {
+    setSeenEndpoint(endpoint);
+    setUrl(getCachedSignedUrl(endpoint)?.url ?? null);
+    setFailure(null);
+  }
+
   // Drop painted URLs during render when the auth *identity* changes (sign-out /
   // expiry / account switch). Auth also clears the module LRU; without this,
   // mounted consumers keep showing the prior user's URL until refetch settles.
@@ -146,7 +150,6 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
   // Drop the cached URL and refetch (e.g. after a 403 on an expired URL).
   const retry = useCallback(() => {
     clearCachedSignedUrl(endpoint);
-    dropInFlightSignedUrlRequests(endpoint);
     setUrl(null);
     setFailure(null);
     setAttempt((current) => current + 1);
@@ -155,7 +158,6 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
   // Mark the current URL dead (e.g. <img> onError) so the frame shows its failure state.
   const markFailed = useCallback(() => {
     clearCachedSignedUrl(endpoint);
-    dropInFlightSignedUrlRequests(endpoint);
     setUrl(null);
     setFailure({ source: "image", status: null, retryable: true, retryAfterMs: null });
   }, [endpoint]);
