@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "51b7e3d4-9c38-4fd7-9aa8-70d46086fde9",
+  "createdOn": "2026-08-21",
+  "action": "update",
+  "payload": {
+    "id": "#VTEW3W",
+    "detail": "CORRECTION 2026-08-21, superseding the update applied earlier the same day: the count of 21 across 8 files recorded by that update was WRONG, and the 13 across 7 files measured by the request cancelled as c6a9756d is RIGHT. The discrepancy flagged in that cancellation is now resolved by direct re-measurement on main rather than by choosing between the two numbers. Cause of the error: the earlier update counted raw textual occurrences of therapyBtn, which includes one import statement per consuming file plus the export in controls.ts, and then compared that total against a baseline expressed in CALL SITES. That is an apples-to-oranges comparison and it overstated the remaining work. Measured per file, excluding the import line in each and excluding the definition: brief-screen 1, compare-screen 1, detail-screen 1, pathways-screen 1, recommend-screen 1, sheets-screen 7, therapy-card 1 = 13 call sites across 7 .tsx files, with the export at controls.ts:26. Against the 30 call sites recorded 2026-08-18 at adf93a75, that is a real reduction of 17, not the 9 the bad arithmetic implied. The design question and the stop rule are unchanged: nothing shared covers list rows, disclosure headers, section toggles and chips, and this must not be resolved by converting the remaining sites to Button variants.",
+    "baseRowFingerprint": "731faf770b9414607177a3e24ae530d98479a5c5f65547da063825563bf711f4"
+  }
+}
