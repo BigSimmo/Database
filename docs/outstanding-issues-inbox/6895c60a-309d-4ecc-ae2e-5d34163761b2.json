@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "6895c60a-309d-4ecc-ae2e-5d34163761b2",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Recommended-execution-queue rows cannot be re-graded by any ledger writer operation",
+    "detail": "FILED 2026-08-21 from PR #2260 review (Codex P2, verified against the repo). The queue row for an issue and its Open-items row can disagree indefinitely, because no writer can change the queue row's text. Concrete instance: queue row 1 still presents `#231` as A1 / 'Immediate approved live investigation' into retrieval binding `answerRouteBudgetMs.fast`, while the #231 Open-items row -- updated by PR #2260 -- records the P1 -> P2 re-grade and the measurement that closed that cause (retrieval now consumes 4-27% of the 25 s fast budget). The row itself asks for the queue entry to be re-graded 'AT RECONCILE'. That could not be honoured, and the reason is structural, not an oversight: (1) scripts/outstanding-issues.mjs updateIssue edits only Open-items columns (editable = { pri: 1, summary: 3, detail: 4, source: 5 }) and the only queue-touching function is pruneResolvedIdFromQueue, which runs on 'done' and merely deletes the row; (2) a hand edit of docs/outstanding-issues.md is refused by check:ledger-write-discipline, whose own self-test asserts 'manual canonical edit accepted' is a failure; (3) creating a request on the reconcile branch and applying it in the same transaction is refused -- verifyIssueReconciliation returns 'was introduced without moving the identical pending request from the base', since the applied batch must equal the base inbox exactly. So the queue can only be pruned, never corrected. RISK: the queue owns recommended order, acuity, timing, and approvals, so a stale A1 entry can send an operator into provider-backed live work on a cause the ledger elsewhere declares closed. NEXT (choose one, owner's call): add a queue-row edit action to scripts/outstanding-issues.mjs plus an inbox request action that carries it, so re-grades travel through the serial transaction like every other mutation; or accept a narrow, explicitly-audited hand-edit path for the queue section only. STOP: do not hand-edit docs/outstanding-issues.md to clear the #231 instance -- that is the exact write the guard exists to refuse.",
+    "source": "PR #2260 review thread discussion_r3833600137; docs/outstanding-issues.md queue row 1 and row #231; scripts/outstanding-issues.mjs:255-279; scripts/check-ledger-write-discipline.mjs:130-175",
+    "issueUlid": "01M0K1EDKAM6JNR80RPQNVE930"
+  }
+}
