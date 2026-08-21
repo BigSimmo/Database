@@ -297,12 +297,22 @@ export function buildSnapshot({ ledgerMarkdown, inboxRecords, revision }) {
 
   const resolvedCount = tableRowsUnder(ledgerMarkdown, "## Resolved / archive", 5).length;
 
-  const pending = inboxRecords.map((record) => ({
-    request_id: record.id,
-    action: record.action,
-    summary: record.payload?.summary ?? "",
-    created_at: record.createdOn ?? null,
-  }));
+  // Only `add` requests carry `summary`. An `update` request carries the target
+  // row's `id` plus a `detail`, and a `done` request carries an `outcome`, so
+  // reading `summary` alone renders those as blank rows — under-reporting
+  // outstanding work, which is the failure this feature exists to prevent. One
+  // of the three live pending records is an `update` and did exactly that.
+  const pending = inboxRecords.map((record) => {
+    const payload = record.payload ?? {};
+    const body = payload.summary || payload.detail || payload.outcome || "";
+    const target = payload.id ? `${payload.id}: ` : "";
+    return {
+      request_id: record.id,
+      action: record.action,
+      summary: body ? `${target}${body}` : `${target}(no summary in the ${record.action} request)`,
+      created_at: record.createdOn ?? null,
+    };
+  });
 
   const countBy = (priority) => openRows.filter((row) => row.priority === priority).length;
 
@@ -450,11 +460,28 @@ export function compareSnapshots(committed, regenerated) {
       );
     }
   }
-  for (const key of ["queue", "open", "pending", "ledger_revision"]) {
+  // Content keys ONLY. `ledger_revision` must NOT be compared: it is the sha of
+  // the commit that last touched the ledger, so it changes as a *side effect* of
+  // committing a ledger edit — generate, commit ledger + snapshot together, and
+  // that commit becomes the newest change to the ledger, so regenerating right
+  // after yields a different sha. Comparing it made the gate fail on every
+  // ledger change with nothing stale, turning `main` red after each squash merge
+  // that touches the ledger. A gate that cries wolf is one people stop watching.
+  // Excluding it fails safe: a stale revision can only make the page report
+  // itself OLDER, never fresher. Do not "tighten" this by adding it back.
+  for (const key of ["queue", "open", "pending"]) {
     if (JSON.stringify(committed?.[key]) !== JSON.stringify(regenerated[key])) {
       differences.push(`${key} differs from the ledger`);
     }
   }
+
+  // Catch keys that appeared or disappeared, which the per-key loops above miss.
+  const topLevelKeys = new Set([...Object.keys(regenerated), ...Object.keys(committed ?? {})]);
+  for (const key of topLevelKeys) {
+    if (!(key in regenerated)) differences.push(`unexpected key in the committed snapshot: ${key}`);
+    else if (!(key in (committed ?? {}))) differences.push(`missing key in the committed snapshot: ${key}`);
+  }
+
   return differences;
 }
 
@@ -504,10 +531,20 @@ In `package.json` add:
 
 ```json
 "snapshot:issues": "node scripts/generate-outstanding-issues-snapshot.mjs",
+"prebuild": "npm run snapshot:issues",
 "check:outstanding-issues-snapshot": "node scripts/check-outstanding-issues-snapshot.mjs"
 ```
 
 Append `&& npm run snapshot:issues` to the existing `docs:update` script, and add `npm run check:outstanding-issues-snapshot` to the existing `check:outstanding-issues` chain so it runs in `verify:cheap` and CI.
+
+**`prebuild` is required, not optional.** Spec § 6.1 wires generation into `docs:update` **and**
+`prebuild`; the first implementation shipped only `docs:update` and the review caught it as spec
+non-compliance. `prebuild` runs automatically before `npm run build`, which is what stops a
+production build shipping a snapshot older than the ledger it was built from.
+
+**Read each existing script value before editing it and preserve every clause already there.** A
+dropped `&&` silently disables an unrelated repository gate. Quote the before/after of both
+modified scripts in your report.
 
 - [ ] **Step 7: Commit**
 

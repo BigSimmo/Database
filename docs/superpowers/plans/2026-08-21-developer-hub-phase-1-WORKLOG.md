@@ -65,7 +65,38 @@ badge would have reported three items as one urgent set.
 | `9a8e2d60b` | **Task 2** — staleness gate, `.prettierignore` fix, committed handoff |
 | `bb0028db9` | Record the Task 2 sha in the handoff                                  |
 
-Tasks 3–10 not started. Neither built task has had its formal task review.
+| `3140b113a` | This worklog |
+| `73f69d35b` | Resolve the Task 1–2 review findings |
+
+Tasks 3–10 not started. **Tasks 1 and 2 have been reviewed and every finding fixed.** Branch pushed;
+remote and local both at `73f69d35b`.
+
+---
+
+## 3b. Task 1+2 review and its findings
+
+Reviewed on opus against the diff `13f71e6fd..9a8e2d60b`. Verdict: spec ❌, changes requested — two
+Critical, two Important, several Minor. All fixed in `73f69d35b`, each with a regression test.
+
+| Severity  | Finding                                                                                                                                                                                                                                                                                   | Fix                                                                                                                                       |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Critical  | `compareSnapshots` compared `ledger_revision`, a git sha that changes as a _side effect_ of committing a ledger edit. The gate could never pass for a single-commit ledger change; `main` would go red after every squash merge touching the ledger — a gate firing when nothing is wrong | Excluded, reasoning in-code, test named for the regression. Fails safe: a stale revision can only report the page as older, never fresher |
+| Critical  | The branch did not compile: `TS18048` + `TS2532` in `tests/outstanding-issues-snapshot.test.ts:93,102`. Vitest does not typecheck, so 13/13 green hid it                                                                                                                                  | `row?.id`, `…?.detail`. `typecheck:source` now exits 0 where it had exactly these two errors                                              |
+| Important | Spec § 6.1 requires generation from `docs:update` **and** `prebuild`; only `docs:update` was wired, and no task brief covered `prebuild`                                                                                                                                                  | `"prebuild": "npm run snapshot:issues"`                                                                                                   |
+| Important | `payload?.summary ?? ""` — only `add` requests carry `summary`, so the live `update` record `#Q5JHBJ` rendered blank, under-reporting outstanding work                                                                                                                                    | Falls back `summary` → `detail` → `outcome`, prefixed with the target id                                                                  |
+| Minor     | `compareSnapshots` ignored extra and missing keys                                                                                                                                                                                                                                         | Compares the union of both key sets                                                                                                       |
+
+The reviewer's direct answer to the question that mattered — _can the gate fail?_ — was yes, for
+every class of content drift, verified by calling the real `compareSnapshots` against the real
+snapshot. The defect was the inverse: it also failed when nothing was stale.
+
+**Lesson worth keeping:** an independent review caught a defect that would have made the safety
+mechanism useless, in work that had already passed its own tests. Keep the review step for Tasks
+3–10.
+
+Deferred Minors for the final whole-branch review: `readLedgerRevision` swallows all error classes
+into `null`; inbox ordering uses `localeCompare`; `\|` escapes survive into snapshot text (a Task 3
+render concern, not a data defect).
 
 ---
 
