@@ -16,7 +16,9 @@
   "queue": [
     {
       "order": 1,
-      "ids": ["#231"],
+      "ids": [
+        "#231"
+      ],
       "acuity": "A1",
       "capability": "Specialist — answer path + Operator",
       "timing": "Immediate approved live investigation",
@@ -25,7 +27,9 @@
     },
     {
       "order": 2,
-      "ids": ["#023"],
+      "ids": [
+        "#023"
+      ],
       "acuity": "A2",
       "capability": "Specialist — RAG/browser diagnostics",
       "timing": "After next weekly/manual matrix green (audit no longer blocks it)",
@@ -34,7 +38,9 @@
     },
     {
       "order": 3,
-      "ids": ["#018"],
+      "ids": [
+        "#018"
+      ],
       "acuity": "A2",
       "capability": "Specialist — clinical RAG/retrieval",
       "timing": "Lithium closed; ADHD/metabolic evidence debt remains",
@@ -43,7 +49,9 @@
     },
     {
       "order": 4,
-      "ids": ["#001"],
+      "ids": [
+        "#001"
+      ],
       "acuity": "A2",
       "capability": "Specialist — retrieval/ranking",
       "timing": "After rollout approval",
@@ -52,7 +60,9 @@
     },
     {
       "order": 5,
-      "ids": ["#055"],
+      "ids": [
+        "#055"
+      ],
       "acuity": "A2",
       "capability": "Specialist release owner + Operator",
       "timing": "Before next full-confidence release/handoff",
@@ -61,7 +71,9 @@
     },
     {
       "order": 6,
-      "ids": ["#056"],
+      "ids": [
+        "#056"
+      ],
       "acuity": "A2",
       "capability": "Operator — Supabase/Railway + Specialist",
       "timing": "Next approved staging schema window",
@@ -70,7 +82,9 @@
     },
     {
       "order": 7,
-      "ids": ["#057"],
+      "ids": [
+        "#057"
+      ],
       "acuity": "A2",
       "capability": "High — release/SRE + Operator",
       "timing": "After `#056`",
@@ -79,7 +93,9 @@
     },
     {
       "order": 8,
-      "ids": ["#102"],
+      "ids": [
+        "#102"
+      ],
       "acuity": "A3",
       "capability": "Operator — Supabase + Specialist",
       "timing": "Next approved index window, after the ordering question is settled",
@@ -88,7 +104,9 @@
     },
     {
       "order": 9,
-      "ids": ["#099"],
+      "ids": [
+        "#099"
+      ],
       "acuity": "A3",
       "capability": "Specialist — answer path",
       "timing": "After `#098`",
@@ -97,7 +115,9 @@
     },
     {
       "order": 10,
-      "ids": ["#100"],
+      "ids": [
+        "#100"
+      ],
       "acuity": "A3",
       "capability": "Specialist — answer streaming",
       "timing": "After offline Phase 0/1 design proof",
@@ -106,7 +126,9 @@
     },
     {
       "order": 11,
-      "ids": ["#191"],
+      "ids": [
+        "#191"
+      ],
       "acuity": "A3",
       "capability": "Operator — DB + Specialist",
       "timing": "Approved live-DB window only",
