@@ -604,3 +604,114 @@ the three new ones are the proofs above.
    schema classifies as patient data.
 3. The restart-approval constraint mapping remains defensive code with no deterministic test, exactly
    as recorded for mutation 4. Finding 3's guard is NOT in that category any more.
+
+---
+
+## Fix round 2 — the three residual items
+
+All three are purely additive: a Postgres-only test, three domain unit tests, and two comments. **No
+existing assertion was edited**, and I hit no stop-and-report boundary.
+
+### Item 1 — the concurrency test can no longer pass vacuously
+
+**What I chose, and why.** I kept the shared-contract test where it is and added a Postgres-only
+companion, rather than moving the whole thing. The behaviour it asserts — exactly one of two
+simultaneous first stops wins, and the winner's account is what stands — is owed by BOTH stores, so
+it belongs on the contract; the in-memory store satisfies it by serialising, which is a real answer
+and worth pinning. The reachability control, by contrast, can only be made where the incident-history
+table exists. Splitting them puts each assertion where it can actually be made.
+
+Both halves now carry a comment saying the other exists and that neither is redundant, so a later
+reader cannot delete one thinking it duplicates the other.
+
+**The control.** `tests/caring-contacts-postgres-repository.test.ts` runs the same cross-team race and
+then asserts `service_stops` holds TWO rows. A loser that genuinely reached the window has already
+written its own incident row before losing the singleton; a serialised loser is refused before writing
+one. The count is read as the migration role deliberately — whether the window was entered is a
+question about the whole table, not about either team's scoped view of it.
+
+**Proved it can fail.** I replaced the `Promise.all` with two sequential awaits, so the race is never
+entered:
+
+```
+ FAIL  ... > the first-ever-stop race is genuinely reached (postgres only) > leaves two incident rows,
+       proving both writers entered the window
+AssertionError: expected 1 to be 2 // Object.is equality
+    114|     expect(incidents.rows[0].recorded).toBe(2);
+      Tests  1 failed | 162 skipped (163)
+```
+
+Exactly the shape required: the failure is on the CONTROL at line 114, while the behavioural
+assertion above it — `expect([first, second].filter((result) => result.ok)).toHaveLength(1)` — still
+passed, because a serialised loser is refused by the domain and the outcome looks identical. That is
+precisely the vacuous pass the control now closes. Reverted.
+
+### Item 2 — `admitRetentionClearance` is tested directly
+
+`tests/caring-contacts-retention.test.ts` gains a `rule 6` block in the style of its neighbours,
+covering the three boundaries:
+
+- each of the three terminal states is admitted and hands back the instant the episode ended;
+- each of the three non-terminal states is refused;
+- a terminal episode whose completion instant was never recorded is refused — the boundary the
+  indirect path through the two stores is least likely to reach. It carries a positive control
+  asserting the state really is terminal, so the refusal is the missing instant rather than the state
+  check firing first.
+
+A fourth, small case pins that the returned instant is a COPY: without it the defensive `new Date(...)`
+in that function is untested and reads as redundant to a later editor.
+
+**The Ruling 26 trap: checked, not assumed.** `tests/caring-contacts-retention.test.ts` scans
+`DOMAIN_ROOT = src/lib/caring-contacts`, so a test file — including itself — is never scanned. The new
+block is therefore not subject to the no-digit rule, and the suite going green confirms it.
+
+### Item 3 — the same-team serialisation is written down
+
+A comment at `ensureTeam` states the property plainly: this insert contends on the team primary key,
+so a second same-team writer blocks until the first transaction commits; because it is the FIRST
+statement of every write, two same-team writers queue there and never overlap anywhere later. The
+cross-team case has no such queue, which is why the guarded singleton upsert in `stopService` exists
+and why the test that proves it must use two teams. It closes by naming the hazard: moving this
+insert, making it conditional, or optimising it away widens the concurrency surface of every write in
+the store at once, silently and without a failing test — so any such change is a concurrency change,
+not a performance one.
+
+Comment only. I did not restructure the write path and did not add a lock.
+
+### Verification
+
+```
+$ node ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit
+TSC_EXIT=0            <- no output at all
+
+$ CARING_CONTACTS_DATABASE_URL=... npm run caring-contacts:db:test
+ Test Files  2 passed (2)
+      Tests  163 passed (163)
+
+$ node scripts/run-vitest.mjs run tests/caring-contacts-retention.test.ts --reporter=dot
+ Test Files  1 passed (1)
+      Tests  32 passed (32)
+
+$ npx eslint <the four changed files>
+(no output — clean)
+```
+
+The full `npm run test` was not required and was not run: nothing new is exported from
+`src/lib/caring-contacts/` this round. `admitRetentionClearance` was already exported in round 1, and
+everything added here is a test or a comment. `npm run format` ran and its result is in the commit.
+
+The database suite went from 162 to 163 — the one new test is the reachability control. The retention
+suite went from 24 to 32.
+
+### Files changed in this round
+
+- `tests/caring-contacts-postgres-repository.test.ts` — the reachability control.
+- `tests/caring-contacts-retention.test.ts` — the `rule 6` unit tests.
+- `tests/helpers/caring-contacts-repository-contract.ts` — comment only, pointing at the companion.
+- `src/lib/caring-contacts/db/postgres-repository.ts` — comment only, at `ensureTeam`.
+
+### Concerns from this round
+
+None new. The three items recorded for the final review are unchanged: the module-level fixture
+counters, the size of `postgres-repository.ts`, and the store's own `TERMINAL_PLAN_STATES` list. The
+`getServiceState` note question is settled by Ruling 43 and binding on Task 14; I have not touched it.

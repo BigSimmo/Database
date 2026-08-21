@@ -1251,6 +1251,14 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         // incident is permanent" is the property ../service-state exists to hold.
         const store = await newStore();
 
+        // This is the BEHAVIOURAL half of the proof, and it is here because both stores owe the
+        // same answer. It cannot show that the race window was actually ENTERED: if scheduling ever
+        // serialised these two writes the loser would be refused by the domain check instead of by
+        // the store's guard, and this test would still pass. That reachability control needs the
+        // incident-history table, which only one store has, so it lives beside this in
+        // tests/caring-contacts-postgres-repository.test.ts. Neither half is redundant -- do not
+        // delete one thinking the other covers it.
+        //
         // The two responders are from DIFFERENT teams, and that is what makes this a race rather
         // than a queue. Every write registers its own team first, so two callers from ONE team
         // serialise on that row and never reach the window at all; two teams do not touch each

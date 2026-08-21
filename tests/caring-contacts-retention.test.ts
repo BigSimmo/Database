@@ -9,6 +9,7 @@ import { fixedClock } from "@/lib/caring-contacts/clock";
 import { actorId, idempotencyKey, pathwayVersionId, teamId } from "@/lib/caring-contacts/ids";
 import {
   DEFAULT_RETENTION_POLICY,
+  admitRetentionClearance,
   deidentifyAuditEvent,
   deidentifyEpisode,
   isDueForDeidentification,
@@ -283,5 +284,58 @@ describe("rule 5: idempotent de-identification", () => {
     const once = deidentifyAuditEvent(baseAuditEvent());
     const twice = deidentifyAuditEvent(once);
     expect(twice).toEqual(once);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rule 6 — admitRetentionClearance (Ruling 39)
+//
+// Tested directly, not only through the two stores that call it. A rule exercised solely through
+// its callers is a rule whose own boundaries are untested, and the boundary those callers are
+// least likely to reach is the second one below: a terminal episode whose completion instant was
+// never recorded. It is refused for the same reason a non-terminal one is, because from the
+// storage layer's side they are the same fact — there is no end instant to clear against.
+// ---------------------------------------------------------------------------
+
+describe("rule 6: admitRetentionClearance", () => {
+  it.each(["withdrawn", "cancelled", "completed"] as const)(
+    "admits a %s episode and hands back the instant it ended",
+    (state) => {
+      const episode = baseEpisode({ state });
+      const admitted = admitRetentionClearance(episode);
+
+      expect(admitted).toEqual({ ok: true, value: episode.planDates.completedAt });
+    },
+  );
+
+  it.each(["draft", "active", "paused"] as const)("refuses a %s episode, which has not ended", (state) => {
+    expect(admitRetentionClearance(baseEpisode({ state }))).toEqual({
+      ok: false,
+      reason: "retention-episode-not-terminal",
+    });
+  });
+
+  it("refuses a terminal episode whose completion instant was never recorded", () => {
+    const episode = baseEpisode({
+      planDates: { dischargeAt: baseEpisode().planDates.dischargeAt, completedAt: null },
+    });
+
+    // Positive control: the state really is terminal, so this is the completion instant being
+    // missing and not the state check firing first.
+    expect(episode.state).toBe("completed");
+    expect(admitRetentionClearance(episode)).toEqual({
+      ok: false,
+      reason: "retention-episode-not-terminal",
+    });
+  });
+
+  it("hands back a copy, so a caller cannot rewrite the episode it asked about", () => {
+    const episode = baseEpisode();
+    const admitted = admitRetentionClearance(episode);
+    if (!admitted.ok) throw new Error("expected an admitted clearance");
+
+    admitted.value.setUTCFullYear(1970);
+
+    expect(episode.planDates.completedAt?.getUTCFullYear()).toBe(2019);
   });
 });
