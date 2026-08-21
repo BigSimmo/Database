@@ -335,6 +335,76 @@ When the user says `open PR`, `create PR`, or `publish PR` without also requesti
 - For pull requests that touch ingestion, answer generation, search/ranking, source rendering, document access, privacy, production env, or clinical output, complete the clinical governance preflight in `.github/pull_request_template.md`.
 - Track known verification debts and staged process improvements in `docs/process-hardening.md` instead of relying on chat-only memory.
 
+## Do not pay twice for the verdict GitHub is about to reach
+
+`check:gate-manifest` enforces a one-way invariant: CI never runs LESS of the local
+`verify:cheap` static set than the local chain does. Read that the other way and it says
+something uncomfortable — **every local run of a gate in that chain is work GitHub is
+about to repeat.** `gate-receipts.mjs` removed the local-versus-local duplication (the
+same gate twice on unchanged content); it explicitly cannot touch this one, because CI
+must never reuse a receipt.
+
+That does not make the local run waste. It is a **bet**: a local run that fails saves a CI
+round trip, and a red or superseded push is expensive here (~40% of PR CI runs measured
+2026-07-30 were cancellations). A local run that passes bought nothing the CI run would not
+have established. So the question is never "local or CI" in the abstract, it is:
+
+> **Is this gate, on this kind of change, still catching anything?**
+
+**The rule: run an expensive local gate only while it is still earning its runtime, and
+never re-derive a verdict that already exists.** Before running `lint`, `typecheck`,
+`test`, `verify:cheap`, or `verify:pr-local`, consult the arbiter and quote its verdict:
+
+```bash
+npm run arbiter -- <gate>      # RUN / DEFER / PROVEN, with its evidence
+npm run arbiter:status         # the yield ledger and the duplication bill so far
+```
+
+It weighs three inputs, none of them hard-coded, so the answer moves as the repo moves:
+
+1. **CI coverage**, derived live from `package.json` + `.github/workflows/ci.yml`, and
+   evaluated **for this change** — the step's own `if:` and its job's `if:` are checked
+   against the current change scope, because a step's presence in the YAML is not
+   coverage. `lint` and `typecheck` are step-conditional on `static_heavy_changed` and
+   `test:coverage` is job-conditional on `coverage_changed`, so a docs-only change is
+   covered by none of them. A gate CI does not re-run is never deferrable — local is the
+   only gate there is. Delete the CI job and the arbiter stops deferring to it the same day.
+2. **Observed yield**, a rolling per-gate, per-change-class window of local outcomes that
+   the gate wrappers record automatically. A gate that has caught nothing across a full
+   clean window on this class of change has stopped earning its runtime. The **first catch
+   resets the window** and the gate runs locally again, so the loop re-arms itself instead
+   of decaying toward "never check anything".
+3. **Content identity** — a verdict GitHub already reached on exactly this content
+   (recorded with `npm run arbiter -- record-ci <sha> <gates…>` when a session observes CI
+   go green) is not re-derived locally. This is the common repetition: CI goes green on a
+   branch head, and a later session runs the whole suite again on that same head. Name the
+   gates CI actually ran — the command refuses a bare invocation rather than turning one
+   observed job into proof for every gate.
+
+The window is per change class because the classes are not the same bet: docs-only clears
+in 3 clean runs, source in 12, and **db, RAG, dependency, container, workflow, UI and
+unrecognised scope never defer at all**, however clean the history — the same fail-closed
+routing CI itself uses, not a second risk model.
+
+Non-negotiable boundaries, all of them the conservative direction:
+
+- **Fail open.** Missing data, unreadable CI, an unknown change class, a git failure — every
+  one of them runs the gate. A bug in the arbiter costs a redundant run, never a skipped one.
+- **CI is never advised by it.** `CI` being set disables the arbiter outright. GitHub stays
+  the authoritative merge gate and nothing computed locally may influence what it runs.
+- **Advisory by default.** A `DEFER` or `PROVEN` verdict is a recommendation printed with
+  its evidence; the wrappers act on it only under `GATE_ARBITER=enforce`. Silently skipping
+  a gate a human typed is exactly the failure the evidence rules exist to prevent.
+- **A focused run is not full-suite evidence.** A narrowed Vitest invocation records under
+  its own identity, so a clean run of single-file tests can never let the whole suite defer.
+- **A deferred gate is not a passed gate.** Report it as "deferred to CI — <gate> has caught
+  nothing in N consecutive <class> runs", never as green, and never alongside a claim that
+  the gate ran. The same applies to `PROVEN`: say "reused receipt" or "CI-proven at `<sha>`".
+
+This does not license skipping verification. It licenses not buying the _same_ verdict
+twice. The smallest-correct-gate rule above still decides which gate is right; the arbiter
+only decides whether that gate has anything left to tell you before you push.
+
 <!-- END:process-hardening -->
 
 <!-- BEGIN:page-and-button-wiring -->
