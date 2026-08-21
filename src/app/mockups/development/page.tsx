@@ -70,10 +70,15 @@ export default function DeveloperHubPage() {
            * returns `null` when it is absent — so local dev keeps saying "build
            * unknown" honestly rather than inventing one.
            *
-           * `demoMode` and the signed-in email stay null on purpose (controller
-           * ruling F10): both live behind `src/lib/env.ts`, whose first line is
-           * `import "server-only"`, and this page is rendered under jsdom by two
-           * DOM test files. `documentCount` needs Supabase. All three are Phase 2.
+           * `demoMode`, `documentCount` and the signed-in email stay null because
+           * the plan scopes that wiring to Phase 2: see the "Known gap,
+           * deliberate" note in docs/superpowers/plans/2026-08-21-developer-hub-phase-1.md
+           * — the component and its contract exist, the real values are not wired,
+           * and the strip is required to render honestly rather than invent them.
+           * `null` is not an absence here, it is the strip's way of naming what it
+           * has not read; `demoMode` is the load-bearing one, since claiming "Live
+           * data" on a page that never looked states the opposite of the truth in
+           * demo mode.
            */}
           <EnvironmentStrip demoMode={null} documentCount={null} buildSha={resolveDeploymentCommitSha()} email={null} />
         </section>

@@ -223,26 +223,44 @@ describe("developer hub page — section headings", () => {
 });
 
 describe("developer hub page — environment strip", () => {
-  const originalSha = process.env.RAILWAY_GIT_COMMIT_SHA;
+  /**
+   * All three, not just the Railway one. `resolveDeploymentCommitSha()` is
+   * called with no argument, so it reads `process.env` and falls through
+   * Railway -> Vercel -> GitHub. **GitHub Actions sets `GITHUB_SHA` to a 40-hex
+   * sha in every step**, and nothing in `.github/workflows/ci.yml` scrubs it —
+   * so a test that deleted only `RAILWAY_GIT_COMMIT_SHA` rendered "build
+   * unknown" on a developer machine and `build <sha7>` on CI. Clearing the
+   * whole fallback chain is what makes the unknown case environment-independent
+   * rather than merely locally true.
+   */
+  const BUILD_SHA_VARIABLES = ["RAILWAY_GIT_COMMIT_SHA", "VERCEL_GIT_COMMIT_SHA", "GITHUB_SHA"] as const;
+  const original = new Map(BUILD_SHA_VARIABLES.map((name) => [name, process.env[name]]));
+
+  function clearBuildShaVariables() {
+    for (const name of BUILD_SHA_VARIABLES) delete process.env[name];
+  }
 
   afterEach(() => {
-    if (originalSha === undefined) delete process.env.RAILWAY_GIT_COMMIT_SHA;
-    else process.env.RAILWAY_GIT_COMMIT_SHA = originalSha;
+    for (const [name, value] of original) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
   });
 
   it("reports the deployed build sha when the platform provides one", () => {
+    clearBuildShaVariables();
     process.env.RAILWAY_GIT_COMMIT_SHA = "ce4b1cb72".padEnd(40, "0");
     render(<DeveloperHubPage />);
     expect(screen.getByTestId("developer-hub-environment-strip")).toHaveTextContent("build ce4b1cb");
   });
 
   it("says build unknown rather than inventing one when the platform provides none", () => {
-    delete process.env.RAILWAY_GIT_COMMIT_SHA;
+    clearBuildShaVariables();
     render(<DeveloperHubPage />);
     const strip = screen.getByTestId("developer-hub-environment-strip");
     expect(strip).toHaveTextContent("build unknown");
-    // The three facts deferred to Phase 2 still name their own gaps rather than
-    // claiming a value the page never read (controller ruling F10).
+    // The three facts the plan scoped to Phase 2 still name their own gaps
+    // rather than claiming a value the page never read.
     expect(strip).toHaveTextContent("environment unknown");
     expect(strip).toHaveTextContent("document count unavailable");
     expect(strip).toHaveTextContent("account unknown");
