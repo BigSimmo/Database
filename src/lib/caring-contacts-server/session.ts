@@ -1,0 +1,54 @@
+// src/lib/caring-contacts-server/session.ts
+//
+// The demo role switcher. The decision lock requires WA Health enterprise sign-on and states that
+// no Caring-Contacts-local credentials exist, so this is deliberately NOT a login and must never
+// look like one -- it is a role switcher, labelled as one, that exists because the permission and
+// auditor surfaces cannot be demonstrated without it.
+//
+// The cookie it reads holds only a role name, never a credential. Anything unreadable -- no
+// cookie, an empty value, a name that is not one of DEMO_ROLES -- falls back to the coordinator
+// rather than throwing: an unreadable cookie must never lock someone out of a demonstration.
+import "server-only";
+
+import { cookies } from "next/headers";
+
+import { actorId, teamId, type TeamId } from "@/lib/caring-contacts/ids";
+import type { Actor, CaringContactRole } from "@/lib/caring-contacts/permissions";
+
+export const CARING_CONTACTS_ROLE_COOKIE = "caring-contacts-demo-role";
+
+/** All five roles, in the order the switcher offers them. */
+export const DEMO_ROLES: readonly CaringContactRole[] = Object.freeze([
+  "coordinator",
+  "teamLead",
+  "auditor",
+  "clinicalProgrammeLead",
+  "livedExperienceRepresentative",
+]);
+
+const DEFAULT_DEMO_ROLE: CaringContactRole = "coordinator";
+
+/** The one team every demo actor belongs to -- there is no multi-team demo. */
+export const DEMO_TEAM_ID: TeamId = teamId("demo-team");
+
+/** True for a value that names one of DEMO_ROLES. Exported so the route handler validates
+ * against the same list this module resolves against, rather than a second copy that could drift. */
+export function isDemoRole(value: unknown): value is CaringContactRole {
+  return typeof value === "string" && (DEMO_ROLES as readonly string[]).includes(value);
+}
+
+/** The actor id names the acting role, e.g. `demo-auditor`, so the audit trail can show it. */
+export function demoActorForRole(role: CaringContactRole): Actor {
+  return { id: actorId(`demo-${role}`), teamId: DEMO_TEAM_ID, roles: [role] };
+}
+
+/**
+ * Reads the demo role cookie and resolves the actor it names. Falls back to the coordinator for
+ * anything unreadable rather than throwing -- see the module note above.
+ */
+export async function resolveDemoActor(): Promise<Actor> {
+  const cookieStore = await cookies();
+  const raw = cookieStore.get(CARING_CONTACTS_ROLE_COOKIE)?.value;
+  const role = isDemoRole(raw) ? raw : DEFAULT_DEMO_ROLE;
+  return demoActorForRole(role);
+}

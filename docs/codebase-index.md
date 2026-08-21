@@ -111,6 +111,7 @@ Smaller top-level directories that are easy to miss:
 | Ops           | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                       | `health/`, `setup-status/`, `local-project-id/`                 |
 | Eval / jobs   | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`) | `eval-cases/`, `jobs/`                                          |
 | Webhooks      | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)       | `webhooks/`                                                     |
+| Caring Contacts | `/api/caring-contacts/session` (the demo role switcher, not a login -- GET reads the resolved role, POST switches it and 400s on anything outside `DEMO_ROLES`) | `caring-contacts/session/route.ts` |
 
 ---
 
