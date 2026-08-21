@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -302,7 +303,7 @@ describe("notice-stack swap settling", () => {
 
 describe("notice entrance animation", () => {
   it("keeps the asynchronously mounted notice geometry stable", () => {
-    const styles = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
+    const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
     const start = styles.indexOf("@keyframes pwa-notice-in");
     const end = styles.indexOf("@media (min-width: 640px)", start);
     const keyframes = styles.slice(start, end);
