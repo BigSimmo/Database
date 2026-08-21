@@ -230,6 +230,11 @@ reimplementing from memory.
   clinician-confirmed context.
 - An identifier-shaped warning blocks provider-backed Clinical Ask until the clinician edits or abandons the
   input. It never auto-redacts or logs the matched value; ordinary local Search remains available.
+- The identifier check is a server-enforced control, not a UI convenience. The same `identifierShapeWarning` runs
+  on the server for every Clinical Ask and transcription request, before context suggestion, retrieval, synthesis,
+  or external search, so a caller that bypasses the browser and posts identifier-shaped clinical text directly to
+  the route cannot reach a provider. Both the route gate and the orchestrator gate are mandatory and separately
+  tested; the composer warning is an affordance layered on top of them.
 - The microphone is tap-to-start/tap-to-stop, hard-stops at 60 seconds and 10 MiB, returns an editable
   transcript, and never auto-submits.
 - External fallback is server-only, feature-flagged off by default, and restricted to a repository-owned domain
@@ -265,7 +270,8 @@ reimplementing from memory.
 - Create `src/lib/clinical-ask/mode-profiles.ts`: exhaustive seven-mode registry, section order, accepted context,
   clarification rules, evidence domains, handoffs, and prohibited outcomes.
 - Create `src/lib/clinical-ask/context.ts`: suggestion sanitisation, confirmed-context projection, identifier-shaped
-  warning, deterministic material-clarification evaluation, and cross-mode context reduction.
+  warning, deterministic material-clarification evaluation, and cross-mode context reduction. The module stays pure
+  and runtime-agnostic so the SSE route and the orchestrator import the same identifier check the composer uses.
 - Create `src/lib/clinical-ask/catalogue-evidence.ts`: adapters over the existing seven local catalogues.
 - Create `src/lib/clinical-ask/indexed-evidence.ts`: owner-scoped `searchChunksWithTelemetry` adapter and
   `SearchResult` to `ClinicalAskEvidence` projection.
@@ -273,7 +279,8 @@ reimplementing from memory.
 - Create `src/lib/clinical-ask/external-evidence.ts`: OpenAI web-search request plus exact-result normalisation;
   no provider narrative enters evidence.
 - Create `src/lib/clinical-ask/evidence-sufficiency.ts`: deterministic coverage/conflict/currentness/review-state
-  decision without LLM confidence.
+  decision without LLM confidence. Coverage is computed against the specific request rather than the profile alone,
+  so the gate takes typed per-evidence coverage annotations instead of inferring support from source metadata.
 - Create `src/lib/clinical-ask/synthesis.ts`: context-suggestion and mode-response structured-output calls using
   evidence IDs only.
 - Create `src/lib/clinical-ask/response-governance.ts`: section validation, clinical-value atom checks,
@@ -297,7 +304,9 @@ reimplementing from memory.
   master and external flags to disabled, the emergency denylist to empty, and transcription model to
   `gpt-4o-mini-transcribe`.
 - Modify `src/lib/api-rate-limit.ts`: add authenticated/anonymous `clinical_ask` and `speech_transcription`
-  buckets that fail closed in production.
+  buckets, and extend both the `failsClosedOnLimiterUnavailable` predicate and the anonymous aggregate-ceiling
+  branch to recognise them. Adding bucket names and defaults alone leaves both new buckets on the per-process
+  in-memory fallback during a durable-limiter outage.
 - Modify `src/lib/security-headers.ts`: change `Permissions-Policy` microphone from `()` to `(self)`; keep provider
   origins out of browser `connect-src`.
 - Modify `src/lib/privacy-page-content.tsx`: explain ephemeral sessions, transcription, external search,
@@ -442,6 +451,7 @@ export type ClinicalAskHandoff = {
 
 export type ClinicalAskPublicErrorCode =
   | "invalid_request"
+  | "identifiable_input_blocked"
   | "unauthorized"
   | "rate_limited"
   | "retrieval_unavailable"
@@ -712,6 +722,10 @@ The internal `ClinicalAskDraft` is never sent to the client until `governClinica
 - [ ] Implement a warning-only identifier-shape detector for email, telephone, Medicare-like digit groups,
       common record-number labels, and exact dates of birth. It returns only a boolean and does not log, redact, or
       mutate the text.
+- [ ] Keep `identifierShapeWarning` pure and runtime-agnostic: no DOM, `window`, `document`, React, or
+      browser-only imports, so the SSE route, the transcription route, and the orchestrator can enforce the identical
+      check server-side. Add a test that imports it in a server-style module context and asserts verdicts identical
+      to the composer's for the shared fixture strings.
 - [ ] Add a DOM test that mounts `ClinicalAskSessionProvider`, writes draft/context/answer, calls `clear`, and
       proves an empty initial state. Spy on `Storage.prototype.setItem`, `history.pushState`, and
       `history.replaceState`; expect zero calls containing the synthetic question.
@@ -770,8 +784,49 @@ The internal `ClinicalAskDraft` is never sent to the client until `governClinica
 
 - Consumes: `ClinicalAskRequest`, `ClinicalAskEvidence`, `RetrievalAccessScope`, profile indexed domains.
 - Produces:
-  `retrieveIndexedEvidence(request, accessScope, signal): Promise<ClinicalAskEvidence[]>` and
-  `assessEvidenceSufficiency(profile, evidence): EvidenceSufficiencyDecision`.
+  `retrieveIndexedEvidence(request, accessScope, signal): Promise<ClinicalAskEvidence[]>`,
+  `annotateEvidenceCoverage(profile, request, evidence): EvidenceCoverageAnnotation[]`, and
+  `assessEvidenceSufficiency(input: EvidenceSufficiencyInput): EvidenceSufficiencyDecision`.
+- Sufficiency is request-dependent by construction. A `(profile, evidence)` signature cannot decide whether the
+  requested claim is supported: `ClinicalAskEvidence` carries only generic source metadata plus an extract, so two
+  materially different questions retrieving the same evidence set would produce an identical decision even when
+  only one of them is actually supported - permitting unsupported synthesis, or skipping the external fallback that
+  the coverage gap should have triggered. The requested claim and its typed per-evidence coverage/conflict
+  annotations are therefore explicit inputs rather than something the gate is expected to infer.
+- `ClinicalClaimKind`, `EvidenceCoverageAnnotation`, and `EvidenceSufficiencyInput` are:
+
+  ```ts
+  export type ClinicalClaimKind =
+    | "numeric"
+    | "duration"
+    | "threshold"
+    | "criterion"
+    | "eligibility"
+    | "form_requirement"
+    | "contact"
+    | "therapy"
+    | "narrative";
+
+  export type EvidenceCoverageAnnotation = {
+    evidenceId: string;
+    sectionId: string;
+    claimKind: ClinicalClaimKind;
+    /** Request/section atoms this extract literally supports. */
+    matchedAtoms: string[];
+    /** Request/section atoms this extract does not support. */
+    unmatchedAtoms: string[];
+    directlySupports: boolean;
+    conflictsWithEvidenceIds: string[];
+  };
+
+  export type EvidenceSufficiencyInput = {
+    profile: ClinicalAskModeProfile;
+    request: ClinicalAskRequest;
+    evidence: readonly ClinicalAskEvidence[];
+    coverage: readonly EvidenceCoverageAnnotation[];
+  };
+  ```
+
 - `EvidenceSufficiencyDecision` is:
 
   ```ts
@@ -780,6 +835,8 @@ The internal `ClinicalAskDraft` is never sent to the client until `governClinica
     coveredSectionIds: string[];
     missingSectionIds: string[];
     unresolvedConflictIds: string[];
+    /** Request atoms no supplied evidence covers; must be empty for `sufficient: true`. */
+    uncoveredRequestAtoms: string[];
     externalFallbackReason: "coverage_gap" | "needs_review" | "stale_or_unknown" | "conflict" | null;
   };
   ```
@@ -794,8 +851,21 @@ The internal `ClinicalAskDraft` is never sent to the client until `governClinica
 - [ ] Add sufficiency fixtures proving: review state never changes relevance order; missing numerical support is
       insufficient; a needs-review-only source triggers fallback; conflict stays insufficient; unknown currentness
       remains unknown; and direct covered reviewed evidence can be sufficient.
-- [ ] Implement sufficiency as pure deterministic functions over section coverage metadata, cited extracts,
-      review state, dates, and conflicts. Do not accept a model confidence input.
+- [ ] Add the request-dependence test that pins this interface: run two materially different questions for the
+      same mode against one identical `ClinicalAskEvidence[]`, where the extracts cover the first question's required
+      atoms and not the second. Assert the covered question returns `sufficient: true` with an empty
+      `uncoveredRequestAtoms`, and the uncovered question returns `sufficient: false` with
+      `externalFallbackReason: "coverage_gap"` and the missing atoms listed. Any change that makes both questions
+      return the same decision must fail this test.
+- [ ] Implement `annotateEvidenceCoverage` as a pure deterministic function of profile, request, and evidence.
+      Derive the required atoms from the confirmed request and the profile's required section fields with
+      `extractClinicalValueAtoms`, and decide `directlySupports` per evidence item with
+      `sourceDirectlySupportsAnswerText` over the same minimal `SearchResult` adaptation Task 5 uses. Never call a
+      model, and never let review state or tier alter the atom match.
+- [ ] Implement sufficiency as pure deterministic functions over the supplied coverage annotations, cited extracts,
+      review state, dates, and conflicts. Do not accept a model confidence input, and do not re-derive coverage from
+      the evidence alone: `sufficient: true` requires every required section id covered by at least one
+      `directlySupports` annotation and an empty `uncoveredRequestAtoms`.
 - [ ] Run
       `npm test -- tests/clinical-ask-indexed-evidence.test.ts tests/clinical-ask-evidence-sufficiency.test.ts`; expect
       green.
@@ -850,11 +920,17 @@ The internal `ClinicalAskDraft` is never sent to the client until `governClinica
   5. invalid synthesis returns `evidence_gap`, never an uncited fallback;
   6. abort stops later tiers and returns no final clinical answer;
   7. every state event is monotonic and content-free;
-  8. the 45-second deadline returns a safe failure/evidence-only fallback; and
-  9. one retry is the maximum and reruns response governance.
-- [ ] Implement `runClinicalAsk` in this order: validate/project confirmed context; suggest context; return material
-      clarifications; catalogue; indexed; assess; optional external; reassess; synthesize; govern; terminal response.
-      Keep each tier’s relevant evidence visible and stable-order concatenated.
+  8. the 45-second deadline returns a safe failure/evidence-only fallback;
+  9. one retry is the maximum and reruns response governance; and
+  10. an identifier-shaped question returns `failed` with `identifiable_input_blocked` while every injected
+      dependency fake - `suggestContext`, `retrieveCatalogue`, `retrieveIndexed`, `retrieveExternal`, and
+      `synthesize` - records zero calls.
+- [ ] Implement `runClinicalAsk` in this order: validate/project confirmed context; run the server identifier gate
+      and return `failed` with `identifiable_input_blocked` before any provider or external call when it trips;
+      suggest context; return material clarifications; catalogue; indexed; annotate coverage for this request;
+      assess; optional external; reassess; synthesize; govern; terminal response. Keep each tier’s relevant evidence
+      visible and stable-order concatenated. The identifier gate sits immediately after context projection precisely
+      because the next step, context suggestion, is provider-backed.
 - [ ] Implement telemetry as an allowlisted object:
 
   ```ts
@@ -907,6 +983,17 @@ The internal `ClinicalAskDraft` is never sent to the client until `governClinica
 - [ ] Implement `POST` by following `/api/answer/stream`: strict body parse; demo/local path only when existing env
       policy permits it; `publicAccessContext`; rate limit; `mergeAbortSignals`; synthetic UUID; `setAgentConversationId`;
       `runClinicalAsk`; `jsonError`/`PublicApiError` mapping. Never pass the question to logger/error details.
+- [ ] Add the server identifier gate between the rate limit and `runClinicalAsk`. Run the shared
+      `identifierShapeWarning` over the submitted question, clarification answers, and confirmed-context values; when
+      it trips, return the `identifiable_input_blocked` error envelope (`retryable: false`, generic message) without
+      building dependencies, resolving owner scope, or calling the orchestrator. Never log, echo, or return the
+      matched substring. Apply the identical gate in `src/app/api/speech/transcribe/route.ts` for any text field it
+      accepts. This is the enforcement point: a caller can bypass the composer, and without this gate
+      identifier-shaped clinical text reaches the provider-backed context-suggestion step inside `runClinicalAsk`.
+- [ ] Extend the route tests to prove it. POST identifier-shaped clinical text directly to the route with the
+      orchestrator mocked, and assert an `identifiable_input_blocked` error frame, zero orchestrator invocations,
+      zero OpenAI client construction, and the matched substring absent from the response body, `Server-Timing`, and
+      the logger mock.
 - [ ] Preserve the current `publicAccessContext` decision while keeping access resolution in one route-owned helper
       so a later authenticated/institutional gate does not require changes to orchestration, evidence, or UI code.
 - [ ] For an `answered` response only, canonicalise the governed visible answer text and call the existing
@@ -914,7 +1001,21 @@ The internal `ClinicalAskDraft` is never sent to the client until `governClinica
       `null` for clarification, Evidence Gap, and failure. Pass only existing UUID-backed indexed source IDs to the
       feedback route; catalogue slugs and external URLs stay out of UUID database columns.
 - [ ] Add rate-limit buckets with authenticated defaults `20/minute` for `clinical_ask` and `12/minute` for
-      `speech_transcription`; anonymous defaults `4/minute` and `3/minute`. Retain fail-closed production behaviour.
+      `speech_transcription`; anonymous defaults `4/minute` and `3/minute`.
+- [ ] Retaining fail-closed production behaviour needs a logic change, not just new bucket names and defaults. In
+      `src/lib/api-rate-limit.ts`, `failsClosedOnLimiterUnavailable` currently returns
+      `bucket === "answer" || bucket === "document_upload"`, and the anonymous aggregate-ceiling path is guarded by
+      `if (args.bucket !== "answer" && args.bucket !== "document_upload")`. Add `clinical_ask` and
+      `speech_transcription` to both branches and update the explanatory comment above the predicate. Left
+      unchanged, a durable-limiter outage silently drops both new buckets onto the per-process in-memory fallback,
+      giving N times the intended limit across N horizontally-scaled instances and multiplying paid-provider spend by
+      the instance count - the exact failure the existing predicate exists to prevent for `answer`.
+- [ ] Add limiter-outage tests in `tests/clinical-ask-rate-limit.test.ts` covering both new buckets. With
+      `NODE_ENV=production` and the durable limiter RPC failing, an authenticated subject must fail closed rather
+      than be allowed by the in-memory fallback; an anonymous subject must consume the stable
+      `anon:<bucket>:global` aggregate ceiling as well as its own subject key, and be limited once that ceiling is
+      exhausted even while its subject counter still has headroom. Assert the same behaviour for `answer` in the
+      same test so the suite proves the shared branch rather than a bucket-specific special case.
 - [ ] Implement the browser reader with a streaming `TextDecoder`, frame buffer, Zod parse, terminal-state guard,
       and AbortSignal. A malformed event aborts and yields a generic failed response without showing raw data.
 - [ ] Run
@@ -1233,7 +1334,7 @@ The internal `ClinicalAskDraft` is never sent to the client until `governClinica
 | Catalogue-indexed-external Evidence Ladder and deterministic sufficiency            | 3, 4, 5, 7                                                |
 | Allowlisted external fallback, exact extracts, prompt-injection/redirect defence    | 5, 7, 12                                                  |
 | Explicit 60-second/10-MiB speech and editable no-auto-submit transcript             | 8, 9, 12                                                  |
-| Privacy, security, abort, owner scope, rate limit, no content leakage               | 2, 6, 8, 11, 12                                           |
+| Privacy, security, abort, owner scope, rate limit, no content leakage               | 2, 5, 6, 8, 11, 12                                        |
 | Progressive answer, source review state, copy/print, accessibility, phone safe area | 9, 12                                                     |
 | Clarification, offline, tier/provider/synthesis/conflict fallbacks                  | 5, 7, 8, 9, 12                                            |
 | Structured feedback and content-free telemetry                                      | 5, 6, 10                                                  |
