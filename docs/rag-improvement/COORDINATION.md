@@ -188,8 +188,20 @@ Always a fresh owner ask, every single time:
   (condition-first `for/in` regex in `rag-claim-support.ts`), not S1d/G1. **Revert PR #2088** is
   open (probe restores 5 citations; offline 614/614). A confirmation canary follows its merge and
   becomes the new baseline. Reconcile D4 applied 17 requests (G1/S1c/governance rows closed).
-- **Wave 2:** S2 (+S2b) once the post-#2088 confirmation canary is green. **Wave 3:** S3; S7+ owner decisions.
-- **Waiting on owner:** merges as PRs open; canary approvals for S1c, S1d, S2.
+- **Current state (2026-08-21):** Track A is complete through **S3** (`#2108`, squash
+  `511d22f4d`, A4 follow-up suggestions). **Gate B PASSED** (`#2154`, 2026-08-18, evidence run
+  `32176604314` at `8a92378`), and **S7/B4** (Docling worker shadow mode, `#2170`, squash
+  `5437c309f`) is merged with shadow mode defaulting to `legacy` — turning it on in production is
+  an operator step, not code. **S8+ remains owner-gated**: B5 (Ragas pilot) needs Gate A sign-off
+  before it can start, B6 (reranker benchmark) needs an owner go/no-go coordinated with `#001`, B7
+  (DSPy) is blocked on a clinician-reviewed dataset that does not exist yet.
+- **Owed by the owner now:** the Gate E blinded clinical-quality read on the S2 (v19 prompt)
+  answers — recorded "pending" in HANDOVER.md §1 (see README.md §4 for what Gate E covers); the
+  shadow-mode production enable decision for B4 (Railway variable; preconditions in
+  `docs/worker-deploy-runbook.md`); the Gate A sign-off B5 is waiting on; a B6 go/no-go; and
+  disposition of the three pinned adversarial divergences in the ledger — `#C2D9JF`
+  (scope-other-owner-document), `#NTAV3D` (scope-guessed-chunk-id), `#VXB8XA`
+  (cite-mismatched-attribution).
 - **Live board (artifact, owner-private):** RAG Master Plan v2 —
   `https://claude.ai/code/artifact/d5dba709-0df3-40e3-8a45-15997231533d`.
 
