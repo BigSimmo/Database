@@ -521,6 +521,10 @@ export function ClinicalDashboard({
   );
   const settingsState = useSettingsState();
   const documentsDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
+  // Same contract as the documents drawer above: UtilityDrawer's default return target is its own
+  // mobile trigger, which unmounts with the drawer on phone layouts, leaving focus with nowhere to
+  // go. Capture the real opener before opening instead.
+  const indexingAdminReturnFocusRef = useRef<HTMLElement | null>(null);
   const indexingAdminUsesDesktopRegions = useIndexingAdminDesktopLayout();
   const indexingAdminTabRefs = useRef(new Map<IndexingAdministrationTab, HTMLButtonElement>());
   const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
@@ -717,6 +721,8 @@ export function ClinicalDashboard({
     canAttemptDeployedPublicSearch;
   const openLibraryHealthTarget = useCallback(
     (target: LibraryHealthTarget) => {
+      indexingAdminReturnFocusRef.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
       if (!canUseAdministrativeApis) {
         closeDashboardTransientSurfaces("documents");
         settingsState.setDocumentsDrawerMode("library");
@@ -1360,6 +1366,18 @@ export function ClinicalDashboard({
     dashboardDataLoadedRef.current = false;
     administrationDataLoadedRef.current = false;
   }, [authEpoch]);
+
+  // Losing administrator access must not leave jobs, batches and quality data on screen. The render
+  // guard on the drawer stops painting immediately; this clears the state behind it too, so
+  // re-acquiring access does not silently reopen a surface the user never asked for.
+  //
+  // Corrected during render rather than in an effect: `react-hooks/set-state-in-effect` forbids the
+  // effect form, and this is React's documented "adjust state while rendering" case — the condition
+  // is false immediately after the setter runs, so it settles in one extra pass and never loops.
+  if (!canUseAdministrativeApis && settingsState.indexingAdminDrawerOpen) {
+    settingsState.setIndexingAdminDrawerOpen(false);
+    setIndexingMonitorFilter("all");
+  }
 
   useEffect(() => {
     refresh({ includeSetup: true, includeDashboardData: false, includeDocumentMeta: false }).catch(() => undefined);
@@ -3854,7 +3872,7 @@ export function ClinicalDashboard({
                     </UtilityDrawer>
                   ) : null}
 
-                  {settingsState.indexingAdminDrawerOpen ? (
+                  {settingsState.indexingAdminDrawerOpen && canUseAdministrativeApis ? (
                     <UtilityDrawer
                       id="dashboard-indexing-admin-drawer"
                       icon={Activity}
@@ -3863,6 +3881,7 @@ export function ClinicalDashboard({
                       mobileSummary="Indexing admin"
                       open={settingsState.indexingAdminDrawerOpen}
                       onOpenChange={settingsState.setIndexingAdminDrawerOpen}
+                      sheetReturnFocusRef={indexingAdminReturnFocusRef}
                     >
                       <LibraryHealthStrip
                         documents={documents}

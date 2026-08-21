@@ -223,6 +223,34 @@ describe("audit navigation and auth regressions", () => {
       { label: "private indexing administration" },
     );
     expect(indexingAdministrationContract).toContain("if (!canUseAdministrativeApis) {");
+
+    // Guard text alone would pass even if the guard fell through to the drawer-opening calls, so
+    // pin the ORDER: the early return has to precede every administrative state change, and the
+    // non-administrator branch must reach none of them.
+    const guardIndex = indexingAdministrationContract.indexOf("if (!canUseAdministrativeApis) {");
+    const earlyReturnIndex = indexingAdministrationContract.indexOf("return;", guardIndex);
+    expect(earlyReturnIndex, "the administrator guard must return, not just warn").toBeGreaterThan(guardIndex);
+
+    const deniedBranch = indexingAdministrationContract.slice(guardIndex, earlyReturnIndex);
+    expect(deniedBranch).not.toContain("setIndexingAdminDrawerOpen(true)");
+    expect(deniedBranch).not.toContain("setIndexingAdminMobileTab");
+    expect(deniedBranch).not.toContain('setDocumentsDrawerMode("admin")');
+
+    for (const administrativeCall of [
+      "settingsState.setIndexingAdminDrawerOpen(true);",
+      'settingsState.setIndexingAdminMobileTab("jobs");',
+      'settingsState.setDocumentsDrawerMode("admin");',
+    ]) {
+      const callIndex = indexingAdministrationContract.indexOf(administrativeCall);
+      expect(callIndex, `${administrativeCall} must exist in the administrator path`).toBeGreaterThan(-1);
+      expect(callIndex, `${administrativeCall} must sit after the non-administrator early return`).toBeGreaterThan(
+        earlyReturnIndex,
+      );
+    }
+
+    // Rendering is gated on the same capability, so losing access mid-session cannot leave jobs,
+    // batches or quality data painted from component state.
+    expect(clinicalDashboardSource).toContain("{settingsState.indexingAdminDrawerOpen && canUseAdministrativeApis ? (");
   });
 
   it("keeps private indexing administration associated without exposing uploads", () => {

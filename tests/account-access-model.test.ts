@@ -33,6 +33,9 @@ describe("public content and account authorization model", () => {
     const browserSurfaces = [
       source("src/components/ClinicalDashboard.tsx"),
       source("src/components/clinical-dashboard/DocumentManagerPanel.tsx"),
+      // The indexing drawer is browser-facing too, so an upload control added there later must
+      // fail this check rather than slip through because the file was not in the corpus.
+      source("src/components/clinical-dashboard/document-admin.tsx"),
       source("src/components/clinical-dashboard/clinical-dashboard-lazy.tsx"),
       source("src/components/clinical-dashboard/global-search-shell.tsx"),
       source("src/components/clinical-dashboard/master-search-header.tsx"),
