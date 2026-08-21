@@ -150,6 +150,32 @@ Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit 
 
 <!-- END:codex-review-throttling -->
 
+<!-- BEGIN:resolve-review-threads-after-fixing -->
+
+## Resolve review threads after fixing them
+
+Pushing a fix is not the end of the task when that fix was made in response to a GitHub PR
+review comment. Resolving the corresponding review thread is part of the same unit of work,
+not a follow-up to remember later — an addressed comment left unresolved still blocks merge
+and still reads to reviewers, merge-queue tooling, and `pr-policy.mjs`-style gates as
+unaddressed.
+
+- After pushing a fix for a review comment, reply on that thread with a short summary of what
+  changed (naming the fixing commit where useful), then resolve the thread once the fix is
+  pushed — reply first, resolve second, both before moving to the next item.
+- Only resolve a thread you actually fixed or fully dispositioned. Never resolve a thread you
+  did not act on, never resolve one to tidy away feedback you disagree with, and never resolve
+  a thread on a PR you are only watching on someone else's behalf — leave those for the PR's
+  owner or reviewer.
+- If the comment needs more than a direct fix (a design decision, missing context, reviewer
+  input), reply explaining why instead of resolving, and leave the thread open.
+- This applies to every PR you push review-responsive fixes to in this repo, not only the
+  automated Codex resolve workflow — see "Review comment lifecycle" below for that workflow's
+  specific marker convention, and your runtime PR-babysitting instructions for the fuller
+  human-reviewer posture this section summarizes.
+
+<!-- END:resolve-review-threads-after-fixing -->
+
 <!-- BEGIN:local-server-safety -->
 
 # Local server safety
