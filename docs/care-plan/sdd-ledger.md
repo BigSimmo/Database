@@ -36,14 +36,30 @@ minutes.
   hour by the same method. **No directory on this machine is safe.** Commit and push;
   nothing else has ever protected this work. The branch is now on GitHub at
   `origin/claude/ed-care-plans-impl-7f44cd`, which is the authoritative copy.
-- The only repo mechanism that removes worktrees is `scripts/clean-worktree.mjs`,
-  which is chained into `npm run verify:preflight`. It protects "the current
-  worktree", meaning the one it runs in — not this one. It states it never passes
-  `--force`, so it does not explain the third deletion through a lock. **The cause
-  is not conclusively identified.** Treat the old location as unsafe and do not
-  return to it.
 - **Commit at the end of every task, without exception.** That rule is what made
   all three recoveries cheap.
+
+**Cause — identified, and already fixed on `main`.** The worktree was running an
+old `scripts/guard-push.mjs`. That version linked a _borrowed_ worktree's real
+`node_modules` into a scratch checkout as a Windows junction, then force-deleted the
+scratch checkout recursively — which a `git worktree lock` cannot stop, because it is a
+filesystem delete rather than a git worktree operation. Any concurrent session pushing
+from a stale base ran it against whichever worktree it had borrowed from.
+
+This is **already fixed upstream** by two commits this branch does not yet contain:
+
+- `a04330ea0` — harden(guard-push): never force-delete a scratch checkout that still
+  holds a borrowed `node_modules` link (#2244)
+- `cdfcbaccd` — fix(worktrees): stop silent worktree wipes and misdirected commands (#2240)
+
+**This branch is 122 commits behind `origin/main` and has neither.** That is the whole
+explanation: the tooling in this worktree, and in the other stale worktrees running
+alongside it, predated its own fix. `scripts/clean-worktree.mjs` was investigated and
+cleared — it contains no filesystem deletion at all.
+
+**The remedy is to merge `origin/main` into this branch before doing anything else.**
+Until then this worktree runs the vulnerable guard, and so does every other session on a
+stale base.
 
 ---
 

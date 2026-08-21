@@ -13,7 +13,8 @@ the live site for a signed-in administrator. It lets a clinician look up the
 approved management plan for someone who presents repeatedly to an emergency
 department in psychiatric crisis. The design is complete and user-approved. Of
 eleven build tasks, **Tasks 1 and 2 are complete, independently reviewed, and
-committed**; Task 3 has not started. Nothing has been pushed.
+committed**; Task 3 has not started. The branch is pushed to
+`origin/claude/ed-care-plans-impl-7f44cd`, which is the authoritative copy.
 
 ---
 
@@ -81,12 +82,30 @@ file went first, making git resolve to the main checkout on the wrong branch, th
 - **What died each time was uncommitted work and git-ignored scratch** — including,
   the third time, the entire SDD workspace with its ledger, briefs, reports and
   review packages. That is why the ledger is now a tracked file.
-- The cause is not conclusively identified. `scripts/clean-worktree.mjs`, chained
-  into `npm run verify:preflight`, is the only repo mechanism that removes
-  worktrees and it protects only the worktree it runs in — but it states it never
-  passes `--force`, so it does not explain a deletion through a lock.
 - **Commit at the end of every task.** That single habit is why three destructions
   cost nothing but time.
+
+**Cause — identified, and already fixed on `main`.** The worktree was running an
+old `scripts/guard-push.mjs`. That version linked a _borrowed_ worktree's real
+`node_modules` into a scratch checkout as a Windows junction, then force-deleted the
+scratch checkout recursively — which a `git worktree lock` cannot stop, because it is a
+filesystem delete rather than a git worktree operation. Any concurrent session pushing
+from a stale base ran it against whichever worktree it had borrowed from.
+
+This is **already fixed upstream** by two commits this branch does not yet contain:
+
+- `a04330ea0` — harden(guard-push): never force-delete a scratch checkout that still
+  holds a borrowed `node_modules` link (#2244)
+- `cdfcbaccd` — fix(worktrees): stop silent worktree wipes and misdirected commands (#2240)
+
+**This branch is 122 commits behind `origin/main` and has neither.** That is the whole
+explanation: the tooling in this worktree, and in the other stale worktrees running
+alongside it, predated its own fix. `scripts/clean-worktree.mjs` was investigated and
+cleared — it contains no filesystem deletion at all.
+
+**The remedy is to merge `origin/main` into this branch before doing anything else.**
+Until then this worktree runs the vulnerable guard, and so does every other session on a
+stale base.
 
 Worth investigating separately: there were 82 registered worktrees on this
 repository. That is itself worth a clean-up, carefully, once this build is done.
@@ -105,8 +124,9 @@ grilling round. They are binding and must not be reopened.
    caller-allocated IDs, one dispatch path. **No storage layer is built now.**
 2. The full multi-service workflow, including named senior-clinician approval.
 3. Deliver Tasks 1–5 (Stage A), **stop for user review**, then Tasks 6–11.
-4. Local commits authorised. Nothing else — no push, PR, merge, rebase, deployment,
-   or provider access.
+4. Local commits authorised, and the branch has since been pushed with the user's
+   explicit agreement after being told the repository is public. Still **not**
+   authorised: PR, merge, rebase, deployment, or provider access.
 
 **Clinical content**
 
