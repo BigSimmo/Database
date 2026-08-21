@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "04d7b548-a676-4f13-beb1-4215e7d9277c",
+  "createdOn": "2026-08-21",
+  "action": "cancel",
+  "payload": {
+    "requestId": "3399642f-f5c4-46ac-89cd-473c0e0823fe",
+    "reason": "Stale: #97VQK5's row changed after this request was queued. A separate already-merged reconciliation added an equivalent 2026-08-21 UPDATE to the row (site-map/15-mode-count fixed, punctuation+heading-level scope left open) before this branch merged main in, so the baseRowFingerprint no longer matches and applyRequest fails 'stale: the ledger row changed'. This branch's narrowing reaches the same conclusion as the already-landed update; cancelling as redundant rather than re-litigating."
+  }
+}
