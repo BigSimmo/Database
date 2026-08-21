@@ -92,13 +92,26 @@ if [ -n "$hooks_path" ]; then
   # Normalise Windows backslashes so a native `git config` value compares equal
   # to the POSIX path this script sees.
   normalised="$(printf '%s' "$hooks_path" | tr '\\' '/')"
+  repo_root_n="$(printf '%s' "$repo_root" | tr '\\' '/')"
+  repo_root_n="${repo_root_n%/}"
+  # `core.hooksPath` is absolute OR relative to the top of the working tree, and
+  # git treats `.githooks`, `./.githooks` and the absolute spelling as the same
+  # directory. Resolve to one form before comparing. A `*/.githooks` suffix glob
+  # cannot do that: it needs a `/` before the name, so it silently missed the
+  # bare relative value this repo's own `npm install` writes — leaving the guard
+  # running a full-repository Prettier check on every push in a checkout that was
+  # in fact correctly wired (measured at >100 s per push on the Windows
+  # workstation, 2026-08-22).
   case "$normalised" in
-  */.githooks)
-    if [ -x "$repo_root/.githooks/pre-push" ]; then
-      exit 0
-    fi
-    ;;
+  /* | ?:/*) resolved="$normalised" ;;
+  *) resolved="$repo_root_n/${normalised#./}" ;;
   esac
+  # Exact equality, not a suffix match: another repository's `.githooks` also
+  # ends in `/.githooks`, and its pre-push hook would not guard THIS push.
+  if [ "${resolved%/}" = "$repo_root_n/.githooks" ] \
+    && [ -x "$repo_root/.githooks/pre-push" ]; then
+    exit 0
+  fi
 fi
 
 # --- run the repository-wide check, never a per-file one ---------------------
