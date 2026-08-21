@@ -57,16 +57,26 @@ export default function DeveloperHubPage() {
           </p>
         ) : null}
 
-        {GROUPS.map((group) => (
-          <section key={group.id} id={group.anchor} className={inPageAnchor}>
-            <h2 className="mb-3 text-lg font-extrabold text-[color:var(--text-heading)]">{group.label}</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {panelsInGroup(group.id).map((panel) => (
-                <PanelCard key={panel.id} panel={panel} />
-              ))}
-            </div>
-          </section>
-        ))}
+        {GROUPS.map((group) => {
+          const panels = panelsInGroup(group.id);
+          // An empty group must render no anchor at all. `useResolvedPageSections`
+          // drops a declared section whose anchor is missing — that is what lets
+          // phases 2-4 add panels without touching the navigation — and rendering
+          // the section unconditionally would make that mechanism inert here,
+          // offering a jump to a bare heading above an empty grid.
+          if (panels.length === 0) return null;
+
+          return (
+            <section key={group.id} id={group.anchor} className={inPageAnchor}>
+              <h2 className="mb-3 text-lg font-extrabold text-[color:var(--text-heading)]">{group.label}</h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {panels.map((panel) => (
+                  <PanelCard key={panel.id} panel={panel} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </main>
     </>
   );
