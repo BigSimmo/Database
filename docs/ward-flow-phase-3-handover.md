@@ -197,6 +197,19 @@ reasoning rather than evidence.
   `git worktree remove --force`. A live alternative is that `findPrettierBin` deliberately borrows
   _another_ worktree's tree when this checkout has none, and this repo has dozens of siblings.
 
+  **Strongest explanation, found 2026-08-22 by inspecting what was actually running.** At the
+  moment of writing, PID 22400 was `D:/Worktrees/Database/care-plan-impl/scripts/guard-push.mjs`
+  — **a different worktree running its own push guard.** `findPrettierBin` in that script
+  deliberately borrows _another_ worktree's real `node_modules` when its own checkout has none,
+  and this machine has dozens of sibling worktrees. That fits every fact the earlier theory could
+  not: why isolated probes here never reproduced the damage (the destroyer was in another
+  worktree), and why it happened a second time when this session did not push at all.
+
+  **The practical consequence: any session pushing from any worktree can empty this one's
+  `node_modules`.** It is not something this branch can fully defend against alone, and it is not
+  caused by anything in the ward-flow code. Treat it as ambient, check for it early, and recover
+  with `npm ci --include=dev`.
+
   **Do not hand-write a fix for this.** One was written and reverted: a mutation reintroducing the
   supposed bug on purpose failed no test at all, proving the fix was untestable against an unknown
   mechanism. The reviewed fix exists upstream at `a04330ea0` (PR #2244), which is **not** an
