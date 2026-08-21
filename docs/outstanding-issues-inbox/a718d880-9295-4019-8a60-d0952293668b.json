@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a718d880-9295-4019-8a60-d0952293668b",
+  "createdOn": "2026-08-20",
+  "action": "update",
+  "payload": {
+    "id": "#RZQQBT",
+    "detail": "UPDATE 2026-08-21 (measured on this machine): still unanswered, and now with a concrete reason. The hook's own log has never been written - neither the main repository's .git/claude-precompact.log nor the per-worktree claude-precompact.log under the .git/worktrees admin directory exists. So no compaction has fired the hook in an inspectable session yet, and the question stays open rather than answered-negative. Next: after the next compaction in a session using this checkout, read that path; an entry proves the hook ran, and its absence in model context would then be the separate question.",
+    "baseRowFingerprint": "5cafbd44f6e0a57ec1a0d7e7cd8ae47cc04ab11ea6766a4688a592c0c88f46ae"
+  }
+}
