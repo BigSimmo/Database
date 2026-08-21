@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e9386425-20e9-436d-ab13-7e076310c5bb",
+  "createdOn": "2026-08-20",
+  "action": "update",
+  "payload": {
+    "id": "#100",
+    "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987, no provider access): the client-side half has landed. NEXT_PUBLIC_RAG_INCREMENTAL_EVIDENCE_PREVIEW_RENDER is present in .env.example (commented, default false) and is consumed by src/lib/client-env.ts, so the Phase 1 client parsing/rendering flag exists alongside the server-side RAG_INCREMENTAL_EVIDENCE_PREVIEW=false. Remaining scope is therefore narrower than recorded: verify:ui proof of the client render path, then the design's provider-backed acceptance gates before production enablement. Phase 2 stays provider-gated. Not verified: whether the render path is actually exercised by a UI journey.",
+    "baseRowFingerprint": "9a12cd7a81f31259faaf2f13c55c4330a4929573a1d96f001cfbf12014a31154"
+  }
+}

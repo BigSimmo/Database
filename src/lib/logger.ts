@@ -13,9 +13,12 @@ const MAX_DEPTH = 5;
 const SENSITIVE_KEY =
   /authorization|cookie|token|secret|api[-_]?key|password|service[-_]?role|email|\bquery\b|prompt|\bcontent\b|\banswer\b|patient|\bmrn\b/i;
 
+const SENSITIVE_VALUE_PATTERN = /\b(?:mrn|ur|unit\s*no\.?)\s*[:#]?\s*\d{6,10}\b|\b\d{3}\s\d{3}\s\d{4}\b/i;
+
 function redactValue(value: unknown, depth: number): unknown {
   if (value === null || value === undefined) return value;
   if (typeof value === "string") {
+    if (SENSITIVE_VALUE_PATTERN.test(value)) return REDACTED;
     return value.length > MAX_STRING_LENGTH ? `${value.slice(0, MAX_STRING_LENGTH)}…[truncated]` : value;
   }
   if (typeof value === "number" || typeof value === "boolean") return value;

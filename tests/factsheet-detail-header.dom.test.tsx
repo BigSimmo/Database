@@ -59,6 +59,23 @@ describe("factsheet detail header", () => {
     expect(within(printPortal as HTMLElement).getAllByRole("heading", { level: 2 }).length).toBeGreaterThan(0);
   });
 
+  it("associates printable fact values with row headers", () => {
+    renderFactsheet("sertraline");
+    const printPortal = document.querySelector(".factsheet-print-portal");
+    expect(printPortal).not.toBeNull();
+
+    // Assert per row, not over the set of headers that happen to exist: a fact row
+    // rendered with no row header at all would leave its value unassociated in a
+    // screen reader, and a headers-only assertion passes straight over it.
+    const rows = within(printPortal as HTMLElement).getAllByRole("row");
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      const rowHeaders = within(row).getAllByRole("rowheader");
+      expect(rowHeaders).toHaveLength(1);
+      expect(rowHeaders[0]).toHaveAttribute("scope", "row");
+    }
+  });
+
   it("names the way back without spending the row on its label", () => {
     renderFactsheet("sertraline");
     const back = screen.getByRole("link", { name: "Back to all factsheets" });

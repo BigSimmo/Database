@@ -2041,6 +2041,7 @@ export function MasterSearchHeader({
               pr-* utility, which let text run under an overlaid button. */}
             <div className="flex min-w-0 flex-1 items-center overflow-hidden">
               <input
+                type="search"
                 ref={bindQueryInputRef}
                 data-testid="global-search-input"
                 autoFocus={queryInputAutoFocus}

@@ -1950,3 +1950,169 @@ the `SUPABASE_ACCESS_TOKEN` secret of `#183`), or a service-role RPC listing ver
 with its own window). Queued as its own ledger item from this session; until it is fixed the weekly job
 will stay red on that step alone and the pinned issue will not self-close — **the drift block, which is
 what the issue was opened for, is clear.**
+
+## Alignment-step repair — 2026-08-20 (repo-side; production deploy still owed)
+
+_Follow-on from Phase 6.2 step 6. Repo-only session: no hosted mutation, no provider gate run. The
+three GitHub reads (open-PR list, issue #1963, live-drift run `32378402265`) were owner-requested._
+
+### The finding restated, re-measured on `main`
+
+live-drift run [`32378402265`](https://github.com/BigSimmo/Database/actions/runs/32378402265),
+2026-08-20T14:09:03Z, `main`, weekly cron. Step conclusions:
+
+```
+Compare live schema drift: success
+Align migration history for Supabase Preview: failure
+```
+
+Compare step, decisive lines:
+
+```
+Compared 6 extensions, 38 tables, 1 views, 93 functions, 210 indexes, 48 policies, 170 constraints, 26 triggers, 2 storage_buckets against live.
+No unexpected schema drift between live and supabase/schema.sql.
+```
+
+Alignment step, decisive line:
+
+```
+Unable to read remote schema_migrations via Accept-Profile (status 406: {"code":"PGRST106","details":null,"hint":"Only the following schemas are exposed: public, graphql_public","message":"Invalid schema: supabase_migrations"})
+```
+
+So the drift block has now been empty for **two consecutive runs** (`32251326536` on the 6.2 branch,
+`32378402265` on `main`), and issue #1963 is still open solely because a sibling step cannot read a
+table it was never able to read. `#316`'s finding set stays empty.
+
+### Fix: least-privilege RPC, not a widened API surface and not a new credential
+
+`20260820120000_migration_history_versions_rpc.sql` adds
+`public.migration_history_versions()` — `stable`, `security definer`, `set search_path to ''`,
+dynamic read guarded by `to_regclass`, returning `{probe, versions}` for every history row.
+`revoke ... from public, anon, authenticated` + `grant ... to service_role`, exactly the
+`schema_drift_snapshot()` pattern (`20260706200000` / `20260818090000`).
+
+Two alternatives were rejected and are recorded so the choice is not re-litigated:
+
+| Option                                                | Why not                                                                                                                  |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Expose `supabase_migrations` to the Data API          | Widens the public PostgREST surface of a clinical project for one weekly read, and lives in dashboard config, not in git |
+| Read via the management API + `SUPABASE_ACCESS_TOKEN` | Puts an account-scoped token into CI secrets — far broader authority than the read needs; also still blocked on `#183`   |
+
+`scripts/check-migration-history-alignment.ts` now tries the RPC first and falls back to the old
+Accept-Profile read **only** when the function itself is absent (404 / `PGRST202`). Every other outcome
+raises, including `probe: no_history_table` — a check that reports "aligned" because it could not look
+is worse than the red job it replaces. When neither path works, the error names the remedy.
+
+### Repo-side proof
+
+- `npm run drift:manifest` — full scratch replay of `supabase/schema.sql` into
+  `supabase/postgres:17.6.1.127`: "Replay complete in 58s". This executes the new function body in a
+  real Postgres, so the SQL is proven, not merely reviewed. Manifest now carries **94** functions
+  (was 93) with `public.migration_history_versions()` at
+  `acl: ["postgres=X/postgres", "service_role=X/postgres"]` — least privilege confirmed by replay,
+  no `PUBLIC` execute. `schema_sha256` `6fe4883e03fa…`.
+- `tests/migration-history-alignment.test.ts` — 7 tests: RPC preferred and Accept-Profile never sent;
+  fallback only on an absent function; unexpected RPC failure surfaces rather than falling back;
+  `no_history_table` is an error; migration-vs-`schema.sql` byte parity; read-only + service-role-only
+  shape.
+
+### What is still owed
+
+_Superseded by the 2026-08-20 window section below: the migration was already applied on production
+before the window opened, and D4 is no longer treated as OFF. Kept as the pre-window record._
+
+The migration is **not deployed**. D4 is OFF, so merging does not apply it, and until it is applied
+`check:drift` will report `migration_history_versions` as a missing function — i.e. merging before the
+window trades one red for another. **Deploy from the branch first, then merge**, which is the order
+Phase 4 used (§Phase 4 completion). Staging needs the same migration by the Phase 2 method to hold the
+parity Phase 4 restored.
+
+### Window 2026-08-20 — production already applied; staging still owed
+
+_Owner-authorised window. Worktree linked to production (`sjrfecxgysukkwxsowpy`), the main checkout
+left on its staging link. Every call carried an explicit `--project-ref`._
+
+**PR #2198 was merged before the window** (squash `a341832af`), the reverse of the intended
+deploy-then-merge order. The pre-flight then found the migration **already applied**:
+
+```
+$ supabase migration list --linked --project-ref sjrfecxgysukkwxsowpy
+… {"local":"20260820120000","remote":"20260820120000","time":"2026-08-20 12:00:00"}
+```
+
+`db push` was therefore never run against production in this window. Read-only verification:
+
+| Check                                     | Result                                                     |
+| ----------------------------------------- | ---------------------------------------------------------- |
+| history row shape                         | `stmt_count 3` — executed statements, **not** mark-applied |
+| `prosecdef` / `provolatile` / `proconfig` | `true` / `s` / `search_path=""`                            |
+| `proacl`                                  | `postgres=X/postgres \| service_role=X/postgres`           |
+| function output                           | `probe: ok`, `version_count: 211`, `table_rows: 211`       |
+
+211 remote versions against 211 local migration files, so the alignment check's `remoteOnly` set is
+empty and the step should now pass. **No guard migration is owed**: the row carries executed
+statements, so it is not a history repair and cannot surface in the `migration_history` probe.
+
+#### D4: strong evidence of deploy-on-merge — but the toggle itself has not been read
+
+`created_by` and `idempotency_key` are NULL for every row from `20260818090000` to `20260820120000`,
+including the ones this programme applied by operator `db push`, so the history table carries **no
+provenance signal** and cannot say how this row arrived. Two explanations remain open, and the
+distinction is the whole of D4:
+
+1. **Supabase Branching applies on merge.** §3.7 measured exactly this — migrations `110000`–`112000`
+   bracketed to **34 s** after #2106's squash-merge. A Supabase preview branch existed on #2198
+   (project `gjpnznsmbylfkzfeeuki`, "Migrations ✅" 17:08:58 UTC) and the PR merged minutes later.
+2. Someone ran `db push` against production in the same hour.
+
+The 2026-08-19 observation recorded as "D4 is OFF" was that the four `20260819` migrations _sat
+pending while the PR was open_. That tests deploy-while-open, **not** deploy-on-merge, so it never
+contradicted §3.7 — and today's result fits both observations at once.
+
+**Settled the same day by reading the platform instead of the history table.**
+`list_branches(sjrfecxgysukkwxsowpy)` returns exactly one record:
+
+```json
+{
+  "name": "main",
+  "is_default": true,
+  "git_branch": "main",
+  "project_ref": "sjrfecxgysukkwxsowpy",
+  "created_at": "2026-06-27T14:10:20.550361+00:00",
+  "updated_at": "2026-07-04T08:15:07.640507+00:00"
+}
+```
+
+Production is **still bound to git `main`**, and `updated_at` predates 2026-08-19 — so whatever was
+changed that day never touched this binding, and the §3.7 mechanism is intact. Together with §3.7's
+34-second apply and `20260820120000` arriving unpushed, that is strong evidence of deploy-on-merge.
+
+**It remains an inference, and the difference matters.** No field of the branch record reports the
+"Deploy to production" setting. The superseded 2026-08-19 account describes that setting being changed
+without the binding being deleted, so "toggle off, binding intact" cannot be ruled out from here — and
+the two failure modes are not symmetric. Declaring D4 ON tells operators to skip `db push`; if the
+toggle is in fact off, every merged migration then sits unapplied and drift returns silently, which is
+the original incident. Declaring it OFF risks only a redundant no-op push.
+
+**So the operative rule is the one that is correct under both states, and it must not be shortened:**
+
+1. Never merge a migration PR outside its approved window — correct if deploys happen on merge.
+2. After any migration merges, run `supabase migration list --linked --project-ref <ref>` and
+   `db push` anything still pending — correct if they do not.
+
+One extra command, wrong under neither hypothesis. What would replace this rule with a fact is a
+dashboard read of the toggle, or a deployment-settings API that reports it. Raised as a P1 by the Codex
+review of PR #2205, and correctly: the earlier wording here presented the inference as a direct read.
+
+#### Staging is one version behind — blocked, not skipped
+
+Staging (`ikoiolksxqxfxgiyqpnu`, verified before every call) reads **210** history rows, latest
+`20260819110500`, `to_regprocedure('public.migration_history_versions()') is null`. Its pending set is
+exactly `['20260820120000']` with zero remote-only versions, so a single `db push` (or the Phase 2
+`execute_sql` method) closes it.
+
+Both write paths were **denied by the session's auto-mode classifier** — `supabase db push` and the
+MCP `execute_sql` alike — under the live-Supabase confirmation rule added by PR #2196 the same day.
+Read-only calls were unaffected, which is why every verification above exists. This is an
+authorisation gap, not a technical one: **staging parity, closed by Phase 4, is open again by one
+version until an operator applies it.**
