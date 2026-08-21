@@ -131,7 +131,7 @@ describe.skipIf(process.platform === "win32")("pr-babysit budget hook", () => {
       expect(Math.abs(Number(stamp![1]) - Math.floor(Date.now() / 1000))).toBeLessThan(120);
     });
 
-    it("tells the model babysitting is allowed, not that the session is over", () => {
+    it("makes handoff the default and reserves babysitting for an explicit request", () => {
       const { root } = freshRepo();
       const out = runHook(
         "post",
@@ -142,7 +142,8 @@ describe.skipIf(process.platform === "win32")("pr-babysit budget hook", () => {
         },
         root,
       );
-      expect(out.stdout).toContain("babysit");
+      expect(out.stdout).toContain("hand over its URL and stop");
+      expect(out.stdout).toContain("expressly asks");
       expect(out.stdout).toContain("30 minutes");
     });
 
