@@ -82,12 +82,29 @@ const relativeRunRoot = `.next-playwright/${runId}`;
 const absoluteRunRoot = path.join(projectRoot, relativeRunRoot);
 const relativeDistDir = `${relativeRunRoot}/dist`;
 const relativeTsConfigPath = `${relativeRunRoot}/tsconfig.json`;
+const configuredWaitTimeoutMs = Number(process.env.HEAVY_RUN_WAIT_TIMEOUT_MS);
+const waitTimeoutMs = Number.isFinite(configuredWaitTimeoutMs) ? configuredWaitTimeoutMs : undefined;
+const ADMISSION_BUSY_EXIT = 75;
+const ADMISSION_BUSY_MARKER = "DATABASE_HEAVY_RUN_ADMISSION_BUSY";
+const ADMISSION_BUSY_PATTERN =
+  /Database (?:focused-test capacity is full|heavyweight)|coordinator is (?:busy|being initialized)|retry shortly/i;
 
 let lock;
 try {
-  lock = acquireHeavyRunLock({ projectRoot, command: `playwright ${playwrightArgs.join(" ")}` });
+  lock = acquireHeavyRunLock({
+    projectRoot,
+    command: `playwright ${playwrightArgs.join(" ")}`,
+    ...(waitTimeoutMs === undefined ? {} : { waitTimeoutMs }),
+  });
 } catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
+  const message = String(error?.message ?? error);
+  if (ADMISSION_BUSY_PATTERN.test(message)) {
+    console.error(ADMISSION_BUSY_MARKER);
+    console.error(`Playwright did not run: ${message}`);
+    console.error("Wait for the active heavyweight run to finish, then retry this command.");
+    process.exit(ADMISSION_BUSY_EXIT);
+  }
+  console.error(message);
   process.exit(1);
 }
 

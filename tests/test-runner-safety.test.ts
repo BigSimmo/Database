@@ -281,6 +281,56 @@ describe("repository-wide heavyweight lock", () => {
     first.release();
   });
 
+  it("fails a blocked Playwright run instead of accepting an empty pass-with-no-tests result", () => {
+    const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+    const baseDirectory = temporaryDirectory("clinical-kb-playwright-admission-");
+    const repositoryIdentity = testRunLockInternals.resolveRepositoryIdentity(projectRoot);
+    const blockingLock = acquireHeavyRunLock({
+      projectRoot: path.join(baseDirectory, "other-worktree"),
+      repositoryIdentity,
+      baseDirectory,
+      environment: {},
+      command: "other worktree Playwright run",
+    });
+    const childEnvironment = {
+      ...process.env,
+      HEAVY_RUN_WAIT_TIMEOUT_MS: "0",
+      TEMP: baseDirectory,
+      TMP: baseDirectory,
+      TMPDIR: baseDirectory,
+      // The runner must reach lease admission before attempting a browser launch.
+      // A real browser is deliberately unnecessary because the foreign lease
+      // rejects this invocation first.
+      PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: process.execPath,
+    };
+    delete childEnvironment[testRunLockInternals.tokenEnvironmentKey];
+    delete childEnvironment[testRunLockInternals.pathEnvironmentKey];
+
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [
+          "scripts/run-playwright.mjs",
+          "--project=chromium",
+          "--grep",
+          "clinical-kb-never-matches",
+          "--pass-with-no-tests",
+        ],
+        { cwd: projectRoot, encoding: "utf8", env: childEnvironment },
+      );
+      const output = `${result.stdout}${result.stderr}`;
+
+      expect(childProcessExitCode(result)).toBe(75);
+      expect(output).toContain("DATABASE_HEAVY_RUN_ADMISSION_BUSY");
+      expect(output).toContain("Playwright did not run: Another Database heavyweight command is active");
+      expect(output).toContain("Wait for the active heavyweight run to finish, then retry this command.");
+      expect(output).not.toContain("Building isolated production Playwright app");
+      expect(output).not.toMatch(/\b0 passed\b/);
+    } finally {
+      blockingLock.release();
+    }
+  });
+
   it("admits two focused leases from different worktrees while keeping heavyweight work exclusive", () => {
     const baseDirectory = temporaryDirectory("clinical-kb-shared-lock-");
     const repositoryIdentity = path.join(baseDirectory, "shared.git");
