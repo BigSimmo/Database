@@ -4,7 +4,7 @@
 new session, a new machine, or a new account. Everything below is either in this repository or named with
 an exact path on the workstation.
 
-Written at head `6afce3893` on branch `claude/suicide-contact-mockup-b5aaa0`. Nothing has been pushed; there
+Written at head `6322017ce` on branch `claude/suicide-contact-mockup-b5aaa0`. Nothing has been pushed; there
 is no pull request; the branch exists only locally.
 
 ---
@@ -24,20 +24,33 @@ are still required before any real use.
 
 ---
 
-## 2. The two chat sessions this work came from
+## 2. The three chat sessions this work came from
 
 Claude Code stores full transcripts as JSONL on the workstation. They are **outside the repository** and are
 not backed up by git — copy them if the machine or account is changing.
 
-| Session                                                                                | Transcript                                                                                                                                                                                                                          |
-| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Phase 1 + early Phase 2A ("Suicide 1")                                                 | `C:\Users\joshs\.claude\projects\D--Repos-Database--claude-worktrees-rag-readability-metric-split-7e8ac4\cb52ea30-1a66-447e-a1e5-7ece8b217a2f.jsonl` (Aug 19 01:04) and `c762b098-99b3-4606-b457-64355e8be144.jsonl` (Aug 19 12:57) |
-| Phase 2A controller ("Suicide 2")                                                      | `C:\Users\joshs\.claude\projects\D--Repos-Database--claude-worktrees-caring-contacts-phase-2a-6c1ea2\8c22c6b7-984f-4804-842f-a4bc62b4adad.jsonl` (Aug 20 22:37)                                                                     |
-| Subagent transcripts for that session — the implementer and reviewer reasoning in full | the `subagents/` directory beside it: `agent-a394147b89c86ab7c.jsonl` (Task 10 fix), `agent-a3a402e10992769c3.jsonl` (Task 11a + both fix rounds), `agent-ae2b3252297f75796.jsonl` (Task 11a review)                                |
+**Both bundles are already saved off-repository**, which on 2026-08-21 stopped being a precaution and
+became the thing that saved the record:
 
-**You should not need them.** Everything decision-bearing was copied into this repository before the handoff
-— see §3. They are listed so the record is complete, and because the subagent transcripts contain the only
-verbatim copy of the two code reviews.
+| Bundle                                         | Covers                                                                                              |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `D:\Repos\caring-contacts-handoff-2026-08-20\` | Sessions 1 and 2 (Phase 1, early Phase 2A, the 2A controller)                                       |
+| `D:\Repos\caring-contacts-handoff-2026-08-21\` | Session 3 — verification, the fix-round-2 review, Rulings 32-34, and the worktree loss and recovery |
+
+Each has its own `README.md` index. **Caution:** the 2026-08-20 README names the worktree
+`rag-readability-metric-split-7e8ac4` as the place to work. That worktree was destroyed on 2026-08-21
+and no longer exists — the live worktree is `D:\Worktrees\Database\caring-contacts-phase-2a` (§4).
+
+| Session                                                                                | Transcript                                                                                                                                                                                                                               |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phase 1 + early Phase 2A ("Suicide 1")                                                 | `C:\Users\joshs\.claude\projects\D--Repos-Database--claude-worktrees-rag-readability-metric-split-7e8ac4\cb52ea30-1a66-447e-a1e5-7ece8b217a2f.jsonl` (Aug 19 01:04) and `c762b098-99b3-4606-b457-64355e8be144.jsonl` (Aug 19 12:57)      |
+| Phase 2A controller ("Suicide 2")                                                      | `C:\Users\joshs\.claude\projects\D--Repos-Database--claude-worktrees-caring-contacts-phase-2a-6c1ea2\8c22c6b7-984f-4804-842f-a4bc62b4adad.jsonl` (Aug 20 22:37)                                                                          |
+| Subagent transcripts for that session — the implementer and reviewer reasoning in full | the `subagents/` directory beside it: `agent-a394147b89c86ab7c.jsonl` (Task 10 fix), `agent-a3a402e10992769c3.jsonl` (Task 11a + both fix rounds), `agent-ae2b3252297f75796.jsonl` (Task 11a review)                                     |
+| Phase 2A recovery ("Suicide 3")                                                        | `C:\Users\joshs\.claude\projects\D--Repos-Database--claude-worktrees-caring-contacts-phase-2a-a4f69a\60a85c97-e1e3-45c8-ac9f-88251ff5bfe0.jsonl` (Aug 21), plus the fix-round-2 review subagent. Both copied into the 2026-08-21 bundle. |
+
+**You should not need them.** Everything decision-bearing is in tracked files — see §3. They are listed so
+the record is complete, and because the subagent transcripts hold the only verbatim copy of the three code
+reviews.
 
 ---
 
@@ -50,23 +63,33 @@ destroyed by `git clean -fdx` or by deleting the worktree.
 
 All of it has been copied into tracked files:
 
-| Tracked file                                                                                                                                                                                                               | What it holds                                                                                                                                                                                                                              |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `docs/caring-contacts/phase-2a-build-record.md`                                                                                                                                                                            | The live session ledger, verbatim: the pre-flight conflict scan, all **31 rulings** with what each costs if wrong, every deferred finding, every review outcome, and the resume point. **This is the most important file in the handoff.** |
-| `docs/caring-contacts/phase-2a-sdd-archive/`                                                                                                                                                                               | Every task brief and every implementer report, verbatim (21 files). `00-live-ledger-verbatim.md` is a second copy of the ledger.                                                                                                           |
-| `docs/caring-contacts/phase-1-handoff.md`                                                                                                                                                                                  | The Phase 1 handoff, from the earlier session.                                                                                                                                                                                             |
-| `docs/superpowers/plans/2026-08-19-caring-contact-phase-2a-foundations.md`                                                                                                                                                 | **The plan.** 19 tasks in 5 groups, plus the Global Constraints every task inherits.                                                                                                                                                       |
-| `docs/superpowers/specs/2026-08-19-caring-contact-production-build-design.md`                                                                                                                                              | **The spec.** The binding authority the plan argues from; conflicts resolve against it.                                                                                                                                                    |
-| `docs/caring-contacts/interaction-matrix.md`                                                                                                                                                                               | The frozen 24-row overlay modality and dismissal table (Tasks 17–18).                                                                                                                                                                      |
-| `docs/caring-contacts/clinical-language-trace.md`, `accessibility-acceptance.md`, `verification-report.md`, `linked-prototype-handoff.md`, `visual-reference-manifest.md`, `screenshot-atlas-manifest.json`, `atlas/*.png` | Phase 1 design artefacts: the frozen screen atlas and the language, accessibility and verification records.                                                                                                                                |
+| Tracked file                                                                                                                                                                                                               | What it holds                                                                                                                                                                                                                                                                                       |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/caring-contacts/phase-2a-build-record.md`                                                                                                                                                                            | THE ledger (no longer a copy — the scratch original was destroyed on 2026-08-21), verbatim: the pre-flight conflict scan, all **34 rulings** with what each costs if wrong, every deferred finding, every review outcome, and the resume point. **This is the most important file in the handoff.** |
+| `docs/caring-contacts/phase-2a-sdd-archive/`                                                                                                                                                                               | Every task brief and every implementer report, verbatim (22 files). `00-live-ledger-verbatim.md` is a STALE frozen snapshot of the ledger at 2026-08-20 and carries a warning header — never read it as current.                                                                                    |
+| `docs/caring-contacts/phase-1-handoff.md`                                                                                                                                                                                  | The Phase 1 handoff, from the earlier session.                                                                                                                                                                                                                                                      |
+| `docs/superpowers/plans/2026-08-19-caring-contact-phase-2a-foundations.md`                                                                                                                                                 | **The plan.** 19 tasks in 5 groups, plus the Global Constraints every task inherits.                                                                                                                                                                                                                |
+| `docs/superpowers/specs/2026-08-19-caring-contact-production-build-design.md`                                                                                                                                              | **The spec.** The binding authority the plan argues from; conflicts resolve against it.                                                                                                                                                                                                             |
+| `docs/caring-contacts/interaction-matrix.md`                                                                                                                                                                               | The frozen 24-row overlay modality and dismissal table (Tasks 17–18).                                                                                                                                                                                                                               |
+| `docs/caring-contacts/clinical-language-trace.md`, `accessibility-acceptance.md`, `verification-report.md`, `linked-prototype-handoff.md`, `visual-reference-manifest.md`, `screenshot-atlas-manifest.json`, `atlas/*.png` | Phase 1 design artefacts: the frozen screen atlas and the language, accessibility and verification records.                                                                                                                                                                                         |
 
 The `review-*.diff` files in the scratch directory were **not** archived — they are plain `git diff` output
 over commits already in history and are regenerable with
 `bash <superpowers-skill>/scripts/review-package <plan> <base> <head>`.
 
-The live scratch directory still exists on disk and is still authoritative while the plan runs. If you
-continue in the same worktree, keep appending to it and re-copy it to the build record at each checkpoint.
-If you start fresh, **the tracked build record becomes the ledger** — say so in its first line.
+**The scratch ledger is gone, and the tracked build record IS the ledger now.** The original
+`.superpowers/sdd/` workspace lived in the worktree destroyed on 2026-08-21 and was lost with it —
+precisely the risk this section was written to warn about. Only the tracked copy survived.
+
+So the rule has changed, and it is now simpler: **append rulings, findings, review outcomes and resume
+points directly to `docs/caring-contacts/phase-2a-build-record.md`.** Do not start a second ledger in
+scratch; keeping two in step is the drift risk that a data loss has already removed.
+
+The `.superpowers/sdd/2026-08-19-caring-contact-phase-2a-foundations/` workspace has been **recreated**
+in the live worktree so the subagent-driven-development skill finds what it expects. It holds the 21
+task briefs and reports restored from the tracked archive, plus a `progress.md` that is only a pointer
+back to the build record. Nothing in it is unique, and it is still git-ignored (`.superpowers/.gitignore`
+contains `*`), so it remains disposable by design.
 
 ---
 
@@ -84,31 +107,35 @@ the path above, and `npm ci` takes about 58 minutes on this machine.)
 - **Tasks 1–9** — the sealed domain rules layer. Checkpoint 1 passed: 7604 tests, typecheck and lint green.
 - **Task 10** — the storage contract and in-memory store (~21 new methods). Reviewed, one fix round, all
   seven findings verdicted addressed. 101 tests.
-- **Task 11a** — migration `0003_caring_contacts_workspace.sql`. Reviewed and **approved**, then fix round 1
-  (Rulings 27–29). 87 database tests, verified against a 55/55 baseline.
+- **Task 11a** — migration `0003_caring_contacts_workspace.sql`. Reviewed and **approved**, then **three**
+  fix rounds: round 1 (Rulings 27–29), round 2 (Rulings 30–31), round 3 (Rulings 32–34). **96 database
+  tests**, and the three newest are proven falsifiable by deliberate mutation, not merely green.
 
-### In flight, and the one thing you must deal with first
+### Nothing is in flight — Task 11a is closed
 
-**Task 11a fix round 2 is committed at `6afce3893` but is NOT VERIFIED.** The session implementing it was
-terminated by an account spend limit immediately after it reported `93 passed. Now the mutations.` The
-controller never confirmed that run, and **none** of the deliberate-breakage checks were performed.
+The previously-unverified commit `6afce3893` has been **fully verified** (`Tests 93 passed (93)`, both
+Ruling 30/31 mutations reddening only their intended tests), then re-reviewed. That review returned
+**CHANGES REQUIRED** with three Important findings, all real and all now fixed as Rulings 32–34:
 
-The commit message on `6afce3893` carries the full recovery procedure. In short:
+- **Ruling 32** — `restarted_at` was the one column the immutability trigger did not name, so a closed
+  incident could be silently reopened by clearing it, or made to report a shorter outage by backdating it.
+  It is now **write-once**: null → a value stays allowed, and every later change raises.
+- **Ruling 33** — the guard was a blocklist of six named columns, which defaulted any column added later
+  to mutable. It is now an **allowlist** (`to_jsonb(new) - 'restarted_at'`), paired with a data-driven test
+  that reads the real column list at runtime so a future column is covered the moment it exists.
+- **Ruling 34** — DELETE is deliberately **not** blocked. Closing it would have shut the last removal path
+  for `service_stops.note`, which the schema marks as patient data. See §6 for the owner's decision.
 
-1. Start Docker Desktop, then:
-   ```
-   docker run -d --name caring-contacts-pg -e POSTGRES_PASSWORD=caring-contacts-local -p 54329:5432 --restart unless-stopped postgres:17
-   ```
-2. ```
-   CARING_CONTACTS_DATABASE_URL=postgres://postgres:caring-contacts-local@127.0.0.1:54329/postgres npm run caring-contacts:db:test
-   ```
-   Confirm the decisive `N passed` line. `87` was the last **verified** count; `93` is claimed but unconfirmed.
-3. Run the two Ruling 30/31 mutations and confirm each reddens the intended test — checking first that the
-   mutation actually changes a value that test asserts on:
-   - remove the immutability trigger → the "closed incident cannot be rewritten" test must redden, while the
-     `restarted_at` update still passes;
-   - restore `stopped_reason`/`stop_note` to `service_state` → the single-source assertion must redden.
-4. Only then dispatch the scoped re-review over `8d7319c54..HEAD`.
+Before starting Task 11b, confirm the branch is healthy:
+
+```
+docker run -d --name caring-contacts-pg -e POSTGRES_PASSWORD=caring-contacts-local -p 54329:5432 --restart unless-stopped postgres:17
+CARING_CONTACTS_DATABASE_URL=postgres://postgres:caring-contacts-local@127.0.0.1:54329/postgres npm run caring-contacts:db:test
+```
+
+Expect `Tests 96 passed (96)`. **Never report a run from its exit code.** If the output carries no
+`Test Files` summary line the run did not happen — the cross-worktree lock coordinator throws `EPERM` on
+`owner.json` / `gate.lock` under concurrency, which is an _acquisition_ failure, not a result. Retry it.
 
 ### Known-red, and deliberately so
 
@@ -169,7 +196,7 @@ section — read it before writing anything.
 
 ## 6. The decisions taken on the owner's behalf
 
-There are **31 numbered rulings**, each recorded with its reasoning and **what it costs if wrong**, in
+There are **34 numbered rulings**, each recorded with its reasoning and **what it costs if wrong**, in
 `docs/caring-contacts/phase-2a-build-record.md`. Do not re-litigate them; do read them, because several bind
 tasks that have not been written yet.
 

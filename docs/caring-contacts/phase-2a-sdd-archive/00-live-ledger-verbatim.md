@@ -1,3 +1,12 @@
+> **STALE SNAPSHOT — DO NOT READ THIS AS THE CURRENT LEDGER.**
+>
+> This is a frozen copy of the scratch ledger as it stood at head `6afce3893` on 2026-08-20. It stops
+> at Ruling 29 and knows nothing of Rulings 30–34, the fix-round-2 review, the owner's case-notes
+> decision, the worktree loss and recovery, or the current 96-passing test state.
+>
+> **The live ledger is `docs/caring-contacts/phase-2a-build-record.md`.** Read that instead. This file
+> is kept only because it is the verbatim shape the ledger had at that moment; nothing in it is unique.
+
 # SDD ledger — plan: docs/superpowers/plans/2026-08-19-caring-contact-phase-2a-foundations.md
 
 Spec: docs/superpowers/specs/2026-08-19-caring-contact-production-build-design.md (read).
