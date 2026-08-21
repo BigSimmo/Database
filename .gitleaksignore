@@ -37,3 +37,13 @@ a394d76631c7ea3405037baf58091b1c4c47fa3f:tests/codex-cloud-setup.test.ts:generic
 # tests/rag-adversarial-fixtures.test.ts — but this historical commit is still
 # scanned on every PR range run.
 57fd5ae462dd85a3fd6af0a4d6e2db5d8d711b68:scripts/fixtures/rag-adversarial-cases.v1.json:generic-api-key:18
+# False positives in the vendored Claude Cloud skill tree (#2238): both are
+# deliberately fake illustrative strings in third-party skill documentation
+# prose, not real credential material.
+# - playwright-best-practices/advanced/authentication-flows.md: a mockToken
+#   constant in a fully-mocked authentication test example.
+# - clean-up-comments/references/rule.md: an example inside a "Remove
+#   Sensitive Information" section whose entire point is to show what not to
+#   leave in markup; the skill teaches the rule the scanner enforces.
+0792284e63001015899f08e72301e2f23648d616:.claude/cloud-profile/skills/playwright-best-practices/advanced/authentication-flows.md:generic-api-key:54
+0792284e63001015899f08e72301e2f23648d616:.claude/cloud-profile/skills/clean-up-comments/references/rule.md:generic-api-key:497
