@@ -51,7 +51,7 @@ const topicIcons: Record<GuideTopicId, LucideIcon> = {
   "document-scope": SlidersHorizontal,
   "answer-anatomy": ListChecks,
   "sources-citations": Library,
-  "uploads-indexing": FileSearch,
+  "document-administration": FileSearch,
   "privacy-safe-use": ShieldCheck,
   "keyboard-shortcuts": Grid2X2,
 };
