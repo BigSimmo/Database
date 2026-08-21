@@ -90,9 +90,12 @@ src/components/dsm/dsm-page-header.tsx
 src/components/clinical-dashboard/search-results-header-band.tsx
 ```
 
-`PageHeader` and `Breadcrumb` have **zero** product mounts; `InformationPageHeader`
-(`information-page-shell.tsx`) is defined but unused. Adoption converges the hand-rolled
-headers onto `PageHeader` + `Breadcrumb`.
+`InformationPageHeader` (`information-page-shell.tsx`) is defined but unused. `PageHeader`
+is no longer unmounted: ten product files render it — eight under
+`therapy-compass/` (the workspace and its seven screens), `privacy-quiet-signal-page.tsx`, and
+`dsm/dsm-page-header.tsx`, which renders it alongside `InformationPageBreadcrumbs`. `Breadcrumb` is rendered by
+`ui/page-header.tsx` and `information-page-shell.tsx`. Adoption converges the remaining
+hand-rolled headers onto `PageHeader` + `Breadcrumb`.
 
 **Explicitly NOT in the headers allowlist**, despite being header-adjacent:
 `global-search-shell.tsx`, `shared-search-app-shell.tsx`, `master-search-header.tsx`,
@@ -301,7 +304,7 @@ held with the wave's prep material; the files are the contract here.
 
 | Surface    | Pin files                                                                                                                                                                                                                                                                                                                                                      |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| forms      | `tests/ui-tools.spec.ts` (forms home/results/detail) · `tests/forms-back-navigation.dom.test.tsx` · `tests/information-page-shell.dom.test.tsx` · `tests/patient-profile-panel.dom.test.tsx` · `tests/settings-inert-preferences.dom.test.tsx` · `tests/upload-size-precheck.dom.test.tsx` · `tests/ui-v2-form-field.dom.test.tsx`                             |
+| forms      | `tests/ui-tools.spec.ts` (forms home/results/detail) · `tests/forms-back-navigation.dom.test.tsx` · `tests/information-page-shell.dom.test.tsx` · `tests/patient-profile-panel.dom.test.tsx` · `tests/settings-inert-preferences.dom.test.tsx` · `tests/ui-v2-form-field.dom.test.tsx`                                                                         |
 | headers    | `tests/search-results-header-band.dom.test.tsx` · `tests/header-scroll-hide-contract.test.ts` · `tests/ui-style-contract.spec.ts` + `tests/helpers/style-contracts.ts` · `tests/ui-route-coverage.spec.ts`                                                                                                                                                     |
 | catalogues | `tests/ui-tools.spec.ts` (services/differentials) · `tests/ui-specifiers.spec.ts` · `tests/ui-formulation.spec.ts` · `tests/ui-route-coverage.spec.ts` · `tests/registry-retry.dom.test.tsx` · `tests/page-secondary-navigation.dom.test.tsx`                                                                                                                  |
 | docs       | `tests/document-filter-panel.dom.test.tsx` · `tests/document-search-record-fault.dom.test.tsx` · `tests/document-clinical-summary.dom.test.tsx` · `tests/document-section-nav.dom.test.tsx` · `tests/document-section-summary.dom.test.tsx` · `tests/document-section-nav-contract.test.ts` · `tests/ui-smoke.spec.ts` (documents)                             |

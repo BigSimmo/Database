@@ -1062,15 +1062,12 @@ async function expectAccountProviderLayout(setup: Locator, layout: "row" | "stac
   ).toBeLessThanOrEqual(1);
 }
 
-async function expectAdminOnlyUploadNotice(page: Page) {
+async function expectDocumentUploadUnavailable(page: Page) {
   const menu = await openDailyActions(page);
-  const uploadAction = menu.getByRole("menuitem", { name: "Add document" });
-  await expect(uploadAction).toBeVisible();
-  await uploadAction.click();
-  await expect(page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only." })).toContainText(
-    "Use Sources to open indexed documents.",
-  );
-  await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
+  await expect(menu.getByRole("menuitem", { name: /Add document|Upload PDF/ })).toHaveCount(0);
+  await expect(page.locator('input[type="file"]')).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
 }
 
 async function dismissOverlayByHeaderClick(page: Page) {
@@ -2475,6 +2472,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const header = document.querySelector("header");
       const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
       const alsoMatches = document.querySelector('[data-testid="universal-also-matches"]');
+      const supportLabel = document.querySelector('[data-testid="answer-card-support"]');
       // Include vertical margins: the phone bottom clearance (`max-sm:mb-4`) sits
       // outside getBoundingClientRect().height and still consumes scroll budget.
       let alsoMatchesHeight = 0;
@@ -2485,10 +2483,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
           box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
         );
       }
+      // AnswerCard's required evidence-support label is real content the answer
+      // surface always renders, same as universal-also-matches above.
+      let supportLabelHeight = 0;
+      if (supportLabel instanceof HTMLElement) {
+        const box = supportLabel.getBoundingClientRect();
+        const styles = window.getComputedStyle(supportLabel);
+        supportLabelHeight = Math.ceil(
+          box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
+        );
+      }
       return {
         headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
         surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
         alsoMatchesHeight,
+        supportLabelHeight,
       };
     });
     // Content-sized section => no unexplained phantom scroll. Submitted universal
@@ -2499,7 +2508,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // universal matches are real content, so subtract their measured height
     // before applying that phantom-overflow budget. That measured height already
     // includes the section's phone bottom margin, so the 8px allowance stays put.
-    const permittedOverflow = geo.alsoMatchesHeight + 8;
+    // AnswerCard's required support label is likewise real, always-rendered
+    // content (`support` became a required prop), so it is measured and added
+    // the same way rather than absorbed into the flat allowance.
+    const permittedOverflow = geo.alsoMatchesHeight + geo.supportLabelHeight + 8;
     expect(scrollGeometry.owner).toBe("document");
     expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(permittedOverflow);
     // Top-aligned: the answer sits just under the header, not pushed toward the dock
@@ -2661,6 +2673,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
         (collapse?.getBoundingClientRect().height ?? 0) + Number.parseFloat(window.getComputedStyle(node).paddingBottom)
       );
     });
+    // AnswerCard's required evidence-support label is real, always-rendered
+    // content in this scroll container; account for its measured height the
+    // same way the geometry above accounts for chrome, rather than baking a
+    // stale pre-label constant into the post-collapse ceiling.
+    const supportLabelHeight = await page.evaluate(() => {
+      const supportLabel = document.querySelector('[data-testid="answer-card-support"]');
+      if (!(supportLabel instanceof HTMLElement)) return 0;
+      const box = supportLabel.getBoundingClientRect();
+      const styles = window.getComputedStyle(supportLabel);
+      return Math.ceil(
+        box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
+      );
+    });
     const geometry = {
       maxOffset: scrollGeometry.maxScrollTop,
       collapseBudget,
@@ -2673,10 +2698,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // must remain pinned by the near-bottom guard while still clearing the dock.
     // Long-answer hide/reveal is covered independently above.
     expect(geometry.maxOffset).toBeGreaterThan(100);
-    expect(geometry.maxOffset).toBeLessThan(200);
+    expect(geometry.maxOffset).toBeLessThan(200 + supportLabelHeight);
     expect(geometry.collapseBudget).toBeGreaterThan(112);
     expect(geometry.collapseBudget).toBeLessThan(128);
-    expect(geometry.postCollapseMaxOffset).toBeLessThan(72);
+    expect(geometry.postCollapseMaxOffset).toBeLessThan(72 + supportLabelHeight);
     // A jump straight onto the bottom edge (PageDown / full-page flick) lands
     // past the post-collapse range; hiding there would clamp content under the
     // finger, so the near-bottom guard keeps both chrome edges visible.
@@ -5402,7 +5427,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(JSON.stringify(payload)).not.toMatch(/sk-|service_role|eyJ/i);
   });
 
-  test("production upload action remains admin-only for unauthenticated users", async ({ page, request }) => {
+  test("production site does not offer document uploads to unauthenticated users", async ({ page, request }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockPrivateUnauthenticatedApi(page);
     const setupStatusResponse = await request.get("/api/setup-status");
@@ -5412,16 +5437,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await expect(visibleQuestionInput(page)).toBeVisible();
 
-    await expectAdminOnlyUploadNotice(page);
+    await expectDocumentUploadUnavailable(page);
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("demo upload action cannot bypass the production admin gate", async ({ page }) => {
+  test("demo site does not offer document uploads", async ({ page }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
 
-    await expectAdminOnlyUploadNotice(page);
+    await expectDocumentUploadUnavailable(page);
     await expectNoPageHorizontalOverflow(page);
   });
 

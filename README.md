@@ -319,6 +319,13 @@ instead of assuming a shared address such as `http://localhost:3000`.
 Codex should also run `npm run ensure` before browser QA or before handing you a
 local app link after meaningful frontend changes.
 
+`npm run ensure` starts its dev server detached, so it keeps running after the
+task/session that launched it ends. To stop these from accumulating, that
+server self-exits after 45 minutes with no request or build activity by
+default. Override with `DEV_SERVER_IDLE_MINUTES` (a plain `npm run dev` you
+run interactively is unaffected unless you set it yourself); `0` disables the
+idle shutdown entirely.
+
 ## Sample Corpus
 
 Run `npm run samples` to generate synthetic documents under

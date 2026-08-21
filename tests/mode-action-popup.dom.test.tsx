@@ -113,8 +113,8 @@ describe("ModeActionPopup state transitions", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("menu", { name: "Documents" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("menuitem", { name: "Upload PDF" }));
-    expect(onAction).toHaveBeenCalledWith("documents-upload");
+    await user.click(screen.getByRole("menuitem", { name: "Browse library" }));
+    expect(onAction).toHaveBeenCalledWith("documents-collections");
     expect(screen.queryByRole("menu", { name: "Documents" })).not.toBeInTheDocument();
     expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
@@ -127,7 +127,7 @@ describe("ModeActionPopup state transitions", () => {
     trigger.focus();
     await user.keyboard("{ArrowDown}");
 
-    const first = screen.getByRole("menuitem", { name: "Upload PDF" });
+    const first = screen.getByRole("menuitem", { name: "Browse library" });
     await waitFor(() => expect(first).toHaveFocus());
     await user.keyboard("{End}");
     expect(screen.getByRole("menuitem", { name: "Open source PDF" })).toHaveFocus();
@@ -194,5 +194,29 @@ describe("ModeActionPopup state transitions", () => {
     expect(onModeSelect).toHaveBeenCalledWith("answer");
     expect(screen.queryByRole("menu", { name: "Choose search mode" })).not.toBeInTheDocument();
     await waitFor(() => expect(modeTrigger).toHaveFocus());
+  });
+
+  // Regression: PR #2211 restricted uploads to the administrator backend and removed the
+  // `documents-upload` entry point. That left the indexing drawer unreachable from a cold
+  // load — every `setIndexingAdminDrawerOpen(true)` call sits inside `openLibraryHealthTarget`,
+  // and both `LibraryHealthStrip` render sites are behind the drawer already being open, so an
+  // administrator had no first move to document management, setup, jobs or quality controls.
+  it("offers administrators a document-management entry and hides it from everyone else", () => {
+    const adminItems = modeActionItemsFor("documents", { canManageDocuments: true });
+    const adminAction = adminItems.find((item) => item.id === "documents-admin");
+    expect(adminAction, "administrators need a cold-load route to document management").toBeDefined();
+    expect(adminAction?.label).toBe("Manage library");
+
+    const clinicianItems = modeActionItemsFor("documents", { canManageDocuments: false });
+    expect(clinicianItems.some((item) => item.id === "documents-admin")).toBe(false);
+
+    // Defaulting to hidden is the load-bearing half: a caller that forgets the flag must
+    // under-show rather than surface an admin affordance to a clinician.
+    expect(modeActionItemsFor("documents").some((item) => item.id === "documents-admin")).toBe(false);
+
+    // The non-admin rows are unaffected by the filter.
+    expect(clinicianItems.map((item) => item.id)).toEqual(
+      adminItems.filter((item) => item.id !== "documents-admin").map((item) => item.id),
+    );
   });
 });

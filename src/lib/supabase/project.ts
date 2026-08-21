@@ -204,10 +204,6 @@ export function formatSupabaseProjectCheck(check: SupabaseProjectCheck) {
   return [...check.problems, ...check.warnings].join(" ");
 }
 
-export function isExpectedSupabaseProjectConfig(config: SupabaseProjectConfig) {
-  return checkSupabaseProjectConfig(config).status === "ready";
-}
-
 export function assertExpectedSupabaseProjectConfig(config: SupabaseProjectConfig) {
   const check = checkSupabaseProjectConfig(config);
   if (check.status === "mismatch") {

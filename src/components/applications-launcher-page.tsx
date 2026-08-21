@@ -36,7 +36,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { TOOL_AREA_LABEL, toolIdentity } from "@/lib/category-identity";
 import { categoryGlyph } from "@/lib/category-identity-icons";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
-import { modeHomeComposerReservePendingValue, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
 import { useAuthSession } from "@/lib/supabase/client";
 import {
   toolCatalogRecordsForSession,
@@ -129,9 +129,6 @@ const mobileFilters: Array<{ id: LauncherFilter; label: string }> = [
   { id: "care", label: "Treat" },
   { id: "more", label: "More" },
 ];
-
-/** Full catalog length (includes Favourites). Prefer session-filtered lists in UI. */
-export const applicationsLauncherItemCount = launcherAppsForSession(true).length;
 
 function appById(id: ToolCatalogId, apps: LauncherApp[]) {
   return apps.find((app) => app.id === id) ?? apps[0];
@@ -957,8 +954,4 @@ export function ApplicationsLauncherWorkspace({
       <DetailDialog app={selectedApp} open={detailOpen} onClose={() => setDetailOpen(false)} />
     </main>
   );
-}
-
-export function ApplicationsLauncherPage({ query }: { query?: string }) {
-  return <ApplicationsLauncherWorkspace query={query} desktopComposerSlotId={modeHomeDesktopComposerSlotId} />;
 }
