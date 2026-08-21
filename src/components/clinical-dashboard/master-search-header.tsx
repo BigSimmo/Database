@@ -203,6 +203,8 @@ export function MasterSearchHeader({
   onOpenEvidence,
   onOpenRecentDocuments,
   onOpenLibrary,
+  onOpenDocumentAdmin,
+  canManageDocuments = false,
   onOpenSourcePdf,
   onNewChat,
   onOpenMobileSidebar,
@@ -257,6 +259,10 @@ export function MasterSearchHeader({
   onOpenEvidence?: () => void;
   onOpenRecentDocuments?: () => void;
   onOpenLibrary?: () => void;
+  /** Opens the administrator document/indexing surface. Paired with `canManageDocuments`. */
+  onOpenDocumentAdmin?: () => void;
+  /** Gates the administrator-only rows in the mode action list. Defaults to hidden. */
+  canManageDocuments?: boolean;
   onOpenSourcePdf?: () => void;
   onNewChat?: () => void;
   onOpenMobileSidebar?: () => void;
@@ -671,7 +677,7 @@ export function MasterSearchHeader({
                             : searchMode === "dictionary"
                               ? "dictionary"
                               : "answer";
-  const actionMenuItems = modeActionItemsFor(actionMenuSetId);
+  const actionMenuItems = modeActionItemsFor(actionMenuSetId, { canManageDocuments });
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
 
   function currentUsesScopeSheet() {
@@ -745,6 +751,11 @@ export function MasterSearchHeader({
     if (actionId === "documents-recent") {
       onSearchModeChange("documents");
       onOpenRecentDocuments?.();
+      return;
+    }
+    if (actionId === "documents-admin") {
+      onSearchModeChange("documents");
+      onOpenDocumentAdmin?.();
       return;
     }
     if (actionId === "documents-status" || actionId === "documents-collections") {

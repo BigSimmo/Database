@@ -3285,6 +3285,11 @@ export function ClinicalDashboard({
           onOpenEvidence={openEvidenceDrawer}
           onOpenRecentDocuments={openRecentDocuments}
           onOpenLibrary={openSourceLibrary}
+          // Restores the administrator's cold-load route to document management: the
+          // indexing drawer's only other openers sit inside surfaces that require it to
+          // be open already.
+          canManageDocuments={canUseAdministrativeApis}
+          onOpenDocumentAdmin={() => openLibraryHealthTarget("documents")}
           onOpenSourcePdf={openSourcePdfBrowser}
           onNewChat={startNewChat}
           showDesktopNewChat={false}
