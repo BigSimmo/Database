@@ -257,7 +257,7 @@ describe("Care Plan contact actions", () => {
   it("builds a generic CMHT email intent without patient information", () => {
     const contact = syntheticCmhtContacts[0]!;
     const href = buildCmhtMailto(contact);
-    expect(href).toBe("mailto:north-river.cmht@example.org?subject=ED+Care+Plans+%E2%80%94+team+contact+request");
+    expect(href).toBe("mailto:north-river.cmht@example.org?subject=Care+Plan+%E2%80%94+team+contact+request");
     expect(href).not.toMatch(/Rowan|SYN-MRN|1986|presentation|management plan/i);
   });
 
@@ -582,6 +582,29 @@ describe("Care Plan fixture safety", () => {
         expect(line.length).toBeGreaterThan(25);
         expect(line).not.toMatch(/^\s*(use|exercise|apply)\s+(clinical\s+)?(judgement|judgment|caution)\s*\.?\s*$/i);
       }
+    }
+  });
+
+  it("records one attributed amendment per amendable field, matching the corrected record", () => {
+    const amendableFields = [
+      "assessmentOutcome",
+      "disposition",
+      "note",
+      "planAvailability",
+      "planUse",
+      "planHelpfulness",
+    ];
+    expect(syntheticPresentationAmendments.length).toBeGreaterThan(1);
+    expect(syntheticPresentationAmendments.map(({ field }) => field)).toContain("planHelpfulness");
+
+    for (const amendment of syntheticPresentationAmendments) {
+      expect(amendableFields).toContain(amendment.field);
+
+      const presentation = syntheticEdPresentations.find(({ id }) => id === amendment.presentationId);
+      expect(presentation).toBeDefined();
+      expect(String(presentation?.[amendment.field])).toBe(amendment.replacementValue);
+      expect(amendment.originalValue).not.toBe(amendment.replacementValue);
+      expect(amendment.reason.trim()).not.toBe("");
     }
   });
 

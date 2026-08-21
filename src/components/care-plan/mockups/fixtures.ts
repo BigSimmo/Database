@@ -293,7 +293,8 @@ export const publicCrisisContacts = [
     isEmergencyService: false,
     caveat:
       "Rurallink is a telephone triage and support line. It is not an emergency service; call 000 in an emergency.",
-    sourceUrl: "https://www.wacountry.health.wa.gov.au/",
+    sourceUrl:
+      "https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/Rurallink",
     verifiedOn: "2026-08-20",
   },
 ] satisfies readonly PublicCrisisContact[];
@@ -1285,6 +1286,17 @@ export const syntheticPresentationAmendments = [
     reason: "The CMHT call was made but not recorded at the time, and it is the part the community team needs to see.",
     authorId: "SYN-USER-LIAISON-001",
     amendedAt: daysAgo(33, "08:45"),
+  },
+  {
+    id: "SYN-AMENDMENT-002",
+    presentationId: "SYN-PRESENTATION-003",
+    field: "planHelpfulness",
+    originalValue: "helpful",
+    replacementValue: "mixed",
+    reason:
+      "Recorded as helpful at the end of the shift. On reflection only part of the plan could be followed, because no side room was free, so the answer is corrected rather than left overstating what happened.",
+    authorId: "SYN-USER-ED-001",
+    amendedAt: daysAgo(60, "10:30"),
   },
 ] satisfies readonly PresentationAmendment[];
 

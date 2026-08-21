@@ -161,7 +161,7 @@ const CAPABILITIES_BY_ROLE: Record<PrototypeRole, readonly PrototypeCapability[]
 };
 
 /** Generic, non-clinical subject line. It carries no patient information. */
-export const CMHT_CONTACT_SUBJECT = "ED Care Plans — team contact request";
+export const CMHT_CONTACT_SUBJECT = "Care Plan — team contact request";
 
 export type CmhtTelephoneChannel = "duty" | "after_hours";
 

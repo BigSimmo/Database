@@ -316,10 +316,16 @@ export type EdPresentation = {
   recordedAt: string;
 };
 
+/** The fields an ED Presentation correction may replace. The three plan-use
+ *  answers are grouped in the interface, but each changed answer records its own
+ *  attributed amendment, so one amendment is always exactly one field. */
+export type AmendableField =
+  "assessmentOutcome" | "disposition" | "note" | "planAvailability" | "planUse" | "planHelpfulness";
+
 export type PresentationAmendment = {
   id: SyntheticId;
   presentationId: SyntheticId;
-  field: "assessmentOutcome" | "disposition";
+  field: AmendableField;
   originalValue: string;
   replacementValue: string;
   reason: string;
