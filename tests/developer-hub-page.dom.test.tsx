@@ -185,11 +185,18 @@ describe("developer hub page — section headings", () => {
   /**
    * The section sheet in `DeveloperHubNavHeader` and the `<h2>` on the page are
    * two renderings of one label. The ids were already bound (anchor resolution
-   * above), but the *text* was a second copy living in this page — so the sheet
-   * could offer "Clinical trust" while the heading said something else, with
-   * every gate green. That is the defect class the whole feature exists to
-   * close, so the page now derives its headings from `developerHubNavSections`
-   * and this pins the result.
+   * above), but the *text* was not — so the sheet could offer "Clinical trust"
+   * while the heading said something else, with every gate green. That is the
+   * defect class the whole feature exists to close.
+   *
+   * Deriving the headings from `developerHubNavSections` would close it
+   * structurally, and cannot be done: that constant lives in a `"use client"`
+   * module, so the Server Component page receives a client-reference proxy
+   * rather than the array and `next build` fails (see the comment on `GROUPS`
+   * in the page). **This assertion is therefore the only thing binding the
+   * page's literal to the nav sheet.** It works here because jsdom has no RSC
+   * boundary — both modules are ordinary JavaScript under vitest. Do not
+   * weaken it, and do not "improve" the page into deriving them.
    */
   it("gives every nav section the exact heading its nav entry declares", () => {
     const { container } = render(<DeveloperHubPage />);
@@ -211,8 +218,9 @@ describe("developer hub page — section headings", () => {
   });
 
   it("renders no panel grid for the environment section, which is not a panel group", () => {
-    // `developerHubNavSections` includes `developer-hub-environment`; deriving
-    // the groups from that list must not turn it into a fifth panel grid.
+    // `developerHubNavSections` declares `developer-hub-environment`, but it is
+    // a navigable section rather than a panel group: it renders its own anchor
+    // and `sr-only` heading around the strip, and must never gain a panel grid.
     const { container } = render(<DeveloperHubPage />);
     const environment = container.querySelector("#developer-hub-environment");
 

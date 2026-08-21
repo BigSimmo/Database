@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { ShieldAlert } from "lucide-react";
 
-import { DeveloperHubNavHeader, developerHubNavSections } from "@/components/developer-area/developer-hub-nav-header";
+import { DeveloperHubNavHeader } from "@/components/developer-area/developer-hub-nav-header";
 import { EnvironmentStrip } from "@/components/developer-area/hub/environment-strip";
 import { PanelCard } from "@/components/developer-area/hub/panel-card";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
@@ -15,29 +15,38 @@ export const metadata: Metadata = {
 };
 
 /**
- * Which nav section each panel group renders into. Ids only — `developerHubNavSections`
- * owns the anchor and the heading text, and this page derives both from it below.
+ * A literal, and it must stay one. These four entries restate the ids and labels
+ * that `developerHubNavSections` also holds, which normally would be a drift
+ * hazard worth deriving away — but deriving is not available here:
  *
- * The section sheet and the `<h2>` are two renderings of one label, so a local
- * copy of that text could drift with every gate green: the sheet could offer
- * "Clinical trust" while the heading said something else, and nothing would
- * notice. That is the same defect class this whole feature exists to close —
- * one truth held in two places, one of them free to move.
+ * `developerHubNavSections` is exported from `developer-hub-nav-header.tsx`,
+ * which carries `"use client"`. When this Server Component imports a value from
+ * a Client Component module, Next hands back a **client-reference proxy**, not
+ * the array — so `developerHubNavSections.flatMap(...)` at module scope throws
+ * `flatMap is not a function` during `next build`. Importing the *component*
+ * from that module is fine; importing and operating on its *data* is not.
+ * Neither typecheck nor vitest can see this (the types describe the source, and
+ * jsdom has no RSC boundary), so a real build is the only gate that catches it.
+ *
+ * Do not move the section table out of the nav-header sibling to make derivation
+ * possible either: `docs/search-chrome-behaviour.md` pins it there.
+ *
+ * What keeps the two lists in step instead is a test —
+ * `tests/developer-hub-page.dom.test.tsx`, "gives every nav section the exact
+ * heading its nav entry declares" — which runs under jsdom, where both modules
+ * are ordinary JavaScript. That assertion is load-bearing: it is the only thing
+ * standing between this literal and the nav sheet, so do not weaken it.
  *
  * `developer-hub-environment` is deliberately absent: it is a navigable section
- * but not a panel group, so it must not produce a panel grid.
+ * but not a panel group, so it must not produce a panel grid. Its anchor and
+ * `sr-only` heading are rendered separately below.
  */
-const PANEL_GROUP_BY_SECTION_ID: Record<string, HubPanelGroup | undefined> = {
-  "developer-hub-work": "work",
-  "developer-hub-clinical": "clinical",
-  "developer-hub-system": "system",
-  "developer-hub-reference": "reference",
-};
-
-const GROUPS = developerHubNavSections.flatMap((section) => {
-  const group = PANEL_GROUP_BY_SECTION_ID[section.id];
-  return group ? [{ group, anchor: section.id, label: section.label }] : [];
-});
+const GROUPS: { id: HubPanelGroup; anchor: string; label: string }[] = [
+  { id: "work", anchor: "developer-hub-work", label: "Work and decisions" },
+  { id: "clinical", anchor: "developer-hub-clinical", label: "Clinical trust" },
+  { id: "system", anchor: "developer-hub-system", label: "System truth" },
+  { id: "reference", anchor: "developer-hub-reference", label: "Reference" },
+];
 
 export default function DeveloperHubPage() {
   const snapshot = loadLedgerSnapshot();
@@ -93,7 +102,7 @@ export default function DeveloperHubPage() {
         ) : null}
 
         {GROUPS.map((group) => {
-          const panels = panelsInGroup(group.group);
+          const panels = panelsInGroup(group.id);
           // An empty group must render no anchor at all. `useResolvedPageSections`
           // drops a declared section whose anchor is missing — that is what lets
           // phases 2-4 add panels without touching the navigation — and rendering
@@ -102,7 +111,7 @@ export default function DeveloperHubPage() {
           if (panels.length === 0) return null;
 
           return (
-            <section key={group.group} id={group.anchor} className={inPageAnchor}>
+            <section key={group.id} id={group.anchor} className={inPageAnchor}>
               <h2 className="mb-3 text-lg font-extrabold text-[color:var(--text-heading)]">{group.label}</h2>
               <div className="grid gap-3 sm:grid-cols-2">
                 {panels.map((panel) => (
