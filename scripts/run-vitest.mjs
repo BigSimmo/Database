@@ -16,7 +16,18 @@ const mode = vitestLeaseMode(args);
 // Only plain result-producing runs are memoisable. A coverage run's artefact IS
 // part of its output, watch mode has no terminal result to record, and snapshot
 // updates mutate the tree they were keyed on.
-const memoisable = !args.some((argument) => ["--coverage", "--watch", "--update", "-u", "--ui"].includes(argument));
+//
+// Matched by prefix, not by equality: Vitest accepts `--coverage.enabled` and
+// `--coverage=true` as well as the bare `--coverage`, and an exact-match list let a
+// dotted invocation be memoised — after which a later identical run would skip and
+// leave `coverage/` stale or missing for the gates that read it. Reported by Codex
+// review on PR #2216. `--no-coverage` correctly does not match, so it stays
+// memoisable; an explicit `--coverage=false` merely runs the gate, which is the safe
+// direction.
+const NON_MEMOISABLE_ARGUMENT = /^--(?:coverage|watch|update|ui)(?:[.=]|$)/;
+export const vitestRunIsMemoisable = (argumentList) =>
+  !argumentList.some((argument) => argument === "-u" || NON_MEMOISABLE_ARGUMENT.test(argument));
+const memoisable = vitestRunIsMemoisable(args);
 // Consulted before the lease request so a proven run does not queue for capacity.
 const receipt = memoisable
   ? consultGateReceipt({ projectRoot, gate: "vitest", args, env: process.env })

@@ -1,10 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   appendReceipt,
+  OUTCOME_AFFECTING_ENV_VARS,
+  parseRawDiff,
   computeInputSignature,
   consultGateReceipt,
   environmentSignature,
@@ -31,7 +33,7 @@ function gitFixture(files: Record<string, string>) {
   for (const [name, contents] of Object.entries(files)) writeFileSync(path.join(root, name), contents);
   git("add", "-A");
   git("commit", "-qm", "fixture");
-  return { root, write: (name: string, contents: string) => writeFileSync(path.join(root, name), contents) };
+  return { root, git, write: (name: string, contents: string) => writeFileSync(path.join(root, name), contents) };
 }
 
 afterEach(() => {
@@ -126,6 +128,102 @@ describe("gate receipts — input signature", () => {
     expect(fileInScope("srcx/other.ts", ["src/"])).toBe(false);
     expect(fileInScope("package.json", ["package.json"])).toBe(true);
     expect(fileInScope("docs/package.json", ["package.json"])).toBe(false);
+  });
+});
+
+describe("gate receipts — file modes (Codex review, PR #2216)", () => {
+  it("changes the signature when only the INDEX mode changes", () => {
+    // `git update-index --chmod=+x` is the exact remediation AGENTS.md prescribes for a
+    // hook committed as 100644, and it leaves the blob SHA untouched. A SHA-only
+    // signature let that fix reuse the pre-fix pass of the very test that guards it.
+    const { root, git } = gitFixture({ "hook.sh": "#!/bin/bash\necho hi\n" });
+    const before = computeInputSignature(root, null)?.hash;
+    git("update-index", "--chmod=+x", "hook.sh");
+    expect(computeInputSignature(root, null)?.hash).not.toBe(before);
+  });
+
+  it("changes the signature when only the WORKING-TREE mode changes", () => {
+    const { root } = gitFixture({ "hook.sh": "#!/bin/bash\necho hi\n" });
+    const before = computeInputSignature(root, null)?.hash;
+    chmodSync(path.join(root, "hook.sh"), 0o755);
+    expect(computeInputSignature(root, null)?.hash).not.toBe(before);
+  });
+
+  it("keeps both modes, so one cannot cancel the other", () => {
+    const { root, git } = gitFixture({ "hook.sh": "#!/bin/bash\necho hi\n" });
+    const plain = computeInputSignature(root, null)?.hash;
+    git("update-index", "--chmod=+x", "hook.sh");
+    const indexOnly = computeInputSignature(root, null)?.hash;
+    chmodSync(path.join(root, "hook.sh"), 0o755);
+    const both = computeInputSignature(root, null)?.hash;
+    expect(new Set([plain, indexOnly, both]).size).toBe(3);
+  });
+
+  it("parses `git diff --raw -z` into destination modes", () => {
+    expect(parseRawDiff([":100644 100755 abc123 0000000 M", "hook.sh"]).get("hook.sh")).toBe("100755");
+    expect(parseRawDiff([":100644 000000 abc123 0000000 D", "gone.ts"]).get("gone.ts")).toBe("000000");
+    expect(parseRawDiff([]).size).toBe(0);
+  });
+});
+
+describe("gate receipts — outcome-affecting environment (Codex review, PR #2216)", () => {
+  it("keys on FAST_CHECK_SEED, so reproducing a property failure is never memoised away", () => {
+    const { root } = gitFixture({ "a.ts": "1\n" });
+    const base = environmentSignature(root, {});
+    const seeded = environmentSignature(root, { FAST_CHECK_SEED: "123" });
+    const other = environmentSignature(root, { FAST_CHECK_SEED: "424242" });
+    expect(new Set([base, seeded, other]).size).toBe(3);
+  });
+
+  it("declares the seed and the locale/runtime variables that move verdicts", () => {
+    for (const name of ["FAST_CHECK_SEED", "TZ", "LANG", "NODE_OPTIONS", "ALLOW_PROVIDER_TESTS"]) {
+      expect(OUTCOME_AFFECTING_ENV_VARS).toContain(name);
+    }
+    // Performance-only knobs must stay out: they would churn receipts for no verdict change.
+    expect(OUTCOME_AFFECTING_ENV_VARS).not.toContain("VITEST_MAX_WORKERS");
+  });
+
+  it("does not reuse a receipt recorded under a different seed", () => {
+    const { root } = gitFixture({ "a.ts": "1\n" });
+    const first = consultGateReceipt({ projectRoot: root, gate: "vitest", args: ["run"], env: {} });
+    recordGateReceipt({ projectRoot: root, decision: first, exitCode: 0, env: {} });
+    const seeded = consultGateReceipt({
+      projectRoot: root,
+      gate: "vitest",
+      args: ["run"],
+      env: { FAST_CHECK_SEED: "123" },
+    });
+    expect(seeded.reuse).toBe(false);
+  });
+});
+
+describe("gate receipts — coverage-enabling argument forms (Codex review, PR #2216)", () => {
+  const memoisable = (argumentList: string[]) => {
+    const source = readFileSync("scripts/run-vitest.mjs", "utf8");
+    const pattern = /const NON_MEMOISABLE_ARGUMENT = (\/.*\/);/.exec(source)?.[1];
+    expect(pattern).toBeTruthy();
+    const rx = new RegExp(pattern!.slice(1, pattern!.lastIndexOf("/")));
+    return !argumentList.some((argument) => argument === "-u" || rx.test(argument));
+  };
+
+  it("refuses every accepted coverage form, not just the bare flag", () => {
+    // Vitest 4.1.10 documents `--coverage.enabled`; an exact-match list memoised it and
+    // would then skip a later run, leaving `coverage/` stale for the gates that read it.
+    for (const form of ["--coverage", "--coverage.enabled", "--coverage=true", "--coverage.provider=v8"]) {
+      expect(memoisable(["run", form]), form).toBe(false);
+    }
+  });
+
+  it("refuses watch, snapshot-update and UI runs in every form", () => {
+    for (const form of ["--watch", "--watch=true", "--update", "-u", "--ui"]) {
+      expect(memoisable(["run", form]), form).toBe(false);
+    }
+  });
+
+  it("still memoises ordinary runs", () => {
+    expect(memoisable(["run"])).toBe(true);
+    expect(memoisable(["run", "tests/x.test.ts", "--reporter=dot"])).toBe(true);
+    expect(memoisable(["run", "--no-coverage"])).toBe(true);
   });
 });
 
@@ -253,11 +351,5 @@ describe("gate receipts — repository wiring", () => {
       expect(source).toContain("consultGateReceipt");
       expect(source).toContain("recordGateReceipt");
     }
-  });
-
-  it("excludes coverage, watch and snapshot-update runs from memoisation", async () => {
-    const { readFileSync } = await import("node:fs");
-    const source = readFileSync("scripts/run-vitest.mjs", "utf8");
-    for (const flag of ["--coverage", "--watch", "--update"]) expect(source).toContain(flag);
   });
 });

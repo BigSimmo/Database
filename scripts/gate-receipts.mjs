@@ -38,7 +38,7 @@
  */
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -176,6 +176,42 @@ export function hashWorkingTreeFiles(projectRoot, files, { git = runGit } = {}) 
 }
 
 /**
+ * Parse `git diff --raw -z`, whose entries alternate metadata and path:
+ * `:<srcmode> <dstmode> <srcsha> <dstsha> <status>` then the path.
+ * Returns path -> destination mode ("000000" for a deletion).
+ * @param {string[]} entries
+ * @returns {Map<string, string>}
+ */
+export function parseRawDiff(entries) {
+  const modes = new Map();
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    if (!entry.startsWith(":")) continue;
+    const destinationMode = entry.slice(1).split(" ")[1];
+    const file = entries[index + 1];
+    if (file) modes.set(file, destinationMode ?? "");
+    index += 1;
+  }
+  return modes;
+}
+
+/**
+ * Git-style mode for a file with no diff entry (an untracked file).
+ * @param {string} projectRoot
+ * @param {string} file
+ * @returns {string}
+ */
+export function workingTreeMode(projectRoot, file) {
+  try {
+    const stats = lstatSync(path.join(projectRoot, file));
+    if (stats.isSymbolicLink()) return "120000";
+    return (stats.mode & 0o111) === 0 ? "100644" : "100755";
+  } catch {
+    return "100644";
+  }
+}
+
+/**
  * Content signature for a gate's scope.
  *
  * Tracked content comes from the index (`git ls-files -s` is a single index read,
@@ -193,7 +229,7 @@ export function computeInputSignature(projectRoot, scopes, { git = runGit } = {}
   let untracked;
   try {
     indexEntries = splitNul(git(projectRoot, ["ls-files", "-s", "-z"]));
-    modified = splitNul(git(projectRoot, ["diff", "--name-only", "-z"]));
+    modified = parseRawDiff(splitNul(git(projectRoot, ["diff", "--raw", "-z"])));
     untracked = splitNul(git(projectRoot, ["ls-files", "-o", "--exclude-standard", "-z"]));
   } catch {
     return null; // Not a git worktree, or git is unavailable — run the gate.
@@ -212,17 +248,41 @@ export function computeInputSignature(projectRoot, scopes, { git = runGit } = {}
     if (tab === -1) continue;
     const file = entry.slice(tab + 1);
     if (!inScope(file)) continue;
-    contents.set(file, entry.slice(0, tab).split(" ")[1] ?? "");
+    const [mode, sha] = entry.slice(0, tab).split(" ");
+    // The MODE is part of the content, not decoration. `git update-index --chmod=+x`
+    // leaves the blob SHA untouched, so a signature over the SHA alone cannot see a
+    // hook's executable bit flip — and that bit is exactly what
+    // `tests/session-start-hook.test.ts` asserts (see the hook-scripts section of
+    // AGENTS.md: a `100644` hook is unrunnable in the one environment it exists for).
+    // Hashing SHA-only let that fix reuse the pre-fix pass. Reported by Codex review
+    // on PR #2216 and reproduced: chmod +x, identical blob, identical signature.
+    contents.set(file, `${mode ?? ""} ${sha ?? ""}`);
   }
 
-  const dirty = [...modified, ...untracked].filter(inScope);
+  const dirty = [...modified.keys(), ...untracked].filter(inScope);
   const dirtyHashes = hashWorkingTreeFiles(projectRoot, dirty, { git });
   for (const file of dirty) {
     const hash = dirtyHashes.get(file);
     // A file listed as modified but absent from disk was deleted in the working
     // tree; dropping it from the map is what makes the deletion change the hash.
-    if (hash) contents.set(file, hash);
-    else contents.delete(file);
+    if (!hash) {
+      contents.delete(file);
+      continue;
+    }
+    // Keep BOTH modes. The index mode and the working-tree mode answer different
+    // questions and different gates read different ones: `git update-index --chmod=+x`
+    // moves only the index (which is what `tests/session-start-hook.test.ts` inspects
+    // and what CI checks out), while a bare `chmod` moves only the disk. Overwriting
+    // one with the other cancels exactly the change being detected — the first attempt
+    // at this fix did that and still reused the pre-chmod receipt.
+    //
+    // `git diff --raw` reports the working-tree mode git itself would record, which
+    // respects `core.fileMode`; the Windows Dev Drive sets it false, so a raw
+    // filesystem stat would disagree there. Untracked files have no index entry and no
+    // diff entry, so they fall back to the executable bit.
+    const indexPart = contents.get(file) ?? "untracked";
+    const workingMode = modified.get(file) ?? workingTreeMode(projectRoot, file);
+    contents.set(file, `${indexPart}|${workingMode} ${hash}`);
   }
 
   if (contents.size === 0) return null; // Empty scope: a stale path list, not a provable pass.
@@ -233,11 +293,37 @@ export function computeInputSignature(projectRoot, scopes, { git = runGit } = {}
 }
 
 /**
+ * Environment variables that change what a gate DECIDES, not merely how fast it runs.
+ *
+ * `FAST_CHECK_SEED` is the motivating case: `tests/property-seed.ts` reads it at import
+ * time to seed the property suite, and `docs/testing.md` documents setting it precisely
+ * to reproduce a failing run. Left out of the key, `FAST_CHECK_SEED=123 npm run test`
+ * would serve the default seed's pass and never execute the seed being investigated —
+ * the exact opposite of what the developer asked for. Reported by Codex review on
+ * PR #2216.
+ *
+ * Locale and timezone are here because they move date and collation assertions;
+ * `NODE_OPTIONS` can change runtime behaviour outright. Performance-only knobs such as
+ * `VITEST_MAX_WORKERS` are deliberately absent — they do not change the verdict.
+ */
+export const OUTCOME_AFFECTING_ENV_VARS = [
+  "ALLOW_PROVIDER_TESTS",
+  "FAST_CHECK_SEED",
+  "LANG",
+  "LC_ALL",
+  "NODE_OPTIONS",
+  "TZ",
+];
+
+/**
  * Toolchain identity. `node_modules/.package-lock.json` changes on every install, so
  * its size and mtime are enough to invalidate receipts across a reinstall without
  * reading a multi-megabyte file.
+ * @param {string} projectRoot
+ * @param {GateEnvironment} [env]
+ * @returns {string}
  */
-export function environmentSignature(projectRoot) {
+export function environmentSignature(projectRoot, env = process.env) {
   const installStampPath = path.join(projectRoot, "node_modules", ".package-lock.json");
   let installStamp = "absent";
   try {
@@ -246,8 +332,19 @@ export function environmentSignature(projectRoot) {
   } catch {
     /* no install stamp — recorded as "absent", which is itself a distinct signature */
   }
+  const declaredEnvironment = OUTCOME_AFFECTING_ENV_VARS.map((name) => `${name}=${env[name] ?? ""}`);
   return createHash("sha256")
-    .update([RECEIPT_FORMAT_VERSION, process.version, process.platform, process.arch, installStamp].join("\0"), "utf8")
+    .update(
+      [
+        RECEIPT_FORMAT_VERSION,
+        process.version,
+        process.platform,
+        process.arch,
+        installStamp,
+        ...declaredEnvironment,
+      ].join("\0"),
+      "utf8",
+    )
     .digest("hex");
 }
 
@@ -332,7 +429,7 @@ export function consultGateReceipt({ projectRoot, gate, args = [], env = process
   const signature = computeInputSignature(projectRoot, GATE_INPUT_SCOPES[scopeGate]);
   if (!signature) return miss("input signature unavailable — running the gate");
 
-  const environmentHash = environmentSignature(projectRoot);
+  const environmentHash = environmentSignature(projectRoot, env);
   const key = receiptKey({ gate: scopeGate, args, inputHash: signature.hash, environmentHash });
   const base = {
     reuse: false,

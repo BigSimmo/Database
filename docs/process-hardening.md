@@ -55,6 +55,22 @@ Boundaries, each of which is a test in `tests/gate-receipts.test.ts`:
   `coverage/` behind, which downstream gates read; skipping them would serve stale output — the
   stale-`.next` trap `AGENTS.md` already documents under "Bundle budget".
 
+Three false-skip holes were found by Codex review on PR #2216 and closed there, each now a
+regression test. They are worth stating because they are the shape this mechanism fails in:
+
+- **File modes are content.** `git update-index --chmod=+x` leaves the blob SHA untouched, so a
+  signature over SHAs alone could not see a hook's executable bit being fixed — the exact bit
+  `tests/session-start-hook.test.ts` guards. The signature now carries the index mode _and_ the
+  working-tree mode: overwriting one with the other cancels the change being detected, which the
+  first attempt at the fix did.
+- **`--coverage` has more than one spelling.** Vitest accepts `--coverage.enabled` and
+  `--coverage=true`; an exact-match exclusion list memoised those, after which a later run would
+  skip and leave `coverage/` stale. Matching is by prefix now.
+- **Some environment variables change the verdict.** `FAST_CHECK_SEED` is read by
+  `tests/property-seed.ts` at import time and exists precisely so a developer can reproduce a
+  property failure; without it in the key, `FAST_CHECK_SEED=123 npm run test` served the default
+  seed's pass. `OUTCOME_AFFECTING_ENV_VARS` declares the set; performance-only knobs stay out.
+
 Reporting: a reused receipt proves the gate passed on this content, not that it ran just now. Say
 "reused receipt from <time>", never "I ran it". `GATE_RECEIPTS=refresh` forces a real run when fresh
 evidence is what is wanted; `GATE_RECEIPTS=off` disables the mechanism; `npm run receipts` shows the
