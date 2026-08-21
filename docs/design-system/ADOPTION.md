@@ -90,8 +90,8 @@ src/components/dsm/dsm-page-header.tsx
 src/components/clinical-dashboard/search-results-header-band.tsx
 ```
 
-`PageHeader` and `Breadcrumb` have **zero** product mounts; `InformationPageHeader`
-(`information-page-shell.tsx`) is defined but unused. Adoption converges the hand-rolled
+`PageHeader` and `Breadcrumb` have **zero** product mounts. `InformationPageHeader`
+(`information-page-shell.tsx`) was defined but unused and has been removed. Adoption converges the hand-rolled
 headers onto `PageHeader` + `Breadcrumb`.
 
 **Explicitly NOT in the headers allowlist**, despite being header-adjacent:
