@@ -66,31 +66,31 @@ Smaller top-level directories that are easy to miss:
 
 ### Product pages (`src/app/`)
 
-| Route                                                                                                                                    | File                                                                                      |
-| ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `/`                                                                                                                                      | `src/app/(search-app)/page.tsx`                                                           |
-| Shared mode-home route group (`/(search-app)`)                                                                                           | `src/app/(search-app)/`                                                                   |
-| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                                                      | `src/app/(search-app)/` shared shell group                                                |
-| `/applications`                                                                                                                          | `src/app/applications/route.ts`                                                           |
-| `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                                             | `src/app/(search-app)/differentials/`                                                     |
-| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                           | `src/app/(search-app)/dsm/`                                                               |
-| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                                                     | `src/app/(search-app)/documents/`                                                         |
-| `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                                                | `src/app/(search-app)/factsheets/`                                                        |
-| `/favourites`                                                                                                                            | `src/app/(search-app)/favourites/page.tsx`                                                |
-| `/forms`, `/forms/[slug]`                                                                                                                | `src/app/(search-app)/forms/`                                                             |
-| `/medications`, `/medications/[slug]`                                                                                                    | `src/app/(search-app)/medications/`                                                       |
-| `/privacy`                                                                                                                               | `src/app/privacy/page.tsx` → `privacy-quiet-signal-page.tsx` + `privacy-page-content.tsx` |
-| `/reference/colour-coding`                                                                                                               | `src/app/reference/`                                                                      |
-| `/safety-plan`                                                                                                                           | `src/app/safety-plan/page.tsx`                                                            |
-| `/calculators`                                                                                                                           | `src/app/(search-app)/calculators/page.tsx`                                               |
-| `/services`, `/services/[slug]`                                                                                                          | `src/app/(search-app)/services/`                                                          |
-| `/therapy-compass`                                                                                                                       | `src/app/(search-app)/therapy-compass/`                                                   |
-| `/tools`                                                                                                                                 | `src/app/(search-app)/tools/`                                                             |
-| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`                                     | `src/app/(search-app)/specifiers/`                                                        |
-| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map`                                | `src/app/(search-app)/formulation/`                                                       |
-| `/ward-management`, `/network`, `/queue`, `/capacity`, `/movements`, `/exceptions`, `/transport`, `/governance`, `/patients/[patientId]` | `src/app/ward-management/` — Ward Flow synthetic patient-flow prototype                   |
-| `/mockups/*`                                                                                                                             | `src/app/mockups/` (404 in production)                                                    |
-| `/auth/callback`                                                                                                                         | `src/app/auth/callback/route.ts`                                                          |
+| Route                                                                                                                                                      | File                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `/`                                                                                                                                                        | `src/app/(search-app)/page.tsx`                                                           |
+| Shared mode-home route group (`/(search-app)`)                                                                                                             | `src/app/(search-app)/`                                                                   |
+| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                                                                        | `src/app/(search-app)/` shared shell group                                                |
+| `/applications`                                                                                                                                            | `src/app/applications/route.ts`                                                           |
+| `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                                                               | `src/app/(search-app)/differentials/`                                                     |
+| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                             | `src/app/(search-app)/dsm/`                                                               |
+| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                                                                       | `src/app/(search-app)/documents/`                                                         |
+| `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                                                                  | `src/app/(search-app)/factsheets/`                                                        |
+| `/favourites`                                                                                                                                              | `src/app/(search-app)/favourites/page.tsx`                                                |
+| `/forms`, `/forms/[slug]`                                                                                                                                  | `src/app/(search-app)/forms/`                                                             |
+| `/medications`, `/medications/[slug]`                                                                                                                      | `src/app/(search-app)/medications/`                                                       |
+| `/privacy`                                                                                                                                                 | `src/app/privacy/page.tsx` → `privacy-quiet-signal-page.tsx` + `privacy-page-content.tsx` |
+| `/reference/colour-coding`                                                                                                                                 | `src/app/reference/`                                                                      |
+| `/safety-plan`                                                                                                                                             | `src/app/safety-plan/page.tsx`                                                            |
+| `/calculators`                                                                                                                                             | `src/app/(search-app)/calculators/page.tsx`                                               |
+| `/services`, `/services/[slug]`                                                                                                                            | `src/app/(search-app)/services/`                                                          |
+| `/therapy-compass`                                                                                                                                         | `src/app/(search-app)/therapy-compass/`                                                   |
+| `/tools`                                                                                                                                                   | `src/app/(search-app)/tools/`                                                             |
+| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`                                                       | `src/app/(search-app)/specifiers/`                                                        |
+| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map`                                                  | `src/app/(search-app)/formulation/`                                                       |
+| `/ward-management`, `/network`, `/queue`, `/capacity`, `/movements`, `/exceptions`, `/transport`, `/governance`, `/patients/[patientId]`, `/ward/[unitId]` | `src/app/ward-management/` — Ward Flow synthetic patient-flow prototype                   |
+| `/mockups/*`                                                                                                                                               | `src/app/mockups/` (404 in production)                                                    |
+| `/auth/callback`                                                                                                                                           | `src/app/auth/callback/route.ts`                                                          |
 
 ### API routes (`src/app/api/`)
 
@@ -337,8 +337,16 @@ visible reasons and a human confirms or overrides.
   `ward-movements.ts` (48 movements, 6 bed releases), `ward-derivations.ts` (shared pure UI
   derivations)
 - **Surfaces:** `ward-management-console.tsx` (command), `ward-management-modes.tsx` (mode
-  workspaces), `ward-management-network.tsx` (network diagram), `ward-management-navigation.tsx`
-- **Tests:** `tests/ward-management.test.ts`, `tests/ui-ward-management.spec.ts`
+  workspaces), `ward-management-network.tsx` (network diagram), `ward-management-navigation.tsx`,
+  `coordinator/coordinator-screen.tsx` (Phase 3 live coordinator screen — priority queue, statewide
+  flow diagram, explainable shortlist), `ward/ward-screen.tsx` (Task 8: one inpatient unit's own
+  view — `/ward-management/ward/[unitId]`; capacity confirmation, incoming-referral accept/hold/
+  decline, restriction notices, withdrawn referrals)
+- **State layer (Phase 3):** `ward-flow-provider.tsx` (`WardFlowProvider`/`useWardFlow`, mounted at
+  `src/app/ward-management/layout.tsx`), `ward-flow-reducer.ts` (the one mutation path),
+  `ward-flow-events.ts` (event/role table)
+- **Tests:** `tests/ward-management.test.ts`, `tests/ui-ward-management.spec.ts`,
+  `tests/ui-ward-coordinator.spec.ts`, `tests/ui-ward-roles.spec.ts`
 
 ### Global search composer placement rules
 

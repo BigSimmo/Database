@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   Activity,
   BedSingle,
+  Building2,
   CircleAlert,
   FileCheck2,
   HeartPulse,
@@ -102,6 +103,15 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
         </>
       ) : null}
       <div className={shellStyles.railBottom}>
+        {/* Task 8: the ward screen's own route (`/ward-management/ward/[unitId]`) is not one of
+            the eight `WardModeNavigation` links above — that nav's own Playwright test
+            (`tests/ui-ward-management.spec.ts`) asserts an exact count of 8 links, so a ninth
+            entry there would break it. This is a literal, static href (never built from a
+            variable or a loop) so `tests/route-reachability.test.ts`'s AST scan can find it —
+            see that test's comment and R39c. RPH Adult Secure is a real, resolvable unit id. */}
+        <RailLink href="/ward-management/ward/rph-adult-secure" label="Ward — RPH Adult Secure">
+          <Building2 aria-hidden="true" />
+        </RailLink>
         <RailLink href="/?mode=answer" label="Favourites">
           <HeartPulse aria-hidden="true" />
         </RailLink>

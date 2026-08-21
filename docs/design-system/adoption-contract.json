@@ -498,7 +498,8 @@
         "src/app/ward-management/network/page.tsx",
         "src/app/ward-management/patients/[patientId]/page.tsx",
         "src/app/ward-management/queue/page.tsx",
-        "src/app/ward-management/transport/page.tsx"
+        "src/app/ward-management/transport/page.tsx",
+        "src/app/ward-management/ward/[unitId]/page.tsx"
       ],
       "routeRoots": true,
       "roots": [
@@ -506,7 +507,8 @@
         "src/components/ward-management/ward-management-console.tsx",
         "src/components/ward-management/ward-management-modes.tsx",
         "src/components/ward-management/ward-management-navigation.tsx",
-        "src/components/ward-management/ward-management-network.tsx"
+        "src/components/ward-management/ward-management-network.tsx",
+        "src/components/ward-management/ward/ward-screen.tsx"
       ],
       "permittedComponentFamilies": ["controls", "feedback", "layout"],
       "expectedShellState": "v2",
