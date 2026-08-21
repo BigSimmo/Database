@@ -119,14 +119,20 @@ it can verify from GitHub/git state. Keep rows one line.
 > v18 `4ea310e48` vs v19 `cdfcbaccd` comparison; the verdict is recorded in the §2 S2 and
 > Gate E rows. This section is kept as the reusable procedure for any **future** blinded
 > read — it is not outstanding work. Steps 3 and 4 are provider-backed and paid, so
-> re-running them requires fresh owner approval.
+> re-running them is a fresh capture: it needs new owner approval and produces a new
+> capture pair, recorded on its own terms rather than folded into the 2026-08-21 result.
 
-Compares prompt v18 (commit `4ea310e48`, the S2 baseline canary half) against v19 (current
-`main`) on the 30 `answerQualityEvalCases` plus up to ~10 owner-chosen live questions.
-`scripts/eval-answer-quality.ts` and `scripts/eval-utils.ts` are byte-identical between
-`4ea310e48` and current `main` and every new dump field is defensive, so the updated script
-runs unmodified in a v18 worktree. Steps 3 and 4 are **provider-backed and paid** (OpenAI +
-Supabase, ~80 cache-bypassed answers, est ~$4–8); everything else is offline.
+The executed run compared prompt v18 (commit `4ea310e48`, the S2 baseline canary half)
+against v19 (commit `cdfcbaccd`) on the 30 `answerQualityEvalCases`; no owner-chosen live
+questions were added, so 30 pairs were built with 0 unpaired. A future run may still add up
+to ~10 live questions through `--extra-cases`. `scripts/eval-answer-quality.ts` and
+`scripts/eval-utils.ts` were byte-identical between `4ea310e48` and `cdfcbaccd` and every new
+dump field is defensive, so the updated script ran unmodified in a v18 worktree — re-confirm
+that before reusing the shortcut against a newer after-half. Steps 3 and 4 are
+**provider-backed and paid** (OpenAI + Supabase, cache-bypassed answers); the pre-run
+estimate was ~$4–8 for ~80 answers, and the executed 30-case run came in at ~$0.66 — itself
+an ESTIMATE derived from token counts because `estimated_cost_usd` is null in both dumps,
+never a measured cost. Everything else is offline.
 
 1. _(offline)_ Author `.local/gate-e/extra-cases.json` in the main checkout:
    `{"questions":[{"id":"live-01","question":"..."}, ...]}` — ids `live-*`; the tool rejects
