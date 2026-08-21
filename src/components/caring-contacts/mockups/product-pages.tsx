@@ -471,7 +471,7 @@ export function PatientOverviewProductPage({ onViewPlan }: { onViewPlan: () => v
             {syntheticPlannedContacts.map((contact, index) => (
               <li
                 key={contact.id}
-                className="flex min-w-0 items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-3"
+                className="flex min-w-0 items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-3"
               >
                 <span
                   className={cn(
