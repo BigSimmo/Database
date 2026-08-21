@@ -1686,6 +1686,12 @@ by the remaining remediation phases, not a route-budget change (`#231`'s stop co
 
 ### Phase 5 close-out — 2026-08-22 Perth (2026-08-21 UTC)
 
+_**Dates in this section are Perth local time (UTC+8), with the UTC date given alongside where the
+two differ.** The window ran across the local-midnight boundary: the review and every commit are
+dated 2026-08-21 UTC, which is 2026-08-22 in Perth. Where a record elsewhere in the repository says
+"2026-08-22" bare for this phase, it means 2026-08-22 Perth = 2026-08-21 UTC — no measurement was
+taken after the review date._
+
 _Owner-authorised **read-only** production window (`sjrfecxgysukkwxsowpy`) plus a staging-only
 apply. A dedicated worktree carried the link; the main checkout stayed on its staging link and
 every call re-verified `supabase/.temp/project-ref` immediately beforehand. No production DDL, no
@@ -1713,11 +1719,11 @@ queries, live production data). `supabase_rpc_latency_ms` is the server-measured
 component and is the comparable figure; `total` additionally carries local dev-server render
 overhead in this run, so it is directionally useful rather than strictly comparable.
 
-| Measurement                                | Before (2026-08-14) | After restore + ANALYZE (2026-08-14) | **Now (2026-08-22)** |
-| ------------------------------------------ | ------------------- | ------------------------------------ | -------------------- |
-| Semantic, text fast path — total / rpc ms  | 37.7 s / 31,610     | 4.8 s / 1,535                        | **8.4 s / 955**      |
-| Semantic, hybrid strategy — total / rpc ms | 29.9 s / 21,757     | 17.2 s / 8,519                       | **10.9 s / 6,720**   |
-| Warm repeat (`search_cache`) — total / rpc | not measured        | not measured                         | **0.41 s / 0**       |
+| Measurement                                | Before (2026-08-14) | After restore + ANALYZE (2026-08-14) | **Now (2026-08-22 Perth = 2026-08-21 UTC)** |
+| ------------------------------------------ | ------------------- | ------------------------------------ | ------------------------------------------- |
+| Semantic, text fast path — total / rpc ms  | 37.7 s / 31,610     | 4.8 s / 1,535                        | **8.4 s / 955**                             |
+| Semantic, hybrid strategy — total / rpc ms | 29.9 s / 21,757     | 17.2 s / 8,519                       | **10.9 s / 6,720**                          |
+| Warm repeat (`search_cache`) — total / rpc | not measured        | not measured                         | **0.41 s / 0**                              |
 
 Retrieval latency has held its recovery and improved further on both strategies: the fast path is
 **33× better than the incident** and 1.6× better than the 2026-08-14 post-restore reading; hybrid is
@@ -1750,28 +1756,52 @@ as the outlier to watch, replacing the trigram-absence signature that dominated 
    `select * from public.<rpc>(…)`, so the plan is a single `Function Scan`: a PL/pgSQL body's inner
    plan is not exposed. Every sample reports `plan_node_types: ["Function Scan"]` and
    `index_names: []`. Plan §5.1's "record plan flips (seq scan → index scan)" is therefore **not
-   answerable through this tool**; the index-usage read below answers the same question directly and
-   more durably.
+   answerable through this tool, and that deliverable stays OPEN.** The index-usage read below is a
+   useful but _different_ measurement and does not substitute for it: `pg_stat_user_indexes.idx_scan`
+   is a cumulative, database-wide counter that aggregates every workload touching the index, and no
+   before/after delta was captured around these samples. It can therefore show that an index is
+   never used by anything, but it cannot show that _this_ profiled query moved from a sequential scan
+   to an index scan. **Do not read the counters below as plan evidence when comparing a future
+   incident against this baseline.** Closing §5.1 properly needs a query-specific inner plan — either
+   `explain_retrieval_rpc` extended to run `EXPLAIN` on the body's own statements, or an
+   `auto_explain`-style capture with nested statements enabled — both of which are production DDL or
+   configuration changes that this read-only phase was not authorised to make.
 2. **It cannot reach the two v2 RPCs named in the Phase 5 brief.** `explain_retrieval_rpc` accepts
    exactly four names (`match_documents_for_query`, `match_document_chunks_text`,
    `match_document_lookup_chunks_text`, `match_document_table_facts_text`) — verified in its only
    defining migration `20260626020000_phase7_retrieval_rpc_performance.sql`, in `supabase/schema.sql`,
    and on production itself:
 
-   ```
+   ```text
    ERROR:  22023: Unsupported retrieval RPC: match_document_chunks_text_v2
    CONTEXT:  PL/pgSQL function explain_retrieval_rpc(text,text,integer,uuid,uuid[],boolean) line 25 at RAISE
    ERROR:  22023: Unsupported retrieval RPC: match_document_index_units_hybrid_v2
    ```
 
    Extending the function to cover the `_v2` family is production DDL and was **not** authorised for
-   this phase, so it was not written. Queued as its own ledger item; the v1 siblings profiled above
-   cover the same two owning tables in the meantime.
+   this phase, so it was not written. Queued as its own ledger item. **Coverage of the two unreached
+   targets is uneven, and only half of it is covered:**
+
+   - `match_document_chunks_text_v2` — its owning table `document_chunks` **is** exercised by the
+     profiled v1 siblings `match_document_chunks_text` and `match_document_lookup_chunks_text`.
+   - `match_document_index_units_hybrid_v2` — **no profiled RPC touches its owning table.** The v2
+     function delegates to `match_document_index_units_hybrid_scoped`, which reads
+     `public.document_index_units` (`supabase/schema.sql`, the `match_document_index_units_hybrid_v2`
+     and `..._scoped` definitions). The four profiled RPCs read `documents`, `document_chunks`,
+     `document_chunks` again, and `document_table_facts` — none of them is an index-units sibling.
+     **`document_index_units` therefore has no EXPLAIN baseline at all after this phase**, and that
+     gap is carried forward with the ledger item above rather than treated as covered.
 
 #### 5.1(c) Index usage — the finding this phase actually turned up
 
-`pg_stat_database.stats_reset` is **NULL** on production: index statistics are cumulative and have
-never been reset, so a zero here means genuinely never scanned, not recently zeroed. Across `public`,
+`pg_stat_database.stats_reset` is **NULL** on production, so **no database-wide reset**
+(`pg_stat_reset()`) has been recorded. That is the limit of what this read proves: a per-relation
+`pg_stat_reset_single_table_counters(oid)` call resets one table's or one index's counters without
+touching `pg_stat_database.stats_reset`, and this window captured no evidence either way for the
+individual indexes below. A zero is therefore _very likely_ to mean genuinely never scanned rather
+than recently zeroed — strongly so given the OID continuity established below — but it is not proven.
+Settling it needs a per-index reset time, which `pg_stat_all_indexes.stats_reset` carries only on
+PostgreSQL 18 and later; the running server version was not read in this window. Across `public`,
 163 of 210 indexes show scans, `max(idx_scan)` is 262,335,345 and the total is 344,747,815 — the
 counters are clearly live.
 
@@ -1803,7 +1833,10 @@ The last row matters: a _different_ trigram index on a sibling table is used tho
 **Consequence for the incident narrative — stated as a correction, not a certainty.** The 2026-08-14
 Phase 5 table above attributes the 31,610 ms → 1,535 ms recovery to "restore + ANALYZE", treating the
 two trigram indexes as the fix. Seven days of cumulative statistics show the restored trigram indexes
-have served **zero** scans, so they cannot be carrying that recovery. `ANALYZE` was an unseparated
+have served **zero** scans. Subject to the reset caveat recorded above — a per-relation
+`pg_stat_reset_single_table_counters()` call would be invisible to the database-wide `stats_reset`
+read, so "zero scans since restoration" is strongly supported rather than proven — they cannot be
+carrying that recovery. `ANALYZE` was an unseparated
 co-intervention in the same operation — and `20260626020000` ends by running `analyze` over exactly
 `documents`, `document_chunks`, `document_table_facts`, `document_embedding_fields` and
 `document_index_units` — which makes stale planner statistics the better-supported explanation for
@@ -1855,7 +1888,7 @@ was reframed to repo-side codification and deployed **zero** behaviour change: `
 function mismatches. §5.3 therefore reduces to `check:production-readiness`, run once at the end of
 this phase. No paid eval was run and none was requested.
 
-```
+```text
 $ npm run check:production-readiness
 [Production Readiness]
 Project: Clinical KB Database (sjrfecxgysukkwxsowpy)
@@ -1882,7 +1915,7 @@ Staging (`ikoiolksxqxfxgiyqpnu`) was one version behind after the 2026-08-20 win
 paths were denied by that session's auto-mode classifier. Applied here, by real `db push` (never
 `migration repair`); the pending set was confirmed first as exactly one version with zero remote-only:
 
-```
+```text
 $ supabase migration list --linked --project-ref ikoiolksxqxfxgiyqpnu
 … {"local":"20260820120000","remote":""}
 $ supabase db push --linked --project-ref ikoiolksxqxfxgiyqpnu --skip-vault --yes
@@ -2362,7 +2395,7 @@ One extra command, wrong under neither hypothesis. What would replace this rule 
 dashboard read of the toggle, or a deployment-settings API that reports it. Raised as a P1 by the Codex
 review of PR #2205, and correctly: the earlier wording here presented the inference as a direct read.
 
-#### Staging is one version behind — blocked, not skipped (CLOSED 2026-08-22, see Phase 5 close-out)
+#### Staging is one version behind — blocked, not skipped (CLOSED 2026-08-22 Perth = 2026-08-21 UTC, see Phase 5 close-out)
 
 Staging (`ikoiolksxqxfxgiyqpnu`, verified before every call) reads **210** history rows, latest
 `20260819110500`, `to_regprocedure('public.migration_history_versions()') is null`. Its pending set is
@@ -2375,7 +2408,7 @@ Read-only calls were unaffected, which is why every verification above exists. T
 authorisation gap, not a technical one: **staging parity, closed by Phase 4, is open again by one
 version until an operator applies it.**
 
-**CLOSED 2026-08-22.** An operator session applied `20260820120000` to staging by real `db push`;
+**CLOSED 2026-08-22 Perth (2026-08-21 UTC).** An operator session applied `20260820120000` to staging by real `db push`;
 staging now reads 211 history rows with `migration_history_versions()` present and `stmt_count 3`,
 matching production exactly. Evidence in the "Phase 5 close-out" section, "Staging catch-up".
 
@@ -2387,7 +2420,7 @@ Dispatched here on `main` with the fix live on production and staging brought to
 
 `https://github.com/BigSimmo/Database/actions/runs/32514326022` — **job conclusion: `success`.**
 
-```
+```text
 live-drift  Compare live schema drift                      No unexpected schema drift between live and supabase/schema.sql.
 live-drift  Align migration history for Supabase Preview   Remote migration versions: 211 (read via rpc)
 live-drift  Align migration history for Supabase Preview   Remote-only (Preview blockers): 0
