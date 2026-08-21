@@ -64,9 +64,16 @@ describe("factsheet detail header", () => {
     const printPortal = document.querySelector(".factsheet-print-portal");
     expect(printPortal).not.toBeNull();
 
-    const rowHeaders = within(printPortal as HTMLElement).getAllByRole("rowheader");
-    expect(rowHeaders.length).toBeGreaterThan(0);
-    for (const rowHeader of rowHeaders) expect(rowHeader).toHaveAttribute("scope", "row");
+    // Assert per row, not over the set of headers that happen to exist: a fact row
+    // rendered with no row header at all would leave its value unassociated in a
+    // screen reader, and a headers-only assertion passes straight over it.
+    const rows = within(printPortal as HTMLElement).getAllByRole("row");
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      const rowHeaders = within(row).getAllByRole("rowheader");
+      expect(rowHeaders).toHaveLength(1);
+      expect(rowHeaders[0]).toHaveAttribute("scope", "row");
+    }
   });
 
   it("names the way back without spending the row on its label", () => {
