@@ -347,7 +347,7 @@ withSentryConfig(nextConfig, {
 });
 ```
 
-`SENTRY_AUTH_TOKEN` is a build-time secret, distinct from the DSN. For creating the token, wiring it into CI, and troubleshooting minified traces, see [`sentry-source-maps`](../sentry-source-maps/SKILL.md).
+`SENTRY_AUTH_TOKEN` is a build-time secret, distinct from the DSN. For creating the token, wiring it into CI, and troubleshooting minified traces, see the `sentry-source-maps` skill — **not included in this vendored snapshot**; consult the official Sentry docs for that workflow instead.
 
 Source maps are uploaded automatically on every `next build`.
 
