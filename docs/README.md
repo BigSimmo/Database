@@ -20,6 +20,7 @@ npm run docs:check-links
 | [agents-guide.md](agents-guide.md)     | Human onboarding pointer; Cursor MCP default read path (Supabase, Railway, Context7); rules in `AGENTS.md` |
 | [scripts-index.md](scripts-index.md)   | Curated map of `scripts/` and the `package.json` command surface by purpose                                |
 | [codex-cloud.md](codex-cloud.md)       | Codex Cloud setup, access profiles, profile-loading command shims, GitHub exception, and acceptance checks |
+| [claude-cloud.md](claude-cloud.md)     | Claude Code on the web: the tiered container provisioner and the checked-in user profile                   |
 
 ## Architecture
 
@@ -50,7 +51,7 @@ npm run docs:check-links
 - [launch-operator-runbook.md](launch-operator-runbook.md) — launch/operational duties and SLO probes
 - [reindex-runbook.md](reindex-runbook.md) — safe reindex and ingestion recovery
 - [retrieval-quality-runbook.md](retrieval-quality-runbook.md) — RAG/retrieval eval gates and tuning
-- [worker-deploy-runbook.md](worker-deploy-runbook.md) — worker build contract, run recipe, secrets
+- [worker-deploy-runbook.md](worker-deploy-runbook.md) — worker build contract, run recipe, secrets, docling shadow extraction (B4)
 - [disaster-recovery-runbook.md](disaster-recovery-runbook.md) — backup/restore and recovery drills
 - [auth-connection-cap-runbook.md](auth-connection-cap-runbook.md) — Supabase auth connection cap (operator)
 - [staging-setup.md](staging-setup.md) — staging environment bootstrap
@@ -87,6 +88,7 @@ npm run docs:check-links
 - [codex-review-protocol.md](codex-review-protocol.md) — shared review protocol for all review skills
 - [codex-prompt-playbook.md](codex-prompt-playbook.md) — copy/paste prompts for common repo work
 - [codex-cloud.md](codex-cloud.md) — reproducible provider-free Codex Cloud environment and acceptance check
+- [claude-cloud.md](claude-cloud.md) — Claude Code on the web container parity: tiered provisioner and checked-in user profile
 - [branch-cleanup-guide.md](branch-cleanup-guide.md) — branch hygiene workflow
 - [branch-review-ledger.md](branch-review-ledger.md) — reviewed branch/SHA ledger; read with `npm run ledger:lookup` (historical tables + immutable records), write with `npm run ledger:append`, and convert a pre-system active-branch row with `npm run ledger:migrate-legacy`
 

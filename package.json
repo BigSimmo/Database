@@ -253,6 +253,11 @@
     "skills:sync": "node scripts/sync-skills.mjs",
     "check:skills": "node scripts/list-database-skills.mjs --check",
     "check:local-presence": "node scripts/check-local-presence.mjs",
+    "receipts": "node scripts/gate-receipts.mjs status",
+    "receipts:clear": "node scripts/gate-receipts.mjs clear",
+    "arbiter": "node scripts/gate-arbiter.mjs",
+    "arbiter:status": "node scripts/gate-arbiter.mjs status",
+    "arbiter:clear": "node scripts/gate-arbiter.mjs clear",
     "check:drift": "node scripts/run-tsx.mjs scripts/check-drift.ts",
     "check:migration-history": "node scripts/run-tsx.mjs scripts/check-migration-history-alignment.ts",
     "drift:manifest": "node scripts/run-tsx.mjs scripts/generate-drift-manifest.ts",
@@ -260,7 +265,8 @@
     "sync:pr-branches:apply": "node scripts/sync-open-pr-branches.mjs --apply",
     "check:assets": "node scripts/check-assets.mjs",
     "check:pr-mergeability": "node scripts/pr-mergeability.mjs --self-test && node scripts/check-pr-mergeability-workflow.mjs",
-    "design-system:baselines:adopt": "node scripts/adopt-visual-baselines.mjs"
+    "design-system:baselines:adopt": "node scripts/adopt-visual-baselines.mjs",
+    "check:dead-code-candidate": "node scripts/check-dead-code-candidate.mjs --self-test && node scripts/check-dead-code-candidate.mjs"
   },
   "dependencies": {
     "@next/env": "16.3.0",

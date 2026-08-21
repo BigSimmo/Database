@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "34cfce6f-71a8-4ad3-8e95-e5fac0e90c40",
+  "createdOn": "2026-08-20",
+  "action": "update",
+  "payload": {
+    "id": "#V0EDR4",
+    "detail": "NARROWED 2026-08-21, verified on origin/main a341832af. The copy divergence is gone: favourites-hub.tsx:182 now takes title and subtitle from sharedHomePresentation.favourites and its glyph from appModeIcons.favourites. The structural divergence stands: the dashboard hub still renders a ModeHomeHero lockup while the standalone favourites-command-library-page.tsx renders none, its hero having been deliberately deleted under #164, so the same mode still looks different depending on the door. What is left is the owner decision about which treatment is canonical, then applying it to both.",
+    "baseRowFingerprint": "de0bba336af920690db4e6fd13e4fc722d0af297ddee3013334f08a93f845efe"
+  }
+}

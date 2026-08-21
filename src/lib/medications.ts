@@ -298,10 +298,6 @@ function avoidTextTone(text: string): MedicationActionTone {
   return "danger";
 }
 
-export function medicationAction(record: MedicationRecord) {
-  return medicationActionDetail(record).text;
-}
-
 export function medicationResultTone(record: MedicationRecord, score: number): MedicationResultTone {
   if (score >= 12) return "teal";
   if (score >= 6) return "blue";

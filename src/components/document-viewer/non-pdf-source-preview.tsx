@@ -156,7 +156,10 @@ function InlineImagePreview({
 
   return (
     <div className="flex flex-col items-center gap-3 bg-[color:var(--surface-inset)] p-2 sm:p-3">
-      <div className="relative w-full min-h-64 overflow-hidden bg-[color:var(--surface-inset)] sm:min-h-72">
+      <div
+        data-testid="non-pdf-image-stage"
+        className="relative h-[clamp(16rem,60vh,36rem)] w-full overflow-hidden bg-[color:var(--surface-inset)] sm:h-[clamp(18rem,60vh,36rem)]"
+      >
         {/* Eager, not lazy: for an image-source document this *is* the document,
             and it sits above the fold. Lazy-loading it puts the largest element
             on the page behind the browser's own lazy threshold and delays LCP
@@ -168,7 +171,7 @@ function InlineImagePreview({
           decoding="async"
           fetchPriority="high"
           onError={() => setFailed(true)}
-          className="mx-auto max-h-[min(70vh,36rem)] w-full object-contain"
+          className="h-full w-full object-contain"
         />
         <button
           ref={triggerRef}

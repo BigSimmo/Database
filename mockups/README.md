@@ -79,6 +79,29 @@ no production file uses a bare `grid-cols-6` (only `xl:grid-cols-6`). The 26-let
 `gridTemplateColumns` inline rather than depending on class generation — a bare `grid-cols-6` silently collapses them
 to one column.
 
+## Dictionary — condensing the phone control row (2026-08-21)
+
+Runnable study at [`/mockups/dictionary-control-row`](../src/app/mockups/dictionary-control-row/page.tsx).
+Deliberately the narrowest of the Dictionary header rounds: the page keeps its kicker, title, summary line, desktop
+sort/view/Filter, letter rail, result rows and the site-wide bottom composer exactly as they are. Only the **phone
+control row** changes — today two viewport-sized dotted pills for Terms / Abbrev plus an A-Z dropdown, on a second
+line under a summary line that is already two thirds empty.
+
+Each version drops the decorative leading dots and folds the row up into the summary line, so the control block goes
+from two rows to one. What differs is which cost each one attacks.
+
+| Version                               | Attacks               | Trade-off                                            |
+| ------------------------------------- | --------------------- | ---------------------------------------------------- |
+| 01 Fold it into the line above (rec.) | The second line       | Four things on one line; small toggle segments       |
+| 02 Drop the segmented control         | The unselected option | Scope costs two taps; other count is not visible     |
+| 03 One control, one sheet             | Having two controls   | Everything is two taps; abbreviations undiscoverable |
+
+Every version is rendered twice — the row alone at true 390 px width, which is how the complaint was raised, and the
+row in place on the page. Shared mockup chrome is suppressed because each frame draws its own tab rail and composer.
+
+The tab rail reads Terms · Topics · More rather than Search · Browse · More: this round assumes Search and Browse have
+merged into one destination, with the site-wide composer as the mode’s only search surface.
+
 ## Phone Choose mode sheet YES comps
 
 Runnable study at [`/mockups/phone-mode-sheet-yes`](../src/app/mockups/phone-mode-sheet-yes/page.tsx): design review of the shipping phone mode sheet plus **YES 01 perfected** (sectioned clinical list — shipping recommendation) and YES 02 (icon deck alternate). Shared mockup chrome is suppressed so only the in-frame sheet is judged.

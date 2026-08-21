@@ -22,7 +22,7 @@ const SIGNED_URL_CACHE_MAX_SIZE = 256;
 // for payloads that omit expiresAt so they self-heal well before the URL dies.
 const SIGNED_URL_DEFAULT_TTL_MS = 5 * 60_000;
 // Refresh a few seconds before the hard expiry to avoid serving a near-dead URL.
-const SIGNED_URL_EXPIRY_SKEW_MS = 30_000;
+const SIGNED_URL_EXPIRY_SKEW_MS = 60_000;
 
 const signedUrlCache = new Map<string, SignedUrlCacheEntry>();
 
@@ -58,6 +58,14 @@ export function setCachedSignedUrl(endpoint: string, payload: SignedUrlPayload) 
 
 export function clearCachedSignedUrl(endpoint: string) {
   signedUrlCache.delete(endpoint);
+}
+
+export function clearCachedSignedUrlsForDocument(documentId: string) {
+  for (const key of signedUrlCache.keys()) {
+    if (key.includes(documentId)) {
+      signedUrlCache.delete(key);
+    }
+  }
 }
 
 export function clearSignedUrlCache() {

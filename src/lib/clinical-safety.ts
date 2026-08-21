@@ -15,7 +15,7 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
   {
     kind: "contraindication",
     label: "Contraindication",
-    pattern: /\b(contraindicat|do not use|avoid|not recommended|must not)\b/i,
+    pattern: /\b(contraindicat\w*|do not use|avoid|not recommended|must not)\b/i,
   },
   {
     kind: "red_flag",

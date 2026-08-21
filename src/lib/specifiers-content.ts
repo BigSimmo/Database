@@ -11,7 +11,7 @@
 
 import specifiersContent from "../../data/specifiers-content.json";
 
-import { findSpecifier, specifierRecords, type SpecifierRecord } from "@/lib/specifiers";
+import { specifierRecords, type SpecifierRecord } from "@/lib/specifiers";
 
 export type SpecifierSourceStatus = "source-verified" | "source-needs-formal-review" | "source-not-applicable";
 export type SpecifierDefinitionStatus = "defined" | "obvious-no-definition" | "needs-manual-or-clinician-verification";
@@ -209,11 +209,6 @@ export function curatedEnrichmentFor(item: SpecifierCatalogItem): SpecifierRecor
   return curatedByLabel.get(normalizeLabel(item.label));
 }
 
-/** Whether a catalog slug also resolves to a curated record (so it renders richly). */
-export function curatedRecordForSlug(slug: string): SpecifierRecord | undefined {
-  return findSpecifier(slug);
-}
-
 /**
  * A bounded set of slugs to pre-render at build time. Pre-rendering all 586 detail
  * pages would bloat the build, so we statically generate the source-verified items
@@ -226,20 +221,11 @@ export function popularCatalogSlugs(limit = 96): string[] {
     .map((item) => item.slug);
 }
 
-export function specifiersProject(): SpecifierProject {
-  return loadSpecifiersContent().project;
-}
 export function specifiersStats(): SpecifierStats {
   return loadSpecifiersContent().stats;
 }
-export function specifiersScopeWarning(): string {
-  return loadSpecifiersContent().scopeWarning;
-}
 export function universalSpecifiers(): UniversalSpecifier[] {
   return loadSpecifiersContent().universalSpecifiers;
-}
-export function specifierCategories(): SpecifierCategory[] {
-  return loadSpecifiersContent().categories;
 }
 export function authoritativeSources(): AuthoritativeSource[] {
   return loadSpecifiersContent().authoritativeSources;

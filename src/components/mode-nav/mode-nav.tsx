@@ -316,10 +316,7 @@ export function ModeNav({
                 >
                   <Icon
                     aria-hidden="true"
-                    className={cn(
-                      "h-[1.15rem] w-[1.15rem] shrink-0",
-                      isActive && "text-[color:var(--clinical-accent)]",
-                    )}
+                    className={cn("size-icon-lg shrink-0", isActive && "text-[color:var(--clinical-accent)]")}
                   />
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
                   {item.count ? (
