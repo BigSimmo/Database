@@ -438,7 +438,17 @@ export type ReviewTrigger = {
   id: SyntheticId;
   patientId: SyntheticId;
   managementPlanId: SyntheticId;
-  source: "plan_use_feedback" | "presentation_outcome" | "plan_deviation" | "formal_review" | "contact_verification";
+  source:
+    | "plan_use_feedback"
+    | "presentation_outcome"
+    | "plan_deviation"
+    | "formal_review"
+    | "contact_verification"
+    /** Raised when a version is approved at `declined` or `patient_unavailable`
+     *  participation, so involving the person stays on somebody's list. The
+     *  persistent on-screen marker alone is not enough: a marker is read only
+     *  by whoever opens that plan, while a trigger reaches the Reviews queue. */
+    | "participation";
   sourceId: SyntheticId;
   reason: string;
   status: "open" | "resolved";
@@ -658,14 +668,14 @@ it("builds a generic CMHT email intent without patient information", () => {
 it("approves an awaiting version atomically and preserves exactly one Current Plan", () => {
   let state = createInitialPrototypeState("overdue-plan");
   state = prototypeReducer(state, { type: "set-active-user", userId: "SYN-USER-SENIOR-001" });
-  const awaitingId = getOpenManagementDraft(state, "SYN-PATIENT-002")!.id;
+  const awaitingId = getOpenManagementDraft(state.managementPlanVersions, "SYN-MGMT-PLAN-002")!.id;
   const next = prototypeReducer(state, { type: "approve-management-version", versionId: awaitingId });
-  const versions = next.managementPlanVersions.filter(({ planId }) => planId === "SYN-MANAGEMENT-PLAN-002");
+  const versions = next.managementPlanVersions.filter(({ planId }) => planId === "SYN-MGMT-PLAN-002");
 
   expect(versions.filter(({ state }) => state === "current")).toHaveLength(1);
   expect(versions.find(({ id }) => id === awaitingId)?.state).toBe("current");
-  expect(versions.find(({ version }) => version === 2)?.state).toBe("superseded");
-  expect(next.managementPlans.find(({ id }) => id === "SYN-MANAGEMENT-PLAN-002")?.currentVersionId).toBe(awaitingId);
+  expect(versions.find(({ version }) => version === 1)?.state).toBe("superseded");
+  expect(next.managementPlans.find(({ id }) => id === "SYN-MGMT-PLAN-002")?.currentVersionId).toBe(awaitingId);
 });
 
 it("adds a visible amendment without changing the original ED Presentation", () => {
@@ -746,13 +756,15 @@ export type CarePlanPrototypeAction =
 
 - [ ] Enforce role permissions through `canPerformAction`. The reducer must independently recheck permission; unavailable UI is not the transition guard.
 - [ ] Make approval validate: actor role, version state, named approver, complete required content, and an existing plan. In one returned state, supersede the previous Current version, make the submitted version Current, set approver/approval date/review state, update `currentVersionId`, and append one audit event.
+- [ ] Make approval raise one open `ReviewTrigger` with `source: "participation"` when the approved version's `participationState` is `declined` or `patient_unavailable`, deduplicated against an existing open participation trigger for the same plan. The persistent on-screen marker is not a substitute: a marker is seen only by whoever opens that plan, whereas a trigger reaches the Reviews queue where somebody owns it.
 - [ ] Make return-for-changes require a non-empty reason and return Awaiting Approval to Draft without touching Current. Make withdrawal require a non-empty reason and leave no Current version.
 - [ ] Make `record-presentation` append an episode and audit event. If helpfulness is `mixed` or `not_helpful`, `reviewSuggested` is true, disposition is a mental-health/medical admission, or a material deviation is recorded, append one deduplicated open Review Trigger.
 - [ ] Make `amend-presentation` append original/replacement/reason/actor/time evidence while keeping the episode immutable. Restrict amendable fields to `AmendableField`, and reject a `disposition` replacement that does not parse to a `Disposition`.
 - [ ] Make Safety Plan publication require an editable Draft, supersede the prior Current Safety Plan, and set the new version Current without consulting senior-approval state.
 - [ ] Make contact-intent actions append only intent audit events; make manual identification referral append an Identification Review and audit event without creating a Management Plan or Review Trigger.
 - [ ] Make `close-identification-review` require an `open` review and a non-empty reason, set `status: "closed"` with the decision, reason, actor, and time, and append one `identification_review_closed` audit event. It must create no plan and no version on any decision, including `proceed_to_plan`. Closing an already-closed review leaves state unchanged and sets a specific `lastOutcome`.
-- [ ] Add `CarePlanPrototypeProvider`, `useCarePlanPrototype`, and an online/offline listener to `prototype-provider.tsx`. The provider calls `useReducer` once and performs no persistence.
+- [ ] Add `CarePlanPrototypeProvider` and `useCarePlanPrototype` to `prototype-provider.tsx`. The provider calls `useReducer` once and performs no persistence.
+- [ ] Do **not** add an online/offline listener. An earlier revision of this plan asked for one; the specification is binding and says the offline state exists "only in the dedicated specimen scenario". Nothing in a memory-only prototype depends on the network, so a real connectivity event must not change state — and driving it through `apply-scenario` reconstructs fixtures, discarding whatever the user was working on because their wifi blipped. Connectivity is a scenario flag set from the System states route in Task 10, and nowhere else.
 - [ ] Complete reducer tests for draft/current separation, non-senior approval refusal, return reason, withdrawal, formal review, Review Trigger creation/deduplication, Safety Plan independence, manual referral, intent-only audit language, degraded-state refusal, reset, and scenario reconstruction.
 - [ ] Run `npm run test -- tests/care-plan-domain.test.ts tests/care-plan-prototype-state.test.ts`. Expected GREEN: both files pass with zero failures.
 - [ ] Format the four Task 2 files, rerun the two tests, and inspect the diff for in-place array mutation, wall-clock/random IDs, overclaimed audit events, and transition paths that bypass permission checks.
