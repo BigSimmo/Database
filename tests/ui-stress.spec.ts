@@ -354,14 +354,10 @@ test.describe("Clinical KB long-content stress coverage", () => {
 
       if (viewport.name === "mobile") {
         const dailyActions = await openDailyActions(page);
-        // Wait for the sliding bottom sheet to settle before clicking (no force) so
-        // the tap lands on Upload rather than an adjacent row mid-animation.
-        await dailyActions.getByRole("menuitem", { name: /Upload(?: PDF)?/ }).click();
+        await expect(dailyActions.getByRole("menuitem", { name: /Add document|Upload PDF/ })).toHaveCount(0);
+        await expect(page.locator('input[type="file"]')).toHaveCount(0);
+        await page.keyboard.press("Escape");
         await expect(dailyActions).toBeHidden();
-        await expect(
-          page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only." }),
-        ).toContainText("Use Sources to open indexed documents.");
-        await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
       }
       await expectNoPageHorizontalOverflow(page);
 
