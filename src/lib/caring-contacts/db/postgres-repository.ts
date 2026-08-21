@@ -77,6 +77,7 @@ import {
   type CaringContactActor,
 } from "../permissions";
 import { applyReferralTransition } from "../referrals";
+import { admitRetentionClearance } from "../retention";
 import {
   applyServiceRestartApproval,
   applyServiceStop,
@@ -383,6 +384,20 @@ async function insertAuditEvent(connection: SqlConnection, event: AuditEvent, to
       token,
     ],
   );
+}
+
+/**
+ * A clock pinned to one instant.
+ *
+ * Where a domain function stamps a time into the value it returns AND this store persists that
+ * same time, the two must be the same instant BY CONSTRUCTION -- not by two reads of a real clock
+ * landing close enough together. `service_stops` is enforced immutable, so a stop whose recorded
+ * time differs from the one its caller was handed can never be corrected by an UPDATE afterwards;
+ * and a second read is the store re-deriving something the domain has already decided. Every
+ * fixture in the suite uses a fixed clock, which is precisely why no test could see the difference.
+ */
+function pinnedClock(at: Date): Clock {
+  return Object.freeze({ now: () => new Date(at.getTime()) });
 }
 
 /** Transaction audit tokens. Deterministic per store instance, unique within it. */
@@ -1450,6 +1465,12 @@ export function createPostgresRepository(
 
           const inserted = await withSavepoint(connection, INSERT_SAVEPOINT, () =>
             connection.query(
+              // `approver_id` is written null and never written again, deliberately. It is the
+              // single-approver column from 0001, superseded by `pathway_version_approvals`, which
+              // is where dual approval actually lives -- one column could only ever hold one name,
+              // which is the single-person approval the two-role rule exists to make impossible.
+              // The column is left in place rather than dropped; read it as vestigial, never as
+              // state.
               `insert into caring_contacts.pathway_versions
                  (id, team_id, state, author_id, approver_id, published_at, retired_at, retirement_urgency, snapshot)
                values ($1, $2, $3, $4, null, null, null, null, $5::jsonb)`,
@@ -1572,6 +1593,10 @@ export function createPostgresRepository(
           // The reporting team is stamped onto the pre-stop snapshot here, not inside
           // applyServiceStop -- that function only ever carries `reportedByTeamId` forward. It never
           // scopes the stop: every team is blocked regardless.
+          // ONE read of the clock, for the domain and for the rows alike -- see `pinnedClock`.
+          const at = clock.now();
+          const stamped = pinnedClock(at);
+
           const seeded: ServiceState = {
             ...(await readServiceState(connection, true)),
             reportedByTeamId: actor.teamId,
@@ -1579,7 +1604,7 @@ export function createPostgresRepository(
           const applied = applyServiceStop(
             seeded,
             { reason: input.reason, actorId: actor.id, note: input.note },
-            clock,
+            stamped,
           );
           if (!applied.ok) return applied;
           const stopped = applied.value;
@@ -1592,26 +1617,50 @@ export function createPostgresRepository(
           // in this system that must never be blocked. It stays a persistence detail: surfacing it on
           // the sealed `ServiceState` would force the in-memory store, which has no incident history
           // to mint one from, to invent a fake (controller Ruling 36).
-          const stoppedAt = clock.now();
           const incident = await connection.query(
             `insert into caring_contacts.service_stops
                (stop_id, reason, note, stopped_by, stopped_at, reported_by_team_id)
              values (gen_random_uuid(), $1, $2, $3, $4, $5)
              returning stop_id`,
-            [stopped.reason, stopped.note, stopped.stoppedBy, stoppedAt, actor.teamId],
+            [stopped.reason, stopped.note, stopped.stoppedBy, at, actor.teamId],
           );
           const stopId = textOf(incident.rows[0].stop_id);
 
-          await connection.query(
+          // THE CONFLICT UPDATE IS GUARDED, and that guard is the whole point of it. The FIRST-EVER
+          // stop is the one race a row lock cannot cover: until one of two simultaneous callers
+          // creates the singleton there is no row for `for update` to hold, so both pass the domain
+          // check above. An unguarded `do update` would then let the loser overwrite the winner's
+          // reason, actor and incident -- and ../service-state exists to hold the opposite: the
+          // FIRST record of an incident is permanent.
+          const singleton = await connection.query(
             `insert into caring_contacts.service_state
                (singleton, stopped, stopped_by, stopped_at, reported_by_team_id, stop_id, updated_at)
              values (true, true, $1, $2, $3, $4::uuid, $2)
              on conflict (singleton) do update
                set stopped = true, stopped_by = excluded.stopped_by, stopped_at = excluded.stopped_at,
                    reported_by_team_id = excluded.reported_by_team_id, stop_id = excluded.stop_id,
-                   updated_at = excluded.updated_at`,
-            [stopped.stoppedBy, stoppedAt, actor.teamId, stopId],
+                   updated_at = excluded.updated_at
+               where service_state.stopped = false`,
+            [stopped.stoppedBy, at, actor.teamId, stopId],
           );
+
+          if (singleton.rowCount !== 1) {
+            // Lost that race. The incident row inserted above stays: it is a real account a real
+            // responder wrote, and the schema keeps one row per incident. Only the singleton names
+            // the CURRENT one, and it still names the winner's.
+            //
+            // The reason is asked of the domain rather than spelled here, so the two stores cannot
+            // drift on the wire text a caller sees for a second stop.
+            const secondStop = applyServiceStop(
+              stopped,
+              { reason: input.reason, actorId: actor.id, note: input.note },
+              stamped,
+            );
+            if (secondStop.ok) {
+              throw new Error("caring-contacts: the service-stop rule no longer refuses a second stop");
+            }
+            return secondStop;
+          }
 
           return { ok: true, value: stopped };
         },
@@ -1633,20 +1682,26 @@ export function createPostgresRepository(
             return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
           }
 
+          // ONE read of the clock, as in `stopService`. It also covers the awkward case: the
+          // approval that COMPLETES the restart returns a running state carrying no approvals at
+          // all, so there is no domain instant left to read back out of the result -- `at` is the
+          // only thing that can be both stamped and persisted.
+          const at = clock.now();
+          const stamped = pinnedClock(at);
+
           const row = await selectServiceState(connection, true);
           const current = await serviceStateFrom(connection, row);
-          const applied = applyServiceRestartApproval(current, { role: input.role, actorId: actor.id }, clock);
+          const applied = applyServiceRestartApproval(current, { role: input.role, actorId: actor.id }, stamped);
           if (!applied.ok) return applied;
           if (!row) throw new Error("caring-contacts: an accepted restart approval must name an incident");
 
           const stopId = textOf(row.stop_id);
-          const approvedAt = clock.now();
           const recorded = await withSavepoint(connection, INSERT_SAVEPOINT, () =>
             connection.query(
               `insert into caring_contacts.service_restart_approvals
                  (stop_id, role, actor_id, approved_at, approved_by_team_id)
                values ($1::uuid, $2, $3, $4, $5)`,
-              [stopId, input.role, actor.id, approvedAt, actor.teamId],
+              [stopId, input.role, actor.id, at, actor.teamId],
             ),
           );
           if (!recorded.ok) {
@@ -1662,11 +1717,11 @@ export function createPostgresRepository(
           if (!applied.value.stopped) {
             await connection.query(
               "update caring_contacts.service_stops set restarted_at = $2 where stop_id = $1::uuid",
-              [stopId, approvedAt],
+              [stopId, at],
             );
             await connection.query(
               "update caring_contacts.service_state set stopped = false, stop_id = null, updated_at = $1 where singleton",
-              [approvedAt],
+              [at],
             );
           }
 
@@ -1975,23 +2030,25 @@ export function createPostgresRepository(
             return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
           }
 
-          // The clearance row is admissible only for an episode that has actually ENDED: its check
-          // constraint requires a terminal instant beside the cleared one, and the only truthful
-          // terminal instant is the plan's own `completed_at`. An open plan has none, and inventing
-          // one would put a false end date on a live episode -- so for an open plan the audit event
-          // this write appends is the whole durable record. Both stores answer the caller identically
-          // either way: nothing on this contract reads either store's clearance bookkeeping back.
-          const completedAt = isAbsent(planRow.completed_at) ? null : instantOf(planRow.completed_at);
-          if (completedAt !== null) {
-            await connection.query(
-              `insert into caring_contacts.retention_state
-                 (plan_id, team_id, terminal_at, cleared_at)
-               values ($1, $2, $3, $4)
-               on conflict (plan_id) do update
-                 set terminal_at = excluded.terminal_at, cleared_at = excluded.cleared_at`,
-              [input.planId, team, completedAt, clock.now()],
-            );
-          }
+          // Admissibility is ../retention's rule, not this store's: an episode that has not ended
+          // has no instant to clear against, and the schema's own check refuses the row for exactly
+          // that reason. Asking the domain is what keeps the two stores answering identically, and
+          // it leaves no conditional here -- an admitted clearance ALWAYS writes its row, so a later
+          // purge can find the episode.
+          const admitted = admitRetentionClearance({
+            state: textOf(planRow.state) as PlanState,
+            planDates: { completedAt: isAbsent(planRow.completed_at) ? null : instantOf(planRow.completed_at) },
+          });
+          if (!admitted.ok) return admitted;
+
+          await connection.query(
+            `insert into caring_contacts.retention_state
+               (plan_id, team_id, terminal_at, cleared_at)
+             values ($1, $2, $3, $4)
+             on conflict (plan_id) do update
+               set terminal_at = excluded.terminal_at, cleared_at = excluded.cleared_at`,
+            [input.planId, team, admitted.value, clock.now()],
+          );
 
           return { ok: true, value: undefined };
         },

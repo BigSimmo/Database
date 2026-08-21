@@ -22,6 +22,7 @@ import { awstCalendarDay } from "./clock";
 import type { Clock } from "./clock";
 import type { DeidentifiedEpisode, Episode, EpisodeState } from "./episode";
 import type { ActorId } from "./ids";
+import type { TransitionResult } from "./model";
 
 export type RetentionPolicy = { years: number };
 
@@ -65,6 +66,44 @@ export function isDueForDeidentification(episode: Episode, policy: RetentionPoli
   const dueCalendarDay = addYearsToCalendarDay(completedCalendarDay, policy.years);
   const nowCalendarDay = awstCalendarDay(clock.now());
   return nowCalendarDay >= dueCalendarDay;
+}
+
+/**
+ * The two facts a clearance decision turns on, and deliberately nothing else.
+ *
+ * Narrowed rather than taking a whole `Episode` for the same reason `ServiceStopBannerFacts` is
+ * narrowed in ./service-state: a store asking this question holds a plan row, not an assembled
+ * episode, and a wider parameter would invite the rule to start reading fields it has no business
+ * in. `Episode` is structurally assignable to it, so a caller that does hold one just passes it.
+ */
+export type RetentionClearanceFacts = {
+  state: EpisodeState;
+  planDates: { completedAt: Date | null };
+};
+
+/**
+ * Whether an episode's identifying detail may be recorded as cleared, and the instant it ended.
+ *
+ * The precondition is `isDueForDeidentification`'s own, and it is stated once above it: an episode
+ * that has not completed, or whose completion instant is unknown, is never due. An episode that
+ * could never have become due cannot meaningfully be marked cleared either -- so this refuses,
+ * rather than accepting and recording nothing. Both preconditions carry the SAME reason because
+ * they are the same fact from the storage layer's side: there is no end instant to clear against.
+ *
+ * Returning that instant is not a convenience. A stored clearance is only interpretable beside the
+ * end it is measured from, which is why the schema's own
+ * `retention_state_cleared_after_terminal` refuses one without the other.
+ *
+ * Pure transition: no ambient time, no storage, no permission check -- the caller has already
+ * authorised the action, and recording it in the audit trail is likewise the caller's job.
+ */
+export function admitRetentionClearance(episode: RetentionClearanceFacts): TransitionResult<Date> {
+  if (!TERMINAL_EPISODE_STATES.includes(episode.state)) {
+    return { ok: false, reason: "retention-episode-not-terminal" };
+  }
+  const { completedAt } = episode.planDates;
+  if (completedAt === null) return { ok: false, reason: "retention-episode-not-terminal" };
+  return { ok: true, value: new Date(completedAt.getTime()) };
 }
 
 /**

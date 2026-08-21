@@ -434,3 +434,173 @@ No migration was added; none was needed. Nothing outside `src/lib/caring-contact
    patient data. That is pre-existing behaviour, not something Task 11b changed.
 5. **Provider status is recorded against the latest dispatch attempt**, matching the in-memory store. If
    a manual re-dispatch is ever added, both stores will need to name the attempt explicitly.
+
+---
+
+## Fix round 1 — the five review findings
+
+All five are fixed. Findings 1, 2 and 3 each have a test that FAILED first and passes now; Findings 4
+and 5 are a restored literal and a comment. No assertion was edited beyond the one the coordinator
+authorised, and I hit no second stop-and-report boundary.
+
+### Finding 1 — the persisted instant is now the returned instant, by construction
+
+`stopService` and `approveServiceRestart` each read the clock ONCE, into a local `at`, and hand the
+domain a `pinnedClock(at)` — a frozen `Clock` returning copies of that single instant. The rows then
+persist `at`. There is no second read left for the two to disagree about.
+
+`pinnedClock` is a module-level helper in the Postgres store with the reasoning attached: where a
+domain function stamps a time into the value it returns AND the store persists that same time, the
+two must be the same instant by construction rather than by two clock reads landing close together —
+`service_stops` is enforced immutable, so a stop recorded even milliseconds off can never be
+corrected by an UPDATE.
+
+It also covers the awkward case the coordinator flagged: the approval that COMPLETES a restart
+returns a running state carrying no approvals at all, so there is no domain instant to read back out
+of the result. `at` is the only thing that can be both stamped and persisted, and the fix does not
+touch `applied.value.restartApprovals`.
+
+**RED first.** New contract test, driven by an `advancingClock` that never returns the same instant
+twice — every other fixture in the file uses `fixedClock`, which is exactly why nothing could see
+this. It opens with a positive control asserting the clock genuinely advances, so the equality it
+then asserts means the store pinned an instant rather than the clock being constant.
+
+```
+ FAIL  ... (postgres) > stopService and approveServiceRestart > persists the instant it handed back,
+       not a second reading of the clock
+AssertionError: expected '2026-03-02T11:00:04.000+08:00' to be '2026-03-02T11:00:03.000+08:00'
+      Tests  2 failed | 160 passed (162)
+```
+
+Exactly one clock tick apart — the second read. The in-memory store passed throughout, which is
+correct: it stamps once and persists the same object.
+
+### Finding 2 — Ruling 39, the domain refuses, and both stores ask it
+
+`src/lib/caring-contacts/retention.ts` gains `admitRetentionClearance`, taking a narrowed
+`RetentionClearanceFacts` (`Episode` is structurally assignable to it, for the same reason
+`ServiceStopBannerFacts` is narrowed in `service-state.ts`) and returning `TransitionResult<Date>` —
+the terminal instant on success. It mirrors `isDueForDeidentification`'s own precondition exactly:
+terminal state AND a known completion instant, both carrying the single reason
+`retention-episode-not-terminal`, because from the storage layer's side they are the same fact —
+there is no end instant to clear against.
+
+Both stores now delegate. The Postgres store has no conditional left: an admitted clearance ALWAYS
+writes its `retention_state` row, so a later purge can find the episode. No constraint was relaxed
+and no migration was written.
+
+**RED first**, on the assertion the coordinator authorised replacing:
+
+```
+ FAIL  ... (postgres) > markRetentionCleared > marks a plan cleared, refuses an unknown plan, and
+       refuses a role without the grant
+AssertionError: expected { ok: true, value: undefined } to deeply equal { ok: false, …(1) }
+```
+
+The permission-denied and not-found assertions in that test are untouched. A new case,
+`"clears an episode that has actually ended"`, withdraws the plan first and asserts the success —
+with a positive control that the episode really did reach a terminal state and record when, so the
+acceptance is the rule admitting it rather than the rule not being asked. That case exercises the
+durable write for the first time; nothing covered it before.
+
+One fixture repair, not an assertion edit: the audited-write entry for `markRetentionCleared`
+measured a clearance on an open plan, so it now withdraws the plan in its `arrange`. The assertion it
+feeds — exactly one event named `markRetentionCleared` — is unchanged.
+
+### Finding 3 — a racing first-ever stop can no longer overwrite the first incident
+
+The singleton upsert's `do update` is now guarded by `where service_state.stopped = false`. A zero-row
+outcome means this caller lost the race, and the store then asks the DOMAIN what a second stop is
+refused with rather than spelling the wire text, so the two stores cannot drift on it — with a throw
+if the domain ever stops refusing, so the branch cannot rot into a decoration. The `service_stops`
+history insert is unchanged: the loser's incident row is a real account a real responder wrote.
+
+**This one took three attempts to prove, and the first two are worth recording** because both were
+tests that passed for the wrong reason:
+
+1. Two simultaneous stops from COORDINATOR_A and TEAM_LEAD_A — passed against the unguarded store.
+2. Same, with two pooled connections warmed first to remove the head start — still passed.
+
+The reason is not scheduling luck. **Every write registers its own team first**, and that
+`insert into teams … on conflict do nothing` blocks a second writer from the SAME team until the
+first transaction commits. Two callers from one team therefore queue, and never enter the window at
+all. Two callers from DIFFERENT teams touch different rows and arrive together:
+
+```
+ FAIL  ... (postgres) > stopService and approveServiceRestart > lets exactly one of two simultaneous
+       first stops win, refusing the other by name
+AssertionError: expected [ { ok: true, value: { …(7) } }, …(1) ] to have a length of 1 but got 2
+```
+
+Both stops succeeded, and the loser's account overwrote the winner's — the defect, reproduced. The
+test is cross-team now, which is also the truthful shape: the stop is service-wide, so two teams
+finding two different incidents at once is exactly how this happens. It asserts the winner's reason,
+note and actor are what stands afterwards, not merely that one call was refused.
+
+No schema change was needed, so I did not stop and report.
+
+### Finding 4 — the literal is restored
+
+`expect(paused).toEqual({ ok: false, reason: "service-stopped" })`, with a note saying why this one
+test pins the wire text as a literal while every other reads the constant: a rename of
+`REPOSITORY_REFUSALS.serviceStopped` would sail through all the others.
+
+### Finding 5 — the vestigial column is labelled
+
+A comment at the `savePathwayVersion` insert says `approver_id` is written null and never written
+again, that it is the single-approver column from 0001 superseded by `pathway_version_approvals`, and
+that it should be read as vestigial and never as state. Comment only; the column stays and no
+migration was written.
+
+### Verification
+
+```
+$ node ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit
+TSC_EXIT=0            <- no output at all, reconfirmed after these changes
+
+$ CARING_CONTACTS_DATABASE_URL=... npm run caring-contacts:db:test
+ Test Files  2 passed (2)
+      Tests  162 passed (162)
+
+$ node scripts/run-vitest.mjs run tests/caring-contacts-repository.test.ts tests/caring-contacts-retention.test.ts --reporter=dot
+ Test Files  2 passed (2)
+      Tests  126 passed (126)
+
+$ npm run test
+ Test Files  691 passed | 2 skipped (693)
+      Tests  7671 passed | 29 skipped (7700)
+
+   Fully green this time. The two `Test timed out` failures my first report recorded did not recur,
+   which confirms they were machine load rather than anything in the diff. The `check:function-grants:
+   FAIL` lines in that output are a guard's own negative-case fixtures running against temp files --
+   expected output, not failures.
+
+$ npx eslint <the five changed files>
+(no output — clean)
+```
+
+`npm run format` ran and its result is in the commit. The database suite went from 159 tests to 162 —
+the three new ones are the proofs above.
+
+### Files changed in this round
+
+- `src/lib/caring-contacts/retention.ts` — `RetentionClearanceFacts`, `admitRetentionClearance`.
+- `src/lib/caring-contacts/in-memory-repository.ts` — delegates to that rule.
+- `src/lib/caring-contacts/db/postgres-repository.ts` — `pinnedClock` and its two call sites, the
+  guarded singleton upsert and its refusal, the delegated clearance, the `approver_id` comment.
+- `tests/helpers/caring-contacts-repository-contract.ts` — `advancingClock`, three new tests, the
+  restored literal, the authorised assertion replacement, one fixture repair.
+
+### Concerns from this round
+
+1. **The stop race is only reachable across teams**, because the per-team registration insert
+   serialises same-team writers. That is an accidental serialisation, not a designed one — nothing
+   documents it and nothing pins it. If that insert ever moves or becomes conditional, same-team
+   concurrency opens up everywhere in the write path at once, silently. Worth a note somewhere it
+   will be read; I have not added one, because it is a claim about the whole write path rather than
+   about this change.
+2. **`getServiceState` is still not capability-checked** — unchanged from my first report, and still
+   worth your look: any actor of any team can read a live incident's free-text `note`, which the
+   schema classifies as patient data.
+3. The restart-approval constraint mapping remains defensive code with no deterministic test, exactly
+   as recorded for mutation 4. Finding 3's guard is NOT in that category any more.

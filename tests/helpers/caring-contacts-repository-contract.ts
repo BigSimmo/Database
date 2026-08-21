@@ -78,6 +78,24 @@ const SECOND_TEAM_LEAD_A = actorWith("ACTOR-7", "TEAM-NORTH", ["teamLead"]);
 const PROGRAMME_LEAD_A = actorWith("ACTOR-8", "TEAM-NORTH", ["clinicalProgrammeLead"]);
 const LIVED_EXPERIENCE_A = actorWith("ACTOR-9", "TEAM-NORTH", ["livedExperienceRepresentative"]);
 
+/**
+ * A clock that never returns the same instant twice.
+ *
+ * Every other fixture here uses `fixedClock`, which makes two reads of the clock indistinguishable
+ * from one -- so a store that stamps a domain value from one read and persists another read of its
+ * own looks correct under all of them. This is the fixture that can tell those apart.
+ */
+function advancingClock(startIso: string, stepMs = 1_000): Clock {
+  const start = new Date(startIso).getTime();
+  let reads = 0;
+  return {
+    now() {
+      reads += 1;
+      return new Date(start + reads * stepMs);
+    },
+  };
+}
+
 function writeContext(actor: CaringContactActor, key: string): WriteContext {
   return { actor, idempotencyKey: idempotencyKey(key) };
 }
@@ -904,7 +922,11 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
           { planId: plan.plan.id, expectedVersion: plan.plan.version },
           writeContext(COORDINATOR_A, "pause-1"),
         );
-        expect(paused).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.serviceStopped });
+        // The wire text is pinned as a LITERAL here, and deliberately only here. Every other test
+        // reads the constant, so a rename of REPOSITORY_REFUSALS.serviceStopped would sail through
+        // all of them; this one is what makes the reason a contract with callers rather than an
+        // internal name two stores happen to share.
+        expect(paused).toEqual({ ok: false, reason: "service-stopped" });
 
         const death = await store.recordHospitalStatusEvent(
           {
@@ -1184,6 +1206,85 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         expect(state.restartApprovals).toEqual([]);
         expect(state.reason).toBe("duplicate-send");
         expect(state.note).toBe("second, unrelated incident");
+      });
+
+      it("persists the instant it handed back, not a second reading of the clock", async () => {
+        // A clock that never returns the same instant twice. Every other test in this file uses a
+        // FIXED clock, which is exactly why none of them can see a store that reads the clock once
+        // for the domain and again for the row it writes.
+        const ticking = advancingClock(NOW);
+        const control = { first: ticking.now().getTime(), second: ticking.now().getTime() };
+        expect(control.second).toBeGreaterThan(control.first);
+
+        const store = await factory(ticking, undefined);
+        const stopped = unwrap(
+          await store.stopService(
+            { reason: "wrong-recipient", note: "a message reached a number nobody recognised" },
+            writeContext(COORDINATOR_A, "tick-stop"),
+          ),
+        );
+        if (!stopped.stopped) throw new Error("expected a stopped service");
+
+        // The stop is the write this matters most for: its record is enforced immutable, so an
+        // instant recorded even milliseconds away from the one the caller was handed can never be
+        // corrected afterwards.
+        const readBack = await store.getServiceState({ actor: COORDINATOR_A });
+        if (!readBack.stopped) throw new Error("expected a stopped service");
+        expect(readBack.stoppedAt).toBe(stopped.stoppedAt);
+
+        const approved = unwrap(
+          await store.approveServiceRestart({ role: "incidentLead" }, writeContext(TEAM_LEAD_A, "tick-approve")),
+        );
+        if (!approved.stopped) throw new Error("expected the service to still be stopped");
+
+        const afterApproval = await store.getServiceState({ actor: COORDINATOR_A });
+        if (!afterApproval.stopped) throw new Error("expected a stopped service");
+        expect(afterApproval.restartApprovals.map((approval) => approval.approvedAt)).toEqual(
+          approved.restartApprovals.map((approval) => approval.approvedAt),
+        );
+      });
+
+      it("lets exactly one of two simultaneous first stops win, refusing the other by name", async () => {
+        // The FIRST-EVER stop is the one race a row lock cannot cover: there is no singleton row to
+        // take `for update` on until one of these two writes creates it. Without a guard the loser's
+        // write overwrites the winner's reason, actor and incident -- and "the first record of an
+        // incident is permanent" is the property ../service-state exists to hold.
+        const store = await newStore();
+
+        // The two responders are from DIFFERENT teams, and that is what makes this a race rather
+        // than a queue. Every write registers its own team first, so two callers from ONE team
+        // serialise on that row and never reach the window at all; two teams do not touch each
+        // other's row and arrive together. It is also the truthful shape: the stop is service-wide,
+        // so two teams finding two different incidents at once is exactly how this happens.
+        await Promise.all([
+          store.getServiceState({ actor: COORDINATOR_A }),
+          store.getServiceState({ actor: COORDINATOR_B }),
+        ]);
+
+        const [first, second] = await Promise.all([
+          store.stopService(
+            { reason: "wrong-recipient", note: "the first responder's own account" },
+            writeContext(COORDINATOR_A, "race-stop-a"),
+          ),
+          store.stopService(
+            { reason: "duplicate-send", note: "a later account of something else entirely" },
+            writeContext(COORDINATOR_B, "race-stop-b"),
+          ),
+        ]);
+
+        const accepted = [first, second].filter((result) => result.ok);
+        const refused = [first, second].filter((result) => !result.ok);
+        expect(accepted).toHaveLength(1);
+        expect(refused).toEqual([{ ok: false, reason: "service-already-stopped" }]);
+
+        const winner = accepted[0];
+        if (!winner.ok || !winner.value.stopped) throw new Error("expected an accepted stop");
+
+        const state = await store.getServiceState({ actor: AUDITOR_A });
+        if (!state.stopped) throw new Error("expected a stopped service");
+        expect(state.reason).toBe(winner.value.reason);
+        expect(state.note).toBe(winner.value.note);
+        expect(state.stoppedBy).toBe(winner.value.stoppedBy);
       });
 
       it("refuses a restart approval while the service is running", async () => {
@@ -2187,17 +2288,43 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         const denied = await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(AUDITOR_A, "mrc-1"));
         expect(denied).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.permissionDenied });
 
-        const cleared = await store.markRetentionCleared(
+        // An OPEN episode has no completion instant, and ../retention's own precondition says an
+        // episode that has not completed is never due for de-identification. Marking cleared
+        // something that could never have been due is nonsense rather than an edge case, so it is
+        // refused by name -- not accepted with nothing written, which would leave a later purge
+        // unable to find the episode at all.
+        const stillOpen = await store.markRetentionCleared(
           { planId: plan.plan.id },
           writeContext(COORDINATOR_A, "mrc-2"),
         );
-        expect(cleared).toEqual({ ok: true, value: undefined });
+        expect(stillOpen).toEqual({ ok: false, reason: "retention-episode-not-terminal" });
 
         const missing = await store.markRetentionCleared(
           { planId: planId("EXT-PLAN-MISSING") },
           writeContext(COORDINATOR_A, "mrc-3"),
         );
         expect(missing).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.notFound });
+      });
+
+      it("clears an episode that has actually ended", async () => {
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        const ended = unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, "mrc-withdraw"),
+          ),
+        );
+        // Positive control: the episode really did reach a terminal state and record when, so the
+        // acceptance below is the rule admitting it rather than the rule not being asked.
+        expect(ended.plan.state).toBe("withdrawn");
+        expect(ended.completedAt).not.toBeNull();
+
+        const cleared = await store.markRetentionCleared(
+          { planId: plan.plan.id },
+          writeContext(COORDINATOR_A, "mrc-5"),
+        );
+        expect(cleared).toEqual({ ok: true, value: undefined });
       });
 
       it("refuses while the service is stopped, like every other ordinary mutation", async () => {
@@ -2309,6 +2436,13 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
           action: "markRetentionCleared",
           arrange: async (store) => {
             const plan = await createActivePlan(store);
+            // Ended first: a clearance is only admissible for an episode that has actually ended.
+            unwrap(
+              await store.withdrawPlan(
+                { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+                writeContext(COORDINATOR_A, "audit-clear-withdraw"),
+              ),
+            );
             return () =>
               store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "audit-clear"));
           },

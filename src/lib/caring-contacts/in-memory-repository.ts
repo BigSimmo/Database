@@ -36,6 +36,7 @@ import {
   type CaringContactActor,
 } from "./permissions";
 import { applyReferralTransition } from "./referrals";
+import { admitRetentionClearance } from "./retention";
 import {
   applyServiceRestartApproval,
   applyServiceStop,
@@ -1230,6 +1231,13 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
           ) {
             return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
           }
+          // The rule lives in ./retention beside the precondition it mirrors, so both stores
+          // refuse an episode that has not ended for the same reason and in the same words.
+          const admitted = admitRetentionClearance({
+            state: stored.plan.state,
+            planDates: { completedAt: stored.completedAt },
+          });
+          if (!admitted.ok) return admitted;
           return { ok: true, value: { value: undefined, commit: () => retentionCleared.add(input.planId) } };
         },
       });
