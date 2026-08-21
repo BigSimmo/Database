@@ -292,7 +292,7 @@ describe("repository-wide heavyweight lock", () => {
       environment: {},
       command: "other worktree Playwright run",
     });
-    const childEnvironment = {
+    const childEnvironment: NodeJS.ProcessEnv = {
       ...process.env,
       HEAVY_RUN_WAIT_TIMEOUT_MS: "0",
       TEMP: baseDirectory,
