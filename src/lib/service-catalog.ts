@@ -94,13 +94,6 @@ export function extractPhones(text: string): string[] {
   );
 }
 
-export function splitReferralLines(text: string): string[] {
-  return text
-    .split(/[|\n\r]+/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
 export function normalizeCatalogService(raw: unknown, index: number): CatalogService {
   const source = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
   const fallbackId = `service-${index + 1}`;
