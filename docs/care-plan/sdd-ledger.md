@@ -31,9 +31,11 @@ minutes.
   outside any worktree. Every recovery was `git worktree add <path> <branch>`.
 - **What was lost each time was uncommitted work and git-ignored scratch** —
   including, on the third occasion, the entire SDD workspace.
-- **The work has been relocated to `D:\Worktrees\Database\care-plan`.** That
-  parent directory has been untouched all day; a sibling worktree there survived
-  all three events.
+- **Relocation did NOT protect it — there was a fourth destruction.** The work was
+  moved to `D:\Worktrees\Database\care-plan`, and that copy was destroyed within the
+  hour by the same method. **No directory on this machine is safe.** Commit and push;
+  nothing else has ever protected this work. The branch is now on GitHub at
+  `origin/claude/ed-care-plans-impl-7f44cd`, which is the authoritative copy.
 - The only repo mechanism that removes worktrees is `scripts/clean-worktree.mjs`,
   which is chained into `npm run verify:preflight`. It protects "the current
   worktree", meaning the one it runs in — not this one. It states it never passes

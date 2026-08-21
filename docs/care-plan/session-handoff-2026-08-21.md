@@ -69,9 +69,14 @@ through an explicit `git worktree lock`, while a task was running: the `.git` po
 file went first, making git resolve to the main checkout on the wrong branch, then
 3,836 tracked files were deleted over three minutes.
 
-- **The work has been relocated to `D:\Worktrees\Database\care-plan`.** That parent
-  directory has been untouched all day and a sibling worktree there survived all
-  three events. Work there. Do not recreate a worktree under `.claude/worktrees/`.
+- **Relocation did NOT protect it.** The work was moved to `D:\Worktrees\Database\care-plan`
+  on the reasoning that that parent had been untouched all day — and it was destroyed
+  there too, within the hour, the same way: `.git` pointer first, then 1,301 files. **No
+  directory on this machine is safe.** The only thing that has ever protected this work is
+  committing and pushing.
+- **The branch is pushed** to `origin/claude/ed-care-plans-impl-7f44cd`. If a worktree dies
+  again, recover with `git worktree add <path> claude/ed-care-plans-impl-7f44cd` — or clone
+  fresh from GitHub, which is now the authoritative copy.
 - **Nothing committed was ever lost.** Every recovery was one `git worktree add`.
 - **What died each time was uncommitted work and git-ignored scratch** — including,
   the third time, the entire SDD workspace with its ledger, briefs, reports and
