@@ -304,6 +304,23 @@ export function parseDictionaryCatalogueParams(params: URLSearchParams): Diction
  * exists to prevent, so the rule lives with the predicate rather than in the
  * component that happens to hide the chip.
  */
+/**
+ * The URL keys a "clear the search" control has to remove.
+ *
+ * `letter` is the one that is easy to miss, and it lives here rather than in the
+ * component because it is the direct consequence of the rule below: while a
+ * query runs `dictionaryCatalogue` ignores `letter` and the chip that owns it
+ * stands down, so a `letter` in the URL is invisible AND inert. Delete only
+ * `q`/`query`/`run` and dismissing the search hands the reader back a catalogue
+ * silently narrowed to one initial — 6 of 96 entries for `?q=tardive&letter=T`,
+ * which is exactly what the Terms tab's own self-link produces — under a control
+ * whose accessible name promises the whole catalogue.
+ *
+ * Anything `dictionaryCatalogue` learns to ignore while searching belongs in
+ * this list too; `tests/dictionary-data.test.ts` pins the pair together.
+ */
+export const dictionaryClearedQueryKeys = ["q", "query", "run", "letter"] as const;
+
 export function dictionaryCatalogue(params: DictionaryCatalogueParams): DictionarySearchHit[] {
   const filters: DictionaryFilters = {
     q: params.q,

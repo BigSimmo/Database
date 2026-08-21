@@ -5,6 +5,7 @@ import {
   dictionaryBrowseLetter,
   dictionaryCatalogue,
   dictionaryCatalogueIssues,
+  dictionaryClearedQueryKeys,
   dictionaryCompareHref,
   dictionaryComparisonPair,
   parseDictionaryCatalogueParams,
@@ -192,6 +193,30 @@ describe("merged dictionary catalogue", () => {
     const ascending = dictionaryCatalogue({ ...baseCatalogue, sort: "az" });
     const descending = dictionaryCatalogue({ ...baseCatalogue, sort: "za" });
     expect(descending).toEqual([...ascending].reverse());
+  });
+
+  it("clears every input the search state hides, so dismissing a search really shows the whole catalogue", () => {
+    // The regression this pins: `letter` is ignored while a query runs AND its
+    // chip stands down, so it is invisible and inert — but it survives in the
+    // URL, and the Terms tab's own self-link is one of the things that puts it
+    // there. Clearing only `q`/`query`/`run` handed back 6 of 96 entries for
+    // `?q=tardive&letter=T` under a control whose accessible name promises the
+    // whole catalogue.
+    const dismissed = new URLSearchParams("q=tardive&letter=T");
+    for (const key of dictionaryClearedQueryKeys) dismissed.delete(key);
+    expect(dictionaryCatalogue(parseDictionaryCatalogueParams(dismissed))).toHaveLength(96);
+
+    // Stated directly as well, so a future edit that drops `letter` from the
+    // list fails here with the reason rather than only through the count above.
+    expect(dictionaryClearedQueryKeys).toContain("letter");
+    expect(dictionaryClearedQueryKeys).toContain("run");
+
+    // Facets are deliberately NOT cleared: they stay visible on the band's
+    // applied-filter shelf throughout a search, each removable in one tap, so
+    // dropping them would discard a choice the reader can still see.
+    const withFacet = new URLSearchParams("q=tardive&topic=assessment-and-measurement");
+    for (const key of dictionaryClearedQueryKeys) withFacet.delete(key);
+    expect(parseDictionaryCatalogueParams(withFacet).topics).toEqual(["assessment-and-measurement"]);
   });
 
   it("ignores a letter outside A–Z rather than emptying the catalogue", () => {

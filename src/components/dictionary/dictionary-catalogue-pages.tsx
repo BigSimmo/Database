@@ -33,6 +33,7 @@ import {
   allDictionaryEntries,
   dictionaryBrowseLetter,
   dictionaryCatalogue,
+  dictionaryClearedQueryKeys,
   dictionaryKindLabel,
   dictionaryTopicEntries,
   findDictionaryTopic,
@@ -173,12 +174,16 @@ export function DictionaryCataloguePage() {
     replace((next) => {
       for (const key of ["topic", "kind", "source"]) next.delete(key);
     });
-  // Clearing the query drops `run` with it: the shell re-derives the composer's
-  // value from the URL on every search-string change, so leaving a submitted
-  // marker behind would restore the results view the reader just dismissed.
+  // Clearing the query drops `run` with it, because the shell re-derives the
+  // composer's value from the URL on every search-string change and a leftover
+  // submitted marker would restore the results view the reader just dismissed —
+  // and it drops `letter`, because while searching that key is both invisible
+  // and inert, so keeping it would hand back a catalogue narrowed to one initial
+  // under a control that promises the whole thing. The key list is
+  // `dictionaryClearedQueryKeys`, next to the predicate that creates the hazard.
   const clearQuery = () =>
     replace((next) => {
-      for (const key of ["q", "query", "run"]) next.delete(key);
+      for (const key of dictionaryClearedQueryKeys) next.delete(key);
     });
 
   const sortOptions: ResultFilterOption<DictionaryCatalogueSort>[] = [
