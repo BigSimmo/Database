@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -252,6 +252,79 @@ describe("setup-claude-cloud", () => {
       CLAUDE_CLOUD_BACKGROUND_TIERS: "",
     });
     expect(directRun.status).toBe(1);
+  });
+
+  it("emits a stdout SessionStart context envelope when a tier fails in session mode", () => {
+    // stderr is invisible to Claude; a hook must put anything worth surfacing on stdout as a
+    // hookSpecificOutput envelope. cleanup() still forces exit 0 here — this proves the failure is
+    // seen, not that it becomes fatal.
+    const result = runProvisioner(["--session", "--allow-local", "definitely-not-a-tier"], {
+      CLAUDE_CLOUD_BACKGROUND_TIERS: "",
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/"hookEventName":"SessionStart"/);
+    expect(result.stdout).toMatch(
+      /"additionalContext":"claude-cloud provisioning incomplete:[^"]*definitely-not-a-tier/,
+    );
+  });
+
+  it("reports pending rather than false completion when another run already holds a tier's lock", () => {
+    // The documented confirmation command (`bash scripts/setup-claude-cloud.sh browsers python`) used
+    // to treat a held lock exactly like a skip: it logged and moved on, so the closing "all selected
+    // tiers complete" printed even though the locking run was still mid-install. `deno` is used only
+    // because acquiring its lock is cheap to fake — the lock check runs before tier_deno itself, so no
+    // real install is ever attempted.
+    const markerDir = join(homedir(), ".cache", "clinical-kb-claude-cloud");
+    const lockDir = join(markerDir, "deno.lock");
+    mkdirSync(lockDir, { recursive: true });
+    try {
+      const result = runProvisioner(["--allow-local", "deno"], { CLAUDE_CLOUD_SKIP_TIERS: "" });
+      expect(result.status).toBe(1);
+      expect(result.stdout).toMatch(/still being provisioned by another run: deno/);
+      expect(result.stdout).not.toMatch(/all selected tiers complete/);
+    } finally {
+      rmSync(lockDir, { recursive: true, force: true });
+    }
+  });
+
+  it("tries the pinned Python minor before ever falling back to a different python3", () => {
+    // Folding the python3 fallback into the FIRST lookup let an older interpreter that already had a
+    // working venv module (e.g. system 3.11) mask the need to install python${wanted} at all, so the
+    // version check further down rejected that older interpreter and the OCR tier always failed on a
+    // container that already had some other Python 3.
+    const source = readFileSync(provisioner, "utf8");
+    const tierBody = source.slice(source.indexOf("tier_python() {"), source.indexOf("tier_signature() {"));
+    const wantedLookup = tierBody.indexOf('python_bin="$(command -v "python${wanted}"');
+    const installAttempt = tierBody.indexOf('apt_install "python${wanted}"');
+    const genericFallback = tierBody.indexOf('python_bin="$(command -v python3 || true)"');
+    expect(wantedLookup).toBeGreaterThan(-1);
+    expect(installAttempt).toBeGreaterThan(wantedLookup);
+    expect(genericFallback).toBeGreaterThan(installAttempt);
+  });
+
+  it("persists the gh tarball fallback onto PATH for later commands, not just this run", () => {
+    // A plain `export PATH=` only reaches this script's own process tree. Without also appending to
+    // CLAUDE_ENV_FILE, a later Claude command in the same session cannot find gh, and the completed
+    // marker then stops any later session from repairing it.
+    const source = readFileSync(provisioner, "utf8");
+    const tierBody = source.slice(source.indexOf("tier_gh() {"), source.indexOf("tier_deno() {"));
+    expect(tierBody).toContain("CLAUDE_ENV_FILE");
+  });
+
+  it("folds the plugin cache into the plugins marker signature, not just settings.json", () => {
+    // A plugin Claude installed or updated in the cache without touching the repo's declared list left
+    // the settings.json-only signature unchanged, so the marker stayed valid and the whole tier —
+    // including the dependency repair — was skipped.
+    const source = readFileSync(provisioner, "utf8");
+    const signatureBody = source.slice(
+      source.indexOf("tier_signature() {"),
+      source.indexOf(
+        "# --------------------------------------------------------------------------------------------\n# Run",
+      ),
+    );
+    const pluginsCase = signatureBody.slice(signatureBody.indexOf("plugins)"), signatureBody.indexOf("gh) printf"));
+    expect(pluginsCase).toContain(".claude/settings.json");
+    expect(pluginsCase).toContain("$HOME/.claude/plugins/cache");
   });
 });
 
