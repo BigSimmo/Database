@@ -19,7 +19,7 @@
 
 ## Global Constraints
 
-- Work only in `D:\Repos\Database\.claude\worktrees\care-plan-impl-7f44cd` on `claude/care-plan-impl-7f44cd`, based on `main` at `97f614223`. Preserve the unrelated dirty checkout at `D:\Repos\Database` and the earlier planning worktree at `D:\Worktrees\Database\care-plan`; copy from them, never write to them.
+- Work only in `D:\Repos\Database\.claude\worktrees\ed-care-plans-impl-7f44cd` on `claude/ed-care-plans-impl-7f44cd`, based on `main` at `97f614223`. Preserve the unrelated dirty checkout at `D:\Repos\Database` and the earlier planning worktree at `D:\Worktrees\Database\ed-care-plans`; copy from them, never write to them.
 - This worktree is fresh. Confirm dependencies are installed (`node_modules` present and `npm run check:installed-lock-parity` clean) before the first test command; run `npm ci --include=dev` only if they are not.
 - The application is synthetic and memory-only. Do not add `fetch`, route handlers, Server Actions, local/session storage, IndexedDB, cookies for prototype state, Supabase, OpenAI, analytics, email providers, or any other network or persistence path.
 - No API, provider, production-data, deployment, migration, or live-canary action is authorised.
@@ -47,7 +47,7 @@
 - A Personal Safety Plan is patient-owned, independently versioned, and does not use the Management Plan senior-approval transition.
 - An ED Presentation is append-only. Corrections append a `PresentationAmendment`; they never overwrite the original field. Plan-use feedback may append a `ReviewTrigger` and never edits a plan.
 - CMHT email and telephone actions record only `email_intent_opened` or `call_intent_opened`. The `mailto:` subject is generic and contains no name, MRN, date of birth, presentation content, or plan content. Never claim sent, delivered, read, answered, or completed contact.
-- Use the official public WA crisis details verified on 20 August 2026: `000`; MHERL Perth `1300 555 788`; MHERL Peel `1800 676 822`; Rurallink `1800 552 002`, available 4:30 pm–8:30 am weeknights and 24 hours on weekends/public holidays. Display that MHERL is not an emergency service. Retain the official source URLs in fixture metadata.
+- Use the official public WA crisis details verified on 20 August 2026: `000`; MHERL Perth `1300 555 788`; MHERL Peel `1800 676 822`; Rurallink `1800 552 002`, available 4:30 pm–8:30 am weeknights and 24 hours on weekends/public holidays. Display that MHERL is not an emergency service. Retain the official source URLs in fixture metadata: MHERL `https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/MHERL` and Rurallink `https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/Rurallink`. Where no official deep link exists, the organisation root is correct — never invent a slug.
 - Use Australian English, `en-AU`, `Australia/Perth`, ISO source timestamps, plain non-stigmatising language, and the glossary's preferred terms.
 - Reuse the existing repository primitives where their contracts apply; every button must have a real action or a stated unavailable reason. Verified import homes in this worktree:
   - `Button` — `src/components/ui/button.tsx`
@@ -410,10 +410,19 @@ export type EdPresentation = {
   recordedAt: string;
 };
 
+/** The spec's amendable set: disposition, assessment outcome, the one-line
+ *  account, and the three plan-use answers. The plan-use answers are presented
+ *  to the user as one group; each changed answer still appends its own
+ *  attributed amendment, so the stored evidence stays one field per record. */
+export type AmendableField =
+  "assessmentOutcome" | "disposition" | "note" | "planAvailability" | "planUse" | "planHelpfulness";
+
 export type PresentationAmendment = {
   id: SyntheticId;
   presentationId: SyntheticId;
-  field: "assessmentOutcome" | "disposition";
+  field: AmendableField;
+  /** Display strings for every field, including disposition. The reducer
+   *  validates that a disposition replacement parses to a `Disposition`. */
   originalValue: string;
   replacementValue: string;
   reason: string;
@@ -596,7 +605,7 @@ it.each([
 it("builds a generic CMHT email intent without patient information", () => {
   const contact = syntheticCmhtContacts[0]!;
   const href = buildCmhtMailto(contact);
-  expect(href).toBe("mailto:north-river.cmht@example.org?subject=ED+Care+Plans+%E2%80%94+team+contact+request");
+  expect(href).toBe("mailto:north-river.cmht@example.org?subject=Care+Plan+%E2%80%94+team+contact+request");
   expect(href).not.toMatch(/Rowan|SYN-MRN|1986|presentation|management plan/i);
 });
 ```
@@ -613,6 +622,7 @@ it("builds a generic CMHT email intent without patient information", () => {
 | CMHTs     | `SYN-CMHT-001` North River CMHT; `002` Coastal Plains Older Adult CMHT; `003` Wandoo District CMHT                                                    |
 | Scenarios | Normal Current Plan; overdue Current plus Awaiting Approval; no Current Plan; withdrawn Current; mixed-helpfulness Review Trigger; unverified contact |
 
+- [ ] Use the ACMA range reserved for fiction, `0491 570 006` to `0491 570 156`, for every fictional Australian telephone number. This is the Australian equivalent of the `555` convention and is correct — no later task should "fix" it to a different-looking number.
 - [ ] Give every fictional CMHT a reserved-example shared mailbox, fictional Australian mobile, hours, timezone, coordinator, after-hours path, verification date, and verification state. Add the separately labelled official crisis-contact fixtures and source URLs specified in Global Constraints.
 - [ ] Add enough ED Presentation fixtures to derive each displayed activity count from presentation timestamps. Rowan must show `7 ED presentations in rolling 12 months`; this is observation-only copy and is never compared with policy.
 - [ ] Write fixture plan content against the eleven-field two-tier shape. Every fixture Current version fills all five first-minute keys and `whyThisPlanExists`; at least one fixture leaves two full-plan keys empty so the `Not recorded` path has coverage. Fixture prose must be plausible clinical continuity guidance in the glossary's preferred language, and `whatWouldMakeThisDifferent` must always name concrete new findings that would void the plan rather than generic caution.
@@ -696,15 +706,8 @@ export type CarePlanPrototypeAction =
   | {
       type: "amend-presentation";
       presentationId: SyntheticId;
-      field: "assessmentOutcome";
+      field: AmendableField;
       replacementValue: string;
-      reason: string;
-    }
-  | {
-      type: "amend-presentation";
-      presentationId: SyntheticId;
-      field: "disposition";
-      replacementValue: Disposition;
       reason: string;
     }
   | { type: "create-safety-plan-draft"; patientId: SyntheticId }
@@ -741,7 +744,7 @@ export type CarePlanPrototypeAction =
 - [ ] Make approval validate: actor role, version state, named approver, complete required content, and an existing plan. In one returned state, supersede the previous Current version, make the submitted version Current, set approver/approval date/review state, update `currentVersionId`, and append one audit event.
 - [ ] Make return-for-changes require a non-empty reason and return Awaiting Approval to Draft without touching Current. Make withdrawal require a non-empty reason and leave no Current version.
 - [ ] Make `record-presentation` append an episode and audit event. If helpfulness is `mixed` or `not_helpful`, `reviewSuggested` is true, disposition is a mental-health/medical admission, or a material deviation is recorded, append one deduplicated open Review Trigger.
-- [ ] Make `amend-presentation` append original/replacement/reason/actor/time evidence while keeping the episode immutable. Restrict amendable fields to the union in the action.
+- [ ] Make `amend-presentation` append original/replacement/reason/actor/time evidence while keeping the episode immutable. Restrict amendable fields to `AmendableField`, and reject a `disposition` replacement that does not parse to a `Disposition`.
 - [ ] Make Safety Plan publication require an editable Draft, supersede the prior Current Safety Plan, and set the new version Current without consulting senior-approval state.
 - [ ] Make contact-intent actions append only intent audit events; make manual identification referral append an Identification Review and audit event without creating a Management Plan or Review Trigger.
 - [ ] Make `close-identification-review` require an `open` review and a non-empty reason, set `status: "closed"` with the decision, reason, actor, and time, and append one `identification_review_closed` audit event. It must create no plan and no version on any decision, including `proceed_to_plan`. Closing an already-closed review leaves state unchanged and sets a specific `lastOutcome`.
@@ -885,7 +888,7 @@ it("exposes only intent-safe CMHT launch links", () => {
   renderRoute(CARE_PLAN_ROUTES.patient);
   expect(screen.getByRole("link", { name: "Email North River CMHT" })).toHaveAttribute(
     "href",
-    "mailto:north-river.cmht@example.org?subject=ED+Care+Plans+%E2%80%94+team+contact+request",
+    "mailto:north-river.cmht@example.org?subject=Care+Plan+%E2%80%94+team+contact+request",
   );
   expect(screen.getByRole("link", { name: "Call North River CMHT" })).toHaveAttribute("href", "tel:+61491570101");
 });
@@ -1060,7 +1063,7 @@ it("records plan-use feedback and creates a Review Suggested item without changi
 - [ ] Require site, disposition, plan availability, plan use, and plan helpfulness; require a review reason whenever review is suggested and a deviation reason whenever a deviation is recorded. Presenting indication and assessment outcome are never required. Use an error summary and focus the first invalid field.
 - [ ] On save, call `nextPresentationId(state)`, dispatch `record-presentation` with that ID, announce only local synthetic recording, and navigate to the matching detail route. The reducer validates the caller-provided synthetic ID before appending.
 - [ ] Implement the detail page with the original immutable episode, recording clinician/time, linked plan version, plan-use feedback, outcome, Review Trigger, and an `Amend recorded outcome` action.
-- [ ] The amendment Sheet permits only assessment outcome or disposition, shows the original value, and requires replacement plus reason. On save, display original and latest amendment together; do not replace the original DOM text.
+- [ ] The amendment Sheet permits the six `AmendableField` values, shows each original value, and requires a replacement plus one reason. The three plan-use answers are presented as a single group; changing more than one in that group appends one amendment per changed answer under the same reason. On save, display original and latest amendment together; do not replace the original DOM text.
 - [ ] Wire presentation list/new/detail paths in `routable-suite.tsx`; validate that the episode belongs to the patient before rendering and show identity uncertainty rather than another patient's data on mismatch.
 - [ ] Complete DOM tests for required fields, no-Current linkage, Current linkage, helpful/no-trigger, mixed/not-helpful trigger, admission trigger, deviation trigger, deduplication, deterministic navigation, original-plus-amendment rendering, and mismatched identity refusal.
 - [ ] Run `npm run test -- tests/care-plan-domain.test.ts tests/care-plan-prototype-state.test.ts tests/care-plan-linked-routes.dom.test.tsx`. Expected GREEN.

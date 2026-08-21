@@ -4,12 +4,12 @@
 **Implementation status:** Not started  
 **Design status:** Approved  
 **Planning status:** Complete  
-**Working directory:** `D:\Repos\Database\.claude\worktrees\care-plan-impl-7f44cd` (superseded 21 Aug 2026; the original `D:\Worktrees\Database\care-plan` is now planning-only and must not be written to)  
-**Branch:** `claude/care-plan-impl-7f44cd` (based on `main` at `97f614223`)
+**Working directory:** `D:\Repos\Database\.claude\worktrees\ed-care-plans-impl-7f44cd` (superseded 21 Aug 2026; the original `D:\Worktrees\Database\ed-care-plans` is now planning-only and must not be written to)  
+**Branch:** `claude/ed-care-plans-impl-7f44cd` (based on `main` at `97f614223`)
 
 ## One-minute start
 
-**Superseded 21 August 2026.** Do all Care Plan work in `D:\Repos\Database\.claude\worktrees\care-plan-impl-7f44cd` on branch `claude/care-plan-impl-7f44cd`, which is based on current `main`. The four planning documents were copied there and are now tracked with the code. The original planning worktree `D:\Worktrees\Database\care-plan` is read-only reference; do not edit it. Do not edit the dirty shared checkout at `D:\Repos\Database`.
+**Superseded 21 August 2026.** Do all Care Plan work in `D:\Repos\Database\.claude\worktrees\ed-care-plans-impl-7f44cd` on branch `claude/ed-care-plans-impl-7f44cd`, which is based on current `main`. The four planning documents were copied there and are now tracked with the code. The original planning worktree `D:\Worktrees\Database\ed-care-plans` is read-only reference; do not edit it. Do not edit the dirty shared checkout at `D:\Repos\Database`.
 
 Four user decisions were recorded on 21 August 2026 and are binding: build the synthetic prototype now but keep the domain shaped for later real storage; keep the full multi-service workflow including named senior-clinician approval; deliver Tasks 1–5 first and stop for user review; local task commits are authorised (nothing pushed). See the Revision history and Delivery Stages sections of the implementation plan.
 
@@ -33,39 +33,26 @@ The previous localhost visual server is no longer running. Open the HTML file di
 ## Copy/paste prompt for Claude
 
 ```text
-Continue the approved Care Plan build from the handover in
-D:\Worktrees\Database\care-plan on branch codex/care-plan.
+Resume the Care Plan build in D:\Repos\Database\.claude\worktrees\ed-care-plans-impl-7f44cd
+on branch claude/ed-care-plans-impl-7f44cd.
 
-Work only in that isolated worktree. Do not touch D:\Repos\Database, which contains
-unrelated dirty work. Read AGENTS.md and CLAUDE.md, then read these files in order:
+Read, in order: docs/superpowers/specs/2026-08-20-care-plan-design.md (binding),
+docs/care-plan-context.md (binding glossary), and the Global Constraints and
+Delivery Stages sections of
+docs/superpowers/plans/2026-08-20-care-plan-implementation.md.
 
-1. docs/care-plan/CLAUDE-START-HERE.md
-2. docs/care-plan/claude-build-handover-2026-08-21.md
-3. docs/superpowers/specs/2026-08-20-care-plan-design.md
-4. docs/care-plan-context.md
-5. docs/superpowers/plans/2026-08-20-care-plan-implementation.md
-6. docs/care-plan/conversation-transcript-2026-08-21.md
-7. docs/care-plan/verification-log-2026-08-21.md
+Then read .superpowers/sdd/2026-08-20-care-plan-implementation/progress.md — the SDD
+ledger. Tasks with a "Task N: complete" line are done; resume at the first without
+one. The ledger also carries every controller ruling. If the ledger is missing, the
+worktree was deleted again: recover from git log, because every task commits at its
+end.
 
-The design and implementation plan are approved. Do not re-brainstorm or encode a
-numeric presentation threshold. Execute the nine tasks in order using the named
-Superpowers subagent-driven-development and test-driven-development workflow. Keep
-the app completely synthetic, reset-on-refresh, and provider-free. Use repository
-test and browser wrappers only.
+Execute with superpowers:subagent-driven-development. Eleven tasks. Stop at the Stage
+A checkpoint after Task 5 and report to the user; do not start Task 6 on your own
+judgment.
 
-Before editing, verify the branch, HEAD, upstream, status, and the current gap to
-origin/main. Preserve every existing untracked handover/specification file. Do not
-merge, rebase, pull, or move the base without my explicit authorization.
-
-Routine local implementation and offline verification are intended. No commit,
-push, pull, merge, rebase, PR, deployment, provider/API access, migration, or live
-data access is authorized by this handover. Ask separately before creating local
-commits because the requested SDD workflow normally uses them as checkpoints.
-
-Begin with Task 1 in the implementation plan. Use a failing focused test first,
-record the decisive red and green lines, obtain the task reviews required by the
-plan, and continue task by task. Stop only for a material authorization boundary or
-a conflict that cannot be resolved safely from the repository.
+Synthetic, memory-only, provider-free throughout. Local commits are authorised;
+nothing else is — no push, PR, merge, rebase, deployment, or provider access.
 ```
 
 ## Current Git checkpoint
