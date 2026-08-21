@@ -85,12 +85,22 @@ fi
 
 # Resolve the git directory the way `git rev-parse --absolute-git-dir` does, with
 # builtins only. fast_git_dir is left EMPTY whenever the answer is not certain —
-# a GIT_* override, a `.git` file that does not resolve, a cwd that is itself a
-# git dir, or no repository above cwd — and every one of those falls through to
-# the authoritative `git rev-parse` in the marker section below.
+# any of git's own discovery controls being set, a `.git` file that does not
+# resolve, a cwd that is itself a git dir, or no repository above cwd — and every
+# one of those falls through to the authoritative `git rev-parse` in the marker
+# section below.
+#
+# The discovery controls are load-bearing, not decoration. GIT_CEILING_DIRECTORIES
+# in particular stops git ascending, so from a ceiling-excluded subdirectory git
+# reports NO repository and the marker belongs in TMPDIR — while a naive upward
+# walk finds the excluded checkout's `.git` and puts it there instead. Those two
+# answers disagreeing across a post/pre pair is exactly how this guard would stop
+# firing, so treat every discovery control as uncertain rather than guessing.
 fast_git_dir=""
 resolve_fast_git_dir() {
-  [ -n "${GIT_DIR:-}${GIT_COMMON_DIR:-}${GIT_WORK_TREE:-}" ] && return 0
+  # Keep in sync with git's discovery controls; an unrecognised one must fail
+  # closed to `git rev-parse`, never be walked past.
+  [ -n "${GIT_DIR:-}${GIT_COMMON_DIR:-}${GIT_WORK_TREE:-}${GIT_CEILING_DIRECTORIES:-}${GIT_DISCOVERY_ACROSS_FILESYSTEM:-}" ] && return 0
   # cwd is itself a git dir (bare repo): walking up would find a different repo.
   [ -f "$PWD/HEAD" ] && [ -d "$PWD/objects" ] && [ -d "$PWD/refs" ] && return 0
   local dir="$PWD" line target
