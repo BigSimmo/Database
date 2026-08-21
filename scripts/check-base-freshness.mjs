@@ -47,6 +47,7 @@
  *   --strict  exit 1 when the base ref cannot be resolved (default: exit 0)
  */
 import { execFileSync } from "node:child_process";
+import { realpathSync } from "node:fs";
 import path from "node:path";
 
 const threshold = Number.parseInt(process.env.STALE_BASE_THRESHOLD ?? "10", 10) || 10;
@@ -123,7 +124,22 @@ function finish(result) {
 const expectedRoot = process.env.CLAUDE_PROJECT_DIR;
 if (expectedRoot) {
   const resolvedToplevel = tryGit(["rev-parse", "--show-toplevel"]);
-  const normalize = (p) => (process.platform === "win32" ? path.resolve(p).toLowerCase() : path.resolve(p));
+  // realpath, not just path.resolve: CLAUDE_PROJECT_DIR can name the intended checkout
+  // through a symlink or junction (D: Dev Drive worktrees are reached that way in some
+  // setups) while `git rev-parse --show-toplevel` always returns the canonical path. Two
+  // spellings of the same real directory must not trip the tripwire. If either side can't be
+  // resolved (permissions, a path that vanished between the git call and this one), fall back
+  // to the lexical form rather than throwing — this check is advisory-only and must never take
+  // down the SessionStart hook it runs in.
+  const normalize = (p) => {
+    let resolved = path.resolve(p);
+    try {
+      resolved = realpathSync.native(resolved);
+    } catch {
+      // Leave `resolved` as the lexical path.resolve() form.
+    }
+    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  };
   if (resolvedToplevel && normalize(resolvedToplevel) !== normalize(expectedRoot)) {
     finish({
       branch: "(unknown)",

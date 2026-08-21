@@ -445,8 +445,11 @@ export function parseArgs(argv) {
   // outside Claude Code). A worktree destroyed here has no local reflog of its own to recover
   // from, so the actual deletion needs a second, tool-agnostic gate that only a human sets:
   // CLEAN_WORKTREE_CONFIRM=1 in the invoking shell. No default flips this on. Listing
-  // candidates (`--merged` without `--remove`) is unaffected and needs no env var.
-  if (remove && process.env.CLEAN_WORKTREE_CONFIRM !== "1") {
+  // candidates (`--merged` without `--remove`) is unaffected and needs no env var. `--dry-run`
+  // is exempt too: `--merged --remove --dry-run` can delete nothing (dry-run wins over remove
+  // in runMergedWorktreeReport below), so gating it here would only block the safe preflight
+  // preview an operator runs before setting the confirm var for real.
+  if (remove && !dryRun && process.env.CLEAN_WORKTREE_CONFIRM !== "1") {
     throw new Error(
       "--remove refused: set CLEAN_WORKTREE_CONFIRM=1 in your shell to confirm you (a human) reviewed the " +
         "candidate list above and want these worktrees deleted. This gate exists because a worktree removed " +
@@ -715,6 +718,14 @@ export function selfTest() {
   }
   if (!unconfirmedRemoveThrew) {
     throw new Error("selfTest failed: --merged --remove without CLEAN_WORKTREE_CONFIRM=1 must refuse");
+  }
+
+  // `--dry-run` can delete nothing, so it must stay usable as a preflight preview without the
+  // confirm var — this was the actual P2 Codex found: the gate above fired before dry-run got
+  // a chance to win.
+  const dryRunArgs = parseArgs(["--merged", "--remove", "--dry-run"]);
+  if (!dryRunArgs.merged || !dryRunArgs.remove || !dryRunArgs.dryRun) {
+    throw new Error("selfTest failed: --merged --remove --dry-run without CLEAN_WORKTREE_CONFIRM=1 must still parse");
   }
 
   process.env.CLEAN_WORKTREE_CONFIRM = "1";
