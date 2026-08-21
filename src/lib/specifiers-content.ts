@@ -226,20 +226,11 @@ export function popularCatalogSlugs(limit = 96): string[] {
     .map((item) => item.slug);
 }
 
-export function specifiersProject(): SpecifierProject {
-  return loadSpecifiersContent().project;
-}
 export function specifiersStats(): SpecifierStats {
   return loadSpecifiersContent().stats;
 }
-export function specifiersScopeWarning(): string {
-  return loadSpecifiersContent().scopeWarning;
-}
 export function universalSpecifiers(): UniversalSpecifier[] {
   return loadSpecifiersContent().universalSpecifiers;
-}
-export function specifierCategories(): SpecifierCategory[] {
-  return loadSpecifiersContent().categories;
 }
 export function authoritativeSources(): AuthoritativeSource[] {
   return loadSpecifiersContent().authoritativeSources;
