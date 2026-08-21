@@ -22,6 +22,17 @@ import {
 
 const temporaryRoots: string[] = [];
 
+/**
+ * Explicit environment for every test that exercises record/reuse behaviour.
+ *
+ * These calls default to `process.env`, and receipts are disabled whenever `CI` is set —
+ * by design, since CI must never reuse a receipt. Depending on the ambient environment
+ * therefore made the suite pass locally and fail on GitHub, where the reuse assertions
+ * became unreachable. CI caught it on PR #2216. Pass this wherever reuse is the subject;
+ * the CI-refusal itself is asserted separately in "reuse boundaries".
+ */
+const RECEIPTS_ENABLED: Record<string, string | undefined> = {};
+
 /** A throwaway git worktree, so signature behaviour is proven against real git plumbing. */
 function gitFixture(files: Record<string, string>) {
   const root = mkdtempSync(path.join(os.tmpdir(), "gate-receipts-"));
@@ -252,27 +263,29 @@ describe("gate receipts — keying", () => {
 describe("gate receipts — recording", () => {
   it("never memoises a failure", () => {
     const { root } = gitFixture({ "a.ts": "1\n" });
-    const decision = consultGateReceipt({ projectRoot: root, gate: "vitest", args: ["run"] });
-    expect(recordGateReceipt({ projectRoot: root, decision, exitCode: 1 }).recorded).toBe(false);
+    const decision = consultGateReceipt({ projectRoot: root, gate: "vitest", args: ["run"], env: RECEIPTS_ENABLED });
+    expect(recordGateReceipt({ projectRoot: root, decision, exitCode: 1, env: RECEIPTS_ENABLED }).recorded).toBe(false);
     expect(loadStore(root).gates.vitest ?? []).toHaveLength(0);
   });
 
   it("refuses to record when the tree changed while the gate was running", () => {
     const { root, write } = gitFixture({ "a.ts": "1\n" });
-    const decision = consultGateReceipt({ projectRoot: root, gate: "vitest", args: ["run"] });
+    const decision = consultGateReceipt({ projectRoot: root, gate: "vitest", args: ["run"], env: RECEIPTS_ENABLED });
     write("a.ts", "2\n"); // the edit a session makes while the suite is still running
-    const result = recordGateReceipt({ projectRoot: root, decision, exitCode: 0 });
+    const result = recordGateReceipt({ projectRoot: root, decision, exitCode: 0, env: RECEIPTS_ENABLED });
     expect(result.recorded).toBe(false);
     expect(result.reason).toContain("changed while the gate ran");
   });
 
   it("records a pass and reuses it for an identical tree", () => {
     const { root } = gitFixture({ "a.ts": "1\n" });
-    const first = consultGateReceipt({ projectRoot: root, gate: "vitest", args: ["run"] });
+    const first = consultGateReceipt({ projectRoot: root, gate: "vitest", args: ["run"], env: RECEIPTS_ENABLED });
     expect(first.reuse).toBe(false);
-    expect(recordGateReceipt({ projectRoot: root, decision: first, exitCode: 0 }).recorded).toBe(true);
+    expect(recordGateReceipt({ projectRoot: root, decision: first, exitCode: 0, env: RECEIPTS_ENABLED }).recorded).toBe(
+      true,
+    );
 
-    const second = consultGateReceipt({ projectRoot: root, gate: "vitest", args: ["run"] });
+    const second = consultGateReceipt({ projectRoot: root, gate: "vitest", args: ["run"], env: RECEIPTS_ENABLED });
     expect(second.reuse).toBe(true);
     expect(second.message).toContain("reused receipt, not a fresh run");
   });
@@ -297,8 +310,12 @@ describe("gate receipts — wrapper contract", () => {
     const logs: string[] = [];
     const log = (message: string) => logs.push(message);
 
-    expect(await withGateReceipt({ projectRoot: root, gate: "vitest", args: ["run"], run, log })).toBe(0);
-    expect(await withGateReceipt({ projectRoot: root, gate: "vitest", args: ["run"], run, log })).toBe(0);
+    expect(
+      await withGateReceipt({ projectRoot: root, gate: "vitest", args: ["run"], run, env: RECEIPTS_ENABLED, log }),
+    ).toBe(0);
+    expect(
+      await withGateReceipt({ projectRoot: root, gate: "vitest", args: ["run"], run, env: RECEIPTS_ENABLED, log }),
+    ).toBe(0);
     expect(runs).toBe(1);
     expect(logs.some((line) => line.includes("REUSED"))).toBe(true);
   });
@@ -310,9 +327,23 @@ describe("gate receipts — wrapper contract", () => {
       runs += 1;
       return 1;
     };
-    await withGateReceipt({ projectRoot: root, gate: "vitest", args: ["run"], run: failing, log: () => {} });
+    await withGateReceipt({
+      projectRoot: root,
+      gate: "vitest",
+      args: ["run"],
+      run: failing,
+      env: RECEIPTS_ENABLED,
+      log: () => {},
+    });
     write("a.ts", "2\n");
-    await withGateReceipt({ projectRoot: root, gate: "vitest", args: ["run"], run: failing, log: () => {} });
+    await withGateReceipt({
+      projectRoot: root,
+      gate: "vitest",
+      args: ["run"],
+      run: failing,
+      env: RECEIPTS_ENABLED,
+      log: () => {},
+    });
     expect(runs).toBe(2);
   });
 
