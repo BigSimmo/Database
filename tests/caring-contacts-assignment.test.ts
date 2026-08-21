@@ -71,7 +71,11 @@ describe("plan ownership", () => {
 
   it("refuses to reassign a plan that has never been claimed", () => {
     expect(
-      applyAssignmentAction(unassigned(), { type: "reassign", toActorId: actorId("ACTOR-NEW"), reason: "leave" }, clock),
+      applyAssignmentAction(
+        unassigned(),
+        { type: "reassign", toActorId: actorId("ACTOR-NEW"), reason: "leave" },
+        clock,
+      ),
     ).toEqual({ ok: false, reason: "plan-not-claimed" });
   });
 

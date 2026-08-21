@@ -16,11 +16,7 @@
 import type { ActorId } from "./ids";
 
 export type AlertClass =
-  | "unclaimedWorkEscalation"
-  | "permanentDeliveryFailure"
-  | "serviceSafetyStop"
-  | "exceptionBacklog"
-  | "pathwayRetired";
+  "unclaimedWorkEscalation" | "permanentDeliveryFailure" | "serviceSafetyStop" | "exceptionBacklog" | "pathwayRetired";
 
 export const ALERT_CLASSES: readonly AlertClass[] = Object.freeze([
   "unclaimedWorkEscalation",

@@ -16,8 +16,7 @@ export type ReferralAction =
   | { type: "decline"; reason: string };
 
 export type DuplicateReferralOutcome =
-  | { type: "createNewEpisode" }
-  | { type: "routeToExistingEpisode"; planId: PlanId };
+  { type: "createNewEpisode" } | { type: "routeToExistingEpisode"; planId: PlanId };
 
 /**
  * Applies one referral action.

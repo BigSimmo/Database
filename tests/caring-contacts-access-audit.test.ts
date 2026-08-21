@@ -46,7 +46,10 @@ describe("access auditing", () => {
 
   it("refuses a patient name with no digits in it, not only a phone number", () => {
     expect(() =>
-      buildAccessAuditEvent({ ...base, kind: "search", objectType: "patientDirectory", objectId: "Rowan Whitlock" }, clock),
+      buildAccessAuditEvent(
+        { ...base, kind: "search", objectType: "patientDirectory", objectId: "Rowan Whitlock" },
+        clock,
+      ),
     ).toThrow(AuditEventContainsPatientDataError);
   });
 

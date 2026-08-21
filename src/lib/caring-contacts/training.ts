@@ -13,13 +13,7 @@ import type { ActorId } from "./ids";
 export type WorkspaceKind = "live" | "training";
 
 export type TrainingCompetency =
-  | "identityReview"
-  | "activation"
-  | "withdrawal"
-  | "deliveryFailure"
-  | "readmission"
-  | "downtime"
-  | "incidentHandling";
+  "identityReview" | "activation" | "withdrawal" | "deliveryFailure" | "readmission" | "downtime" | "incidentHandling";
 
 export const TRAINING_COMPETENCIES: readonly TrainingCompetency[] = Object.freeze([
   "identityReview",
