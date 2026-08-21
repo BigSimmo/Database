@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d83ca697-3bb1-431d-b740-9691b5a20b39",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Local process-spawn starvation silently makes every git push take minutes; the one-command diagnostic is not written down anywhere",
+    "detail": "MEASURED TWICE, THREE DAYS APART. On 2026-08-20 a session recorded `gh --version` at 1m37s and concluded gh itself was broken, which made every git push take 5-10 minutes because .githooks/pre-push -> guard-push.mjs invokes gh several times per push. On 2026-08-22 the same binary measured 0.201s, 0.262s and 0.278s on three consecutive runs. IT WAS NEVER GH. The decisive comparison is a binary with nothing to do with gh: `node --version` was 17s on 2026-08-20 and 0.080s on 2026-08-22, a ~200x change. `git --version` measures 0.069s. gh is unchanged between the two readings -- same 2.97.0, same C:\\Program Files\\GitHub CLI\\gh.exe on local disk (not a network path, not a shim), same 41,775,416 bytes, and ZERO extensions installed, so the usual suspects (startup update check, extension probing, slow path) are all excluded. Windows Defender real-time protection was ON in BOTH readings, so Defender alone is not sufficient to cause it either; exclusions could not be read without administrator rights. WHAT ACTUALLY CHANGED: the machine had been rebooted about an hour before the fast reading. The condition is machine-wide process-spawn starvation that accumulates with long uptime and many concurrent agent sessions, and a reboot clears it. The precise mechanism cannot be pinned down retroactively once the state is gone, and that is stated rather than guessed at. IT IS ALREADY REBUILDING: one hour after the reboot the machine showed 49 node processes, 31 claude processes, 548 processes total, and 6.9 GB free of 32 GB. So this recurs rather than being a one-off, and the next session to hit it will again mistake it for a broken tool. NEXT (cheap, docs-only): write the diagnostic down where a session will find it -- `time node --version` is the whole test. Sub-second means the machine is healthy and a slow push is something else; multiple seconds means spawn starvation, and the fix is to close sessions or reboot, NOT to debug gh, git, or the pre-push guard. Natural home is the traps section of AGENTS.md or docs/testing.md. STOP: do not change Windows security settings or add a Defender exclusion on this evidence -- the two readings show Defender is not the discriminating variable, and a security-settings change needs the owner regardless.",
+    "source": "measured 2026-08-20 and 2026-08-22 on the Windows workstation; session 2026-08-22 Phase 5 close-out",
+    "issueUlid": "01M0K1TH6KVV83VA74C3B7DMQR"
+  }
+}
