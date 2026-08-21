@@ -73,9 +73,11 @@ If you start fresh, **the tracked build record becomes the ledger** — say so i
 ## 4. Exactly where the work stopped
 
 **Branch:** `claude/suicide-contact-mockup-b5aaa0`
-**Worktree:** `D:\Repos\Database\.claude\worktrees\rag-readability-metric-split-7e8ac4`
-(note: the worktree directory name is unrelated to this work — it was reused)
-**Head:** `6afce3893`. Working tree clean. Nothing pushed, no PR.
+**Worktree:** `D:\Worktrees\Database\caring-contacts-phase-2a`
+(the original worktree under `.claude\worktrees\` was destroyed by another process on this workstation
+on 2026-08-21 — see the build record. Do not recreate one there. Dependencies are already installed at
+the path above, and `npm ci` takes about 58 minutes on this machine.)
+**Head:** `c3d211ed2`. Working tree clean. Nothing pushed, no PR.
 
 ### Done and reviewed clean
 
@@ -210,7 +212,7 @@ Recorded in full in the build record. The one worth naming here, because it is c
 ## 8. Starting a new session
 
 ```
-cd D:\Repos\Database\.claude\worktrees\rag-readability-metric-split-7e8ac4
+cd D:\Worktrees\Database\caring-contacts-phase-2a
 git log --oneline -5
 git status
 ```

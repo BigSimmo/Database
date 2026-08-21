@@ -10,11 +10,16 @@ Caring Contacts — Phase 2A, resume mid-plan. Read before writing anything.
 
 WHERE THE WORK IS
 Repository:  D:\Repos\Database
-Worktree:    D:\Repos\Database\.claude\worktrees\rag-readability-metric-split-7e8ac4
-Branch:      claude/suicide-contact-mockup-b5aaa0   (head d2bc95796, tree clean)
-The worktree's directory name is unrelated to this work — it was reused. Work THERE, not in the
-main checkout, which is on a different branch. The branch is 43 commits ahead of main and has
-never been pushed; it exists only on this machine.
+Worktree:    D:\Worktrees\Database\caring-contacts-phase-2a
+Branch:      claude/suicide-contact-mockup-b5aaa0   (head c3d211ed2, tree clean)
+Work THERE, not in the main checkout, which is on a different branch. The branch is 48 commits
+ahead of main and has never been pushed; it exists only on this machine.
+
+DO NOT use a worktree under D:\Repos\Database\.claude\worktrees\. The original one for this work
+was DELETED by another process on this workstation mid-session on 2026-08-21, taking an hour of
+uncommitted work with it; the branch survived only because it had been committed. Dependencies are
+already installed at the path above — `npm ci` takes about 58 minutes here, so do not discard them.
+Commit early and often rather than holding work uncommitted.
 
 READ FIRST, IN THIS ORDER
 1. docs/caring-contacts/phase-2a-handoff.md
@@ -54,25 +59,26 @@ approved. Phase 2A is foundations; the working clinician-facing screens are Phas
 
 STATE — three things you must not misread
 
-1. Tasks 1-10 and Task 11a are complete and reviewed clean. Task 11a then had a fix round 1
-   (Rulings 27-29), also complete: 87 database tests against a verified 55/55 baseline.
+1. Tasks 1-10 and Task 11a are COMPLETE and reviewed, through THREE fix rounds. Rulings 27-34 are all
+   implemented and verified. The caring-contact database suite is at 96 passed, and all three of the
+   newest tests have been proven falsifiable by deliberate mutation, not merely green. There is no
+   outstanding verification: the previous session's unverified commit 6afce3893 was confirmed
+   (93 passed, both Ruling 30/31 mutations reddening only their intended tests), reviewed, and the
+   review's three Important findings were fixed as Rulings 32-34.
 
-2. Commit 6afce3893 is Task 11a fix round 2 and is COMMITTED BUT NOT VERIFIED. The session
-   implementing it was terminated by an account spend limit immediately after it reported
-   "93 passed. Now the mutations." That run was never confirmed and NONE of the deliberate-breakage
-   checks were performed. THIS IS YOUR FIRST JOB. The full recovery procedure is in that commit's
-   own message; in short: start Docker, then
+2. Start the database container before any database run, then verify with the suite:
      docker run -d --name caring-contacts-pg -e POSTGRES_PASSWORD=caring-contacts-local -p 54329:5432 --restart unless-stopped postgres:17
      CARING_CONTACTS_DATABASE_URL=postgres://postgres:caring-contacts-local@127.0.0.1:54329/postgres npm run caring-contacts:db:test
-   Confirm the decisive "N passed" line — 87 is the last verified count, 93 is claimed but
-   unconfirmed. Then run the two Ruling 30/31 mutations, confirm each reddens the intended test,
-   and only then dispatch a scoped re-review over 8d7319c54..HEAD.
+   Expect the decisive line "Tests 96 passed (96)". NEVER report a run from its exit code. If the output
+   has no "Test Files" summary line the run did not happen — the cross-worktree lock coordinator throws
+   EPERM on owner.json/gate.lock under concurrency, which is an ACQUISITION failure, not a result. Retry.
 
 3. Two failures are EXPECTED and are not yours to "fix" by weakening anything:
    - `npm run typecheck` is RED on src/lib/caring-contacts/db/postgres-repository.ts, which does not
-     implement the ~21 methods Task 10 added to the interface. Task 11b fixes it. Do NOT narrow the
-     interface and do NOT stub the methods — a stub that satisfies the compiler while failing at
-     runtime turns a visible failure into a hidden one.
+     implement the ~21 methods Task 10 added to the interface. The interface declares 38 methods, the
+     in-memory store implements 38, the Postgres store implements 16 — a gap of 22. Task 11b fixes it.
+     Do NOT narrow the interface and do NOT stub the methods — a stub that satisfies the compiler while
+     failing at runtime turns a visible failure into a hidden one.
    - `npm run test` has exactly one failure, in tests/caring-contacts-retention.test.ts. It entered
      with commit 6bf9f6362 and is a naming quirk, not a real leak. Ruling 26 specifies the fix and
      it is already written into the Task 11b brief.
