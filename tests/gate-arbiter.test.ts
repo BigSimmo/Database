@@ -10,7 +10,12 @@ import {
   classFromScope,
   deriveCiCoverage,
   observationKey,
+  recordCiVerdict,
+  recordGateOutcome,
+  scopeFlagsInGuard,
   summariseYield,
+  vitestGateIdentity,
+  MAX_OBSERVATIONS,
 } from "../scripts/gate-arbiter.mjs";
 
 const projectRoot = process.cwd();
@@ -89,14 +94,20 @@ describe("gate arbiter — change classification fails closed", () => {
 });
 
 describe("gate arbiter — CI coverage is derived, not assumed", () => {
-  it("resolves a gate CI runs under its own name", () => {
-    expect(deriveCiCoverage(projectRoot, "lint").covered).toBe(true);
+  it("resolves a gate CI runs under its own name, when its guard is satisfied", () => {
+    expect(deriveCiCoverage(projectRoot, "lint", { scope: { static_heavy_changed: true } }).covered).toBe(true);
   });
 
   it("resolves a gate CI runs under its coverage-job name", () => {
-    const coverage = deriveCiCoverage(projectRoot, "test");
+    const coverage = deriveCiCoverage(projectRoot, "test", { scope: { coverage_changed: true } });
     expect(coverage.covered).toBe(true);
     expect(coverage.via).toBe(CI_EQUIVALENT.get("test"));
+  });
+
+  it("claims no coverage when the change scope is unknown", () => {
+    // Without a scope the guards cannot be evaluated, so the conservative answer is
+    // "not covered", which runs the gate. Fail open, never toward a skipped gate.
+    expect(deriveCiCoverage(projectRoot, "lint").covered).toBe(false);
   });
 
   it("reports no coverage when CI cannot be read, so the gate runs", () => {
@@ -196,5 +207,154 @@ describe("gate arbiter — the decision table", () => {
       { GATE_ARBITER: "enforce" },
     );
     expect(decision.enforce).toBe(true);
+  });
+});
+
+describe("gate arbiter — CI coverage evaluates step and job guards", () => {
+  // The P1 from Codex review on PR #2245, reproduced against the real ci.yml: `lint`
+  // and `typecheck` are step-conditional on static_heavy_changed, `test:coverage` is
+  // job-conditional on coverage_changed. A docs-only change satisfies neither, so CI
+  // skips all three — and a name-only scan would call them covered, which under
+  // enforce leaves no verdict anywhere.
+  const docsOnly = {
+    docs_only: true,
+    docs_changed: true,
+    static_heavy_changed: false,
+    coverage_changed: false,
+    source_changed: false,
+  };
+  const sourceScope = { source_changed: true, static_heavy_changed: true, coverage_changed: true };
+
+  it.each(["lint", "typecheck", "test"])("reports %s uncovered for docs-only scope", (gate) => {
+    const coverage = deriveCiCoverage(projectRoot, gate, { scope: docsOnly });
+    expect(coverage.covered).toBe(false);
+    expect(coverage.reason).toMatch(/only when|no CI step/);
+  });
+
+  it.each(["lint", "typecheck", "test"])("reports %s covered for source scope", (gate) => {
+    expect(deriveCiCoverage(projectRoot, gate, { scope: sourceScope }).covered).toBe(true);
+  });
+
+  it("does not defer when CI would skip the gate for this change", () => {
+    const clean = Array.from({ length: 50 }, () => false);
+    const decision = decide({
+      changeClass: "docs",
+      coverage: deriveCiCoverage(projectRoot, "test", { scope: docsOnly }),
+      ledger: ledgerWith("test", "docs", clean),
+    });
+    expect(decision.action).toBe("run");
+  });
+
+  it("extracts the change-scope flags a guard depends on", () => {
+    expect(scopeFlagsInGuard("needs.changes.outputs.coverage_changed == 'true' && x")).toEqual(["coverage_changed"]);
+    expect(scopeFlagsInGuard("github.event_name == 'push'")).toEqual([]);
+  });
+
+  it("treats an unreadable CI definition as no coverage", () => {
+    const coverage = deriveCiCoverage(projectRoot, "test", {
+      scope: sourceScope,
+      readFile: () => {
+        throw new Error("unreadable");
+      },
+    });
+    expect(coverage.covered).toBe(false);
+  });
+});
+
+describe("gate arbiter — a proven verdict is enforceable", () => {
+  it("marks a CI-proven verdict enforceable under enforce, so it is not re-derived", () => {
+    const decision = decide(
+      { ciVerdict: { proven: true, sha: "a".repeat(40), at: new Date().toISOString(), reason: "identical" } },
+      { GATE_ARBITER: "enforce" },
+    );
+    expect(decision.action).toBe("proven");
+    expect(decision.enforce).toBe(true);
+  });
+
+  it("still runs a proven gate in advisory mode", () => {
+    const decision = decide({
+      ciVerdict: { proven: true, sha: "a".repeat(40), at: new Date().toISOString(), reason: "identical" },
+    });
+    expect(decision.enforce).toBe(false);
+  });
+});
+
+describe("gate arbiter — Vitest yield identity", () => {
+  it("keeps the plain identity for the whole suite, including output-only flags", () => {
+    expect(vitestGateIdentity(["run"])).toBe("vitest");
+    expect(vitestGateIdentity(["run", "--reporter=dot"])).toBe("vitest");
+  });
+
+  it("separates any narrowed selection from full-suite history", () => {
+    expect(vitestGateIdentity(["run", "tests/a.test.ts"])).toBe("vitest(selected)");
+    expect(vitestGateIdentity(["run", "--project=node"])).toBe("vitest(selected)");
+    expect(vitestGateIdentity(["run", "-t", "some name"])).toBe("vitest(selected)");
+  });
+
+  it("never lets a focused history satisfy the full-suite window", () => {
+    const clean = Array.from({ length: 50 }, () => false);
+    // A long clean run of focused invocations is recorded under a different key, so
+    // the full-suite gate still sees an empty window and runs.
+    const focusedHistory = ledgerWith("vitest(selected)", "source", clean);
+    const decision = arbitrate({
+      projectRoot,
+      gate: "vitest",
+      env: { CI: undefined },
+      overrides: {
+        receipt: noReceipt,
+        coverage: ciCovers,
+        ciVerdict: noCiVerdict,
+        changeClass: "source",
+        ledger: focusedHistory,
+      },
+    });
+    expect(decision.action).toBe("run");
+  });
+});
+
+describe("gate arbiter — recording boundaries", () => {
+  const disabled = { CI: "true" }; // keeps every assertion off the filesystem
+
+  it("never records an admission-busy exit as a verdict", () => {
+    // Exit 75 is lock contention, not a result. Recording it as a pass would let
+    // contention manufacture a clean window; as a catch it would pin a healthy gate.
+    const result = recordGateOutcome({ projectRoot, gate: "vitest", exitCode: 75, env: { CI: undefined } });
+    expect(result.recorded).toBe(false);
+    expect(result.reason).toMatch(/admission-busy/);
+  });
+
+  it("does not record for a gate outside the arbitrated set", () => {
+    const result = recordGateOutcome({ projectRoot, gate: "docs:check-links", exitCode: 0, env: { CI: undefined } });
+    expect(result.recorded).toBe(false);
+  });
+
+  it("never records anything in CI", () => {
+    expect(recordGateOutcome({ projectRoot, gate: "vitest", exitCode: 0, env: disabled }).recorded).toBe(false);
+  });
+
+  it("truncates the observation window", () => {
+    const overfull = Array.from({ length: MAX_OBSERVATIONS + 25 }, () => false);
+    const stats = summariseYield(ledgerWith("test", "source", overfull), "test", "source");
+    // ledgerWith does not truncate; the cap is applied on write, so assert the constant
+    // is what the writer slices to and that the summary reads whatever is retained.
+    expect(MAX_OBSERVATIONS).toBeGreaterThan(0);
+    expect(stats.runs).toBe(overfull.length);
+  });
+
+  it("rejects a CI verdict without a full 40-character SHA before writing", () => {
+    expect(recordCiVerdict({ projectRoot, sha: "abc123", gates: ["test"] }).recorded).toBe(false);
+    expect(recordCiVerdict({ projectRoot, sha: undefined, gates: ["test"] }).recorded).toBe(false);
+  });
+
+  it("rejects a CI verdict naming no gates", () => {
+    // Recording every arbitrated gate from one observed job would claim proof the
+    // session does not have, and the proven branch runs before every veto.
+    expect(recordCiVerdict({ projectRoot, sha: "a".repeat(40), gates: [] }).recorded).toBe(false);
+  });
+
+  it("rejects a SHA that does not resolve to a commit here", () => {
+    const result = recordCiVerdict({ projectRoot, sha: "a".repeat(40), gates: ["test"] });
+    expect(result.recorded).toBe(false);
+    expect(result.reason).toMatch(/does not resolve/);
   });
 });

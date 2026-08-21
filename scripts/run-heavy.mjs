@@ -48,7 +48,7 @@ if (receipt.reuse) {
 // Weighed before the lease request, like the receipt above: a run the arbiter would
 // defer must not queue for cross-worktree capacity first. Advisory unless
 // GATE_ARBITER=enforce — a gate a human typed still runs by default.
-const verdict = arbitrate({ projectRoot, gate: script, env: process.env });
+const verdict = arbitrate({ projectRoot, gate: script, args: effectiveForwarded, env: process.env });
 if (verdict.action !== "run") console.log(verdict.message);
 if (verdict.enforce) process.exit(0);
 

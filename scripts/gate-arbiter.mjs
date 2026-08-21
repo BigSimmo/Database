@@ -89,9 +89,39 @@ export const ARBITRATED_GATES = new Set([
   "typecheck:source:internal",
   "test",
   "vitest",
+  "vitest(selected)",
   "verify:cheap",
   "verify:pr-local",
 ]);
+
+/**
+ * The yield identity for a Vitest invocation.
+ *
+ * A focused run and the full suite are not the same evidence. Recording both as
+ * plain `vitest` let twelve passing single-file runs build a clean window that would
+ * then permit `npm test` to skip the entire suite — a history produced entirely by a
+ * selection that never executed most of it. Reported as P2 by Codex on PR #2245.
+ *
+ * Only the canonical whole-suite invocation keeps the `vitest` identity; anything
+ * that narrows what executes gets `vitest(selected)`, so the two histories never mix.
+ * Output-only flags (reporters) do not narrow execution and keep the plain identity.
+ *
+ * @param {string[]} argumentList
+ * @returns {"vitest" | "vitest(selected)"}
+ */
+export function vitestGateIdentity(argumentList) {
+  const narrowing = (argumentList ?? []).some((argument, index) => {
+    if (argument === "run") return false;
+    if (argument.startsWith("-")) {
+      return /^--?(project|t|testNamePattern|grep|shard|dir|related)(?:[.=]|$)/.test(argument);
+    }
+    // A positional that is not the value of a preceding valueless long option is a
+    // file or directory filter.
+    const previous = index > 0 ? argumentList[index - 1] : "";
+    return !(previous.startsWith("--") && !previous.includes("="));
+  });
+  return narrowing ? "vitest(selected)" : "vitest";
+}
 
 /**
  * Clean observations required before a gate may be deferred, per change class.
@@ -177,17 +207,94 @@ export const CI_EQUIVALENT = new Map([
 ]);
 
 /**
- * Does CI re-run `gate` on push?
+ * Every `needs.changes.outputs.<flag> == 'true'` reference in a guard expression.
+ * @param {string} guard
+ * @returns {string[]}
+ */
+export function scopeFlagsInGuard(guard) {
+  return [...String(guard ?? "").matchAll(/needs\.changes\.outputs\.([a-z_0-9]+)\s*==\s*'true'/g)].map((m) => m[1]);
+}
+
+/**
+ * The guard expressions protecting the CI step at `lineIndex`: the step's own
+ * `if:` and the enclosing job's `if:` (which may be a folded `if: >` block).
+ *
+ * Line-based, like `check-gate-manifest.mjs`, because this repository has no YAML
+ * dependency and the shapes involved are the ones that file already parses.
+ *
+ * @param {string[]} lines
+ * @param {number} lineIndex
+ * @returns {{ guards: string[], job: string | null }}
+ */
+export function guardsForStep(lines, lineIndex) {
+  const guards = [];
+  let job = null;
+
+  // The step's own `if:`, searching back to the start of this step ("- name:" or "- run:").
+  for (let i = lineIndex; i >= 0; i -= 1) {
+    const line = lines[i];
+    if (/^\s*-\s/.test(line) && i !== lineIndex) {
+      // Reached the previous step's first line without finding this step's start.
+      if (!/^\s*-\s*(name|run|uses):/.test(line)) break;
+    }
+    const stepIf = line.match(/^\s*(?:-\s*)?if:\s*(.+?)\s*$/);
+    if (stepIf) guards.push(stepIf[1]);
+    if (/^\s*-\s*name:/.test(line)) break; // start of this step
+  }
+
+  // The enclosing job and its job-level `if:`.
+  for (let i = lineIndex; i >= 0; i -= 1) {
+    if (!/^  \S.*:\s*$/.test(lines[i])) continue;
+    job = lines[i].trim().replace(/:$/, "");
+    for (let j = i + 1; j < lines.length; j += 1) {
+      if (/^  \S/.test(lines[j])) break; // next top-level job
+      const jobIf = lines[j].match(/^    if:\s*(.*)$/);
+      if (!jobIf) continue;
+      if (jobIf[1].trim() === ">" || jobIf[1].trim() === "|") {
+        // Folded block: collect the more-indented continuation lines.
+        const block = [];
+        for (let k = j + 1; k < lines.length && /^\s{6,}\S/.test(lines[k]); k += 1) block.push(lines[k].trim());
+        guards.push(block.join(" "));
+      } else {
+        guards.push(jobIf[1].trim());
+      }
+      break;
+    }
+    break;
+  }
+
+  return { guards, job };
+}
+
+/**
+ * Does CI re-run `gate` on push, **for this change**?
  *
  * Resolved through three routes, in order: the gate's own name appearing in a CI
  * `run:` step, its declared CI equivalent, or a CI-invoked aggregate script whose
- * package.json body contains the gate. The third route is what keeps this honest
- * as the chains are reshuffled — CI runs `verify:cheap:internal`, which contains
+ * package.json body contains the gate. The third route keeps this honest as the
+ * chains are reshuffled — CI runs `verify:cheap:internal`, which contains
  * `npm run test`, so `test` is covered without anyone maintaining a list.
  *
- * @returns {{ covered: boolean, via: string | null, reason: string }}
+ * **A step's presence in the YAML is not coverage.** Reported as P1 by Codex review
+ * on PR #2245, and demonstrably so on that PR's own CI: `lint` and `typecheck` are
+ * step-conditional on `static_heavy_changed`, and `test:coverage` is job-conditional
+ * on `coverage_changed`. For a docs-only change all three are false, so CI skips
+ * every arbitrated gate — while a name-only scan reports all three "covered". Under
+ * `GATE_ARBITER=enforce` that combination produced the one outcome this module
+ * exists to prevent: the local gate deferred, the CI gate skipped, and no verdict
+ * anywhere. So every guard on the step and its job is evaluated against the current
+ * change scope, and an unsatisfied guard means not covered.
+ *
+ * Conditions that are not change-scope flags (draft state, event name) cannot be
+ * evaluated from a local worktree. They are returned in `assumed` and printed with
+ * the decision rather than silently treated as true.
+ *
+ * @param {string} projectRoot
+ * @param {string} gate
+ * @param {{ scope?: Record<string, boolean> | null, readFile?: typeof readFileSync }} [options]
+ * @returns {{ covered: boolean, via: string | null, reason: string, assumed: string[] }}
  */
-export function deriveCiCoverage(projectRoot, gate, { readFile = readFileSync } = {}) {
+export function deriveCiCoverage(projectRoot, gate, { scope = null, readFile = readFileSync } = {}) {
   let ci;
   let scripts;
   try {
@@ -195,36 +302,72 @@ export function deriveCiCoverage(projectRoot, gate, { readFile = readFileSync } 
     scripts = JSON.parse(String(readFile(path.join(projectRoot, "package.json"), "utf8"))).scripts ?? {};
   } catch (error) {
     // Cannot read CI: assume it covers nothing, which makes every gate run locally.
-    return { covered: false, via: null, reason: `could not read CI definition (${String(error?.message ?? error)})` };
+    return {
+      covered: false,
+      via: null,
+      assumed: [],
+      reason: `could not read CI definition (${String(error?.message ?? error)})`,
+    };
   }
 
-  const ciScripts = new Set(
-    ci
-      .split(/\r?\n/)
-      .map(npmRunScript)
-      .filter((entry) => Boolean(entry)),
-  );
-
-  if (ciScripts.has(gate)) return { covered: true, via: gate, reason: `ci.yml runs "npm run ${gate}"` };
-
+  const lines = ci.split(/\r?\n/);
   const equivalent = CI_EQUIVALENT.get(gate);
-  if (equivalent && ciScripts.has(equivalent)) {
-    return { covered: true, via: equivalent, reason: `ci.yml runs "npm run ${equivalent}", the CI form of ${gate}` };
-  }
 
-  // A CI-invoked aggregate that contains the gate in its package.json body.
-  const wanted = new Set([gate, ...(equivalent ? [equivalent] : [])]);
-  for (const ciScript of ciScripts) {
-    const body = scripts[ciScript];
-    if (typeof body !== "string") continue;
-    const invoked = new Set([...body.matchAll(/npm run ([\w:.-]+)/g)].map((match) => match[1]));
-    for (const candidate of wanted) {
-      if (!invoked.has(candidate)) continue;
-      return { covered: true, via: ciScript, reason: `ci.yml runs "npm run ${ciScript}", which invokes ${candidate}` };
+  /** Every CI line index whose `run:` invokes `name`. */
+  const stepsRunning = (name) =>
+    lines.map((line, index) => (npmRunScript(line) === name ? index : -1)).filter((index) => index >= 0);
+
+  /** Aggregate CI scripts whose package.json body invokes `name`. */
+  const aggregatesRunning = (name) =>
+    Object.keys(scripts).filter((script) => {
+      if (typeof scripts[script] !== "string") return false;
+      return [...scripts[script].matchAll(/npm run ([\w:.-]+)/g)].some((match) => match[1] === name);
+    });
+
+  const candidates = [];
+  for (const name of [gate, ...(equivalent ? [equivalent] : [])]) {
+    for (const index of stepsRunning(name)) candidates.push({ name, index });
+    for (const aggregate of aggregatesRunning(name)) {
+      for (const index of stepsRunning(aggregate)) candidates.push({ name: `${aggregate} → ${name}`, index });
     }
   }
 
-  return { covered: false, via: null, reason: `no CI step runs ${gate} — local is the only gate` };
+  if (candidates.length === 0) {
+    return { covered: false, via: null, assumed: [], reason: `no CI step runs ${gate} — local is the only gate` };
+  }
+
+  // One satisfied invocation is enough; report the first, and the reason the last
+  // candidate failed when none is satisfied.
+  let lastUnsatisfied = null;
+  for (const candidate of candidates) {
+    const { guards, job } = guardsForStep(lines, candidate.index);
+    const flags = guards.flatMap(scopeFlagsInGuard);
+    const unmet = scope ? flags.filter((flag) => scope[flag] !== true) : flags;
+    if (unmet.length > 0) {
+      lastUnsatisfied = scope
+        ? `CI runs ${candidate.name} in "${job}" only when ${unmet.map((f) => `${f}=true`).join(" and ")}, which this change does not satisfy`
+        : `CI runs ${candidate.name} in "${job}" under conditions that could not be evaluated`;
+      continue;
+    }
+    const assumed = guards
+      .filter((guard) => scopeFlagsInGuard(guard).length === 0 && guard.trim().length > 0)
+      .map((guard) => guard.trim());
+    return {
+      covered: true,
+      via: candidate.name,
+      assumed,
+      reason:
+        `ci.yml runs "${candidate.name}" in job "${job}"` +
+        (flags.length > 0 ? `, whose guard ${flags.map((f) => `${f}=true`).join(" and ")} this change satisfies` : ""),
+    };
+  }
+
+  return {
+    covered: false,
+    via: null,
+    assumed: [],
+    reason: lastUnsatisfied ?? `no CI step runs ${gate} for this change`,
+  };
 }
 
 /* ------------------------------------------------------------------ *
@@ -242,7 +385,7 @@ export function deriveCiCoverage(projectRoot, gate, { readFile = readFileSync } 
  * Most-specific wins, highest risk first. Anything unrecognised is `unknown`,
  * which never defers.
  *
- * @returns {{ class: string, reason: string }}
+ * @returns {{ class: string, scope: Record<string, boolean> | null, reason: string }}
  */
 export function classifyChange(projectRoot, { exec = execFileSync } = {}) {
   let scope;
@@ -255,9 +398,9 @@ export function classifyChange(projectRoot, { exec = execFileSync } = {}) {
     });
     scope = JSON.parse(String(output));
   } catch (error) {
-    return { class: "unknown", reason: `change scope unavailable (${String(error?.message ?? error)})` };
+    return { class: "unknown", scope: null, reason: `change scope unavailable (${String(error?.message ?? error)})` };
   }
-  return { class: classFromScope(scope), reason: "classified by scripts/ci-change-scope.mjs" };
+  return { class: classFromScope(scope), scope, reason: "classified by scripts/ci-change-scope.mjs" };
 }
 
 /**
@@ -337,7 +480,6 @@ export function recordGateOutcome({
 
   const resolvedClass = changeClass ?? classifyChange(projectRoot).class;
   const key = observationKey(gate, resolvedClass);
-  const ledger = loadLedger(projectRoot);
   let head = null;
   try {
     head = runGit(projectRoot, ["rev-parse", "HEAD"]).trim();
@@ -345,9 +487,16 @@ export function recordGateOutcome({
     /* detached or not a worktree — the observation is still valid without a head */
   }
   const entry = { at: now().toISOString(), failed: exitCode !== 0, durationMs, head };
-  ledger.observations[key] = [entry, ...(ledger.observations[key] ?? [])].slice(0, MAX_OBSERVATIONS);
   try {
-    saveLedger(projectRoot, ledger);
+    // Re-read immediately before the write. `renameSync` makes each write atomic, but the
+    // read-modify-write around it is not: the lock module permits two shared leases in one
+    // worktree, so two gates finishing together would both read the same ledger and the
+    // later write would discard the earlier observation. A dropped pass only lengthens a
+    // clean window (safe); a dropped CATCH could leave a gate deferred that has started
+    // failing again (not safe). Reported by CodeRabbit on PR #2245.
+    const current = loadLedger(projectRoot);
+    current.observations[key] = [entry, ...(current.observations[key] ?? [])].slice(0, MAX_OBSERVATIONS);
+    saveLedger(projectRoot, current);
   } catch (error) {
     return { recorded: false, reason: `could not write the yield ledger: ${String(error?.message ?? error)}` };
   }
@@ -362,12 +511,25 @@ export function recordGateOutcome({
  * confirmation `AGENTS.md` requires, so the arbiter never reaches for it. The
  * session that already looked at CI passes what it saw.
  */
-export function recordCiVerdict({ projectRoot, sha, gates, now = () => new Date() }) {
+export function recordCiVerdict({ projectRoot, sha, gates, now = () => new Date(), git = runGit }) {
   if (!/^[0-9a-f]{40}$/.test(String(sha ?? "")))
     return { recorded: false, reason: "a full 40-character SHA is required" };
+  if (!Array.isArray(gates) || gates.length === 0) return { recorded: false, reason: "name at least one gate" };
+  // The regex accepts any 40 hex characters, so a SHA from another checkout would be
+  // stored as proof and only surface later as "content differs" rather than "unknown
+  // commit". Resolve it here instead. Reported by CodeRabbit on PR #2245.
+  try {
+    git(projectRoot, ["cat-file", "-e", `${sha}^{commit}`]);
+  } catch {
+    return { recorded: false, reason: `${sha.slice(0, 12)} does not resolve to a commit in this repository` };
+  }
   const ledger = loadLedger(projectRoot);
   for (const gate of gates) ledger.ci[gate] = { sha, at: now().toISOString() };
-  saveLedger(projectRoot, ledger);
+  try {
+    saveLedger(projectRoot, ledger);
+  } catch (error) {
+    return { recorded: false, reason: `could not write the yield ledger: ${String(error?.message ?? error)}` };
+  }
   return { recorded: true, reason: `recorded ${gates.length} CI verdict(s) at ${sha.slice(0, 12)}` };
 }
 
@@ -444,7 +606,7 @@ export function summariseYield(ledger, gate, changeClass) {
  *           overrides?: { receipt?: object, coverage?: object, ciVerdict?: object, changeClass?: string, ledger?: object } }} options
  * @returns {ArbiterDecision}
  */
-export function arbitrate({ projectRoot, gate, env = process.env, now = () => new Date(), overrides = {} }) {
+export function arbitrate({ projectRoot, gate, args = [], env = process.env, now = () => new Date(), overrides = {} }) {
   const evidence = [];
   const mode = arbiterMode(env);
   const run = (reason) => finalise({ action: "run", gate, changeClass: "n/a", reason, evidence, mode });
@@ -454,7 +616,7 @@ export function arbitrate({ projectRoot, gate, env = process.env, now = () => ne
 
   // A receipt is stronger than any yield argument: the gate already exited 0 on
   // exactly this content, so defer to the existing memo rather than re-deciding.
-  const receipt = overrides.receipt ?? consultGateReceipt({ projectRoot, gate, args: [], env });
+  const receipt = overrides.receipt ?? consultGateReceipt({ projectRoot, gate, args, env });
   if (receipt.reuse) {
     evidence.push("a gate receipt already proves this exact content");
     return finalise({
@@ -467,11 +629,20 @@ export function arbitrate({ projectRoot, gate, env = process.env, now = () => ne
     });
   }
 
-  // Veto 1 — CI must actually repeat the gate. If it does not, local is the only
-  // place the failure is ever caught and deferral would be a coverage hole.
-  const coverage = overrides.coverage ?? deriveCiCoverage(projectRoot, gate);
+  // The change class is resolved FIRST because CI coverage depends on it: a step's
+  // guard is evaluated against this change's scope, not in the abstract.
+  const change = overrides.changeClass
+    ? { class: overrides.changeClass, scope: overrides.scope ?? null, reason: "supplied by the caller" }
+    : classifyChange(projectRoot);
+
+  // Veto 1 — CI must actually repeat the gate FOR THIS CHANGE. If it does not,
+  // local is the only place the failure is ever caught and deferral is a hole.
+  const coverage = overrides.coverage ?? deriveCiCoverage(projectRoot, gate, { scope: change.scope });
   evidence.push(`CI coverage: ${coverage.reason}`);
-  if (!coverage.covered) return run(`CI does not re-run ${gate} — local is the only gate`);
+  if (coverage.assumed?.length > 0) {
+    evidence.push(`unverifiable CI preconditions (assumed true): ${coverage.assumed.join("; ")}`);
+  }
+  if (!coverage.covered) return run(`CI does not re-run ${gate} for this change — local is the only gate`);
 
   // Veto 2 — content GitHub already judged green needs no local re-derivation.
   const ciVerdict = overrides.ciVerdict ?? ciVerdictCoversWorkingTree(projectRoot, gate);
@@ -488,9 +659,6 @@ export function arbitrate({ projectRoot, gate, env = process.env, now = () => ne
   }
 
   // Veto 3 — high-risk scope always runs locally, however clean the history.
-  const change = overrides.changeClass
-    ? { class: overrides.changeClass, reason: "supplied by the caller" }
-    : classifyChange(projectRoot);
   evidence.push(`change class: ${change.class} (${change.reason})`);
   if (NEVER_DEFER_CLASSES.has(change.class)) {
     return finalise({
@@ -553,7 +721,11 @@ export function arbitrate({ projectRoot, gate, env = process.env, now = () => ne
 }
 
 function finalise({ action, gate, changeClass, reason, evidence, mode }) {
-  const enforce = mode.enforce && action === "defer";
+  // Both non-run verdicts are enforceable. A "proven" verdict is the stronger of the
+  // two — the gate already passed on exactly this content — so leaving it
+  // unenforceable made the whole content-identity path inert while the docs claimed
+  // it prevented re-derivation. Reported by Codex and CodeRabbit on PR #2245.
+  const enforce = mode.enforce && (action === "defer" || action === "proven");
   const headline =
     action === "defer"
       ? `[gate-arbiter] DEFER "${gate}" to CI — ${reason}`
@@ -619,7 +791,18 @@ async function main() {
   }
   if (command === "record-ci") {
     const [, sha, ...gates] = args;
-    const result = recordCiVerdict({ projectRoot, sha, gates: gates.length > 0 ? gates : [...ARBITRATED_GATES] });
+    // Defaulting to every arbitrated gate turned ONE observed green job into stored
+    // proof for all of them — and the proven branch runs before the coverage veto and
+    // before NEVER_DEFER_CLASSES, so it would report PROVEN even on db or unknown
+    // scope. Reported by CodeRabbit on PR #2245. Name what CI actually ran.
+    if (gates.length === 0) {
+      console.log(
+        "[gate-arbiter] name the gates CI actually ran green, e.g. record-ci <sha> lint typecheck test.\n" +
+          "[gate-arbiter] Recording every arbitrated gate from one observation would claim proof this session does not have.",
+      );
+      process.exit(2);
+    }
+    const result = recordCiVerdict({ projectRoot, sha, gates });
     console.log(`[gate-arbiter] ${result.reason}`);
     process.exit(result.recorded ? 0 : 2);
   }

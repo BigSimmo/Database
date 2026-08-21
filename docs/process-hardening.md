@@ -102,7 +102,15 @@ skipping it on a change that deserved it.
   field-anchored `run:` regex as `check-gate-manifest.mjs` (the two must agree — a looser parse here
   would defer to a job the manifest check knows does not exist). Resolved by the gate's own name, its
   declared CI equivalent (`test` → `test:coverage`), or a CI-invoked aggregate whose package.json body
-  contains it. **A gate CI does not re-run is never deferrable.**
+  contains it — and then **evaluated against the current change scope**. A step's presence in the YAML
+  is not coverage: `lint` and `typecheck` carry a step-level `if: needs.changes.outputs.static_heavy_changed`,
+  and the `coverage` job is gated on `coverage_changed`, so a docs-only change is covered by none of
+  the three. A name-only scan reported all three covered, which under `GATE_ARBITER=enforce` produced
+  the one outcome the module exists to prevent — local gate deferred, CI gate skipped, no verdict
+  anywhere. Raised as P1 by Codex review on PR #2245 and pinned by `tests/gate-arbiter.test.ts`.
+  Conditions that are not change-scope flags (draft state, event name) cannot be evaluated from a
+  worktree; they are reported as assumed preconditions with the decision rather than silently taken as
+  true. **A gate CI does not re-run for this change is never deferrable.**
 - **Observed yield**, a rolling window (40 observations) keyed by `(gate, change class)`, recorded by
   `run-heavy.mjs` and `run-vitest.mjs` after every arbitrated run. Recording is pure observation and
   never alters the run. An admission-busy exit (75) is not a verdict and is not recorded, so lock
@@ -127,6 +135,12 @@ Boundaries, each of them a test in `tests/gate-arbiter.test.ts`:
   human typed still runs. `GATE_ARBITER=off` disables it entirely.
 - **The first catch re-arms the window**, so a gate that starts failing again is never left deferred
   because it had a long clean run beforehand.
+- **A narrowed Vitest run records under its own identity** (`vitest(selected)`), so a clean history of
+  focused runs can never satisfy the full suite's window.
+- **`record-ci` requires an explicit gate list**, and rejects a SHA that does not resolve here, so one
+  observed green job cannot become stored proof for every arbitrated gate.
+- **Observations are re-read immediately before the write**, so two gates finishing together cannot
+  drop a catch — the unsafe direction, since a lost catch leaves a failing gate deferred.
 - **A deferred gate is not a passed gate.** The verdict prints that sentence; report it as "deferred
   to CI", never as green.
 

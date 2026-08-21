@@ -362,19 +362,24 @@ npm run arbiter:status         # the yield ledger and the duplication bill so fa
 
 It weighs three inputs, none of them hard-coded, so the answer moves as the repo moves:
 
-1. **CI coverage**, derived live from `package.json` + `.github/workflows/ci.yml`. A gate
-   CI does not re-run is never deferrable — local is the only gate there is. Delete the CI
-   job and the arbiter stops deferring to it the same day.
+1. **CI coverage**, derived live from `package.json` + `.github/workflows/ci.yml`, and
+   evaluated **for this change** — the step's own `if:` and its job's `if:` are checked
+   against the current change scope, because a step's presence in the YAML is not
+   coverage. `lint` and `typecheck` are step-conditional on `static_heavy_changed` and
+   `test:coverage` is job-conditional on `coverage_changed`, so a docs-only change is
+   covered by none of them. A gate CI does not re-run is never deferrable — local is the
+   only gate there is. Delete the CI job and the arbiter stops deferring to it the same day.
 2. **Observed yield**, a rolling per-gate, per-change-class window of local outcomes that
    the gate wrappers record automatically. A gate that has caught nothing across a full
    clean window on this class of change has stopped earning its runtime. The **first catch
    resets the window** and the gate runs locally again, so the loop re-arms itself instead
    of decaying toward "never check anything".
 3. **Content identity** — a verdict GitHub already reached on exactly this content
-   (recorded with `node scripts/gate-arbiter.mjs record-ci <sha> [gates…]` when a session
-   observes CI go green) is not re-derived locally at all. This is the common repetition:
-   CI goes green on a branch head, and a later session runs the whole suite again on that
-   same head.
+   (recorded with `npm run arbiter -- record-ci <sha> <gates…>` when a session observes CI
+   go green) is not re-derived locally. This is the common repetition: CI goes green on a
+   branch head, and a later session runs the whole suite again on that same head. Name the
+   gates CI actually ran — the command refuses a bare invocation rather than turning one
+   observed job into proof for every gate.
 
 The window is per change class because the classes are not the same bet: docs-only clears
 in 3 clean runs, source in 12, and **db, RAG, dependency, container, workflow, UI and
@@ -387,9 +392,11 @@ Non-negotiable boundaries, all of them the conservative direction:
   one of them runs the gate. A bug in the arbiter costs a redundant run, never a skipped one.
 - **CI is never advised by it.** `CI` being set disables the arbiter outright. GitHub stays
   the authoritative merge gate and nothing computed locally may influence what it runs.
-- **Advisory by default.** A deferral is a recommendation printed with its evidence; the
-  wrappers act on it only under `GATE_ARBITER=enforce`. Silently skipping a gate a human
-  typed is exactly the failure the evidence rules exist to prevent.
+- **Advisory by default.** A `DEFER` or `PROVEN` verdict is a recommendation printed with
+  its evidence; the wrappers act on it only under `GATE_ARBITER=enforce`. Silently skipping
+  a gate a human typed is exactly the failure the evidence rules exist to prevent.
+- **A focused run is not full-suite evidence.** A narrowed Vitest invocation records under
+  its own identity, so a clean run of single-file tests can never let the whole suite defer.
 - **A deferred gate is not a passed gate.** Report it as "deferred to CI — <gate> has caught
   nothing in N consecutive <class> runs", never as green, and never alongside a claim that
   the gate ran. The same applies to `PROVEN`: say "reused receipt" or "CI-proven at `<sha>`".
