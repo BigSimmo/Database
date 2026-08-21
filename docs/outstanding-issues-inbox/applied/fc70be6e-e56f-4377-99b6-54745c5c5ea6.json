@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "fc70be6e-e56f-4377-99b6-54745c5c5ea6",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#HSSHRG",
+    "outcome": "Resolved 2026-08-21. Verified on main at 1cc0d2987: scripts/guard-push.mjs now carries an explicit 'Guard 2: in-flight CI push guard (#HSSHRG)' block with inFlightCiVerdict() and findInFlightCiRuns(), and its header documents the cancel-in-progress waste this closes. Coverage therefore no longer depends on going through sync:pr-branches. Not verified from here: behaviour against a live PR with runs in flight, which needs GitHub access. Related row #TF6TPJ shares this root cause and should be re-checked against the same guard before it is closed separately.",
+    "baseRowFingerprint": "cd68c9212f216678225e0dec1f73082f857fbf91c00a6e17e7a1a0eaf756a163"
+  }
+}

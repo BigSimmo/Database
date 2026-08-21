@@ -7,7 +7,6 @@
 import type { SetupCheck } from "@/components/clinical-dashboard/DocumentManagerPanel";
 import { navigationHashes } from "@/components/clinical-dashboard/dashboard-contracts";
 import { makeSearchError } from "@/components/clinical-dashboard/search-utils";
-import { canAccessFavouritesMode } from "@/lib/app-modes";
 import type { ClinicalDocument, ImportBatch, IngestionJob, RagAnswer, RelatedDocument } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import type { ClinicalQueryMode } from "@/lib/clinical-query-mode";
@@ -251,8 +250,4 @@ export function mergeDocumentRefresh(current: ClinicalDocument[], updates: Clini
       summary: document.summary ?? existing.summary,
     };
   });
-}
-
-export function sessionFavouritesAccessible(authStatus: string, demoMode: boolean) {
-  return canAccessFavouritesMode({ authenticated: authStatus === "authenticated", demoMode });
 }

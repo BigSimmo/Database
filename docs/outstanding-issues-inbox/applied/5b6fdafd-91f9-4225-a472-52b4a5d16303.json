@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5b6fdafd-91f9-4225-a472-52b4a5d16303",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#43SSS0",
+    "outcome": "Resolved 2026-08-21. Verified on main at 1cc0d2987: --spring-tight, --spring-bouncy and --spring-gentle have zero occurrences anywhere under src/, including src/app/globals.css, so the three dead theme tokens were deleted rather than wired. --ease-spring remains and is still referenced 8 times from globals.css, so the working precedent is intact. Verification: ripgrep over src/ for all three token names, no matches.",
+    "baseRowFingerprint": "6149767334ce65fe06d8bf51484682b910d9ef0a1c78b93d49284ed1428a1130"
+  }
+}

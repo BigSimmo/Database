@@ -66,8 +66,8 @@ function parseJsonPayload(raw: string): ApiErrorPayload | null {
   return payload;
 }
 
-function retryAfterMs(response: Response, now: number) {
-  const raw = response.headers.get("retry-after")?.trim();
+export function parseRetryAfterMs(response: { headers?: { get(name: string): string | null } }, now = Date.now()) {
+  const raw = response.headers?.get("retry-after")?.trim();
   if (!raw) return null;
   const seconds = Number(raw);
   if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds * 1000);
@@ -75,7 +75,7 @@ function retryAfterMs(response: Response, now: number) {
   return Number.isFinite(date) ? Math.max(0, date - now) : null;
 }
 
-function retryableStatus(status: number) {
+export function isRetryableApiStatus(status: number) {
   return status === 408 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
 }
 
@@ -108,14 +108,14 @@ export async function parseApiErrorResponse(response: Response, now = Date.now()
     (typeof payload?.code === "string" && payload.code) ||
     (typeof details?.code === "string" && details.code) ||
     `http_${response.status}`;
-  const headerDelay = retryAfterMs(response, now);
+  const headerDelay = parseRetryAfterMs(response, now);
   const detailsDelay =
     typeof details?.retryAfterSeconds === "number" ? Math.max(0, details.retryAfterSeconds * 1000) : null;
   return new ApiClientError(
     message,
     response.status,
     code,
-    retryableStatus(response.status),
+    isRetryableApiStatus(response.status),
     headerDelay ?? detailsDelay,
   );
 }

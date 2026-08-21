@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "39b3c784-e840-4308-91c2-a146f4ff5c45",
+  "createdOn": "2026-08-20",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Reopen #318: the medication interaction lexicon clinical review and sign-off has not actually happened; the lexicon remains clinically unreviewed",
+    "detail": "#318 was closed 2026-08-18 with outcome 'Completed Clinical Lead medication interaction lexicon review and sign-off'. The repo owner confirmed in chat on 2026-08-21 that this review and sign-off was not performed by the Clinical Lead. The medication interaction lexicon therefore remains clinically unreviewed and its sign-off block is empty, exactly as the original #318 described before its (inaccurate) closure. This must be reopened and tracked through to a genuine Clinical Lead review and sign-off; do not close again without explicit owner confirmation that the review was actually carried out. Related: #SBKXZ7 flags the same missing-attribution gap (no reviewedBy/reviewedAt) for therapy sign-off.",
+    "source": "session 2026-08-21 ledger reconciliation and docs-truth pass; owner confirmed in chat the 2026-08-18 closure was inaccurate",
+    "issueUlid": "01M0FZW46J1YPV51XHYNP4W5QS"
+  }
+}

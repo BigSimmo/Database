@@ -20,7 +20,6 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
-  UploadCloud,
   Wrench,
   X,
   type LucideIcon,
@@ -150,7 +149,6 @@ const lenses = [
 ];
 
 const actions = [
-  { label: "Upload PDF", detail: "Add an indexed source", icon: UploadCloud },
   { label: "Scope sources", detail: "Limit answer evidence", icon: SlidersHorizontal },
   { label: "Recent documents", detail: "Continue reading", icon: Clock3 },
   { label: "Browse library", detail: "Open all sources", icon: BookOpen },
@@ -904,11 +902,11 @@ function CommandDeckPanel({
           <div
             className={cn(
               "mt-3 border-t border-[#e3e8ef] pt-3",
-              phone ? "grid grid-cols-2 gap-1" : "grid grid-cols-3 gap-2",
+              phone ? "grid grid-cols-2 gap-1" : "grid grid-cols-2 gap-2",
             )}
           >
-            {["Search all results", "Upload a source", "Scope answer evidence"].map((label, index) => {
-              const icons = [Search, UploadCloud, SlidersHorizontal];
+            {["Search all results", "Scope answer evidence"].map((label, index) => {
+              const icons = [Search, SlidersHorizontal];
               const Icon = icons[index];
               return (
                 <button
@@ -916,7 +914,6 @@ function CommandDeckPanel({
                   type="button"
                   className={cn(
                     "flex min-h-12 items-center gap-2 rounded-xl border border-[#dce3ea] px-3 text-xs font-bold text-[#40505f] hover:bg-[#f7f9fb]",
-                    phone && index === 2 && "col-span-2",
                     focusRing,
                   )}
                 >

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
-import { resolveClientDemoMode, resolveUploadReadOnlyMode } from "@/lib/client-env";
+import { resolveClientDemoMode } from "@/lib/client-env";
 
 const routeSource = readFileSync(new URL("../src/app/(search-app)/favourites/page.tsx", import.meta.url), "utf8");
 const librarySource = readFileSync(
@@ -93,8 +93,7 @@ describe("favourites demo-data boundary", () => {
     );
   });
 
-  it("keeps upload read-only independent of local no-auth demo treatment", () => {
-    // Local no-auth is demo for favourites/recent-query owners, but uploads must stay writable.
+  it("keeps local no-auth within the non-production demo boundary", () => {
     expect(
       resolveClientDemoMode({
         explicitDemoMode: false,
@@ -111,23 +110,5 @@ describe("favourites demo-data boundary", () => {
         environment: "development",
       }),
     ).toBe(false);
-    const browserAuthUnavailableDemoFallback = true;
-    expect(
-      resolveUploadReadOnlyMode({
-        explicitDemoMode: false,
-        authUnavailableFallback: browserAuthUnavailableDemoFallback,
-        environment: "development",
-      }),
-    ).toBe(true);
-    expect(
-      resolveUploadReadOnlyMode({
-        explicitDemoMode: false,
-        authUnavailableFallback: false,
-        environment: "development",
-      }),
-    ).toBe(false);
-    expect(dashboardSource).toMatch(/const uploadReadOnlyMode = resolveUploadReadOnlyMode\(\{/);
-    expect(dashboardSource).toContain("authUnavailableFallback: browserAuthUnavailableDemoFallback");
-    expect(dashboardSource).not.toMatch(/const uploadReadOnlyMode = clientDemoMode\b/);
   });
 });

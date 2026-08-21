@@ -96,7 +96,7 @@ trusted as-is._
 
 **Owner decisions (2026-08-18):** D1 = codify-as-live (128 MB on the four hybrids, 64 MB on the
 other six) — DECIDED. D2 = `work_mem` eval-canary exemption — GRANTED. D3 = 6.1 deploy bundled into
-the Phase 3 production window — DECIDED. D4 = Supabase GitHub auto-deploy **disabled** — DECIDED (confirmed empirically in the 2026-08-19 Phase 4 window).
+the Phase 3 production window — DECIDED. D4 = Supabase GitHub auto-deploy — **REOPENED 2026-08-20, treat as ON** (the 2026-08-19 Phase 4 "disabled" reading never tested deploy-on-merge; see the 2026-08-20 window update below). Until the dashboard toggle is re-verified, assume merging a migration PR deploys it to production.
 
 **Production window — CLOSED 2026-08-18 without a push (PR #2123 → forensics §3.7).** The
 authorised window's pre-flight `supabase migration list` showed all five `20260818*` migrations
@@ -105,18 +105,21 @@ no mark-applied path was used, and production received zero writes. Verified rea
 `ok`; ten `work_mem` values = D1; live-drift run `32131517648` = **0 function mismatches**,
 20 `missing_live`, 2 `unexpected_live`, 15 `migration_history`. The RPC track of `#316` is closed.
 
-**KEY FINDING — D4 DECIDED (auto-deploy disabled).** The Supabase GitHub integration (Branching, production
+**KEY FINDING — D4: strong evidence of deploy-on-merge; the "disabled" reading does not hold (2026-08-20, below). The toggle itself has not been read — act on the safe-either-way rule, not on the inference.** The Supabase GitHub integration (Branching, production
 bound to git `main`, branch record from 2026-06-27) auto-applies every migration merged to `main`
 onto production — live-drift bracketed `110000–112000` to ~34 s after #2106 merged. This undermines
 the explicit-window model the plan and playbook assume: a merged migration IS a production deploy.
-**Resolved 2026-08-19:** D4 was decided OFF and "Deploy to production" is disabled (stated in the
+**Resolved 2026-08-19 — SUPERSEDED 2026-08-20, see the window update below; do not act on this paragraph:** D4 was decided OFF and "Deploy to production" is disabled (stated in the
 Phase 4 task brief; who changed the setting and when is not recorded here). The Phase 4 window confirmed it
 empirically — `supabase migration list` showed the four new `20260819*` versions still pending on
 production after the branch existed, so nothing had been applied by merge, and they reached production
 only via an explicit `supabase db push`. **The explicit-window model in the plan and playbook is therefore
 live again and must be honoured:** a merged migration is no longer a production deploy, so every future
 phase needs its own approved window and its own push. Phase 4 was built to be safe either way
-(prebuild + validate-only guard) and that pattern stays mandatory.
+(prebuild + validate-only guard) and that pattern stays mandatory. **That conclusion did not hold** — the
+Phase 4 observation only showed migrations pending _while a PR was open_, which never exercised
+deploy-on-merge; the 2026-08-20 window reopened D4. The safe-either-way build pattern stays mandatory
+regardless.
 
 **Ledger state note (2026-08-19):** inbox on `main` holds 23 pending requests (remediation:
 `#248`/`#183`/`#318`/… `done`s from other streams, several `add`s incl. the review-bot budget P1);
@@ -128,7 +131,52 @@ open PR #2130 queues 7 more requests but carries **no** reconcile transaction. O
 link a dedicated worktree for production reads and `supabase unlink` after; `supabase db query
 --linked --project-ref <ref>` works read-only via the management API without a DB password.
 
-**Where the programme stands after Phase 6.2 (2026-08-19, later the same day).** Drift is **green on both tiers**: the fifteen `migration_history` rows now carry `validation` guards, live-drift run `32251326536` (dispatched on the 6.2 branch) reports `No unexpected schema drift` with all 20 history rows allowed, and the staging comparison is green with the 20 production-scoped entries reading stale as designed. `#316`'s finding set is empty for the first time since 2026-07-26. **Two things still need the owner, not a worker:** (1) the live-drift job is red on its `Align migration history` step alone — `check:migration-history` cannot read `supabase_migrations` over PostgREST (PGRST106), a Phase 0 step that had never run before because drift always failed first; until it is fixed (expose the schema read-only / wire `SUPABASE_ACCESS_TOKEN` `#183` and use `supabase migration list` / add a versions RPC) the weekly job stays red and pinned issue #1963 will not self-close even though its drift block is empty; (2) PITR is still off on production (Phase 4 escalation). **Next dispatches:** merge the 6.2 PR (its CI `Migration replay` and Supabase Preview are the last chain proofs), then Phase 5 close-out (after-EXPLAIN set, `#231` re-test on healthy latency, `check:production-readiness`), then one serialized `issues:reconcile`. Every future migration still needs its own approved window and its own `db push` (D4 OFF).
+**Where the programme stands after Phase 6.2 (2026-08-19, later the same day).** Drift is **green on both tiers**: the fifteen `migration_history` rows now carry `validation` guards, live-drift run `32251326536` (dispatched on the 6.2 branch) reports `No unexpected schema drift` with all 20 history rows allowed, and the staging comparison is green with the 20 production-scoped entries reading stale as designed. `#316`'s finding set is empty for the first time since 2026-07-26. **Two things still need the owner, not a worker:** (1) the live-drift job is red on its `Align migration history` step alone — `check:migration-history` cannot read `supabase_migrations` over PostgREST (PGRST106), a Phase 0 step that had never run before because drift always failed first; until it is fixed (expose the schema read-only / wire `SUPABASE_ACCESS_TOKEN` `#183` and use `supabase migration list` / add a versions RPC) the weekly job stays red and pinned issue #1963 will not self-close even though its drift block is empty; (2) PITR is still off on production (Phase 4 escalation).
+
+**Update 2026-08-20 — the alignment step is fixed in the repo, not yet on production.** Drift stayed
+empty on a second run (`32378402265`, `main`, weekly cron: `Compare live schema drift: success` /
+`No unexpected schema drift`), confirming Phase 6.2 held. The PGRST106 defect was repaired by
+`20260820120000_migration_history_versions_rpc.sql` — a `security definer`, service-role-only read of
+the history version list — plus an RPC-first rewrite of
+`scripts/check-migration-history-alignment.ts`, `schema.sql` mirror, regenerated manifest (94
+functions) and `tests/migration-history-alignment.test.ts`. Exposing `supabase_migrations` to the Data
+API and adding a management-API token to CI were both considered and rejected (forensics §Alignment-step
+repair). **Deploy order matters: `db push` from the branch FIRST, then merge** — written when D4 was believed
+OFF, so that merging alone would apply nothing and would make `check:drift` report a missing function in
+the meantime. Push-before-merge is still the right order, but for the opposite reason now: with D4
+reopened, a merge may itself deploy, so the migration must already be applied and verified inside an
+approved window before the PR lands. Staging
+needs the same migration by the Phase 2 method. Until that window runs, the weekly job stays red on
+this one step and #1963 will not self-close.
+
+**Update 2026-08-20 (window) — the alignment fix is LIVE on production; staging is one version behind;
+D4: strong evidence of deploy-on-merge, toggle not directly read.** PR #2198 merged before the window (squash `a341832af`), and the pre-flight
+found `20260820120000` **already applied** — `stmt_count 3`, executed statements, not mark-applied — so
+`db push` was never run against production. Verified read-only: `prosecdef true`, `provolatile s`,
+`search_path=""`, `proacl postgres=X/postgres | service_role=X/postgres`, and the function returns
+`probe: ok` with `version_count 211` against 211 history rows and 211 local files. No guard migration is
+owed. **Two things for the owner:** (1) **D4: the "disabled" reading does not hold, but the toggle has
+not been read.** `created_by` is NULL on every recent history row, so the database itself proves
+nothing. `list_branches(sjrfecxgysukkwxsowpy)` still returns a live Git branch record binding
+**production** to git `main`:
+`{"name":"main","is_default":true,"git_branch":"main","project_ref":"sjrfecxgysukkwxsowpy","created_at":"2026-06-27","updated_at":"2026-07-04"}`.
+`updated_at` predates 2026-08-19, so whatever was changed that day never touched this binding, and the
+2026-08-19 "D4 is OFF" test only showed migrations sitting pending _while a PR was open_ — which never
+exercised deploy-on-merge. Together with §3.7's 34-second apply and `20260820120000` arriving unpushed,
+that is strong evidence of deploy-on-merge. **It is still an inference:** no field of the branch record
+reports the "Deploy to production" setting, and the superseded account above describes that setting
+being changed without the binding being deleted, so a disabled toggle with the binding intact cannot be
+ruled out from here. **Therefore act on the rule that is correct under both states, and do not shorten
+it:** never merge a migration PR outside its approved window (correct if deploys happen on merge), and
+after any migration merges, run `supabase migration list --linked --project-ref <ref>` and `db push`
+anything still pending (correct if they do not). One extra command; wrong under neither hypothesis. A
+dashboard read of the toggle, or a deployment-settings API, is what would replace this rule with a
+fact. (2) Staging
+(`ikoiolksxqxfxgiyqpnu`) is at 210 rows without the function; its pending set is exactly one version,
+but both write paths were denied by the session auto-mode classifier (live-Supabase confirmation rule
+from PR #2196), so Phase 4's staging parity is open again by one version until an operator applies it.
+
+**Next dispatches:** merge the 6.2 PR (its CI `Migration replay` and Supabase Preview are the last chain proofs), then Phase 5 close-out (after-EXPLAIN set, `#231` re-test on healthy latency, `check:production-readiness`), then one serialized `issues:reconcile`. Every future migration still needs its own approved window and its own `db push`. **D4 is REOPENED (2026-08-20): treat merging a migration PR as a production deployment** until the Supabase "Deploy to production" toggle is re-verified in the dashboard — so never merge a migration PR outside its approved window, and apply and verify the migration inside that window before it lands.
 
 **Where the programme stands after Phase 4 (2026-08-19).****Where the programme stands after Phase 4 (2026-08-19).** The index track of `#316` is closed on both
 tiers and staging is at full parity, so the remaining live-drift findings are exactly one category:

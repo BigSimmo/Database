@@ -7,6 +7,7 @@ import { normalizedSchemaSha256 as driftSha } from "../scripts/check-drift";
 import {
   ACTIVE_CI_RUN_STATES,
   autoMergeVerdict,
+  touchesProductionMigrations,
   changedFilesForRange,
   defaultRunsFetch,
   driftVerdict,
@@ -451,6 +452,38 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     expect(verdict.reason).toBe("no-in-flight-ci");
   });
 
+  it("blocks an armed auto-merge when the push carries a hosted migration", () => {
+    // Merging to main applies migrations to the live clinical database automatically,
+    // so auto-merge on such a PR schedules an unattended production schema change.
+    const armed = { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 88 };
+    const v = autoMergeVerdict("claude/x", armed, false, true);
+    expect(v.block).toBe(true);
+    expect(v.reason).toBe("auto-merge-armed-migration");
+    expect(v.number).toBe(88);
+  });
+
+  it("blocks a migration push even when it is an ordinary fast-forward", () => {
+    // The fast-forward carve-out exists because GitHub re-validates required checks.
+    // It does not make an unattended production schema change acceptable.
+    const armed = { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 89 };
+    expect(autoMergeVerdict("claude/x", armed, false, false).block).toBe(false);
+    expect(autoMergeVerdict("claude/x", armed, false, true).block).toBe(true);
+  });
+
+  it("does not block a migration push when auto-merge is not armed", () => {
+    // The risk is the unattended merge, not the migration itself.
+    const v = autoMergeVerdict("claude/x", { autoMergeRequest: null, state: "OPEN", number: 90 }, false, true);
+    expect(v.block).toBe(false);
+  });
+
+  it("counts only supabase/migrations as a production migration path", () => {
+    expect(touchesProductionMigrations(["supabase/migrations/20260101_x.sql"])).toBe(true);
+    expect(touchesProductionMigrations(["src/lib/a.ts", "docs/b.md"])).toBe(false);
+    // schema.sql is a mirror of the chain, not a thing the integration applies.
+    expect(touchesProductionMigrations(["supabase/schema.sql"])).toBe(false);
+    expect(touchesProductionMigrations([])).toBe(false);
+  });
+
   it("never blocks base branch pushes or closed PRs", () => {
     const runs = [{ databaseId: 101, name: "CI", status: "in_progress", conclusion: null }];
     expect(inFlightCiVerdict("main", { state: "OPEN", number: 1 }, runs).block).toBe(false);
@@ -464,12 +497,30 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     const result = inFlightCiGuard(["claude/my-fix"], [], {
       prViewer: () => ({ state: "OPEN", number: 77 }),
       runFetcher: () => runs,
+      // Without this the guard fails open at the `gh --version` probe and never reaches the
+      // formatting under test, so the case would assert nothing on any machine that has no
+      // `gh` on PATH — green in CI, red in a bare container, for no product reason.
+      ghAvailable: () => true,
     });
     expect(result.ok).toBe(false);
     expect(result.message).toContain("PR #77 on claude/my-fix has required CI run(s) currently IN-FLIGHT");
     expect(result.message).toContain("Run 555: CI (in_progress) https://github.com/run/555");
     expect(result.message).toContain("SKIP_IN_FLIGHT_CI_GUARD=1 git push");
     expect(result.message).toContain("#HSSHRG");
+  });
+
+  it("inFlightCiGuard fails open when gh is unavailable", () => {
+    const result = inFlightCiGuard(["claude/my-fix"], [], {
+      prViewer: () => {
+        throw new Error("prViewer must not be consulted without gh");
+      },
+      runFetcher: () => {
+        throw new Error("runFetcher must not be consulted without gh");
+      },
+      ghAvailable: () => false,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.note).toContain("gh not available");
   });
 
   it("inFlightCiGuard skips when SKIP_IN_FLIGHT_CI_GUARD=1 is set", () => {

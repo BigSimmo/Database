@@ -150,6 +150,38 @@ Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit 
 
 <!-- END:codex-review-throttling -->
 
+<!-- BEGIN:resolve-review-threads-after-fixing -->
+
+## Resolve review threads after fixing them
+
+Pushing a fix is not the end of the task when that fix was made in response to a GitHub PR
+review comment. Resolving the corresponding review thread is part of the same unit of work,
+not a follow-up to remember later — an addressed comment left unresolved still blocks merge
+and still reads to reviewers, merge-queue tooling, and `pr-policy.mjs`-style gates as
+unaddressed.
+
+- After pushing a fix for a review comment, reply on that thread with a short summary of what
+  changed (naming the fixing commit where useful), then resolve the thread once the fix is
+  pushed — reply first, resolve second, both before moving to the next item.
+- Only resolve a thread you actually fixed or fully dispositioned. Never resolve a thread you
+  did not act on, never resolve one to tidy away feedback you disagree with, and never resolve
+  a thread on a PR you are only watching on someone else's behalf — leave those for the PR's
+  owner or reviewer.
+- If the comment needs more than a direct fix (a design decision, missing context, reviewer
+  input), reply explaining why instead of resolving, and leave the thread open.
+- This does not grant new GitHub write access or user authorisation for separate provider
+  writes. Reply and resolve only when the user explicitly authorised those actions for that PR
+  (for example, an explicit PR-fixing/babysitting sweep that names replies or thread resolution,
+  or the `Run PR` shortcut where that authority is stated) and the available tooling permits
+  them. If the user's ask was scoped to only committing and pushing the fix, stop there and tell
+  them the reply/resolve step is still open rather than performing it unasked.
+- This applies to every PR you push review-responsive fixes to in this repo, not only the
+  automated Codex resolve workflow — see "Review comment lifecycle" below for that workflow's
+  specific marker convention, and your runtime PR-babysitting instructions for the fuller
+  human-reviewer posture this section summarizes.
+
+<!-- END:resolve-review-threads-after-fixing -->
+
 <!-- BEGIN:local-server-safety -->
 
 # Local server safety
@@ -266,6 +298,15 @@ still free to change, and it stops the blanket default from being applied silent
 
 # Process hardening phases
 
+## Bare PR publication is not readiness work
+
+When the user says `open PR`, `create PR`, or `publish PR` without also requesting review, validation, readiness, or CI observation, treat it as a request to publish the prepared change promptly. GitHub is the requested verification surface.
+
+- Inspect only what is necessary to avoid publishing the wrong change: the branch, base, staged/unstaged scope, and PR title/body. Reuse an existing dedicated branch or worktree rather than recreating it. Do not fetch, pull, rebase, review the ledger, inventory history, load a release/handover skill, or create a worktree unless it is necessary to keep unrelated work out of the PR.
+- Do **not** run or wait for `npm run format`, dependency installation or linking, `npm run verify:pr-local`, tests, lint, typecheck, builds, browser checks, audits, generated-document synchronization, or CI. Do not invoke a release/readiness workflow for this request.
+- If a local commit hook or a readiness-only push guard (format, drift, static, or ledger-write) is the only blocker, publish with `git commit --no-verify` and that guard's own scoped override (`SKIP_FORMAT_GUARD=1`, `SKIP_DRIFT_GUARD=1`, `SKIP_STATIC_GUARD=1`, or `SKIP_LEDGER_WRITE_GUARD=1`, as applicable) instead of `git push --no-verify`; do not spend time preparing dependencies or formatting solely to satisfy the hook. Never skip the push hook wholesale — the auto-merge ownership guard has no override and must never be bypassed, even for a bare-publication request. This exception is limited to the explicit bare-publication request and does not weaken normal-push safeguards.
+- Create the PR immediately after the push, using the repository PR template where its policy fields apply. Report the URL and identify all local and hosted checks as unrun by request. Do not babysit CI, amend, or perform follow-up readiness work unless the user asks. This route overrides generic branch-bundling, handover, review, and babysit instructions.
+
 - **Verification principle:** run the smallest check capable of detecting a plausible regression introduced by the current diff. Before starting a check, identify the failure class it covers, whether a successful check already covered that class, whether a cheaper focused check offers comparable detection, and whether the incremental confidence justifies the runtime, resource use, and repository-lock contention. If there is no plausible changed failure path, do not run the check.
 
 | Tier                    | Use when                                                                                                                            | Default evidence                                                                                                     |
@@ -277,13 +318,13 @@ still free to change, and it stops the blanket default from being applied silent
 | 4 — Broad handoff       | The diff crosses multiple subsystems, cannot be bounded reliably, or the task explicitly requires PR/release confidence             | One appropriate broad gate, selected rather than stacked by default                                                  |
 
 - Do not run a broad baseline routinely before localized work, and do not select `verify:cheap` merely because a change is described as “non-trivial.” Use `npm run verify:cheap` once when cross-module risk warrants a broad offline gate. Use `npm run verify:pr-local` when a change is ready for PR handoff: it now classifies the changed paths, runs focused documentation/workflow contracts for recognised low-risk scopes, and fails closed to lint, typecheck, the full unit suite, RAG fixture validation, and relevant build/domain gates for executable or unknown scope. If the diff has not changed, do not run `verify:cheap` first merely to repeat the same coverage.
-- Do not stack focused tests, full tests, typecheck, lint, build, and browser checks unless each catches a distinct plausible regression. Do not rerun an unchanged successful gate. A deliberately skipped low-yield broad gate is not automatically verification debt; report the skipped check and its risk-based reason concisely.
+- Do not stack focused tests, full tests, typecheck, lint, build, and browser checks unless each catches a distinct plausible regression. Do not rerun an unchanged successful gate. Since 2026-08-21 that last rule is enforced rather than remembered: `scripts/gate-receipts.mjs` memoises `lint`, `typecheck` and non-coverage Vitest runs against a content signature, so an identical re-run on unchanged content exits 0 immediately instead of repeating the work. A reused receipt must be reported as "reused receipt from <time>", never as a fresh run; use `GATE_RECEIPTS=refresh` when fresh evidence is the point, `GATE_RECEIPTS=off` to disable, and `npm run receipts` to inspect the store. Receipts are local-only and never reach CI — `CI` being set disables reuse outright, because GitHub remains the authoritative merge gate. Do not memoise `build` or `test:coverage`; their artefacts are read by later gates. Contract: `docs/process-hardening.md` and `tests/gate-receipts.test.ts`. A deliberately skipped low-yield broad gate is not automatically verification debt; report the skipped check and its risk-based reason concisely.
 - A fast-fail subset may precede a broader required gate only when the later gate excludes that subset for the same event; retain a fail-safe full path whenever the subset is skipped. Likewise, do not pre-run a build, install, or server setup that the selected wrapper performs itself. Guard these disjoint/fallback rules with workflow contract tests so a later edit cannot silently restore duplicate work or create a coverage hole.
 - Use dry-run selectors before expensive gates when scope is uncertain. `npm run verify:pr-local -- --dry-run --files <comma-separated paths>` inspects PR-local selection without running commands. The broader `--extended` plan is dry-run only unless explicit approval is reflected by `ALLOW_EXTENDED_PR_LOCAL=true`.
 - CI uses the same fail-closed scope model: recognised docs and workflow/policy-only changes run focused contracts; executable product/test/config, dependency, database, container, RAG, security-sensitive, mixed, or unknown paths retain the applicable heavy jobs. Do not broaden a path trigger or restore an always-on heavy job without evidence that the focused route misses a realistic failure class. Scheduled drift/release checks and the always-reporting `PR required` aggregate remain safety backstops.
 - Let the repository run coordinator control cross-worktree verification. It permits at most two focused Vitest/read-only typecheck leases from different worktrees; full Vitest, coverage, lint, build, Playwright, and live-provider tests remain exclusive. Do not install while a repository test, build, lint, typecheck, or server command is active. Avoid aggressive short-interval polling, and do not repeat an unchanged full gate after it passes.
 - For UI, frontend, browser, routing, styling, reduced-motion, or forced-colors behaviour changes, run `npm run ensure` before browser work and prove the changed owner or journey first. Use `npm run verify:ui` when shared UI foundations changed or PR/handoff policy requires the complete Chromium gate, not as an automatic addition after focused proof. For phone-chrome changes, run `npm run verify:phone-chrome` first: it checks installed-lock parity, selects the affected browser/PWA owners and exact journeys, and adds `verify:ui` last only when shared chrome foundations make the broad gate necessary. Inspect uncertain scope with `-- --dry-run`. Chromium evidence does not close physical Safari or installed-PWA acceptance gaps.
-- **Run `npm run format` and commit the result before every push.** Formatting is in neither `npm run test`, `npm run typecheck`, nor `npm run lint`, so the ordinary loop can report green while the changed-file CI check or exact-commit pre-push guard fails. Three CI failures on 2026-07-30 came from exactly this (two of them on `ci/circleci: verify`, since removed from the repo by PR #1412). Two traps beyond simply running it:
+- **For normal engineering pushes, run `npm run format` and commit the result before push.** This rule does not apply to the explicit bare PR publication route above. Formatting is in neither `npm run test`, `npm run typecheck`, nor `npm run lint`, so the ordinary loop can report green while the changed-file CI check or exact-commit pre-push guard fails. Three CI failures on 2026-07-30 came from exactly this (two of them on `ci/circleci: verify`, since removed from the repo by PR #1412). Two traps beyond simply running it:
   - **Formatting without committing does nothing for the push.** A push sends commits, not your working tree, so formatting after committing leaves the unformatted blob on the branch. Amend or add a follow-up commit.
   - **A per-file check is not the repository-wide check.** `prettier --check <file>` on the source file you edited passes while a doc or ledger edit in the same push fails; that was the missed file twice out of three.
 
@@ -297,6 +338,34 @@ still free to change, and it stops the blanket default from being applied silent
 <!-- END:process-hardening -->
 
 <!-- BEGIN:page-and-button-wiring -->
+
+# Deleting code you believe is dead
+
+"Nothing imports it" is necessary and **nowhere near sufficient**. On 2026-08-20 a cleanup
+sweep (PR #2204) targeted ~1,644 lines on that single test and had to be walked back seven
+times. Four of the survivors had zero importers and were all alive: Ward Flow's
+`wallClockNow` and `movementsByStage` (named exports in a phase plan whose 55 tasks were all
+unchecked), the Caring Contacts fixtures, and `bestEffortReembedRegistryRecordAfterEdit`
+(`docs/rag-hybrid-findings-and-todo.md` says any future registry write route **must** call
+it). A module contract whose consumer has not been written yet is indistinguishable from
+debris under a reachability scan.
+
+Before removing any exported symbol, run:
+
+```bash
+npm run check:dead-code-candidate -- --diff origin/main
+```
+
+It fails closed and refuses a candidate that is: named in a `docs/superpowers/plans|specs`
+file with unchecked tasks; pinned by a committed test; present as a string literal anywhere
+in `src`/`tests`/`scripts`/`worker` (a dynamic-lookup path no import graph shows);
+introduced within `DEAD_CODE_RECENT_DAYS` (default 30); or assessed on a **shallow clone**,
+where nothing can be dated — run `git fetch --deepen=2000` first rather than proceeding on
+the weaker signal. It also warns when the symbol is mentioned in any doc, and when its file
+still exports other symbols, because deleting the file is then wrong even if the symbol is not.
+
+Do not tune the threshold or the refusal list to make an existing diff pass. The sweep's
+own diff was cut back to satisfy this gate, not the other way round.
 
 # Page and button wiring
 
@@ -413,9 +482,11 @@ system, developer, user, security, or compliance requirements, which remain high
 Output-style plugins such as caveman mode may compress prose. They must never compress proof.
 
 - **Always paste the decisive line.** Report gates with real output, not a summary. Under heavy-lock
-  contention, `npm run verify:ui` queues Playwright admission for up to 15 minutes and exits `1` on
-  timeout (`run-playwright.mjs`) — it does not soft-skip green. When the gate does run, grep for the
-  "N passed" line; exit 0 alone is not proof.
+  contention, `npm run verify:ui` queues Playwright admission for up to 15 minutes and, if still
+  blocked at the deadline, exits `75` with a `DATABASE_HEAVY_RUN_ADMISSION_BUSY` marker
+  (`run-playwright.mjs`) — a distinct non-zero code from an ordinary test failure, so tooling can
+  tell "blocked, retry" apart from "red", but it never soft-skips green either way. When the gate
+  does run, grep for the "N passed" line; exit 0 alone is not proof.
 - **State verified versus assumed.** Calibration is not filler. Say what was actually run, what was
   read, and what is inferred. Do not drop uncertainty to save tokens.
 - **Third-party fix claims stay unverified until checked.** Bot or agent claims that a fix landed
@@ -443,6 +514,33 @@ Output-style plugins such as caveman mode may compress prose. They must never co
 # Supabase project safety
 
 - This repo targets the live Supabase project `Clinical KB Database`.
+- **MERGING TO `main` DEPLOYS TO PRODUCTION.** The Supabase GitHub integration has **"Deploy to
+  production" ENABLED**, production branch **`main`** — confirmed by a dashboard read on 2026-08-21,
+  after two earlier sessions inferred it wrongly in both directions. Any migration merged to `main` is
+  applied to the live clinical database automatically, within seconds (measured at 34 s in
+  `docs/audit/live-drift-forensics-2026-08.md` §3.7). There is no separate deploy step to forget and no
+  window to hold it back. Therefore:
+  - **Treat merge approval as production-deploy approval.** Never merge a PR touching
+    `supabase/migrations/**` outside an approved window, and never enable auto-merge on one.
+  - **After such a PR merges, the schema-application gate is the post-merge `live-drift` workflow**
+    (`.github/workflows/live-drift.yml`), which must complete with BOTH `npm run check:drift` and
+    `npm run check:migration-history` green. `supabase migration list` is not that gate: it reads the
+    recorded history only, so it cannot tell an applied migration from a history row whose statements
+    never executed — the exact shape of the fifteen no-statements rows `#Q5JHBJ` exists for.
+    `check:drift` compares the live schema itself. A manual `supabase migration list --linked
+--project-ref sjrfecxgysukkwxsowpy` read is a useful supplement, but it is provider-backed and so
+    needs explicit user confirmation first, per "API and provider confirmation boundary" above. A
+    merged-but-unapplied migration is silent drift — the incident this whole programme exists to
+    close.
+  - **A migration that cannot run inside a transaction cannot ship this way.** The integration applies
+    each migration in one transaction, so a bare `CREATE INDEX CONCURRENTLY` migration fails outright.
+    Index work stays operator-prebuild + a validate-only guard migration (the `20260804110240` pattern,
+    see the guard-migration contract below).
+  - **Automatic branching is also ON** (one preview database per PR that changes `supabase/**`, limit
+    3). Supabase warns that Branching Compute is **not covered by the organisation's Spend Cap**. CI's
+    `Migration replay` job (`db-reset-verify`, `supabase migration up --local`) independently replays
+    the whole chain on every database-touching PR, so preview branches are a second net rather than the
+    only one.
 - Expected project ref: `sjrfecxgysukkwxsowpy`.
 - Older unused project ref `qjgitjyhxrwxsrydablr` belongs to `Database`; treat it as stale and do not use it.
 - Hosted migrations, `supabase/schema.sql`, `supabase/roles.sql`, CI, and deployment tooling must target role `postgres`; never assume a platform-reserved role. The single older applied migration is immutable and pinned by `npm run check:migration-role`.
@@ -863,10 +961,11 @@ named PR). Future process only.
   only verification `main` received (23 of the last 30 main pushes cancelled, measured
   2026-08-18). Do not "simplify" that exemption back to a blanket `true` — it is pinned by
   `tests/ci-cache-safety.test.ts`.
-- Before push: `npm run format` **and commit the result**, then
-  `npm run verify:pr-local` (or the smallest gate that covers the change). Format is in
-  `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed
-  blob. Whole-tree Prettier, not a single edited file.
+- For Run PR sweeps and normal readiness pushes — never an explicit bare PR publication — run
+  `npm run format` **and commit the result**, then `npm run verify:pr-local` (or the smallest
+  gate that covers the change). Format is in `static-pr` but not in `verify:cheap`; an
+  uncommitted format leaves CI red on the pushed blob. Whole-tree Prettier, not a single edited
+  file.
 - If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable
   or re-enable it. Ordinary fast-forward pushes, `update-branch`/merge-main-in syncs, and bundled
   additions may proceed — GitHub re-validates required checks against the new head before merging,

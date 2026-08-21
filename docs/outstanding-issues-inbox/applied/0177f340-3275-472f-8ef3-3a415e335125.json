@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "0177f340-3275-472f-8ef3-3a415e335125",
+  "createdOn": "2026-08-20",
+  "action": "update",
+  "payload": {
+    "id": "#6GW95D",
+    "detail": "UPDATE 2026-08-21 (measured on this machine): the figure recorded here is badly understated and moving the wrong way. git worktree list reported 69 registered worktrees under .claude/worktrees, not nine. At the ~0.89 GB / 51,735-file node_modules per worktree measured in #6SMMB4, even partial installs put this well beyond the 4.5 GB recorded, on a Dev Drive noted as 51% full. SAFETY, learned the hard way on 2026-08-21: a sweep removed an in-use worktree during this very session and destroyed its uncommitted work - see the separate row filed for that. Re-measure actual on-disk size, then prune, but confirm each worktree is landed, holds no uncommitted or unpushed work, AND is not currently checked out by a live agent session before removing it.",
+    "baseRowFingerprint": "dfbd575a8b0986c259e939186e0366290ba4215cd4e75220c59c5817fb11b4e6"
+  }
+}
