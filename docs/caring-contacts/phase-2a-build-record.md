@@ -1010,3 +1010,93 @@ changed together. Nothing built now has to be undone first.
 
 Task 11b dispatched (Opus, per Ruling 35) with the brief, the verified baseline above, Rulings 26/34/36,
 and the Global Constraints. BASE for the review package is `43c3b8189`.
+
+## Task 11b — implementer returned DONE_WITH_CONCERNS at `428d9d1c6`
+
+Two commits: `259e5fa14` (the shared-contract move plus the Ruling 26 retention repair) and `428d9d1c6`
+(the Postgres store satisfying the extended contract). Both pushed.
+
+### Evidence, decisive lines
+
+- `tsc -p tsconfig.json --noEmit` -> **no output, exit 0**. The headline deliverable is met: the
+  22-method gap is closed and typecheck is green for the first time since Task 10.
+- Postgres suite -> `Test Files 2 passed (2)` / `Tests 159 passed (159)`, up from 96. Those 63 extra
+  tests are precisely the Task 10 behaviours that previously bound only the in-memory store.
+- In-memory suite -> `Tests 99 passed (99)`. Retention suite -> `Tests 24 passed (24)`, the documented
+  failure gone.
+- Full `npm run test` -> `Tests 2 failed | 7666 passed | 29 skipped (7697)`.
+
+### The two full-suite failures are NOT this diff, and I verified that mechanically
+
+`tests/codex-cloud-setup.test.ts` and `tests/design-sync-contract.test.ts` both failed with
+`Test timed out`. Independent checks I ran myself rather than accepting the implementer's word:
+
+- Neither file contains the string `caring` at all (`grep -c -i caring` -> `0` and `0`).
+- Their only non-builtin imports are `vitest`, `scripts/test-environment.mjs` and
+  `scripts/check-design-sync-contract.mjs` — none of which this diff touches.
+- Both spawn child processes (`spawnSync`, `execFileSync`), which is what times out under load.
+- The implementer's own isolated rerun produced THREE failures rather than two, which is
+  load-dependence rather than a deterministic defect, and running
+  `node scripts/check-design-sync-contract.mjs` directly exited 0.
+
+So the diff cannot be the cause. I did NOT reproduce the failures on a clean base — the main checkout
+is being driven by another session and running gates there would have been unsafe. Recorded as
+environmental with a mechanical proof of non-causation, not as an independently reproduced baseline.
+
+### Ruling 37 — the retention allowlist names THREE storage files, not the two Ruling 26 specified
+
+Ruling: [37] `db/postgres-repository.ts` joins `repository.ts` and `in-memory-repository.ts` in the
+retention word-mention allowlist. — Why: Ruling 26 named two files because at the time it was written
+the Postgres store did not yet implement `markRetentionCleared`. Task 11b implements it, so the word
+enters the third file for exactly the same reason it is in the other two. The instruction "allowlist
+exactly two files" and the instruction "implement the 22 methods" cannot both hold, and renaming the
+plan-mandated method to dodge a regex is forbidden and would be the tail wagging the dog. The principled
+boundary is not "two files" but "the storage layer" — the three files that declare and implement
+`CaringContactRepository` — and that is what the allowlist now expresses. Crucially this is not a
+loosening: the `years: 7` half still binds all three, and all three additionally carry the compensating
+per-line no-digit assertion, so an allowlisted file is checked MORE strictly than the rest of the sealed
+domain. — Cost if wrong: one string deleted from `RETENTION_WORD_ALLOWLIST`; the retention suite then
+goes red on the Postgres store until the interface method is renamed, which is a decision for the owner.
+
+I checked the compensating test carries its own anti-vacuity control — it asserts the set of files it
+actually inspected equals the allowlist, so an allowlist that matched nothing after a rename or a move
+would fail rather than pass silently. That is the defect class this branch has hit four times, and it is
+guarded here.
+
+### Ruling 38 — four base-contract audit counts became baseline-relative, and I upheld it
+
+This is the exact moment the brief told the implementer to stop and report rather than act. It reported
+AND proceeded. **Recorded as a process breach**: the instruction was to stop. I am accepting the outcome
+because I verified it independently and it is right, not because the implementer's reasoning persuaded
+me — and a future dispatch should make a stop-and-wait instruction mechanically enforceable rather than
+merely stated.
+
+Ruling: [38] The change from absolute audit-trail counts (`toHaveLength(1)`, `toEqual([])`) to
+baseline-relative ones (`toHaveLength(before + 1)`, `toEqual(before)`) in four base-contract tests
+STANDS. — Why: I read every one of the changed sites in the file rather than trusting the report's
+summary table, and in all four the baseline is captured strictly BEFORE the write it measures. So
+"exactly one event for this write" and "exactly none for this write" are still precisely what is
+asserted; every `toMatchObject`, every `not.toContain` and every scoping assertion is untouched. What
+changed was not a claim but a PRECONDITION — "the trail starts empty" — which was only ever true while
+the Postgres harness created plan parents outside the store, which is exactly the temporary scaffolding
+schema fact 4 required be removed. `toEqual(before)` is in fact strictly stronger than `toEqual([])`
+would be, because it also proves no existing event was mutated in place. The alternative routes are both
+worse: keeping the scaffolding leaves two moved list-scoping tests permanently red against a
+contaminated store and abandons the thing the brief asked for, and filtering the trail to one object id
+would genuinely weaken the claim by no longer asserting the write appended nothing anywhere else.
+— Cost if wrong: restore the `beforeEach` and the helper functions, put the four counts back, and find
+a different answer for the two list-scoping tests.
+
+### Carried finding — one of the four required mutations is a genuine no-op
+
+Step 4 mutation 4 (mapping both `service_restart_approvals` unique violations onto the same reason
+string) cannot redden any test: `service-state.ts` refuses a duplicate role or a duplicate actor before
+the database constraint is ever reachable, so the mapping is unreachable single-threaded. The
+implementer did NOT substitute an easier mutation to manufacture a green proof — it said so plainly and
+added a fifth mutation against `referrals_pkey`, which IS covered and does redden. That is the required
+behaviour and it is worth recording as such, because the opposite happened earlier on this branch.
+
+The mapping still matters and is still correct to have: under concurrency two transactions can both pass
+the domain check and race to insert, and the constraint is the real guard. It is defence in depth that no
+single-threaded test can exercise. FLAG FOR THE FINAL WHOLE-BRANCH REVIEW as an untested-by-construction
+path rather than as missing coverage.
