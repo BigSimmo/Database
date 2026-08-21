@@ -98,9 +98,3 @@ export const logger = {
   warn: (message: string, context?: Record<string, unknown>) => emit("warn", message, context),
   error: (message: string, context?: Record<string, unknown>) => emit("error", message, context),
 };
-
-// Correlation id so a client error report can be matched to server logs without
-// exposing the underlying log content to the client.
-export function newRequestId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
-}
