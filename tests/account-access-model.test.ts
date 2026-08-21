@@ -29,6 +29,28 @@ describe("public content and account authorization model", () => {
     expect(uploadRoute).not.toContain("PUBLIC_WORKSPACE_OWNER_ID");
   });
 
+  it("does not expose a browser document-upload workflow", () => {
+    const browserSurfaces = [
+      source("src/components/ClinicalDashboard.tsx"),
+      source("src/components/clinical-dashboard/DocumentManagerPanel.tsx"),
+      source("src/components/clinical-dashboard/clinical-dashboard-lazy.tsx"),
+      source("src/components/clinical-dashboard/global-search-shell.tsx"),
+      source("src/components/clinical-dashboard/master-search-header.tsx"),
+      source("src/components/clinical-dashboard/mode-action-popup.tsx"),
+      source("src/components/privacy-live-signal-perfected-mockups.tsx"),
+      source("src/components/privacy-page-directions-mockups.tsx"),
+      source("src/components/search-lens-menu-mockups.tsx"),
+    ].join("\n");
+
+    expect(browserSurfaces).not.toContain("documents-upload");
+    expect(browserSurfaces).not.toContain("UploadPanel");
+    expect(browserSurfaces).not.toContain('type="file"');
+    expect(browserSurfaces).not.toContain('"/api/upload"');
+    expect(browserSurfaces).not.toContain("Upload PDF");
+    expect(browserSurfaces).not.toContain("Add document");
+    expect(browserSurfaces).not.toContain("Upload only material");
+  });
+
   it("keeps administrator assignment behind an explicit provider-mutation gate", () => {
     const script = source("scripts/set-site-administrator.ts");
     expect(script).toContain('process.env.ALLOW_SUPABASE_ADMIN_MUTATION !== "true"');
@@ -83,7 +105,7 @@ describe("public content and account authorization model", () => {
     const compact = dashboard.replace(/\s+/g, " ");
     expect(dashboard).toContain("if (!canUseAdministrativeApis)");
     expect(compact).toContain(
-      'canUseAdministrativeApis && (settingsState.uploadDrawerOpen || (settingsState.documentsDrawerOpen && settingsState.documentsDrawerMode === "admin"))',
+      'canUseAdministrativeApis && (settingsState.indexingAdminDrawerOpen || (settingsState.documentsDrawerOpen && settingsState.documentsDrawerMode === "admin"))',
     );
     expect(compact).toContain(
       'const documentsDrawerIsAdmin = settingsState.documentsDrawerMode === "admin" && canUseAdministrativeApis;',

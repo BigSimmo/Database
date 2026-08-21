@@ -113,8 +113,8 @@ describe("ModeActionPopup state transitions", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("menu", { name: "Documents" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("menuitem", { name: "Upload PDF" }));
-    expect(onAction).toHaveBeenCalledWith("documents-upload");
+    await user.click(screen.getByRole("menuitem", { name: "Browse library" }));
+    expect(onAction).toHaveBeenCalledWith("documents-collections");
     expect(screen.queryByRole("menu", { name: "Documents" })).not.toBeInTheDocument();
     expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
@@ -127,7 +127,7 @@ describe("ModeActionPopup state transitions", () => {
     trigger.focus();
     await user.keyboard("{ArrowDown}");
 
-    const first = screen.getByRole("menuitem", { name: "Upload PDF" });
+    const first = screen.getByRole("menuitem", { name: "Browse library" });
     await waitFor(() => expect(first).toHaveFocus());
     await user.keyboard("{End}");
     expect(screen.getByRole("menuitem", { name: "Open source PDF" })).toHaveFocus();

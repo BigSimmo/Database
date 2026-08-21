@@ -1,28 +1,10 @@
 "use client";
 
-import { useState, useRef, useId } from "react";
 import Link from "next/link";
-import { UploadCloud, Loader2, RefreshCw, Sparkles, ShieldCheck, ExternalLink } from "lucide-react";
-import {
-  cn,
-  panelSubtle,
-  textMuted,
-  sourceCard,
-  metadataPillDensity,
-  floatingControl,
-  toneDanger,
-  toneInfo,
-  toneNeutral,
-  toneSuccess,
-  toneWarning,
-  EmptyState,
-} from "@/components/ui-primitives";
-import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
-import { emptyStates, errorCopy } from "@/lib/ui-copy";
-import { exceedsClientUploadSize, getClientMaxUploadMb, uploadSizeLimitMessage } from "@/lib/upload-limits";
+import { Activity, ExternalLink, Loader2, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
+
 import { StatusBadge } from "@/components/clinical-dashboard/badges";
-import { PrivacyInputNotice } from "@/components/privacy-input-notice";
-import type { IngestionJob, ImportBatch } from "@/lib/types";
+import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
 import {
   fallbackSetupChecks,
   type IngestionQualityReviewItem,
@@ -30,6 +12,22 @@ import {
   type SetupCheck,
   type SetupCheckStatus,
 } from "@/components/clinical-dashboard/document-manager-contracts";
+import {
+  cn,
+  EmptyState,
+  floatingControl,
+  metadataPillDensity,
+  panelSubtle,
+  sourceCard,
+  textMuted,
+  toneDanger,
+  toneInfo,
+  toneNeutral,
+  toneSuccess,
+  toneWarning,
+} from "@/components/ui-primitives";
+import type { ImportBatch, IngestionJob } from "@/lib/types";
+import { emptyStates } from "@/lib/ui-copy";
 
 export {
   fallbackSetupChecks,
@@ -43,19 +41,11 @@ export type {
   SetupCheckStatus,
 } from "@/components/clinical-dashboard/document-manager-contracts";
 
-// Setup and quality types
-const demoUploadReadOnlyMessage =
-  "Demo mode is read-only. Configure Supabase, OpenAI, and the local worker before uploading private guideline files.";
-
 export type IndexingMonitorFilter = "all" | "active" | "failed";
 
 function setupBadgeClasses(status: SetupCheckStatus) {
-  if (status === "ready") {
-    return toneSuccess;
-  }
-  if (status === "needs_setup") {
-    return toneWarning;
-  }
+  if (status === "ready") return toneSuccess;
+  if (status === "needs_setup") return toneWarning;
   return toneNeutral;
 }
 
@@ -97,312 +87,6 @@ export function SetupChecklist({ checks }: { checks: SetupCheck[] }) {
   );
 }
 
-/**
- * Uploads one file via XMLHttpRequest so the browser reports byte-level upload
- * progress (fetch offers no request-body progress). Resolves on 2xx, rejects
- * with the server's error message otherwise.
- */
-export type UploadOutcome =
-  | { kind: "queued"; fileName: string; documentId: string; jobId: string }
-  | { kind: "duplicate"; fileName: string; documentId: string; message: string }
-  | { kind: "failed"; fileName: string; status: number; code: string; message: string };
-
-export function uploadBatchCompletion(outcomes: UploadOutcome[]) {
-  const queued = outcomes.filter((outcome) => outcome.kind === "queued");
-  const duplicates = outcomes.filter((outcome) => outcome.kind === "duplicate");
-  const failures = outcomes.filter((outcome) => outcome.kind === "failed");
-  return {
-    queued,
-    duplicates,
-    failures,
-    shouldClearInput: queued.length + duplicates.length > 0,
-    shouldRefreshDocuments: queued.length > 0,
-  };
-}
-
-type UploadResponsePayload = {
-  error?: string;
-  message?: string;
-  code?: string;
-  duplicate?: boolean;
-  document?: { id?: string };
-  job?: { id?: string };
-};
-export function uploadOutcomeFromResponse(
-  fileName: string,
-  status: number,
-  payload: UploadResponsePayload,
-): UploadOutcome {
-  const documentId = payload.document?.id ?? "";
-  if (status >= 200 && status < 300 && payload.duplicate) {
-    return {
-      kind: "duplicate",
-      fileName,
-      documentId,
-      message: payload.message ?? "This exact document already exists; no indexing job was queued.",
-    };
-  }
-  if (status >= 200 && status < 300) {
-    return { kind: "queued", fileName, documentId, jobId: payload.job?.id ?? "" };
-  }
-  return {
-    kind: "failed",
-    fileName,
-    status,
-    code: payload.code ?? `http_${status}`,
-    message: payload.message ?? payload.error ?? "Upload failed",
-  };
-}
-
-export function uploadFileWithProgress(
-  file: File,
-  authorizationHeader: Record<string, string>,
-  onProgress: (fraction: number) => void,
-  signal?: AbortSignal,
-): Promise<UploadOutcome> {
-  return new Promise((resolve) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/upload");
-    // FormData sets its own multipart Content-Type (with boundary); only the
-    // auth header is forwarded, matching the previous fetch() call.
-    for (const [key, value] of Object.entries(authorizationHeader)) {
-      xhr.setRequestHeader(key, value);
-    }
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && event.total > 0) onProgress(event.loaded / event.total);
-    };
-    xhr.onload = () => {
-      let payload: UploadResponsePayload = {};
-      try {
-        payload = JSON.parse(xhr.responseText || "{}");
-      } catch {
-        payload = {};
-      }
-      if (xhr.status >= 200 && xhr.status < 300) {
-        onProgress(1);
-        resolve(uploadOutcomeFromResponse(file.name, xhr.status, payload));
-      } else {
-        resolve(uploadOutcomeFromResponse(file.name, xhr.status, payload));
-      }
-    };
-    xhr.onerror = () =>
-      resolve({
-        kind: "failed",
-        fileName: file.name,
-        status: 0,
-        code: "network_error",
-        message: errorCopy.uploadFailed,
-      });
-    xhr.onabort = () =>
-      resolve({
-        kind: "failed",
-        fileName: file.name,
-        status: 0,
-        code: "upload_cancelled",
-        message: "Upload cancelled.",
-      });
-    signal?.addEventListener("abort", () => xhr.abort(), { once: true });
-    const formData = new FormData();
-    formData.append("file", file);
-    xhr.send(formData);
-  });
-}
-
-export function UploadPanel({
-  onUploaded,
-  demoMode,
-  canUpload,
-  authorizationHeader,
-  registerAuthRequest,
-  isAuthEpochCurrent,
-  onSessionExpired,
-  status,
-  setStatus,
-}: {
-  onUploaded: () => void;
-  demoMode: boolean;
-  canUpload: boolean;
-  authorizationHeader: Record<string, string>;
-  registerAuthRequest?: (controller: AbortController) => { epoch: number; release: () => void };
-  isAuthEpochCurrent?: (epoch: number) => boolean;
-  onSessionExpired?: () => void;
-  status?: string | null;
-  setStatus?: (status: string | null) => void;
-}) {
-  const [uploading, setUploading] = useState(false);
-  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
-  const [localStatus, setLocalStatus] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const fileHintId = useId();
-
-  const displayStatus = status !== undefined ? status : localStatus;
-  const changeStatus = setStatus || setLocalStatus;
-
-  async function handleFormSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (demoMode) {
-      changeStatus(demoUploadReadOnlyMessage);
-      return;
-    }
-    if (!canUpload) {
-      changeStatus(
-        demoMode ? demoUploadReadOnlyMessage : "Uploads are unavailable until this public workspace is configured.",
-      );
-      return;
-    }
-
-    const input = fileInputRef.current;
-    const files = Array.from(input?.files || []);
-    if (files.length === 0) {
-      changeStatus("Select at least one PDF file to upload.");
-      return;
-    }
-
-    setUploading(true);
-    setUploadPercent(0);
-    changeStatus(
-      files.length === 1 ? `Uploading ${files[0].name}...` : `Uploading 1 of ${files.length}: ${files[0].name}`,
-    );
-
-    const outcomes: UploadOutcome[] = [];
-    for (let index = 0; index < files.length; index++) {
-      const file = files[index];
-      try {
-        // Pre-check the size before spending the transfer. Prefer
-        // NEXT_PUBLIC_MAX_UPLOAD_MB (clamped to the ceiling) so a lowered
-        // operator limit matches the UI; the server still enforces
-        // env.MAX_UPLOAD_MB as the authority. The rest of the batch still
-        // uploads, matching the server's per-file outcome semantics.
-        const clientMaxUploadMb = getClientMaxUploadMb();
-        if (exceedsClientUploadSize(file.size)) {
-          outcomes.push({
-            kind: "failed",
-            fileName: file.name,
-            status: 413,
-            code: "payload_too_large",
-            message: uploadSizeLimitMessage(clientMaxUploadMb),
-          });
-          continue;
-        }
-        changeStatus(
-          files.length === 1 ? `Uploading ${file.name}...` : `Uploading ${index + 1} of ${files.length}: ${file.name}`,
-        );
-        // Overall percent spans all files: completed files + the current file's
-        // byte fraction, so the bar advances smoothly across a multi-file batch.
-        const controller = new AbortController();
-        const authRequest = registerAuthRequest?.(controller);
-        const outcome = await uploadFileWithProgress(
-          file,
-          authorizationHeader,
-          (fraction) => {
-            setUploadPercent(Math.min(100, Math.round(((index + fraction) / files.length) * 100)));
-          },
-          controller.signal,
-        );
-        authRequest?.release();
-        if (authRequest && isAuthEpochCurrent && !isAuthEpochCurrent(authRequest.epoch)) {
-          changeStatus("Upload cancelled because the signed-in session changed.");
-          setUploading(false);
-          setUploadPercent(null);
-          return;
-        }
-        outcomes.push(outcome);
-        if (outcome.kind === "failed" && outcome.status === 401) onSessionExpired?.();
-      } catch (error) {
-        outcomes.push({
-          kind: "failed",
-          fileName: file.name,
-          status: 0,
-          code: "upload_failed",
-          message: error instanceof Error ? error.message : errorCopy.uploadFailed,
-        });
-      }
-    }
-
-    const { queued, duplicates, failures, shouldClearInput, shouldRefreshDocuments } = uploadBatchCompletion(outcomes);
-    setUploadPercent(failures.length === 0 ? 100 : null);
-    if (failures.length === 0) {
-      const parts = [
-        queued.length ? `${queued.length} queued for indexing` : null,
-        duplicates.length ? `${duplicates.length} already existed; no indexing job was queued` : null,
-      ].filter(Boolean);
-      changeStatus(parts.join(". ") + ".");
-    } else {
-      const successful = queued.length + duplicates.length;
-      changeStatus(
-        `Upload complete: ${successful} accepted; ${failures.length} failed. ${failures.map((outcome) => `${outcome.fileName}: ${outcome.message}`).join("; ")}`,
-      );
-    }
-    if (input && shouldClearInput) input.value = "";
-    if (shouldRefreshDocuments) onUploaded();
-    setUploading(false);
-    setUploadPercent(null);
-  }
-
-  return (
-    <form onSubmit={handleFormSubmit} className={cn(panelSubtle, "p-3")}>
-      <PrivacyInputNotice className="mb-2" returnMode="documents" />
-      <label className="block text-xs font-semibold text-[color:var(--text)]">
-        Guideline PDF files
-        <input
-          ref={fileInputRef}
-          name="file"
-          type="file"
-          accept=".pdf,application/pdf"
-          multiple
-          disabled={demoMode || !canUpload || uploading}
-          aria-describedby={fileHintId}
-          onChange={() => changeStatus(null)}
-          className="mt-2 block w-full text-xs font-medium text-[color:var(--text-muted)] file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border file:border-[color:var(--border)] file:bg-[color:var(--surface)] file:px-3 file:text-xs file:font-semibold file:text-[color:var(--text)] file:shadow-[var(--shadow-inset)] file:transition file:hover:bg-[color:var(--surface-subtle)] disabled:opacity-50"
-        />
-      </label>
-      <p id={fileHintId} className={cn(textMuted, "mt-2 text-xs")}>
-        PDF only, up to {getClientMaxUploadMb()} MB per file.
-      </p>
-      <div className="mt-3">
-        <button
-          type="submit"
-          disabled={uploading || (!demoMode && !canUpload)}
-          className={cn(floatingControl, "w-full justify-center")}
-        >
-          {uploading ? (
-            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-          ) : (
-            <UploadCloud aria-hidden="true" className="h-4 w-4" />
-          )}
-          Upload guidelines
-        </button>
-      </div>
-      {uploading && uploadPercent !== null && (
-        <div className="mt-2" aria-hidden="false">
-          <div
-            role="progressbar"
-            aria-label="Upload progress"
-            aria-valuenow={uploadPercent}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
-          >
-            <div
-              className="h-full w-full origin-left rounded-full bg-[color:var(--clinical-accent)] transition-transform duration-[var(--duration-moderate)] ease-[var(--ease-out-keyword)] motion-reduce:transition-none"
-              style={{ transform: `scaleX(${uploadPercent / 100})` }}
-            />
-          </div>
-        </div>
-      )}
-      {(displayStatus || demoMode) && (
-        <p
-          aria-live="polite"
-          className="mt-2 text-xs leading-5 text-[color:var(--text-muted)]"
-          data-testid="upload-status"
-        >
-          {displayStatus ?? demoUploadReadOnlyMessage}
-        </p>
-      )}
-    </form>
-  );
-}
-
 function formatBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 MB";
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -433,7 +117,7 @@ export function IndexingMonitor({
   if (visibleJobs.length === 0 && visibleBatches.length === 0) {
     return (
       <EmptyState
-        icon={UploadCloud}
+        icon={Activity}
         title={
           filter === "failed"
             ? emptyStates.ingestionJobs.noneFailed
@@ -446,7 +130,7 @@ export function IndexingMonitor({
             ? "Failed jobs and batches appear here when indexing needs review."
             : filter === "active"
               ? "Queued and processing jobs appear here while indexing is running."
-              : "Queued uploads and worker progress appear here."
+              : "Queued ingestion work and worker progress appear here."
         }
         live="polite"
       />

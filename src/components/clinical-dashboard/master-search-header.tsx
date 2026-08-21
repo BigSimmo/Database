@@ -200,7 +200,6 @@ export function MasterSearchHeader({
   onScopeFiltersChange,
   onToggleScope,
   onScopeOpenChange,
-  onOpenUpload,
   onOpenEvidence,
   onOpenRecentDocuments,
   onOpenLibrary,
@@ -255,7 +254,6 @@ export function MasterSearchHeader({
   onScopeFiltersChange: (filters: SearchScopeFilters) => void;
   onToggleScope: (documentId: string) => void;
   onScopeOpenChange?: (open: boolean) => void;
-  onOpenUpload?: () => void;
   onOpenEvidence?: () => void;
   onOpenRecentDocuments?: () => void;
   onOpenLibrary?: () => void;
@@ -729,10 +727,6 @@ export function MasterSearchHeader({
 
     if (actionId === "documents-search") {
       onSearchModeChange("documents");
-      return;
-    }
-    if (actionId === "documents-upload") {
-      onOpenUpload?.();
       return;
     }
     if (actionId === "documents-scope") {

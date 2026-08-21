@@ -40,7 +40,6 @@ import {
   Sparkles,
   Tags,
   Table2,
-  UploadCloud,
   Waypoints,
   Wrench,
   X,
@@ -104,7 +103,6 @@ export type ModeActionId =
   | "answer-evidence-map"
   | "answer-new"
   | "documents-search"
-  | "documents-upload"
   | "documents-scope"
   | "documents-recent"
   | "documents-tables"
@@ -160,7 +158,7 @@ export type ModeActionItem = {
 };
 
 // One curated, primary-first action list per mode. Keep the accessible name of each
-// item (its `label`) test-stable: Answer must expose "Scope"; Documents "Upload PDF".
+// item (its `label`) test-stable: Answer must expose "Scope"; Documents "Browse library".
 const modeActionSets = {
   answer: [
     {
@@ -170,7 +168,6 @@ const modeActionSets = {
       icon: MessageSquarePlus,
       primary: true,
     },
-    { id: "documents-upload", label: "Add document", description: "Upload a source", icon: UploadCloud },
     { id: "documents-scope", label: "Scope", description: "Limit answers to chosen sources", icon: Filter },
     {
       id: "answer-evidence-map",
@@ -183,15 +180,14 @@ const modeActionSets = {
   ],
   documents: [
     {
-      id: "documents-upload",
-      label: "Upload PDF",
-      description: "Add an indexed source",
-      icon: UploadCloud,
+      id: "documents-collections",
+      label: "Browse library",
+      description: "All indexed sources",
+      icon: FolderOpen,
       primary: true,
     },
     { id: "documents-scope", label: "Scope sources", description: "Limit answers to selected sources", icon: Filter },
     { id: "documents-recent", label: "Recent documents", description: "Browse recently updated", icon: Clock3 },
-    { id: "documents-collections", label: "Browse library", description: "All indexed sources", icon: FolderOpen },
     { id: "documents-tables", label: "Tables", description: "Search table evidence", icon: Table2 },
     { id: "documents-viewer", label: "Open source PDF", description: "View a source document", icon: FileText },
   ],
@@ -765,7 +761,7 @@ export function ModeActionPopup({
   // desktop popover and the phone/tablet sheet. Each row's accessible name is set
   // via aria-label to the `label` only; the visible secondary description is linked
   // with aria-describedby (and must not use aria-hidden, which conflicts with it).
-  // That keeps exact-match queries like "Scope"/"Upload PDF" stable.
+  // That keeps exact-match queries like "Scope"/"Browse library" stable.
   function renderActionRows() {
     return (
       <div

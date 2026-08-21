@@ -16,7 +16,7 @@ import {
   Search,
   ShieldAlert,
   Square,
-  UploadCloud,
+  Activity,
   Wrench,
 } from "lucide-react";
 import {
@@ -30,16 +30,11 @@ import {
   useState,
 } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
-import { useUploadDesktopLayout } from "@/components/clinical-dashboard/use-upload-desktop-layout";
+import { useIndexingAdminDesktopLayout } from "@/components/clinical-dashboard/use-indexing-admin-desktop-layout";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { ownsVerticalScroll, scrollSurface } from "@/components/clinical-dashboard/scroll-surface";
-import {
-  incrementalEvidencePreviewRenderingEnabled,
-  isLocalNoAuthMode,
-  resolveClientDemoMode,
-  resolveUploadReadOnlyMode,
-} from "@/lib/client-env";
+import { incrementalEvidencePreviewRenderingEnabled, isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { isAdministratorUser } from "@/lib/authorization";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
@@ -148,7 +143,7 @@ import {
 import {
   type IndexingMonitorFilter,
   type LibraryHealthTarget,
-  type UploadIndexingTab,
+  type IndexingAdministrationTab,
 } from "@/components/clinical-dashboard/document-admin";
 import { useHomeModeSeed } from "@/components/clinical-dashboard/use-home-mode-seed";
 import {
@@ -163,7 +158,6 @@ import {
   RelatedDocumentsPanel,
   SetupChecklist,
   StagedAnswerResultSurface,
-  UploadPanel,
 } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 
 import { clearLegacyRecentQueries, recentQueryStorageKey } from "@/lib/recent-query-storage";
@@ -527,8 +521,8 @@ export function ClinicalDashboard({
   );
   const settingsState = useSettingsState();
   const documentsDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
-  const uploadUsesDesktopRegions = useUploadDesktopLayout();
-  const uploadTabRefs = useRef(new Map<UploadIndexingTab, HTMLButtonElement>());
+  const indexingAdminUsesDesktopRegions = useIndexingAdminDesktopLayout();
+  const indexingAdminTabRefs = useRef(new Map<IndexingAdministrationTab, HTMLButtonElement>());
   const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
   const [indexingMonitorFilter, setIndexingMonitorFilter] = useState<IndexingMonitorFilter>("all");
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
@@ -666,7 +660,7 @@ export function ClinicalDashboard({
     setSettingsOpen: settingsState.setSettingsOpen,
     setMobileSidebarOpen: settingsState.setMobileSidebarOpen,
     setDocumentsDrawerOpen: settingsState.setDocumentsDrawerOpen,
-    setUploadDrawerOpen: settingsState.setUploadDrawerOpen,
+    setIndexingAdminDrawerOpen: settingsState.setIndexingAdminDrawerOpen,
     prefetch: (href) => router.prefetch(href),
   });
   const settingsGuideFlow = useSettingsGuideFlow({
@@ -705,10 +699,6 @@ export function ClinicalDashboard({
   });
   // Local no-auth can still exercise public-read APIs, but administration is always
   // derived separately from the immutable account role claim.
-  const uploadReadOnlyMode = resolveUploadReadOnlyMode({
-    explicitDemoMode,
-    authUnavailableFallback: browserAuthUnavailableDemoFallback,
-  });
   const localDevCanAttemptPrivateApis = process.env.NODE_ENV !== "production" && hasReadyPublicSearchSetup(setupChecks);
   const canUsePublicSearchApis = localProjectReady && hasReadyPublicSearchSetup(setupChecks);
   const canUseDegradedLocalSearchApis =
@@ -718,7 +708,6 @@ export function ClinicalDashboard({
     localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
   const isAdministrator = isAdministratorUser(auth.session?.user);
   const canUseAdministrativeApis = localProjectReady && isAdministrator;
-  const canUploadDocuments = canUseAdministrativeApis && canUsePublicSearchApis;
   const canAttemptDeployedPublicSearch = isDeployedClinicalKb() && localProjectReady;
   const canRunSearch =
     explicitDemoMode ||
@@ -752,20 +741,20 @@ export function ClinicalDashboard({
         settingsState.setDocumentsDrawerMode("admin");
         settingsState.setDocumentsDrawerOpen(true);
       } else if (target === "indexing") {
-        closeDashboardTransientSurfaces("upload");
-        settingsState.setUploadMobileTab("jobs");
+        closeDashboardTransientSurfaces("indexingAdmin");
+        settingsState.setIndexingAdminMobileTab("jobs");
         setIndexingMonitorFilter("active");
-        settingsState.setUploadDrawerOpen(true);
+        settingsState.setIndexingAdminDrawerOpen(true);
       } else if (target === "failures") {
-        closeDashboardTransientSurfaces("upload");
-        settingsState.setUploadMobileTab("jobs");
+        closeDashboardTransientSurfaces("indexingAdmin");
+        settingsState.setIndexingAdminMobileTab("jobs");
         setIndexingMonitorFilter("failed");
-        settingsState.setUploadDrawerOpen(true);
+        settingsState.setIndexingAdminDrawerOpen(true);
       } else {
-        closeDashboardTransientSurfaces("upload");
-        settingsState.setUploadMobileTab("setup");
+        closeDashboardTransientSurfaces("indexingAdmin");
+        settingsState.setIndexingAdminMobileTab("setup");
         setIndexingMonitorFilter("all");
-        settingsState.setUploadDrawerOpen(true);
+        settingsState.setIndexingAdminDrawerOpen(true);
       }
 
       window.setTimeout(() => {
@@ -1361,10 +1350,10 @@ export function ClinicalDashboard({
   );
   const needsSetupRecheck = useMemo(() => setupNeedsSlowRecheck(setupChecks), [setupChecks]);
   const dashboardDataSurfaceVisible =
-    settingsState.documentScopeOpen || settingsState.documentsDrawerOpen || settingsState.uploadDrawerOpen;
+    settingsState.documentScopeOpen || settingsState.documentsDrawerOpen || settingsState.indexingAdminDrawerOpen;
   const administrationSurfaceVisible =
     canUseAdministrativeApis &&
-    (settingsState.uploadDrawerOpen ||
+    (settingsState.indexingAdminDrawerOpen ||
       (settingsState.documentsDrawerOpen && settingsState.documentsDrawerMode === "admin"));
 
   useEffect(() => {
@@ -2709,28 +2698,6 @@ export function ClinicalDashboard({
     openDocumentsDrawer("source");
   }
 
-  function openUploadDrawer() {
-    if (!canUseAdministrativeApis) {
-      openDocumentsDrawer("library");
-      setActionNotice({
-        tone: "warning",
-        message: "Upload and indexing tools are admin-only. Use Sources to open indexed documents.",
-      });
-      return;
-    }
-    closeDashboardTransientSurfaces("upload");
-    setSearchMode("documents");
-    settingsState.setDocumentsDrawerMode("admin");
-    settingsState.setUploadDrawerOpen(true);
-    window.requestAnimationFrame(() => {
-      const drawer = document.getElementById("dashboard-upload-drawer") as HTMLDetailsElement | null;
-      drawer?.scrollIntoView({ block: "start", behavior: resolveScrollBehavior() });
-      if (drawer && !drawer.open) {
-        drawer.querySelector<HTMLElement>("summary")?.click();
-      }
-    });
-  }
-
   function openEvidenceDrawer() {
     closeDashboardTransientSurfaces();
     const reviewTrigger = document.getElementById("answer-evidence-drawer-mobile-trigger") as HTMLButtonElement | null;
@@ -3078,44 +3045,36 @@ export function ClinicalDashboard({
   );
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
   const setupCheckCount = setupChecks.length || fallbackSetupChecks.length;
-  const activeUploadWork =
+  const activeIndexingWorkCount =
     jobs.filter((job) => job.status === "pending" || job.status === "processing").length +
     batches.filter((batch) => batch.status === "queued" || batch.status === "processing").length;
-  const failedUploadWork =
+  const failedIndexingWorkCount =
     jobs.filter((job) => job.status === "failed").length + batches.filter((batch) => batch.status === "failed").length;
-  const uploadTabs: Array<{
-    id: UploadIndexingTab;
+  const indexingAdminTabs: Array<{
+    id: IndexingAdministrationTab;
     label: string;
     summary: string;
     tabId: string;
     panelId: string;
-    icon: typeof UploadCloud;
+    icon: typeof Activity;
   }> = [
     {
       id: "setup",
       label: "Setup",
       summary: `${setupReadyCount}/${setupCheckCount} ready`,
-      tabId: "dashboard-upload-tab-setup",
+      tabId: "dashboard-indexing-admin-tab-setup",
       panelId: "dashboard-setup-section",
       icon: ListChecks,
     },
     {
-      id: "upload",
-      label: "Upload",
-      summary: uploadReadOnlyMode || !canUploadDocuments ? "Locked" : "Ready",
-      tabId: "dashboard-upload-tab-upload",
-      panelId: "dashboard-upload-section",
-      icon: UploadCloud,
-    },
-    {
       id: "jobs",
       label: "Jobs",
-      summary: activeUploadWork
-        ? `${activeUploadWork} active`
-        : failedUploadWork
-          ? `${failedUploadWork} failed`
+      summary: activeIndexingWorkCount
+        ? `${activeIndexingWorkCount} active`
+        : failedIndexingWorkCount
+          ? `${failedIndexingWorkCount} failed`
           : "Idle",
-      tabId: "dashboard-upload-tab-jobs",
+      tabId: "dashboard-indexing-admin-tab-jobs",
       panelId: "dashboard-indexing-section",
       icon: RefreshCw,
     },
@@ -3123,15 +3082,15 @@ export function ClinicalDashboard({
       id: "quality",
       label: "Quality",
       summary: qualityItems.length ? `${qualityItems.length} review` : "Clear",
-      tabId: "dashboard-upload-tab-quality",
+      tabId: "dashboard-indexing-admin-tab-quality",
       panelId: "dashboard-quality-section",
       icon: ShieldAlert,
     },
   ];
 
-  function handleUploadTabKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
-    const order = uploadTabs.map((tab) => tab.id);
-    const index = order.indexOf(settingsState.uploadMobileTab);
+  function handleIndexingAdminTabKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    const order = indexingAdminTabs.map((tab) => tab.id);
+    const index = order.indexOf(settingsState.indexingAdminMobileTab);
     const next =
       event.key === "ArrowRight"
         ? order[(index + 1) % order.length]
@@ -3144,16 +3103,9 @@ export function ClinicalDashboard({
               : null;
     if (!next) return;
     event.preventDefault();
-    if (next !== settingsState.uploadMobileTab) settingsState.setUploadMobileTab(next);
-    uploadTabRefs.current.get(next)?.focus();
+    if (next !== settingsState.indexingAdminMobileTab) settingsState.setIndexingAdminMobileTab(next);
+    indexingAdminTabRefs.current.get(next)?.focus();
   }
-
-  const handleUploadQueued = () => {
-    setUserStartedIngestion(true);
-    setIndexingActive(true);
-    settingsState.setUploadMobileTab("jobs");
-    void refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
-  };
   const documentsDrawerIsAdmin = settingsState.documentsDrawerMode === "admin" && canUseAdministrativeApis;
   const documentsDrawerTitle =
     settingsState.documentsDrawerMode === "recent"
@@ -3187,9 +3139,10 @@ export function ClinicalDashboard({
       : settingsState.documentsDrawerMode === "source"
         ? ExternalLink
         : documentsDrawerIsAdmin
-          ? UploadCloud
+          ? Activity
           : FolderOpen;
-  const drawerGroupTitle = settingsState.uploadDrawerOpen || documentsDrawerIsAdmin ? "Sources and admin" : "Sources";
+  const drawerGroupTitle =
+    settingsState.indexingAdminDrawerOpen || documentsDrawerIsAdmin ? "Sources and admin" : "Sources";
 
   // Stable-identity handlers for the React.memo children (StagedAnswerResultSurface,
   // DocumentSearchResultsPanel). These close over the draft `query` or call the
@@ -3329,7 +3282,6 @@ export function ClinicalDashboard({
           onScopeFiltersChange={setScopeFilters}
           onScopeOpenChange={settingsState.setDocumentScopeOpen}
           onToggleScope={toggleDocumentScope}
-          onOpenUpload={openUploadDrawer}
           onOpenEvidence={openEvidenceDrawer}
           onOpenRecentDocuments={openRecentDocuments}
           onOpenLibrary={openSourceLibrary}
@@ -3829,7 +3781,7 @@ export function ClinicalDashboard({
                   onTagSearch={handleDocumentTagSearch}
                 />
               )}
-              {(settingsState.documentsDrawerOpen || settingsState.uploadDrawerOpen) && (
+              {(settingsState.documentsDrawerOpen || settingsState.indexingAdminDrawerOpen) && (
                 <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
                   <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]">
                     {drawerGroupTitle}
@@ -3897,15 +3849,15 @@ export function ClinicalDashboard({
                     </UtilityDrawer>
                   ) : null}
 
-                  {settingsState.uploadDrawerOpen ? (
+                  {settingsState.indexingAdminDrawerOpen ? (
                     <UtilityDrawer
-                      id="dashboard-upload-drawer"
-                      icon={UploadCloud}
-                      title="Upload and indexing"
-                      summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
-                      mobileSummary="Setup & uploads"
-                      open={settingsState.uploadDrawerOpen}
-                      onOpenChange={settingsState.setUploadDrawerOpen}
+                      id="dashboard-indexing-admin-drawer"
+                      icon={Activity}
+                      title="Indexing administration"
+                      summary="Documents are added through the administrator backend. Monitor setup, jobs, and ingestion quality here."
+                      mobileSummary="Indexing admin"
+                      open={settingsState.indexingAdminDrawerOpen}
+                      onOpenChange={settingsState.setIndexingAdminDrawerOpen}
                     >
                       <LibraryHealthStrip
                         documents={documents}
@@ -3917,19 +3869,19 @@ export function ClinicalDashboard({
                       />
                       <div
                         role="tablist"
-                        aria-label="Upload and indexing sections"
-                        onKeyDown={handleUploadTabKeyDown}
-                        className="grid grid-cols-4 gap-2 lg:hidden"
+                        aria-label="Indexing administration sections"
+                        onKeyDown={handleIndexingAdminTabKeyDown}
+                        className="grid grid-cols-3 gap-2 lg:hidden"
                       >
-                        {uploadTabs.map((tab) => {
-                          const active = settingsState.uploadMobileTab === tab.id;
+                        {indexingAdminTabs.map((tab) => {
+                          const active = settingsState.indexingAdminMobileTab === tab.id;
                           const Icon = tab.icon;
                           return (
                             <button
                               key={tab.id}
                               ref={(element) => {
-                                if (element) uploadTabRefs.current.set(tab.id, element);
-                                else uploadTabRefs.current.delete(tab.id);
+                                if (element) indexingAdminTabRefs.current.set(tab.id, element);
+                                else indexingAdminTabRefs.current.delete(tab.id);
                               }}
                               type="button"
                               role="tab"
@@ -3939,7 +3891,7 @@ export function ClinicalDashboard({
                               aria-label={tab.label}
                               aria-describedby={`${tab.tabId}-summary`}
                               tabIndex={active ? 0 : -1}
-                              onClick={() => settingsState.setUploadMobileTab(tab.id)}
+                              onClick={() => settingsState.setIndexingAdminMobileTab(tab.id)}
                               className={cn(
                                 "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
                                 active
@@ -3964,13 +3916,15 @@ export function ClinicalDashboard({
                       <div className="grid gap-4 lg:grid-cols-2">
                         <div
                           id="dashboard-setup-section"
-                          role={uploadUsesDesktopRegions ? "region" : "tabpanel"}
+                          role={indexingAdminUsesDesktopRegions ? "region" : "tabpanel"}
                           aria-labelledby={
-                            uploadUsesDesktopRegions ? "dashboard-setup-section-heading" : "dashboard-upload-tab-setup"
+                            indexingAdminUsesDesktopRegions
+                              ? "dashboard-setup-section-heading"
+                              : "dashboard-indexing-admin-tab-setup"
                           }
                           className={cn(
                             "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
-                            settingsState.uploadMobileTab !== "setup" && "hidden lg:block",
+                            settingsState.indexingAdminMobileTab !== "setup" && "hidden lg:block",
                           )}
                         >
                           <p
@@ -3983,45 +3937,16 @@ export function ClinicalDashboard({
                           {showAuthPanel && <AuthPanel />}
                         </div>
                         <div
-                          id="dashboard-upload-section"
-                          role={uploadUsesDesktopRegions ? "region" : "tabpanel"}
-                          aria-labelledby={
-                            uploadUsesDesktopRegions
-                              ? "dashboard-upload-section-heading"
-                              : "dashboard-upload-tab-upload"
-                          }
-                          className={cn(
-                            "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
-                            settingsState.uploadMobileTab !== "upload" && "hidden lg:block",
-                          )}
-                        >
-                          <p
-                            id="dashboard-upload-section-heading"
-                            className={cn("text-xs font-bold uppercase tracking-eyebrow", textMuted)}
-                          >
-                            Clinical upload
-                          </p>
-                          <UploadPanel
-                            onUploaded={handleUploadQueued}
-                            demoMode={uploadReadOnlyMode}
-                            canUpload={canUploadDocuments}
-                            authorizationHeader={authorizationHeader}
-                            registerAuthRequest={registerAuthRequest}
-                            isAuthEpochCurrent={isAuthEpochCurrent}
-                            onSessionExpired={markSessionExpired}
-                          />
-                        </div>
-                        <div
                           id="dashboard-indexing-section"
-                          role={uploadUsesDesktopRegions ? "region" : "tabpanel"}
+                          role={indexingAdminUsesDesktopRegions ? "region" : "tabpanel"}
                           aria-labelledby={
-                            uploadUsesDesktopRegions
+                            indexingAdminUsesDesktopRegions
                               ? "dashboard-indexing-section-heading"
-                              : "dashboard-upload-tab-jobs"
+                              : "dashboard-indexing-admin-tab-jobs"
                           }
                           className={cn(
-                            "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
-                            settingsState.uploadMobileTab !== "jobs" && "hidden lg:block",
+                            "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-start-1",
+                            settingsState.indexingAdminMobileTab !== "jobs" && "hidden lg:block",
                           )}
                         >
                           <p
@@ -4042,15 +3967,15 @@ export function ClinicalDashboard({
                         </div>
                         <div
                           id="dashboard-quality-section"
-                          role={uploadUsesDesktopRegions ? "region" : "tabpanel"}
+                          role={indexingAdminUsesDesktopRegions ? "region" : "tabpanel"}
                           aria-labelledby={
-                            uploadUsesDesktopRegions
+                            indexingAdminUsesDesktopRegions
                               ? "dashboard-quality-section-heading"
-                              : "dashboard-upload-tab-quality"
+                              : "dashboard-indexing-admin-tab-quality"
                           }
                           className={cn(
-                            "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
-                            settingsState.uploadMobileTab !== "quality" && "hidden lg:block",
+                            "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-2",
+                            settingsState.indexingAdminMobileTab !== "quality" && "hidden lg:block",
                           )}
                         >
                           <p
@@ -4073,7 +3998,7 @@ export function ClinicalDashboard({
                 </section>
               )}
 
-              {(settingsState.documentsDrawerOpen || settingsState.uploadDrawerOpen) && (
+              {(settingsState.documentsDrawerOpen || settingsState.indexingAdminDrawerOpen) && (
                 <GuideTrigger onOpen={openGuide} onPrefetch={loadGuideDialog} />
               )}
             </div>
