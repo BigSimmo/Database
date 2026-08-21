@@ -446,7 +446,9 @@ function PhoneFrame({
     <div className="max-w-full shrink-0" style={{ width: "390px" }}>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-soft)]">{label}</span>
-        <span className="text-3xs font-bold text-[color:var(--text-soft)]">390 px · tap the search bar</span>
+        <span className="text-3xs font-bold text-[color:var(--text-soft)]">
+          390 px · tap the bar to change the search
+        </span>
       </div>
       <div className="relative overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]">
         <div className="flex items-center gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2">
@@ -664,7 +666,7 @@ export function DictionaryControlRowMockupsPage() {
           </div>
           <div className="flex flex-wrap gap-6 p-4 sm:p-5">
             <PhoneFrame layout="adaptive" label="Chosen — browsing" initialQuery={false} />
-            <PhoneFrame layout="adaptive" label="Chosen — searching" initialQuery="long" />
+            <PhoneFrame layout="adaptive" label="Chosen — searching" initialQuery />
             <PhoneFrame layout="one" label="Rejected — controls share the line" initialQuery="long" />
             <PhoneFrame layout="two" label="Alternative — always two rows" initialQuery="long" />
           </div>
