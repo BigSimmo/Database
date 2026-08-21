@@ -743,3 +743,363 @@ session's work, which is not.
 Practical note carried forward: that commit independently corroborates the browser-gate result, and
 it also independently reproduces this session's cold-start diagnosis. Two sessions, two runs, same
 finding. The gate is green at HEAD and the cold-start artefact is real.
+
+**Session-3 rulings committed at `ee82faac2`** (docs only — 5 files, 818 insertions). Staged by
+explicit path, never `git add -A`, because Task 7's implementer had uncommitted work in
+`coordinator-screen.tsx`, `coordinator.module.css` and `tests/ui-ward-coordinator.spec.ts` at the
+time. Verified with `git diff --cached --name-only` before committing that only `docs/` was staged.
+The other session's ledger entry was appended around, not overwritten.
+
+**Consequence for Task 7's review package: BASE is now `ee82faac2`, not `a75c508f6`.** My docs commit
+sits between them, so a package built from the original BASE would carry 818 lines of my own
+documentation into the reviewer's diff.
+
+Ruling R45 — do not push while a subagent is live in the working tree. Pushing runs
+`scripts/guard-push.mjs`, whose format guard is the operation both observed `node_modules`
+destructions were adjacent to (rulings R31 to R33, mechanism still unproven). This worktree has its
+own populated `node_modules` so it should not need to borrow another's, but "should not" is the
+quality of reasoning this phase has repeatedly found wanting. Pushes happen at task boundaries with
+nothing mid-flight. Cost if wrong: work sits unpushed for the length of one task, against a
+7-minute reinstall landing in the middle of an implementer's gate run and being misread as a
+regression.
+
+### User asked for the four pre-flight findings to be resolved by separate agents
+
+Ruling R46 — parallelise the two findings that touch no contended file, sequence the two that do,
+and say plainly which is which rather than launching four agents to look responsive.
+
+**Dispatched immediately, in parallel:**
+
+- **Task 12 journey verification and redesign** (finding 2). Offline analysis only, output to
+  `task-12-journey-design.md`, explicitly forbidden from writing under `src/` or `tests/` or touching
+  the index. Its first assignment is to try to **refute** my R41 and R42 rather than confirm them —
+  three fixture claims in this phase have already turned out false, and my own R41/R42 measurements
+  have not been independently reproduced. Its second is to design the corrected journey with a
+  verified subject movement and a reducer-driven proof that the whole event chain runs without a
+  single rejection.
+- **Concurrent-session inventory** (finding 4). Strictly read-only, output to
+  `concurrent-session-inventory.md`, with an explicit prohibition on killing, deleting or mutating
+  anything, and a named warning that "this looks like a leftover, it would be tidier to close it" is
+  the exact reasoning that destroyed this user's work twice. It reports; the user decides.
+
+**Sequenced, not parallel — and this is the safety judgement the user asked for:**
+
+- **The flow-diagram fix** (finding 1) is hard-blocked on Task 7. Task 7's implementer holds
+  uncommitted edits in `tests/ui-ward-coordinator.spec.ts`, and R36a establishes that the diagram fix
+  **must** edit that same file — the existing assertion at lines 583-595 pins the old
+  `MORE_RESTRICTIVE_NOTE` wording and breaks on a substring mismatch the moment the diagram moves to
+  `restrictionNotice`. Two agents writing one uncommitted file is how this project loses work, and
+  the fix cannot be split (leaving the test unchanged puts the suite red). It fires the moment Task 7
+  commits.
+- **The tracker leg helper** (finding 3) is deferred behind Task 7 for a different reason: load, not
+  conflict. It touches `ward-derivations.ts` and a unit test, neither contended. But proving it means
+  running vitest while Task 7 runs its Chromium gate on a machine with 82 resident `claude`
+  processes, and this ledger records six occurrences of a vitest run reporting `no tests` at exit 0
+  under exactly that load. A false gate result is this project's most expensive failure mode, and
+  Task 10 is four tasks away.
+
+Cost if wrong: two findings wait for one task boundary — roughly the length of Task 7's review —
+against the alternative of a lost fix round or a fabricated green.
+
+**Finding 2 is a specification defect, not a code defect, and cannot be "fixed" by building
+anything.** Task 12's journey navigates the ward, officer and ED screens and the role switcher, none
+of which exist yet — Tasks 8 to 11 build them. So the deliverable is the verified corrected design,
+which is what was dispatched. Recorded because "resolve it with an agent" would otherwise imply code
+that cannot be written yet.
+
+### Concurrent-session inventory — returned, and the picture is quieter than feared
+
+Read-only agent, full findings in `concurrent-session-inventory.md`.
+
+- **No further commits after `a75c508f6`** other than my own `ee82faac2`, confirmed against both
+  `git log` and `git reflog`. So the other session has written nothing to the branch for over half an
+  hour and may well have finished.
+- **No `guard-push.mjs` is running anywhere on the machine** — the full process list was searched
+  case-insensitively for the name with zero matches. That is the process ruling R33 named as the
+  strongest explanation for the emptied `node_modules`, so that particular exposure is quiet right
+  now. It is not a guarantee for later: any session may push at any time.
+- The one process actively working in this worktree at the time of the sweep was running Playwright
+  against `tests/ui-ward-coordinator.spec.ts` — consistent with my own Task 7 implementer running its
+  browser gate. The agent rated that attribution **medium** confidence and said plainly it could not
+  trace process ancestry to an owner because the parent had already exited. That honest "cannot tell"
+  is worth more than a confident guess, and it is recorded as uncertainty rather than resolved.
+
+The agent also disclosed that one of its own inspection commands wrote a scratch dump to the
+machine's temp directory, and — correctly, given its instructions forbade deleting anything —
+declined to remove it and reported it instead. I removed it myself: it was outside the repository,
+contained no worktree data, and was my agent's own artefact rather than another session's work.
+
+Ruling R47 — keep the collision defences in place despite the quiet reading. The evidence says the
+other session is probably idle and that no push guard is armed, but "probably idle" and "has not
+committed in thirty minutes" are not the same as "gone", and the attribution that would settle it was
+explicitly unavailable. The defences cost nothing: re-read HEAD before recording any BASE and after
+every subagent returns, stage by explicit path rather than `git add -A`, and never revert or clean a
+file I did not write. Cost if wrong: a few redundant `git rev-parse` calls.
+
+### Task 12 journey verification — both defects confirmed, my own fix refuted, and a new cross-task gap
+
+The verification agent's whole brief was to try to refute R41 and R42 before accepting them. It
+confirmed both by reproduction, then found two things I had not.
+
+**R41 and R42 CONFIRMED independently.** It ran the real `queueOrder()` (top row `WF-303`,
+`accepted_awaiting_bed`, not referable) and traced the reducer to show that skipping `HANDOVER_READY`
+leaves the movement with no `transport` object, so all four officer events are refused.
+
+**My own recommended fix was wrong, and I reproduced that myself rather than taking it on report.**
+The preflight doc named `WF-009` as "the obvious candidate" because it is referable. It is also
+**already declined by all five secure units** — `rph-`, `gry-`, `bty-`, `fsh-` and
+`rgh-adult-secure` — so `eligibleCandidates` returns three candidates and **all three are
+`eligible=false`**. The Refer control would have stayed unavailable for a second, entirely different
+reason. Measured: WF-009 eligible-candidate count **0**.
+
+Ruling R48 — the journey's subject is `WF-315`, and the preflight doc is corrected in place rather
+than left standing with a false recommendation. Verified by running the real derivations:
+`placement_requested`, `originEdId: "arm-ed"` resolving to a real department, no prior declines, no
+existing referrals, and **three candidates all `eligible=true`**. The agent drove the corrected
+eight-event chain through the real `wardFlowReducer` from a fresh seed with **zero rejections end to
+end**, and confirmed the movement leaves `queueOrder` after arrival — so the plan's final assertion
+is sound once pinned to the right id. Cost if wrong: the journey proves the loop on a
+`placement_requested` patient rather than a `destination_review` one, which exercises one extra
+stage transition rather than one fewer.
+
+**This is the fourth unmeasured fixture claim in this phase, and the second of mine.** F9's "all six
+Voluntary movements are Open"; the Task 6A implementer's false ranking claim; my `index % 7`
+mis-attribution; and now my WF-009 recommendation. Every one checked a single property and assumed
+the rest. R37 already required fixture claims to be measured; it is now sharpened: **measure every
+property the claim depends on, not the one that prompted it.** WF-009 was referable — that part was
+true and useless on its own.
+
+Ruling R49 — Task 11's brief must add a handover control, because nothing in the plan ever wires
+`HANDOVER_READY` to a user action. Verified myself by grep: `HANDOVER_READY` appears in the plan at
+exactly two places, lines 508 and 687, both inside Task 2's reducer tests and Task 3's contract walk
+— **Vitest only, never a component**. In `src` it exists only in `ward-flow-events.ts` (the union and
+the role map, where it is assigned to `ed`) and the reducer's own branch. Task 11's plan gives the ED
+screen exactly two forms, raise-referral and record-examination, and no third control.
+
+The spec is internally tense here and resolves cleanly. Section 7 describes the ED screen's two
+_forms_; section 6 assigns `HANDOVER_READY` to the **ED** role; and section 14 requires an
+end-to-end journey that reaches handover **by clicking**, since a `page.goto()` re-mounts the
+provider and resets state. A clickable handover reachable only from an ED-role screen means the ED
+screen carries the control. Section 7 also already requires that screen to display "the single
+outstanding item: a form, an examination, a transport request, **or handover**" — so handover is
+something it is meant to surface; the gap is that it can display the item and not act on it.
+
+Task 11 therefore gains a third control: mark handover ready, dispatching `HANDOVER_READY`,
+available only when the movement is at `bed_held` and carrying a stated reason when it is not — never
+native `disabled`. Cost if wrong: one control on one screen; against leaving it, Task 12 opens with a
+journey that cannot be clicked through and the gap is discovered at the very last task, which is the
+worst place in the plan to find it.
+
+### Task 7 — implemented at `adbe3296f`, and it disclosed a vacuous assertion in its own new test
+
+BASE for review is `ee82faac2` (my docs commit), not the `a75c508f6` I first recorded — see R45.
+
+The implementer returned DONE and, to its credit, **reported a mutation that survived** rather than
+quietly recording three green ones: reintroducing a `window.scrollTo` call did not kill its new test.
+It diagnosed why, and the diagnosis is right.
+
+Verified myself from the CSS rather than taken on report: `.screen` carries `height: 100dvh` and
+`overflow: hidden` (coordinator.module.css lines 36-39), and `.body` carries `overflow: auto`. So the
+document has no scroll range at all — `window.scrollY` is 0 before the click and 0 after it, on every
+run, whatever the code does. The deleted `scrollIntoView({ block: "nearest" })` moved **`.body`'s**
+scroll position, never the window's.
+
+`expect(scrollAfter).toBe(scrollBefore)` therefore compares 0 to 0. **It is a test that cannot
+fail** — the exact defect class this phase exists to eliminate, and the one named in the complete
+ledger's section 7 as recurring in every phase in a different disguise.
+
+Ruling R50 — assert against the real scroll container, and treat the brief's mandated code as the
+defect. Both the brief and my own addendum R25 specified `window.scrollY` verbatim, and R25 told the
+implementer not to spend a round re-litigating it — but R25 was about matcher _style_
+(`.resolves` versus the plain form), not about whether the quantity being asserted is capable of
+changing. The implementer followed its instructions correctly and flagged the problem, which is
+exactly the behaviour that makes this catchable; the defect is in the plan text and in my addendum,
+not in its work.
+
+The assertion becomes one against `.body`'s `scrollTop` — the element that genuinely scrolls and the
+one the deleted effect actually moved — and it must be **mutation-proved**: reintroducing a
+`scrollIntoView` or an explicit `scrollTop` write on that container has to kill it. If it does not
+kill it, the replacement is no better than what it replaces and I want that said rather than worked
+around. The `toBeInViewport()` assertion stays; the implementer's mutation testing already showed it
+is the load-bearing half. Cost if wrong: one assertion in one test, on a gate that already passes.
+
+Also recorded from the report, not as findings but as facts the review should have: the implementer
+chose the **CSS-only** shape under R34, leaving `shortlist-panel.tsx` untouched because
+`.shortlistActionRow` already wrapped exactly the two controls; it verified WF-002's referability
+from the fixture and `REFERRABLE_MOVEMENT_STAGES` rather than trusting a sibling test's comment; and
+it established that the deleted double-rAF comment named a **measurement** race that a
+`position: fixed` bar cannot have, checking every ancestor for a `transform`/`filter`/`contain`
+property that would create a containing block and defeat the fix.
+
+### Standing instruction added mid-session: no permission requests, no interruptions
+
+The user asked that this chat never stop to ask permission. Combined with the earlier "autopilot,
+choose the most logical decision, move onto the next phase when this one is done", the operating mode
+for the rest of this session is:
+
+- **No `AskUserQuestion` calls.** Every ambiguity, plan defect and scope call is decided here and
+  recorded as a ruling with what it costs if wrong. The full ruling list is owed at the end — that
+  list is now the only place these decisions reach the user, so nothing may be decided silently.
+- **Two classes are still surfaced rather than performed**, and this is not permission-seeking, it is
+  the user's own standing prohibition from the session brief: anything genuinely destructive or
+  irreversible, and anything touching OpenAI, Supabase, GitHub Actions, the live database, or the
+  provider-backed gates (`verify:ui`, `verify:release`, `eval:*`, `check:supabase-project`,
+  `test:live`). Those are not done and not asked about; they are reported.
+- The merge of `origin/main` remains scheduled for after Phase 3 per R35 — already the user's
+  explicit decision, not an open question.
+
+Ruling R51 — treat the four things the SDD skill says may stop a run as narrowed to two here. The
+skill permits stopping for an irreversible operation, a security-sensitive action, an outside-worktree
+side effect, or a plan so broken every path is a guess. The user has now removed the fourth as a
+stopping condition: a broken plan gets a ruling, not a halt. The third is already settled — pushing to
+this branch is authorised, merging `main` is scheduled. So only genuinely destructive and
+provider-touching actions stop anything, and they are reported rather than queued as questions. Cost
+if wrong: a ruling the user disagrees with survives to the end of the phase instead of being caught
+mid-flight — mitigated by the ruling list being exhaustive and by every ruling naming its own cost.
+
+### Task 12 journey design accepted, and it surfaced a fifth finding I had not seen
+
+Full design in `task-12-journey-design.md` — an 11-step sequence on `WF-315`, every stage transition
+observed from an actual reducer walk rather than inferred, with `state.rejections` empty end to end.
+
+Spot-verified three of its structural claims myself rather than accepting the document whole:
+
+- `isOpen` (`ward-derivations.ts:98`) is `!movement.closure && movement.stage !== "arrived"` —
+  confirmed verbatim.
+- `queueOrder` (`ward-priority.ts:99`) applies `.filter(isOpen)` **before** sorting — confirmed, so
+  an arrived movement genuinely leaves the queue and the plan's final assertion is sound once
+  repointed at the right id.
+- `PATIENT_ARRIVED` requires stage `moving` **and** `transport.collectedAt`, and carries its own
+  `empty.value <= 0` floor guard — confirmed, so the chain cannot be short-circuited.
+
+**Fifth finding, the agent's own and not in my preflight: the switch to the ward is ambiguous.**
+Task 12's build note says the switcher infers where you stand from the selected patient — "Ward goes
+to the unit it was referred to", singular. But the journey's whole point is that the coordinator
+refers to **up to three** wards in parallel (spec section 2 decision 7), so immediately after step 2
+`WF-315` carries three live `referredUnitIds` and there is no single unit to infer. Singular
+inference only ever works for a movement referred exactly once, which the journey deliberately is
+not.
+
+Ruling R52 — the role switcher must handle the plural case explicitly, and Task 12's journey uses the
+picker rather than inference for the ward hop. The spec already provides the mechanism: section 9
+pairs the inference with "a picker to move elsewhere". So this is the plan's build note being
+narrower than the spec, not a gap in the design. The switcher infers a destination when exactly one
+is implied and otherwise offers the choice — which is also the conservative-failure rule this project
+holds everywhere else: where the data does not determine an answer, show the options rather than pick
+one. Picking the first referral silently would be a `?? array[0]` in interaction form. The ED hop
+needs no picker: `WF-315.originEdId` is exactly `arm-ed`. Cost if wrong: the journey clicks one extra
+control, and the switcher carries a branch it would have needed the first time a coordinator referred
+to two wards anyway.
+
+R49 stands and is reinforced: step 6 of the sequence is the handover, and the design confirms
+independently that no control for it exists anywhere in the plan.
+
+### Task 7 fix round 1 and the transport-leg helper — both landed, both independently verified
+
+`3b4bf4152` (Task 7 fix round 1) and `cecc9539e` (the transport-leg helper, finding 3).
+
+**Task 7 fix round 1 — R50 satisfied, and the mutation discipline worked exactly as intended.**
+`.body` gained a stable `data-testid="ward-coordinator-body"` and the test now reads that element's
+`scrollTop` rather than `window.scrollY`. The comment was rewritten to state what the assertion
+actually checks and to record why the old one could not fail.
+
+The implementer's **first** mutation — a synchronous `scrollTop = 200` inside `selectMovement` — did
+not bite, and it **diagnosed why rather than declaring the assertion untestable**: the write ran
+against the pre-render DOM, which had no scroll range, so the browser clamped it back to 0. Its
+second, properly-timed mutation (a post-render `useLayoutEffect` writing `scrollTop` to
+`scrollHeight` one frame after commit) killed the assertion outright — `Expected: 0, Received: 1090`
+— and the revert was confirmed both by reading the file back and by `git diff` showing zero residual.
+
+That distinction is the whole point of R50 and worth recording as a standing lesson: **a
+badly-timed mutation and an untestable assertion look identical from outside, and only the diagnosis
+separates them.** A round earlier, the same implementer disclosed a survival that turned out to be a
+genuinely vacuous assertion; here it disclosed a survival that turned out to be its own bad
+mutation. Both disclosures were right to make.
+
+**The transport-leg helper — R44 satisfied.** `transportLeg(transport)` returns
+`"Requested" | "Accepted" | "En route" | "Collected" | "Arrived"`, plus `"Cancelled"` as a distinct
+value and `undefined` for no transport job at all — absence is never collapsed into `"Requested"`,
+which would have been a substituted record in exactly the sense the Global Constraints forbid. Branch
+precedence mirrors `transportStatusLabel` exactly so the two can never disagree about a job's stage,
+and `transportStatusLabel` itself is untouched and still has real callers
+(`ward-management-console.tsx`, `ward-management-network.tsx`), so nothing was deleted on a
+nothing-imports-it argument. Eight new tests: all five legs, cancelled, absence, and precedence.
+Eight mutations, one per branch plus a precedence reorder, every one printed back and every one
+killed.
+
+**My own verification at `3b4bf4152`, run in this session and not read from either report:**
+
+| Gate                                | Result                                |
+| ----------------------------------- | ------------------------------------- |
+| `ls node_modules \| wc -l`          | **523** — intact                      |
+| `npx tsc --noEmit -p tsconfig.json` | clean, exit 0, no output              |
+| Node-env suites, 10 files           | **126 passed** (118 baseline + 8 new) |
+| jsdom, one file per invocation      | **6 passed** (1 + 4 + 1)              |
+| `npm run docs:update`               | no drift — see below                  |
+
+**Both implementers used `SKIP_DOCS_SYNC_HOOK=1`, and I checked rather than accepted it.** Each hit
+the pre-commit docs-sync guard refusing a commit because the _other_ agent's concurrent, unrelated
+edits made files look unstaged, and each verified the generated artefacts were unaffected before
+overriding. I confirmed it independently: `npm run docs:update` regenerates `docs/site-map.md` and
+the docs inventory, and afterwards `git status` showed **no drift at all** — only my own
+`task-8-addendum.md`. The override was harmless and correctly scoped.
+
+Ruling R53 — accept both overrides rather than requiring a re-commit. The guard exists to stop
+generated documentation drifting from source; the generated documentation is provably current, so the
+property the guard protects holds. Requiring a redo would spend two commits proving something already
+measured. Recorded because a skipped guard that nobody checked is precisely this project's recurring
+defect, and the difference here is that it _was_ checked, by me, after the fact and independently.
+Cost if wrong: a stale generated doc slips in — bounded by the fact that `docs:update` is idempotent
+and run again at the phase boundary.
+
+Browser gate deliberately **not** re-run at this commit: the flow-diagram fix now in flight touches
+the same spec file, so one run at its commit covers both rather than paying 3+ minutes twice. The
+implementer measured `20 passed` on `ui-ward-coordinator.spec.ts` chromium-only after its fix.
+
+### The flow-diagram fix landed at `d819ad9fd` — verified, mutated and looked at
+
+Finding 1 of the user's four is closed. `flow-diagram.tsx` now reads `restrictionNotice(movement, unit)`
+and renders the two levels distinguishably: `voluntary_on_locked` gets its own
+`.diagramRestrictiveBadgeProminent` class **and** a `data-level` attribute, so the distinction is
+structural rather than a matter of wording. The existing `routed || isAccepted || isReferred` gating
+is preserved, so the badge still never appears on the other nineteen units where the comparison is
+meaningless. `ward-eligibility.ts` is absent from the diff — no gate's pass or fail moved.
+
+The implementer **re-measured the fixture rather than trusting my brief** and matched it — 26
+Voluntary, 4 Voluntary+Secure — then went further and rejected one of my four suggested subjects:
+**WF-308 qualifies on the raw count but is Older-adult, and its shortlist holds no eligible Secure
+candidate**, so the badge could never render for it. It pinned WF-301 instead. That is the fifth
+time in this phase a subject chosen on one property has failed on another, and the first time it was
+caught before costing a round.
+
+**My own verification at `d819ad9fd`, run in this session:**
+
+| Gate                                | Result                                     |
+| ----------------------------------- | ------------------------------------------ |
+| `ls node_modules \| wc -l`          | **523** — intact                           |
+| Ward Chromium gate, both spec files | **26 passed (3.1m)** — 25 baseline + 1 new |
+| `ward-eligibility.ts` in the diff   | absent — confirmed by `git show --stat`    |
+
+**My own mutation, not the implementer's.** I reintroduced the exact defect — made the diagram
+discard a `voluntary_on_locked` notice while keeping `more_restrictive` — printed the edited line
+back from the file (line 466), and ran the new test: **FAILED**. Restored from my own backup, printed
+the line back again, confirmed `git diff` byte-empty against the commit, and re-ran: **1 passed
+(6.1s)**. The test genuinely catches the defect it was written for.
+
+**I looked at the screen, and my first reading of it was wrong.** The screenshot appeared to show the
+badge on only one of the three locked wards, which would have been a real gap — a voluntary patient is
+equally detained-in-fact on any of them. Rather than report that, I measured it: all 22 diagram nodes
+were enumerated live, and **three carry the badge — `rph-adult-secure`, `fsh-adult-secure`,
+`rgh-adult-secure`, every one at `level=voluntary_on_locked`** — exactly matching the three shortlist
+candidates. The other two were simply below the visible fold. The panels now agree precisely.
+
+Whole-page string counts on the running app: "Voluntary patient on a locked ward" appears **8 times**;
+the superseded wording "More restrictive than required" appears **0 times**. Screenshot at
+`artifacts/ward-management/phase3-voluntary-on-locked.png`.
+
+Deferred minor, for the whole-branch review rather than a fix round: `data-more-restrictive` is now set
+`"true"` for **either** level, so its name is broader than what it says. That is not a regression —
+`shortlist-panel.tsx:393` already used exactly that pattern and the diagram now matches it — and
+nothing in `src`, `tests` or any CSS module reads the attribute at all. But by this phase's own
+standing lesson, a thing named for one meaning and holding another is worth a rename when someone is
+next in the file.

@@ -134,10 +134,27 @@ than three, which is what the test's own name claims.
 ### What this means for you
 
 Rebuild the journey around a **deliberately chosen, verified** movement and include the handover
-step. `WF-009` (rank 2, `destination_review`, referable) is the obvious candidate — but verify it
-end to end yourself before committing to it: check its `originEdId` resolves to a real ED screen,
-that its shortlist has an eligible candidate, and that the ward it is referred to renders it as
-incoming. Say what you verified and how.
+step.
+
+**CORRECTED — this section originally recommended `WF-009`, and that recommendation was wrong.**
+I had checked only that WF-009 was _referable_, and stopped there. A verification agent checked the
+rest and I then reproduced it myself: **WF-009 has ZERO eligible candidates.** It has already been
+declined by all five secure units (`rph-`, `gry-`, `bty-`, `fsh-` and `rgh-adult-secure`), so its
+whole shortlist comes back `eligible=false` and the Refer control stays unavailable even after
+defect 1 is fixed. Recommending it would have handed an implementer a subject that fails for a
+second, different reason — the same "checked one property, assumed the rest" error that produced
+the false claim in ruling F9.
+
+**Use `WF-315`.** Verified by running the real derivations: stage `placement_requested` (referable),
+`originEdId: "arm-ed"` which resolves to a real department, no prior declines, no existing
+referrals, and **three eligible candidates** — `rph-adult-secure`, `fsh-adult-secure` and
+`rgh-adult-secure`, all `eligible=true`. The full corrected event chain has been driven through the
+real `wardFlowReducer` from a fresh seed with **zero rejections end to end**, including arrival, and
+the movement was confirmed to drop out of `queueOrder` afterwards — so the plan's original final
+assertion is correct once it is pinned to the right id.
+
+The complete event-by-event design, with roles and stages, is in `task-12-journey-design.md`. Read
+that alongside this file; it supersedes this section on any point of detail.
 
 **Do not weaken any assertion to make the journey pass.** If a step genuinely cannot work, that is a
 finding about the code, not about the test.

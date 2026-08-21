@@ -187,3 +187,48 @@ loop is invisible to it and the new route fails as an orphan.
 Add your link the same literal way: `href="/ward-management/ward/rph-adult-secure"`. Match the
 surrounding `RailLink` usage exactly, and keep the 3rem tap-target floor the existing links hold —
 `tests/ui-ward-management.spec.ts:85` asserts it on a short, narrow viewport.
+
+---
+
+## R36a — an existing test PINS the divergence as intended. You must update it, and it will not fail the way you expect.
+
+Measured at `ee82faac2`. `restrictionNotice` has exactly three production consumers, all in
+`shortlist-panel.tsx` (lines 193, 234, 386). `isMoreRestrictiveThanRequired` and
+`MORE_RESTRICTIVE_NOTE` have exactly one consumer between them: `flow-diagram.tsx` (lines 10-11,
+462, 515). So the migration is genuinely confined to one file.
+
+But `tests/ui-ward-coordinator.spec.ts` around lines 583-595 already asserts BOTH wordings on the
+same screen, with a comment that names the divergence as deliberate:
+
+> the diagram node is untouched this task and still reads the older `MORE_RESTRICTIVE_NOTE` text,
+> so the two assertions differ.
+
+It walks **WF-001** — an `Open` / non-Voluntary movement — and for each locked candidate asserts:
+
+- the shortlist row contains `"More restrictive than this movement requires"` (the
+  `restrictionNotice` `more_restrictive` wording), and
+- the diagram node contains `"More restrictive than required"` (the `MORE_RESTRICTIVE_NOTE`
+  wording).
+
+**Here is the trap.** WF-001 is Open+Secure, so both functions fire for it and the test looks like it
+should survive your change untouched. It will not. `MORE_RESTRICTIVE_NOTE` begins "More restrictive
+than **required** — …" while `restrictionNotice`'s `more_restrictive` text is "More restrictive than
+**this movement** requires". `toContainText("More restrictive than required")` is a substring match,
+and the new string does not contain that substring. The assertion fails on wording, not on logic.
+
+So: update that diagram assertion to the `restrictionNotice` wording, and **update the comment above
+it too** — it currently states as fact that the diagram is deliberately left on the old text, which
+your change makes untrue. An untrue comment beside a passing assertion is, by this phase's repeated
+ruling, the same defect class as an untrue surface.
+
+Do **not** conclude from that failure that the migration was wrong and revert it. And do not weaken
+the assertion to a looser regex that matches both wordings — that would let the diagram silently
+drift back.
+
+Keep the `open`-candidate negative assertion (lines 596-600) intact: it is what stops the notice
+being blanket text on every row.
+
+**Then add what that test cannot cover**: WF-001 is not Voluntary, so it exercises only the milder
+level. Your new test must pin one of WF-301, WF-308, WF-322 or WF-329 by id and assert the diagram
+now carries the `voluntary_on_locked` wording for a Secure candidate — the case that renders nothing
+today.
