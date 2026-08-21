@@ -47,6 +47,7 @@
  *   --strict  exit 1 when the base ref cannot be resolved (default: exit 0)
  */
 import { execFileSync } from "node:child_process";
+import { realpathSync } from "node:fs";
 import path from "node:path";
 
 const threshold = Number.parseInt(process.env.STALE_BASE_THRESHOLD ?? "10", 10) || 10;
@@ -123,7 +124,21 @@ function finish(result) {
 const expectedRoot = process.env.CLAUDE_PROJECT_DIR;
 if (expectedRoot) {
   const resolvedToplevel = tryGit(["rev-parse", "--show-toplevel"]);
-  const normalize = (p) => (process.platform === "win32" ? path.resolve(p).toLowerCase() : path.resolve(p));
+  // Canonicalize through realpath before comparing. `git rev-parse --show-toplevel` always
+  // returns the canonical filesystem path, but CLAUDE_PROJECT_DIR can name the same checkout
+  // through a symlink or junction (a container image's working-dir alias, a Dev Drive
+  // junction) — comparing the raw, uncanonicalized paths would then report a false "broken
+  // .git link" for a perfectly healthy worktree. realpath can fail (path deleted between
+  // hook invocation and here, permissions) — fall back to the lexical path rather than
+  // throwing out of an advisory tripwire.
+  const canonicalize = (p) => {
+    try {
+      return realpathSync(p);
+    } catch {
+      return path.resolve(p);
+    }
+  };
+  const normalize = (p) => (process.platform === "win32" ? canonicalize(p).toLowerCase() : canonicalize(p));
   if (resolvedToplevel && normalize(resolvedToplevel) !== normalize(expectedRoot)) {
     finish({
       branch: "(unknown)",
