@@ -93,6 +93,41 @@ describe("claude code permissions", () => {
     expect(allow.some((rule) => rule.includes("supabase"))).toBe(false);
     expect(softDeny.some((rule) => rule.includes("supabase migration list"))).toBe(true);
   });
+
+  /**
+   * `Bash(tasklist*)` (no separator) is not a recognised prefix form under `bashRuleMatches` —
+   * only an exact `Bash(command)` rule or a trailing `:*`/` --*` is — so it matched nothing real
+   * and never actually reduced the intended Windows-process-check prompts. Worse, a bare wildcard
+   * suffix has no word boundary: had it been reached through some other matcher it would also
+   * catch unrelated commands (`tasklist-helper`) and credential-bearing remote invocations
+   * (`tasklist /S remote-host /U DOMAIN\user /P secret`), which are a fundamentally different risk
+   * profile from a local read-only process listing and must keep requiring confirmation. The fix
+   * enumerates the exact local invocations instead of using any wildcard, so there is no separator
+   * form to get wrong.
+   */
+  it("allows the exact local tasklist invocations", () => {
+    const allow = settings.permissions.allow as string[];
+    for (const command of ["tasklist", "tasklist /v"]) {
+      const reachedBy = allow.filter((rule) => bashRuleMatches(rule, command));
+      expect(reachedBy.length, `${command} should be allowed by an exact Bash rule`).toBeGreaterThan(0);
+    }
+  });
+
+  it("does not allow tasklist-helper or other unrelated commands via the tasklist rule", () => {
+    const allow = settings.permissions.allow as string[];
+    const reachedBy = allow.filter((rule) => bashRuleMatches(rule, "tasklist-helper"));
+    expect(reachedBy, `tasklist-helper matched allow rule(s): ${reachedBy.join(", ")}`).toEqual([]);
+  });
+
+  it("does not allow the remote/credential-bearing tasklist form — it must still require confirmation", () => {
+    const allow = settings.permissions.allow as string[];
+    const command = "tasklist /S remote-host /U DOMAIN\\user /P secret";
+    const reachedBy = allow.filter((rule) => bashRuleMatches(rule, command));
+    expect(
+      reachedBy,
+      `remote/credential tasklist form matched allow rule(s): ${reachedBy.join(", ")} — this has a different risk profile than a local read-only check and must not be silently allowed`,
+    ).toEqual([]);
+  });
 });
 
 describe("claude hook registrations", () => {
