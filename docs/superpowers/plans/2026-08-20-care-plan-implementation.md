@@ -132,6 +132,12 @@ export type PrototypeRole =
 export type ManagementPlanVersionState = "draft" | "awaiting_approval" | "current" | "superseded" | "withdrawn";
 export type SafetyPlanVersionState = "draft" | "current" | "superseded";
 export type ReviewState = "within_review" | "due_soon" | "overdue";
+/** Review state is ALWAYS derived from `reviewDueAt` via `deriveReviewState`,
+ *  never stored on a version. A stored copy of a currency indicator can drift
+ *  from the date it claims to describe, and this one is read to decide whether
+ *  a clinical plan is still trustworthy. `deriveReviewState` treats an
+ *  unparseable date as `overdue`, so a malformed value surfaces rather than
+ *  reassuring the reader. */
 export type ParticipationState = "co_produced" | "discussed" | "declined" | "patient_unavailable";
 export type PatientConfirmationState = "confirmed" | "discussed_not_confirmed" | "declined" | "unavailable";
 export type Disposition =
@@ -338,7 +344,6 @@ export type ManagementPlanVersion = {
   planId: SyntheticId;
   version: number;
   state: ManagementPlanVersionState;
-  reviewState: ReviewState | null;
   authorId: SyntheticId;
   ownerId: SyntheticId;
   approverId: SyntheticId | null;
@@ -370,7 +375,6 @@ export type PersonalSafetyPlanVersion = {
   planId: SyntheticId;
   version: number;
   state: SafetyPlanVersionState;
-  reviewState: ReviewState | null;
   authorId: SyntheticId;
   createdAt: string;
   confirmedAt: string | null;
