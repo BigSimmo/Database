@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5f472de7-797f-49ba-8ba5-b5b6d4a7ad7a",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "mobile-/ Lighthouse CLS is bistable at 0.016 or 0.223 and reproduces only in CI, so the budget gate randomly reddens UI PRs and each looks like its own regression",
+    "detail": "BISTABLE, NOT A REGRESSION. Five CI measurements across PR #2199 heads: 175c641 FAIL (2/3 samples, cls 0.223), 74f39f0 FAIL (3/3, 0.223), 8506db3 PASS (no breach detected at all — 4 artifact files, no confirmation samples collected), c56d12d FAIL (2/3, 0.223), 4eabf0b FAIL. The decisive pair is 8506db3 -> c56d12d: the ONLY delta between those heads is 26 ledger JSON files under docs/outstanding-issues-inbox/, zero source code. The value recurring to three decimals is one discrete layout shift firing or not, rather than accumulating noise. NOT PR #2199's: it changes only DocumentViewer.tsx and document-viewer/document-overview-landing.tsx, and DocumentViewer is imported solely by src/app/(search-app)/documents/[id]/{page,loading}.tsx, so neither module is in the client bundle for /. TWO NEGATIVE LOCAL RESULTS, 2026-08-21, both in the Claude web container on Chromium 141: (1) scripts/measure-cls-attribution.mjs against / reported 'CLS=0.000 shifts=0' with the reserve timeline showing a single unset write at 436ms; (2) a full local npm run verify:lighthouse -- --keep, which applies Lighthouse's own mobile emulation and throttling, reported mobile-root cls 0.000 against the 0.016 baseline (ungraded: 'evidence incomplete — browser drift', HeadlessChrome/141 vs the baseline's /151). So the shift does not fire under either local harness and depends on something CI-specific — runner CPU contention, or Chromium 151 behaviour. NOT #JVYQEM, or at least not confidently: that row's phone remedy has already landed (--spacing-mode-home-composer-phone is 10.125rem, not the 6.625rem it records) and its scale (~0.035) is an order of magnitude below 0.223. NEXT STEP THAT DOES NOT NEED A REPRO: every failing run uploads a lighthouse-budget-<runid> artifact containing the full Lighthouse report; download lighthouse-budget-32463920997 (or any failing run) and read the mobile-root cumulative-layout-shift audit's debugdata, which names the shifting node directly. Only if that is empty is a CI-side attribution dispatch needed. Stop rules: do not raise the cls tolerance in lighthouse-budget.json to clear it; do not re-adopt the Lighthouse baseline while the metric is bistable, because the refresh would bake in whichever state that run happened to land on; and do not attribute it to a component without evidence from a run where it actually fired.",
+    "source": "CI runs 32412788947, 32415624534, 32459391430, 32460303619, 32463920997 on PR #2199; local attribution + Lighthouse runs 2026-08-21",
+    "issueUlid": "01M0HRMKMATYZK236NWYZM74NG"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "3eb84c6a-97fa-4b1c-9167-190ba928c200",
+  "createdOn": "2026-08-21",
+  "action": "cancel",
+  "payload": {
+    "requestId": "6d7c79b5-06cf-4076-a736-9fee535ccce3",
+    "reason": "Stale, not discardable evidence: #SZGPAH's row changed after this request was queued — a separate already-merged branch added a 2026-08-21 UPDATE noting one of two stale assertions is gone but the spec was NOT re-run ('NOT VERIFIED: whether the spec now passes... Re-measure before closing'), so the baseRowFingerprint no longer matches and applyRequest fails 'stale: the ledger row changed'. This request's own evidence (chromium-mockups run at a341832af, '16 passed (1.5m)') is exactly the re-measurement that update asks for and is not superseded — cancelling only to unblock reconciliation on the current row text; recommend a fresh done request be queued against the current row citing this same run so the evidence is not lost. Tracked with #4TBHS8, which names the same file and has the identical race."
+  }
+}

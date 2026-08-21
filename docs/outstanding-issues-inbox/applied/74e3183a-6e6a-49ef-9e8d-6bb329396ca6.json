@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "74e3183a-6e6a-49ef-9e8d-6bb329396ca6",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#VZN8G3",
+    "outcome": "Closed as a duplicate 2026-08-20. #VZN8G3 and the earlier, still-open #BSBE9B are the same task: both require a docling-lab-fixtures.v2 corpus with unruled tables, merged/spanning cells and rotated headers, and both gate any docling table-quality promotion argument on that corpus existing. #BSBE9B is the canonical row and stays open; keeping both invites parallel implementations and conflicting closure state. The duplicate arose because inbox request a20fc4ce was queued without first checking the ledger for an existing row, and it was only visible once reconciliation allocated the id. Raised by the Codex review of PR #2206 (comment 3825543316).",
+    "baseRowFingerprint": "4d882e491bda78435ceae533c0fb5af75bd1477894dfed4e4b7f4a3176f89426"
+  }
+}

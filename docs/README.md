@@ -51,7 +51,7 @@ npm run docs:check-links
 - [launch-operator-runbook.md](launch-operator-runbook.md) — launch/operational duties and SLO probes
 - [reindex-runbook.md](reindex-runbook.md) — safe reindex and ingestion recovery
 - [retrieval-quality-runbook.md](retrieval-quality-runbook.md) — RAG/retrieval eval gates and tuning
-- [worker-deploy-runbook.md](worker-deploy-runbook.md) — worker build contract, run recipe, secrets
+- [worker-deploy-runbook.md](worker-deploy-runbook.md) — worker build contract, run recipe, secrets, docling shadow extraction (B4)
 - [disaster-recovery-runbook.md](disaster-recovery-runbook.md) — backup/restore and recovery drills
 - [auth-connection-cap-runbook.md](auth-connection-cap-runbook.md) — Supabase auth connection cap (operator)
 - [staging-setup.md](staging-setup.md) — staging environment bootstrap

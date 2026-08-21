@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b9a9492c-5cb5-4e13-8428-fbb3f70d979e",
+  "createdOn": "2026-08-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Add the DB-side structural constraint backing the source_metadata pin, or document why the data-backed pin is sufficient",
+    "detail": "Re-files #343, closed 2026-08-18 with outcome 'Made retrieval row contract source_metadata schema structural and nullish' -- that outcome is false. Verified 2026-08-21: PR #2107 loosened the source_metadata pin in src/lib/rag/rag-row-contracts.ts to .nullish(); PR #2121 restored the strict .nullable()-required-key pin (git log: ce702ba68 then 4575cf57a). The comment at rag-row-contracts.ts:44-49 explicitly reads 'PR #2107 loosened it to .nullish() and this PR restores it. See docs/outstanding-issues.md #343 for the constraint-backing follow-up.' The DB-side structural constraint (check (jsonb_typeof(metadata) = 'object')) was never added: grep of supabase/schema.sql and supabase/migrations/ finds only 'metadata jsonb not null default {}::jsonb' with no jsonb_typeof check anywhere. The cancelled duplicate #ND10QT record itself states '#343, which is still open', confirming the two closures landed inconsistently. Actionable follow-up: add the check (jsonb_typeof(metadata) = 'object') constraint on documents.metadata with a fail-fast validation guard migration per AGENTS.md's guard-migration contract, or record in this row why the Zod-level pin in rag-row-contracts.ts is sufficient without a DB constraint.",
+    "source": "session 2026-08-21 ledger reconciliation and docs-truth pass",
+    "issueUlid": "01M0FZF4AJS19JRTFT15QVWGZ5"
+  }
+}
