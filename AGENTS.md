@@ -451,10 +451,16 @@ Output-style plugins such as caveman mode may compress prose. They must never co
   window to hold it back. Therefore:
   - **Treat merge approval as production-deploy approval.** Never merge a PR touching
     `supabase/migrations/**` outside an approved window, and never enable auto-merge on one.
-  - **After such a PR merges, confirm it actually applied** with
-    `supabase migration list --linked --project-ref sjrfecxgysukkwxsowpy` (read-only, needs no DB
-    password). A merged-but-unapplied migration is silent drift — the incident this whole programme
-    exists to close.
+  - **After such a PR merges, the schema-application gate is the post-merge `live-drift` workflow**
+    (`.github/workflows/live-drift.yml`), which must complete with BOTH `npm run check:drift` and
+    `npm run check:migration-history` green. `supabase migration list` is not that gate: it reads the
+    recorded history only, so it cannot tell an applied migration from a history row whose statements
+    never executed — the exact shape of the fifteen no-statements rows `#Q5JHBJ` exists for.
+    `check:drift` compares the live schema itself. A manual `supabase migration list --linked
+--project-ref sjrfecxgysukkwxsowpy` read is a useful supplement, but it is provider-backed and so
+    needs explicit user confirmation first, per "API and provider confirmation boundary" above. A
+    merged-but-unapplied migration is silent drift — the incident this whole programme exists to
+    close.
   - **A migration that cannot run inside a transaction cannot ship this way.** The integration applies
     each migration in one transaction, so a bare `CREATE INDEX CONCURRENTLY` migration fails outright.
     Index work stays operator-prebuild + a validate-only guard migration (the `20260804110240` pattern,
