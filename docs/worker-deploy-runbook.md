@@ -385,7 +385,7 @@ outside the Gate B authorisation, and they are the cap this section exists to st
 4. Confirm the startup line in the worker logs:
 
    ```text
-   Docling shadow extraction enabled (packet B4): cohort 2% of index-quality-selected PDFs after legacy commit; aggregate metadata only. Rollback: WORKER_DOCUMENT_EXTRACTOR_MODE=legacy.
+   Docling shadow extraction enabled (packet B4): cohort 2% of index-quality-selected PDFs after legacy commit; aggregate metadata only. Rollback: set WORKER_DOCUMENT_EXTRACTOR_MODE=legacy, then deploy.
    ```
 
    A following `Docling shadow prerequisite warning (shadow extraction will fail open): …`
@@ -564,7 +564,7 @@ The second Gate B caveat is already load-bearing above: docling's eager-mode lat
 ## Rollback
 
 This section is the **image** rollback. To turn off docling shadow extraction without
-changing the image, use the one-step flag rollback in §3.7 instead.
+changing the image, use the two-step flag rollback in §3.7 instead.
 
 Redeploy the previous image tag. The worker holds no durable local state; all
 artifact writes are idempotent per generation/chunk-key, and completion is
