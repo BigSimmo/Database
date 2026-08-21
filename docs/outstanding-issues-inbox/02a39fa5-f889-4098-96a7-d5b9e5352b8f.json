@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "02a39fa5-f889-4098-96a7-d5b9e5352b8f",
+  "createdOn": "2026-08-21",
+  "action": "update",
+  "payload": {
+    "id": "#JVYQEM",
+    "detail": "PARTIALLY STALE as of 2026-08-21 — verify before acting. The phone remedy this row proposes has already landed: --spacing-mode-home-composer-phone in src/app/globals.css now reads 10.125rem, not the 6.625rem recorded here, and the surrounding comment states the raise was made to cover the hint row. What remains open is the WIDE case, which that same comment calls out explicitly: --spacing-mode-home-composer-wide is still 5.5rem (88px) against a settled 160px at 1280 and 199px at 800, and it is deliberately NOT raised to match, because the sm+ surface swaps the phone ticket for a prompt-chip row that rewraps with viewport width, so no single static value is correct at every width. That needs a different mechanism (measure-and-publish, or a container-query reserve), not a bigger constant. Also: do NOT treat this row as the cause of the mobile-/ CLS 0.223 breach seen on PR #2199 — that value is bistable, an order of magnitude larger than the ~0.035 recorded here, and did not reproduce under either local harness; it has its own row. Next: confirm the phone case is closed by measuring a ticket-bearing mode home, then scope the wide-reserve mechanism separately.",
+    "baseRowFingerprint": "0bb1409b0da2428870573be1e788cef36978acc437a7c8e2c975e7813f1c928b"
+  }
+}
