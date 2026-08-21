@@ -349,9 +349,18 @@ export function deriveCiCoverage(projectRoot, gate, { scope = null, readFile = r
         : `CI runs ${candidate.name} in "${job}" under conditions that could not be evaluated`;
       continue;
     }
-    const assumed = guards
-      .filter((guard) => scopeFlagsInGuard(guard).length === 0 && guard.trim().length > 0)
-      .map((guard) => guard.trim());
+    // Report the unverifiable TERMS, not only wholly-unverifiable guards. Filtering by
+    // whole guard hid the half that matters most: the `Unit coverage` job is
+    // `coverage_changed == 'true' && github.event.pull_request.draft != true`, so a guard
+    // containing one scope flag was dropped from `assumed` entirely and the draft
+    // precondition never reached the operator — on a draft PR CI skips that job, and a
+    // deferral under GATE_ARBITER=enforce would again leave no verdict anywhere.
+    const assumed = guards.flatMap((guard) =>
+      String(guard)
+        .split("&&")
+        .map((term) => term.trim())
+        .filter((term) => term.length > 0 && scopeFlagsInGuard(term).length === 0),
+    );
     return {
       covered: true,
       via: candidate.name,

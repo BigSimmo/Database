@@ -118,6 +118,35 @@ describe("gate arbiter — CI coverage is derived, not assumed", () => {
     });
     expect(coverage.covered).toBe(false);
   });
+
+  it("surfaces an unverifiable precondition sitting alongside a satisfied scope flag", () => {
+    // The `Unit coverage` job guard is
+    // `coverage_changed == 'true' && github.event.pull_request.draft != true`.
+    // Reporting `assumed` per whole guard dropped the draft half, so the one condition
+    // the worktree genuinely cannot evaluate never reached the operator — and on a draft
+    // PR CI skips that job, which under GATE_ARBITER=enforce is again no verdict anywhere.
+    const coverage = deriveCiCoverage(projectRoot, "test", { scope: { coverage_changed: true } });
+    expect(coverage.covered).toBe(true);
+    expect(coverage.assumed.join("; ")).toMatch(/draft/);
+    // A guard made only of satisfied scope flags assumes nothing.
+    expect(deriveCiCoverage(projectRoot, "lint", { scope: { static_heavy_changed: true } }).assumed).toEqual([]);
+  });
+
+  it("prints every assumed precondition with the decision", () => {
+    const decision = arbitrate({
+      projectRoot,
+      gate: "test",
+      env: { CI: undefined },
+      overrides: {
+        receipt: noReceipt,
+        ciVerdict: noCiVerdict,
+        changeClass: "docs",
+        coverage: { covered: true, via: "test:coverage", reason: "runs it", assumed: ["draft != true"] },
+        ledger: { observations: {}, ci: {} },
+      },
+    });
+    expect(decision.message).toMatch(/unverifiable CI preconditions \(assumed true\): draft != true/);
+  });
 });
 
 describe("gate arbiter — yield window", () => {
