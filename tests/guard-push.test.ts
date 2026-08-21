@@ -464,12 +464,46 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     const result = inFlightCiGuard(["claude/my-fix"], [], {
       prViewer: () => ({ state: "OPEN", number: 77 }),
       runFetcher: () => runs,
+      ghAvailable: () => true,
     });
     expect(result.ok).toBe(false);
     expect(result.message).toContain("PR #77 on claude/my-fix has required CI run(s) currently IN-FLIGHT");
     expect(result.message).toContain("Run 555: CI (in_progress) https://github.com/run/555");
     expect(result.message).toContain("SKIP_IN_FLIGHT_CI_GUARD=1 git push");
     expect(result.message).toContain("#HSSHRG");
+  });
+
+  it("inFlightCiGuard fails open when gh is unavailable, without consulting the PR", () => {
+    let prViewerCalls = 0;
+    const result = inFlightCiGuard(["claude/my-fix"], [], {
+      prViewer: () => {
+        prViewerCalls += 1;
+        return { state: "OPEN", number: 77 };
+      },
+      runFetcher: () => [{ databaseId: 555, name: "CI", status: "in_progress" }],
+      ghAvailable: () => false,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.note).toContain("gh not available");
+    expect(prViewerCalls).toBe(0);
+  });
+
+  it("inFlightCiGuard never spawns a process when every dependency is injected (#HSSHRG)", () => {
+    // Regression guard: the availability probe used to call the real `gh` binary
+    // even here. `gh --version` was measured at 97 s on a loaded machine, which
+    // timed this suite out at vitest's 30 s limit — a unit test must not be
+    // hostage to an external process it never asked for.
+    let spawned = 0;
+    const result = inFlightCiGuard(["claude/my-fix"], [], {
+      prViewer: () => ({ state: "OPEN", number: 77 }),
+      runFetcher: () => [{ databaseId: 555, name: "CI", status: "in_progress" }],
+      ghAvailable: () => {
+        spawned += 1;
+        return true;
+      },
+    });
+    expect(spawned).toBe(1);
+    expect(result.ok).toBe(false);
   });
 
   it("inFlightCiGuard skips when SKIP_IN_FLIGHT_CI_GUARD=1 is set", () => {
@@ -479,6 +513,7 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
       const result = inFlightCiGuard(["claude/my-fix"], [], {
         prViewer: () => ({ state: "OPEN", number: 77 }),
         runFetcher: () => [{ databaseId: 555, name: "CI", status: "in_progress" }],
+        ghAvailable: () => true,
       });
       expect(result.ok).toBe(true);
       expect(result.skipped).toBe("SKIP_IN_FLIGHT_CI_GUARD=1");

@@ -414,13 +414,18 @@ export function defaultRunsFetch(branch, exec = execFileSync) {
 export function inFlightCiGuard(
   branches,
   _ranges = [],
-  { prViewer = defaultPrView, runFetcher = defaultRunsFetch } = {},
+  // `ghAvailable` is injectable for the same reason `prViewer`/`runFetcher` are:
+  // without it this "unit" test still spawned the real `gh` binary just to ask
+  // whether it exists, so the test's runtime was hostage to an external process.
+  // On a loaded machine `gh --version` was measured at 97 s, blowing vitest's 30 s
+  // limit and failing a test that injects every other dependency.
+  { prViewer = defaultPrView, runFetcher = defaultRunsFetch, ghAvailable = ghIsAvailable } = {},
 ) {
   void _ranges;
   if (process.env.SKIP_IN_FLIGHT_CI_GUARD === "1") {
     return { name: "in-flight-ci", ok: true, skipped: "SKIP_IN_FLIGHT_CI_GUARD=1" };
   }
-  if (!ghIsAvailable()) {
+  if (!ghAvailable()) {
     return { name: "in-flight-ci", ok: true, note: "gh not available — in-flight CI check skipped (fail-open)" };
   }
 
