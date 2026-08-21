@@ -963,3 +963,35 @@ EVERY TASK.** A pushed branch is the only thing that has ever survived on this m
 `npm run typecheck` is knowingly red, that means `SKIP_STATIC_GUARD=1 git push` — the red is
 documented and expected, and pushing a feature branch triggers no CI (ci.yml runs on push only for
 main and release/**, and on pull_request).
+
+## Session 4 — 2026-08-22 — Task 11b
+
+Working copy `D:\Worktrees\Database\cc-2a-live`, created from the pushed branch. `npm ci --include=dev`
+completed in roughly 15 minutes (exit 0) — materially faster than the 58 minutes recorded on 2026-08-21,
+so the slow-install note in the previous section is an observation about that day, not a standing property
+of the machine.
+
+### Baseline re-established BEFORE any edit, decisive lines only
+
+- `CARING_CONTACTS_DATABASE_URL=… npm run caring-contacts:db:test` → `Test Files 2 passed (2)` /
+  `Tests 96 passed (96)`. Matches the recorded resume point exactly.
+- `tsc -p tsconfig.json --noEmit` → exactly ONE error, and it is the expected one:
+  `src/lib/caring-contacts/db/postgres-repository.ts(597,3): error TS2740: … is missing the following
+properties from type 'CaringContactRepository': rescheduleContact, createReferral, transitionReferral,
+listReferrals, and 18 more.` That is the 22-method gap, confirmed by the compiler rather than by counting.
+- `tests/caring-contacts-retention.test.ts` → `Tests 1 failed | 22 passed (23)`, the failing case being
+  "is the only module in src/lib/caring-contacts that hard-codes a retention period",
+  `expected [ …(2) ] to deeply equal []`. Exactly the failure Ruling 26 describes.
+
+So both documented reds are real and are the only reds. Nothing else was found broken.
+
+Ruling: [35] Task 11b's implementer runs on OPUS 5, not the Sonnet 5 the owner's model split assigns to
+"ordinary implementer work". — Why: the split reserves Opus for "migrations and row-level security", and
+this store IS the code half of row-level security — every method must emit the `set_config
+('caring_contacts.team_id', …)` / `set local role caring_contacts_app` preamble, and a method that
+forgets it does not fail loudly, it silently runs as a privileged role with every policy bypassed. The
+task is also constraint-dense in the sense AGENTS.md names as execution-heavy: ~22 methods that must each
+delegate to a sealed domain module rather than re-derive its rule, consult the singleton safety stop on
+the shared write path, map refusals by constraint NAME, and keep audit writes inside the same
+transaction. — Cost if wrong: a more expensive implementer than the task needed. The failure mode in the
+other direction is three to five fix rounds on a safety surface, which costs more.
