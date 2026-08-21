@@ -1750,8 +1750,14 @@ as the outlier to watch, replacing the trigram-absence signature that dominated 
    `select * from public.<rpc>(…)`, so the plan is a single `Function Scan`: a PL/pgSQL body's inner
    plan is not exposed. Every sample reports `plan_node_types: ["Function Scan"]` and
    `index_names: []`. Plan §5.1's "record plan flips (seq scan → index scan)" is therefore **not
-   answerable through this tool**; the index-usage read below answers the same question directly and
-   more durably.
+   answerable through this tool**. The index-usage read in 5.1(c) is a _different and weaker_ signal,
+   not a substitute: `pg_stat_user_indexes.idx_scan` is cumulative across every workload that touches
+   the table, and no before/after counter delta was captured around these samples, so it can show
+   that an index is never chosen by **anything**, but it cannot show whether **this** profiled query
+   moved from a sequential scan to an index scan. **Plan §5.1's plan-flip deliverable is therefore
+   left explicitly OPEN, not discharged.** Closing it needs query-specific inner-plan evidence —
+   which requires the RPC extension queued below, or an `auto_explain`-style capture — and that is
+   production-side work this read-only phase could not do.
 2. **It cannot reach the two v2 RPCs named in the Phase 5 brief.** `explain_retrieval_rpc` accepts
    exactly four names (`match_documents_for_query`, `match_document_chunks_text`,
    `match_document_lookup_chunks_text`, `match_document_table_facts_text`) — verified in its only
@@ -1765,8 +1771,17 @@ as the outlier to watch, replacing the trigram-absence signature that dominated 
    ```
 
    Extending the function to cover the `_v2` family is production DDL and was **not** authorised for
-   this phase, so it was not written. Queued as its own ledger item; the v1 siblings profiled above
-   cover the same two owning tables in the meantime.
+   this phase, so it was not written. Queued as its own ledger item. **Substitute coverage is partial, and
+   unevenly so — the earlier claim that the v1 siblings cover both owning tables was wrong.**
+   `match_document_chunks_text`, profiled above, is the v1 sibling of `match_document_chunks_text_v2`
+   and shares its owning table `document_chunks`, so that target has a usable stand-in. The other one
+   does not: `match_document_index_units_hybrid_v2` delegates to
+   `match_document_index_units_hybrid_scoped` over `document_index_units`
+   (`supabase/schema.sql:8033-8054`), and the four supported names reach only `documents`,
+   `document_chunks`, lookup chunks and `document_table_facts`. **The `document_index_units`
+   retrieval path therefore has no EXPLAIN baseline at all**, and that is an open deliverable rather
+   than a covered one. Its index-level usage is still recorded in 5.1(c), which is the weaker signal
+   described above, not a plan.
 
 #### 5.1(c) Index usage — the finding this phase actually turned up
 
