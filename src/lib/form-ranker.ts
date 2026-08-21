@@ -139,14 +139,6 @@ export function formRecordSearchText(form: FormRecord) {
   return normalizeSearchText(values.join(" "));
 }
 
-export function formNavigatorQuery(form: FormRecord) {
-  return (
-    [form.navigatorQuery, form.title, form.primaryContact?.value, form.subtitle, form.slug].find((value) =>
-      value?.trim(),
-    ) ?? form.slug
-  );
-}
-
 export function rankFormRecords(
   records: FormRecord[],
   query: string,
