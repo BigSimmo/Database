@@ -1,7 +1,13 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PwaLifecycle } from "@/components/pwa-lifecycle";
+import { sourceSegment } from "./helpers/source-contract";
+
+const globalStylesSource = readFileSync(path.resolve(process.cwd(), "src/app/globals.css"), "utf8");
 
 type MockWorker = ServiceWorker & { postMessage: ReturnType<typeof vi.fn> };
 
@@ -256,5 +262,26 @@ describe("PwaLifecycle", () => {
     } finally {
       delete (navigator as { userAgent?: string }).userAgent;
     }
+  });
+});
+
+describe("pwa-notice-in entrance animation", () => {
+  // .pwa-notice-card mounts on async, non-user-triggered signals
+  // (beforeinstallprompt, a connectivity change, a waiting service worker), so
+  // it never qualifies for the Layout Instability API's "recent user input"
+  // exemption. A translate/scale entrance therefore counts as a real CLS hit
+  // whenever it happens to animate inside a measurement window — confirmed via
+  // a Lighthouse mobile-root trace naming .pwa-notice-stack as the sole shift
+  // source at score 0.223 (#2199/#2204 CI, 2026-08-21). Keep this keyframe
+  // opacity-only: any geometry-changing property (transform, top/left,
+  // width/height) reintroduces that regression.
+  it("changes only opacity, never element geometry", () => {
+    const keyframes = sourceSegment(globalStylesSource, "@keyframes pwa-notice-in {", "\n}\n", {
+      label: "pwa-notice-in keyframes",
+    });
+    expect(keyframes).not.toMatch(/transform\s*:/);
+    expect(keyframes).not.toMatch(/\b(top|left|right|bottom|width|height|margin|padding)\s*:/);
+    expect(keyframes).toContain("opacity: 0");
+    expect(keyframes).toContain("opacity: 1");
   });
 });

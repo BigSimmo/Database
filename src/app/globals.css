@@ -3075,14 +3075,20 @@ summary::-webkit-details-marker {
   background: var(--clinical-accent-soft);
 }
 
+/* Opacity-only: this card mounts on an async, non-user-triggered signal
+   (beforeinstallprompt, connectivity change, a waiting service worker), so it
+   never qualifies for the Layout Instability API's "recent user input"
+   exemption. A translate/scale entrance therefore counts as a real layout
+   shift whenever it happens to animate inside a CLS measurement window —
+   confirmed via a Lighthouse mobile-root trace naming .pwa-notice-stack as
+   the sole shift source at score 0.223 (#2199/#2204 CI, 2026-08-21). Opacity
+   alone changes no element geometry, so it cannot register as a shift.  */
 @keyframes pwa-notice-in {
   from {
     opacity: 0;
-    transform: translateY(0.625rem) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 
