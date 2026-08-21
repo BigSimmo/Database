@@ -1410,7 +1410,7 @@ export const syntheticIdentificationReviews = [
     reason:
       "Evelyn's plan was withdrawn in July and she has presented again since. Referred so the team can decide whether to write a new plan with her.",
     referredBy: "SYN-USER-LIAISON-001",
-    referredAt: daysAgo(40, "11:45"),
+    referredAt: daysAgo(14, "11:45"),
     status: "open",
     decision: null,
     decisionReason: null,

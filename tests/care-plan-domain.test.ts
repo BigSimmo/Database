@@ -751,6 +751,68 @@ describe("Care Plan fixture safety", () => {
     }
   });
 
+  it("never claims in a reason that something had happened before it had", () => {
+    // The count sweep checks how many; this checks when. A reason string is written
+    // at a moment in time and cannot cite an episode that had not happened yet.
+    const arrivedBefore = (arrivals: readonly string[], writtenAt: string): boolean =>
+      arrivals.some((arrival) => Date.parse(arrival) < Date.parse(writtenAt));
+    const arrivedBetween = (arrivals: readonly string[], from: string, to: string): boolean =>
+      arrivals.some((arrival) => Date.parse(arrival) > Date.parse(from) && Date.parse(arrival) < Date.parse(to));
+
+    // Negative controls carrying the exact dates of the defect this closes: a
+    // referral written on 11 July citing a presentation that happened on 4 August.
+    expect(arrivedBefore(["2026-08-04T11:10:00+08:00"], "2026-07-11T11:45:00+08:00")).toBe(false);
+    expect(
+      arrivedBetween(["2026-08-04T11:10:00+08:00"], "2026-07-04T16:20:00+08:00", "2026-07-11T11:45:00+08:00"),
+    ).toBe(false);
+    // Positive control: the corrected referral date.
+    expect(
+      arrivedBetween(["2026-08-04T11:10:00+08:00"], "2026-07-04T16:20:00+08:00", "2026-08-06T11:45:00+08:00"),
+    ).toBe(true);
+
+    const citesAPresentation = /presented|presentation|attended|came in|brought in|has been in/i;
+    const citesSinceWithdrawal = /withdraw\w*[^.]*\bsince\b|\bsince\b[^.]*withdraw/i;
+    const arrivalsFor = (patientId: string): string[] =>
+      syntheticEdPresentations
+        .filter((presentation) => presentation.patientId === patientId)
+        .map((presentation) => presentation.arrivedAt);
+    let claimsChecked = 0;
+
+    for (const review of syntheticIdentificationReviews) {
+      if (!citesAPresentation.test(review.reason)) continue;
+      claimsChecked += 1;
+      const arrivals = arrivalsFor(review.patientId);
+      expect(
+        arrivedBefore(arrivals, review.referredAt),
+        `${review.id} cites a presentation that had not happened when it was written`,
+      ).toBe(true);
+
+      if (!citesSinceWithdrawal.test(review.reason)) continue;
+      const patient = syntheticPatients.find(({ id }) => id === review.patientId);
+      const withdrawn = syntheticManagementPlanVersions.find(
+        (version) => version.planId === patient?.managementPlanId && version.state === "withdrawn",
+      );
+      expect(withdrawn?.withdrawnAt, `${review.id} says "since the withdrawal" with no withdrawn version`).toBeTruthy();
+      expect(
+        arrivedBetween(arrivals, withdrawn?.withdrawnAt as string, review.referredAt),
+        `${review.id} says a presentation happened since the withdrawal, but none falls between them`,
+      ).toBe(true);
+    }
+
+    for (const version of syntheticManagementPlanVersions) {
+      if (version.withdrawalReason === null || !citesAPresentation.test(version.withdrawalReason)) continue;
+      claimsChecked += 1;
+      const plan = syntheticManagementPlans.find(({ id }) => id === version.planId);
+      expect(
+        arrivedBefore(arrivalsFor(plan?.patientId as string), version.withdrawnAt as string),
+        `${version.id} cites a presentation that had not happened when it was withdrawn`,
+      ).toBe(true);
+    }
+
+    // Guards against the sweep going quiet and passing over nothing.
+    expect(claimsChecked).toBeGreaterThanOrEqual(3);
+  });
+
   it("keeps every count claimed in fixture prose consistent with the episode records", () => {
     // Task 4 renders the objective count beside this prose. If the two disagree,
     // the objective count stops being the thing that settles the question.
