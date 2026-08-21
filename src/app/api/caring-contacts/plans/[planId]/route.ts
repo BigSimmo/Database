@@ -53,6 +53,7 @@ export async function POST(request: NextRequest, context: PlanRouteContext): Pro
   return writeHandler({
     schema: lifecycleSchema,
     action: (body) => LIFECYCLE_ACTIONS[body.action],
+    access: { objectType: "plan", objectId: () => id },
     write: async (store, actor, body) => {
       const write = writeContextFor(actor, body.idempotencyKey);
       const input = { planId: planId(id), expectedVersion: body.expectedVersion };

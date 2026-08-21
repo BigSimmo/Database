@@ -194,6 +194,7 @@ describe("caring-contacts API boundary", () => {
     const handler = writeHandler({
       schema: z.object({ planId: z.string() }),
       action: "publishPathwayVersion",
+      access: { objectType: "pathwayVersion", objectId: () => "SYN-PATHWAY-001" },
       write: async () => ({ ok: true, value: null }),
     });
 
@@ -206,7 +207,12 @@ describe("caring-contacts API boundary", () => {
   it("never reaches the write when the capability check denies it", async () => {
     await inMemoryStoreWithSpy();
     const write = vi.fn(async () => ({ ok: true as const, value: null }));
-    const handler = writeHandler({ schema: z.object({}), action: "publishPathwayVersion", write });
+    const handler = writeHandler({
+      schema: z.object({}),
+      action: "publishPathwayVersion",
+      access: { objectType: "pathwayVersion", objectId: () => "SYN-PATHWAY-001" },
+      write,
+    });
 
     await handler(post("/api/caring-contacts/pathway-versions", {}));
 
@@ -229,6 +235,7 @@ describe("caring-contacts API boundary", () => {
     const handler = writeHandler({
       schema: z.object({ expectedVersion: z.number() }),
       action: "pausePlan",
+      access: { objectType: "plan", objectId: () => "SYN-PLAN-001" },
       write: async () => ({ ok: true, value: null }),
     });
 
@@ -267,6 +274,62 @@ describe("caring-contacts API boundary", () => {
 
     expect(readResponse.headers.get("cache-control")).toContain("no-store");
     expect(refusedResponse.headers.get("cache-control")).toContain("no-store");
+  });
+
+  // Ruling 45. Before it, a write refused by the capability check never reached the store, so
+  // `runWrite` never ran and the attempt left no trace at all -- the one gap in "every mutation".
+  it("produces exactly one audit event for every write attempt through the boundary, whichever way it goes", async () => {
+    const { store, recorded } = await inMemoryStoreWithSpy();
+    const auditor = demoActorForRole("auditor");
+    const before = (await store.listAuditEvents({ actor: auditor })).length;
+
+    // Denied at the boundary: the coordinator does not hold `publishPathwayVersion`.
+    const { POST: publish } = await import("@/app/api/caring-contacts/pathway-versions/route");
+    const denied = await publish(
+      post("/api/caring-contacts/pathway-versions", {
+        pathwayVersionId: "SYN-PATHWAY-001",
+        action: { type: "publish" },
+        idempotencyKey: "publish-1",
+      }),
+    );
+
+    expect(denied.status).toBe(403);
+    expect(recorded()).toEqual([
+      expect.objectContaining({ kind: "mutation", objectType: "pathwayVersion", outcome: "denied" }),
+    ]);
+    expect(await store.listAuditEvents({ actor: auditor })).toHaveLength(before + 1);
+
+    // Allowed at the boundary: the store audits it, and the boundary adds nothing of its own.
+    const { POST: lifecycle } = await import("@/app/api/caring-contacts/plans/[planId]/route");
+    const allowed = await lifecycle(
+      post("/api/caring-contacts/plans/SYN-PLAN-001", {
+        action: "pause",
+        expectedVersion: 2,
+        idempotencyKey: "pause-invariant",
+      }),
+      { params: Promise.resolve({ planId: "SYN-PLAN-001" }) },
+    );
+
+    expect(allowed.status).toBe(200);
+    expect(recorded()).toHaveLength(1);
+    expect(await store.listAuditEvents({ actor: auditor })).toHaveLength(before + 2);
+  });
+
+  it("still refuses the write when the denial cannot be recorded", async () => {
+    const { store } = await inMemoryStoreWithSpy();
+    vi.spyOn(store, "recordAccess").mockRejectedValue(new Error("audit sink unavailable"));
+    const { POST: publish } = await import("@/app/api/caring-contacts/pathway-versions/route");
+
+    const response = await publish(
+      post("/api/caring-contacts/pathway-versions", {
+        pathwayVersionId: "SYN-PATHWAY-001",
+        action: { type: "publish" },
+        idempotencyKey: "publish-2",
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ refusal: "action-not-granted" });
   });
 
   it("falls back to 422 for a refusal the status map does not name", async () => {
@@ -421,6 +484,6 @@ describe("service-state read narrowing (Ruling 43)", () => {
       reason: "duplicate-send",
       incidentDetail: { visible: false, withheldReason: "cross-team-denied" },
     });
-    expect(recorded()).toContainEqual(expect.objectContaining({ objectType: "report", outcome: "allowed" }));
+    expect(recorded()).toContainEqual(expect.objectContaining({ objectType: "serviceState", outcome: "allowed" }));
   });
 });

@@ -29,13 +29,14 @@ const competencySchema = z
   .strict();
 
 export const GET = readHandler({
-  access: { kind: "administrative", objectType: "report", objectId: () => OBJECT_ID },
+  access: { kind: "administrative", objectType: "trainingRecord", objectId: () => OBJECT_ID },
   read: async (store, actor) => store.getTrainingRecord({ actor }),
 });
 
 export const POST = writeHandler({
   schema: competencySchema,
   action: "enterTrainingMode",
+  access: { objectType: "trainingRecord", objectId: () => OBJECT_ID },
   write: async (store, actor, body) =>
     store.recordTrainingCompetency({ competency: body.competency }, writeContextFor(actor, body.idempotencyKey)),
 });

@@ -364,3 +364,142 @@ production shell (Group 4) lands.
 **5. Not exercised against Postgres.** Everything here runs against the in-memory store, which is
 what `npm run test` collects. The Postgres store is held to the same contract, so I expect no
 divergence, but I did not run `caring-contacts:db:test` and would not have without approval.
+
+---
+
+# Follow-up round — Rulings 45 to 48
+
+## Ruling 45 — a write denied at the boundary is now audited
+
+**Type change (sealed domain, `src/lib/caring-contacts/access-audit.ts`):** added `"mutation"` to
+`AccessKind`. I re-verified the coordinator's three safety findings against the tree before
+touching it: `object_type` in `caring-contacts/supabase/migrations/0001_caring_contacts_foundation.sql`
+is a bare `text not null` with no CHECK (and there is no access-kind column at all — the kind is
+folded into the action string by `accessActionName`); `tests/caring-contacts-access-audit.test.ts`
+names members individually and never asserts the closed set; and `repository.ts`'s own
+`recordAccess` contract already claims "every search, view, decision, mutation, write-back and
+administrative access". The type was narrower than its own documented contract. Purely additive, no
+migration, no existing assertion touched.
+
+**Behaviour (`writeHandler`):** `WriteHandlerConfig` gains
+`access: { objectType; objectId: (body) => string }`, and on a capability denial the handler records
+`{ kind: "mutation", outcome: "denied" }` before returning the 403. The store is now resolved before
+the check so the record can be written.
+
+Both asymmetries the ruling asked for are stated at the call site: the record is made **only** when
+the boundary itself denies (a write that reaches the store is audited there, and recording both
+would count one attempt twice), and the record's result is **ignored on purpose** — `recordAccess`
+must not be blockable, and a trail that cannot take the event must not turn a denial into something
+else. A separate test pins that: with `recordAccess` rejecting, the denial still returns 403
+`{ refusal: "action-not-granted" }`.
+
+**The invariant, asserted in the ruling's words** —
+`it("produces exactly one audit event for every write attempt through the boundary, whichever way it goes")`.
+One test, both halves, counted against the same trail:
+
+- denied at the boundary → 403, `recorded()` holds exactly one
+  `{ kind: "mutation", objectType: "pathwayVersion", outcome: "denied" }`, total audit events
+  `before + 1`;
+- allowed at the boundary → 200, `recorded()` still holds **one** (the earlier denial, nothing new),
+  total audit events `before + 2`.
+
+### Mutation evidence for the invariant
+
+**Mutation A — remove the boundary record.** Deleted the `recordAccessAttempt` call from the denial
+branch. Value read by an assertion: yes, `recorded()` is compared directly.
+
+```
+ FAIL  ... > produces exactly one audit event for every write attempt through the boundary, whichever way it goes
+AssertionError: expected [] to deeply equal [ ObjectContaining{…} ]
+-     "kind": "mutation",
+-     "objectType": "pathwayVersion",
+-     "outcome": "denied",
++ []
+```
+
+Reverted.
+
+**Mutation B — record on the allowed path too.** Added a second `recordAccessAttempt` with
+`outcome: "allowed"` before `config.write`. Value read by an assertion: yes, the allowed half
+asserts `recorded()` has length 1.
+
+```
+ FAIL  ... > produces exactly one audit event for every write attempt through the boundary, whichever way it goes
+AssertionError: expected [ { …(7) }, { …(7) } ] to have a length of 1 but got 2
+ ❯ tests/caring-contacts-api-handler.test.ts:314:24
+```
+
+Reverted. Both halves of the invariant can fail.
+
+## Ruling 46 — `AccessedObjectType` widened instead of collapsing into `report`
+
+Added `notificationPreferences`, `trainingRecord`, `pathwayVersion`, `serviceState` in the existing
+camelCase style, and stopped using `report` for surfaces that are not reports. The four routes now
+record their real object type, and the access-trail route's filter enum offers all ten members so a
+trail holding them can be filtered to them.
+
+`objectId` shapes were checked against the allowlist in that module (`/^[A-Za-z0-9_:-]{1,128}$/`):
+`service` for service state, and the bare object-type names `notificationPreferences` /
+`trainingRecord` for the two per-actor records that have no meaningful per-object id — a shape the
+allowlist's own doc comment already names as legitimate (`patientDirectory`). The audit event's
+`actorId` already says whose record it was.
+
+`report` remains in the union and is now unused by these routes; I left it rather than removing a
+member of a sealed type that nothing in this task justified deleting.
+
+One expectation in my own new test still read `objectType: "report"` for the service-state read and
+went red on the first run — the type change doing its job. Updated to `serviceState`. No
+pre-existing assertion anywhere was changed. No exhaustiveness failure surfaced: nothing in the
+repository switches on either union or keys a `Record` by it, so no behaviour had to be invented.
+
+## Rulings 47 and 48 — recorded
+
+The body-dependent `action` and the separate narrowing module are the coordinator's decisions, not
+mine. Noted here so the final review reads them that way.
+
+## Concern 3 — recorded as accepted
+
+An empty list read records `allowed`. Correct, not a defect: the stores deliberately make
+scoping-out indistinguishable from matching-nothing, and "the read was permitted and matched
+nothing" is the truthful record. Unchanged, and documented in `readHandler`'s doc comment.
+
+## Verification for this round
+
+```
+$ node scripts/run-vitest.mjs run tests/caring-contacts-api-handler.test.ts tests/caring-contacts-access-audit.test.ts --reporter=dot
+ Test Files  2 passed (2)
+      Tests  27 passed (27)
+```
+
+```
+$ npm run test
+ Test Files  696 passed | 2 skipped (698)
+      Tests  7715 passed | 29 skipped (7744)
+```
+
+```
+$ node ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit
+tsc exit: 0  diagnostics lines: 0
+
+$ npx eslint src/lib/caring-contacts/access-audit.ts src/lib/caring-contacts-server/*.ts "src/app/api/caring-contacts/**/*.ts" tests/caring-contacts-api-handler.test.ts
+eslint exit: 0
+```
+
+The full suite matters here for the reason the coordinator gave: `src/lib/caring-contacts/` is
+policed by static scans (domain isolation, migration/schema consistency) living in files this diff
+does not contain. They pass.
+
+## Files changed this round
+
+- `src/lib/caring-contacts/access-audit.ts` — `AccessKind` and `AccessedObjectType` widened
+  (the only edit to the sealed domain in this task, authorised by Rulings 45 and 46)
+- `src/lib/caring-contacts-server/handler.ts` — `WriteHandlerConfig.access`; boundary-denial record
+- all ten `src/app/api/caring-contacts/**/route.ts` — `access` descriptors and real object types
+- `tests/caring-contacts-api-handler.test.ts` — the invariant test, the unblockable-denial test,
+  and the updated service-state object type
+
+## Remaining concerns after this round
+
+Only the two the coordinator accepted (empty-list reads recording `allowed`; no logging behind an
+opaque 500 on a read that throws), plus the standing note that none of this has been exercised
+against Postgres — `caring-contacts:db:test` needs a database and was not run.

@@ -22,7 +22,20 @@ const querySchema = z
     fromIso: z.string().min(1).optional(),
     toIso: z.string().min(1).optional(),
     actorId: z.string().min(1).optional(),
-    objectType: z.enum(["plan", "contact", "episode", "auditTrail", "report", "patientDirectory"]).optional(),
+    objectType: z
+      .enum([
+        "plan",
+        "contact",
+        "episode",
+        "auditTrail",
+        "report",
+        "patientDirectory",
+        "notificationPreferences",
+        "trainingRecord",
+        "pathwayVersion",
+        "serviceState",
+      ])
+      .optional(),
     limit: z.number().int().positive().max(500).default(100),
     offset: z.number().int().nonnegative().default(0),
   })

@@ -30,13 +30,14 @@ const preferencesSchema = z
   .strict();
 
 export const GET = readHandler({
-  access: { kind: "administrative", objectType: "report", objectId: () => OBJECT_ID },
+  access: { kind: "administrative", objectType: "notificationPreferences", objectId: () => OBJECT_ID },
   read: async (store, actor) => store.getNotificationPreferences({ actor }),
 });
 
 export const POST = writeHandler({
   schema: preferencesSchema,
   action: "manageNotificationPreferences",
+  access: { objectType: "notificationPreferences", objectId: () => OBJECT_ID },
   write: async (store, actor, body) =>
     // The preferences belong to the acting actor and to nobody else; the store refuses a save
     // whose `actorId` is not the writer's, so the identifier comes from the resolved actor rather

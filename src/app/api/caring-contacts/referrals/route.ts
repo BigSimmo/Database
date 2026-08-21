@@ -52,6 +52,7 @@ export const GET = readHandler({
 export const POST = writeHandler({
   schema: referralSchema,
   action: capabilityFor,
+  access: { objectType: "patientDirectory", objectId: (body) => body.referralId },
   write: async (store, actor, body) => {
     if (body.type === "create") {
       return store.createReferral(

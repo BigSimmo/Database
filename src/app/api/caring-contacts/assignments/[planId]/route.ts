@@ -54,6 +54,7 @@ export async function POST(request: NextRequest, context: AssignmentRouteContext
   return writeHandler({
     schema: assignmentSchema,
     action: capabilityFor,
+    access: { objectType: "plan", objectId: () => id },
     write: async (store, actor, body) => {
       const action =
         body.action.type === "claim"

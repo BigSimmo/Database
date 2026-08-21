@@ -4,10 +4,16 @@
 //
 // Contract (decision lock, 2026-08-19, spec §4.2): the audit trail must record "every search,
 // view, decision, mutation, write-back and administrative access". `buildAuditEvent` (see
-// audit.ts) already covers mutations and write-backs because `runWrite` calls it directly. This
-// module gives the remaining kinds -- view, search, export, and administrative access -- a typed
-// shape and a single constructor path, so a read can enter the same patient-data-free trail a
-// write already does.
+// audit.ts) covers a mutation that REACHES a store, because `runWrite` calls it directly. This
+// module gives every other kind -- view, search, export, administrative access, and the one class
+// of mutation `runWrite` can never see -- a typed shape and a single constructor path, so a read
+// enters the same patient-data-free trail a write already does.
+//
+// Ruling 45 (2026-08-22) added `"mutation"`. A write refused by the API boundary's capability
+// check never reaches a store, so `runWrite` never runs and the refusal produced no record at all
+// -- the one gap in "every mutation". The boundary now records it here instead. It is deliberately
+// NOT used for a write that reaches a store: that one is already audited there, and recording both
+// would count it twice.
 //
 // `buildAccessAuditEvent` delegates to `buildAuditEvent` rather than constructing an `AuditEvent`
 // itself: there must be exactly one audit-event constructor in this codebase, so a future change
@@ -20,9 +26,30 @@ import { AuditEventContainsPatientDataError, buildAuditEvent, type AuditEvent, t
 import { awstIsoTimestamp, type Clock } from "./clock";
 import { idempotencyKey as makeIdempotencyKey, type ActorId, type TeamId } from "./ids";
 
-export type AccessKind = "view" | "search" | "export" | "administrative";
+/**
+ * `"mutation"` is for a write REFUSED BEFORE IT REACHED A STORE (see the Ruling 45 note above),
+ * never for one the store accepted or refused on its own terms.
+ */
+export type AccessKind = "view" | "search" | "export" | "administrative" | "mutation";
 
-export type AccessedObjectType = "plan" | "contact" | "episode" | "auditTrail" | "report" | "patientDirectory";
+/**
+ * Every surface an access can name. Ruling 46 (2026-08-22) added the last four: before them the
+ * API boundary had to record a service-state read and a training-record read as the same
+ * `"report"`, which made the two indistinguishable in the trail and defeated the point of having
+ * an object type at all. Add a member here rather than reaching for `"report"` as a catch-all --
+ * `"report"` means a report.
+ */
+export type AccessedObjectType =
+  | "plan"
+  | "contact"
+  | "episode"
+  | "auditTrail"
+  | "report"
+  | "patientDirectory"
+  | "notificationPreferences"
+  | "trainingRecord"
+  | "pathwayVersion"
+  | "serviceState";
 
 export type AccessRecord = {
   actorId: ActorId;

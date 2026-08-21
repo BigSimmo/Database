@@ -48,13 +48,14 @@ function capabilityFor(body: z.infer<typeof serviceStateSchema>): CaringContactA
 }
 
 export const GET = readHandler({
-  access: { kind: "administrative", objectType: "report", objectId: () => SERVICE },
+  access: { kind: "administrative", objectType: "serviceState", objectId: () => SERVICE },
   read: async (store, actor) => narrowServiceStateForActor(await store.getServiceState({ actor }), actor),
 });
 
 export const POST = writeHandler({
   schema: serviceStateSchema,
   action: capabilityFor,
+  access: { objectType: "serviceState", objectId: () => SERVICE },
   write: async (store, actor, body) => {
     if (body.type === "stop") {
       return store.stopService({ reason: body.reason, note: body.note }, writeContextFor(actor, body.idempotencyKey));

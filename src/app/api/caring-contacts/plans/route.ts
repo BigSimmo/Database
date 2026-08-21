@@ -50,6 +50,7 @@ export const GET = readHandler({
 export const POST = writeHandler({
   schema: createPlanSchema,
   action: "claimPlan",
+  access: { objectType: "plan", objectId: (body) => body.planId },
   write: async (store, actor, body) =>
     store.createPlan(
       {

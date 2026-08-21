@@ -151,7 +151,7 @@ export function readHandler<T>(config: ReadHandlerConfig<T>): (request: NextRequ
 async function recordAccessAttempt(
   store: CaringContactRepository,
   actor: Actor,
-  access: ReadHandlerConfig<unknown>["access"],
+  access: { kind: AccessKind; objectType: AccessedObjectType },
   objectId: string,
   outcome: AuditOutcome,
 ): Promise<boolean> {
@@ -184,6 +184,11 @@ export type WriteHandlerConfig<TBody, TResult> = {
    * store's rather than approximating it with whichever action happens to be the broadest.
    */
   action: CaringContactAction | ((body: TBody) => CaringContactAction);
+  /**
+   * What this write acts on. Used ONLY to record a denial the boundary itself made -- a write that
+   * reaches the store is audited there, from the store's own knowledge of the object.
+   */
+  access: { objectType: AccessedObjectType; objectId: (body: TBody) => string };
   write: (store: CaringContactRepository, actor: Actor, body: TBody) => Promise<TransitionResult<TResult>>;
 };
 
@@ -215,9 +220,28 @@ export function writeHandler<TBody, TResult>(
     const actor = await resolveDemoActor();
     const action = typeof config.action === "function" ? config.action(body) : config.action;
     const decision = canPerformCaringContactAction(actor, action, { teamId: actor.teamId });
-    if (!decision.allowed) return refusalResponse(decision.reason);
-
     const store = await caringContactsStore();
+
+    if (!decision.allowed) {
+      // Recorded HERE and only here. A write refused at this boundary never reaches the store, so
+      // `runWrite` never runs and the attempt would otherwise leave no trace at all. A write that
+      // IS allowed through is deliberately not recorded here: the store audits it, and recording
+      // both would count one attempt twice. The asymmetry is the point, not an oversight -- every
+      // write attempt produces exactly one audit event, whichever way it goes.
+      //
+      // The result is ignored on purpose. `recordAccess` must not be blockable (see its contract),
+      // and a trail that cannot take the event must not turn a denial into something else: the
+      // caller is refused either way.
+      await recordAccessAttempt(
+        store,
+        actor,
+        { kind: "mutation", objectType: config.access.objectType },
+        config.access.objectId(body),
+        "denied",
+      );
+      return refusalResponse(decision.reason);
+    }
+
     const result = await config.write(store, actor, body);
     if (!result.ok) return refusalResponse(result.reason);
     return jsonResponse({ value: result.value ?? null }, 200);

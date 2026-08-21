@@ -50,13 +50,14 @@ function capabilityFor(body: z.infer<typeof transitionSchema>): CaringContactAct
 }
 
 export const GET = readHandler({
-  access: { kind: "view", objectType: "report", objectId: () => COLLECTION },
+  access: { kind: "view", objectType: "pathwayVersion", objectId: () => COLLECTION },
   read: async (store, actor) => store.listPathwayVersions({ actor }),
 });
 
 export const POST = writeHandler({
   schema: transitionSchema,
   action: capabilityFor,
+  access: { objectType: "pathwayVersion", objectId: (body) => body.pathwayVersionId },
   write: async (store, actor, body) => {
     // `approve` and `publish` are attributed to the ACTING actor, never to an identifier supplied
     // by the caller: no single actor may both author and approve the same version, and that check

@@ -56,6 +56,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 export const POST = writeHandler({
   schema: resolveSchema,
   action: "reconcileProviderDispatch",
+  access: { objectType: "contact", objectId: (body) => body.contactId },
   write: async (store, actor, body) =>
     store.resolveDispatchDiscrepancy(
       {
