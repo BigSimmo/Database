@@ -86,6 +86,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // search mode, and its synthetic patient context must never enter shared search.
   const isCaringContactMockup =
     pathname === "/mockups/caring-contacts" || pathname.startsWith("/mockups/caring-contacts/");
+  // Care Plan owns a complete clinical shell with its own rail, phone dock and a
+  // single search slot of its own. It is not a search mode, and its synthetic
+  // patient context must never enter shared search.
+  const isCarePlanMockup = pathname === "/mockups/care-plan" || pathname.startsWith("/mockups/care-plan/");
 
   return (
     <GlobalMockupSearchShell
@@ -130,6 +134,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPhoneModeSheetYesMockup &&
         !isSidebarLiveMockup &&
         !isCaringContactMockup &&
+        !isCarePlanMockup &&
         !isDictionaryBrowseHeaderMockup &&
         !isDictionaryControlRowMockup
       }
@@ -154,6 +159,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPhoneModeSheetYesMockup &&
         !isSidebarLiveMockup &&
         !isCaringContactMockup &&
+        !isCarePlanMockup &&
         !isDictionaryBrowseHeaderMockup &&
         !isDictionaryControlRowMockup
       }

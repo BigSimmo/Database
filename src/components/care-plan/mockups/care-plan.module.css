@@ -1,0 +1,278 @@
+/*
+ * Layout for the Care Plan prototype shell. Every selector is scoped below
+ * `.appRoot` so this file can never reach a surface outside the prototype, and
+ * colour comes from design tokens only.
+ *
+ * The shape is one column on a phone with a fixed bottom dock, and a fixed rail
+ * beside a scrolling column from the medium breakpoint upwards. Print drops all
+ * navigation chrome through `data-print-hide`, because a printed plan is carried
+ * to a bedside and nothing on paper can be tapped.
+ */
+
+.appRoot {
+  min-height: 100dvh;
+  background: var(--background);
+  color: var(--text);
+}
+
+.appRoot .layout {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+}
+
+.appRoot .rail {
+  display: none;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-inline-end: 1px solid var(--border);
+  background: var(--surface-chrome);
+  padding: 1rem 0.75rem;
+}
+
+.appRoot .railBrand {
+  display: grid;
+  gap: 0.125rem;
+  padding: 0.25rem 0.5rem 0.75rem;
+  border-block-end: 1px solid var(--border);
+}
+
+.appRoot .railNav,
+.appRoot .railTools {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.appRoot .railTools {
+  margin-block-start: auto;
+  border-block-start: 1px solid var(--border);
+  padding-block-start: 0.75rem;
+}
+
+.appRoot .navItem {
+  display: flex;
+  min-height: var(--spacing-tap);
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: var(--radius-md);
+  padding-inline: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background-color var(--duration-fast) var(--ease-out-soft);
+}
+
+.appRoot .navItem:hover {
+  background: var(--surface-subtle);
+  color: var(--text);
+}
+
+.appRoot .navItem[aria-current="page"] {
+  background: var(--clinical-accent-soft);
+  color: var(--clinical-accent);
+}
+
+.appRoot .column {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.appRoot .header {
+  display: grid;
+  gap: 0.75rem;
+  border-block-end: 1px solid var(--border);
+  background: var(--surface-chrome);
+  padding-block-start: max(0.75rem, var(--safe-area-top));
+  padding-block-end: 0.75rem;
+  padding-inline: 1rem;
+}
+
+.appRoot .headerIdentity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+}
+
+.appRoot .marker {
+  border: 1px solid var(--clinical-accent-border);
+  border-radius: var(--radius-sm);
+  background: var(--clinical-accent-soft);
+  padding: 0.125rem 0.5rem;
+  color: var(--clinical-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.appRoot .memoryNotice {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.appRoot .searchSlot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.appRoot .searchField {
+  min-width: 12rem;
+  flex: 1 1 14rem;
+}
+
+.appRoot .main {
+  min-width: 0;
+  flex: 1;
+  padding: 1.25rem 1rem;
+  padding-block-end: calc(4.5rem + var(--safe-area-bottom));
+}
+
+.appRoot .pageHead {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-block-end: 1px solid var(--border);
+  padding-block-end: 1rem;
+}
+
+.appRoot .pageTitle {
+  color: var(--text-heading);
+  font-size: var(--text-hero);
+  font-weight: 600;
+  line-height: var(--text-hero--line-height);
+  outline: none;
+}
+
+.appRoot .purposeSurface {
+  display: grid;
+  gap: 0.5rem;
+  margin-block-start: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface-raised);
+  padding: var(--pad-panel);
+}
+
+.appRoot .purposeText {
+  max-width: var(--measure);
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.appRoot .purposeFollowUp {
+  max-width: var(--measure);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.appRoot .dock {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: var(--z-chrome);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-block-start: 1px solid var(--border);
+  background: var(--surface-chrome);
+  padding-block-end: var(--safe-area-bottom);
+}
+
+.appRoot .dockItem {
+  display: flex;
+  min-height: var(--spacing-tap);
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.appRoot .dockItem[aria-current="page"] {
+  color: var(--clinical-accent);
+}
+
+/*
+ * The More sheet is portalled outside `.appRoot`, so it cannot inherit anything
+ * from this file. Its list is styled with utilities at the call site instead.
+ */
+
+@media (min-width: 48rem) {
+  .appRoot .layout {
+    flex-direction: row;
+  }
+
+  .appRoot .rail {
+    position: sticky;
+    top: 0;
+    display: flex;
+    height: 100dvh;
+    width: 15rem;
+    flex-shrink: 0;
+  }
+
+  .appRoot .header {
+    padding-inline: 1.5rem;
+  }
+
+  .appRoot .main {
+    padding: 1.75rem 1.5rem;
+    padding-block-end: 2rem;
+  }
+
+  .appRoot .pageHead {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .appRoot .dock {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appRoot .navItem {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .appRoot .rail,
+  .appRoot .dock,
+  .appRoot .header {
+    border-color: CanvasText;
+  }
+
+  .appRoot .navItem[aria-current="page"],
+  .appRoot .dockItem[aria-current="page"] {
+    border: 1px solid CanvasText;
+  }
+
+  .appRoot .marker {
+    border-color: CanvasText;
+  }
+}
+
+@media print {
+  .appRoot [data-print-hide="true"] {
+    display: none;
+  }
+
+  .appRoot .main {
+    padding: 0;
+  }
+
+  .appRoot .purposeSurface {
+    border-color: CanvasText;
+  }
+}

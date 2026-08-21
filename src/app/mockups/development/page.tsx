@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, FlaskConical, ShieldAlert } from "lucide-react";
 
+import { CARE_PLAN_ROUTES } from "@/components/care-plan/mockups/routes";
 import { CARING_CONTACT_MOCKUP_ROUTES } from "@/components/caring-contacts/mockups/routes";
 
 export const metadata: Metadata = {
@@ -9,16 +10,30 @@ export const metadata: Metadata = {
   description: "In-progress surfaces, reachable only to a signed-in developer account in a production deploy.",
 };
 
-// The index of what is being built. This page and the Caring Contact routes it
-// links to require a signed-in administrator account in production
-// (`DeveloperAreaGate`, applied in the `development` and `caring-contacts`
-// layouts) — everywhere else /mockups/** stays 404'd, unchanged.
+// The index of what is being built. This page and the two prototypes it links
+// to require a signed-in administrator account in production
+// (`DeveloperAreaGate`, applied in the `development`, `caring-contacts` and
+// `care-plan` layouts) — everywhere else /mockups/** stays 404'd, unchanged.
 //
 // Ward Flow is listed here as a convenience bookmark only: `/ward-management`
 // is an already-merged, normal, publicly reachable route (see
 // `src/lib/tools-catalog.ts`), not a mockup, and carries none of this page's
 // gating.
 const DEVELOPMENT_SURFACES = [
+  {
+    id: "care-plan",
+    name: "Care Plan",
+    summary:
+      "Linked prototype of continuity planning for recurrent emergency presentations: the Management Plan and its versions, the patient edition, the Personal Safety Plan, the presentation timeline, and the review queues. Fully synthetic and memory-only — nothing is saved.",
+    href: CARE_PLAN_ROUTES.home,
+    status: "Synthetic prototype",
+    entries: [
+      { label: "Patients", href: CARE_PLAN_ROUTES.patients },
+      { label: "Reviews", href: CARE_PLAN_ROUTES.reviews },
+      { label: "Governance", href: CARE_PLAN_ROUTES.governance },
+      { label: "System states", href: CARE_PLAN_ROUTES.systemStates },
+    ],
+  },
   {
     id: "caring-contacts",
     name: "Caring Contact",

@@ -66,6 +66,27 @@ conflict and did not. `git merge-base --is-ancestor` confirms both `a04330ea0` a
 `guard-push.mjs` and the fixed worktree tooling. It was a merge, not a rebase, because
 the branch is published.
 
+Pushed as `f01b8583c..d421bc2dc` (exit 0). Two things about that push are worth knowing.
+The **ledger-write guard blocked it as a false positive**: merging `main` necessarily
+carries `main`'s own inbox reconciliation onto this branch, and the guard reads that as
+this branch introducing ledger rows. `git diff --name-status origin/main...HEAD` over
+`docs/outstanding-issues*`, `docs/branch-review-ledger.md` and `docs/reviews` is **empty**,
+so the push used the guard's own documented scope, `SKIP_LEDGER_WRITE_GUARD=1`, and nothing
+else was skipped. And the **static guard did not run**: it was refused with
+`DATABASE_HEAVY_RUN_ADMISSION_BUSY` because another worktree held the heavy lease, so
+`lint` and `typecheck` were not run _by the guard_. Typecheck was run separately in this
+worktree (exit 0, zero diagnostics); **`lint` has not been run since the merge** and must
+not be reported as green until it is.
+
+**Left on disk, and a live hazard.** The first push attempt was killed at a 10-minute
+timeout and left a scratch checkout at
+`C:\Users\joshs\AppData\Local\Temp\guard-push-format-6YSFcp` whose `node_modules` is a link
+into this worktree's real `node_modules` — the precise arrangement behind all four
+destructions. The hardened guard refuses to force-delete it, which is why nothing was
+harmed; an old guard in another stale worktree would not. Remove the **link only**
+(`rmdir` on the junction, never a recursive delete of the folder), then
+`git worktree prune`. Not done here: the sandbox declined the command, correctly.
+
 The work now lives at `D:\Worktrees\Database\care-plan-impl`. The previous copy at
 `D:\Worktrees\Database\care-plan` was left untouched on disk and simply detached from
 the branch (`git switch --detach`) so the branch could be checked out in the new
@@ -81,7 +102,7 @@ is the only damage it carried — its tracked tree was clean and byte-identical 
 | ------------------------------- | -------------------------- | ---------------------- | --------------------------------------------------------------------- |
 | 1. Domain, fixtures, selectors  | **complete, review clean** | `8a2e6a6d1..8652e73ff` | 58/58 passing, typecheck clean                                        |
 | 2. Reducer, provider, lifecycle | **complete, review clean** | `8652e73ff..def541e6a` | 121/121 passing, typecheck + lint clean, 32 mutations / 32 red suites |
-| 3. Routes, gate, shell          | **not started**            | —                      | blocked by worktree destruction; no partial work exists               |
+| 3. Routes, gate, shell          | **in progress**            | BASE `d421bc2dc`       | restarted 22 Aug 2026 after the merge; no partial work existed        |
 | 4–11                            | not started                | —                      | —                                                                     |
 
 Stage A is Tasks 1–5. **Task 5 ends with a mandatory stop for user review** before
@@ -105,10 +126,11 @@ Task 6 begins.
   32 red suites, including both-directions proof for the participation trigger and
   three-way proof (too wide / too narrow / wrong guard) for the print exemption.
 
-### Task 3 — not started
+### Task 3 — in progress (started 22 August 2026)
 
-Blocked by the third worktree destruction. No partial work exists; nothing to
-reconcile. Restart from the brief unchanged.
+The third worktree destruction blocked it; no partial work exists and there was nothing
+to reconcile, so it restarts from the brief unchanged. BASE for the review package is
+`d421bc2dc`.
 
 ---
 
@@ -276,6 +298,23 @@ text against itself. Six conflicts found, six ruled.
     was not available to take part" when nobody had recorded anything. Keep the
     conservative default and the trigger; word the reason to say only what is known.
     Same family as the non-stigmatising-language rule. _Cost if wrong:_ none.
+
+### Task 3
+
+26. **The error boundary is a client class component inside the gate, wrapping the
+    provider — not a Next `error.tsx` at the Care Plan segment.** Task 2's deferred minor
+    records that `assertSingleCurrentVersion` throws with no boundary, and the session
+    brief makes mounting one an input to Task 3. A segment `error.tsx` cannot catch it:
+    `assertSingleCurrentVersion` throws from inside the reducer, the reducer runs during
+    the render phase of the component owning the state, and that component is
+    `CarePlanPrototypeProvider`, which the plan places in `layout.tsx` — a segment's
+    `error.tsx` never catches a throw from its own layout. So the boundary must be an
+    ancestor of the provider and a descendant of `DeveloperAreaGate`. It renders the
+    existing shared `RouteErrorBoundary` panel from
+    `src/components/route-error-boundary.tsx` as its fallback rather than new markup, per
+    the standing rule against duplicating a primitive that already exists. _Cost if
+    wrong:_ one small extra component; a segment `error.tsx` can still be added beside it
+    later if page-level throws want their own treatment.
 
 ---
 

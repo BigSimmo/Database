@@ -103,7 +103,9 @@ export async function proxy(request: NextRequest) {
     headers.set("content-security-policy", csp);
     // Untrusted: strip unconditionally so a client cannot set this header itself
     // and spoof past the parent `/mockups` layout's production gate on a route
-    // that is not actually one of the two developer-gated subtrees below.
+    // that is not actually one of the developer-gated subtrees listed in
+    // DEVELOPER_GATED_PATH_PREFIXES (`/mockups/development`, the Caring Contact
+    // prototype, and the Care Plan prototype).
     headers.delete(DEVELOPER_AREA_HEADER);
     headers.delete(DEVELOPER_AREA_PATH_HEADER);
     if (isDeveloperGatedPath(pathname)) {
@@ -213,11 +215,13 @@ export function shouldBlockProductionMockups(
 ) {
   if (!pathname.startsWith("/mockups") || environment.NODE_ENV !== "production") return false;
 
-  // `/mockups/development` and the Caring Contact prototype it links to carry
-  // their own signed-in-administrator gate (`DeveloperAreaGate`, applied in
-  // `src/app/mockups/layout.tsx` via the x-developer-area header set above) —
-  // let them through this blanket block so that gate can run instead of a bare
-  // 404. Every other /mockups/** path is unaffected.
+  // `/mockups/development` and the two prototypes it links to — Caring Contact
+  // and Care Plan — carry their own signed-in-administrator gate
+  // (`DeveloperAreaGate`, applied in each subtree's layout via the
+  // x-developer-area header set above), so let them through this blanket block
+  // and let that gate run instead of a bare 404. The match is exact-or-slash, so
+  // a look-alike path such as `/mockups/care-plan-archive` is NOT let through.
+  // Every other /mockups/** path is unaffected.
   if (isDeveloperGatedPath(pathname)) return false;
 
   // Mockups remain unavailable in every normal production process. The one
