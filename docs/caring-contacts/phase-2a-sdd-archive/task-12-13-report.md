@@ -242,7 +242,7 @@ for the API route.
   is present with the specified signature. Both Step 1 test files are used verbatim, not
   re-derived. Both Step 5 mutations match what each brief specified (the pinned-reference check for
   Task 12, the unknown-cookie fallback for Task 13).
-- **Naming:** `pool.ts`'s `createCaringContactsPool(url)` and the *test helper*
+- **Naming:** `pool.ts`'s `createCaringContactsPool(url)` and the _test helper_
   `tests/helpers/caring-contacts-postgres.ts`'s `createCaringContactsPool()` (no args, reads env
   itself) share a name but live in different modules with different call sites — this was already
   true of the brief's own naming choice, not something I introduced; I didn't rename either since
