@@ -24,7 +24,7 @@ import {
 } from "@/components/clinical-dashboard/evidence-panels";
 import { citedDocumentHref } from "@/components/clinical-dashboard/source-actions";
 import { CanonicalAnswerTables, MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
-import { AnswerCard, AnswerCardQueryEcho } from "@/components/ui/answer-card";
+import { AnswerCard, AnswerCardQueryEcho, type AnswerSupportStrength } from "@/components/ui/answer-card";
 import { Sheet } from "@/components/ui/sheet";
 import { answerSurface, cn, iconTilePremium, subtleStatusPill } from "@/components/ui-primitives";
 import { type AnswerRenderModel } from "@/lib/answer-render-policy";
@@ -115,6 +115,18 @@ function StagedAnswerResultSurfaceImpl({
     answer.sources?.length ||
     answer.citations.length;
   const centralTables = renderModel.tables;
+  // `trust` already distinguishes these; until now only a conditionally-rendered
+  // side card ever showed the difference, so a "medium" answer - which includes
+  // the case of a high-risk claim resting on unreviewed-authority evidence - read
+  // exactly like a fully verified one. Wording lives in AnswerCard.
+  const answerSupport: AnswerSupportStrength =
+    renderModel.trust === "high"
+      ? "strong"
+      : renderModel.trust === "medium"
+        ? "supported"
+        : renderModel.trust === "low"
+          ? "limited"
+          : "unassessed";
   const centralVisualEvidence = primaryVisualTable(answer);
   const showEvidenceDrawer = renderModel.allowedBlocks.some((block) =>
     ["sourceStatus", "reviewSources", "evidenceMap", "quoteCards", "visualEvidence", "warnings"].includes(block),
@@ -273,6 +285,7 @@ function StagedAnswerResultSurfaceImpl({
               <AnswerCard
                 state={answerState}
                 verification={answerVerification}
+                support={answerSupport}
                 query={showLayoutAside ? undefined : query}
               >
                 {answerProse}
@@ -281,6 +294,7 @@ function StagedAnswerResultSurfaceImpl({
               <AnswerCard
                 state={answerState}
                 verification={answerVerification}
+                support={answerSupport}
                 query={showLayoutAside ? undefined : query}
                 // Navigate to the cited page — do not reuse onScopeDocument. That
                 // handler only replaces selectedDocumentIds and leaves the clinician
