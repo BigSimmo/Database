@@ -4,7 +4,7 @@
 a second copy of the detail: each row points at the file that holds the reasoning. Where this file and a
 detailed record disagree, **the detailed record wins** — this one is a summary and can go stale.
 
-Last updated at head `dcf48b5b9`, 2026-08-21. Branch `claude/suicide-contact-mockup-b5aaa0`.
+Last updated at head `495ae3f3a`, 2026-08-22. Branch `claude/suicide-contact-mockup-b5aaa0`, pushed.
 
 ---
 
@@ -38,31 +38,31 @@ experience and clinical sign-off are required before any real use.
 
 ## 4. Task status — Phase 2A (19 tasks, 5 groups)
 
-| Task    | What it is                                       | State                                                  |
-| ------- | ------------------------------------------------ | ------------------------------------------------------ |
-| 1       | Patient-visible copy into the sealed domain      | Complete, reviewed clean                               |
-| 2       | Roles and actions                                | Complete, reviewed clean                               |
-| 3       | Service safety stop                              | Complete, 1 fix round                                  |
-| 4       | Pathway versions and dual approval               | Complete, 1 fix round                                  |
-| 5       | Referrals                                        | Complete (batched 5-7)                                 |
-| 6       | Plan ownership, reassignment, coverage           | Complete (batched 5-7)                                 |
-| 7       | Moving a contact / changing its date             | Complete (batched 5-7)                                 |
-| 8       | Auditing a view, not only a write                | Complete, 1 fix round (a CRITICAL finding)             |
-| 9       | Notification preferences and training            | Complete, reviewed clean                               |
-| —       | **Checkpoint 1**                                 | **PASSED** — 7,604 tests, typecheck and lint green     |
-| 10      | Storage contract + in-memory store (~21 methods) | Complete, 1 fix round (7 findings), 101 tests          |
-| 11a     | Migration 0003 + row-level security              | Complete, **3 fix rounds**, 96 database tests          |
-| **11b** | **Shared-contract move + ~22 Postgres methods**  | **NEXT** — restores typecheck                          |
-| —       | Checkpoint 2                                     | Pending                                                |
-| 12      | Database config that can never hit Clinical KB   | Not started                                            |
-| 13      | Demo role switcher                               | Not started                                            |
-| 14      | Route handlers that audit every view             | Not started                                            |
-| 15      | Route group, four width states, inbound link     | Not started — lazy route boundary required (Ruling 13) |
-| 16      | Service-state banner                             | Not started                                            |
-| 17      | The frozen 24-row overlay definition table       | Not started — Opus work                                |
-| 18      | One renderer, twenty-four overlays               | Not started — Opus work                                |
-| 19      | Browser proof at six widths                      | Not started                                            |
-| —       | Final whole-branch review                        | Pending — Opus work                                    |
+| Task | What it is                                       | State                                                  |
+| ---- | ------------------------------------------------ | ------------------------------------------------------ |
+| 1    | Patient-visible copy into the sealed domain      | Complete, reviewed clean                               |
+| 2    | Roles and actions                                | Complete, reviewed clean                               |
+| 3    | Service safety stop                              | Complete, 1 fix round                                  |
+| 4    | Pathway versions and dual approval               | Complete, 1 fix round                                  |
+| 5    | Referrals                                        | Complete (batched 5-7)                                 |
+| 6    | Plan ownership, reassignment, coverage           | Complete (batched 5-7)                                 |
+| 7    | Moving a contact / changing its date             | Complete (batched 5-7)                                 |
+| 8    | Auditing a view, not only a write                | Complete, 1 fix round (a CRITICAL finding)             |
+| 9    | Notification preferences and training            | Complete, reviewed clean                               |
+| —    | **Checkpoint 1**                                 | **PASSED** — 7,604 tests, typecheck and lint green     |
+| 10   | Storage contract + in-memory store (~21 methods) | Complete, 1 fix round (7 findings), 101 tests          |
+| 11a  | Migration 0003 + row-level security              | Complete, **3 fix rounds**, 96 database tests          |
+| 11b  | Shared-contract move + 22 Postgres methods       | Complete, 2 fix rounds, review clean — typecheck GREEN |
+| —    | **Checkpoint 2**                                 | **PASSED** — see the build record                      |
+| 12   | Database config that can never hit Clinical KB   | **IN PROGRESS** — batched with 13                      |
+| 13   | Demo role switcher                               | **IN PROGRESS** — batched with 12                      |
+| 14   | Route handlers that audit every view             | Not started                                            |
+| 15   | Route group, four width states, inbound link     | Not started — lazy route boundary required (Ruling 13) |
+| 16   | Service-state banner                             | Not started                                            |
+| 17   | The frozen 24-row overlay definition table       | Not started — Opus work                                |
+| 18   | One renderer, twenty-four overlays               | Not started — Opus work                                |
+| 19   | Browser proof at six widths                      | Not started                                            |
+| —    | Final whole-branch review                        | Pending — Opus work                                    |
 
 ## 5. Verification evidence, as recorded
 
@@ -72,7 +72,9 @@ experience and clinical sign-off are required before any real use.
 | Phase 2A Checkpoint 1        | 7,604 tests passed; typecheck and lint green                                         |
 | Task 10                      | 101 tests (up from 84)                                                               |
 | Task 11a, through 3 rounds   | 55 → 71 → 87 → 93 → **96 passed**                                                    |
-| Current known-red (expected) | `typecheck` on `db/postgres-repository.ts`; one retention test — both are Task 11b's |
+| Task 11b, through 2 rounds   | 96 → 159 → 162 → **163 passed** database; full suite **7671 passed, 0 failed**       |
+| Current known-red (expected) | **NONE.** Task 11b closed both. `tsc --noEmit` produces no output; the full suite is |
+|                              | green. This is the first point in Phase 2A with no expected failure at all.          |
 
 **Deliberate-breakage discipline.** Passing tests are never taken as proof. Across the programme, mutation
 has caught: a contact dispatched after a recorded death; ten dispatches across nine days; a fourth retry;

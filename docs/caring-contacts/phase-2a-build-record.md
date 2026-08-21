@@ -1290,3 +1290,130 @@ and would keep the dependency out of a production install, but it makes the pool
 reason no reader would guess. — Cost if wrong: roughly one megabyte of unused dependency ships in an
 install that runs in in-memory mode. That is the cheap direction; the other direction is a production
 crash on a suicide-prevention workspace's first request.
+
+### Task 11b fix round 1 scoped re-review — ALL FIVE ADDRESSED, no new breakage
+
+The re-reviewer did not take the fix report's word for the hardest finding. It reproduced the Finding 3
+race itself, against the running container, on two connections with an explicit barrier, running the
+app's exact statement sequence:
+
+```
+UNGUARDED  both writes rowCount 1; singleton names the LATER committer; incidents 2
+GUARDED    one write rowCount 0, one rowCount 1; singleton names one actor; incidents 2
+```
+
+So both stops win without the guard — the later committer overwrites the first responder — and exactly
+one wins with it, while both incident accounts survive as history either way. **Ruling 40 is now proven
+empirically rather than argued.** That is the strongest single piece of evidence produced in this task.
+
+It also audited the assertion question I care most about and found the diff contains **exactly two
+removed `expect` lines**: the Finding 4 literal restore, and the one `markRetentionCleared` replacement I
+authorised. The permission-denied and not-found assertions in that test are unchanged context lines. The
+one other test edit is a fixture change whose own assertions are untouched and whose baseline is captured
+after the arrangement, so it cannot be polluted by it. **No assertion was weakened anywhere.**
+
+On Finding 1 it confirmed the invariant is structural rather than incidental: the store now reads the
+clock once into a single binding and hands the domain a pinned clock that can only return a copy of it,
+so there is no second read left to drift. It noted honestly that the completing-approval path cannot be
+observed through the contract interface and is therefore proved by construction only — which is the
+truth, and is why the comment at that site matters.
+
+On Finding 2 it confirmed the rule lives in the domain, that both stores call it and neither re-derives
+it, that the Postgres store's old conditional is gone so an admitted clearance always writes its row, and
+that the domain rule is strictly stronger than the schema constraint — so an admitted clearance can never
+violate it. The new terminal-plan case is the first test ever to reach the durable insert.
+
+### Fix round 2 dispatched — three residual gaps, all additive
+
+The re-review's verdict was "all addressed", so by the letter of the process these three were Minor
+observations that do not extend the loop. I extended it anyway, deliberately, and the reason is worth
+recording: item 1 is a test that can silently stop testing, and on THIS branch that is not a minor class.
+Four tests unable to fail were found across the programme, plus two more inside this very task's own
+first two attempts at the same proof. Spending one short additive round to close it is cheap against
+finding it later by accident, or not at all.
+
+1. **The new concurrency test has no control proving the race window was entered.** If scheduling ever
+   serialises the two writers, the loser is refused by the DOMAIN check rather than by the guard and the
+   test still passes — failing open into meaninglessness rather than going red. It cannot be told apart
+   by refusal reason, because the guard's zero-row outcome is deliberately mapped onto the same reason
+   the domain gives, which is correct and stays. The control is that a loser which genuinely reached the
+   window leaves a second `service_stops` row. That is not portable to the in-memory store, so it goes in
+   the Postgres-only suite.
+2. **`admitRetentionClearance` has no direct unit test** — the Ruling 39 rule is exercised only through
+   two stores. Its own boundaries, particularly a terminal state with a NULL completion instant, are the
+   ones the indirect path is least likely to reach.
+3. **The same-team serialisation gets a comment naming it.** `ensureTeam`'s `insert … on conflict do
+nothing` is what makes the race cross-team-only. Comment only: making the serialisation deliberate, or
+   adding a lock, is a design decision for the final review and not something to improvise here.
+
+### Deferred to the final whole-branch review — the running list
+
+1. Module-level fixture counters make contract identifiers order-dependent.
+2. `postgres-repository.ts` is roughly 2,060 lines; five self-contained clusters would sit naturally in
+   sibling modules under `db/`.
+3. The two `service_restart_approvals` unique-violation mappings are untestable single-threaded —
+   untested by construction, not missing coverage.
+4. The same-team serialisation is accidental and, after round 2, documented but still unpinned. Either
+   pin it with a test that names it, or make it deliberate.
+5. `postgres-repository.ts` keeps its own `TERMINAL_PLAN_STATES` alongside the domain's
+   `TERMINAL_EPISODE_STATES`. Pre-existing, and used for a different purpose, so not a re-derivation of
+   the clearance rule — but the same list in two places.
+6. `getServiceState` capability gap — see Ruling 43. Binding on Task 14.
+7. `savePathwayVersion` in the IN-MEMORY store stores the authored message snapshot BY REFERENCE (the
+   long-standing highest-value deferred item). The Postgres store does not inherit it, because jsonb
+   serialisation copies — so as of Task 11b the two stores genuinely differ here.
+
+### Task 11b fix round 2 scoped re-review — ALL THREE ADDRESSED, purely additive confirmed
+
+- **Item 1 ADDRESSED, and the re-reviewer traced WHY the control discriminates** rather than accepting
+  that it asserts on a table. On a genuine race both callers pass the domain check from a pre-stop
+  snapshot and each unconditionally inserts its own `service_stops` row BEFORE the guarded upsert picks
+  the winner — so two rows means the window was truly entered. A serialised second caller re-reads state,
+  sees `stopped: true`, and is refused by the domain check BEFORE any incident insert — one row. So
+  `count(*) == 2` genuinely separates the two cases. The implementer kept the shared-contract test (both
+  stores owe "exactly one wins"; the in-memory store satisfies it by being single-threaded, which is a
+  real answer worth pinning) and added a Postgres-only companion for the reachability control. Each half
+  carries a comment pointing at the other so neither is deleted later as redundant.
+- **Item 2 ADDRESSED and broader than asked.** The direct tests cover ALL THREE terminal states and ALL
+  THREE non-terminal states — the complete `EpisodeState` set, not a sample — plus the
+  null-completion-instant boundary with its own positive control proving the refusal is the missing
+  instant rather than the state check, plus a defensive-copy test on the returned date.
+- **Item 3 ADDRESSED.** Comment only, immediately above `ensureTeam`. No structural change, no lock.
+- **Purely additive: CONFIRMED.** 257 insertions, 1 deletion, and the single deletion is a vitest import
+  being widened. No `expect(` line removed or altered anywhere. No existing test body, assertion or
+  source behaviour touched outside the two added comments.
+- **No new breakage.** The re-reviewer checked the new test's actors really hold
+  `triggerServiceSafetyStop`, that the connection pool has headroom so the race test is not newly
+  flake-prone, and that the store constructor's third argument is optional.
+
+## Task 11b: COMPLETE (commits `259e5fa14`..`495ae3f3a`, review clean after 2 fix rounds)
+
+The headline deliverable is met and independently reconfirmed after every change: **`tsc -p
+tsconfig.json --noEmit` produces no output at all.** The 22-method gap that has kept typecheck red since
+Task 10 is closed, and no method was stubbed to get there.
+
+Test movement across the task: the caring-contact database suite went **96 → 159 → 162 → 163**. The jump
+from 96 to 159 is the whole point of the task — 63 Task 10 behaviours that previously bound only the
+in-memory store now bind the Postgres store too, so the two implementations are held to one contract
+rather than drifting. The full unit suite is **7671 passed, 29 skipped, ZERO failures**.
+
+**Both documented reds are gone. This is the first point in Phase 2A with no expected failure at all.**
+
+## Checkpoint 2 — PASSED
+
+The plan defines it as `npm run test` plus `npm run caring-contacts:db:test`, both green.
+
+- `npm run test` → `Tests 7671 passed | 29 skipped (7700)`, zero failures, run at `85e7b7a93`.
+- `npm run caring-contacts:db:test` → `Tests 163 passed (163)` at `495ae3f3a`.
+
+**Stated precisely, because a checkpoint claimed loosely is worth nothing:** the full-suite line was
+measured at `85e7b7a93`, one commit before the final Task 11b head. The only change between the two is
+`495ae3f3a`, which the re-review independently confirmed is 257 insertions and one deletion — test code
+and two comments, exporting nothing new — so it cannot have regressed a suite it does not touch. The
+database suite WAS measured at the final head. The full suite will be re-run at the end of Group 3 for
+Checkpoint 3, which is a strict superset of this one, and that run is the belt to this braces.
+
+I did not re-run the full suite at the exact Task 11b head for one reason, recorded rather than hidden:
+the batched Task 12/13 implementer was already working in this worktree with uncommitted changes, so a
+run at that moment would have measured its work-in-progress rather than Task 11b, and the repository's
+cross-worktree lock coordinator would have had two competing claims on an exclusive lease.
