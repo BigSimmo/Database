@@ -609,7 +609,7 @@ describe("format-checkout cleanup never deletes through the linked dependency tr
     expect(existsSync(canary)).toBe(true);
 
     // The force-delete that follows in checkPushedCommit can no longer reach it.
-    rmSync(container, { recursive: true, force: true });
+    rmSync(container, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     expect(existsSync(canary)).toBe(true);
   });
 
@@ -619,7 +619,7 @@ describe("format-checkout cleanup never deletes through the linked dependency tr
     // in place — for `git worktree remove --force` and a recursive rmSync to
     // interpret instead. lstat sees the link whether or not it resolves.
     const { sentinel, link } = linkFixture();
-    rmSync(sentinel, { recursive: true, force: true });
+    rmSync(sentinel, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     expect(existsSync(link)).toBe(false); // the trap: it is still there
 
     unlinkDependencyLink(link);
