@@ -990,7 +990,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              11 |
 | `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `OverlayRoot`            | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
+| `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              11 |
 | `Pagination`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `PanelHeading`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Progress`               | feedback | yes   | yes                | no                    | yes            | no                 |               0 |

@@ -61,6 +61,11 @@ export function isQualifiedPlaceholder(value: string): boolean {
   return false;
 }
 
+/** @deprecated Prefer isQualifiedPlaceholder — alias kept for #1731 call sites. */
+export function isPlaceholderCatalogSegment(segment: string): boolean {
+  return isQualifiedPlaceholder(segment);
+}
+
 function splitCatalogParts(text: string | null | undefined): string[] {
   const raw = text?.trim() ?? "";
   if (!raw) return [];

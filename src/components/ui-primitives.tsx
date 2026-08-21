@@ -59,6 +59,9 @@ export function ignoreUnavailableActivation(event: MouseEvent<HTMLElement>) {
   event.stopPropagation();
 }
 
+export const transitionSurface = "transition-colors transition-shadow motion-reduce:transition-none";
+export const transitionTransform = "transition-transform motion-reduce:transform-none";
+
 export const textMuted = "text-[color:var(--text-muted)]";
 export const raisedCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)]";
 const insetCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)]";

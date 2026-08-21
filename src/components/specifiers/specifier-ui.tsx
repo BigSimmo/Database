@@ -1,9 +1,9 @@
 import Link from "next/link";
 import type { ComponentType, CSSProperties, ReactNode } from "react";
-import { Bookmark, CheckCircle2, Info, Minus, ShieldAlert, Tags } from "lucide-react";
+import { ArrowRight, Bookmark, CheckCircle2, ChevronsUpDown, Info, Minus, ShieldAlert, Tags } from "lucide-react";
 
 import { cardSurface } from "@/components/card-recipes";
-import { InformationPageShell } from "@/components/information-page-shell";
+import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import type { SpecifierRecord } from "@/lib/specifiers";
 import type { SpecifierSourceStatus } from "@/lib/specifiers-search-index";
@@ -17,6 +17,82 @@ export const specifierCard = cardSurface;
 
 export function SpecifierPageShell({ children, className }: { children: ReactNode; className?: string }) {
   return <InformationPageShell className={className}>{children}</InformationPageShell>;
+}
+
+export function SpecifierBreadcrumbs({ current }: { current?: string }) {
+  return <InformationPageBreadcrumbs home={{ label: "Specifiers", href: "/specifiers" }} current={current} />;
+}
+
+const specifierWordingPathwaySteps = [
+  "Base diagnosis",
+  "Episode features",
+  "Course and onset",
+  "Severity or remission",
+] as const;
+
+/** Non-interactive clinical wording order shared by map and builder. */
+export function SpecifierWordingPathway() {
+  return (
+    <section
+      aria-label="Specifier wording pathway"
+      className="grid min-w-0 gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] p-3 sm:grid-cols-[minmax(0,0.8fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center"
+    >
+      {specifierWordingPathwaySteps.map((label, index) => (
+        <div key={label} className="contents">
+          <div className="flex min-h-12 min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+            <span className="nums grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs text-[color:var(--clinical-accent-contrast)]">
+              {index + 1}
+            </span>
+            <span className="min-w-0 break-words">{label}</span>
+          </div>
+          {index < specifierWordingPathwaySteps.length - 1 ? (
+            <ArrowRight
+              className="hidden h-4 w-4 justify-self-center text-[color:var(--clinical-accent)] sm:block"
+              aria-hidden
+            />
+          ) : null}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+export function SpecifierDiagnosisFilter({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <label
+      className={cn(
+        // Content-sized control: wide enough for “All diagnoses” without becoming a full-width field.
+        "relative inline-flex min-h-tap w-auto max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
+        "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
+      )}
+    >
+      <span className="shrink-0 text-[color:var(--text-muted)]">Diagnosis</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-label="Filter by diagnosis"
+        className="w-40 max-w-[min(100%,12rem)] cursor-pointer appearance-none bg-transparent text-xs font-bold text-[color:var(--text)] outline-none [-webkit-appearance:none] sm:w-44"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <ChevronsUpDown
+        className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--decoration-soft)]"
+        aria-hidden
+      />
+    </label>
+  );
 }
 
 export function SpecifierMatchCard({ record, isTopMatch }: { record: SpecifierRecord; isTopMatch: boolean }) {

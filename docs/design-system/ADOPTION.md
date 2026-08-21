@@ -90,8 +90,8 @@ src/components/dsm/dsm-page-header.tsx
 src/components/clinical-dashboard/search-results-header-band.tsx
 ```
 
-`InformationPageHeader` (`information-page-shell.tsx`) was defined but unused and has been
-removed. `PageHeader` is no longer unmounted: ten product files render it — eight under
+`InformationPageHeader` (`information-page-shell.tsx`) is defined but unused. `PageHeader`
+is no longer unmounted: ten product files render it — eight under
 `therapy-compass/` (the workspace and its seven screens), `privacy-quiet-signal-page.tsx`, and
 `dsm/dsm-page-header.tsx`, which renders it alongside `InformationPageBreadcrumbs`. `Breadcrumb` is rendered by
 `ui/page-header.tsx` and `information-page-shell.tsx`. Adoption converges the remaining

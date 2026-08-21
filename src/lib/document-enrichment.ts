@@ -948,6 +948,11 @@ export async function fetchRelatedDocuments(args: {
     .slice(0, args.limit ?? 6);
 }
 
+export async function fetchDocumentVisualCounts(supabase: SupabaseClient, documentIds: string[], signal?: AbortSignal) {
+  const enrichment = await fetchDocumentVisualEnrichment(supabase, documentIds, signal);
+  return enrichment.counts;
+}
+
 /** One document_images round-trip for clinical counts + cover thumbnail ids. */
 export async function fetchDocumentVisualEnrichment(
   supabase: SupabaseClient,
@@ -986,6 +991,16 @@ export async function fetchDocumentVisualEnrichment(
   }
 
   return { counts, coverImageIds };
+}
+
+/** Resolve first-page cover image ids for search-card thumbnails (non-searchable). */
+export async function fetchDocumentCoverImageIds(
+  supabase: SupabaseClient,
+  documentIds: string[],
+  signal?: AbortSignal,
+) {
+  const enrichment = await fetchDocumentVisualEnrichment(supabase, documentIds, signal);
+  return enrichment.coverImageIds;
 }
 
 export function toDocumentMatch(document: RelatedDocument): DocumentMatch {

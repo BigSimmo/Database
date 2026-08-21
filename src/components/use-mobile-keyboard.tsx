@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 interface MobileKeyboardContextState {
   isKeyboardOpen: boolean;
@@ -277,4 +277,8 @@ export function MobileKeyboardProvider({ children }: { children: ReactNode }) {
       {children}
     </MobileKeyboardContext.Provider>
   );
+}
+
+export function useMobileKeyboardViewport() {
+  return useContext(MobileKeyboardContext);
 }
