@@ -1,17 +1,21 @@
 # Care Plan — Claude start here
 
-**Handover date:** 21 August 2026 (Australia/Perth)  
-**Implementation status:** Not started  
+**Last updated:** 21 August 2026 (Australia/Perth)  
+**Implementation status:** Tasks 1 and 2 complete, reviewed and committed. Task 3 not started.  
 **Design status:** Approved  
-**Planning status:** Complete  
-**Working directory:** `D:\Repos\Database\.claude\worktrees\ed-care-plans-impl-7f44cd` (superseded 21 Aug 2026; the original `D:\Worktrees\Database\ed-care-plans` is now planning-only and must not be written to)  
-**Branch:** `claude/ed-care-plans-impl-7f44cd` (based on `main` at `97f614223`)
+**Working directory:** `D:\Worktrees\Database\care-plan`  
+**Branch:** `claude/ed-care-plans-impl-7f44cd`
 
 ## One-minute start
 
-**Superseded 21 August 2026.** Do all Care Plan work in `D:\Repos\Database\.claude\worktrees\ed-care-plans-impl-7f44cd` on branch `claude/ed-care-plans-impl-7f44cd`, which is based on current `main`. The four planning documents were copied there and are now tracked with the code. The original planning worktree `D:\Worktrees\Database\ed-care-plans` is read-only reference; do not edit it. Do not edit the dirty shared checkout at `D:\Repos\Database`.
+**This file is orientation. The live state of the build lives in two others — read those first:**
 
-Four user decisions were recorded on 21 August 2026 and are binding: build the synthetic prototype now but keep the domain shaped for later real storage; keep the full multi-service workflow including named senior-clinician approval; deliver Tasks 1–5 first and stop for user review; local task commits are authorised (nothing pushed). See the Revision history and Delivery Stages sections of the implementation plan.
+1. [`session-handoff-2026-08-21.md`](./session-handoff-2026-08-21.md) — where things stand, the thirteen binding product decisions, the environment hazard, and the prompt to start the next session.
+2. [`sdd-ledger.md`](./sdd-ledger.md) — task progress, all 25 controller rulings with what each costs if wrong, the deferred minors, and four systemic lessons.
+
+**Where to work.** `D:\Worktrees\Database\care-plan`, on branch `claude/ed-care-plans-impl-7f44cd`. **Do not create or use any worktree under `D:\Repos\Database\.claude\worktrees\`** — that location destroyed this work three times on 21 August 2026, the third time through an explicit `git worktree lock` while a task was running. Nothing committed was ever lost, because every task commits at its end; keep that habit. Do not edit the shared checkout at `D:\Repos\Database`, and do not edit the original planning worktree at `D:\Worktrees\Database\ed-care-plans`, which is read-only reference.
+
+**The product in one line.** A synthetic, memory-only, reset-on-refresh prototype under `/mockups/care-plan` that lets a clinician look up the approved management plan for someone who presents repeatedly to an emergency department in psychiatric crisis. Reading is the primary use; authoring is supporting machinery.
 
 Read these files in order before writing code:
 
