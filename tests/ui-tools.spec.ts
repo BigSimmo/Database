@@ -2570,7 +2570,15 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
   test("diagnosis map keeps labels contained and the selected inspector out of the canvas", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 });
     await gotoLauncher(page, "/differentials/diagnoses/catatonia-in-mood-disorder?tab=map");
-    await visibleByTestId(page, "open-diagnosis-map").click();
+    // `gotoLauncher` waits only for #main-content, so the trigger is present and clickable
+    // before React has attached its onClick. A click landing in that window is swallowed and
+    // the dialog simply never opens — which is how this test failed on CI run 32460303619
+    // ("element(s) not found" for the dialog after a 10s wait) while passing on the head
+    // immediately before it, whose only delta was ledger JSON. Same wait every other click in
+    // this file already uses.
+    const openMap = visibleByTestId(page, "open-diagnosis-map");
+    await waitForReactEventHandler(openMap);
+    await openMap.click();
 
     const dialog = page.getByTestId("diagnosis-map-dialog");
     const canvas = dialog.getByTestId("diagnosis-map-full-canvas");
