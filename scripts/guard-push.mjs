@@ -261,10 +261,18 @@ function ghIsAvailable() {
  * force-push while armed is the actual race — it can discard the commit GitHub
  * already validated or is mid-evaluating — so that alone still blocks.
  */
-export function autoMergeVerdict(branch, prPayload, isForcePush = false) {
+export function autoMergeVerdict(branch, prPayload, isForcePush = false, carriesMigration = false) {
   if (!prPayload) return { block: false, warn: false, reason: "no-open-pr" };
   if (prPayload.state && prPayload.state !== "OPEN") return { block: false, warn: false, reason: "pr-not-open" };
   if (prPayload.autoMergeRequest) {
+    // Merging to `main` applies migrations to the live clinical database automatically,
+    // within seconds, with no deploy step in between (AGENTS.md, "Supabase project safety").
+    // Auto-merge on such a PR therefore schedules an unattended production schema change,
+    // which is why AGENTS.md forbids it outright. That rule was documentation-only until
+    // this branch: nothing in the push path knew what a migration was.
+    if (carriesMigration) {
+      return { block: true, warn: false, reason: "auto-merge-armed-migration", number: prPayload.number };
+    }
     if (isForcePush) {
       return { block: true, warn: false, reason: "auto-merge-armed-force-push", number: prPayload.number };
     }
@@ -273,11 +281,17 @@ export function autoMergeVerdict(branch, prPayload, isForcePush = false) {
   return { block: false, warn: false, reason: "auto-merge-not-armed" };
 }
 
-function autoMergeGuard(branches, forcePushBranches = new Set()) {
+/** Exported for tests: does this push carry a hosted migration? */
+export function touchesProductionMigrations(changedFiles = []) {
+  return changedFiles.some((f) => f.startsWith("supabase/migrations/"));
+}
+
+function autoMergeGuard(branches, forcePushBranches = new Set(), changedFiles = []) {
   if (!ghIsAvailable()) {
     return { name: "auto-merge", ok: true, note: "gh not available — auto-merge check skipped (fail-open)" };
   }
   const warnings = [];
+  const migrations = touchesProductionMigrations(changedFiles);
   for (const branch of branches) {
     let payload;
     try {
@@ -290,16 +304,18 @@ function autoMergeGuard(branches, forcePushBranches = new Set()) {
       // No PR for this branch, or gh unauthenticated: fail open.
       continue;
     }
-    const verdict = autoMergeVerdict(branch, payload, forcePushBranches.has(branch));
+    const verdict = autoMergeVerdict(branch, payload, forcePushBranches.has(branch), migrations);
     if (verdict.block) {
-      return {
-        name: "auto-merge",
-        ok: false,
-        message:
-          `PR #${verdict.number} on ${branch} has auto-merge ARMED and this push force-updates the branch.\n` +
-          `  A force-push while armed can discard the commit GitHub already validated or is mid-evaluating.\n` +
-          `  Push a fast-forward commit instead, or wait for the user to change the auto-merge state. No override.`,
-      };
+      const message =
+        verdict.reason === "auto-merge-armed-migration"
+          ? `PR #${verdict.number} on ${branch} has auto-merge ARMED and this push carries a hosted migration.\n` +
+            `  Merging to main applies migrations to the LIVE clinical database automatically, within seconds.\n` +
+            `  Auto-merge on a migration PR therefore schedules an unattended production schema change.\n` +
+            `  Ask the user to disable auto-merge and merge it inside an approved window. No override.`
+          : `PR #${verdict.number} on ${branch} has auto-merge ARMED and this push force-updates the branch.\n` +
+            `  A force-push while armed can discard the commit GitHub already validated or is mid-evaluating.\n` +
+            `  Push a fast-forward commit instead, or wait for the user to change the auto-merge state. No override.`;
+      return { name: "auto-merge", ok: false, message };
     }
     if (verdict.warn) {
       warnings.push(`PR #${verdict.number} on ${branch} has auto-merge ARMED — pushing anyway (fast-forward).`);
@@ -1287,7 +1303,7 @@ function main() {
   const changedFiles = collectChangedFiles(ranges);
   // formatGuard reads the pushed blobs; drift/static only need the paths.
   const results = [
-    autoMergeGuard(pushedBranches, forcePushBranches),
+    autoMergeGuard(pushedBranches, forcePushBranches, changedFiles),
     inFlightCiGuard(pushedBranches, ranges),
     formatGuard(collectChangedBlobs(ranges)),
     driftGuard(changedFiles),

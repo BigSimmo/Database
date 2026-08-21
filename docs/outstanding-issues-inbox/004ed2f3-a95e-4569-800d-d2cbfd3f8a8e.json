@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "004ed2f3-a95e-4569-800d-d2cbfd3f8a8e",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "mobile-/ Lighthouse CLS bistable flake: PR #2234 fixes 8 more racy double-:has() install-card selectors PR #2219 missed; unconfirmed pending CI",
+    "detail": "PR #2219 (fix/pwa-notice-cls-shift) fixed ONE of nine identical-shaped selectors in the phone-hero install-card @media block in src/app/globals.css: each chained a redundant second body:has(.pwa-install-native-sheet) on top of the hero-composer-ownership :has(), and PR #2219 removed that second :has() only from .pwa-notice-stack's own bottom-gap rule. The other 8 rules (hiding tagline/copy/support/benefits, compacting header/body/actions/compact-copy) kept the identical two-:has() shape, predating PR #2219 entirely (present on main before that branch existed), with zero test coverage. Confirmed via CI job log that mobile-root CLS was STILL exactly 0.223 on a run (32477570217, head 851f0d693b656aba8fd492cd627f726917c24410) after BOTH of PR #2219's fixes had landed on that branch -- proving a mechanism survived both. PR #2234 (fix/lighthouse-cls-flake-mobile-root, based on main, does NOT touch PR #2219's branch) replaces the second :has() in all 8 remaining rules with a plain descendant combinator off .pwa-install-native-sheet, adds a static-contract test guarding all 9 selectors, and passes npm run verify:pr-local in full (lint/typecheck/696 test files/build/RAG fixtures all green). NOT YET CONFIRMED: could not download the CI Lighthouse artifact (Azure Blob Storage egress blocked by this environment's network policy) to see the exact layout-shifts debugdata/node for the post-both-fixes failing run, so this fix is static-analysis-based, not trace-confirmed. A 20-run local repro loop (real Lighthouse 12.8.2, offline/demo build, Chromium rev 1194 vs CI's pinned chromium-1234) produced 0/20 breaches before and after -- consistent with this ledger's own prior finding that local repro never catches this regardless of harness or Chromium revision, so non-repro is not disconfirming. Confirming evidence must come from N consecutive green CI Lighthouse budget runs on PR #2234 itself. Do not close this row or the original bistable entry until that CI evidence lands; if PR #2234 lands and CI is STILL bistable afterward, a fourth mechanism remains and the original bistable entry should stay open with this PR noted as ruled out.",
+    "source": "Investigation continuing docs/outstanding-issues-inbox/5f472de7-797f-49ba-8ba5-b5b6d4a7ad7a.json; PR https://github.com/BigSimmo/Database/pull/2234; CI run https://github.com/BigSimmo/Database/actions/runs/32477570217",
+    "issueUlid": "01M0J9F09HKFRC3HK9ET1CFGM3"
+  }
+}
