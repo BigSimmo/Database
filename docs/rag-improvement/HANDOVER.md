@@ -55,12 +55,17 @@ generation-quality verdict on fallback`), merged 2026-08-13 — structured
   squash `dda4956ff`: `src/lib/rag/answer-composition.ts`, prompt `clinical-rag-answer-v19`,
   `answerSections.maxItems` 6, adversarial baseline re-captured for v19 (`baseline-record.md` §4). Its canary
   pair 32100681177 -> 32111839806 is green, and `eval:answer-quality` was neutral within
-  nondeterminism (owner blinded read pending). **Track A is complete with S3 (A4).**
+  nondeterminism (owner blinded read **complete 2026-08-21** — v18 `4ea310e48` 3 / v19
+  `cdfcbaccd` 3 / tie 24 / neither 0, no measurable difference; caveats in the §2 S2 row).
+  **Track A is complete with S3 (A4).**
 - **Gate E tooling landed (2026-08-21, offline-only; `#E0N0QC`):** `eval-answer-quality`
   gained `--extra-cases` (owner capture-only questions) and gate-outcome dump fields, and
   `scripts/blind-answer-pairs.ts` builds the blinded reading pack / verdict sheet /
-  assignment key and unblinds verdicts. The paid v18-vs-v19 capture and the owner's blinded
-  read are still pending — procedure in §2a below; every provider step needs owner approval.
+  assignment key and unblinds verdicts. **Gate E is CLOSED (2026-08-21):** the paid
+  v18-vs-v19 capture and the owner's blinded read are both complete — tally and dump digests
+  in the §2 Gate E row; `#E0N0QC` was already resolved on main at `1cc0d2987`. §2a is
+  retained as the historical procedure, not as pending work; re-running it is a fresh
+  provider-backed capture and needs owner approval on its own terms.
 - **Owner decisions 2026-08-17:** (1) **R1 before S2** — A2/A3 add answer length, and length
   under the still-unbudgeted strong retry pushes more dosing queries into `provider_timeout`,
   not fewer; (2) **governance Option B** for the document-summary `similarity: 1` question
@@ -108,7 +113,13 @@ Update rule: the session that opens a packet's PR edits its row (branch, PR numb
 state) in the same PR. A later session updating another packet may also correct stale rows
 it can verify from GitHub/git state. Keep rows one line.
 
-## 2a. Gate E blinded read — owner procedure
+## 2a. Gate E blinded read — owner procedure (HISTORICAL — this run is complete)
+
+> **Status: executed and closed 2026-08-21.** All eight steps below were run for the
+> v18 `4ea310e48` vs v19 `cdfcbaccd` comparison; the verdict is recorded in the §2 S2 and
+> Gate E rows. This section is kept as the reusable procedure for any **future** blinded
+> read — it is not outstanding work. Steps 3 and 4 are provider-backed and paid, so
+> re-running them requires fresh owner approval.
 
 Compares prompt v18 (commit `4ea310e48`, the S2 baseline canary half) against v19 (current
 `main`) on the 30 `answerQualityEvalCases` plus up to ~10 owner-chosen live questions.
