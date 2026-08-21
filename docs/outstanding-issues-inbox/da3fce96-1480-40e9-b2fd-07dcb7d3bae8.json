@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "da3fce96-1480-40e9-b2fd-07dcb7d3bae8",
+  "createdOn": "2026-08-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Live production carries migration 20260820120000_migration_history_versions_rpc, which exists nowhere in the repository",
+    "detail": "Found 2026-08-21 by a read-only Supabase MCP list_migrations against production ref sjrfecxgysukkwxsowpy (Clinical KB Database), compared against main at 1cc0d2987. Production's newest recorded version is 20260820120000 migration_history_versions_rpc. supabase/migrations/ holds 210 files and its newest is 20260819110500_validate_history_function_bodies.sql; there is no 20260820 file, and the string migration_history_versions has zero occurrences anywhere under supabase/, scripts/ or src/. The live database is therefore one migration ahead of the repository, and that migration's SQL is not under version control here. LIKELY RELATED, and the reason this matters rather than being cosmetic: pending request cc60253d (2026-08-19) records that live-drift's Align migration history step fails on PGRST106 because supabase_migrations is not exposed to PostgREST. An RPC named migration_history_versions is exactly the shape of a fix for that, applied live on 2026-08-20 with the repo side still unmerged. NOT VERIFIED from this session: whether an open PR carries the file, which needs GitHub access. NEXT: identify the PR or session that applied it; if none exists, capture the live function definition and land it as a forward migration so schema.sql, the drift manifest and the migration chain agree. STOP: do not re-apply, repair, or mark-apply anything on production to resolve this - it is a repo-side reconciliation, and any live mutation needs its own approved window under the guard-migration contract.",
+    "source": "Read-only Supabase MCP list_migrations on sjrfecxgysukkwxsowpy, 2026-08-21; compared to supabase/migrations on main 1cc0d2987; relates to pending request cc60253d",
+    "issueUlid": "01M0G975EB3514B72SB4CAQSQY"
+  }
+}

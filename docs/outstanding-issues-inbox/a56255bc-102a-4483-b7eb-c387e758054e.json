@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a56255bc-102a-4483-b7eb-c387e758054e",
+  "createdOn": "2026-08-20",
+  "action": "update",
+  "payload": {
+    "id": "#TF6TPJ",
+    "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987): the guard that closes the shared root cause has landed. scripts/guard-push.mjs now carries an explicit Guard 2 in-flight CI push guard block naming #HSSHRG, with inFlightCiVerdict() and findInFlightCiRuns(), covering merge-main syncs made outside sync:pr-branches. #HSSHRG was closed on that evidence. This row should be re-checked against that guard and closed too if the false-red symptom is gone; it was NOT verified against a live PR from here, which needs GitHub access.",
+    "baseRowFingerprint": "5f53493dbb9cee3ff6dc7fc9990f07ef04706963467355df47555bfc4af0391e"
+  }
+}
