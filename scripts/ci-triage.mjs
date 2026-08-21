@@ -14,7 +14,20 @@ export function failedJobNames(jobs) {
 }
 
 /**
- * Job names the baseline run actually EXECUTED — a `skipped` job verified nothing.
+ * Conclusions that mean the job RAN TO A VERDICT, as an allowlist rather than a denylist.
+ *
+ * The direction of a mistake is asymmetric, so the list is built to fail in the harmless one.
+ * Treating a job that did run as unbaselined only says "the comparison is silent here", which
+ * costs a reader nothing. Treating a job that did NOT run as baselined implies main covered the
+ * failure — the exact defect this function exists to remove. A denylist inverts that: any GitHub
+ * conclusion nobody thought to exclude (`timed_out`, `stale`, `action_required`, whatever is added
+ * next) silently becomes evidence. `cancelled` is the case that matters most here, because a
+ * cancelled main run is this repo's common failure mode, not a rarity.
+ */
+const BASELINE_ESTABLISHING_CONCLUSIONS = new Set(["success", "failure", "neutral"]);
+
+/**
+ * Job names the baseline run actually EXECUTED — a `skipped` or `cancelled` job verified nothing.
  *
  * CI is path-scoped, so a docs-only push to main reports `success` with Lighthouse, Production UI
  * and Build all skipped. Citing that run as the comparison made the triage comment read as
@@ -25,7 +38,7 @@ export function executedJobNames(jobs) {
   return [
     ...new Set(
       (jobs ?? [])
-        .filter((job) => job.conclusion && job.conclusion !== "skipped")
+        .filter((job) => BASELINE_ESTABLISHING_CONCLUSIONS.has(job.conclusion))
         .map((job) => job.name)
         .filter(Boolean),
     ),
@@ -143,10 +156,24 @@ function selfTest() {
   assert.deepEqual(
     executedJobNames([
       { name: "Build", conclusion: "success" },
+      { name: "Failed but ran", conclusion: "failure" },
       { name: "Lighthouse budget", conclusion: "skipped" },
       { name: "Queued", conclusion: null },
+      // A cancelled main run is this repo's common failure mode, and a cancelled job verified
+      // nothing — it must not establish a baseline any more than a skipped one does.
+      { name: "Production UI", conclusion: "cancelled" },
+      { name: "Timed out", conclusion: "timed_out" },
+      { name: "Stale", conclusion: "stale" },
+      { name: "Action required", conclusion: "action_required" },
     ]),
-    ["Build"],
+    ["Build", "Failed but ran"],
+  );
+  // The whole point of the allowlist: an unrecognised future conclusion stays out.
+  assert.deepEqual(executedJobNames([{ name: "Build", conclusion: "some_new_github_state" }]), []);
+  // A cancelled baseline job therefore reports unbaselined rather than needs-investigation.
+  assert.deepEqual(
+    classifyFailedJobs(["Build"], runs[1], [], executedJobNames([{ name: "Build", conclusion: "cancelled" }])),
+    [{ name: "Build", classification: "unbaselined" }],
   );
   // A green aggregate that skipped the failing job must not read as a green baseline for it.
   const skippedBaseline = classifyFailedJobs(["Lighthouse budget"], runs[1], [], ["Build"]);
