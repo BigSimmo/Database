@@ -471,6 +471,46 @@ describe("design-system contract helpers", () => {
     expect(exempt.lineHeight).toEqual([]);
   });
 
+  // A literal margin has four spellings and the ratchet must see all of them.
+  // The first pass of this metric caught only the positive class utility, so a
+  // negative utility, an arbitrary-property utility, or a plain stylesheet
+  // declaration each cleared `check:design-system-contract` untouched - which
+  // would have made the metric read as coverage it did not have.
+  it("counts every spelling of a literal margin, and still exempts zero and tokens", () => {
+    const positive = findRawScaleLiteralClassesInSource(
+      "src/probe.tsx",
+      'export const probe = <div className="mt-[22px]" />;',
+    );
+    expect(positive.margin).toEqual(["src/probe.tsx:1 (mt-[22px])"]);
+
+    const negative = findRawScaleLiteralClassesInSource(
+      "src/probe.tsx",
+      'export const probe = <div className="-mt-[22px]" />;',
+    );
+    expect(negative.margin).toEqual(["src/probe.tsx:1 (-mt-[22px])"]);
+
+    const arbitraryMarginProperty = findRawScaleLiteralClassesInSource(
+      "src/probe.tsx",
+      'export const probe = <div className="[margin-top:22px]" />;',
+    );
+    expect(arbitraryMarginProperty.margin).toEqual(["src/probe.tsx:1 ([margin-top:22px])"]);
+
+    // The stylesheet half, so a literal cannot simply move out of a class.
+    expect(findRawScaleLiteralDeclarationsInSource(".probe{margin-top:22px}").margin).toHaveLength(1);
+    expect(findRawScaleLiteralDeclarationsInSource(".probe{margin-inline-start:9px}").margin).toHaveLength(1);
+
+    // Zero and token-valued margins are not literals and must stay uncounted,
+    // or the ratchet would flag the correct spelling alongside the wrong one.
+    expect(findRawScaleLiteralDeclarationsInSource(".probe{margin:0}").margin).toEqual([]);
+    expect(findRawScaleLiteralDeclarationsInSource(".probe{margin:var(--gap-stack)}").margin).toEqual([]);
+    expect(
+      findRawScaleLiteralClassesInSource(
+        "src/probe.tsx",
+        'export const probe = <div className="mt-[var(--gap-stack)]" />;',
+      ).margin,
+    ).toEqual([]);
+  });
+
   it("reports bare text-* selections without deciding which names are type steps", () => {
     const usages = findTypeStepUsagesInSource(
       "src/probe.tsx",

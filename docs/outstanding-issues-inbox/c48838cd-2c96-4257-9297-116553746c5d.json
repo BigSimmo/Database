@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c48838cd-2c96-4257-9297-116553746c5d",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#0EKBGC",
+    "outcome": "Resolved 2026-08-20: verified on origin/main a341832af. services-home-page.tsx:139, forms-home-page.tsx:129 and dictionary-home-page.tsx:16 each pass appModeIcons.<mode> to their hero, so no mode home overrides the canonical APP_MODE_ICON glyph.",
+    "baseRowFingerprint": "bd79c082c5fe680467b5b0bf910bd69eaf76397ffd3f9c9cb2e8942bca47c2fb"
+  }
+}

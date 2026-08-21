@@ -586,8 +586,8 @@
 .priorityMarker,
 .priorityMarkerSelected {
   display: grid;
-  width: 2.75rem;
-  min-height: 2.75rem;
+  width: var(--spacing-tap);
+  min-height: var(--spacing-tap);
   margin: 0 auto;
   place-items: center;
   border: 0.0625rem solid var(--ward-border);
@@ -1221,7 +1221,7 @@
 .confirmButton,
 .confirmedButton {
   display: inline-flex;
-  min-height: 2.75rem;
+  min-height: var(--spacing-tap);
   align-items: center;
   justify-content: center;
   gap: var(--ward-space-8);
@@ -1495,7 +1495,7 @@
 }
 
 .workspaceTabs button {
-  min-height: 2.75rem;
+  min-height: var(--spacing-tap);
   flex: 0 0 auto;
   border: 0.0625rem solid transparent;
   border-radius: var(--radius-md);
@@ -1793,7 +1793,7 @@
 
   .priorityMarker,
   .priorityMarkerSelected {
-    flex: 0 0 2.75rem;
+    flex: 0 0 var(--spacing-tap);
   }
 
   .commandMain {
@@ -1876,7 +1876,7 @@
 
   .pageIdentity label {
     min-width: 0;
-    height: 2.75rem;
+    height: var(--spacing-tap);
   }
 
   .pageIdentity label > svg:first-child {
