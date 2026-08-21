@@ -90,9 +90,12 @@ src/components/dsm/dsm-page-header.tsx
 src/components/clinical-dashboard/search-results-header-band.tsx
 ```
 
-`PageHeader` and `Breadcrumb` have **zero** product mounts. `InformationPageHeader`
-(`information-page-shell.tsx`) was defined but unused and has been removed. Adoption converges the hand-rolled
-headers onto `PageHeader` + `Breadcrumb`.
+`InformationPageHeader` (`information-page-shell.tsx`) was defined but unused and has been
+removed. `PageHeader` is no longer unmounted: ten product files render it — eight under
+`therapy-compass/` (the workspace and its seven screens), `privacy-quiet-signal-page.tsx`, and
+`dsm/dsm-page-header.tsx`, which renders it alongside `InformationPageBreadcrumbs`. `Breadcrumb` is rendered by
+`ui/page-header.tsx` and `information-page-shell.tsx`. Adoption converges the remaining
+hand-rolled headers onto `PageHeader` + `Breadcrumb`.
 
 **Explicitly NOT in the headers allowlist**, despite being header-adjacent:
 `global-search-shell.tsx`, `shared-search-app-shell.tsx`, `master-search-header.tsx`,
