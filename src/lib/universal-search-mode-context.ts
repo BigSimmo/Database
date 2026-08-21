@@ -44,10 +44,6 @@ export function universalSearchPreferredDomains(mode: AppModeId | undefined): Un
   return mode ? [...preferredDomainsByMode[mode]] : [];
 }
 
-export function universalSearchDomainBelongsToMode(domain: UniversalSearchDomain, mode: AppModeId): boolean {
-  return preferredDomainsByMode[mode].includes(domain);
-}
-
 export function universalSearchModeForDomain(domain: UniversalSearchDomain): AppModeId {
   return modeByDomain[domain];
 }

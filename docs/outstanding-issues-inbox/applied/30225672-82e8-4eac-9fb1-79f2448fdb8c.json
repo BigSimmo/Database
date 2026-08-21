@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "30225672-82e8-4eac-9fb1-79f2448fdb8c",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Lighthouse budget mobile-root CLS is intermittent: 0.223 vs 0.016 baseline on one run, ~0.000 on the next, same code",
+    "detail": "MEASURED ON CI, NOT INFERRED. PR #2204 ran the same Lighthouse budget job on two consecutive heads whose only difference was deleting one JSON file under docs/outstanding-issues-inbox/ -- no source, asset, route or style change, nothing that can affect layout. Head c8b7bcdd PASSED. Head 09ff450c FAILED with exactly one metric out of tolerance: 'mobile-root cls +0.207 vs baseline (max +0.02)', measuring 0.223 against a 0.016 baseline (job 96780922258, run 32485431566). Every other cell was comfortably inside tolerance on the failing run: mobile-root LCP 2261 vs 2253, TBT 312 vs 296; mobile-documents-search LCP 2274 vs 2272, TBT 394 vs 348; desktop-documents-search LCP 804 vs 866; desktop-root LCP 815 vs 822. TWO SEPARATE PROBLEMS. (1) GATE RELIABILITY: a required check in pr-required flips pass/fail on a diff that cannot influence it, so it can block any PR at random. Note the grader already re-confirms an out-of-budget cell twice and takes the majority, so this survived that mechanism -- the instability is wider than a single spike. (2) PROBABLE REAL DEFECT ON THE MOBILE HOME ROUTE: 0.223 is not a marginal overshoot of a 0.02 tolerance, it is a large layout shift that sometimes occurs during load on '/' at mobile viewport and sometimes does not. Likely candidates are a webfont swap, an image or media element without reserved dimensions, or late-hydrating chrome (the phone composer/header reserve is a known-sensitive area per docs/search-chrome-behaviour.md). A user on a phone would feel this when it happens. Worth reproducing directly rather than only through the budget gate. DO NOT respond by widening the CLS tolerance or refreshing the baseline to absorb 0.223 -- that would encode an intermittent user-visible shift as acceptable. Diagnose which element shifts first. The Lighthouse artifact for the failing run is retained (artifact 9447841108) and contains the per-run reports, which identify the shifting elements. RELATED CAUTION FOR TRIAGE: main's CI runs do not exercise this job (path-scoped, perf scope only), so a green main run is not evidence the gate passes there -- the ci-triage bot correctly classified it 'not baselined'.",
+    "source": "job 96780922258 (run 32485431566) vs the passing run on head c8b7bcdd; lighthouse-budget.json; scripts/check-lighthouse-budget.mjs",
+    "issueUlid": "01M0J7TDGK50QRCFDFY8N4NDNK"
+  }
+}
