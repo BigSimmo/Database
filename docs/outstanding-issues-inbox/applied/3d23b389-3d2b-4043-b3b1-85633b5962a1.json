@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3d23b389-3d2b-4043-b3b1-85633b5962a1",
+  "createdOn": "2026-08-20",
+  "action": "update",
+  "payload": {
+    "id": "#102",
+    "detail": "UPDATE 2026-08-21 (read-only Supabase MCP get_advisors performance lint against production ref sjrfecxgysukkwxsowpy): documents_title_trgm_idx exists on public.documents and is reported by the unused_index lint as never used. TREAT THAT AS WEAK EVIDENCE, NOT CONFIRMATION: 20260819100200_restore_search_health_trigram_indexes was applied two days earlier and recreating an index resets its usage statistics, so a zero-use reading is expected regardless of whether the bare-column ILIKE predicates can reach it. The same lint currently reports 31 unused indexes, several of them freshly restored in the 20260819100000-100300 batch, which is consistent with a stats reset rather than dead indexing. The row's actual claim - that the index covers a CONCATENATED expression and so cannot serve the bare-column predicates in the documents API route and rag-candidate-sources - was NOT tested, because that needs EXPLAIN or a pg_indexes read and SQL execution was blocked in this session. Re-measure with EXPLAIN in the operator window before applying the prepared runbook.",
+    "baseRowFingerprint": "e276f20a6b7bd27d1491c07fbcb3d8bc0e27e35945759348cf61157fdb184856"
+  }
+}

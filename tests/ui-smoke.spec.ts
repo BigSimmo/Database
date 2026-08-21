@@ -2475,6 +2475,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const header = document.querySelector("header");
       const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
       const alsoMatches = document.querySelector('[data-testid="universal-also-matches"]');
+      const supportLabel = document.querySelector('[data-testid="answer-card-support"]');
       // Include vertical margins: the phone bottom clearance (`max-sm:mb-4`) sits
       // outside getBoundingClientRect().height and still consumes scroll budget.
       let alsoMatchesHeight = 0;
@@ -2485,10 +2486,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
           box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
         );
       }
+      // AnswerCard's required evidence-support label is real content the answer
+      // surface always renders, same as universal-also-matches above.
+      let supportLabelHeight = 0;
+      if (supportLabel instanceof HTMLElement) {
+        const box = supportLabel.getBoundingClientRect();
+        const styles = window.getComputedStyle(supportLabel);
+        supportLabelHeight = Math.ceil(
+          box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
+        );
+      }
       return {
         headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
         surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
         alsoMatchesHeight,
+        supportLabelHeight,
       };
     });
     // Content-sized section => no unexplained phantom scroll. Submitted universal
@@ -2499,7 +2511,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // universal matches are real content, so subtract their measured height
     // before applying that phantom-overflow budget. That measured height already
     // includes the section's phone bottom margin, so the 8px allowance stays put.
-    const permittedOverflow = geo.alsoMatchesHeight + 8;
+    // AnswerCard's required support label is likewise real, always-rendered
+    // content (`support` became a required prop), so it is measured and added
+    // the same way rather than absorbed into the flat allowance.
+    const permittedOverflow = geo.alsoMatchesHeight + geo.supportLabelHeight + 8;
     expect(scrollGeometry.owner).toBe("document");
     expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(permittedOverflow);
     // Top-aligned: the answer sits just under the header, not pushed toward the dock
@@ -2661,6 +2676,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
         (collapse?.getBoundingClientRect().height ?? 0) + Number.parseFloat(window.getComputedStyle(node).paddingBottom)
       );
     });
+    // AnswerCard's required evidence-support label is real, always-rendered
+    // content in this scroll container; account for its measured height the
+    // same way the geometry above accounts for chrome, rather than baking a
+    // stale pre-label constant into the post-collapse ceiling.
+    const supportLabelHeight = await page.evaluate(() => {
+      const supportLabel = document.querySelector('[data-testid="answer-card-support"]');
+      if (!(supportLabel instanceof HTMLElement)) return 0;
+      const box = supportLabel.getBoundingClientRect();
+      const styles = window.getComputedStyle(supportLabel);
+      return Math.ceil(
+        box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
+      );
+    });
     const geometry = {
       maxOffset: scrollGeometry.maxScrollTop,
       collapseBudget,
@@ -2673,10 +2701,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // must remain pinned by the near-bottom guard while still clearing the dock.
     // Long-answer hide/reveal is covered independently above.
     expect(geometry.maxOffset).toBeGreaterThan(100);
-    expect(geometry.maxOffset).toBeLessThan(200);
+    expect(geometry.maxOffset).toBeLessThan(200 + supportLabelHeight);
     expect(geometry.collapseBudget).toBeGreaterThan(112);
     expect(geometry.collapseBudget).toBeLessThan(128);
-    expect(geometry.postCollapseMaxOffset).toBeLessThan(72);
+    expect(geometry.postCollapseMaxOffset).toBeLessThan(72 + supportLabelHeight);
     // A jump straight onto the bottom edge (PageDown / full-page flick) lands
     // past the post-collapse range; hiding there would clamp content under the
     // finger, so the near-bottom guard keeps both chrome edges visible.
@@ -4418,6 +4446,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     // The fixed document composer is the single search owner; the indexed-text
     // disclosure must not duplicate a large search field inside its content.
+    await page.getByRole("button", { name: "Search document" }).click();
     const sourceSearch = page.getByRole("textbox", { name: "Search within this document" });
     await expect(page.getByLabel("Search within indexed source text")).toHaveCount(0);
     await waitForReactEventHandler(sourceSearch, "onChange");
@@ -4441,6 +4470,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const nextActiveHit = desktopTextPanel.locator('details[data-source-active-hit="true"]');
     await expect(nextActiveHit).toHaveJSProperty("open", true);
     await expect(initialActiveDisclosure).toHaveJSProperty("open", false);
+    await page.getByRole("button", { name: "Close document search" }).click();
+    await expect(sourceSearch).toHaveCount(0);
+    await expect(desktopTextPanel.getByText("Hit 2 of 2")).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -4712,8 +4744,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const documentActions = page.getByRole("dialog", { name: "This document" });
     await expect(documentActions).toBeVisible();
     await expect(openDocumentActions).toHaveAttribute("aria-expanded", "true");
-    await expect(documentActions.getByRole("button", { name: "Add to scope" })).toBeVisible();
+    await expect(documentActions.getByRole("button", { name: "Add to scope" })).toHaveCount(0);
+    await documentActions.getByRole("button", { name: "Search document" }).click();
     const composer = page.locator("form.document-viewer-composer");
+    await expect(composer).toBeVisible();
+    await openDocumentActions.click();
+    await expect(documentActions).toBeVisible();
     const composerBox = await composer.boundingBox();
     expect(composerBox).not.toBeNull();
     const sheetOwnsComposerPoint = await documentActions.evaluate(
@@ -5168,7 +5204,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
     const composer = page.locator("form.document-viewer-composer");
+    await page.getByRole("button", { name: "Open document actions" }).click();
+    await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
     await expect(composer).toBeVisible();
+    await composer.locator("input").evaluate((element) => element.blur());
     // The chunk deep link intentionally scrolls the highlighted passage into
     // view, which can initially hide the phone composer. Returning to the top
     // must restore it before the explicit hide-on-scroll checks below.
@@ -5232,6 +5271,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
       )
       .toBeGreaterThan(250);
     await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
+
+    await scrollPrimarySurface(page, 0);
+    await composer.getByRole("button", { name: "Close document search" }).click();
+    await expect(composer).toHaveCount(0);
+    await expect(viewerContent).toHaveAttribute("data-phone-footer-owner", "none");
+    await expect
+      .poll(async () =>
+        viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
+      )
+      .toBeLessThanOrEqual(13);
   });
 
   test("document search stays separate from the shared answer stream and summary action", async ({ page }) => {
@@ -5258,12 +5307,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     );
 
     const composer = page.locator("form.document-viewer-composer");
+    await page.getByRole("button", { name: "Open document actions" }).click();
+    await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
     await composer.getByRole("textbox", { name: "Search within this document" }).fill("safety plan include");
     await activateFocusedControl(page, composer.getByRole("button", { name: "Search within this document" }));
     await expect(page.getByTestId("source-chunk-indexed-text-panel").getByText("Hit 1 of 2").first()).toBeVisible();
     expect(answerRequests).toEqual([]);
 
-    await composer.getByRole("button", { name: "Open document actions" }).click();
+    const openDocumentActions = page.getByRole("button", { name: "Open document actions" });
+    await composer.getByRole("button", { name: "Close document search" }).click();
+    await expect(composer).toHaveCount(0);
+    await expect(openDocumentActions).toBeFocused();
+    await openDocumentActions.click();
     const documentActions = page.getByRole("dialog", { name: "This document" });
     await documentActions.getByRole("button", { name: "Answer from this", exact: true }).click();
 
