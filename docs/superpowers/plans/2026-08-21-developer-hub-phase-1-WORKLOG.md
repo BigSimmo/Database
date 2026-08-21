@@ -64,12 +64,11 @@ badge would have reported three items as one urgent set.
 | `80ae20d54` | **Task 1** — snapshot generator + parser                              |
 | `9a8e2d60b` | **Task 2** — staleness gate, `.prettierignore` fix, committed handoff |
 | `bb0028db9` | Record the Task 2 sha in the handoff                                  |
+| `3140b113a` | This worklog                                                          |
+| `73f69d35b` | Resolve the Task 1–2 review findings                                  |
+| `8c5e774bf` | Sync the plan with what actually shipped                              |
 
-| `3140b113a` | This worklog |
-| `73f69d35b` | Resolve the Task 1–2 review findings |
-
-Tasks 3–10 not started. **Tasks 1 and 2 have been reviewed and every finding fixed.** Branch pushed;
-remote and local both at `73f69d35b`.
+Tasks 3–10 not started. **Tasks 1 and 2 have been reviewed and every finding fixed.** Branch pushed.
 
 ---
 
