@@ -5,6 +5,8 @@ description: Prepare a concise evidence-backed Database handover without automat
 
 # Handover
 
+Do not use this skill merely because the user asks to open or publish a PR. An explicit bare PR publication request follows the `AGENTS.md` bare-publication route: publish without local readiness work and leave CI unobserved unless the user asks otherwise.
+
 1. Inspect branch, upstream, worktrees, status, relevant diffs, and recent commits.
 2. Run `npm run workflow:lifecycle -- --phase handoff --write-evidence` and use its verification routing.
 3. Run one smallest proportionate offline gate; prefer `npm run verify:pr-local` for non-trivial ready work and do not stack broad gates without a distinct failure class.
