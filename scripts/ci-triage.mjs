@@ -13,6 +13,25 @@ export function failedJobNames(jobs) {
   ];
 }
 
+/**
+ * Job names the baseline run actually EXECUTED — a `skipped` job verified nothing.
+ *
+ * CI is path-scoped, so a docs-only push to main reports `success` with Lighthouse, Production UI
+ * and Build all skipped. Citing that run as the comparison made the triage comment read as
+ * "main is green for this job" when main had never measured it: exactly how the mobile-`/` CLS
+ * regression behind PR #2199 was waved through, and the same trap ledger `#5DYBQQ` records.
+ */
+export function executedJobNames(jobs) {
+  return [
+    ...new Set(
+      (jobs ?? [])
+        .filter((job) => job.conclusion && job.conclusion !== "skipped")
+        .map((job) => job.name)
+        .filter(Boolean),
+    ),
+  ];
+}
+
 export function selectLatestDefaultBranchRun(runs, { currentRunId, defaultBranch }) {
   return (runs ?? [])
     .filter(
@@ -29,23 +48,41 @@ export function selectLatestDefaultBranchRun(runs, { currentRunId, defaultBranch
     )[0];
 }
 
-export function classifyFailedJobs(failedNames, mainRun, mainFailedNames) {
+export function classifyFailedJobs(failedNames, mainRun, mainFailedNames, mainExecutedNames) {
   const mainFailures = new Set(mainRun?.conclusion === "failure" ? mainFailedNames : []);
-  return failedNames.map((name) => ({
-    name,
-    classification: mainFailures.has(name) ? "main-side" : "needs-investigation",
-  }));
+  // Omitted (undefined) means the caller could not establish what the baseline ran, so every job
+  // keeps its previous classification rather than being wrongly reported as unbaselined.
+  const mainExecuted = mainExecutedNames === undefined ? null : new Set(mainExecutedNames);
+  return failedNames.map((name) => {
+    if (mainFailures.has(name)) return { name, classification: "main-side" };
+    if (mainRun && mainExecuted && !mainExecuted.has(name)) return { name, classification: "unbaselined" };
+    return { name, classification: "needs-investigation" };
+  });
 }
 
 export function buildTriageBody(classifications, mainRun) {
   const marker = "<!-- ci-triage -->";
-  const lines = classifications.map(({ name, classification }) =>
-    classification === "main-side"
-      ? `- \`${name}\` — **main-side**: the same job also failed on the latest completed \`main\` CI run.`
-      : `- \`${name}\` — **needs investigation**: inspect the failing step and uploaded diagnostics; rerun only after classifying the cause.`,
-  );
+  const lines = classifications.map(({ name, classification }) => {
+    if (classification === "main-side") {
+      return `- \`${name}\` — **main-side**: the same job also failed on the latest completed \`main\` CI run.`;
+    }
+    if (classification === "unbaselined") {
+      return (
+        `- \`${name}\` — **not baselined**: this job did NOT run on the \`main\` comparison below ` +
+        `(path-scoped skip), so that run says nothing about it either way. Treat the comparison as absent, ` +
+        `not green, and inspect the failing step.`
+      );
+    }
+    return `- \`${name}\` — **needs investigation**: inspect the failing step and uploaded diagnostics; rerun only after classifying the cause.`;
+  });
+  const unbaselined = classifications.filter(({ classification }) => classification === "unbaselined");
   const baseline = mainRun
-    ? `Compared with main CI run [#${mainRun.run_number}](${mainRun.html_url}) (${mainRun.conclusion}).`
+    ? `Compared with main CI run [#${mainRun.run_number}](${mainRun.html_url}) (${mainRun.conclusion}).` +
+      (unbaselined.length
+        ? ` That run's conclusion is an aggregate and did not exercise ${unbaselined
+            .map(({ name }) => `\`${name}\``)
+            .join(", ")}.`
+        : "")
     : "No completed main CI baseline was available; no failure was labeled main-side.";
   return [
     marker,
@@ -76,6 +113,8 @@ function selfTest() {
       head_branch: "main",
       status: "completed",
       conclusion: "success",
+      run_number: 1234,
+      html_url: "https://github.com/o/r/actions/runs/1",
       run_started_at: "2026-07-17T01:00:00Z",
     },
     {
@@ -101,6 +140,23 @@ function selfTest() {
     { name: "Lint", classification: "needs-investigation" },
   ]);
   assert.deepEqual(classifyFailedJobs(["Build"], null, []), [{ name: "Build", classification: "needs-investigation" }]);
+  assert.deepEqual(
+    executedJobNames([
+      { name: "Build", conclusion: "success" },
+      { name: "Lighthouse budget", conclusion: "skipped" },
+      { name: "Queued", conclusion: null },
+    ]),
+    ["Build"],
+  );
+  // A green aggregate that skipped the failing job must not read as a green baseline for it.
+  const skippedBaseline = classifyFailedJobs(["Lighthouse budget"], runs[1], [], ["Build"]);
+  assert.deepEqual(skippedBaseline, [{ name: "Lighthouse budget", classification: "unbaselined" }]);
+  assert.match(buildTriageBody(skippedBaseline, runs[1]), /did not exercise `Lighthouse budget`/);
+  assert.match(buildTriageBody(skippedBaseline, runs[1]), /\*\*not baselined\*\*/);
+  // Omitted executed-name list keeps the previous behaviour rather than inventing a verdict.
+  assert.deepEqual(classifyFailedJobs(["Lighthouse budget"], runs[1], []), [
+    { name: "Lighthouse budget", classification: "needs-investigation" },
+  ]);
   assert.match(
     buildTriageBody([{ name: "Build", classification: "main-side" }], null),
     /No completed main CI baseline/,
