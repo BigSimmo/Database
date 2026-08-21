@@ -446,9 +446,10 @@ export function parseArgs(argv) {
   // from, so the actual deletion needs a second, tool-agnostic gate that only a human sets:
   // CLEAN_WORKTREE_CONFIRM=1 in the invoking shell. No default flips this on. Listing
   // candidates (`--merged` without `--remove`) is unaffected and needs no env var. `--dry-run`
-  // is exempt too: `--merged --remove --dry-run` can delete nothing (dry-run wins over remove
-  // in runMergedWorktreeReport below), so gating it here would only block the safe preflight
-  // preview an operator runs before setting the confirm var for real.
+  // already documents that it "wins over --remove" (see printHelp below) and never deletes
+  // anything, so it must not be gated behind the same confirmation as the real deletion path —
+  // otherwise the safe preflight an operator runs specifically to review candidates before
+  // setting CLEAN_WORKTREE_CONFIRM=1 would itself refuse to run.
   if (remove && !dryRun && process.env.CLEAN_WORKTREE_CONFIRM !== "1") {
     throw new Error(
       "--remove refused: set CLEAN_WORKTREE_CONFIRM=1 in your shell to confirm you (a human) reviewed the " +
