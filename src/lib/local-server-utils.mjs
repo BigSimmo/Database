@@ -47,3 +47,12 @@ export function circularProjectPortRange(startPort) {
 export function localProjectId(projectRoot, platform = process.platform) {
   return `clinical-kb:${projectHash(projectRoot, platform).toString("hex").slice(0, 12)}`;
 }
+
+// Idle-shutdown minutes for a dev server run in the background (e.g. via
+// `npm run ensure`), from DEV_SERVER_IDLE_MINUTES. Returns null when unset,
+// non-numeric, zero, or negative — the caller's idle-shutdown watchdog stays
+// disabled in that case.
+export function parseIdleMinutes(rawValue) {
+  const parsed = Number.parseFloat(rawValue ?? "");
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}

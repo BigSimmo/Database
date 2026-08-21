@@ -4,7 +4,7 @@ import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { appName, isReservedDevPort, stableProjectPort } from "../src/lib/local-server-utils.mjs";
+import { appName, isReservedDevPort, parseIdleMinutes, stableProjectPort } from "../src/lib/local-server-utils.mjs";
 
 if (Number(process.versions.node.split(".")[0]) !== 24) {
   console.error(`Clinical KB local server requires Node 24.x. Current runtime: ${process.versions.node}.`);
@@ -149,6 +149,14 @@ if (forwardedArgs.includes("--print-port")) {
   process.exit(0);
 }
 
+const idleMinutes = parseIdleMinutes(process.env.DEV_SERVER_IDLE_MINUTES);
+const idleTimeoutMs = idleMinutes === null ? null : idleMinutes * 60_000;
+const idleCheckIntervalMs = 60_000;
+
+if (idleTimeoutMs !== null) {
+  console.log(`Idle shutdown enabled: this server exits after ${idleMinutes} min with no request/build activity.`);
+}
+
 const child = spawn(
   process.execPath,
   [
@@ -164,11 +172,46 @@ const child = spawn(
   {
     cwd: projectRoot,
     env: { ...process.env, PORT: String(freePort) },
-    stdio: "inherit",
+    // Idle-shutdown needs to observe output to detect activity, so it cannot
+    // use "inherit"; everything read here is still forwarded byte-for-byte.
+    stdio: idleTimeoutMs === null ? "inherit" : ["ignore", "pipe", "pipe"],
   },
 );
 
+let idleTimer = null;
+
+if (idleTimeoutMs !== null) {
+  let lastActivityAt = Date.now();
+  const markActivity = () => {
+    lastActivityAt = Date.now();
+  };
+  child.stdout.on("data", (chunk) => {
+    process.stdout.write(chunk);
+    markActivity();
+  });
+  child.stderr.on("data", (chunk) => {
+    process.stderr.write(chunk);
+    markActivity();
+  });
+
+  idleTimer = setInterval(() => {
+    const idleForMs = Date.now() - lastActivityAt;
+    if (idleForMs < idleTimeoutMs) return;
+    console.log(
+      `No activity for ${Math.round(idleForMs / 60_000)} min (limit ${idleMinutes} min); shutting down idle ${appName} dev server on port ${freePort}.`,
+    );
+    clearInterval(idleTimer);
+    child.kill("SIGTERM");
+    const forceKill = setTimeout(() => {
+      if (!child.killed) child.kill("SIGKILL");
+    }, 10_000);
+    forceKill.unref();
+  }, idleCheckIntervalMs);
+  idleTimer.unref();
+}
+
 child.on("exit", (code, signal) => {
+  if (idleTimer) clearInterval(idleTimer);
   if (signal) process.kill(process.pid, signal);
   process.exit(code ?? 0);
 });
