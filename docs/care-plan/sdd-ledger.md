@@ -102,7 +102,7 @@ is the only damage it carried — its tracked tree was clean and byte-identical 
 | ------------------------------- | -------------------------- | ---------------------- | --------------------------------------------------------------------- |
 | 1. Domain, fixtures, selectors  | **complete, review clean** | `8a2e6a6d1..8652e73ff` | 58/58 passing, typecheck clean                                        |
 | 2. Reducer, provider, lifecycle | **complete, review clean** | `8652e73ff..def541e6a` | 121/121 passing, typecheck + lint clean, 32 mutations / 32 red suites |
-| 3. Routes, gate, shell          | **in progress**            | BASE `d421bc2dc`       | restarted 22 Aug 2026 after the merge; no partial work existed        |
+| 3. Routes, gate, shell          | **complete, review clean** | `d421bc2dc..bb68ea8da` | 209/209 passing, typecheck + lint clean, 39 mutations / 39 red suites |
 | 4–11                            | not started                | —                      | —                                                                     |
 
 Stage A is Tasks 1–5. **Task 5 ends with a mandatory stop for user review** before
@@ -126,11 +126,34 @@ Task 6 begins.
   32 red suites, including both-directions proof for the participation trigger and
   three-way proof (too wide / too narrow / wrong guard) for the print exemption.
 
-### Task 3 — in progress (started 22 August 2026)
+### Task 3 — complete
 
-The third worktree destruction blocked it; no partial work exists and there was nothing
-to reconcile, so it restarts from the brief unchanged. BASE for the review package is
-`d421bc2dc`.
+The third worktree destruction had blocked it; no partial work existed and there was
+nothing to reconcile, so it restarted from the brief unchanged on 22 August 2026 with
+BASE `d421bc2dc`.
+
+- Dispatched opus. Returned `DONE_WITH_CONCERNS` at `9d3a104da` (39 files, 202 tests).
+  Task review (opus) returned Spec ❌ / Needs fixes with four Important findings and no
+  Critical. One fix round (`bb68ea8da`), then a scoped re-review (sonnet) verdicted all
+  four ADDRESSED with no new breakage.
+- Final: `Test Files 7 passed (7)` / `Tests 209 passed (209)`; typecheck and lint both
+  re-run with `GATE_RECEIPTS=refresh`, so neither is a reused receipt. Byte scan of 10
+  touched files: zero CR or control-byte offenders.
+- Guards proved by mutation: 31 in the first pass, 8 more across the fix round, every one
+  red then reverted.
+- The three findings that were real were all guard or safety defects rather than
+  structure: printing any route stripped the only `fictional data only` marker off the
+  page, route-change focus was keyed on the heading text so moving between two patients
+  with the same heading announced nothing, and half the developer-index guard was
+  satisfied by pre-existing text in the file it read — this project's third
+  guard-that-cannot-fail. The structural spec, all 21 routes, was clean first time.
+- Commits `d421bc2dc..bb68ea8da`, review clean, pushed.
+
+**Not proven by Task 3, and must not be claimed:** no browser or Playwright journey, no
+responsive/accessibility/print observation at real viewports, no production build, so the
+`notFound()` path's production 404 status is unverified (dev returns HTTP 200 with the
+`NEXT_HTTP_ERROR_FALLBACK;404` digest). Print correctness is asserted structurally — the
+marker has no `data-print-hide` ancestor — not visually.
 
 ---
 
@@ -315,6 +338,35 @@ text against itself. Six conflicts found, six ruled.
     the standing rule against duplicating a primitive that already exists. _Cost if
     wrong:_ one small extra component; a segment `error.tsx` can still be added beside it
     later if page-level throws want their own treatment.
+
+27. **The glossary's `_Avoid_` lists are concept-scoped, not a blanket lexical ban — the
+    reviewer's finding is overruled, its underlying point adopted.** The task review
+    flagged `Create or edit a draft version` and `Print-optimised patient copy` as
+    breaching `_Avoid_: Edit, overwrite` and `_Avoid_: Copy, document`. But those entries
+    sit under **Presentation Amendment** and **Management Plan Version** respectively:
+    they ban calling an amendment an edit and calling a version a copy, neither of which
+    those strings does. A blanket reading also makes the glossary contradict itself — its
+    own Draft entry reads "can be edited" — and both strings are **verbatim from the
+    binding specification's route table**, which the controller supplied as approved copy,
+    so changing them would put the code out of step with the spec. The copy stands. The
+    reviewer was right about the cause, though: the banned-phrase scan covered three
+    phrases out of a namespace that will grow by twenty routes, so it was widened to the
+    terms that genuinely are blanket-banned — stigmatising labels for a person,
+    quantified risk or severity verdicts, and all seventeen
+    `BANNED_ADMISSION_CONSTRUCTIONS` imported from `domain.ts` rather than retyped. The
+    concept-scoped terms are explicitly excluded in a comment, so nobody "completes" the
+    list later and reintroduces this. _Cost if wrong:_ three route-purpose strings read
+    slightly closer to the amendment and version vocabulary than a purist would like;
+    every genuinely harmful term is now machine-checked, which it was not before.
+
+28. **The live region was removed rather than repaired, and that is accepted.** Fixing the
+    route-focus defect made the hand-rolled `aria-live` region a double announcement, and
+    keying it on the pathname would have put synthetic record identifiers into a
+    screen-reader announcement. Focus-to-heading is the standard pattern, now keyed on the
+    address and covered by a test that re-renders at a second pathname resolving to the
+    same heading. _Cost if wrong:_ if the whole-branch review wants a live region back it
+    needs a per-route value carrying no record content; the deferred-minors list already
+    records that the repository's shared `LiveAnnouncer` is the right home for it.
 
 ---
 
