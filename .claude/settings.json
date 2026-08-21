@@ -1,4 +1,15 @@
 {
+  "enabledMcpjsonServers": ["railway", "supabase"],
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": { "source": { "source": "github", "repo": "anthropics/claude-plugins-official" } },
+    "superpowers-marketplace": { "source": { "source": "github", "repo": "obra/superpowers-marketplace" } }
+  },
+  "enabledPlugins": {
+    "sentry@claude-plugins-official": true,
+    "superpowers@superpowers-marketplace": true,
+    "episodic-memory@superpowers-marketplace": true,
+    "elements-of-style@superpowers-marketplace": true
+  },
   "permissions": {
     "deny": [
       "Read(./.env)",
@@ -178,6 +189,8 @@
       "Bash(curl -s http://localhost:*)",
       "Bash(node scripts/check-base-freshness.mjs:*)",
       "Bash(node scripts/clean-worktree.mjs:*)",
+      "Bash(tasklist)",
+      "Bash(tasklist /v)",
       "mcp__Claude_Browser__navigate",
       "mcp__Claude_Browser__get_page_text",
       "mcp__Claude_Browser__read_page",
@@ -249,6 +262,11 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"",
             "timeout": 900
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/setup-claude-cloud.sh\" --session",
+            "timeout": 300
           },
           {
             "type": "command",
