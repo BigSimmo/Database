@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildIdleShutdownCommand,
   circularProjectPortRange,
   localProjectId,
   normalizeProjectRoot,
@@ -61,5 +62,20 @@ describe("DEV_SERVER_IDLE_MINUTES parsing", () => {
   it("returns the parsed minute value for a positive number", () => {
     expect(parseIdleMinutes("45")).toBe(45);
     expect(parseIdleMinutes("0.5")).toBe(0.5);
+  });
+});
+
+describe("idle-shutdown termination command", () => {
+  it("uses a plain SIGTERM on POSIX platforms", () => {
+    expect(buildIdleShutdownCommand(1234, "linux")).toEqual({ kind: "signal", signal: "SIGTERM" });
+    expect(buildIdleShutdownCommand(1234, "darwin")).toEqual({ kind: "signal", signal: "SIGTERM" });
+  });
+
+  it("terminates the whole process tree with taskkill on Windows", () => {
+    expect(buildIdleShutdownCommand(4321, "win32")).toEqual({
+      kind: "taskkill",
+      command: "taskkill",
+      args: ["/PID", "4321", "/T", "/F"],
+    });
   });
 });

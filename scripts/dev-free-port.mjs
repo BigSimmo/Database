@@ -1,10 +1,16 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { appName, isReservedDevPort, parseIdleMinutes, stableProjectPort } from "../src/lib/local-server-utils.mjs";
+import {
+  appName,
+  buildIdleShutdownCommand,
+  isReservedDevPort,
+  parseIdleMinutes,
+  stableProjectPort,
+} from "../src/lib/local-server-utils.mjs";
 
 if (Number(process.versions.node.split(".")[0]) !== 24) {
   console.error(`Clinical KB local server requires Node 24.x. Current runtime: ${process.versions.node}.`);
@@ -201,11 +207,22 @@ if (idleTimeoutMs !== null) {
       `No activity for ${Math.round(idleForMs / 60_000)} min (limit ${idleMinutes} min); shutting down idle ${appName} dev server on port ${freePort}.`,
     );
     clearInterval(idleTimer);
-    child.kill("SIGTERM");
-    const forceKill = setTimeout(() => {
-      if (!child.killed) child.kill("SIGKILL");
-    }, 10_000);
-    forceKill.unref();
+    const shutdownCommand = buildIdleShutdownCommand(child.pid);
+    if (shutdownCommand.kind === "taskkill") {
+      // Windows: no signal-based way to ask the process tree to exit
+      // gracefully, so terminate next-dev and its forked server process in
+      // one call instead of racing a signal that only the wrapper receives.
+      execFile(shutdownCommand.command, shutdownCommand.args, () => {
+        // Best effort — if taskkill itself fails, the process is most likely
+        // already gone; the wrapper's own `exit` handler covers the rest.
+      });
+    } else {
+      child.kill(shutdownCommand.signal);
+      const forceKill = setTimeout(() => {
+        if (!child.killed) child.kill("SIGKILL");
+      }, 10_000);
+      forceKill.unref();
+    }
   }, idleCheckIntervalMs);
   idleTimer.unref();
 }
