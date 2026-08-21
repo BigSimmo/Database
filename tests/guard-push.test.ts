@@ -1,5 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -33,6 +42,8 @@ import {
   pushedBranchNames,
   pushedTipMatchesHead,
   staticGuard,
+  cleanupFormatCheckout,
+  unlinkDependencyLink,
 } from "../scripts/guard-push.mjs";
 
 const ZERO = "0".repeat(40);
@@ -527,5 +538,124 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     const limitIndex = capturedArgs.indexOf("--limit");
     expect(limitIndex).not.toBe(-1);
     expect(Number(capturedArgs[limitIndex + 1])).toBeGreaterThan(10);
+  });
+});
+
+describe("format-checkout cleanup never deletes through the linked dependency tree", () => {
+  // checkPushedCommit checks out the pushed commit into a scratch directory and
+  // links a node_modules tree in so a dynamic prettier config can resolve its
+  // plugins. When the pushing worktree has no dependencies of its own,
+  // findPrettierBin borrows ANOTHER worktree's real node_modules, and on Windows
+  // that borrow is a junction. The scratch directory is then torn down with
+  // `git worktree remove --force` plus a recursive rmSync, neither of which
+  // respects `git worktree lock`. These tests pin the invariant that the link is
+  // unlinked-not-followed first, and that the force-deletes are skipped entirely
+  // when it could not be.
+  //
+  // Platform note: the link below is a junction on win32 and a directory symlink
+  // everywhere else, so CI (Linux) proves the symlink case and a Windows run
+  // proves the junction case. Both are exercised by the same assertions.
+  function linkFixture() {
+    const sentinel = mkdtempSync(join(tmpdir(), "guard-push-sentinel-"));
+    created.push(sentinel);
+    mkdirSync(join(sentinel, "prettier", "bin"), { recursive: true });
+    writeFileSync(join(sentinel, "prettier", "package.json"), '{"version":"3.9.6"}');
+    const container = mkdtempSync(join(tmpdir(), "guard-push-container-"));
+    created.push(container);
+    const link = join(container, "node_modules");
+    symlinkSync(sentinel, link, process.platform === "win32" ? "junction" : "dir");
+    return { sentinel, container, link, canary: join(sentinel, "prettier", "package.json") };
+  }
+
+  it("removes the link itself and leaves the borrowed tree intact", () => {
+    const { container, link, canary } = linkFixture();
+    expect(existsSync(canary)).toBe(true);
+
+    unlinkDependencyLink(link);
+    expect(existsSync(link)).toBe(false);
+    expect(existsSync(canary)).toBe(true);
+
+    // The force-delete that follows in checkPushedCommit can no longer reach it.
+    rmSync(container, { recursive: true, force: true });
+    expect(existsSync(canary)).toBe(true);
+  });
+
+  it("removes a DANGLING link, which existsSync reports as absent", () => {
+    // Regression guard. existsSync follows the link, so once the borrowed tree
+    // is gone the link reads as absent and an existsSync-gated cleanup leaves it
+    // in place — for `git worktree remove --force` and a recursive rmSync to
+    // interpret instead. lstat sees the link whether or not it resolves.
+    const { sentinel, link } = linkFixture();
+    rmSync(sentinel, { recursive: true, force: true });
+    expect(existsSync(link)).toBe(false); // the trap: it is still there
+
+    unlinkDependencyLink(link);
+    expect(() => lstatSync(link)).toThrow(/ENOENT/);
+  });
+
+  it("is tolerant of the link already being gone", () => {
+    const container = mkdtempSync(join(tmpdir(), "guard-push-container-"));
+    created.push(container);
+    const result = unlinkDependencyLink(join(container, "node_modules"));
+    expect(result.removed).toBe(false);
+    expect(result.reason).toBe("absent");
+  });
+
+  it("refuses a real directory at the link path instead of deleting its contents", () => {
+    // Nothing in guard-push creates a real directory here, so one means something
+    // unexpected — and recursively deleting an unexpected directory is the exact
+    // hazard these tests exist to prevent.
+    const container = mkdtempSync(join(tmpdir(), "guard-push-container-"));
+    created.push(container);
+    const real = join(container, "node_modules");
+    mkdirSync(join(real, "prettier"), { recursive: true });
+    writeFileSync(join(real, "prettier", "package.json"), '{"version":"3.9.6"}');
+
+    const result = unlinkDependencyLink(real);
+    expect(result.removed).toBe(false);
+    expect(result.reason).toBe("not-a-link");
+    expect(existsSync(join(real, "prettier", "package.json"))).toBe(true);
+  });
+
+  it("SKIPS both force-deletes when the link could not be removed", () => {
+    // Regression guard. Swallowing the unlink failure and continuing is the one
+    // case where a force-delete runs over a directory that still holds a live
+    // link into another worktree's node_modules. A leftover scratch directory is
+    // cheap; that is not.
+    const calls: string[] = [];
+    cleanupFormatCheckout("D:/nonexistent-scratch", {
+      unlink: () => ({ removed: false, reason: "failed" }),
+      removeWorktree: () => calls.push("removeWorktree"),
+      removeDir: () => calls.push("removeDir"),
+      log: () => {},
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it("still tears down the checkout when the link was removed or was never there", () => {
+    for (const reason of ["unlink", "absent"]) {
+      const calls: string[] = [];
+      cleanupFormatCheckout("D:/nonexistent-scratch", {
+        unlink: () => ({ removed: reason === "unlink", reason }),
+        removeWorktree: () => calls.push("removeWorktree"),
+        removeDir: () => calls.push("removeDir"),
+        log: () => {},
+      });
+      expect(calls).toEqual(["removeWorktree", "removeDir"]);
+    }
+  });
+
+  it("unlinks BEFORE either force-delete, so traversal behaviour cannot matter", () => {
+    const order: string[] = [];
+    cleanupFormatCheckout("D:/nonexistent-scratch", {
+      unlink: () => {
+        order.push("unlink");
+        return { removed: true, reason: "unlink" };
+      },
+      removeWorktree: () => order.push("removeWorktree"),
+      removeDir: () => order.push("removeDir"),
+      log: () => {},
+    });
+    expect(order).toEqual(["unlink", "removeWorktree", "removeDir"]);
   });
 });
