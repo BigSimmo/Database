@@ -34,15 +34,18 @@ import { cn } from "@/components/ui-primitives";
 const TERM_COUNT = 96;
 const ABBR_COUNT = 11;
 const QUERY = "tardive";
+/* The stress case. The chip is the widest thing the row has to give away, so
+   the honest test is a real two-word clinical term, not a seven-letter one. */
+const QUERY_LONG = "tardive dyskinesia";
 const QUERY_TERMS = 4;
 const QUERY_ABBRS = 1;
 
 /* --------------------------------- state --------------------------------- */
 
-function useRowState(initialQuery = false) {
+function useRowState(initialQuery: boolean | "long" = false) {
   const [scope, setScope] = useState<"terms" | "abbr">("abbr");
   const [letter, setLetter] = useState("All");
-  const [query, setQuery] = useState(initialQuery ? QUERY : "");
+  const [query, setQuery] = useState(initialQuery === "long" ? QUERY_LONG : initialQuery ? QUERY : "");
   const [sheet, setSheet] = useState<"none" | "letter" | "filter">("none");
   const searching = query.length > 0;
   const termCount = searching ? QUERY_TERMS : TERM_COUNT;
@@ -361,7 +364,7 @@ function SiteComposer({ state }: { state: RowState }) {
     <div className="absolute inset-x-0 bottom-0 z-30 border-t border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2">
       <button
         type="button"
-        onClick={() => state.setQuery(state.searching ? "" : QUERY)}
+        onClick={() => state.setQuery(state.query === "" ? QUERY : state.query === QUERY ? QUERY_LONG : "")}
         className={cn(
           "flex w-full items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2.5 text-left",
           focusRing,
@@ -457,7 +460,7 @@ const fitWidths = [
    exceeding `clientWidth` on the flex track is the overflow; a track that fits
    reports the slack it has left, which is what says whether the fit is safe or
    merely lucky. */
-function FitRow({ width, note, searching }: { width: number; note: string; searching: boolean }) {
+function FitRow({ width, note, searching }: { width: number; note: string; searching: boolean | "long" }) {
   const state = useRowState(searching);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [verdict, setVerdict] = useState<{ fits: boolean; slack: number } | null>(null);
@@ -522,7 +525,7 @@ function FitRow({ width, note, searching }: { width: number; note: string; searc
 /* ---------------------------------- page ---------------------------------- */
 
 export function DictionaryControlRowMockupsPage() {
-  const [fitSearching, setFitSearching] = useState(false);
+  const [fitMode, setFitMode] = useState<false | true | "long">(false);
 
   return (
     <main className="min-h-full bg-[color:var(--background)] text-[color:var(--text)]">
@@ -560,14 +563,18 @@ export function DictionaryControlRowMockupsPage() {
             </div>
             <button
               type="button"
-              onClick={() => setFitSearching((value) => !value)}
-              aria-pressed={fitSearching}
+              onClick={() => setFitMode((value) => (value === false ? true : value === true ? "long" : false))}
+              aria-pressed={fitMode !== false}
               className={cn(
                 "inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)]",
                 focusRing,
               )}
             >
-              {fitSearching ? "Measuring with a query running" : "Measuring idle"}
+              {fitMode === false
+                ? "Measuring idle"
+                : fitMode === true
+                  ? "Measuring with “tardive”"
+                  : "Measuring with “tardive dyskinesia”"}
             </button>
           </div>
           <div className="grid gap-4 p-4 sm:p-5">
@@ -575,12 +582,7 @@ export function DictionaryControlRowMockupsPage() {
               // Keyed on the mode as well as the width: `useRowState` seeds its
               // query once, so without a remount the toggle re-measured rows it
               // had not actually changed.
-              <FitRow
-                key={`${entry.px}-${fitSearching ? "query" : "idle"}`}
-                width={entry.px}
-                note={entry.note}
-                searching={fitSearching}
-              />
+              <FitRow key={`${entry.px}-${String(fitMode)}`} width={entry.px} note={entry.note} searching={fitMode} />
             ))}
           </div>
         </div>
