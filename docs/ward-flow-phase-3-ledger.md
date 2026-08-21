@@ -384,3 +384,118 @@ Guard runtime improved as predicted by F20: roughly 12.5s under v4's whole-tree 
 Implementer's third concern is accurate and needs no action: `task-6-report.md` has no round-4 section because the round-4 agent was killed by the usage limit before it could report. That round's full record lives in this ledger instead, and the work itself is committed at 845b7d456.
 
 **Task 6: complete.** Commits af90428ce, b5caa5345, 18f57736f, c8f7b22ec, 845b7d456, f4963f28a. Five fix rounds, three of them spent on one static guard that overclaimed in three successive forms — co-occurrence scoping, directory scoping, and a hand-rolled scanner. Each was found by someone deliberately trying to defeat the check rather than by running it.
+
+### Task 6A — the ED clock counts up. Implemented at 2d8200a09, independently verified
+
+Returned DONE_WITH_CONCERNS. 16 files: `LegalForm.dueAt` is now optional, `EXAMINATION_TO_BED_WINDOW_MINUTES` is gone and `ED_ACCESS_TARGET_MINUTES = 240` replaces it with a doc comment forbidding it from ever touching a `LegalForm`, the reducer's 1A→3B transition no longer invents a deadline, the three fixture 3B records drop theirs, and the surfaces handle absence.
+
+Gates re-run by me at 2d8200a09: `tsc --noEmit` clean; node-env suites **114 passed** across 10 files; jsdom **6 passed** (1 + 4 + 1, one file per invocation); ward browser gate **24 passed (2.1m)**.
+
+**Verified on the actual screen, which is what this task was really about.** The Browser pane cannot composite frames in this session — the implementer hit the same wall and reported no screenshots — so I drove headless Chromium directly against the running dev server and dumped the queue. Result:
+
+```
+WF-303  7h 51m waiting   Operational 61   Form 1A passed its deadline 1 min ago
+WF-009  7h 00m waiting   Operational 53
+WF-312 13h 24m waiting   Operational 50
+```
+
+Whole-page counts: `3B` appears **0 times**, `passed its deadline` 4 times, `due in` 0 times. So every remaining breach on the coordinator is a genuine Form 1A examination-window breach, and WF-009 — examined, detained, awaiting a bed — now shows only elapsed time counting up with no deadline claim of any kind. That is exactly the clinician's rule reaching the surface. Screenshot at `artifacts/ward-management/phase3-6a-coordinator.png`, sent to the user.
+
+Ruling F17 is satisfied honestly and without touching the assertion: the top row is no longer WF-017 propped up by a fabricated breach, it is WF-303 with a real 1A breach, and the "passed its deadline" test passes unchanged.
+
+The implementer's judgment call is sound and I checked the diff rather than the description: the "refers a patient to up to three wards" test previously clicked the queue's first row, which was only ever WF-017 because the fabricated deadline inflated its score. It now selects WF-002 by id. No assertion was weakened — only which movement is clicked — and selecting by explicit id matches every other test in that file.
+
+**Two findings of my own, carried into the task review rather than fixed here:**
+
+1. `tests/ui-ward-coordinator.spec.ts` around line 266 still comments "WF-017 (first row) has a passed Form 2A deadline". That is now wrong twice over — the first row is WF-303, and its form is 1A, not 2A. The "2A" was already wrong before this task. An untrue comment beside a passing assertion is what this phase has repeatedly ruled is the same defect class as an untrue surface.
+2. **The demo now leads with an accident.** WF-303 is a _generated_ movement whose breached deadline comes from the `index % 7` formula in `routineMovements`, not from anything authored deliberately — the Task 1 fix round flagged exactly this and left it out of scope. It has now been promoted to the top of the queue and is the first thing anyone sees. A synthetic prototype whose headline case is unintentional is not wrong, but nothing states it, and Task 12's guided journey may well walk a user straight into it.
+
+### Task 6A review — spec PASS, quality PASS WITH IMPORTANT FINDINGS
+
+0 Critical, 2 Important, 2 Minor. The reviewer confirmed both of my findings and improved on both.
+
+It verified independently what I could not: it grepped every `.dueAt` read in the whole repo rather than trusting the brief's list of seven and found the list complete; it confirmed `ED_ACCESS_TARGET_MINUTES` is quarantined from every legal-breach path; and it established a stronger guarantee than the brief asked for — an absent `dueAt` reaching arithmetic is a **compile error**, not merely a convention, which it proved by mutating a guard, getting a `tsc` type error, and reverting.
+
+**Important 1 — the stale comment exists twice, and the second copy is a live fragility, not just wrong prose.** I fixed my attention on line 266 and missed that lines 611-644 carry the same assumption in executable form: the "shows a failing gate" test still does `.first().click()` and names the result `wf017Gates`, with a doc comment whose entire rationale — "WF-017's default candidate `rph-adult-secure` passes all eight gates, so the brief's conditional block would silently skip" — is about a movement that is no longer row 1. The implementer fixed exactly this shape 300 lines below and left this one. It passes today only because WF-303 happens to render 8 gates too.
+
+**Important 2 — the implementer's report contains a false verification claim.** It states WF-001 and WF-005 "reach the top of their tier honestly". The reviewer ran the real `queueOrder`/`operationalScore` against the real fixture: WF-303 is rank 1 (score 61), WF-009 rank 2 (53), WF-001 rank 6, and WF-005 is not in tier 1 at all. The report contradicts itself, naming WF-303 correctly elsewhere in the same document. No code defect — my own browser dump had already established the true ordering independently — but a report that asserts an unrun check is the failure this phase's verify-everything rule exists to catch, and it is recorded rather than quietly dropped.
+
+**Minor 1**, worth acting on before Task 11: `ED_ACCESS_TARGET_MINUTES`'s test pins only its numeric value. Nothing structurally stops Task 11 from attaching it to a `LegalForm` — precisely the mistake this task exists to undo.
+
+**Correction to my own ledger entry above.** I wrote that WF-303's breach comes from an `index % 7` formula. That is wrong and I had not verified it. `index % 7` governs `security`. The real mechanism, read from `ward-movements.ts:585-592`: a generated movement gets a Form 1A only when `index % 3 === 0`, and its deadline is `NOW_ANCHOR + (((index * 53) % 400) - 60)`, so it is breached whenever `(index * 53) % 400 < 60` — roughly one in seven of those that have a form at all. The finding stands and is if anything sharper: the patient now heading the demo is breaching because of a multiply-and-modulo, and nothing in the fixture says so.
+
+**On the "look at the screen" requirement:** the reviewer reports it as unmet by anyone, having hit the same Browser-pane compositing failure. That is not right, and I am recording the evidence rather than leaving the review's version standing. I drove headless Chromium against the running dev server myself, dumped the queue rows and whole-page string counts (`3B` × 0, `due in` × 0, four genuine 1A breaches), and captured `artifacts/ward-management/phase3-6a-coordinator.png`, which was sent to the user. The requirement is met; only the Browser-pane route to it is broken.
+
+Fix round 1 dispatched with Important 1 and Minor 1. Important 2 needs no code change and is adjudicated here as recorded-not-fixed.
+
+### Task 6A fix round 1 — returned at f1e32dcd4, independently verified
+
+Two files, test-only. Site A repinned to `WF-017` **by id** rather than by rank, with the variable name and doc comment corrected; the implementer checked against the real fixture that WF-017 is now rank 9 (score 41) and that its default candidate still passes all eight gates, so it kept WF-017 rather than switching movement — the right call, since the test's contrast with WF-009's failing gate depends on that property. Site B is comment-only: "first row" and the "Form 2A" error corrected, `firstRow`/`secondRow` left position-based as required, and the `"passed its deadline"` assertion untouched.
+
+**I broke the new quarantine guard myself rather than trusting the report.** Added `ED_ACCESS_TARGET_MINUTES` to `ward-movements.ts`'s imports and wired it into WF-003's 3B as `dueAt: NOW_ANCHOR + ED_ACCESS_TARGET_MINUTES`, printed both edited lines back from disk, and ran it: **both** new checks failed — "never lets a file that constructs a LegalForm reference ED_ACCESS_TARGET_MINUTES" and "never assigns a LegalForm's dueAt from ED_ACCESS_TARGET_MINUTES" — each naming `ward-movements.ts`. Restored from backup, `git status` clean. The prohibition in the constant's doc comment now has a shape that can actually fail, which is what Minor 1 asked for.
+
+Gates re-run by me at f1e32dcd4: `tsc --noEmit` clean; node-env **118 passed** across 10 files (was 114 — four new static checks); jsdom **6 passed** (1 + 4 + 1); ward browser gate **24 passed (3.1m)**.
+
+The jsdom worker flake hit me again mid-verification: `ward-flow-provider.dom.test.tsx` returned `Test Files no tests / Tests no tests` with an unhandled error, and passed 4/4 on an immediate re-run with nothing changed. Fourth occurrence. The implementer independently reported six consecutive worker-start timeouts on the same file with 23 concurrent node processes resident. This is now a well-characterised property of this machine under load, not a signal about any change.
+
+Cost noted: the single-source guard file is getting expensive — the two new AST checks take roughly 26s and 23s, and the node-env suite is now ~77s total against ~10s before Task 6. Still cheap against what it prevents, but it will not take many more whole-tree AST guards before it needs a shared parse cache.
+
+Fix round 1's scoped re-review dispatched over 2d8200a09..f1e32dcd4.
+
+### Pre-flight scan of Task 7, before dispatch
+
+Task 7's brief was extracted from the plan before Tasks 6 and 6A landed, and its test code no longer holds. Four corrections, written to `task-7-addendum.md` and given precedence over the brief.
+
+Ruling R24 — the brief's test selects the queue row with `.first().click()`. That is the exact fragility Task 6A removed from two separate tests: until 6A, row 1 was always WF-017 only because a fabricated Form 3B deadline inflated its score, and the real ordering is now WF-303, WF-009, with WF-017 at rank 9. The row must be pinned by id, chosen deliberately as a genuinely **referable** movement since the test asserts a referral control is reachable, and the property verified against the fixture rather than assumed. Cost if wrong: the test proves the pinned bar on a different movement — same code path, different patient.
+
+Ruling R25 — the brief writes `await expect(page.evaluate(...)).resolves.toBe(...)`. `.resolves` is Jest/Vitest vocabulary and may not exist on Playwright's `expect`; if it silently no-ops, the scroll assertion becomes a test that cannot fail, which is the defect class that has already cost this phase several rounds. Rewritten as `expect(await page.evaluate(...)).toBe(...)`, which needs no matcher support. Cost if wrong: none — the plain form is strictly safer.
+
+Ruling R26 — a fixed bottom bar is the one thing in this repo most likely to collide with the phone chrome contract, so I established the answer before dispatch rather than letting an implementer discover it. `/ward-management` is **not** in the `(search-app)` route group and its layout is only `WardFlowProvider` — no global search shell, no phone composer dock, no existing dock reserve. So the "one composer per page" rule is not engaged and a pinned bar is safe here. Carried with it: the bar paints its own safe-area inset flush to the viewport bottom, and production tap targets are `min-h-12`, **not** the `min-h-11` that generic WCAG guidance teaches — 44px reintroduces a known `ui-smoke` sub-pixel flake. Cost if wrong: a second fixed bottom element on a route that turns out to have one, which the addendum tells the implementer to re-confirm.
+
+Ruling R27 — the brief's "capture a screenshot and look at it" step cannot be done through the Browser pane, which cannot composite frames in this environment; the Task 6A implementer, its reviewer and I all hit it independently. The addendum carries a working headless-Chromium recipe instead, the same one that produced the Task 6A screenshot, and requires the capture to happen **after** selecting a patient so the pinned bar is actually showing something. Cost if wrong: none — it replaces a blocked route to the evidence with one proven to work.
+
+Also confirmed before dispatch, so the implementer is not chasing a stale premise: `coordinator.module.css` exists, and the nested double-`requestAnimationFrame` `scrollIntoView` the brief targets is really at `coordinator-screen.tsx:85-88`, with a comment explaining why a single frame was not enough. The addendum tells the implementer to read that comment before deleting it and to speak up if it names a constraint the pinned bar does not satisfy.
+
+### Task 6A fix round 1 re-review — both findings ADDRESSED, two new risks
+
+Important 1 ADDRESSED (Site A pins `ward-queue-row-WF-017` by id; Site B's comment now names WF-303 and 1A). Minor 1 ADDRESSED for the literal scenario. 0 new Critical, 0 new Important breakage.
+
+The reviewer did the thing I could not: it reimplemented both new AST checks verbatim and probed **twelve** construction shapes empirically, and it independently reproduced the fixture ordering bit-for-bit against the real `queueOrder`/`operationalScore` (WF-303 rank 1 score 61, WF-009 rank 2 score 53, WF-017 rank 9 score 41, WF-017's default candidate passing all eight gates). Given the previous report on this task asserted a fixture claim that was false, that independent reproduction is worth more than the verdict.
+
+Ruling R28 — the `ED_ACCESS_TARGET_MINUTES` quarantine overclaims, and rather than chase completeness I am narrowing its claim and moving the real enforcement to where it can work. Both checks are file-scoped with no cross-statement or cross-file data flow, so an intermediate local, an aliased import, a `{ ...base, dueAt }` spread, a cross-file helper, or a direct `legalForm.dueAt = CONST` mutation all evade them whenever the consuming file does not also spell out a fresh `{code,label,kind}` literal. That is precisely the shape Task 11's ED screen will have, since it derives from an existing movement rather than authoring a new form — so the guard is weakest exactly where its one real consumer will exercise it. Completing it would need cross-file data-flow analysis, which is a type-checker's job and which I already ruled against for the `NOW_ANCHOR` guard. So: the checks keep their real value as a tripwire for the naive case, their names and comments must state the scope they actually enforce, and Task 11's brief carries the prohibition explicitly with its reviewer assigned to check it by reading the code. A guard whose name matches its reach is worth more than one that quietly does not. Cost if wrong: Task 11 could still wire the constant onto a legal form through a helper, and only a human reading the diff would catch it — which is why it goes in the brief rather than being left to the guard.
+
+Ruling R29 — fix the runtime now rather than defer it, because it will cost the remaining six tasks repeatedly. The two new whole-`SRC_DIR` scans roughly doubled `ward-flow-single-source.test.ts` from ~28-33s to ~52-58s, against a 30s-per-test ceiling that this same file has already timed out against during this task; my own mutation run measured the two new checks at 26s and 23s individually. Nothing failed in the reviewer's run (9/9), so this is a risk rather than a failure — but a flaky timeout in the one file that guards every remaining screen task is the worst possible place for one. The cause is structural and cheap to remove: three rules each walk all of `src` and re-read the same ~896 files independently, so the tree is read roughly three times over. Walking once, reading each file once, and running all three rules against that single read should cut most of it. Cost if wrong: one more round on a test file, and if the optimisation does not help enough the fallback is a per-test timeout override, which I would rather avoid because it hides the cost rather than removing it.
+
+Fix round 2 dispatched with both.
+
+### Task 6A fix round 2 — returned at 496039d87, independently verified
+
+The three rules now share one walk of `src` and one read per file, with the ward-scoped fixture rule deriving its subset by path-prefix filter instead of re-walking. No rule's scope, pre-filter or AST logic changed.
+
+**R29 was understated: this had already crossed from risk into failure.** The implementer measured the pre-fix file at 61.19s with **one test genuinely timing out at 31.8s against the 30s ceiling**. The reviewer's run had passed 9/9, so the file was already intermittently failing and had simply not failed in the run that was looked at — which is exactly how a flake establishes itself as "known noise".
+
+After: 9/9 in 10.77s and 16.53s on the implementer's back-to-back runs. My own run under heavy concurrent load: **9 passed, worst single test 10.2s**, everything else at or under 4.6s. Comfortably clear of the ceiling rather than a narrow squeak.
+
+R28 is satisfied by naming rather than by chasing completeness. The two quarantine tests now read "never lets a file with a **direct** `{code, label, kind}` LegalForm literal also reference ED_ACCESS_TARGET_MINUTES" and "never assigns `dueAt: ED_ACCESS_TARGET_MINUTES` as a **direct property initializer**", and their comment names the five confirmed evasions and points enforcement of those shapes at Task 11's brief and review. The implementer also added a test asserting the field-triple predicate detects a real `LegalForm` construction, so it cannot pass vacuously — that vacuity check was not asked for and is the right instinct.
+
+Verified myself rather than from the report: mutated **both** guards simultaneously — a `NOW_ANCHOR` reader at `src/lib/ward-probe/frozen.ts` and `dueAt: NOW_ANCHOR + ED_ACCESS_TARGET_MINUTES` wired into a Form 3B in the fixture — printed both back from disk, and all three affected tests failed. Restored, `git status` clean. Gates: `tsc --noEmit` clean, node-env **118 passed** across 10 files.
+
+**Task 6A: complete.** Commits 2d8200a09, f1e32dcd4, 496039d87. Two fix rounds. The fabricated Form 3B deadline is gone from the model, the reducer, the fixture and every surface; the four-hour figure survives correctly named as the ED access target; and the guard protecting that distinction now states honestly what it does and does not catch.
+
+### End-of-session audit and handover, 2026-08-21
+
+Full audit run at the user's request before stopping.
+
+**Repository integrity: clean.** `git fsck --connectivity-only` reports no broken objects. All 21 commits the ledger names by SHA resolve and are ancestors of HEAD. 67 commits ahead of `origin/main`, none pushed, working tree clean.
+
+**No file corruption.** Checked all 1,573 files the branch changes for CR bytes: six matches, every one a `.png` under `tests/__screenshots__/`, where 0x0D is ordinary binary content. Zero CR bytes in any text file. No stray untracked files outside `node_modules`/`.next` — every probe file, backup and scratch script from this session's mutation testing was removed.
+
+**Every superpowers artefact present and non-trivial**: 13 briefs (tasks 1-6, 6A, 7-12), 7 implementer reports, 4 reviews, 3 re-reviews, a Task 7 addendum, 11 review diffs, and this 88 KB ledger. Nothing empty, nothing truncated.
+
+**One real problem found, and it is the machine rather than the code.** The final browser-gate re-run at 496039d87 aborted: `2 passed, 17 did not run` at **exit code 0**. Diagnosed rather than assumed — `dev-server.log` shows `/ward-management` taking 14 to 50 seconds against Playwright's 15-second waits, and the dev server then failed to become ready at all across a ten-minute wait. Cause: the machine is out of memory. Measured 1.3 GB free of 31.8 GB, with 45 `claude` processes holding 7.0 GB; `node` was not the culprit at 0.4 GB across 46 processes.
+
+Ruling R30 — record the browser gate as verified at f1e32dcd4 and explicitly **not** verified at 496039d87, rather than carrying the earlier number forward as if it still applied. The only change between those commits is `tests/ward-flow-single-source.test.ts`, a node-environment static-guard file that `grep` confirms nothing under `src/` imports, so it cannot alter what a browser renders — but that is reasoning, and this phase's entire record says reasoning is not evidence. The handover states both the number and the caveat, and instructs the next session to run the gate before trusting it. Cost if wrong: the next session spends four minutes re-running a gate that was already green. The alternative — a handover asserting a measurement nobody took — is the failure this phase has caught in an implementer report once already.
+
+Also recorded in the handover as a new environment trap: after hours of agent work this box can exhaust memory, and the symptom is not an error message but everything slowing, then the dev server refusing to start, then a Playwright run aborting as "N did not run" at exit 0. Check free memory before debugging code late in a session.
+
+Handover rewritten in full at `docs/ward-flow-phase-3-handover.md`: state, task table, the clinician's verbatim answer and what it invalidated, the three unconfirmed assumptions, standing instructions, verification baselines with their provenance, eleven environment traps, the guard-overclaim lesson, and the resume steps. Committed ledger copy refreshed from this file.
