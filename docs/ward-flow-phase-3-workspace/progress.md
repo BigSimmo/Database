@@ -552,3 +552,194 @@ It took two runs, and the first is worth recording. After the clean reinstall th
 I did not record that as a flake on the strength of the explanation. Re-run in isolation it passed in 43.3 s; the full gate re-run warm passed 24/24. Two pieces of evidence, not one plausible story — which is the standard this phase has been held to, and the standard I failed earlier tonight when I asserted a `node_modules` destruction mechanism I had not demonstrated.
 
 **Every gate is now green at HEAD, measured in this session:** `tsc --noEmit` clean, node-env suites 118 passed across 10 files, jsdom 6 passed (1 + 4 + 1, one file per invocation), ward Chromium 24 passed.
+
+## Session 3 — resumed 2026-08-22
+
+New controller session. Confirmed worktree `C:/Users/joshs/.codex/worktrees/ward-management-design/Database`,
+branch `codex/ward-management-design`, clean tree at `15bce2ebe`, **2 docs-only commits ahead of
+`origin/codex/ward-management-design`** (`8f0c3cc84`, `15bce2ebe` — the handover correction and the
+node_modules explanation). Nothing on origin that local lacks. `node_modules` populated at 523 entries.
+
+Independent baseline measured this session, not read from the handover:
+
+| Gate                                | Result at `15bce2ebe`                            |
+| ----------------------------------- | ------------------------------------------------ |
+| `npx tsc --noEmit -p tsconfig.json` | clean (no output, exit 0)                        |
+| Node-env suites, 10 files           | **118 passed**, 12.41s                           |
+| jsdom, one file per invocation      | **6 passed** (1 + 4 + 1)                         |
+| Ward Chromium journeys              | **24 passed (3.3m)** — see the cold-compile note |
+
+**The browser gate's first run at HEAD failed 1 of 24, and it was the environment, not the code.**
+`ui-ward-management.spec.ts:54` ("opens every Ward Flow mode") clicks through seven mode routes in
+sequence; every one needed a first-time Turbopack compile, and this project pins `cpus: 1`.
+Diagnosed rather than assumed: I warmed all seven over HTTP (`/ward-management` itself took
+**50.9s** to first respond; the seven modes then answered in 0.9–2.0s each), re-ran that single test
+warm (1 passed, 30.5s), and then — because one warm test is not the gate — **re-ran the whole gate**:
+24 passed. The R30 caveat carried in the handover is now discharged: the gate is measured green at
+HEAD, not inferred from `f1e32dcd4`.
+
+Carried forward as a standing environment note: **warm `/ward-management` and its seven mode routes
+over HTTP before the browser gate**, or budget for one cold-compile failure that looks exactly like
+a regression.
+
+Server identity confirmed via `/api/local-project-id` → `clinical-kb:6611c1426f0a` at
+`http://localhost:3718`, per the never-assume-a-port rule.
+
+### The merge-main question, put to the user and answered
+
+Measured rather than estimated before asking: merge-base `372cb13fb`, **568 commits on `origin/main`
+not in this branch, 73 the other way**. `git merge-tree --write-tree origin/main HEAD` conflicts in
+**33 files, 16 of them ward-management source or tests** — `ward-model.ts`, `ward-movements.ts`,
+`coordinator-screen.tsx`, `ward-management-modes.tsx` and the rest of the phase's core.
+
+The conflict is mostly a squash-merge artefact, not competing design. `101f02b5c` (PR #2140,
+2026-08-18) landed an earlier snapshot of this same Ward Flow work on `main` as a single squashed
+commit of 18 files / 9,222 insertions, so it is **not an ancestor of HEAD** and git treats identical
+lineage as unrelated content. The genuinely new upstream ward work since then is small: `eaae8bde3`
+(39 lines across three `.module.css` files) and `9f98bbf06` (12 lines in `ward-management-modes.tsx`).
+
+Also checked: `a04330ea0`, the reviewed guard-push fix, **is** in `origin/main`. But per ruling R33
+the observed `node_modules` destruction comes from _other_ worktrees running _their_ push guards, so
+merging fixes this branch's guard without removing this branch's exposure. The benefit is real but
+partial, and it was presented to the user that way rather than as the headline reason.
+
+**User's decision: merge after Phase 3 finishes.** Not now, not never.
+
+Ruling R35 — carry the merge as explicit end-of-phase work rather than treating the branch as
+current. Recorded so a later session does not rediscover the 568-commit gap and merge it mid-task on
+its own initiative. The branch is now provably green at `a75c508f6` and every remaining task is
+verified against that baseline; merging mid-phase would invalidate it and put 16 hand-resolutions
+through the fixture the whole phase's proof rests on. Cost if wrong: the gap widens by roughly a week
+of upstream commits and the eventual merge is proportionally larger — against the alternative cost of
+resolving the model and fixture by hand with six screens half-built.
+
+### Pre-flight scan of Task 8 — ruling F9's factual premise is wrong, and the defect is live
+
+Scanned `task-8-brief.md` against the branch at `a75c508f6`. Interfaces all check out: `unitById`
+(`ward-sites.ts:506`), `unitCapacity` (`ward-derivations.ts:159`), `eligibility`
+(`ward-eligibility.ts:26`), `DECLINE_REASONS` (`ward-model.ts:19`) and `restrictionNotice`
+(`ward-derivations.ts:201`) all exist with the names the brief uses. The brief's unconditional
+`ward-incoming-` assertion holds: `bty-adult-secure` carries a live seed referral from the movement
+at `ward-movements.ts:456`, which sits at stage `destination_review` — a genuine incoming referral,
+so ruling P3's fix survives.
+
+**But ruling F9 recorded a fixture fact that is false, and the consequence is a live clinical
+defect rather than the deferred risk F9 described.**
+
+F9 said: "All six `Voluntary` movements in the fixture also carry `security: Open`, so the older
+`isMoreRestrictiveThanRequired` fires in every case `restrictionNotice` would flag
+`voluntary_on_locked`: the diagram is never wrong today, only less specific."
+
+Measured against the real fixture rather than assumed: there are **26 Voluntary movements, not six**,
+and **four of them carry `security: "Secure"`** — WF-301, WF-308, WF-322, WF-329, all generated.
+
+`isMoreRestrictiveThanRequired` is `movement.security === "Open" && unit.security === "Secure"`, so
+for a Voluntary **Secure** movement it returns `false`. `restrictionNotice` returns
+`voluntary_on_locked` for the same pair, because it tests `legalStatus` before `security`. The two
+therefore disagree in exactly the direction that matters.
+
+Proved end-to-end against the real `eligibleCandidates` at `NOW_ANCHOR`, not by reading the
+functions: each of the four Voluntary/Secure movements shortlists three Secure units
+(`rph-adult-secure`, `fsh-adult-secure`, `rgh-adult-secure`), and for **every one of those twelve
+pairs** the shortlist renders "Voluntary patient on a locked ward — review legal status before
+admission" while `flow-diagram.tsx:461` computes `moreRestrictive === false` and renders **nothing
+at all**. The diagram reaches that code path whenever the unit is `routed`, `isAccepted` or
+`isReferred` (`flow-diagram.tsx:456-462`), and a shortlisted candidate is routed.
+
+So the flow diagram is not "blunter than the shortlist". It is **silent on precisely the case the
+product owner ruled must carry the more prominent flag** (spec §2 decision 9, spec §3 "Two different
+restriction warnings, not one"): a voluntary person who cannot leave a locked ward, detained in fact
+without an order. Two surfaces on one screen describing one patient and disagreeing — the defect
+class this project has found in every phase.
+
+Ruling R36 — Task 8 owns this, as F9 already assigned, but it is promoted from a tidy-up to a
+required finding with a proof obligation, and the brief is amended before dispatch rather than left
+to be rediscovered. `flow-diagram.tsx` moves to `restrictionNotice`, rendering the two levels
+distinguishably with `voluntary_on_locked` the more prominent, and a test pins one of the four real
+movements by id so the case cannot silently stop being covered. `ward-eligibility.ts` stays
+untouched — this is a display flag and no gate's pass or fail may move. Cost if wrong: the diagram
+gains a second badge state and one test, on a route already covered by the browser gate; against
+leaving it, a clinical surface stays silent on its own sharpest warning for four real patients in
+the demo fixture.
+
+Ruling R37 — record that F9's error was a fixture claim asserted without measurement, and that the
+same shape has now occurred three times in this phase (the Task 6A implementer's false ranking
+claim, my own `index % 7` mis-attribution of WF-303's breach, and now F9's "all six Voluntary
+movements"). All three were _incidental_ claims made while ruling on something else, which is why
+none was mutation-tested. Standing correction: **a fixture claim inside a ruling gets the same
+treatment as a test — measured against the data, with the measurement recorded.** Cost if wrong:
+a few minutes per ruling, against a ruling built on a false premise, which is what F9 was.
+
+### Pre-flight scan of Tasks 9 to 12 — full findings in `preflight-tasks-9-to-12.md`
+
+Ran the real fixture and the real derivations rather than reading the code, per R37.
+
+**Tasks 9 and 10 hold.** 8 movements carry a transport job, all 8 unarrived, all 8 carrying
+`escortRequired` — so the officer screen has honest content at seed. Leg stamps present are
+`acceptedAt` × 8 and `enRouteAt` × 6; there is **no `collectedAt`, `arrivedAt` or `requestedAt`
+anywhere in the seed**, and `TransportJob` has no `requestedAt` field at all. Task 10's leg regex
+therefore passes on every row via two of its five alternatives, which is a weaker check than its
+name claims — noted in the brief for its implementer to strengthen rather than left to be found.
+
+**Task 11 holds but on single records.** `peel-ed` carries 7 open movements; exactly **one** is
+community-formed (WF-005, `formedAt` 150 minutes before `openedAt`), and exactly **one** police
+arrival exists in the entire 48-movement fixture, also at `peel-ed`. Both satisfy the brief, both
+must be pinned by id rather than by `count() > 0`.
+
+**Task 12's journey cannot work as written. Two independent defects, both measured.**
+
+Ruling R41 — the journey's `.first()` row is not referable, so pin the subject by id. Measured
+`queueOrder` at `NOW_ANCHOR`: rank 1 is **WF-303 at `accepted_awaiting_bed`**, and
+`REFER_TO_UNITS` accepts only `placement_requested` or `destination_review`. `canRefer` is
+therefore false and the Refer control carries `aria-disabled="true"`, so the journey cannot begin.
+Ranks 2 and 4 (WF-009 `destination_review`, WF-315 `placement_requested`) are referable. This is
+the third `.first()` failure in this phase after R24 and Task 6A's two repinned sites, so the
+pattern is retired for the whole phase rather than for this test: **no ward test selects a
+movement by rank.** Cost if wrong: the journey proves the loop on a deliberately chosen patient
+instead of an arbitrary one, which is what every other test in the suite already does.
+
+Ruling R42 — restore the handover step the plan dropped, on the spec's authority. Read from the
+reducer: `HANDOVER_READY` requires stage `bed_held` and is the **only** producer of a `transport`
+job; `TRANSPORT_ACCEPTED` refuses unless the stage is `handover_ready` **and** `movement.transport`
+exists. The plan's journey runs refer → accept → hold bed → officer, with no `HANDOVER_READY`
+anywhere, so the officer's job would never exist and all four of its actions would be refused.
+Spec section 14 states the journey with the handover present — "bed held, **handover**, the
+officer's four actions" — so the plan's test is the defect and the spec wins. `HANDOVER_READY` is
+an ED-role event, so the journey gains an ED step and genuinely exercises all four roles, which is
+what its own name claims and what the plan's version did not. Cost if wrong: the journey is one
+role-switch longer; against leaving it, Task 12 would open with a test that cannot pass and an
+implementer would spend a round rediscovering why.
+
+Both rulings, plus the Task 9/10/11 notes, are written into
+`preflight-tasks-9-to-12.md` so they reach each implementer with the measurements attached rather
+than as assertions.
+
+### A second session is live in this worktree — detected, not assumed
+
+Mid-session, HEAD moved underneath me without my running any `git commit`. At session start HEAD was
+`15bce2ebe` with a clean tree; by the time I recorded BASE for Task 7 it was `a75c508f6`,
+"docs(ward-flow): browser gate verified green at HEAD, 24 passed", authored 03:22:02 by the same
+git identity. `git reflog` confirms it as a real local commit, not a fetch.
+
+Its content is docs-only — `docs/ward-flow-phase-3-handover.md`,
+`docs/ward-flow-phase-3-ledger.md`, `docs/ward-flow-phase-3-workspace/progress.md`, 31 insertions —
+and it describes performing the same browser-gate verification I performed, reaching the same
+conclusion by the same reasoning (cold start, 23 passed with one route-walking failure, then 24/24
+warm) but with **different measured numbers** (945s to dev-server readiness and 43s for the isolated
+test, against my 50.9s and 30.5s). So it is a genuinely independent run, not an echo of mine.
+
+Ruling R43 — treat the worktree as shared, defend against collision, and do not interfere with the
+other session. This repo's own memory records a cleanup sweep destroying an in-use worktree twice,
+and ruling R33 already declined to kill another session's processes mid-push. Killing or "cleaning
+up" here risks exactly that. Instead: the other session's commit is docs-only and disjoint from
+Task 7's source files (`coordinator-screen.tsx`, `coordinator.module.css`), so the realistic
+collision risk is low. Concrete defences adopted for the rest of this phase — **re-read HEAD
+immediately before recording any BASE and immediately after every subagent returns**, never assume
+the tree is where I left it, commit my own work at every task boundary rather than accumulating it,
+and never `git checkout --` or `git clean` anything. Cost if wrong: two sessions produce overlapping
+docs commits that need reconciling later — cheap. Against the alternative of terminating a live
+session's work, which is not.
+
+Practical note carried forward: that commit independently corroborates the browser-gate result, and
+it also independently reproduces this session's cold-start diagnosis. Two sessions, two runs, same
+finding. The gate is green at HEAD and the cold-start artefact is real.

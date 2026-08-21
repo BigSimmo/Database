@@ -152,3 +152,45 @@ backing it up first.** Format with `npx prettier --write <files>`; `npm run form
 
 Do not commit the `artifacts/` screenshot script. Do not run verify:ui, verify:release, or any
 provider-backed gate. Do not dispatch subagents.
+
+---
+
+## R34 — the brief's file list is incomplete. The referral control is not in the file it names.
+
+Added by the controller in session 3, after checking the branch as it stands at `a75c508f6`.
+
+The brief says to modify `coordinator-screen.tsx` and `coordinator.module.css`. But the controls the
+pinned bar has to carry — `ward-shortlist-refer` and `ward-shortlist-override-toggle` — are rendered
+in **`src/components/ward-management/coordinator/shortlist-panel.tsx`** (around lines 549-600), not
+in `coordinator-screen.tsx`. `coordinator-screen.tsx` only holds the `.shortlistColumn` wrapper
+(line 194) and the ref the doomed `scrollIntoView` effect uses.
+
+So: **you may modify `shortlist-panel.tsx` as well** if the design needs it. Two shapes are both
+legitimate and you choose:
+
+- **CSS-only** — make the phone-width bar out of `.shortlistColumn`'s action row via
+  `coordinator.module.css`, leaving `shortlist-panel.tsx` untouched. Cleanest if the markup already
+  groups the two controls in one element.
+- **Markup change** — give the action row its own element/class in `shortlist-panel.tsx` so the CSS
+  has something honest to pin.
+
+State in your report which you chose and why. Do **not** contort the CSS into a fragile
+descendant-selector chain purely to keep the brief's two-file list literally true — the file list is
+the defect here, not your change.
+
+Do not restructure `shortlist-panel.tsx` beyond what the bar needs. Its `canRefer` /
+`aria-disabled` / `referUnavailableReason` logic is the fix for this phase's most consequential
+defect (the screen claiming a referral the reducer refused) and **must keep working exactly as it
+does now** — the pinned bar changes where the control sits, never whether it is available.
+
+## The constraint the deleted comment names — read it before you delete it
+
+`coordinator-screen.tsx:70-95`'s double-`requestAnimationFrame` comment says the scroll was
+mis-landing because `.main`'s grid rows and `.screen`'s `100dvh` height had not finished resolving
+after a viewport resize, once measured 256px short. That is a **measurement** constraint: it only
+binds something that has to compute where to scroll to. A bar pinned by CSS to the viewport bottom
+never measures the scroll container, so the constraint dissolves rather than being ignored.
+
+Satisfy yourself that is true before deleting the effect, and say so in your report. If you find the
+pinned bar somehow still depends on that settled layout, stop and say so rather than deleting
+silently.
