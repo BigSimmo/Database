@@ -10,7 +10,7 @@
   state yet (capacity only changes via `HOLD_BED`/`CONFIRM_CAPACITY`, which are not this task's
   action), and an unused destructured value would fail `@typescript-eslint/no-unused-vars`. Noted
   as a deliberate deviation from the brief's literal `const { movements, units, rejections, now,
-  dispatch } = useWardFlow();` line below.
+dispatch } = useWardFlow();` line below.
 - `selectedMovement` now resolves via `movements.find((m) => m.id === selectedMovementId)` — the
   live provider array — instead of `movementById`, which reads the frozen fixture and would never
   see a referral this screen just dispatched.
@@ -43,11 +43,11 @@
   reset-on-movement-change block, so a selection made for one patient can never leak onto the
   next.
 - `canRefer = referTargets.length > 0 && every selected candidate is eligible`. `canOverride =
-  referTargets.length > 0` (no eligibility requirement — overriding into an ineligible ward with a
+referTargets.length > 0` (no eligibility requirement — overriding into an ineligible ward with a
   stated reason is exactly the escape hatch it exists for). This mirrors the old
   `canConfirm`/`canOverride` shape exactly, generalised from one unit to a set.
 - `handleRefer()` dispatches `{ type: "REFER_TO_UNITS", role: "coordinator", now, movementId,
-  unitIds: [...referTargets] }` — a real event through the reducer, not a local-only UI note.
+unitIds: [...referTargets] }` — a real event through the reducer, not a local-only UI note.
   `handleOverrideSubmit` dispatches the **same** event (per the brief: "Override ... dispatches
   the same event with the reason recorded") and additionally records the typed reason in local
   component state, because `REFER_TO_UNITS` has no reason field on the model — there is nowhere
@@ -58,7 +58,7 @@
   see "Ambiguities" below).
 - **Testid/label rename** (per the correction in this task's brief, not the brief's own
   step-4 prose): `data-testid="ward-shortlist-confirm"` → `ward-shortlist-refer`, label `"Confirm
-  placement"` → `"Refer"`. `aria-describedby`/`id` pair renamed to
+placement"` → `"Refer"`. `aria-describedby`/`id` pair renamed to
   `ward-shortlist-refer-unavailable` to match. Candidate-row testids
   (`ward-shortlist-candidate-<unit id>`) are unchanged, as required.
 - `aria-pressed` on each candidate row now reads `referTargets.includes(candidate.unit.id)`
@@ -100,7 +100,7 @@
 
 - Added `RestrictionNotice` type and `restrictionNotice(movement, unit)` — copied verbatim from
   the brief's Step 3 code block (text: `"Voluntary patient on a locked ward — review legal status
-  before admission"` for `voluntary_on_locked`, `"More restrictive than this movement requires"`
+before admission"` for `voluntary_on_locked`, `"More restrictive than this movement requires"`
   for `more_restrictive`). `ward-eligibility.ts` untouched, per the brief.
 - Changed `eligibleCandidates`' internal sort to a **two-pass** approach instead of one combined
   comparator:
@@ -129,7 +129,7 @@ tests/ward-restriction-notice.test.ts` → 4 passed.
   - `getByRole("button", { name: /Confirm/ })` → `/Refer/`.
   - `"Confirmed by a human coordinator"` → `"Referred by a human coordinator"` (all sites).
   - `"Choose a candidate unit before confirming/overriding"` → `"Choose at least one candidate
-    ward before referring/overriding"`.
+ward before referring/overriding"`.
   - `"Outstanding referral: BTY Adult Secure"` (in the shortlist, not the diagram) →
     `"Parallel referral: BTY Adult Secure"`.
   - `"More restrictive than required"` (shortlist-row assertions only, not the diagram-node
@@ -264,11 +264,11 @@ a boundary — it doesn't.
 
 1. **The brief's "Refer to selected wards" label text vs. the correction's "Refer".** The
    correction block explicitly states the target is `data-testid="ward-shortlist-refer" labelled
-   Refer`, while the brief's own Step 4 prose separately says the label becomes "Refer to selected
+Refer`, while the brief's own Step 4 prose separately says the label becomes "Refer to selected
    wards". Since the correction is explicitly flagged as authoritative ("ruled on before execution
    began... apply") and pins the literal value, I used exactly `"Refer"` as the button's visible
    text (still matches the new test's `getByRole("button", { name: /Refer/ })` and `not
-   .toContainText(/Confirm placement/)` either way).
+.toContainText(/Confirm placement/)` either way).
 
 2. **`restrictionNotice`'s `more_restrictive` text vs. the pre-existing `MORE_RESTRICTIVE_NOTE`
    constant.** The brief's Step 3 code (marked "exact values to use verbatim") gives
@@ -293,7 +293,7 @@ a boundary — it doesn't.
 4. **Whether Refer requires all selected candidates to be eligible.** The brief doesn't state this
    explicitly for the new multi-select Refer, only that "the existing explicit-selection guard
    stays". I preserved the OLD `canConfirm` semantics (`hasExplicitSelection &&
-   activeVerdict?.eligible === true`), generalised to "every selected unit is eligible", with
+activeVerdict?.eligible === true`), generalised to "every selected unit is eligible", with
    Override remaining the no-eligibility-required escape hatch — this keeps Override meaningfully
    different from Refer (otherwise Override would have no reason to exist) and keeps every
    pre-existing WF-009-uses-Override / WF-017-uses-Refer test scenario intact.
@@ -305,7 +305,7 @@ a boundary — it doesn't.
 ## For each test, the one-line mutation that would kill it
 
 - **"refers a patient to up to three wards..."** — delete the `dispatch({ type: "REFER_TO_UNITS",
-  ... })` call in `handleRefer` (or revert `referredUnitIds` badge text from "Parallel referral"
+... })` call in `handleRefer` (or revert `referredUnitIds` badge text from "Parallel referral"
   back to anything without "referral").
 - **"shows a refused transition instead of swallowing it"** — remove the `rejections` prop/section
   from `exception-drawer.tsx` (or revert the empty-state text to drop the word "refused").
@@ -385,7 +385,7 @@ did with the event.
    longer sets any local "it worked" flag at all: `handleRefer` only dispatches, and the
    pre-existing "Parallel referral: {unit.name}" badges (already rendered straight from
    `movement.referredUnitIds`, sourced from the live provider) are the only success indicator.
-   Override still needs *some* local state, because the typed reason has nowhere else to live —
+   Override still needs _some_ local state, because the typed reason has nowhere else to live —
    `REFER_TO_UNITS` carries no reason field on the model — but its success message is gated by a
    derived `overrideSucceeded` check computed fresh on every render:
    `overrideRecord.unitIds.every((id) => movement.referredUnitIds.includes(id))`. If the reducer
@@ -393,7 +393,7 @@ did with the event.
    untouched, every id is missing from it, `overrideSucceeded` is `false`, and the "Overridden by
    a human coordinator..." message never renders. **Why this cannot lie:** the only local state
    kept (`overrideRecord`) holds inert data — the unit ids requested and the typed reason text —
-   never a boolean "succeeded" flag set at click time. Whether it is *displayed* is decided by
+   never a boolean "succeeded" flag set at click time. Whether it is _displayed_ is decided by
    reading the movement's own post-dispatch field on every render, not by anything written when
    the button was clicked. A stale `overrideRecord` from an earlier, now-irrelevant attempt is
    also structurally harmless for the same reason: it can only ever render if the CURRENT
@@ -417,8 +417,8 @@ did with the event.
   asserts the Exceptions region contains the literal event type `REFER_TO_UNITS` and the reducer's
   own reason text `cannot refer a movement while it is bed_held`.
 - Two pre-existing positive assertions (`shows a failing gate as a failure and never
-  auto-allocates`, `never refers or overrides against a default candidate the coordinator did not
-  choose`) that checked for the now-deleted `"Referred by a human coordinator"` text were updated
+auto-allocates`, `never refers or overrides against a default candidate the coordinator did not
+choose`) that checked for the now-deleted `"Referred by a human coordinator"` text were updated
   to check for `"Parallel referral: {unit name}"` instead — the real, state-derived indicator.
 
 **Red-then-green proof, pasted verbatim.** Reverted `canRefer` to

@@ -76,14 +76,14 @@ only runs once that has passed.
   invariant. `community_order` / `revoked`: stamps `examination`, clears `legalForm`, and closes
   the movement (`closure.outcome: "did_not_proceed"`, reason names the examination outcome, no
   patient-identifying text).
-- **`REFER_TO_UNITS`** (coordinator) — rejects above `PARALLEL_REFERRAL_CAP` (3) *before* touching
+- **`REFER_TO_UNITS`** (coordinator) — rejects above `PARALLEL_REFERRAL_CAP` (3) _before_ touching
   the movement; rejects if the movement isn't `placement_requested` or `destination_review`
   (re-referral from `destination_review` is allowed — the given "moves a referred movement to
   destination review" test starts from a movement already at that stage); rejects if any unit id
   doesn't resolve in `state.units`. On success, **replaces** `referredUnitIds` with the given list
   (not append) and sets stage `destination_review`.
 - **`ACCEPT_IN_PRINCIPLE`** (ward) — if `movement.acceptedUnitId` is already set, rejects with a
-  reason containing "withdrawn" *before* the generic stage check runs (this ordering is what the
+  reason containing "withdrawn" _before_ the generic stage check runs (this ordering is what the
   "second acceptance" test needs — see the mutation table below). Otherwise requires stage
   `destination_review` and that `unitId` is currently in `referredUnitIds`. On success: sets
   `acceptedUnitId`, stage `accepted_awaiting_bed`, clears `referredUnitIds` to `[]` (the referral
@@ -114,7 +114,7 @@ only runs once that has passed.
   `transport.arrivedAt`, sets stage `arrived` and `closure` (`outcome: "arrived"`).
 - **`CONFIRM_CAPACITY`** (ward) — resolves the unit (reject if unknown); sets
   `allocatable = { value: event.value, source: "ward", confirmedAt: now, staleAfterMinutes:
-  <unchanged> }`. Movements untouched.
+<unchanged> }`. Movements untouched.
 - **`RECORD_ESCALATION`** (coordinator) — resolves the movement (reject if unknown); sets
   `escalation = { at: now, triedUnitIds, contact }`.
 - **`ADVANCE_CLOCK`** (demo) — `clockOffsetMinutes += event.minutes`. No movement/unit touched.
@@ -256,7 +256,7 @@ referred in this test) falls through to the "does not hold a live referral" bran
 succeeding outright — a different, unrelated guard happened to catch the malformed call. That's
 still the right outcome (the test wants a rejection, and got one), but it means this particular RED
 run doesn't in isolation prove the role check specifically stops a role violation that would
-otherwise *succeed* — only that removing it changes which rejection reason comes back. I consider
+otherwise _succeed_ — only that removing it changes which rejection reason comes back. I consider
 the guard proven regardless, because the assertion under test (`/role/i` in the reason) is the
 literal contract the reducer promises, and the RED run shows that contract breaks without the
 guard. If a future reviewer wants a sharper demonstration, referring WF-009 to
@@ -266,21 +266,21 @@ not just a different rejection text.
 
 ## Mutation that would kill each test
 
-| Test | Mutation that kills it |
-| --- | --- |
-| "copies the fixture rather than aliasing it" | Replace `structuredClone(wardMovements)` / `structuredClone(allUnits())` with a bare reference (`wardMovements`, `allUnits()`) — no copy at all. |
-| "starts with no refusals and a zero clock offset" | Seed `rejections: [{ ... }]` or `clockOffsetMinutes: 1` instead of `[]` / `0`. |
-| "never refers above the parallel cap" | Delete the `unitIds.length > PARALLEL_REFERRAL_CAP` check (proven live in Step 6). |
-| "moves a referred movement to destination review" | Change `referredUnitIds: [...event.unitIds]` to `referredUnitIds: [...movement.referredUnitIds, ...event.unitIds]` (append instead of replace) — the assertion is an exact `toEqual`, so any extra/different entries fail it; or set stage to something other than `"destination_review"`. |
-| "withdraws the other referrals and records each one" | Drop the `.map` that builds `withdrawn`, or change the withdrawal reason string to omit the accepted unit's name (breaks `toContain("RPH Adult Secure")`). |
-| "refuses a second acceptance and says the referral was withdrawn" | Delete the `if (movement.acceptedUnitId)` branch (proven live in Step 6), or change its reason string to not contain "withdraw". |
-| "refuses the second acceptance against a unit with one allocatable bed" | Change `if (unit.allocatable.value <= 0)` to `< 0`, or drop the `bed_held_for_earlier_referral` token from the reason string. |
-| "gives a held bed sixty minutes to lapse in" | Change `event.now + 60` to any other offset, or leave `stage` at `"accepted_awaiting_bed"` instead of setting `"bed_held"`. |
-| "refuses an event raised by the wrong role" | Delete the top-of-reducer role check (proven live in Step 6). |
-| "consumes the bed and closes the record" | Skip decrementing `unit.allocatable.value` in `HOLD_BED` (then `after.allocatable.value` would equal `before`), or fail to advance `stage` to `"arrived"` in `PATIENT_ARRIVED`. |
-| "issues deterministic ids without any random source" | Replace `nextReferralId(sequence)` with something reading `Date.now()`/`Math.random()`, or use a module-level counter instead of `state.referralSequence` (two independently-seeded calls would then diverge). |
-| "gives a new referral an owner and the raising department" | Set `owner: ""` (fails `.length > 0`), or `originEdId: "unknown"` instead of `event.edId`, or leave `stage` at something other than `"placement_requested"`. |
-| "never mutates the state it was given" | Any in-place mutation, e.g. `movement.stage = "destination_review"` instead of building a new object via `replaceMovement`. |
+| Test                                                                    | Mutation that kills it                                                                                                                                                                                                                                                                     |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "copies the fixture rather than aliasing it"                            | Replace `structuredClone(wardMovements)` / `structuredClone(allUnits())` with a bare reference (`wardMovements`, `allUnits()`) — no copy at all.                                                                                                                                           |
+| "starts with no refusals and a zero clock offset"                       | Seed `rejections: [{ ... }]` or `clockOffsetMinutes: 1` instead of `[]` / `0`.                                                                                                                                                                                                             |
+| "never refers above the parallel cap"                                   | Delete the `unitIds.length > PARALLEL_REFERRAL_CAP` check (proven live in Step 6).                                                                                                                                                                                                         |
+| "moves a referred movement to destination review"                       | Change `referredUnitIds: [...event.unitIds]` to `referredUnitIds: [...movement.referredUnitIds, ...event.unitIds]` (append instead of replace) — the assertion is an exact `toEqual`, so any extra/different entries fail it; or set stage to something other than `"destination_review"`. |
+| "withdraws the other referrals and records each one"                    | Drop the `.map` that builds `withdrawn`, or change the withdrawal reason string to omit the accepted unit's name (breaks `toContain("RPH Adult Secure")`).                                                                                                                                 |
+| "refuses a second acceptance and says the referral was withdrawn"       | Delete the `if (movement.acceptedUnitId)` branch (proven live in Step 6), or change its reason string to not contain "withdraw".                                                                                                                                                           |
+| "refuses the second acceptance against a unit with one allocatable bed" | Change `if (unit.allocatable.value <= 0)` to `< 0`, or drop the `bed_held_for_earlier_referral` token from the reason string.                                                                                                                                                              |
+| "gives a held bed sixty minutes to lapse in"                            | Change `event.now + 60` to any other offset, or leave `stage` at `"accepted_awaiting_bed"` instead of setting `"bed_held"`.                                                                                                                                                                |
+| "refuses an event raised by the wrong role"                             | Delete the top-of-reducer role check (proven live in Step 6).                                                                                                                                                                                                                              |
+| "consumes the bed and closes the record"                                | Skip decrementing `unit.allocatable.value` in `HOLD_BED` (then `after.allocatable.value` would equal `before`), or fail to advance `stage` to `"arrived"` in `PATIENT_ARRIVED`.                                                                                                            |
+| "issues deterministic ids without any random source"                    | Replace `nextReferralId(sequence)` with something reading `Date.now()`/`Math.random()`, or use a module-level counter instead of `state.referralSequence` (two independently-seeded calls would then diverge).                                                                             |
+| "gives a new referral an owner and the raising department"              | Set `owner: ""` (fails `.length > 0`), or `originEdId: "unknown"` instead of `event.edId`, or leave `stage` at something other than `"placement_requested"`.                                                                                                                               |
+| "never mutates the state it was given"                                  | Any in-place mutation, e.g. `movement.stage = "destination_review"` instead of building a new object via `replaceMovement`.                                                                                                                                                                |
 
 ## Concerns / follow-ups for review
 

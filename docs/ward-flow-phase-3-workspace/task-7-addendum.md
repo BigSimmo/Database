@@ -27,7 +27,7 @@ qualify; `WF-002` (`destination_review`) is used by a sibling test in this same 
 that reason and is a safe default. Verify the property against the current fixture rather than
 assuming it, and say in your report what you verified and how.
 
-If you find the pinned bar must also be proven for a *non*-referable movement (where the control
+If you find the pinned bar must also be proven for a _non_-referable movement (where the control
 is present but `aria-disabled`), add that as a second explicit case rather than relying on rank.
 
 ---
@@ -129,7 +129,7 @@ Read gate output, never exit codes. Quote the decisive counts.
 1. `npx tsc --noEmit -p tsconfig.json` — if errors appear under `.next/dev/types/`, delete
    `.next/dev/types/validator.ts` and re-run; corrupted Next artefact, not source.
 2. `npm run lint` — **required for this task**, because it is the gate carrying the button-wiring,
-   design-token, and icon rules. It exits 0 *without running* when the repo lock is held, printing
+   design-token, and icon rules. It exits 0 _without running_ when the repo lock is held, printing
    `DATABASE_HEAVY_RUN_ADMISSION_BUSY`. Read the output; if you see that, retry rather than
    recording a pass.
 3. Node-env suites, one invocation — baseline **118 passed** across 10 files:

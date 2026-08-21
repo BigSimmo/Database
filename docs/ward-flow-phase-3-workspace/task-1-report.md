@@ -408,7 +408,7 @@ in the commit diff) — same result both times: 87/87 passed, `tsc` clean.
 ## Fix round 2 — every 3B deadline now derives from its own examination
 
 Commit: `2d59219d0d7a849c07d15c870580dff7437be9cd`
-  `fix(ward-flow): derive every 3B deadline from its own examination`
+`fix(ward-flow): derive every 3B deadline from its own examination`
 (on top of `0612fdfa0` — the branch had moved on through the reducer and provider tasks since
 Fix Round 1; not amended)
 
@@ -491,10 +491,9 @@ assertion or `WF-303` itself:
     network plausibly was examined earlier than a patient with a single, still-live referral.
   - I verified this is not a timing coincidence: the coordinator screen's clock only advances by
     real wall-clock minutes since page mount (`ward-flow-provider.tsx`, `elapsed = wallClockNow()
-    - mountedAt` when unpinned) rather than being frozen — `now` can drift forward by a small
-    integer number of minutes over a test's real runtime. I recomputed the top-6 ranking at
-    `NOW_ANCHOR + {0, 1, 2, 5, 10}` and the order (`WF-017`, `WF-009`, `WF-303`, ...) held at every
-    offset, so this ordering is not sensitive to exactly when Playwright captures the DOM.
+    - mountedAt`when unpinned) rather than being frozen —`now`can drift forward by a small
+integer number of minutes over a test's real runtime. I recomputed the top-6 ranking at`NOW_ANCHOR + {0, 1, 2, 5, 10}` and the order (`WF-017`, `WF-009`, `WF-303`, ...) held at every
+      offset, so this ordering is not sensitive to exactly when Playwright captures the DOM.
 
 ### Proof — both directions, exact output
 

@@ -122,14 +122,14 @@ Each must handle absence **explicitly**. Never substitute a fallback number, nev
 empty string where a deadline used to be, and never let `undefined` reach arithmetic (that is
 how `NaN min ago` ships).
 
-| File                                     | Site                                        |
-| ---------------------------------------- | ------------------------------------------- |
-| `coordinator/priority-queue.tsx`          | ~85 breach flag, ~112 "Legal deadline breached" |
-| `coordinator/shortlist-panel.tsx`         | ~69 `legalFormLine`, ~162 `legalBreached`    |
-| `ward-derivations.ts`                     | ~298-308 `buildActionInbox` "Legal timing breached" |
-| `ward-pressure.ts`                        | ~41 breach counting                          |
-| `ward-management-console.tsx`             | ~262 and ~290 "due <time>"                   |
-| `ward-priority.ts`                        | ~42-55 the "Statutory timing" factor         |
+| File                              | Site                                                |
+| --------------------------------- | --------------------------------------------------- |
+| `coordinator/priority-queue.tsx`  | ~85 breach flag, ~112 "Legal deadline breached"     |
+| `coordinator/shortlist-panel.tsx` | ~69 `legalFormLine`, ~162 `legalBreached`           |
+| `ward-derivations.ts`             | ~298-308 `buildActionInbox` "Legal timing breached" |
+| `ward-pressure.ts`                | ~41 breach counting                                 |
+| `ward-management-console.tsx`     | ~262 and ~290 "due <time>"                          |
+| `ward-priority.ts`                | ~42-55 the "Statutory timing" factor                |
 
 Rules for these:
 

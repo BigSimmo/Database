@@ -100,23 +100,23 @@ cross-file data-flow.**
   that appear directly inside the `dueAt:` initializer expression, so a bare reference to a local
   or aliased name never contains the literal text `ED_ACCESS_TARGET_MINUTES`. Arithmetic directly
   on the constant (`ED_ACCESS_TARGET_MINUTES + 10`) IS caught — the initializer walk correctly
-  recurses through binary expressions — only *indirection before* the property assignment evades
+  recurses through binary expressions — only _indirection before_ the property assignment evades
   it. Direct mutation (`movement.legalForm.dueAt = ED_ACCESS_TARGET_MINUTES`) is not an object
   literal at all and is invisible to this check regardless of file.
-- `constructsLegalForm` requires the *same object literal* to carry `code`, `label`, and `kind` as
+- `constructsLegalForm` requires the _same object literal_ to carry `code`, `label`, and `kind` as
   its own identifier-named properties. `...spread` properties contribute nothing to that set (a
   `SpreadAssignment` node has no `name`), so a literal built as `{ ...someExistingLegalForm,
-  dueAt: badValue }` — reusing an existing form rather than constructing a fresh one — never
+dueAt: badValue }` — reusing an existing form rather than constructing a fresh one — never
   matches, no matter how the `dueAt` is sourced.
 - Because check 1 (`constructsLegalForm(file) && referencesEdAccessTarget(file)`) is evaluated at
   **whole-file** granularity, not per-object-literal, it accidentally catches several of the
-  otherwise-evading shapes *today* — but only because the two files that can currently produce
+  otherwise-evading shapes _today_ — but only because the two files that can currently produce
   this problem (`ward-movements.ts`, `ward-flow-reducer.ts`) already contain a genuine
   `{code,label,kind}` literal elsewhere in the same file. That is a coincidence of the current
   tree, not a property of the check. Every MISSED row above is exactly the case where the
   dangerous assignment happens in a file that does **not** also spell out a fresh `LegalForm`
   literal in the same file — which is precisely the shape a new consumer is likely to have: a
-  screen component that reads, derives from, or spreads an *existing* movement's `legalForm`
+  screen component that reads, derives from, or spreads an _existing_ movement's `legalForm`
   rather than constructing one from scratch with `code`/`label`/`kind` typed out.
 - The "quoted keys" case is caught in my table, but only incidentally — my probe used an inline
   `dueAt: ED_ACCESS_TARGET_MINUTES`, so check 2 caught it directly regardless of key quoting.
@@ -126,7 +126,7 @@ cross-file data-flow.**
 
 **Why this matters concretely, not hypothetically:** the brief itself says Task 11's emergency
 department screen is `ED_ACCESS_TARGET_MINUTES`'s first real consumer, and that screen's natural
-job is to read an *existing* `Movement`/`LegalForm` and compute an elapsed/target time from
+job is to read an _existing_ `Movement`/`LegalForm` and compute an elapsed/target time from
 `openedAt` — not to author a fresh `LegalForm` literal with `code`/`label`/`kind` spelled out. A
 new screen file doing `const draft = { ...movement.legalForm, dueAt: someHelper(movement) }`, or
 computing the bad instant in a shared helper and importing it, or mutating a draft object directly
@@ -147,7 +147,7 @@ than theoretical.
 - I independently confirmed, by direct code reading (not the report's "verified by hand, script
   deleted" claim alone), that `ward-flow-reducer.ts:176-180` constructs exactly the shape
   `constructsLegalForm` targets: `legalForm: { code: "3B", label: "Inpatient treatment order",
-  kind: "detention" }`, nested inside a larger object-literal update via spread — a shape my own
+kind: "detention" }`, nested inside a larger object-literal update via spread — a shape my own
   reasoning about the recursive AST walk (and the general well-understood behaviour of
   `ts.forEachChild`-based recursive descent) confirms is detected, since the walk continues into
   every child node whether or not the current node matched.
@@ -220,7 +220,7 @@ Is it stable, or one fixture edit away from silently inverting? Two separate que
   or was asked to fix.
 - **Could it silently invert — keep passing while no longer proving the ordering guarantee?** This
   is less likely than it first appears, and for a reason this same fix round reinforces: a Form 3B
-  can now *never* show "passed its deadline" under any fixture state, because `operationalScore`
+  can now _never_ show "passed its deadline" under any fixture state, because `operationalScore`
   only awards "Statutory timing" points when `legalForm?.dueAt !== undefined`, and no 3B in the
   fixture (nor, per Minor 1's guard, any future one built the straightforward way) can carry a
   `dueAt`. So the only way `firstRow` can ever satisfy the assertion is a genuine Form 1A breach —

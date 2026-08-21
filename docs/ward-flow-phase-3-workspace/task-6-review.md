@@ -3,7 +3,7 @@
 Reviewed diff `868853b58..18f57736f` (3 commits) against `task-6-brief.md` and `task-6-report.md`.
 Everything the coordinator already stated as independently verified (zero `NOW_ANCHOR` in the
 three rewired files, ward Vitest suite + `tsc --noEmit` clean, browser gate 24 passed, the
-behavioural clock test dying on its own call-site revert, the class guard dying on a *different*
+behavioural clock test dying on its own call-site revert, the class guard dying on a _different_
 call-site revert) was **not** re-proven here. This file covers only what was not yet verified.
 
 ## Verdicts
@@ -39,7 +39,7 @@ call-site revert) was **not** re-proven here. This file covers only what was not
    checks.
 
 2. **`ward-management-modes.tsx:277`, `QueueView` — `const [selected, setSelected] =
-   useState(movements[0])` captures a movement object by value, not an id re-derived from live
+useState(movements[0])` captures a movement object by value, not an id re-derived from live
    `movements`.** Contrast with the pattern the same diff uses correctly one file over in
    `ward-management-network.tsx`: `WardNetworkWorkspace` stores only `selectedPatientId` (a
    string) and re-derives `patient` every render via `movements.find(...)`, so it can never go

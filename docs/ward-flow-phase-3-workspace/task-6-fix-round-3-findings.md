@@ -12,7 +12,7 @@ become a bug the moment the route it lives on starts mutating state.
 `"has no component holding both the live clock and the frozen epoch"`.
 
 **What is wrong.** The guard asserts that no component reading `useWardFlow()` also reads
-`NOW_ANCHOR`. It only text-matches each file's *own* imports, so it is evaded three ways:
+`NOW_ANCHOR`. It only text-matches each file's _own_ imports, so it is evaded three ways:
 
 1. **Helper indirection.** The reviewer proved this live: it added a helper that reads
    `NOW_ANCHOR` internally, had `WardPatientWorkspace` call that helper instead of `now`,
@@ -44,6 +44,7 @@ Requirements for the new guard:
   These are the only three files under `src/components/ward-management/**` that mention
   `NOW_ANCHOR` other than in a comment. Verify that yourself before writing the list; do not
   take it on trust.
+
 - **Match reads, not just named imports.** A bare named-import regex is what created this
   hole. The check must also catch a namespace import that then reads the constant, and it
   must not fire on a file that merely names `NOW_ANCHOR` inside a comment —
@@ -77,7 +78,7 @@ recorded false negative. A mutation you did not read back did not happen.
 around line 277.
 
 **What is wrong.** `const [selected, setSelected] = useState(movements[0]);` holds a movement
-*object*, captured once at mount. Every later read of `selected` returns that frozen snapshot
+_object_, captured once at mount. Every later read of `selected` returns that frozen snapshot
 even after the provider's `movements` change. Not exploitable today — nothing on that route
 dispatches, and the component remounts on navigation — but this is precisely the
 "captured once, silently stale" shape Task 6 exists to remove, and it is one dispatch control

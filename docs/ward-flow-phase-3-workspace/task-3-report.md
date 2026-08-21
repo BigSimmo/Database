@@ -82,17 +82,17 @@ Movement `WF-009` (Peel ED, Adult/Secure/Male, Involuntary inpatient, already on
 `inpatient_order` examination recorded 45 minutes before `NOW_ANCHOR` in the seed fixture) is
 carried through nine events:
 
-| # | Event | Role | Precondition satisfied | Resulting stage |
-|---|---|---|---|---|
-| 1 | `REFER_TO_UNITS` → `["rph-adult-secure", "fsh-adult-secure"]` | coordinator | stage was `destination_review` (seeded) | `destination_review`, `referredUnitIds = [rph, fsh]` |
-| 2 | `DECLINE` fsh-adult-secure, `out_of_catchment` | ward | fsh was in `referredUnitIds` | `referredUnitIds = [rph]`, new decline appended |
-| 3 | `ACCEPT_IN_PRINCIPLE` rph-adult-secure | ward | rph was in `referredUnitIds`, not yet accepted | `accepted_awaiting_bed`, `acceptedUnitId = rph`, `referredUnitIds = []` |
-| 4 | `HOLD_BED` rph-adult-secure | ward | stage was `accepted_awaiting_bed`, unit had 1 allocatable bed | `bed_held`, unit `allocatable.value` 1→0 |
-| 5 | `HANDOVER_READY` | ed | stage was `bed_held` | `handover_ready`, transport job created (escort required — legal status is not Voluntary) |
-| 6 | `TRANSPORT_ACCEPTED` | officer | transport existed, not yet accepted | `transport.acceptedAt` set |
-| 7 | `TRANSPORT_EN_ROUTE` | officer | transport accepted, not yet en route | `transport.enRouteAt` set |
-| 8 | `PATIENT_COLLECTED` | officer | transport en route | `moving`, `transport.collectedAt` set |
-| 9 | `PATIENT_ARRIVED` | officer | stage `moving`, collected, unit had 1 physically-empty bed | `arrived`, unit `empty.value` 2→1, `sexMix.Male` +1, `closure` recorded |
+| #   | Event                                                         | Role        | Precondition satisfied                                        | Resulting stage                                                                           |
+| --- | ------------------------------------------------------------- | ----------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 1   | `REFER_TO_UNITS` → `["rph-adult-secure", "fsh-adult-secure"]` | coordinator | stage was `destination_review` (seeded)                       | `destination_review`, `referredUnitIds = [rph, fsh]`                                      |
+| 2   | `DECLINE` fsh-adult-secure, `out_of_catchment`                | ward        | fsh was in `referredUnitIds`                                  | `referredUnitIds = [rph]`, new decline appended                                           |
+| 3   | `ACCEPT_IN_PRINCIPLE` rph-adult-secure                        | ward        | rph was in `referredUnitIds`, not yet accepted                | `accepted_awaiting_bed`, `acceptedUnitId = rph`, `referredUnitIds = []`                   |
+| 4   | `HOLD_BED` rph-adult-secure                                   | ward        | stage was `accepted_awaiting_bed`, unit had 1 allocatable bed | `bed_held`, unit `allocatable.value` 1→0                                                  |
+| 5   | `HANDOVER_READY`                                              | ed          | stage was `bed_held`                                          | `handover_ready`, transport job created (escort required — legal status is not Voluntary) |
+| 6   | `TRANSPORT_ACCEPTED`                                          | officer     | transport existed, not yet accepted                           | `transport.acceptedAt` set                                                                |
+| 7   | `TRANSPORT_EN_ROUTE`                                          | officer     | transport accepted, not yet en route                          | `transport.enRouteAt` set                                                                 |
+| 8   | `PATIENT_COLLECTED`                                           | officer     | transport en route                                            | `moving`, `transport.collectedAt` set                                                     |
+| 9   | `PATIENT_ARRIVED`                                             | officer     | stage `moving`, collected, unit had 1 physically-empty bed    | `arrived`, unit `empty.value` 2→1, `sexMix.Male` +1, `closure` recorded                   |
 
 No event was rejected; `state.rejections` stays `[]` across all ten states in `walk()`'s
 returned array (the seed state plus one state per event).
@@ -124,15 +124,15 @@ strain, so a broken reducer would ship silently past this test. Those are flagge
 below (invariants 4 and 5) with the evidence, since finding that was the actual point of this
 exercise.
 
-| # | Invariant | Reducer mutation | Outcome |
-|---|---|---|---|
-| 1 | Parallel referral cap | `REFER_TO_UNITS`: `referredUnitIds: [...event.unitIds]` → `[...event.unitIds, "mutation-pad-a", "mutation-pad-b"]` | **Fails** — real kill |
-| 2 | Bed accounting partition | `PATIENT_ARRIVED`: `value: unit.empty.value - 1` → `value: unit.beds + 1` | **Fails** — real kill (see note on why a smaller/more natural corruption would not have worked) |
-| 3 | Movement never ownerless | `HOLD_BED`: added `owner: ""` to `updatedMovement` | **Fails** — real kill |
-| 4 | Declined unit never eligible | `DECLINE`: `declines: [...movement.declines, {...}]` → `declines: movement.declines` (drop the push entirely) | **Still passes** — vacuous for this walk/fixture, see below |
-| 5 | Withdrawal recorded whenever a referral ends without a decline | `ACCEPT_IN_PRINCIPLE`: `withdrawnReferrals: [...movement.withdrawnReferrals, ...withdrawn]` → `withdrawnReferrals: movement.withdrawnReferrals` (drop the push entirely) | **Still passes** — vacuous for this walk/fixture, see below |
-| 6 | Statutory form never disagrees with examination | `HOLD_BED`: added `legalForm: { code: "1A", label: "Referral for examination", kind: "detention", dueAt: event.now + 1 }` to `updatedMovement` | **Fails** — real kill |
-| 7 | No identifying text in rendered strings | `HOLD_BED`: inserted `return reject(state, event, "diagnosis of paranoid schizophrenia noted on file");` as the first statement in the case body | **Fails** — real kill, but required forcing a rejection to occur at all (see note) |
+| #   | Invariant                                                      | Reducer mutation                                                                                                                                                         | Outcome                                                                                         |
+| --- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| 1   | Parallel referral cap                                          | `REFER_TO_UNITS`: `referredUnitIds: [...event.unitIds]` → `[...event.unitIds, "mutation-pad-a", "mutation-pad-b"]`                                                       | **Fails** — real kill                                                                           |
+| 2   | Bed accounting partition                                       | `PATIENT_ARRIVED`: `value: unit.empty.value - 1` → `value: unit.beds + 1`                                                                                                | **Fails** — real kill (see note on why a smaller/more natural corruption would not have worked) |
+| 3   | Movement never ownerless                                       | `HOLD_BED`: added `owner: ""` to `updatedMovement`                                                                                                                       | **Fails** — real kill                                                                           |
+| 4   | Declined unit never eligible                                   | `DECLINE`: `declines: [...movement.declines, {...}]` → `declines: movement.declines` (drop the push entirely)                                                            | **Still passes** — vacuous for this walk/fixture, see below                                     |
+| 5   | Withdrawal recorded whenever a referral ends without a decline | `ACCEPT_IN_PRINCIPLE`: `withdrawnReferrals: [...movement.withdrawnReferrals, ...withdrawn]` → `withdrawnReferrals: movement.withdrawnReferrals` (drop the push entirely) | **Still passes** — vacuous for this walk/fixture, see below                                     |
+| 6   | Statutory form never disagrees with examination                | `HOLD_BED`: added `legalForm: { code: "1A", label: "Referral for examination", kind: "detention", dueAt: event.now + 1 }` to `updatedMovement`                           | **Fails** — real kill                                                                           |
+| 7   | No identifying text in rendered strings                        | `HOLD_BED`: inserted `return reject(state, event, "diagnosis of paranoid schizophrenia noted on file");` as the first statement in the case body                         | **Fails** — real kill, but required forcing a rejection to occur at all (see note)              |
 
 ### Invariant 1 — real kill, evidence
 
@@ -190,11 +190,11 @@ movement.declines` instead of appending the new entry). Rerun:
 the fixture already carries five pre-seeded `declines` entries for `WF-009`, and they cover
 **both** units the walk refers to — `rph-adult-secure` (`reason: "no_bed"`) and
 `fsh-adult-secure` (`reason: "specialling_unavailable"`). The walk's own `DECLINE` event on
-`fsh-adult-secure` merely adds a *second*, redundant decline entry for a unit that was already
+`fsh-adult-secure` merely adds a _second_, redundant decline entry for a unit that was already
 declined before the walk started. So the invariant's check — "every unit id present in
 `target.declines` is ineligible" — passes regardless of whether `DECLINE` itself records
 anything, because `eligibility()`'s `prior_decline` gate in `ward-eligibility.ts` is defined
-*directly* from `movement.declines` membership (`declined = movement.declines.some(d =>
+_directly_ from `movement.declines` membership (`declined = movement.declines.some(d =>
 d.unitId === unit.id)`, then `gates.every(pass)` requires that gate to pass). Any unit id that
 ends up in `declines` — by any mechanism, including one that never went through the reducer at
 all — is automatically ineligible by construction. This makes the invariant, as written against
@@ -342,18 +342,18 @@ it produces one real, walk-caused entry in `state.rejections` with no other side
 
 ### The new walk, step by step
 
-| # | Event | Role | Effect |
-|---|---|---|---|
-| 1 | `ACCEPT_IN_PRINCIPLE` scgh-adult-open | coordinator (wrong - real role is ward) | Rejected on the role check alone; `state.rejections` gains one entry, nothing else changes |
-| 2 | `REFER_TO_UNITS` -> [scgh-adult-open, arm-adult-open, fre-adult-open] | coordinator | `destination_review`, `referredUnitIds` = all three |
-| 3 | `DECLINE` scgh-adult-open, `no_bed` | ward | `referredUnitIds` = [arm, fre], one decline recorded |
-| 4 | `ACCEPT_IN_PRINCIPLE` fre-adult-open | ward | `accepted_awaiting_bed`, `acceptedUnitId = fre`, `referredUnitIds = []`, arm-adult-open auto-withdrawn with reason "withdrawn - placed at FRE Adult Open" |
-| 5 | `HOLD_BED` fre-adult-open | ward | `bed_held`, fre's `allocatable.value` 3->2 |
-| 6 | `HANDOVER_READY` | ed | `handover_ready`, transport created (escort required - legal status is not Voluntary) |
-| 7 | `TRANSPORT_ACCEPTED` | officer | `transport.acceptedAt` set |
-| 8 | `TRANSPORT_EN_ROUTE` | officer | `transport.enRouteAt` set |
-| 9 | `PATIENT_COLLECTED` | officer | `moving`, `transport.collectedAt` set |
-| 10 | `PATIENT_ARRIVED` | officer | `arrived`, fre's `empty.value` 4->3, `sexMix.Female` 9->10, closure recorded |
+| #   | Event                                                                 | Role                                    | Effect                                                                                                                                                    |
+| --- | --------------------------------------------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `ACCEPT_IN_PRINCIPLE` scgh-adult-open                                 | coordinator (wrong - real role is ward) | Rejected on the role check alone; `state.rejections` gains one entry, nothing else changes                                                                |
+| 2   | `REFER_TO_UNITS` -> [scgh-adult-open, arm-adult-open, fre-adult-open] | coordinator                             | `destination_review`, `referredUnitIds` = all three                                                                                                       |
+| 3   | `DECLINE` scgh-adult-open, `no_bed`                                   | ward                                    | `referredUnitIds` = [arm, fre], one decline recorded                                                                                                      |
+| 4   | `ACCEPT_IN_PRINCIPLE` fre-adult-open                                  | ward                                    | `accepted_awaiting_bed`, `acceptedUnitId = fre`, `referredUnitIds = []`, arm-adult-open auto-withdrawn with reason "withdrawn - placed at FRE Adult Open" |
+| 5   | `HOLD_BED` fre-adult-open                                             | ward                                    | `bed_held`, fre's `allocatable.value` 3->2                                                                                                                |
+| 6   | `HANDOVER_READY`                                                      | ed                                      | `handover_ready`, transport created (escort required - legal status is not Voluntary)                                                                     |
+| 7   | `TRANSPORT_ACCEPTED`                                                  | officer                                 | `transport.acceptedAt` set                                                                                                                                |
+| 8   | `TRANSPORT_EN_ROUTE`                                                  | officer                                 | `transport.enRouteAt` set                                                                                                                                 |
+| 9   | `PATIENT_COLLECTED`                                                   | officer                                 | `moving`, `transport.collectedAt` set                                                                                                                     |
+| 10  | `PATIENT_ARRIVED`                                                     | officer                                 | `arrived`, fre's `empty.value` 4->3, `sexMix.Female` 9->10, closure recorded                                                                              |
 
 `walk()` returns 11 states (`seen[0]` the seed, `seen[1..10]` one per event above).
 
@@ -440,25 +440,27 @@ with `git checkout -- src/components/ward-management/ward-flow-reducer.ts`, conf
 `git diff --stat` before moving to the next. None required an extreme or forced corruption this
 round — every one is a single realistic line a real regression could plausibly introduce.
 
-| # | Invariant | Reducer mutation | Result |
-|---|---|---|---|
-| 1 | Parallel referral cap | `REFER_TO_UNITS`: `referredUnitIds: [...event.unitIds]` -> `[...event.unitIds, "mutation-pad-a", "mutation-pad-b"]` | Fails |
-| 2 | Bed accounting (raw counts) | `HOLD_BED`: `value: unit.allocatable.value - 1` -> `value: unit.allocatable.value` (skip the decrement) | Fails - realistic this time; no longer needs an extreme `unit.beds + 1` corruption |
-| 3 | Movement never ownerless | `HOLD_BED`: added `owner: ""` to `updatedMovement` | Fails |
-| 4 | Declined unit never eligible | `DECLINE`: dropped the push into `declines` (`declines: movement.declines`) | Fails - genuinely, this time; WF-001 has no fixture fallback |
-| 5 | Withdrawal recorded (unit id + reason) | `ACCEPT_IN_PRINCIPLE`: dropped the push into `withdrawnReferrals` (`withdrawnReferrals: movement.withdrawnReferrals`) | Fails |
-| 6 | Statutory form vs. examination | `HOLD_BED`: added `legalForm: { code: "3B", ... }` to `updatedMovement` while WF-001's `examination` stays undefined | Fails |
-| 7 | No identifying text | `ACCEPT_IN_PRINCIPLE`'s withdrawal reason template appended a forbidden word: `withdrawn - placed at ${acceptedUnit.name}` -> `withdrawn - placed at ${acceptedUnit.name} (diagnosis pending)` | Fails - naturally, no forced rejection needed; caught by both invariants 5 and 7 |
+| #   | Invariant                              | Reducer mutation                                                                                                                                                                               | Result                                                                             |
+| --- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| 1   | Parallel referral cap                  | `REFER_TO_UNITS`: `referredUnitIds: [...event.unitIds]` -> `[...event.unitIds, "mutation-pad-a", "mutation-pad-b"]`                                                                            | Fails                                                                              |
+| 2   | Bed accounting (raw counts)            | `HOLD_BED`: `value: unit.allocatable.value - 1` -> `value: unit.allocatable.value` (skip the decrement)                                                                                        | Fails - realistic this time; no longer needs an extreme `unit.beds + 1` corruption |
+| 3   | Movement never ownerless               | `HOLD_BED`: added `owner: ""` to `updatedMovement`                                                                                                                                             | Fails                                                                              |
+| 4   | Declined unit never eligible           | `DECLINE`: dropped the push into `declines` (`declines: movement.declines`)                                                                                                                    | Fails - genuinely, this time; WF-001 has no fixture fallback                       |
+| 5   | Withdrawal recorded (unit id + reason) | `ACCEPT_IN_PRINCIPLE`: dropped the push into `withdrawnReferrals` (`withdrawnReferrals: movement.withdrawnReferrals`)                                                                          | Fails                                                                              |
+| 6   | Statutory form vs. examination         | `HOLD_BED`: added `legalForm: { code: "3B", ... }` to `updatedMovement` while WF-001's `examination` stays undefined                                                                           | Fails                                                                              |
+| 7   | No identifying text                    | `ACCEPT_IN_PRINCIPLE`'s withdrawal reason template appended a forbidden word: `withdrawn - placed at ${acceptedUnit.name}` -> `withdrawn - placed at ${acceptedUnit.name} (diagnosis pending)` | Fails - naturally, no forced rejection needed; caught by both invariants 5 and 7   |
 
 All seven are now real. Evidence for each:
 
 **#1**
+
 ```
  x never lets a movement hold more than the parallel cap 9ms
    -> expected 5 to be less than or equal to 3
 ```
 
 **#2**
+
 ```
  x keeps the accepted unit's raw bed counts exact across each bed-moving step 7ms
 AssertionError: expected 3 to be 2 // Object.is equality
@@ -468,6 +470,7 @@ AssertionError: expected 3 to be 2 // Object.is equality
 ```
 
 **#3**
+
 ```
  x never leaves a movement ownerless 9ms
 AssertionError: expected 0 to be greater than 0
@@ -475,6 +478,7 @@ AssertionError: expected 0 to be greater than 0
 ```
 
 **#4**
+
 ```
  x never returns a declined unit to that patient's eligible candidates 7ms
 AssertionError: expected false to be true // Object.is equality
@@ -482,11 +486,13 @@ AssertionError: expected false to be true // Object.is equality
 + Received: false
  at tests/ward-flow-contracts.test.ts:118:84
 ```
+
 (This is the assertion that the walk's own `DECLINE` landed in `target.declines` — with the
 push removed, `declines` never contains `scgh-adult-open`, so that check trips before the
 eligible-set check even runs.)
 
 **#5**
+
 ```
  x records the withdrawal the referral's own acceptance caused 4ms
 AssertionError: expected undefined to be defined
@@ -494,6 +500,7 @@ AssertionError: expected undefined to be defined
 ```
 
 **#6**
+
 ```
  x never lets the statutory form disagree with the examination 9ms
 AssertionError: expected undefined to be 'inpatient_order' // Object.is equality
@@ -503,6 +510,7 @@ AssertionError: expected undefined to be 'inpatient_order' // Object.is equality
 ```
 
 **#7** (both invariants it touches)
+
 ```
  x records the withdrawal the referral's own acceptance caused 6ms
 AssertionError: expected 'withdrawn - placed at FRE Adult Open ...' to be 'withdrawn - placed at FRE Adult Open' // Object.is equality

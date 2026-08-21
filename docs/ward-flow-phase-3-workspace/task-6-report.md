@@ -104,6 +104,7 @@ Step 1/2 (failing test, before any implementation):
 ✗ one source of truth > has no component reading the frozen fixture directly
 ✗ one source of truth > no longer exports a stage summary frozen at import time
 ```
+
 Offenders at that point: `ward-management-console.tsx`, `ward-management-modes.tsx`,
 `ward-management-network.tsx` — three, not the brief's predicted four (see Ambiguity).
 
@@ -119,13 +120,16 @@ npx vitest run tests/ward-flow-single-source.test.ts tests/route-reachability.te
 ```
 rm -rf .next/dev/types && npx tsc --noEmit -p tsconfig.json
 ```
+
 No output — clean.
 
 ```
 npm run lint
 ```
+
 Ran for real (not the `DATABASE_HEAVY_RUN_ADMISSION_BUSY` skip marker — the actual ESLint command
 line and file list printed). Output:
+
 ```
 C:\...\src\components\ward-management\ward-flow-reducer.ts
   1:15  warning  'Instant' is defined but never used  @typescript-eslint/no-unused-vars
@@ -136,6 +140,7 @@ C:\...\tests\ward-flow-reducer.test.ts
 ✖ 2 problems (0 errors, 2 warnings)
 ESLint found too many warnings (maximum: 0).
 ```
+
 Both warnings are the two pre-existing ones the brief named as not mine; nothing new appeared in
 any of the four files I touched.
 
@@ -146,6 +151,7 @@ PLAYWRIGHT_BASE_URL=http://localhost:3718 npx playwright test tests/ui-ward-coor
 ...
   24 passed (1.6m)
 ```
+
 Re-ran after the `npm run format` pass below and got the same result: `24 passed (58.3s)`.
 
 ## Step 6: what I actually saw in the browser
@@ -186,7 +192,7 @@ Sequence and exact output:
 5. Clicked the **Movements** rail link again (still no reload). **After** state: WF-001 was gone
    from "Placement requested" (count now excludes it) and present under "Destination review" —
    confirmed both by a DOM count query and visually in a full-page screenshot (`Destination
-   review` column, top card, reading "WF-001 · 1h 35m waiting · East Metro · Open · ED mental
+review` column, top card, reading "WF-001 · 1h 35m waiting · East Metro · Open · ED mental
    health team").
 
 Console/page-error listeners attached to the Playwright page logged nothing throughout the run.
@@ -202,9 +208,9 @@ forever, disagreeing with the coordinator screen the whole session.
 ## Next 16 docs read
 
 `node_modules/next/dist/docs/01-app/03-api-reference/01-directives/use-client.md`. The relevant
-line: *"You do not need to add the `'use client'` directive to every file that contains Client
+line: _"You do not need to add the `'use client'` directive to every file that contains Client
 Components... The `'use client'` directive defines the client-server boundary, and the components
-exported from such a file serve as entry points to the client."* All three files already carried
+exported from such a file serve as entry points to the client."_ All three files already carried
 `"use client"` at the top (from earlier tasks), so every function in them — including the six
 previously-server-shaped-looking view components in `ward-management-modes.tsx`
 (`QueueView`, `CapacityView`, `MovementsView`, `ExceptionsView`, `TransportView`,
@@ -241,7 +247,7 @@ of thing Next 16 could have changed.
    (`candidatesFor`, `settingFit`) that aren't React components and can't call `useWardFlow()`
    without a much larger threading change across component boundaries that isn't in the brief's
    file list. Task 5 (the precedent this task follows) made exactly the same choice — it swapped
-   the *coordinator* screen from `NOW_ANCHOR` to `now`, but left these three files exactly as they
+   the _coordinator_ screen from `NOW_ANCHOR` to `now`, but left these three files exactly as they
    were, on `NOW_ANCHOR`, and that state was already fully tested and green going into this task.
    Most importantly, the single-source-of-truth defect this task exists to fix — a referral made
    on one screen not showing up on another — is entirely about the `movements`/`units` arrays, not
@@ -482,7 +488,7 @@ round — the entire change is the one test file below.
 
 `tests/ward-flow-clock-consistency.dom.test.tsx` (fix round 1) pins exactly one call site: the
 movements board's card, `elapsedLabel(patient, now)` next to `movementHealthService`. The
-coordinator reverted a *different* call site — `DecisionPanel`'s own "Wait / eligibility" line,
+coordinator reverted a _different_ call site — `DecisionPanel`'s own "Wait / eligibility" line,
 also `elapsedLabel(patient, now)`, higher up the same file — and every existing test, including the
 new clock test, stayed green. That is the exact shape of the Task 1 defect named in the brief:
 fixing the records a reviewer happened to check rather than the rule that produced them. It matters
@@ -503,7 +509,7 @@ check). Added:
   (`const { now } = useWardFlow();`) and never the hook's own declaration. This mattered in
   practice: `ward-flow-provider.tsx` contains the literal substring `useWardFlow()` as part of
   `export function useWardFlow(): WardFlowContextValue {`, so a bare `/useWardFlow\(\)/` match
-  would have misidentified the file that *defines* the hook as a file that *calls* it.
+  would have misidentified the file that _defines_ the hook as a file that _calls_ it.
 - `importsNowAnchor(source)` —
   `/import\s*\{[^}]*\bNOW_ANCHOR\b[^}]*\}\s*from\s*"[^"]*ward-sites"/.test(source)`. Matches only a
   real named import from `ward-sites`, never a bare mention of the word. This also mattered in
@@ -513,7 +519,7 @@ check). Added:
   (`grep -n "NOW_ANCHOR" coordinator-screen.tsx` returns only the comment line) and again after, by
   confirming the new test passes with `coordinator-screen.tsx` included in the unfiltered scan.
 - A new `it("scans a non-empty set of ward-management source files for the clock-consistency
-  check")`, mirroring the existing zero-match guard rather than only relying on the earlier one —
+check")`, mirroring the existing zero-match guard rather than only relying on the earlier one —
   the coordinator asked for this specific check to fail honestly on its own if the scan ever
   matched nothing, not to inherit that guarantee implicitly from a sibling test.
 - The actual rule: `it("has no component holding both the live clock and the frozen epoch")` —
@@ -531,7 +537,7 @@ component), `ward-movements.ts` (authors the fixture against it, not a component
 separate `ALLOWED` list), `ward-flow-reducer.ts` (only mentions it in a comment, not a component),
 and `ward-flow-provider.tsx` — the one case worth naming explicitly. `ward-flow-provider.tsx`
 genuinely, correctly reads `NOW_ANCHOR` (`const now = NOW_ANCHOR + elapsed +
-state.clockOffsetMinutes;`) because it is the module that *derives* `now` in the first place — that
+state.clockOffsetMinutes;`) because it is the module that _derives_ `now` in the first place — that
 is not a bug, it is the definition. But it never calls its own `useWardFlow()` hook (it only
 defines and exports it), so `callsUseWardFlow()` returns `false` for that file and it was never
 going to be flagged regardless. No file today both calls `useWardFlow()` as a component and needs
@@ -679,6 +685,7 @@ its name matches what it now guards.
 1. **Helper indirection.** Added to `src/components/ward-management/ward-priority.ts` (a file
    already outside `ALLOWED`/`NOW_ANCHOR_ALLOWLIST`, so this exercises the general
    allow-list check, not the "component" framing the old rule used):
+
    ```ts
    import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
@@ -687,8 +694,10 @@ its name matches what it now guards.
      return NOW_ANCHOR;
    }
    ```
+
    Printed the edited lines back from the file before running. Ran
    `npx vitest run tests/ward-flow-single-source.test.ts` and got:
+
    ```
    FAIL  |node| tests/ward-flow-single-source.test.ts > one source of truth > restricts every read of NOW_ANCHOR to the named allow-list
    AssertionError: expected [ Array(1) ] to deeply equal []
@@ -696,25 +705,30 @@ its name matches what it now guards.
    +   "src\\components\\ward-management\\ward-priority.ts",
    + ]
    ```
+
    Reverted; `diff` against a pre-mutation backup copy of the file came back empty.
 
 2. **A direct import.** Added to `src/components/ward-management/coordinator/coordinator-screen.tsx`
    (chosen specifically because it already carries the doc-comment mention that must stay green):
+
    ```ts
    import { allEmergencyDepartments, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
    // MUTATION PROOF (Task 6 fix round 3, Finding 1) — direct import, will be reverted.
    void NOW_ANCHOR;
    ```
+
    Printed back before running. Ran the same command and got:
+
    ```
    FAIL  |node| tests/ward-flow-single-source.test.ts > one source of truth > restricts every read of NOW_ANCHOR to the named allow-list
    + [
    +   "src\\components\\ward-management\\coordinator\\coordinator-screen.tsx",
    + ]
    ```
+
    Reverted; `diff` against a pre-mutation backup came back empty. This also stands as the
    negative-control proof that the un-mutated file's own doc comment naming `NOW_ANCHOR` does
-   *not* trip the guard — the guard was green against that file both before this mutation and
+   _not_ trip the guard — the guard was green against that file both before this mutation and
    after reverting it.
 
 3. **Emptied allow-list, and separately a zero-match scan.** Changed
@@ -749,7 +763,7 @@ its name matches what it now guards.
 
 **The gap.** `const [selected, setSelected] = useState(movements[0]);` held the movement object
 itself, captured at mount. `setSelected(patient)` only ever ran from the row button (selecting a
-*different* row), never in response to the already-selected movement's own data changing
+_different_ row), never in response to the already-selected movement's own data changing
 elsewhere. Not exploitable today (nothing on `/ward-management/queue` dispatches, and the page
 remounts on navigation), but every route shares one `WardFlowProvider`, so a referral raised on
 the coordinator screen — or a future control on this very page — would never appear here without
@@ -854,22 +868,26 @@ before, once after the `npx prettier --write` pass below), both clean.
 
 Node-environment suite, separate invocation from jsdom (mixing the two hangs workers on this
 machine):
+
 ```
 npx vitest run tests/ward-flow-reducer.test.ts tests/ward-flow-contracts.test.ts tests/ward-model-phase3.test.ts tests/ward-flow-single-source.test.ts tests/ward-clock.test.ts
 ...
  Test Files  5 passed (5)
       Tests  53 passed (53)
 ```
+
 Matches the findings' stated baseline of 53 exactly (no test count changed — Finding 1 renamed
 and rewrote two existing tests rather than adding one).
 
 jsdom suite, separate invocation, including the new file:
+
 ```
 npx vitest run tests/ward-flow-clock-consistency.dom.test.tsx tests/ward-flow-provider.dom.test.tsx tests/ward-flow-queue-selection.dom.test.tsx
 ...
  Test Files  3 passed (3)
       Tests  6 passed (6)
 ```
+
 Up from the findings' stated baseline of 5 — the one new test in
 `ward-flow-queue-selection.dom.test.tsx`. Re-ran again after the `npx prettier --write` pass and
 got the identical result.
@@ -884,11 +902,13 @@ Browser gate — required this round since `ward-management-modes.tsx` (a compon
 routes) was touched. `npm run ensure` reported `Clinical KB is running at http://localhost:3718`
 (confirmed via `/api/local-project-id` returning this project's own `projectId` before trusting
 the port). Ran:
+
 ```
 PLAYWRIGHT_BASE_URL=http://localhost:3718 npx playwright test tests/ui-ward-coordinator.spec.ts tests/ui-ward-management.spec.ts --project=chromium --reporter=line
 ...
   24 passed (3.5m)
 ```
+
 Matches the findings' stated baseline of 24 exactly.
 
 `npm run lint` was not run this round: it was not named in the findings' required verification
@@ -914,7 +934,7 @@ base report; nothing in this round's diff touches either file those warnings are
    constant, fails when a real import is added.
 3. **`REFER_TO_UNITS` (not `RECORD_ESCALATION` or `RECORD_EXAMINATION`) is the dispatch used in
    the new Finding 2 test**, chosen after checking that it has the fewest preconditions that
-   still produce an *observable* change in what `QueueView`/`DecisionPanel` render — `WF-001`'s
+   still produce an _observable_ change in what `QueueView`/`DecisionPanel` render — `WF-001`'s
    fixture stage (`placement_requested`) is directly referable, and the resulting
    `destinationUnit` change flips a badge string already visible on screen, rather than setting a
    field (like `escalation.contact`) nothing on this route currently displays.
@@ -923,7 +943,7 @@ base report; nothing in this round's diff touches either file those warnings are
    namespace-import evasion named in the findings' prose is covered by the same code path as the
    emptied-allow-list proof (both exercise `readsNowAnchor`'s bare-identifier match rather than
    any import-syntax-specific regex, since the new implementation has no import-syntax-specific
-   regex left to separately test) — the *general* identifier scan already covers a property
+   regex left to separately test) — the _general_ identifier scan already covers a property
    access on a namespace import the same way it covers a bare read, since it doesn't parse import
    forms at all. I verified this by inspecting `readsNowAnchor`'s implementation rather than
    running a fourth mutation, since it isn't in the required list; flagging that as a check I did
@@ -1117,7 +1137,7 @@ as a read. Restored from backup, diff-clean.
    resource contention rather than a real regression — this test-only change touches nothing these
    `.dom.test.tsx` files import. Re-ran a third time with `VITEST_MAX_WORKERS=1` (an existing env
    override read by `vitest.config.*`) to remove the contention variable: **`Test Files  3 passed
-   (3)`** / **`Tests  6 passed (6)`**, exit 0. Matches the stated baseline exactly; the two prior
+(3)`** / **`Tests  6 passed (6)`**, exit 0. Matches the stated baseline exactly; the two prior
    attempts are recorded here as the flake they were, not hidden.
 5. **Guard runtime, before vs. after.** Two clean back-to-back measurements, each vitest's own
    reported `tests` duration for the whole 5-test file (not wall-clock, which includes ~1-2s of
@@ -1127,9 +1147,9 @@ as a read. Restored from backup, diff-clean.
    - **v5 (parser + pre-filter, this round, first clean measurement immediately after
      implementing):** `tests 7.96s`.
    - **v5, final confirmation run after all proofs and formatting:** `tests 5.07s`.
-   The pre-filter made it substantially faster, as expected — the parser only ever runs on the 6
-   files that contain the substring `NOW_ANCHOR` at all, instead of every scannable file under
-   `src` being character-scanned. It was never slower than v4 in any measurement this round.
+     The pre-filter made it substantially faster, as expected — the parser only ever runs on the 6
+     files that contain the substring `NOW_ANCHOR` at all, instead of every scannable file under
+     `src` being character-scanned. It was never slower than v4 in any measurement this round.
 
 Formatted with `npx prettier --write tests/ward-flow-single-source.test.ts` — reported `unchanged`
 (already correctly formatted). `git status --porcelain` shows only

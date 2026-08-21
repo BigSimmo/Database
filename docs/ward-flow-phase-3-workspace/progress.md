@@ -90,6 +90,7 @@ Task 1: complete. Commits f3b1f74f0, 39042cd61. Reviewer: APPROVED / APPROVED, n
 BASE 39042cd61. Brief: task-2-brief.md. Dispatched.
 
 Implementer returned DONE at 3b76b093e — 13 tests, not the brief's stated 12 (the brief's own verbatim test file always had 13; a plan miscount, not a defect). Verified independently: 13/13 pass, tsc clean. Mutation-tested four things myself, each applied and reverted in isolation:
+
 - seed aliases the fixture instead of `structuredClone`: KILLED "copies the fixture rather than aliasing it".
 - role gate short-circuited to `false`: KILLED "refuses an event raised by the wrong role". The implementer's report doubted this test; the doubt is wrong.
 - parallel-referral cap check removed: KILLED "never refers above the parallel cap".
@@ -120,6 +121,7 @@ Task 2: complete. Commits 3b76b093e, e7faa7b5a. Reducer tests 13 -> 21; 43/43 ac
 Open question for the user, not blocking: what the post-examination countdown should represent and over what period. `EXAMINATION_TO_BED_WINDOW_MINUTES` holds 240 until answered.
 
 ### Task 3 — the contracts
+
 BASE e7faa7b5a. Brief: task-3-brief.md. Dispatched.
 
 Implementer returned DONE at f01a4f8f3 — 7 contract invariants, not the brief's stated 6 (second plan miscount; the brief's verbatim code always had 7). It self-reported, unprompted, that two of the seven were vacuous and two more only died under forced mutations. That disclosure is the right outcome and saved a review round.
@@ -133,6 +135,7 @@ Also instructed: stop routing invariant 2 through `unitCapacity()`, which is def
 Fix round 1 dispatched.
 
 Fix round 1 returned at cbdd47f71 — walk rebuilt on WF-001, 28/28 across contracts and reducer. Verified the two invariants that were vacuous, by mutating the reducer writes they depend on:
+
 - `ACCEPT_IN_PRINCIPLE` stops appending to `withdrawnReferrals`: KILLED "records the withdrawal the referral's own acceptance caused".
 - `DECLINE` stops appending to `declines`: KILLED "never returns a declined unit to that patient's eligible candidates".
 
@@ -149,9 +152,11 @@ Ruling F4 — correct the plan rather than the code. Task 3's step now states 7 
 Task 3: complete. Commits f01a4f8f3, cbdd47f71, plus plan reconciliation e2b72a300. 28/28 across contracts and reducer; tsc clean.
 
 ### Task 4 — the provider, the clock and the layout
+
 BASE e2b72a300. Brief: task-4-brief.md. First task needing a running dev server and Playwright. Dispatched.
 
 ### Task 4 — the provider, the clock and the layout
+
 Implementer returned DONE at 0612fdfa0. Unit tests 4/4 (it added 2 beyond the brief's 2). Playwright: **20 passed, 1 failed**, not the 21 the plan requires. Two deviations it disclosed, both accepted: the DOM test is named `ward-flow-provider.dom.test.tsx` because this repo's Vitest config only collects `*.dom.test.tsx` for jsdom — under the brief's literal name it would never have run at all, which is the "test that cannot fail" shape in its purest form; and the brief's `useRef`-read-during-render clock sketch trips this repo's `react-hooks/refs` lint rule, so it uses a lazy `useState` initializer with the same compute-once-at-mount guarantee.
 
 **The failing journey is not Task 4's, and it is not "pre-existing" in the sense the implementer meant.** It reported reproducing the failure with its own files removed, which rules out Task 4 but not Tasks 1-3 — and Tasks 1-3 are entirely offline, so no Playwright ran across three tasks. I reproduced it and read the error: `ui-ward-coordinator.spec.ts:269` expects the coordinator queue's top row to show "passed its deadline"; the top row is WF-017, whose deadline is no longer in the past. Before Task 1, WF-017 was a 3A with `dueAt: NOW_ANCHOR - 25`. Task 1 converted it to 3B and set `dueAt: NOW_ANCHOR + 5`, removing the only breach at the top of the queue.
@@ -164,7 +169,7 @@ Fix round 2 dispatched to the Task 1 implementer, with the browser gate as its a
 
 Task 1 fix round 2 returned at 2d59219d0. Verified myself rather than from the report: all three 3B deadlines are now written literally as `NOW_ANCHOR <examination offset> + EXAMINATION_TO_BED_WINDOW_MINUTES` — WF-003 examined -60, WF-009 examined -100, WF-017 examined -260 and so 20 minutes past its window. 61/61 across the four unit suites, tsc clean, and I ran the browser gate myself: **21 passed (44.5s)**. Mutating one deadline by a single minute kills "derives every 3B deadline from its own examination rather than inventing one".
 
-The implementer surfaced a second, genuinely pre-existing issue while fixing the first: `WF-303`, a *generated* movement from Phase 1/2's `routineMovements` formula, has always carried a coincidentally-breached tier-1 deadline, previously masked by WF-009's invented one. It resolved the ordering by moving WF-009's `examination.at` — within the latitude the brief gave it — rather than touching WF-303 or relaxing the test. WF-303's own breach stands, untouched and out of scope. Worth carrying forward: a generated movement whose index-derived deadline lands in the past is not wrong, but nothing states it deliberately.
+The implementer surfaced a second, genuinely pre-existing issue while fixing the first: `WF-303`, a _generated_ movement from Phase 1/2's `routineMovements` formula, has always carried a coincidentally-breached tier-1 deadline, previously masked by WF-009's invented one. It resolved the ordering by moving WF-009's `examination.at` — within the latitude the brief gave it — rather than touching WF-303 or relaxing the test. WF-303's own breach stands, untouched and out of scope. Worth carrying forward: a generated movement whose index-derived deadline lands in the past is not wrong, but nothing states it deliberately.
 
 Task 4 + Task 1 fix round 2 packaged together for review as e2b72a300..2d59219d0.
 
@@ -183,13 +188,14 @@ Recovered fix, verified before committing: `elapsedMinutesSinceMount(mountedAt, 
 Task 4: complete. Commits 0612fdfa0, 9ae334230 (plus Task 1's fix round 2 at 2d59219d0).
 
 ### Task 5 — the coordinator rewire
+
 BASE 9ae334230. Brief: task-5-brief.md. First screen task: the coordinator screen goes live and Confirm becomes Refer. Screenshots owed to the user at the end of this task.
 
 Implementer returned DONE_WITH_CONCERNS at 4d36099ca. Verified myself: browser gate **23 passed (49.1s)** — 21 pre-existing plus 2 new; `tsc --noEmit` clean after deleting the corrupted `.next/dev/types/validator.ts` artefact (the known trap, hit again); and I drove the screen in a real browser rather than reading test output. The Refer control reports `aria-disabled="true"` before a ward is picked and drops it after; referring writes "Referred by a human coordinator to RPH Adult Secure at 10:42. Up to 3 parallel referrals allowed; no bed has been allocated automatically" onto the screen; the flow diagram picks up "Outstanding referral". Four screenshots captured and three sent to the user.
 
 Two things the screenshots confirmed beyond the tests: WF-017 renders "Form 3B passed its deadline 20 min ago", so ruling F5's derived deadline reaches the surface; and WF-303 renders "Form 1A passed its deadline 1 min ago", the coincidentally-breached generated movement, still unexplained by anything in the data.
 
-Implementer's concern 2 is the one that matters: it left `flow-diagram.tsx` untouched, so the diagram still uses the older `isMoreRestrictiveThanRequired` / `MORE_RESTRICTIVE_NOTE` pair while the shortlist uses the new `restrictionNotice`. The user ruled explicitly that a voluntary patient on a locked ward gets its own flag, and only the new function makes that distinction. Not ruling on it yet — the reviewer is asked to establish whether the diagram is ever *wrong* or merely less specific, and to recommend closing it here or at Task 8.
+Implementer's concern 2 is the one that matters: it left `flow-diagram.tsx` untouched, so the diagram still uses the older `isMoreRestrictiveThanRequired` / `MORE_RESTRICTIVE_NOTE` pair while the shortlist uses the new `restrictionNotice`. The user ruled explicitly that a voluntary patient on a locked ward gets its own flag, and only the new function makes that distinction. Not ruling on it yet — the reviewer is asked to establish whether the diagram is ever _wrong_ or merely less specific, and to recommend closing it here or at Task 8.
 
 It also found and fixed a real regression mid-task: its first `eligibleCandidates` reordering changed candidate membership rather than order and broke the network route's test. Reviewer is checking whether the landed fix is itself pinned.
 
@@ -218,6 +224,7 @@ It killed all three new tests itself, including the sharpest check available on 
 Task 5: complete. Commits 4d36099ca, 868853b58.
 
 ### Task 6 — the other ten routes
+
 BASE 868853b58. Brief: task-6-brief.md. Starting conditions confirmed: `export const movementStageSummary = stageSummaries(wardMovements)` still at ward-derivations.ts:55, and exactly three components still import the fixture directly — `ward-management-console.tsx`, `ward-management-modes.tsx`, `ward-management-network.tsx`. Dispatched.
 
 Implementer returned DONE at af90428ce — 16/16 unit, tsc clean, browser gate 24 passed. Its Step 6 browser proof is the evidence the task actually needed: it referred WF-001 to SCGH Adult Open on the coordinator, then clicked the Priority-queue and Movements rail links without reloading, and WF-001 moved from "Placement requested" to "Destination review" on the movements board while the queue page's badge flipped from "Suggested destination" to "Eligibility check". It also widened the static single-source scan to `.ts` as instructed, and reported three offenders where the brief predicted four rather than fabricating the fourth.
@@ -238,7 +245,7 @@ Fix round 2 dispatched.
 
 Fix round 2 returned at 18f57736f — 57 ward Vitest, tsc clean, browser gate deliberately not re-run and said so plainly (test-file-only change). Verified the guard myself with the mutation that previously survived: reverting the detail-panel `elapsedLabel(patient, now)` at ward-management-modes.tsx:200 now kills "has no component holding both the live clock and the frozen epoch". The class is retired, not just the instance. `CLOCK_EXEMPT` is empty by design — `ward-flow-provider.tsx` reads `NOW_ANCHOR` legitimately but never calls its own `useWardFlow()`, so it was never in scope for the rule.
 
-Task reviewer dispatched on 868853b58..18f57736f, with its primary assignment being what the guard does *not* catch: a component importing a helper that itself reads the frozen epoch, a route that never calls `useWardFlow()` and so sits outside the rule entirely, or a frozen value obtained some other way. Also asked to enumerate all ten routes for `useMemo` dependency arrays omitting `now` and for helpers still carrying a defaulted time parameter, since a default is how a frozen value creeps back.
+Task reviewer dispatched on 868853b58..18f57736f, with its primary assignment being what the guard does _not_ catch: a component importing a helper that itself reads the frozen epoch, a route that never calls `useWardFlow()` and so sits outside the rule entirely, or a frozen value obtained some other way. Also asked to enumerate all ten routes for `useMemo` dependency arrays omitting `now` and for helpers still carrying a defaulted time parameter, since a default is how a frozen value creeps back.
 
 Task 6 reviewer: APPROVED (spec) / CHANGES REQUESTED (quality), both findings non-blocking. It verified all nine routes individually — zero `wardMovements`, `allUnits`, `movementStageSummary` or `NOW_ANCHOR` reads remain, `useMemo` dependency arrays correct, `candidatesFor` and `settingFit` take `now` as a required parameter rather than a default — and checked the Next 16 server/client boundary against the doc text directly.
 
@@ -276,11 +283,11 @@ What the code does today, read rather than assumed:
 - Seven surfaces read `legalForm.dueAt` and treat it as statutory: the priority queue's breach row, the shortlist panel's `"passed its deadline N min ago"`, `buildActionInbox`'s "Legal timing breached" exception, the pressure strip's breach counts, the console's "due <time>" line, and `operationalScore`'s 30-point "Statutory timing" factor.
 - So a 3B patient currently renders a fabricated statutory breach and is awarded 30 priority points for it. That is the "surface stating something the data does not support" class this phase exists to catch, now confirmed clinically false by the user rather than merely suspected.
 
-What is already right and must not be rebuilt: `elapsedLabel` counts up from `openedAt`, and `operationalScore`'s "Time waiting" factor already awards up to 40 points at one point per 15 minutes elapsed. That *is* the user's rule. The defect is the fabricated deadline layered on top of it, not a missing count-up.
+What is already right and must not be rebuilt: `elapsedLabel` counts up from `openedAt`, and `operationalScore`'s "Time waiting" factor already awards up to 40 points at one point per 15 minutes elapsed. That _is_ the user's rule. The defect is the fabricated deadline layered on top of it, not a missing count-up.
 
 Ruling F15 — delete the modelled post-examination deadline rather than retune its value, and make `LegalForm.dueAt` optional so a 3B form can honestly carry none. Retuning the constant would keep every surface asserting a statutory breach the Act does not impose; the user's answer says the quantity is not a deadline, so no value for it is correct. Making `dueAt` optional forces each of the seven readers to handle absence explicitly instead of rendering a fabricated number, which is the same discipline applied to the shortlist's missing-record case. The 1A (awaiting examination) countdown is untouched and stays a countdown — the user's answer was scoped to the post-examination case, and this assumption is stated back to him rather than buried. Cost if wrong: if a real post-examination timeframe is later supplied, it returns as an optional field on the same type plus one derivation — the readers' absence handling stays correct either way.
 
-Ruling F16 — land this as its own task inserted between Task 6 and Task 7, not as a controller-side edit and not deferred into Task 11. Two reasons. The Task 6 fix implementer is live in `ward-management-modes.tsx` and `tests/ward-flow-single-source.test.ts` right now, so editing alongside it would collide. More importantly Tasks 8 to 12 render this quantity — Task 11 *is* the ED screen — so correcting the meaning after they are built means retrofitting five screens instead of one model. Controller-side fixes also skip review, which is the one thing this phase's defect record says never to do. Cost if wrong: one extra task-and-review cycle before Task 7 starts.
+Ruling F16 — land this as its own task inserted between Task 6 and Task 7, not as a controller-side edit and not deferred into Task 11. Two reasons. The Task 6 fix implementer is live in `ward-management-modes.tsx` and `tests/ward-flow-single-source.test.ts` right now, so editing alongside it would collide. More importantly Tasks 8 to 12 render this quantity — Task 11 _is_ the ED screen — so correcting the meaning after they are built means retrofitting five screens instead of one model. Controller-side fixes also skip review, which is the one thing this phase's defect record says never to do. Cost if wrong: one extra task-and-review cycle before Task 7 starts.
 
 Ruling F17 — the Playwright assertion at `tests/ui-ward-coordinator.spec.ts:269`, which ruling F5 satisfied by engineering WF-017's 3B breach to the top of the queue, must be re-satisfied from a genuinely breached 1A instead. Checked the fixture: WF-001 (`dueAt: NOW_ANCHOR - 15`) and the movement at ward-movements.ts:114 (`dueAt: NOW_ANCHOR - 40`) both carry real breached examination deadlines, so a true breach is available without inventing one. Under no circumstances relax that assertion to keep it green — it is the check that a breached statutory deadline reaches the surface, and it is now the only kind of legal breach the prototype claims. Cost if wrong: the queue's top row is a different patient in the demo.
 
@@ -298,7 +305,7 @@ Mutation-tested the new guard myself with three mutations of my own, each printe
 
 The `QueueView` fix matches `WardNetworkWorkspace`: id in state, `useMemo` `.find()` against live `movements`, and an explicit "No synthetic movement matches the current selection" panel instead of any fallback record. The absence guard sits in the JSX, so hooks above it still run unconditionally.
 
-Ruling F18 — the rebuilt guard is scoped to one directory while its name claims the whole rule, so fix round 4 is required rather than closing the task here. I probed it: a file at `src/lib/ward-probe/frozen.ts` importing `NOW_ANCHOR` and re-exporting a frozen elapsed helper leaves the suite **5 passed**, fully green. The test is named "restricts every read of NOW_ANCHOR to the named allow-list" and it restricts every read *inside `src/components/ward-management`*. This repo has roughly 200 modules under `src/lib`, and a ward screen importing a time helper from there is an ordinary thing to do, so the escape is not exotic. It is also the identical defect to F12 one layer out — a check promising more than it delivers, which is precisely what stops anyone looking harder — and the fix is to widen the scan to `src` while keeping the fixture-import rule where it is. Cost if wrong: the scan walks a few hundred more files and the allow-list needs path-qualified keys rather than bare basenames to avoid a collision.
+Ruling F18 — the rebuilt guard is scoped to one directory while its name claims the whole rule, so fix round 4 is required rather than closing the task here. I probed it: a file at `src/lib/ward-probe/frozen.ts` importing `NOW_ANCHOR` and re-exporting a frozen elapsed helper leaves the suite **5 passed**, fully green. The test is named "restricts every read of NOW_ANCHOR to the named allow-list" and it restricts every read _inside `src/components/ward-management`_. This repo has roughly 200 modules under `src/lib`, and a ward screen importing a time helper from there is an ordinary thing to do, so the escape is not exotic. It is also the identical defect to F12 one layer out — a check promising more than it delivers, which is precisely what stops anyone looking harder — and the fix is to widen the scan to `src` while keeping the fixture-import rule where it is. Cost if wrong: the scan walks a few hundred more files and the allow-list needs path-qualified keys rather than bare basenames to avoid a collision.
 
 Fix round 4 dispatched. Findings 1 and 2 look correct to me but have not been reviewed yet, so the scoped re-review after round 4 covers c8f7b22ec and the round-4 commit together rather than round 4 alone.
 
@@ -306,7 +313,7 @@ Fix round 4 dispatched. Findings 1 and 2 look correct to me but have not been re
 
 The fix round 4 implementer was terminated mid-run by a hard usage limit (resets 03:50 Perth), the same failure mode that ended the previous session. It had committed nothing, but unlike the earlier loss it left a complete, correct change in the working tree: `SRC_DIR = "src"`, path-qualified allow-list keys, a `normalizePath` helper for the Windows separator mismatch, and both test bodies rescoped. Its final self-instruction was to revert its last mutation — which it had in fact already done, and no probe directory survived.
 
-**My own error, recorded because it nearly cost the work.** Reaching for a proof run I ran `git checkout -- tests/ward-flow-single-source.test.ts` *before* taking a backup, which reverted the uncommitted round-4 work to HEAD and destroyed it. Nothing was stashed and nothing was committed, so git held no copy.
+**My own error, recorded because it nearly cost the work.** Reaching for a proof run I ran `git checkout -- tests/ward-flow-single-source.test.ts` _before_ taking a backup, which reverted the uncommitted round-4 work to HEAD and destroyed it. Nothing was stashed and nothing was committed, so git held no copy.
 
 Ruling F19 — reconstruct from the diff already read into context and apply it as a patch that git verifies, rather than retyping the file or re-dispatching under a usage limit. `git apply --check` passed, which means every context line matched the HEAD file byte-for-byte; only the added lines came from transcription, and the five mutation proofs below exercise exactly those. A hand-retyped file would have had no such verification, and re-dispatching was unavailable. Cost if wrong: a transcription error in an added line, which the proof set and `tsc` would have to catch — and did have to catch, since that is now the only thing standing behind those lines. Byte check: 8245 bytes, **0 CR bytes**, Prettier reports the file unchanged.
 
@@ -334,7 +341,7 @@ My reproduction: appended a plain `import { NOW_ANCHOR } from "@/components/ward
 
 Ruling F20 — replace the hand-rolled scanner with the TypeScript compiler's own parser behind a cheap substring pre-filter, rather than teaching the scanner about regex literals. Distinguishing a regex literal from a division operator requires the preceding token, which is the classic reason ad-hoc JavaScript scanners are wrong; a heuristic there would buy a fourth version of the same overclaim. Meanwhile only **6 files under all of `src` contain the string `NOW_ANCHOR` at all**, so `source.includes("NOW_ANCHOR")` discards every other file instantly and the exact parser runs on six. That is both more correct and faster than what it replaces, and it deletes the hand-rolled scanner rather than patching it. Cost if wrong: the test gains a `typescript` import (already a repo dependency, used by `tsc`) and the guard's correctness now rests on the same parser the build already trusts.
 
-Ruling F21 — treat the guard as load-bearing right now rather than parking this at the round cap. It would be defensible to park a tripwire nothing currently trips: no file under `src` reads `NOW_ANCHOR` outside the allow-list today, and the false negative only fires in a file carrying a quote-bearing regex ahead of the read, which the two known files do and a new ward screen would not. But Tasks 7 to 12 add six screens in exactly the area this guard polices, so it has to work *during* the remaining work, not after it. Cost if wrong: one more fix round spent on a test file at the cap.
+Ruling F21 — treat the guard as load-bearing right now rather than parking this at the round cap. It would be defensible to park a tripwire nothing currently trips: no file under `src` reads `NOW_ANCHOR` outside the allow-list today, and the false negative only fires in a file carrying a quote-bearing regex ahead of the read, which the two known files do and a new ward screen would not. But Tasks 7 to 12 add six screens in exactly the area this guard polices, so it has to work _during_ the remaining work, not after it. Cost if wrong: one more fix round spent on a test file at the cap.
 
 Ruling F22 — dispatch round 5 on the same model tier rather than escalating as the skill's rounds 4-5 rule directs. The escalation exists for an implementer that cannot see its own problem; here the diagnosis and the replacement design are both settled and written down, which makes this transcription plus proof rather than design. The account also hit a hard usage limit mid-round-4, so spending a more expensive tier on specified work risks losing the round to the ceiling again. Cost if wrong: one round at the cap, after which I adjudicate rather than dispatch again.
 
@@ -397,7 +404,7 @@ The implementer's judgment call is sound and I checked the diff rather than the 
 **Two findings of my own, carried into the task review rather than fixed here:**
 
 1. `tests/ui-ward-coordinator.spec.ts` around line 266 still comments "WF-017 (first row) has a passed Form 2A deadline". That is now wrong twice over — the first row is WF-303, and its form is 1A, not 2A. The "2A" was already wrong before this task. An untrue comment beside a passing assertion is what this phase has repeatedly ruled is the same defect class as an untrue surface.
-2. **The demo now leads with an accident.** WF-303 is a *generated* movement whose breached deadline comes from the `index % 7` formula in `routineMovements`, not from anything authored deliberately — the Task 1 fix round flagged exactly this and left it out of scope. It has now been promoted to the top of the queue and is the first thing anyone sees. A synthetic prototype whose headline case is unintentional is not wrong, but nothing states it, and Task 12's guided journey may well walk a user straight into it.
+2. **The demo now leads with an accident.** WF-303 is a _generated_ movement whose breached deadline comes from the `index % 7` formula in `routineMovements`, not from anything authored deliberately — the Task 1 fix round flagged exactly this and left it out of scope. It has now been promoted to the top of the queue and is the first thing anyone sees. A synthetic prototype whose headline case is unintentional is not wrong, but nothing states it, and Task 12's guided journey may well walk a user straight into it.
 
 ### Task 6A review — spec PASS, quality PASS WITH IMPORTANT FINDINGS
 

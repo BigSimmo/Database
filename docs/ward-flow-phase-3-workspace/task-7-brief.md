@@ -52,4 +52,3 @@ git commit -m "feat(ward-flow): pin the phone referral bar instead of scrolling 
 Tasks 1–7 produce complete, coherent software: the coordinator screen is live, every existing route agrees with it, the reducer is proved, and the phone works. **If the phase is sprawling, stop here and re-plan.** Tasks 8–12 add the three new screens.
 
 ---
-

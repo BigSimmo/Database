@@ -40,7 +40,7 @@ confirmed clean before the next mutation. Working tree is clean now.
    invariant 6 (statutory form vs. examination, `:270`, injecting `legalForm.code = "3B"` with no
    examination) all die on a single realistic line each, confirmed independently. No issues found.
 4. Walk shape: confirmed by direct probe (temporary test file, deleted after, `git status
-   --porcelain` clean) that the unmutated walk reaches `stage: "arrived"` and that
+--porcelain` clean) that the unmutated walk reaches `stage: "arrived"` and that
    `state.rejections` has exactly one real entry, not zero — so no assertion in this suite is
    silently guarded by an always-false `if` or looping over an always-empty array. Invariant 6's
    `if (code === "1A")` / `if (code === "3B")` branches are also naturally exercised by other

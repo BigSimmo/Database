@@ -1,4 +1,3 @@
-import type { Instant } from "@/components/ward-management/ward-clock";
 import { EVENT_ROLE, type WardFlowEvent, type WardFlowRole } from "@/components/ward-management/ward-flow-events";
 import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
 import type { Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";

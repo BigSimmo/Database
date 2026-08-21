@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
-import { PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 
 const NOW = NOW_ANCHOR;
 

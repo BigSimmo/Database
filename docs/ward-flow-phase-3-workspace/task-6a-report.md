@@ -517,9 +517,7 @@ WF-001 rank 6 (score 46). Before touching anything I checked this against the re
 than assuming it — first surprise: `grep -rn "WF-303" src/ tests/` returns **zero matches**.
 WF-303 is not a hand-authored id; it is produced at runtime by `routineMovements(30, 300)` in
 `ward-movements.ts` (`id: \`WF-${String(index).padStart(3, "0")}\``, ids WF-300..WF-329), so no
-grep for the literal string will ever find it. I ran the real `queueOrder`/`operationalScore`
-against the real `wardMovements` fixture and `NOW_ANCHOR` with `npx tsx` (a scratch script under
-`scripts/_tmp-check-queue-order.mts`, deleted after use, never committed):
+grep for the literal string will ever find it. I ran the real `queueOrder`/`operationalScore`against the real`wardMovements`fixture and`NOW_ANCHOR`with`npx tsx`(a scratch script under`scripts/_tmp-check-queue-order.mts`, deleted after use, never committed):
 
 ```
 Rank | id | urgency(tier) | score
@@ -566,11 +564,13 @@ the diff itself is quoted below under "Mutation testing"; see the diff excerpt t
 ### Important 1, Site B — same file, "orders by clinical tier first...", the breach-line comment
 
 Before:
+
 ```
 // silently for neither direction (Task 5 review Important 3): WF-017 (first row) has a
 // passed Form 2A deadline and must show the breach line; WF-009 (second row) has an
 // unbreached deadline and must not.
 ```
+
 Three errors, all now confirmed against the real fixture rather than assumed: (1) the first row
 is WF-303, not WF-017; (2) the form code has always been **1A**, never 2A — checked every
 `dueAt`-carrying `legalForm` in `ward-movements.ts` (`grep -n "dueAt\|code:"`), every one is code
@@ -626,25 +626,31 @@ comment.
 **Site A (Playwright, code change).** Single edit:
 `ward-queue-row-WF-017` → `ward-queue-row-WF-017X-MUTATION` at
 `tests/ui-ward-coordinator.spec.ts:651`. Printed back after editing:
+
 ```
     await queue.locator('[data-testid="ward-queue-row-WF-017X-MUTATION"]').click();
 ```
+
 Ran `PLAYWRIGHT_BASE_URL=http://localhost:3718 npx playwright test tests/ui-ward-coordinator.spec.ts -g "shows a failing gate as a failure and never auto-allocates" --project=chromium --reporter=line`:
+
 ```
 Error: locator.click: Test timeout of 45000ms exceeded.
 ...
   1 failed
 ```
+
 Reverted; printed back:
+
 ```
     await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
 ```
+
 `git diff --stat -- tests/ui-ward-coordinator.spec.ts` after revert showed the full intended diff
 only (no leftover mutation). Re-ran both Site A and Site B tests together:
 `2 passed (40.1s)`.
 
 Note on scope of this mutation: the block's own runtime assertions (gate count = 8, per-gate text
-matches `data-pass`) are generic and would pass against *any* movement whose shortlist renders 8
+matches `data-pass`) are generic and would pass against _any_ movement whose shortlist renders 8
 gate rows — including WF-303, today's actual row 1, which also has an all-passing default
 candidate. So reverting to `.first()` would **not** turn this test red on the current fixture;
 that itself is exactly the "test that cannot fail by accident" trap the surrounding comments
@@ -662,6 +668,7 @@ before.
 added `dueAt: NOW_ANCHOR + ED_ACCESS_TARGET_MINUTES` to WF-009's Form 3B — literally "a LegalForm
 given a dueAt sourced from ED_ACCESS_TARGET_MINUTES", the exact scenario named in the brief.
 Printed back after editing:
+
 ```
 import { ED_ACCESS_TARGET_MINUTES, MOVEMENT_STAGES } from "@/components/ward-management/ward-model";
 ---
@@ -672,7 +679,9 @@ import { ED_ACCESS_TARGET_MINUTES, MOVEMENT_STAGES } from "@/components/ward-man
       dueAt: NOW_ANCHOR + ED_ACCESS_TARGET_MINUTES,
     },
 ```
+
 Ran `npx vitest run tests/ward-flow-single-source.test.ts`:
+
 ```
  ❯ |node| tests/ward-flow-single-source.test.ts (9 tests | 2 failed) 66324ms
      × never lets a file that constructs a LegalForm reference ED_ACCESS_TARGET_MINUTES 21465ms
@@ -683,7 +692,9 @@ Ran `npx vitest run tests/ward-flow-single-source.test.ts`:
  Test Files  1 failed (1)
       Tests  2 failed | 7 passed (9)
 ```
+
 Both new guards caught the offender by file path. Reverted both lines; printed back:
+
 ```
 import { MOVEMENT_STAGES } from "@/components/ward-management/ward-model";
 ---
@@ -693,6 +704,7 @@ import { MOVEMENT_STAGES } from "@/components/ward-management/ward-model";
       kind: "detention",
     },
 ```
+
 `git diff --stat -- src/components/ward-management/ward-movements.ts` after revert: empty (no
 output at all — the file is byte-identical to its pre-mutation state). Re-ran the suite:
 `Test Files 1 passed (1)` / `Tests 9 passed (9)`.
@@ -702,9 +714,9 @@ output at all — the file is byte-identical to its pre-mutation state). Re-ran 
 1. `npx tsc --noEmit -p tsconfig.json`: no output, exit 0. No `.next/dev/types/` corruption
    encountered.
 2. `npx vitest run tests/ward-flow-reducer.test.ts tests/ward-flow-contracts.test.ts
-   tests/ward-model-phase3.test.ts tests/ward-model.test.ts tests/ward-flow-single-source.test.ts
-   tests/ward-clock.test.ts tests/ward-priority.test.ts tests/ward-pressure.test.ts
-   tests/ward-derivations.test.ts tests/ward-management.test.ts`:
+tests/ward-model-phase3.test.ts tests/ward-model.test.ts tests/ward-flow-single-source.test.ts
+tests/ward-clock.test.ts tests/ward-priority.test.ts tests/ward-pressure.test.ts
+tests/ward-derivations.test.ts tests/ward-management.test.ts`:
    ```
    Test Files  10 passed (10)
         Tests  118 passed (118)
@@ -717,7 +729,7 @@ output at all — the file is byte-identical to its pre-mutation state). Re-ran 
    - `tests/ward-flow-provider.dom.test.tsx`: **six consecutive attempts** returned
      `Test Files no tests / Tests no tests / Errors 1 error` —
      `Error: [vitest-pool]: Failed to start forks worker ... Timeout waiting for worker to
-     respond`, always exactly 60.2–60.4s. `tasklist` (eventually, after a ~20 minute hang of its
+respond`, always exactly 60.2–60.4s. `tasklist` (eventually, after a ~20 minute hang of its
      own) showed 23 concurrent `node.exe` processes on this machine, two of them 660MB/180MB —
      genuine host contention, not a file-specific problem (the very next file,
      `ward-flow-queue-selection.dom.test.tsx`, failed the same way on its first attempt too).
@@ -734,8 +746,8 @@ output at all — the file is byte-identical to its pre-mutation state). Re-ran 
      count, per the brief's own instruction that the count is the evidence.
 4. Browser gate:
    `PLAYWRIGHT_BASE_URL=http://localhost:3718 npx playwright test
-   tests/ui-ward-coordinator.spec.ts tests/ui-ward-management.spec.ts --project=chromium
-   --reporter=line`:
+tests/ui-ward-coordinator.spec.ts tests/ui-ward-management.spec.ts --project=chromium
+--reporter=line`:
    ```
    Running 24 tests using 1 worker
    ...

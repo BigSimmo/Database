@@ -6,7 +6,7 @@
   difference is the brief's leading `// tests/ward-flow-reducer.test.ts` comment line, not present
   in the committed file). All named interfaces produced (`WardFlowRole`, `WardFlowEvent`,
   `WardFlowState`, `seedWardFlowState`, `wardFlowReducer`, `EVENT_ROLE`). 13/13 tests pass, `tsc
-  --noEmit` clean. All five load-bearing `referredUnitIds` entries and both WF-009/WF-017 seed
+--noEmit` clean. All five load-bearing `referredUnitIds` entries and both WF-009/WF-017 seed
   stages (`destination_review`, needed for the "last bed" and re-referral tests) are untouched —
   this diff adds only new files, never edits the fixture. No auto-allocation, no `Math.random()`,
   no wall-clock read, `now` arrives on every event. Nothing required by the brief is missing;
@@ -27,7 +27,7 @@
    suites: 62/62 still pass. This is the branch that moves a patient's legal form from `1A` to
    `3B` — a detention status change, the single highest-consequence transition in the file per the
    brief's own ranking cue — and it has zero test exposure anywhere in the repo (`grep -rn
-   RECORD_EXAMINATION tests/` returns nothing). The `community_order`/`revoked` closing branch is
+RECORD_EXAMINATION tests/` returns nothing). The `community_order`/`revoked` closing branch is
    equally unpinned. Cheapest pinning test: seed has multiple `legalForm.code === "1A"` movements
    (e.g. line 22, 109, 281, 328, 419 of `ward-movements.ts`); assert `RECORD_EXAMINATION` with
    `outcome: "inpatient_order"` turns one into `code: "3B"`, and with `outcome: "revoked"` clears

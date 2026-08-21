@@ -38,10 +38,10 @@
    actually matter and are each independently reproduced with a mutation in the report. The two
    brief-supplied tests have self-evident one-line kills (drop `+ elapsed`; change the throw to a
    default). I re-ran the file standalone (`npx vitest run tests/ward-flow-provider.dom.test.tsx
-   --project jsdom`) and confirmed 4/4 passing, matching the report.
+--project jsdom`) and confirmed 4/4 passing, matching the report.
 
 4. **Clock mechanics otherwise sound.** Confirmed by grep: `wallClockNow`/`Date.now`/`new
-   Date`/`performance.now`/`setInterval` appear nowhere else under `src/components/ward-management/**`
+Date`/`performance.now`/`setInterval` appear nowhere else under `src/components/ward-management/**`
    or `src/app/ward-management/**` except inside `ward-clock.ts` and this provider — no other
    screen or module reads the wall clock. The pinned path returns from the effect before
    `setInterval` is ever called (not "start-then-ignore"), proven by the `setInterval` spy test.

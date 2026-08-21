@@ -23,7 +23,7 @@
   initializer gives the identical "computed exactly once, on mount" guarantee, and reading a
   `useState` value during render is completely ordinary (no lint rule objects to it). Everything
   else in the brief's snippet — the `ticks`/`setTicks` re-render pump, the `initialNow !==
-  undefined` guard in the effect, the `elapsed` and `now` formulas — is unchanged.
+undefined` guard in the effect, the `elapsed` and `now` formulas — is unchanged.
 - `useWardFlow()` throws `"useWardFlow must be used within WardFlowProvider."` when the context is
   `null`, following the exact pattern already used by `useAccountData` in
   `src/components/account-data-provider.tsx` (`if (!context) throw new Error(...)`).
@@ -50,7 +50,7 @@
   returns nothing). I named the file `ward-flow-provider.dom.test.tsx` instead, kept every other
   brief detail (imports, `Probe` component, both required test bodies) unchanged, and added two
   more tests (below). This is the only way this test actually runs under the repo's own `npm run
-  test` gate.
+test` gate.
 
 ## Test output
 
@@ -158,7 +158,7 @@ matches Next 16's documented pattern rather than a stale training-data assumptio
      `initialNow` is set, that's a second, independent guard from the effect's own
      `if (initialNow !== undefined) return`. A one-line mutant that deletes just the effect's
      guard (so the interval always gets registered) would be silent under the brief's two tests —
-     `now`'s *value* wouldn't change because the `elapsed` ternary still forces `0`, so no
+     `now`'s _value_ wouldn't change because the `elapsed` ternary still forces `0`, so no
      assertion on rendered text would ever see it. I added a test that spies on `window.setInterval`
      and asserts it is never called when `initialNow` is pinned — this directly observes the
      interval registration itself, not just one of its two independent guards, so it kills that
@@ -168,7 +168,7 @@ matches Next 16's documented pattern rather than a stale training-data assumptio
      the brief's two tests ever calls `dispatch`. I added a test that renders a probe with a button
      wired to `dispatch({ type: "ADVANCE_CLOCK", role: "demo", now, minutes: 15 })` (a real,
      role-gated event from `ward-flow-events.ts`), clicks it twice, and asserts `now` reads
-     `NOW_ANCHOR + 30` — proving the offset accumulates onto the *current* state rather than being
+     `NOW_ANCHOR + 30` — proving the offset accumulates onto the _current_ state rather than being
      computed against a freshly reseeded one each time. Verified: I rewired the exposed `dispatch`
      to always apply `RESET_SCENARIO` first (simulating "dispatch resets instead of reducing"), and
      the test failed with `Expected: 657, Received: 642` (i.e. only the second click's 15 minutes
@@ -177,11 +177,11 @@ matches Next 16's documented pattern rather than a stale training-data assumptio
 
    One-line mutation that would kill each test, for a mutation-testing pass:
 
-   | Test | Mutation that kills it |
-   | --- | --- |
-   | "seeds the fixture and holds the clock at the injected instant" | Change `now = NOW_ANCHOR + elapsed + state.clockOffsetMinutes` to drop `+ elapsed` — or seed with a truncated fixture — and the exact `movements`/`units`/`now` assertions fail. |
-   | "refuses to be used outside the provider" | Change `if (!context) throw …` to `if (!context) return DEFAULT_CONTEXT_VALUE` (or any fallback) — `expect(...).toThrow()` fails immediately. |
-   | "never starts the ticking interval when a test pins the clock" | Delete the `if (initialNow !== undefined) return;` line inside the `useEffect` — `setInterval` spy fires once. Reproduced above. |
+   | Test                                                                         | Mutation that kills it                                                                                                                                                                                                                      |
+   | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | "seeds the fixture and holds the clock at the injected instant"              | Change `now = NOW_ANCHOR + elapsed + state.clockOffsetMinutes` to drop `+ elapsed` — or seed with a truncated fixture — and the exact `movements`/`units`/`now` assertions fail.                                                            |
+   | "refuses to be used outside the provider"                                    | Change `if (!context) throw …` to `if (!context) return DEFAULT_CONTEXT_VALUE` (or any fallback) — `expect(...).toThrow()` fails immediately.                                                                                               |
+   | "never starts the ticking interval when a test pins the clock"               | Delete the `if (initialNow !== undefined) return;` line inside the `useEffect` — `setInterval` spy fires once. Reproduced above.                                                                                                            |
    | "dispatches through the live reducer and keeps the result across re-renders" | Make the exposed `dispatch` always apply `RESET_SCENARIO` before the real event (or otherwise discard state between calls) — the second click's expected `NOW_ANCHOR + 30` fails, landing on `NOW_ANCHOR + 15` (or less). Reproduced above. |
 
 ## Out-of-scope items
@@ -193,8 +193,8 @@ matches Next 16's documented pattern rather than a stale training-data assumptio
   this predates and is unrelated to Task 4. Not investigated further (out of this task's scope) —
   flagging separately.
 - **Two pre-existing lint warnings** in `ward-flow-reducer.ts` (`'Instant' is defined but never
-  used`) and `tests/ward-flow-reducer.test.ts` (`'PARALLEL_REFERRAL_CAP' is defined but never
-  used`) — confirmed untouched by this diff (`git diff --stat HEAD` on both returns nothing).
+used`) and `tests/ward-flow-reducer.test.ts` (`'PARALLEL_REFERRAL_CAP' is defined but never
+used`) — confirmed untouched by this diff (`git diff --stat HEAD` on both returns nothing).
   These make plain `npm run lint` exit non-zero overall even though my three files are clean; not
   fixed here since they belong to Task 3's files, not this task's scope.
 

@@ -23,7 +23,7 @@ Current tree (`tests/ward-flow-single-source.test.ts`):
   so it catches a named import, a namespace-qualified access (`sites.NOW_ANCHOR`), and a
   component that never calls `useWardFlow()` at all — the three evasions Finding 1 named.
 - Line 162: test renamed to `"restricts every read of NOW_ANCHOR under src to the named
-  allow-list"` — states what's enforced, not a stale description.
+allow-list"` — states what's enforced, not a stale description.
 - Line 155-160: the zero-match tripwire (`scanned.length` must be `> 0`) is kept and was itself
   widened to scan `SRC_DIR` in round 4.
 
@@ -44,13 +44,13 @@ keep the absence guard in the JSX so hooks above still run unconditionally.
 
 - Line 277: `const [selectedId, setSelectedId] = useState(movements[0].id);` — holds only the id.
 - Line 286: `const selected = useMemo(() => movements.find((candidate) => candidate.id ===
-  selectedId), [movements, selectedId]);` — derives live from the current `movements` array on
+selectedId), [movements, selectedId]);` — derives live from the current `movements` array on
   every render.
 - Line 335-349: `{selected ? <DecisionPanel patient={selected} ... /> : <aside>...No synthetic
-  movement matches the current selection...</aside>}` — the absence branch is a distinct,
+movement matches the current selection...</aside>}` — the absence branch is a distinct,
   honest message, never `movements[0]` or any other record. Every `DecisionPanel` prop that
   reads `selected` (`patient={selected}`, and `selectedId={destinationUnit(selected)?.id ??
-  eligibleCandidates(selected, now)[0]?.unit.id}`) is computed only inside the truthy branch, so
+eligibleCandidates(selected, now)[0]?.unit.id}`) is computed only inside the truthy branch, so
   TypeScript narrows `selected` to `Movement` there — no unsafe access outside the guard.
 - The ternary lives in the JSX return, after `useWardFlow()`, `useState`, and both `useMemo`
   calls have already run — no early return before hooks.
@@ -95,7 +95,7 @@ All four are present and correct in the current tree:
   fix was written to close cannot recur by construction.
 
 The four specific round-4 requirements are met. However, the mechanism the widening now exposes
-to the *entire* `src` tree — `stripCommentsAndStrings` — has a real correctness gap once run
+to the _entire_ `src` tree — `stripCommentsAndStrings` — has a real correctness gap once run
 against ordinary code outside `ward-management`. See below.
 
 ## New finding — Critical: `stripCommentsAndStrings` has no concept of a regex literal, and a quote character inside one desyncs string/comment tracking for the rest of the file
@@ -114,9 +114,9 @@ enough further quotes happen to resynchronise it.
 `ward-management`, now in scope because Finding 3 widened the scan to the whole tree:**
 
 - `src/components/clinical-dashboard/search-utils.ts:331`:
-  `` const hasQuotedPhrase = /"[^"]+"|(?:^|\s)'[^']+'(?=\s|$)/.test(trimmed); ``
+  `const hasQuotedPhrase = /"[^"]+"|(?:^|\s)'[^']+'(?=\s|$)/.test(trimmed);`
 - `src/lib/document-summary-badges.ts:61`:
-  `` const contraindicationNegationBefore = /\b(?:no|not|non|without|nil|free of|absence of|no known)\b[\s\w,'’-]{0,16}$/i; ``
+  `const contraindicationNegationBefore = /\b(?:no|not|non|without|nil|free of|absence of|no known)\b[\s\w,'’-]{0,16}$/i;`
 
 **Live, reverted proof against `search-utils.ts`.** Appended the most ordinary possible edit —
 a new import plus a reference — immediately after the file's real, unmodified content:
@@ -134,7 +134,7 @@ uncommented, unstringed `NOW_ANCHOR` import and reference sitting in plain code.
 empty afterwards.
 
 A second mutation — the same import (renamed) plus an exported reference, preceded by a four-line
-`//` comment block — placed at the same location *was* caught (`Tests 1 failed | 4 passed (5)`,
+`//` comment block — placed at the same location _was_ caught (`Tests 1 failed | 4 passed (5)`,
 naming `search-utils.ts` as the offender). Both results are genuine; the mechanism above explains
 why: catch/miss for content placed after such a regex depends on incidental quote parity in the
 intervening text, not on whether a real read is actually there. That non-determinism is itself
@@ -146,11 +146,11 @@ reliable enforcement, it is a coin flip on unrelated file content.
 src` returns exactly six files, and neither is among them), so the guard is not silently failing
 on the tree as it stands. The realistic trigger is narrower than "any read anywhere after the
 regex": this repo's import-ordering convention places imports at the top of a file, which in both
-of these files is *before* the offending regex line, so an accidentally-added top-of-file import
+of these files is _before_ the offending regex line, so an accidentally-added top-of-file import
 would still be caught. The gap bites only for a read added textually after the regex — e.g. a
 bottom-of-file addition, a second regex-bearing file where the quote-containing pattern happens
 to sit near the top, or (as demonstrated) any file where a future edit lands after such a line.
-Given the guard's own stated purpose is to catch exactly this class of *accidental* future
+Given the guard's own stated purpose is to catch exactly this class of _accidental_ future
 addition anywhere in ~200+ modules, and the triggering code shape (a quote-alternation regex) is
 already proven present twice under `src`, this is a real — not theoretical — soundness gap in the
 specific property fix round 4 claims to hold, and it exists precisely because round 4 widened the

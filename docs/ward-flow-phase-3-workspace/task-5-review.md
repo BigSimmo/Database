@@ -17,12 +17,12 @@
 **Close here as documented, do not treat as a Task 5 defect.** Every `Voluntary` movement in the
 current fixture has `security: "Open"` (verified: 6/6), so `isMoreRestrictiveThanRequired`
 (`movement.security === "Open" && unit.security === "Secure"`) fires in every case where
-`restrictionNotice` would return `voluntary_on_locked` — the diagram is never *wrong* today, only
+`restrictionNotice` would return `voluntary_on_locked` — the diagram is never _wrong_ today, only
 less specific (same badge, generic wording, no voluntary-specific callout). `progress.md` already
 records `Task 5 defines it, Task 8 renders it` as the planned split, so this isn't a gap that opened
 mid-task, it's a scheduled dependency. Residual risk worth naming: `Movement.security` and
 `legalStatus` are independent fields, so a future fixture entry with `legalStatus: "Voluntary"` and
-`security: "Secure"` would make the diagram *silently wrong* (no badge at all, where the shortlist
+`security: "Secure"` would make the diagram _silently wrong_ (no badge at all, where the shortlist
 would show the sharpest possible warning) — that's a latent type-level gap, not a live one, and
 Task 8 owns closing it by wiring `restrictionNotice` into `flow-diagram.tsx`.
 
@@ -46,7 +46,7 @@ Task 8 owns closing it by wiring `restrictionNotice` into `flow-diagram.tsx`.
    anything at all (pure local note), so there was no reducer outcome to ignore before this task.
    No test in the diff selects a candidate on a non-referable-stage movement and refers, which is
    exactly why it wasn't caught (the WF-004 coverage in `ui-ward-coordinator.spec.ts` only exercises
-   the *no selection made* path).
+   the _no selection made_ path).
 2. **`ward-derivations.ts` `eligibleCandidates` (two-pass fix): correct, but the regression it
    fixed has no direct test.** The truncate-then-reorder logic genuinely preserves the candidate
    SET (verified by reading both passes) — this part is sound. But the only thing that caught the
