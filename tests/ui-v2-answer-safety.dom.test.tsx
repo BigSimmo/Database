@@ -499,7 +499,7 @@ describe("RetrievalStateBanner", () => {
 describe("AnswerCard", () => {
   it("renders the system verification wording above the prose", () => {
     render(
-      <AnswerCard state={readyState} verification={{ state: "ready", sourceCount: 4 }}>
+      <AnswerCard state={readyState} verification={{ state: "ready", sourceCount: 4 }} support="strong">
         <p>Titrate slowly.</p>
       </AnswerCard>,
     );
@@ -511,7 +511,7 @@ describe("AnswerCard", () => {
 
   it("shows no retrieval banner for a ready answer", () => {
     render(
-      <AnswerCard state={readyState} verification={{ state: "ready" }}>
+      <AnswerCard state={readyState} verification={{ state: "ready" }} support="strong">
         <p>Titrate slowly.</p>
       </AnswerCard>,
     );
@@ -530,6 +530,7 @@ describe("AnswerCard", () => {
     // against a budget of 8.
     render(
       <AnswerCard
+        support="strong"
         state={{ kind: "ungrounded", reason: "grounded_false", sourceCount: 2 }}
         verification={{ state: "ungrounded", sourceCount: 2 }}
         onOpenSource={vi.fn()}
@@ -550,6 +551,7 @@ describe("AnswerCard", () => {
     // exactly where the duplicate is not a duplicate (#227).
     const { unmount } = render(
       <AnswerCard
+        support="strong"
         state={{
           kind: "stale_evidence",
           sourceCount: 1,
@@ -574,6 +576,7 @@ describe("AnswerCard", () => {
 
     render(
       <AnswerCard
+        support="strong"
         state={{
           kind: "partial_retrieval",
           retrieved: 2,
@@ -592,6 +595,7 @@ describe("AnswerCard", () => {
   it("still carries the caution for source_only without a second rendering of it", () => {
     render(
       <AnswerCard
+        support="strong"
         state={{ kind: "source_only", reason: "quality_gate" }}
         verification={{ state: "source_only" }}
         onOpenSource={vi.fn()}
@@ -609,6 +613,7 @@ describe("AnswerCard", () => {
     const onOpenSource = vi.fn();
     render(
       <AnswerCard
+        support="strong"
         state={{
           kind: "stale_evidence",
           sourceCount: 1,
@@ -637,6 +642,7 @@ describe("AnswerCard", () => {
     const onActivate = vi.fn();
     render(
       <AnswerCard
+        support="strong"
         state={readyState}
         verification={{ state: "ready" }}
         actions={[{ id: "copy", label: "Copy answer", onActivate }]}
@@ -647,6 +653,33 @@ describe("AnswerCard", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Copy answer" }));
     expect(onActivate).toHaveBeenCalledOnce();
+  });
+
+  // A "medium"-trust answer covers the case where a HIGH-RISK claim rests on
+  // evidence whose authority was never reviewed. It reaches the card as
+  // `{ kind: "ready" }` - the same state as a fully verified answer - because
+  // `weakEvidence` only covers "unsupported" and "low". The support label is the
+  // one thing that separates them, so it must always render and must differ.
+  it("always states support strength, and distinguishes supported from strong", () => {
+    const { unmount } = render(
+      <AnswerCard state={readyState} verification={{ state: "ready" }} support="strong">
+        <p>Titrate slowly.</p>
+      </AnswerCard>,
+    );
+    const strong = screen.getByTestId("answer-card-support");
+    expect(strong).toHaveTextContent("Strong support");
+    unmount();
+
+    render(
+      <AnswerCard state={readyState} verification={{ state: "ready" }} support="supported">
+        <p>Titrate slowly.</p>
+      </AnswerCard>,
+    );
+    const supported = screen.getByTestId("answer-card-support");
+    expect(supported).toHaveTextContent("Supported");
+    expect(supported.textContent).not.toBe(strong.textContent);
+    // Not colour-alone: the distinction survives greyscale and forced-colors.
+    expect(supported).toHaveAttribute("data-support", "supported");
   });
 });
 
