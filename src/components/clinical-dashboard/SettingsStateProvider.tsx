@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useSidebarCollapsed } from "./use-sidebar-collapsed";
 import { DocumentDrawerMode } from "./dashboard-contracts";
-import { UploadIndexingTab } from "./document-admin";
+import { IndexingAdministrationTab } from "./document-admin";
 
 type SettingsStateContextType = {
   guideOpen: boolean;
@@ -18,10 +18,10 @@ type SettingsStateContextType = {
   setDocumentScopeOpen: React.Dispatch<React.SetStateAction<boolean>>;
   documentsDrawerMode: DocumentDrawerMode;
   setDocumentsDrawerMode: React.Dispatch<React.SetStateAction<DocumentDrawerMode>>;
-  uploadDrawerOpen: boolean;
-  setUploadDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  uploadMobileTab: UploadIndexingTab;
-  setUploadMobileTab: React.Dispatch<React.SetStateAction<UploadIndexingTab>>;
+  indexingAdminDrawerOpen: boolean;
+  setIndexingAdminDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  indexingAdminMobileTab: IndexingAdministrationTab;
+  setIndexingAdminMobileTab: React.Dispatch<React.SetStateAction<IndexingAdministrationTab>>;
 };
 
 const SettingsStateContext = React.createContext<SettingsStateContextType | null>(null);
@@ -34,8 +34,8 @@ export function SettingsStateProvider({ children }: { children: React.ReactNode 
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = React.useState(false);
   const [documentScopeOpen, setDocumentScopeOpen] = React.useState(false);
   const [documentsDrawerMode, setDocumentsDrawerMode] = React.useState<DocumentDrawerMode>("library");
-  const [uploadDrawerOpen, setUploadDrawerOpen] = React.useState(false);
-  const [uploadMobileTab, setUploadMobileTab] = React.useState<UploadIndexingTab>("upload");
+  const [indexingAdminDrawerOpen, setIndexingAdminDrawerOpen] = React.useState(false);
+  const [indexingAdminMobileTab, setIndexingAdminMobileTab] = React.useState<IndexingAdministrationTab>("jobs");
 
   const value = React.useMemo(
     () => ({
@@ -53,10 +53,10 @@ export function SettingsStateProvider({ children }: { children: React.ReactNode 
       setDocumentScopeOpen,
       documentsDrawerMode,
       setDocumentsDrawerMode,
-      uploadDrawerOpen,
-      setUploadDrawerOpen,
-      uploadMobileTab,
-      setUploadMobileTab,
+      indexingAdminDrawerOpen,
+      setIndexingAdminDrawerOpen,
+      indexingAdminMobileTab,
+      setIndexingAdminMobileTab,
     }),
     [
       guideOpen,
@@ -66,8 +66,8 @@ export function SettingsStateProvider({ children }: { children: React.ReactNode 
       documentsDrawerOpen,
       documentScopeOpen,
       documentsDrawerMode,
-      uploadDrawerOpen,
-      uploadMobileTab,
+      indexingAdminDrawerOpen,
+      indexingAdminMobileTab,
       setSidebarCollapsed,
     ],
   );

@@ -261,6 +261,73 @@ describe("PwaLifecycle", () => {
   });
 });
 
+describe("notice-stack swap settling", () => {
+  // .pwa-notice-stack is position: fixed, bottom-anchored. Root-caused from a
+  // downloaded Lighthouse mobile-root trace (PR #2199/#2204 CI, 2026-08-21):
+  // audits["layout-shifts"] named .pwa-notice-stack as a real shift source at
+  // score 0.223. scripts/measure-cls-attribution.mjs reproduced the mechanism
+  // directly: when the offline card clears the same instant a different card
+  // (connection-restored / the install prompt) appears — both driven by the
+  // same `online` event landing in one React commit — the stack's height
+  // changes while it is already on screen, moving its painted top edge. A
+  // brand-new mount from an unmounted stack does not shift anything (proven
+  // with the same harness: a synthetic beforeinstallprompt alone, with no
+  // other card ever visible, measured 0 shift). useSettledNoticeSignature
+  // forces every transition between two different non-empty card
+  // combinations through one fully-unmounted frame so the swap always
+  // reads as "nothing -> something" instead of "one box resizing into
+  // another" while already visible.
+  it("passes through an unmounted frame when the offline card is replaced by the connection-restored card", async () => {
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    try {
+      render(<PwaLifecycle />);
+      await screen.findByRole("region", { name: "You’re offline" });
+
+      await act(async () => {
+        Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
+        window.dispatchEvent(new Event("online"));
+      });
+
+      // Immediately after the commit that clears the offline card, the stack
+      // must be fully empty — not already showing connection-restored — or
+      // the swap resizes an already-visible fixed element.
+      expect(screen.queryByRole("region", { name: "You’re offline" })).not.toBeInTheDocument();
+      expect(screen.queryByText("Connection restored")).not.toBeInTheDocument();
+
+      await screen.findByText("Connection restored");
+    } finally {
+      Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
+    }
+  });
+});
+
+describe("notice stack positioning", () => {
+  it("does not gate the mobile-home stack position on an asynchronously mounted install card", () => {
+    const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
+
+    expect(styles).toContain('body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-notice-stack');
+    expect(styles).not.toContain(
+      'body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-notice-stack',
+    );
+  });
+});
+
+describe("notice entrance animation", () => {
+  it("keeps the asynchronously mounted notice geometry stable", () => {
+    const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
+    const start = styles.indexOf("@keyframes pwa-notice-in");
+    const end = styles.indexOf("@media (min-width: 640px)", start);
+    const keyframes = styles.slice(start, end);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(keyframes).toContain("opacity");
+    expect(keyframes).not.toMatch(
+      /\b(?:transform|translate|scale|top|right|bottom|left|margin|padding|width|height)\b/,
+    );
+  });
+});
+
 describe("notice-stack hero-compact geometry selectors", () => {
   // The phone-hero compacting rules for the native install card each gate on
   // ONE :has() (hero-composer ownership on #main-content, a static per-route
