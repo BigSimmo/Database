@@ -205,7 +205,19 @@ describe("developer ledger page", () => {
     // staying open — and `#SZGPAH` is itself an issue about stale Playwright
     // assertions, so resolving it would turn this red on whichever unrelated PR
     // carried the regeneration.
-    for (const item of snapshot.open.filter((row) => row.detail.includes("|"))) {
+    const withPipe = snapshot.open.filter((row) => row.detail.includes("|"));
+
+    // Guard, not ceremony: without it the loop below can run zero times and the
+    // positive half quietly stops asserting. `#SZGPAH` is itself an open issue
+    // about stale assertions, so the day it is resolved with no other open row
+    // carrying a literal pipe, this test would pass while proving nothing. It
+    // should fail out loud instead — the fix then is to point it at a row that
+    // does exercise the unescape, never to delete the guard.
+    expect(withPipe.length, "no open row carries a literal pipe: the unescape is no longer exercised").toBeGreaterThan(
+      0,
+    );
+
+    for (const item of withPipe) {
       expect(container.textContent).toContain(item.detail);
     }
   });
