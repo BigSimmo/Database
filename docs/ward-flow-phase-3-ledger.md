@@ -546,3 +546,13 @@ That fits every fact the earlier theory could not. It explains why probing the f
 Ruling R33 — do not kill any of these processes, and do not treat this as a ward-flow defect to fix on this branch. They are other sessions' live work, and this repo's own memory records a cleanup sweep destroying an in-use worktree twice; PID 22400 was mid-push, where killing it could leave that branch broken. The exposure is ambient to the machine, not to this code: any session pushing from any worktree can empty this one's dependencies. Cost if wrong: `node_modules` is emptied again and costs a 7-minute reinstall — against the alternative cost of breaking another session's push. Documented as a diagnostic (`ls node_modules | wc -l` first) rather than defended against in code.
 
 This also retires the question honestly. R31's mechanism was wrong, R32 withdrew the fix, and R33 names a cause that fits the evidence while still labelling it the strongest explanation rather than a proven one — no probe was run against a live cross-worktree borrow, and running one would have meant interfering with another session's push.
+
+### Browser gate verified at HEAD — 24 passed, after one honest false alarm
+
+The last outstanding check is closed. Ward Chromium journeys: **24 passed (3.9 min)** at HEAD, with `node_modules` intact at 523 entries before and after.
+
+It took two runs, and the first is worth recording. After the clean reinstall the dev server rebuilt cold and took **~945 s** to become ready — this project's dev config pins `cpus: 1`, so `npm run ensure` gives up long before readiness and reports a failure that is not one. The first gate run then returned **23 passed, 1 failed**: `ui-ward-management.spec.ts:54 "opens every Ward Flow mode"`, which is precisely the test that navigates to every route and therefore pays first-compile cost on each one.
+
+I did not record that as a flake on the strength of the explanation. Re-run in isolation it passed in 43.3 s; the full gate re-run warm passed 24/24. Two pieces of evidence, not one plausible story — which is the standard this phase has been held to, and the standard I failed earlier tonight when I asserted a `node_modules` destruction mechanism I had not demonstrated.
+
+**Every gate is now green at HEAD, measured in this session:** `tsc --noEmit` clean, node-env suites 118 passed across 10 files, jsdom 6 passed (1 + 4 + 1, one file per invocation), ward Chromium 24 passed.

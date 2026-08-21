@@ -153,7 +153,7 @@ from a report:
 | `npx tsc --noEmit -p tsconfig.json`            | **clean**                |
 | Node-environment suites (10 files)             | **118 passed**           |
 | jsdom suites (3 files, **one per invocation**) | **6 passed** (1 + 4 + 1) |
-| Ward Chromium journeys                         | see the note below       |
+| Ward Chromium journeys                         | **24 passed**            |
 
 ```bash
 npx vitest run tests/ward-flow-reducer.test.ts tests/ward-flow-contracts.test.ts tests/ward-model-phase3.test.ts tests/ward-model.test.ts tests/ward-flow-single-source.test.ts tests/ward-clock.test.ts tests/ward-priority.test.ts tests/ward-pressure.test.ts tests/ward-derivations.test.ts tests/ward-management.test.ts
@@ -163,13 +163,16 @@ npx vitest run tests/ward-flow-reducer.test.ts tests/ward-flow-contracts.test.ts
 PLAYWRIGHT_BASE_URL=<url from npm run ensure> npx playwright test tests/ui-ward-coordinator.spec.ts tests/ui-ward-management.spec.ts --project=chromium --reporter=line
 ```
 
-**On the browser gate: last measured green at `f1e32dcd4` (24 passed).** Since then the only
-source change is the removal of two unused imports — one type-only import in the reducer, one in
-its test — which cannot alter what a browser renders. Re-running it at HEAD was attempted and
-blocked by the environment, not by the code: after a fresh `npm ci` the dev server has to rebuild
-cold, and this project's dev config pins `cpus: 1`, so readiness takes far longer than
-`npm run ensure` waits for. **Run it before trusting it**, and treat the reasoning above as
-reasoning rather than evidence.
+**The browser gate is verified at HEAD: 24 passed (3.9 min).** It took two runs to get there
+and the first one is worth knowing about. After a fresh `npm ci` the dev server rebuilds cold, and
+this project's dev config pins `cpus: 1`, so it took **~16 minutes** to become ready — far longer
+than `npm run ensure` waits before declaring failure. The first gate run then came back
+**23 passed, 1 failed**, and the failure was `ui-ward-management.spec.ts:54 "opens every Ward Flow
+mode"` — the one test that visits every route, so the one paying first-compile cost on each.
+
+It was confirmed as a cold-start artefact rather than assumed: re-run alone it passed in 43 s, and
+the full gate re-run warm passed **24/24**. If you see that single test fail on a cold server,
+warm the routes and re-run before believing it.
 
 **Do NOT run `npx vitest run tests/guard-push.test.ts`** — see the first environment trap below.
 
