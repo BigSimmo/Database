@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "b9aea308-80d5-43e1-b464-902e499e46a4",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#6K9YGQ",
+    "outcome": "Resolved 2026-08-21. Verified on main at 1cc0d2987: loading.tsx now exists for all three standalone mode homes (medications, calculators and dictionary under src/app/(search-app)/), and tests/mode-home-loading-contract.test.ts now lists medications, calculators and dictionary in its route array, so the gap is visible to CI. Residual, deliberately not reopened: the contract test's route list is still hand-written rather than derived from standaloneModeHomePaths, which is a hygiene preference, not the reported invisibility. Verification: directory listing plus grep of the contract test.",
+    "baseRowFingerprint": "56caa2d18b45a4f9e80b82bcc36e0c77b01d568ef3177c2947729aaf99506993"
+  }
+}

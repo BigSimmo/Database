@@ -414,9 +414,11 @@ export function defaultRunsFetch(branch, exec = execFileSync) {
 export function inFlightCiGuard(
   branches,
   _ranges = [],
-  // `ghAvailable` is injectable for the same reason `prViewer`/`runFetcher` are:
-  // without it the fail-open below short-circuits before either is consulted, so
-  // this guard's behaviour was untestable on any machine with no `gh` on PATH.
+  // `ghAvailable` is injectable for the same reason `prViewer`/`runFetcher` are: without it
+  // the fail-open below short-circuits before either injected fetcher is consulted, so the
+  // message-formatting cases could only ever run where the `gh` binary happens to be
+  // installed. They passed in CI and failed in every container without it, which reads as a
+  // product regression and is not one.
   { prViewer = defaultPrView, runFetcher = defaultRunsFetch, ghAvailable = ghIsAvailable } = {},
 ) {
   void _ranges;
@@ -1269,6 +1271,9 @@ function selfTest() {
   const mockBlockedGuard = inFlightCiGuard(["claude/feature"], [], {
     prViewer: () => ({ state: "OPEN", number: 99 }),
     runFetcher: () => [activeCiRun],
+    // Same reason as the injected fetchers: the real probe short-circuits this case on any
+    // machine without `gh`, so the self-test would silently assert nothing there.
+    ghAvailable: () => true,
   });
   assert(mockBlockedGuard.ok === false, "inFlightCiGuard blocks on active CI run");
   assert(

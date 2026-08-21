@@ -1936,11 +1936,17 @@ summary::-webkit-details-marker {
 }
 
 .answer-footer-search-input {
+  appearance: none;
   padding-inline: 0.35rem;
   font-size: 16px;
   font-weight: 560;
   line-height: 1.2;
   letter-spacing: 0;
+}
+
+.answer-footer-search-input::-webkit-search-cancel-button,
+.answer-footer-search-input::-webkit-search-decoration {
+  appearance: none;
 }
 
 /* The universal composer form is the visible control and already owns its

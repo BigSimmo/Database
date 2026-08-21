@@ -812,9 +812,19 @@ function FactsheetPrintSheet({ factsheet, blocks }: { factsheet: Factsheet; bloc
                 <tbody>
                   {block.items.map((fact) => (
                     <tr key={fact.k}>
-                      <td style={{ padding: "5px 8px", border: "1px solid #ddd", color: "#555", width: "40%" }}>
+                      <th
+                        scope="row"
+                        style={{
+                          padding: "5px 8px",
+                          border: "1px solid #ddd",
+                          color: "#555",
+                          width: "40%",
+                          textAlign: "left",
+                          fontWeight: 400,
+                        }}
+                      >
                         {fact.k}
-                      </td>
+                      </th>
                       <td style={{ padding: "5px 8px", border: "1px solid #ddd", fontWeight: 600, color: "#111" }}>
                         {fact.v}
                       </td>
