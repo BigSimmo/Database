@@ -318,24 +318,29 @@ describe("Care Plan contact actions", () => {
     }
   });
 
-  it("uses only fictional Australian numbers and the authorised public crisis lines", () => {
-    const authorisedNationalNumbers = new Set([
-      "0491570210",
-      "0491570211",
-      "0491570212",
-      "0491570220",
-      "0491570221",
-      "0491570222",
-      "1300555788",
-      "1800676822",
-      "1800552002",
-    ]);
+  it("keeps every fictional telephone number inside the reserved fiction range", () => {
+    // 0491 570 006 to 0491 570 156 is the ACMA range reserved for drama and fiction,
+    // and (0X) 5550 XXXX is its landline equivalent. A number outside those spans is
+    // ordinary allocatable stock that could reach a real person, and these numbers
+    // print onto a patient-facing safety plan. Asserted as a range, not a list, so a
+    // number added by a later task cannot slip past this.
+    const authorisedPublicNumbers = new Set(["000", "1300555788", "1800676822", "1800552002"]);
     const matches = serialisedFixtures.match(/\+61[\d\s]{6,}|\b0[2-9][\s\d]{7,}|\b1[38]00[\s\d]{5,}/g) ?? [];
-    expect(matches.length).toBeGreaterThan(5);
+    expect(matches.length).toBeGreaterThan(10);
 
-    for (const match of matches) {
-      const national = match.replace(/\s/g, "").replace(/^\+61/, "0");
-      expect(authorisedNationalNumbers).toContain(national);
+    const fictional = matches
+      .map((match) => match.replace(/\s/g, "").replace(/^\+61/, "0"))
+      .filter((national) => !authorisedPublicNumbers.has(national));
+    expect(fictional.length).toBeGreaterThan(8);
+
+    for (const national of fictional) {
+      if (/^0[2-8]5550\d{4}$/.test(national)) continue;
+
+      const reservedMobile = /^0491570(\d{3})$/.exec(national);
+      expect(reservedMobile, `${national} is not a reserved fictional number`).not.toBeNull();
+      const suffix = Number(reservedMobile?.[1]);
+      expect(suffix, `${national} is below 0491 570 006`).toBeGreaterThanOrEqual(6);
+      expect(suffix, `${national} is above 0491 570 156`).toBeLessThanOrEqual(156);
     }
   });
 });
