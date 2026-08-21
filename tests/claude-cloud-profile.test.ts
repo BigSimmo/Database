@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -44,6 +44,19 @@ function makeConfigDir(): string {
   const dir = mkdtempSync(join(tmpdir(), "claude-cloud-profile-"));
   temporaryDirectories.push(dir);
   return dir;
+}
+
+// A disposable HOME for the provisioner, so its marker/lock/log directory is this test's alone.
+function makeSandboxHome(): string {
+  const dir = mkdtempSync(join(tmpdir(), "claude-cloud-home-"));
+  temporaryDirectories.push(dir);
+  return dir;
+}
+
+// The provisioner's own view of that sandbox, kept in one place so a test can plant a lock or a
+// marker where the script will actually look for it.
+function markerDirFor(sandboxHome: string): string {
+  return join(sandboxHome, ".cache", "clinical-kb-claude-cloud");
 }
 
 // `--skip=skills` by default: the skills part is several megabytes across ~500 files and dominates the
@@ -193,10 +206,18 @@ describe("apply-claude-cloud-profile", () => {
 });
 
 describe("setup-claude-cloud", () => {
+  // Every spawn gets a throwaway HOME. The provisioner derives its marker, lock and log directory
+  // from `$HOME/.cache/clinical-kb-claude-cloud`, so a test that let it see the real one would read
+  // whatever state the machine happened to be in: on a container the SessionStart hook has already
+  // provisioned, a completed-tier marker short-circuits the tier before the code under test runs, and
+  // the assertion below failed for a machine that was working perfectly. Overriding HOME is enough
+  // here because the provisioner is a shell script, where `$HOME` is just an environment variable —
+  // the applier needs CLAUDE_CONFIG_DIR instead, for the Windows reason recorded at the top of this
+  // file.
   function runProvisioner(args: string[], env: Record<string, string> = {}) {
     return spawnSync("bash", [provisioner, ...args], {
       encoding: "utf8",
-      env: { ...process.env, CLAUDE_CODE_REMOTE: "", ...env },
+      env: { ...process.env, CLAUDE_CODE_REMOTE: "", HOME: makeSandboxHome(), ...env },
     });
   }
 
@@ -274,20 +295,41 @@ describe("setup-claude-cloud", () => {
     // tiers complete" printed even though the locking run was still mid-install. `deno` is used only
     // because acquiring its lock is cheap to fake — the lock check runs before tier_deno itself, so no
     // real install is ever attempted.
-    const markerDir = join(homedir(), ".cache", "clinical-kb-claude-cloud");
-    const lockDir = join(markerDir, "deno.lock");
-    mkdirSync(lockDir, { recursive: true });
-    try {
-      const result = runProvisioner(["--allow-local", "deno"], { CLAUDE_CLOUD_SKIP_TIERS: "" });
-      expect(result.status).toBe(1);
-      expect(result.stdout).toMatch(/still being provisioned by another run: deno/);
-      expect(result.stdout).not.toMatch(/all selected tiers complete/);
-    } finally {
-      // Bounded retries: tests/test-runner-safety.test.ts makes this a repo-wide contract for every
-      // recursive fixture cleanup, for the reason the afterEach above records — a scanner or a
-      // just-exited child can still hold a handle, and an unretried rmSync turns that into a flake.
-      rmSync(lockDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-    }
+    const sandboxHome = makeSandboxHome();
+    mkdirSync(join(markerDirFor(sandboxHome), "deno.lock"), { recursive: true });
+
+    const result = runProvisioner(["--allow-local", "deno"], {
+      CLAUDE_CLOUD_SKIP_TIERS: "",
+      HOME: sandboxHome,
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toMatch(/still being provisioned by another run: deno/);
+    expect(result.stdout).not.toMatch(/all selected tiers complete/);
+  });
+
+  it("resolves its marker directory from the sandbox HOME it was given", () => {
+    // Guards the isolation the test above depends on. This suite used to plant its lock in the REAL
+    // ~/.cache/clinical-kb-claude-cloud, so it both read and wrote the machine's actual provisioning
+    // state. A completed-tier marker there short-circuited the tier before the code under test ran,
+    // and the assertion above failed on exactly the machines this tooling exists for — any container
+    // whose SessionStart hook had already provisioned deno — while staying green on CI's clean
+    // runners, which is how it reached main.
+    //
+    // Deliberately asserted WITHOUT reading the host's directory. Snapshotting it before and after
+    // and comparing would reintroduce the same class of defect from the other side: the SessionStart
+    // hook detaches the browsers and python tiers, so a marker can legitimately appear there mid-test
+    // and fail the comparison while the spawn was correctly sandboxed all along.
+    //
+    // `--list` is enough because the script creates its marker directory before it parses arguments,
+    // so this observes the HOME resolution itself and nothing downstream of it.
+    const sandboxHome = makeSandboxHome();
+    expect(existsSync(markerDirFor(sandboxHome))).toBe(false);
+
+    const result = runProvisioner(["--list"], { HOME: sandboxHome });
+
+    expect(result.status).toBe(0);
+    expect(existsSync(markerDirFor(sandboxHome))).toBe(true);
   });
 
   it("tries the pinned Python minor before ever falling back to a different python3", () => {
