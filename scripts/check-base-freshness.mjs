@@ -47,6 +47,7 @@
  *   --strict  exit 1 when the base ref cannot be resolved (default: exit 0)
  */
 import { execFileSync } from "node:child_process";
+import path from "node:path";
 
 const threshold = Number.parseInt(process.env.STALE_BASE_THRESHOLD ?? "10", 10) || 10;
 const asJson = process.argv.includes("--json");
@@ -108,6 +109,32 @@ function finish(result) {
   }
 
   process.exit(result.error && strict ? 1 : 0);
+}
+
+// Worktree-identity tripwire. A worktree's `.git` file can vanish (observed repeatedly
+// against `.claude/worktrees/*` this week — see AGENTS.md "Worktree sweep destroys live
+// work") without any command erroring: git just walks up the directory tree, finds the
+// next real `.git` above it, and silently treats THAT repository as the target from then
+// on — wrong branch, wrong working tree, commands that look like they succeeded. Detect
+// it the same way a human would: ask git where it thinks the repo root is, and compare
+// that to where Claude Code was actually told the project lives. CLAUDE_PROJECT_DIR is
+// exported for every hook invocation and is the one signal available here that names the
+// INTENDED worktree independent of whatever `.git` link git happens to resolve.
+const expectedRoot = process.env.CLAUDE_PROJECT_DIR;
+if (expectedRoot) {
+  const resolvedToplevel = tryGit(["rev-parse", "--show-toplevel"]);
+  const normalize = (p) => (process.platform === "win32" ? path.resolve(p).toLowerCase() : path.resolve(p));
+  if (resolvedToplevel && normalize(resolvedToplevel) !== normalize(expectedRoot)) {
+    finish({
+      branch: "(unknown)",
+      error:
+        `this worktree's .git link is broken — git resolved the repo root as "${resolvedToplevel}" ` +
+        `instead of the expected "${expectedRoot}". Commands run here are silently operating on a ` +
+        `DIFFERENT checkout. Stop and recreate this worktree before doing any more work in it.`,
+      behind: 0,
+      ahead: 0,
+    });
+  }
 }
 
 const branch = tryGit(["rev-parse", "--abbrev-ref", "HEAD"]) ?? "(unknown)";
