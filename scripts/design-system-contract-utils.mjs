@@ -474,6 +474,18 @@ const RAW_LINE_HEIGHT_UTILITY = new RegExp(String.raw`^leading-${RAW_LITERAL_VAL
  */
 const RAW_GAP_UTILITY = new RegExp(String.raw`^gap(?:-[xy])?-${RAW_LITERAL_VALUE}$`);
 /**
+ * Margin, completing the spacing family. Padding, radius, gap and line-height
+ * were each given a ratchet; margin was simply never added, so `mb-[22px]`,
+ * `mt-[30px]` and 41 more sat in production counted by nothing. Found by the
+ * 2026-08-20 design review, which noted the omission is the reason
+ * therapy-compass reads as off the shared spacing grid while its padding and
+ * gap debt is already pinned.
+ *
+ * Own metric, for the same reason gap got one: this debt is concentrated in a
+ * different set of files and will be paid down at its own pace.
+ */
+const RAW_MARGIN_UTILITY = new RegExp(String.raw`^-?m[xytrbles]?-${RAW_LITERAL_VALUE}$`);
+/**
  * The CSS-declaration half of the same four rules, so a literal cannot simply
  * move from a class into `globals.css` to escape the ratchet — the same reason
  * `legacyShadowAliases` and the colour ratchet count both sides.
@@ -492,6 +504,12 @@ const RAW_PADDING_PROPERTY = /^padding(?:-(?:top|right|bottom|left|inline|block)
 const RAW_RADIUS_PROPERTY = /^border(?:-(?:top|bottom)-(?:left|right)|-(?:start|end)-(?:start|end))?-radius$/;
 /** `gap` is the shorthand; `row-gap`/`column-gap` are the longhands it expands to. */
 const RAW_GAP_PROPERTY = /^(?:gap|row-gap|column-gap)$/;
+/**
+ * Margin, matching the padding shape. Both the `[margin-top:22px]` arbitrary-property
+ * utility and a plain `margin-top: 22px` declaration route through
+ * `recordRawScaleLiteralProperty`, so one branch closes both spellings at once.
+ */
+const RAW_MARGIN_PROPERTY = /^margin(?:-(?:top|right|bottom|left|inline|block)(?:-(?:start|end))?)?$/;
 const CSS_WIDE_KEYWORD = /^(?:inherit|initial|unset|revert|revert-layer|normal|auto)$/;
 const CSS_ZERO_VALUE = /^-?0(?:\.0+)?(?:[a-z%]+)?$/i;
 const ARBITRARY_PROPERTY_UTILITY = /^\[([a-z-]+):([^\]]+)\]$/i;
@@ -513,6 +531,9 @@ function recordRawScaleLiteralProperty(result, relativePath, line, prop, value, 
   }
   if (RAW_GAP_PROPERTY.test(prop)) {
     result.rawGapLiterals.push(`${relativePath}:${line} (${label})`);
+  }
+  if (RAW_MARGIN_PROPERTY.test(prop)) {
+    result.rawMarginLiterals.push(`${relativePath}:${line} (${label})`);
   }
   if (prop === "line-height") {
     result.rawLineHeightLiterals.push(`${relativePath}:${line} (${label})`);
@@ -1204,6 +1225,7 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     legacyPaletteUtilities: [],
     literalShadowClasses: [],
     rawGapLiterals: [],
+    rawMarginLiterals: [],
     rawLineHeightLiterals: [],
     rawPaddingLiterals: [],
     rawRadiusLiterals: [],
@@ -1294,6 +1316,7 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     if (RAW_PADDING_UTILITY.test(base)) result.rawPaddingLiterals.push(`${relativePath}:${line} (${token})`);
     if (RAW_RADIUS_UTILITY.test(base)) result.rawRadiusLiterals.push(`${relativePath}:${line} (${token})`);
     if (RAW_GAP_UTILITY.test(base)) result.rawGapLiterals.push(`${relativePath}:${line} (${token})`);
+    if (RAW_MARGIN_UTILITY.test(base)) result.rawMarginLiterals.push(`${relativePath}:${line} (${token})`);
     if (RAW_LINE_HEIGHT_UTILITY.test(base)) result.rawLineHeightLiterals.push(`${relativePath}:${line} (${token})`);
     const arbitraryProperty = base.match(ARBITRARY_PROPERTY_UTILITY);
     if (arbitraryProperty) {
@@ -1444,6 +1467,7 @@ export function analyzeCssContractsInSource(relativePath, sourceText) {
     onePixelShadowSpreads: [],
     rawGapLiterals: [],
     rawLineHeightLiterals: [],
+    rawMarginLiterals: [],
     rawPaddingLiterals: [],
     rawRadiusLiterals: [],
     rawZIndices: [],
@@ -1508,6 +1532,7 @@ export function findRawScaleLiteralClassesInSource(relativePath, sourceText) {
     padding: analysis.rawPaddingLiterals,
     radius: analysis.rawRadiusLiterals,
     gap: analysis.rawGapLiterals,
+    margin: analysis.rawMarginLiterals,
     lineHeight: analysis.rawLineHeightLiterals,
   };
 }
@@ -1661,6 +1686,7 @@ export function findRawScaleLiteralDeclarationsInSource(sourceText) {
     padding: analysis.rawPaddingLiterals,
     radius: analysis.rawRadiusLiterals,
     gap: analysis.rawGapLiterals,
+    margin: analysis.rawMarginLiterals,
     lineHeight: analysis.rawLineHeightLiterals,
   };
 }

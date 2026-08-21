@@ -540,3 +540,103 @@ describe("responsive breakpoint tokens (Task #336)", () => {
     expect(themeConfigBlock).toContain("--breakpoint-desktop: 1024px;");
   });
 });
+
+describe("compat layer agrees with the v2 layer", () => {
+  // `layout.tsx` mounts `ckb-v2` unconditionally on <html>, and `.ckb-v2.ckb-v2`
+  // (0,2,0) outranks `:root` (0,1,0) on that same element. So for any role both
+  // files declare, the v2 value is the one that paints and the globals.css value
+  // is dead — editing it has NO visible effect, silently. That trap is what this
+  // asserts away. `--radius-md` is already pinned by the radius-ladder test above;
+  // these are the non-colour roles where a silent mismatch is most consequential.
+  const sharedRoles = ["text-hero", "text-hero--line-height", "leading-prose", "ease-standard"];
+
+  function soleDeclaration(source: string, role: string, label: string) {
+    const matches = [...source.matchAll(new RegExp(`^[ \\t]*--${role}:\\s*(.+);[ \\t]*$`, "gm"))];
+    expect(matches.length, `--${role} should be declared exactly once in ${label}`).toBe(1);
+    return matches[0][1].replace(/\s+/g, " ").trim();
+  }
+
+  for (const role of sharedRoles) {
+    it(`--${role} is identical in both layers`, () => {
+      const compat = soleDeclaration(globals, role, "globals.css");
+      const v2 = soleDeclaration(v2Stylesheet, role, "ckb-v2-tokens.css");
+      expect(
+        compat,
+        `--${role} differs between the layers. The v2 value wins at runtime, so the ` +
+          `globals.css declaration is dead weight that reads as authoritative. ` +
+          `Change both together, or delete the compat declaration.`,
+      ).toBe(v2);
+    });
+  }
+});
+
+describe("every fallback-less var() resolves to a declaration", () => {
+  // A `var(--x)` with no fallback that names nothing is invalid at computed-value
+  // time, so the whole declaration is dropped and the property silently falls back
+  // to its initial value. Nothing errors and nothing lints — `--shadow-overlay` sat
+  // undeclared in the production sidebar's Appearance menu exactly this way, so the
+  // popover rendered with no shadow at all. A fallback (`var(--x, 9999px)`) is fine;
+  // that is a deliberate default, not a hole.
+  it("names no custom property that is never declared", () => {
+    const tracked = execFileSync("git", ["ls-files", "src"], { encoding: "utf8" })
+      .split("\n")
+      .filter((file) => /\.(tsx?|css)$/.test(file))
+      .filter((file) => existsSync(new URL(`../${file}`, import.meta.url)));
+
+    // Declarations inside a conditional theme (forced-colors, print) are
+    // overrides, not base declarations - a token that exists ONLY there is still
+    // unresolved during normal rendering, so they must not satisfy the check.
+    const stripConditionalThemes = (source: string) => {
+      let out = source;
+      for (;;) {
+        const at = /@media[^{]*\b(?:forced-colors|print)\b[^{]*\{/.exec(out);
+        if (!at) return out;
+        let i = at.index + at[0].length;
+        let depth = 1;
+        while (i < out.length && depth > 0) {
+          if (out[i] === "{") depth++;
+          else if (out[i] === "}") depth--;
+          i++;
+        }
+        out = out.slice(0, at.index) + out.slice(i);
+      }
+    };
+
+    const declared = new Set<string>();
+    const declare = (rawSource: string) => {
+      const source = stripConditionalThemes(rawSource);
+      // `--x: value` in CSS, plus the `"--x": value` form used by inline styles.
+      for (const m of source.matchAll(/(--[a-zA-Z][\w-]*)\s*:/g)) declared.add(m[1]);
+      for (const m of source.matchAll(/["'](--[a-zA-Z][\w-]*)["']\s*:/g)) declared.add(m[1]);
+      // next/font: `localFont({ variable: "--font-geist-sans" })` declares the name
+      // as a VALUE and Next mounts it on <html> via the returned className.
+      for (const m of source.matchAll(/\bvariable:\s*["'](--[a-zA-Z][\w-]*)["']/g)) declared.add(m[1]);
+    };
+
+    const sources = new Map<string, string>();
+    for (const file of tracked) {
+      const source = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+      sources.set(file, source);
+      declare(source);
+    }
+    // Declared outside src/: Tailwind's default theme arrives via `@import
+    // "tailwindcss"`, and next/font mounts its `variable:` names on <html>.
+    declare(readFileSync(new URL("../node_modules/tailwindcss/theme.css", import.meta.url), "utf8"));
+
+    const orphans: string[] = [];
+    for (const [file, source] of sources) {
+      source.split("\n").forEach((line, index) => {
+        for (const m of line.matchAll(/var\(\s*(--[a-zA-Z][\w-]*)\s*\)/g)) {
+          if (!declared.has(m[1])) orphans.push(`${file}:${index + 1} references ${m[1]}`);
+        }
+      });
+    }
+
+    expect(
+      orphans,
+      "these var() references name a custom property nothing declares, so the " +
+        "declaration is dropped silently at runtime. Declare the token, or give " +
+        "the reference an explicit fallback.",
+    ).toEqual([]);
+  });
+});
