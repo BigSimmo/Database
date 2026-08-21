@@ -1677,3 +1677,58 @@ cached result before building one. That is pre-existing store behaviour and it i
 not a new attempt. But it sits on the edge of Ruling 45's invariant with no test, so the invariant is
 being restated in the handler comment and pinned by a test in its fuller form: **every write attempt
 produces exactly one audit event, and a replay of an already-recorded attempt produces none.**
+
+### Task 14 fix round 1 scoped re-review — Important 2 and all seven Minors ADDRESSED; Important 1 HALF ADDRESSED
+
+Half 1 landed correctly and thoroughly: one grammar, exported from the audit module and used as the
+predicate itself rather than a re-expressed regex, so no copy exists to drift. The re-reviewer audited
+every schema field and both dynamic path segments across all ten routes and confirmed the remaining
+`z.string().min(1)` fields are genuine free text or ISO instants that never reach an audit event.
+Constraining `idempotencyKey` as well was not required and was right.
+
+The implementer's own harness defect is confirmed real and correctly fixed: awaiting `recordAccess`
+before pushing means a rejected event never reaches the array, so the spy now measures what ENTERED the
+trail rather than what was OFFERED to it. Two of the new tests additionally cross-check against
+`listAuditEvents`, which is independent of the spy entirely. **That is the ninth test-that-cannot-fail
+found on this branch, and the first found by an implementer auditing its own instrument.**
+
+### Half 2 was NOT addressed, and the reason is worth recording as a pattern
+
+The fix substituted a safe value only when the id-SHAPE predicate rejected the caller's string. But the
+shape assertion is not the only guard that can reject the event: `buildAccessAuditEvent` runs
+`assertAuditEventFreeOfPatientData` afterwards as a second, independent check, and that one scans every
+field value — `objectId` included — for an Australian mobile number.
+
+**The two grammars overlap**, which the re-reviewer established empirically rather than by argument:
+
+```
+"0412345678"           idShape= true   mobileMatch= true
+"SYN-PLAN-0412345678"  idShape= true   mobileMatch= true
+```
+
+So the original attack survives with a different string, and `SYN-PLAN-0412345678` is a plausible
+synthetic identifier rather than a contrived one. The audited actor still switches off the record of
+their own refused action, now by choosing an id that looks like a phone number.
+
+**The pattern, stated so it is not repeated: a fix that guards against one named rejection reason has
+not made an operation unfailable — it has made it survive the reason we thought of.** The correct shape
+is to trigger on the FAILURE, not on a predicate: attempt the record with the caller's value, and if
+building the event fails for ANY reason, retry once with the constant safe object-type name, which
+passes every guard by construction. A second shape test for mobile numbers would be the same mistake one
+guard later, and a third guard added tomorrow would reopen it.
+
+The re-reviewer also named the exact missing RED, which is the sharper half of the finding: the existing
+pair of tests **cannot distinguish "the record is unfailable" from "the record survives the one
+rejection reason we thought of"**, because neither exercises a string that passes the shape check and
+fails the patient-data scan. That is now the required RED for round 2.
+
+### Everything else in round 1 verified
+
+- Important 2 fixed and pinned BOTH ways — a malformed body 400s, and `{}` still yields the default
+  window, so the fix cannot pass by refusing everything.
+- The `Object.create(null)` refusal map now returns `undefined` for `"constructor"` and falls to 422.
+- The patient-data refusal test now arises from stored state with a real synthetic name, mobile number
+  and identifier in the request, asserted absent from the body — so it can actually catch a leak.
+- Ruling 49's two names verified against the domain's own constants, so neither is a dead key.
+- No assertion deleted or loosened: the re-reviewer extracted every removed line from the source and
+  test portions of the diff. The only test deletion is the relocated spy push.
