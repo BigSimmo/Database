@@ -319,28 +319,47 @@ describe("Care Plan contact actions", () => {
   });
 
   it("keeps every fictional telephone number inside the reserved fiction range", () => {
-    // 0491 570 006 to 0491 570 156 is the ACMA range reserved for drama and fiction,
-    // and (0X) 5550 XXXX is its landline equivalent. A number outside those spans is
-    // ordinary allocatable stock that could reach a real person, and these numbers
-    // print onto a patient-facing safety plan. Asserted as a range, not a list, so a
-    // number added by a later task cannot slip past this.
-    const authorisedPublicNumbers = new Set(["000", "1300555788", "1800676822", "1800552002"]);
-    const matches = serialisedFixtures.match(/\+61[\d\s]{6,}|\b0[2-9][\s\d]{7,}|\b1[38]00[\s\d]{5,}/g) ?? [];
-    expect(matches.length).toBeGreaterThan(10);
+    // Two rules, deliberately not one list.
+    //
+    // Fictional numbers: 0491 570 006 to 0491 570 156 is the ACMA range reserved for
+    // drama and fiction, and (0X) 5550 XXXX is its landline equivalent. A mobile
+    // outside that span is ordinary allocatable stock that could reach a real person,
+    // and these numbers print onto a patient-facing safety plan. Checked as a numeric
+    // range, so a number added by a later task cannot slip past a list of literals.
+    //
+    // Real numbers: the after-hours pathway genuinely is the public crisis service,
+    // because a reader dialling it at 2am must reach a real service rather than a dead
+    // number. Those are an explicit allowlist, so a fifth real number cannot be added
+    // silently.
+    const authorisedPublicNumbers = ["000", "1300555788", "1800676822", "1800552002"];
 
-    const fictional = matches
-      .map((match) => match.replace(/\s/g, "").replace(/^\+61/, "0"))
-      .filter((national) => !authorisedPublicNumbers.has(national));
-    expect(fictional.length).toBeGreaterThan(8);
+    const found = (serialisedFixtures.match(/\+61[\d\s]{6,}|\b0[2-9][\s\d]{7,}|\b1[38]00[\s\d]{5,}/g) ?? []).map(
+      (match) => match.replace(/\s/g, "").replace(/^\+61/, "0"),
+    );
+    expect(found.length).toBeGreaterThan(10);
 
-    for (const national of fictional) {
-      if (/^0[2-8]5550\d{4}$/.test(national)) continue;
+    // Guards against a broken sweep passing vacuously over an empty match set.
+    const mobiles = found.filter((national) => /^04\d{8}$/.test(national));
+    expect(mobiles.length).toBeGreaterThan(8);
 
-      const reservedMobile = /^0491570(\d{3})$/.exec(national);
-      expect(reservedMobile, `${national} is not a reserved fictional number`).not.toBeNull();
-      const suffix = Number(reservedMobile?.[1]);
+    for (const national of mobiles) {
+      const reserved = /^0491570(\d{3})$/.exec(national);
+      expect(reserved, `${national} is outside the 0491 570 block reserved for fiction`).not.toBeNull();
+      const suffix = Number(reserved?.[1]);
       expect(suffix, `${national} is below 0491 570 006`).toBeGreaterThanOrEqual(6);
       expect(suffix, `${national} is above 0491 570 156`).toBeLessThanOrEqual(156);
+    }
+
+    for (const national of found) {
+      if (/^04\d{8}$/.test(national)) continue;
+      if (/^0[2-8]5550\d{4}$/.test(national)) continue;
+      expect(authorisedPublicNumbers, `${national} is not an authorised public crisis line`).toContain(national);
+    }
+
+    // The after-hours pathway must stay real: a later change must not quietly replace a
+    // working crisis line with a dead fictional one.
+    for (const publicNumber of ["1300555788", "1800676822", "1800552002"]) {
+      expect(found, `${publicNumber} is no longer present as a verified public crisis line`).toContain(publicNumber);
     }
   });
 });
