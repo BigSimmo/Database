@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "46755148-9e76-4cc7-9eae-3faa32d9c8b7",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#TWKWE4",
+    "outcome": "Resolved 2026-08-20: verified on origin/main a341832af. Every standalone *-home-page.tsx now takes title and subtitle from sharedHomePresentation.<mode> (services:137, forms:127, dsm:19, plus dictionary, calculators, differentials, factsheets, formulation, specifiers and therapy-compass). One title system remains, and the ui-copy.ts doc comment about a clinician seeing the same words whichever door they came through is now true.",
+    "baseRowFingerprint": "0770fbbe082a9027361f007d15bceea62f13dc88e013ac0fb30ca9a54290d694"
+  }
+}
