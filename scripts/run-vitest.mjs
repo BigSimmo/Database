@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { childProcessExitCode } from "./child-process-result.mjs";
+import { arbitrate, recordGateOutcome } from "./gate-arbiter.mjs";
 import { consultGateReceipt, recordGateReceipt } from "./gate-receipts.mjs";
 import { offlineTestEnvironment } from "./test-environment.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
@@ -37,6 +38,15 @@ if (receipt.reuse) {
   process.exit(0);
 }
 
+// Weighed BEFORE the lease request, for the same reason the receipt is: a run the
+// arbiter would defer must not first queue for cross-worktree capacity. Advisory
+// unless GATE_ARBITER=enforce, so a gate a human typed still runs by default.
+const verdict = memoisable
+  ? arbitrate({ projectRoot, gate: "vitest", env: process.env })
+  : { action: "run", enforce: false, message: null };
+if (verdict.message && verdict.action !== "run") console.log(verdict.message);
+if (verdict.enforce) process.exit(0);
+
 const lock = acquireHeavyRunLock({ projectRoot, command: `vitest ${args.join(" ")}`, mode });
 const configuredWorkers = Number(process.env.VITEST_MAX_WORKERS);
 const sharedWorkers = Number.isFinite(configuredWorkers) && configuredWorkers > 0 ? Math.min(configuredWorkers, 2) : 2;
@@ -58,11 +68,16 @@ function runVitest() {
 }
 
 let exitCode = 1;
+const startedAt = Date.now();
 try {
   exitCode = await runVitest();
 } finally {
   lock.release();
 }
+
+// Pure observation: this never changes what the run did, it only tells the arbiter
+// whether this gate is still catching anything on this class of change.
+recordGateOutcome({ projectRoot, gate: "vitest", exitCode, durationMs: Date.now() - startedAt, env: process.env });
 
 const recorded = recordGateReceipt({ projectRoot, decision: receipt, exitCode, env: process.env });
 if (exitCode === 0 && recorded.recorded) {

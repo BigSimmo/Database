@@ -4,6 +4,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { childProcessExitCode } from "./child-process-result.mjs";
+import { arbitrate, recordGateOutcome } from "./gate-arbiter.mjs";
 import { consultGateReceipt, recordGateReceipt } from "./gate-receipts.mjs";
 import { typescriptBuildInfoPath } from "./test-cache-path.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
@@ -43,6 +44,13 @@ if (receipt.reuse) {
   console.log(receipt.message);
   process.exit(0);
 }
+
+// Weighed before the lease request, like the receipt above: a run the arbiter would
+// defer must not queue for cross-worktree capacity first. Advisory unless
+// GATE_ARBITER=enforce — a gate a human typed still runs by default.
+const verdict = arbitrate({ projectRoot, gate: script, env: process.env });
+if (verdict.action !== "run") console.log(verdict.message);
+if (verdict.enforce) process.exit(0);
 
 const configuredWaitTimeoutMs = Number(process.env.HEAVY_RUN_WAIT_TIMEOUT_MS);
 const waitTimeoutMs = Number.isFinite(configuredWaitTimeoutMs) ? configuredWaitTimeoutMs : undefined;
@@ -108,11 +116,16 @@ function runNpmScript() {
 }
 
 let exitCode = 1;
+const startedAt = Date.now();
 try {
   exitCode = await runNpmScript();
 } finally {
   lock.release();
 }
+
+// Pure observation: never changes what the run did, only whether the arbiter still
+// believes this gate earns its runtime on this class of change.
+recordGateOutcome({ projectRoot, gate: script, exitCode, durationMs: Date.now() - startedAt, env: process.env });
 
 const recorded = recordGateReceipt({ projectRoot, decision: receipt, exitCode, env: process.env });
 if (exitCode === 0 && recorded.recorded) {

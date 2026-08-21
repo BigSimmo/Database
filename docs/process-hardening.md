@@ -81,6 +81,64 @@ what it is scoped to verify, and `ci-change-scope.mjs` already keeps that scoped
 not waste either — it is what stops a red push costing a full CI cycle plus a fix round. The waste
 was only ever the _repeat_, and that is what is now gone.
 
+## Gate arbitration: stop paying for a verdict GitHub is about to reach (2026-08-21)
+
+The receipts section above closes by saying the local run "is not waste either — it is what stops a
+red push costing a full CI cycle". True, and incomplete. `check:gate-manifest` enforces that CI never
+runs less of the local `verify:cheap` static set than the local chain does, which read the other way
+says **every local run of a gate in that chain is work GitHub is about to repeat**. Receipts cannot
+touch that duplication by design: `receiptsEnabled()` is false whenever `CI` is set.
+
+So the local run is a bet, not a certainty. It pays when it fails (a red push costs a CI cycle plus a
+fix round, and ~40% of PR CI runs measured 2026-07-30 were cancellations); it pays nothing when it
+passes. The bet's value is therefore not fixed — it decays as a gate stops catching things on a given
+class of change, and it recovers the moment the gate catches something again. Nothing measured that,
+so the decision was made from habit in both directions: running the full suite on a docs typo, and
+skipping it on a change that deserved it.
+
+`scripts/gate-arbiter.mjs` measures it. Three inputs, none hard-coded:
+
+- **CI coverage**, parsed live from `package.json` + `.github/workflows/ci.yml` using the same
+  field-anchored `run:` regex as `check-gate-manifest.mjs` (the two must agree — a looser parse here
+  would defer to a job the manifest check knows does not exist). Resolved by the gate's own name, its
+  declared CI equivalent (`test` → `test:coverage`), or a CI-invoked aggregate whose package.json body
+  contains it. **A gate CI does not re-run is never deferrable.**
+- **Observed yield**, a rolling window (40 observations) keyed by `(gate, change class)`, recorded by
+  `run-heavy.mjs` and `run-vitest.mjs` after every arbitrated run. Recording is pure observation and
+  never alters the run. An admission-busy exit (75) is not a verdict and is not recorded, so lock
+  contention can neither manufacture a clean window nor keep a healthy gate running forever.
+- **Content identity**, via `record-ci <sha>`: a clean worktree plus an empty `git diff <sha> HEAD`
+  proves the content GitHub judged is the content in front of us. Both halves are required — a clean
+  tree alone does not prove HEAD has not moved, and a matching diff alone cannot see an uncommitted
+  edit. Reading GitHub is provider-backed, so the arbiter never reaches for it; the session that
+  already looked at CI passes what it saw.
+
+Change class comes from `scripts/ci-change-scope.mjs` — the classifier CI itself uses to route jobs —
+rather than a second risk model, so the arbiter and CI cannot drift into two opinions about what a
+path means. Clean-window sizes: `docs` 3, `source` 12. Every other class (`db`, `rag`, `deps`,
+`container`, `workflow`, `ui`, `unknown`) is absent from the window map and never defers at any length.
+`tests/gate-arbiter.test.ts` pins that absence, so adding a risky class to the deferrable set fails.
+
+Boundaries, each of them a test in `tests/gate-arbiter.test.ts`:
+
+- **Fail open.** Unreadable CI, unknown class, missing observations, git failure — all run the gate.
+- **CI never consults it.** `arbiterMode()` returns disabled whenever `CI` is set.
+- **Advisory by default.** The wrappers act on a deferral only under `GATE_ARBITER=enforce`; a gate a
+  human typed still runs. `GATE_ARBITER=off` disables it entirely.
+- **The first catch re-arms the window**, so a gate that starts failing again is never left deferred
+  because it had a long clean run beforehand.
+- **A deferred gate is not a passed gate.** The verdict prints that sentence; report it as "deferred
+  to CI", never as green.
+
+`npm run arbiter -- <gate>` gives the verdict and its evidence; `npm run arbiter:status` shows the
+yield ledger and the accumulated duplication bill; `npm run arbiter:clear` empties it. The ledger sits
+beside the receipt store under `node_modules/.cache/`, so it is per-worktree, never committed, and
+destroyed by `npm ci`.
+
+**What this does not do.** It does not reduce GitHub's work, weaken any required check, or change
+which gate is the smallest correct one for a diff. It decides only whether that gate still has
+anything left to tell you before you push.
+
 ## Multi-worktree reconciliation hardening (2026-07-23)
 
 The cloud-chat reconciliation postmortem and complete issue/fix matrix are in
