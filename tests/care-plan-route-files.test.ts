@@ -345,6 +345,8 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       .replace(/@[^{]*\{/g, "")
       .split("}")
       .flatMap((chunk) => {
+        // Assumes one `{` per chunk, which holds once at-rule headers are
+        // stripped. Anything after a second `{` in one chunk is dropped.
         const [head, body] = chunk.split("{");
         return head !== undefined && body !== undefined ? [{ selector: head.trim(), body }] : [];
       });
@@ -360,6 +362,8 @@ describe("Care Plan synthetic, memory-only boundary", () => {
      * the property and value out is not cleverer, it is simply correct.
      */
     function declarationsOf(body: string) {
+      // Assumes no declaration value contains a bare `;` — true of this
+      // stylesheet, which uses no data URIs or quoted strings.
       return body.split(";").flatMap((declaration) => {
         const separator = declaration.indexOf(":");
         if (separator === -1) return [];

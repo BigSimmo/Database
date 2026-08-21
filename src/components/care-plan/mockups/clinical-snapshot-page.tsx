@@ -57,8 +57,7 @@ export function ClinicalSnapshotSurface({
   }
 
   const workspaceRef = useRef<HTMLElement>(null);
-  const hasSettled = useRef(false);
-  const directorySurface = variant !== "patient";
+  const lastVariant = useRef<ClinicalSnapshotVariant | null>(null);
 
   // Choosing a patient from the directory changes no address, so the shell's
   // route-heading focus never fires. Without this the workspace appears in the
@@ -67,22 +66,35 @@ export function ClinicalSnapshotSurface({
   // accessible name — the same mechanism the shell uses for the route heading,
   // rather than a second live region that would double-announce.
   //
-  // The first pass moves nothing: on mount the shell owns focus, and stealing it
-  // would make every page load jump past the heading that says where you are.
+  // Exactly one thing may move focus per commit, and on any address change that
+  // one thing is the shell. This effect therefore fires only when the surface
+  // stayed put and the selection moved underneath it.
   //
-  // The effect's dependency on `resolvedPatientId` is what makes it a
-  // selection-change effect rather than a render effect — an extra
-  // "did the id change" guard inside the body would be unreachable, and a
-  // positive control confirmed removing one changed no behaviour at all.
+  // The previous *variant* is tracked rather than a "is this a directory
+  // surface" boolean. The component is rendered at one JSX position for all
+  // three variants (`routable-suite.tsx`), so React never remounts it and these
+  // refs survive every Home ⇄ patient address ⇄ Patients move — which is how the
+  // earlier boolean version came to fire on the way back from a patient address
+  // with the selection unchanged. A boolean also cannot see Home → Patients at
+  // all, since it does not change across that pair.
   useEffect(() => {
-    if (!directorySurface) return;
-    if (!hasSettled.current) {
-      hasSettled.current = true;
-      return;
-    }
+    const previousVariant = lastVariant.current;
+    lastVariant.current = variant;
+
+    // Two cases, one guard, because `null` never equals a variant: this is the
+    // first commit, or the address changed. Both belong to the shell — it
+    // focuses the route heading, and on the first commit stealing that would
+    // make every page load jump past the line saying where you are.
+    //
+    // Written as one comparison deliberately. A separate `previousVariant ===
+    // null` line reads as a second rule but is unreachable, and a positive
+    // control confirmed removing it changed no behaviour at all.
+    if (previousVariant !== variant) return;
+    // A patient address has no directory to select from.
+    if (variant === "patient") return;
     if (resolvedPatientId === null) return;
     workspaceRef.current?.focus();
-  }, [directorySurface, resolvedPatientId]);
+  }, [variant, resolvedPatientId]);
 
   const workspace =
     snapshot === null ? (

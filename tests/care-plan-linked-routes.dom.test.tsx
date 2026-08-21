@@ -723,6 +723,58 @@ describe("Care Plan clinical snapshot", () => {
     expect(focusedNames.filter((name) => name.endsWith("clinical snapshot"))).toEqual([]);
     expect(screen.getByRole("heading", { level: 1, name: "Patient overview" })).toHaveFocus();
   });
+
+  // The return leg. `ClinicalSnapshotSurface` is rendered at one JSX position
+  // for all three variants, so React never remounts it and its refs survive the
+  // whole trip: Home → a patient address → back to Home, with the selection
+  // never changing. A guard that only asked "is this a directory surface?" saw
+  // that final flip back to `true` as a fresh selection and moved focus on what
+  // is really a route change.
+  //
+  // Like its two siblings this watches the focus *events*, because the shell's
+  // effect is a parent's and lands last — so the final DOM state is correct even
+  // when the workspace has already grabbed focus, and a final-state assertion
+  // could never fail.
+  it.each([
+    ["Home", CARE_PLAN_ROUTES.home, "Home"],
+    ["Patients", CARE_PLAN_ROUTES.patients, "Patients"],
+  ])(
+    "does not compete with the shell heading when returning from a patient address to %s",
+    async (_label, back, heading) => {
+      const user = userEvent.setup();
+      const navigate = vi.fn();
+      const surface = (pathname: string) => (
+        <CarePlanPrototypeProvider>
+          <CarePlanRouteSurface pathname={pathname} query="" navigate={navigate} />
+        </CarePlanPrototypeProvider>
+      );
+      const { rerender } = render(surface(CARE_PLAN_ROUTES.home));
+
+      // Choose a patient first. This focus move is the correct one, and it is what
+      // leaves the surface in the state the regression needs.
+      await user.type(screen.getByRole("searchbox", { name: "Search synthetic patients" }), "SYN-MRN-0002");
+      await user.click(screen.getByRole("button", { name: /Open Mira Example/i }));
+      expect(screen.getByRole("region", { name: "Mira Example clinical snapshot" })).toHaveFocus();
+
+      // Follow the full-record link. The selection does not change from here on.
+      rerender(surface(carePlanRoute.patient("SYN-PATIENT-002")));
+
+      const focusedNames: string[] = [];
+      const listener = (event: Event) => {
+        const target = event.target as HTMLElement | null;
+        focusedNames.push(target?.getAttribute("aria-label") ?? target?.tagName ?? "");
+      };
+      document.addEventListener("focusin", listener);
+      try {
+        rerender(surface(back));
+      } finally {
+        document.removeEventListener("focusin", listener);
+      }
+
+      expect(focusedNames.filter((name) => name.endsWith("clinical snapshot"))).toEqual([]);
+      expect(screen.getByRole("heading", { level: 1, name: heading })).toHaveFocus();
+    },
+  );
 });
 
 // A Current version whose `reviewDueAt` is null derives no review state at all.
