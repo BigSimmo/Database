@@ -182,7 +182,9 @@ function QueryChip({ state }: { state: RowState }) {
         focusRing,
       )}
     >
-      <span className="truncate">&ldquo;{state.query}&rdquo;</span>
+      <span className="truncate" data-fit-text="true">
+        &ldquo;{state.query}&rdquo;
+      </span>
       <X className="ml-auto h-3.5 w-3.5 shrink-0" aria-hidden="true" />
     </button>
   );
@@ -547,7 +549,17 @@ function FitRow({ width, note, searching }: { width: number; note: string; searc
       const needed =
         children.reduce((total, child) => total + child.getBoundingClientRect().width, 0) +
         gap * Math.max(0, children.length - 1);
-      const slack = Math.round(available - needed);
+      // QueryChip is `min-w-0 flex-1`, so it always reports the box the flex
+      // track handed it, not the width its own text wants — a truncated query
+      // silently sums to the available width and reads as "fits" even while
+      // the words themselves are being clipped. Read the clipped amount off
+      // the live text node (scrollWidth vs clientWidth) and add it back, so a
+      // truncating query shows up as a real shortfall instead of 0px spare.
+      const textOverflow = Array.from(track.querySelectorAll<HTMLElement>("[data-fit-text]")).reduce(
+        (total, el) => total + Math.max(0, el.scrollWidth - el.clientWidth),
+        0,
+      );
+      const slack = Math.round(available - needed - textOverflow);
       setVerdict({ fits: slack >= 0, slack });
     };
     measure();
