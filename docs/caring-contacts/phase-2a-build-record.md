@@ -1417,3 +1417,69 @@ I did not re-run the full suite at the exact Task 11b head for one reason, recor
 the batched Task 12/13 implementer was already working in this worktree with uncommitted changes, so a
 run at that moment would have measured its work-in-progress rather than Task 11b, and the repository's
 cross-worktree lock coordinator would have had two competing claims on an exclusive lease.
+
+## Tasks 12 and 13 — batched, implemented at `73bc70d50`, review returned NEEDS FIXES
+
+Ruling: [44] Tasks 12 and 13 were dispatched as ONE batch to a single implementer rather than as two
+tasks with two reviews. — Why: both are small, both are fully specified down to verbatim test code in
+their briefs, they share a new directory but no files, and neither depends on the other. The
+subagent-driven-development skill's own guidance is to batch small same-shape work and review the diff
+as one unit, reserving one-dispatch-per-task for work needing its own judgement or its own review
+surface. — Cost if wrong: a review seat covers two tasks at once, so a finding in one could in principle
+crowd out attention on the other. Mitigated by telling the reviewer explicitly to check the diff against
+BOTH briefs file by file, and by the fact that the review found four Important findings across both.
+
+### What the review confirmed
+
+Both briefs implemented file-for-file with every named interface matching its signature. Next 16 usage
+verified against the actual documentation the reviewer read rather than from memory — `cookies()` is
+async and `.set` is permitted in a route handler, and both call sites `await` it. **Environment-value
+discipline holds across the whole implementation, not merely the tested path**: the config module names
+variables only, the pool passes the URL to `new Pool` and never into a string, and the route's error path
+resolves to a fixed message with logging redacted. The assertion runs BEFORE the pool is constructed and
+`pg`'s `new Pool` is lazy, so there is no "checked after the connection opened" window. Ruling 42 landed
+consistently: `pg` moved to `dependencies`, `@types/pg` correctly left in `devDependencies`, and the
+lockfile diff clears exactly fourteen `"dev": true` flags with no version change.
+
+### The four Important findings, all real
+
+1. **The pinned-reference check is CASE-SENSITIVE** — `url.includes("sjrfecxgysukkwxsowpy")` misses the
+   uppercase spelling, which DNS resolves to the identical live Clinical KB host. This is the exact
+   bypass shape the whole of Task 12 exists to prevent, and it is one `toLowerCase()`.
+2. **The guard lives in the caller, so the pool constructor is an open bypass.**
+   `createCaringContactsPool` is exported and asserts nothing; only the store happens to check first.
+   The reviewer named a concrete precedent rather than speculating: a test helper already constructs a
+   pool from an env-derived URL with no assertion, and then runs `drop schema … cascade` against it.
+3. **A fresh `pg.Pool` per call, never ended, with no `error` listener.** Latent today because nothing
+   calls it — and not latent at all after Task 14, where every request would build its own pool.
+   Compounding that, `pg` emits `'error'` on idle clients, and an unhandled `'error'` event takes the
+   Node process down: the workspace would die rather than degrade.
+4. **The new directory's NAME silently opened a hole in an existing guard.** This is the finding worth
+   remembering. `tests/caring-contacts-domain-isolation.test.ts` resolves imports and asserts
+   `resolved.startsWith(DOMAIN_ROOT)`, where `DOMAIN_ROOT` carries no trailing separator. The new sibling
+   `src/lib/caring-contacts-server/` extends the sealed `src/lib/caring-contacts` as a bare string
+   prefix, so a RELATIVE `../caring-contacts-server/config` import from inside the sealed domain now
+   passes both assertions — the reverse-direction dependency the plan forbids absolutely. The aliased
+   form is still caught, so only the relative spelling escapes.
+
+   Nothing in the diff is wrong; the guard was made weaker by a legitimately named neighbour. That is a
+   defect class worth naming: **a guard that matches on a path prefix is only as strong as the absence
+   of a sibling whose name extends it.** I authorised the one-character fix (`DOMAIN_ROOT + path.sep`)
+   as the round's only test edit, because it is a strengthening rather than a loosening, and required
+   it be proven by adding a relative import to a sealed module and watching the guard newly catch it.
+
+### The six Minors, all sent for fixing because each is a one-liner
+
+Trim asymmetry between the URL and the values it is compared against; **no test pinning the `postgres`
+branch at all** — an implementation returning `"in-memory"` unconditionally passes all four of the
+brief's tests, so the brief's verbatim set is the floor and not the ceiling; no `secure` flag on the
+cookie; only the cookie's VALUE falling back while a throw from `cookies()` itself propagates and
+produces the locked-out-of-a-demonstration outcome the rule exists to prevent; two different exported
+functions both named `createCaringContactsPool`; and every rejected role name writing an error log for
+what is an expected client error.
+
+### Also owed
+
+Neither the implementer's report nor the review carried typecheck or lint evidence for these two tasks.
+Vitest transpiles without type-checking, so a green suite says nothing about the Zod narrowing in the
+route handler flowing through the inferred body type. Folded into the fix round with the exact commands.
