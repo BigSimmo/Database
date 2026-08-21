@@ -1516,3 +1516,85 @@ positional `500` that is a no-op, because the error helper takes its status from
 `PublicApiError` regardless. The re-reviewer checked the helper rather than flagging the dead argument,
 and confirmed only the logging behaviour changes. Correct, but it leaves a misleading literal in the
 source; recorded for the final review rather than churned now.
+
+## Task 14 — the API boundary that audits every view, implemented at `e3805d6c0`
+
+Ten route handlers plus the shared wrapper, `Tests 7713 passed | 29 skipped (7742)`, `tsc` exit 0 with
+zero diagnostics, new suite `19 passed (19)`. Four mutations run — the brief's two plus one for each
+half of Ruling 43 — each first confirmed to change a value an assertion reads, each reverted.
+
+**Phase 1 open item 1 — "reads are not audited" — is closed by this task**, subject to the gap below.
+
+The implementer returned DONE_WITH_CONCERNS and raised four things rather than shipping quietly. One of
+them is a real gap it could easily have said nothing about.
+
+### Ruling 45 — a write DENIED AT THE BOUNDARY must still be audited
+
+The gap: the brief requires the capability check to run in the handler, before the store. So a write the
+handler refuses never reaches the store, and the store's own refusal auditing never fires. The
+highest-value audit signal there is — _somebody attempted an action they were not permitted_ — went
+dark at exactly the boundary this task exists to instrument.
+
+The implementer was right that calling the store anyway to force a recorded denial is UNSAFE: the store
+accepts an alternative capability for at least one write, so that route could actually perform the write
+the boundary had just refused. It was also right that closing the gap needs a sealed-type change, which
+is why it stopped rather than improvising one.
+
+**I checked whether that change was safe BEFORE ruling**, which is the whole reason this could be closed
+now instead of deferred:
+
+- The schema constrains none of these values. There is no CHECK constraint on access kinds or object
+  types anywhere in `caring-contacts/supabase/migrations/`, so **no migration is needed.**
+- No test pins the closed set exhaustively — `tests/caring-contacts-access-audit.test.ts` uses specific
+  members, never an exhaustive assertion. So widening is **purely additive with no existing assertion
+  to change**, which keeps it clear of the plan's absolute prohibition.
+- And the mismatch is in the type, not the design. `repository.ts`'s own documentation for
+  `recordAccess` already declares its scope as "every search, view, decision, **mutation**, write-back
+  and administrative access". `AccessKind` was narrower than its own documented contract. That, not the
+  handler, is the defect.
+
+Ruling: [45] `"mutation"` joins `AccessKind`, and `writeHandler` records a denied-at-the-boundary write
+through `recordAccess` with `outcome: "denied"` — recording **only** when the boundary itself denies,
+because an allowed write reaches the store and is audited there, and recording both would double-count.
+— Cost if wrong: one additional member on a sealed enum and one append on a path that previously
+appended nothing. If the denial signal turns out to belong in the write-audit trail rather than the
+access trail, the record moves; nothing has to be undone first.
+
+**The invariant this establishes, required as a test in these words: every write attempt through the
+boundary produces exactly one audit event, whichever way it goes.** Denied at the boundary gives one
+access event with `outcome: "denied"`; allowed gives one store audit event and no boundary event. Both
+halves must be proven falsifiable — removing the boundary record must redden the denied half, and
+recording on the allowed path too must redden the allowed half on the count.
+
+### Ruling 46 — widen `AccessedObjectType` rather than collapsing four surfaces into `report`
+
+The implementer recorded notification preferences, training records, pathway versions and service state
+as `administrative`/`report`, because no member fitted, and flagged it. That is a real loss of signal: a
+service-state read and a training-record read become indistinguishable in the trail, which defeats the
+purpose of carrying an object type at all.
+
+Ruling: [46] The four surfaces get their own members. — Why: the same reasoning as Ruling 45 — additive,
+schema-unconstrained, no exhaustive test to edit — and an audit trail that cannot say WHICH surface was
+read is a weaker control than one that can, on a system whose whole audit story is the reason this task
+exists. — Cost if wrong: four enum members. `report` stops being a catch-all, which is the point.
+
+### Ruling 47 — `action` may be a function of the request body
+
+Four routes genuinely need it. A handler that cannot express its own action name would push the
+capability check back into the individual routes, which is precisely the failure mode Task 14 exists to
+remove: a route that CAN forget the check is a route that eventually will. — Cost if wrong: a slightly
+wider handler config type.
+
+### Ruling 48 — the Ruling 43 narrowing lives in its own module, not inline in the handler
+
+A privacy narrowing is easier to review, and much harder to lose in a later refactor, when it has a name
+and a file of its own. — Cost if wrong: one small module.
+
+Both 47 and 48 are deviations from the brief's literal interface. They are recorded as mine.
+
+### Accepted without change, recorded so nobody later reads it as a bug
+
+An empty LIST read records `allowed`, not `denied`. The stores deliberately make scoping-out
+indistinguishable from matching-nothing, and "the read was permitted and matched nothing" is the
+truthful record. Single-object reads are unaffected. FLAG FOR THE FINAL REVIEW as a known and
+deliberate property.
