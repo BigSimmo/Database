@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "58670ffd-3e20-434a-b728-67f98f0a10d6",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "DegradedNotice banner shifts the hero section by ~0.16 CLS on / when it appears/disappears (separate from the .pwa-notice-stack fix in PR #2219)",
+    "detail": "scripts/measure-cls-attribution.mjs (offline-only trigger, no install prompt) shows main#main-content > ... > section (the answer-mode hero, sourced from ClinicalDashboard's DegradedNotice) shifting from y=88,h=623 to y=165,h=623 — 0.159 CLS, 2 entries — purely from the in-flow DegradedNotice banner mounting/unmounting above it when isOnline flips. This is distinct from the .pwa-notice-stack root cause fixed in PR #2219 (fix/pwa-notice-cls-shift): that fix collapses .pwa-notice-stack's contribution to 0 under the same harness, but this hero-section shift is untouched by it and remained present in the fixed-code re-run (0.159 total, single source). The real Lighthouse CI trace that motivated #2219 (mobile-root, PRs #2199/#2204, 2026-08-21) named only .pwa-notice-stack as the shift source at score 0.223, so this hero-section mechanism apparently did not fire (or was below threshold) in that specific CI run — but it is a real, reproducible shift on the same route and could surface as a future budget flake. Likely fix direction: reserve the DegradedNotice banner's height (or use the same unmounted-frame-swap pattern) so its mount/unmount does not resize the hero section while already visible.",
+    "source": "Investigation for PR #2219 (fix/pwa-notice-cls-shift), 2026-08-21",
+    "issueUlid": "01M0J0GFEZK9XD5NTTBCBEK0Y5"
+  }
+}

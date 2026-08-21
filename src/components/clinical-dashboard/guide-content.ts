@@ -4,7 +4,7 @@ export const guideTopicIds = [
   "document-scope",
   "answer-anatomy",
   "sources-citations",
-  "uploads-indexing",
+  "document-administration",
   "privacy-safe-use",
   "keyboard-shortcuts",
 ] as const;
@@ -150,17 +150,16 @@ export const guideTopics: readonly GuideTopic[] = [
     ],
   },
   {
-    id: "uploads-indexing",
-    title: "Uploads and indexing",
-    navLabel: "Uploads & indexing",
-    summary:
-      "Understand who can add documents, what indexing states mean, and where ordinary users find available sources.",
+    id: "document-administration",
+    title: "Document administration",
+    navLabel: "Document administration",
+    summary: "Understand how documents enter the library, what indexing states mean, and where users find sources.",
     sections: [
       {
         heading: "Use Sources for ordinary document access",
         paragraphs: [
-          "Most users work with documents that are already available through Sources. Upload and indexing tools are restricted to authorised administrators because they change the shared evidence library and require storage, database, extraction, and indexing services.",
-          "A successful upload is not immediately searchable. The document must move through processing and indexing before its contents can appear in search. Demo content is synthetic and does not prove that a real upload pipeline or provider-backed workflow is configured.",
+          "The site does not accept document uploads from users. Documents are added through the administrator backend, then made available through Sources after the required review and indexing workflow.",
+          "A newly added document is not immediately searchable. It must move through processing and indexing before its contents can appear in search. Demo content is synthetic and does not prove that a real ingestion pipeline or provider-backed workflow is configured.",
         ],
       },
       {
