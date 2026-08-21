@@ -9,7 +9,7 @@
 // and the timing to everyone, and the note only to an actor who may see incident detail.
 import { z } from "zod";
 
-import { readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
+import { auditableIdentifier, readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
 import { narrowServiceStateForActor } from "@/lib/caring-contacts-server/service-state-view";
 import type { CaringContactAction } from "@/lib/caring-contacts/permissions";
 
@@ -31,14 +31,14 @@ const serviceStateSchema = z.discriminatedUnion("type", [
       ]),
       /** Free text about the incident. It is stored, and this route narrows who may read it back. */
       note: z.string().min(1),
-      idempotencyKey: z.string().min(1),
+      idempotencyKey: auditableIdentifier,
     })
     .strict(),
   z
     .object({
       type: z.literal("approveRestart"),
       role: z.enum(["incidentLead", "privacySecurityOwner", "clinicalProgrammeLead"]),
-      idempotencyKey: z.string().min(1),
+      idempotencyKey: auditableIdentifier,
     })
     .strict(),
 ]);

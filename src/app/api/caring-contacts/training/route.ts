@@ -7,7 +7,7 @@
 // access" is the whole of the trail's contract, not the patient-facing half of it.
 import { z } from "zod";
 
-import { readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
+import { auditableIdentifier, readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
 
 export const runtime = "nodejs";
 
@@ -24,7 +24,7 @@ const competencySchema = z
       "downtime",
       "incidentHandling",
     ]),
-    idempotencyKey: z.string().min(1),
+    idempotencyKey: auditableIdentifier,
   })
   .strict();
 

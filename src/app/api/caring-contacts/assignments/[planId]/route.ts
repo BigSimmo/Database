@@ -7,7 +7,14 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 
-import { readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
+import {
+  auditableIdentifier,
+  invalidRequestResponse,
+  readHandler,
+  writeContextFor,
+  writeHandler,
+} from "@/lib/caring-contacts-server/handler";
+import { isAccessObjectIdShape } from "@/lib/caring-contacts/access-audit";
 import { actorId, planId } from "@/lib/caring-contacts/ids";
 import type { CaringContactAction } from "@/lib/caring-contacts/permissions";
 
@@ -18,19 +25,19 @@ type AssignmentRouteContext = { params: Promise<{ planId: string }> };
 const assignmentSchema = z
   .object({
     action: z.discriminatedUnion("type", [
-      z.object({ type: z.literal("claim"), actorId: z.string().min(1) }).strict(),
-      z.object({ type: z.literal("reassign"), toActorId: z.string().min(1), reason: z.string().min(1) }).strict(),
+      z.object({ type: z.literal("claim"), actorId: auditableIdentifier }).strict(),
+      z.object({ type: z.literal("reassign"), toActorId: auditableIdentifier, reason: z.string().min(1) }).strict(),
       z
         .object({
           type: z.literal("startCoverage"),
-          actorId: z.string().min(1),
+          actorId: auditableIdentifier,
           from: z.string().min(1),
           until: z.string().min(1),
         })
         .strict(),
       z.object({ type: z.literal("endCoverage") }).strict(),
     ]),
-    idempotencyKey: z.string().min(1),
+    idempotencyKey: auditableIdentifier,
   })
   .strict();
 
@@ -43,6 +50,9 @@ function capabilityFor(body: z.infer<typeof assignmentSchema>): CaringContactAct
 
 export async function GET(request: NextRequest, context: AssignmentRouteContext): Promise<Response> {
   const { planId: id } = await context.params;
+  // A path segment is caller input like any other. It becomes this read's audit `objectId`, so it
+  // is held to the audit trail's id grammar before it goes anywhere near the trail.
+  if (!isAccessObjectIdShape(id)) return invalidRequestResponse();
   return readHandler({
     access: { kind: "view", objectType: "plan", objectId: () => id },
     read: async (store, actor) => store.getAssignment(planId(id), { actor }),
@@ -51,6 +61,7 @@ export async function GET(request: NextRequest, context: AssignmentRouteContext)
 
 export async function POST(request: NextRequest, context: AssignmentRouteContext): Promise<Response> {
   const { planId: id } = await context.params;
+  if (!isAccessObjectIdShape(id)) return invalidRequestResponse();
   return writeHandler({
     schema: assignmentSchema,
     action: capabilityFor,

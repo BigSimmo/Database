@@ -9,7 +9,7 @@
 // surface than this one; the governance transitions, which the domain checks one at a time, do not.
 import { z } from "zod";
 
-import { readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
+import { auditableIdentifier, readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
 import { pathwayVersionId } from "@/lib/caring-contacts/ids";
 import type { CaringContactAction } from "@/lib/caring-contacts/permissions";
 
@@ -19,7 +19,7 @@ const COLLECTION = "all";
 
 const transitionSchema = z
   .object({
-    pathwayVersionId: z.string().min(1),
+    pathwayVersionId: auditableIdentifier,
     action: z.discriminatedUnion("type", [
       z.object({ type: z.literal("submitForReview") }).strict(),
       z
@@ -31,7 +31,7 @@ const transitionSchema = z
       z.object({ type: z.literal("publish") }).strict(),
       z.object({ type: z.literal("retire"), urgency: z.enum(["routine", "urgentSafety"]) }).strict(),
     ]),
-    idempotencyKey: z.string().min(1),
+    idempotencyKey: auditableIdentifier,
   })
   .strict();
 

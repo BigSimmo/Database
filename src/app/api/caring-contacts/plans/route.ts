@@ -6,7 +6,7 @@
 // every read. A route that could forget the call is exactly the failure this boundary removes.
 import { z } from "zod";
 
-import { readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
+import { auditableIdentifier, readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
 import { pathwayVersionId, patientId, planId, referralId } from "@/lib/caring-contacts/ids";
 
 export const runtime = "nodejs";
@@ -22,10 +22,10 @@ const isoInstant = z
 // logged by every proxy between here and the browser.
 const createPlanSchema = z
   .object({
-    planId: z.string().min(1),
-    referralId: z.string().min(1),
-    patientId: z.string().min(1),
-    pathwayVersionId: z.string().min(1),
+    planId: auditableIdentifier,
+    referralId: auditableIdentifier,
+    patientId: auditableIdentifier,
+    pathwayVersionId: auditableIdentifier,
     dischargeAt: isoInstant,
     sendingPreference: z.enum(["morning", "afternoon", "earlyEvening"]),
     firstContactDate: z.string().min(1).optional(),
@@ -38,7 +38,7 @@ const createPlanSchema = z
         culturalIdentity: z.string().min(1).nullable(),
       })
       .strict(),
-    idempotencyKey: z.string().min(1),
+    idempotencyKey: auditableIdentifier,
   })
   .strict();
 

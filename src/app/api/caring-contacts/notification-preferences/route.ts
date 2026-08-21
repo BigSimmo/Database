@@ -8,7 +8,7 @@
 // `actorId` already names whose record it was, so the object id records only which kind it was.
 import { z } from "zod";
 
-import { readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
+import { auditableIdentifier, readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
 
 export const runtime = "nodejs";
 
@@ -25,7 +25,7 @@ const preferencesSchema = z
         "pathwayRetired",
       ]),
     ),
-    idempotencyKey: z.string().min(1),
+    idempotencyKey: auditableIdentifier,
   })
   .strict();
 

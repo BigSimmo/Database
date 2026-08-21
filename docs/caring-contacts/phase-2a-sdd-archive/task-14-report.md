@@ -503,3 +503,156 @@ does not contain. They pass.
 Only the two the coordinator accepted (empty-list reads recording `allowed`; no logging behind an
 opaque 500 on a read that throws), plus the standing note that none of this has been exercised
 against Postgres — `caring-contacts:db:test` needs a database and was not run.
+
+---
+
+# Fix round 1 — two Important, seven Minors, Ruling 49
+
+## Important 1 — a caller could suppress their own boundary-denial audit record
+
+Confirmed exactly as described, and it defeated the thing Ruling 45 exists to capture: the audited
+actor could switch off their own audit record by typing a space.
+
+**RED first, before any fix:**
+
+```
+ FAIL  ... > still records exactly one audit event when the denied write carries a malformed identifier
+AssertionError: expected [] to have a length of 1 but got +0
+```
+
+Zero audit events for a 403. That is the finding, reproduced.
+
+**Both halves fixed, as instructed.**
+
+_Half 1 — constrain identifiers at the edge, against the grammar that already exists._
+`access-audit.ts` now exports `ACCESS_OBJECT_ID_PATTERN` and `isAccessObjectIdShape`, and
+`handler.ts` exports one shared `auditableIdentifier` Zod schema built from that predicate. No
+second, looser grammar was invented — the routes validate against the exact regex
+`buildAccessAuditEvent` enforces, so the two cannot drift. Applied to every identifier field in all
+ten routes (`planId`, `referralId`, `patientId`, `pathwayVersionId`, `contactId`, `actorId`,
+`toActorId`, the access-trail `actorId` filter) **and to `idempotencyKey`**, which was not named in
+the finding but is the same class: it is copied verbatim onto every audit event, and free text there
+would carry a name straight past the mobile-number scan. Fields that legitimately hold free text —
+the incident note, a decline reason, `patientDetail` — are untouched and never reach an audit event.
+
+Path segments are caller input too, and on the read side the segment _becomes_ the audit `objectId`,
+so both dynamic routes now check `isAccessObjectIdShape` on `params` before doing anything else.
+
+_Half 2 — make the record unfailable anyway._ `recordAccessAttempt` substitutes the bare
+object-type name when the supplied `objectId` would be rejected for shape — the shape that module's
+own allowlist comment documents as legitimate. The record is now made **every** time, whatever the
+caller sent, and the rejected value is never written anywhere, because free text is exactly what it
+might be.
+
+**Why the proof is two tests, not one.** With half 1 in place the route answers a malformed
+identifier with 400 and never reaches the capability check, so a route-level test can no longer
+observe the denial path at all. The handler's own guarantee is therefore pinned directly, with a
+deliberately unconstrained schema, so that it proves half 2 rather than the schema in front of it:
+
+- `still records exactly one audit event when the denied write carries a malformed identifier` —
+  `writeHandler` with `z.object({ id: z.string() })`, body `{ id: "SYN PATHWAY 001" }` → 403, one
+  event in the trail, `objectId: "pathwayVersion"`.
+- `refuses a malformed identifier at the route with a clean 400, before it reaches the audit path` —
+  the real route with `pathwayVersionId: "SYN PATHWAY 001"` → 400 `{ refusal: "invalid-request" }`.
+
+**Post-fix mutation** (replaced the substitution with `const safeObjectId = objectId;`) — 2 of 29
+red, one for each half of the finding:
+
+```
+ FAIL  ... > still records exactly one audit event when the denied write carries a malformed identifier
+AssertionError: expected [] to have a length of 1 but got +0
+ FAIL  ... > does not report the audit trail as unavailable when the caller supplies a malformed identifier
+AssertionError: expected 503 to be 200
+```
+
+Reverted.
+
+**One test-harness defect found while proving this, and fixed.** The `recordAccess` spy pushed to
+its array _before_ delegating to the real store, so it counted events **offered** to the trail
+rather than events that **entered** it — it agreed with a handler that built an event the trail then
+rejected, which is precisely the defect under investigation. The spy now delegates first and records
+second. That is why the first RED capture showed the failure only on the `listAuditEvents` count;
+after tightening the spy it shows on both.
+
+## Important 2 — access-trail answered a different window than the one asked
+
+Confirmed. `parseJsonBodyOrDefault(request, z.unknown(), undefined)` turned an unparseable body into
+`null`, `z.unknown()` accepted it, and `raw ?? {}` produced the schema defaults — the broadest
+window there is. The route's own comment promised a 400 that only a _well-formed_ body could reach.
+
+RED before the fix: `expected 200 to be 400`.
+
+Now `parseJsonBody(request, querySchema)` inside a `try`/`catch` returning
+`invalidRequestResponse()`. A body is required and `{}` gives the default window; an unparseable one
+is refused. Two tests: the malformed body → 400, and a well-formed `{ limit: 5, offset: 0 }` → 200
+with an array, so the fix cannot pass by refusing everything.
+
+## Minors
+
+1. **503 on a stray character in a path id — confirmed fixed by Important 1's half 2.** Pinned by
+   `does not report the audit trail as unavailable when the caller supplies a malformed identifier`:
+   `readHandler` with a malformed `objectId` now returns 200 and records one event with
+   `objectId: "plan"` instead of reporting the trail as down. The mutation above reddens it, so half
+   2 is demonstrably what holds it.
+2. **Pre-record 400s documented as intended** at both sites (`access-trail`, `dispatches`), naming
+   the distinction: no read was performed, so there is no access to record — unlike a _denied write_,
+   which is an attempt on a named object and is now recorded.
+3. **Replay pinned, behaviour unchanged.** New test: two identical pauses under one idempotency key →
+   both 200, audit count unchanged after the second. The handler comment now states the invariant in
+   full: _every write attempt produces exactly one audit event, and a replay of an already-recorded
+   attempt produces none._
+4. **`cross-team-denied` comment corrected.** It now says the resource is always the actor's own
+   team, so that reason is not reachable here — and says why that is right: the stores answer a
+   cross-team write with `not-found` so the actor cannot learn the record exists, and a boundary
+   answering "wrong team" would give away what the store withholds. Comment only; no code change.
+5. **`REFUSAL_STATUS` is now null-prototype** (`Object.assign(Object.create(null), {…})`, frozen), so
+   an inherited key cannot return a function instead of falling through to 422.
+6. **Patient-data test broadened.** New case: `POST /api/caring-contacts/plans` for a patient who
+   already has an open plan → 409 `duplicate-active-plan`. The refusal arises from stored record
+   state, and the _request_ carries the name, the mobile number and the UR number, so an echoing
+   implementation would be caught. Asserted against `/Rowan|Mira|\+61|UR-00219384/`.
+7. **Ruling 49 applied** — `referral-already-exists` and `pathway-version-already-exists` moved from
+   the 422 catch-all to 409. **This is a deliberate deviation from the brief's literal enumeration
+   and it is the coordinator's, not mine.** No existing assertion needed changing: the contract suite
+   asserts both by refusal _name_, never by status, so nothing in the repository pinned 422 for them.
+   New test: a duplicate referral identifier → 409 `{ refusal: "referral-already-exists" }` (RED
+   before the change: `expected 422 to be 409`).
+
+**Not fixed, per the ruling:** the opaque 500 on a read that throws. Left as is, to be revisited with
+the production shell.
+
+## Verification
+
+```
+$ node scripts/run-vitest.mjs run tests/caring-contacts-api-handler.test.ts tests/caring-contacts-access-audit.test.ts --reporter=dot
+ Test Files  2 passed (2)
+      Tests  35 passed (35)
+```
+
+```
+$ npm run test
+ Test Files  696 passed | 2 skipped (698)
+      Tests  7723 passed | 29 skipped (7752)
+```
+
+```
+$ node ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit
+tsc exit: 0  diagnostics lines: 0
+
+$ npx eslint src/lib/caring-contacts/access-audit.ts src/lib/caring-contacts-server/*.ts "src/app/api/caring-contacts/**/*.ts" tests/caring-contacts-api-handler.test.ts
+eslint exit: 0
+```
+
+No existing assertion was deleted or loosened. The one authorised assertion edit (a 422 expectation
+for either Ruling 49 refusal) turned out not to exist anywhere, so none was made.
+
+## Files changed this round
+
+- `src/lib/caring-contacts/access-audit.ts` — exports `ACCESS_OBJECT_ID_PATTERN` and
+  `isAccessObjectIdShape`; the internal assertion now routes through that predicate
+- `src/lib/caring-contacts-server/handler.ts` — `auditableIdentifier`; unfailable access record;
+  null-prototype status map; Ruling 49 entries; corrected and restated comments
+- all ten `src/app/api/caring-contacts/**/route.ts` — identifier fields and path segments
+  constrained; access-trail body handling; pre-record-400 comments
+- `tests/caring-contacts-api-handler.test.ts` — nine new tests; spy tightened so it counts events
+  that entered the trail rather than events offered to it

@@ -24,10 +24,15 @@
 import "server-only";
 
 import type { NextRequest } from "next/server";
-import type { ZodType } from "zod";
+import { z, type ZodType } from "zod";
 
 import { PublicApiError } from "@/lib/http";
-import type { AccessedObjectType, AccessKind, AccessRecord } from "@/lib/caring-contacts/access-audit";
+import {
+  isAccessObjectIdShape,
+  type AccessedObjectType,
+  type AccessKind,
+  type AccessRecord,
+} from "@/lib/caring-contacts/access-audit";
 import type { AuditOutcome } from "@/lib/caring-contacts/audit";
 import { idempotencyKey } from "@/lib/caring-contacts/ids";
 import type { TransitionResult } from "@/lib/caring-contacts/model";
@@ -51,20 +56,31 @@ import { caringContactsStore } from "./store";
  * `cross-team-denied`, `action-not-granted`, and `no-roles` are the three reasons
  * `canPerformCaringContactAction` gives; they join the store's own `permission-denied` on 403.
  */
-const REFUSAL_STATUS: Readonly<Record<string, number>> = Object.freeze({
-  "not-found": 404,
-  "permission-denied": 403,
-  "cross-team-denied": 403,
-  "action-not-granted": 403,
-  "no-roles": 403,
-  "stale-version": 409,
-  "duplicate-active-plan": 409,
-  "plan-already-exists": 409,
-  "idempotency-key-reused-for-a-different-write": 409,
-  // 423 Locked: the service-wide safety stop is a deliberate hold on this resource, not a fault
-  // and not a permission problem. It clears when three distinct roles approve the restart.
-  "service-stopped": 423,
-});
+// Null-prototype: a plain object literal would answer `REFUSAL_STATUS["constructor"]` with an
+// inherited function instead of falling through to the 422 default. Unreachable from any refusal
+// name the domain mints, and removed as a class rather than reasoned about again.
+const REFUSAL_STATUS: Readonly<Record<string, number>> = Object.freeze(
+  Object.assign(Object.create(null) as Record<string, number>, {
+    "not-found": 404,
+    "permission-denied": 403,
+    "cross-team-denied": 403,
+    "action-not-granted": 403,
+    "no-roles": 403,
+    "stale-version": 409,
+    "duplicate-active-plan": 409,
+    "plan-already-exists": 409,
+    "idempotency-key-reused-for-a-different-write": 409,
+    // Ruling 49: a duplicate identifier is a conflict of exactly the kind the three refusals above
+    // describe. The brief's list named the refusals that existed when it was written; treating a
+    // fourth and fifth of the same kind differently would make these status codes describe the
+    // plan's drafting history rather than the actual condition.
+    "referral-already-exists": 409,
+    "pathway-version-already-exists": 409,
+    // 423 Locked: the service-wide safety stop is a deliberate hold on this resource, not a fault
+    // and not a permission problem. It clears when three distinct roles approve the restart.
+    "service-stopped": 423,
+  }),
+);
 
 const UNPROCESSABLE = 422;
 
@@ -97,6 +113,17 @@ export function invalidRequestResponse(): Response {
  * different writes would collide on one key and be refused as a replay of each other. Only the
  * caller knows whether this request is a retry of the last one.
  */
+/**
+ * Any request field that becomes an audit `objectId` -- or an identifier of any kind. Constrained
+ * to the audit trail's own id grammar so free text is refused with a clean 400 at the edge rather
+ * than travelling into the audit path, where it would be rejected too late to matter. Never use it
+ * for a field that legitimately holds free text (an incident note, a decline reason): those are
+ * body-only and never reach an audit event.
+ */
+export const auditableIdentifier = z
+  .string()
+  .refine(isAccessObjectIdShape, { message: "must be an identifier, not free text" });
+
 export function writeContextFor(actor: Actor, key: string): WriteContext {
   return { actor, idempotencyKey: idempotencyKey(key) };
 }
@@ -155,13 +182,21 @@ async function recordAccessAttempt(
   objectId: string,
   outcome: AuditOutcome,
 ): Promise<boolean> {
+  // Belt to the route schemas' braces. `buildAccessAuditEvent` rejects an objectId outside its id
+  // grammar, and both callers here treat a failed record as non-fatal -- so an identifier nobody
+  // anticipated could otherwise cost the trail the whole event. Substituting the bare object-type
+  // name (a shape that module's own allowlist documents as legitimate) keeps the event: who,
+  // what kind of object, which outcome, and when. The rejected value is never recorded anywhere,
+  // because free text is exactly what it might be.
+  const safeObjectId = isAccessObjectIdShape(objectId) ? objectId : access.objectType;
+
   const record: AccessRecord = {
     actorId: actor.id,
     actorRoles: actorRoleNames(actor),
     teamId: actor.teamId,
     kind: access.kind,
     objectType: access.objectType,
-    objectId,
+    objectId: safeObjectId,
     outcome,
   };
   try {
@@ -197,9 +232,15 @@ export type WriteHandlerConfig<TBody, TResult> = {
  *
  * The capability check is here rather than left to the store because the store answers every
  * permission failure with the single reason `permission-denied`, and the elevation brief requires
- * a denial to say WHY -- `cross-team-denied` and `action-not-granted` are different facts to the
- * person reading the screen. The check is the sealed `canPerformCaringContactAction`; this module
- * holds no grant table of its own.
+ * a denial to say WHY -- `action-not-granted` and `no-roles` are different facts to the person
+ * reading the screen. The check is the sealed `canPerformCaringContactAction`; this module holds
+ * no grant table of its own.
+ *
+ * The resource is always the ACTOR'S OWN team, so `cross-team-denied` is not reachable from here
+ * and this boundary never distinguishes a cross-team write. That is deliberate, not an omission:
+ * the stores answer a write against another team's record with `not-found`, so that a cross-team
+ * actor cannot learn the record exists, and a boundary that answered "wrong team" would give away
+ * the very thing the store withholds.
  */
 export function writeHandler<TBody, TResult>(
   config: WriteHandlerConfig<TBody, TResult>,
@@ -226,8 +267,12 @@ export function writeHandler<TBody, TResult>(
       // Recorded HERE and only here. A write refused at this boundary never reaches the store, so
       // `runWrite` never runs and the attempt would otherwise leave no trace at all. A write that
       // IS allowed through is deliberately not recorded here: the store audits it, and recording
-      // both would count one attempt twice. The asymmetry is the point, not an oversight -- every
-      // write attempt produces exactly one audit event, whichever way it goes.
+      // both would count one attempt twice. The asymmetry is the point, not an oversight.
+      //
+      // The invariant in full: EVERY WRITE ATTEMPT PRODUCES EXACTLY ONE AUDIT EVENT, AND A REPLAY
+      // OF AN ALREADY-RECORDED ATTEMPT PRODUCES NONE. The replay half belongs to the store --
+      // `runWrite` returns the cached result before building an event -- and is right: a retry of
+      // a request already in the trail is not a second attempt at anything.
       //
       // The result is ignored on purpose. `recordAccess` must not be blockable (see its contract),
       // and a trail that cannot take the event must not turn a denial into something else: the

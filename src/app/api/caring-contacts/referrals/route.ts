@@ -5,7 +5,7 @@
 // rather than against a plan that may not exist yet.
 import { z } from "zod";
 
-import { readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
+import { auditableIdentifier, readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
 import { pathwayVersionId, patientId, referralId } from "@/lib/caring-contacts/ids";
 import type { CaringContactAction } from "@/lib/caring-contacts/permissions";
 
@@ -17,21 +17,21 @@ const referralSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("create"),
-      referralId: z.string().min(1),
-      patientId: z.string().min(1),
-      idempotencyKey: z.string().min(1),
+      referralId: auditableIdentifier,
+      patientId: auditableIdentifier,
+      idempotencyKey: auditableIdentifier,
     })
     .strict(),
   z
     .object({
       type: z.literal("transition"),
-      referralId: z.string().min(1),
+      referralId: auditableIdentifier,
       action: z.discriminatedUnion("type", [
-        z.object({ type: z.literal("accept"), pathwayVersionId: z.string().min(1) }).strict(),
+        z.object({ type: z.literal("accept"), pathwayVersionId: auditableIdentifier }).strict(),
         z.object({ type: z.literal("returnForClarification"), reason: z.string().min(1) }).strict(),
         z.object({ type: z.literal("decline"), reason: z.string().min(1) }).strict(),
       ]),
-      idempotencyKey: z.string().min(1),
+      idempotencyKey: auditableIdentifier,
     })
     .strict(),
 ]);

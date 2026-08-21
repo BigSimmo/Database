@@ -9,9 +9,9 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 
-import { invalidRequestResponse, readHandler } from "@/lib/caring-contacts-server/handler";
+import { auditableIdentifier, invalidRequestResponse, readHandler } from "@/lib/caring-contacts-server/handler";
 import { actorId } from "@/lib/caring-contacts/ids";
-import { parseJsonBodyOrDefault } from "@/lib/validation/body";
+import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
 
@@ -21,7 +21,7 @@ const querySchema = z
   .object({
     fromIso: z.string().min(1).optional(),
     toIso: z.string().min(1).optional(),
-    actorId: z.string().min(1).optional(),
+    actorId: auditableIdentifier.optional(),
     objectType: z
       .enum([
         "plan",
@@ -42,12 +42,21 @@ const querySchema = z
   .strict();
 
 export async function POST(request: NextRequest): Promise<Response> {
-  // The filter body is read here, before the audited read, so a query that does not parse is
-  // refused by name rather than silently answered with a different window than the one asked for.
-  const raw = await parseJsonBodyOrDefault(request, z.unknown(), undefined);
-  const parsed = querySchema.safeParse(raw ?? {});
-  if (!parsed.success) return invalidRequestResponse();
-  const query = parsed.data;
+  // A body is required; send `{}` for the default window. Deliberately NOT
+  // `parseJsonBodyOrDefault`: that answers an UNPARSEABLE body with the schema's defaults, which
+  // here is the broadest window there is -- so an audit reviewer would be handed a different
+  // question's answer and no sign that it happened. On this surface above all, a query that
+  // cannot be read is refused rather than guessed at.
+  //
+  // The refusal is returned before any access event is recorded, and that is intended: no read
+  // was performed, so there is no access to record. It is not the audit gap fix round 1 closed --
+  // that one was a write the boundary DENIED, which is an attempt on a named object.
+  let query: z.infer<typeof querySchema>;
+  try {
+    query = await parseJsonBody(request, querySchema);
+  } catch {
+    return invalidRequestResponse();
+  }
 
   return readHandler({
     access: { kind: "search", objectType: "auditTrail", objectId: () => COLLECTION },

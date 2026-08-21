@@ -8,7 +8,14 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 
-import { readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
+import {
+  auditableIdentifier,
+  invalidRequestResponse,
+  readHandler,
+  writeContextFor,
+  writeHandler,
+} from "@/lib/caring-contacts-server/handler";
+import { isAccessObjectIdShape } from "@/lib/caring-contacts/access-audit";
 import { planId } from "@/lib/caring-contacts/ids";
 import type { CaringContactAction } from "@/lib/caring-contacts/permissions";
 
@@ -16,7 +23,7 @@ export const runtime = "nodejs";
 
 type PlanRouteContext = { params: Promise<{ planId: string }> };
 
-const common = { expectedVersion: z.number().int().positive(), idempotencyKey: z.string().min(1) };
+const common = { expectedVersion: z.number().int().positive(), idempotencyKey: auditableIdentifier };
 
 // A discriminated union rather than one shape with an optional `origin`: who asked for a
 // withdrawal is a recorded fact, and defaulting an absent origin to "patient" would put words in
@@ -42,6 +49,9 @@ const LIFECYCLE_ACTIONS: Readonly<Record<z.infer<typeof lifecycleSchema>["action
 
 export async function GET(request: NextRequest, context: PlanRouteContext): Promise<Response> {
   const { planId: id } = await context.params;
+  // A path segment is caller input like any other. It becomes this read's audit `objectId`, so it
+  // is held to the audit trail's id grammar before it goes anywhere near the trail.
+  if (!isAccessObjectIdShape(id)) return invalidRequestResponse();
   return readHandler({
     access: { kind: "view", objectType: "plan", objectId: () => id },
     read: async (store, actor) => store.getPlan(planId(id), { actor }),
@@ -50,6 +60,7 @@ export async function GET(request: NextRequest, context: PlanRouteContext): Prom
 
 export async function POST(request: NextRequest, context: PlanRouteContext): Promise<Response> {
   const { planId: id } = await context.params;
+  if (!isAccessObjectIdShape(id)) return invalidRequestResponse();
   return writeHandler({
     schema: lifecycleSchema,
     action: (body) => LIFECYCLE_ACTIONS[body.action],

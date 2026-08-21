@@ -85,10 +85,21 @@ export function accessActionName(kind: AccessKind, objectType: AccessedObjectTyp
  * never reach `objectId`. Do not replace this allowlist with a name heuristic: heuristics regress
  * the moment a new plausible name shape appears, allowlists on a closed id grammar do not.
  */
-const OBJECT_ID_SHAPE_PATTERN = /^[A-Za-z0-9_:-]{1,128}$/;
+export const ACCESS_OBJECT_ID_PATTERN = /^[A-Za-z0-9_:-]{1,128}$/;
+
+/**
+ * Exported so a caller can constrain an identifier BEFORE it reaches this module, against this
+ * exact grammar rather than a second, looser copy of it. Fix round 1, Important 1: the API
+ * boundary accepted `z.string().min(1)` for identifiers that became an `objectId`, so a caller
+ * could make `buildAccessAuditEvent` throw -- and switch off their own audit record -- by typing a
+ * space.
+ */
+export function isAccessObjectIdShape(value: string): boolean {
+  return ACCESS_OBJECT_ID_PATTERN.test(value);
+}
 
 function assertObjectIdIsAnIdentifierShape(objectId: string): void {
-  if (!OBJECT_ID_SHAPE_PATTERN.test(objectId)) {
+  if (!isAccessObjectIdShape(objectId)) {
     throw new AuditEventContainsPatientDataError(
       "objectId is not identifier-shaped -- a search term or a name must never be recorded as an objectId",
     );

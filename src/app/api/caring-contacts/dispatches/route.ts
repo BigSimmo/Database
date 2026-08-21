@@ -10,6 +10,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import {
+  auditableIdentifier,
   invalidRequestResponse,
   readHandler,
   writeContextFor,
@@ -30,12 +31,12 @@ const windowSchema = z
 
 const resolveSchema = z
   .object({
-    contactId: z.string().min(1),
+    contactId: auditableIdentifier,
     attempt: z.number().int().positive(),
     resolution: z.enum(["confirmedDelivered", "confirmedNotDelivered", "unresolvedNoResend"]),
     /** The domain requires a non-blank note for a resolution; a blank one is refused by name. */
     note: z.string().min(1),
-    idempotencyKey: z.string().min(1),
+    idempotencyKey: auditableIdentifier,
   })
   .strict();
 
@@ -44,6 +45,8 @@ export async function GET(request: NextRequest): Promise<Response> {
     from: request.nextUrl.searchParams.get("from"),
     to: request.nextUrl.searchParams.get("to"),
   });
+  // Refused before any access event is recorded, and intended: a window that cannot be read is
+  // not a read of anything, so there is nothing to record an access to.
   if (!parsed.success) return invalidRequestResponse();
   const { from, to } = parsed.data;
 

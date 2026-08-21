@@ -78,8 +78,11 @@ async function inMemoryStoreWithSpy(options: { actorRole?: CaringContactRole } =
   const store: CaringContactRepository = {
     ...repository,
     async recordAccess(record: AccessRecord) {
-      records.push(record);
+      // The real store first, then the spy: `records` must mean "entered the trail", not "was
+      // offered to it". Recording the attempt would have made the spy agree with a handler that
+      // built an event the trail then rejected -- the exact defect fix round 1 Important 1 fixed.
       await repository.recordAccess(record);
+      records.push(record);
     },
   };
 
@@ -330,6 +333,163 @@ describe("caring-contacts API boundary", () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({ refusal: "action-not-granted" });
+  });
+
+  // Fix round 1, Important 1. The audited actor could switch off their own audit record by typing
+  // a space: a malformed objectId made `buildAccessAuditEvent` throw, and `recordAccessAttempt`
+  // discards that failure by design (Ruling 45's unblockable requirement). The record must be made
+  // whatever the caller sent.
+  it("still records exactly one audit event when the denied write carries a malformed identifier", async () => {
+    const { store, recorded } = await inMemoryStoreWithSpy();
+    const auditor = demoActorForRole("auditor");
+    const before = (await store.listAuditEvents({ actor: auditor })).length;
+    // Deliberately unconstrained, so this proves the handler's own guarantee rather than the route
+    // schema in front of it.
+    const handler = writeHandler({
+      schema: z.object({ id: z.string() }),
+      action: "publishPathwayVersion",
+      access: { objectType: "pathwayVersion", objectId: (body) => body.id },
+      write: async () => ({ ok: true, value: null }),
+    });
+
+    const response = await handler(post("/api/caring-contacts/pathway-versions", { id: "SYN PATHWAY 001" }));
+
+    expect(response.status).toBe(403);
+    expect(recorded()).toHaveLength(1);
+    expect(await store.listAuditEvents({ actor: auditor })).toHaveLength(before + 1);
+    // The rejected value is never recorded; the bare object-type name is the documented safe shape.
+    expect(recorded()[0]).toMatchObject({ objectType: "pathwayVersion", objectId: "pathwayVersion" });
+  });
+
+  it("refuses a malformed identifier at the route with a clean 400, before it reaches the audit path", async () => {
+    await inMemoryStoreWithSpy();
+    const { POST } = await import("@/app/api/caring-contacts/pathway-versions/route");
+
+    const response = await POST(
+      post("/api/caring-contacts/pathway-versions", {
+        pathwayVersionId: "SYN PATHWAY 001",
+        action: { type: "publish" },
+        idempotencyKey: "publish-malformed",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ refusal: "invalid-request" });
+  });
+
+  // Fix round 1, Minor 1. The same chain on the read side reported the trail as DOWN for what was
+  // only ever a caller mistake, which would make a genuine outage alarm untrustworthy.
+  it("does not report the audit trail as unavailable when the caller supplies a malformed identifier", async () => {
+    const { recorded } = await inMemoryStoreWithSpy();
+    const handler = readHandler({
+      access: { kind: "view", objectType: "plan", objectId: () => "SYN PLAN 001" },
+      read: async (repository, actor) => repository.getPlan(PLAN_ID, { actor }),
+    });
+
+    const response = await handler(get("/api/caring-contacts/plans/SYN-PLAN-001"));
+
+    expect(response.status).toBe(200);
+    expect(recorded()).toEqual([expect.objectContaining({ objectType: "plan", objectId: "plan" })]);
+  });
+
+  // Fix round 1, Minor 3. Pre-existing store behaviour, deliberately unchanged: `runWrite` returns
+  // the cached result before building an event, so a replay is not a second attempt. Pinned here
+  // because it sits on the edge of Ruling 45's invariant and nothing covered it.
+  it("produces no audit event for an idempotent replay of an already-recorded attempt", async () => {
+    const { store } = await inMemoryStoreWithSpy();
+    const auditor = demoActorForRole("auditor");
+    const { POST } = await import("@/app/api/caring-contacts/plans/[planId]/route");
+    const body = { action: "pause", expectedVersion: 2, idempotencyKey: "pause-replay" };
+
+    const first = await POST(post("/api/caring-contacts/plans/SYN-PLAN-001", body), {
+      params: Promise.resolve({ planId: "SYN-PLAN-001" }),
+    });
+    const afterFirst = (await store.listAuditEvents({ actor: auditor })).length;
+    const replay = await POST(post("/api/caring-contacts/plans/SYN-PLAN-001", body), {
+      params: Promise.resolve({ planId: "SYN-PLAN-001" }),
+    });
+
+    expect(first.status).toBe(200);
+    expect(replay.status).toBe(200);
+    expect(await store.listAuditEvents({ actor: auditor })).toHaveLength(afterFirst);
+  });
+
+  // Fix round 1, Important 2. `parseJsonBodyOrDefault` returned null for an unparseable body,
+  // which the schema's own defaults then turned into the BROADEST window -- so an audit reviewer
+  // was answered a different question than the one they asked, and it looked authoritative.
+  it("refuses an unparseable access-trail query rather than answering a different window", async () => {
+    await inMemoryStoreWithSpy({ actorRole: "auditor" });
+    const { POST } = await import("@/app/api/caring-contacts/access-trail/route");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/caring-contacts/access-trail", { method: "POST", body: "{not json" }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ refusal: "invalid-request" });
+  });
+
+  it("answers a well-formed access-trail query", async () => {
+    await inMemoryStoreWithSpy({ actorRole: "auditor" });
+    const { POST } = await import("@/app/api/caring-contacts/access-trail/route");
+
+    const response = await POST(post("/api/caring-contacts/access-trail", { limit: 5, offset: 0 }));
+
+    expect(response.status).toBe(200);
+    expect(Array.isArray(await response.json())).toBe(true);
+  });
+
+  // Fix round 1, Minor 6. The service-stopped body is assembled from a constant, so it could not
+  // catch a leak anywhere else. This refusal arises from stored record state, and the request that
+  // provokes it carries a name, a mobile number and an identifier.
+  it("never returns patient data in a refusal that arises from real record data", async () => {
+    await inMemoryStoreWithSpy();
+    const { POST } = await import("@/app/api/caring-contacts/plans/route");
+
+    const response = await POST(
+      post("/api/caring-contacts/plans", {
+        planId: "SYN-PLAN-002",
+        referralId: "SYN-REFERRAL-002",
+        patientId: "SYN-PATIENT-001",
+        pathwayVersionId: "SYN-PATHWAY-001",
+        dischargeAt: "2026-03-02T02:00:00.000Z",
+        sendingPreference: "morning",
+        patientDetail: PATIENT_DETAIL,
+        idempotencyKey: "create-duplicate",
+      }),
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(409);
+    expect(body).toContain("duplicate-active-plan");
+    expect(body).not.toMatch(/Rowan|Mira|\+61|UR-00219384/);
+  });
+
+  // Ruling 49: a duplicate identifier is a conflict, the same as the three 409s the brief named.
+  it("maps a duplicate referral identifier to 409, not to the catch-all", async () => {
+    await inMemoryStoreWithSpy();
+    const { POST } = await import("@/app/api/caring-contacts/referrals/route");
+
+    const first = await POST(
+      post("/api/caring-contacts/referrals", {
+        type: "create",
+        referralId: "SYN-REFERRAL-010",
+        patientId: "SYN-PATIENT-010",
+        idempotencyKey: "referral-first",
+      }),
+    );
+    const duplicate = await POST(
+      post("/api/caring-contacts/referrals", {
+        type: "create",
+        referralId: "SYN-REFERRAL-010",
+        patientId: "SYN-PATIENT-011",
+        idempotencyKey: "referral-second",
+      }),
+    );
+
+    expect(first.status).toBe(200);
+    expect(duplicate.status).toBe(409);
+    await expect(duplicate.json()).resolves.toEqual({ refusal: "referral-already-exists" });
   });
 
   it("falls back to 422 for a refusal the status map does not name", async () => {
