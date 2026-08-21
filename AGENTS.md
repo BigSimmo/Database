@@ -169,12 +169,12 @@ unaddressed.
   owner or reviewer.
 - If the comment needs more than a direct fix (a design decision, missing context, reviewer
   input), reply explaining why instead of resolving, and leave the thread open.
-- This does not grant new GitHub write access. Reply and resolve only when doing so already
-  falls within GitHub access you already hold for that task — an explicit PR-fixing/babysitting
-  task, an authorized sweep such as `Run PR`, or a session already using GitHub write tools for
-  that PR — per "API and provider confirmation boundary" below. If the user's ask was scoped to
-  only committing and pushing the fix, stop there and tell them the reply/resolve step is still
-  open rather than performing it unasked.
+- This does not grant new GitHub write access or user authorisation for separate provider
+  writes. Reply and resolve only when the user explicitly authorised those actions for that PR
+  (for example, an explicit PR-fixing/babysitting sweep that names replies or thread resolution,
+  or the `Run PR` shortcut where that authority is stated) and the available tooling permits
+  them. If the user's ask was scoped to only committing and pushing the fix, stop there and tell
+  them the reply/resolve step is still open rather than performing it unasked.
 - This applies to every PR you push review-responsive fixes to in this repo, not only the
   automated Codex resolve workflow — see "Review comment lifecycle" below for that workflow's
   specific marker convention, and your runtime PR-babysitting instructions for the fuller
