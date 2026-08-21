@@ -14,7 +14,7 @@ Caring Contacts — Phase 2A, continue with Task 11b. Read before writing anythi
 
 WHERE THE WORK IS
 Worktree:  D:\Worktrees\Database\caring-contacts-phase-2a
-Branch:    claude/suicide-contact-mockup-b5aaa0   (tree clean, never pushed, 52 commits ahead of main)
+Branch:    claude/suicide-contact-mockup-b5aaa0   (tree clean, 55 commits ahead of main)
 
 Work THERE. Do NOT create or use a worktree under D:\Repos\Database\.claude\worktrees\ — the original
 one for this work was destroyed by another process on this workstation on 2026-08-21, taking an hour of
@@ -24,13 +24,16 @@ above and `npm ci` takes ~58 minutes on this machine, so do not discard them. Co
 THE CONTEXT MAP — everything that exists, and whether to read it now
 
   READ NOW, IN THIS ORDER. Stop once you can state the resume point back to me.
-  1. docs/caring-contacts/phase-2a-handoff.md
+  1. docs/caring-contacts/PROGRESS-LEDGER.md
+       The master ledger: every session, every task status, every decision and carried risk across
+       Phase 1 and 2A, as a one-page index. Read this first for the whole picture.
+  2. docs/caring-contacts/phase-2a-handoff.md
        The single entry point: what this is, where every artefact lives, where work stopped.
-  2. docs/caring-contacts/phase-2a-build-record.md
+  3. docs/caring-contacts/phase-2a-build-record.md
        THE ledger, and the most important file here. All 34 rulings with what each costs if wrong,
        every deferred finding, every review outcome, every test result. Its FINAL "RESUME POINT"
        section supersedes everything above it. Trust this file and `git log` over any assumption.
-  3. docs/caring-contacts/phase-2a-sdd-archive/task-11b-brief.md
+  4. docs/caring-contacts/phase-2a-sdd-archive/task-11b-brief.md
        Your task. Complete and self-contained — follow it rather than re-deriving it.
 
   READ ONLY IF THE BRIEF SENDS YOU THERE
@@ -59,8 +62,9 @@ THE CONTEXT MAP — everything that exists, and whether to read it now
 
   SCRATCH WORKSPACE
   - .superpowers/sdd/2026-08-19-caring-contact-phase-2a-foundations/ exists and holds copies of the
-    briefs, but its progress.md is ONLY a pointer. Append rulings, findings and resume points to the
-    tracked build record, never to a second ledger there. The original scratch ledger was lost with the
+    briefs, but it is a GENERATED MIRROR -- rebuild it with
+    `node scripts/rebuild-caring-contacts-sdd-workspace.mjs` and never edit it. Append rulings,
+    findings and resume points to the tracked build record, never to a second ledger there. The original scratch ledger was lost with the
     deleted worktree; the tracked record is the only one now.
 
 STATE — nothing is outstanding
