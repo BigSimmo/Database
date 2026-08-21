@@ -15,6 +15,7 @@ import type {
   ManagementDraftInput,
   NewEdPresentationInput,
   PrototypeScenario,
+  SafetyPlanDraftInput,
 } from "@/components/care-plan/mockups/types";
 
 const ED_CLINICIAN = "SYN-USER-ED-001";
@@ -29,6 +30,7 @@ const EVELYN = "SYN-PATIENT-004";
 
 const ROWAN_PLAN = "SYN-MGMT-PLAN-001";
 const MIRA_PLAN = "SYN-MGMT-PLAN-002";
+const EVELYN_PLAN = "SYN-MGMT-PLAN-004";
 const ROWAN_CURRENT_VERSION = "SYN-MGMT-VERSION-002";
 const MIRA_AWAITING_VERSION = "SYN-MGMT-VERSION-004";
 
@@ -85,6 +87,24 @@ function draftInput(overrides: Partial<ManagementDraftInput> = {}): ManagementDr
       physicalHealthAndMedication: [],
       whoElseIsInvolved: [],
       reviewTriggers: [],
+    },
+    ...overrides,
+  };
+}
+
+function safetyDraftInput(overrides: Partial<SafetyPlanDraftInput> = {}): SafetyPlanDraftInput {
+  return {
+    reviewDueAt: "2027-08-20T14:30:00+08:00",
+    patientConfirmation: "confirmed",
+    collaborationNote: "Written together over one session. Jordan chose the wording and asked for a printed copy.",
+    content: {
+      warningSigns: ["Two or three nights of broken sleep in a row."],
+      saferSurroundings: ["Ask my brother to hold my medicines for a few days."],
+      reasonsForLiving: ["My dog, and my brother."],
+      selfStrategies: ["Walk to the river and back before I decide anything."],
+      connectionPeopleAndPlaces: ["The community garden on Saturday mornings."],
+      personalSupports: [{ name: "Sam Placeholder", relationship: "brother", phone: "0491 570 991" }],
+      professionalAndEmergencySupport: ["Wandoo District CMHT during working hours."],
     },
     ...overrides,
   };
@@ -176,6 +196,31 @@ describe("Care Plan approval guards", () => {
     expect(next.managementPlanVersions.find(({ id }) => id === draftId)?.state).toBe("awaiting_approval");
     expect(next.managementPlans.find(({ id }) => id === "SYN-MGMT-PLAN-003")?.currentVersionId).toBeNull();
     expect(next.lastOutcome?.message).toMatch(/required sections are empty/i);
+  });
+
+  it("refuses approval of a version with no stated reason for existing", () => {
+    const state = run(
+      "normal",
+      LIAISON,
+      { type: "create-management-draft", patientId: ROWAN },
+      { type: "submit-management-draft", versionId: "SYN-MGMT-VERSION-007" },
+      { type: "set-active-user", userId: SENIOR },
+    );
+    // The content came across from the Current Plan, so the reason is the only
+    // thing missing.
+    expect(state.managementPlanVersions.find(({ id }) => id === "SYN-MGMT-VERSION-007")?.revisionReason).toBe("");
+
+    const next = prototypeReducer(state, {
+      type: "approve-management-version",
+      versionId: "SYN-MGMT-VERSION-007",
+    });
+
+    expect(next.managementPlanVersions.find(({ id }) => id === "SYN-MGMT-VERSION-007")?.state).toBe(
+      "awaiting_approval",
+    );
+    expect(next.managementPlans.find(({ id }) => id === ROWAN_PLAN)?.currentVersionId).toBe(ROWAN_CURRENT_VERSION);
+    expect(next.reviewTriggers).toEqual(state.reviewTriggers);
+    expect(next.lastOutcome?.message).toMatch(/stated reason/i);
   });
 
   it("keeps a new Draft separate from the Current Plan", () => {
@@ -428,7 +473,9 @@ describe("Care Plan participation triggers", () => {
       type: "approve-management-version",
       versionId: MIRA_AWAITING_VERSION,
     }).reviewTriggers.find(({ source }) => source === "participation")!;
-    expect(unavailable.reason).toMatch(/not available to take part/i);
+    expect(unavailable.reason).toMatch(/no involvement recorded/i);
+    // Nobody recorded anything, so the record must not assert that they were absent.
+    expect(unavailable.reason).not.toMatch(/was not available/i);
     expect(unavailable.reason).not.toMatch(blaming);
 
     const declined = run(
@@ -533,7 +580,7 @@ describe("Care Plan ED Presentation recording", () => {
     expect(next.reviewTriggers).toEqual(state.reviewTriggers);
   });
 
-  it("raises no Review Trigger for a person who has no Current Plan to reconsider", () => {
+  it("raises no Review Trigger for a person who has never had a Management Plan version", () => {
     const state = createInitialPrototypeState();
     const next = prototypeReducer(state, {
       type: "record-presentation",
@@ -550,6 +597,37 @@ describe("Care Plan ED Presentation recording", () => {
 
     expect(next.reviewTriggers).toEqual(state.reviewTriggers);
     expect(next.edPresentations).toHaveLength(state.edPresentations.length + 1);
+  });
+
+  it("raises a Review Trigger for a person whose plan was withdrawn and who then presents", () => {
+    // The cohort the Reviews queue exists for. Evelyn has no Current version
+    // because hers was withdrawn, but there is still a plan to reconsider, and
+    // gating the trigger on a live Current version would drop her silently.
+    const state = createInitialPrototypeState();
+    expect(state.managementPlans.find(({ id }) => id === EVELYN_PLAN)?.currentVersionId).toBeNull();
+    expect(state.managementPlanVersions.some(({ planId }) => planId === EVELYN_PLAN)).toBe(true);
+
+    const next = prototypeReducer(state, {
+      type: "record-presentation",
+      presentationId: nextPresentationId(state),
+      input: presentationInput({
+        patientId: EVELYN,
+        managementPlanVersionId: null,
+        planAvailability: "unavailable",
+        planUse: "not_applicable",
+        planHelpfulness: "not_assessed",
+        disposition: "mental_health_admission",
+      }),
+    });
+    const added = next.reviewTriggers.filter((trigger) => !state.reviewTriggers.some(({ id }) => id === trigger.id));
+
+    expect(added).toHaveLength(1);
+    expect(added[0]).toMatchObject({
+      patientId: EVELYN,
+      managementPlanId: EVELYN_PLAN,
+      source: "presentation_outcome",
+      status: "open",
+    });
   });
 
   it("refuses an episode identifier that is already used or is not a synthetic presentation identifier", () => {
@@ -700,6 +778,61 @@ describe("Care Plan Personal Safety Plan", () => {
     expect(versions.filter(({ state }) => state === "current")).toHaveLength(1);
     expect(versions.find(({ id }) => id === "SYN-SAFETY-VERSION-001")?.state).toBe("superseded");
     expect(next.personalSafetyPlans.find(({ id }) => id === "SYN-SAFETY-PLAN-001")?.currentVersionId).toBe(draft.id);
+  });
+
+  it("saves a draft and copies its content rather than sharing the arrays it was handed", () => {
+    const state = createInitialPrototypeState();
+    const input = safetyDraftInput();
+    const next = prototypeReducer(state, {
+      type: "save-safety-plan-draft",
+      versionId: "SYN-SAFETY-VERSION-003",
+      input,
+    });
+    const saved = next.personalSafetyPlanVersions.find(({ id }) => id === "SYN-SAFETY-VERSION-003")!;
+
+    expect(saved).toMatchObject({
+      state: "draft",
+      reviewDueAt: "2027-08-20T14:30:00+08:00",
+      patientConfirmation: "confirmed",
+    });
+    expect(saved.content.warningSigns).toEqual(input.content.warningSigns);
+    expect(saved.collaborationNote).toMatch(/chose the wording/);
+    expect(next.auditEvents.at(-1)).toMatchObject({
+      type: "safety_plan_draft_saved",
+      objectId: "SYN-SAFETY-VERSION-003",
+      patientId: JORDAN,
+    });
+
+    // Two records must never share one array. Changing the input after the save
+    // must not reach the saved record.
+    (input.content.warningSigns as string[]).push("A line added after the save.");
+    expect(saved.content.warningSigns).toHaveLength(1);
+  });
+
+  it("refuses a draft whose next review date cannot be read as a date", () => {
+    const state = createInitialPrototypeState();
+    const next = prototypeReducer(state, {
+      type: "save-safety-plan-draft",
+      versionId: "SYN-SAFETY-VERSION-003",
+      input: safetyDraftInput({ reviewDueAt: "when we next meet" }),
+    });
+
+    expect(next.personalSafetyPlanVersions).toEqual(state.personalSafetyPlanVersions);
+    expect(next.auditEvents).toEqual(state.auditEvents);
+    expect(next.lastOutcome?.message).toMatch(/could not be read as a date/i);
+  });
+
+  it("refuses to edit a version that is no longer a draft", () => {
+    const state = createInitialPrototypeState();
+    const next = prototypeReducer(state, {
+      type: "save-safety-plan-draft",
+      versionId: "SYN-SAFETY-VERSION-001",
+      input: safetyDraftInput(),
+    });
+
+    expect(next.personalSafetyPlanVersions).toEqual(state.personalSafetyPlanVersions);
+    expect(next.auditEvents).toEqual(state.auditEvents);
+    expect(next.lastOutcome?.message).toMatch(/only a draft can be edited/i);
   });
 
   it("refuses to publish a version that is not a draft, and refuses authorship by the non-clinical role", () => {
@@ -911,6 +1044,44 @@ describe("Care Plan degraded states", () => {
     expect(next.auditEvents).toEqual([]);
     expect(next.lastOutcome?.kind).toBe("blocked");
     expect(next.lastOutcome?.message).toMatch(expected);
+  });
+
+  it("records a Personal Safety Plan print intent while offline, and blocks it on every other degraded state", () => {
+    const offline = createInitialPrototypeState("offline");
+    const printed = prototypeReducer(offline, { type: "record-safety-plan-print-intent", patientId: ROWAN });
+
+    // The one action you most want available when systems are down. It appends
+    // an audit event and changes no clinical record.
+    expect(printed.auditEvents).toHaveLength(1);
+    expect(printed.auditEvents[0]).toMatchObject({ type: "safety_plan_print_intent_opened" });
+    expect(printed.personalSafetyPlanVersions).toEqual(offline.personalSafetyPlanVersions);
+
+    // Connectivity is the only exemption. Printing the wrong person safety plan
+    // is a real harm, so identity uncertainty still blocks it.
+    const uncertain = prototypeReducer(createInitialPrototypeState("identity-uncertain"), {
+      type: "record-safety-plan-print-intent",
+      patientId: ROWAN,
+    });
+    expect(uncertain.auditEvents).toEqual([]);
+    expect(uncertain.lastOutcome?.kind).toBe("blocked");
+    expect(uncertain.lastOutcome?.message).toMatch(/not been confirmed as the right person/i);
+
+    const noPermission = prototypeReducer(createInitialPrototypeState("permission-unavailable"), {
+      type: "record-safety-plan-print-intent",
+      patientId: ROWAN,
+    });
+    expect(noPermission.auditEvents).toEqual([]);
+    expect(noPermission.lastOutcome?.kind).toBe("blocked");
+
+    // And the exemption is for this action alone: everything else stays blocked.
+    expect(
+      getPrototypeMutationBlockReason(offline, {
+        type: "record-contact-intent",
+        patientId: ROWAN,
+        cmhtId: "SYN-CMHT-001",
+        channel: "email",
+      }),
+    ).toMatch(/offline/i);
   });
 
   it("still allows the actions that change no clinical record", () => {

@@ -237,6 +237,15 @@ const CAPABILITY_BY_ACTION: Record<CarePlanPrototypeAction["type"], PrototypeCap
 };
 
 /**
+ * Printing the person's own Personal Safety Plan is the one action you most want
+ * available when systems are down, and it appends an audit event rather than
+ * changing any clinical record. Connectivity is the only block it skips:
+ * printing the wrong person's safety plan is a real harm, so identity
+ * uncertainty, unavailable permission, and a version conflict all still apply.
+ */
+const CONNECTIVITY_EXEMPT_ACTIONS: readonly CarePlanPrototypeAction["type"][] = ["record-safety-plan-print-intent"];
+
+/**
  * The single funnel every changing action passes through, so no transition can
  * reach a clinical record without being rechecked here. Each refusal names
  * itself, so the interface can say what happened, what it means, and what is
@@ -251,7 +260,7 @@ export function getPrototypeMutationBlockReason(
   const capability = CAPABILITY_BY_ACTION[action.type];
   if (capability === null) return null;
 
-  if (!state.connectivity.online) {
+  if (!state.connectivity.online && !CONNECTIVITY_EXEMPT_ACTIONS.includes(action.type)) {
     return "This device is offline, so nothing was changed. What is shown is the last synthetic state held in memory.";
   }
   if (!state.permission.available) {
@@ -725,6 +734,15 @@ export function prototypeReducer(
           `Version ${version.version} cannot become the Current Plan while required sections are empty: ${missing.join(", ")}.`,
         );
       }
+      // A version must not become the Current Plan without a stated reason for
+      // existing. A later reader comparing two versions has nothing else to tell
+      // them why this one replaced the last.
+      if (isBlank(version.revisionReason)) {
+        return refuse(
+          state,
+          `Version ${version.version} cannot become the Current Plan without a stated reason for the change. Nothing was changed.`,
+        );
+      }
 
       const approvedAt = prototypeTimestamp(state);
       const managementPlanVersions = state.managementPlanVersions.map((candidate) => {
@@ -771,7 +789,11 @@ export function prototypeReducer(
               reason:
                 version.participationState === "declined"
                   ? `Version ${version.version} was approved after this person chose not to take part in writing it. Offer again at the next contact, and record what they decide.`
-                  : `Version ${version.version} was approved while this person was not available to take part. Go through the plan with them at the next contact, and record what they say.`,
+                  : // A new draft starts at this state before anybody records
+                    // anything, so the reason says only what is known: that no
+                    // involvement is on the record. It does not assert that the
+                    // person was absent.
+                    `Version ${version.version} was approved with no involvement recorded for this person. Go through the plan with them at the next contact, and record what they say.`,
               status: "open",
               createdAt: prototypeTimestamp(state, 1),
               resolvedAt: null,
@@ -798,7 +820,7 @@ export function prototypeReducer(
           message:
             participationTrigger === null
               ? `Version ${version.version} is now the Current Plan, approved by ${approver.displayName}.`
-              : `Version ${version.version} is now the Current Plan, approved by ${approver.displayName}. It was written without this person's involvement, so an open Review Trigger was raised for the team.`,
+              : `Version ${version.version} is now the Current Plan, approved by ${approver.displayName}. No involvement was recorded for this person, so an open Review Trigger was raised for the team.`,
         },
       };
     }
@@ -941,13 +963,17 @@ export function prototypeReducer(
         recordedAt: prototypeTimestamp(state),
       };
 
-      // A Review Trigger asks the team to reconsider the Current Plan, so it
-      // needs one to reconsider. A person with no Current Plan — never had one,
-      // or had one withdrawn — gets no trigger rather than an item in the
-      // worklist that points at nothing.
+      // A Review Trigger asks the team to reconsider this person's Management
+      // Plan, so the line is whether they have ever had a version — not whether
+      // one is Current right now. Someone whose plan was withdrawn, who then
+      // presents and is admitted, is precisely who the Reviews queue exists for;
+      // gating on a live Current version drops that cohort silently. Only a
+      // person who has never had any version raises none, because for them the
+      // pathway is Identification Review rather than plan review.
       const plan = findManagementPlan(state, patient);
-      const current = plan === null ? null : getCurrentManagementPlanVersion(state.managementPlanVersions, plan.id);
-      const candidate = plan === null || current === null ? null : reviewTriggerReasonFor(presentation);
+      const hasEverHadAVersion =
+        plan !== null && state.managementPlanVersions.some((existing) => existing.planId === plan.id);
+      const candidate = hasEverHadAVersion ? reviewTriggerReasonFor(presentation) : null;
       // One open trigger per plan per source. A team reconsiders the plan once;
       // a queue that fills with the same reason stops being read at all.
       const alreadyOpen =
