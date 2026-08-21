@@ -186,7 +186,7 @@ the client publishable key (build-time, app bundle only) or
 
 `WORKER_DOCUMENT_EXTRACTOR_MODE`, `WORKER_SHADOW_EXTRACTION_COHORT_PERCENT` and
 `WORKER_DOCLING_PYTHON_BIN` are documented in full in [§3](#3-docling-shadow-extraction-packet-b4--default-off):
-preconditions, safe values, the cost cap, what to watch, and the one-step rollback. The
+preconditions, safe values, the cost cap, what to watch, and the two-step rollback. The
 shipped default is `legacy` and nothing in this run recipe enables it.
 
 ---
@@ -272,13 +272,15 @@ duration of the docling run (up to 120 s) before the final metadata merge and
    | Headroom above peak  | **~23.4 GB**         |
    | vCPU limit           | 24 (peak usage 0.40) |
 
-   That is roughly fifteen times the ~1.5 GiB the docling process needs, so this precondition
-   is met with a very wide margin. Re-check it only if the service plan or resource limits
-   change — it is the precondition that matters most, because a container OOM kill during the
-   docling window is the one failure the fail-open code cannot catch: the index is already
-   committed, but the job would sit `processing` until the 45-minute stale reclaim
-   (`WORKER_STALE_AFTER_MINUTES`) and burn an attempt. **How to re-check:** Railway → project
-   `Database` → `worker` service → **Metrics**, memory across a busy ingest window.
+   That is roughly fifteen times the ~1.5 GiB the docling process needs, so the 2026-08-21
+   measurement is a baseline, not a standing waiver. **Re-check memory headroom across a busy
+   ingest window immediately before every shadow enablement, and again after any worker image,
+   workload, `WORKER_CONCURRENCY`, service plan, or resource-limit change.** It is the precondition
+   that matters most, because a container OOM kill during the docling window is the one failure
+   the fail-open code cannot catch: the index is already committed, but the job would sit
+   `processing` until the 45-minute stale reclaim (`WORKER_STALE_AFTER_MINUTES`) and burn an
+   attempt. **How to re-check:** Railway → project `Database` → `worker` service → **Metrics**,
+   memory across a busy ingest window.
 
    One caveat on the cost model in §3.4: Gate B measured 9–19 s/doc on **2 CPUs**, and this
    service reports a 24 vCPU limit. Do not assume the wall-clock will scale down proportionally
@@ -442,7 +444,7 @@ a full reindex is run (§3.4). Zero records on a quiet queue is normal.
 `wall_ms` and `peak_rss_bytes` are the two fields that decide whether the cost model in §3.4
 survived contact with the real corpus. Read them first.
 
-### 3.7 Rollback triggers and the one-step rollback
+### 3.7 Rollback triggers and the two-step rollback
 
 **Roll back immediately, diagnose afterwards, if any of these occur.**
 
@@ -461,7 +463,7 @@ survived contact with the real corpus. Read them first.
    number; agree it with the owner or replace it.
 6. `peak_rss_bytes` sustained above the headroom confirmed in §3.2.
 
-**The one-step rollback.** On the Railway `worker` service, set:
+**The two-step rollback.** On the Railway `worker` service, set:
 
 ```text
 WORKER_DOCUMENT_EXTRACTOR_MODE=legacy
