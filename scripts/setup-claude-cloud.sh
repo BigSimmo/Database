@@ -300,7 +300,7 @@ tier_signature() {
 # Session mode: the SessionStart hook's entry point. Fast tiers run inline here; the slow ones are
 # re-launched detached below, after the inline work finishes.
 if [ "$session_mode" -eq 1 ] && [ "${#selected[@]}" -eq 0 ]; then
-  read -r -a selected <<< "${CLAUDE_CLOUD_SESSION_TIERS:-profile plugins gh deno}"
+  read -r -a selected <<< "${CLAUDE_CLOUD_SESSION_TIERS-profile plugins gh deno}"
 fi
 
 # Locking is PER TIER, not per run. A global lock would deadlock the design: the session hook forks a
@@ -377,7 +377,7 @@ done
 # ~/.cache/ms-playwright and the OCR venv in ~/.cache — so they cannot race a build or test the model
 # starts meanwhile.
 if [ "$session_mode" -eq 1 ]; then
-  read -r -a background_tiers <<< "${CLAUDE_CLOUD_BACKGROUND_TIERS:-browsers python}"
+  read -r -a background_tiers <<< "${CLAUDE_CLOUD_BACKGROUND_TIERS-browsers python}"
   pending=()
   for tier in "${background_tiers[@]}"; do
     # Signature, not bare marker existence. A marker whose signature no longer matches means the
