@@ -1,9 +1,15 @@
 # Caring Contacts Phase 2A — tracked build record
 
-**Why this file exists.** The Phase 2A build ran through a session ledger under `.superpowers/sdd/`,
-which is git-ignored scratch. Every ruling taken on the owner's behalf, every deferred finding and the
-resume point lived only there and in one conversation. Both are losable — a `git clean -fdx` or deleting
-the worktree would destroy them. This is the tracked copy, verbatim, as of head 6afce3893.
+**THIS FILE IS NOW THE LEDGER ITSELF, not a copy of one.** Append to it directly.
+
+The Phase 2A build originally ran through a session ledger under `.superpowers/sdd/`, which is
+git-ignored scratch, so every ruling taken on the owner's behalf, every deferred finding and the resume
+point lived only there and in one conversation. That risk was not hypothetical: on 2026-08-21 the
+worktree holding the scratch ledger **was destroyed** by another process on the workstation, and only
+this tracked copy survived. There is no scratch ledger to mirror any more.
+
+Everything below is verbatim history in the order it happened. The final **RESUME POINT** section
+supersedes every earlier one; where any two sections disagree, the later one wins.
 
 **Start here instead if you are picking this work up:** `docs/caring-contacts/phase-2a-handoff.md`.
 The task briefs and implementer reports are archived verbatim in
