@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 
 import { buildActionInbox, isOpen } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
@@ -59,40 +59,21 @@ export function CoordinatorScreen() {
     return () => phoneMedia.removeEventListener("change", sync);
   }, []);
 
-  // Task 8 review Important 3: on a phone, the full explainable shortlist (candidates, all eight
-  // eligibility gates, every decline, the score breakdown) is real, long content — exactly the
-  // content Task 7 was built to never truncate — so it does not fit above the fold on a 390px
-  // screen. Confirm still has to be reachable in one tap rather than a scroll a coordinator has
-  // to go looking for. Scrolling the whole shortlist card into view would not be enough (it can
-  // still put Confirm below the fold); this scrolls the Confirm control specifically into the
-  // body's own scrollport whenever a phone selection changes, so the "one tap" the brief asks for
-  // is the tap that picks the movement, not a second gesture to go find the button afterwards.
-  const shortlistColumnRef = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    if (!isPhoneDiagramLayout || !selectedMovementId) return;
-    // A resize-driven viewport change (matchMedia's own "change" event, which is how
-    // `isPhoneDiagramLayout` becomes true) can still be mid-reflow — `.main`'s grid rows and
-    // `.screen`'s `100dvh` height had not always finished resolving to the NEW viewport yet at
-    // the moment this ran synchronously, so a `scrollIntoView` call here could measure a
-    // transiently oversized scroll container and land short. One `requestAnimationFrame` defers
-    // the scroll to the next paint, after the browser has settled the resize.
-    // A single rAF was still not always enough — measured a resize-driven correction landing
-    // 256px short of the real target on some runs, meaning the browser's own reflow after a
-    // viewport resize can still be mid-flight one frame later. Nesting a second rAF waits for a
-    // full additional paint cycle, the same "double rAF" pattern used to guarantee a layout has
-    // actually settled before measuring it.
-    let inner = 0;
-    const outer = requestAnimationFrame(() => {
-      inner = requestAnimationFrame(() => {
-        const confirmButton = shortlistColumnRef.current?.querySelector('[data-testid="ward-shortlist-refer"]');
-        confirmButton?.scrollIntoView({ block: "nearest" });
-      });
-    });
-    return () => {
-      cancelAnimationFrame(outer);
-      cancelAnimationFrame(inner);
-    };
-  }, [isPhoneDiagramLayout, selectedMovementId]);
+  // Task 8 review Important 3 named the real constraint: on a phone, the full explainable
+  // shortlist (candidates, all eight eligibility gates, every decline, the score breakdown) is
+  // real, long content that does not fit above the fold on a 390px screen, so Confirm has to stay
+  // reachable in one tap rather than a scroll a coordinator has to go looking for. This used to be
+  // solved with a double-`requestAnimationFrame` `scrollIntoView` effect here, because the control
+  // could land off-screen below the fold and the fix had to MEASURE where the scroll container had
+  // settled after a resize (`.main`'s grid rows and `.screen`'s `100dvh` height had not always
+  // finished resolving to the new viewport at the moment a single rAF ran — measured landing 256px
+  // short on some runs, which is why a second rAF was nested on top of it).
+  //
+  // Task 7 replaces that with `.shortlistActionRow` pinned to the literal viewport bottom by CSS
+  // on phone widths (`coordinator.module.css`, `@media (max-width: 48rem)`). A CSS-pinned bar
+  // cannot land off-screen, so it never measures `.main`'s grid or `.screen`'s height — the exact
+  // thing the deleted effect's comment named as the race it was working around. That race
+  // dissolves rather than needing a replacement fix here.
 
   // Whole-branch review Critical 2, second half. Confirm now requires an explicit unit selection,
   // but `selectedUnitId` is screen-level state that outlived the movement it was chosen for: pick
@@ -191,7 +172,7 @@ export function CoordinatorScreen() {
               )}
             </section>
 
-            <div className={styles.shortlistColumn} ref={shortlistColumnRef}>
+            <div className={styles.shortlistColumn}>
               <aside className={styles.shortlistRegion} aria-label="Explainable shortlist">
                 <header className={styles.regionHeader}>
                   <h2>Explainable shortlist</h2>

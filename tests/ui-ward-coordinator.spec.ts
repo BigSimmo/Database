@@ -1050,4 +1050,46 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(exceptions).toContainText("REFER_TO_UNITS");
     await expect(exceptions).toContainText(`cannot refer a movement while it is ${wf004.stage}`);
   });
+
+  /**
+   * Task 7. The coordinator used to chase the referral control into view on a phone with a
+   * double-`requestAnimationFrame` `scrollIntoView` effect — deleted now that
+   * `.shortlistActionRow` is pinned to the viewport bottom by CSS (`coordinator.module.css`,
+   * `@media (max-width: 48rem)`). A pinned control cannot need scrolling to reach it, so the
+   * defining assertion here is that selecting a patient moves nothing: `window.scrollY` before
+   * and after the click must be identical, not merely that the control ends up in the viewport
+   * (which a JS scroll could also achieve).
+   *
+   * Task 7 addendum R24: select the movement explicitly by `data-testid`, never `.first()` — Task
+   * 6A had to remove exactly that fragility from two other tests in this file once the fabricated
+   * Form 3B deadline that used to inflate WF-017's score to rank 1 was deleted. WF-002 is used
+   * instead of a rank-derived row, verified against the current fixture rather than assumed: its
+   * fixture record (`ward-movements.ts`) sets `stage: "destination_review"`, and the reducer's
+   * `REFERRABLE_MOVEMENT_STAGES` (`ward-flow-reducer.ts`) is `["placement_requested",
+   * "destination_review"]` — so WF-002 is genuinely referable, matching the "refers a patient to
+   * up to three wards" test above, which documents the same fact and selects the same row.
+   *
+   * Task 7 addendum R25: `expect(page.evaluate(...)).resolves.toBe(...)` is Jest/Vitest
+   * vocabulary Playwright's `expect` may not carry — written here as `expect(await
+   * page.evaluate(...)).toBe(...)` instead, so a missing `.resolves` chain cannot silently no-op
+   * this assertion into an unconditional pass.
+   */
+  test("keeps the referral control reachable on a phone without moving the page", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoCoordinator(page);
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    await queue.locator('[data-testid="ward-queue-row-WF-002"]').click();
+
+    // The control is pinned, so selecting a patient must not scroll the page under the thumb.
+    const scrollAfter = await page.evaluate(() => window.scrollY);
+    expect(scrollAfter).toBe(scrollBefore);
+    await expect(page.getByTestId("ward-shortlist-refer")).toBeInViewport();
+
+    // And the queue keeps the room it was previously losing to a nested scroller: every movement
+    // the fixture holds is still really rendered, not truncated to make room for anything else.
+    const rows = await queue.locator('[data-testid^="ward-queue-row-"]').count();
+    expect(rows).toBeGreaterThan(4);
+  });
 });

@@ -7,9 +7,25 @@
   --co-space-14: 0.875rem;
   --co-space-20: 1.25rem;
   --co-space-48: 3rem;
+  /*
+   * Task 7: the phone-pinned referral bar's own vertical footprint, computed rather than
+   * measured — one `--co-space-48` button row, `--co-shortlist-bar-pad-y` above it, at least the
+   * same padding (more on a device with a taller home-indicator safe area) below it, plus its own
+   * `0.0625rem` top border. `.shortlistActionRow`'s padding and `.main:has(.shortlistActionRow)`'s
+   * reserve both read these same tokens rather than restating the numbers, so the bar's real
+   * height and the space carved out for it can never drift apart.
+   */
+  --co-shortlist-bar-pad-y: var(--co-space-8);
+  --co-shortlist-bar-safe-bottom: max(var(--co-space-8), var(--safe-area-bottom));
+  --co-shortlist-bar-reserve: calc(
+    var(--co-space-48) + var(--co-shortlist-bar-pad-y) + var(--co-shortlist-bar-safe-bottom) + 0.0625rem
+  );
   /* Custom-property assignments, not `z-index:` declarations — the design-system contract
      ratchets raw `z-index:` literals, not the tokens that hold them. Every actual `z-index`
-     declaration in this file reads through `var(--co-z-*)`. */
+     declaration in this file reads through `var(--co-z-*)`, except the phone referral bar below,
+     which reaches straight for the global `--z-overlay` ladder rung: once pinned, it escapes this
+     component's own stacking context and has to sort against page-level chrome, not against the
+     flow-diagram's local connectors/nodes pair. */
   --co-z-connectors: 1;
   --co-z-nodes: 2;
   --co-leading-compact: 1.1;
@@ -1756,6 +1772,49 @@
    */
   .queueRegion {
     max-height: min(60vh, 34rem);
+  }
+
+  /*
+   * Task 7: the coordinator screen used to chase the Confirm control into view with a nested
+   * double-`requestAnimationFrame` `scrollIntoView` effect (deleted from `coordinator-screen.tsx`)
+   * because the control could land off-screen below the fold. A bar pinned by CSS to the literal
+   * viewport bottom cannot land off-screen, so there is nothing left to measure or chase — the
+   * comment on the deleted effect named a measurement race against `.main`'s grid rows and
+   * `.screen`'s `100dvh` height not having settled after a resize; a fixed-position bar never
+   * reads either of those, so that race dissolves rather than needing a fix here.
+   *
+   * Flush to the viewport edge (no `bottom` gap — search-chrome-behaviour.md's edge-to-edge
+   * contract) and painting its own `--safe-area-bottom` inset via
+   * `--co-shortlist-bar-safe-bottom`, so a coordinator on a notched phone never has to reach past
+   * the home-indicator region to tap Refer.
+   */
+  .shortlistActionRow {
+    position: fixed;
+    z-index: var(--z-overlay);
+    right: 0;
+    bottom: 0;
+    left: 0;
+    flex-wrap: nowrap;
+    border-top: 0.0625rem solid var(--border);
+    background: var(--surface);
+    box-shadow: var(--e2);
+    padding: var(--co-shortlist-bar-pad-y) var(--co-space-20) var(--co-shortlist-bar-safe-bottom);
+  }
+
+  /*
+   * `ShortlistPanel` renders `.shortlistActionRow` only once a movement is selected (with nothing
+   * selected it returns just its placeholder paragraph), so `:has()` scopes this reserve to
+   * exactly the moment the bar exists — deselecting a movement gives the queue and the exceptions
+   * drawer the full screen back rather than paying for a bar that is not rendered. `.main` is a
+   * `100dvh`-tall grid (`auto` governance banner, `1fr` `.body`, `auto` exceptions drawer); adding
+   * bottom padding here shrinks the `1fr` `.body` row by the same amount, which is what keeps the
+   * exceptions drawer — and the tail of `.body`'s own scrolled content — clear of the fixed bar
+   * rather than sitting underneath it. No separate reserve is needed on `.body` itself: it is the
+   * only row here, so shrinking `.main`'s available height already shrinks `.body` by the same
+   * amount.
+   */
+  .main:has(.shortlistActionRow) {
+    padding-bottom: var(--co-shortlist-bar-reserve);
   }
 }
 
