@@ -1100,3 +1100,93 @@ The mapping still matters and is still correct to have: under concurrency two tr
 the domain check and race to insert, and the constraint is the real guard. It is defence in depth that no
 single-threaded test can exercise. FLAG FOR THE FINAL WHOLE-BRANCH REVIEW as an untested-by-construction
 path rather than as missing coverage.
+
+### Task 11b task review — NEEDS FIXES, two Important findings, both real
+
+Reviewed on Opus against a 285 KB review package, in six declared passes. The reviewer did the thing
+that matters most on a move this size: it mechanically extracted every removed test title from
+`tests/caring-contacts-repository.test.ts` and every added one from the contract, diffed them
+(69 removed, 69 added), and then diffed the `expect(` lines of all 54 moved tests one title at a time.
+**The move is lossless** — the only differences are one `describe` rename, fixture renames, and one
+genuinely new test.
+
+It independently confirmed the load-bearing safety properties, which is what I most wanted checked:
+
+- Every one of the 22 new methods routes through `runWrite` → `inTransaction`, so all of them issue the
+  session preamble. The single method deliberately outside `runWrite` (`recordAccess`) still goes through
+  `inTransaction`, so it is not privileged either. **No method runs with row-level security bypassed.**
+- The service-stop bypass set is three methods, and it matches the in-memory store's three sites exactly,
+  so the two stores cannot diverge on which writes survive a stop.
+- Refusals map by constraint name, character-for-character against the names 11a declared.
+- The `withSavepoint` reasoning is correct and non-obvious: a refused INSERT would abort the very
+  transaction the refusal's own audit event must be written in.
+
+It also confirmed both my earlier rulings independently rather than deferring to them, including that
+`toEqual(before)` is stronger than the old `toEqual([])` because it also proves nothing was mutated in
+place, and that the Ruling 26 compensating assertion is non-vacuous.
+
+### Ruling 39 — `markRetentionCleared` on a non-terminal plan is REFUSED BY THE DOMAIN
+
+The defect: the Postgres store skipped the `retention_state` insert for a plan that has not ended and
+returned `{ ok: true }` anyway, while the in-memory store recorded the clearance unconditionally. Two
+implementations, different durable state, identical answer to the caller — the exact drift the shared
+contract exists to prevent — and the one contract test covering it asserts only `{ ok: true }` on an
+ACTIVE plan, so nothing could see it.
+
+Ruling: [39] The rule moves into `retention.ts` and BOTH stores delegate to it; a clearance on an
+episode that has not reached a terminal state, or whose completion instant is unknown, is REFUSED.
+— Why: `retention.ts` already owns this precondition and documents it verbatim — "An episode that has
+not completed, or whose completion instant is unknown, is never due" — and `isDueForDeidentification`
+already returns false in both cases. So clearing retention on an open plan is marking cleared something
+that could never have been due. It is nonsense rather than an edge case, and the Phase 1 schema agrees:
+`retention_state_cleared_after_terminal` exists precisely to forbid it. Of the three available routes,
+relaxing that constraint would let the system record a clearance for a live episode, and leaving the
+silent no-op would guarantee a future purge job never finds those episodes — the opposite of this
+system's stated posture of degrading conservatively rather than guessing. Refusing is the only route
+that keeps the constraint, needs no migration, puts the rule in the module that owns it, and makes both
+stores answer identically. — Cost if wrong: if clearing retention on an open episode turns out to be a
+real clinical operation, the rule is one predicate in `retention.ts` to relax, and the schema constraint
+would then have to be relaxed with it in the same change.
+
+**I authorised exactly one assertion change to land this** — the contract test that asserts `{ ok: true }`
+for a clearance on an ACTIVE plan becomes the refusal, plus a NEW success case on a plan that has actually
+reached a terminal state. That is strictly stronger than what is there now: it exercises the durable write
+for the first time, which no test does today. Every other assertion in that test is untouched, and the
+implementer was told to stop and report if landing it required editing any other contract assertion.
+
+### Ruling 40 — a racing first-ever `stopService` must not overwrite the first incident
+
+The reviewer raised this as a Minor and judged it out of scope. I overruled that.
+
+Ruling: [40] The singleton's `on conflict do update` is guarded so it cannot overwrite an already-stopped
+row, and the zero-row outcome returns the same refusal the domain gives for a second stop. — Why: two
+simultaneous first-ever stops both read no row, both pass the domain check — a row lock cannot lock a row
+that does not exist — and the second's `do update` overwrites the first responder's reason, actor and
+incident id. `service-state.ts` states the violated property in as many words: "the FIRST record of it is
+permanent — a second stop is refused rather than allowed to overwrite the reason, the actor, or the time
+the first responder recorded." It is unreachable today because there is no server yet, but Task 14 adds
+route handlers and makes concurrent requests real, and this is the cheapest moment to close it — five
+lines now against a concurrency bug found later on the one write in this system that must never be wrong.
+The `service_stops` history insert stays unguarded: one incident row per attempt is correct, and the
+loser's row is real history. — Cost if wrong: a guard clause that never fires. If it were to fire
+spuriously it would refuse a stop, which is why it returns the domain's own second-stop refusal rather
+than an error — the caller sees the service is already stopped, which is true.
+
+### Deferred to the final whole-branch review — recorded here so they are not silently discarded
+
+1. Module-level fixture counters in the contract make identifiers order-dependent, so running a subset
+   with `-t` produces different ids than a full run. Harmless today; it makes a failure harder to
+   reproduce.
+2. `postgres-repository.ts` is now roughly 2,060 lines. The responsibility is still singular and the
+   internal sectioning is good, so this is not a violation — but five self-contained clusters would sit
+   naturally in sibling modules under `db/`, and splitting now is a restructure the plan did not
+   anticipate.
+3. The two `service_restart_approvals` unique-violation mappings remain untestable single-threaded (see
+   the carried finding above). Untested by construction, not missing coverage.
+
+### Reviewer's one ⚠️
+
+It could not verify the reported gate outputs from a diff and asked for the typecheck line to be
+reconfirmed, since restoring typecheck is the headline deliverable. Folded into the fix round: the
+implementer must re-run `tsc` after the fixes and paste its exact output, and I will confirm it myself
+before closing the task.
