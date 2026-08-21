@@ -35,35 +35,83 @@
 // This module names no SQL driver. It takes a minimal connection abstraction so the domain stays
 // free of a `pg` dependency (the driver is a devDependency, used only by the test adapter) and so
 // ../../caring-contacts remains importable without one.
+import { buildAccessAuditEvent, type AccessRecord } from "../access-audit";
+import { applyAssignmentAction, unassigned, type AssignmentAction, type PlanAssignment } from "../assignment";
 import { buildAuditEvent, type AuditEvent, type AuditOutcome } from "../audit";
-import type { Clock } from "../clock";
+import { awstIsoTimestamp, type Clock } from "../clock";
+import { changeContactDate, moveContactWithinDay } from "../contact-rescheduling";
 import { applyHospitalStatusEvent, applyWithdrawalRequest, sendableContacts } from "../hospital-events";
 import { fingerprintOf } from "../fingerprint";
 import { actorId as toActorId, contactId, idempotencyKey as toIdempotencyKey, teamId as toTeamId } from "../ids";
 import type { PathwayVersionId, PatientId, PlanId, ReferralId, TeamId } from "../ids";
 import { applyContactTransition, applyPlanTransition } from "../model";
-import type { Contact, ContactAction, ContactState, Plan, PlanState, TransitionResult } from "../model";
+import type {
+  Contact,
+  ContactAction,
+  ContactState,
+  PathwayVersionState,
+  Plan,
+  PlanState,
+  ProviderStatus,
+  Referral,
+  ReferralState,
+  TransitionResult,
+} from "../model";
+import {
+  defaultNotificationPreferences,
+  type AlertClass,
+  type NotificationPreferences,
+} from "../notification-preferences";
+import {
+  applyPathwayVersionTransition,
+  type PathwayApproval,
+  type PathwayApprovalRole,
+  type PathwayRetirementUrgency,
+  type PathwayVersion,
+  type PathwayVersionSnapshot,
+} from "../pathway-versions";
 import {
   actorRoleNames,
   canPerformCaringContactAction,
   type CaringContactAction,
   type CaringContactActor,
 } from "../permissions";
+import { applyReferralTransition } from "../referrals";
+import {
+  applyServiceRestartApproval,
+  applyServiceStop,
+  runningService,
+  serviceStopBlocksDispatch,
+  type ServiceRestartApproval,
+  type ServiceRestartApprovalRole,
+  type ServiceState,
+  type ServiceStopReason,
+} from "../service-state";
+import { emptyTrainingRecord, recordCompetency, type TrainingCompetency, type TrainingRecord } from "../training";
 import {
   REPOSITORY_REFUSALS,
+  SERVICE_STATE_UNSET_TEAM,
   contactIdentifierFor,
+  type AccessTrailQuery,
   type CaringContactRepository,
   type ContactProviderStatusInput,
   type ContactStatusInput,
   type CreatePlanInput,
+  type CreateReferralInput,
+  type DispatchDiscrepancyResolution,
+  type DispatchRecord,
   type EpisodePatientDetail,
   type HospitalStatusInput,
   type HospitalStatusOutcome,
+  type PathwayVersionTransitionInput,
   type PlanLifecycleInput,
   type PlanOutcome,
   type PlanRecord,
   type ReadContext,
+  type ReferralTransitionInput,
   type RepositoryOptions,
+  type ResolveDiscrepancyInput,
+  type SavePathwayVersionInput,
   type StoredContact,
   type WithdrawPlanInput,
   type WriteContext,
@@ -109,13 +157,47 @@ const READ_ACTIONS = Object.freeze({
   contacts: "viewReferral",
   auditTrail: "viewAccessTrail",
   episode: "generateClinicalRecordSummary",
+  referral: "viewReferral",
 } as const satisfies Record<string, CaringContactAction>);
+
+/** Either governance action reading a pathway version's content is granted by. */
+const PATHWAY_VERSION_READ_ACTIONS: readonly CaringContactAction[] = Object.freeze([
+  "authorPathwayVersion",
+  "approvePathwayVersion",
+]);
+
+/**
+ * The two ways a single person could otherwise supply a second restart approval, keyed by the
+ * CONSTRAINT that refuses each. Mapping on the name rather than on the message text is what keeps
+ * this stable: an error string is a presentation detail of whatever server version is running, and
+ * a store that pattern-matched one would answer a duplicate approval differently after an upgrade.
+ * The domain refuses both cases first (../service-state); this catches two approvals that raced
+ * each other into the same transaction window, where there was nothing yet to see.
+ */
+const RESTART_APPROVAL_REFUSALS: Readonly<Record<string, string>> = Object.freeze({
+  service_restart_approvals_unique_stop_role: "restart-approval-role-already-recorded",
+  service_restart_approvals_unique_stop_actor: "restart-approval-actor-already-recorded",
+});
+
+/** A fixed identifier, never interpolated from input -- a savepoint name cannot be parameterised. */
+const INSERT_SAVEPOINT = "caring_contacts_insert";
 
 const PLAN_COLUMNS = `id, team_id, patient_id, referral_id, pathway_version_id, state, version, outcome,
   discharge_at, completed_at, sending_preference, patient_name, patient_mobile_number, patient_identifiers`;
 
 const CONTACT_COLUMNS = `id, plan_id, team_id, sequence, state, version, cadence_label, calendar_day,
   send_at, message_type, suppressed_reason`;
+
+const REFERRAL_COLUMNS = "id, team_id, patient_id, state, pathway_version_id";
+
+const PATHWAY_VERSION_COLUMNS = `id, team_id, state, author_id, published_at, retired_at,
+  retirement_urgency, snapshot`;
+
+const AUDIT_EVENT_COLUMNS = `team_id, actor_id, actor_roles, action, object_type, object_id, outcome,
+  idempotency_key, occurred_at`;
+
+const DISPATCH_COLUMNS = `d.contact_id, c.plan_id, d.attempt, d.started_at, d.reported_status,
+  d.discrepancy_resolved_at, d.discrepancy_resolution`;
 
 // ---------------------------------------------------------------------------
 // Result storage
@@ -156,6 +238,11 @@ function decodeStoredValue(value: unknown): unknown {
 // ---------------------------------------------------------------------------
 // Row mapping
 // ---------------------------------------------------------------------------
+
+/** A column the database left empty. Both spellings, because a driver may hand back either. */
+function isAbsent(value: unknown): boolean {
+  return value === null || value === undefined;
+}
 
 function textOf(value: unknown): string {
   return typeof value === "string" ? value : String(value);
@@ -240,6 +327,64 @@ function outcomeFor(state: PlanState): PlanOutcome {
   return state === "withdrawn" || state === "cancelled" || state === "completed" ? state : "inProgress";
 }
 
+/**
+ * The name of the constraint a refusal came from, read as a field rather than parsed out of the
+ * message. Migration 0003 named every constraint deliberately so a store never has to read prose.
+ */
+function constraintNameOf(error: unknown): string | null {
+  if (error === null || typeof error !== "object") return null;
+  const constraint = (error as { constraint?: unknown }).constraint;
+  return typeof constraint === "string" ? constraint : null;
+}
+
+type SavepointOutcome<T> = { ok: true; value: T } | { ok: false; constraint: string | null; error: unknown };
+
+/**
+ * Runs one statement a constraint may legitimately refuse, inside a savepoint.
+ *
+ * Without the savepoint a refused INSERT aborts the whole transaction, and the transaction is where
+ * the audit event for that very refusal has to be written -- so the store would be unable to record
+ * the refusal it wants to return. Rolling back to a savepoint leaves the surrounding transaction
+ * usable and the deferred audit guard still fires at commit as normal.
+ */
+async function withSavepoint<T>(
+  connection: SqlConnection,
+  name: string,
+  work: () => Promise<T>,
+): Promise<SavepointOutcome<T>> {
+  await connection.query(`savepoint ${name}`);
+  try {
+    const value = await work();
+    await connection.query(`release savepoint ${name}`);
+    return { ok: true, value };
+  } catch (error) {
+    await connection.query(`rollback to savepoint ${name}`);
+    return { ok: false, constraint: constraintNameOf(error), error };
+  }
+}
+
+/** The one place an audit event becomes a row, so no write path can invent a second shape for it. */
+async function insertAuditEvent(connection: SqlConnection, event: AuditEvent, token: string | null): Promise<void> {
+  await connection.query(
+    `insert into caring_contacts.audit_events
+       (team_id, actor_id, actor_roles, action, object_type, object_id, outcome, idempotency_key,
+        occurred_at, txn_token)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::uuid)`,
+    [
+      event.teamId,
+      event.actorId,
+      [...event.actorRoles],
+      event.action,
+      event.objectType,
+      event.objectId,
+      event.outcome,
+      event.idempotencyKey,
+      event.timestamp,
+      token,
+    ],
+  );
+}
+
 /** Transaction audit tokens. Deterministic per store instance, unique within it. */
 function auditTokenFactory(): () => string {
   let issued = 0;
@@ -260,6 +405,13 @@ type WriteSpec<T> = {
   auditAction: string;
   objectId: string;
   objectType?: string;
+  /**
+   * True only for `stopService`, `approveServiceRestart`, and `recordHospitalStatusEvent` -- the
+   * three writes that must always be reachable regardless of the service-wide safety stop. Every
+   * other write is gated inside `runWrite` itself, so a future method cannot forget the gate by
+   * simply not checking for it.
+   */
+  bypassServiceStopGate?: boolean;
   stage: (connection: SqlConnection) => Promise<TransitionResult<T>>;
 };
 
@@ -305,6 +457,11 @@ export function createPostgresRepository(
   /** The team is the actor's own: a read of another team's row returns nothing, never a refusal. */
   function mayReadOwnTeam(context: ReadContext, action: CaringContactAction): boolean {
     return mayRead(context.actor, action, context.actor.teamId);
+  }
+
+  /** True if the actor holds ANY of the given read capabilities for their own team. */
+  function mayReadAnyOwnTeam(context: ReadContext, actions: readonly CaringContactAction[]): boolean {
+    return actions.some((action) => mayReadOwnTeam(context, action));
   }
 
   async function ensureTeam(connection: SqlConnection, team: TeamId): Promise<void> {
@@ -403,9 +560,22 @@ export function createPostgresRepository(
         return decodeStoredValue(previous.result) as TransitionResult<T>;
       }
 
+      // The service-wide safety-stop gate (Ruling 9). It lives HERE, not in each method, so a future
+      // write cannot forget it by simply not asking; and it reads the singleton -- the one record for
+      // the whole service -- so a stop raised by one team's actor blocks another team's plan too.
+      // Checked after the replay short-circuit, because a replay reports the ORIGINAL decision rather
+      // than today's, and before `spec.stage()` so a refused write still produces exactly one
+      // "denied" audit event through the same path every other refusal does.
+      const blockedByServiceStop =
+        spec.bypassServiceStopGate !== true &&
+        !previous &&
+        serviceStopBlocksDispatch(await readServiceState(connection));
+
       const staged: TransitionResult<T> = previous
         ? { ok: false, reason: REPOSITORY_REFUSALS.idempotencyKeyReused }
-        : await spec.stage(connection);
+        : blockedByServiceStop
+          ? { ok: false, reason: REPOSITORY_REFUSALS.serviceStopped }
+          : await spec.stage(connection);
 
       const outcome: AuditOutcome = staged.ok ? "allowed" : "denied";
       const event = buildAuditEvent(
@@ -423,27 +593,16 @@ export function createPostgresRepository(
       );
       await options.auditSink?.record(event);
 
-      await connection.query(
-        `insert into caring_contacts.audit_events
-           (team_id, actor_id, actor_roles, action, object_type, object_id, outcome, idempotency_key,
-            occurred_at, txn_token)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::uuid)`,
-        [
-          event.teamId,
-          event.actorId,
-          [...event.actorRoles],
-          event.action,
-          event.objectType,
-          event.objectId,
-          event.outcome,
-          event.idempotencyKey,
-          event.timestamp,
-          token,
-        ],
-      );
+      await insertAuditEvent(connection, event, token);
 
       // A key reused for a different request must not overwrite the original write's result.
-      if (!previous) {
+      //
+      // A `service-stopped` refusal is deliberately NOT remembered (Ruling 15). Idempotency keys are
+      // stable across retries, so caching it would poison that key permanently: the identical retry
+      // sent after the three-role restart approval would be refused for a reason that is no longer
+      // true, and the resume path is the entire point of a safety stop. Every OTHER refusal is still
+      // recorded, so the general replay semantics -- one key, one answer -- are unchanged.
+      if (!previous && !blockedByServiceStop) {
         await connection.query(
           `insert into caring_contacts.idempotency_records (team_id, idempotency_key, fingerprint, result)
            values ($1, $2, $3, $4::jsonb)`,
@@ -523,6 +682,8 @@ export function createPostgresRepository(
     context: WriteContext,
     requiresActivePlan: boolean,
     recordDispatchAttempt = false,
+    /** Set only by `recordContactProviderStatus`: the half of the reconciliation pair the provider reported. */
+    reportedStatus?: ProviderStatus,
   ): Promise<TransitionResult<StoredContact>> {
     return runWrite<StoredContact>({
       method,
@@ -568,9 +729,24 @@ export function createPostgresRepository(
             [input.contactId],
           );
           await connection.query(
-            `insert into caring_contacts.contact_dispatches (contact_id, team_id, attempt, idempotency_key)
-             values ($1, $2, $3, $4)`,
-            [input.contactId, team, numberOf(attempts.rows[0].attempt), context.idempotencyKey],
+            `insert into caring_contacts.contact_dispatches
+               (contact_id, team_id, attempt, idempotency_key, started_at)
+             values ($1, $2, $3, $4, $5)`,
+            [input.contactId, team, numberOf(attempts.rows[0].attempt), context.idempotencyKey, clock.now()],
+          );
+        }
+
+        if (reportedStatus !== undefined) {
+          // Recorded against the OPEN attempt -- the latest one this contact has -- which is the half
+          // `resolveDispatchDiscrepancy` compares against. A contact with no attempt on record simply
+          // has nothing to reconcile, so this updates nothing rather than inventing an attempt.
+          await connection.query(
+            `update caring_contacts.contact_dispatches set reported_status = $2
+              where id = (
+                select id from caring_contacts.contact_dispatches where contact_id = $1
+                 order by attempt desc limit 1
+              )`,
+            [input.contactId, reportedStatus],
           );
         }
 
@@ -592,6 +768,248 @@ export function createPostgresRepository(
     const planRow = result.rows[0];
     if (!planRow) return null;
     return { planRow, contactRows: await selectContacts(connection, planId) };
+  }
+
+  // -------------------------------------------------------------------------
+  // Reading the workspace tables back into domain values
+  // -------------------------------------------------------------------------
+
+  function toReferral(row: SqlRow): Referral {
+    return {
+      id: textOf(row.id) as ReferralId,
+      teamId: toTeamId(textOf(row.team_id)),
+      patientId: textOf(row.patient_id) as PatientId,
+      state: textOf(row.state) as ReferralState,
+      pathwayVersionId: isAbsent(row.pathway_version_id) ? null : (textOf(row.pathway_version_id) as PathwayVersionId),
+    };
+  }
+
+  function toPathwayApproval(row: SqlRow): PathwayApproval {
+    return {
+      role: textOf(row.role) as PathwayApprovalRole,
+      actorId: toActorId(textOf(row.actor_id)),
+      approvedAt: awstIsoTimestamp(instantOf(row.approved_at)),
+    };
+  }
+
+  function toPathwayVersion(row: SqlRow, approvals: readonly PathwayApproval[]): PathwayVersion {
+    return {
+      id: textOf(row.id) as PathwayVersionId,
+      teamId: toTeamId(textOf(row.team_id)),
+      state: textOf(row.state) as PathwayVersionState,
+      authorId: toActorId(textOf(row.author_id)),
+      approvals,
+      publishedAt: isAbsent(row.published_at) ? null : awstIsoTimestamp(instantOf(row.published_at)),
+      retiredAt: isAbsent(row.retired_at) ? null : awstIsoTimestamp(instantOf(row.retired_at)),
+      retirementUrgency: isAbsent(row.retirement_urgency)
+        ? null
+        : (textOf(row.retirement_urgency) as PathwayRetirementUrgency),
+      snapshot: row.snapshot as PathwayVersionSnapshot,
+    };
+  }
+
+  async function readPathwayVersion(connection: SqlConnection, versionId: string): Promise<PathwayVersion | null> {
+    const result = await connection.query(
+      `select ${PATHWAY_VERSION_COLUMNS} from caring_contacts.pathway_versions where id = $1`,
+      [versionId],
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    const approvals = await connection.query(
+      `select role, actor_id, approved_at from caring_contacts.pathway_version_approvals
+       where pathway_version_id = $1 order by id`,
+      [versionId],
+    );
+    return toPathwayVersion(row, approvals.rows.map(toPathwayApproval));
+  }
+
+  /** Two queries and a group, the shape `listPlans` already uses -- never one query per version. */
+  async function readAllPathwayVersions(connection: SqlConnection): Promise<PathwayVersion[]> {
+    const versions = await connection.query(
+      `select ${PATHWAY_VERSION_COLUMNS} from caring_contacts.pathway_versions order by id`,
+    );
+    const approvals = await connection.query(
+      `select pathway_version_id, role, actor_id, approved_at
+       from caring_contacts.pathway_version_approvals order by id`,
+    );
+
+    const byVersion = new Map<string, PathwayApproval[]>();
+    for (const row of approvals.rows) {
+      const key = textOf(row.pathway_version_id);
+      const bucket = byVersion.get(key);
+      if (bucket) bucket.push(toPathwayApproval(row));
+      else byVersion.set(key, [toPathwayApproval(row)]);
+    }
+
+    return versions.rows.map((row) => toPathwayVersion(row, byVersion.get(textOf(row.id)) ?? []));
+  }
+
+  // -------------------------------------------------------------------------
+  // The service-wide safety stop
+  //
+  // `service_state` is a singleton and `service_stops` holds one immutable row per incident, so the
+  // CURRENT incident's reason and note are reached by `stop_id` rather than copied onto the
+  // singleton -- and the restart approvals are read for that stop alone. An unfiltered read would
+  // hand a brand-new incident the previous one's three approvals, which is a zero-approval restart.
+  // -------------------------------------------------------------------------
+
+  async function readRestartApprovals(
+    connection: SqlConnection,
+    stopId: string,
+  ): Promise<readonly ServiceRestartApproval[]> {
+    const result = await connection.query(
+      `select role, actor_id, approved_at from caring_contacts.service_restart_approvals
+       where stop_id = $1::uuid order by id`,
+      [stopId],
+    );
+    return Object.freeze(
+      result.rows.map((row) =>
+        Object.freeze({
+          role: textOf(row.role) as ServiceRestartApprovalRole,
+          actorId: toActorId(textOf(row.actor_id)),
+          approvedAt: awstIsoTimestamp(instantOf(row.approved_at)),
+        }),
+      ),
+    );
+  }
+
+  /**
+   * The singleton joined to the incident it names. Frozen on the way out for the same reason the
+   * in-memory store freezes: a caller holding a mutable stopped state could rewrite the reason, the
+   * note, who raised it, or the restart approvals of a live incident in place -- with no audit event
+   * and nothing to show it happened.
+   */
+  async function serviceStateFrom(connection: SqlConnection, row: SqlRow | null): Promise<ServiceState> {
+    if (!row) return runningService(SERVICE_STATE_UNSET_TEAM);
+
+    const reportedByTeamId = isAbsent(row.reported_by_team_id)
+      ? SERVICE_STATE_UNSET_TEAM
+      : toTeamId(textOf(row.reported_by_team_id));
+    if (row.stopped !== true) return runningService(reportedByTeamId);
+
+    return Object.freeze({
+      stopped: true as const,
+      reportedByTeamId,
+      reason: textOf(row.reason) as ServiceStopReason,
+      stoppedBy: toActorId(textOf(row.stopped_by)),
+      stoppedAt: awstIsoTimestamp(instantOf(row.stopped_at)),
+      note: isAbsent(row.note) ? "" : textOf(row.note),
+      restartApprovals: await readRestartApprovals(connection, textOf(row.stop_id)),
+    });
+  }
+
+  async function selectServiceState(connection: SqlConnection, forUpdate: boolean): Promise<SqlRow | null> {
+    const result = await connection.query(
+      `select s.stopped, s.reported_by_team_id, s.stop_id, s.stopped_by, s.stopped_at, i.reason, i.note
+         from caring_contacts.service_state s
+         left join caring_contacts.service_stops i on i.stop_id = s.stop_id
+        where s.singleton${forUpdate ? " for update of s" : ""}`,
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async function readServiceState(connection: SqlConnection, forUpdate = false): Promise<ServiceState> {
+    return serviceStateFrom(connection, await selectServiceState(connection, forUpdate));
+  }
+
+  // -------------------------------------------------------------------------
+  // Assignment and cover
+  // -------------------------------------------------------------------------
+
+  async function readAssignment(connection: SqlConnection, planId: PlanId): Promise<PlanAssignment> {
+    const current = await connection.query(
+      `select owner_id, claimed_at, covered_by, coverage_from, coverage_until
+       from caring_contacts.plan_assignments where plan_id = $1`,
+      [planId],
+    );
+    const history = await connection.query(
+      `select from_actor_id, to_actor_id, reason, at
+       from caring_contacts.plan_reassignments where plan_id = $1 order by id`,
+      [planId],
+    );
+    const reassignmentHistory = history.rows.map((row) => ({
+      fromActorId: toActorId(textOf(row.from_actor_id)),
+      toActorId: toActorId(textOf(row.to_actor_id)),
+      reason: textOf(row.reason),
+      at: awstIsoTimestamp(instantOf(row.at)),
+    }));
+
+    const row = current.rows[0];
+    if (!row) return { ...unassigned(), reassignmentHistory };
+    return {
+      ownerId: isAbsent(row.owner_id) ? null : toActorId(textOf(row.owner_id)),
+      claimedAt: isAbsent(row.claimed_at) ? null : awstIsoTimestamp(instantOf(row.claimed_at)),
+      coveredBy: isAbsent(row.covered_by)
+        ? null
+        : {
+            actorId: toActorId(textOf(row.covered_by)),
+            from: textOf(row.coverage_from),
+            until: textOf(row.coverage_until),
+          },
+      reassignmentHistory,
+    };
+  }
+
+  /**
+   * Persists one applied assignment action. Only the reassignment entries the transition actually
+   * appended are inserted: `applyAssignmentAction` returns the WHOLE history every time, and
+   * re-inserting it would duplicate every earlier handover on each later one.
+   */
+  async function writeAssignment(
+    connection: SqlConnection,
+    planId: PlanId,
+    team: TeamId,
+    assignment: PlanAssignment,
+    alreadyRecordedHandovers: number,
+  ): Promise<void> {
+    await connection.query(
+      `insert into caring_contacts.plan_assignments
+         (plan_id, team_id, owner_id, claimed_at, covered_by, coverage_from, coverage_until)
+       values ($1, $2, $3, $4, $5, $6, $7)
+       on conflict (plan_id) do update
+         set owner_id = excluded.owner_id, claimed_at = excluded.claimed_at,
+             covered_by = excluded.covered_by, coverage_from = excluded.coverage_from,
+             coverage_until = excluded.coverage_until`,
+      [
+        planId,
+        team,
+        assignment.ownerId,
+        assignment.claimedAt === null ? null : new Date(assignment.claimedAt),
+        assignment.coveredBy?.actorId ?? null,
+        assignment.coveredBy?.from ?? null,
+        assignment.coveredBy?.until ?? null,
+      ],
+    );
+
+    for (const entry of assignment.reassignmentHistory.slice(alreadyRecordedHandovers)) {
+      await connection.query(
+        `insert into caring_contacts.plan_reassignments (plan_id, team_id, from_actor_id, to_actor_id, reason, at)
+         values ($1, $2, $3, $4, $5, $6)`,
+        [planId, team, entry.fromActorId, entry.toActorId, entry.reason, new Date(entry.at)],
+      );
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Dispatch reconciliation
+  // -------------------------------------------------------------------------
+
+  function toDispatchRecord(row: SqlRow): DispatchRecord {
+    return {
+      contactId: contactId(textOf(row.contact_id)),
+      planId: textOf(row.plan_id) as PlanId,
+      attempt: numberOf(row.attempt),
+      startedAt: instantOf(row.started_at),
+      // There is no `expected_status` column and nothing writes one: the dispatcher records what the
+      // provider REPORTED, and the expectation it is reconciled against lives with the caller. The
+      // in-memory store leaves this null for the same reason.
+      expectedStatus: null,
+      reportedStatus: isAbsent(row.reported_status) ? null : (textOf(row.reported_status) as ProviderStatus),
+      discrepancyResolvedAt: isAbsent(row.discrepancy_resolved_at) ? null : instantOf(row.discrepancy_resolved_at),
+      discrepancyResolution: isAbsent(row.discrepancy_resolution)
+        ? null
+        : (textOf(row.discrepancy_resolution) as DispatchDiscrepancyResolution),
+    };
   }
 
   return {
@@ -745,6 +1163,10 @@ export function createPostgresRepository(
         context,
         auditAction: `recordHospitalStatusEvent:${input.event.type}`,
         objectId: input.planId,
+        // A death must always be recordable -- the same reasoning as the always-available
+        // triggerServiceSafetyStop capability above. A refusal here would leave a plan sending to
+        // someone who has died.
+        bypassServiceStopGate: true,
         stage: async (connection) => {
           const resolved = await resolveForWrite(connection, input, context.actor, actions);
           if (!resolved.ok) return resolved;
@@ -801,6 +1223,8 @@ export function createPostgresRepository(
         { type: "providerStatus", status: input.status },
         context,
         false,
+        false,
+        input.status,
       );
     },
 
@@ -815,6 +1239,763 @@ export function createPostgresRepository(
         context,
         false,
       );
+    },
+
+    async rescheduleContact(input, context: WriteContext) {
+      const permission: CaringContactAction = "toHour" in input.change ? "moveContactWithinDay" : "changeContactDate";
+      return runWrite<StoredContact>({
+        method: "rescheduleContact",
+        input,
+        context,
+        auditAction: "rescheduleContact",
+        objectType: "contact",
+        objectId: input.contactId,
+        stage: async (connection) => {
+          const planRow = await selectPlanForUpdate(connection, input.planId);
+          if (!planRow) return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
+
+          const team = toTeamId(textOf(planRow.team_id));
+          if (!canPerformCaringContactAction(context.actor, permission, { teamId: team }).allowed) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+
+          const contactResult = await connection.query(
+            `select ${CONTACT_COLUMNS} from caring_contacts.contacts where plan_id = $1 and id = $2 for update`,
+            [input.planId, input.contactId],
+          );
+          const contactRow = contactResult.rows[0];
+          if (!contactRow) return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
+          if (numberOf(contactRow.version) !== input.expectedContactVersion) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.staleVersion };
+          }
+
+          // The STORED `planned` is the source of truth, never the caller's copy: a request built
+          // from a stale or fabricated PlannedContact must not be able to smuggle a different
+          // calendarDay/sendAt past the two rules below.
+          const stored = toStoredContact(contactRow);
+          const moved =
+            "toHour" in input.change
+              ? moveContactWithinDay({
+                  contact: stored.planned,
+                  toHour: input.change.toHour,
+                  toMinute: input.change.toMinute,
+                })
+              : changeContactDate(
+                  {
+                    contact: stored.planned,
+                    toCalendarDay: input.change.toCalendarDay,
+                    reason: input.change.reason,
+                    teamLeadApprovalActorId: input.change.teamLeadApprovalActorId,
+                  },
+                  clock,
+                );
+          if (!moved.ok) return moved;
+
+          // Only the calendar entry changes; `state` is untouched. The version still advances, so a
+          // second, concurrent reschedule of the same contact is refused as stale -- the same
+          // optimistic-concurrency guarantee every other contact write gives.
+          const nextVersion = stored.contact.version + 1;
+          const written = await connection.query(
+            `update caring_contacts.contacts
+                set calendar_day = $2, send_at = $3, version = $4
+              where id = $1 and version = $5`,
+            [input.contactId, moved.value.calendarDay, moved.value.sendAt, nextVersion, stored.contact.version],
+          );
+          if (written.rowCount !== 1) {
+            throw new Error(
+              `caring-contacts: contact ${input.contactId} moved under an optimistic write that held a row lock`,
+            );
+          }
+
+          return { ok: true, value: { contact: { ...stored.contact, version: nextVersion }, planned: moved.value } };
+        },
+      });
+    },
+
+    // ---------------------------------------------------------------------
+    // Referrals
+    // ---------------------------------------------------------------------
+
+    async createReferral(input: CreateReferralInput, context: WriteContext) {
+      return runWrite<Referral>({
+        method: "createReferral",
+        input,
+        context,
+        auditAction: "createReferral",
+        objectType: "referral",
+        objectId: input.referralId,
+        stage: async (connection) => {
+          const { actor } = context;
+          if (!canPerformCaringContactAction(actor, "createReferral", { teamId: actor.teamId }).allowed) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+
+          const referral: Referral = {
+            id: input.referralId,
+            teamId: actor.teamId,
+            patientId: input.patientId,
+            state: "awaitingHandover",
+            pathwayVersionId: null,
+          };
+
+          // The primary key IS the uniqueness rule, so it is asked rather than re-derived by a
+          // preceding SELECT. That also answers correctly for an identifier another team already
+          // holds, which a team-scoped SELECT cannot see at all.
+          const inserted = await withSavepoint(connection, INSERT_SAVEPOINT, () =>
+            connection.query(
+              `insert into caring_contacts.referrals (id, team_id, patient_id, state, pathway_version_id)
+               values ($1, $2, $3, $4, null)`,
+              [referral.id, referral.teamId, referral.patientId, referral.state],
+            ),
+          );
+          if (!inserted.ok) {
+            if (inserted.constraint === "referrals_pkey") {
+              return { ok: false, reason: REPOSITORY_REFUSALS.referralAlreadyExists };
+            }
+            throw inserted.error;
+          }
+
+          return { ok: true, value: referral };
+        },
+      });
+    },
+
+    async transitionReferral(input: ReferralTransitionInput, context: WriteContext) {
+      const permission: CaringContactAction =
+        input.action.type === "accept"
+          ? "acceptReferral"
+          : input.action.type === "returnForClarification"
+            ? "returnReferralForClarification"
+            : "declineReferral";
+      return runWrite<Referral>({
+        method: "transitionReferral",
+        input,
+        context,
+        auditAction: "transitionReferral",
+        objectType: "referral",
+        objectId: input.referralId,
+        stage: async (connection) => {
+          // Row-level security already excludes another team's referral, so this returns nothing for
+          // it -- the same answer as for a referral that does not exist.
+          const result = await connection.query(
+            `select ${REFERRAL_COLUMNS} from caring_contacts.referrals where id = $1 for update`,
+            [input.referralId],
+          );
+          const row = result.rows[0];
+          if (!row) return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
+
+          const stored = toReferral(row);
+          if (!canPerformCaringContactAction(context.actor, permission, { teamId: stored.teamId }).allowed) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+
+          const transitioned = applyReferralTransition(stored, input.action);
+          if (!transitioned.ok) return transitioned;
+
+          await connection.query(
+            "update caring_contacts.referrals set state = $2, pathway_version_id = $3 where id = $1",
+            [input.referralId, transitioned.value.state, transitioned.value.pathwayVersionId],
+          );
+          return { ok: true, value: transitioned.value };
+        },
+      });
+    },
+
+    async listReferrals(context: ReadContext) {
+      if (!mayReadOwnTeam(context, READ_ACTIONS.referral)) return [];
+      return runRead(context, async (connection) => {
+        const result = await connection.query(`select ${REFERRAL_COLUMNS} from caring_contacts.referrals order by id`);
+        return result.rows.map(toReferral);
+      });
+    },
+
+    // ---------------------------------------------------------------------
+    // Pathway versions
+    // ---------------------------------------------------------------------
+
+    async savePathwayVersion(input: SavePathwayVersionInput, context: WriteContext) {
+      return runWrite<PathwayVersion>({
+        method: "savePathwayVersion",
+        input,
+        context,
+        auditAction: "savePathwayVersion",
+        objectType: "pathwayVersion",
+        objectId: input.version.id,
+        stage: async (connection) => {
+          const { actor } = context;
+          if (!canPerformCaringContactAction(actor, "authorPathwayVersion", { teamId: actor.teamId }).allowed) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+
+          // AUTHORED CONTENT ONLY (Ruling 14). The caller supplies the identifier and the snapshot;
+          // every governance field below is constructed here, server-side, whatever the caller sent.
+          // `authorPathwayVersion` is held by the plain coordinator role, so trusting a caller's
+          // `state`/`approvals` would let one actor seed a version straight into `approved` and have
+          // a later legitimate publish succeed on a version nobody approved -- publication is not a
+          // state of its own, it is a `publishedAt` recorded on an already approved version (see
+          // ../pathway-versions). A caller-supplied `authorId` would equally defeat
+          // `self-approval-denied`, which compares approvals against the STORED author. Every
+          // governance transition therefore lives in `transitionPathwayVersion` alone.
+          const version: PathwayVersion = {
+            id: input.version.id,
+            teamId: actor.teamId,
+            state: "draft",
+            authorId: actor.id,
+            approvals: Object.freeze([]),
+            publishedAt: null,
+            retiredAt: null,
+            retirementUrgency: null,
+            snapshot: input.version.snapshot,
+          };
+
+          const inserted = await withSavepoint(connection, INSERT_SAVEPOINT, () =>
+            connection.query(
+              `insert into caring_contacts.pathway_versions
+                 (id, team_id, state, author_id, approver_id, published_at, retired_at, retirement_urgency, snapshot)
+               values ($1, $2, $3, $4, null, null, null, null, $5::jsonb)`,
+              [version.id, version.teamId, version.state, version.authorId, JSON.stringify(version.snapshot)],
+            ),
+          );
+          if (!inserted.ok) {
+            if (inserted.constraint === "pathway_versions_pkey") {
+              return { ok: false, reason: REPOSITORY_REFUSALS.pathwayVersionAlreadyExists };
+            }
+            throw inserted.error;
+          }
+
+          return { ok: true, value: version };
+        },
+      });
+    },
+
+    async transitionPathwayVersion(input: PathwayVersionTransitionInput, context: WriteContext) {
+      const permission: CaringContactAction =
+        input.action.type === "submitForReview"
+          ? "authorPathwayVersion"
+          : input.action.type === "approve"
+            ? "approvePathwayVersion"
+            : input.action.type === "publish"
+              ? "publishPathwayVersion"
+              : "retirePathwayVersion";
+      return runWrite<PathwayVersion>({
+        method: "transitionPathwayVersion",
+        input,
+        context,
+        auditAction: "transitionPathwayVersion",
+        objectType: "pathwayVersion",
+        objectId: input.pathwayVersionId,
+        stage: async (connection) => {
+          const locked = await connection.query(
+            "select id from caring_contacts.pathway_versions where id = $1 for update",
+            [input.pathwayVersionId],
+          );
+          if (!locked.rows[0]) return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
+
+          const stored = await readPathwayVersion(connection, input.pathwayVersionId);
+          if (!stored) return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
+          if (!canPerformCaringContactAction(context.actor, permission, { teamId: stored.teamId }).allowed) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+
+          const transitioned = applyPathwayVersionTransition(stored, input.action, clock);
+          if (!transitioned.ok) return transitioned;
+
+          // Only the approvals this transition actually appended: the domain returns the whole list
+          // every time, and re-inserting it would duplicate every earlier approval on each later one.
+          for (const approval of transitioned.value.approvals.slice(stored.approvals.length)) {
+            await connection.query(
+              `insert into caring_contacts.pathway_version_approvals
+                 (pathway_version_id, team_id, author_id, role, actor_id, approved_at)
+               values ($1, $2, $3, $4, $5, $6)`,
+              [
+                stored.id,
+                stored.teamId,
+                stored.authorId,
+                approval.role,
+                approval.actorId,
+                new Date(approval.approvedAt),
+              ],
+            );
+          }
+
+          await connection.query(
+            `update caring_contacts.pathway_versions
+                set state = $2, published_at = $3, retired_at = $4, retirement_urgency = $5
+              where id = $1`,
+            [
+              stored.id,
+              transitioned.value.state,
+              transitioned.value.publishedAt === null ? null : new Date(transitioned.value.publishedAt),
+              transitioned.value.retiredAt === null ? null : new Date(transitioned.value.retiredAt),
+              transitioned.value.retirementUrgency,
+            ],
+          );
+
+          return { ok: true, value: transitioned.value };
+        },
+      });
+    },
+
+    async getPathwayVersion(id: PathwayVersionId, context: ReadContext) {
+      if (!mayReadAnyOwnTeam(context, PATHWAY_VERSION_READ_ACTIONS)) return null;
+      return runRead(context, (connection) => readPathwayVersion(connection, id));
+    },
+
+    async listPathwayVersions(context: ReadContext) {
+      if (!mayReadAnyOwnTeam(context, PATHWAY_VERSION_READ_ACTIONS)) return [];
+      return runRead(context, (connection) => readAllPathwayVersions(connection));
+    },
+
+    // ---------------------------------------------------------------------
+    // Service state -- one record for the whole service, never one per team (Ruling 3).
+    // ---------------------------------------------------------------------
+
+    async getServiceState(context: ReadContext) {
+      return runRead(context, (connection) => readServiceState(connection));
+    },
+
+    async stopService(input: { reason: ServiceStopReason; note: string }, context: WriteContext) {
+      return runWrite<ServiceState>({
+        method: "stopService",
+        input,
+        context,
+        auditAction: "stopService",
+        objectType: "serviceState",
+        objectId: "service",
+        bypassServiceStopGate: true,
+        stage: async (connection) => {
+          const { actor } = context;
+          if (!canPerformCaringContactAction(actor, "triggerServiceSafetyStop", { teamId: actor.teamId }).allowed) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+
+          // The reporting team is stamped onto the pre-stop snapshot here, not inside
+          // applyServiceStop -- that function only ever carries `reportedByTeamId` forward. It never
+          // scopes the stop: every team is blocked regardless.
+          const seeded: ServiceState = {
+            ...(await readServiceState(connection, true)),
+            reportedByTeamId: actor.teamId,
+          };
+          const applied = applyServiceStop(
+            seeded,
+            { reason: input.reason, actorId: actor.id, note: input.note },
+            clock,
+          );
+          if (!applied.ok) return applied;
+          const stopped = applied.value;
+          if (!stopped.stopped) throw new Error("caring-contacts: an accepted stop must be a stopped state");
+
+          // THE STORE MINTS THE INCIDENT IDENTIFIER. The domain has no `stopId` concept -- neither
+          // `ServiceState` nor `stopService({ reason, note })` mentions one -- and
+          // `service_state_stop_is_identified` requires the singleton to name its incident. Without
+          // this the constraint would turn a safety stop into a refused write, which is the one write
+          // in this system that must never be blocked. It stays a persistence detail: surfacing it on
+          // the sealed `ServiceState` would force the in-memory store, which has no incident history
+          // to mint one from, to invent a fake (controller Ruling 36).
+          const stoppedAt = clock.now();
+          const incident = await connection.query(
+            `insert into caring_contacts.service_stops
+               (stop_id, reason, note, stopped_by, stopped_at, reported_by_team_id)
+             values (gen_random_uuid(), $1, $2, $3, $4, $5)
+             returning stop_id`,
+            [stopped.reason, stopped.note, stopped.stoppedBy, stoppedAt, actor.teamId],
+          );
+          const stopId = textOf(incident.rows[0].stop_id);
+
+          await connection.query(
+            `insert into caring_contacts.service_state
+               (singleton, stopped, stopped_by, stopped_at, reported_by_team_id, stop_id, updated_at)
+             values (true, true, $1, $2, $3, $4::uuid, $2)
+             on conflict (singleton) do update
+               set stopped = true, stopped_by = excluded.stopped_by, stopped_at = excluded.stopped_at,
+                   reported_by_team_id = excluded.reported_by_team_id, stop_id = excluded.stop_id,
+                   updated_at = excluded.updated_at`,
+            [stopped.stoppedBy, stoppedAt, actor.teamId, stopId],
+          );
+
+          return { ok: true, value: stopped };
+        },
+      });
+    },
+
+    async approveServiceRestart(input: { role: ServiceRestartApprovalRole }, context: WriteContext) {
+      return runWrite<ServiceState>({
+        method: "approveServiceRestart",
+        input,
+        context,
+        auditAction: "approveServiceRestart",
+        objectType: "serviceState",
+        objectId: "service",
+        bypassServiceStopGate: true,
+        stage: async (connection) => {
+          const { actor } = context;
+          if (!canPerformCaringContactAction(actor, "approveServiceRestart", { teamId: actor.teamId }).allowed) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+
+          const row = await selectServiceState(connection, true);
+          const current = await serviceStateFrom(connection, row);
+          const applied = applyServiceRestartApproval(current, { role: input.role, actorId: actor.id }, clock);
+          if (!applied.ok) return applied;
+          if (!row) throw new Error("caring-contacts: an accepted restart approval must name an incident");
+
+          const stopId = textOf(row.stop_id);
+          const approvedAt = clock.now();
+          const recorded = await withSavepoint(connection, INSERT_SAVEPOINT, () =>
+            connection.query(
+              `insert into caring_contacts.service_restart_approvals
+                 (stop_id, role, actor_id, approved_at, approved_by_team_id)
+               values ($1::uuid, $2, $3, $4, $5)`,
+              [stopId, input.role, actor.id, approvedAt, actor.teamId],
+            ),
+          );
+          if (!recorded.ok) {
+            // Two approvals racing each other reach the database rather than the check above. Mapped
+            // by CONSTRAINT NAME, never by reading the message text, so both stores answer a
+            // duplicate role and a duplicate person with the reasons ../service-state uses.
+            const refusal = RESTART_APPROVAL_REFUSALS[recorded.constraint ?? ""];
+            if (refusal) return { ok: false, reason: refusal };
+            throw recorded.error;
+          }
+
+          // Only the approval that completes the third distinct role restarts the service.
+          if (!applied.value.stopped) {
+            await connection.query(
+              "update caring_contacts.service_stops set restarted_at = $2 where stop_id = $1::uuid",
+              [stopId, approvedAt],
+            );
+            await connection.query(
+              "update caring_contacts.service_state set stopped = false, stop_id = null, updated_at = $1 where singleton",
+              [approvedAt],
+            );
+          }
+
+          return { ok: true, value: applied.value };
+        },
+      });
+    },
+
+    // ---------------------------------------------------------------------
+    // Assignment
+    // ---------------------------------------------------------------------
+
+    async getAssignment(planId: PlanId, context: ReadContext) {
+      if (!mayReadOwnTeam(context, READ_ACTIONS.plan)) return null;
+      return runRead(context, async (connection) => {
+        const stored = await readPlanRecord(connection, planId);
+        if (!stored) return null;
+        return readAssignment(connection, planId);
+      });
+    },
+
+    async applyAssignment(input: { planId: PlanId; action: AssignmentAction }, context: WriteContext) {
+      const permission: CaringContactAction =
+        input.action.type === "claim"
+          ? "claimPlan"
+          : input.action.type === "reassign"
+            ? "reassignPlan"
+            : "coverCoordinator";
+      return runWrite<PlanAssignment>({
+        method: "applyAssignment",
+        input,
+        context,
+        auditAction: "applyAssignment",
+        objectId: input.planId,
+        stage: async (connection) => {
+          const planRow = await selectPlanForUpdate(connection, input.planId);
+          if (!planRow) return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
+
+          const team = toTeamId(textOf(planRow.team_id));
+          if (!canPerformCaringContactAction(context.actor, permission, { teamId: team }).allowed) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+          // A claim records who TOOK the work, and the audit event for this write names the caller.
+          // Letting the ledger name somebody else would leave the two records of "who owns this plan"
+          // contradicting each other. Scoped to `claim` alone: `startCoverage`'s `actorId` and
+          // `reassign`'s `toActorId` legitimately name a third party, which is the point of both.
+          if (input.action.type === "claim" && input.action.actorId !== context.actor.id) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+
+          const current = await readAssignment(connection, input.planId);
+          const transitioned = applyAssignmentAction(current, input.action, clock);
+          if (!transitioned.ok) return transitioned;
+
+          await writeAssignment(connection, input.planId, team, transitioned.value, current.reassignmentHistory.length);
+          return { ok: true, value: transitioned.value };
+        },
+      });
+    },
+
+    // ---------------------------------------------------------------------
+    // Reconciliation
+    // ---------------------------------------------------------------------
+
+    async listDispatches(input: { fromIso: string; toIso: string }, context: ReadContext) {
+      if (!mayReadOwnTeam(context, "reconcileProviderDispatch")) return [];
+      return runRead(context, async (connection) => {
+        const result = await connection.query(
+          `select ${DISPATCH_COLUMNS} from caring_contacts.contact_dispatches d
+             join caring_contacts.contacts c on c.id = d.contact_id
+            where d.started_at >= $1 and d.started_at <= $2
+            order by d.contact_id, d.attempt`,
+          [new Date(input.fromIso), new Date(input.toIso)],
+        );
+        return result.rows.map(toDispatchRecord);
+      });
+    },
+
+    async resolveDispatchDiscrepancy(input: ResolveDiscrepancyInput, context: WriteContext) {
+      return runWrite<DispatchRecord>({
+        method: "resolveDispatchDiscrepancy",
+        input,
+        context,
+        auditAction: "resolveDispatchDiscrepancy",
+        objectType: "contact",
+        objectId: input.contactId,
+        stage: async (connection) => {
+          // Row-level security scopes both tables, so another team's attempt returns nothing here --
+          // the same answer as an attempt that was never opened.
+          const result = await connection.query(
+            `select ${DISPATCH_COLUMNS}, d.id as dispatch_id from caring_contacts.contact_dispatches d
+               join caring_contacts.contacts c on c.id = d.contact_id
+              where d.contact_id = $1 and d.attempt = $2
+              for update of d`,
+            [input.contactId, input.attempt],
+          );
+          const row = result.rows[0];
+          if (!row) return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
+
+          if (
+            !canPerformCaringContactAction(context.actor, "reconcileProviderDispatch", {
+              teamId: context.actor.teamId,
+            }).allowed
+          ) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+          if (!isAbsent(row.discrepancy_resolved_at)) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.dispatchDiscrepancyAlreadyResolved };
+          }
+          if (input.note.trim() === "") {
+            return { ok: false, reason: REPOSITORY_REFUSALS.dispatchDiscrepancyNoteRequired };
+          }
+
+          // Only the resolution, its note and its timestamp are recorded. Nothing here touches the
+          // contact at all -- there is no re-dispatch, for any resolution including
+          // `unresolvedNoResend`.
+          const resolvedAt = clock.now();
+          await connection.query(
+            `update caring_contacts.contact_dispatches
+                set discrepancy_resolved_at = $2, discrepancy_resolution = $3, discrepancy_note = $4
+              where id = $1`,
+            [numberOf(row.dispatch_id), resolvedAt, input.resolution, input.note],
+          );
+
+          return {
+            ok: true,
+            value: {
+              ...toDispatchRecord(row),
+              discrepancyResolvedAt: resolvedAt,
+              discrepancyResolution: input.resolution,
+            },
+          };
+        },
+      });
+    },
+
+    // ---------------------------------------------------------------------
+    // Access trail
+    // ---------------------------------------------------------------------
+
+    async recordAccess(record: AccessRecord) {
+      // Deliberately outside `runWrite`: this is a best-effort append with no refusal to report (the
+      // interface returns void), no idempotency key, and no service-stop gate -- blocking it would
+      // take the trail dark for exactly the incidents, `audit-integrity-loss` included, it exists to
+      // prove happened. The event is built first, so a non-identifier-shaped objectId throws before
+      // any storage is touched.
+      const event = buildAccessAuditEvent(record, clock);
+      await options.auditSink?.record(event);
+      await inTransaction(record.teamId, null, async (connection) => {
+        await ensureTeam(connection, record.teamId);
+        await insertAuditEvent(connection, event, null);
+      });
+    },
+
+    async listAccessTrail(input: AccessTrailQuery, context: ReadContext) {
+      if (!mayReadOwnTeam(context, READ_ACTIONS.auditTrail)) return [];
+      return runRead(context, async (connection) => {
+        const conditions: string[] = [];
+        const values: SqlValue[] = [];
+        const placeholder = (value: SqlValue): string => {
+          values.push(value);
+          return `$${values.length}`;
+        };
+
+        // `occurred_at` holds the AWST instant as the domain rendered it, so it is compared as a
+        // timestamp rather than as text -- a lexical comparison would be wrong the moment a caller
+        // passed a range in any other ISO form.
+        if (input.fromIso !== undefined) {
+          conditions.push(`occurred_at::timestamptz >= ${placeholder(new Date(input.fromIso))}`);
+        }
+        if (input.toIso !== undefined) {
+          conditions.push(`occurred_at::timestamptz <= ${placeholder(new Date(input.toIso))}`);
+        }
+        if (input.actorId !== undefined) conditions.push(`actor_id = ${placeholder(input.actorId)}`);
+        if (input.objectType !== undefined) conditions.push(`object_type = ${placeholder(input.objectType)}`);
+
+        const where = conditions.length === 0 ? "" : ` where ${conditions.join(" and ")}`;
+        const result = await connection.query(
+          `select ${AUDIT_EVENT_COLUMNS} from caring_contacts.audit_events${where}
+            order by id offset ${placeholder(input.offset)} limit ${placeholder(input.limit)}`,
+          values,
+        );
+        return result.rows.map(toAuditEvent);
+      });
+    },
+
+    // ---------------------------------------------------------------------
+    // Preferences, training, and clearing an episode's identifying detail
+    // ---------------------------------------------------------------------
+
+    async getNotificationPreferences(context: ReadContext) {
+      return runRead(context, async (connection) => {
+        const result = await connection.query(
+          "select actor_id, opted_in from caring_contacts.notification_preferences where actor_id = $1",
+          [context.actor.id],
+        );
+        const row = result.rows[0];
+        if (!row) return defaultNotificationPreferences(context.actor.id);
+        return Object.freeze({
+          actorId: toActorId(textOf(row.actor_id)),
+          optedIn: Object.freeze([...((row.opted_in as string[] | null) ?? [])] as AlertClass[]),
+        });
+      });
+    },
+
+    async saveNotificationPreferences(input: NotificationPreferences, context: WriteContext) {
+      return runWrite<NotificationPreferences>({
+        method: "saveNotificationPreferences",
+        input,
+        context,
+        auditAction: "saveNotificationPreferences",
+        objectType: "notificationPreferences",
+        objectId: context.actor.id,
+        stage: async (connection) => {
+          const { actor } = context;
+          if (input.actorId !== actor.id) return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          if (
+            !canPerformCaringContactAction(actor, "manageNotificationPreferences", { teamId: actor.teamId }).allowed
+          ) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+
+          const saved: NotificationPreferences = Object.freeze({
+            actorId: input.actorId,
+            optedIn: Object.freeze([...input.optedIn]),
+          });
+          await connection.query(
+            `insert into caring_contacts.notification_preferences (actor_id, team_id, opted_in)
+             values ($1, $2, $3)
+             on conflict (actor_id) do update set team_id = excluded.team_id, opted_in = excluded.opted_in`,
+            [saved.actorId, actor.teamId, [...saved.optedIn]],
+          );
+          return { ok: true, value: saved };
+        },
+      });
+    },
+
+    async getTrainingRecord(context: ReadContext) {
+      return runRead(context, async (connection) => {
+        const result = await connection.query(
+          "select actor_id, completed from caring_contacts.training_records where actor_id = $1",
+          [context.actor.id],
+        );
+        const row = result.rows[0];
+        if (!row) return emptyTrainingRecord(context.actor.id);
+        return Object.freeze({
+          actorId: toActorId(textOf(row.actor_id)),
+          completed: Object.freeze([...((row.completed as string[] | null) ?? [])] as TrainingCompetency[]),
+        });
+      });
+    },
+
+    async recordTrainingCompetency(input: { competency: TrainingCompetency }, context: WriteContext) {
+      return runWrite<TrainingRecord>({
+        method: "recordTrainingCompetency",
+        input,
+        context,
+        auditAction: "recordTrainingCompetency",
+        objectType: "trainingRecord",
+        objectId: context.actor.id,
+        stage: async (connection) => {
+          const { actor } = context;
+          if (!canPerformCaringContactAction(actor, "enterTrainingMode", { teamId: actor.teamId }).allowed) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+
+          const existing = await connection.query(
+            "select completed from caring_contacts.training_records where actor_id = $1 for update",
+            [actor.id],
+          );
+          const row = existing.rows[0];
+          const current: TrainingRecord = row
+            ? {
+                actorId: actor.id,
+                completed: [...((row.completed as string[] | null) ?? [])] as TrainingCompetency[],
+              }
+            : emptyTrainingRecord(actor.id);
+
+          const updated = recordCompetency(current, input.competency);
+          await connection.query(
+            `insert into caring_contacts.training_records (actor_id, team_id, completed)
+             values ($1, $2, $3)
+             on conflict (actor_id) do update set team_id = excluded.team_id, completed = excluded.completed`,
+            [actor.id, actor.teamId, [...updated.completed]],
+          );
+          return { ok: true, value: updated };
+        },
+      });
+    },
+
+    async markRetentionCleared(input: { planId: PlanId }, context: WriteContext) {
+      return runWrite<void>({
+        method: "markRetentionCleared",
+        input,
+        context,
+        auditAction: "markRetentionCleared",
+        objectId: input.planId,
+        stage: async (connection) => {
+          const planRow = await selectPlanForUpdate(connection, input.planId);
+          if (!planRow) return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
+
+          const team = toTeamId(textOf(planRow.team_id));
+          if (
+            !canPerformCaringContactAction(context.actor, "generateClinicalRecordSummary", { teamId: team }).allowed
+          ) {
+            return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
+          }
+
+          // The clearance row is admissible only for an episode that has actually ENDED: its check
+          // constraint requires a terminal instant beside the cleared one, and the only truthful
+          // terminal instant is the plan's own `completed_at`. An open plan has none, and inventing
+          // one would put a false end date on a live episode -- so for an open plan the audit event
+          // this write appends is the whole durable record. Both stores answer the caller identically
+          // either way: nothing on this contract reads either store's clearance bookkeeping back.
+          const completedAt = isAbsent(planRow.completed_at) ? null : instantOf(planRow.completed_at);
+          if (completedAt !== null) {
+            await connection.query(
+              `insert into caring_contacts.retention_state
+                 (plan_id, team_id, terminal_at, cleared_at)
+               values ($1, $2, $3, $4)
+               on conflict (plan_id) do update
+                 set terminal_at = excluded.terminal_at, cleared_at = excluded.cleared_at`,
+              [input.planId, team, completedAt, clock.now()],
+            );
+          }
+
+          return { ok: true, value: undefined };
+        },
+      });
     },
 
     async getPlan(planId: PlanId, context: ReadContext) {
@@ -867,9 +2048,7 @@ export function createPostgresRepository(
       if (!mayReadOwnTeam(context, READ_ACTIONS.auditTrail)) return [];
       return runRead(context, async (connection) => {
         const result = await connection.query(
-          `select team_id, actor_id, actor_roles, action, object_type, object_id, outcome,
-                  idempotency_key, occurred_at
-           from caring_contacts.audit_events order by id`,
+          `select ${AUDIT_EVENT_COLUMNS} from caring_contacts.audit_events order by id`,
         );
         return result.rows.map(toAuditEvent);
       });

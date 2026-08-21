@@ -204,69 +204,6 @@ const SEED_PATHWAY_SNAPSHOT = Object.freeze({
   }),
 });
 
-export type SeedPlanParentsOptions = {
-  teamId: string;
-  referralIds: readonly string[];
-  pathwayVersionIds: readonly string[];
-  patientId?: string;
-};
-
-/**
- * Creates the referral and pathway-version rows a plan may name, for suites that write plans
- * through the STORE rather than through `seedPlan`.
- *
- * Migration 0003 turns `plans.referral_id` and `plans.pathway_version_id` into real, same-team
- * foreign keys, so a plan naming a referral nobody created is now refused by the database. The
- * shared store contract in ./caring-contacts-repository-contract names `REFERRAL-1`, `REFERRAL-2`
- * and `PATHWAY-1` without creating them, which was legitimate while the columns were bare text.
- * This is the same "make an invalid fixture valid" repair `seedPlan` needed; it loosens no
- * assertion. It becomes unnecessary once the Postgres store implements `createReferral` and
- * `savePathwayVersion` and the contract creates its own parents.
- */
-export async function seedPlanParents(pool: Pool, options: SeedPlanParentsOptions): Promise<void> {
-  const { teamId } = options;
-  const patientId = options.patientId ?? "PATIENT-SEED";
-
-  await runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
-    await client.query("insert into caring_contacts.teams (id) values ($1) on conflict (id) do nothing", [teamId]);
-    await insertAuditEvent(client, {
-      teamId,
-      actorId: "SEED-ACTOR",
-      actorRoles: ["coordinator"],
-      action: "createReferral",
-      objectType: "referral",
-      objectId: options.referralIds.join(","),
-      outcome: "allowed",
-      idempotencyKey: `seed-parents-${teamId}`,
-    });
-    for (const pathwayVersionId of options.pathwayVersionIds) {
-      await client.query(
-        `insert into caring_contacts.pathway_versions
-           (id, team_id, state, author_id, approver_id, published_at, snapshot)
-         values ($1, $2, 'approved', 'SEED-AUTHOR', 'SEED-APPROVER', now(), $3::jsonb)
-         on conflict (id) do nothing`,
-        [pathwayVersionId, teamId, JSON.stringify(SEED_PATHWAY_SNAPSHOT)],
-      );
-    }
-    for (const referralId of options.referralIds) {
-      await client.query(
-        `insert into caring_contacts.referrals (id, team_id, patient_id, state, pathway_version_id)
-         values ($1, $2, $3, 'accepted', $4)
-         on conflict (id) do nothing`,
-        [referralId, teamId, patientId, options.pathwayVersionIds[0] ?? null],
-      );
-    }
-  });
-}
-
-/**
- * Empties the audit trail. Runs as the migration superuser deliberately: a fixture's own audited
- * transaction is bookkeeping, not part of the trail a store contract is asserting about.
- */
-export async function clearCaringContactsAuditEvents(pool: Pool): Promise<void> {
-  await pool.query("delete from caring_contacts.audit_events");
-}
-
 export type SeedPlanOptions = {
   teamId: string;
   planId: string;

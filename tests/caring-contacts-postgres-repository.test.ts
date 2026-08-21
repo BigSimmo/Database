@@ -5,10 +5,20 @@
 // the in-memory store, and duplicating the tests would let the two stores drift apart exactly
 // where the drift is least visible and most dangerous.
 //
+// Note what this file NO LONGER does. Task 11a gave it a `beforeEach` that pre-created the referral
+// and pathway version every contract fixture names, plus a call clearing the audit trail those
+// inserts produced, because migration 0003 made both links same-team foreign keys while the
+// Postgres store still had no `createReferral` or `savePathwayVersion` to create them with. That
+// scaffolding meant the two contract runs started from DIFFERENT preconditions and the contract
+// could no longer prove this store validates its own parents. Task 11b implemented both methods, so
+// the contract now creates its parents through the repository and the scaffolding is gone. Do not
+// reintroduce it: a fixture that reaches around the store is a fixture the store is not being
+// tested by.
+//
 // Needs a real Postgres named by CARING_CONTACTS_DATABASE_URL. It never skips — see
 // caring-contacts/run-db-tests.mjs.
 import type { Pool } from "pg";
-import { afterAll, afterEach, beforeAll, beforeEach } from "vitest";
+import { afterAll, afterEach, beforeAll } from "vitest";
 
 import { createPostgresRepository } from "@/lib/caring-contacts/db/postgres-repository";
 
@@ -17,9 +27,7 @@ import {
   applyCaringContactsMigrations,
   createCaringContactsPool,
   dropCaringContactsSchema,
-  clearCaringContactsAuditEvents,
   poolAsSqlConnectionPool,
-  seedPlanParents,
   truncateCaringContactsData,
 } from "./helpers/caring-contacts-postgres";
 
@@ -30,29 +38,6 @@ beforeAll(async () => {
   await dropCaringContactsSchema(pool);
   await applyCaringContactsMigrations(pool);
 }, 120_000);
-
-// The referral and pathway version every contract fixture names. Migration 0003 made
-// `plans.referral_id` and `plans.pathway_version_id` real same-team foreign keys, so a plan
-// naming a referral nobody created is now refused by the database. The contract is store-agnostic
-// and cannot create them itself until the Postgres store implements `createReferral` and
-// `savePathwayVersion`, so the Postgres harness creates them here. No assertion is relaxed: this
-// makes an invalid fixture valid, exactly as the same change did for `seedPlan`.
-beforeEach(async () => {
-  await seedPlanParents(pool, {
-    teamId: "TEAM-NORTH",
-    referralIds: ["REFERRAL-1", "REFERRAL-2"],
-    pathwayVersionIds: ["PATHWAY-1"],
-  });
-  await seedPlanParents(pool, {
-    teamId: "TEAM-SOUTH",
-    referralIds: ["REFERRAL-3"],
-    pathwayVersionIds: ["PATHWAY-2"],
-  });
-  // Seeding a referral is itself an audited change, so it writes an audit event. That event is
-  // the fixture's bookkeeping and not part of what the store did, and the contract asserts on the
-  // exact contents of the trail, so it is cleared before the test runs.
-  await clearCaringContactsAuditEvents(pool);
-});
 
 // Each contract test builds its own store and expects an empty one. The schema is shared, so the
 // rows are cleared between tests rather than the schema being rebuilt.
