@@ -28,6 +28,11 @@ const debugEnabled = process.env.ENSURE_DEBUG === "1";
 const startupLockStaleMs = 3 * 60 * 1000;
 const readyStableMs = 5 * 1000;
 const readinessPaths = ["/", "/applications", "/tools"];
+// Servers started here run detached and unref'd, so nothing stops them when the
+// task/session that called `ensure` ends. Default them to a self-shutdown after
+// this many idle minutes so unattended background servers don't accumulate.
+// Set DEV_SERVER_IDLE_MINUTES yourself (0 disables it) to override.
+const defaultBackgroundIdleMinutes = 45;
 
 function debug(message) {
   if (debugEnabled) console.error(`[ensure-local-server] ${message}`);
@@ -203,7 +208,11 @@ function startDevServer(port) {
     const child = spawn(process.execPath, [path.join("scripts", "dev-free-port.mjs"), "--port", String(port)], {
       cwd: projectRoot,
       detached: true,
-      env: { ...process.env, PORT: String(port) },
+      env: {
+        ...process.env,
+        PORT: String(port),
+        DEV_SERVER_IDLE_MINUTES: process.env.DEV_SERVER_IDLE_MINUTES ?? String(defaultBackgroundIdleMinutes),
+      },
       stdio: ["ignore", out, err],
       windowsHide: true,
     });
