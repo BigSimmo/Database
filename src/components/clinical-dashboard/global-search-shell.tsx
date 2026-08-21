@@ -877,9 +877,6 @@ function GlobalStandaloneSearchShellBody({
             onQueryModeChange={setQueryMode}
             onScopeFiltersChange={setScopeFilters}
             onToggleScope={() => undefined}
-            onOpenUpload={() =>
-              router.push(`${appModeHomeHref("documents", { focus: true, queryMode, scopeFilters })}#sources`)
-            }
             onOpenEvidence={() => navigateToMode("answer", { focus: true })}
             onNewChat={startNewAnswerChat}
             showDesktopNewChat={!shouldShowDesktopSidebar}

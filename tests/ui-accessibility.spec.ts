@@ -521,7 +521,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(filterTrigger).toHaveAccessibleName(/1 filter active/);
   });
 
-  test("guest upload action exposes the admin boundary and opens Sources", async ({ page }) => {
+  test("document actions do not offer uploads and preserve focus", async ({ page }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockMinimalDashboardApi(page);
     await gotoApp(page);
@@ -531,15 +531,10 @@ test.describe("Clinical KB accessibility coverage", () => {
     await menuTrigger.click();
     const menu = page.getByTestId("daily-actions-menu");
     await expect(menu).toBeVisible();
-    await menu.getByRole("menuitem", { name: "Add document" }).click();
-    await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
-    const sourcesDialog = page.getByRole("dialog", { name: "Sources" });
-    await expect(sourcesDialog).toBeVisible();
-    await expect(page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only" })).toContainText(
-      "Upload and indexing tools are admin-only. Use Sources to open indexed documents.",
-    );
-    await sourcesDialog.getByRole("button", { name: "Close Sources" }).click();
-    await expect(sourcesDialog).toHaveCount(0);
+    await expect(menu.getByRole("menuitem", { name: /Add document|Upload PDF/ })).toHaveCount(0);
+    await expect(page.locator('input[type="file"]')).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
     await expect
       .poll(() =>
         page.evaluate(() => {
@@ -549,7 +544,7 @@ test.describe("Clinical KB accessibility coverage", () => {
             : "none";
         }),
       )
-      .toBe("BUTTON:Open documents options:visible");
+      .toBe("BUTTON:Open answer options:visible");
   });
 
   test("Therapy Compass preserves focus, selection, tap targets, and fixed paper tokens", async ({
