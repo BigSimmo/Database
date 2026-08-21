@@ -310,6 +310,8 @@ describe("notice entrance animation", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
     expect(keyframes).toContain("opacity");
-    expect(keyframes).not.toMatch(/\b(?:transform|translate|scale|top|right|bottom|left|margin|padding|width|height)\b/);
+    expect(keyframes).not.toMatch(
+      /\b(?:transform|translate|scale|top|right|bottom|left|margin|padding|width|height)\b/,
+    );
   });
 });
