@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "0dd8fe98-c2c5-4180-abd6-eab0622171f7",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Five unit tests fail on a clean, unmodified main (local Windows run)",
+    "detail": "Full 'npm run test' on main at cdfcbaccd with an empty working tree: 4 test files failed, 5 tests failed, 680 files / 7423 tests passed, duration 601.68s, exit code 1. Failures: (1) tests/codex-cloud-setup.test.ts > 'writes managed shell policy behaviorally and preserves unrelated Codex config'; (2) tests/hosted-migration-role-guard.test.ts > 'accepts the current repository state'; (3) tests/http-readiness.test.ts > 'honours the overall deadline when every response remains open'; (4) and (5) tests/document-viewer-page-virtualization.dom.test.tsx > 'reads exactly one page ahead and one behind, and only once idle' and > 'collapses render-ahead to the readers page alone when one canvas costs the whole budget' (both fail at flushIdle waitFor idleCallbacks.length > 0). Items 3-5 are deadline/idle-callback timing shapes and are the likeliest environmental Windows failures; items 1-2 assert repository state and look substantive rather than timing-dependent, so they should be reproduced in CI before being dismissed. Next: confirm against a CI run of the same SHA to split genuine breakage from local-environment flake, then either fix or add to the flake ledger per docs/testing.md (zero-retry policy, three reproductions on the same SHA before quarantine). Note the known local-Windows failures previously recorded were session-start-hook and worker-observability, which both PASSED in this run, so the failing set has changed.",
+    "source": "session 2026-08-22; clean main cdfcbaccd; npm run test exit 1",
+    "issueUlid": "01M0JTM0ECNQGB13STGM2MRNPQ"
+  }
+}
