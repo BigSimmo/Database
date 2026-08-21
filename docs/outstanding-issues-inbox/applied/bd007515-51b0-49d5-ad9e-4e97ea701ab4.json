@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "bd007515-51b0-49d5-ad9e-4e97ea701ab4",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#0EKBGC",
+    "outcome": "Resolved 2026-08-21. Verified on main at 1cc0d2987: all three mode homes now derive their glyph from the canonical source - the services home imports appModeIcons and passes icon={appModeIcons.services}, the forms home passes icon={appModeIcons.forms}, and the dictionary home passes icon={appModeIcons.dictionary}. No local Users/FileText/BookOpen override remains on the home tile. Verification: grep for appModeIcons in each mode's home component.",
+    "baseRowFingerprint": "bd79c082c5fe680467b5b0bf910bd69eaf76397ffd3f9c9cb2e8942bca47c2fb"
+  }
+}

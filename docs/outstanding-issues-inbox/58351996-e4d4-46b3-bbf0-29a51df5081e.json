@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "58351996-e4d4-46b3-bbf0-29a51df5081e",
+  "createdOn": "2026-08-21",
+  "action": "cancel",
+  "payload": {
+    "requestId": "5ce31276-9d07-4e4b-a486-b7f41decaa87",
+    "reason": "Superseded by 02a39fa5-f889-4098-96a7-d5b9e5352b8f, an equivalent #JVYQEM update request already merged to main via PR #2217 (commit 8607102). Both narrow #JVYQEM the same way (phone case closed at 10.125rem, wide case still open at 5.5rem vs 160px/199px settled); 02a39fa5 is the more complete, later-landed version and additionally disambiguates from the unrelated mobile-/ CLS row. Cancelling this branch's duplicate rather than the already-merged one avoids re-litigating content that landed first."
+  }
+}
