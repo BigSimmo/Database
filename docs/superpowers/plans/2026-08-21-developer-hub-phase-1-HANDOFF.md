@@ -15,7 +15,7 @@ Method: `superpowers:subagent-driven-development` (one implementer per task, con
 | Task | What it is                          | State                       |
 | ---- | ----------------------------------- | --------------------------- |
 | 1    | Snapshot generator + parser         | **Committed** `80ae20d54`   |
-| 2    | Staleness gate + npm wiring         | **Committed** (see git log) |
+| 2    | Staleness gate + npm wiring         | **Committed** `9a8e2d60b`   |
 | 3    | Typed reader (`ledger-snapshot.ts`) | Not started                 |
 | 4    | Panel registry (`hub-panels.ts`)    | Not started                 |
 | 5    | Nav-header sibling                  | Not started                 |
