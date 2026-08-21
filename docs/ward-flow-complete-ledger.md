@@ -1,7 +1,7 @@
 # Ward Flow — the complete ledger, Phases 1 to 3
 
 The single cross-session record of everything built on branch `codex/ward-management-design`,
-assembled 2026-08-21 at commit `74a174a44`. Ward Flow has run across many chat sessions on
+assembled 2026-08-21 and refreshed 2026-08-22 after the branch was pushed. Ward Flow has run across many chat sessions on
 several different tools, and no single conversation holds the whole picture. This file does.
 
 **It is a map, not a replacement.** Each phase's own ledger holds the detail; this file records
@@ -32,7 +32,7 @@ That last rule is the one this project has repeatedly had to enforce against its
 | ------------ | ----------------------------------------------------------------- |
 | Worktree     | `C:\Users\joshs\.codex\worktrees\ward-management-design\Database` |
 | Branch       | `codex/ward-management-design`                                    |
-| Commits      | 68 ahead of `origin/main` at the time of writing                  |
+| Commits      | 72 ahead of `origin/main`, **pushed** to `origin` 2026-08-22      |
 | **Not** here | `D:\Repos\Database` contains none of this work                    |
 
 ## 3. The three phases
@@ -165,6 +165,35 @@ Plus one raised but undecided: **the demo now leads with an accident.** The top 
 queue is `WF-303`, a _generated_ movement whose breach comes from
 `NOW_ANCHOR + (((index * 53) % 400) - 60)` — arithmetic, not authorship. Task 12's guided journey
 may walk a user straight into it.
+
+## 6b. The push, and an emptied `node_modules` whose cause is unproven
+
+Recorded because it cost an hour, and because the honest version is more useful than the tidy one.
+
+The branch was pushed to `origin` on 2026-08-22 at the user's request, superseding the earlier
+"no push" instruction. The push succeeded. Around the same moment the local `node_modules` went to
+**zero entries**, and recovery needed a full `npm ci --include=dev`.
+
+The symptom is the part worth remembering. It was not an error about missing dependencies. It was
+`tsc` reporting it could not find `process`, and 8 of 10 test files failing at once — which reads
+exactly like a code regression. **`ls node_modules | wc -l` is the first check when a broad,
+unexplained failure appears.**
+
+**The cause was not established, and an earlier draft of this file asserted that it was.** The
+obvious suspect is this repo's known guard-push defect — the pre-push format guard links a real
+dependency tree into a scratch checkout as a Windows junction, then force-deletes the checkout —
+fixed on `main` at `a04330ea0` (PR #2244), which is not an ancestor of this branch. But both
+force-deletes were probed directly on this machine and **neither destroyed the junction's target**:
+Node's recursive `rmSync` did not follow the junction, and neither did `git worktree remove
+--force`. A live alternative is that `findPrettierBin` borrows _another_ worktree's tree when this
+one has none, and this repo has dozens of sibling worktrees.
+
+A hand-written fix was drafted onto this branch and then **reverted**. The mutation test settled
+it: reintroducing the supposed bug on purpose failed no test at all, which proves the fix was
+untestable against an unknown mechanism. Shipping it would have been a guard that claims more than
+it delivers — the exact defect class §7 is about, committed while documenting §7. The correct route
+is bringing `main` into this branch, which carries the reviewed upstream fix; that is a real piece
+of work with conflict risk and is the user's call.
 
 ## 7. The recurring failure, across all three phases
 

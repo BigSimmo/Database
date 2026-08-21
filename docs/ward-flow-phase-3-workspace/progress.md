@@ -495,3 +495,38 @@ Ruling R30 — record the browser gate as verified at f1e32dcd4 and explicitly *
 Also recorded in the handover as a new environment trap: after hours of agent work this box can exhaust memory, and the symptom is not an error message but everything slowing, then the dev server refusing to start, then a Playwright run aborting as "N did not run" at exit 0. Check free memory before debugging code late in a session.
 
 Handover rewritten in full at `docs/ward-flow-phase-3-handover.md`: state, task table, the clinician's verbatim answer and what it invalidated, the three unconfirmed assumptions, standing instructions, verification baselines with their provenance, eleven environment traps, the guard-overclaim lesson, and the resume steps. Committed ledger copy refreshed from this file.
+
+### 2026-08-22 — the branch was pushed, and the push emptied `node_modules`
+
+The user reversed the standing "no push" instruction and asked for the branch on GitHub. It is now at `origin/codex/ward-management-design`, verified by comparing the remote SHA to local rather than trusting the success message. No PR was opened; that half of the instruction stands.
+
+**The first push attempt was blocked, and both blockers were real.** The static guard failed on two unused imports (`Instant` in `ward-flow-reducer.ts`, `PARALLEL_REFERRAL_CAP` in its test) — checked against 5f5c01146 and both genuinely pre-date Task 6A, exactly as the ledger recorded, but "pre-existing" does not make them pushable at `--max-warnings 0`. The format guard failed on the 26 workspace markdown files, which were agent-authored scratch and had never been through Prettier. Both fixed properly at 19ae5c662; neither documented override was used.
+
+Also caught myself reading a pipeline's exit code instead of its output: `git push ... | tail` reported exit 0 while the output said `failed to push some refs`. Same class as the vitest "no tests" trap, and the reason the standing instruction exists.
+
+**Then the push destroyed the dependency tree.** `node_modules` went to **zero entries**. Diagnosed rather than assumed: the format guard links a real dependency tree into a scratch checkout as a Windows junction (`guard-push.mjs:378`) and tears it down with `git worktree remove --force` plus a recursive `rmSync` (the `finally` at ~398). Both descend through the junction. The symptom was not a dependency error — it was `tsc` reporting it could not find `process`, and 8 of 10 test files failing at once, which reads precisely like a code regression. I nearly reported those numbers as one.
+
+This is a known repo defect, fixed on `main` at `a04330ea0` (PR #2244). **`git merge-base --is-ancestor a04330ea0 HEAD` returns false — this branch predates the fix.**
+
+Ruling R31 — write the equivalent minimal fix directly onto this branch rather than cherry-picking or merging `main`. `git apply --check` on the upstream patch fails on both files; this branch's `guard-push.mjs` has diverged from `main` by roughly 460 lines, so the patch has nothing to land on. Merging `main` would fix it and much else, but it is a large operation with real conflict risk across the ward-flow files and is the user's call, not a handover-boundary decision. So: `unlinkDependencyLink()` detaches the link before either force-delete, using `lstatSync` (never `existsSync`, which follows the link and so reads a dangling link as absent) and `unlinkSync` with an `rmdirSync` fallback for Windows directory reparse points, refusing a real directory outright. Cost if wrong: a hand-written fix to a push guard on one branch, covered by three tests, where upstream's reviewed version exists but cannot be applied.
+
+The decisive test asserts **the borrowed tree survives** — a sentinel file inside it must still be readable after teardown. A test asserting only that the link is gone would pass just as happily if the target had been wiped, which is the bug.
+
+Recovery: `npm ci --include=dev`. Note for anyone debugging a broad, unexplained failure on this machine — **check `ls node_modules | wc -l` before reading a single line of code.**
+
+### Correction to R31 — the guard-push fix was reverted, and the mechanism is unproven
+
+Ruling R31 is **withdrawn**. I wrote `unlinkDependencyLink()` onto this branch's `guard-push.mjs` with three tests, on the theory that the format guard's teardown followed a Windows junction into the borrowed `node_modules`. Then I mutation-tested it, as the standing discipline requires, by reverting the detach to the recursive delete that supposedly caused the damage.
+
+**The mutation survived. 31 passed.** So the test did not test the bug.
+
+I probed the mechanism directly rather than patching the test to match my theory. Two experiments, both on this machine:
+
+- `rmSync(parentDir, { recursive: true, force: true })` over a directory containing a junction: **the target survived**. Node does not follow the junction.
+- `git worktree remove --force` over a real git worktree containing a junction: **the target survived** too.
+
+So neither force-delete in the teardown reproduces the destruction, and the theory I had already written into three documents as established fact is not established at all.
+
+Ruling R32 — revert the fix and the tests rather than keep a defensive change justified by an unproven mechanism. Four reasons. I cannot reproduce the failure. My tests demonstrably do not catch it — the mutation proved that, not an opinion. Hand-writing a change to a **push guard** on a diverged branch, on a theory, is how a guard that promises more than it delivers gets shipped — which is precisely the defect class this phase's §7 lesson is about, and I was about to commit an instance of it in the same session I documented it. And the genuinely correct fix already exists upstream, reviewed, at `a04330ea0`; the route to it is merging `main`, which is a real piece of work with conflict risk and is the user's decision, not a handover-boundary one. Cost if wrong: the branch keeps a latent defect that may or may not exist in the form I imagined, mitigated by a documented diagnostic (`ls node_modules | wc -l` first) rather than by code.
+
+What survives in the documents is what is actually known: `node_modules` went to zero entries around the first push; the symptom masquerades as a code regression; recovery is `npm ci --include=dev`; the cause is **unconfirmed** with two candidates ruled out by direct experiment and cross-worktree borrowing unexplored.

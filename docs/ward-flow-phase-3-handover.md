@@ -1,7 +1,7 @@
 # Ward Flow Phase 3 — session handover
 
-Refreshed 2026-08-21 at the end of the second session, with Tasks 1 to 6A complete and Tasks 7
-to 12 outstanding. Everything a fresh session needs to continue with full context. Read this
+Refreshed 2026-08-22, with Tasks 1 to 6A complete and Tasks 7 to 12 outstanding, and the
+branch now pushed to GitHub. Everything a fresh session needs to continue with full context. Read this
 file first, then `docs/ward-flow-phase-3-ledger.md`, then the plan.
 
 ---
@@ -14,12 +14,14 @@ file first, then `docs/ward-flow-phase-3-ledger.md`, then the plan.
 | ---------------- | ----------------------------------------------------------------- |
 | Worktree         | `C:\Users\joshs\.codex\worktrees\ward-management-design\Database` |
 | Branch           | `codex/ward-management-design`                                    |
-| HEAD at handover | `496039d87`                                                       |
-| State            | Clean tree, **67 commits ahead of `origin/main`, none pushed**    |
+| HEAD at handover | see `git rev-parse --short HEAD` — pushed and in sync with origin |
+| State            | Clean tree, **72 commits ahead of `origin/main`, pushed**         |
 | Dev server       | `npm run ensure` → prints the URL. Never assume a port.           |
 
-Nothing is pushed and no PR exists — that is the user's explicit standing instruction. The
-commits exist **only on this machine**.
+**The branch is now on GitHub** at `origin/codex/ward-management-design`, pushed 2026-08-22 at the
+user's explicit request, which supersedes the earlier "no push" instruction. **No PR exists and
+none should be opened** — that part of the instruction stands. The work is no longer only on this
+machine.
 
 ## 2. The documents that carry the context
 
@@ -135,34 +137,23 @@ they are why this phase has found what it has found.
   it costs if wrong, and keep going. Stop only for something irreversible, destructive,
   security-sensitive, or a plan so broken every path forward is a guess. **The full ruling list is
   owed to the user at the end of the phase.**
-- **Work in this worktree on this branch. No new branch, no push, no PR.**
+- **Work in this worktree on this branch. No new branch, no PR.** Pushing to
+  `origin/codex/ward-management-design` is now authorised — but read the push warning in §8 first.
 - **Talk to the user in plain English.** He is a psychiatrist, not a software engineer. Lead with
   the answer, numbered steps for anything he must do, no jargon, no file paths unless they change
   his decision. Full style rules in `C:\Users\joshs\.claude\CLAUDE.md`.
 
 ## 7. Verification — the current baselines
 
-Measured by the controller, not taken from a report:
+Measured by the controller on 2026-08-22 at HEAD, after a full `npm ci --include=dev`, not taken
+from a report:
 
-| Gate                                           | Baseline                 | Where measured                     |
-| ---------------------------------------------- | ------------------------ | ---------------------------------- |
-| `npx tsc --noEmit -p tsconfig.json`            | clean                    | `496039d87`                        |
-| Node-environment suites (10 files)             | **118 passed**           | `496039d87`                        |
-| jsdom suites (3 files, **one per invocation**) | **6 passed** (1 + 4 + 1) | `496039d87`                        |
-| Ward Chromium journeys                         | **24 passed**            | `f1e32dcd4` — see the caveat below |
-
-**The browser gate is NOT verified at `496039d87`, and the next session must run it before
-trusting it.** The attempt failed for an environmental reason, not a code one: the machine ran out
-of memory (1.3 GB free of 32 GB), `/ward-management` was taking 14 to 50 seconds to render against
-Playwright's 15-second waits, and the run aborted with `2 passed, 17 did not run` at **exit code
-0** — another instance of this box reporting a truncated run as a success. The dev server then
-failed to restart at all.
-
-The reasoning for why it is very likely still green — **reasoning, not measurement**: the only
-change between `f1e32dcd4` (where 24 passed was measured) and `496039d87` is
-`tests/ward-flow-single-source.test.ts`, a Node-environment static-guard file that `grep` confirms
-no file under `src/` imports. It cannot alter what a browser renders. Run the gate anyway once the
-machine is healthy — that is the whole point of not trusting reasoning over evidence.
+| Gate                                           | Result                   |
+| ---------------------------------------------- | ------------------------ |
+| `npx tsc --noEmit -p tsconfig.json`            | **clean**                |
+| Node-environment suites (10 files)             | **118 passed**           |
+| jsdom suites (3 files, **one per invocation**) | **6 passed** (1 + 4 + 1) |
+| Ward Chromium journeys                         | see the note below       |
 
 ```bash
 npx vitest run tests/ward-flow-reducer.test.ts tests/ward-flow-contracts.test.ts tests/ward-model-phase3.test.ts tests/ward-model.test.ts tests/ward-flow-single-source.test.ts tests/ward-clock.test.ts tests/ward-priority.test.ts tests/ward-pressure.test.ts tests/ward-derivations.test.ts tests/ward-management.test.ts
@@ -172,7 +163,44 @@ npx vitest run tests/ward-flow-reducer.test.ts tests/ward-flow-contracts.test.ts
 PLAYWRIGHT_BASE_URL=<url from npm run ensure> npx playwright test tests/ui-ward-coordinator.spec.ts tests/ui-ward-management.spec.ts --project=chromium --reporter=line
 ```
 
+**On the browser gate: last measured green at `f1e32dcd4` (24 passed).** Since then the only
+source change is the removal of two unused imports — one type-only import in the reducer, one in
+its test — which cannot alter what a browser renders. Re-running it at HEAD was attempted and
+blocked by the environment, not by the code: after a fresh `npm ci` the dev server has to rebuild
+cold, and this project's dev config pins `cpus: 1`, so readiness takes far longer than
+`npm run ensure` waits for. **Run it before trusting it**, and treat the reasoning above as
+reasoning rather than evidence.
+
+**Do NOT run `npx vitest run tests/guard-push.test.ts`** — see the first environment trap below.
+
 ## 8. Environment traps — all hit for real, all cost time
+
+- **`node_modules` gets emptied to ZERO entries — twice on 2026-08-22, cause UNCONFIRMED.**
+  This is the most disruptive thing on this machine and the most deceptive. **The symptom is not a
+  dependency error.** It is `tsc` reporting it cannot find `process`, and 8 of 10 unrelated test
+  files failing at once — which reads exactly like a code regression and is not one. Recovery is
+  `npm ci --include=dev`, roughly 7 minutes.
+
+  **First check when any broad, unexplained failure appears: `ls node_modules | wc -l`.** Before
+  reading a single line of code.
+
+  What correlates, from two occurrences: the first followed `git push`; the second followed
+  `npx vitest run tests/guard-push.test.ts`. Both exercise `scripts/guard-push.mjs`, whose format
+  guard links a real dependency tree into a scratch checkout as a Windows junction and then
+  force-deletes the checkout. **Treat both as unsafe on this branch. Do not run the guard-push
+  test suite.** The ward suites, `tsc`, and the browser gate were all re-run afterwards and left
+  `node_modules` intact at 523 entries, so they are not implicated.
+
+  **The mechanism is a hypothesis, not a finding, and an earlier draft of this file wrongly stated
+  it as fact.** Both candidate force-deletes were probed directly here and **neither destroyed the
+  junction's target**: Node's recursive `rmSync` did not follow the junction, nor did
+  `git worktree remove --force`. A live alternative is that `findPrettierBin` deliberately borrows
+  _another_ worktree's tree when this checkout has none, and this repo has dozens of siblings.
+
+  **Do not hand-write a fix for this.** One was written and reverted: a mutation reintroducing the
+  supposed bug on purpose failed no test at all, proving the fix was untestable against an unknown
+  mechanism. The reviewed fix exists upstream at `a04330ea0` (PR #2244), which is **not** an
+  ancestor of this branch. Bringing `main` in is the correct route and is the user's call.
 
 - **The vitest worker pool is unreliable under load.** Six recorded occurrences of a run reporting
   `Test Files no tests / Tests no tests`, or a truncated file count, **at exit code 0**, on suites
@@ -234,7 +262,7 @@ actually does.
 ## 10. Resuming — the opening move
 
 1. Confirm you are in `C:\Users\joshs\.codex\worktrees\ward-management-design\Database` on
-   `codex/ward-management-design`, and that `git status` is clean at `496039d87` or later.
+   `codex/ward-management-design`, that `git status` is clean, and that local and `origin/codex/ward-management-design` agree.
 2. Read `docs/ward-flow-phase-3-ledger.md` in full. It is the recovery map — the commits it names
    exist in git even when nothing else remembers them.
 3. Invoke `superpowers:subagent-driven-development` with the plan file. It will find the live ledger
