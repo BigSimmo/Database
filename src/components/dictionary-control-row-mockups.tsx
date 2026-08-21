@@ -51,7 +51,9 @@ function useRowState(initialQuery: boolean | "long" = false) {
   const termCount = searching ? QUERY_TERMS : TERM_COUNT;
   const abbrCount = searching ? QUERY_ABBRS : ABBR_COUNT;
   const count = scope === "abbr" ? abbrCount : termCount;
-  const noun = scope === "abbr" ? "abbreviations" : "terms";
+  // Singular at one. The search state routinely returns a single abbreviation,
+  // and "1 abbreviations for …" is the sort of line a reader stops on.
+  const noun = scope === "abbr" ? (count === 1 ? "abbreviation" : "abbreviations") : count === 1 ? "term" : "terms";
   const letterLabel = letter === "All" ? "All letters" : `Letter ${letter}`;
   return {
     scope,
@@ -206,16 +208,56 @@ function FilterControl({ state, labelled }: { state: RowState; labelled: boolean
 
 /* --------------------------- the two candidates --------------------------- */
 
-/* One row. The summary line is deleted: the toggle carries the counts, so the
-   only thing lost is the words "abbreviations" and "all letters". */
+/* The chosen shape. Browsing is one row of controls; searching gives the words
+   a full line of their own.
+
+   Measured, at a 390 px phone, this is not a preference. Sharing the line, the
+   query chip gets 135 px of which 95 px is text: "tardive" fits, "tardive
+   dyskinesia" wants 123 px and is cut to "tardive dyski…". On its own line the
+   same words get roughly 300 px, which holds a query three times longer. The
+   extra row is spent only while a search is running, and it is spent on the one
+   thing the reader typed. */
+function AdaptiveBlock({ state, measured }: { state: RowState; measured?: boolean }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)]">
+      {state.searching ? (
+        <div className="flex items-center gap-2 border-b border-[color:var(--border)] px-3 py-2">
+          <p className="min-w-0 flex-1 truncate text-sm text-[color:var(--text-muted)]" data-query-line="true">
+            <span className="nums font-extrabold text-[color:var(--text-heading)]">{state.count}</span>{" "}
+            <span className="font-medium">{state.noun} for </span>
+            <span className="font-extrabold text-[color:var(--clinical-accent)]">&ldquo;{state.query}&rdquo;</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => state.setQuery("")}
+            aria-label={`Clear the search for ${state.query}`}
+            className={cn(
+              "grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] text-[color:var(--text-muted)]",
+              focusRing,
+            )}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2" data-fit-track={measured ? "true" : undefined}>
+        <ScopeToggle state={state} />
+        {/* The alphabet is meaningless mid-search, so it stands down rather than
+            competing with the words for the line. */}
+        {state.searching ? null : <LetterChip state={state} />}
+        <span className="ml-auto">
+          <FilterControl state={state} labelled={false} />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* Kept for comparison: the controls sharing one line with the query chip, which
+   is the shape the measurement above rejects. */
 function OneRowBlock({ state, measured }: { state: RowState; measured?: boolean }) {
   return (
     <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)]">
-      {/* Wraps rather than overflows. At the widths this repo targets the row
-          never uses it, but below ~350 px — a small phone, or any phone at an
-          enlarged text size — Filter drops to a second line instead of being
-          clipped. One row normally, two rows only when one genuinely cannot
-          hold. */}
       <div className="flex flex-wrap items-center gap-2 px-3 py-2" data-fit-track={measured ? "true" : undefined}>
         <ScopeToggle state={state} />
         {state.searching ? <QueryChip state={state} /> : <LetterChip state={state} />}
@@ -385,10 +427,23 @@ function SiteComposer({ state }: { state: RowState }) {
   );
 }
 
-function PhoneFrame({ layout, label, initialQuery }: { layout: "one" | "two"; label: string; initialQuery: boolean }) {
+function PhoneFrame({
+  layout,
+  label,
+  initialQuery,
+}: {
+  layout: "adaptive" | "one" | "two";
+  label: string;
+  initialQuery: boolean | "long";
+}) {
   const state = useRowState(initialQuery);
   return (
-    <div className="w-[24.375rem] max-w-full shrink-0">
+    /* Width is pinned inline, not with `w-[24.375rem]`. The mockup stylesheet
+       only emits Tailwind classes some source already uses, and no production
+       file uses that arbitrary value, so the class was never generated and
+       these frames were silently rendering wider than a phone — which is
+       exactly the measurement they exist to make. */
+    <div className="max-w-full shrink-0" style={{ width: "390px" }}>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-soft)]">{label}</span>
         <span className="text-3xs font-bold text-[color:var(--text-soft)]">390 px · tap the search bar</span>
@@ -432,7 +487,15 @@ function PhoneFrame({ layout, label, initialQuery }: { layout: "one" | "two"; la
           <div className="px-4 pb-3 pt-4">
             <h3 className="text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)]">Browse terms</h3>
           </div>
-          <div className="mx-3">{layout === "one" ? <OneRowBlock state={state} /> : <TwoRowBlock state={state} />}</div>
+          <div className="mx-3">
+            {layout === "adaptive" ? (
+              <AdaptiveBlock state={state} />
+            ) : layout === "one" ? (
+              <OneRowBlock state={state} />
+            ) : (
+              <TwoRowBlock state={state} />
+            )}
+          </div>
           <div className="mt-3">
             {(state.searching ? queryEntries : catalogueEntries).map((entry) => (
               <ResultRow key={entry.term} entry={entry} />
@@ -600,10 +663,10 @@ export function DictionaryControlRowMockupsPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-6 p-4 sm:p-5">
-            <PhoneFrame layout="one" label="One row — idle" initialQuery={false} />
-            <PhoneFrame layout="one" label="One row — searching" initialQuery />
-            <PhoneFrame layout="two" label="Two rows — idle" initialQuery={false} />
-            <PhoneFrame layout="two" label="Two rows — searching" initialQuery />
+            <PhoneFrame layout="adaptive" label="Chosen — browsing" initialQuery={false} />
+            <PhoneFrame layout="adaptive" label="Chosen — searching" initialQuery="long" />
+            <PhoneFrame layout="one" label="Rejected — controls share the line" initialQuery="long" />
+            <PhoneFrame layout="two" label="Alternative — always two rows" initialQuery="long" />
           </div>
         </div>
       </section>
