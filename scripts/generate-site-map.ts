@@ -77,6 +77,9 @@ const documentedRedirectTargets: Record<string, string> = {
   // invalid-id fallback that its first-`redirect()` regex would otherwise capture.
   "/documents/source": "/documents/[id]",
   "/documents/source/evidence": "/documents/[id]",
+  // Pinned because the page forwards the incoming query string, so its
+  // `redirect()` argument is a template literal the regex above cannot read.
+  "/dictionary/browse": "/dictionary/search",
 };
 
 const routeDescriptions: Record<string, string> = {
@@ -85,9 +88,11 @@ const routeDescriptions: Record<string, string> = {
   "/calculators": "Psychiatry rating scale scoring and clinical decision calculators.",
   "/dictionary": "Clinical dictionary home with term search and category navigation.",
   "/dictionary/[slug]": "Source-governed clinical term definition, distinction, and reference detail.",
-  "/dictionary/browse": "A–Z clinical term and abbreviation catalogue browser.",
+  "/dictionary/browse":
+    "Compatibility redirect to `/dictionary/search`, which is now the whole catalogue; the query string is carried across.",
   "/dictionary/compare": "Side-by-side clinical term definition and nuance comparison.",
-  "/dictionary/search": "Source-linked clinical term and abbreviation search surface.",
+  "/dictionary/search":
+    "The clinical term and abbreviation catalogue: an empty query lists everything, a typed query narrows the same list.",
   "/dictionary/sources": "Clinical dictionary governance, references, and source catalogue.",
   "/dictionary/topics": "Clinical dictionary topic category index.",
   "/dictionary/topics/[slug]": "Clinical dictionary topic category term list.",
@@ -496,7 +501,7 @@ function renderModePageIndex() {
       home: appModeHomeHref("dictionary"),
       search: appModeHomeHref("dictionary", { query: "MSE", focus: true, run: true }),
       detail:
-        "`/dictionary/search` is also a query-free browse surface; `/dictionary/browse`, `/topics`, `/topics/[slug]`, `/compare`, `/sources` and `/dictionary/[slug]` records.",
+        "`/dictionary/search` is one catalogue for both searching and browsing; `/dictionary/browse` redirects to it. Also `/topics`, `/topics/[slug]`, `/compare`, `/sources` and `/dictionary/[slug]` records.",
     },
     {
       mode: "Therapy Compass",
