@@ -451,6 +451,14 @@ test.describe("previously uncovered production routes", () => {
           name: "Remove Major depressive disorder from comparison",
         });
         await expect(remove).toBeEnabled();
+        // `DsmCompareRemoveLink` is a `<Link>` whose `onClick` calls
+        // `preventDefault()` and then `window.location.assign(href)`. Before
+        // hydration the anchor is a bare `<a href>`, so a click there races two
+        // different navigations — the browser's native one, or React capturing
+        // the discrete event for replay once the root hydrates — and neither is
+        // guaranteed to leave the URL where this step asserts it. Waiting for
+        // the handler makes the assign hop the only path the click can take.
+        await waitForReactEventHandler(remove);
         await Promise.all([
           currentPage.waitForURL(/\/dsm\/compare\?ids=bipolar-ii-disorder$/, {
             timeout: 30_000,
