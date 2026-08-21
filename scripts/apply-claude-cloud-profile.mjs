@@ -110,8 +110,13 @@ function readJsonOr(path, fallback) {
   } catch (error) {
     // A corrupt settings file must not take the session down with it. Preserve it and start clean:
     // losing the merge is recoverable, losing whatever the platform wrote there may not be.
-    const backup = `${path}.unparseable`;
-    if (!dryRun && !existsSync(backup)) renameSync(path, backup);
+    let backup = `${path}.unparseable`;
+    let suffix = 1;
+    while (existsSync(backup)) {
+      backup = `${path}.unparseable.${suffix}`;
+      suffix += 1;
+    }
+    if (!dryRun) renameSync(path, backup);
     note(`WARNING: ${path} was not valid JSON (${error.message}); preserved as ${backup}`);
     return fallback;
   }
