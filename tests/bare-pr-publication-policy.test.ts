@@ -13,7 +13,11 @@ describe("bare PR publication policy", () => {
     expect(agents).toContain("## Bare PR publication is not readiness work");
     expect(agents).toContain("Do **not** run or wait for `npm run format`");
     expect(agents).toContain("`npm run verify:pr-local`");
-    expect(agents).toContain("`git commit --no-verify` and `git push --no-verify`");
+    expect(agents).toContain("publish with `git commit --no-verify` and that guard's own scoped override");
+    expect(agents).toContain("instead of `git push --no-verify`");
+    expect(agents).toContain(
+      "Never skip the push hook wholesale — the auto-merge ownership guard has no override and must never be bypassed",
+    );
     expect(agents).toContain("Do not babysit CI");
     expect(agents).toContain("overrides generic branch-bundling, handover, review, and babysit instructions");
   });
