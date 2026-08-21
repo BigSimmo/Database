@@ -1062,15 +1062,12 @@ async function expectAccountProviderLayout(setup: Locator, layout: "row" | "stac
   ).toBeLessThanOrEqual(1);
 }
 
-async function expectAdminOnlyUploadNotice(page: Page) {
+async function expectDocumentUploadUnavailable(page: Page) {
   const menu = await openDailyActions(page);
-  const uploadAction = menu.getByRole("menuitem", { name: "Add document" });
-  await expect(uploadAction).toBeVisible();
-  await uploadAction.click();
-  await expect(page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only." })).toContainText(
-    "Use Sources to open indexed documents.",
-  );
-  await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
+  await expect(menu.getByRole("menuitem", { name: /Add document|Upload PDF/ })).toHaveCount(0);
+  await expect(page.locator('input[type="file"]')).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
 }
 
 async function dismissOverlayByHeaderClick(page: Page) {
@@ -5430,7 +5427,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(JSON.stringify(payload)).not.toMatch(/sk-|service_role|eyJ/i);
   });
 
-  test("production upload action remains admin-only for unauthenticated users", async ({ page, request }) => {
+  test("production site does not offer document uploads to unauthenticated users", async ({ page, request }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockPrivateUnauthenticatedApi(page);
     const setupStatusResponse = await request.get("/api/setup-status");
@@ -5440,16 +5437,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await expect(visibleQuestionInput(page)).toBeVisible();
 
-    await expectAdminOnlyUploadNotice(page);
+    await expectDocumentUploadUnavailable(page);
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("demo upload action cannot bypass the production admin gate", async ({ page }) => {
+  test("demo site does not offer document uploads", async ({ page }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
 
-    await expectAdminOnlyUploadNotice(page);
+    await expectDocumentUploadUnavailable(page);
     await expectNoPageHorizontalOverflow(page);
   });
 

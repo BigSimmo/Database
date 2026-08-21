@@ -25,7 +25,7 @@ const actions: ModeActionItem[] = [
 
 const longActionList: ModeActionItem[] = [
   { id: "documents-search", label: "Search sources", icon: Search },
-  { id: "documents-upload", label: "Upload PDF", icon: FileText },
+  { id: "documents-collections", label: "Browse library", icon: FileText },
   { id: "documents-scope", label: "Scope sources", icon: FileText },
   { id: "documents-tables", label: "Tables", icon: FileText },
   { id: "documents-viewer", label: "Open source PDF", icon: FileText },

@@ -5,7 +5,7 @@ import { cn, textMuted } from "@/components/ui-primitives";
 import type { AppModeId } from "@/lib/app-modes";
 
 // Compact APP-5 privacy notice shown beside clinical input controls (query
-// composer, document upload). Deliberately one quiet 11px line — the wording
+// composer). Deliberately one quiet 11px line — the wording
 // and the /privacy link are governance copy (PIA-5) and must stay intact.
 export function PrivacyInputNotice({
   className,
