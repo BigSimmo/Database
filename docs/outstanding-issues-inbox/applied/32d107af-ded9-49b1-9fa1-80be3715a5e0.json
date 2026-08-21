@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "32d107af-ded9-49b1-9fa1-80be3715a5e0",
+  "createdOn": "2026-08-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Dead exports on protected surfaces: answerQuestion (rag.ts), embedText (openai.ts), clinicalRankScore (clinical-search.ts)",
+    "detail": "The 2026-08-20 repo-cleanup sweep removed 60+ verified-dead exported symbols but deliberately left three untouched because they sit on RAG-protected surfaces that AGENTS.md requires flagging before any edit, deletion included. All three are exported, imported by nothing, and referenced nowhere else in the tree: src/lib/rag/rag.ts answerQuestion (a thin wrapper superseded by answerQuestionWithScope, which is what /api/answer actually calls), src/lib/openai.ts embedText, and src/lib/clinical-search.ts clinicalRankScore. Removing them cannot change retrieval behaviour because nothing calls them, but the removal still travels through docs/rag-behaviour and the RAG impact declaration on the PR. Next step: confirm with the owner, then delete in a single RAG-scoped PR carrying 'RAG impact: no retrieval behaviour change -- dead exports with zero callers'.",
+    "source": "src/lib/rag/rag.ts, src/lib/openai.ts, src/lib/clinical-search.ts",
+    "issueUlid": "01M0GDMQG245V4Y7YJ75E8FJG8"
+  }
+}
