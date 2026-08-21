@@ -1190,3 +1190,103 @@ It could not verify the reported gate outputs from a diff and asked for the type
 reconfirmed, since restoring typecheck is the headline deliverable. Folded into the fix round: the
 implementer must re-run `tsc` after the fixes and paste its exact output, and I will confirm it myself
 before closing the task.
+
+### Task 11b fix round 1/5 — all five findings fixed, each red first, at `85e7b7a93`
+
+- Postgres suite `162 passed (162)`, up from 159 — three new proofs.
+- In-memory contract plus retention scan `126 passed (126)`.
+- Full `npm run test` `7671 passed | 29 skipped (7700)`, **zero failures**. The two timeouts from the
+  first run did not recur, which confirms the machine-load diagnosis rather than merely asserting it.
+- `tsc -p tsconfig.json --noEmit` → no output at all. The headline deliverable is reconfirmed after the
+  fixes, which is what the reviewer's one open question asked for.
+
+Red-first evidence, the decisive line for each:
+
+1. `expected '2026-03-02T11:00:04.000+08:00' to be '…03.000+08:00'` — the persisted instant and the
+   returned instant exactly one clock tick apart, which is the defect stated as a failing assertion.
+2. `expected { ok: true, value: undefined } to deeply equal { ok: false, …(1) }` — the silent no-op.
+3. `expected [ { ok: true, … }, …(1) ] to have a length of 1 but got 2` — both racing stops won, and
+   the loser overwrote the winner.
+
+### NEW CARRIED FINDING, and it is the most valuable thing this round produced
+
+**The write path has an accidental, undocumented same-team serialisation, and nothing pins it.** Proving
+Finding 3 took the implementer three attempts, and **the first two passed for the wrong reason** — it
+said so plainly rather than banking the green. Every write registers its own team first, and that insert
+blocks a second writer from the SAME team until the first commits, so two same-team callers queue and
+never enter the race window at all. The working proof is cross-team.
+
+Why this matters beyond the test: the serialisation is real, it is load-bearing for same-team
+concurrency across the WHOLE write path, and it exists by accident. If that team insert ever moves,
+becomes conditional, or is optimised away, same-team concurrency opens everywhere at once, silently,
+with no test to notice. FLAG FOR THE FINAL WHOLE-BRANCH REVIEW: either pin the property with a test that
+names it, or document it at the insert site so a later change cannot remove it unknowingly.
+
+This is also the fourth time on this branch that a proposed proof turned out to prove something other
+than it claimed. The discipline of checking that a mutation changes a value some assertion reads is what
+caught it again.
+
+### Ruling 43 — `getServiceState` stays uncapability-checked in the store; the note is narrowed at the
+
+### handler boundary in Task 14
+
+The implementer flagged, correctly, that any actor of any team can read a live incident's free-text
+`note` through `getServiceState`, and the schema classifies that column as patient data. It is
+pre-existing — it arrived with the in-memory store in Task 10 — and both stores share it.
+
+Ruling: [43] NOT fixed in the store; carried into Task 14 as a REQUIRED item and flagged to the final
+review. — Why: I considered fixing it here and rejected every available shape. Returning `note: ""` to an
+actor without the capability would be a lie — an empty string reads as "no note was written". Widening
+the sealed `ServiceState` to `note: string | null`, or splitting the note onto a separate
+capability-checked method, are both sealed-domain type changes made mid-task on the safety-stop type,
+which is exactly the kind of change that should not be improvised. And the domain has ALREADY designed
+the answer: Ruling 8 gave the banner a `ServiceStopBannerFacts` parameter type that deliberately omits
+the note, so narrowing at the render boundary is the established pattern rather than an omission. Task
+14 is the plan's designated read-audit and narrowing boundary, the store's callers are the handlers, and
+Ruling 9 independently requires that every team-scoped session can still read the STOPPED FACT — so
+whatever is built must narrow the note without narrowing the fact. — Cost if wrong: for as long as Task
+14 is unbuilt, a server-side caller that bypasses the handler could read one free-text incident note
+belonging to another team. Nothing outside tests calls the store today, because the route handlers do
+not exist yet. If Task 14 is descoped or deferred, this becomes a live gap and the store must be fixed
+instead.
+
+**Binding on Task 14:** its handler must narrow the service-state read so the free-text note never
+reaches an actor without the capability to see incident detail, while leaving the stopped fact, its
+reason category and its timing readable by every team. This is not optional and is not "if convenient".
+
+## Task 12 preparation — two rulings taken before dispatch
+
+Ruling: [41] `npm run check:supabase-project` is a LOCAL STATIC CHECK and is safe to run here, despite
+`AGENTS.md` listing it among the provider-backed gates. — Why: I read `scripts/check-supabase-project.ts`
+and `checkSupabaseProjectConfig` rather than trusting either the Task 12 brief (which asserts it is
+local) or AGENTS.md (which implies it is not). It reads five environment variables and compares strings.
+There is no `fetch`, no `createClient`, no HTTPS call, no Supabase client of any kind. AGENTS.md's
+blanket classification is over-broad for this one script, and the brief is correct. — Cost if wrong: a
+provider call I said would not happen. Mitigated by having read the script rather than reasoning about
+its name.
+
+**Its baseline in this worktree is EXIT 1, and that is environmental, not a defect.** This is a fresh
+worktree with no local environment file, so the Supabase variables are absent and the check reports them
+missing. Task 12's brief says the check "must still pass unchanged" — it does not pass here, and it did
+not pass before Task 12 either. **The bar for Task 12 is therefore UNCHANGED, not GREEN**, and the
+implementer is told so explicitly so it does not chase a pre-existing condition or, worse, copy
+credentials into this worktree to make a gate go green. Copying an environment file here would put real
+provider credentials into a working directory that this machine has destroyed four times; it is not
+worth doing for a check whose whole purpose is to compare strings.
+
+Every value the check prints was redacted before it entered any transcript. It prints configured project
+refs and names, and the standing rule on this repository is that env values are masked without
+exception.
+
+Ruling: [42] `pg` is promoted from a devDependency to a RUNTIME dependency in Task 12. — Why: Task 12
+creates `src/lib/caring-contacts-server/pool.ts`, which is production source and imports `pg` directly.
+A production install that omits dev dependencies would then fail at module load rather than at first use
+— the failure would be a crash on import, not a clean fallback to the in-memory store the config module
+exists to provide. The brief leaves this open ("if the workspace is to run against Postgres outside
+tests, promote it… otherwise leave `pg` where it is"), and the honest answer is that production source
+importing a package makes it a runtime dependency regardless of whether the default code path reaches
+it. The alternative — a dynamic `await import("pg")` inside `createCaringContactsPool` — is also correct
+and would keep the dependency out of a production install, but it makes the pool constructor async for a
+reason no reader would guess. — Cost if wrong: roughly one megabyte of unused dependency ships in an
+install that runs in in-memory mode. That is the cheap direction; the other direction is a production
+crash on a suicide-prevention workspace's first request.
