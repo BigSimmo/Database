@@ -526,3 +526,54 @@ export type PrototypeCapability =
   | "refer_for_identification_review"
   | "close_identification_review"
   | "manage_worklists";
+
+/**
+ * Every state change in the prototype travels through one of these actions, so
+ * the reducer is the single place a lifecycle rule can be enforced. Each action
+ * joins this union in the task that implements it: an action nobody dispatches
+ * would only be a dead branch in an otherwise exhaustive switch, and a dead
+ * branch is where an unenforced transition hides.
+ *
+ * Deferred to their own tasks, deliberately absent here: the Management Plan
+ * print intent and patient-sharing record, and the four Patient Plan actions.
+ */
+export type CarePlanPrototypeAction =
+  | { type: "select-patient"; patientId: SyntheticId }
+  | { type: "set-active-user"; userId: SyntheticId }
+  | { type: "create-management-draft"; patientId: SyntheticId }
+  | { type: "save-management-draft"; versionId: SyntheticId; input: ManagementDraftInput }
+  | { type: "submit-management-draft"; versionId: SyntheticId }
+  | { type: "return-management-version"; versionId: SyntheticId; reason: string }
+  | { type: "approve-management-version"; versionId: SyntheticId }
+  | { type: "withdraw-current-management-version"; patientId: SyntheticId; reason: string }
+  | {
+      type: "record-formal-management-review";
+      patientId: SyntheticId;
+      reason: string;
+      nextReviewDueAt: string;
+    }
+  | { type: "record-presentation"; presentationId: SyntheticId; input: NewEdPresentationInput }
+  | {
+      type: "amend-presentation";
+      presentationId: SyntheticId;
+      field: AmendableField;
+      replacementValue: string;
+      reason: string;
+    }
+  | { type: "create-safety-plan-draft"; patientId: SyntheticId }
+  | { type: "save-safety-plan-draft"; versionId: SyntheticId; input: SafetyPlanDraftInput }
+  | { type: "make-safety-plan-current"; versionId: SyntheticId }
+  | { type: "record-safety-plan-print-intent"; patientId: SyntheticId }
+  | { type: "record-contact-intent"; patientId: SyntheticId; cmhtId: SyntheticId; channel: "email" | "call" }
+  | { type: "create-identification-review"; patientId: SyntheticId; reason: string }
+  | {
+      type: "close-identification-review";
+      reviewId: SyntheticId;
+      decision: IdentificationDecision;
+      decisionReason: string;
+    }
+  | { type: "verify-cmht-contact"; cmhtId: SyntheticId }
+  | { type: "resolve-review-trigger"; triggerId: SyntheticId; resolution: string }
+  | { type: "apply-scenario"; scenario: PrototypeScenario }
+  | { type: "clear-outcome" }
+  | { type: "reset" };
