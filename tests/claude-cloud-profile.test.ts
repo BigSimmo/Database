@@ -109,6 +109,20 @@ describe("apply-claude-cloud-profile", () => {
     expect(Object.keys(merged.enabledPlugins).length).toBeGreaterThan(0);
   });
 
+  it("preserves a newly malformed settings file when an earlier backup already exists", () => {
+    const configDir = makeConfigDir();
+    const settingsPath = join(configDir, "settings.json");
+    const malformed = "{ this is not valid JSON";
+    writeFileSync(settingsPath, malformed);
+    writeFileSync(`${settingsPath}.unparseable`, "earlier malformed settings\n");
+
+    expect(runApplier(configDir).status).toBe(0);
+
+    expect(readFileSync(`${settingsPath}.unparseable`, "utf8")).toBe("earlier malformed settings\n");
+    expect(readFileSync(`${settingsPath}.unparseable.1`, "utf8")).toBe(malformed);
+    expect(() => JSON.parse(readFileSync(settingsPath, "utf8"))).not.toThrow();
+  });
+
   it("backs up an existing CLAUDE.md exactly once rather than losing it", () => {
     const configDir = makeConfigDir();
     writeFileSync(join(configDir, "CLAUDE.md"), "container-written guidance\n");
@@ -211,6 +225,7 @@ describe("setup-claude-cloud", () => {
       CLAUDE_CLOUD_BACKGROUND_TIERS: "",
     });
     expect(sessionRun.status).toBe(0);
+    expect(sessionRun.stdout).not.toMatch(/provisioning in the background/);
 
     const directRun = runProvisioner(["--allow-local", "definitely-not-a-tier"], {
       CLAUDE_CLOUD_BACKGROUND_TIERS: "",
