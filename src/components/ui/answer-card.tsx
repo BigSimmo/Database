@@ -47,9 +47,34 @@ export function AnswerCardQueryEcho({ query, className }: { query: string; class
   );
 }
 
+/**
+ * How strongly the cited evidence backs this answer.
+ *
+ * Required on every card, and deliberately not optional. `deriveTrust` returns
+ * "medium" both for an ordinary non-high-confidence answer AND for the case where
+ * a HIGH-RISK claim rests on evidence whose authority was never reviewed. That
+ * second case previously reached the reader as `{ kind: "ready" }` - visually
+ * identical to a fully verified answer - because the only signal wired through
+ * (`weakEvidence`) covers "unsupported" and "low" and skips "medium" entirely.
+ * The distinction existed in `compactEvidenceSummary` but lived in a
+ * conditionally-rendered side card, so it could vanish. Owning the wording here
+ * and requiring the prop is what stops it being hideable.
+ */
+export type AnswerSupportStrength = "strong" | "supported" | "limited" | "unassessed";
+
+/** Wording is owned here so a call site cannot free-text or soften it. */
+const ANSWER_SUPPORT_WORDING: Record<AnswerSupportStrength, string> = {
+  strong: "Strong support",
+  supported: "Supported",
+  limited: "Limited support",
+  unassessed: "Review support",
+};
+
 type AnswerCardBase = {
   /** System-owned verification wording. Required: a generated answer cannot render without it. */
   verification: VerificationNoticeProps;
+  /** Evidence-support strength. Required for the same reason `verification` is. */
+  support: AnswerSupportStrength;
   /** The question this answer responds to. The card owns the echo's framing. */
   query?: string;
   /** The answer prose. */
@@ -74,6 +99,7 @@ export type AnswerCardProps = AnswerCardBase &
 export function AnswerCard({
   state,
   verification,
+  support,
   query,
   children,
   provenance,
@@ -103,6 +129,16 @@ export function AnswerCard({
         {/* Above the prose and above the actions, in document order, on screen
             and on print alike. */}
         <VerificationNotice {...verification} />
+        {/* Text, never colour alone - this must survive greyscale print and
+            forced-colors the same way StatusMark does. */}
+        <p
+          data-testid="answer-card-support"
+          data-support={support}
+          className="text-2xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]"
+        >
+          <span className="sr-only">Evidence support: </span>
+          {ANSWER_SUPPORT_WORDING[support]}
+        </p>
         {/*
          * Ledger `#227` over `#207`, decided 3 Aug 2026. `#207` required a banner on
          * every degraded state, on the reasoning that an adoption failure here is
