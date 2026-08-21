@@ -37,3 +37,23 @@ a394d76631c7ea3405037baf58091b1c4c47fa3f:tests/codex-cloud-setup.test.ts:generic
 # tests/rag-adversarial-fixtures.test.ts — but this historical commit is still
 # scanned on every PR range run.
 57fd5ae462dd85a3fd6af0a4d6e2db5d8d711b68:scripts/fixtures/rag-adversarial-cases.v1.json:generic-api-key:18
+# False positives in the vendored third-party user skills copied verbatim into
+# .claude/cloud-profile/ for Claude Code web-container parity (docs/claude-cloud.md).
+# Both are deliberately fake illustrative strings in doc prose, read line by line
+# before pinning:
+#   - clean-up-comments/references/rule.md:497 is an <!-- API Key: sk-1234...cdef -->
+#     example sitting under a "Don't leave sensitive info in production" marker inside
+#     a "Remove Sensitive Information" section. The skill teaches the rule the scanner
+#     enforces; the value is a sequential-digit placeholder.
+#   - playwright-best-practices/advanced/authentication-flows.md:54 is
+#     `const mockToken = 'test-verification-abc123'` in a "Fully Mocked Verification"
+#     test example, returned by a page.route stub that never reaches a real service.
+# Neither is a credential and neither is executed; GitGuardian passes on the same
+# content. Pinned per finding rather than by path, so every other line of the vendored
+# tree stays scanned — a vendored directory is exactly where a real secret could
+# otherwise hide unnoticed. Fingerprints are <commit>:<file>:<rule>:<line>, so they are
+# re-derived from the run that actually failed (Gitleaks 8.24.3, job 96803046519,
+# `leaks found: 2`) rather than carried over from the superseded PR #2227, whose
+# commit prefix da6088e70 exists on no branch here and would never have matched.
+0792284e63001015899f08e72301e2f23648d616:.claude/cloud-profile/skills/playwright-best-practices/advanced/authentication-flows.md:generic-api-key:54
+0792284e63001015899f08e72301e2f23648d616:.claude/cloud-profile/skills/clean-up-comments/references/rule.md:generic-api-key:497
