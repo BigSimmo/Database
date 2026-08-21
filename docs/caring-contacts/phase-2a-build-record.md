@@ -1483,3 +1483,36 @@ what is an expected client error.
 Neither the implementer's report nor the review carried typecheck or lint evidence for these two tasks.
 Vitest transpiles without type-checking, so a green suite says nothing about the Zod narrowing in the
 route handler flowing through the inferred body type. Folded into the fix round with the exact commands.
+
+### Tasks 12/13 fix round 1 scoped re-review — ALL TEN ADDRESSED, no new breakage
+
+## Tasks 12 and 13: COMPLETE (commits `0cee63f97`..`19405fae6`, review clean after 1 fix round)
+
+Full suite `7694 passed | 29 skipped (7723)`, zero failures. Typecheck and lint both clean with no
+output. No pre-existing domain-isolation violation surfaced when the guard was strengthened, which was
+the one thing that could have turned Important 4 into a larger problem.
+
+The re-reviewer verified the two things that most needed independent checking, and did it by execution
+rather than by reading:
+
+- **Memoisation did not defeat the guard.** The risk was a lazily cached store that caches around or
+  before the assertion, satisfying both tests separately while leaving a real hole. Traced: the builder
+  has no `await`, so its body — assertion first, pool construction second — runs synchronously to
+  completion before the promise is ever assigned to the cache. A bad URL therefore never gets a pool
+  built before it is rejected, and a rejected result is never cached.
+- **The error listener cannot leak a connection string.** It runs the error through the repository's
+  redaction helper, and the re-reviewer **executed that helper directly** on a
+  `postgres://user:pass@host/db` string to confirm the generic path-redaction path catches it, rather
+  than reasoning about the regex. That is the right standard for a claim about a privacy control.
+
+It also confirmed each new test would genuinely fail against the old implementation — the
+case-insensitivity test against the old `includes`, the memoisation test against a non-memoised store,
+the trim test against the untrimmed comparison — rather than accepting the implementer's red-before
+claims. And it confirmed Important 4's edit is the round's only pre-existing-test change and that the
+guard file's other two tests are byte-identical.
+
+One detail worth keeping, because it looked like a defect and is not: the `{ log: false }` fix passes a
+positional `500` that is a no-op, because the error helper takes its status from the thrown
+`PublicApiError` regardless. The re-reviewer checked the helper rather than flagging the dead argument,
+and confirmed only the logging behaviour changes. Correct, but it leaves a misleading literal in the
+source; recorded for the final review rather than churned now.
