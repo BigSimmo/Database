@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d3addb93-9550-4ecf-a8d2-c363caed4f49",
+  "createdOn": "2026-08-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "mode-home loading contract enumerates its thirteen routes by hand, so the next standalone home can ship with no loading coverage",
+    "detail": "MODE_HOME_LOADING_ROUTES in tests/mode-home-loading-contract.test.ts is a hand-written thirteen-entry array. It currently matches standaloneModeHomePaths (src/lib/search-route-ownership.ts) exactly - the mismatch that let medications, calculators and dictionary ship without loading.tsx was ledger #6K9YGQ and is now fixed - but nothing keeps the two lists in step, so the next standalone mode home added will silently have no loading coverage and CI will not notice. Fix: derive the test's route list from standaloneModeHomePaths instead of hand-writing it.",
+    "source": "session 2026-08-21, raised while closing #6K9YGQ",
+    "issueUlid": "01M0GD6DS6CHW9N3DZ2KNH9XCM"
+  }
+}
