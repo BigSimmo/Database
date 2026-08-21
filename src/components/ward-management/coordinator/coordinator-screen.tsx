@@ -133,7 +133,7 @@ export function CoordinatorScreen() {
           </p>
         </div>
 
-        <div className={styles.body}>
+        <div className={styles.body} data-testid="ward-coordinator-body">
           <PressureStrip now={now} selectedEdId={selectedEdId} onSelectEd={setSelectedEdId} />
 
           <div className={styles.regionGrid} data-testid="ward-coordinator-region-grid">

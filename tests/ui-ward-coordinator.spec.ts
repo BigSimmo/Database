@@ -1056,9 +1056,9 @@ test.describe("Ward Flow coordinator screen", () => {
    * double-`requestAnimationFrame` `scrollIntoView` effect — deleted now that
    * `.shortlistActionRow` is pinned to the viewport bottom by CSS (`coordinator.module.css`,
    * `@media (max-width: 48rem)`). A pinned control cannot need scrolling to reach it, so the
-   * defining assertion here is that selecting a patient moves nothing: `window.scrollY` before
-   * and after the click must be identical, not merely that the control ends up in the viewport
-   * (which a JS scroll could also achieve).
+   * defining assertion here is that selecting a patient moves nothing: `.body`'s own `scrollTop`
+   * (`data-testid="ward-coordinator-body"`) before and after the click must be identical, not
+   * merely that the control ends up in the viewport (which a JS scroll could also achieve).
    *
    * Task 7 addendum R24: select the movement explicitly by `data-testid`, never `.first()` — Task
    * 6A had to remove exactly that fragility from two other tests in this file once the fabricated
@@ -1073,17 +1073,29 @@ test.describe("Ward Flow coordinator screen", () => {
    * vocabulary Playwright's `expect` may not carry — written here as `expect(await
    * page.evaluate(...)).toBe(...)` instead, so a missing `.resolves` chain cannot silently no-op
    * this assertion into an unconditional pass.
+   *
+   * Fix round 1, R50: the original code here read `window.scrollY`, which mutation testing
+   * proved cannot fail — `.screen` is `height: 100dvh; overflow: hidden`, so the real
+   * `<html>`/`<body>` never has any scroll range at all, and `window.scrollY` is `0` before and
+   * after on every run regardless of what the code does. R25 only checked the matcher's *style*
+   * (`.resolves` vs. the plain form), never whether the asserted quantity could actually change.
+   * `.body` (`.shortlistBody`'s ancestor, `overflow: auto`) is the real scroll container — the one
+   * the deleted `scrollIntoView({ block: "nearest" })` actually moved — so this now reads that
+   * element's `scrollTop` through its own stable `data-testid` rather than a CSS-module class name
+   * (which is hashed at build time and not a stable selector).
    */
   test("keeps the referral control reachable on a phone without moving the page", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoCoordinator(page);
 
     const queue = page.getByRole("region", { name: "Priority queue" });
-    const scrollBefore = await page.evaluate(() => window.scrollY);
+    const body = page.getByTestId("ward-coordinator-body");
+    const scrollBefore = await body.evaluate((el) => el.scrollTop);
     await queue.locator('[data-testid="ward-queue-row-WF-002"]').click();
 
-    // The control is pinned, so selecting a patient must not scroll the page under the thumb.
-    const scrollAfter = await page.evaluate(() => window.scrollY);
+    // The control is pinned, so selecting a patient must not scroll `.body` — the real scroll
+    // container on this screen — out from under the thumb to reach it.
+    const scrollAfter = await body.evaluate((el) => el.scrollTop);
     expect(scrollAfter).toBe(scrollBefore);
     await expect(page.getByTestId("ward-shortlist-refer")).toBeInViewport();
 
