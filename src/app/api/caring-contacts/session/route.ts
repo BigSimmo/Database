@@ -38,11 +38,7 @@ export async function GET() {
 /** Switches the demo role. `{ role }` not in DEMO_ROLES is refused with 400. */
 export async function POST(request: Request) {
   try {
-    const body = await parseJsonBody(
-      request,
-      setRoleSchema,
-      "role must be one of the caring-contacts demo roles.",
-    );
+    const body = await parseJsonBody(request, setRoleSchema, "role must be one of the caring-contacts demo roles.");
     const actor = demoActorForRole(body.role);
 
     const cookieStore = await cookies();
