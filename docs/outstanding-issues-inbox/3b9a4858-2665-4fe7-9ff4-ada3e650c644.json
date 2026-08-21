@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3b9a4858-2665-4fe7-9ff4-ada3e650c644",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Watch runner usage now that every main push gets its own CI concurrency group",
+    "detail": "PR #2209 (merged af2075a) changed ci.yml so base-branch pushes key concurrency on github.run_id. The defect it fixed was real: cancel-in-progress: false only prevents supersession, while GitHub separately keeps at most ONE pending run per concurrency group, so during a merge burst each newly queued main run cancelled the one already waiting. Observed 2026-08-20: a1c2ced, d745d15, 97f6142 and 1cc0d29 all cancelled while a ~70-minute release-browser-matrix held CI-refs/heads/main, and a mobile-/ CLS regression rode through that gap. The accepted cost is a real one and nobody has measured it yet: a burst of N merges now produces N concurrent runs instead of one plus a survivor, each carrying release-browser-matrix. The in-file comment already accepts this ('concurrent main runs, one per merge, each already scoped by the changes job'), but that was written as a prediction, not an observation. Next: after a few days of normal traffic, compare Actions minutes on main-branch pushes against the week before af2075a, and confirm no queueing/limit pressure appeared. If the cost is worse than the defect, the alternative is a bounded group (for example keyed on run_id only while a long job is in the workflow) rather than reverting to the shared group, which would restore the eviction hole. Pinned by the 'never cancels an in-flight run for a base-branch push' case in tests/ci-cache-safety.test.ts, which now also asserts the per-run key.",
+    "source": "PR #2209, merged af2075a; ci.yml concurrency block",
+    "issueUlid": "01M0HRBSN472G3XZ07F1XKV80V"
+  }
+}
