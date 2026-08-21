@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3485a868-e6b7-4eef-a703-da0985c1e7e7",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Lighthouse budget baseline is stale: main itself exceeds it on mobile-documents-search, so it fails whichever PR is in front of it",
+    "detail": "lighthouse-budget.json was captured 2026-08-18 and main has drifted past it since. Measured 2026-08-21 by running npm run verify:lighthouse twice in one container -- once on main's tree at the merge-base, once on the PR #2204 head -- same hardware, same Chrome, same build profile. On MAIN's tree, mobile-documents-search is LCP 2783ms against a 2271.699 baseline (+22.5%, tolerance 20%) and TBT 504ms against 347.669 (+45.0%, tolerance 30%). Both breach before any PR touches them. The PR head is FASTER on every LCP cell (desktop-documents-search 917->783, desktop-root 746->684, mobile-documents-search 2783->2332, mobile-root 2356->2332) and every TBT cell except a +2ms blip, yet still fails mobile-documents-search TBT at +37.8% because main had already blown through the limit. Note the grader refuses to grade a run whose Chrome differs from the baseline's (local 141 vs baseline 151), so absolute numbers are not comparable to CI -- but the head-vs-base delta was measured under identical conditions and is what attributes the failure. Remedy is the sanctioned one named by the tool and by lighthouse-budget.json itself: run the CI 'Refresh Lighthouse baseline' workflow_dispatch with refresh_lighthouse_baseline=true FROM MAIN, so the new baseline reflects main rather than a feature branch. Do not raise the tolerances. Same class as #QSHHGK for the bundle budget: an unrefreshed baseline fails whichever unrelated PR lands last. Note also that the grader already self-confirms a failing cell twice and takes the majority, so re-running the job does not help.",
+    "source": "lighthouse-budget.json, scripts/run-lighthouse-budget.mjs, scripts/check-lighthouse-budget.mjs, .github/workflows/ci.yml lighthouse-budget job",
+    "issueUlid": "01M0HTDEE8ZQZ9GDZAEYS5AH08"
+  }
+}
