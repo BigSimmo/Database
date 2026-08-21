@@ -301,6 +301,17 @@ describe("notice-stack swap settling", () => {
   });
 });
 
+describe("notice stack positioning", () => {
+  it("does not gate the mobile-home stack position on an asynchronously mounted install card", () => {
+    const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
+
+    expect(styles).toContain('body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-notice-stack');
+    expect(styles).not.toContain(
+      'body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-notice-stack',
+    );
+  });
+});
+
 describe("notice entrance animation", () => {
   it("keeps the asynchronously mounted notice geometry stable", () => {
     const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
