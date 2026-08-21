@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { HUB_PANELS, panelsInGroup } from "@/lib/developer-area/hub-panels";
+// Test files live outside `src/**`, so unlike `hub-panels.ts` itself they are
+// not bound by eslint.config.mjs's mockup-import boundary and may import this
+// constant freely — see the anti-drift assertion below.
+import { CARING_CONTACT_MOCKUP_ROUTES } from "@/components/caring-contacts/mockups/routes";
 
 describe("hub panels", () => {
   it("gives every built panel a destination and every planned panel none", () => {
@@ -42,5 +46,18 @@ describe("hub panels", () => {
     for (const panel of HUB_PANELS) {
       expect(panel.href?.startsWith("#"), `${panel.id} self-links`).not.toBe(true);
     }
+  });
+
+  it("keeps the caring-contact href in sync with its route source, since hub-panels.ts must pin it as a literal", () => {
+    // hub-panels.ts is production space and cannot import
+    // CARING_CONTACT_MOCKUP_ROUTES (eslint's mockup-import boundary), so its
+    // caring-contact href is a hand-written literal. This test is what stands
+    // in for that import: if the Caring Contact route is ever renamed, this
+    // assertion goes red instead of the hub card silently rotting.
+    const panel = HUB_PANELS.find((entry) => entry.id === "caring-contact");
+    expect(
+      panel?.href,
+      "hub-panels.ts's pinned caring-contact literal has drifted from CARING_CONTACT_MOCKUP_ROUTES.today — update the literal in src/lib/developer-area/hub-panels.ts",
+    ).toBe(CARING_CONTACT_MOCKUP_ROUTES.today);
   });
 });

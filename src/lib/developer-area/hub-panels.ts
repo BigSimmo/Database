@@ -1,5 +1,3 @@
-import { CARING_CONTACT_MOCKUP_ROUTES } from "@/components/caring-contacts/mockups/routes";
-
 export type HubPanelGroup = "work" | "clinical" | "system" | "reference";
 
 export type HubPanel = {
@@ -97,15 +95,25 @@ export const HUB_PANELS: readonly HubPanel[] = [
   { id: "routes", name: "Routes and modes", summary: "Every page and all 15 modes", group: "reference", phase: 2 },
   // Two real prototype cards, not one generic self-linking "Prototypes" card.
   // This is also what preserves the Caring Contact and Ward Flow entries the
-  // spec requires to survive the hub rewrite. Import the Caring Contact route
-  // from `@/components/caring-contacts/mockups/routes` — do not hardcode it.
+  // spec requires to survive the hub rewrite.
+  //
+  // This module is production space (`src/lib/**`), not `src/app/mockups/**`,
+  // so `eslint.config.mjs`'s `no-restricted-imports` boundary forbids importing
+  // `CARING_CONTACT_MOCKUP_ROUTES` from `@/components/caring-contacts/mockups/routes`
+  // here — that import path matches the `**/*mockup*` pattern the rule fences
+  // production code off from. The href below is therefore a pinned literal,
+  // not an import. Do not "helpfully" restore the import: the anti-drift
+  // guarantee that constant exists for is preserved instead by
+  // `tests/developer-hub-panels.test.ts`, which asserts this literal equals
+  // `CARING_CONTACT_MOCKUP_ROUTES.today` — if that route is ever renamed, the
+  // test goes red rather than this link silently rotting.
   {
     id: "caring-contact",
     name: "Caring contact",
     summary: "Coordination prototype: 13 routes and its system states",
     group: "reference",
     phase: 1,
-    href: CARING_CONTACT_MOCKUP_ROUTES.today,
+    href: "/mockups/caring-contacts",
   },
   {
     id: "ward-flow",
