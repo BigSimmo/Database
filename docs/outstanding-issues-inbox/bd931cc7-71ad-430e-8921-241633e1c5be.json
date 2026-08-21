@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "bd931cc7-71ad-430e-8921-241633e1c5be",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#TAQKCN",
+    "outcome": "Resolved 2026-08-21. Verified on main at 1cc0d2987: src/components/therapy-compass/screens/recommend-screen.tsx contains no <svg element at all, and line 4 imports Check from lucide-react alongside ArrowRight, Copy, Search, Shield and Sparkles. The hand-drawn tick in the QUICK CONSTRAINTS pills was converted. Verification: grep for '<svg' and 'lucide' in that file.",
+    "baseRowFingerprint": "10ef4984ff763c80ddbbf926efd5cb0974db91b1b3e33fc95631585b1042e8d9"
+  }
+}

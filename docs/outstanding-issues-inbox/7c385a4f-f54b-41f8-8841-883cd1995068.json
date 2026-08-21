@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "7c385a4f-f54b-41f8-8841-883cd1995068",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#E0N0QC",
+    "outcome": "Resolved 2026-08-21. Verified on main at 1cc0d2987: scripts/probe-generation-quality.ts now exports formatAnswerSection(answerText, citations) and renders the trimmed answer text, falling back to '(empty answer)', so a blinded before/after Gate E read can be produced from probe output. Verification: grep for answerText in the probe script. Note the usual approval boundary still applies to running the probe against a provider.",
+    "baseRowFingerprint": "9718bf501b167d7edf116132235a0c9ae3741009efd4eabcbc4e78a19a44b42e"
+  }
+}

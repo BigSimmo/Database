@@ -34,6 +34,11 @@ describe("DocumentViewer non-PDF image preview", () => {
     );
 
     expect(screen.queryByTestId("image-lightbox")).not.toBeInTheDocument();
+    expect(screen.getByTestId("non-pdf-image-stage")).toHaveClass(
+      "h-[clamp(16rem,60vh,36rem)]",
+      "sm:h-[clamp(18rem,60vh,36rem)]",
+    );
+    expect(screen.getByRole("img", { name: "Clinical chart" })).toHaveClass("h-full", "w-full", "object-contain");
     fireEvent.click(screen.getByRole("button", { name: "Expand image: Clinical chart" }));
     expect(await screen.findByTestId("image-lightbox")).toBeInTheDocument();
     expect(screen.getByTestId("image-lightbox-stage")).toHaveAttribute("data-source-mode", "url");
