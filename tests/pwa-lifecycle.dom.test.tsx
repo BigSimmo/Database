@@ -1,13 +1,7 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PwaLifecycle } from "@/components/pwa-lifecycle";
-import { sourceSegment } from "./helpers/source-contract";
-
-const globalStylesSource = readFileSync(path.resolve(process.cwd(), "src/app/globals.css"), "utf8");
 
 type MockWorker = ServiceWorker & { postMessage: ReturnType<typeof vi.fn> };
 
@@ -265,23 +259,42 @@ describe("PwaLifecycle", () => {
   });
 });
 
-describe("pwa-notice-in entrance animation", () => {
-  // .pwa-notice-card mounts on async, non-user-triggered signals
-  // (beforeinstallprompt, a connectivity change, a waiting service worker), so
-  // it never qualifies for the Layout Instability API's "recent user input"
-  // exemption. A translate/scale entrance therefore counts as a real CLS hit
-  // whenever it happens to animate inside a measurement window — confirmed via
-  // a Lighthouse mobile-root trace naming .pwa-notice-stack as the sole shift
-  // source at score 0.223 (#2199/#2204 CI, 2026-08-21). Keep this keyframe
-  // opacity-only: any geometry-changing property (transform, top/left,
-  // width/height) reintroduces that regression.
-  it("changes only opacity, never element geometry", () => {
-    const keyframes = sourceSegment(globalStylesSource, "@keyframes pwa-notice-in {", "\n}\n", {
-      label: "pwa-notice-in keyframes",
-    });
-    expect(keyframes).not.toMatch(/transform\s*:/);
-    expect(keyframes).not.toMatch(/\b(top|left|right|bottom|width|height|margin|padding)\s*:/);
-    expect(keyframes).toContain("opacity: 0");
-    expect(keyframes).toContain("opacity: 1");
+describe("notice-stack swap settling", () => {
+  // .pwa-notice-stack is position: fixed, bottom-anchored. Root-caused from a
+  // downloaded Lighthouse mobile-root trace (PR #2199/#2204 CI, 2026-08-21):
+  // audits["layout-shifts"] named .pwa-notice-stack as a real shift source at
+  // score 0.223. scripts/measure-cls-attribution.mjs reproduced the mechanism
+  // directly: when the offline card clears the same instant a different card
+  // (connection-restored / the install prompt) appears — both driven by the
+  // same `online` event landing in one React commit — the stack's height
+  // changes while it is already on screen, moving its painted top edge. A
+  // brand-new mount from an unmounted stack does not shift anything (proven
+  // with the same harness: a synthetic beforeinstallprompt alone, with no
+  // other card ever visible, measured 0 shift). useSettledNoticeSignature
+  // forces every transition between two different non-empty card
+  // combinations through one fully-unmounted frame so the swap always
+  // reads as "nothing -> something" instead of "one box resizing into
+  // another" while already visible.
+  it("passes through an unmounted frame when the offline card is replaced by the connection-restored card", async () => {
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    try {
+      render(<PwaLifecycle />);
+      await screen.findByRole("region", { name: "You’re offline" });
+
+      await act(async () => {
+        Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
+        window.dispatchEvent(new Event("online"));
+      });
+
+      // Immediately after the commit that clears the offline card, the stack
+      // must be fully empty — not already showing connection-restored — or
+      // the swap resizes an already-visible fixed element.
+      expect(screen.queryByRole("region", { name: "You’re offline" })).not.toBeInTheDocument();
+      expect(screen.queryByText("Connection restored")).not.toBeInTheDocument();
+
+      await screen.findByText("Connection restored");
+    } finally {
+      Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
+    }
   });
 });
