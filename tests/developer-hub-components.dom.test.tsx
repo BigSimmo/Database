@@ -53,13 +53,31 @@ describe("FreshnessStamp", () => {
 
 describe("EnvironmentStrip", () => {
   it("names each unknown instead of dropping it", () => {
-    render(<EnvironmentStrip demoMode documentCount={null} buildSha={null} email={null} />);
+    // This is the shape the hub renders in phase 1: nothing has been read yet,
+    // so every fact must name its own gap. `demoMode={null}` is the load-bearing
+    // one — a component that fell back to "Live data" here would state the
+    // opposite of the truth in demo mode, which is the one way this strip can be
+    // actively wrong rather than merely incomplete.
+    render(<EnvironmentStrip demoMode={null} documentCount={null} buildSha={null} email={null} />);
     const strip = screen.getByTestId("developer-hub-environment-strip");
-    expect(strip).toHaveTextContent("Demo corpus");
+    expect(strip).toHaveTextContent("environment unknown");
     expect(strip).toHaveTextContent("document count unavailable");
     expect(strip).toHaveTextContent("build unknown");
-    expect(strip).toHaveTextContent("signed in");
+    expect(strip).toHaveTextContent("account unknown");
+    // Neither of the two states an unread environment must not be mistaken for.
+    expect(strip).not.toHaveTextContent("Live data");
+    expect(strip).not.toHaveTextContent("Demo corpus");
     expect(strip).not.toHaveTextContent(/null|undefined|NaN/);
+  });
+
+  it("says demo corpus when the environment was read and is demo", () => {
+    // The third state, pinned separately so a future wiring change cannot
+    // collapse "unread" and "demo" into one label.
+    render(<EnvironmentStrip demoMode documentCount={12} buildSha={null} email={null} />);
+    const strip = screen.getByTestId("developer-hub-environment-strip");
+    expect(strip).toHaveTextContent("Demo corpus");
+    expect(strip).not.toHaveTextContent("environment unknown");
+    expect(strip).not.toHaveTextContent("Live data");
   });
 
   it("reports the live figures when they are known", () => {
@@ -71,6 +89,8 @@ describe("EnvironmentStrip", () => {
     expect(strip).toHaveTextContent("2,851 documents");
     expect(strip).toHaveTextContent("build e521988");
     expect(strip).toHaveTextContent("dev@example.com");
+    expect(strip).not.toHaveTextContent("environment unknown");
+    expect(strip).not.toHaveTextContent("account unknown");
   });
 });
 

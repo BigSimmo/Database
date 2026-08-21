@@ -45,7 +45,7 @@ export default function DeveloperHubPage() {
 
         <section id="developer-hub-environment" className={inPageAnchor}>
           <h2 className="sr-only">Environment</h2>
-          <EnvironmentStrip demoMode={false} documentCount={null} buildSha={null} email={null} />
+          <EnvironmentStrip demoMode={null} documentCount={null} buildSha={null} email={null} />
         </section>
 
         {snapshot.counts.p1 > 0 ? (
