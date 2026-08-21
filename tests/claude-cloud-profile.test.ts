@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -308,28 +308,28 @@ describe("setup-claude-cloud", () => {
     expect(result.stdout).not.toMatch(/all selected tiers complete/);
   });
 
-  it("works inside its sandbox and leaves the developer's own HOME untouched", () => {
+  it("resolves its marker directory from the sandbox HOME it was given", () => {
     // Guards the isolation the test above depends on. This suite used to plant its lock in the REAL
     // ~/.cache/clinical-kb-claude-cloud, so it both read and wrote the machine's actual provisioning
     // state. A completed-tier marker there short-circuited the tier before the code under test ran,
     // and the assertion above failed on exactly the machines this tooling exists for — any container
     // whose SessionStart hook had already provisioned deno — while staying green on CI's clean
     // runners, which is how it reached main.
-    const realMarkerDir = markerDirFor(homedir());
-    const before = existsSync(realMarkerDir) ? readdirSync(realMarkerDir).sort() : null;
-
+    //
+    // Deliberately asserted WITHOUT reading the host's directory. Snapshotting it before and after
+    // and comparing would reintroduce the same class of defect from the other side: the SessionStart
+    // hook detaches the browsers and python tiers, so a marker can legitimately appear there mid-test
+    // and fail the comparison while the spawn was correctly sandboxed all along.
+    //
+    // `--list` is enough because the script creates its marker directory before it parses arguments,
+    // so this observes the HOME resolution itself and nothing downstream of it.
     const sandboxHome = makeSandboxHome();
-    mkdirSync(join(markerDirFor(sandboxHome), "deno.lock"), { recursive: true });
-    const result = runProvisioner(["--allow-local", "deno"], {
-      CLAUDE_CLOUD_SKIP_TIERS: "",
-      HOME: sandboxHome,
-    });
+    expect(existsSync(markerDirFor(sandboxHome))).toBe(false);
 
-    // The sandbox's lock governed the run, so that is the directory the script consulted...
-    expect(result.status).toBe(1);
+    const result = runProvisioner(["--list"], { HOME: sandboxHome });
+
+    expect(result.status).toBe(0);
     expect(existsSync(markerDirFor(sandboxHome))).toBe(true);
-    // ...and the developer's own marker directory gained and lost nothing.
-    expect(existsSync(realMarkerDir) ? readdirSync(realMarkerDir).sort() : null).toEqual(before);
   });
 
   it("tries the pinned Python minor before ever falling back to a different python3", () => {
