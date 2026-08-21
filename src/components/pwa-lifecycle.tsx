@@ -13,7 +13,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { createBrowserStore } from "@/lib/client-store-factory";
 
@@ -262,67 +262,6 @@ function useSettledNoticeSignature(signature: string | null): string | null {
   }, [signature]);
 
   return rendered;
-}
-
-/**
- * True once the notice stack's own geometry is decidable — i.e. `#main-content`
- * is in the document, or the document has finished loading and no more markup
- * is coming.
- *
- * Why the stack must wait for it. Every phone geometry rule for this component
- * is `body:has(#main-content[data-phone-footer-owner="hero"]) …`: the bottom
- * gap collapses from `0.75rem + 5rem` to `max(0.5rem, safe-area)`, and the
- * native install sheet drops its grip, tagline, copy, support and benefits
- * rows. The block above those rules calls that attribute "a static per-route
- * render prop [that] never changes after a route's first paint", which is true
- * of its VALUE and wrong about its ELEMENT: this component lives in the root
- * layout, outside the route's Suspense boundary, so on `/` it can mount and
- * paint while the page is still the `src/app/loading.tsx` skeleton and
- * `#main-content` does not exist yet. The selector is therefore false at first
- * paint and true moments later, and a `position: fixed` card that has already
- * painted is moved and resized by the flip.
- *
- * That is the whole of the mobile-`/` CLS in ledger `#TYZK23`. CI attributed
- * `0.2230` — every thousandth of the 0.223 breach — to `body.min-h-full >
- * div.pwa-notice-stack` on run 32526303319, and the bistability is simply
- * whether first paint lands before or after the shell arrives: fast enough and
- * the two happen in one frame, so nothing moves and the metric reads 0.016.
- * `useSettledNoticeSignature` above cannot help here — the stack is not
- * changing which cards it holds, it is being restyled underneath itself.
- *
- * Waiting costs nothing a user would want: an install prompt racing the page
- * in is the defect, not the delay. The load fallback keeps notices reachable on
- * any surface that renders no `#main-content` at all, and is safe because the
- * streamed document is complete before `load` fires — so if the element is not
- * there by then it is not coming, and the selector can no longer flip.
- */
-function subscribeToAppShell(onStoreChange: () => void): () => void {
-  // The shell arrives as a subtree replacement (React swapping the Suspense
-  // fallback for the route's content), so observe the document rather than a
-  // node that does not exist yet. `load` is the terminal fallback below.
-  const observer = new MutationObserver(onStoreChange);
-  observer.observe(document.body, { childList: true, subtree: true });
-  window.addEventListener("load", onStoreChange);
-  return () => {
-    observer.disconnect();
-    window.removeEventListener("load", onStoreChange);
-  };
-}
-
-function appShellPresentSnapshot(): boolean {
-  return document.getElementById("main-content") !== null || document.readyState === "complete";
-}
-
-/** Server render never has a DOM to inspect, and must not paint the stack. */
-function appShellAbsentOnServer(): boolean {
-  return false;
-}
-
-function useAppShellPresent(): boolean {
-  // A DOM subscription, not derived state: `useSyncExternalStore` is the
-  // supported shape for "read an external system, re-render when it changes",
-  // and it keeps this out of an effect that would setState on its first run.
-  return useSyncExternalStore(subscribeToAppShell, appShellPresentSnapshot, appShellAbsentOnServer);
 }
 
 /**
@@ -611,12 +550,6 @@ export function PwaLifecycle() {
           .join("")
       : null;
   const settledSignature = useSettledNoticeSignature(desiredSignature);
-  // The stack's phone geometry is selected by `:has(#main-content…)`, which is
-  // false until the route's content replaces the loading skeleton. Painting
-  // before then and being restyled afterwards is the mobile-`/` layout shift in
-  // `#TYZK23` — see useAppShellPresent.
-  const appShellPresent = useAppShellPresent();
-  if (!appShellPresent) return null;
   // Mid-transition: the stack is passing through its one-frame unmounted gap
   // (see useSettledNoticeSignature) before the new combination renders.
   if (settledSignature === null || settledSignature !== desiredSignature) return null;

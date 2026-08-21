@@ -156,6 +156,17 @@ function reportLayoutShiftAttribution(directory) {
         lines.push(`    ${score === null ? "     -" : score.toFixed(4)}  ${where}`);
         if (snippet) lines.push(`             ${snippet}`);
       }
+      // The selector alone says WHICH element moved, not WHY. Lighthouse's own
+      // root-cause sub-items (unsized media, a web font swapping, an injected
+      // iframe, a running animation) and the shift's timing live in the raw
+      // item, and naming the element was not enough to close `#TYZK23` — the
+      // first attributed run pointed at `.pwa-notice-stack`, and the obvious
+      // reading of that (it paints before the shell decides its geometry) was
+      // measured and refuted. So print the item itself for the worst cell.
+      if (cls > 0.05 && items.length > 0) {
+        const worst = items.reduce((a, b) => ((b?.score ?? 0) > (a?.score ?? 0) ? b : a), items[0]);
+        lines.push(`    raw: ${JSON.stringify(worst).slice(0, 1400)}`);
+      }
     }
     if (lines.length === 0) return;
     console.log("::group::lighthouse layout-shift attribution");

@@ -1687,11 +1687,7 @@
         "preview": ".design-sync/previews/Skeleton.tsx",
         "previewValid": true
       },
-      "testFiles": [
-        "tests/design-sync-visual-exports.test.ts",
-        "tests/design-system-adoption.test.ts",
-        "tests/pwa-lifecycle.dom.test.tsx"
-      ],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/design-system-adoption.test.ts"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
