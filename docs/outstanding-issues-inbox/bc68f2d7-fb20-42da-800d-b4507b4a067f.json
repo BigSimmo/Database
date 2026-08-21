@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "bc68f2d7-fb20-42da-800d-b4507b4a067f",
+  "createdOn": "2026-08-21",
+  "action": "cancel",
+  "payload": {
+    "requestId": "17e75361-d767-4c72-96ea-7d1bf34959c6",
+    "reason": "Stale: #ZF006G was already closed on main (docs/outstanding-issues.md archived row, 'Resolved 2026-08-21', landed via a separate already-merged PR/reconciliation citing the same one-SectionHeading-definition evidence at a different verification commit) before this branch merged main in. applyRequest now fails with '#ZF006G is no longer open' since the row left Open items. Cancelling this branch's now-redundant done request rather than re-litigating an already-resolved row."
+  }
+}
