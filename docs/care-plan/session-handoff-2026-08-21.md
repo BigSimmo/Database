@@ -40,7 +40,22 @@ provider-backed gate. There is no UI yet.
 
 **Integrity confirmed after the third worktree destruction:** `git ls-files --eol`
 reports `i/lf w/lf` on every Care Plan file, matching untouched repository files, and
-the committed blobs contain zero CR bytes. Nothing is corrupted.
+the committed blobs contain zero CR bytes. Nothing is corrupted. Re-running the suites
+in the relocated worktree gave `Test Files 2 passed (2) / Tests 121 passed (121)`.
+
+**Known environment state in the relocated worktree — read before trusting a gate.**
+The `npm ci` there was backgrounded and never reported completion; `node_modules` held
+523 packages when this handoff was written. The install is **definitely** incomplete,
+not merely suspected: the `prettier` binary is absent entirely (`'prettier' is not
+recognized`), so no format check could run. `npm run typecheck`
+consequently **fails**, but on three unrelated pre-existing files only —
+`tests/universal-search.test.ts` (TS7006) and two `use-in-page-section-nav*` DOM tests
+(TS7016, unable to resolve `lucide-react` types even though its `.d.ts` files are present,
+which is the signature of a half-finished install). **Zero errors in any
+`src/components/care-plan/**` or `tests/care-plan-*` file.** Typecheck exited 0 in the
+previous worktree at the same commit, so this is an install artefact, not a regression.
+Re-run `npm ci --include=dev` to completion and re-check before reporting any gate as
+green. Note that a full install on this machine has been measured at roughly 58 minutes.
 
 ---
 
