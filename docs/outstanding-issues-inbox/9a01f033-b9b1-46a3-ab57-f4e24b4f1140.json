@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "9a01f033-b9b1-46a3-ab57-f4e24b4f1140",
+  "createdOn": "2026-08-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "run-playwright.mjs exits 0 without running anything when another worktree holds the heavyweight lease, so a blocked run reads as a pass",
+    "detail": "Observed 2026-08-21 in a clean worktree at a341832af. 'node scripts/run-playwright.mjs --project=chromium-mockups tests/ui-tools-search-mode-mockup.spec.ts' printed only 'Another Database heavyweight command is active (PID 70204, worktree developer-hub-phase1-restored, started 2026-08-20T20:23:36Z): vitest run --reporter=dot' and exited 0. No test collected, no browser launched, no summary line - and the exit code is indistinguishable from a green run, so any caller that trusts the exit code reports a pass for a suite that never executed. The holding process had been alive for an hour and was very likely hung, which is the case that makes this dangerous: the lease is not self-limiting. AGENTS.md already documents the opposite convention for the broad gate - verify:ui queues admission for up to 15 minutes and exits 1 on timeout rather than soft-skipping green - so this wrapper contradicts the repo's own stated behaviour. Fix: exit non-zero on lease refusal (or wait then fail), and keep the 'N passed' line the only evidence of a real run. Same class as ledger #294's checks-that-cannot-fail family.",
+    "source": "session 2026-08-21, hit while settling #SZGPAH",
+    "issueUlid": "01M0GJV6BM5DP9DAJSK9ZHNRT3"
+  }
+}
