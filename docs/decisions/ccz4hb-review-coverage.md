@@ -23,15 +23,26 @@ Adding credits without changing that would be buying capacity to keep doing the 
 **The most useful thing I found.** A quarter of the pull requests are not code at all. Using
 the repo's own tested classifier, **285 of the last 1,190 merged PRs (24%) changed only
 documentation**, and **190 (16%) changed nothing except the repo's own record-keeping files**
-— the review ledger and the outstanding-issues list. Every one of those spent a review credit
-on files a code-review robot has nothing useful to say about. That is roughly six wasted
-reviews a day, out of a budget of twenty-four.
+— the review ledger and the outstanding-issues list. Those are files a code-review robot has
+nothing useful to say about.
+
+Be careful what that share is, though. It is a share of **merged pull requests**, not a share
+of review credits spent, and the two are not interchangeable. CodeRabbit bills per review and
+re-reviews incremental pushes, so one PR can consume several credits — or, if it merged after
+the budget was already exhausted, none at all. Push counts are unrecoverable from a
+squash-merged history (§2.1), so this share cannot be converted into credits without vendor
+consumption data the repo does not have. If documentation PRs are pushed to less often than
+code PRs the credit share is lower than the merge share; if more often, higher. Read "about a
+quarter of merged PRs are prose" as the measured fact, and any credit number derived from it
+as an unverified estimate.
 
 **What I recommend, in order.**
 
 1. **Tell CodeRabbit to skip documentation-only pull requests.** This is a small
-   configuration change, it takes back about a quarter of the review budget immediately, and
-   it removes no safety at all — no required check is touched.
+   configuration change, it removes review from about a quarter of merged pull requests
+   immediately, and it removes no safety at all — no required check is touched. How much
+   credit that returns depends on push counts the repo cannot measure, so size it by
+   observing the refill after the change rather than by assuming it tracks the PR share.
 2. **Stop the robots opening a pull request whose only content is a bookkeeping record.**
    The rule that says to fold those records into the pull request they belong to already
    exists in writing and is plainly not being followed; this repo has learned before that a
@@ -139,7 +150,7 @@ per week**.
 > the plan changes, or reviews are permanently rationed by whichever PR happens to arrive
 > when a credit is free — which is exactly the current behaviour.
 
-### 2.3 Composition: a quarter of the budget is spent on the repo's own paperwork
+### 2.3 Composition: a quarter of merged pull requests are the repo's own paperwork
 
 Classified against `docPatterns` in `scripts/ci-change-scope.mjs` — the repo's **own,
 unit-tested** `docs_only` definition (`docs/`, `mockups/`, `*.md`, `*.mdx`, `README*`),
@@ -166,10 +177,14 @@ docs(issues): reconcile 29 queued ledger requests into the canonical ledger (#22
 ```
 
 **190 pull requests — 16% of all merged PRs, about 4 per day — contained nothing but the
-repo's own record-keeping.** Each consumed one CodeRabbit review credit and one full
-`pr-required` CI aggregate, to review Markdown records that a code-review bot has no
-purchase on. `AGENTS.md` "PR bundling" already says these "should travel with their owning
-product PR instead of receiving a dedicated ledger-only branch". They are not doing so.
+repo's own record-keeping.** Each opened a review request and one full `pr-required` CI
+aggregate against Markdown records that a code-review bot has no purchase on. The CI cost is
+firm — `pr-required` runs per PR and is visible in the workflow history. The review cost is
+**not** one credit each: billing follows pushes rather than PRs, and any of these that merged
+after exhaustion consumed nothing, so treat this row as review _demand_ offered, an upper
+bound on credits spent rather than a count of them. `AGENTS.md` "PR bundling" already says
+these "should travel with their owning product PR instead of receiving a dedicated
+ledger-only branch". They are not doing so.
 
 Title-based filtering would **not** be a reliable way to catch this class: among those 190,
 the title prefixes are `docs(issues)` (54), bare `docs` (46), `docs(ledger)` (31), `issues`
@@ -378,9 +393,11 @@ new required check is not what this problem needs.
 
 **Not recommended:** option (a) as posed (§3.1), and option (c) as a standalone (§3.3).
 
-**Expected effect, stated honestly.** Steps 1 and 2 together address about a quarter of
-review demand — roughly 6 of 24 daily credits — and do not by themselves bring a 25.4/day
-merge rate under a 24/day refill. They make step 3 a proportionate purchase instead of a
+**Expected effect, stated honestly.** Steps 1 and 2 together remove review from about a
+quarter of merged pull requests. What that is worth in credits is genuinely unknown — the
+conversion needs per-push consumption data the repo cannot recover (§2.1, §2.3) — so the
+honest statement is a direction, not a number: it reduces demand materially, and it does not
+by itself bring a 25.4/day merge rate under a 24/day refill. They make step 3 a proportionate purchase instead of a
 blank cheque, and they stop the most indefensible category of waste. Anyone claiming this
 combination alone restores full review coverage is over-reading the numbers.
 
@@ -397,9 +414,10 @@ reviews:
   commit_status: false
   fail_commit_status: false
   # Documentation and the repo's own bookkeeping records carry no code for a
-  # code-review bot to review, and consumed ~24% of PR volume (measured
+  # code-review bot to review, and were ~24% of merged PR volume (measured
   # 2026-08-22, docs/decisions/ccz4hb-review-coverage.md §2.3). Excluding them
-  # returns that share of the review budget to code.
+  # returns review capacity to code; the credit saving tracks pushes, not PR
+  # share, so confirm it against the observed refill rather than assuming 24%.
   path_filters:
     - "!docs/**"
     - "!mockups/**"
