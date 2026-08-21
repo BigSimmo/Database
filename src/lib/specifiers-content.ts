@@ -11,7 +11,7 @@
 
 import specifiersContent from "../../data/specifiers-content.json";
 
-import { findSpecifier, specifierRecords, type SpecifierRecord } from "@/lib/specifiers";
+import { specifierRecords, type SpecifierRecord } from "@/lib/specifiers";
 
 export type SpecifierSourceStatus = "source-verified" | "source-needs-formal-review" | "source-not-applicable";
 export type SpecifierDefinitionStatus = "defined" | "obvious-no-definition" | "needs-manual-or-clinician-verification";
@@ -207,11 +207,6 @@ export function curatedEnrichmentFor(item: SpecifierCatalogItem): SpecifierRecor
     }
   }
   return curatedByLabel.get(normalizeLabel(item.label));
-}
-
-/** Whether a catalog slug also resolves to a curated record (so it renders richly). */
-export function curatedRecordForSlug(slug: string): SpecifierRecord | undefined {
-  return findSpecifier(slug);
 }
 
 /**

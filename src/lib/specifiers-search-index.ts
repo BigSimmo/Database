@@ -61,24 +61,10 @@ type SpecifierSearchIndex = {
 const index = searchIndex as SpecifierSearchIndex;
 
 export const specifierIndexMeta: SpecifierIndexMeta = index.meta;
-export const specifierIndexCategories: SpecifierIndexCategory[] = index.categories;
 export const specifierIndexItems: SpecifierIndexItem[] = index.items;
 
 /** Items whose source has been formally verified (the meaningful "reviewed" cut). */
 export const specifierVerifiedCount = specifierIndexMeta.sourceVerified;
-/** All catalog items are pending qualified clinician review in this dataset. */
-export const specifierPendingReviewCount = specifierIndexMeta.stats.itemsPendingClinicianReview;
-
-/** Short, catalog-tuned starting queries for the home hero chips. */
-export const specifierCatalogPresets: Array<{ label: string; query: string }> = [
-  { label: "Anxious distress", query: "anxious distress" },
-  { label: "Melancholic features", query: "melancholic" },
-  { label: "Rapid cycling", query: "rapid cycling" },
-  { label: "Seasonal pattern", query: "seasonal" },
-  { label: "Peripartum onset", query: "peripartum" },
-  { label: "In remission", query: "remission" },
-];
-
 export type SpecifierCatalogFilters = {
   categoryId?: string;
   /** Restrict to source-verified items only. */
