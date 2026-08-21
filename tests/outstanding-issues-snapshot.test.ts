@@ -90,7 +90,7 @@ describe("buildSnapshot", () => {
     const snapshot = buildSnapshot({ ledgerMarkdown: withUlid, inboxRecords: [], revision: REVISION });
     const row = snapshot.open.find((item) => item.id === "#316");
     expect(row).toBeDefined();
-    expect(row.id).not.toMatch(/<!--/);
+    expect(row?.id).not.toMatch(/<!--/);
   });
 
   // Hazard 2: the real ledger contains 8 escaped pipes. A naive split turns
@@ -99,7 +99,7 @@ describe("buildSnapshot", () => {
     const withEscapedPipe = LEDGER.replace("Route the drift check.", "Compare index a \\| index b before routing.");
     const snapshot = buildSnapshot({ ledgerMarkdown: withEscapedPipe, inboxRecords: [], revision: REVISION });
     expect(snapshot.counts.open).toBe(3);
-    expect(snapshot.open.find((item) => item.id === "#316").detail).toContain("index a");
+    expect(snapshot.open.find((item) => item.id === "#316")?.detail).toContain("index a");
   });
 
   // Hazard 3: `## Resolved / archive` holds three tables. A one-shot

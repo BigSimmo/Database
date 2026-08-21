@@ -87,12 +87,25 @@ export function buildSnapshot({ ledgerMarkdown, inboxRecords, revision }) {
 
   const resolvedCount = tableRowsUnder(ledgerMarkdown, "## Resolved / archive", 5).length;
 
-  const pending = inboxRecords.map((record) => ({
-    request_id: record.id,
-    action: record.action,
-    summary: record.payload?.summary ?? "",
-    created_at: record.createdOn ?? null,
-  }));
+  /**
+   * Only `add` requests carry `summary`. An `update` request carries the target
+   * row's `id` plus a `detail`, and a `done` request carries an `outcome`, so
+   * reading `summary` alone renders those as blank rows on the hub — which is
+   * under-reporting outstanding work, the exact failure this feature exists to
+   * prevent. Fall back through the fields each action actually has, and prefix
+   * the target id so an update reads as being about a specific row.
+   */
+  const pending = inboxRecords.map((record) => {
+    const payload = record.payload ?? {};
+    const body = payload.summary || payload.detail || payload.outcome || "";
+    const target = payload.id ? `${payload.id}: ` : "";
+    return {
+      request_id: record.id,
+      action: record.action,
+      summary: body ? `${target}${body}` : `${target}(no summary in the ${record.action} request)`,
+      created_at: record.createdOn ?? null,
+    };
+  });
 
   const countBy = (priority) => openRows.filter((row) => row.priority === priority).length;
 

@@ -12,21 +12,35 @@ Method: `superpowers:subagent-driven-development` (one implementer per task, con
 
 ## 1. Status
 
-| Task | What it is                          | State                       |
-| ---- | ----------------------------------- | --------------------------- |
-| 1    | Snapshot generator + parser         | **Committed** `80ae20d54`   |
-| 2    | Staleness gate + npm wiring         | **Committed** `9a8e2d60b`   |
-| 3    | Typed reader (`ledger-snapshot.ts`) | Not started                 |
-| 4    | Panel registry (`hub-panels.ts`)    | Not started                 |
-| 5    | Nav-header sibling                  | Not started                 |
-| 6    | Hub presentation components         | Not started                 |
-| 7    | Hub page                            | Not started                 |
-| 8    | Ledger page                         | Not started                 |
-| 9    | Settings rename to "Developer"      | Not started                 |
-| 10   | Docs + verification                 | Not started                 |
+| Task | What it is                          | State                     |
+| ---- | ----------------------------------- | ------------------------- |
+| 1    | Snapshot generator + parser         | **Committed** `80ae20d54` |
+| 2    | Staleness gate + npm wiring         | **Committed** `9a8e2d60b` |
+| 3    | Typed reader (`ledger-snapshot.ts`) | Not started               |
+| 4    | Panel registry (`hub-panels.ts`)    | Not started               |
+| 5    | Nav-header sibling                  | Not started               |
+| 6    | Hub presentation components         | Not started               |
+| 7    | Hub page                            | Not started               |
+| 8    | Ledger page                         | Not started               |
+| 9    | Settings rename to "Developer"      | Not started               |
+| 10   | Docs + verification                 | Not started               |
 
-Neither committed task has had its formal task review yet. That is the first thing a resuming
-session should do, before Task 3.
+**Tasks 1 and 2 have been reviewed and every finding fixed** (2 Critical, 2 Important, several
+Minor), with regression tests. Tests 17/17. **Start at Task 3.**
+
+Both Critical findings are traps a later task could re-create, so know them:
+
+1. **A gate that fired when nothing was wrong.** `compareSnapshots` compared `ledger_revision` — a
+   git sha that changes as a _side effect_ of committing a ledger edit. The gate could therefore
+   never pass for a single-commit ledger change, and `main` would have gone red after every squash
+   merge touching the ledger. A gate that cries wolf is one people stop watching, which is exactly
+   the failure this feature exists to prevent. Fixed by excluding that field; the reasoning is
+   in-code with a test named for the regression. **Do not re-add it thinking you are tightening the
+   check.**
+2. **Green tests hid a branch that would not compile.** Vitest does not typecheck, so 13/13 passing
+   masked two `TS18048`/`TS2532` errors that fail the repo's typecheck gate. **Run
+   `npm run typecheck:source` as well as the tests** — passing tests are not evidence the branch
+   compiles. This applies to every remaining task.
 
 ---
 
