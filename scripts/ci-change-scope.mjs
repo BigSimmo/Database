@@ -93,6 +93,12 @@ const mockupPatterns = [
   // from losing the only lane that runs its `@mockup` journey.
   /^src\/components\/[^/]+-mockups?\//,
   /^src\/components\/.*-mockups?\.tsx$/,
+  // ...and the NESTED form: `caring-contacts/mockups/` holds 12 components whose
+  // filenames carry no `-mockup` suffix, so neither rule above reaches them. The
+  // two rules above cover a top-level `*-mockups/` directory and a `*-mockups.tsx`
+  // file at any depth; a plain `mockups/` segment one level down fell between them
+  // and left those journeys unrun (found 2026-08-21).
+  /^src\/components\/(?:[^/]+\/)+mockups?\//,
   // Three of the advisory specs carry `@mockup` without "mockup" in the
   // filename, so a name-based rule alone misses them. `assertMockupSpecParity`
   // below holds this list to `mockupSpecPattern` in playwright.config.ts.
@@ -708,6 +714,15 @@ function selfTest() {
   assertScope("advisory-on-for-mockup-source", ["src/app/mockups/page.tsx"], { advisory_ui_changed: true });
   assertScope("advisory-on-for-mockup-component", ["src/components/search-mockups.tsx"], {
     advisory_ui_changed: true,
+  });
+  // A mockup component in a NESTED `mockups/` directory whose own filename gives
+  // no hint — the case the suffix-based rules miss. Both directions are pinned so
+  // the added pattern cannot quietly widen to ordinary component directories.
+  assertScope("advisory-on-for-nested-mockup-dir", ["src/components/caring-contacts/mockups/product-pages.tsx"], {
+    advisory_ui_changed: true,
+  });
+  assertScope("advisory-off-for-ordinary-nested-component", ["src/components/caring-contacts/contact-card.tsx"], {
+    advisory_ui_changed: false,
   });
   // A mockup component edited without its `src/app/mockups` route wrapper. The
   // filename is singular, and `ui-tools-task-directory.spec.ts` is its only
