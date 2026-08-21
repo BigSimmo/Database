@@ -37,16 +37,18 @@ a394d76631c7ea3405037baf58091b1c4c47fa3f:tests/codex-cloud-setup.test.ts:generic
 # tests/rag-adversarial-fixtures.test.ts — but this historical commit is still
 # scanned on every PR range run.
 57fd5ae462dd85a3fd6af0a4d6e2db5d8d711b68:scripts/fixtures/rag-adversarial-cases.v1.json:generic-api-key:18
-# False positives in the vendored user skills carried for Claude Code web container
-# parity (docs/claude-cloud.md). Both are deliberately fake illustrative strings in
-# third-party documentation, read line by line before pinning:
-#   - clean-up-comments/references/rule.md:497 is an `<!-- API Key: ... -->` example
+# False positives in the vendored third-party user skills copied verbatim into
+# .claude/cloud-profile/ for Claude Code web-container parity (docs/claude-cloud.md).
+# Both are deliberately fake illustrative strings in doc prose, read line by line
+# before pinning:
+#   - clean-up-comments/references/rule.md:497 is an <!-- API Key: ... --> example
 #     inside a "Remove Sensitive Information" section whose entire point is to show
 #     what NOT to leave in markup. The skill teaches the rule the scanner enforces.
-#   - playwright-best-practices/advanced/authentication-flows.md:54 is a `mockToken`
+#   - playwright-best-practices/advanced/authentication-flows.md:54 is a mockToken
 #     constant in a fully-mocked authentication test example.
-# Neither is a credential and neither is executed. Pinned per finding rather than by
-# path, so every other line of the vendored tree stays scanned — a vendored directory
-# is exactly where a real secret could otherwise hide unnoticed.
+# Neither is a credential and neither is executed; GitGuardian and Semgrep pass on
+# the same content. Pinned per finding rather than by path, so every other line of
+# the vendored tree stays scanned — a vendored directory is exactly where a real
+# secret could otherwise hide unnoticed.
 da6088e70ccb67d4ba83fa4efa1dcb75eb317d92:.claude/cloud-profile/skills/clean-up-comments/references/rule.md:generic-api-key:497
 da6088e70ccb67d4ba83fa4efa1dcb75eb317d92:.claude/cloud-profile/skills/playwright-best-practices/advanced/authentication-flows.md:generic-api-key:54

@@ -186,7 +186,7 @@ the client publishable key (build-time, app bundle only) or
 
 `WORKER_DOCUMENT_EXTRACTOR_MODE`, `WORKER_SHADOW_EXTRACTION_COHORT_PERCENT` and
 `WORKER_DOCLING_PYTHON_BIN` are documented in full in [§3](#3-docling-shadow-extraction-packet-b4--default-off):
-preconditions, safe values, the cost cap, what to watch, and the one-step rollback. The
+preconditions, safe values, the cost cap, what to watch, and the two-step rollback. The
 shipped default is `legacy` and nothing in this run recipe enables it.
 
 ---
@@ -257,17 +257,36 @@ duration of the docling run (up to 120 s) before the final metadata merge and
    and sets `WORKER_DOCLING_PYTHON_BIN`, `DOCLING_ARTIFACTS_PATH`, `TORCHDYNAMO_DISABLE=1`
    and `HF_HUB_OFFLINE=1`. On an older image that variable is unset and **every** cohort
    document records `runtime_unavailable` while legacy indexing continues normally.
-2. **Memory headroom of roughly 1.5 GiB above the worker's current peak.** Gate B measured
-   docling peak RSS **1,504,313,344 B (~1.40 GiB)** against the lab's 6 GiB cap. Docling runs
-   as a _separate_ process while the Node worker still holds the PDF buffer, so what matters
-   is headroom above today's peak, not a total figure. **How to check:** Railway → project
-   `Database` → `worker` service → **Metrics** → memory across a busy ingest window, and the
-   service's memory limit under the current plan. Neither the limit nor the observed peak is
-   recorded in this repository; reading them is an operator dashboard action. This is the
-   precondition that matters most, because a container OOM kill during the docling window is
-   the one failure the fail-open code cannot catch — the index is already committed, but the
-   job would sit `processing` until the 45-minute stale reclaim
-   (`WORKER_STALE_AFTER_MINUTES`) and burn an attempt.
+2. **Memory headroom of roughly 1.5 GiB above the worker's current peak — measured 2026-08-21
+   and comfortably satisfied.** Gate B measured docling peak RSS **1,504,313,344 B (~1.40 GiB)**
+   against the lab's 6 GiB cap. Docling runs as a _separate_ process while the Node worker still
+   holds the PDF buffer, so what matters is headroom above today's peak, not a total figure.
+
+   Read from the Railway `worker` service (production), 7-day window, 10,081 samples:
+
+   | Measure              | Value                |
+   | -------------------- | -------------------- |
+   | Memory limit         | **24 GB**            |
+   | Memory peak (7 days) | **0.566 GB**         |
+   | Memory average       | 0.139 GB             |
+   | Headroom above peak  | **~23.4 GB**         |
+   | vCPU limit           | 24 (peak usage 0.40) |
+
+   That is roughly fifteen times the ~1.5 GiB the docling process needs, so the 2026-08-21
+   measurement is a baseline, not a standing waiver. **Re-check memory headroom across a busy
+   ingest window immediately before every shadow enablement, and again after any worker image,
+   workload, `WORKER_CONCURRENCY`, service plan, or resource-limit change.** It is the precondition
+   that matters most, because a container OOM kill during the docling window is the one failure
+   the fail-open code cannot catch: the index is already committed, but the job would sit
+   `processing` until the 45-minute stale reclaim (`WORKER_STALE_AFTER_MINUTES`) and burn an
+   attempt. **How to re-check:** Railway → project `Database` → `worker` service → **Metrics**,
+   memory across a busy ingest window.
+
+   One caveat on the cost model in §3.4: Gate B measured 9–19 s/doc on **2 CPUs**, and this
+   service reports a 24 vCPU limit. Do not assume the wall-clock will scale down proportionally
+   — docling runs eager (`TORCHDYNAMO_DISABLE=1`) and single-process, so extra cores may buy
+   little. Treat §3.4 as unchanged until real `wall_ms` values say otherwise.
+
 3. **Confirm `WORKER_CONCURRENCY` is 1** (the shipped default). At most one docling process
    runs per worker regardless of concurrency; with concurrency above 1 the extra cohort hits
    record `skipped_concurrent` instead of measuring anything.
@@ -359,11 +378,14 @@ outside the Gate B authorisation, and they are the cap this section exists to st
    Leave `WORKER_SHADOW_EXTRACTION_COHORT_PERCENT` unset (it defaults to `2`) or set it to `2`
    explicitly. Leave `WORKER_DOCLING_PYTHON_BIN` alone — the image sets it.
 
-3. Redeploy or restart the service so the new environment is parsed.
+3. **Deploy.** A variable change alone does not restart a running container on Railway, and
+   the worker reads this mode once at process start — so the setting does nothing until a new
+   deployment starts. Use Railway's apply/redeploy action. The same two-step rule applies to
+   the rollback (§3.7).
 4. Confirm the startup line in the worker logs:
 
    ```text
-   Docling shadow extraction enabled (packet B4): cohort 2% of index-quality-selected PDFs after legacy commit; aggregate metadata only. Rollback: WORKER_DOCUMENT_EXTRACTOR_MODE=legacy.
+   Docling shadow extraction enabled (packet B4): cohort 2% of index-quality-selected PDFs after legacy commit; aggregate metadata only. Rollback: set WORKER_DOCUMENT_EXTRACTOR_MODE=legacy, then deploy.
    ```
 
    A following `Docling shadow prerequisite warning (shadow extraction will fail open): …`
@@ -422,7 +444,7 @@ a full reindex is run (§3.4). Zero records on a quiet queue is normal.
 `wall_ms` and `peak_rss_bytes` are the two fields that decide whether the cost model in §3.4
 survived contact with the real corpus. Read them first.
 
-### 3.7 Rollback triggers and the one-step rollback
+### 3.7 Rollback triggers and the two-step rollback
 
 **Roll back immediately, diagnose afterwards, if any of these occur.**
 
@@ -441,7 +463,7 @@ survived contact with the real corpus. Read them first.
    number; agree it with the owner or replace it.
 6. `peak_rss_bytes` sustained above the headroom confirmed in §3.2.
 
-**The one-step rollback.** On the Railway `worker` service, set:
+**The two-step rollback.** On the Railway `worker` service, set:
 
 ```text
 WORKER_DOCUMENT_EXTRACTOR_MODE=legacy
@@ -449,13 +471,23 @@ WORKER_DOCUMENT_EXTRACTOR_MODE=legacy
 
 Deleting the variable entirely is equivalent — the schema default is `legacy`.
 
-**Time to take effect.** The mode is parsed once at process start, so it applies from the next
-worker restart. The container sets `STOPSIGNAL SIGTERM` and drains its active batch before
-exiting 0 (§1), so the worst-case worker-side delay is the current batch plus at most one
-120-second docling window. Railway's own behaviour on a variable change — restart versus a
-full rebuild — is **not** recorded in this repository; confirm it in the dashboard, and budget
-for a rebuild if that is what it does. No migration, no reindex, and no code or image change
-is required.
+**Time to take effect — and the trap in it.** Setting the variable is **not** by itself the
+rollback. Railway's documentation is explicit: _"Containers read environment variables only at
+startup, so a variable change never restarts a running container by itself; the new value only
+exists inside the new deployment"_
+([rotate-credentials-zero-downtime](https://docs.railway.com/guides/rotate-credentials-zero-downtime#how-variable-changes-apply-on-railway),
+read 2026-08-21). The worker parses `WORKER_DOCUMENT_EXTRACTOR_MODE` once at process start and
+matches that behaviour exactly.
+
+So a rollback is **two** steps, and stopping after the first leaves docling still running:
+
+1. Set `WORKER_DOCUMENT_EXTRACTOR_MODE=legacy` on the `worker` service.
+2. **Deploy.** Use Railway's apply/redeploy action so a new deployment starts with the new value.
+
+Once the new deployment starts, the outgoing container gets `STOPSIGNAL SIGTERM` and drains its
+active batch before exiting 0 (§1), so the worst-case worker-side delay is the current batch plus
+at most one 120-second docling window. No migration, no reindex, and no code or image change is
+required.
 
 Existing `shadow_extraction` records stay on their document rows as inert history. Nothing
 reads them, and nothing in the repository clears them.
@@ -532,7 +564,7 @@ The second Gate B caveat is already load-bearing above: docling's eager-mode lat
 ## Rollback
 
 This section is the **image** rollback. To turn off docling shadow extraction without
-changing the image, use the one-step flag rollback in §3.7 instead.
+changing the image, use the two-step flag rollback in §3.7 instead.
 
 Redeploy the previous image tag. The worker holds no durable local state; all
 artifact writes are idempotent per generation/chunk-key, and completion is
