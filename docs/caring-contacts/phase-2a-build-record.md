@@ -1598,3 +1598,82 @@ An empty LIST read records `allowed`, not `denied`. The stores deliberately make
 indistinguishable from matching-nothing, and "the read was permitted and matched nothing" is the
 truthful record. Single-object reads are unaffected. FLAG FOR THE FINAL REVIEW as a known and
 deliberate property.
+
+### Task 14 task review — NEEDS FIXES, two Important, and one of them is the good kind of finding
+
+Everything structural passed, and the reviewer checked rather than assumed: all ten routes present with
+their own hunks; `recordAccess` in exactly one place, proven by `grep -rn "recordAccess" src/app/api/`
+returning **nothing**, so no route can forget it; the status map exact and total against the real
+`REPOSITORY_REFUSALS` literals, with `?? UNPROCESSABLE` catching the unmapped case rather than a 500;
+`no-store` on all four exit paths; no patient data in any URL; Next 16's `params` promise verified
+against the actual route-handler documentation; and — the check I most wanted — **no boundary capability
+is stricter than the store's**, verified action by action rather than by sampling.
+
+Three things the implementer did that were not asked for and are right: releasing nothing (503) when the
+audit trail cannot take the event, rather than serving an unaudited read; shaping the Ruling 43
+narrowing as an explicit "withheld" branch carrying the sealed decision's own reason instead of an
+emptied field; and writing a mutation that falsifies the ruling's SECOND half — that a foreign team
+still sees the stop — which is the half that actually protects the safety property and which nobody
+asked for.
+
+### Important 1 — the audited actor could switch off their own audit record, from the wire
+
+This is the most valuable finding of the whole task and it is worth stating plainly, because it is a
+shape that will recur.
+
+Ruling 45 requires the boundary-denial record to be unblockable, so the handler deliberately ignores the
+result of recording it. But the `objectId` it records comes straight from unvalidated wire input, typed
+only `z.string().min(1)`. The access-audit module enforces a strict id grammar and REJECTS anything
+outside it. That rejection propagates out of the store, is caught at the boundary, and is discarded —
+by design, because the record must not be blockable.
+
+So `POST /api/caring-contacts/pathway-versions` with `pathwayVersionId: "SYN PATHWAY 001"` returns 403
+with **zero audit events**. A caller suppresses the record of their own refused privileged action by
+typing a space.
+
+**The general lesson: "this append is unblockable, so ignore its failure" and "this append validates its
+input" are individually correct and jointly a hole.** Ignoring the failure is what makes the validation
+silent. Either property alone is safe; the pair is not.
+
+The fix is both halves and neither alone: constrain the identifier fields at the route schemas to the
+grammar the audit module already enforces, so a malformed id gets a clean 400 and never enters the audit
+path — AND substitute a constant safe `objectId` if a shape would still be rejected, so the event is
+recorded whatever the caller sent. The first is the clean answer; the second is what makes the invariant
+undefeatable by a shape nobody anticipated.
+
+### Important 2 — the audit-review surface silently answered a different question
+
+`access-trail` used a parse-or-default helper whose underlying reader returns `null` on malformed JSON;
+`z.unknown()` accepts `null`, and the nullish fallback then produced the schema defaults. So a malformed
+body was answered with the BROADEST default window — limit 100, no filters — rather than the 400 the
+route's own comment promised. Only a well-formed body that failed the query schema ever reached the
+refusal.
+
+Wrong anywhere; worse here. This is the surface an auditor uses, and it returned an authoritative-looking
+answer to a question nobody asked.
+
+### Ruling 49 — two refusals move from 422 to 409
+
+Ruling: [49] `referral-already-exists` and `pathway-version-already-exists` map to **409**, not the 422
+the brief's fallback gives them. — Why: they are duplicate-identifier conflicts of exactly the kind the
+three refusals the brief explicitly names as 409 describe. The brief's enumeration named the refusals
+that existed when it was written; keeping a fourth and fifth of the same kind at 422 would make the
+API's status codes describe the plan's drafting history rather than the condition on the wire. This is a
+deliberate deviation from the brief's literal list. — Cost if wrong: two refusal names carry a different
+status. No client exists yet, so nothing depends on either value today.
+
+### Judged and NOT fixed
+
+The opaque 500 on a read that throws. The `failed` access record still names the actor, the object and
+the instant, so the read is not untraceable, and the implementer's reason for not logging the caught
+value — that an exception message could carry record content — is a real constraint rather than an
+excuse. Revisit with the production shell, logging a redacted code rather than the caught value. The
+reviewer independently reached the same conclusion.
+
+### Recorded, deliberately unchanged
+
+An idempotent replay through the boundary produces ZERO audit events, because the store returns the
+cached result before building one. That is pre-existing store behaviour and it is correct — a replay is
+not a new attempt. But it sits on the edge of Ruling 45's invariant with no test, so the invariant is
+being restated in the handler comment and pinned by a test in its fuller form: **every write attempt
+produces exactly one audit event, and a replay of an already-recorded attempt produces none.**
