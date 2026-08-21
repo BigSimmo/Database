@@ -22,7 +22,7 @@ import {
   ANON_ROLE,
   applyCaringContactsMigrations,
   caringContactsMigrations,
-  createCaringContactsPool,
+  createCaringContactsTestPool,
   dropCaringContactsSchema,
   insertAuditEvent,
   nextAuditToken,
@@ -56,7 +56,7 @@ const PATIENT_BEARING_TABLES: readonly string[] = Object.freeze([
 let pool: Pool;
 
 beforeAll(async () => {
-  pool = createCaringContactsPool();
+  pool = createCaringContactsTestPool();
   await dropCaringContactsSchema(pool);
   await applyCaringContactsMigrations(pool);
 }, 120_000);

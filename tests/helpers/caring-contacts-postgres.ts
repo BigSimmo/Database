@@ -67,7 +67,7 @@ export function caringContactsMigrations(): CaringContactMigration[] {
   }));
 }
 
-export function createCaringContactsPool(): Pool {
+export function createCaringContactsTestPool(): Pool {
   return new Pool({ connectionString: caringContactsDatabaseUrl(), max: 8 });
 }
 

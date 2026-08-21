@@ -39,7 +39,12 @@ describe("caring-contacts domain isolation", () => {
       for (const specifier of importSpecifiers(readFileSync(file, "utf8"))) {
         if (!specifier.startsWith(".")) continue;
         const resolved = path.resolve(path.dirname(file), specifier);
-        if (!resolved.startsWith(DOMAIN_ROOT)) {
+        // A bare `startsWith(DOMAIN_ROOT)` is a string-prefix test, not a path-containment test:
+        // `.../src/lib/caring-contacts-server/config` satisfies it too, because that sibling
+        // directory's name extends this one's as a prefix. Require the separator (or an exact
+        // match on the root itself) so a relative import escaping into caring-contacts-server --
+        // the reverse-direction dependency the plan forbids absolutely -- cannot pass silently.
+        if (resolved !== DOMAIN_ROOT && !resolved.startsWith(DOMAIN_ROOT + path.sep)) {
           offences.push(`${path.relative(process.cwd(), file)} -> ${specifier}`);
         }
       }

@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -31,6 +32,15 @@ describe("demo role switcher", () => {
 
   it("falls back to the coordinator on an unreadable cookie rather than failing", async () => {
     mockCookies = { [CARING_CONTACTS_ROLE_COOKIE]: { value: "administrator" } };
+    await expect(resolveDemoActor()).resolves.toMatchObject({ roles: ["coordinator"] });
+  });
+
+  // Review round 1, Minor 4: only an unrecognised cookie VALUE fell back before this test. A
+  // throw from cookies() itself (or from .get()) used to propagate straight out of
+  // resolveDemoActor -- exactly the locked-out-of-a-demonstration outcome the fallback rule
+  // exists to prevent.
+  it("falls back to the coordinator when the cookie read itself fails, not only on an unrecognised value", async () => {
+    vi.mocked(cookies).mockRejectedValueOnce(new Error("cookies() unavailable in this context"));
     await expect(resolveDemoActor()).resolves.toMatchObject({ roles: ["coordinator"] });
   });
 

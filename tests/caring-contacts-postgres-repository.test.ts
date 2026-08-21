@@ -28,7 +28,7 @@ import type { Actor } from "@/lib/caring-contacts/permissions";
 import { describeCaringContactRepositoryContract } from "./helpers/caring-contacts-repository-contract";
 import {
   applyCaringContactsMigrations,
-  createCaringContactsPool,
+  createCaringContactsTestPool,
   dropCaringContactsSchema,
   poolAsSqlConnectionPool,
   truncateCaringContactsData,
@@ -37,7 +37,7 @@ import {
 let pool: Pool;
 
 beforeAll(async () => {
-  pool = createCaringContactsPool();
+  pool = createCaringContactsTestPool();
   await dropCaringContactsSchema(pool);
   await applyCaringContactsMigrations(pool);
 }, 120_000);

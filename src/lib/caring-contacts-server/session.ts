@@ -44,11 +44,22 @@ export function demoActorForRole(role: CaringContactRole): Actor {
 
 /**
  * Reads the demo role cookie and resolves the actor it names. Falls back to the coordinator for
- * anything unreadable rather than throwing -- see the module note above.
+ * anything unreadable rather than throwing -- see the module note above. That includes the read
+ * itself failing (`cookies()` rejecting, or `.get()` throwing), not only an unrecognised value:
+ * a caller that let either propagate would produce exactly the locked-out-of-a-demonstration
+ * outcome this fallback exists to prevent.
  */
 export async function resolveDemoActor(): Promise<Actor> {
-  const cookieStore = await cookies();
-  const raw = cookieStore.get(CARING_CONTACTS_ROLE_COOKIE)?.value;
-  const role = isDemoRole(raw) ? raw : DEFAULT_DEMO_ROLE;
+  const role = await readDemoRoleCookie();
   return demoActorForRole(role);
+}
+
+async function readDemoRoleCookie(): Promise<CaringContactRole> {
+  try {
+    const cookieStore = await cookies();
+    const raw = cookieStore.get(CARING_CONTACTS_ROLE_COOKIE)?.value;
+    return isDemoRole(raw) ? raw : DEFAULT_DEMO_ROLE;
+  } catch {
+    return DEFAULT_DEMO_ROLE;
+  }
 }

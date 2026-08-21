@@ -48,16 +48,22 @@ export function caringContactsDataMode(): CaringContactsDataMode {
  * either check compares it against -- in the thrown message.
  */
 export function assertNotClinicalKbProject(url: string): void {
-  if (url.includes(CLINICAL_KB_PROJECT_REF)) {
+  // Case-insensitive: DNS hostnames are case-insensitive, so a connection string spelled with a
+  // different case for the project reference resolves to the identical live Clinical KB host --
+  // and a case-sensitive check here would be the exact bypass this function exists to close.
+  if (url.toLowerCase().includes(CLINICAL_KB_PROJECT_REF)) {
     throw new CaringContactsProjectSeparationError(
       `${CARING_CONTACTS_DATABASE_URL_VAR} names the pinned Clinical KB project reference. ` +
         "Caring Contacts must run against its own database, never the live Clinical KB project.",
     );
   }
 
+  // Trimmed on both sides: two connection strings that differ only by surrounding whitespace are
+  // the same connection, and an untrimmed comparison would let that whitespace hide a collision.
+  const trimmedUrl = url.trim();
   const collidesWith = CLINICAL_KB_DATABASE_URL_VARS.find((name) => {
-    const clinicalKbValue = process.env[name];
-    return clinicalKbValue !== undefined && clinicalKbValue === url;
+    const clinicalKbValue = process.env[name]?.trim();
+    return clinicalKbValue !== undefined && clinicalKbValue !== "" && clinicalKbValue === trimmedUrl;
   });
   if (collidesWith) {
     throw new CaringContactsProjectSeparationError(

@@ -45,11 +45,15 @@ export async function POST(request: Request) {
     cookieStore.set(CARING_CONTACTS_ROLE_COOKIE, body.role, {
       httpOnly: true,
       sameSite: "lax",
+      secure: true,
       path: "/",
     });
 
     return Response.json({ role: actor.roles[0] });
   } catch (error) {
-    return jsonError(error);
+    // The only error this handler can realistically throw is the 400 PublicApiError
+    // setRoleSchema raises on an invalid role -- an expected client mistake, not a fault, so it
+    // should not write an error log the way a genuine server fault would elsewhere in this repo.
+    return jsonError(error, 500, { log: false });
   }
 }
