@@ -281,6 +281,94 @@ describe("repository-wide heavyweight lock", () => {
     first.release();
   });
 
+  it("fails a blocked Playwright run instead of accepting an empty pass-with-no-tests result", () => {
+    const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+    const baseDirectory = temporaryDirectory("clinical-kb-playwright-admission-");
+    const repositoryIdentity = testRunLockInternals.resolveRepositoryIdentity(projectRoot);
+    const blockingLock = acquireHeavyRunLock({
+      projectRoot: path.join(baseDirectory, "other-worktree"),
+      repositoryIdentity,
+      baseDirectory,
+      environment: {},
+      command: "other worktree Playwright run",
+    });
+    const childEnvironment: NodeJS.ProcessEnv = {
+      ...process.env,
+      HEAVY_RUN_WAIT_TIMEOUT_MS: "0",
+      TEMP: baseDirectory,
+      TMP: baseDirectory,
+      TMPDIR: baseDirectory,
+      // The runner must reach lease admission before attempting a browser launch.
+      // A real browser is deliberately unnecessary because the foreign lease
+      // rejects this invocation first.
+      PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: process.execPath,
+    };
+    delete childEnvironment[testRunLockInternals.tokenEnvironmentKey];
+    delete childEnvironment[testRunLockInternals.pathEnvironmentKey];
+
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [
+          "scripts/run-playwright.mjs",
+          "--project=chromium",
+          "--grep",
+          "clinical-kb-never-matches",
+          "--pass-with-no-tests",
+        ],
+        { cwd: projectRoot, encoding: "utf8", env: childEnvironment },
+      );
+      const output = `${result.stdout}${result.stderr}`;
+
+      expect(childProcessExitCode(result)).toBe(75);
+      expect(output).toContain("DATABASE_HEAVY_RUN_ADMISSION_BUSY");
+      expect(output).toContain("Playwright did not run: Another Database heavyweight command is active");
+      expect(output).toContain("Wait for the active heavyweight run to finish, then retry this command.");
+      expect(output).not.toContain("Building isolated production Playwright app");
+      expect(output).not.toMatch(/\b0 passed\b/);
+    } finally {
+      blockingLock.release();
+    }
+  });
+
+  it("does not mistake a mismatched inherited lease for admission contention", () => {
+    const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+    const baseDirectory = temporaryDirectory("clinical-kb-playwright-inherited-mismatch-");
+    const childEnvironment: NodeJS.ProcessEnv = {
+      ...process.env,
+      TEMP: baseDirectory,
+      TMP: baseDirectory,
+      TMPDIR: baseDirectory,
+      // A real browser is unnecessary: the mismatched inherited lease throws
+      // before any launch attempt.
+      PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: process.execPath,
+      // Point the inherited lock env vars at a path/token that cannot belong to
+      // this repository's coordinator. This reproduces a configuration error
+      // (a stale or foreign inherited lease), not admission contention — the
+      // busy matcher must not swallow it into a "wait and retry" exit.
+      [testRunLockInternals.tokenEnvironmentKey]: "mismatched-token",
+      [testRunLockInternals.pathEnvironmentKey]: path.join(baseDirectory, "unrelated-lease-path"),
+    };
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        "scripts/run-playwright.mjs",
+        "--project=chromium",
+        "--grep",
+        "clinical-kb-never-matches",
+        "--pass-with-no-tests",
+      ],
+      { cwd: projectRoot, encoding: "utf8", env: childEnvironment },
+    );
+    const output = `${result.stdout}${result.stderr}`;
+
+    expect(childProcessExitCode(result)).toBe(1);
+    expect(output).not.toContain("DATABASE_HEAVY_RUN_ADMISSION_BUSY");
+    expect(output).toContain("The inherited Database heavyweight-run lease does not match this repository.");
+    expect(output).not.toContain("Wait for the active heavyweight run to finish, then retry this command.");
+  });
+
   it("admits two focused leases from different worktrees while keeping heavyweight work exclusive", () => {
     const baseDirectory = temporaryDirectory("clinical-kb-shared-lock-");
     const repositoryIdentity = path.join(baseDirectory, "shared.git");
