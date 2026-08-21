@@ -464,12 +464,30 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     const result = inFlightCiGuard(["claude/my-fix"], [], {
       prViewer: () => ({ state: "OPEN", number: 77 }),
       runFetcher: () => runs,
+      // Without this the guard fails open at the `gh --version` probe and never reaches the
+      // formatting under test, so the case would assert nothing on any machine that has no
+      // `gh` on PATH — green in CI, red in a bare container, for no product reason.
+      ghAvailable: () => true,
     });
     expect(result.ok).toBe(false);
     expect(result.message).toContain("PR #77 on claude/my-fix has required CI run(s) currently IN-FLIGHT");
     expect(result.message).toContain("Run 555: CI (in_progress) https://github.com/run/555");
     expect(result.message).toContain("SKIP_IN_FLIGHT_CI_GUARD=1 git push");
     expect(result.message).toContain("#HSSHRG");
+  });
+
+  it("inFlightCiGuard fails open when gh is unavailable", () => {
+    const result = inFlightCiGuard(["claude/my-fix"], [], {
+      prViewer: () => {
+        throw new Error("prViewer must not be consulted without gh");
+      },
+      runFetcher: () => {
+        throw new Error("runFetcher must not be consulted without gh");
+      },
+      ghAvailable: () => false,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.note).toContain("gh not available");
   });
 
   it("inFlightCiGuard skips when SKIP_IN_FLIGHT_CI_GUARD=1 is set", () => {
