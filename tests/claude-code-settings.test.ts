@@ -130,6 +130,89 @@ describe("claude code permissions", () => {
   });
 });
 
+/**
+ * Loosening `Bash(git push:*)`, `Bash(git add:*)`, and `Bash(gh pr create:*)` for routine
+ * work (PR #2243) opened three gaps review caught, all on this same permissions file:
+ *
+ * 1. The generic push allow rule also matches a `HEAD:main` (or `<branch>:main`) destination
+ *    refspec, not just a literal `main`/`master` source ref — the existing deny rules only
+ *    covered the latter shape.
+ * 2. The generic `git add` allow rule also matches `git add -f`/`--force`, which force-stages
+ *    an otherwise-.gitignore'd file (e.g. `.env.local`) with no confirmation.
+ * 3. `gh pr create` was blanket-allowed, letting an agent open a PR and trigger hosted CI
+ *    without the confirmation provider-backed GitHub writes otherwise require.
+ *
+ * These tests pin the fixes using the same `bashRuleMatches` prefix-match model above, and
+ * additionally assert that the broader loosened rule still matches the dangerous command —
+ * proving the narrower deny/ask rule is what closes the gap via precedence, not merely the
+ * absence of an allow match (see the docstring above on why that distinction matters).
+ */
+describe("git push HEAD:main destination-refspec tightening", () => {
+  const dangerousPushCommands = [
+    "git push origin HEAD:main",
+    "git push origin HEAD:main --force-with-lease",
+    "git push origin HEAD:master",
+  ];
+
+  it.each(dangerousPushCommands)("%s is matched by a deny rule", (command) => {
+    const deny = settings.permissions.deny as string[];
+    const matched = deny.filter((rule) => bashRuleMatches(rule, command));
+    expect(
+      matched.length,
+      `${command} pushes to the protected main/master branch via an explicit refspec ` +
+        `destination even though the source ref is not literally "main" — it must stay denied`,
+    ).toBeGreaterThan(0);
+  });
+
+  it.each(dangerousPushCommands)(
+    "%s is still matched by the generic push allow rule (deny must win via precedence)",
+    (command) => {
+      const allow = settings.permissions.allow as string[];
+      const matched = allow.some((rule) => bashRuleMatches(rule, command));
+      expect(
+        matched,
+        `${command} should still be reachable by Bash(git push:*) — this test only holds if ` +
+          `the deny match above is what blocks it, not an absence of an allow match`,
+      ).toBe(true);
+    },
+  );
+});
+
+describe("git add forced-staging tightening", () => {
+  const forcedAddCommands = ["git add -f .env.local", "git add --force .env.local"];
+
+  it.each(forcedAddCommands)("%s carries an explicit ask rule", (command) => {
+    const asked = (settings.permissions.ask as string[]).filter((rule) => bashRuleMatches(rule, command));
+    expect(
+      asked.length,
+      `${command} force-stages an ignored file, which combined with the now-allowed git commit/push ` +
+        `is a path to publishing credentials — it must require confirmation`,
+    ).toBeGreaterThan(0);
+  });
+
+  it.each(forcedAddCommands)(
+    "%s is still matched by the generic git add allow rule (ask must win via precedence)",
+    (command) => {
+      const allowed = (settings.permissions.allow as string[]).filter((rule) => bashRuleMatches(rule, command));
+      expect(allowed.length).toBeGreaterThan(0);
+    },
+  );
+});
+
+describe("gh pr create requires confirmation", () => {
+  const command = "gh pr create --fill";
+
+  it("is not reachable through an allow rule", () => {
+    const allowed = (settings.permissions.allow as string[]).filter((rule) => bashRuleMatches(rule, command));
+    expect(allowed, `${command} must not be blanket-allowed — it publishes a PR and triggers hosted CI`).toEqual([]);
+  });
+
+  it("carries an explicit ask rule", () => {
+    const asked = (settings.permissions.ask as string[]).filter((rule) => bashRuleMatches(rule, command));
+    expect(asked.length).toBeGreaterThan(0);
+  });
+});
+
 describe("claude hook registrations", () => {
   const commands: { event: string; command: string }[] = [];
   for (const [event, matchers] of Object.entries(
