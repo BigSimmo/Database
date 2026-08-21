@@ -365,6 +365,31 @@ export function verifyWorktreeSafetyBeforeRemove(
 }
 
 /**
+ * The actual confirmation gate. `--remove` is reachable from any agent session in any
+ * worktree on this machine (Claude Code, Codex, Antigravity/Gemini — only Claude Code's own
+ * permission config in .claude/settings.json can gate a Bash call before it runs, and that
+ * file governs nothing outside Claude Code). A worktree destroyed here has no local reflog of
+ * its own to recover from, so the actual deletion needs a second, tool-agnostic gate that only
+ * a human sets: CLEAN_WORKTREE_CONFIRM=1 in the invoking shell. No default flips this on.
+ *
+ * Called from BOTH `parseArgs` (so a CLI run without the confirm var fails fast, before it
+ * even lists candidates) AND `runMergedWorktreeReport` immediately before the deletion loop —
+ * the CLI is not the only caller: `runMergedWorktreeReport` is exported and any programmatic
+ * caller (a test, another script) can pass `{ remove: true, dryRun: false }` directly, bypassing
+ * `parseArgs` entirely. A single check living only in `parseArgs` would leave that path able to
+ * delete worktrees with no confirmation at all.
+ */
+function assertRemovalConfirmed(remove, dryRun) {
+  if (remove && !dryRun && process.env.CLEAN_WORKTREE_CONFIRM !== "1") {
+    throw new Error(
+      "--remove refused: set CLEAN_WORKTREE_CONFIRM=1 in your shell to confirm you (a human) reviewed the " +
+        "candidate list above and want these worktrees deleted. This gate exists because a worktree removed " +
+        "here has no reflog of its own — see AGENTS.md 'Worktree sweep destroys live work'.",
+    );
+  }
+}
+
+/**
  * Parse CLI arguments for batch size and flags.
  *
  * `--merged` is deliberately list-only. `--remove` is a separate opt-in that is meaningless
@@ -439,24 +464,11 @@ export function parseArgs(argv) {
   if (remove && !merged) {
     throw new Error("--remove is only valid together with --merged. Run `--merged` alone to list candidates first.");
   }
-  // `--remove` is reachable from any agent session in any worktree on this machine (Claude
-  // Code, Codex, Antigravity/Gemini — only Claude Code's own permission config in
-  // .claude/settings.json can gate a Bash call before it runs, and that file governs nothing
-  // outside Claude Code). A worktree destroyed here has no local reflog of its own to recover
-  // from, so the actual deletion needs a second, tool-agnostic gate that only a human sets:
-  // CLEAN_WORKTREE_CONFIRM=1 in the invoking shell. No default flips this on. Listing
-  // candidates (`--merged` without `--remove`) is unaffected and needs no env var. `--dry-run`
-  // already documents that it "wins over --remove" (see printHelp below) and never deletes
-  // anything, so it must not be gated behind the same confirmation as the real deletion path —
-  // otherwise the safe preflight an operator runs specifically to review candidates before
-  // setting CLEAN_WORKTREE_CONFIRM=1 would itself refuse to run.
-  if (remove && !dryRun && process.env.CLEAN_WORKTREE_CONFIRM !== "1") {
-    throw new Error(
-      "--remove refused: set CLEAN_WORKTREE_CONFIRM=1 in your shell to confirm you (a human) reviewed the " +
-        "candidate list above and want these worktrees deleted. This gate exists because a worktree removed " +
-        "here has no reflog of its own — see AGENTS.md 'Worktree sweep destroys live work'.",
-    );
-  }
+  // Fail fast at the CLI so a run without the confirm var doesn't even list candidates.
+  // `--dry-run` documents that it "wins over --remove" (see printHelp below) and never
+  // deletes anything, so `assertRemovalConfirmed` exempts it — the safe preflight preview an
+  // operator runs before setting CLEAN_WORKTREE_CONFIRM=1 for real must stay usable.
+  assertRemovalConfirmed(remove, dryRun);
   if (squashed && !merged) {
     throw new Error("--squashed is only valid together with --merged.");
   }
@@ -709,29 +721,33 @@ export function selfTest() {
   if (!args3.merged || args3.remove) {
     throw new Error("selfTest failed: --merged must default to list-only (remove=false)");
   }
-  let unconfirmedRemoveThrew = false;
+  // One outer try/finally for the whole CLEAN_WORKTREE_CONFIRM cycle: if any assertion in
+  // here throws (including the negative one right below), the real env var must still be
+  // restored before selfTest() exits, or a caller running selfTest() inside a longer-lived
+  // process (not a one-shot CLI invocation) inherits a deleted CLEAN_WORKTREE_CONFIRM.
   const savedConfirm = process.env.CLEAN_WORKTREE_CONFIRM;
-  delete process.env.CLEAN_WORKTREE_CONFIRM;
-  try {
-    parseArgs(["--merged", "--remove"]);
-  } catch {
-    unconfirmedRemoveThrew = true;
-  }
-  if (!unconfirmedRemoveThrew) {
-    throw new Error("selfTest failed: --merged --remove without CLEAN_WORKTREE_CONFIRM=1 must refuse");
-  }
-
-  // `--dry-run` can delete nothing, so it must stay usable as a preflight preview without the
-  // confirm var — this was the actual P2 Codex found: the gate above fired before dry-run got
-  // a chance to win.
-  const dryRunArgs = parseArgs(["--merged", "--remove", "--dry-run"]);
-  if (!dryRunArgs.merged || !dryRunArgs.remove || !dryRunArgs.dryRun) {
-    throw new Error("selfTest failed: --merged --remove --dry-run without CLEAN_WORKTREE_CONFIRM=1 must still parse");
-  }
-
-  process.env.CLEAN_WORKTREE_CONFIRM = "1";
   let args4;
   try {
+    delete process.env.CLEAN_WORKTREE_CONFIRM;
+    let unconfirmedRemoveThrew = false;
+    try {
+      parseArgs(["--merged", "--remove"]);
+    } catch {
+      unconfirmedRemoveThrew = true;
+    }
+    if (!unconfirmedRemoveThrew) {
+      throw new Error("selfTest failed: --merged --remove without CLEAN_WORKTREE_CONFIRM=1 must refuse");
+    }
+
+    // `--dry-run` can delete nothing, so it must stay usable as a preflight preview without
+    // the confirm var — this was the actual P2 Codex found: the gate above fired before
+    // dry-run got a chance to win.
+    const dryRunArgs = parseArgs(["--merged", "--remove", "--dry-run"]);
+    if (!dryRunArgs.merged || !dryRunArgs.remove || !dryRunArgs.dryRun) {
+      throw new Error("selfTest failed: --merged --remove --dry-run without CLEAN_WORKTREE_CONFIRM=1 must still parse");
+    }
+
+    process.env.CLEAN_WORKTREE_CONFIRM = "1";
     args4 = parseArgs(["--merged", "--remove"]);
   } finally {
     if (savedConfirm === undefined) delete process.env.CLEAN_WORKTREE_CONFIRM;
@@ -1087,6 +1103,11 @@ export function runMergedWorktreeReport(options = {}) {
     }
     return;
   }
+
+  // Re-assert at the deletion boundary itself, not just at CLI parse time: this function is
+  // exported and a programmatic caller can reach here with `{ remove: true, dryRun: false }`
+  // without ever going through `parseArgs`.
+  assertRemovalConfirmed(remove, dryRun);
 
   const batch = candidates.slice(0, batchSize);
   console.log(
