@@ -511,12 +511,15 @@ export function DictionaryCataloguePage() {
               ) : (
                 <BookOpenText className="mx-auto size-icon-xl text-[color:var(--decoration-soft)]" aria-hidden="true" />
               )}
+              {/* The noun follows the scope, exactly as the count line does: an
+                  abbreviations list reporting "No terms under Z" names a
+                  catalogue the reader is not looking at. */}
               <h2 className="mt-3 text-lg font-extrabold text-[color:var(--text-heading)]">
                 {searching
                   ? "No matching dictionary entries"
                   : params.letter === "all"
-                    ? "No terms match these filters"
-                    : `No terms under ${params.letter}`}
+                    ? `No ${catalogueNoun(params.scope, 0)} match these filters`
+                    : `No ${catalogueNoun(params.scope, 0)} under ${params.letter}`}
               </h2>
               <p className="mx-auto mt-1 max-w-md text-sm text-[color:var(--text-muted)]">
                 {searching
@@ -577,7 +580,13 @@ export function DictionaryCataloguePage() {
         chromeResetKey={params.q}
       />
       <ResultFilterSheet
-        open={letterOpen}
+        // The alphabet stands down during a search, and the chip that opens this
+        // sheet unmounts with it — but `letterOpen` is component state, so a
+        // history navigation onto a searched URL changes `params.q` without
+        // closing an already-open sheet. It would then offer a letter that
+        // `dictionaryCatalogue` deliberately ignores: the same invisible-and-
+        // inert filter the chip's own comment exists to prevent.
+        open={letterOpen && !searching}
         onClose={() => setLetterOpen(false)}
         panelId="dictionary-letter-sheet"
         testId="dictionary-letter-sheet"
