@@ -239,6 +239,18 @@ describe("CI cache safety", () => {
     expect(concurrency).toContain("cancel-in-progress: ${{ github.event_name != 'push' }}");
     expect(concurrency).not.toContain("cancel-in-progress: true");
 
+    // `cancel-in-progress: false` is necessary and NOT sufficient. GitHub keeps at most one
+    // PENDING run per concurrency group, so a queued main run is cancelled the moment a newer
+    // merge queues behind the same group — no supersession involved, and the exemption above
+    // never sees it. Observed 2026-08-20: four consecutive main pushes cancelled while a
+    // ~70-minute release-browser-matrix held `CI-refs/heads/main`. A per-run group for pushes
+    // is the part that actually keeps every merged commit verified.
+    expect(concurrency).toContain("github.event_name == 'push'");
+    expect(
+      concurrency,
+      "base-branch pushes must key concurrency on github.run_id, or a later merge evicts the pending run",
+    ).toMatch(/group:.*github\.event_name == 'push'.*github\.run_id/s);
+
     // `on.push.branches` is what makes `event_name == 'push'` mean "base branch" — if a push
     // trigger is ever widened to feature branches, this exemption silently stops being scoped
     // and every branch keeps its superseded runs alive.
