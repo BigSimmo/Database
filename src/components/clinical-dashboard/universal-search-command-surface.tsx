@@ -996,6 +996,11 @@ export function UniversalSearchCommandSurface({
       return;
     }
     if (event.key === "Escape") {
+      // The composer input is `type="search"`, so Chromium treats Escape as the
+      // native "clear the search field" gesture and wipes the query (dispatching
+      // an input event) on the way out. Escape here means "dismiss the dropdown"
+      // and nothing else, so suppress the native behaviour and keep the query.
+      event.preventDefault();
       onDropdownOpenChange(false);
       setActiveIndex(-1);
       return;

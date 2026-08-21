@@ -439,13 +439,13 @@ function QueueView({ role }: { role: WardRole }) {
         <table className={styles.dataTable}>
           <thead>
             <tr>
-              <th>Patient</th>
-              <th>Priority</th>
-              <th>Wait</th>
-              <th>Need</th>
-              <th>Health service</th>
-              <th>Blocker</th>
-              <th>Top candidate</th>
+              <th scope="col">Patient</th>
+              <th scope="col">Priority</th>
+              <th scope="col">Wait</th>
+              <th scope="col">Need</th>
+              <th scope="col">Health service</th>
+              <th scope="col">Blocker</th>
+              <th scope="col">Top candidate</th>
             </tr>
           </thead>
           <tbody>
@@ -515,11 +515,11 @@ function CapacityView() {
       <table className={styles.dataTable}>
         <thead>
           <tr>
-            <th>Unit</th>
-            <th>Health service</th>
-            <th>Capability cue</th>
-            <th>Five bed states</th>
-            <th>Freshness</th>
+            <th scope="col">Unit</th>
+            <th scope="col">Health service</th>
+            <th scope="col">Capability cue</th>
+            <th scope="col">Five bed states</th>
+            <th scope="col">Freshness</th>
           </tr>
         </thead>
         <tbody>

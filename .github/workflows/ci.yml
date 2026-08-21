@@ -25,11 +25,23 @@ concurrency:
   # push to the same ref cannot cancel them mid-flight — release-browser-matrix takes up to
   # 70 minutes and was repeatedly killed by main churn. PR runs keep the shared ref group
   # with cancel-in-progress so superseded heads still stop early.
-  group: ${{ github.workflow }}-${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.run_id || github.ref }}
+  #
+  # Base-branch pushes ALSO get a per-run group, and that is load-bearing rather than cosmetic.
+  # `cancel-in-progress: false` alone does not protect them: GitHub keeps at most ONE pending run
+  # per concurrency group, so when merges arrive faster than a run completes, each newly queued
+  # main run CANCELS the one already waiting. The exemption below was written for supersession and
+  # never covered queue eviction, so main kept landing unverified anyway — observed 2026-08-20,
+  # when `a1c2ced`, `d745d15`, `97f6142` and `1cc0d29` were all cancelled while a ~70-minute
+  # release-browser-matrix held the shared `CI-refs/heads/main` group, and a mobile-/ CLS
+  # regression rode through the gap to surface on an unrelated PR (#2199) hours later.
+  # One group per run means a merged commit is never queued behind, or evicted by, another.
+  group: ${{ github.workflow }}-${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push') && github.run_id || github.ref }}
   # Base-branch pushes are EXEMPT from supersession. `on.push.branches` is [main, release/**],
   # so `event_name == 'push'` is always a base-branch push — a commit that is already merged and
   # can never be superseded by a "newer head" the way a PR branch can. Cancelling those runs
   # does not save redundant work; it destroys the only verification `main` ever gets.
+  # With the per-run group above this is now belt-and-braces for pushes, and it stays because it
+  # is the line that states the intent; it remains the only protection if the group ever changes.
   #
   # Measured 2026-08-18 over the last 30 pushes to main: 23 cancelled (77%), 6 success, 1 failure.
   # main was therefore unverified four times out of five, and three separate defects reached a

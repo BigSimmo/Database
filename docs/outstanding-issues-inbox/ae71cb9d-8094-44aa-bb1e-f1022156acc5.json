@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ae71cb9d-8094-44aa-bb1e-f1022156acc5",
+  "createdOn": "2026-08-20",
+  "action": "update",
+  "payload": {
+    "id": "#4TBHS8",
+    "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987): the specific failure mode recorded here - waiting for the exact text 2 showing inside the tools-search-filter-sheet testid - can no longer occur, because that string has zero occurrences in tests/ui-tools-search-mode-mockup.spec.ts. The test itself still exists and was rewritten. NOT VERIFIED: whether it passes. Re-run before closing. Tracked with #SZGPAH, which names the same file.",
+    "baseRowFingerprint": "288f82d7350037884d343247b685a6d10c29629d241c830758022ab5e82a5e74"
+  }
+}
