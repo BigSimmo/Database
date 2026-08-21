@@ -10,7 +10,7 @@
     "p2": 33,
     "p3": 32,
     "queued": 11,
-    "pending": 3,
+    "pending": 5,
     "resolved": 336
   },
   "queue": [
@@ -743,6 +743,12 @@
   ],
   "pending": [
     {
+      "request_id": "7eab660a-07d4-4a78-86c9-06d71904ec1b",
+      "action": "add",
+      "summary": "No gate can detect a React Server Component boundary violation: a component with an event handler and no \"use client\" throws only at request time",
+      "created_at": "2026-08-21"
+    },
+    {
       "request_id": "a20fc4ce-0608-4939-97c1-f2fb7f8a1285",
       "action": "add",
       "summary": "docling-lab-fixtures.v2: add unruled, merged-cell and rotated-header table fixtures to the Docling lab before any table-quality promotion argument",
@@ -759,6 +765,12 @@
       "action": "add",
       "summary": "live-drift's Align migration history step fails on PGRST106 (supabase_migrations not exposed to PostgREST), so the job stays red and pinned issue #1963 cannot self-close even with zero drift",
       "created_at": "2026-08-19"
+    },
+    {
+      "request_id": "f7a561a7-1fe2-4aaa-bbfc-90d24baecc7a",
+      "action": "add",
+      "summary": "tests/settings-dialog-actions.dom.test.tsx contains an assertion that can never run: data-settings-nav-target is emitted nowhere in src",
+      "created_at": "2026-08-21"
     }
   ]
 }
