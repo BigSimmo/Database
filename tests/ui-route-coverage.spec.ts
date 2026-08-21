@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import type { Route } from "playwright-core";
-import { expect, test, type Page } from "playwright/test";
+import { expect, test, type Locator, type Page } from "playwright/test";
 
 import { demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 import { getDifferentialDetailContext, getDifferentialRecord } from "../src/lib/differentials";
@@ -205,6 +205,33 @@ async function expectNoHorizontalOverflow(page: Page) {
       { timeout: 5_000 },
     )
     .toBeLessThanOrEqual(2);
+}
+
+/**
+ * `gotoApp` settles on `domcontentloaded` and the ready assertions below read
+ * server-rendered markup, so every one of them can pass before React has
+ * hydrated the route. `toBeEnabled()` does not close that gap — the SSR button
+ * is enabled and clickable while its `onClick` is still absent, and a click
+ * landing in that window is simply dropped, leaving the state attribute at its
+ * server value until the assertion times out. That is how the DSM review-lens
+ * step failed on PR #2211's `Production UI (1)` (run 32470201734), where
+ * `aria-pressed` stayed `"false"` for the full 10s on a single resolved button.
+ * Wait for the handler itself before clicking, the same way `ui-smoke.spec.ts`
+ * and `ui-tools.spec.ts` do.
+ */
+async function waitForReactEventHandler(locator: Locator, eventName: "onChange" | "onClick" | "onSubmit" = "onClick") {
+  await expect
+    .poll(
+      async () =>
+        locator.evaluate((element, reactEventName) => {
+          const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
+          if (!propsKey) return false;
+          const props = (element as unknown as Record<string, Record<string, unknown>>)[propsKey];
+          return typeof props?.[reactEventName] === "function";
+        }, eventName),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
 }
 
 async function proveRenderedRoute(
@@ -424,6 +451,14 @@ test.describe("previously uncovered production routes", () => {
           name: "Remove Major depressive disorder from comparison",
         });
         await expect(remove).toBeEnabled();
+        // `DsmCompareRemoveLink` is a `<Link>` whose `onClick` calls
+        // `preventDefault()` and then `window.location.assign(href)`. Before
+        // hydration the anchor is a bare `<a href>`, so a click there races two
+        // different navigations — the browser's native one, or React capturing
+        // the discrete event for replay once the root hydrates — and neither is
+        // guaranteed to leave the URL where this step asserts it. Waiting for
+        // the handler makes the assign hop the only path the click can take.
+        await waitForReactEventHandler(remove);
         await Promise.all([
           currentPage.waitForURL(/\/dsm\/compare\?ids=bipolar-ii-disorder$/, {
             timeout: 30_000,
@@ -447,6 +482,7 @@ test.describe("previously uncovered production routes", () => {
       async (currentPage) => {
         const medicalLens = currentPage.getByRole("button", { name: /Substance \/ medical/ });
         await expect(medicalLens).toBeEnabled();
+        await waitForReactEventHandler(medicalLens);
         await medicalLens.click();
         await expect(medicalLens).toHaveAttribute("aria-pressed", "true");
       },
@@ -468,6 +504,7 @@ test.describe("previously uncovered production routes", () => {
         const before = await selects.evaluateAll((items) => items.map((item) => (item as HTMLSelectElement).value));
         const swap = currentPage.getByRole("button", { name: "Swap compared specifiers" });
         await expect(swap).toBeEnabled();
+        await waitForReactEventHandler(swap);
         await swap.click();
         await expect
           .poll(() => selects.evaluateAll((items) => items.map((item) => (item as HTMLSelectElement).value)))
@@ -487,12 +524,14 @@ test.describe("previously uncovered production routes", () => {
       },
       async (currentPage) => {
         const courseJump = currentPage.getByTestId("specifier-map-jump-course-onset");
+        await waitForReactEventHandler(courseJump);
         await courseJump.click();
         await expect(courseJump).toHaveAttribute("aria-current", "true");
         await expect(currentPage).toHaveURL(/#course-onset$/);
 
         const mixedFeatures = currentPage.getByRole("button", { name: "Mixed features" });
         await expect(mixedFeatures).toBeEnabled();
+        await waitForReactEventHandler(mixedFeatures);
         await mixedFeatures.click();
         await expect(mixedFeatures).toHaveAttribute("aria-pressed", "true");
         await expect(currentPage.getByRole("heading", { name: "Mixed features", level: 2 })).toBeVisible();
