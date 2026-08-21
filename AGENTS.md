@@ -443,6 +443,27 @@ Output-style plugins such as caveman mode may compress prose. They must never co
 # Supabase project safety
 
 - This repo targets the live Supabase project `Clinical KB Database`.
+- **MERGING TO `main` DEPLOYS TO PRODUCTION.** The Supabase GitHub integration has **"Deploy to
+  production" ENABLED**, production branch **`main`** — confirmed by a dashboard read on 2026-08-21,
+  after two earlier sessions inferred it wrongly in both directions. Any migration merged to `main` is
+  applied to the live clinical database automatically, within seconds (measured at 34 s in
+  `docs/audit/live-drift-forensics-2026-08.md` §3.7). There is no separate deploy step to forget and no
+  window to hold it back. Therefore:
+  - **Treat merge approval as production-deploy approval.** Never merge a PR touching
+    `supabase/migrations/**` outside an approved window, and never enable auto-merge on one.
+  - **After such a PR merges, confirm it actually applied** with
+    `supabase migration list --linked --project-ref sjrfecxgysukkwxsowpy` (read-only, needs no DB
+    password). A merged-but-unapplied migration is silent drift — the incident this whole programme
+    exists to close.
+  - **A migration that cannot run inside a transaction cannot ship this way.** The integration applies
+    each migration in one transaction, so a bare `CREATE INDEX CONCURRENTLY` migration fails outright.
+    Index work stays operator-prebuild + a validate-only guard migration (the `20260804110240` pattern,
+    see the guard-migration contract below).
+  - **Automatic branching is also ON** (one preview database per PR that changes `supabase/**`, limit
+    3). Supabase warns that Branching Compute is **not covered by the organisation's Spend Cap**. CI's
+    `Migration replay` job (`db-reset-verify`, `supabase migration up --local`) independently replays
+    the whole chain on every database-touching PR, so preview branches are a second net rather than the
+    only one.
 - Expected project ref: `sjrfecxgysukkwxsowpy`.
 - Older unused project ref `qjgitjyhxrwxsrydablr` belongs to `Database`; treat it as stale and do not use it.
 - Hosted migrations, `supabase/schema.sql`, `supabase/roles.sql`, CI, and deployment tooling must target role `postgres`; never assume a platform-reserved role. The single older applied migration is immutable and pinned by `npm run check:migration-role`.
