@@ -263,9 +263,20 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(firstRow).toContainText(`Operational ${firstRowScore}`);
 
     // The breach line is the row a coordinator must not miss, and it must be able to vanish
-    // silently for neither direction (Task 5 review Important 3): WF-017 (first row) has a
-    // passed Form 2A deadline and must show the breach line; WF-009 (second row) has an
-    // unbreached deadline and must not.
+    // silently for neither direction (Task 5 review Important 3). Rows are read by position
+    // (`firstRow`/`secondRow`), never pinned by id, so this proves whichever movement
+    // `queueOrder` ranks first is actually the one whose breach reaches the screen — an
+    // ordering guarantee as well as a rendering one.
+    //
+    // Task 6A fix round 1: corrects two errors this comment used to carry. First, it named
+    // WF-017 as "first row" — true before Task 6A deleted the fabricated Form 3B deadline that
+    // inflated WF-017's score, false now that WF-017 ranks well below row 1 (see the "shows a
+    // failing gate" test below, which now pins WF-017 explicitly by id for exactly that reason).
+    // Second, it said "Form 2A", which was wrong even before Task 6A — the deadline form has
+    // always been coded 1A. Fixture assumption this assertion now rests on: the top-ranked
+    // movement carries a breached Form 1A and must show the breach line; the second-ranked
+    // movement carries no deadline at all — not merely an unbreached one, since Task 6A removed
+    // WF-009's Form 3B `dueAt` entirely — and must not show the line.
     await expect(firstRow).toContainText("passed its deadline");
     const secondRow = rows.nth(1);
     await expect(secondRow).not.toContainText("passed its deadline");
@@ -608,14 +619,22 @@ test.describe("Ward Flow coordinator screen", () => {
    * DOM level, not just at the derivation level (`ward-eligibility.test.ts` already proves the
    * gate logic itself).
    *
-   * The brief's own draft of this test clicks queue row 1 (WF-017) and only conditionally checks
-   * a failing gate's icon (`if (await failing.count())`) — but WF-017's default candidate
-   * (`rph-adult-secure`) passes all eight gates, so that conditional block would silently skip on
-   * this fixture, exactly the "test that cannot fail" shape Phase 1 shipped once already. WF-009
-   * (queue row 2, declined by five units, whose own three candidates are all ineligible —
-   * see `ward-derivations.ts`) is used instead to guarantee a failing gate is actually on screen
-   * (Ruling 3), and the confirm journey is walked end to end rather than merely checking a button
-   * is visible (Ruling 4).
+   * The brief's own draft of this test clicked queue row 1 and only conditionally checked a
+   * failing gate's icon (`if (await failing.count())`) — but WF-017's default candidate
+   * (`rph-adult-secure`) passes all eight gates, so that conditional block would silently skip
+   * whenever row 1 lands on a clean movement like WF-017, exactly the "test that cannot fail"
+   * shape Phase 1 shipped once already. WF-009 (declined by five units, whose own three
+   * candidates are all ineligible — see `ward-derivations.ts`) is used instead to guarantee a
+   * failing gate is actually on screen (Ruling 3), and the confirm journey is walked end to end
+   * rather than merely checking a button is visible (Ruling 4).
+   *
+   * Task 6A fix round 1: queue row 1 used to be WF-017 only because a fabricated Form 3B
+   * deadline (deleted in Task 6A) inflated its operational score. On the real fixture WF-017 no
+   * longer ranks first — WF-303 and WF-009 now rank first and second by `queueOrder` — so this
+   * test selects WF-017 explicitly by id instead of relying on row position. WF-017's default
+   * candidate still passes all eight gates (re-verified against the current fixture), so the
+   * clean-vs-failing contrast this test depends on still holds; WF-009 genuinely is queue row 2
+   * on the current fixture and is still selected below.
    */
   test("shows a failing gate as a failure and never auto-allocates", async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1100 });
@@ -624,9 +643,12 @@ test.describe("Ward Flow coordinator screen", () => {
     const queue = page.getByRole("region", { name: "Priority queue" });
     const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
 
-    // WF-017 (queue row 1): every gate row states its own verdict in text, not only by icon, and
-    // all eight gates are rendered — never a `.slice()`.
-    await queue.locator('[data-testid^="ward-queue-row-"]').first().click();
+    // WF-017: selected explicitly by id, not by row position — it no longer ranks first in the
+    // queue now that Task 6A deleted the fabricated deadline that used to inflate its score (see
+    // comment above), but its default candidate still passes all eight gates. Every gate row
+    // states its own verdict in text, not only by icon, and all eight gates are rendered — never
+    // a `.slice()`.
+    await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
     const wf017Gates = shortlist.locator('[data-testid^="ward-gate-"]');
     await expect(wf017Gates).toHaveCount(8);
     for (const gate of await wf017Gates.all()) {

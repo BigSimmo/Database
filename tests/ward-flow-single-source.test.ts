@@ -127,6 +127,125 @@ function readsNowAnchor(source: string, fileName: string): boolean {
   return found;
 }
 
+/**
+ * Task 6A Minor 1 (fix round 1): `ED_ACCESS_TARGET_MINUTES` (`ward-model.ts`) is the emergency
+ * department's four-hour access target — a departmental performance measure counted UP from
+ * `openedAt`. Its own doc comment forbids it from ever touching a `LegalForm`, gaining a
+ * `dueAt`, or feeding a legal-breach count, but Task 6A only pinned its numeric value
+ * (`tests/ward-model.test.ts`). Nothing structural stopped a later change — Task 11's emergency
+ * department screen is the first real consumer — from wiring it back onto a legal form, which is
+ * exactly the mistake Task 6A exists to undo. The two checks below give that prohibition a shape
+ * that can actually fail, mirroring the `NOW_ANCHOR` read-restriction rule above rather than only
+ * pinning a value.
+ */
+const LEGAL_FORM_REQUIRED_FIELDS = ["code", "label", "kind"];
+
+/**
+ * True if the file contains an object literal shaped like a `LegalForm` construction — carrying
+ * all three of `LegalForm`'s required fields (`code`, `label`, `kind`; `ward-model.ts`) on the
+ * same object literal. This matches every real `LegalForm` construction without needing the type
+ * checker, and is specific in practice, not just in theory: verified by hand (this same
+ * AST-walk, run standalone against all of `SRC_DIR`) that exactly two files anywhere under `src`
+ * match this shape — `ward-movements.ts` (the fixture) and `ward-flow-reducer.ts` (the only
+ * place that produces one at runtime) — both genuine `LegalForm` sites, zero false positives.
+ */
+function constructsLegalForm(source: string, fileName: string): boolean {
+  if (!LEGAL_FORM_REQUIRED_FIELDS.every((name) => source.includes(name))) return false;
+
+  const sourceFile = ts.createSourceFile(
+    fileName,
+    source,
+    ts.ScriptTarget.Latest,
+    /* setParentNodes */ false,
+    fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (found) return;
+    if (ts.isObjectLiteralExpression(node)) {
+      const names = new Set(
+        node.properties
+          .map((prop) => (prop.name && ts.isIdentifier(prop.name) ? prop.name.text : undefined))
+          .filter((name): name is string => name !== undefined),
+      );
+      if (LEGAL_FORM_REQUIRED_FIELDS.every((name) => names.has(name))) {
+        found = true;
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return found;
+}
+
+/**
+ * True for any real read of `ED_ACCESS_TARGET_MINUTES` anywhere in the file — the same
+ * AST-identifier approach as `readsNowAnchor` above, for the same reason: a plain substring match
+ * would also fire on a comment or string that merely mentions the name.
+ */
+function referencesEdAccessTarget(source: string, fileName: string): boolean {
+  if (!source.includes("ED_ACCESS_TARGET_MINUTES")) return false;
+
+  const sourceFile = ts.createSourceFile(
+    fileName,
+    source,
+    ts.ScriptTarget.Latest,
+    /* setParentNodes */ false,
+    fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (found) return;
+    if (ts.isIdentifier(node) && node.text === "ED_ACCESS_TARGET_MINUTES") {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return found;
+}
+
+/**
+ * True if any `dueAt` property's initializer expression anywhere in the file references
+ * `ED_ACCESS_TARGET_MINUTES` — a narrower, independent check that does not require the enclosing
+ * object literal to also carry `code`/`label`/`kind`, so a partial or spread construction the
+ * field-triple check above would miss still cannot smuggle the value through.
+ */
+function assignsDueAtFromEdAccessTarget(source: string, fileName: string): boolean {
+  if (!source.includes("dueAt") || !source.includes("ED_ACCESS_TARGET_MINUTES")) return false;
+
+  const sourceFile = ts.createSourceFile(
+    fileName,
+    source,
+    ts.ScriptTarget.Latest,
+    /* setParentNodes */ false,
+    fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+
+  const initializerReferencesConstant = (node: ts.Node): boolean => {
+    if (ts.isIdentifier(node) && node.text === "ED_ACCESS_TARGET_MINUTES") return true;
+    return Boolean(ts.forEachChild(node, initializerReferencesConstant));
+  };
+
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (found) return;
+    if (ts.isPropertyAssignment(node) && ts.isIdentifier(node.name) && node.name.text === "dueAt") {
+      if (initializerReferencesConstant(node.initializer)) {
+        found = true;
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return found;
+}
+
 describe("one source of truth", () => {
   it("scans a non-empty set of ward-management source files", () => {
     // A test that can vacuously pass because its own file list came back empty is a test that
@@ -167,6 +286,39 @@ describe("one source of truth", () => {
       .filter(isScannable)
       .filter((file) => !NOW_ANCHOR_ALLOWLIST.has(normalizePath(file)))
       .filter((file) => readsNowAnchor(readFileSync(file, "utf8"), file));
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("ED access target stays quarantined from the legal clock (Task 6A Minor 1)", () => {
+  it("detects a real LegalForm construction, so the field-triple predicate cannot pass vacuously", () => {
+    // Guards the two checks below against passing only because they never actually matched
+    // anything: proves `constructsLegalForm` fires on a known-real construction (the fixture)
+    // before trusting it to fire on a hypothetical bad one.
+    const file = join(WARD_DIR, "ward-movements.ts");
+    expect(constructsLegalForm(readFileSync(file, "utf8"), file)).toBe(true);
+  });
+
+  it("scans a non-empty set of src source files for the ED access target checks", () => {
+    // Same failure mode as the other scans in this file, checked again here rather than only
+    // relied upon there: these two checks must not be able to pass by scanning nothing.
+    const scanned = walk(SRC_DIR).filter(isScannable);
+    expect(scanned.length).toBeGreaterThan(0);
+  });
+
+  it("never lets a file that constructs a LegalForm reference ED_ACCESS_TARGET_MINUTES", () => {
+    const offenders = walk(SRC_DIR)
+      .filter(isScannable)
+      .map((file) => ({ file, source: readFileSync(file, "utf8") }))
+      .filter(({ file, source }) => constructsLegalForm(source, file) && referencesEdAccessTarget(source, file))
+      .map(({ file }) => file);
+    expect(offenders).toEqual([]);
+  });
+
+  it("never assigns a LegalForm's dueAt from ED_ACCESS_TARGET_MINUTES", () => {
+    const offenders = walk(SRC_DIR)
+      .filter(isScannable)
+      .filter((file) => assignsDueAtFromEdAccessTarget(readFileSync(file, "utf8"), file));
     expect(offenders).toEqual([]);
   });
 });
