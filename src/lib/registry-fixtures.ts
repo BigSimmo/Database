@@ -15,10 +15,6 @@ export function defaultServiceRecords(): ServiceRecord[] {
   return cachedServiceRecords;
 }
 
-export function catalogPayloadForSlug(slug: string) {
-  return catalogPayloadBySlug().get(slug.trim().toLowerCase()) ?? null;
-}
-
 /** Build insertable registry rows for an owner from the default service fixtures. */
 export function buildDefaultServiceRows(ownerId: string): RegistryRecordInsert[] {
   const payloads = catalogPayloadBySlug();
