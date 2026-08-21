@@ -47,3 +47,9 @@ docs/branch-review-ledger.md
 docs/outstanding-issues.md
 # Verbatim user-provided prompt inputs retained for cloud review.
 docs/prompts/codex-cloud-review/
+# Vendored third-party skills, copied verbatim from ~/.claude/skills so a Claude Code web container
+# gets the same user skills as the workstation (docs/claude-cloud.md). Reformatting ~400 upstream
+# files would turn every future refresh of that snapshot into an unreadable diff, and their formatting
+# is not this repository's to own. Everything in `.claude/cloud-profile/` outside `skills/` is ours
+# and stays formatted.
+.claude/cloud-profile/skills/
