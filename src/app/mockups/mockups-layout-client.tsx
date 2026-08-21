@@ -27,6 +27,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // Draws its own phone/desktop frames with a top bar, mode nav and composer in
   // every frame, because the header under study sits directly beneath them.
   const isDictionaryBrowseHeaderMockup = pathname.startsWith("/mockups/dictionary-browse-header");
+  // Same reason: this study draws its own tab rail, page card and site-wide
+  // composer inside every frame, so shared chrome would read as a second real
+  // header and a second real search bar over the row under review.
+  const isDictionaryControlRowMockup = pathname === "/mockups/dictionary-control-row";
   // Renders the results header inside its own device frames; the shared composer
   // would read as a second, real search bar over the study.
   const isSearchRefineAdaptiveMockup = pathname === "/mockups/search-refine-adaptive";
@@ -126,7 +130,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPhoneModeSheetYesMockup &&
         !isSidebarLiveMockup &&
         !isCaringContactMockup &&
-        !isDictionaryBrowseHeaderMockup
+        !isDictionaryBrowseHeaderMockup &&
+        !isDictionaryControlRowMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -149,7 +154,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPhoneModeSheetYesMockup &&
         !isSidebarLiveMockup &&
         !isCaringContactMockup &&
-        !isDictionaryBrowseHeaderMockup
+        !isDictionaryBrowseHeaderMockup &&
+        !isDictionaryControlRowMockup
       }
     >
       {children}
