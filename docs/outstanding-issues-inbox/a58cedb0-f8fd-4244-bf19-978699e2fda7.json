@@ -5,7 +5,7 @@
   "action": "done",
   "payload": {
     "id": "#YJ3R7Y",
-    "outcome": "Resolved 2026-08-21: verified on origin/main a341832af. All three bespoke composer slots now pass data-composer-reserve={modeHomeComposerReservePendingValue} with the matching min-h reserve classes: favourites-command-library-page.tsx:1445, favourites-hub.tsx:191 and tools-search-results-page.tsx:354, so chrome invariant 15's SSR height reservation holds on all three.",
+    "outcome": "Resolved 2026-08-20: verified on origin/main a341832af. All three bespoke composer slots now pass data-composer-reserve={modeHomeComposerReservePendingValue} with the matching min-h reserve classes: favourites-command-library-page.tsx:1445, favourites-hub.tsx:191 and tools-search-results-page.tsx:354, so chrome invariant 15's SSR height reservation holds on all three.",
     "baseRowFingerprint": "267dd26861b6e9b1a064aa9eb95c91d493de72b60df579c728b3821ccc58ea59"
   }
 }

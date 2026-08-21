@@ -2,10 +2,11 @@
   "version": 2,
   "id": "5ce31276-9d07-4e4b-a486-b7f41decaa87",
   "createdOn": "2026-08-20",
-  "action": "done",
+  "action": "update",
   "payload": {
     "id": "#JVYQEM",
-    "outcome": "Resolved 2026-08-21 for the measured phone case: commit 180db07b4 (2026-08-19) 'fix(chrome): reserve the smart-search hint in the phone mode-home composer slot' raised --spacing-mode-home-composer-phone from 6.625rem to 10.125rem, which accounts for SmartRotatingHint rendering above the composer inside the same slot. NOT re-measured: --spacing-mode-home-composer-wide is unchanged at 5.5rem and the sm+ rotating line and prompt-chip row was not checked, so raise a fresh row if a desktop shift is later observed rather than reopening this one.",
+    "summary": "Wide-screen mode-home composer reserve does not account for the sm+ rotating line/prompt-chip row, so ticket-bearing homes above the phone breakpoint can still shift on portal hydration",
+    "detail": "NARROWED 2026-08-20 for the measured phone case: commit 180db07b4 (2026-08-19) 'fix(chrome): reserve the smart-search hint in the phone mode-home composer slot' raised --spacing-mode-home-composer-phone from 6.625rem to 10.125rem, which accounts for SmartRotatingHint rendering above the composer inside the same slot, and that portion is closed. NOT re-measured: --spacing-mode-home-composer-wide is unchanged at 5.5rem while src/app/globals.css documents the settled sm+ rotating line/prompt-chip row at 160px at 1280px and 199px at 800px, a real 72-111px gap the wide token does not cover. Kept open rather than archived so this remaining wide-screen defect stays tracked; the fix needs the affected wide phone-chrome journey measured and a token/mechanism change, since a single static wide value cannot be correct at every width.",
     "baseRowFingerprint": "0bb1409b0da2428870573be1e788cef36978acc437a7c8e2c975e7813f1c928b"
   }
 }

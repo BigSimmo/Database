@@ -5,7 +5,7 @@
   "action": "done",
   "payload": {
     "id": "#6K9YGQ",
-    "outcome": "Resolved 2026-08-21: verified on origin/main a341832af. medications/, calculators/ and dictionary/ all have loading.tsx, and MODE_HOME_LOADING_ROUTES in tests/mode-home-loading-contract.test.ts now enumerates all thirteen standalone homes, so the gap is no longer invisible to CI. The remaining hardening - deriving that route list from standaloneModeHomePaths rather than hand-writing it - is queued as its own row.",
+    "outcome": "Resolved 2026-08-20: verified on origin/main a341832af. medications/, calculators/ and dictionary/ all have loading.tsx, and MODE_HOME_LOADING_ROUTES in tests/mode-home-loading-contract.test.ts now enumerates all thirteen standalone homes, so the gap is no longer invisible to CI. The remaining hardening - deriving that route list from standaloneModeHomePaths rather than hand-writing it - is queued as its own row.",
     "baseRowFingerprint": "56caa2d18b45a4f9e80b82bcc36e0c77b01d568ef3177c2947729aaf99506993"
   }
 }
