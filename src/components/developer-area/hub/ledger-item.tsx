@@ -18,6 +18,18 @@ const PRIORITY_CLASS: Record<string, string> = {
 const UNKNOWN_PRIORITY_CLASS = "bg-[color:var(--surface-subtle)] text-[color:var(--text-heading)]";
 
 /**
+ * Shared with the queue disclosure on the ledger page, so the two cannot drift.
+ * The token that matters is `min-h-12`: no lint rule enforces tap targets on a
+ * `<summary>`, so a duplicated literal is the only thing that could quietly
+ * lose it on one of the two surfaces.
+ */
+export const LEDGER_DISCLOSURE_CLASS =
+  "flex min-h-12 cursor-pointer items-center text-xs font-bold text-[color:var(--text-muted)]";
+
+/** Detail cells carry unbroken tokens — file paths, CLI flags, registry keys. */
+export const LEDGER_DETAIL_CLASS = "text-xs leading-6 break-words text-[color:var(--text-muted)]";
+
+/**
  * Progressive detail. Native `<details>` keeps this a Server Component with no
  * client JavaScript, gives correct keyboard and screen-reader behaviour for
  * free, and is not a `<button>` — so `require-button-wiring` does not apply.
@@ -36,7 +48,14 @@ export function LedgerItem({ item }: { item: LedgerOpenItem }) {
     >
       <div className="flex flex-wrap items-baseline gap-2">
         <span className="font-mono text-xs text-[color:var(--text-muted)]">{item.id}</span>
+        {/*
+         * Filled rectangle, against the queue's outlined pill for acuity. The
+         * contrast is the point, not decoration — see the note above — so it is
+         * pinned by `developer ledger page > gives acuity and priority
+         * genuinely different badge treatments`.
+         */}
         <span
+          data-testid={`developer-ledger-priority-${item.id.replace("#", "")}`}
           className={`rounded-lg px-2 py-0.5 text-xs font-bold ${PRIORITY_CLASS[item.priority] ?? UNKNOWN_PRIORITY_CLASS}`}
         >
           {item.priority}
@@ -47,10 +66,8 @@ export function LedgerItem({ item }: { item: LedgerOpenItem }) {
       </div>
       <p className="text-sm leading-6 text-[color:var(--text-heading)]">{item.summary}</p>
       <details>
-        <summary className="flex min-h-12 cursor-pointer items-center text-xs font-bold text-[color:var(--text-muted)]">
-          Detail and source
-        </summary>
-        <p className="mt-2 text-xs leading-6 text-[color:var(--text-muted)]">{item.detail}</p>
+        <summary className={LEDGER_DISCLOSURE_CLASS}>Detail and source</summary>
+        <p className={`mt-2 ${LEDGER_DETAIL_CLASS}`}>{item.detail}</p>
         <p className="mt-1 text-xs text-[color:var(--text-muted)]">
           Source: {item.source} · added {item.added}
         </p>

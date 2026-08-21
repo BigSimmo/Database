@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { FreshnessStamp } from "@/components/developer-area/hub/freshness-stamp";
-import { LedgerItem } from "@/components/developer-area/hub/ledger-item";
+import { LEDGER_DETAIL_CLASS, LEDGER_DISCLOSURE_CLASS, LedgerItem } from "@/components/developer-area/hub/ledger-item";
 import {
   loadLedgerSnapshot,
   openItemsByPriority,
@@ -40,20 +40,41 @@ const TILE_NUMBER_CLASS = "text-2xl font-extrabold text-[color:var(--text-headin
 const TILE_LABEL_CLASS = "text-xs text-[color:var(--text-muted)]";
 const SECTION_HEADING_CLASS = "text-lg font-extrabold text-[color:var(--text-heading)]";
 const META_CLASS = "text-xs text-[color:var(--text-muted)]";
-const DISCLOSURE_CLASS = "flex min-h-12 cursor-pointer items-center text-xs font-bold text-[color:var(--text-muted)]";
+
+/**
+ * The number gets its own test id so an assertion can read it on its own. The
+ * tile's label is prose and may contain digits of its own — "blocking, priority
+ * P1" carries a `1` — which would make a `toHaveTextContent` check on the whole
+ * tile pass against any value whenever the real count happened to be 1.
+ */
+function CountTile({ id, value, label }: { id: string; value: number; label: string }) {
+  return (
+    <div data-testid={`developer-ledger-count-${id}`} className={TILE_CLASS}>
+      <span data-testid={`developer-ledger-count-${id}-value`} className={TILE_NUMBER_CLASS}>
+        {value}
+      </span>
+      <span className={TILE_LABEL_CLASS}>{label}</span>
+    </div>
+  );
+}
 
 export default function DeveloperLedgerPage() {
   const snapshot = loadLedgerSnapshot();
   const freshness = resolveFreshness(snapshot, new Date());
   const grouped = openItemsByPriority(snapshot);
 
-  // `openItemsByPriority` only recognises P1-P3. Anything else would vanish
-  // from the list while still being counted in `counts.open` — a page quietly
-  // under-reporting outstanding work, which is the exact `#338` failure this
-  // feature exists to prevent. So the remainder is rendered under its own
-  // heading instead of being silently discarded.
-  const recognised = new Set([...grouped.P1, ...grouped.P2, ...grouped.P3].map((item) => item.id));
-  const unrecognised: LedgerOpenItem[] = snapshot.open.filter((item) => !recognised.has(item.id));
+  // `openItemsByPriority` only recognises P1-P3, and `LedgerOpenItem.priority`
+  // is typed `string` — so the discard is reachable, not hypothetical. A
+  // dropped row would vanish from the list while still being counted in
+  // `counts.open`: a page quietly under-reporting outstanding work, which is
+  // the exact `#338` failure this feature exists to prevent. The remainder is
+  // rendered under its own heading instead.
+  //
+  // Keyed on object identity, not on `id`: `openItemsByPriority` pushes the
+  // very same object references this filter reads, so identity is exact, while
+  // an id-keyed set would swallow a second row that shared an id.
+  const recognised = new Set<LedgerOpenItem>([...grouped.P1, ...grouped.P2, ...grouped.P3]);
+  const unrecognised: LedgerOpenItem[] = snapshot.open.filter((item) => !recognised.has(item));
 
   return (
     <main data-testid="developer-ledger" className="mx-auto grid w-full max-w-[64rem] gap-6 px-4 py-8 sm:px-6">
@@ -76,22 +97,10 @@ export default function DeveloperLedgerPage() {
       <FreshnessStamp freshness={freshness} />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div data-testid="developer-ledger-count-open" className={TILE_CLASS}>
-          <span className={TILE_NUMBER_CLASS}>{snapshot.counts.open}</span>
-          <span className={TILE_LABEL_CLASS}>open items</span>
-        </div>
-        <div data-testid="developer-ledger-count-p1" className={TILE_CLASS}>
-          <span className={TILE_NUMBER_CLASS}>{snapshot.counts.p1}</span>
-          <span className={TILE_LABEL_CLASS}>blocking, priority P1</span>
-        </div>
-        <div data-testid="developer-ledger-count-queued" className={TILE_CLASS}>
-          <span className={TILE_NUMBER_CLASS}>{snapshot.counts.queued}</span>
-          <span className={TILE_LABEL_CLASS}>in the running order</span>
-        </div>
-        <div data-testid="developer-ledger-count-pending" className={TILE_CLASS}>
-          <span className={TILE_NUMBER_CLASS}>{snapshot.counts.pending}</span>
-          <span className={TILE_LABEL_CLASS}>requests not yet applied</span>
-        </div>
+        <CountTile id="open" value={snapshot.counts.open} label="open items" />
+        <CountTile id="p1" value={snapshot.counts.p1} label="blocking, priority P1" />
+        <CountTile id="queued" value={snapshot.counts.queued} label="in the running order" />
+        <CountTile id="pending" value={snapshot.counts.pending} label="requests not yet applied" />
       </div>
 
       {grouped.P1.length > 0 ? (
@@ -144,7 +153,10 @@ export default function DeveloperLedgerPage() {
                    * filled rectangle, and carrying its own plain-English
                    * descriptor, so the two scales cannot be mistaken for one.
                    */}
-                  <span className="inline-flex items-center gap-1 rounded-full border-2 border-[color:var(--border)] px-2 py-0.5 text-xs font-bold text-[color:var(--text-heading)]">
+                  <span
+                    data-testid={`developer-ledger-acuity-${entry.order}`}
+                    className="inline-flex items-center gap-1 rounded-full border-2 border-[color:var(--border)] px-2 py-0.5 text-xs font-bold text-[color:var(--text-heading)]"
+                  >
                     {entry.acuity}
                     {note ? <span className={`${META_CLASS} font-normal`}>· {note}</span> : null}
                   </span>
@@ -153,8 +165,8 @@ export default function DeveloperLedgerPage() {
                   {entry.capability} · {entry.timing} · {entry.estimate}
                 </p>
                 <details>
-                  <summary className={DISCLOSURE_CLASS}>Outcome and stopping condition</summary>
-                  <p className="mt-2 text-xs leading-6 text-[color:var(--text-muted)]">{entry.detail}</p>
+                  <summary className={LEDGER_DISCLOSURE_CLASS}>Outcome and stopping condition</summary>
+                  <p className={`mt-2 ${LEDGER_DETAIL_CLASS}`}>{entry.detail}</p>
                 </details>
               </li>
             );

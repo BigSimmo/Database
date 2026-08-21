@@ -42,6 +42,40 @@ describe("developer ledger page", () => {
     expect(within(screen.getByTestId("developer-ledger-open")).queryByText(/^A1$/)).toBeNull();
   });
 
+  it("gives acuity and priority genuinely different badge treatments", () => {
+    // The test above constrains only *which scale appears where*. It says
+    // nothing about treatment, so a regression that handed the acuity chip the
+    // priority badge's exact classes — the merged badge the spec forbids —
+    // would pass it. This is the assertion that fails instead.
+    const snapshot = loadLedgerSnapshot();
+    render(<DeveloperLedgerPage />);
+
+    const entry = snapshot.queue[0];
+    const chip = screen.getByTestId(`developer-ledger-acuity-${entry.order}`);
+    const badge = screen.getByTestId(`developer-ledger-priority-${snapshot.open[0].id.replace("#", "")}`);
+    const chipClass = chip.getAttribute("class") ?? "";
+    const badgeClass = badge.getAttribute("class") ?? "";
+
+    // Both halves of each contrast are named, so collapsing either one into the
+    // other fails: giving the chip the badge's classes breaks the rounded-full
+    // and border-2 assertions, and giving the badge the chip's classes breaks
+    // the rounded-lg one.
+    expect(chipClass).toContain("rounded-full");
+    expect(chipClass).toContain("border-2");
+    expect(chipClass).not.toContain("rounded-lg");
+
+    expect(badgeClass).toContain("rounded-lg");
+    expect(badgeClass).not.toContain("rounded-full");
+    expect(badgeClass).not.toContain("border-2");
+
+    expect(chipClass).not.toBe(badgeClass);
+
+    // ...and the chip says in words what its code means, which the badge does
+    // not need to: a bare `A1` beside a bare `P1` is the confusion itself.
+    expect(chip.textContent).toMatch(new RegExp(`^${entry.acuity}·\\s+\\S`));
+    expect(badge.textContent).toBe(snapshot.open[0].priority);
+  });
+
   it("shows counts that match the snapshot", () => {
     const snapshot = loadLedgerSnapshot();
     render(<DeveloperLedgerPage />);
@@ -56,8 +90,13 @@ describe("developer ledger page", () => {
     const { counts } = loadLedgerSnapshot();
     render(<DeveloperLedgerPage />);
 
-    expect(screen.getByTestId("developer-ledger-count-p1").textContent).toContain(String(counts.p1));
-    expect(screen.getByTestId("developer-ledger-count-queued").textContent).toContain(String(counts.queued));
+    // Read the number element itself, not the whole tile: the p1 tile's label
+    // is "blocking, priority P1", so a `toContain` over the tile would match
+    // the label's own `1` and pass against any value the day `counts.p1` is 1.
+    expect(screen.getByTestId("developer-ledger-count-p1-value").textContent).toBe(String(counts.p1));
+    expect(screen.getByTestId("developer-ledger-count-queued-value").textContent).toBe(String(counts.queued));
+    expect(screen.getByTestId("developer-ledger-count-open-value").textContent).toBe(String(counts.open));
+    expect(screen.getByTestId("developer-ledger-count-pending-value").textContent).toBe(String(counts.pending));
     // The queued tile must agree with the list it describes, not merely with
     // the counts block — that is what makes it unfakeable.
     expect(within(screen.getByTestId("developer-ledger-queue")).getAllByRole("listitem")).toHaveLength(counts.queued);
@@ -153,10 +192,21 @@ describe("developer ledger page", () => {
     // `open.#SZGPAH.detail` carried a literal `\|` — a markdown-table artifact
     // that has no business in a JSON data contract, and that the page would
     // otherwise render verbatim. Fixed in the generator, pinned here end to end.
+    const snapshot = loadLedgerSnapshot();
     const { container } = render(<DeveloperLedgerPage />);
+
     // `String.raw` on purpose: a plain "\|" is just "|" after JS escape
     // processing, which would assert the page contains no pipe character at all.
+    // This half is durable — it holds whatever the ledger happens to contain.
     expect(container.textContent).not.toContain(String.raw`\|`);
-    expect(container.textContent).toContain("2 failed | 14 passed");
+
+    // The positive half is derived from the snapshot at render time rather than
+    // quoting a row. Naming `#SZGPAH`'s text would bind this suite to that row
+    // staying open — and `#SZGPAH` is itself an issue about stale Playwright
+    // assertions, so resolving it would turn this red on whichever unrelated PR
+    // carried the regeneration.
+    for (const item of snapshot.open.filter((row) => row.detail.includes("|"))) {
+      expect(container.textContent).toContain(item.detail);
+    }
   });
 });
