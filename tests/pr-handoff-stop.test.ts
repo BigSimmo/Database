@@ -462,6 +462,50 @@ describe.skipIf(process.platform === "win32")("pr-babysit budget hook", () => {
       expect(out.stdout).toBe("");
     });
 
+    it("honours GIT_CEILING_DIRECTORIES instead of walking into an excluded checkout", () => {
+      // The builtin git-dir resolver added for hook latency must never find a repository
+      // `git rev-parse --absolute-git-dir` would refuse to discover. From a ceiling-excluded
+      // subdirectory git reports NO repository, so the marker belongs in TMPDIR — a naive
+      // upward walk instead lands it in the excluded checkout's .git. A post/pre pair
+      // straddling that disagreement is how the budget would silently stop being enforced.
+      const { root, gitDir } = freshRepo();
+      const sub = join(root, "sub");
+      mkdirSync(sub);
+      const tmp = mkdtempSync(join(tmpdir(), "pr-handoff-ceiling-"));
+      scratchRoots.push(tmp);
+      const env = { GIT_CEILING_DIRECTORIES: root, TMPDIR: tmp };
+
+      const post = spawnSync("bash", [hook, "post"], {
+        cwd: sub,
+        input: JSON.stringify({
+          tool_name: "create_pull_request",
+          session_id: "sess-ceiling",
+          tool_response: "Opened https://github.com/BigSimmo/Database/pull/1649",
+        }),
+        encoding: "utf8",
+        env: { ...process.env, ...env },
+      });
+      expect(post.status).toBe(0);
+      expect(
+        existsSync(join(gitDir, "claude-pr-handoff-sess-ceiling")),
+        "must not write into a checkout git refuses to discover",
+      ).toBe(false);
+      expect(
+        existsSync(join(tmp, "claude-pr-handoff-sess-ceiling")),
+        "must fall back to TMPDIR exactly as `git rev-parse` finding nothing requires",
+      ).toBe(true);
+
+      // And pre-mode must read back the same location, so the budget still bites.
+      const pre = spawnSync("bash", [hook, "pre"], {
+        cwd: sub,
+        input: JSON.stringify({ tool_name: "CronCreate", session_id: "sess-ceiling" }),
+        encoding: "utf8",
+        env: { ...process.env, ...env },
+      });
+      expect(pre.status).toBe(0);
+      expect(pre.stdout).toContain('"permissionDecision":"deny"');
+    });
+
     it("does nothing at all when no PR was ever opened", () => {
       const { root } = freshRepo();
       const out = runHook(

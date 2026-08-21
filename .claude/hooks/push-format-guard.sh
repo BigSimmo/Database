@@ -25,8 +25,33 @@
 # still downstream.
 set -uo pipefail
 
-payload="$(cat 2>/dev/null || true)"
+# Read stdin with the `read` builtin instead of `$(cat)`. That is one fewer
+# fork+exec on every single Bash/PowerShell tool call, and it is not slower:
+# measured against payloads from 1 KB to 2 MB it is faster below 256 KB and
+# level above. `read -d ''` consumes to EOF and reports non-zero *there* having
+# already filled the variable, so the `|| true` is the expected path.
+payload=""
+IFS= read -r -d '' payload || true
 [ -z "$payload" ] && exit 0
+
+# --- cheapest possible discriminator, before any subprocess -------------------
+# This hook runs on EVERY Bash/PowerShell call but acts only on `git push`, and
+# reaching "not a push" used to cost two jq runs, a grep and a subshell — on
+# Windows/Git Bash that is well over a second of pure process-spawn latency per
+# tool call. The test below uses shell builtins only.
+#
+# It is deliberately a SUPERSET of the real check further down
+# (`git[[:space:]]+push`), so it can only ever let MORE through, never less: that
+# regex cannot match unless the bytes `git` appear before the bytes `push`,
+# whether the command reaches it jq-decoded, grep-extracted, or as the raw
+# payload. The `\u` arm covers the one theoretical gap in that argument — an
+# encoder emitting `\u0067it push` — at the cost of taking the slow path for the
+# rare payload carrying a unicode escape. Anything rejected here would have
+# exited at that regex anyway.
+case "$payload" in
+*git*push* | *\\u*) ;;
+*) exit 0 ;;
+esac
 
 # --- extract the command ------------------------------------------------------
 if command -v jq >/dev/null 2>&1; then
