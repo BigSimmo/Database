@@ -1684,6 +1684,258 @@ choosing any code mitigation. Residual: hybrid fan-out still costs ~8.5 s worst-
 by the remaining remediation phases, not a route-budget change (`#231`'s stop condition stands).
 `check:production-readiness` on the final state is **pending**.
 
+### Phase 5 close-out — 2026-08-22 Perth (2026-08-21 UTC)
+
+_**Dates in this section are Perth local time (UTC+8), with the UTC date given alongside where the
+two differ.** The window ran across the local-midnight boundary: the review and every commit are
+dated 2026-08-21 UTC, which is 2026-08-22 in Perth. Where a record elsewhere in the repository says
+"2026-08-22" bare for this phase, it means 2026-08-22 Perth = 2026-08-21 UTC — no measurement was
+taken after the review date._
+
+_Owner-authorised **read-only** production window (`sjrfecxgysukkwxsowpy`) plus a staging-only
+apply. A dedicated worktree carried the link; the main checkout stayed on its staging link and
+every call re-verified `supabase/.temp/project-ref` immediately beforehand. No production DDL, no
+data mutation, no paid eval._
+
+#### Production is unchanged since 2026-08-21 — 8 of 8 baseline checks match
+
+| Check                                   | Expected | Read             |
+| --------------------------------------- | -------- | ---------------- |
+| `public` indexes                        | 210      | **210**          |
+| invalid / not-ready indexes             | 0        | **0**            |
+| `supabase_migrations` rows              | 211      | **211**          |
+| rows with no executed statements        | 20       | **20**           |
+| `migration_history_versions()` probe    | ok       | **ok**           |
+| `migration_history_versions()` versions | 211      | **211**          |
+| `search_schema_health()` `ok`           | true     | **true**         |
+| latest version                          | —        | `20260820120000` |
+
+Nothing diverged, so no escalation was raised on the production reading.
+
+#### 5.1(a) End-to-end probes — the like-for-like row §1.3 asked for
+
+Same endpoint and query style as the incident measurements (`POST /api/search`, semantic clinical
+queries, live production data). `supabase_rpc_latency_ms` is the server-measured retrieval
+component and is the comparable figure; `total` additionally carries local dev-server render
+overhead in this run, so it is directionally useful rather than strictly comparable.
+
+| Measurement                                | Before (2026-08-14) | After restore + ANALYZE (2026-08-14) | **Now (2026-08-22 Perth = 2026-08-21 UTC)** |
+| ------------------------------------------ | ------------------- | ------------------------------------ | ------------------------------------------- |
+| Semantic, text fast path — total / rpc ms  | 37.7 s / 31,610     | 4.8 s / 1,535                        | **8.4 s / 955**                             |
+| Semantic, hybrid strategy — total / rpc ms | 29.9 s / 21,757     | 17.2 s / 8,519                       | **10.9 s / 6,720**                          |
+| Warm repeat (`search_cache`) — total / rpc | not measured        | not measured                         | **0.41 s / 0**                              |
+
+Retrieval latency has held its recovery and improved further on both strategies: the fast path is
+**33× better than the incident** and 1.6× better than the 2026-08-14 post-restore reading; hybrid is
+3.2× better than the incident and 1.3× better than post-restore. Nothing is materially worse than
+the 2026-08-17 healthy baseline, so no escalation was raised.
+
+#### 5.1(b) EXPLAIN forward baseline — captured now, on the healthy system
+
+§1.3 never captured an EXPLAIN set; its before-numbers were end-to-end probes. This is that missing
+baseline, recorded so a future incident has something to diff against. Captured with
+`npm run profile:retrieval -- --analyze` (which calls the service-role-only
+`public.explain_retrieval_rpc`), query `clozapine monitoring requirements`, `--match-count 24`,
+`--samples 3`, public scope. Sample 1 is `first_unprimed`; managed Supabase buffers are never
+flushed, so no sample is truly cold.
+
+| RPC                                 | unprimed exec ms | warm median exec ms | warm median RTT ms | shared_hit (warm) | shared_read (unprimed) |
+| ----------------------------------- | ---------------: | ------------------: | -----------------: | ----------------: | ---------------------: |
+| `match_documents_for_query`         |           42.642 |               5.949 |            102.783 |             1,175 |                     10 |
+| `match_document_chunks_text`        |          867.942 |              35.821 |            150.652 |             7,243 |                     42 |
+| `match_document_lookup_chunks_text` |           13.237 |               3.013 |            126.042 |               511 |                      7 |
+| `match_document_table_facts_text`   |        1,722.211 |              99.183 |            179.852 |             2,516 |                  1,070 |
+
+Zero errors across all twelve samples. **The new slowest path is
+`match_document_table_facts_text`** (1.72 s unprimed, 1,070 unprimed `shared_read`) — recorded here
+as the outlier to watch, replacing the trigram-absence signature that dominated the incident.
+
+**Two limits of this instrument, stated so the baseline is not over-read:**
+
+1. **It cannot show plan flips.** `explain_retrieval_rpc` runs `EXPLAIN` over
+   `select * from public.<rpc>(…)`, so the plan is a single `Function Scan`: a PL/pgSQL body's inner
+   plan is not exposed. Every sample reports `plan_node_types: ["Function Scan"]` and
+   `index_names: []`. Plan §5.1's "record plan flips (seq scan → index scan)" is therefore **not
+   answerable through this tool**. The index-usage read in 5.1(c) is a _different and weaker_ signal,
+   not a substitute: `pg_stat_user_indexes.idx_scan` is cumulative across every workload that touches
+   the table, and no before/after counter delta was captured around these samples, so it can show
+   that an index is never chosen by **anything**, but it cannot show whether **this** profiled query
+   moved from a sequential scan to an index scan. **Plan §5.1's plan-flip deliverable is therefore
+   left explicitly OPEN, not discharged.** Closing it needs query-specific inner-plan evidence —
+   which requires the RPC extension queued below, or an `auto_explain`-style capture — and that is
+   production-side work this read-only phase could not do.
+2. **It cannot reach the two v2 RPCs named in the Phase 5 brief.** `explain_retrieval_rpc` accepts
+   exactly four names (`match_documents_for_query`, `match_document_chunks_text`,
+   `match_document_lookup_chunks_text`, `match_document_table_facts_text`) — verified in its only
+   defining migration `20260626020000_phase7_retrieval_rpc_performance.sql`, in `supabase/schema.sql`,
+   and on production itself:
+
+   ```text
+   ERROR:  22023: Unsupported retrieval RPC: match_document_chunks_text_v2
+   CONTEXT:  PL/pgSQL function explain_retrieval_rpc(text,text,integer,uuid,uuid[],boolean) line 25 at RAISE
+   ERROR:  22023: Unsupported retrieval RPC: match_document_index_units_hybrid_v2
+   ```
+
+   Extending the function to cover the `_v2` family is production DDL and was **not** authorised for
+   this phase, so it was not written. Queued as its own ledger item. **Substitute coverage is partial, and
+   unevenly so — the earlier claim that the v1 siblings cover both owning tables was wrong.**
+   `match_document_chunks_text`, profiled above, is the v1 sibling of `match_document_chunks_text_v2`
+   and shares its owning table `document_chunks`, so that target has a usable stand-in. The other one
+   does not: `match_document_index_units_hybrid_v2` delegates to
+   `match_document_index_units_hybrid_scoped` over `document_index_units`
+   (`supabase/schema.sql:8033-8054`), and the four supported names reach only `documents`,
+   `document_chunks`, lookup chunks and `document_table_facts`. **The `document_index_units`
+   retrieval path therefore has no EXPLAIN baseline at all**, and that is an open deliverable rather
+   than a covered one. Its index-level usage is still recorded in 5.1(c), which is the weaker signal
+   described above, not a plan.
+
+#### 5.1(c) Index usage — the finding this phase actually turned up
+
+`pg_stat_database.stats_reset` is **NULL** on production, so **no database-wide reset**
+(`pg_stat_reset()`) has been recorded. That is the limit of what this read proves: a per-relation
+`pg_stat_reset_single_table_counters(oid)` call resets one table's or one index's counters without
+touching `pg_stat_database.stats_reset`, and this window captured no evidence either way for the
+individual indexes below. A zero is therefore _very likely_ to mean genuinely never scanned rather
+than recently zeroed — strongly so given the OID continuity established below — but it is not proven.
+Settling it needs a per-index reset time, which `pg_stat_all_indexes.stats_reset` carries only on
+PostgreSQL 18 and later; the running server version was not read in this window. Across `public`,
+163 of 210 indexes show scans, `max(idx_scan)` is 262,335,345 and the total is 344,747,815 — the
+counters are clearly live.
+
+Against that, **all 22 indexes restored or repaired by the incident response report `idx_scan = 0`** —
+the 20 Phase 4 rebuilds (2026-08-19) and, more pointedly, both trigram indexes restored on 2026-08-14:
+
+| Index                              | Size   | `idx_scan` | Present since | OID     |
+| ---------------------------------- | ------ | ---------: | ------------- | ------- |
+| `document_chunks_content_trgm_idx` | 68 MB  |      **0** | 2026-08-14    | 1491258 |
+| `documents_title_trgm_idx`         | 648 kB |      **0** | 2026-08-14    | 1491257 |
+
+The OID `1491258` is the same value §Phase 4 Step 4 recorded as _unchanged across the 2026-08-19
+push_, which is what makes the zero meaningful: the index has not been dropped and recreated, so its
+counter has been accumulating for the full seven days since restoration. Both are `indisvalid` and
+`indisready` with canonical `coalesce(...)` definitions.
+
+What _is_ serving retrieval on the same tables:
+
+| Index                                           | Kind             | `idx_scan` |
+| ----------------------------------------------- | ---------------- | ---------: |
+| `document_chunks_search_idx`                    | GIN `search_tsv` | **37,717** |
+| `document_chunks_embedding_hnsw_idx`            | HNSW vector      |  **4,906** |
+| `documents_title_search_idx`                    | GIN tsvector     | **37,299** |
+| `document_table_facts_title_row_param_trgm_idx` | GIN trigram      |  **2,372** |
+
+The last row matters: a _different_ trigram index on a sibling table is used thousands of times, so
+"trigram indexes are never chosen here" is not a blanket property of the planner or the extension.
+
+**Consequence for the incident narrative — stated as a correction, not a certainty.** The 2026-08-14
+Phase 5 table above attributes the 31,610 ms → 1,535 ms recovery to "restore + ANALYZE", treating the
+two trigram indexes as the fix. Seven days of cumulative statistics show the restored trigram indexes
+have served **zero** scans. Subject to the reset caveat recorded above — a per-relation
+`pg_stat_reset_single_table_counters()` call would be invisible to the database-wide `stats_reset`
+read, so "zero scans since restoration" is strongly supported rather than proven — they cannot be
+carrying that recovery. `ANALYZE` was an unseparated
+co-intervention in the same operation — and `20260626020000` ends by running `analyze` over exactly
+`documents`, `document_chunks`, `document_table_facts`, `document_embedding_fields` and
+`document_index_units` — which makes stale planner statistics the better-supported explanation for
+both the 31-second regression and its recovery. This does **not** retract the repair: the two indexes
+are repo-defined, the chain commands them, and drift is correctly closed by their presence. It
+retracts the _attribution_, and it changes what a future 30-second retrieval incident should check
+first — planner statistics before missing indexes. Raised as its own ledger item rather than absorbed
+here; ~69 MB of currently unscanned index is a secondary, non-urgent question that follows from it.
+
+#### 5.1(d) `rag_retrieval_logs` miss-scan baseline — §1.3's second pending item, now closed
+
+| Table                | `seq_scan` | `seq_tup_read` | `idx_scan` | live rows | total size | avg rows / seq scan |
+| -------------------- | ---------: | -------------: | ---------: | --------: | ---------: | ------------------: |
+| `rag_retrieval_logs` |         47 |          6,620 |         98 |       640 |    1440 kB |               140.9 |
+| `rag_query_misses`   |        421 |         29,482 |        509 |       177 |     320 kB |                70.0 |
+| `rag_queries`        |         51 |         33,792 |        419 |       258 |    4760 kB |               662.6 |
+| `rag_aliases`        |      5,829 |        379,728 |     23,583 |        68 |     224 kB |                65.1 |
+| `rag_response_cache` |      2,133 |         13,203 |      5,352 |         0 |     656 kB |                 6.2 |
+
+**Reading: not currently a latency risk, and that is the point of recording it.** Every one of these
+relations is under 5 MB with at most a few hundred live rows, so a sequential scan is a handful of
+pages and cheaper than an index descent — the planner's choice is correct at this scale. The row to
+watch is `rag_aliases`: 5,829 sequential scans over 68 rows is free today and becomes a real cost if
+that table ever grows. This table is the baseline; the trigger for action is growth in
+`seq_tup_read`, not the presence of `seq_scan`.
+
+#### 5.2 — confirmed already satisfied, and re-confirmed with fresh data
+
+Ledger `#231` already records that plan §5.2 "is satisfied by S1's 2026-08-17 healthy-latency
+probes", and re-graded itself P1 → P2 on that basis with residual **R4** (chronic ~30 s strong-route
+`provider_timeout` on `metformin-renal-dosing` and `valproate-pregnancy`, with a safe source-backed
+extractive fallback, never model synthesis). This phase **confirms that reading rather than
+reopening it**: measured retrieval now costs 955 ms (fast path) to 6,720 ms (hybrid) against an
+`answerRouteBudgetMs.fast` of 25,000 ms, so retrieval consumes 4–27% of the budget and is no longer
+capable of binding it. The 2026-08-14 verdict — that pre-generation latency _was_ the binding cause
+during the incident window — stands for that window and is now closed out. R4 is a generation-side
+residual and keeps `#231`'s existing stop condition; **no separate R4 row was created**, per `#231`'s
+own instruction.
+
+One inconsistency found and queued, not edited here: the _recommended-queue_ row for `#231` still
+presents it as A1 / "immediate approved live investigation", contradicting the P2 re-grade in its own
+detail row. Queued through `issues:update` for the next reconcile.
+
+#### 5.3 — no eval canary owed
+
+Plan §5.3 gates `eval:retrieval:quality` on "if any Phase 3 RPC deploy changed behaviour". Phase 3
+was reframed to repo-side codification and deployed **zero** behaviour change: `#316` records manifest
+`def_hash` equal to live for all ten `match_*` functions, and live-drift `32131517648` reported 0
+function mismatches. §5.3 therefore reduces to `check:production-readiness`, run once at the end of
+this phase. No paid eval was run and none was requested.
+
+```text
+$ npm run check:production-readiness
+[Production Readiness]
+Project: Clinical KB Database (sjrfecxgysukkwxsowpy)
+PASS (9):
+  - Node runtime 24.19.0 matches required Node 24.x.
+  - Boot guard invokes requireQueryHashSecret(); the query-hash HMAC fails closed in production (PIA-2).
+  - Local override file .env.local is present
+  - Server env includes required Supabase project values.
+  - OpenAI API key is configured.
+  - OpenAI safety identifiers use a deployment-secret HMAC; raw owner IDs are not sent.
+  - RAG_QUERY_HASH_SECRET is set; logged clinical-query hashes are keyed HMAC pseudonyms (PIA-2).
+  - HEALTH_DEEP_PROBE_SECRET is set for authorized deep health probes.
+  - Supabase project config points to Clinical KB Database.
+READY: no blocking production-readiness failures.
+```
+
+Nine checks pass, zero blocking failures, and the gate independently confirms the operator
+environment is bound to `Clinical KB Database` (`sjrfecxgysukkwxsowpy`). **§1.3's "`check:production-readiness`
+on the final state is pending" is closed.**
+
+#### Staging catch-up — the owed apply, now closed
+
+Staging (`ikoiolksxqxfxgiyqpnu`) was one version behind after the 2026-08-20 window, where both write
+paths were denied by that session's auto-mode classifier. Applied here, by real `db push` (never
+`migration repair`); the pending set was confirmed first as exactly one version with zero remote-only:
+
+```text
+$ supabase migration list --linked --project-ref ikoiolksxqxfxgiyqpnu
+… {"local":"20260820120000","remote":""}
+$ supabase db push --linked --project-ref ikoiolksxqxfxgiyqpnu --skip-vault --yes
+Applying migration 20260820120000_migration_history_versions_rpc.sql...
+{"upToDate":false,"dryRun":false,"migrations":["20260820120000_migration_history_versions_rpc.sql"],…}
+```
+
+`--include-all` was correctly not needed: the pending version sorts after the remote tip
+`20260819110500`.
+
+| Staging check                          | Before           | After                              |
+| -------------------------------------- | ---------------- | ---------------------------------- |
+| `supabase_migrations` rows             | 210              | **211**                            |
+| latest version                         | `20260819110500` | **`20260820120000`**               |
+| `migration_history_versions()` present | absent           | **present**                        |
+| history row `stmt_count`               | —                | **3** (executed, not mark-applied) |
+| probe / version_count                  | —                | **ok / 211**                       |
+| `public` indexes                       | 210              | **210**                            |
+
+`stmt_count 3` matches production's row exactly, so both tiers now carry the same executed
+migration rather than a repaired history entry. **Staging parity, open by one version since
+2026-08-20, is closed.**
+
 ## Phase 6 — Future-proofing (repo-side; one migration authored, NOT deployed)
 
 _2026-08-18 (repo-only session; no hosted read or mutation)._ Built per plan §6.1–6.3, worker chat
@@ -2053,7 +2305,43 @@ $ supabase migration list --linked --project-ref sjrfecxgysukkwxsowpy
 empty and the step should now pass. **No guard migration is owed**: the row carries executed
 statements, so it is not a history repair and cannot surface in the `migration_history` probe.
 
-#### D4: strong evidence of deploy-on-merge — but the toggle itself has not been read
+#### D4 — SETTLED 2026-08-21 by a direct dashboard read: deploy-on-merge is ON
+
+**This question is closed. The Supabase dashboard was read on 2026-08-21 and shows the GitHub
+integration with "Deploy to production" ENABLED, production branch `main` — "Apply changes to your
+production database when you merge into your configured production GitHub branch". Automatic
+branching is also ON (limit 3, "Supabase changes only" enabled).** The inference recorded below was
+correct; it is no longer an inference, and the safe-either-way hedge it justified is retired.
+
+Consequences, which `AGENTS.md` § "Supabase project safety" now carries as the authoritative rule:
+
+- **Merge approval IS production-deploy approval.** Any migration merged to `main` is applied to the
+  live clinical database automatically, within seconds (34 s measured, §3.7). There is no separate
+  deploy step to forget and no window in which to hold it back. Never merge a
+  `supabase/migrations/**` PR outside an approved window, and never arm auto-merge on one.
+- **The post-merge gate is a green `live-drift` run**, requiring BOTH `check:drift` and
+  `check:migration-history`. It is _not_ `supabase migration list`: that reads recorded history only,
+  so it cannot distinguish an applied migration from a history row whose statements never executed —
+  precisely the shape of the twenty no-statements rows. `check:drift` compares the live schema itself.
+- **A migration that cannot run inside a transaction cannot ship this way.** The integration applies
+  each migration in one transaction, so a bare `CREATE INDEX CONCURRENTLY` migration fails outright.
+  Index work stays operator-prebuild plus a validate-only guard migration (the `20260804110240`
+  pattern).
+- **Branching Compute is not covered by the organisation's Spend Cap** (stated on the same dashboard
+  screen), so preview databases are an uncapped cost that scales with PRs touching `supabase/**`.
+  CI's `Migration replay` job (`db-reset-verify`, `supabase migration up --local`) independently
+  replays the whole chain on every database-touching PR, so preview branches are a second net rather
+  than the only one — that is the context for any later decision to reduce or disable them. Queued as
+  its own ledger item.
+
+The `list_branches` reading below remains accurate and is now corroborated rather than superseded:
+production is bound to git `main`, and the toggle that acts on that binding is enabled.
+
+_The analysis that follows was written before the dashboard was read. It is retained because it
+records how the question was narrowed, and why the safe-either-way rule was the correct posture while
+the toggle was still unknown._
+
+##### Superseded reasoning, retained: how D4 stood before the dashboard read
 
 `created_by` and `idempotency_key` are NULL for every row from `20260818090000` to `20260820120000`,
 including the ones this programme applied by operator `db push`, so the history table carries **no
@@ -2087,14 +2375,14 @@ Production is **still bound to git `main`**, and `updated_at` predates 2026-08-1
 changed that day never touched this binding, and the §3.7 mechanism is intact. Together with §3.7's
 34-second apply and `20260820120000` arriving unpushed, that is strong evidence of deploy-on-merge.
 
-**It remains an inference, and the difference matters.** No field of the branch record reports the
+**SUPERSEDED 2026-08-21 — do not act on this paragraph or the rule that follows it; the dashboard read above replaces both.** _It remains an inference, and the difference matters._ No field of the branch record reports the
 "Deploy to production" setting. The superseded 2026-08-19 account describes that setting being changed
 without the binding being deleted, so "toggle off, binding intact" cannot be ruled out from here — and
 the two failure modes are not symmetric. Declaring D4 ON tells operators to skip `db push`; if the
 toggle is in fact off, every merged migration then sits unapplied and drift returns silently, which is
 the original incident. Declaring it OFF risks only a redundant no-op push.
 
-**So the operative rule is the one that is correct under both states, and it must not be shortened:**
+**SUPERSEDED 2026-08-21.** _The operative rule at the time — correct under both states, and deliberately not shortened:_
 
 1. Never merge a migration PR outside its approved window — correct if deploys happen on merge.
 2. After any migration merges, run `supabase migration list --linked --project-ref <ref>` and
@@ -2104,7 +2392,7 @@ One extra command, wrong under neither hypothesis. What would replace this rule 
 dashboard read of the toggle, or a deployment-settings API that reports it. Raised as a P1 by the Codex
 review of PR #2205, and correctly: the earlier wording here presented the inference as a direct read.
 
-#### Staging is one version behind — blocked, not skipped
+#### Staging is one version behind — blocked, not skipped (CLOSED 2026-08-22 Perth = 2026-08-21 UTC, see Phase 5 close-out)
 
 Staging (`ikoiolksxqxfxgiyqpnu`, verified before every call) reads **210** history rows, latest
 `20260819110500`, `to_regprocedure('public.migration_history_versions()') is null`. Its pending set is
@@ -2116,3 +2404,37 @@ MCP `execute_sql` alike — under the live-Supabase confirmation rule added by P
 Read-only calls were unaffected, which is why every verification above exists. This is an
 authorisation gap, not a technical one: **staging parity, closed by Phase 4, is open again by one
 version until an operator applies it.**
+
+**CLOSED 2026-08-22 Perth (2026-08-21 UTC).** An operator session applied `20260820120000` to staging by real `db push`;
+staging now reads 211 history rows with `migration_history_versions()` present and `stmt_count 3`,
+matching production exactly. Evidence in the "Phase 5 close-out" section, "Staging catch-up".
+
+## Alarm cleared — live-drift green on `main`, 2026-08-21 (run `32514326022`)
+
+The alignment fix landed on 2026-08-20 but had **never been observed passing**: two sessions existed
+because `live-drift` was red on its `Align migration history for Supabase Preview` step (PGRST106).
+Dispatched here on `main` with the fix live on production and staging brought to parity.
+
+`https://github.com/BigSimmo/Database/actions/runs/32514326022` — **job conclusion: `success`.**
+
+```text
+live-drift  Compare live schema drift                      No unexpected schema drift between live and supabase/schema.sql.
+live-drift  Align migration history for Supabase Preview   Remote migration versions: 211 (read via rpc)
+live-drift  Align migration history for Supabase Preview   Remote-only (Preview blockers): 0
+```
+
+Every step reported `success`, including `Guard Supabase project identity`, `Compare live schema
+drift`, `Align migration history for Supabase Preview`, and `Capture drift and migration-history
+findings`.
+
+**This is the first green `live-drift` run since 2026-07-19T19:37:29Z** — measured, not assumed: of
+the last 60 runs, exactly four succeeded (`2026-07-13T09:58:30Z`, `2026-07-13T17:10:55Z`,
+`2026-07-19T19:37:29Z`, and this one), and the oldest run in that window is `2026-07-09`. That is a
+**33-day continuous red streak**, closed.
+
+**Pinned issue `#1963` "Live drift check failing" auto-closed at `2026-08-21T18:38:42Z`**, by the
+`drift-routing` job, seconds after the alignment step reported zero Preview blockers — the
+self-closing behaviour the routing was built for, now demonstrated end to end for the first time.
+
+Both halves of the original `#316` alarm are therefore closed _and observed closed_: drift findings
+are empty, and the job that reports them is green.
