@@ -66,10 +66,6 @@ export function differentialScenarioPresets(): DifferentialScenarioPreset[] {
   return catalog().presets.filter((preset) => !preset.query.trimStart().startsWith("#"));
 }
 
-export function differentialRedFlagFlows(): DifferentialRedFlagFlow[] {
-  return catalog().redFlagFlows;
-}
-
 export function differentialSearchAliases(): Record<string, string[]> {
   // The generated snapshot can leak template metadata (field name → numeric
   // weight, e.g. "tags" → ["1.1"]) into the alias map; bare-number aliases
