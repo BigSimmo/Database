@@ -62,7 +62,32 @@
   --bp-tablet: 768px;
   --bp-desktop: 1024px;
 
-  /* Type - 7 steps, each with its own line-height and tracking */
+  /* Type - 7 steps, each with its own line-height and tracking.
+   *
+   * TWO SCALES ARE LIVE AT ONCE, and this block is the one that wins. Because
+   * `ckb-v2` is mounted on <html>, every step below overrides both Tailwind's
+   * default of the same name and the `@theme` block in globals.css. Note in
+   * particular that `--text-sm` here is 13px, not Tailwind's 14px, so the plain
+   * `text-sm` utility renders 13px app-wide.
+   *
+   * The `@theme` block carries the same pixel values under a second set of
+   * names. Neither file referenced the other, which is how the overlap went
+   * unnoticed; the mapping is recorded here rather than resolved by aliasing,
+   * because pointing this file at `@theme` would invert the documented
+   * source-of-truth order (this file ranks above the compat layer):
+   *
+   *     --text-xs   0.75rem   = Tailwind default --text-xs
+   *     --text-sm   0.8125rem = @theme --text-sm-minus
+   *     --text-body 0.9375rem = @theme --text-base-minus
+   *     --text-md   1.0625rem = @theme --text-lg-minus
+   *     --text-lg   1.25rem   = Tailwind default --text-xl
+   *     --text-xl   1.5rem    = Tailwind default --text-2xl
+   *
+   * The `-lh` / `-tr` companions below are declared but currently consumed by
+   * nothing (0 references across src/ as of 2026-08-21). They are the intended
+   * paired scale, not drift - but until a call site adopts them, only the size
+   * half of this scale is real. Do not read their presence as evidence that
+   * leading and tracking are already handled. */
   --text-xs: 0.75rem;
   --text-xs-lh: 1rem;
   --text-xs-tr: 0;

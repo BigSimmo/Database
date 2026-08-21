@@ -532,7 +532,7 @@ export function PanelHeading({ icon: Icon, title, description }: PanelHeadingPro
     <div className="flex items-start gap-3">
       {Icon && (
         <span className={iconTile}>
-          <Icon className="size-icon-md sm:size-icon-lg" />
+          <Icon aria-hidden="true" className="size-icon-md sm:size-icon-lg" />
         </span>
       )}
       <div className="min-w-0">
@@ -684,7 +684,10 @@ export function EmptyState({
             )}
           >
             {Icon ? (
-              <Icon className={align === "center" ? "h-[26px] w-[26px]" : "size-icon-md sm:size-icon-lg"} />
+              <Icon
+                aria-hidden="true"
+                className={align === "center" ? "h-[26px] w-[26px]" : "size-icon-md sm:size-icon-lg"}
+              />
             ) : (
               iconNode
             )}
