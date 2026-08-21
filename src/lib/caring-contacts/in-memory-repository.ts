@@ -23,7 +23,7 @@ import type { Clock } from "./clock";
 import { changeContactDate, moveContactWithinDay } from "./contact-rescheduling";
 import { fingerprintOf } from "./fingerprint";
 import { applyHospitalStatusEvent, applyWithdrawalRequest, sendableContacts } from "./hospital-events";
-import { contactId, teamId } from "./ids";
+import { contactId } from "./ids";
 import type { ActorId, ContactId, PathwayVersionId, PlanId, TeamId } from "./ids";
 import { applyContactTransition, applyPlanTransition } from "./model";
 import type { Contact, ContactAction, ContactState, Plan, PlanState, Referral, TransitionResult } from "./model";
@@ -48,6 +48,7 @@ import {
 import { emptyTrainingRecord, recordCompetency, type TrainingCompetency, type TrainingRecord } from "./training";
 import {
   REPOSITORY_REFUSALS,
+  SERVICE_STATE_UNSET_TEAM,
   contactIdentifierFor,
   type AccessTrailQuery,
   type CaringContactRepository,
@@ -76,12 +77,6 @@ import type { Episode } from "./episode";
 import { buildApprovedSchedule, type PlannedContact } from "./schedule";
 
 const TERMINAL_PLAN_STATES: readonly PlanState[] = ["withdrawn", "cancelled", "completed"];
-
-/**
- * Names no real team. Seeds the running-service singleton before any stop has ever been raised,
- * so `reportedByTeamId` never accidentally reads as a genuine team's identifier before one exists.
- */
-const SERVICE_STATE_UNSET_TEAM: TeamId = teamId("service-state-unset");
 
 /** Contact states that mean the message already left. Used only for reporting counts. */
 const DISPATCHED_CONTACT_STATES: readonly ContactState[] = [

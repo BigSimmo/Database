@@ -18,13 +18,23 @@
 //
 // This module is types and named constants only. Both the in-memory store (Task 9) and the
 // Postgres store (Task 11) implement it, and both are exercised by the identical contract suite.
+import { teamId } from "./ids";
 import type { AccessedObjectType, AccessRecord } from "./access-audit";
 import type { AssignmentAction, PlanAssignment } from "./assignment";
 import type { AuditEvent } from "./audit";
 import type { Clock } from "./clock";
 import type { ContactDateChangeRequest, ContactMoveRequest } from "./contact-rescheduling";
 import type { HospitalStatusEvent, PlanException, PlanIncident, WithdrawalOrigin } from "./hospital-events";
-import type { ActorId, ContactId, IdempotencyKey, PathwayVersionId, PatientId, PlanId, ReferralId } from "./ids";
+import type {
+  ActorId,
+  ContactId,
+  IdempotencyKey,
+  PathwayVersionId,
+  PatientId,
+  PlanId,
+  ReferralId,
+  TeamId,
+} from "./ids";
 import type { Contact, Plan, PlanState, ProviderStatus, Referral, SendingPreference, TransitionResult } from "./model";
 import type { NotificationPreferences } from "./notification-preferences";
 import type { PathwayVersion, PathwayVersionAction } from "./pathway-versions";
@@ -57,6 +67,17 @@ export type EpisodePatientDetail = Pick<
   Episode,
   "patientName" | "patientMobileNumber" | "patientIdentifiers" | "culturalIdentity"
 >;
+
+/**
+ * Seeds the running-service singleton before any stop has ever been raised. It names no real
+ * team, so an unstopped store cannot be mistaken for one that has already recorded an incident.
+ *
+ * It lives here, on the contract, rather than in either store: `ServiceState.reportedByTeamId` is
+ * carried forward across a restart, so a store that seeded a different placeholder would hand back
+ * a different running state than the other for the same history -- a divergence the shared contract
+ * suite would only catch if it happened to assert on the field.
+ */
+export const SERVICE_STATE_UNSET_TEAM: TeamId = teamId("service-state-unset");
 
 /**
  * Every mutating call is attributed to an actor and keyed for replay. The actor may be a person or

@@ -18,6 +18,38 @@ import {
 
 const DOMAIN_ROOT = path.join(process.cwd(), "src", "lib", "caring-contacts");
 
+/**
+ * Ruling 26. The word-mention half of rule 1 below exempts the STORAGE LAYER, and only the storage
+ * layer: `repository.ts` declares the storage contract, and `in-memory-repository.ts` and
+ * `db/postgres-repository.ts` implement it. `markRetentionCleared` is a method on that contract,
+ * so all three must be able to NAME the thing they store; renaming the method to dodge a regex
+ * would be the tail wagging the dog.
+ *
+ * The exemption is narrow in both directions, and that is the whole point of it:
+ *
+ *   * the `years: 7` half of rule 1 is UNTOUCHED and still applies to these three files, so the
+ *     literal period this file's title is about cannot appear in them;
+ *   * these three additionally carry the COMPENSATING assertion below -- no line that mentions
+ *     retention may also contain a digit -- which catches a hard-coded period spelled any other
+ *     way (`RETENTION_YEARS = 7`, `retentionYears: 7`, `retention: { years: 7 }`) that the
+ *     `years: 7` regex alone would miss.
+ *
+ * So an allowlisted file is checked MORE strictly than the rest of the domain, not less. Do not
+ * add a file here to make a diff pass: a module outside the storage layer has no reason to name
+ * retention at all, and the correct fix for one that does is to stop naming it.
+ *
+ * OPEN FOR THE OWNER (Task 11b): Ruling 26 as written named exactly `repository.ts` and
+ * `in-memory-repository.ts`, because at the time it was made the Postgres store did not yet
+ * implement `markRetentionCleared`. Task 11b implements it, which puts the word into the third
+ * storage file for the same reason it is in the other two. Removing that entry is a one-line
+ * revert if the owner rules the other way.
+ */
+const RETENTION_WORD_ALLOWLIST: readonly string[] = Object.freeze([
+  "repository.ts",
+  "in-memory-repository.ts",
+  "postgres-repository.ts",
+]);
+
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
     const full = path.join(dir, entry);
@@ -79,9 +111,39 @@ describe("rule 1: DEFAULT_RETENTION_POLICY", () => {
       if (path.basename(file) === "retention.ts") continue;
       const source = readFileSync(file, "utf8");
       const relative = path.relative(process.cwd(), file);
-      if (/retention/i.test(source)) offences.push(`${relative}: mentions "retention"`);
+      // The storage layer may NAME retention (see RETENTION_WORD_ALLOWLIST); the period check
+      // below still binds it, as does the stricter per-line check in the test that follows.
+      if (!RETENTION_WORD_ALLOWLIST.includes(path.basename(file)) && /retention/i.test(source)) {
+        offences.push(`${relative}: mentions "retention"`);
+      }
       if (/\byears\s*:\s*7\b/.test(source)) offences.push(`${relative}: hard-codes "years: 7"`);
     }
+    expect(offences).toEqual([]);
+  });
+
+  it("lets the storage layer name retention, but never on a line that also carries a number", () => {
+    const offences: string[] = [];
+    const inspected: string[] = [];
+
+    for (const file of walk(DOMAIN_ROOT)) {
+      const name = path.basename(file);
+      if (!RETENTION_WORD_ALLOWLIST.includes(name)) continue;
+      inspected.push(name);
+
+      const relative = path.relative(process.cwd(), file);
+      readFileSync(file, "utf8")
+        .split(/\r?\n/)
+        .forEach((line, index) => {
+          if (!/retention/i.test(line)) return;
+          if (!/\d/.test(line)) return;
+          offences.push(`${relative}:${index + 1}: retention named beside a number -- ${line.trim()}`);
+        });
+    }
+
+    // Positive control. Without it this assertion would go green on an allowlist that matched no
+    // file at all -- after a rename, a move, or a deletion -- and the compensating check would be
+    // silently decorative rather than merely wrong.
+    expect(inspected.sort()).toEqual([...RETENTION_WORD_ALLOWLIST].sort());
     expect(offences).toEqual([]);
   });
 });
