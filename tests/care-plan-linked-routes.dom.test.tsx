@@ -70,6 +70,9 @@ describe("Care Plan route shell", () => {
     expect(headingAfter).toHaveFocus();
   });
 
+  // Exercised on two shell-owned routes. Home and Patients own an in-flow
+  // directory search of their own from Task 4 onwards, so the shell composer is
+  // not rendered there and there is never a second search field on one page.
   it("keeps the typed search term across a navigation because the shell persists", async () => {
     const user = userEvent.setup();
     const navigate = vi.fn();
@@ -78,10 +81,10 @@ describe("Care Plan route shell", () => {
         <CarePlanRouteSurface pathname={pathname} query="" navigate={navigate} />
       </CarePlanPrototypeProvider>
     );
-    const { rerender } = render(surface(CARE_PLAN_ROUTES.home));
+    const { rerender } = render(surface(CARE_PLAN_ROUTES.reviews));
 
     await user.type(screen.getByRole("searchbox", { name: "Search patients" }), "Rowan");
-    rerender(surface(CARE_PLAN_ROUTES.patients));
+    rerender(surface(CARE_PLAN_ROUTES.team));
     expect(screen.getByRole("searchbox", { name: "Search patients" })).toHaveValue("Rowan");
   });
 
@@ -212,10 +215,10 @@ describe("Care Plan route shell", () => {
     ).toHaveAttribute("aria-current", "page");
   });
 
+  // Home, Patients and the patient Overview are deliberately absent: Task 4
+  // replaced their purpose surface with the real Clinical Snapshot, and the
+  // block below asserts they no longer render a purpose surface at all.
   it.each([
-    [CARE_PLAN_ROUTES.home, "Home", "Search-first Home and Clinical Snapshot"],
-    [CARE_PLAN_ROUTES.patients, "Patients", "Full patient directory and presentation-activity view"],
-    [CARE_PLAN_ROUTES.patient, "Patient overview", "Patient overview and first-minute snapshot"],
     [
       CARE_PLAN_ROUTES.managementPlan,
       "Management Plan",
@@ -283,7 +286,7 @@ describe("Care Plan route shell", () => {
 
   it("offers exactly one search slot and navigates it without putting record content in the URL", async () => {
     const user = userEvent.setup();
-    const navigate = renderRoute(CARE_PLAN_ROUTES.home);
+    const navigate = renderRoute(CARE_PLAN_ROUTES.reviews);
     const search = screen.getByRole("searchbox", { name: "Search patients" });
     expect(screen.getAllByRole("searchbox")).toHaveLength(1);
     await user.type(search, "Rowan");
@@ -312,6 +315,389 @@ describe("Care Plan route shell", () => {
     renderRoute(CARE_PLAN_ROUTES.managementPlan);
     expect(screen.queryByTitle(/coming soon/i)).toBeNull();
     expect(document.querySelector("[aria-disabled='true']")).toBeNull();
+  });
+
+  it("replaces the route-purpose surface on the three Clinical Snapshot routes", () => {
+    for (const route of [CARE_PLAN_ROUTES.home, CARE_PLAN_ROUTES.patients, CARE_PLAN_ROUTES.patient]) {
+      const { unmount } = render(
+        <CarePlanPrototypeProvider>
+          <CarePlanRouteSurface pathname={route} query="" navigate={vi.fn()} />
+        </CarePlanPrototypeProvider>,
+      );
+      expect(screen.queryByTestId("care-plan-route-purpose"), `${route} still shows a purpose surface`).toBeNull();
+      unmount();
+    }
+  });
+});
+
+describe("Care Plan patient directory", () => {
+  async function searchAndOpen(query: string, openName: RegExp) {
+    const user = userEvent.setup();
+    renderRoute(CARE_PLAN_ROUTES.home);
+    await user.type(screen.getByRole("searchbox", { name: "Search synthetic patients" }), query);
+    await user.click(screen.getByRole("button", { name: openName }));
+    return user;
+  }
+
+  // The brief's worked example, corrected against the fixtures: Mira's plan
+  // carries Current version 1 and Awaiting Approval version 2, not 2 and 3.
+  it("finds a synthetic patient and keeps Current Plan above an awaiting draft", async () => {
+    const user = userEvent.setup();
+    renderRoute(CARE_PLAN_ROUTES.home, "scenario=overdue-plan");
+    await user.type(screen.getByRole("searchbox", { name: "Search synthetic patients" }), "SYN-MRN-0002");
+    await user.click(screen.getByRole("button", { name: /Open Mira Example/i }));
+
+    const workspace = screen.getByRole("region", { name: "Mira Example clinical snapshot" });
+    expect(within(workspace).getByRole("heading", { level: 2, name: "Current Plan" })).toBeInTheDocument();
+    expect(within(workspace).getByText(/Awaiting Approval version 2/i)).toBeInTheDocument();
+    expect(within(workspace).getByText(/Current version 1 remains in use/i)).toBeInTheDocument();
+
+    // Hierarchy, not merely presence: the awaiting version must never be able to
+    // drift above the version a clinician is meant to act on.
+    const current = within(workspace).getByRole("heading", { level: 2, name: "Current Plan" });
+    const awaiting = within(workspace).getByText(/Awaiting Approval version 2/i);
+    expect(current.compareDocumentPosition(awaiting) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it.each([
+    ["full name", "Mira Example"],
+    ["preferred name", "Mira"],
+    ["alias", "Mira Example-Hale"],
+    ["MRN", "SYN-MRN-0002"],
+    ["ISO date of birth", "1948-09-22"],
+    ["displayed date of birth", "22/09/1948"],
+  ])("searches the supported %s identity field", async (_label, query) => {
+    const user = userEvent.setup();
+    renderRoute(CARE_PLAN_ROUTES.home);
+    await user.type(screen.getByRole("searchbox", { name: "Search synthetic patients" }), query);
+    expect(screen.getByRole("button", { name: /Open Mira Example/i })).toBeInTheDocument();
+  });
+
+  it("does not search plan or presentation content", async () => {
+    const user = userEvent.setup();
+    renderRoute(CARE_PLAN_ROUTES.home);
+    // A distinctive phrase from Mira's Current Plan content. Identity search
+    // must not become a full-text search of clinical text.
+    await user.type(screen.getByRole("searchbox", { name: "Search synthetic patients" }), "hearing aids");
+    expect(screen.queryByRole("button", { name: /Open Mira Example/i })).toBeNull();
+    expect(screen.getByTestId("care-plan-directory-no-results")).toBeInTheDocument();
+  });
+
+  it("shows deterministic no-results content and no patient rows", async () => {
+    const user = userEvent.setup();
+    renderRoute(CARE_PLAN_ROUTES.home);
+    await user.type(screen.getByRole("searchbox", { name: "Search synthetic patients" }), "SYN-MRN-9999");
+    const results = screen.getByTestId("care-plan-directory-results");
+    expect(within(results).queryAllByRole("button", { name: /^Open / })).toEqual([]);
+    const empty = screen.getByTestId("care-plan-directory-no-results");
+    expect(empty).toHaveTextContent("No synthetic patient matches SYN-MRN-9999");
+    expect(empty).toHaveTextContent(/Check the MRN, or try a different spelling/i);
+  });
+
+  it("offers recent patients before anything is typed", () => {
+    renderRoute(CARE_PLAN_ROUTES.home);
+    expect(screen.getByRole("heading", { name: "Recent patients" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Open / }).length).toBeGreaterThan(0);
+  });
+
+  it("states the lookback window and that counts decide nothing", () => {
+    renderRoute(CARE_PLAN_ROUTES.home);
+    const directory = screen.getByRole("region", { name: "Synthetic patient directory" });
+    expect(within(directory).getByText(/in the 12 months to 20\/08\/2026/i)).toBeInTheDocument();
+    expect(
+      within(directory).getByText(
+        /Counts describe what happened\. They do not determine eligibility for a Management Plan\./i,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  // Ranking everyone by attendance is the banned label without the word. It
+  // exists only inside Identification Review, which is not this surface.
+  it("offers no way to sort or rank the directory by presentation count", () => {
+    renderRoute(CARE_PLAN_ROUTES.home);
+    const directory = screen.getByRole("region", { name: "Synthetic patient directory" });
+    expect(within(directory).queryAllByRole("button", { name: /sort|rank|most|highest/i })).toEqual([]);
+    expect(within(directory).queryAllByRole("combobox")).toEqual([]);
+    expect(within(directory).queryAllByRole("columnheader")).toEqual([]);
+  });
+
+  it("offers a manual Identification Review entry point rather than an automatic rule", () => {
+    renderRoute(CARE_PLAN_ROUTES.home);
+    const directory = screen.getByRole("region", { name: "Synthetic patient directory" });
+    expect(within(directory).getByRole("link", { name: /Refer someone for Identification Review/i })).toHaveAttribute(
+      "href",
+      CARE_PLAN_ROUTES.reviews,
+    );
+  });
+
+  it("keeps exactly one search field on Home, owned by the directory", () => {
+    renderRoute(CARE_PLAN_ROUTES.home);
+    expect(screen.getAllByRole("searchbox")).toHaveLength(1);
+    expect(screen.getByRole("searchbox", { name: "Search synthetic patients" })).toBeInTheDocument();
+  });
+
+  it("keeps the whole snapshot free of unavailable authoring controls", async () => {
+    await searchAndOpen("SYN-MRN-0002", /Open Mira Example/i);
+    expect(screen.queryByTitle(/coming soon/i)).toBeNull();
+    expect(document.querySelector("[aria-disabled='true']")).toBeNull();
+  });
+});
+
+describe("Care Plan clinical snapshot", () => {
+  const FIRST_MINUTE_HEADINGS = [
+    "1. How to approach this person",
+    "2. What helps",
+    "3. What makes it worse",
+    "4. What we have agreed to do",
+    "5. What would make this presentation different",
+  ];
+
+  it("renders exactly the five first-minute sections, in order", () => {
+    renderRoute(CARE_PLAN_ROUTES.patient);
+    const sections = screen.getByTestId("care-plan-first-minute-sections");
+    expect(
+      within(sections)
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(FIRST_MINUTE_HEADINGS);
+  });
+
+  // Presence is not enough. The specification requires section 5 to be visually
+  // distinct from the other four and never collapsed, truncated, clipped, or put
+  // behind a disclosure — all of which leave it in the DOM.
+  it("keeps the fifth section visually distinct and never collapsed, truncated or hidden", () => {
+    renderRoute(CARE_PLAN_ROUTES.patient);
+    const boundary = screen
+      .getByRole("heading", { level: 3, name: "5. What would make this presentation different" })
+      .closest("section");
+    const ordinary = screen.getByRole("heading", { level: 3, name: "2. What helps" }).closest("section");
+    expect(boundary).not.toBeNull();
+    expect(ordinary).not.toBeNull();
+
+    const boundaryClasses = (boundary?.className ?? "").split(/\s+/).filter(Boolean);
+    const ordinaryClasses = (ordinary?.className ?? "").split(/\s+/).filter(Boolean);
+    const distinguishing = boundaryClasses.filter((token) => !ordinaryClasses.includes(token));
+    expect(distinguishing.length, "section 5 must carry a treatment the other four do not").toBeGreaterThan(0);
+
+    // …and that treatment must not be a way of hiding or shortening it.
+    for (const suppression of [/^sr-only$/, /^hidden$/, /^truncate$/, /line-clamp/, /^max-h-/, /^overflow-hidden$/]) {
+      for (const token of boundaryClasses) {
+        expect(token, `section 5 must not be suppressed by ${suppression}`).not.toMatch(suppression);
+      }
+    }
+    expect(boundary?.closest("details"), "section 5 must not sit behind a disclosure").toBeNull();
+    expect(boundary?.closest("[hidden]")).toBeNull();
+    expect(boundary?.getAttribute("aria-hidden")).toBeNull();
+  });
+
+  it("uses none of the removed nineteen-field vocabulary on the summary card", () => {
+    renderRoute(CARE_PLAN_ROUTES.patient);
+    const card = screen.getByRole("region", { name: "Current Plan" });
+    for (const removed of [
+      /preferred engagement/i,
+      /may increase distress/i,
+      /immediate continuity considerations/i,
+      /helpful interventions/i,
+      /usual presentation pattern/i,
+    ]) {
+      expect(card.textContent ?? "", `${removed} is a removed field name`).not.toMatch(removed);
+    }
+  });
+
+  it("pins the safety boundary beneath identity, above all plan content, and keeps it in print", () => {
+    renderRoute(CARE_PLAN_ROUTES.patient);
+    const identity = screen.getByTestId("care-plan-identity-band");
+    const pinned = screen.getByTestId("care-plan-pinned-safety-boundary");
+    const card = screen.getByRole("region", { name: "Current Plan" });
+
+    expect(identity.compareDocumentPosition(pinned) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(pinned.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(pinned.closest("[data-print-hide='true']")).toBeNull();
+    // It links to the full section; it never replaces it.
+    expect(within(pinned).getByRole("link", { name: /What would make this presentation different/i })).toHaveAttribute(
+      "href",
+      "#care-plan-first-minute-whatWouldMakeThisDifferent",
+    );
+    expect(
+      screen.getByRole("heading", { level: 3, name: "5. What would make this presentation different" }),
+    ).toHaveAttribute("id", "care-plan-first-minute-whatWouldMakeThisDifferent");
+  });
+
+  it("states the fresh-assessment boundary on every view of the plan", () => {
+    renderRoute(CARE_PLAN_ROUTES.patient);
+    expect(
+      within(screen.getByRole("region", { name: "Current Plan" })).getByText(
+        "This plan supports continuity. It never replaces fresh triage, physical assessment, mental-state assessment, immediate risk assessment, clinical judgement, or legal obligations.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("presents version, owner, approver, dates and links as metadata", () => {
+    renderRoute(CARE_PLAN_ROUTES.patient);
+    const metadata = screen.getByTestId("care-plan-current-plan-metadata");
+    expect(metadata).toHaveTextContent("Current version 2");
+    expect(metadata).toHaveTextContent("Morgan Sample");
+    expect(metadata).toHaveTextContent("Dr Taylor Fiction");
+    expect(metadata).toHaveTextContent("20/05/2026");
+    expect(metadata).toHaveTextContent("20/05/2027");
+    expect(metadata).toHaveTextContent("Within review");
+    expect(metadata).toHaveTextContent("North River CMHT");
+    expect(within(metadata).getByRole("link", { name: /Personal Safety Plan/i })).toHaveAttribute(
+      "href",
+      carePlanRoute.safetyPlan("SYN-PATIENT-001"),
+    );
+    // Metadata is not a sixth content section.
+    expect(within(metadata).queryAllByRole("heading", { level: 3 })).toEqual([]);
+  });
+
+  it("derives an overdue review from the date and keeps the content readable below the warning", () => {
+    renderRoute(carePlanRoute.patient("SYN-PATIENT-002"));
+    const warning = screen.getByTestId("care-plan-review-warning");
+    expect(warning).toHaveTextContent(/Review overdue/i);
+    expect(warning).toHaveTextContent("16/07/2026");
+    const card = screen.getByRole("region", { name: "Current Plan" });
+    expect(warning.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(card).getByText(/check that Mira has her hearing aids in/i)).toBeInTheDocument();
+  });
+
+  it("says No Current Plan and keeps a Draft visibly separate without promoting it", () => {
+    renderRoute(carePlanRoute.patient("SYN-PATIENT-005"));
+    const workspace = screen.getByRole("region", { name: "Alex Fiction clinical snapshot" });
+    expect(within(workspace).getByText("No Current Plan")).toBeInTheDocument();
+    expect(within(workspace).queryByRole("region", { name: "Current Plan" })).toBeNull();
+    const draft = within(workspace).getByRole("region", { name: "Version in progress" });
+    expect(draft).toHaveTextContent(/Draft version 1/i);
+    expect(draft).toHaveTextContent(/This is not a plan in use\./i);
+    expect(within(draft).queryByRole("heading", { level: 2, name: "Current Plan" })).toBeNull();
+  });
+
+  it("names the withdrawal date, clinician and reason instead of a bare No Current Plan", () => {
+    renderRoute(carePlanRoute.patient("SYN-PATIENT-004"));
+    const withdrawn = screen.getByTestId("care-plan-withdrawn-notice");
+    expect(withdrawn).toHaveTextContent("Plan withdrawn on 04/07/2026 by Dr Taylor Fiction");
+    expect(withdrawn).toHaveTextContent(/Evelyn's circumstances have changed substantially/i);
+    expect(screen.queryByText("No Current Plan")).toBeNull();
+  });
+
+  it("marks a version written without the person's involvement", () => {
+    renderRoute(carePlanRoute.patient("SYN-PATIENT-005"));
+    expect(
+      within(screen.getByRole("region", { name: "Version in progress" })).getByText(
+        "Written without this person's involvement",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps identity and currency facts visible in the identity band", () => {
+    renderRoute(CARE_PLAN_ROUTES.patient);
+    const band = screen.getByTestId("care-plan-identity-band");
+    expect(band).toHaveTextContent("Rowan Sample");
+    expect(band).toHaveTextContent("SYN-MRN-0001");
+    expect(band).toHaveTextContent("12/04/1986");
+    expect(band).toHaveTextContent("Adult");
+    expect(band).toHaveTextContent("Rowan");
+    expect(band).toHaveTextContent("they/them");
+    expect(band).toHaveTextContent("North River Health Service");
+    expect(band).toHaveTextContent(/Current Plan.*version 2/i);
+    expect(band).toHaveTextContent(/Personal Safety Plan/i);
+    expect(band).toHaveTextContent(/verified/i);
+    expect(band).toHaveTextContent(/in the 12 months to 20\/08\/2026/i);
+    expect(within(band).getByText("Synthetic prototype — fictional people, teams, and hospitals")).toBeInTheDocument();
+  });
+
+  // Never display a nearby patient's plan as a fallback.
+  it("refuses to show plan content when the record is not confirmed as the right person", () => {
+    renderRoute(CARE_PLAN_ROUTES.patient, "scenario=identity-uncertain");
+    expect(screen.queryByRole("region", { name: "Current Plan" })).toBeNull();
+    expect(screen.getByTestId("care-plan-identity-uncertain")).toHaveTextContent(/Return to search/i);
+  });
+
+  it("links the four primary patient sections and History from the selected patient", () => {
+    renderRoute(carePlanRoute.patient("SYN-PATIENT-002"));
+    const nav = screen.getByRole("navigation", { name: "Patient sections" });
+    for (const [label, href] of [
+      ["Overview", carePlanRoute.patient("SYN-PATIENT-002")],
+      ["Management Plan", carePlanRoute.managementPlan("SYN-PATIENT-002")],
+      ["Personal Safety Plan", carePlanRoute.safetyPlan("SYN-PATIENT-002")],
+      ["ED Presentations", carePlanRoute.presentations("SYN-PATIENT-002")],
+      ["History", carePlanRoute.history("SYN-PATIENT-002")],
+    ] as const) {
+      expect(within(nav).getByRole("link", { name: label })).toHaveAttribute("href", href);
+    }
+    expect(within(nav).getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "page");
+  });
+});
+
+describe("Care Plan CMHT contact actions", () => {
+  it("exposes only intent-safe CMHT launch links", () => {
+    renderRoute(CARE_PLAN_ROUTES.patient);
+    expect(screen.getByRole("link", { name: "Email North River CMHT" })).toHaveAttribute(
+      "href",
+      "mailto:north-river.cmht@example.org?subject=Care+Plan+%E2%80%94+team+contact+request",
+    );
+    expect(screen.getByRole("link", { name: "Call North River CMHT" })).toHaveAttribute("href", "tel:+61491570101");
+  });
+
+  it("puts no patient information in the mailto", () => {
+    renderRoute(CARE_PLAN_ROUTES.patient);
+    const href = screen.getByRole("link", { name: "Email North River CMHT" }).getAttribute("href") ?? "";
+    for (const forbidden of ["Rowan", "Sample", "SYN-MRN-0001", "1986-04-12", "12/04/1986", "SYN-PATIENT-001"]) {
+      expect(href.toLowerCase(), `${forbidden} must not travel in a mailto`).not.toContain(forbidden.toLowerCase());
+    }
+    expect(href).not.toMatch(/[?&]body=/);
+  });
+
+  it("shows the displayed contact details, hours, coordinator and after-hours route", () => {
+    renderRoute(CARE_PLAN_ROUTES.patient);
+    const contacts = screen.getByRole("region", { name: "Community mental health team" });
+    expect(contacts).toHaveTextContent("north-river.cmht@example.org");
+    expect(contacts).toHaveTextContent("0491 570 101");
+    expect(contacts).toHaveTextContent("Monday to Friday, 8:30 am to 5:00 pm AWST");
+    expect(contacts).toHaveTextContent("Sam Placeholder");
+    expect(contacts).toHaveTextContent("1300 555 788");
+    expect(contacts).toHaveTextContent("30/07/2026");
+  });
+
+  it("records a contact intent and claims only that an application was requested", async () => {
+    const user = userEvent.setup();
+    renderRoute(CARE_PLAN_ROUTES.patient);
+    await user.click(screen.getByRole("link", { name: "Email North River CMHT" }));
+    const outcome = screen.getByTestId("care-plan-outcome");
+    expect(outcome).toHaveTextContent(
+      "An email application was asked to open. This prototype records only that request, not what happens next.",
+    );
+    for (const overclaim of [/sent/i, /delivered/i, /received/i, /replied/i, /notified/i]) {
+      expect(outcome.textContent ?? "").not.toMatch(overclaim);
+    }
+  });
+
+  it("keeps unverified contact details visible with a warning, last-verified date and a Reviews link", () => {
+    renderRoute(carePlanRoute.patient("SYN-PATIENT-003"));
+    const contacts = screen.getByRole("region", { name: "Community mental health team" });
+    // Details stay visible: withholding them would send nobody anywhere.
+    expect(contacts).toHaveTextContent("wandoo-district.cmht@example.org");
+    expect(within(contacts).getByRole("link", { name: "Call Wandoo District CMHT" })).toHaveAttribute(
+      "href",
+      "tel:+61491570121",
+    );
+    const warning = within(contacts).getByTestId("care-plan-contact-verification-warning");
+    expect(warning).toHaveTextContent(/have not been verified/i);
+    expect(warning).toHaveTextContent("20/01/2025");
+    expect(warning.textContent ?? "").not.toMatch(/available now|currently available|reachable/i);
+    expect(within(warning).getByRole("link", { name: /Reviews/i })).toHaveAttribute("href", CARE_PLAN_ROUTES.reviews);
+  });
+
+  it("keeps details visible and explains a launch failure in three parts", async () => {
+    const user = userEvent.setup();
+    renderRoute(CARE_PLAN_ROUTES.patient, "scenario=launch-failure");
+    await user.click(screen.getByRole("link", { name: "Email North River CMHT" }));
+    const failure = screen.getByTestId("care-plan-launch-failure");
+    expect(failure).toHaveTextContent(/could not be opened/i);
+    expect(failure).toHaveTextContent(/Nothing was sent/i);
+    expect(failure).toHaveTextContent(/north-river\.cmht@example\.org/);
+    // The contact details themselves are still on screen.
+    const contacts = screen.getByRole("region", { name: "Community mental health team" });
+    expect(within(contacts).getByRole("link", { name: "Call North River CMHT" })).toBeInTheDocument();
   });
 });
 

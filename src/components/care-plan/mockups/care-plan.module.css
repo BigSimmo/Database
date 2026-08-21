@@ -286,3 +286,499 @@
     border-color: CanvasText;
   }
 }
+
+/*
+ * Clinical Snapshot — patient directory, patient workspace, and the Current Plan
+ * summary card. Colour comes from design tokens only, and no rule here clips,
+ * truncates, or collapses plan content: the fifth first-minute section and the
+ * pinned safety boundary must survive every viewport, dark mode, forced colours,
+ * and print.
+ */
+
+.appRoot .snapshotSplit {
+  display: grid;
+  align-items: start;
+  gap: 1.25rem;
+  margin-block-start: 1.25rem;
+}
+
+.appRoot .snapshotWorkspaceColumn {
+  min-width: 0;
+}
+
+.appRoot .directory {
+  display: grid;
+  gap: 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface-raised);
+  padding: var(--pad-panel);
+}
+
+.appRoot .directoryHeading {
+  color: var(--text-heading);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.appRoot .directoryResults {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.appRoot .directoryList {
+  display: grid;
+  gap: 0.375rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.appRoot .directoryRow {
+  display: grid;
+  width: 100%;
+  min-height: var(--spacing-tap);
+  gap: 0.125rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 0.5rem 0.75rem;
+  text-align: start;
+}
+
+.appRoot .directoryRow:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-subtle);
+}
+
+.appRoot .directoryRow:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.appRoot .directoryRowSelected {
+  border-color: var(--clinical-accent-border);
+  background: var(--clinical-accent-soft);
+}
+
+.appRoot .directoryRowName {
+  color: var(--text-heading);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.appRoot .directoryRowDetail {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.appRoot .directoryRowMarks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin-block-start: 0.25rem;
+}
+
+.appRoot .directoryRowCount {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.appRoot .directoryFooter {
+  display: grid;
+  gap: 0.375rem;
+  border-block-start: 1px solid var(--border);
+  padding-block-start: 0.75rem;
+}
+
+.appRoot .directoryNote {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.appRoot .workspace {
+  display: grid;
+  gap: 1rem;
+}
+
+.appRoot .identityBand {
+  display: grid;
+  gap: 0.625rem;
+  justify-items: start;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface-raised);
+  padding: var(--pad-panel);
+}
+
+.appRoot .patientName {
+  color: var(--text-heading);
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+.appRoot .definitionGrid {
+  display: grid;
+  width: 100%;
+  gap: 0.375rem 1rem;
+}
+
+.appRoot .definitionRow {
+  display: grid;
+  gap: 0.0625rem;
+}
+
+.appRoot .definitionTerm {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.appRoot .definitionDetail {
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.appRoot .statusMark {
+  display: inline-flex;
+  align-items: center;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: var(--radius-sm);
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.appRoot .patientNav {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  border-block-start: 1px solid var(--border);
+  padding-block-start: 0.625rem;
+}
+
+.appRoot .patientNavItem {
+  display: inline-flex;
+  min-height: var(--spacing-tap);
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding-inline: 0.75rem;
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.appRoot .patientNavItem:hover {
+  background: var(--surface-subtle);
+}
+
+.appRoot .patientNavItem[aria-current="page"] {
+  border-color: var(--clinical-accent-border);
+  background: var(--clinical-accent-soft);
+  color: var(--clinical-accent);
+}
+
+.appRoot .patientNavSecondary {
+  margin-inline-start: auto;
+  color: var(--text-muted);
+}
+
+/*
+ * The pinned safety boundary. It sits directly beneath the identity band and
+ * above every other plan element, at every viewport and in print, and it links
+ * to the full section rather than replacing it.
+ */
+.appRoot .pinnedBoundary {
+  display: grid;
+  gap: 0.25rem;
+  border: 2px solid var(--warning-border);
+  border-radius: var(--radius-lg);
+  background: var(--warning-soft);
+  padding: 0.75rem 1rem;
+}
+
+.appRoot .pinnedBoundaryText {
+  color: var(--text);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.appRoot .pinnedBoundaryLink,
+.appRoot .inlineLink {
+  color: var(--clinical-accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.appRoot .sectionFrame {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface-raised);
+  padding: var(--pad-panel);
+}
+
+.appRoot .sectionFrameBoundary {
+  border-color: var(--clinical-accent-border);
+}
+
+.appRoot .sectionFrameSecondary {
+  background: var(--surface-inset);
+}
+
+.appRoot .sectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.appRoot .sectionActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.appRoot .sectionHeading {
+  color: var(--text-heading);
+  font-size: var(--text-lg-minus);
+  font-weight: 700;
+}
+
+.appRoot .subsectionHeading {
+  color: var(--text-heading);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.appRoot .sectionDescription {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.appRoot .sectionEmpty {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+.appRoot .metadataBlock {
+  display: grid;
+  gap: 0.625rem;
+  border-block-end: 1px solid var(--border);
+  padding-block-end: 0.75rem;
+}
+
+.appRoot .metadataMarks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.appRoot .boundaryStatement {
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.appRoot .firstMinuteSections {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.appRoot .firstMinuteSection {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.appRoot .firstMinuteSectionBoundary {
+  border: 2px solid var(--clinical-accent-border);
+  border-radius: var(--radius-lg);
+  background: var(--clinical-accent-soft);
+  padding: 0.75rem;
+}
+
+.appRoot .contentList {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0;
+  padding-inline-start: 1.125rem;
+  color: var(--text);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.appRoot .reviewWarning {
+  border-width: 1px;
+  border-style: solid;
+  border-radius: var(--radius-lg);
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.appRoot .noCurrentPlan {
+  color: var(--text-heading);
+  font-size: var(--text-lg-minus);
+  font-weight: 700;
+}
+
+.appRoot .withdrawnNotice {
+  color: var(--text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.appRoot .identityUncertain {
+  border: 2px solid var(--danger-border);
+  border-radius: var(--radius-lg);
+  background: var(--danger-soft);
+  padding: 0.875rem 1rem;
+  color: var(--text);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.appRoot .contactWarning {
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-lg);
+  background: var(--warning-soft);
+  padding: 0.625rem 0.875rem;
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.appRoot .contactVerified {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.appRoot .contactActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.appRoot .contactAction {
+  display: inline-flex;
+  min-height: var(--spacing-tap);
+  align-items: center;
+  border: 1px solid var(--border-lux);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding-inline: 1rem;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.appRoot .contactAction:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-subtle);
+}
+
+.appRoot .contactBoundary {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.appRoot .launchFailure {
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-lg);
+  background: var(--danger-soft);
+  padding: 0.625rem 0.875rem;
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+@media (min-width: 40rem) {
+  .appRoot .definitionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/*
+ * The desktop split. Below this width the directory and the workspace are one
+ * full-width column, in that order: a compressed second column at 320px would
+ * make the first-minute content unreadable exactly where it matters most.
+ */
+@media (min-width: 64rem) {
+  .appRoot .snapshotSplit {
+    grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
+  }
+
+  .appRoot .directory {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+@media (forced-colors: active) {
+  .appRoot .directoryRow,
+  .appRoot .sectionFrame,
+  .appRoot .identityBand,
+  .appRoot .directory,
+  .appRoot .pinnedBoundary,
+  .appRoot .firstMinuteSectionBoundary,
+  .appRoot .contactAction,
+  .appRoot .patientNavItem,
+  .appRoot .statusMark {
+    border-color: CanvasText;
+  }
+
+  .appRoot .directoryRow[aria-current="true"],
+  .appRoot .patientNavItem[aria-current="page"] {
+    border-width: 2px;
+  }
+}
+
+@media print {
+  .appRoot .snapshotSplit {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .appRoot .directory {
+    display: none;
+  }
+
+  .appRoot .sectionFrame,
+  .appRoot .identityBand,
+  .appRoot .pinnedBoundary,
+  .appRoot .firstMinuteSectionBoundary {
+    border-color: CanvasText;
+    background: none;
+    break-inside: avoid;
+  }
+
+  /* The pinned boundary and the fifth section print in full, never clipped. */
+  .appRoot .pinnedBoundary,
+  .appRoot .firstMinuteSection {
+    max-height: none;
+    overflow: visible;
+  }
+}

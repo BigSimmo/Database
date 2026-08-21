@@ -59,6 +59,13 @@ export type CarePlanShellFrameProps = {
   activeUser: { displayName: string; title: string };
   /** Called when the one search slot is submitted. */
   onSearchSubmit: () => void;
+  /**
+   * The route owns an in-flow search of its own, so the shell stands its
+   * composer down. One page never carries two search fields: Home and Patients
+   * put search inside the patient directory, where the results appear, and every
+   * other route uses this one.
+   */
+  routeOwnsSearch?: boolean;
   /** The one route-owned action slot beside the page title. */
   headerAction?: ReactNode;
   children: ReactNode;
@@ -80,6 +87,7 @@ export function CarePlanShellFrame({
   scenario,
   activeUser,
   onSearchSubmit,
+  routeOwnsSearch = false,
   headerAction,
   children,
 }: CarePlanShellFrameProps) {
@@ -175,19 +183,21 @@ export function CarePlanShellFrame({
               <span className={styles.memoryNotice}>Nothing is saved. Reloading this page starts over.</span>
             </div>
 
-            <form role="search" onSubmit={handleSubmit} className={styles.searchSlot} data-print-hide="true">
-              <SearchField
-                label="Search patients"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                onClear={() => setSearchTerm("")}
-                placeholder="Search patients"
-                fieldClassName={styles.searchField}
-              />
-              <Button type="submit" variant="secondary">
-                Search patients
-              </Button>
-            </form>
+            {routeOwnsSearch ? null : (
+              <form role="search" onSubmit={handleSubmit} className={styles.searchSlot} data-print-hide="true">
+                <SearchField
+                  label="Search patients"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  onClear={() => setSearchTerm("")}
+                  placeholder="Search patients"
+                  fieldClassName={styles.searchField}
+                />
+                <Button type="submit" variant="secondary">
+                  Search patients
+                </Button>
+              </form>
+            )}
           </header>
 
           <main className={styles.main}>

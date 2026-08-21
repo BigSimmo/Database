@@ -5,8 +5,9 @@ import { useMemo } from "react";
 
 import { CarePlanShellFrame } from "./care-plan-shell-frame";
 import styles from "./care-plan.module.css";
+import { ClinicalSnapshotSurface, type ClinicalSnapshotVariant } from "./clinical-snapshot-page";
 import { useCarePlanPrototype } from "./prototype-provider";
-import { CARE_PLAN_BASE, CARE_PLAN_ROUTES, type CarePlanDestination } from "./routes";
+import { CARE_PLAN_BASE, CARE_PLAN_ROUTES, isSyntheticPatientId, type CarePlanDestination } from "./routes";
 import type { PrototypeScenario } from "./types";
 
 /**
@@ -250,6 +251,33 @@ function RoutePurposeSurface({ purpose }: { purpose: string }) {
   );
 }
 
+/**
+ * The synthetic patient a patient-scoped address names, or `null` when the
+ * address names none or names one the fixtures do not contain. The page files
+ * already refuse an unknown parameter with `notFound()`; this is the same check
+ * again on the reading side, so a hand-typed address can never make a surface
+ * ask the state for a record that does not exist.
+ */
+export function carePlanPatientIdFromPathname(pathname: string): string | null {
+  const trimmed = pathname.split("?")[0] ?? pathname;
+  if (!trimmed.startsWith(CARE_PLAN_BASE)) return null;
+  const segments = trimmed.slice(CARE_PLAN_BASE.length).split("/").filter(Boolean);
+  if (segments[0] !== "patients") return null;
+  const candidate = segments[1];
+  return candidate !== undefined && isSyntheticPatientId(candidate) ? candidate : null;
+}
+
+/**
+ * The three routes Task 4 gave real content. Each owns a Clinical Snapshot
+ * variant instead of the Task 3 purpose surface, and Home and Patients own their
+ * own directory search rather than borrowing the shell composer.
+ */
+const SNAPSHOT_VARIANT_BY_ROUTE_KEY: Partial<Record<string, ClinicalSnapshotVariant>> = {
+  home: "home",
+  patients: "patients",
+  patient: "patient",
+};
+
 export type CarePlanRouteSurfaceProps = {
   pathname: string;
   query?: string;
@@ -265,6 +293,8 @@ export function CarePlanRouteSurface({ pathname, query = "", navigate }: CarePla
   const route = useMemo(() => resolveCarePlanRoute(pathname), [pathname]);
   const scenario = useMemo(() => scenarioFromQuery(query), [query]);
   const activeUser = state.users.find((user) => user.id === state.activeUserId);
+  const snapshotVariant = SNAPSHOT_VARIANT_BY_ROUTE_KEY[route.key];
+  const patientId = useMemo(() => carePlanPatientIdFromPathname(pathname), [pathname]);
 
   return (
     <CarePlanShellFrame
@@ -274,8 +304,15 @@ export function CarePlanRouteSurface({ pathname, query = "", navigate }: CarePla
       scenario={scenario}
       activeUser={{ displayName: activeUser?.displayName ?? "", title: activeUser?.title ?? "" }}
       onSearchSubmit={() => navigate(CARE_PLAN_ROUTES.patients)}
+      // Home and Patients own an in-flow directory search, so the shell stands
+      // its own composer down rather than putting two search fields on one page.
+      routeOwnsSearch={snapshotVariant === "home" || snapshotVariant === "patients"}
     >
-      <RoutePurposeSurface purpose={route.purpose} />
+      {snapshotVariant === undefined ? (
+        <RoutePurposeSurface purpose={route.purpose} />
+      ) : (
+        <ClinicalSnapshotSurface variant={snapshotVariant} patientId={patientId ?? undefined} scenario={scenario} />
+      )}
     </CarePlanShellFrame>
   );
 }
