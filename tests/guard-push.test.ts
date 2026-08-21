@@ -464,6 +464,9 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     const result = inFlightCiGuard(["claude/my-fix"], [], {
       prViewer: () => ({ state: "OPEN", number: 77 }),
       runFetcher: () => runs,
+      // Pinned true: the guard fails open when `gh` is absent, so without this the
+      // assertions below silently pass on a machine that has no GitHub CLI.
+      ghAvailable: () => true,
     });
     expect(result.ok).toBe(false);
     expect(result.message).toContain("PR #77 on claude/my-fix has required CI run(s) currently IN-FLIGHT");

@@ -133,6 +133,7 @@ The v2 layer _references_ or _depends on_ these; their values stay in `live` / `
 | Density (`--spacing-tap`, `--tap-min`, rows, cells)                           | Utilities from `@theme`; `--tap-min` as alias | Setting the pair independently; reducing any 48px target                                    |
 | Space/type/radius                                                             | Semantic tokens in markup                     | Raw scale values or literals in components; `--measure` on non-prose                        |
 | Quantity/spine/status-mark                                                    | Their named components only                   | Reuse as generic decoration                                                                 |
+| Ward-scoped (`--ward-*`, `--net-*`, `--co-*`)                                 | Inside `src/components/ward-management/**`    | Any use outside that directory; adding a name without a §9 row                              |
 
 ## 8 · Naming rules going forward
 
@@ -142,3 +143,35 @@ The v2 layer _references_ or _depends on_ these; their values stay in `live` / `
 - A deprecation ships with an alias, a lint rule, and a named deletion condition.
 - The design-sync manifest is generated; a hand-edited token entry anywhere under `_ds/` is a
   defect regardless of its content.
+
+## 9 · Component-scoped families the contract does not govern
+
+One family exists outside the layers above. It is recorded here because an unregistered
+token family is indistinguishable from drift, and §8 forbids a token without a usage rule —
+so leaving it undocumented made the rule unenforceable rather than satisfied.
+
+| Family                          | Where declared                                                                                                                               | Names | Rule                                                                                    |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----- | --------------------------------------------------------------------------------------- |
+| `--ward-*`, `--net-*`, `--co-*` | `ward-management.module.css`, `ward-management-modes.module.css`, `ward-management-network.module.css`, `coordinator/coordinator.module.css` | 89    | Scoped to `src/components/ward-management/**`. No new name without a row in this table. |
+
+**What it is.** A private spacing, line-height and z-index vocabulary for the ward bed board,
+declared three times in near-duplicate across the four stylesheets. Colour is **not** part of
+it: every colour property in those files already aliases a real theme token
+(`--ward-blue: var(--clinical-accent)`), and the files carry zero hex literals.
+
+**Why it is a documented exception rather than a cleanup.** The ward surfaces are a dense
+clinical grid, and `--ward-space-*` is a 1px-granular scale — 8 of its 15 steps sit off the
+4px grid in §2. Mapping it onto `--gap-*`/`--pad-*` would reflow the bed board, which is a
+visual decision for the owner, not a token migration. Measured 2026-08-21: **307** spacing
+references in these files, **0** of them to the real semantic roles.
+
+**Known cost, accepted for now.** These names are invisible to the design-system contract
+(no lint rule inspects CSS-module custom-property declarations), so the family can grow
+without any gate noticing. The rule in §7 and this table are the only thing holding it.
+Two consequences already observed and fixed elsewhere: 44px tap targets survived the repo-wide
+44→48 sweep here because they were hand-rolled module heights, and `--ward-z-*` bypasses the
+named `--z-*` ladder entirely.
+
+**To retire it**, map the spacing scale onto `--gap-*`/`--pad-*`, route `--ward-z-*` onto local
+stacking contexts using the named rungs, and adopt the per-step `--text-*-lh` companions in
+place of `--ward-leading-*`. Each is a visual change and wants its own review.

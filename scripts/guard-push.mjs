@@ -414,13 +414,16 @@ export function defaultRunsFetch(branch, exec = execFileSync) {
 export function inFlightCiGuard(
   branches,
   _ranges = [],
-  { prViewer = defaultPrView, runFetcher = defaultRunsFetch } = {},
+  // `ghAvailable` is injectable for the same reason `prViewer`/`runFetcher` are:
+  // without it the fail-open below short-circuits before either is consulted, so
+  // this guard's behaviour was untestable on any machine with no `gh` on PATH.
+  { prViewer = defaultPrView, runFetcher = defaultRunsFetch, ghAvailable = ghIsAvailable } = {},
 ) {
   void _ranges;
   if (process.env.SKIP_IN_FLIGHT_CI_GUARD === "1") {
     return { name: "in-flight-ci", ok: true, skipped: "SKIP_IN_FLIGHT_CI_GUARD=1" };
   }
-  if (!ghIsAvailable()) {
+  if (!ghAvailable()) {
     return { name: "in-flight-ci", ok: true, note: "gh not available — in-flight CI check skipped (fail-open)" };
   }
 
