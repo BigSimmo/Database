@@ -2067,7 +2067,7 @@ async function main() {
   if (env.WORKER_DOCUMENT_EXTRACTOR_MODE === "shadow") {
     console.log(
       `Docling shadow extraction enabled (packet B4): cohort ${env.WORKER_SHADOW_EXTRACTION_COHORT_PERCENT}% of ` +
-        "index-quality-selected PDFs after legacy commit; aggregate metadata only. Rollback: WORKER_DOCUMENT_EXTRACTOR_MODE=legacy.",
+        "index-quality-selected PDFs after legacy commit; aggregate metadata only. Rollback: set WORKER_DOCUMENT_EXTRACTOR_MODE=legacy, then deploy.",
     );
     const doclingPrereqs = await checkDoclingShadowPrerequisites();
     if (!doclingPrereqs.ok) {

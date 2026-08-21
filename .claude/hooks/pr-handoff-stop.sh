@@ -232,7 +232,7 @@ post)
   fi
   [ -f "$marker" ] || exit 0
 
-  context="The pull request is open, and this session may babysit its CI for the next ${budget_minutes} minutes: read checks and run logs, re-run a failed job, sync the branch from main, and push fixes for what this change broke. Look on a slow cadence — roughly five minutes between checks, waiting with ScheduleWakeup or Monitor rather than polling tightly — and stop as soon as CI settles. When the ${budget_minutes}-minute budget is spent those tools are denied: record the ledger row if it is still owed, give the user the PR URL, say plainly where CI stands, and stop. Do not park a cron job on this PR — it would outlive the session. See AGENTS.md \"Babysit the pull request, then stop\"."
+  context="The pull request is open: hand over its URL and stop. Do not read checks, wait, sync from main, or push follow-up fixes unless the user expressly asks to babysit or continue PR work. If they do ask in this session, CI follow-up is bounded to ${budget_minutes} minutes; use a slow cadence and stop as soon as CI settles. Do not park a cron job on this PR — it would outlive the session. See AGENTS.md \"Babysit the pull request, then stop\"."
   printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' "$(json_escape "$context")"
   exit 0
   ;;
