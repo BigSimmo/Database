@@ -208,7 +208,12 @@ function FilterControl({ state, labelled }: { state: RowState; labelled: boolean
 function OneRowBlock({ state, measured }: { state: RowState; measured?: boolean }) {
   return (
     <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)]">
-      <div className="flex items-center gap-2 px-3 py-2" data-fit-track={measured ? "true" : undefined}>
+      {/* Wraps rather than overflows. At the widths this repo targets the row
+          never uses it, but below ~350 px — a small phone, or any phone at an
+          enlarged text size — Filter drops to a second line instead of being
+          clipped. One row normally, two rows only when one genuinely cannot
+          hold. */}
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2" data-fit-track={measured ? "true" : undefined}>
         <ScopeToggle state={state} />
         {state.searching ? <QueryChip state={state} /> : <LetterChip state={state} />}
         <span className={cn(state.searching ? "" : "ml-auto")}>
@@ -460,8 +465,21 @@ function FitRow({ width, note, searching }: { width: number; note: string; searc
   useEffect(() => {
     const track = trackRef.current?.querySelector<HTMLElement>("[data-fit-track]");
     if (!track) return;
+    // Sum what the controls intrinsically want, against the track's content
+    // box. Comparing scrollWidth to clientWidth looks like the same question
+    // and is not: `ml-auto` on Filter absorbs every spare pixel, so that
+    // comparison reports a dead-heat zero at every width and hides both the
+    // real slack and, once the row wraps, the real shortfall.
     const measure = () => {
-      const slack = track.clientWidth - track.scrollWidth;
+      const style = getComputedStyle(track);
+      const gap = Number.parseFloat(style.columnGap) || 0;
+      const padding = Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight);
+      const available = track.getBoundingClientRect().width - padding;
+      const children = Array.from(track.children);
+      const needed =
+        children.reduce((total, child) => total + child.getBoundingClientRect().width, 0) +
+        gap * Math.max(0, children.length - 1);
+      const slack = Math.round(available - needed);
       setVerdict({ fits: slack >= 0, slack });
     };
     measure();
@@ -491,7 +509,7 @@ function FitRow({ width, note, searching }: { width: number; note: string; searc
                   : "bg-[color:var(--warning-soft)] text-[color:var(--text-heading)]",
               )}
             >
-              {verdict.fits ? `fits · ${verdict.slack}px spare` : `overflows by ${Math.abs(verdict.slack)}px`}
+              {verdict.fits ? `one row · ${verdict.slack}px spare` : `wraps · ${Math.abs(verdict.slack)}px short`}
             </span>
           ) : null}
         </p>
@@ -554,7 +572,15 @@ export function DictionaryControlRowMockupsPage() {
           </div>
           <div className="grid gap-4 p-4 sm:p-5">
             {fitWidths.map((entry) => (
-              <FitRow key={entry.px} width={entry.px} note={entry.note} searching={fitSearching} />
+              // Keyed on the mode as well as the width: `useRowState` seeds its
+              // query once, so without a remount the toggle re-measured rows it
+              // had not actually changed.
+              <FitRow
+                key={`${entry.px}-${fitSearching ? "query" : "idle"}`}
+                width={entry.px}
+                note={entry.note}
+                searching={fitSearching}
+              />
             ))}
           </div>
         </div>
