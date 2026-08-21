@@ -866,3 +866,63 @@ hook needs `node_modules` the fresh worktree did not have. Formatting WAS checke
 pinned Prettier 3.9.6 and both changed files were already clean. What the hook would additionally have run
 — the generated-documentation synchronisation — has not been run. The diff adds no route, page or script,
 so it should be a no-op, but that is reasoned rather than measured and should be confirmed.
+
+## RESTORATION FULLY VERIFIED 2026-08-21 — the open item above is CLOSED
+
+Dependencies finally installed in `D:\Worktrees\Database\caring-contacts-phase-2a`
+(`added 770 packages in 58m`, using `--ignore-scripts` to step past the `postinstall`
+`check-installed-lock-parity` failure; the packages themselves install correctly). The reconstructed test
+file has now been executed, and re-proven falsifiable rather than merely green.
+
+Three runs against the restored tree, decisive lines, each matching its pre-deletion counterpart EXACTLY:
+
+- GREEN: `Test Files 2 passed (2)` / `Tests 96 passed (96)`, zero failures.
+- MUTATION A (write-once arm commented out): `Tests 2 failed | 94 passed (96)` — precisely
+  "refuses to clear a restart that was already recorded" and "refuses to move a restart that was already
+  recorded", with "still lets the restart be recorded against it" GREEN.
+- MUTATION B (whole-row comparison reduced to `stop_id` only): `Tests 4 failed | 92 passed (96)`, and the
+  data-driven column test again named every uncovered column and distinguished the two failure modes
+  correctly — `"note: the update was ALLOWED"` and `"reported_by_team_id: the update was ALLOWED"` against
+  `"reason: error: null value ... violates not-null constraint"`.
+- Both mutations reverted; `git status` clean, so the tree is byte-identical to the committed state.
+
+WHY THIS MATTERED, recorded so the reasoning is not lost: a green run alone would have been insufficient.
+The reconstructed tests could in principle have carried a transcription error that silently disabled an
+assertion — the exact "test that cannot fail" defect this branch has already found twice. Running both
+mutations proves all three reconstructed tests still redden, and redden for the right reason, so the
+reconstruction is validated behaviourally and not merely structurally. The one open verification recorded
+in the previous section is therefore CLOSED.
+
+The `--no-verify` debt on `b273e9500` is also cleared. With `node_modules` present, the generated-doc
+synchronisation the pre-commit hook would have run was executed: `sitemap:update` exit 0,
+`update-docs-inventory` exit 0, `docs:check-inventory` exit 0, `docs:check-index` exit 0, and `git status`
+stayed clean — no generated-doc drift from this change, as reasoned. Formatting was already confirmed
+under the pinned Prettier 3.9.6.
+
+Environment note for whoever comes next: the workstation destroyed two worktrees under
+`.claude/worktrees/` mid-session, the shared npm cache was genuinely corrupted (`Missing content: 2161`,
+repaired by `npm cache verify`), and installs run at roughly 2 MB/minute on the ReFS Dev Drive — a full
+install took 58 minutes. Concurrent AI sessions held the exclusive Vitest lease for 15-40 minute stretches
+and caused repeated `EPERM` races in the lock coordinator's `owner.json` / `gate.lock` writes; those are
+acquisition failures, NOT test results, and any run whose output lacks a `Test Files` summary line must be
+retried rather than reported. Work in `D:\Worktrees\Database\caring-contacts-phase-2a`, not under
+`.claude/worktrees/`.
+
+## RESUME POINT (supersedes all earlier ones)
+
+Tasks 1-10 complete and reviewed. Task 11a complete, reviewed, and through THREE fix rounds; Rulings 27-34
+all implemented and verified. HEAD is on branch `claude/suicide-contact-mockup-b5aaa0`; nothing pushed, no
+pull request. Caring-contact database suite: 96 passed.
+
+NEXT: Task 11b — brief at `docs/caring-contacts/phase-2a-sdd-archive/task-11b-brief.md`. Move the new
+methods' behavioural tests into the shared contract so BOTH stores are held to them (Ruling 23), then
+implement the ~21 Postgres methods. The interface declares 38 methods, the in-memory store implements 38,
+the Postgres store implements 16 — a gap of 22, which is exactly why `npm run typecheck` is RED on
+`src/lib/caring-contacts/db/postgres-repository.ts`. Restoring typecheck is that task's headline
+deliverable. Ruling 26's retention-scan fix is Step 0b of the same brief and repairs the one known failure
+in the full `npm run test`. Then Checkpoint 2, then Tasks 12-19, then the final whole-branch review.
+
+Still carried: Ruling 13 binds Task 15 (lazy route boundary from the first commit); the owner's
+clarification that Caring Contacts is a standalone application owning its own sidebar binds Task 15 and all
+of Plan 2B; and the deferred findings listed above are for the final whole-branch review, the
+highest-value being `savePathwayVersion` storing the authored message snapshot BY REFERENCE.
