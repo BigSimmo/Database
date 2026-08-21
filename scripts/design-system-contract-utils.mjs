@@ -474,6 +474,18 @@ const RAW_LINE_HEIGHT_UTILITY = new RegExp(String.raw`^leading-${RAW_LITERAL_VAL
  */
 const RAW_GAP_UTILITY = new RegExp(String.raw`^gap(?:-[xy])?-${RAW_LITERAL_VALUE}$`);
 /**
+ * Margin, completing the spacing family. Padding, radius, gap and line-height
+ * were each given a ratchet; margin was simply never added, so `mb-[22px]`,
+ * `mt-[30px]` and 41 more sat in production counted by nothing. Found by the
+ * 2026-08-20 design review, which noted the omission is the reason
+ * therapy-compass reads as off the shared spacing grid while its padding and
+ * gap debt is already pinned.
+ *
+ * Own metric, for the same reason gap got one: this debt is concentrated in a
+ * different set of files and will be paid down at its own pace.
+ */
+const RAW_MARGIN_UTILITY = new RegExp(String.raw`^m[xytrbles]?-${RAW_LITERAL_VALUE}$`);
+/**
  * The CSS-declaration half of the same four rules, so a literal cannot simply
  * move from a class into `globals.css` to escape the ratchet — the same reason
  * `legacyShadowAliases` and the colour ratchet count both sides.
@@ -1204,6 +1216,7 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     legacyPaletteUtilities: [],
     literalShadowClasses: [],
     rawGapLiterals: [],
+    rawMarginLiterals: [],
     rawLineHeightLiterals: [],
     rawPaddingLiterals: [],
     rawRadiusLiterals: [],
@@ -1294,6 +1307,7 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     if (RAW_PADDING_UTILITY.test(base)) result.rawPaddingLiterals.push(`${relativePath}:${line} (${token})`);
     if (RAW_RADIUS_UTILITY.test(base)) result.rawRadiusLiterals.push(`${relativePath}:${line} (${token})`);
     if (RAW_GAP_UTILITY.test(base)) result.rawGapLiterals.push(`${relativePath}:${line} (${token})`);
+    if (RAW_MARGIN_UTILITY.test(base)) result.rawMarginLiterals.push(`${relativePath}:${line} (${token})`);
     if (RAW_LINE_HEIGHT_UTILITY.test(base)) result.rawLineHeightLiterals.push(`${relativePath}:${line} (${token})`);
     const arbitraryProperty = base.match(ARBITRARY_PROPERTY_UTILITY);
     if (arbitraryProperty) {
@@ -1508,6 +1522,7 @@ export function findRawScaleLiteralClassesInSource(relativePath, sourceText) {
     padding: analysis.rawPaddingLiterals,
     radius: analysis.rawRadiusLiterals,
     gap: analysis.rawGapLiterals,
+    margin: analysis.rawMarginLiterals,
     lineHeight: analysis.rawLineHeightLiterals,
   };
 }

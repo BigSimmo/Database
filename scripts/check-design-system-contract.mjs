@@ -133,6 +133,7 @@ const metrics = {
   rawPaddingLiterals: 0,
   rawRadiusLiterals: 0,
   rawGapLiterals: 0,
+  rawMarginLiterals: 0,
   rawLineHeightLiterals: 0,
   layoutTransitionExceptions: 0,
   textSoftConsumers: 0,
@@ -223,6 +224,7 @@ for (const file of files) {
   recordDebt("rawPaddingLiterals", file.relativePath, classAnalysis.rawPaddingLiterals.length);
   recordDebt("rawRadiusLiterals", file.relativePath, classAnalysis.rawRadiusLiterals.length);
   recordDebt("rawGapLiterals", file.relativePath, classAnalysis.rawGapLiterals.length);
+  recordDebt("rawMarginLiterals", file.relativePath, classAnalysis.rawMarginLiterals.length);
   recordDebt("rawLineHeightLiterals", file.relativePath, classAnalysis.rawLineHeightLiterals.length);
   for (const step of classAnalysis.typeStepUsages) typeStepUsage.add(step);
   for (const step of findTypeStepCssUsagesInSource(source, file.relativePath)) typeStepCssUsage.add(step);
@@ -504,7 +506,7 @@ console.log(
   `Status-colour boundary: colour-only status indicators ${metrics.colourOnlyStatusIndicators}; status-coloured numerals ${metrics.statusColouredNumerals}; image inversions ${imageInversionFindings.length}.`,
 );
 console.log(
-  `Scale ratchets: raw padding literals ${metrics.rawPaddingLiterals}; raw radius literals ${metrics.rawRadiusLiterals}; raw gap literals ${metrics.rawGapLiterals}; raw line-height literals ${metrics.rawLineHeightLiterals}.`,
+  `Scale ratchets: raw padding literals ${metrics.rawPaddingLiterals}; raw radius literals ${metrics.rawRadiusLiterals}; raw gap literals ${metrics.rawGapLiterals}; raw margin literals ${metrics.rawMarginLiterals}; raw line-height literals ${metrics.rawLineHeightLiterals}.`,
 );
 console.log(`Text-role ratchet: --text-soft consumers ${metrics.textSoftConsumers}.`);
 console.log(`Error-state boundary: count-bearing title/body props ${metrics.errorStateCountProps}.`);
