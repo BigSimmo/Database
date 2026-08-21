@@ -995,3 +995,18 @@ delegate to a sealed domain module rather than re-derive its rule, consult the s
 the shared write path, map refusals by constraint NAME, and keep audit writes inside the same
 transaction. — Cost if wrong: a more expensive implementer than the task needed. The failure mode in the
 other direction is three to five fix rounds on a safety surface, which costs more.
+
+Ruling: [36] `stopId` stays INTERNAL to the Postgres store; the sealed domain's `ServiceState` type is
+NOT widened. — Why: the Task 11b brief's schema-fact 1 explicitly leaves this to a controller ruling
+rather than to the implementer. The shared contract holds BOTH stores to identical observable behaviour
+through the repository interface, and the in-memory store has no incident-history concept from which to
+mint a `stopId`. Surfacing it on `ServiceState` would therefore force either a fabricated id in the
+in-memory store or a contract only one store could satisfy — and a fabricated id on a safety-incident
+type is worse than no id, because it looks like provenance and is not. The Postgres store mints the
+uuid, inserts the `service_stops` history row, and keeps the id as its own persistence detail.
+— Cost if wrong: if a later screen needs to name a specific incident (for example to show which
+incident a set of approvals belongs to), the type widens at that point, in one place, with both stores
+changed together. Nothing built now has to be undone first.
+
+Task 11b dispatched (Opus, per Ruling 35) with the brief, the verified baseline above, Rulings 26/34/36,
+and the Global Constraints. BASE for the review package is `43c3b8189`.
