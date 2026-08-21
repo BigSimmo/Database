@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { BANNED_ADMISSION_CONSTRUCTIONS } from "@/components/care-plan/mockups/domain";
 import { syntheticEdPresentations, syntheticPatients } from "@/components/care-plan/mockups/fixtures";
 import {
   CARE_PLAN_BASE,
@@ -210,9 +211,26 @@ describe("Care Plan route registration", () => {
 
   it("links the Care Plan surface from the developer index", () => {
     const source = readFileSync(resolve(process.cwd(), "src/app/mockups/development/page.tsx"), "utf8");
-    expect(source).toContain("CARE_PLAN_ROUTES");
-    for (const entry of ["Patients", "Reviews", "Governance", "System states"]) {
-      expect(source).toContain(entry);
+    // Scoped to the Care Plan surface object only. Asserting against the whole
+    // file could not fail: "Patients" and "System states" already appear in the
+    // pre-existing Caring Contact block, so deleting every Care Plan deep link
+    // would still have passed.
+    const start = source.indexOf('id: "care-plan"');
+    expect(start, "the developer index has no Care Plan surface").toBeGreaterThanOrEqual(0);
+    const fromCarePlan = source.slice(start);
+    const nextSurface = fromCarePlan.indexOf('id: "', 1);
+    const surface = nextSurface === -1 ? fromCarePlan : fromCarePlan.slice(0, nextSurface);
+    expect(surface).not.toContain('id: "caring-contacts"');
+
+    expect(surface).toContain("CARE_PLAN_ROUTES.home");
+    for (const [label, accessor] of [
+      ["Patients", "CARE_PLAN_ROUTES.patients"],
+      ["Reviews", "CARE_PLAN_ROUTES.reviews"],
+      ["Governance", "CARE_PLAN_ROUTES.governance"],
+      ["System states", "CARE_PLAN_ROUTES.systemStates"],
+    ] as const) {
+      expect(surface, `the Care Plan surface is missing the ${label} deep link`).toContain(accessor);
+      expect(surface, `the Care Plan surface is missing the ${label} label`).toContain(`"${label}"`);
     }
   });
 });
@@ -233,14 +251,44 @@ describe("Care Plan synthetic, memory-only boundary", () => {
     { label: "randomness", pattern: /Math\.random\s*\(|crypto\.randomUUID\s*\(/ },
     { label: "wall-clock read", pattern: /Date\.now\s*\(|new Date\s*\(\s*\)/ },
     { label: "presentation-count sorting", pattern: /sort[^\n]{0,40}presentation count/i },
-    { label: "stigmatising language", pattern: /frequent flyer|high utili[sz]er|problem patient/i },
+    // Blanket-banned: these describe a person, and no concept in
+    // `docs/care-plan-context.md` makes any of them acceptable. Concept-scoped
+    // `_Avoid_` terms (Edit, Copy, …) are deliberately NOT here — those ban a
+    // word for one concept, not everywhere, and the glossary's own Draft entry
+    // says a draft "can be edited".
+    {
+      label: "stigmatising label for a person",
+      pattern: /frequent flyer|high utili[sz]er|problem patient|frequent[- ]presenter|frequent[- ]attender/i,
+    },
+    { label: "quantified risk or severity verdict", pattern: /risk score|severity score|acuity score/i },
     { label: "numeric identification threshold", pattern: /identification threshold|threshold\s*[:=]\s*\d/i },
+    ...BANNED_ADMISSION_CONSTRUCTIONS.map((phrase) => ({
+      label: `prohibitive admission construction ("${phrase}")`,
+      pattern: new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
+    })),
   ];
+
+  /**
+   * `BANNED_ADMISSION_CONSTRUCTIONS` is declared inside the scanned namespace,
+   * so its own array literal would match every one of its own patterns. Remove
+   * exactly that declaration — and nothing else — so prose anywhere else in
+   * `domain.ts` is still scanned. Fails closed if the declaration changes shape.
+   */
+  function withoutTheBannedPhraseDeclaration(path: string, source: string) {
+    if (!path.endsWith("domain.ts")) return source;
+    const start = source.indexOf("export const BANNED_ADMISSION_CONSTRUCTIONS");
+    expect(start, "domain.ts no longer declares BANNED_ADMISSION_CONSTRUCTIONS").toBeGreaterThanOrEqual(0);
+    const end = source.indexOf("];", start);
+    expect(end, "the BANNED_ADMISSION_CONSTRUCTIONS declaration no longer ends with `];`").toBeGreaterThan(start);
+    return `${source.slice(0, start)}${source.slice(end)}`;
+  }
 
   it("keeps every new Care Plan source file free of persistence, providers and non-determinism", () => {
     const files = readNamespaceSources();
     expect(files.length).toBeGreaterThan(20);
-    for (const { path, source } of files) {
+    expect(BANNED_ADMISSION_CONSTRUCTIONS.length).toBeGreaterThan(10);
+    for (const { path, source: raw } of files) {
+      const source = withoutTheBannedPhraseDeclaration(path, raw);
       for (const { label, pattern } of banned) {
         expect(pattern.test(source), `${path} contains ${label}`).toBe(false);
       }

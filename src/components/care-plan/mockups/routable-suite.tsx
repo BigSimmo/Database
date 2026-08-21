@@ -268,6 +268,7 @@ export function CarePlanRouteSurface({ pathname, query = "", navigate }: CarePla
 
   return (
     <CarePlanShellFrame
+      pathname={pathname}
       activeDestination={route.destination}
       title={route.heading}
       scenario={scenario}

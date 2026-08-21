@@ -347,6 +347,27 @@ Recorded, not fixed. None blocks a later task.
 - The `AMENDABLE_FIELDS.includes` runtime check is unreachable under the typed action.
 - `save-management-draft` does not validate that `ownerId` names a clinical role, so the non-clinical `plan_coordinator` can be recorded as Plan Owner.
 
+**Task 3** — raised by the fix-round-1 reviewer, recorded rather than fixed.
+
+- The duplicated loading skeleton across `loading.tsx` and `route-page.tsx` carries inconsistent
+  accessible naming (`sr-only` paragraph in one, `aria-label` in the other).
+- The `src/components/care-plan/mockups/index.ts` barrel has zero importers.
+- The active user falls back to empty strings at `routable-suite.tsx` when no user matches
+  `activeUserId`, so a broken id renders a silently blank identity block rather than failing.
+- The phone dock selects its items by matching label strings against
+  `CARE_PLAN_PRIMARY_DESTINATIONS` rather than by an explicit list.
+- `aria-current="page"` is set on the More **button**, which is a disclosure control, not a
+  destination.
+- Two test names in `tests/proxy.test.ts` still say "the two developer-gated paths"; there are
+  now three.
+- The non-mockup-route guard in `tests/care-plan-route-files.test.ts` checks only four
+  hard-coded paths, so a Care Plan route added elsewhere under `src/app/**` would evade it.
+- `docs/codebase-index.md` has no Care Plan entry. `docs:check-index` passes without one, but
+  the repo's new-route checklist wants one before the branch is handed off.
+
+The hand-rolled `aria-live` region was **not** deferred: it was removed as part of Important #3,
+because it double-announced against the focus move that fix depends on.
+
 ---
 
 ## Systemic lessons — carry into every later dispatch

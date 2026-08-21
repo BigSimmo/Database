@@ -42,6 +42,13 @@ const PHONE_DESTINATIONS = CARE_PLAN_PRIMARY_DESTINATIONS.filter(
 );
 
 export type CarePlanShellFrameProps = {
+  /**
+   * The address being displayed. The shell persists across navigation, so this
+   * — not the heading — is what tells it the route actually changed: two
+   * patients' Management Plans share one heading, and keying on the heading
+   * would leave that navigation silent for a screen-reader user.
+   */
+  pathname: string;
   /** The rail and dock entry that owns the current route. */
   activeDestination: CarePlanDestination;
   /** The single first-level heading for the route. */
@@ -67,6 +74,7 @@ export type CarePlanShellFrameProps = {
  * clicking through from somewhere else.
  */
 export function CarePlanShellFrame({
+  pathname,
   activeDestination,
   title,
   scenario,
@@ -80,12 +88,22 @@ export function CarePlanShellFrame({
   const moreTriggerRef = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
 
-  // Move focus to the heading whenever the route changes. Without it a keyboard
-  // or screen-reader user stays parked on the link they activated and has to
-  // travel the whole rail again to reach the new page.
+  // Move focus to the heading whenever the address changes. Without it a
+  // keyboard or screen-reader user stays parked on the link they activated and
+  // has to travel the whole rail again to reach the new page.
+  //
+  // The dependency is the pathname, not the heading. Moving between two
+  // patients' Management Plans keeps the same heading text, and keying on the
+  // heading would make the commonest navigation in this product announce
+  // nothing at all.
+  //
+  // This focus move is also the *only* route announcement. A hand-rolled
+  // `aria-live` region repeating the heading would make every navigation
+  // announce twice, once from the live region and once from the newly focused
+  // heading, so there deliberately is not one.
   useEffect(() => {
     titleRef.current?.focus({ preventScroll: true });
-  }, [title]);
+  }, [pathname]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -141,13 +159,23 @@ export function CarePlanShellFrame({
         </aside>
 
         <div className={styles.column}>
-          <header className={styles.header} data-print-hide="true">
+          {/*
+            The header is deliberately NOT print-hidden. It is the only place
+            that says this content is fictional, and a printed Care Plan leaves
+            the screen — it is carried to a bedside or sent with a handover. Paper
+            showing a clinical heading with nothing marking it synthetic is the
+            exact failure this guards against, so only the chrome inside the
+            header (the search slot) is dropped for print.
+          */}
+          <header className={styles.header}>
             <div className={styles.headerIdentity}>
-              <span className={styles.marker}>Synthetic prototype — fictional data only</span>
+              <span data-testid="care-plan-synthetic-marker" className={styles.marker}>
+                Synthetic prototype — fictional data only
+              </span>
               <span className={styles.memoryNotice}>Nothing is saved. Reloading this page starts over.</span>
             </div>
 
-            <form role="search" onSubmit={handleSubmit} className={styles.searchSlot}>
+            <form role="search" onSubmit={handleSubmit} className={styles.searchSlot} data-print-hide="true">
               <SearchField
                 label="Search patients"
                 value={searchTerm}
@@ -233,10 +261,6 @@ export function CarePlanShellFrame({
           })}
         </div>
       </Sheet>
-
-      <p aria-live="polite" className="sr-only">
-        {title}
-      </p>
     </div>
   );
 }

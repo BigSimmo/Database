@@ -272,6 +272,16 @@
     padding: 0;
   }
 
+  /*
+   * The header survives print because it carries the synthetic marker. Strip its
+   * screen chrome so it reads as a printed caption rather than an app bar.
+   */
+  .appRoot .header {
+    border-block-end: none;
+    background: none;
+    padding: 0 0 0.5rem;
+  }
+
   .appRoot .purposeSurface {
     border-color: CanvasText;
   }

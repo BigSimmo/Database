@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CarePlanErrorBoundary } from "@/components/care-plan/mockups/care-plan-error-boundary";
 import { CarePlanPrototypeProvider } from "@/components/care-plan/mockups/prototype-provider";
 import { CarePlanRouteSurface } from "@/components/care-plan/mockups/routable-suite";
-import { CARE_PLAN_ROUTES } from "@/components/care-plan/mockups/routes";
+import { CARE_PLAN_ROUTES, carePlanRoute } from "@/components/care-plan/mockups/routes";
 
 function renderRoute(pathname: string, query = "") {
   const navigate = vi.fn();
@@ -39,6 +39,62 @@ describe("Care Plan route shell", () => {
     const heading = screen.getByRole("heading", { level: 1, name: "Patients" });
     expect(heading).toHaveAttribute("tabindex", "-1");
     expect(heading).toHaveFocus();
+  });
+
+  // The commonest navigation in this product is patient to patient on the same
+  // route, and both patients resolve to the same heading. If focus keys on the
+  // heading text rather than the address, a screen-reader user moves to a
+  // different patient's plan and hears nothing at all.
+  it("moves focus again when only the patient changes and the heading text does not", () => {
+    const navigate = vi.fn();
+    const surface = (pathname: string) => (
+      <CarePlanPrototypeProvider>
+        <CarePlanRouteSurface pathname={pathname} query="" navigate={navigate} />
+      </CarePlanPrototypeProvider>
+    );
+    const { rerender } = render(surface(carePlanRoute.managementPlan("SYN-PATIENT-001")));
+
+    const heading = screen.getByRole("heading", { level: 1, name: "Management Plan" });
+    expect(heading).toHaveFocus();
+
+    // Simulate the user tabbing away, then navigating to another patient.
+    (document.activeElement as HTMLElement | null)?.blur();
+    expect(heading).not.toHaveFocus();
+
+    rerender(surface(carePlanRoute.managementPlan("SYN-PATIENT-002")));
+
+    const headingAfter = screen.getByRole("heading", { level: 1, name: "Management Plan" });
+    // Same node: the shell persists across navigation rather than remounting,
+    // which is also what lets the search field keep what was typed into it.
+    expect(headingAfter).toBe(heading);
+    expect(headingAfter).toHaveFocus();
+  });
+
+  it("keeps the typed search term across a navigation because the shell persists", async () => {
+    const user = userEvent.setup();
+    const navigate = vi.fn();
+    const surface = (pathname: string) => (
+      <CarePlanPrototypeProvider>
+        <CarePlanRouteSurface pathname={pathname} query="" navigate={navigate} />
+      </CarePlanPrototypeProvider>
+    );
+    const { rerender } = render(surface(CARE_PLAN_ROUTES.home));
+
+    await user.type(screen.getByRole("searchbox", { name: "Search patients" }), "Rowan");
+    rerender(surface(CARE_PLAN_ROUTES.patients));
+    expect(screen.getByRole("searchbox", { name: "Search patients" })).toHaveValue("Rowan");
+  });
+
+  it("announces a route change once, through the heading, not through a second live region", () => {
+    renderRoute(CARE_PLAN_ROUTES.patients);
+    const heading = screen.getByRole("heading", { level: 1, name: "Patients" });
+    expect(heading).toHaveFocus();
+    // A hand-rolled aria-live region repeating the heading would make every
+    // route change announce twice.
+    const liveRegions = Array.from(document.querySelectorAll("[aria-live]")).filter(
+      (node) => node.textContent?.trim() === "Patients",
+    );
+    expect(liveRegions).toEqual([]);
   });
 
   it("states the synthetic boundary and that nothing is saved", () => {
@@ -104,6 +160,28 @@ describe("Care Plan route shell", () => {
       "data-print-hide",
       "true",
     );
+  });
+
+  // A printed Care Plan leaves the screen: it is carried to a bedside or sent
+  // with a handover. Paper that shows a clinical heading with nothing saying the
+  // content is fictional is the failure this asserts against, so the marker must
+  // survive print on every route — most of all the three print routes.
+  it.each([
+    CARE_PLAN_ROUTES.managementPlanPrint,
+    CARE_PLAN_ROUTES.patientPlanPrint,
+    CARE_PLAN_ROUTES.safetyPlanPrint,
+    CARE_PLAN_ROUTES.home,
+  ])("keeps the synthetic marker on the printed page for %s", (pathname) => {
+    renderRoute(pathname);
+    const marker = screen.getByTestId("care-plan-synthetic-marker");
+    expect(marker).toHaveTextContent("Synthetic prototype — fictional data only");
+    expect(marker.closest("[data-print-hide='true']")).toBeNull();
+
+    const memoryNotice = screen.getByText("Nothing is saved. Reloading this page starts over.");
+    expect(memoryNotice.closest("[data-print-hide='true']")).toBeNull();
+
+    // The search slot is chrome, and chrome still goes.
+    expect(screen.getByRole("search").closest("[data-print-hide='true']")).not.toBeNull();
   });
 
   it.each([
