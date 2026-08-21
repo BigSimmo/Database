@@ -4,7 +4,7 @@
 **Spec (binding):** `docs/superpowers/specs/2026-08-20-care-plan-design.md`
 **Glossary (binding):** `docs/care-plan-context.md`
 **Branch:** `claude/ed-care-plans-impl-7f44cd`
-**Worktree:** `D:\Worktrees\Database\care-plan` (relocated 21 Aug 2026 — see Environment hazard)
+**Worktree:** `D:\Worktrees\Database\care-plan-impl` (relocated again 22 Aug 2026 — see Environment hazard)
 **Tasks:** 11. Stage A = 1–5 then a mandatory user checkpoint; Stage B = 6–11.
 
 > **Why this file is tracked rather than git-ignored scratch.** The
@@ -52,14 +52,26 @@ This is **already fixed upstream** by two commits this branch does not yet conta
   holds a borrowed `node_modules` link (#2244)
 - `cdfcbaccd` — fix(worktrees): stop silent worktree wipes and misdirected commands (#2240)
 
-**This branch is 122 commits behind `origin/main` and has neither.** That is the whole
+**This branch was 124 commits behind `origin/main` and had neither.** That was the whole
 explanation: the tooling in this worktree, and in the other stale worktrees running
 alongside it, predated its own fix. `scripts/clean-worktree.mjs` was investigated and
 cleared — it contains no filesystem deletion at all.
 
-**The remedy is to merge `origin/main` into this branch before doing anything else.**
-Until then this worktree runs the vulnerable guard, and so does every other session on a
-stale base.
+### Resolved 22 August 2026 — the merge landed
+
+`origin/main` was merged into this branch as `3febc69a4`, with **zero conflicts** —
+including in `docs/care-plan/**` and `docs/superpowers/**`, which were expected to
+conflict and did not. `git merge-base --is-ancestor` confirms both `a04330ea0` and
+`cdfcbaccd` are now ancestors of HEAD, so this worktree runs the hardened
+`guard-push.mjs` and the fixed worktree tooling. It was a merge, not a rebase, because
+the branch is published.
+
+The work now lives at `D:\Worktrees\Database\care-plan-impl`. The previous copy at
+`D:\Worktrees\Database\care-plan` was left untouched on disk and simply detached from
+the branch (`git switch --detach`) so the branch could be checked out in the new
+worktree; nothing was deleted to make room. Its `node_modules` had been emptied, which
+is the only damage it carried — its tracked tree was clean and byte-identical to
+`origin`.
 
 ---
 
