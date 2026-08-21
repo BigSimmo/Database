@@ -188,7 +188,11 @@ describe("ledger revision when git cannot be read", () => {
     writeFileSync(ledgerPath, LEDGER, "utf8");
   });
 
-  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  // Bounded retries, per the repo convention (tests/adopt-visual-baselines.test.ts
+  // and siblings) and the static guard in tests/test-runner-safety.test.ts: on
+  // Windows a recursive delete races the file locks still held over files the
+  // generator just wrote, and a bare rmSync fails intermittently.
+  afterEach(() => rmSync(dir, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 }));
 
   it("cannot read a revision for a ledger outside any git repository", () => {
     // The premise the rest of this block rests on. If git ever started
