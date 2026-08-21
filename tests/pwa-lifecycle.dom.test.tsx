@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -255,6 +257,49 @@ describe("PwaLifecycle", () => {
       expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument();
     } finally {
       delete (navigator as { userAgent?: string }).userAgent;
+    }
+  });
+});
+
+describe("notice-stack hero-compact geometry selectors", () => {
+  // The phone-hero compacting rules for the native install card each gate on
+  // ONE :has() (hero-composer ownership on #main-content, a static per-route
+  // render prop that never changes after first paint) plus a plain descendant
+  // combinator off .pwa-install-native-sheet. A rule chaining a SECOND
+  // :has(.pwa-install-native-sheet) instead re-derives, via ancestor-existence
+  // matching, a fact the DOM tree already guarantees through containment —
+  // the exact pattern root-caused for .pwa-notice-stack's own bottom-gap rule
+  // (mobile-root Lighthouse CLS 0.223, layout-shifts audit naming
+  // .pwa-notice-stack; see docs/outstanding-issues.md "bistable"). Guard every
+  // rule in the block, not just one, so a future edit cannot silently
+  // reintroduce the two-:has() shape on a sibling selector.
+  it("never re-gates the native install card's compacting rules on a second :has(.pwa-install-native-sheet)", () => {
+    const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
+    const start = styles.indexOf(
+      '@media (max-width: 639.98px) {\n  body:has(#main-content[data-phone-footer-owner="hero"])',
+    );
+    const end = styles.indexOf("\n}", start);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const block = styles.slice(start, end);
+
+    expect(block).not.toContain(':has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet)');
+    for (const selector of [
+      ".pwa-notice-stack",
+      ".pwa-install-grip",
+      ".pwa-install-tagline",
+      ".pwa-install-copy",
+      ".pwa-install-support",
+      ".pwa-install-benefits",
+      ".pwa-install-header",
+      ".pwa-install-body",
+      ".pwa-install-compact-copy",
+      ".pwa-install-actions",
+    ]) {
+      expect(block).toContain(
+        `body:has(#main-content[data-phone-footer-owner="hero"]) ${selector === ".pwa-notice-stack" ? selector : `.pwa-install-native-sheet ${selector}`}`,
+      );
     }
   });
 });

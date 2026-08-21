@@ -2996,30 +2996,47 @@ summary::-webkit-details-marker {
 /* The in-flow phone home composer sits near the viewport centre. Keep the
    browser-native install prompt below it without moving page content: the full
    value proposition remains on larger and dock-owned surfaces, while the phone
-   hero gets a concise, action-first card. */
+   hero gets a concise, action-first card.
+
+   Every rule below gates on ONE :has() only — the hero-composer ownership
+   attribute on #main-content, which is a static per-route render prop (see
+   heroOwnsPhoneComposer in global-search-shell.tsx) and never changes after a
+   route's first paint. Compacting for the native install card itself uses a
+   plain descendant combinator off .pwa-install-native-sheet, NOT a second
+   :has(.pwa-install-native-sheet) existence check: .pwa-install-grip/-tagline/
+   -copy/-support/-benefits/-header/-body/-compact-copy/-actions are always
+   literal descendants of that card when it renders, in the same React commit
+   and the same browser paint, so the descendant selector cannot observe a
+   frame where the card exists without its compacted geometry. A second
+   ancestor-level :has() re-checking a fact the DOM tree already guarantees
+   was exactly the shape of bug fixed for .pwa-notice-stack's own bottom-gap
+   rule below in PR #2219 (see useSettledNoticeSignature in pwa-lifecycle.tsx
+   and tests/pwa-lifecycle.dom.test.tsx) — this mirrors that fix across the
+   remaining eight rules in this block, which still carried the same
+   two-:has() pattern after that PR landed. */
 @media (max-width: 639.98px) {
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-notice-stack {
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-notice-stack {
     --pwa-notice-bottom-gap: max(0.5rem, var(--safe-area-bottom));
   }
 
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-grip,
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-tagline,
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-copy,
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-support,
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-benefits {
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-grip,
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-tagline,
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-copy,
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-support,
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-benefits {
     display: none;
   }
 
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-header {
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-header {
     min-height: 3.25rem;
     padding-block: calc(2 * var(--pwa-inset-xs));
   }
 
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-body {
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-body {
     padding: var(--pwa-inset-sm) var(--pwa-inset-xl) var(--pwa-inset-xl);
   }
 
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-compact-copy {
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-compact-copy {
     display: block;
     color: var(--text-muted);
     font-size: 0.75rem;
@@ -3027,7 +3044,7 @@ summary::-webkit-details-marker {
     line-height: var(--pwa-line-height-support);
   }
 
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-actions {
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-actions {
     margin-top: var(--pwa-inset-sm);
   }
 }
