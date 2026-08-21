@@ -143,6 +143,34 @@ export function transportStatusLabel(transport: TransportJob | undefined) {
   return `${transport.provider} requested`;
 }
 
+/** The five discrete stages a transport job progresses through, in order. */
+export type TransportLeg = "Requested" | "Accepted" | "En route" | "Collected" | "Arrived";
+
+/**
+ * The discrete transport leg, separated from `transportStatusLabel`'s provider narrative.
+ *
+ * `transportStatusLabel` mixes two different things into one string: the leg the job has
+ * reached, and prose naming the provider once it has accepted. That is deliberate for the
+ * views that read it today, but it means the field can never be matched against a fixed leg
+ * pattern — two of its seven possible outputs contain provider prose (`"<provider> accepted,
+ * awaiting departure"`, `"<provider> requested"`) rather than one of the five capitalised leg
+ * names. This function returns only the leg, using the exact same precedence order as
+ * `transportStatusLabel` (cancelled beats every stamp; the furthest-progressed stamp wins
+ * otherwise) so the two never disagree about what stage a job is in.
+ *
+ * `undefined` means "no transport job at all" — a movement with no transport has not reached
+ * `"Requested"`, it has no leg, so absence is never collapsed into one of the five leg names.
+ */
+export function transportLeg(transport: TransportJob | undefined): TransportLeg | "Cancelled" | undefined {
+  if (!transport) return undefined;
+  if (transport.cancelledAt !== undefined) return "Cancelled";
+  if (transport.arrivedAt !== undefined) return "Arrived";
+  if (transport.collectedAt !== undefined) return "Collected";
+  if (transport.enRouteAt !== undefined) return "En route";
+  if (transport.acceptedAt !== undefined) return "Accepted";
+  return "Requested";
+}
+
 /**
  * The five-state bed grid, built entirely from real unit and bed-release fields.
  *

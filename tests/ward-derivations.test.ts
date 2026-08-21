@@ -6,11 +6,21 @@ import {
   buildActionInbox,
   eligibleCandidates,
   restrictionNotice,
+  transportLeg,
 } from "../src/components/ward-management/ward-derivations";
 import { eligibility } from "../src/components/ward-management/ward-eligibility";
-import { PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
+import { PARALLEL_REFERRAL_CAP, type TransportJob } from "../src/components/ward-management/ward-model";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
 import { allUnits, NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
+
+function transportJob(overrides: Partial<TransportJob> = {}): TransportJob {
+  return {
+    id: "TR-TEST",
+    provider: "St John WA",
+    escortRequired: true,
+    ...overrides,
+  };
+}
 
 describe("buildActionInbox", () => {
   // RULING 1 (Task 8): buildActionInbox used to build each of its three categories with
@@ -154,5 +164,76 @@ describe("eligibleCandidates", () => {
       provedAMixedReorder,
       "fixture assumption: at least one movement's top-N cut mixes restricted and unrestricted candidates",
     ).toBe(true);
+  });
+});
+
+describe("transportLeg", () => {
+  // RULING (Task 10 prep): transportStatusLabel mixes the discrete transport leg with
+  // provider prose, so a caller that needs "which leg is this job on" cannot use it directly —
+  // two of its seven outputs embed the provider name instead of a leg name. transportLeg
+  // exists to give that caller a value that is always exactly one of the five capitalised leg
+  // names, or a distinct "Cancelled"/absent value, never prose. The real fixture only exercises
+  // "Accepted" and "En route" (all 8 transport jobs carry acceptedAt; 6 of those also carry
+  // enRouteAt), so every case here is built directly rather than pulled from wardMovements —
+  // otherwise this test would silently prove far less than its name claims.
+
+  it("returns undefined when the movement carries no transport job at all", () => {
+    expect(transportLeg(undefined)).toBeUndefined();
+  });
+
+  it("returns Requested for a transport job with no stamps at all", () => {
+    expect(transportLeg(transportJob())).toBe("Requested");
+  });
+
+  it("returns Accepted once acceptedAt is stamped", () => {
+    expect(transportLeg(transportJob({ acceptedAt: NOW_ANCHOR - 10 }))).toBe("Accepted");
+  });
+
+  it("returns En route once enRouteAt is stamped", () => {
+    expect(transportLeg(transportJob({ acceptedAt: NOW_ANCHOR - 20, enRouteAt: NOW_ANCHOR - 10 }))).toBe("En route");
+  });
+
+  it("returns Collected once collectedAt is stamped", () => {
+    expect(
+      transportLeg(
+        transportJob({ acceptedAt: NOW_ANCHOR - 30, enRouteAt: NOW_ANCHOR - 20, collectedAt: NOW_ANCHOR - 10 }),
+      ),
+    ).toBe("Collected");
+  });
+
+  it("returns Arrived once arrivedAt is stamped", () => {
+    expect(
+      transportLeg(
+        transportJob({
+          acceptedAt: NOW_ANCHOR - 40,
+          enRouteAt: NOW_ANCHOR - 30,
+          collectedAt: NOW_ANCHOR - 20,
+          arrivedAt: NOW_ANCHOR - 10,
+        }),
+      ),
+    ).toBe("Arrived");
+  });
+
+  it("returns Cancelled when cancelledAt is stamped, distinct from every leg", () => {
+    expect(transportLeg(transportJob({ cancelledAt: NOW_ANCHOR - 5 }))).toBe("Cancelled");
+  });
+
+  it("resolves precedence to the furthest-progressed stamp when several are set at once, and cancelledAt always wins", () => {
+    const fullyProgressed = transportJob({
+      acceptedAt: NOW_ANCHOR - 40,
+      enRouteAt: NOW_ANCHOR - 30,
+      collectedAt: NOW_ANCHOR - 20,
+      arrivedAt: NOW_ANCHOR - 10,
+    });
+    expect(transportLeg(fullyProgressed)).toBe("Arrived");
+
+    const cancelledAfterProgress = transportJob({
+      acceptedAt: NOW_ANCHOR - 40,
+      enRouteAt: NOW_ANCHOR - 30,
+      collectedAt: NOW_ANCHOR - 20,
+      arrivedAt: NOW_ANCHOR - 10,
+      cancelledAt: NOW_ANCHOR - 5,
+    });
+    expect(transportLeg(cancelledAfterProgress)).toBe("Cancelled");
   });
 });
