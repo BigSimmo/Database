@@ -1,9 +1,9 @@
 # Care Plan — complete work ledger
 
 Everything done on Care Plan, across every session, in order. Written 21 August 2026
-(Australia/Perth) at the end of the second session. This is the record of *what
-happened*; `sdd-ledger.md` is the record of *decisions taken*, and
-`session-handoff-2026-08-21.md` is the record of *where to pick up*.
+(Australia/Perth) at the end of the second session. This is the record of _what
+happened_; `sdd-ledger.md` is the record of _decisions taken_, and
+`session-handoff-2026-08-21.md` is the record of _where to pick up_.
 
 ---
 
@@ -15,15 +15,15 @@ Task title "Management plan", task id `01a01fb2-575f-7c11-a245-332db7a85a25`, wo
 
 **Produced, all as untracked planning documents:**
 
-| Artefact | Now at |
-| --- | --- |
-| Domain glossary | `docs/care-plan-context.md` |
-| Design specification | `docs/superpowers/specs/2026-08-20-care-plan-design.md` |
+| Artefact                      | Now at                                                          |
+| ----------------------------- | --------------------------------------------------------------- |
+| Domain glossary               | `docs/care-plan-context.md`                                     |
+| Design specification          | `docs/superpowers/specs/2026-08-20-care-plan-design.md`         |
 | Nine-task implementation plan | `docs/superpowers/plans/2026-08-20-care-plan-implementation.md` |
-| Build handover | `docs/care-plan/claude-build-handover-2026-08-21.md` |
-| Conversation transcript | `docs/care-plan/conversation-transcript-2026-08-21.md` |
-| Verification log | `docs/care-plan/verification-log-2026-08-21.md` |
-| Start-here entry point | `docs/care-plan/CLAUDE-START-HERE.md` |
+| Build handover                | `docs/care-plan/claude-build-handover-2026-08-21.md`            |
+| Conversation transcript       | `docs/care-plan/conversation-transcript-2026-08-21.md`          |
+| Verification log              | `docs/care-plan/verification-log-2026-08-21.md`                 |
+| Start-here entry point        | `docs/care-plan/CLAUDE-START-HERE.md`                           |
 
 **Decided:** the product concept; the domain language, with an explicit `_Avoid_` list
 per term; one longitudinal Management Plan per patient with named senior-clinician
@@ -84,8 +84,8 @@ confined to the identification workflow; amendment extended to the one-line acco
 plan-use answers; production reachability behind the administrator gate; and the required
 note reframed as "in one line: why they came and what happened".
 
-The user also stated the ordering principle that reshaped the build — *"the plan is for
-clinicians to look up and see the management plan; it is rarely for changing or updating"*
+The user also stated the ordering principle that reshaped the build — _"the plan is for
+clinicians to look up and see the management plan; it is rarely for changing or updating"_
 — which became **read primacy**, and moved the whole reading experience into Stage A with
 no authoring surface at all.
 
@@ -146,16 +146,16 @@ files because the git-ignored workspace had just been destroyed with everything 
 
 ## Current state
 
-| | |
-| --- | --- |
-| Branch | `claude/ed-care-plans-impl-7f44cd`, 18 commits ahead of `main` |
-| Worktree | `D:\Worktrees\Database\care-plan` |
-| Tasks complete | 2 of 11 (domain and fixtures; reducer and provider) |
-| Tests | 121 passing across two files |
-| Application code | ~3,900 lines across five modules; ~2,150 lines of tests |
-| Pushed | **No** — local to one machine, no upstream |
+|                  |                                                                |
+| ---------------- | -------------------------------------------------------------- |
+| Branch           | `claude/ed-care-plans-impl-7f44cd`, 18 commits ahead of `main` |
+| Worktree         | `D:\Worktrees\Database\care-plan`                              |
+| Tasks complete   | 2 of 11 (domain and fixtures; reducer and provider)            |
+| Tests            | 121 passing across two files                                   |
+| Application code | ~3,900 lines across five modules; ~2,150 lines of tests        |
+| Pushed           | **No** — local to one machine, no upstream                     |
 
-## What has *not* been done, and must not be claimed
+## What has _not_ been done, and must not be claimed
 
 No UI exists. No route, page, component or stylesheet has been written. Consequently:
 no browser or Playwright journey, no accessibility check, no responsive or phone-chrome

@@ -47,12 +47,12 @@ minutes.
 
 ## Progress
 
-| Task | State | Commits | Evidence |
-| --- | --- | --- | --- |
-| 1. Domain, fixtures, selectors | **complete, review clean** | `8a2e6a6d1..8652e73ff` | 58/58 passing, typecheck clean |
+| Task                            | State                      | Commits                | Evidence                                                              |
+| ------------------------------- | -------------------------- | ---------------------- | --------------------------------------------------------------------- |
+| 1. Domain, fixtures, selectors  | **complete, review clean** | `8a2e6a6d1..8652e73ff` | 58/58 passing, typecheck clean                                        |
 | 2. Reducer, provider, lifecycle | **complete, review clean** | `8652e73ff..def541e6a` | 121/121 passing, typecheck + lint clean, 32 mutations / 32 red suites |
-| 3. Routes, gate, shell | **not started** | — | blocked by worktree destruction; no partial work exists |
-| 4–11 | not started | — | — |
+| 3. Routes, gate, shell          | **not started**            | —                      | blocked by worktree destruction; no partial work exists               |
+| 4–11                            | not started                | —                      | —                                                                     |
 
 Stage A is Tasks 1–5. **Task 5 ends with a mandatory stop for user review** before
 Task 6 begins.

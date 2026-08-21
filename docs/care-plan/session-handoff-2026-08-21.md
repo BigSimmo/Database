@@ -19,14 +19,14 @@ committed**; Task 3 has not started. Nothing has been pushed.
 
 ## What exists and is verified
 
-| Layer | Files | State |
-| --- | --- | --- |
-| Domain types | `src/components/care-plan/mockups/types.ts` (589 lines) | Complete, reviewed |
-| Synthetic fixtures | `src/components/care-plan/mockups/fixtures.ts` (1,420 lines) | Complete, reviewed |
-| Pure selectors | `src/components/care-plan/mockups/domain.ts` (397 lines) | Complete, reviewed |
-| Lifecycle reducer | `src/components/care-plan/mockups/prototype-state.ts` (1,458 lines) | Complete, reviewed |
-| React provider | `src/components/care-plan/mockups/prototype-provider.tsx` (40 lines) | Complete, reviewed |
-| Tests | `tests/care-plan-domain.test.ts` (913), `tests/care-plan-prototype-state.test.ts` (1,240) | 121 passing |
+| Layer              | Files                                                                                     | State              |
+| ------------------ | ----------------------------------------------------------------------------------------- | ------------------ |
+| Domain types       | `src/components/care-plan/mockups/types.ts` (589 lines)                                   | Complete, reviewed |
+| Synthetic fixtures | `src/components/care-plan/mockups/fixtures.ts` (1,420 lines)                              | Complete, reviewed |
+| Pure selectors     | `src/components/care-plan/mockups/domain.ts` (397 lines)                                  | Complete, reviewed |
+| Lifecycle reducer  | `src/components/care-plan/mockups/prototype-state.ts` (1,458 lines)                       | Complete, reviewed |
+| React provider     | `src/components/care-plan/mockups/prototype-provider.tsx` (40 lines)                      | Complete, reviewed |
+| Tests              | `tests/care-plan-domain.test.ts` (913), `tests/care-plan-prototype-state.test.ts` (1,240) | 121 passing        |
 
 **Evidence at last run:** 121/121 tests passing across both files, `npm run typecheck`
 exit 0 with zero diagnostics, `npm run lint` exit 0, Prettier clean. Thirty-two
@@ -43,19 +43,21 @@ reports `i/lf w/lf` on every Care Plan file, matching untouched repository files
 the committed blobs contain zero CR bytes. Nothing is corrupted. Re-running the suites
 in the relocated worktree gave `Test Files 2 passed (2) / Tests 121 passed (121)`.
 
-**Known environment state in the relocated worktree — read before trusting a gate.**
-The `npm ci` there was backgrounded and never reported completion; `node_modules` held
-523 packages when this handoff was written. The install is **definitely** incomplete,
-not merely suspected: the `prettier` binary is absent entirely (`'prettier' is not
-recognized`), so no format check could run. `npm run typecheck`
-consequently **fails**, but on three unrelated pre-existing files only —
+**Environment state in the relocated worktree — resolved, with one caveat.** The
+`npm ci --include=dev` there has since completed (exit 0) and Prettier now runs. While it
+was still in flight, `npm run typecheck` failed on three unrelated pre-existing files —
 `tests/universal-search.test.ts` (TS7006) and two `use-in-page-section-nav*` DOM tests
-(TS7016, unable to resolve `lucide-react` types even though its `.d.ts` files are present,
-which is the signature of a half-finished install). **Zero errors in any
-`src/components/care-plan/**` or `tests/care-plan-*` file.** Typecheck exited 0 in the
-previous worktree at the same commit, so this is an install artefact, not a regression.
-Re-run `npm ci --include=dev` to completion and re-check before reporting any gate as
-green. Note that a full install on this machine has been measured at roughly 58 minutes.
+(TS7016, unable to resolve `lucide-react` types) — with **zero errors in any
+`src/components/care-plan/**` or `tests/care-plan-*` file`. Typecheck exited 0 in the
+previous worktree at the same commit, so that was an install artefact rather than a
+regression. **Re-confirm typecheck yourself before reporting any gate as green**; it has
+not been re-run since the install finished.
+
+One standing caveat: this machine runs several AI sessions concurrently and the
+repository has a cross-worktree run coordinator. A gate can be refused with
+`DATABASE_HEAVY_RUN_ADMISSION_BUSY` because another worktree holds the lease — that is an
+_acquisition_ failure, not a test result. Any run whose output lacks a `Test Files`
+summary line must be retried, never reported.
 
 ---
 
