@@ -362,10 +362,17 @@ export function canPerformAction(role: PrototypeRole, capability: PrototypeCapab
  * The currency of a Current Plan against its review date. Past the date is
  * `overdue`; on or within `REVIEW_DUE_SOON_DAYS` of it is `due_soon`. An
  * overdue plan stays Current until it is reviewed, replaced, or withdrawn.
+ *
+ * Review state is always derived here and never stored on a version, so a
+ * stored value cannot drift away from the date it claims to describe.
  */
 export function deriveReviewState(reviewDueAt: string, now: string): ReviewState {
   const dueMs = Date.parse(reviewDueAt);
   const nowMs = Date.parse(now);
+  // Degrade conservatively. An unreadable date must not resolve to the most
+  // reassuring state on a clinical currency indicator, so it reads as overdue
+  // and sends someone to look at the plan.
+  if (Number.isNaN(dueMs) || Number.isNaN(nowMs)) return "overdue";
   if (nowMs > dueMs) return "overdue";
   if (dueMs - nowMs <= REVIEW_DUE_SOON_DAYS * MILLISECONDS_PER_DAY) return "due_soon";
   return "within_review";

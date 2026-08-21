@@ -244,7 +244,6 @@ export type ManagementPlanVersion = {
   planId: SyntheticId;
   version: number;
   state: ManagementPlanVersionState;
-  reviewState: ReviewState | null;
   authorId: SyntheticId;
   ownerId: SyntheticId;
   approverId: SyntheticId | null;
@@ -276,7 +275,6 @@ export type PersonalSafetyPlanVersion = {
   planId: SyntheticId;
   version: number;
   state: SafetyPlanVersionState;
-  reviewState: ReviewState | null;
   authorId: SyntheticId;
   createdAt: string;
   confirmedAt: string | null;

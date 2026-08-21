@@ -90,6 +90,48 @@ function collectStrings(value: unknown, keyFilter: (key: string) => boolean, int
   }
 }
 
+// --- Clinical-language guards -------------------------------------------------
+// Each guard is a predicate so the tests can prove it rejects a bad line before
+// asserting that every fixture line passes it. A guard that cannot fail reports
+// confidence it has not earned.
+
+const PERSON_REFERENCE =
+  /\b(he|she|they|him|her|them|his|hers|their|theirs|the patient|the person|rowan|mira|jordan|evelyn|evie|alex)\b/i;
+const OPENS_WITH_PERSON =
+  /^\s*(he|she|they|his|her|their|the patient|the person|rowan|mira|jordan|evelyn|evie|alex)\b/i;
+const BLAMING_TERM =
+  /\b(aggressive|aggression|agitated|abusive|hostile|threatening|violent|demanding|difficult|manipulative|uncooperative|non-cooperative|disruptive|attention[- ]seeking|drug[- ]seeking|refuses|refusing|non-compliant|escalates|kicks off|lashes out|acts out|plays up|challenging behaviour|behavioural)\b/i;
+
+/**
+ * `What makes it worse` must describe what the service does. A line fails when
+ * the person is its subject, or when it pairs any reference to the person with a
+ * word that attributes bad behaviour to them. A response to circumstances — "her
+ * back pain builds and she cannot concentrate" — is allowed, as the spec requires.
+ */
+function describesTheService(line: string): boolean {
+  if (OPENS_WITH_PERSON.test(line)) return false;
+  return !(PERSON_REFERENCE.test(line) && BLAMING_TERM.test(line));
+}
+
+const CONCRETE_FINDING =
+  /\b(chest pain|breathless|fever|head injury|head strike|seizure|fall|confusion|disorient|conscious state|drowsi|limb weakness|slurred speech|facial droop|delirium|infection|medicine|medication|overdose|pregnan|attempt|means and preparation|means or preparation|safeguarding|self-harm|physical symptom|nowhere safe)\b/i;
+
+/**
+ * `What would make this different` must name a finding a clinician could observe,
+ * not an instruction to be careful. Generic caution passes no clinical decision to
+ * anyone, and this is the section that voids the plan.
+ */
+function namesConcreteFindings(line: string): boolean {
+  return line.trim().length > 25 && CONCRETE_FINDING.test(line);
+}
+
+/**
+ * `What we have agreed` must name who agreed the position and when, in one clause,
+ * so neither half can be satisfied by an unrelated sentence elsewhere in the block.
+ */
+const AGREED_WITH_NAMED_PARTIES_AND_DATE =
+  /\bagreed\s+(?:with|between|by)\s+[^.;]{3,140}?\bon\s+\d{1,2}\s+[A-Za-z]+\s+20\d{2}/i;
+
 describe("Care Plan identification policy", () => {
   it("keeps identification policy governance-pending without a numeric rule", () => {
     expect(identificationPolicy).toEqual({
@@ -193,27 +235,41 @@ describe("Care Plan review clock", () => {
     expect(deriveReviewState(reviewDueAt, now)).toBe(expected);
   });
 
-  it("uses the stored review state that the review clock derives for every Current version", () => {
-    const currentVersions = syntheticManagementPlanVersions.filter(({ state }) => state === "current");
-    expect(currentVersions.length).toBeGreaterThan(1);
-
-    for (const version of currentVersions) {
-      expect(version.reviewDueAt).not.toBeNull();
-      expect(version.reviewState).toBe(deriveReviewState(version.reviewDueAt as string, PROTOTYPE_NOW));
-    }
-
-    expect(currentVersions.map(({ reviewState }) => reviewState).sort()).toEqual(["overdue", "within_review"]);
+  it("treats an unreadable review date as overdue rather than as reassuring", () => {
+    // Failure degrades conservatively: a date the application cannot read must
+    // send someone to look at the plan, not present as the safest state.
+    expect(deriveReviewState("not a date", PROTOTYPE_NOW)).toBe("overdue");
+    expect(deriveReviewState("", PROTOTYPE_NOW)).toBe("overdue");
+    expect(deriveReviewState("2026-09-01T09:00:00+08:00", "not a date")).toBe("overdue");
   });
 
-  it("covers a due-soon review state somewhere in the fixture set", () => {
-    const safetyStates = syntheticPersonalSafetyPlanVersions
-      .filter(({ reviewDueAt: due }) => due !== null)
-      .map(({ reviewDueAt: due }) => deriveReviewState(due as string, PROTOTYPE_NOW));
-    const managementStates = syntheticManagementPlanVersions
-      .filter(({ reviewDueAt: due }) => due !== null)
-      .map(({ reviewDueAt: due }) => deriveReviewState(due as string, PROTOTYPE_NOW));
+  // Review state is never stored on a version, so these pin that each fixture's
+  // own reviewDueAt still derives the state its scenario is meant to demonstrate.
+  it.each([
+    ["SYN-MGMT-VERSION-002", "within_review"],
+    ["SYN-MGMT-VERSION-003", "overdue"],
+  ])("derives the intended review state for management version %s", (id, expected) => {
+    const version = syntheticManagementPlanVersions.find((candidate) => candidate.id === id);
+    expect(version?.reviewDueAt).toBeTruthy();
+    expect(deriveReviewState(version?.reviewDueAt as string, PROTOTYPE_NOW)).toBe(expected);
+  });
 
-    expect([...safetyStates, ...managementStates]).toContain("due_soon");
+  it.each([
+    ["SYN-SAFETY-VERSION-001", "due_soon"],
+    ["SYN-SAFETY-VERSION-002", "within_review"],
+    ["SYN-SAFETY-VERSION-004", "within_review"],
+  ])("derives the intended review state for safety plan version %s", (id, expected) => {
+    const version = syntheticPersonalSafetyPlanVersions.find((candidate) => candidate.id === id);
+    expect(version?.reviewDueAt).toBeTruthy();
+    expect(deriveReviewState(version?.reviewDueAt as string, PROTOTYPE_NOW)).toBe(expected);
+  });
+
+  it("covers all three review states across the fixture set", () => {
+    const derived = [...syntheticManagementPlanVersions, ...syntheticPersonalSafetyPlanVersions]
+      .filter(({ reviewDueAt }) => reviewDueAt !== null)
+      .map(({ reviewDueAt }) => deriveReviewState(reviewDueAt as string, PROTOTYPE_NOW));
+
+    expect(new Set(derived)).toEqual(new Set(["within_review", "due_soon", "overdue"]));
   });
 });
 
@@ -545,12 +601,22 @@ describe("Care Plan fixture safety", () => {
     }
   });
 
-  it("names who agreed the ED approach and when, on every version that has one", () => {
+  it("names who agreed the ED approach and when, in one clause, on every version", () => {
+    // The guard must reject a named party with no date, and a date that merely
+    // appears somewhere else in the block.
+    expect(AGREED_WITH_NAMED_PARTIES_AND_DATE.test("Agreed with the team.")).toBe(false);
+    expect(AGREED_WITH_NAMED_PARTIES_AND_DATE.test("Agreed with Rowan and the CMHT. Reviewed again in 2026.")).toBe(
+      false,
+    );
+    expect(AGREED_WITH_NAMED_PARTIES_AND_DATE.test("Agreed on 20 May 2026.")).toBe(false);
+    expect(
+      AGREED_WITH_NAMED_PARTIES_AND_DATE.test("Agreed with Rowan, the North River CMHT and Dr Taylor on 20 May 2026."),
+    ).toBe(true);
+
     for (const version of syntheticManagementPlanVersions) {
       if (version.content.agreedEdApproach.length === 0) continue;
-      const agreed = version.content.agreedEdApproach.join(" ");
-      expect(agreed).toMatch(/agreed (with|by|at|on)|agreed .* on \d{1,2} \w+ 20\d{2}/i);
-      expect(agreed).toMatch(/20\d{2}/);
+      const namesBoth = version.content.agreedEdApproach.some((line) => AGREED_WITH_NAMED_PARTIES_AND_DATE.test(line));
+      expect(namesBoth, `${version.id} does not name who agreed the ED approach and when`).toBe(true);
     }
   });
 
@@ -579,32 +645,85 @@ describe("Care Plan fixture safety", () => {
     const haystack = serialisedFixtures.toLowerCase();
 
     for (const label of bannedLabels) {
-      expect(haystack).not.toContain(label);
+      expect(haystack, `fixtures use the banned label "${label}"`).not.toContain(label);
+    }
+  });
+
+  it("uses the glossary's preferred terms and none of its banned synonyms", () => {
+    // docs/care-plan-context.md bans these as names for the domain concepts. The
+    // noun forms have no legitimate use here; "visit" is banned only in the ED
+    // sense, because a CMHT home visit is a different thing the glossary does not
+    // govern.
+    const bannedNouns = [
+      "attendance",
+      "attendances",
+      "encounter",
+      "encounters",
+      "frequent-presenter flag",
+      "automatic enrolment",
+      "treatment order",
+      "ed note",
+      "expired plan",
+      "deleted plan",
+      "latest plan",
+      "active draft",
+      "contact completed",
+      "message sent",
+      "activity feed",
+      "communication log",
+      "effectiveness verdict",
+      "compliance score",
+      "case-management inbox",
+    ];
+    const haystack = serialisedFixtures.toLowerCase();
+    for (const term of bannedNouns) {
+      expect(haystack, `fixtures use the glossary-banned term "${term}"`).not.toContain(term);
+    }
+
+    const edSenseOfVisit = [
+      /\b(?:ed|emergency department|emergency|hospital)\s+visits?\b/i,
+      /\bvisits?\s+to\s+(?:the\s+)?(?:ed|emergency)/i,
+      /\b(?:each|every|per)\s+visit\b/i,
+    ];
+    for (const pattern of edSenseOfVisit) {
+      expect(pattern.test(serialisedFixtures), `fixtures use "visit" for an ED Presentation: ${pattern}`).toBe(false);
     }
   });
 
   it("writes What makes it worse about the service rather than about the person", () => {
-    const currentVersions = syntheticManagementPlanVersions.filter(({ state }) => state === "current");
-    expect(currentVersions.length).toBeGreaterThan(0);
+    // Negative controls. Each of these passed the previous keyword-based guard.
+    expect(describesTheService("Rowan gets aggressive when kept waiting too long")).toBe(false);
+    expect(describesTheService("She becomes demanding and difficult when the wait is long.")).toBe(false);
+    expect(describesTheService("The patient refuses to engage and is often hostile in the waiting room.")).toBe(false);
+    expect(describesTheService("Long waits make Rowan aggressive towards staff.")).toBe(false);
+    // Positive controls, including a response written as a response to circumstances.
+    expect(describesTheService("Waiting in the main corridor within sight of the ambulance bay.")).toBe(true);
+    expect(describesTheService("Long waits in the corridor without a chair. Her back pain builds.")).toBe(true);
 
-    for (const version of currentVersions) {
-      const worse = version.content.whatMakesItWorse;
-      expect(worse.length).toBeGreaterThan(0);
-      expect(worse.join(" ")).toMatch(/corridor|wait|history|security|handover|noise|light|room|staff|department/i);
-      for (const line of worse) {
-        expect(line).not.toMatch(/\b(he|she|they) (is|are|becomes|gets) (aggressive|demanding|difficult|hostile)\b/i);
+    // Every version, not only the Current ones: a draft becomes a Current Plan.
+    for (const version of syntheticManagementPlanVersions) {
+      expect(version.content.whatMakesItWorse.length).toBeGreaterThan(0);
+      for (const line of version.content.whatMakesItWorse) {
+        expect(describesTheService(line), `${version.id}: ${line}`).toBe(true);
       }
     }
   });
 
   it("names concrete new findings in What would make this different, not generic caution", () => {
+    // Negative controls. The first passed the previous exact-string guard.
+    expect(namesConcreteFindings("Use your clinical judgement at all times in every case.")).toBe(false);
+    expect(namesConcreteFindings("Exercise caution and stay alert to anything out of the ordinary here.")).toBe(false);
+    expect(namesConcreteFindings("Chest pain.")).toBe(false);
+    // Positive control.
+    expect(
+      namesConcreteFindings("New or worsening physical symptoms: chest pain, breathlessness, fever, or a seizure."),
+    ).toBe(true);
+
     for (const version of syntheticManagementPlanVersions) {
       const boundary = version.content.whatWouldMakeThisDifferent;
-      if (boundary.length === 0) continue;
-      expect(boundary.length).toBeGreaterThanOrEqual(3);
+      expect(boundary.length, `${version.id} names too few voiding findings`).toBeGreaterThanOrEqual(3);
       for (const line of boundary) {
-        expect(line.length).toBeGreaterThan(25);
-        expect(line).not.toMatch(/^\s*(use|exercise|apply)\s+(clinical\s+)?(judgement|judgment|caution)\s*\.?\s*$/i);
+        expect(namesConcreteFindings(line), `${version.id}: ${line}`).toBe(true);
       }
     }
   });
@@ -630,6 +749,76 @@ describe("Care Plan fixture safety", () => {
       expect(amendment.originalValue).not.toBe(amendment.replacementValue);
       expect(amendment.reason.trim()).not.toBe("");
     }
+  });
+
+  it("keeps every count claimed in fixture prose consistent with the episode records", () => {
+    // Task 4 renders the objective count beside this prose. If the two disagree,
+    // the objective count stops being the thing that settles the question.
+    const numberWords: Record<string, number> = {
+      one: 1,
+      two: 2,
+      three: 3,
+      four: 4,
+      five: 5,
+      six: 6,
+      seven: 7,
+      eight: 8,
+      nine: 9,
+      ten: 10,
+      once: 1,
+      twice: 2,
+    };
+    const claimPatterns = [
+      /\b(one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:ed\s+)?presentations?\b/gi,
+      /\bon\s+(one|two|three|four|five)\s+occasions?\b/gi,
+      /\b(once|twice)\s+(?:leaving|left|presenting|attending)\b/gi,
+    ];
+    let claimsChecked = 0;
+
+    for (const patient of syntheticPatients) {
+      const episodes = syntheticEdPresentations.filter(({ patientId }) => patientId === patient.id);
+      const total = episodes.length;
+      const endedEarly = episodes.filter(({ disposition }) => disposition === "left_before_completion").length;
+
+      const prose: string[] = [];
+      for (const version of syntheticManagementPlanVersions.filter(
+        ({ planId }) => planId === patient.managementPlanId,
+      )) {
+        collectStrings(version.content, () => true, prose);
+        prose.push(version.revisionReason, version.returnedReason ?? "", version.withdrawalReason ?? "");
+      }
+      for (const version of syntheticPersonalSafetyPlanVersions.filter(
+        ({ planId }) => planId === patient.personalSafetyPlanId,
+      )) {
+        prose.push(version.collaborationNote);
+      }
+      for (const review of syntheticIdentificationReviews.filter(({ patientId }) => patientId === patient.id)) {
+        prose.push(review.reason, review.decisionReason ?? "");
+      }
+      for (const trigger of syntheticReviewTriggers.filter(({ patientId }) => patientId === patient.id)) {
+        prose.push(trigger.reason, trigger.resolution ?? "");
+      }
+
+      for (const sentence of prose) {
+        // A claim about episodes that ended early is measured against that subset;
+        // any other episode count is measured against the patient's whole record.
+        const aboutEarlyExit = /left before|leaving before|ended before assessment/i.test(sentence);
+        const expected = aboutEarlyExit ? endedEarly : total;
+
+        for (const pattern of claimPatterns) {
+          for (const match of sentence.matchAll(pattern)) {
+            const claimed = numberWords[(match[1] as string).toLowerCase()];
+            claimsChecked += 1;
+            expect(claimed, `${patient.id} prose claims a count the records do not support: "${sentence}"`).toBe(
+              expected,
+            );
+          }
+        }
+      }
+    }
+
+    // Guards against the sweep going quiet and passing over nothing.
+    expect(claimsChecked).toBeGreaterThanOrEqual(4);
   });
 
   it("orders the first-minute keys exactly as the summary card renders them", () => {
