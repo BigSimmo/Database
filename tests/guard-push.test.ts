@@ -624,21 +624,29 @@ describe("format-checkout cleanup never deletes through the linked dependency tr
     // cheap; that is not.
     const calls: string[] = [];
     cleanupFormatCheckout("D:/nonexistent-scratch", {
-      unlink: () => ({ removed: false, reason: "failed" }),
-      removeWorktree: () => calls.push("removeWorktree"),
-      removeDir: () => calls.push("removeDir"),
+      unlink: () => ({ removed: false, reason: "failed" }) as const,
+      removeWorktree: () => {
+        calls.push("removeWorktree");
+      },
+      removeDir: () => {
+        calls.push("removeDir");
+      },
       log: () => {},
     });
     expect(calls).toEqual([]);
   });
 
   it("still tears down the checkout when the link was removed or was never there", () => {
-    for (const reason of ["unlink", "absent"]) {
+    for (const reason of ["unlink", "absent"] as const) {
       const calls: string[] = [];
       cleanupFormatCheckout("D:/nonexistent-scratch", {
         unlink: () => ({ removed: reason === "unlink", reason }),
-        removeWorktree: () => calls.push("removeWorktree"),
-        removeDir: () => calls.push("removeDir"),
+        removeWorktree: () => {
+          calls.push("removeWorktree");
+        },
+        removeDir: () => {
+          calls.push("removeDir");
+        },
         log: () => {},
       });
       expect(calls).toEqual(["removeWorktree", "removeDir"]);
@@ -650,10 +658,14 @@ describe("format-checkout cleanup never deletes through the linked dependency tr
     cleanupFormatCheckout("D:/nonexistent-scratch", {
       unlink: () => {
         order.push("unlink");
-        return { removed: true, reason: "unlink" };
+        return { removed: true, reason: "unlink" } as const;
       },
-      removeWorktree: () => order.push("removeWorktree"),
-      removeDir: () => order.push("removeDir"),
+      removeWorktree: () => {
+        order.push("removeWorktree");
+      },
+      removeDir: () => {
+        order.push("removeDir");
+      },
       log: () => {},
     });
     expect(order).toEqual(["unlink", "removeWorktree", "removeDir"]);
