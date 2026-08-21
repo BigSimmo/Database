@@ -102,6 +102,7 @@ fi
 
 skip_list=",${CLAUDE_CLOUD_SKIP_TIERS:-},"
 failed=()
+pending_locked=()
 
 # A tier is "done" when its marker exists AND still carries the same signature, so a tier whose
 # inputs changed (a new lockfile, a different browser list) reprovisions instead of being skipped on
@@ -219,6 +220,12 @@ tier_gh() {
   cp "$tmp/gh_${version}_linux_amd64/bin/gh" "$HOME/.local/bin/gh" || { rm -rf "$tmp"; return 1; }
   rm -rf "$tmp"
   export PATH="$HOME/.local/bin:$PATH"
+  # `export` here only reaches this script's own process tree. Persist it the same way tier_python does
+  # for its venv, or a later Claude command in the session — not just this provisioning run — cannot
+  # find gh, and the completed marker would then stop any later session from repairing it.
+  if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+    printf 'export PATH="%s/.local/bin:$PATH"\n' "$HOME" >> "$CLAUDE_ENV_FILE"
+  fi
   log "gh ${version} installed to ~/.local/bin"
 }
 
@@ -241,12 +248,18 @@ tier_python() {
   local wanted="3.12" venv status=0
   have tesseract || apt_install tesseract-ocr || status=1
 
+  # Resolve the WANTED interpreter specifically before ever falling back to a generic python3. Folding
+  # the fallback into this first lookup let an older interpreter that already had a working venv module
+  # (e.g. system 3.11) mask the need to install python${wanted} at all — the version check below then
+  # rejected that older interpreter and the OCR tier failed even though installing 3.12 would have
+  # fixed it. Only fall back to whatever python3 exists after actually trying to get the pinned version.
   local python_bin
-  python_bin="$(command -v "python${wanted}" || command -v python3 || true)"
+  python_bin="$(command -v "python${wanted}" || true)"
   if [ -z "$python_bin" ] || ! "$python_bin" -c 'import venv' >/dev/null 2>&1; then
     apt_install "python${wanted}" "python${wanted}-venv" || apt_install python3 python3-venv || status=1
-    python_bin="$(command -v "python${wanted}" || command -v python3 || true)"
+    python_bin="$(command -v "python${wanted}" || true)"
   fi
+  [ -n "$python_bin" ] || python_bin="$(command -v python3 || true)"
   [ -n "$python_bin" ] || { warn "no Python 3 available"; return 1; }
 
   local actual
@@ -283,7 +296,17 @@ tier_python() {
 tier_signature() {
   case "$1" in
     profile) printf 'always' ;;
-    plugins) sha256sum .claude/settings.json 2>/dev/null | cut -d' ' -f1 ;;
+    plugins)
+      # settings.json alone misses a plugin Claude installed or updated in the cache without touching
+      # the repo's declared list — the signature stayed valid and the whole tier, including the
+      # dependency repair, was skipped on the stale marker. Fold in each cached manifest's path and
+      # mtime so any cache mutation invalidates the marker too.
+      {
+        sha256sum .claude/settings.json 2>/dev/null
+        find "$HOME/.claude/plugins/cache" -maxdepth 4 -name package.json -not -path '*/node_modules/*' \
+          -printf '%p %T@\n' 2>/dev/null | sort
+      } | sha256sum | cut -d' ' -f1
+      ;;
     gh) printf 'v1' ;;
     deno) printf 'v2' ;;
     browsers) printf '%s|%s' "${CLAUDE_CLOUD_BROWSERS:-chromium firefox webkit}" \
@@ -357,6 +380,7 @@ for tier in "${selected[@]}"; do
 
   if ! acquire_tier_lock "$tier"; then
     log "tier ${tier}: another run is provisioning it"
+    pending_locked+=("$tier")
     continue
   fi
 
@@ -399,9 +423,31 @@ if [ "$session_mode" -eq 1 ]; then
   fi
 fi
 
-if [ "${#failed[@]}" -gt 0 ]; then
-  warn "tiers that did not complete: ${failed[*]}"
-  warn "re-run with: bash scripts/setup-claude-cloud.sh ${failed[*]}"
+# A tier still held by another run's lock is neither done nor failed — it is genuinely in progress.
+# The documented confirmation command (`bash scripts/setup-claude-cloud.sh browsers python`) used to hit
+# the "another run is provisioning it" branch, fall through to "all selected tiers complete", and report
+# success while the background run was still writing its venv. Track it separately and never let it
+# share that closing message.
+if [ "${#pending_locked[@]}" -gt 0 ]; then
+  log "tiers still being provisioned by another run: ${pending_locked[*]}"
+  log "re-run this command once they finish to confirm completion"
+fi
+
+if [ "${#failed[@]}" -gt 0 ] || [ "${#pending_locked[@]}" -gt 0 ]; then
+  if [ "${#failed[@]}" -gt 0 ]; then
+    warn "tiers that did not complete: ${failed[*]}"
+    warn "re-run with: bash scripts/setup-claude-cloud.sh ${failed[*]}"
+  fi
+  if [ "$session_mode" -eq 1 ]; then
+    # A SessionStart hook's stderr is invisible to Claude — only stdout, and only this JSON envelope,
+    # carries additionalContext into the session. cleanup() still forces exit 0 for session mode right
+    # after this, so the hook still cannot fail the session; this only makes the failure seen instead of
+    # silently swallowed.
+    incomplete="$(printf '%s ' "${failed[@]}" "${pending_locked[@]}")"
+    incomplete="${incomplete% }"
+    printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"claude-cloud provisioning incomplete: %s — see ~/.cache/clinical-kb-claude-cloud/setup.log"}}\n' \
+      "$incomplete"
+  fi
   exit 1
 fi
 
