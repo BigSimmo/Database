@@ -145,15 +145,26 @@ export function assess(symbol, file, { today = new Date() } = {}) {
 
 function removedDeclarationsInDiff(base) {
   const diff = sh("git", ["diff", base, "-U0", "--", "src", "scripts", "worker"]);
-  const out = [];
+  const removed = [];
+  const added = new Set();
   let file = null;
   for (const line of diff.split("\n")) {
     const header = /^\+\+\+ b\/(.+)$/.exec(line);
     if (header) file = header[1];
-    const decl = /^-(?:export\s+)?(?:async\s+)?(?:function|const|class|type|interface)\s+([A-Za-z_$][\w$]*)/.exec(line);
-    if (decl && file) out.push({ symbol: decl[1], file });
+    if (!file) continue;
+    const decl = /^([-+])(?:export\s+)?(?:async\s+)?(?:function|const|class|type|interface)\s+([A-Za-z_$][\w$]*)/.exec(
+      line,
+    );
+    if (!decl) continue;
+    if (decl[1] === "+") added.add(`${file}:${decl[2]}`);
+    else removed.push({ symbol: decl[2], file });
   }
-  return [...new Map(out.map((d) => [`${d.file}:${d.symbol}`, d])).values()];
+  // A signature change shows up as a removed line AND an added line for the same
+  // symbol. That is a modification, not a deletion, and assessing it produced a
+  // false REFUSE on this gate's own introducing commit.
+  return [...new Map(removed.map((d) => [`${d.file}:${d.symbol}`, d])).values()].filter(
+    (d) => !added.has(`${d.file}:${d.symbol}`),
+  );
 }
 
 function selfTest() {
