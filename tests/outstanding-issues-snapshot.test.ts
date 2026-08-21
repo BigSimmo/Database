@@ -102,6 +102,40 @@ describe("buildSnapshot", () => {
     expect(snapshot.open.find((item) => item.id === "#316")?.detail).toContain("index a");
   });
 
+  // Hazard 2b: having survived the split, the escape must not survive into the
+  // JSON. `\|` is a markdown-table requirement — a pipe inside a cell would
+  // otherwise read as a column boundary — and JSON has no such rule, so leaving
+  // it in the data contract makes every consumer render a literal backslash.
+  // The ledger page showed exactly that for `#SZGPAH`: "2 failed \| 14 passed".
+  //
+  // The unescape lives in this generator and NOT in `splitCells`, which the
+  // ledger tooling uses to round-trip cells back into markdown; unescaping
+  // there would write a bare pipe into a table row and corrupt
+  // `issues:reconcile`.
+  it("drops the markdown pipe escape when writing cell text into the JSON", () => {
+    const withEscapedPipe = LEDGER.replace("Route the drift check.", "2 failed \\| 14 passed");
+    const snapshot = buildSnapshot({ ledgerMarkdown: withEscapedPipe, inboxRecords: [], revision: REVISION });
+
+    const detail = snapshot.open.find((item) => item.id === "#316")?.detail;
+    expect(detail).toBe("2 failed | 14 passed");
+    expect(detail).not.toContain("\\");
+    // The row is still one row: unescaping must not reintroduce a column split.
+    expect(snapshot.counts.open).toBe(3);
+  });
+
+  it("drops the escape in every cell, not only the detail column", () => {
+    const withEscapedPipe = LEDGER.replace("Answers degrade to source-only", "Answers degrade \\| source-only").replace(
+      "Fix the fast-route budget.",
+      "Fix \\| the budget.",
+    );
+    const snapshot = buildSnapshot({ ledgerMarkdown: withEscapedPipe, inboxRecords: [], revision: REVISION });
+
+    expect(snapshot.open.find((item) => item.id === "#231")?.summary).toBe("Answers degrade | source-only");
+    // Nothing anywhere in the emitted document keeps the escape — including the
+    // queue, whose capability/timing/estimate cells go straight through.
+    expect(JSON.stringify(snapshot)).not.toContain("\\\\|");
+  });
+
   // Hazard 3: `## Resolved / archive` holds three tables. A one-shot
   // header-skip counts the 2nd and 3rd header rows as resolved items.
   it("does not count a second archive table's header row as data", () => {

@@ -16,6 +16,23 @@ import { splitCells } from "./outstanding-issues.mjs";
 const ID_PATTERN = /#[A-Za-z0-9]+/g;
 
 /**
+ * `\|` is a markdown-table artifact: a pipe has to be escaped inside a cell or
+ * it becomes a column boundary. JSON has no such rule, so carrying the escape
+ * into the data contract means every consumer renders a literal `\|` to the
+ * reader — which is what the ledger page did for `#SZGPAH` ("2 failed \| 14
+ * passed").
+ *
+ * This unescape belongs HERE and not in `splitCells` (scripts/outstanding-issues.mjs).
+ * That splitter deliberately preserves `\|` because the ledger tooling
+ * round-trips cells back into markdown; unescaping there would emit a bare pipe
+ * into a table row and corrupt `issues:reconcile`. The snapshot is a one-way
+ * export, so it is the right place to drop the escape.
+ */
+function unescapeCell(cell) {
+  return cell.replace(/\\\|/g, "|");
+}
+
+/**
  * An ID cell is not just an ID. 62 of the ledger's rows carry a trailing HTML
  * comment holding the issue ULID:
  *   `| #SZGPAH <!-- issue-ulid:01M0A10Q19SZGPAH22TYYY2366 --> |`
@@ -38,7 +55,9 @@ function tableRowsUnder(markdown, heading, expectedColumns) {
     const line = lines[index];
     if (line.startsWith("## ")) break;
     if (!line.trim().startsWith("|")) continue;
-    const cells = splitCells(line).map((cell) => cell.trim());
+    // Split first (escape-aware, so `\|` is not a column boundary), then drop
+    // the escape — the JSON this feeds needs no pipe escaping.
+    const cells = splitCells(line).map((cell) => unescapeCell(cell.trim()));
     // Per-row header detection, NOT a one-shot flag: `## Resolved / archive`
     // holds three separate tables, and the 2nd and 3rd header rows have the
     // same cell count as data rows, so a one-shot flag counts them as items.
