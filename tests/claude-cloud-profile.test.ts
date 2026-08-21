@@ -283,7 +283,10 @@ describe("setup-claude-cloud", () => {
       expect(result.stdout).toMatch(/still being provisioned by another run: deno/);
       expect(result.stdout).not.toMatch(/all selected tiers complete/);
     } finally {
-      rmSync(lockDir, { recursive: true, force: true });
+      // Bounded retries: tests/test-runner-safety.test.ts makes this a repo-wide contract for every
+      // recursive fixture cleanup, for the reason the afterEach above records — a scanner or a
+      // just-exited child can still hold a handle, and an unretried rmSync turns that into a flake.
+      rmSync(lockDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
