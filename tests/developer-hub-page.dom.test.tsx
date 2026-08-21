@@ -2,6 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import DeveloperHubPage from "@/app/mockups/development/page";
+import { developerHubNavSections } from "@/components/developer-area/developer-hub-nav-header";
 import { loadLedgerSnapshot } from "@/lib/developer-area/ledger-snapshot";
 
 /**
@@ -177,5 +178,73 @@ describe("developer hub page — group sections", () => {
     // than a page that failed to render.
     expect(container.querySelector("#developer-hub-work")).not.toBeNull();
     expect(container.querySelector("#developer-hub-reference")).not.toBeNull();
+  });
+});
+
+describe("developer hub page — section headings", () => {
+  /**
+   * The section sheet in `DeveloperHubNavHeader` and the `<h2>` on the page are
+   * two renderings of one label. The ids were already bound (anchor resolution
+   * above), but the *text* was a second copy living in this page — so the sheet
+   * could offer "Clinical trust" while the heading said something else, with
+   * every gate green. That is the defect class the whole feature exists to
+   * close, so the page now derives its headings from `developerHubNavSections`
+   * and this pins the result.
+   */
+  it("gives every nav section the exact heading its nav entry declares", () => {
+    const { container } = render(<DeveloperHubPage />);
+
+    const rendered = developerHubNavSections
+      .map((section) => ({ section, element: container.querySelector(`#${section.id}`) }))
+      .filter((entry) => entry.element !== null);
+
+    // Every declared section has an anchor in phase 1 — all four panel groups
+    // carry panels, and the environment strip always renders. Without this the
+    // loop below could pass by checking nothing at all.
+    expect(rendered.map((entry) => entry.section.id)).toEqual(developerHubNavSections.map((section) => section.id));
+
+    for (const { section, element } of rendered) {
+      const heading = element!.querySelector("h2");
+      expect(heading, `#${section.id} renders no heading`).not.toBeNull();
+      expect(heading!.textContent).toBe(section.label);
+    }
+  });
+
+  it("renders no panel grid for the environment section, which is not a panel group", () => {
+    // `developerHubNavSections` includes `developer-hub-environment`; deriving
+    // the groups from that list must not turn it into a fifth panel grid.
+    const { container } = render(<DeveloperHubPage />);
+    const environment = container.querySelector("#developer-hub-environment");
+
+    expect(environment).not.toBeNull();
+    expect(environment!.querySelector("[data-testid='developer-hub-environment-strip']")).not.toBeNull();
+    expect(environment!.querySelectorAll("a, button")).toHaveLength(0);
+  });
+});
+
+describe("developer hub page — environment strip", () => {
+  const originalSha = process.env.RAILWAY_GIT_COMMIT_SHA;
+
+  afterEach(() => {
+    if (originalSha === undefined) delete process.env.RAILWAY_GIT_COMMIT_SHA;
+    else process.env.RAILWAY_GIT_COMMIT_SHA = originalSha;
+  });
+
+  it("reports the deployed build sha when the platform provides one", () => {
+    process.env.RAILWAY_GIT_COMMIT_SHA = "ce4b1cb72".padEnd(40, "0");
+    render(<DeveloperHubPage />);
+    expect(screen.getByTestId("developer-hub-environment-strip")).toHaveTextContent("build ce4b1cb");
+  });
+
+  it("says build unknown rather than inventing one when the platform provides none", () => {
+    delete process.env.RAILWAY_GIT_COMMIT_SHA;
+    render(<DeveloperHubPage />);
+    const strip = screen.getByTestId("developer-hub-environment-strip");
+    expect(strip).toHaveTextContent("build unknown");
+    // The three facts deferred to Phase 2 still name their own gaps rather than
+    // claiming a value the page never read (controller ruling F10).
+    expect(strip).toHaveTextContent("environment unknown");
+    expect(strip).toHaveTextContent("document count unavailable");
+    expect(strip).toHaveTextContent("account unknown");
   });
 });

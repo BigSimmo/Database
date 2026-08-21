@@ -49,6 +49,26 @@ describe("FreshnessStamp", () => {
     expect(stamp).not.toHaveTextContent(/invalid date/i);
     expect(stamp).not.toHaveTextContent(/NaN/);
   });
+
+  it("labels both timestamps, so neither reads as a second ledger date", () => {
+    render(
+      <FreshnessStamp
+        freshness={{ contentAt: "2026-08-20T00:00:00Z", viewedAt: "2026-08-21T00:00:00Z", ageHours: 24 }}
+      />,
+    );
+    const stamp = screen.getByTestId("developer-hub-freshness");
+    expect(stamp).toHaveTextContent(new RegExp(`viewed ${mediumDate("2026-08-21T00:00:00Z")}`));
+    expect(stamp).toHaveTextContent(/Ledger content as of/);
+  });
+
+  it("says '1 hour old', not '1 hours old'", () => {
+    render(
+      <FreshnessStamp
+        freshness={{ contentAt: "2026-08-20T23:00:00Z", viewedAt: "2026-08-21T00:00:00Z", ageHours: 1 }}
+      />,
+    );
+    expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/\b1 hour old\b/);
+  });
 });
 
 describe("EnvironmentStrip", () => {

@@ -1,24 +1,43 @@
 import type { Metadata } from "next";
 import { ShieldAlert } from "lucide-react";
 
-import { DeveloperHubNavHeader } from "@/components/developer-area/developer-hub-nav-header";
+import { DeveloperHubNavHeader, developerHubNavSections } from "@/components/developer-area/developer-hub-nav-header";
 import { EnvironmentStrip } from "@/components/developer-area/hub/environment-strip";
 import { PanelCard } from "@/components/developer-area/hub/panel-card";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { panelsInGroup, type HubPanelGroup } from "@/lib/developer-area/hub-panels";
 import { loadLedgerSnapshot } from "@/lib/developer-area/ledger-snapshot";
+import { resolveDeploymentCommitSha } from "@/lib/observability/sentry-release";
 
 export const metadata: Metadata = {
   title: "Developer · Clinical KB",
   description: "In-progress surfaces and repository state, reachable only to a signed-in administrator account.",
 };
 
-const GROUPS: { id: HubPanelGroup; anchor: string; label: string }[] = [
-  { id: "work", anchor: "developer-hub-work", label: "Work and decisions" },
-  { id: "clinical", anchor: "developer-hub-clinical", label: "Clinical trust" },
-  { id: "system", anchor: "developer-hub-system", label: "System truth" },
-  { id: "reference", anchor: "developer-hub-reference", label: "Reference" },
-];
+/**
+ * Which nav section each panel group renders into. Ids only — `developerHubNavSections`
+ * owns the anchor and the heading text, and this page derives both from it below.
+ *
+ * The section sheet and the `<h2>` are two renderings of one label, so a local
+ * copy of that text could drift with every gate green: the sheet could offer
+ * "Clinical trust" while the heading said something else, and nothing would
+ * notice. That is the same defect class this whole feature exists to close —
+ * one truth held in two places, one of them free to move.
+ *
+ * `developer-hub-environment` is deliberately absent: it is a navigable section
+ * but not a panel group, so it must not produce a panel grid.
+ */
+const PANEL_GROUP_BY_SECTION_ID: Record<string, HubPanelGroup | undefined> = {
+  "developer-hub-work": "work",
+  "developer-hub-clinical": "clinical",
+  "developer-hub-system": "system",
+  "developer-hub-reference": "reference",
+};
+
+const GROUPS = developerHubNavSections.flatMap((section) => {
+  const group = PANEL_GROUP_BY_SECTION_ID[section.id];
+  return group ? [{ group, anchor: section.id, label: section.label }] : [];
+});
 
 export default function DeveloperHubPage() {
   const snapshot = loadLedgerSnapshot();
@@ -45,7 +64,18 @@ export default function DeveloperHubPage() {
 
         <section id="developer-hub-environment" className={inPageAnchor}>
           <h2 className="sr-only">Environment</h2>
-          <EnvironmentStrip demoMode={null} documentCount={null} buildSha={null} email={null} />
+          {/*
+           * Build identity only. `resolveDeploymentCommitSha` reads
+           * `RAILWAY_GIT_COMMIT_SHA`, which the Dockerfile already declares, and
+           * returns `null` when it is absent — so local dev keeps saying "build
+           * unknown" honestly rather than inventing one.
+           *
+           * `demoMode` and the signed-in email stay null on purpose (controller
+           * ruling F10): both live behind `src/lib/env.ts`, whose first line is
+           * `import "server-only"`, and this page is rendered under jsdom by two
+           * DOM test files. `documentCount` needs Supabase. All three are Phase 2.
+           */}
+          <EnvironmentStrip demoMode={null} documentCount={null} buildSha={resolveDeploymentCommitSha()} email={null} />
         </section>
 
         {snapshot.counts.p1 > 0 ? (
@@ -58,7 +88,7 @@ export default function DeveloperHubPage() {
         ) : null}
 
         {GROUPS.map((group) => {
-          const panels = panelsInGroup(group.id);
+          const panels = panelsInGroup(group.group);
           // An empty group must render no anchor at all. `useResolvedPageSections`
           // drops a declared section whose anchor is missing — that is what lets
           // phases 2-4 add panels without touching the navigation — and rendering
@@ -67,7 +97,7 @@ export default function DeveloperHubPage() {
           if (panels.length === 0) return null;
 
           return (
-            <section key={group.id} id={group.anchor} className={inPageAnchor}>
+            <section key={group.group} id={group.anchor} className={inPageAnchor}>
               <h2 className="mb-3 text-lg font-extrabold text-[color:var(--text-heading)]">{group.label}</h2>
               <div className="grid gap-3 sm:grid-cols-2">
                 {panels.map((panel) => (

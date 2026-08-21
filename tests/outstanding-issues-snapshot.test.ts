@@ -1,5 +1,15 @@
-import { describe, expect, it } from "vitest";
-import { buildSnapshot } from "../scripts/generate-outstanding-issues-snapshot.mjs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  SNAPSHOT_VERSION,
+  buildSnapshot,
+  generate,
+  readCommittedRevision,
+  readLedgerRevision,
+} from "../scripts/generate-outstanding-issues-snapshot.mjs";
 
 const LEDGER = `# Universal Task Ledger
 
@@ -146,5 +156,110 @@ describe("buildSnapshot", () => {
 `;
     const snapshot = buildSnapshot({ ledgerMarkdown: twoTables, inboxRecords: [], revision: REVISION });
     expect(snapshot.counts.resolved).toBe(2);
+  });
+});
+
+/**
+ * The production image has no git repository: `.dockerignore` excludes `.git`,
+ * the Dockerfile build stage does `COPY . .`, and `prebuild` then regenerates
+ * this snapshot inside that image. `readLedgerRevision()` shells out to `git
+ * log`, so there it fails and returns `null` — and writing that `null` over the
+ * committed revision left `FreshnessStamp` on its "Ledger revision unknown"
+ * branch permanently, in the one environment `#338` actually failed in. Spec
+ * §6.3 (the page states its own age and cannot hide it) was inert in production.
+ *
+ * These reproduce that condition without Docker: the fixture paths are outside
+ * any git working tree, so `git log -- <path>` refuses them exactly as it
+ * refuses a repo-less image. The `fatal:` line git prints on stderr during this
+ * block is the reproduction, not a test failure.
+ */
+describe("ledger revision when git cannot be read", () => {
+  let dir: string;
+  let ledgerPath: string;
+  let inboxDir: string;
+  let snapshotPath: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "issues-snapshot-nogit-"));
+    ledgerPath = join(dir, "outstanding-issues.md");
+    inboxDir = join(dir, "inbox");
+    snapshotPath = join(dir, "outstanding-issues-snapshot.json");
+    mkdirSync(inboxDir);
+    writeFileSync(ledgerPath, LEDGER, "utf8");
+  });
+
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it("cannot read a revision for a ledger outside any git repository", () => {
+    // The premise the rest of this block rests on. If git ever started
+    // answering here, the tests below would pass for the wrong reason.
+    expect(readLedgerRevision(ledgerPath)).toBeNull();
+  });
+
+  it("keeps the committed revision rather than writing null over it", () => {
+    writeFileSync(
+      snapshotPath,
+      JSON.stringify({
+        version: SNAPSHOT_VERSION,
+        ledger_revision: REVISION,
+        counts: {},
+        queue: [],
+        open: [],
+        pending: [],
+      }),
+      "utf8",
+    );
+
+    const snapshot = generate({ ledgerPath, inboxDir, snapshotPath });
+    expect(snapshot.ledger_revision).toEqual(REVISION);
+  });
+
+  it("records null when there is no committed snapshot to preserve from", () => {
+    // Fail-safe in the honest direction: no revision anywhere means the page
+    // says it does not know, which is true.
+    const snapshot = generate({ ledgerPath, inboxDir, snapshotPath });
+    expect(snapshot.ledger_revision).toBeNull();
+  });
+
+  it("preserves the revision and nothing else, so stale content cannot ride along", () => {
+    // The committed file here claims one open item; the ledger has three. Only
+    // `ledger_revision` may survive from the committed snapshot — every content
+    // key must still be rebuilt from the ledger, or this fix would let the
+    // staleness gate compare regenerated content against itself.
+    writeFileSync(
+      snapshotPath,
+      JSON.stringify({
+        version: SNAPSHOT_VERSION,
+        ledger_revision: REVISION,
+        counts: { open: 1, p1: 0, p2: 0, p3: 0, queued: 0, pending: 0, resolved: 0 },
+        queue: [],
+        open: [{ id: "#stale", priority: "P3", type: "task", summary: "stale", detail: "", source: "", added: "" }],
+        pending: [],
+      }),
+      "utf8",
+    );
+
+    const snapshot = generate({ ledgerPath, inboxDir, snapshotPath });
+    expect(snapshot.ledger_revision).toEqual(REVISION);
+    expect(snapshot.counts.open).toBe(3);
+    expect(snapshot.open.map((row: { id: string }) => row.id)).toEqual(["#231", "#316", "#CCZ4HB"]);
+    expect(snapshot.queue).toHaveLength(2);
+  });
+
+  it("refuses a malformed committed revision instead of carrying it forward", () => {
+    // `resolveFreshness` does date arithmetic on `committed_at`. Carrying a
+    // shape it cannot use would put "Invalid Date" and `NaN` on the one surface
+    // whose job is stating age.
+    writeFileSync(snapshotPath, JSON.stringify({ ledger_revision: "2026-08-20T00:00:00Z" }), "utf8");
+    expect(readCommittedRevision(snapshotPath)).toBeNull();
+
+    writeFileSync(snapshotPath, JSON.stringify({ ledger_revision: { sha: "abc" } }), "utf8");
+    expect(readCommittedRevision(snapshotPath)).toBeNull();
+  });
+
+  it("returns null for a snapshot file that is missing or unreadable", () => {
+    expect(readCommittedRevision(join(dir, "no-such-file.json"))).toBeNull();
+    writeFileSync(snapshotPath, "{ not json", "utf8");
+    expect(readCommittedRevision(snapshotPath)).toBeNull();
   });
 });

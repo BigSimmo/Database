@@ -367,7 +367,16 @@ ships one live panel; the rest of the registry is declared placeholders.
 - **Snapshot generation:** `scripts/generate-outstanding-issues-snapshot.mjs` parses the ledger
   markdown and the `docs/outstanding-issues-inbox/` request JSON into
   `data/outstanding-issues-snapshot.json`; it owns all markdown parsing, so the app itself never
-  parses markdown. Runs from `npm run docs:update` and `npm run prebuild`.
+  parses markdown. Runs from `npm run docs:update` and `npm run prebuild`, and at the end of
+  `npm run issues:reconcile` — the only sanctioned writer of the ledger, which also empties the
+  inbox, so both halves of the snapshot go stale in the same operation. That regeneration sits
+  outside the reconciliation transaction on purpose (the journal restores only the ledger and the
+  pending request files); if it fails, reconcile warns and names `npm run snapshot:issues` rather
+  than claiming the reconcile failed. Commit the regenerated snapshot with the ledger.
+  When git is unavailable — the production image excludes `.git`, and `prebuild` regenerates there —
+  the generator keeps the committed `ledger_revision` instead of overwriting it with `null`, so the
+  freshness stamp can still state the page's age. A preserved revision can only make the page report
+  itself as older than it is, never fresher, and it feeds none of the compared content keys.
   `scripts/check-outstanding-issues-snapshot.mjs` regenerates the snapshot in memory and compares
   its content keys (`queue`, `open`, `pending`) against the committed file, failing with the fix
   command on any mismatch — this is what makes a stale snapshot impossible to ship.

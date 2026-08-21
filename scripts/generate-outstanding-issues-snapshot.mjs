@@ -164,11 +164,52 @@ export function readLedgerRevision(path = LEDGER_PATH) {
   }
 }
 
-export function generate() {
+/**
+ * The revision already recorded in the committed snapshot, or `null` if there
+ * is none to read. Shape-checked rather than taken verbatim: a malformed field
+ * carried forward would reach `resolveFreshness`, which does date arithmetic on
+ * `committed_at`, and a confident-looking stamp carrying nonsense is the exact
+ * failure `FreshnessStamp` exists to prevent.
+ */
+export function readCommittedRevision(path = OUTPUT_PATH) {
+  try {
+    const revision = JSON.parse(readFileSync(path, "utf8")).ledger_revision;
+    if (typeof revision?.sha !== "string" || typeof revision?.committed_at !== "string") return null;
+    return { sha: revision.sha, committed_at: revision.committed_at };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The production image has no git repository. `.dockerignore` excludes `.git`,
+ * the build stage does `COPY . .`, and `prebuild` then regenerates this
+ * snapshot inside that image — so `readLedgerRevision()` shells out to `git
+ * log`, fails, and returns `null`. Writing that `null` over a perfectly good
+ * committed revision is how `FreshnessStamp` came to take its "Ledger revision
+ * unknown" branch permanently in the one environment `#338` actually failed in:
+ * the page could no longer state its own age, which is spec §6.3.
+ *
+ * So keep the committed revision when git cannot speak, and fall through to
+ * `null` only when there is no snapshot to preserve from. This is fail-safe in
+ * the same direction `check-outstanding-issues-snapshot.mjs` already documents:
+ * a revision that lags reality can only make the page report itself as OLDER
+ * than it is, never fresher.
+ *
+ * It cannot mask stale CONTENT. `ledger_revision` feeds nothing else in
+ * `buildSnapshot` — `counts`, `queue`, `open` and `pending` are derived solely
+ * from the ledger markdown and the inbox — and the gate compares those, having
+ * deliberately excluded `ledger_revision` from the comparison already.
+ */
+function resolveRevision({ ledgerPath = LEDGER_PATH, snapshotPath = OUTPUT_PATH } = {}) {
+  return readLedgerRevision(ledgerPath) ?? readCommittedRevision(snapshotPath);
+}
+
+export function generate({ ledgerPath = LEDGER_PATH, inboxDir = INBOX_DIR, snapshotPath = OUTPUT_PATH } = {}) {
   return buildSnapshot({
-    ledgerMarkdown: readFileSync(LEDGER_PATH, "utf8"),
-    inboxRecords: readInboxRecords(),
-    revision: readLedgerRevision(),
+    ledgerMarkdown: readFileSync(ledgerPath, "utf8"),
+    inboxRecords: readInboxRecords(inboxDir),
+    revision: resolveRevision({ ledgerPath, snapshotPath }),
   });
 }
 

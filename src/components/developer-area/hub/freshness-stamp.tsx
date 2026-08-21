@@ -30,8 +30,15 @@ export function FreshnessStamp({ freshness }: { freshness: Freshness }) {
       <Clock aria-hidden="true" className="size-icon-sm" />
       {contentAt ? (
         <span>
+          {/*
+           * Both timestamps are labelled. An unlabelled second date beside
+           * "Ledger content as of …" reads as a second ledger date rather than
+           * the moment the page was rendered, and this is the one surface whose
+           * whole job is stating age unambiguously.
+           */}
           Ledger content as of {contentAt}
-          {viewedAt ? ` · ${viewedAt}` : ""} · {freshness.ageHours} hours old
+          {viewedAt ? ` · viewed ${viewedAt}` : ""} · {freshness.ageHours} {freshness.ageHours === 1 ? "hour" : "hours"}{" "}
+          old
         </span>
       ) : (
         <span>Ledger revision unknown{viewedAt ? ` · viewed ${viewedAt}` : ""}</span>
