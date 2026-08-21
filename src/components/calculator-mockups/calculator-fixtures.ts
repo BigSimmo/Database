@@ -622,12 +622,6 @@ export const calculators: CalculatorFixture[] = [
   },
 ];
 
-export const calculatorById = (id: string): CalculatorFixture => {
-  const found = calculators.find((calc) => calc.id === id);
-  if (!found) throw new Error(`Unknown calculator fixture: ${id}`);
-  return found;
-};
-
 export const domainOrder: CalculatorDomain[] = ["mood", "anxiety", "substance", "risk", "distress"];
 
 /** Extra directory entries shown as "coming soon" in directory-style mockups. */

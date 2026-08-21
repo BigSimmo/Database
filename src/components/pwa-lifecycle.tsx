@@ -215,6 +215,56 @@ function InstallManualSteps() {
 }
 
 /**
+ * `.pwa-notice-stack` is `position: fixed; bottom: …`, so when the set of
+ * visible cards changes while the stack is ALREADY rendered (e.g. the offline
+ * card clears the same instant `connectionRestored`/`showInstall` turn true,
+ * which happens because both react to the same `online` event landing in one
+ * React commit), the stack's height changes and its already-painted top edge
+ * moves — a real, attributable layout shift. A brand-new mount from an
+ * unmounted (`null`) stack does not shift anything, because the Layout
+ * Instability API only scores elements that were already visible in the prior
+ * frame. Confirmed with `scripts/measure-cls-attribution.mjs`: a synthetic
+ * offline→online blip while an install prompt is pending reproduced
+ * `.pwa-notice-stack` as a real shift source (~0.24 CLS on `/`), matching the
+ * magnitude Lighthouse reported in CI (0.223, PRs #2199/#2204, 2026-08-21).
+ *
+ * This hook forces every transition between two DIFFERENT non-empty card
+ * combinations through one unmounted frame, so the stack only ever grows from
+ * nothing or shrinks to nothing — never resizes while a sibling card is still
+ * on screen.
+ */
+function useSettledNoticeSignature(signature: string | null): string | null {
+  const [rendered, setRendered] = useState(signature);
+  const previousSignatureRef = useRef(signature);
+
+  useEffect(() => {
+    if (signature === previousSignatureRef.current) return;
+    const previous = previousSignatureRef.current;
+    previousSignatureRef.current = signature;
+    if (previous !== null && signature !== null) {
+      setRendered(null);
+      // Double rAF: the first guarantees the null frame actually paints before
+      // the second schedules the new content, so the browser never coalesces
+      // straight from the old box to the new one without an empty frame
+      // between — the same pattern DocumentViewer uses to force a real paint
+      // boundary before re-focusing after a state change.
+      let innerFrame = 0;
+      const outerFrame = window.requestAnimationFrame(() => {
+        innerFrame = window.requestAnimationFrame(() => setRendered(signature));
+      });
+      return () => {
+        window.cancelAnimationFrame(outerFrame);
+        window.cancelAnimationFrame(innerFrame);
+      };
+    }
+    setRendered(signature);
+    return undefined;
+  }, [signature]);
+
+  return rendered;
+}
+
+/**
  * Owns installability, service-worker updates, and cross-route connectivity UI.
  * The worker is production-first; `?pwa-dev=1` enables a cache-safe localhost
  * path for focused browser tests without persisting normal HMR assets, and
@@ -489,11 +539,24 @@ export function PwaLifecycle() {
     setActivatedUpdateReady(false);
   };
 
-  const showOffline = !isOnline && !offlineNoticeDismissed;
-  const showUpdate = isOnline && (Boolean(waitingWorker) || activatedUpdateReady);
-  const showInstall = isOnline && !showUpdate && Boolean(installPrompt);
-  const showIosInstallHint = isOnline && !showUpdate && !showInstall && showIosHint;
-  if (!showOffline && !connectionRestored && !showInstall && !showUpdate && !showIosInstallHint) return null;
+  const wantsOffline = !isOnline && !offlineNoticeDismissed;
+  const wantsUpdate = isOnline && (Boolean(waitingWorker) || activatedUpdateReady);
+  const wantsInstall = isOnline && !wantsUpdate && Boolean(installPrompt);
+  const wantsIosInstallHint = isOnline && !wantsUpdate && !wantsInstall && showIosHint;
+  const desiredSignature =
+    wantsOffline || connectionRestored || wantsUpdate || wantsIosInstallHint || wantsInstall
+      ? [wantsOffline, connectionRestored, wantsUpdate, wantsIosInstallHint, wantsInstall]
+          .map((flag) => (flag ? "1" : "0"))
+          .join("")
+      : null;
+  const settledSignature = useSettledNoticeSignature(desiredSignature);
+  // Mid-transition: the stack is passing through its one-frame unmounted gap
+  // (see useSettledNoticeSignature) before the new combination renders.
+  if (settledSignature === null || settledSignature !== desiredSignature) return null;
+  const showOffline = wantsOffline;
+  const showUpdate = wantsUpdate;
+  const showInstall = wantsInstall;
+  const showIosInstallHint = wantsIosInstallHint;
 
   return (
     <div className="pwa-notice-stack">
