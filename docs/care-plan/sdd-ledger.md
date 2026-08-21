@@ -103,7 +103,8 @@ is the only damage it carried — its tracked tree was clean and byte-identical 
 | 1. Domain, fixtures, selectors  | **complete, review clean** | `8a2e6a6d1..8652e73ff` | 58/58 passing, typecheck clean                                        |
 | 2. Reducer, provider, lifecycle | **complete, review clean** | `8652e73ff..def541e6a` | 121/121 passing, typecheck + lint clean, 32 mutations / 32 red suites |
 | 3. Routes, gate, shell          | **complete, review clean** | `d421bc2dc..bb68ea8da` | 209/209 passing, typecheck + lint clean, 39 mutations / 39 red suites |
-| 4–11                            | not started                | —                      | —                                                                     |
+| 4. Snapshot, search, contacts   | **complete, review clean** | `f2f6389fa..d66e7a38b` | 232/232 passing, typecheck + lint clean, 62 mutations / 62 red suites |
+| 5–11                            | not started                | —                      | —                                                                     |
 
 Stage A is Tasks 1–5. **Task 5 ends with a mandatory stop for user review** before
 Task 6 begins.
@@ -154,6 +155,37 @@ responsive/accessibility/print observation at real viewports, no production buil
 `notFound()` path's production 404 status is unverified (dev returns HTTP 200 with the
 `NEXT_HTTP_ERROR_FALLBACK;404` digest). Print correctness is asserted structurally — the
 marker has no `data-print-hide` ancestor — not visually.
+
+### Task 4 — complete
+
+- Dispatched opus. Returned `DONE_WITH_CONCERNS` at `0c9b32c64` (10 files, 219 tests). Task
+  review (opus) returned Spec ❌ / Needs fixes: three Important, no Critical, thirteen Minor.
+  Fix round 1 (`773da7bf3`) closed all three Importants plus three Minors and the scoped
+  re-review verdicted all seven ADDRESSED — but surfaced one new Important **in the fix
+  diff itself**, so it joined the open list rather than deferring. Fix round 2
+  (`d66e7a38b`) closed it and its re-review found no new breakage.
+- Final: `Test Files 4 passed (4)` / `Tests 232 passed (232)`; typecheck and lint both
+  freshly recorded, not reused receipts. One typecheck attempt was refused with
+  `DATABASE_HEAVY_RUN_ADMISSION_BUSY` and retried rather than reported — correct handling.
+- Guards proved by mutation across the task: 62, every one red then reverted.
+- Commits `f2f6389fa..d66e7a38b`, review clean, pushed.
+
+**Three interruptions, no loss.** The implementer was killed mid-round three times by
+transient `529 Overloaded` API errors. Each time the worktree was clean at the last commit,
+and resuming the same agent restored its context intact. This is the third distinct way this
+task has been interrupted — worktree destruction, run-coordinator refusal, and now provider
+capacity — and the same habit covered all three: commit at the end of every unit, push, and
+never rush a half-built commit to protect work.
+
+**The finding that needed two rounds is worth understanding.** Selecting a patient moved no
+focus, so fix round 1 added a focus move. That fix could then fire on a genuine route change
+— and was invisible, because the shell is an ancestor whose pathname-keyed effect commits
+last and silently repairs whatever a descendant did to focus. No final-state assertion in
+this component can fail. Only a `focusin` event-order test can see it, and the implementer
+discovered this the hard way when two of its own positive controls survived. Fix round 2
+keyed the effect on the previous **variant** rather than a boolean that collapsed two of the
+three variants together; the re-reviewer verified the two effects are now mutually exclusive
+by construction rather than by test.
 
 ---
 
@@ -528,4 +560,21 @@ fictional data only` and `SYNTHETIC_DATA_MARKER`'s `… fictional people, teams,
    report is the evidence a reviewer works from. Count from the run output, paste the
    decisive lines, and never claim coverage not written.
 4. **Commit at the end of every task.** Three worktree destructions cost nothing
-   committed and everything uncommitted.
+   committed and everything uncommitted — and by Task 4 the same habit had also absorbed
+   run-coordinator refusals and three `529 Overloaded` provider outages mid-round.
+5. **A guard can be unable to fail because of where it sits, not what it asserts.** Two of
+   Task 4's guards were correct assertions that no mutation could kill. The section-5
+   clipping guard read CSS-module class _names_, which Vitest resolves from a proxy whether
+   or not the stylesheet defines a rule — proven by `styles.currentPlanCard`, a class that
+   existed nowhere and that nothing noticed. The focus guards asserted final state in a
+   component whose parent shell commits last and repairs whatever a descendant did. Both
+   needed a different _kind_ of assertion — static analysis of the stylesheet, and
+   `focusin` event ordering — not a stricter one. When a positive control survives, the
+   instinct to tighten the assertion is usually wrong; ask first whether the test can
+   observe the failure at all.
+6. **Focus has no owner, and that is now an architectural debt.** Three focus defects in a
+   row shared one cause: the shell is an ancestor, its effect lands last, and every
+   descendant calls `focus()` independently. Nothing structurally prevents a fourth — the
+   convention is held by three tests rather than by an invariant. The whole-branch review
+   should consider a single focus owner that descendants request, rather than each surface
+   claiming focus for itself.
