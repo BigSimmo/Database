@@ -21,7 +21,10 @@ describe("buildActionInbox", () => {
   // test keeps proving the real count rather than pinning today's fixture size.
   it("emits one item per movement that carries a breached legal deadline, not just the first", () => {
     const expectedIds = wardMovements
-      .filter((movement) => movement.legalForm && clockState(movement.legalForm.dueAt, NOW_ANCHOR) === "breached")
+      .filter(
+        (movement) =>
+          movement.legalForm?.dueAt !== undefined && clockState(movement.legalForm.dueAt, NOW_ANCHOR) === "breached",
+      )
       .map((movement) => `legal-${movement.id}`)
       .sort();
 
@@ -73,7 +76,8 @@ describe("buildActionInbox", () => {
   // every category's own real count, never a number computed independently of the rows below it.
   it("returns exactly as many items as the three categories combined — no more, no fewer", () => {
     const legalCount = wardMovements.filter(
-      (movement) => movement.legalForm && clockState(movement.legalForm.dueAt, NOW_ANCHOR) === "breached",
+      (movement) =>
+        movement.legalForm?.dueAt !== undefined && clockState(movement.legalForm.dueAt, NOW_ANCHOR) === "breached",
     ).length;
     const declineCount = wardMovements.filter((movement) => movement.declines.length >= PARALLEL_REFERRAL_CAP).length;
     const transportCount = wardMovements.filter(
@@ -90,6 +94,18 @@ describe("buildActionInbox", () => {
     const items = buildActionInbox(wardMovements, NOW_ANCHOR);
     const ids = items.map((item) => item.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  // Task 6A: WF-003 is a real fixture Form 3B, which now honestly carries no dueAt (the Mental
+  // Health Act imposes no post-examination deadline). It must never surface a "legal-WF-003"
+  // inbox item, however long it has been open — a form with no deadline is never breached.
+  it("never lists a legal-timing item for a movement whose form has no dueAt", () => {
+    const movement = wardMovements.find((candidate) => candidate.id === "WF-003");
+    expect(movement?.legalForm?.code).toBe("3B");
+    expect(movement?.legalForm?.dueAt).toBeUndefined();
+
+    const items = buildActionInbox(wardMovements, NOW_ANCHOR);
+    expect(items.find((item) => item.id === "legal-WF-003")).toBeUndefined();
   });
 });
 

@@ -40,6 +40,20 @@ describe("operational score", () => {
     expect(operationalScore(breached, NOW_ANCHOR).score).toBeGreaterThan(operationalScore(clear, NOW_ANCHOR).score);
   });
 
+  it("awards no Statutory timing points to a legal form with no dueAt", () => {
+    // Task 6A: a Form 3B honestly carries no dueAt (the Mental Health Act imposes no
+    // post-examination deadline). This must never score as breached, critical or due — the
+    // patient's priority rides on "Time waiting" alone, which is precisely the clinician's rule,
+    // and this must never gain a compensating bonus for being detained instead.
+    const base = movementById("WF-003");
+    const noDeadline: Movement = {
+      ...base,
+      legalForm: { code: "3B", label: "Inpatient treatment order", kind: "detention" },
+    };
+    const { factors } = operationalScore(noDeadline, NOW_ANCHOR);
+    expect(factors.find((factor) => factor.label === "Statutory timing")).toBeUndefined();
+  });
+
   it("explains itself — every point scored is attributed to a named factor", () => {
     for (const movement of wardMovements) {
       const { score, factors } = operationalScore(movement, NOW_ANCHOR);

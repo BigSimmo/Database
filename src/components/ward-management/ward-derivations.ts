@@ -295,17 +295,21 @@ export type InboxItem = {
 export function buildActionInbox(movements: Movement[], now: Instant): InboxItem[] {
   const items: InboxItem[] = [];
 
+  // A form with no `dueAt` (Task 6A: a Form 3B honestly carries none — the Mental Health Act
+  // imposes no post-examination deadline) is never breached and contributes nothing here.
+  // `undefined` must never reach `clockState`'s arithmetic.
   const breachedLegal = movements.filter(
-    (movement) => movement.legalForm && clockState(movement.legalForm.dueAt, now) === "breached",
+    (movement) => movement.legalForm?.dueAt !== undefined && clockState(movement.legalForm.dueAt, now) === "breached",
   );
   for (const movement of breachedLegal) {
-    if (!movement.legalForm) continue;
+    const dueAt = movement.legalForm?.dueAt;
+    if (dueAt === undefined) continue;
     items.push({
       id: `legal-${movement.id}`,
       tone: "danger",
       icon: CircleAlert,
       title: "Legal timing breached",
-      detail: `${movement.id} · ${formatRemaining(minutesUntil(movement.legalForm.dueAt, now))}`,
+      detail: `${movement.id} · ${formatRemaining(minutesUntil(dueAt, now))}`,
       owner: movement.owner,
       movementId: movement.id,
     });

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
-import { EXAMINATION_TO_BED_WINDOW_MINUTES, PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
+import { PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 
 const NOW = NOW_ANCHOR;
 
@@ -293,7 +293,10 @@ describe("examination", () => {
     const target = movement(next, "WF-001");
     expect(target.examination).toEqual({ at: NOW, outcome: "inpatient_order" });
     expect(target.legalForm?.code).toBe("3B");
-    expect(target.legalForm?.dueAt).toBe(NOW + EXAMINATION_TO_BED_WINDOW_MINUTES);
+    // Task 6A: the Mental Health Act imposes no post-examination deadline, so the reducer-
+    // produced 3B must carry no dueAt at all — pinned as an explicit absence, not merely no
+    // longer contradicted by a stale expected value.
+    expect(target.legalForm?.dueAt).toBeUndefined();
   });
 
   it("closes the movement without an inpatient bed when the examination is revoked", () => {

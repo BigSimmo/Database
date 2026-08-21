@@ -33,21 +33,36 @@ export const PARALLEL_REFERRAL_CAP = 3;
 export type LegalStatus =
   "Voluntary" | "Referred for psychiatric examination" | "Detained awaiting examination" | "Involuntary inpatient";
 
+/**
+ * The legal clock and the ED clock are different clocks (spec "Model changes this phase
+ * requires", `Movement.formedAt`). `dueAt` is the legal clock — the Mental Health Act deadline
+ * this specific form carries, when it has one. A Form 1A ("referral for examination") always
+ * carries a real statutory examination window, so it always carries a `dueAt`. A Form 3B
+ * ("inpatient treatment order") has no equivalent post-examination deadline in the Act — put to
+ * the clinician directly, his answer was that the post-examination clock "is just counting how
+ * long they have been in ED determining priority. So counting up," i.e. it is not a legal
+ * countdown at all (Task 6A). So `dueAt` is optional, and a 3B is authored — and produced by the
+ * reducer — without one. Never substitute a fallback number for an absent `dueAt`, and never let
+ * an absent `dueAt` read as "clear" or "not yet due"; render its absence explicitly.
+ */
 export type LegalForm = {
   code: string;
   label: string;
   kind: "examination" | "detention" | "transport" | "transfer";
-  dueAt: Instant;
+  dueAt?: Instant;
 };
 
 /**
- * Minutes given to a Form 3B's `dueAt` when an examination confirms an inpatient order (1A → 3B).
- * This is a **synthetic prototype figure awaiting clinical confirmation, not a legal timeframe** —
- * it does not correspond to any Mental Health Act deadline and must not be read as one. It is
- * pulled out as one named, reviewable constant precisely so it stays easy to challenge and replace
- * once a real figure is supplied, rather than sitting as an unnamed literal inside a reducer branch.
+ * The emergency department's four-hour access target, in minutes. This is a real, named figure
+ * from spec §7 — but it is a **departmental performance measure**, counted UP from
+ * `Movement.openedAt` (how long the patient has been in the department), because that is the
+ * number a department is judged on and mental health patients are its largest breachers. It is
+ * **not** a Mental Health Act deadline: it must never be attached to a `LegalForm`, never gain a
+ * `dueAt`, and never feed a legal-breach count or an eligibility gate. Task 6A only introduces
+ * and pins this constant (see `tests/ward-model.test.ts`); Task 11's emergency department screen
+ * is what actually renders it against `openedAt`.
  */
-export const EXAMINATION_TO_BED_WINDOW_MINUTES = 240;
+export const ED_ACCESS_TARGET_MINUTES = 240;
 
 /**
  * A capacity number is meaningless without where it came from and when.

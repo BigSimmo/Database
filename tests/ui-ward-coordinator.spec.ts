@@ -925,7 +925,15 @@ test.describe("Ward Flow coordinator screen", () => {
     await gotoCoordinator(page);
 
     const queue = page.getByRole("region", { name: "Priority queue" });
-    await queue.locator('[data-testid^="ward-queue-row-"]').first().click();
+    // Task 6A note: this used to click the queue's top row, which happened to always be WF-017
+    // — not because WF-017 legitimately ranks first, but because its now-deleted fabricated
+    // Form 3B deadline artificially inflated its operational score to the top. With that fixed,
+    // the genuine top-ranked movement can legitimately be in any stage (today it is a generated
+    // movement in a non-referable stage), which this test — about the refer/shortlist mechanism,
+    // not queue rank — was never meant to depend on. WF-002 (destination_review, no legal form
+    // at all) is a stable, always-referable movement, selected explicitly by id like every other
+    // test in this file already does.
+    await queue.locator('[data-testid="ward-queue-row-WF-002"]').click();
 
     const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
 

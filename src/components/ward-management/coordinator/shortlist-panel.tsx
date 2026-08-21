@@ -7,6 +7,7 @@ import { clockState, formatInstant, minutesUntil, type Instant } from "@/compone
 import {
   candidateReason,
   destinationUnit,
+  elapsedLabel,
   eligibleCandidates,
   referralBlockedReason,
   restrictionNotice,
@@ -64,10 +65,20 @@ function capacityLine(unit: Unit) {
   return `Ready ${capacity.available} · Held ${capacity.held} · Blocked ${capacity.blocked} · Occupied ${capacity.occupied}`;
 }
 
+/**
+ * Task 6A: a Form 3B honestly carries no `dueAt` — the Mental Health Act imposes no
+ * post-examination deadline (clinician-confirmed). For that case this states the form and the
+ * real elapsed ED time via the existing `elapsedLabel` (never a new formatter), worded as time
+ * IN the department rather than time left against anything, so it can never be misread as a
+ * statutory countdown the way a bare number next to a form code could be.
+ */
 function legalFormLine(movement: Movement, now: Instant) {
   if (!movement.legalForm) return "No legal form recorded for this movement";
-  const remaining = minutesUntil(movement.legalForm.dueAt, now);
   const named = `Form ${movement.legalForm.code} (${movement.legalForm.label})`;
+  if (movement.legalForm.dueAt === undefined) {
+    return `${named} — no statutory deadline; ${elapsedLabel(movement, now)} in the emergency department`;
+  }
+  const remaining = minutesUntil(movement.legalForm.dueAt, now);
   return remaining < 0
     ? `${named} passed its deadline ${Math.abs(remaining)} min ago`
     : `${named} due in ${remaining} min`;
@@ -159,7 +170,10 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
     ? `Currently at ${originEd.siteCode} — ${originEd.name}`
     : "Currently at an unresolved department";
 
-  const legalBreached = movement.legalForm ? clockState(movement.legalForm.dueAt, now) === "breached" : false;
+  // A form with no `dueAt` (Task 6A: a Form 3B honestly carries none) is never breached —
+  // `undefined` must never reach `clockState`'s arithmetic.
+  const legalDueAt = movement.legalForm?.dueAt;
+  const legalBreached = legalDueAt !== undefined && clockState(legalDueAt, now) === "breached";
 
   // The destination slot. An accepted unit and every outstanding referral are independent facts
   // a coordinator acts on differently (same reasoning `flow-diagram.tsx` already applies), so

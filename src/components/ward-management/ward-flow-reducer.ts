@@ -1,6 +1,6 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { EVENT_ROLE, type WardFlowEvent, type WardFlowRole } from "@/components/ward-management/ward-flow-events";
-import { EXAMINATION_TO_BED_WINDOW_MINUTES, PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
+import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
 import type { Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
 import { wardMovements } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
@@ -169,12 +169,14 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           ...movement,
           examination: { at: event.now, outcome: event.outcome },
           // 1A (awaiting examination) becomes 3B (examined, awaiting a bed) — the statutory
-          // form follows the examination, it is never authored independently of it.
+          // form follows the examination, it is never authored independently of it. The Mental
+          // Health Act imposes no post-examination deadline (clinician-confirmed, Task 6A), so
+          // the 3B carries no dueAt — the patient's wait from here is the ED clock (elapsed,
+          // counting up from `openedAt`), never a legal countdown.
           legalForm: {
             code: "3B",
             label: "Inpatient treatment order",
             kind: "detention",
-            dueAt: event.now + EXAMINATION_TO_BED_WINDOW_MINUTES,
           },
         };
         return replaceMovement(state, movement.id, updated);

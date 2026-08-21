@@ -1,4 +1,4 @@
-import { EXAMINATION_TO_BED_WINDOW_MINUTES, MOVEMENT_STAGES } from "@/components/ward-management/ward-model";
+import { MOVEMENT_STAGES } from "@/components/ward-management/ward-model";
 import type { BedRelease, Cohort, Movement, MovementStage, Security } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR, allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
 
@@ -62,7 +62,6 @@ const seededMovements: Movement[] = [
       code: "3B",
       label: "Inpatient treatment order",
       kind: "detention",
-      dueAt: NOW_ANCHOR - 60 + EXAMINATION_TO_BED_WINDOW_MINUTES,
     },
     statusChanges: [],
     stage: "accepted_awaiting_bed",
@@ -225,7 +224,6 @@ const seededMovements: Movement[] = [
       code: "3B",
       label: "Inpatient treatment order",
       kind: "detention",
-      dueAt: NOW_ANCHOR - 100 + EXAMINATION_TO_BED_WINDOW_MINUTES,
     },
     statusChanges: [],
     stage: "destination_review",
@@ -451,7 +449,6 @@ const seededMovements: Movement[] = [
       code: "3B",
       label: "Inpatient treatment order",
       kind: "detention",
-      dueAt: NOW_ANCHOR - 260 + EXAMINATION_TO_BED_WINDOW_MINUTES,
     },
     statusChanges: [],
     stage: "destination_review",

@@ -81,8 +81,10 @@ export function PriorityQueue({ movements, now, selectedId, onSelect, filterEdId
           // breached" — the factor list is scoped to Task 7's expandable shortlist, not this
           // row, but a breached statutory deadline is the one thing this row must never let a
           // coordinator miss, so it always renders here regardless of what Task 7 later shows.
-          const legalBreached =
-            movement.legalForm !== undefined && clockState(movement.legalForm.dueAt, now) === "breached";
+          // A form with no `dueAt` (Task 6A: a Form 3B honestly carries none) is never breached —
+          // `undefined` must never reach `clockState`'s arithmetic.
+          const legalDueAt = movement.legalForm?.dueAt;
+          const legalBreached = legalDueAt !== undefined && clockState(legalDueAt, now) === "breached";
           const legalFactor = factors.find((factor) => factor.label === "Statutory timing");
 
           return (

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   DECLINE_REASONS,
-  EXAMINATION_TO_BED_WINDOW_MINUTES,
+  ED_ACCESS_TARGET_MINUTES,
   MOVEMENT_STAGES,
   PARALLEL_REFERRAL_CAP,
 } from "../src/components/ward-management/ward-model";
@@ -37,10 +37,14 @@ describe("ward model constants", () => {
     expect(PARALLEL_REFERRAL_CAP).toBe(3);
   });
 
-  it("pins the synthetic 1A-to-3B examination window as one named, reviewable figure", () => {
-    // Not a legal timeframe — see the constant's own doc comment. Pinned so the number lives as
-    // one line a reviewer can challenge, rather than an unnamed literal inside a reducer branch.
-    expect(EXAMINATION_TO_BED_WINDOW_MINUTES).toBe(240);
+  it("pins the ED access target as a departmental performance measure, not a legal clock", () => {
+    // Task 6A: the Mental Health Act imposes no post-examination deadline — the clinician
+    // confirmed the post-examination clock is elapsed ED wait, counting up, not a legal
+    // countdown. This constant is the real, separately named figure from spec §7 (the four-hour
+    // access target departments are judged on); Task 11's ED screen renders it against
+    // `openedAt`. Pinned here so a later task cannot silently redefine it as, or attach it to, a
+    // legal deadline — see the constant's own doc comment.
+    expect(ED_ACCESS_TARGET_MINUTES).toBe(240);
   });
 });
 

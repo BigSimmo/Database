@@ -31,10 +31,28 @@ import {
   transportStatusLabel,
 } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
-import { MOVEMENT_STAGES, type Movement, type MovementStage } from "@/components/ward-management/ward-model";
+import {
+  MOVEMENT_STAGES,
+  type LegalForm,
+  type Movement,
+  type MovementStage,
+} from "@/components/ward-management/ward-model";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 
 import styles from "./ward-management.module.css";
+
+/**
+ * The "label (code) · …" line for a legal form, shared by the readiness card and the legal
+ * panel below. Task 6A: a Form 3B honestly carries no `dueAt` (the Mental Health Act imposes no
+ * post-examination deadline) — this states that absence explicitly rather than ever formatting
+ * an undefined instant, which is how "due NaN:NaN" would ship.
+ */
+function legalFormReadinessLine(legalForm: LegalForm): string {
+  const named = `${legalForm.label} (${legalForm.code})`;
+  return legalForm.dueAt !== undefined
+    ? `${named} · due ${formatInstant(legalForm.dueAt)}`
+    : `${named} · no statutory deadline`;
+}
 
 const stageIcons = {
   placement_requested: FileCheck2,
@@ -258,9 +276,7 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
                 <ShieldCheck aria-hidden="true" />
                 <span>
                   <strong>Form readiness</strong>
-                  {patient.legalForm
-                    ? `${patient.legalForm.label} (${patient.legalForm.code}) · due ${formatInstant(patient.legalForm.dueAt)}`
-                    : "No legal form required"}
+                  {patient.legalForm ? legalFormReadinessLine(patient.legalForm) : "No legal form required"}
                 </span>
               </li>
               <li>
@@ -287,7 +303,7 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
             <p>{patient.legalStatus}</p>
             <p>
               {patient.legalForm
-                ? `${patient.legalForm.label} (${patient.legalForm.code}) · due ${formatInstant(patient.legalForm.dueAt)}`
+                ? legalFormReadinessLine(patient.legalForm)
                 : "No Mental Health Act transport form required"}
             </p>
           </section>

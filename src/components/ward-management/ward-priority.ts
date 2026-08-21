@@ -39,18 +39,25 @@ export function operationalScore(movement: Movement, now: Instant): { score: num
     });
   }
 
-  if (movement.legalForm) {
-    const state = clockState(movement.legalForm.dueAt, now);
+  // A form with no `dueAt` (Task 6A: a Form 3B honestly carries none — the Mental Health Act
+  // imposes no post-examination deadline, clinician-confirmed) awards no "Statutory timing"
+  // points at all. Such a patient's priority rides on "Time waiting" above instead, which is
+  // exactly the clinician's own rule; this deliberately adds no compensating bonus for being
+  // detained, which would be an unsupported clinical claim of the same kind this task removes.
+  const legalForm = movement.legalForm;
+  if (legalForm?.dueAt !== undefined) {
+    const dueAt = legalForm.dueAt;
+    const state = clockState(dueAt, now);
     const points = state === "breached" ? 30 : state === "critical" ? 20 : state === "due" ? 10 : 0;
     if (points > 0) {
-      const remaining = minutesUntil(movement.legalForm.dueAt, now);
+      const remaining = minutesUntil(dueAt, now);
       factors.push({
         label: "Statutory timing",
         points,
         detail:
           remaining < 0
-            ? `Form ${movement.legalForm.code} passed its deadline ${Math.abs(remaining)} min ago`
-            : `Form ${movement.legalForm.code} due in ${remaining} min`,
+            ? `Form ${legalForm.code} passed its deadline ${Math.abs(remaining)} min ago`
+            : `Form ${legalForm.code} due in ${remaining} min`,
       });
     }
   }

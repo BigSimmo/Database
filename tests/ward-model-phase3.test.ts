@@ -1,7 +1,7 @@
 // tests/ward-model-phase3.test.ts
 import { describe, expect, it } from "vitest";
 
-import { DECLINE_REASONS, EXAMINATION_TO_BED_WINDOW_MINUTES } from "../src/components/ward-management/ward-model";
+import { DECLINE_REASONS } from "../src/components/ward-management/ward-model";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 import { isOpen } from "../src/components/ward-management/ward-derivations";
@@ -92,16 +92,28 @@ describe("Phase 3 model additions", () => {
     }
   });
 
-  it("derives every 3B deadline from its own examination rather than inventing one", () => {
-    // Fix round 2: all three 3B records once carried a hand-picked dueAt with no relationship
-    // to their examination.at. Task 2's reducer derives dueAt as
-    // examination.at + EXAMINATION_TO_BED_WINDOW_MINUTES when it records an inpatient order —
-    // the fixture must derive it the same way, or a reducer-produced 3B and a fixture-seeded 3B
-    // render as though they mean the same thing when they do not.
-    const inpatientOrdered = wardMovements.filter((movement) => movement.examination?.outcome === "inpatient_order");
-    expect(inpatientOrdered.length).toBeGreaterThan(0);
-    for (const movement of inpatientOrdered) {
-      expect(movement.legalForm?.dueAt).toBe(movement.examination!.at + EXAMINATION_TO_BED_WINDOW_MINUTES);
+  it("never gives a Form 3B a dueAt, and never omits one from a Form 1A", () => {
+    // Task 6A: the Mental Health Act imposes no post-examination deadline (clinician-confirmed —
+    // the post-examination clock is elapsed ED wait, counting up, never a legal countdown), so a
+    // 3B must carry no dueAt at all — not a wrong one, none. A 1A still carries a real statutory
+    // examination window and must always have one. Both sides are accumulated so this cannot
+    // pass vacuously if the fixture ever stopped carrying one kind or the other — a vacuous guard
+    // shape has already cost this phase two fix rounds (see the deleted test this replaces).
+    const form3B: string[] = [];
+    const form1A: string[] = [];
+    for (const movement of wardMovements) {
+      if (movement.legalForm?.code === "3B") form3B.push(movement.id);
+      if (movement.legalForm?.code === "1A") form1A.push(movement.id);
+    }
+    expect(form3B.length).toBeGreaterThan(0);
+    expect(form1A.length).toBeGreaterThan(0);
+    for (const movement of wardMovements) {
+      if (movement.legalForm?.code === "3B") {
+        expect(movement.legalForm.dueAt).toBeUndefined();
+      }
+      if (movement.legalForm?.code === "1A") {
+        expect(movement.legalForm.dueAt).toBeDefined();
+      }
     }
   });
 });
