@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d873ec0d-e25d-41fe-b24c-d2c3aa9375ee",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "Supabase preview-branch compute is an uncapped cost sitting outside the organisation Spend Cap",
+    "detail": "Dashboard read 2026-08-21 (the same read that settled D4) shows Automatic branching ON with limit 3 and \"Supabase changes only\" enabled, and the same screen warns that Branching Compute is NOT covered by the organisation's Spend Cap. Preview databases are therefore an uncapped cost that scales with the number of open PRs touching supabase/**, on a project that already runs auto-deploy to production. CONTEXT FOR ANY DECISION TO REDUCE OR DISABLE THEM: CI's Migration replay job (db-reset-verify, which runs `supabase migration up --local`) independently replays the entire migration chain on every database-touching PR, so preview branches are a SECOND net rather than the only one -- turning them down would not leave the chain unproven. Preview branches did earn their keep once (the 20260819100200 guard failure on PR #2151 was caught by a preview branch building from the chain alone), so this is a cost/benefit decision, not a cleanup. NEXT: decide whether to keep branching at limit 3, lower the limit, or disable it, and record the decision with its date. STOP: do not change Supabase project settings without explicit owner approval; this row is a decision request, not a licence to reconfigure the project.",
+    "source": "Supabase dashboard read 2026-08-21; docs/audit/live-drift-forensics-2026-08.md D4 section; AGENTS.md Supabase project safety",
+    "issueUlid": "01M0JTGY049X40BT8EZTS24YYX"
+  }
+}
