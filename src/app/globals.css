@@ -2998,7 +2998,7 @@ summary::-webkit-details-marker {
    value proposition remains on larger and dock-owned surfaces, while the phone
    hero gets a concise, action-first card. */
 @media (max-width: 639.98px) {
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-notice-stack {
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-notice-stack {
     --pwa-notice-bottom-gap: max(0.5rem, var(--safe-area-bottom));
   }
 
