@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "c68684ed-c16f-46ae-8238-c3d40be7342f",
+  "createdOn": "2026-08-21",
+  "action": "cancel",
+  "payload": {
+    "requestId": "1a175782-d9cf-4de6-a67b-d3b2da632c84",
+    "reason": "Stale, not discardable evidence: #4TBHS8's row changed after this request was queued — a separate already-merged branch added a 2026-08-21 UPDATE noting the '2 showing' string is gone but the spec was NOT re-run ('NOT VERIFIED... Re-run before closing'), so the baseRowFingerprint no longer matches and applyRequest fails 'stale: the ledger row changed'. This request's own evidence (chromium-mockups run at a341832af, '16 passed (1.5m)', test 9 passing) is exactly the re-measurement that update asks for and is not superseded — cancelling only to unblock reconciliation on the current row text; recommend a fresh done request be queued against the current row citing this same run so the evidence is not lost."
+  }
+}

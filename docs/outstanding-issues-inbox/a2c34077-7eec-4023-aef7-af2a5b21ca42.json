@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a2c34077-7eec-4023-aef7-af2a5b21ca42",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#339",
+    "outcome": "Resolved 2026-08-20: verified on origin/main a341832af. favourites-command-library-page.tsx now derives lastUsed from a real lastOpenedMap plus formatLastOpened, with recordFavouriteOpened(item.id) wired to every open path (ten call sites), and the hard-coded lastUsedByItemId literals are gated behind demoMode. Real saved items now carry real last-opened data; 'Saved' is only the never-opened fallback.",
+    "baseRowFingerprint": "46cac9f2b4a06a36fcf84b4a14b2ba87ca4369d0c460ec27067435231cc68a2c"
+  }
+}
