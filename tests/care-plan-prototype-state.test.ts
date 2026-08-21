@@ -326,6 +326,129 @@ describe("Care Plan approval guards", () => {
   });
 });
 
+// --- Participation: approving a plan written without the person -------------------
+
+describe("Care Plan participation triggers", () => {
+  it("raises one open participation Review Trigger when a version is approved without the person's involvement", () => {
+    const before = withUser(createInitialPrototypeState("overdue-plan"), SENIOR);
+    expect(before.managementPlanVersions.find(({ id }) => id === MIRA_AWAITING_VERSION)?.participationState).toBe(
+      "patient_unavailable",
+    );
+
+    const next = prototypeReducer(before, { type: "approve-management-version", versionId: MIRA_AWAITING_VERSION });
+    const added = next.reviewTriggers.filter((trigger) => !before.reviewTriggers.some(({ id }) => id === trigger.id));
+
+    expect(added).toHaveLength(1);
+    expect(added[0]).toMatchObject({
+      source: "participation",
+      status: "open",
+      patientId: MIRA,
+      managementPlanId: MIRA_PLAN,
+      sourceId: MIRA_AWAITING_VERSION,
+      resolvedAt: null,
+      resolution: null,
+    });
+    // The version is still approved: participation never blocks approval.
+    expect(next.managementPlanVersions.find(({ id }) => id === MIRA_AWAITING_VERSION)?.state).toBe("current");
+    expect(next.auditEvents.filter(({ type }) => type === "management_version_approved")).toHaveLength(1);
+    expect(next.lastOutcome?.kind).toBe("success");
+  });
+
+  it.each(["co_produced", "discussed"] as const)(
+    "raises no participation Review Trigger when involvement is recorded as %s",
+    (participationState) => {
+      const state = run(
+        "normal",
+        LIAISON,
+        { type: "create-management-draft", patientId: ROWAN },
+        {
+          type: "save-management-draft",
+          versionId: "SYN-MGMT-VERSION-007",
+          input: draftInput({ participationState }),
+        },
+        { type: "submit-management-draft", versionId: "SYN-MGMT-VERSION-007" },
+        { type: "set-active-user", userId: SENIOR },
+      );
+      const next = prototypeReducer(state, {
+        type: "approve-management-version",
+        versionId: "SYN-MGMT-VERSION-007",
+      });
+
+      expect(next.managementPlanVersions.find(({ id }) => id === "SYN-MGMT-VERSION-007")?.state).toBe("current");
+      // Negative control: the guard is not simply always-on.
+      expect(next.reviewTriggers).toEqual(state.reviewTriggers);
+    },
+  );
+
+  it("does not raise a second participation Review Trigger while one is already open on the plan", () => {
+    const first = run(
+      "normal",
+      LIAISON,
+      { type: "create-management-draft", patientId: ROWAN },
+      {
+        type: "save-management-draft",
+        versionId: "SYN-MGMT-VERSION-007",
+        input: draftInput({ participationState: "declined" }),
+      },
+      { type: "submit-management-draft", versionId: "SYN-MGMT-VERSION-007" },
+      { type: "set-active-user", userId: SENIOR },
+      { type: "approve-management-version", versionId: "SYN-MGMT-VERSION-007" },
+    );
+    expect(
+      first.reviewTriggers.filter(
+        (trigger) =>
+          trigger.managementPlanId === ROWAN_PLAN && trigger.source === "participation" && trigger.status === "open",
+      ),
+    ).toHaveLength(1);
+
+    const secondRound: CarePlanPrototypeAction[] = [
+      { type: "set-active-user", userId: LIAISON },
+      { type: "create-management-draft", patientId: ROWAN },
+      {
+        type: "save-management-draft",
+        versionId: "SYN-MGMT-VERSION-008",
+        input: draftInput({ participationState: "patient_unavailable" }),
+      },
+      { type: "submit-management-draft", versionId: "SYN-MGMT-VERSION-008" },
+      { type: "set-active-user", userId: SENIOR },
+      { type: "approve-management-version", versionId: "SYN-MGMT-VERSION-008" },
+    ];
+    const second = secondRound.reduce((state, action) => prototypeReducer(state, action), first);
+
+    expect(second.managementPlanVersions.find(({ id }) => id === "SYN-MGMT-VERSION-008")?.state).toBe("current");
+    expect(second.reviewTriggers).toEqual(first.reviewTriggers);
+  });
+
+  it("writes both participation trigger reasons without blaming the person", () => {
+    const blaming = /\b(difficult|refus\w*|uncooperative|non-compliant|declined to engage|failed to)\b/i;
+    // Negative control: the guard rejects the wording it exists to keep out.
+    expect(blaming.test("The patient refuses to engage with the plan.")).toBe(true);
+
+    const unavailable = prototypeReducer(withUser(createInitialPrototypeState("overdue-plan"), SENIOR), {
+      type: "approve-management-version",
+      versionId: MIRA_AWAITING_VERSION,
+    }).reviewTriggers.find(({ source }) => source === "participation")!;
+    expect(unavailable.reason).toMatch(/not available to take part/i);
+    expect(unavailable.reason).not.toMatch(blaming);
+
+    const declined = run(
+      "normal",
+      LIAISON,
+      { type: "create-management-draft", patientId: ROWAN },
+      {
+        type: "save-management-draft",
+        versionId: "SYN-MGMT-VERSION-007",
+        input: draftInput({ participationState: "declined" }),
+      },
+      { type: "submit-management-draft", versionId: "SYN-MGMT-VERSION-007" },
+      { type: "set-active-user", userId: SENIOR },
+      { type: "approve-management-version", versionId: "SYN-MGMT-VERSION-007" },
+    ).reviewTriggers.find(({ source }) => source === "participation")!;
+    expect(declined.reason).toMatch(/chose not to take part/i);
+    expect(declined.reason).not.toMatch(blaming);
+  });
+});
+
 // --- ED Presentations: append-only, and what they raise ---------------------------
 
 describe("Care Plan ED Presentation recording", () => {

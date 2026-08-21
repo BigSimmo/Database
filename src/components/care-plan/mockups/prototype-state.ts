@@ -746,12 +746,47 @@ export function prototypeReducer(
       // Two Current versions would show two plans both approved for use now.
       assertSingleCurrentVersion(managementPlanVersions);
 
+      // A version may be approved at any participation state — the person's
+      // absence must never block their plan being written. What it does raise is
+      // an open trigger, so going through the plan with them lands in the Reviews
+      // queue where somebody owns it. The persistent on-screen marker is not
+      // enough on its own: a marker is read only by whoever opens that plan.
+      const involvementNotRecorded =
+        version.participationState === "declined" || version.participationState === "patient_unavailable";
+      const participationAlreadyOpen = state.reviewTriggers.some(
+        (trigger) =>
+          trigger.managementPlanId === plan.id && trigger.source === "participation" && trigger.status === "open",
+      );
+      const participationTrigger: ReviewTrigger | null =
+        involvementNotRecorded && !participationAlreadyOpen
+          ? {
+              id: nextSyntheticId(
+                "SYN-TRIGGER",
+                state.reviewTriggers.map(({ id }) => id),
+              ),
+              patientId: plan.patientId,
+              managementPlanId: plan.id,
+              source: "participation",
+              sourceId: version.id,
+              reason:
+                version.participationState === "declined"
+                  ? `Version ${version.version} was approved after this person chose not to take part in writing it. Offer again at the next contact, and record what they decide.`
+                  : `Version ${version.version} was approved while this person was not available to take part. Go through the plan with them at the next contact, and record what they say.`,
+              status: "open",
+              createdAt: prototypeTimestamp(state, 1),
+              resolvedAt: null,
+              resolution: null,
+            }
+          : null;
+
       return {
         ...state,
         managementPlanVersions,
         managementPlans: state.managementPlans.map((candidate) =>
           candidate.id === plan.id ? { ...candidate, currentVersionId: version.id } : candidate,
         ),
+        reviewTriggers:
+          participationTrigger === null ? state.reviewTriggers : [...state.reviewTriggers, participationTrigger],
         auditEvents: withAudit(state, {
           type: "management_version_approved",
           patientId: plan.patientId,
@@ -760,7 +795,10 @@ export function prototypeReducer(
         }),
         lastOutcome: {
           kind: "success",
-          message: `Version ${version.version} is now the Current Plan, approved by ${approver.displayName}.`,
+          message:
+            participationTrigger === null
+              ? `Version ${version.version} is now the Current Plan, approved by ${approver.displayName}.`
+              : `Version ${version.version} is now the Current Plan, approved by ${approver.displayName}. It was written without this person's involvement, so an open Review Trigger was raised for the team.`,
         },
       };
     }

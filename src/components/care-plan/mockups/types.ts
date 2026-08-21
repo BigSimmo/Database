@@ -335,7 +335,17 @@ export type ReviewTrigger = {
   id: SyntheticId;
   patientId: SyntheticId;
   managementPlanId: SyntheticId;
-  source: "plan_use_feedback" | "presentation_outcome" | "plan_deviation" | "formal_review" | "contact_verification";
+  source:
+    | "plan_use_feedback"
+    | "presentation_outcome"
+    | "plan_deviation"
+    | "formal_review"
+    | "contact_verification"
+    /** Raised when a version is approved at `declined` or `patient_unavailable`
+     *  participation, so involving the person stays on somebody's list. The
+     *  persistent on-screen marker alone is not enough: a marker is read only
+     *  by whoever opens that plan, while a trigger reaches the Reviews queue. */
+    | "participation";
   sourceId: SyntheticId;
   reason: string;
   status: "open" | "resolved";
