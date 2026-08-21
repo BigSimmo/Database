@@ -331,6 +331,44 @@ describe("repository-wide heavyweight lock", () => {
     }
   });
 
+  it("does not mistake a mismatched inherited lease for admission contention", () => {
+    const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+    const baseDirectory = temporaryDirectory("clinical-kb-playwright-inherited-mismatch-");
+    const childEnvironment: NodeJS.ProcessEnv = {
+      ...process.env,
+      TEMP: baseDirectory,
+      TMP: baseDirectory,
+      TMPDIR: baseDirectory,
+      // A real browser is unnecessary: the mismatched inherited lease throws
+      // before any launch attempt.
+      PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: process.execPath,
+      // Point the inherited lock env vars at a path/token that cannot belong to
+      // this repository's coordinator. This reproduces a configuration error
+      // (a stale or foreign inherited lease), not admission contention — the
+      // busy matcher must not swallow it into a "wait and retry" exit.
+      [testRunLockInternals.tokenEnvironmentKey]: "mismatched-token",
+      [testRunLockInternals.pathEnvironmentKey]: path.join(baseDirectory, "unrelated-lease-path"),
+    };
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        "scripts/run-playwright.mjs",
+        "--project=chromium",
+        "--grep",
+        "clinical-kb-never-matches",
+        "--pass-with-no-tests",
+      ],
+      { cwd: projectRoot, encoding: "utf8", env: childEnvironment },
+    );
+    const output = `${result.stdout}${result.stderr}`;
+
+    expect(childProcessExitCode(result)).toBe(1);
+    expect(output).not.toContain("DATABASE_HEAVY_RUN_ADMISSION_BUSY");
+    expect(output).toContain("The inherited Database heavyweight-run lease does not match this repository.");
+    expect(output).not.toContain("Wait for the active heavyweight run to finish, then retry this command.");
+  });
+
   it("admits two focused leases from different worktrees while keeping heavyweight work exclusive", () => {
     const baseDirectory = temporaryDirectory("clinical-kb-shared-lock-");
     const repositoryIdentity = path.join(baseDirectory, "shared.git");

@@ -86,8 +86,13 @@ const configuredWaitTimeoutMs = Number(process.env.HEAVY_RUN_WAIT_TIMEOUT_MS);
 const waitTimeoutMs = Number.isFinite(configuredWaitTimeoutMs) ? configuredWaitTimeoutMs : undefined;
 const ADMISSION_BUSY_EXIT = 75;
 const ADMISSION_BUSY_MARKER = "DATABASE_HEAVY_RUN_ADMISSION_BUSY";
+// Match only the coordinator's actual capacity/timeout messages (test-run-lock.mjs
+// busyMessage() and the initializing-coordinator branch) — not every error that
+// merely mentions "Database heavyweight", such as an inherited-lease mismatch or a
+// coordinator-directory setup failure. Those are configuration bugs, not admission
+// contention, and must keep failing with the ordinary exit 1 below.
 const ADMISSION_BUSY_PATTERN =
-  /Database (?:focused-test capacity is full|heavyweight)|coordinator is (?:busy|being initialized)|retry shortly/i;
+  /^(?:Database focused-test capacity is full|Another Database heavyweight command is active|A Database heavyweight coordinator is being initialized\b.*retry shortly\.)/;
 
 let lock;
 try {
