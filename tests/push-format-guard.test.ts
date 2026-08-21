@@ -61,10 +61,49 @@ function setHooksPath(root: string, value: string | null): void {
   execFileSync("git", ["config", "core.hooksPath", value], { cwd: root });
 }
 
+/**
+ * A rigged repo reachable through a Windows-style drive-letter path, built so
+ * the case-sensitivity contract is testable on Linux — where the real suite
+ * runs, since Windows is skipped below.
+ *
+ * The trick is that `D:/Database` is not absolute to a POSIX shell: it is a
+ * relative path. Creating a literal `D:` directory inside the scratch root and
+ * running the hook with that root as its cwd makes every `$repo_root/...`
+ * lookup in the hook resolve to real files, while the string the hook compares
+ * is byte-for-byte the drive-letter spelling Git reports on Windows.
+ */
+function riggedWindowsStyleRepo(hooksPath: string): {
+  base: string;
+  binDir: string;
+  projectDir: string;
+} {
+  const base = mkdtempSync(join(tmpdir(), "push-format-guard-win-"));
+  scratchRoots.push(base);
+  const projectDir = "D:/Database";
+  const repo = join(base, "D:", "Database");
+  mkdirSync(repo, { recursive: true });
+  execFileSync("git", ["init", "-q"], { cwd: repo });
+  mkdirSync(join(repo, "node_modules/prettier"), { recursive: true });
+  mkdirSync(join(repo, ".githooks"), { recursive: true });
+  const prePush = join(repo, ".githooks/pre-push");
+  writeFileSync(prePush, "#!/usr/bin/env bash\nexit 0\n");
+  chmodSync(prePush, 0o755);
+  execFileSync("git", ["config", "core.hooksPath", hooksPath], { cwd: repo });
+
+  const binDir = mkdtempSync(join(tmpdir(), "push-format-guard-bin-"));
+  scratchRoots.push(binDir);
+  const npx = join(binDir, "npx");
+  writeFileSync(npx, '#!/usr/bin/env bash\necho "[warn] bad.js"\nexit 1\n');
+  chmodSync(npx, 0o755);
+
+  return { base, binDir, projectDir };
+}
+
 function runHook(
   root: string,
   binDir: string,
   command = "git push origin HEAD",
+  projectDir: string = root,
 ): { status: number | null; stdout: string; denied: boolean } {
   const result = spawnSync("bash", [hook], {
     cwd: root,
@@ -77,7 +116,7 @@ function runHook(
     encoding: "utf8",
     env: {
       ...process.env,
-      CLAUDE_PROJECT_DIR: root,
+      CLAUDE_PROJECT_DIR: projectDir,
       PATH: `${binDir}:${process.env.PATH ?? ""}`,
     },
   });
@@ -120,6 +159,21 @@ describe.skipIf(process.platform === "win32")("push-format-guard", () => {
       expect(out.denied).toBe(false);
       expect(out.stdout).toBe("");
     });
+
+    // Windows drive-letter paths are case-insensitive; Bash `=` is not. Git
+    // reports whatever casing `npm install` happened to write, so a checkout
+    // Claude Code knows as `D:/Database` can carry `core.hooksPath` of
+    // `d:/database/.githooks` — the same wired directory. Comparing raw bytes
+    // reintroduced the >100 s full-repository Prettier run on every push.
+    for (const spelling of ["d:/Database/.githooks", "D:/database/.githooks", "d:/database/.GITHOOKS"]) {
+      it(`stays silent for the case-variant absolute spelling ${JSON.stringify(spelling)}`, () => {
+        const { base, binDir, projectDir } = riggedWindowsStyleRepo(spelling);
+        const out = runHook(base, binDir, "git push origin HEAD", projectDir);
+        expect(out.denied).toBe(false);
+        expect(out.stdout).toBe("");
+        expect(out.status).toBe(0);
+      });
+    }
   });
 
   describe("still fires in the gap case it exists for", () => {
@@ -155,6 +209,22 @@ describe.skipIf(process.platform === "win32")("push-format-guard", () => {
       writeFileSync(path, "#!/usr/bin/env bash\nexit 0\n");
       chmodSync(path, 0o755);
       setHooksPath(root, join(foreign, ".githooks"));
+      expect(runHook(root, binDir).denied).toBe(true);
+    });
+
+    it("denies a case-variant Windows path naming a DIFFERENT directory", () => {
+      // Case folding must not decay into a loose match: only the casing may
+      // differ, never the directory itself.
+      const { base, binDir, projectDir } = riggedWindowsStyleRepo("d:/other-repo/.githooks");
+      expect(runHook(base, binDir, "git push origin HEAD", projectDir).denied).toBe(true);
+    });
+
+    it("keeps POSIX paths case-sensitive", () => {
+      // `/c/...`-style and ordinary POSIX paths are NOT folded: on Linux a
+      // casing difference is a genuinely different directory, and folding it
+      // would silently self-disable the guard against a foreign hooks dir.
+      const { root, binDir } = riggedRepo();
+      setHooksPath(root, `${join(root, ".githooks").toUpperCase()}`);
       expect(runHook(root, binDir).denied).toBe(true);
     });
   });

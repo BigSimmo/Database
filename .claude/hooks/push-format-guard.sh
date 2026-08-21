@@ -106,9 +106,27 @@ if [ -n "$hooks_path" ]; then
   /* | ?:/*) resolved="$normalised" ;;
   *) resolved="$repo_root_n/${normalised#./}" ;;
   esac
+  resolved="${resolved%/}"
+  expected="$repo_root_n/.githooks"
+  # Windows drive-letter paths are case-insensitive, and Bash `=` is not. Git
+  # wires `d:/Database/.githooks` and `D:/Database/.githooks` to the same
+  # directory, so comparing the raw bytes puts the primary (Windows ReFS Dev
+  # Drive) workstation straight back into the >100 s full-repository Prettier
+  # run this whole check exists to avoid. Fold case only for the unambiguous
+  # `X:/...` spelling: the MSYS `/c/...` form is byte-identical to a real POSIX
+  # path, where case IS significant, and folding that could silently
+  # self-disable the guard against a FOREIGN hooks directory — the unsafe
+  # direction. Testing `resolved` alone is enough: a relative `core.hooksPath`
+  # has already been joined onto `repo_root_n`, so it inherits that form.
+  case "$resolved" in
+  ?:/*)
+    resolved="$(printf '%s' "$resolved" | tr '[:upper:]' '[:lower:]')"
+    expected="$(printf '%s' "$expected" | tr '[:upper:]' '[:lower:]')"
+    ;;
+  esac
   # Exact equality, not a suffix match: another repository's `.githooks` also
   # ends in `/.githooks`, and its pre-push hook would not guard THIS push.
-  if [ "${resolved%/}" = "$repo_root_n/.githooks" ] \
+  if [ "$resolved" = "$expected" ] \
     && [ -x "$repo_root/.githooks/pre-push" ]; then
     exit 0
   fi
