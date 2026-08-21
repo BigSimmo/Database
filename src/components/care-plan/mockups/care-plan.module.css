@@ -578,6 +578,17 @@
   font-style: italic;
 }
 
+/*
+ * The Current Plan card is the one thing on this screen a clinician is meant to
+ * act on, so it carries a stronger edge than the ordinary section frame and than
+ * the inset frame a version-in-progress gets. The hierarchy is not carried by
+ * colour alone: every state on this card is also a worded status mark.
+ */
+.appRoot .currentPlanCard {
+  border-color: var(--clinical-accent-border);
+  box-shadow: var(--e1);
+}
+
 .appRoot .metadataBlock {
   display: grid;
   gap: 0.625rem;
@@ -767,6 +778,7 @@
   }
 
   .appRoot .sectionFrame,
+  .appRoot .currentPlanCard,
   .appRoot .identityBand,
   .appRoot .pinnedBoundary,
   .appRoot .firstMinuteSectionBoundary {

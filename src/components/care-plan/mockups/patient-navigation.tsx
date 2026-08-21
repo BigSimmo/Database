@@ -26,12 +26,18 @@ const PRIMARY_SECTIONS: readonly { key: PatientSectionKey; label: string; href: 
 
 const SECONDARY_SECTION = { key: "history" as const, label: "History", href: carePlanRoute.history };
 
+/**
+ * `activeSection` is `null` on any surface that is not itself one of these
+ * sections — Home and Patients embed a workspace beside a directory, and marking
+ * `Overview` as the current page there would announce a link to
+ * `/patients/<id>` as the address the reader is already on, which it is not.
+ */
 export function PatientNavigation({
   patientId,
   activeSection,
 }: {
   patientId: string;
-  activeSection: PatientSectionKey;
+  activeSection: PatientSectionKey | null;
 }) {
   return (
     <nav aria-label="Patient sections" className={styles.patientNav} data-print-hide="true">

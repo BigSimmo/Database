@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { Ref } from "react";
 
 import { InlineNotice } from "@/components/ui-primitives";
 
@@ -44,11 +45,19 @@ export type PatientWorkspaceProps = {
   users: readonly PrototypeUser[];
   scenario: PrototypeScenario;
   outcome: PrototypeOutcome | null;
-  activeSection: PatientSectionKey;
+  /** `null` when the surrounding surface is not itself a patient section. */
+  activeSection: PatientSectionKey | null;
   reviewsHref: string;
   onRecordContactIntent: (contact: CmhtContact, channel: "email" | "call") => void;
   /** Home renders the workspace beside the directory and offers the full record. */
   showFullRecordLink?: boolean;
+  /**
+   * The workspace region is a focus target. Selecting a patient from the
+   * directory changes no address, so the shell's route-heading focus never
+   * fires; the caller moves focus here instead, and the region's accessible name
+   * is what gets announced.
+   */
+  ref?: Ref<HTMLElement>;
 };
 
 /**
@@ -69,6 +78,7 @@ export function PatientWorkspace({
   reviewsHref,
   onRecordContactIntent,
   showFullRecordLink = false,
+  ref,
 }: PatientWorkspaceProps) {
   const {
     patient,
@@ -98,7 +108,7 @@ export function PatientWorkspace({
   const identityUncertain = scenario === "identity-uncertain";
 
   return (
-    <section aria-label={`${patient.fullName} clinical snapshot`} className={styles.workspace}>
+    <section ref={ref} tabIndex={-1} aria-label={`${patient.fullName} clinical snapshot`} className={styles.workspace}>
       <div data-testid="care-plan-identity-band" className={styles.identityBand}>
         <SyntheticMarker />
         <h2 className={styles.patientName}>{patient.fullName}</h2>
@@ -148,9 +158,16 @@ export function PatientWorkspace({
             </div>
           )}
 
-          {currentManagementVersion !== null && reviewState !== null ? (
+          {/*
+            Deliberately not gated on `reviewState !== null`. A Current version
+            with no review date derives no state at all, and silently showing
+            nothing there would make an undated plan look healthier than one
+            whose date is merely unreadable — the opposite of how
+            `deriveReviewState` degrades.
+          */}
+          {currentManagementVersion === null ? null : (
             <ReviewWarning reviewState={reviewState} reviewDueAt={currentManagementVersion.reviewDueAt} />
-          ) : null}
+          )}
 
           {currentManagementVersion !== null ? (
             <CurrentPlanSummary

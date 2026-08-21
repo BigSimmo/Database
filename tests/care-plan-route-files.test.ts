@@ -325,4 +325,130 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       expect(selector.startsWith(".appRoot"), `${selector} is not scoped below .appRoot`).toBe(true);
     }
   });
+
+  /**
+   * The DOM tests can only see class *tokens*: Vitest runs with its default
+   * `css: false`, so a CSS Module import resolves to a proxy that echoes the
+   * accessed key and no stylesheet is ever applied. A rule added here that
+   * clipped the pinned safety boundary or the fifth first-minute section would
+   * leave every DOM assertion in `care-plan-linked-routes.dom.test.tsx` passing
+   * while the one section the specification says is never collapsed became
+   * unreadable. This is the guard for that regression, and it is static because
+   * static is the only place it is visible.
+   */
+  it("never lets a stylesheet rule collapse, clip or hide the pinned boundary or a first-minute section", () => {
+    const css = readFileSync(resolve(process.cwd(), `${COMPONENT_ROOT}/care-plan.module.css`), "utf8");
+    const blocks = css
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      // Drop at-rule headers so a suppression cannot hide inside a media,
+      // forced-colors, or print block.
+      .replace(/@[^{]*\{/g, "")
+      .split("}")
+      .flatMap((chunk) => {
+        const [head, body] = chunk.split("{");
+        return head !== undefined && body !== undefined ? [{ selector: head.trim(), body }] : [];
+      });
+
+    const protectedSelector = /\.(?:firstMinuteSection\w*|pinnedBoundary\w*)\b/;
+
+    /**
+     * Declarations are parsed rather than pattern-matched over the block text.
+     * A value-aware regex here needs a negative lookahead to allow the print
+     * reset's `max-height: none`, and a greedy `\s*` in front of that lookahead
+     * backtracks until the lookahead sits on the space rather than the value —
+     * so the guard reported the reset as a suppression on its first run. Reading
+     * the property and value out is not cleverer, it is simply correct.
+     */
+    function declarationsOf(body: string) {
+      return body.split(";").flatMap((declaration) => {
+        const separator = declaration.indexOf(":");
+        if (separator === -1) return [];
+        return [
+          {
+            property: declaration.slice(0, separator).trim().toLowerCase(),
+            value: declaration
+              .slice(separator + 1)
+              .trim()
+              .toLowerCase(),
+          },
+        ];
+      });
+    }
+
+    // `max-height: none` and `overflow: visible` are the print reset and stay
+    // allowed; the check is on the declared value, not on where the rule sits.
+    const suppressions: readonly { label: string; matches: (d: { property: string; value: string }) => boolean }[] = [
+      {
+        label: "a max-height other than none",
+        matches: ({ property, value }) => ["max-height", "max-block-size"].includes(property) && value !== "none",
+      },
+      {
+        label: "clipped overflow",
+        matches: ({ property, value }) =>
+          /^overflow(?:-(?:x|y|block|inline))?$/.test(property) && /\b(?:hidden|clip)\b/.test(value),
+      },
+      { label: "display: none", matches: ({ property, value }) => property === "display" && value === "none" },
+      {
+        label: "visibility: hidden",
+        matches: ({ property, value }) => property === "visibility" && ["hidden", "collapse"].includes(value),
+      },
+      { label: "a line clamp", matches: ({ property }) => property.endsWith("line-clamp") },
+      {
+        label: "an ellipsis truncation",
+        matches: ({ property, value }) => property === "text-overflow" && value === "ellipsis",
+      },
+      {
+        label: "a collapsed height",
+        matches: ({ property, value }) =>
+          ["height", "block-size"].includes(property) && /^0(?:px|rem|em|%)?$/.test(value),
+      },
+    ];
+
+    const guarded = blocks.filter(({ selector }) => protectedSelector.test(selector));
+    // Fails closed: if the class names are ever renamed, this guard must stop
+    // silently matching nothing rather than quietly passing.
+    expect(guarded.length, "no protected selector matched — has the class naming changed?").toBeGreaterThanOrEqual(4);
+
+    for (const { selector, body } of guarded) {
+      for (const declaration of declarationsOf(body)) {
+        for (const { label, matches } of suppressions) {
+          expect(
+            matches(declaration),
+            `${selector} declares ${label} (${declaration.property}: ${declaration.value}), which would hide safety-critical plan content`,
+          ).toBe(false);
+        }
+      }
+    }
+  });
+
+  /**
+   * `styles.someName` on a class the stylesheet never defines is invisible at
+   * runtime and invisible to the DOM tests, because the CSS Module proxy returns
+   * the key name whether or not a rule exists. It is dead intent: an element
+   * meant to carry a distinguishing treatment silently carries none. Caught once
+   * already on `currentPlanCard`.
+   */
+  it("defines every CSS Module class the Care Plan components reference", () => {
+    const css = readFileSync(resolve(process.cwd(), `${COMPONENT_ROOT}/care-plan.module.css`), "utf8").replace(
+      /\/\*[\s\S]*?\*\//g,
+      "",
+    );
+    const defined = new Set([...css.matchAll(/\.([a-zA-Z][\w-]*)/g)].map((match) => match[1]));
+
+    const referenced = new Map<string, string[]>();
+    for (const { path, source } of readNamespaceSources()) {
+      if (!/\.tsx?$/.test(path)) continue;
+      for (const match of source.matchAll(/\bstyles\.([a-zA-Z][\w$]*)/g)) {
+        const name = match[1];
+        referenced.set(name, [...(referenced.get(name) ?? []), path]);
+      }
+    }
+
+    expect(referenced.size, "no styles.* reference found — has the import name changed?").toBeGreaterThan(10);
+    for (const [name, paths] of referenced) {
+      expect(defined.has(name), `styles.${name} is referenced by ${paths.join(", ")} but no rule defines it`).toBe(
+        true,
+      );
+    }
+  });
 });

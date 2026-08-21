@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { EmptyState } from "@/components/ui-primitives";
 
@@ -56,6 +56,34 @@ export function ClinicalSnapshotSurface({
     dispatch({ type: "record-contact-intent", patientId: snapshot.patient.id, cmhtId: contact.id, channel });
   }
 
+  const workspaceRef = useRef<HTMLElement>(null);
+  const hasSettled = useRef(false);
+  const directorySurface = variant !== "patient";
+
+  // Choosing a patient from the directory changes no address, so the shell's
+  // route-heading focus never fires. Without this the workspace appears in the
+  // next column on a desktop, and below the whole directory list on a phone,
+  // with no focus move and nothing announced. Focusing the region announces its
+  // accessible name — the same mechanism the shell uses for the route heading,
+  // rather than a second live region that would double-announce.
+  //
+  // The first pass moves nothing: on mount the shell owns focus, and stealing it
+  // would make every page load jump past the heading that says where you are.
+  //
+  // The effect's dependency on `resolvedPatientId` is what makes it a
+  // selection-change effect rather than a render effect — an extra
+  // "did the id change" guard inside the body would be unreachable, and a
+  // positive control confirmed removing one changed no behaviour at all.
+  useEffect(() => {
+    if (!directorySurface) return;
+    if (!hasSettled.current) {
+      hasSettled.current = true;
+      return;
+    }
+    if (resolvedPatientId === null) return;
+    workspaceRef.current?.focus();
+  }, [directorySurface, resolvedPatientId]);
+
   const workspace =
     snapshot === null ? (
       <EmptyState
@@ -65,11 +93,14 @@ export function ClinicalSnapshotSurface({
       />
     ) : (
       <PatientWorkspace
+        ref={workspaceRef}
         snapshot={snapshot}
         users={state.users}
         scenario={scenario}
         outcome={state.lastOutcome}
-        activeSection="overview"
+        // Only a patient address is itself the Overview section. Home and
+        // Patients embed the workspace, so no patient link is the current page.
+        activeSection={variant === "patient" ? "overview" : null}
         reviewsHref={CARE_PLAN_ROUTES.reviews}
         onRecordContactIntent={recordContactIntent}
         showFullRecordLink={variant !== "patient"}

@@ -172,24 +172,43 @@ export function SyntheticMarker({ className }: { className?: string }) {
 }
 
 /**
- * The review-currency warning. An overdue or nearly-due plan stays fully
- * readable: the warning sits above the content and never replaces, collapses or
- * downgrades it, because a plan that is late for review is still the plan the
- * team agreed.
+ * Shown when a Current version records no review date at all, so
+ * `deriveReviewState` was never called and there is nothing to derive from.
+ *
+ * It degrades in the same direction as `deriveReviewState`'s unparseable-date
+ * branch: an absent date must not resolve to the most reassuring state on a
+ * clinical currency indicator, so it says plainly that currency is unknown
+ * rather than showing a green mark and a silent `Not recorded`.
  */
-export function ReviewWarning({ reviewState, reviewDueAt }: { reviewState: ReviewState; reviewDueAt: string | null }) {
+export const REVIEW_STATE_UNKNOWN_LABEL = "Review currency unknown";
+
+/**
+ * The review-currency warning. An overdue, nearly-due, or undated plan stays
+ * fully readable: the warning sits above the content and never replaces,
+ * collapses or downgrades it, because a plan that is late for review is still
+ * the plan the team agreed.
+ */
+export function ReviewWarning({
+  reviewState,
+  reviewDueAt,
+}: {
+  reviewState: ReviewState | null;
+  reviewDueAt: string | null;
+}) {
   if (reviewState === "within_review") return null;
-  const overdue = reviewState === "overdue";
+  const tone: SemanticChipTone = reviewState === "overdue" ? "danger" : "warning";
   return (
     <p
       role="status"
       data-testid="care-plan-review-warning"
-      className={cn(styles.reviewWarning, semanticChipTone(overdue ? "danger" : "warning"))}
+      className={cn(styles.reviewWarning, semanticChipTone(tone))}
     >
-      <strong>{REVIEW_STATE_LABEL[reviewState]}.</strong>{" "}
-      {overdue
-        ? `This plan was due for review on ${formatPerthDate(reviewDueAt)}. It remains the Current Plan and is still the agreed approach; arrange a review.`
-        : `This plan is due for review on ${formatPerthDate(reviewDueAt)}.`}
+      <strong>{reviewState === null ? REVIEW_STATE_UNKNOWN_LABEL : REVIEW_STATE_LABEL[reviewState]}.</strong>{" "}
+      {reviewState === null
+        ? "This version records no review date, so nothing here can tell you whether it is still current. Treat it as due for review."
+        : reviewState === "overdue"
+          ? `This plan was due for review on ${formatPerthDate(reviewDueAt)}. It remains the Current Plan and is still the agreed approach; arrange a review.`
+          : `This plan is due for review on ${formatPerthDate(reviewDueAt)}.`}
     </p>
   );
 }
@@ -223,8 +242,14 @@ export function PinnedSafetyBoundary({ content }: { content: ManagementPlanConte
       aria-label="Before you use this plan"
       className={styles.pinnedBoundary}
     >
+      {/*
+        Deliberately "do not rely on", not "does not apply". The plan still
+        supports continuity when something is different today; what it stops
+        being is a basis for a decision. Overstating the boundary would make the
+        line easy to dismiss, and it prints.
+      */}
       <p className={styles.pinnedBoundaryText}>
-        <strong>This plan does not apply if today is different.</strong> Assess afresh, then read the full section.
+        <strong>Do not rely on this plan if today is different — assess afresh.</strong> Then read the full section.
       </p>
       <a href={`#${firstMinuteSectionId("whatWouldMakeThisDifferent")}`} className={styles.pinnedBoundaryLink}>
         What would make this presentation different ({count} listed)
@@ -279,7 +304,9 @@ export function CurrentPlanSummary({
       <div data-testid="care-plan-current-plan-metadata" className={styles.metadataBlock}>
         <div className={styles.metadataMarks}>
           <StatusMark tone="success" label={`Current version ${version.version}`} />
-          {reviewState === null ? null : (
+          {reviewState === null ? (
+            <StatusMark tone="warning" label={REVIEW_STATE_UNKNOWN_LABEL} />
+          ) : (
             <StatusMark tone={REVIEW_STATE_TONE[reviewState]} label={REVIEW_STATE_LABEL[reviewState]} />
           )}
           <ParticipationMarker participationState={version.participationState} />

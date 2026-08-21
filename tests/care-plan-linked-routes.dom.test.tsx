@@ -3,7 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CarePlanErrorBoundary } from "@/components/care-plan/mockups/care-plan-error-boundary";
+import { buildPatientSnapshot } from "@/components/care-plan/mockups/domain";
+import { PROTOTYPE_NOW } from "@/components/care-plan/mockups/fixtures";
+import { PatientWorkspace } from "@/components/care-plan/mockups/patient-workspace";
 import { CarePlanPrototypeProvider } from "@/components/care-plan/mockups/prototype-provider";
+import { createInitialPrototypeState } from "@/components/care-plan/mockups/prototype-state";
 import { CarePlanRouteSurface } from "@/components/care-plan/mockups/routable-suite";
 import { CARE_PLAN_ROUTES, carePlanRoute } from "@/components/care-plan/mockups/routes";
 
@@ -626,6 +630,151 @@ describe("Care Plan clinical snapshot", () => {
     }
     expect(within(nav).getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "page");
   });
+
+  // Home embeds the workspace beside a directory. Marking Overview as the
+  // current page there announces a link to `/patients/<id>` as the address the
+  // reader is already on, which it is not.
+  it.each([CARE_PLAN_ROUTES.home, CARE_PLAN_ROUTES.patients])(
+    "marks no patient section as the current page on %s",
+    (pathname) => {
+      renderRoute(pathname);
+      const nav = screen.getByRole("navigation", { name: "Patient sections" });
+      for (const link of within(nav).getAllByRole("link")) {
+        expect(link, `${link.textContent} must not claim to be the current page`).not.toHaveAttribute("aria-current");
+      }
+    },
+  );
+
+  // Selecting a patient changes no address, so the shell's route-heading focus
+  // never fires. Without a focus move the workspace appears in the next column
+  // on a desktop and below the entire directory list on a 320px phone, with
+  // nothing announced and nothing visibly changed above the fold.
+  it("moves focus to the workspace when a patient is selected", async () => {
+    const user = userEvent.setup();
+    renderRoute(CARE_PLAN_ROUTES.home);
+    expect(screen.getByRole("region", { name: "Rowan Sample clinical snapshot" })).not.toHaveFocus();
+
+    await user.type(screen.getByRole("searchbox", { name: "Search synthetic patients" }), "SYN-MRN-0002");
+    await user.click(screen.getByRole("button", { name: /Open Mira Example/i }));
+
+    const workspace = screen.getByRole("region", { name: "Mira Example clinical snapshot" });
+    expect(workspace).toHaveAttribute("tabindex", "-1");
+    expect(workspace).toHaveFocus();
+  });
+
+  // …but it must not steal the mount-time focus the shell puts on the route
+  // heading, or every page load would jump past the line saying where you are.
+  //
+  // Asserting the *final* focus cannot see this: the shell's effect is a
+  // parent's and therefore runs last, so it would quietly repair the theft on
+  // every render and the guard would be untestable. A positive control proved
+  // exactly that — removing the mount-time guard left all 89 tests passing. So
+  // this records the focus events in order and asserts the workspace never
+  // appears among them, momentarily or otherwise.
+  it("never takes mount-time focus from the shell heading, even momentarily", () => {
+    const focusedNames: string[] = [];
+    const listener = (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      focusedNames.push(target?.getAttribute("aria-label") ?? target?.tagName ?? "");
+    };
+    document.addEventListener("focusin", listener);
+    try {
+      renderRoute(CARE_PLAN_ROUTES.home);
+    } finally {
+      document.removeEventListener("focusin", listener);
+    }
+
+    expect(focusedNames.filter((name) => name.endsWith("clinical snapshot"))).toEqual([]);
+    expect(screen.getByRole("heading", { level: 1, name: "Home" })).toHaveFocus();
+    expect(screen.getByRole("region", { name: "Rowan Sample clinical snapshot" })).not.toHaveFocus();
+  });
+
+  it("leaves focus to the shell heading on a patient address, where the route did change", () => {
+    renderRoute(carePlanRoute.patient("SYN-PATIENT-002"));
+    expect(screen.getByRole("heading", { level: 1, name: "Patient overview" })).toHaveFocus();
+    expect(screen.getByRole("region", { name: "Mira Example clinical snapshot" })).not.toHaveFocus();
+  });
+
+  // Patient-to-patient on a patient address is a real route change, and the
+  // shell already owns it. Two owners would both fire, the parent's would land
+  // last, and the competition would be invisible in the final state — so this
+  // watches the focus events instead.
+  it("does not compete with the shell heading when the patient address itself changes", () => {
+    const navigate = vi.fn();
+    const surface = (pathname: string) => (
+      <CarePlanPrototypeProvider>
+        <CarePlanRouteSurface pathname={pathname} query="" navigate={navigate} />
+      </CarePlanPrototypeProvider>
+    );
+    const { rerender } = render(surface(carePlanRoute.patient("SYN-PATIENT-001")));
+
+    const focusedNames: string[] = [];
+    const listener = (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      focusedNames.push(target?.getAttribute("aria-label") ?? target?.tagName ?? "");
+    };
+    document.addEventListener("focusin", listener);
+    try {
+      rerender(surface(carePlanRoute.patient("SYN-PATIENT-002")));
+    } finally {
+      document.removeEventListener("focusin", listener);
+    }
+
+    expect(focusedNames.filter((name) => name.endsWith("clinical snapshot"))).toEqual([]);
+    expect(screen.getByRole("heading", { level: 1, name: "Patient overview" })).toHaveFocus();
+  });
+});
+
+// A Current version whose `reviewDueAt` is null derives no review state at all.
+// `deriveReviewState` was deliberately made to return `overdue` for a date it
+// cannot parse, because a clinical currency indicator must not resolve to the
+// most reassuring state on bad input. An absent date is the same situation, and
+// it reaches a different code path — the one that renders nothing.
+//
+// No fixture patient is in this state, so the snapshot is constructed.
+describe("Care Plan review currency with no review date", () => {
+  function undatedWorkspace() {
+    const state = createInitialPrototypeState();
+    const base = buildPatientSnapshot(state, "SYN-PATIENT-001", PROTOTYPE_NOW);
+    if (base === null || base.currentManagementVersion === null) {
+      throw new Error("SYN-PATIENT-001 must have a Current version for this test to mean anything.");
+    }
+    render(
+      <PatientWorkspace
+        snapshot={{
+          ...base,
+          currentManagementVersion: { ...base.currentManagementVersion, reviewDueAt: null },
+          reviewState: null,
+        }}
+        users={state.users}
+        scenario="normal"
+        outcome={null}
+        activeSection={null}
+        reviewsHref={CARE_PLAN_ROUTES.reviews}
+        onRecordContactIntent={() => {}}
+      />,
+    );
+  }
+
+  it("says the review currency is unknown rather than showing nothing", () => {
+    undatedWorkspace();
+    const warning = screen.getByTestId("care-plan-review-warning");
+    expect(warning).toHaveTextContent("Review currency unknown");
+    expect(warning).toHaveTextContent(/Treat it as due for review/i);
+  });
+
+  it("does not let the summary card imply the plan is within review", () => {
+    undatedWorkspace();
+    const metadata = screen.getByTestId("care-plan-current-plan-metadata");
+    expect(metadata).toHaveTextContent("Review currency unknown");
+    expect(metadata).not.toHaveTextContent("Within review");
+  });
+
+  it("keeps the plan itself fully readable", () => {
+    undatedWorkspace();
+    const card = screen.getByRole("region", { name: "Current Plan" });
+    expect(within(card).getAllByRole("heading", { level: 3 })).toHaveLength(5);
+  });
 });
 
 describe("Care Plan CMHT contact actions", () => {
@@ -638,13 +787,23 @@ describe("Care Plan CMHT contact actions", () => {
     expect(screen.getByRole("link", { name: "Call North River CMHT" })).toHaveAttribute("href", "tel:+61491570101");
   });
 
-  it("puts no patient information in the mailto", () => {
+  // An allowlist, not a denylist. The requirement forbids five classes of
+  // content — name, MRN, date of birth, presentation content, plan content — and
+  // a list of strings can only ever cover the ones somebody thought of: a
+  // planted `&plan=…`, or `12 April 1986` instead of `12/04/1986`, would walk
+  // straight past it. Pinning the whole query string to the single expected pair
+  // fails on any added parameter whatever it carries.
+  it("puts nothing but the generic subject in the mailto", () => {
     renderRoute(CARE_PLAN_ROUTES.patient);
     const href = screen.getByRole("link", { name: "Email North River CMHT" }).getAttribute("href") ?? "";
-    for (const forbidden of ["Rowan", "Sample", "SYN-MRN-0001", "1986-04-12", "12/04/1986", "SYN-PATIENT-001"]) {
-      expect(href.toLowerCase(), `${forbidden} must not travel in a mailto`).not.toContain(forbidden.toLowerCase());
-    }
-    expect(href).not.toMatch(/[?&]body=/);
+    const [address, query = "", ...rest] = href.split("?");
+
+    expect(address).toBe("mailto:north-river.cmht@example.org");
+    expect(rest, "a mailto carries exactly one query string").toEqual([]);
+    expect(query).toBe("subject=Care+Plan+%E2%80%94+team+contact+request");
+    expect([...new URLSearchParams(query).keys()], "subject is the only permitted parameter").toEqual(["subject"]);
+    expect(new URLSearchParams(query).get("subject")).toBe("Care Plan — team contact request");
+    expect(href, "a mailto carries no fragment either").not.toContain("#");
   });
 
   it("shows the displayed contact details, hours, coordinator and after-hours route", () => {
