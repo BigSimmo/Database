@@ -2,10 +2,10 @@
   "version": 2,
   "id": "8da919a5-4e1b-417c-89df-7a1692a61f17",
   "createdOn": "2026-08-20",
-  "action": "update",
+  "action": "done",
   "payload": {
     "id": "#EH9VA6",
-    "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987): scripts/ledger-inbox.mjs now implements a reconcile lock - RECONCILE_LOCK_NAME outstanding-issues-reconcile.lock, reconcileLockPath(), and recoverReconcileTransaction() with a journal plus backup for crash recovery. That addresses same-machine concurrent reconciliation. NOT VERIFIED and the substance of this row: whether it also prevents the recorded failure, which was two reconcile PRs open simultaneously on GitHub on 2026-08-18 - a filesystem lock in one worktree cannot see another branch's open PR. Decide whether the remaining gap needs a separate interlock or is accepted.",
+    "outcome": "Closed 2026-08-21 after verifying the cross-worktree interlock the original row asked for already exists. scripts/ledger-inbox.mjs implements two distinct protections, not one: reconcileLockPath()/RECONCILE_LOCK_NAME plus recoverReconcileTransaction() cover same-machine concurrency, and findUnmergedRemoteReconciliations() (line 428) covers the recorded 2026-08-18 failure of two reconcile PRs open simultaneously on GitHub. The remote check runs `git ls-remote --heads origin`, flags branches carrying unapplied records under docs/outstanding-issues-inbox/applied/, and names issue #EH9VA6 in both its docstring and its error text. assertSafeRemoteReconciliation() (line 603) is called at line 709 before any reconciliation work and refuses to reconcile on detection, so the gap the row described as unverified is in fact closed. Two residuals are deliberate and documented rather than outstanding: the remote check fails open when offline or when ls-remote errors, so offline workflows and tests are not blocked, and it can be overridden explicitly with --allow-concurrent/--force or ALLOW_CONCURRENT_RECONCILE=true, which downgrades the refusal to a warning. Neither is the silent same-machine-only blind spot the row was tracking. The earlier draft of this request queued an `update` saying only a filesystem lock existed; that was written from a partial read of the same file and would have made the canonical ledger advertise completed work as missing.",
     "baseRowFingerprint": "a682230350ab96c2aa629bc5f7b1a5e6f0a770b1c51a5140bd6e7e07ae175951"
   }
 }
