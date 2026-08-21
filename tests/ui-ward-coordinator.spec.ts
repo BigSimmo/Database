@@ -582,15 +582,16 @@ test.describe("Ward Flow coordinator screen", () => {
 
     await queue.locator('[data-testid="ward-queue-row-WF-001"]').click();
 
-    // The locked candidates say so on their own rows; the open one does not. The shortlist row
-    // reads `restrictionNotice`'s own wording (Task 5) — the diagram node is untouched this task
-    // and still reads the older `MORE_RESTRICTIVE_NOTE` text, so the two assertions differ.
+    // The locked candidates say so on their own rows; the open one does not. Both the shortlist
+    // row and the diagram node now read `restrictionNotice`'s own wording (flow-diagram fix:
+    // the diagram used to read the older, superseded `MORE_RESTRICTIVE_NOTE` text and diverge
+    // from the shortlist here — it no longer does, so both assertions use the same string).
     for (const candidate of locked) {
       await expect(shortlist.locator(`[data-testid="ward-shortlist-candidate-${candidate.unit.id}"]`)).toContainText(
         "More restrictive than this movement requires",
       );
       await expect(diagram.locator(`[data-testid="ward-diagram-unit-${candidate.unit.id}"]`)).toContainText(
-        "More restrictive than required",
+        "More restrictive than this movement requires",
       );
     }
     for (const candidate of open) {
@@ -611,6 +612,59 @@ test.describe("Ward Flow coordinator screen", () => {
     // would be noise a coordinator learns to ignore.
     await queue.locator('[data-testid="ward-queue-row-WF-004"]').click();
     await expect(shortlist).not.toContainText("More restrictive than this movement requires");
+  });
+
+  /**
+   * Flow-diagram fix: `flow-diagram.tsx` used to compute its restriction badge with the
+   * superseded `isMoreRestrictiveThanRequired`, which only recognises Open-movement-on-Secure-
+   * ward. It returns false for a Voluntary movement on a Secure ward, so the diagram rendered
+   * nothing at all for the sharper case the shortlist already flags. The test above (WF-001,
+   * Open/non-Voluntary) only ever exercised the milder `more_restrictive` level — this pins the
+   * `voluntary_on_locked` one, which is the case this fix exists for.
+   *
+   * WF-301 is selected by id, never by queue rank — rank-based selection has broken three other
+   * tests in this phase. Re-measured against the real fixture: 26 Voluntary movements exist, and
+   * 4 of them also carry `security: "Secure"` — WF-301, WF-308, WF-322, WF-329. WF-301's cohort
+   * is Adult, so all three of its shortlisted candidates are the Secure adult wards
+   * (`rph-adult-secure`, `fsh-adult-secure`, `rgh-adult-secure`), every one eligible — verified
+   * with `eligibleCandidates` below rather than assumed, so this test fails loudly instead of
+   * silently no-op'ing if the fixture ever changes underneath it.
+   */
+  test("gives a voluntary patient on a locked ward its own, more prominent notice on the diagram", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+    await gotoCoordinator(page);
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+    const diagram = page.getByRole("region", { name: "Statewide flow" });
+    await expect(diagram.locator("svg path[marker-end]").first()).toBeAttached({ timeout: 15_000 });
+
+    const wf301 = requireMovement("WF-301");
+    expect(wf301.legalStatus, "fixture assumption: WF-301 is a Voluntary movement").toBe("Voluntary");
+    const candidates = eligibleCandidates(wf301, NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
+    const locked = candidates.filter((candidate) => candidate.unit.security === "Secure");
+    expect(locked.length, "fixture assumption: WF-301 has at least one Secure shortlisted candidate").toBeGreaterThan(
+      0,
+    );
+
+    await queue.locator('[data-testid="ward-queue-row-WF-301"]').click();
+
+    for (const candidate of locked) {
+      const shortlistRow = shortlist.locator(`[data-testid="ward-shortlist-candidate-${candidate.unit.id}"]`);
+      await expect(shortlistRow).toContainText(
+        "Voluntary patient on a locked ward — review legal status before admission",
+      );
+
+      // The case that renders nothing today: the diagram node must carry the same
+      // `restrictionNotice` wording as the shortlist, not silence.
+      const diagramNode = diagram.locator(`[data-testid="ward-diagram-unit-${candidate.unit.id}"]`);
+      await expect(diagramNode).toContainText(
+        "Voluntary patient on a locked ward — review legal status before admission",
+      );
+      // And it must be the sharper, danger-toned variant, not the plain over-restrictive one —
+      // the two levels are visually distinguished by `data-level`, not merely by wording.
+      await expect(diagramNode.locator('[data-level="voluntary_on_locked"]')).toHaveCount(1);
+    }
   });
 
   /**

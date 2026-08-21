@@ -954,6 +954,25 @@
 }
 
 /*
+ * Task 5 fix: the voluntary-on-locked warning (`restrictionNotice`'s sharper level) reads more
+ * prominently than the plain over-restrictive one above -- a voluntary person who cannot leave a
+ * locked ward is detained in fact without an order. Danger-toned rather than warning-toned, same
+ * shape as `.diagramRestrictiveBadge` and the same "never colour alone" real-text discipline as
+ * `.shortlistRestrictiveBadgeProminent`, so the diagram and the shortlist read as one system.
+ */
+.diagramRestrictiveBadgeProminent {
+  justify-self: start;
+  border: 0.0625rem solid var(--danger-border);
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  padding: 0 var(--co-space-6);
+  color: var(--danger-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+/*
  * Review Minor 6: a unit whose `siteByCode` lookup misses would otherwise vanish from every
  * service group with nothing on screen accounting for it. Rendered as an explicit anomaly
  * instead — never a normal actionable node (no button, no click handler), so it cannot be

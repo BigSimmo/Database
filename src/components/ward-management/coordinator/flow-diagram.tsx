@@ -7,8 +7,7 @@ import type { Instant } from "@/components/ward-management/ward-clock";
 import {
   candidateReason,
   eligibleCandidates,
-  isMoreRestrictiveThanRequired,
-  MORE_RESTRICTIVE_NOTE,
+  restrictionNotice,
   unitCapacity,
   wardServiceOrder,
 } from "@/components/ward-management/ward-derivations";
@@ -455,11 +454,16 @@ function UnitNode({
   // not only the first -- gets its own badge on its own node.
   const isAccepted = movement?.acceptedUnitId === unit.id;
   const isReferred = !isAccepted && (movement?.referredUnitIds.includes(unit.id) ?? false);
-  // Whole-branch review Important 5. Shown for any unit this movement could be sent to -- a
-  // candidate, or a unit it is already recorded against -- never for the other 19 units on the
-  // board, where the comparison is meaningless because this movement is not going there.
-  const moreRestrictive =
-    movement !== undefined && (routed || isAccepted || isReferred) && isMoreRestrictiveThanRequired(movement, unit);
+  // Whole-branch review Important 5, Task 5 fix: shown for any unit this movement could be sent
+  // to -- a candidate, or a unit it is already recorded against -- never for the other 19 units
+  // on the board, where the comparison is meaningless because this movement is not going there.
+  // `restrictionNotice` replaces the superseded `isMoreRestrictiveThanRequired`/
+  // `MORE_RESTRICTIVE_NOTE` pair (still kept in ward-derivations.ts, unreferenced, pending
+  // review) so the diagram reads the same two-level warning the shortlist already renders,
+  // including the sharper voluntary-on-locked case the old pair could never see -- it only ever
+  // compared `movement.security` to `unit.security` and had no way to read `legalStatus` at all.
+  const notice =
+    movement !== undefined && (routed || isAccepted || isReferred) ? restrictionNotice(movement, unit) : undefined;
 
   return (
     <button
@@ -471,7 +475,7 @@ function UnitNode({
       data-eligible={candidate ? String(candidate.verdict.eligible) : undefined}
       data-accepted={isAccepted ? "true" : undefined}
       data-referred={isReferred ? "true" : undefined}
-      data-more-restrictive={moreRestrictive ? "true" : undefined}
+      data-more-restrictive={notice ? "true" : undefined}
       aria-pressed={selected}
       onClick={() => onSelectUnit(unit.id)}
     >
@@ -512,7 +516,18 @@ function UnitNode({
       ) : null}
       {isAccepted ? <span className={styles.diagramAcceptedBadge}>Accepted destination</span> : null}
       {isReferred ? <span className={styles.diagramReferredBadge}>Outstanding referral</span> : null}
-      {moreRestrictive ? <span className={styles.diagramRestrictiveBadge}>{MORE_RESTRICTIVE_NOTE}</span> : null}
+      {notice ? (
+        <span
+          className={
+            notice.level === "voluntary_on_locked"
+              ? styles.diagramRestrictiveBadgeProminent
+              : styles.diagramRestrictiveBadge
+          }
+          data-level={notice.level}
+        >
+          {notice.text}
+        </span>
+      ) : null}
     </button>
   );
 }
