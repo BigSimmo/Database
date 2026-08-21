@@ -439,6 +439,20 @@ export function parseArgs(argv) {
   if (remove && !merged) {
     throw new Error("--remove is only valid together with --merged. Run `--merged` alone to list candidates first.");
   }
+  // `--remove` is reachable from any agent session in any worktree on this machine (Claude
+  // Code, Codex, Antigravity/Gemini — only Claude Code's own permission config in
+  // .claude/settings.json can gate a Bash call before it runs, and that file governs nothing
+  // outside Claude Code). A worktree destroyed here has no local reflog of its own to recover
+  // from, so the actual deletion needs a second, tool-agnostic gate that only a human sets:
+  // CLEAN_WORKTREE_CONFIRM=1 in the invoking shell. No default flips this on. Listing
+  // candidates (`--merged` without `--remove`) is unaffected and needs no env var.
+  if (remove && process.env.CLEAN_WORKTREE_CONFIRM !== "1") {
+    throw new Error(
+      "--remove refused: set CLEAN_WORKTREE_CONFIRM=1 in your shell to confirm you (a human) reviewed the " +
+        "candidate list above and want these worktrees deleted. This gate exists because a worktree removed " +
+        "here has no reflog of its own — see AGENTS.md 'Worktree sweep destroys live work'.",
+    );
+  }
   if (squashed && !merged) {
     throw new Error("--squashed is only valid together with --merged.");
   }
@@ -691,9 +705,28 @@ export function selfTest() {
   if (!args3.merged || args3.remove) {
     throw new Error("selfTest failed: --merged must default to list-only (remove=false)");
   }
-  const args4 = parseArgs(["--merged", "--remove"]);
+  let unconfirmedRemoveThrew = false;
+  const savedConfirm = process.env.CLEAN_WORKTREE_CONFIRM;
+  delete process.env.CLEAN_WORKTREE_CONFIRM;
+  try {
+    parseArgs(["--merged", "--remove"]);
+  } catch {
+    unconfirmedRemoveThrew = true;
+  }
+  if (!unconfirmedRemoveThrew) {
+    throw new Error("selfTest failed: --merged --remove without CLEAN_WORKTREE_CONFIRM=1 must refuse");
+  }
+
+  process.env.CLEAN_WORKTREE_CONFIRM = "1";
+  let args4;
+  try {
+    args4 = parseArgs(["--merged", "--remove"]);
+  } finally {
+    if (savedConfirm === undefined) delete process.env.CLEAN_WORKTREE_CONFIRM;
+    else process.env.CLEAN_WORKTREE_CONFIRM = savedConfirm;
+  }
   if (!args4.merged || !args4.remove) {
-    throw new Error("selfTest failed: --merged --remove did not set both flags");
+    throw new Error("selfTest failed: --merged --remove (confirmed) did not set both flags");
   }
   let removeThrew = false;
   try {
