@@ -17,6 +17,54 @@ Playwright workers or revive the refuted cache/shard hacks listed there.
 - Repeated low-yield provider work was removed from ordinary PRs: dependency audit runs when a lockfile/npm configuration can change the dependency tree (and on the scheduled full-run sentinel), eval-canary liveness moved to the daily Ops Digest cadence, and PR-body synchronization runs only when the current PR's own diff changes `PR_POLICY_BODY.md`.
 - The operating rule is incremental value, not a fixed command count: each added check must cover a distinct plausible failure path. Never rerun an unchanged pass, and do not stack broad gates when one suitable gate already covers the risk.
 
+## Gate receipts: never pay twice for the same local proof (2026-08-21)
+
+"Never rerun an unchanged pass" was policy in `AGENTS.md` and in the bullet above, but nothing
+enforced it, so it held only as well as a session remembered what it had already run. The costly
+shape is ordinary: `verify:pr-local` runs `lint`, `typecheck` and the full Vitest suite, then
+`verify:cheap` runs all three again on identical content, and GitHub then runs them a third time.
+Only the third one is unavoidable.
+
+`scripts/gate-receipts.mjs` removes the local repeats. Before an allowlisted gate runs, its wrapper
+hashes the content that gate reads; if a receipt records the same gate exiting 0 on that exact
+signature, the wrapper prints the reuse and exits 0 without re-running. Measured on this checkout:
+~45 ms to sign 3.8k files, against gates that cost minutes.
+
+- **Wired into** `run-heavy.mjs` (`lint`, `typecheck`, `typecheck:source`) and `run-vitest.mjs`
+  (every non-coverage, non-watch, non-snapshot-update run, so `test` and `test:focused` included).
+  `verify:pr-local` and `verify:cheap` inherit the behaviour because they shell out to those scripts.
+- **Signature** = the git blob hash of every in-scope file, with working-tree modifications,
+  untracked non-ignored files and deletions overlaid, plus a toolchain component (Node version,
+  platform, and the `node_modules/.package-lock.json` install stamp). An unstaged edit invalidates
+  the receipt; restoring the content revalidates it.
+- **Scopes are whole-tree today, deliberately.** Both narrowing candidates read more than they look
+  like they read: `tsconfig.typecheck.json` includes every root `.ts` file with `resolveJsonModule`,
+  and the Vitest suite holds contract tests over `.github/workflows/`, `docs/` and `supabase/`.
+  A narrower scope is a declared path list whose existence and non-emptiness the self-test asserts.
+- **Store** is `node_modules/.cache/database-gate-receipts.json`: per-worktree, never committed,
+  destroyed by `npm ci` — correct, because a reinstall changes the toolchain the receipt vouched for.
+
+Boundaries, each of which is a test in `tests/gate-receipts.test.ts`:
+
+- **CI never reuses a receipt.** `receiptsEnabled()` returns false whenever `CI` is set, and no
+  receipt from any machine reaches CI. GitHub stays the authoritative merge gate.
+- **Failures are never memoised**, and a tree that changed while the gate was running is not recorded.
+- **Fail open.** Unreadable git state, or a scope resolving to zero files, runs the gate. A bug here
+  costs a redundant run, never a skipped one.
+- **Artefact-producing gates are excluded.** `build` and `test:coverage` leave `.next/` and
+  `coverage/` behind, which downstream gates read; skipping them would serve stale output — the
+  stale-`.next` trap `AGENTS.md` already documents under "Bundle budget".
+
+Reporting: a reused receipt proves the gate passed on this content, not that it ran just now. Say
+"reused receipt from <time>", never "I ran it". `GATE_RECEIPTS=refresh` forces a real run when fresh
+evidence is what is wanted; `GATE_RECEIPTS=off` disables the mechanism; `npm run receipts` shows the
+current signature and stored receipts; `npm run receipts:clear` empties the store.
+
+**What this does not do.** It does not reduce GitHub's work, and it should not: CI must re-verify
+what it is scoped to verify, and `ci-change-scope.mjs` already keeps that scoped. The local run is
+not waste either — it is what stops a red push costing a full CI cycle plus a fix round. The waste
+was only ever the _repeat_, and that is what is now gone.
+
 ## Multi-worktree reconciliation hardening (2026-07-23)
 
 The cloud-chat reconciliation postmortem and complete issue/fix matrix are in
