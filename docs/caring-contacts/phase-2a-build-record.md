@@ -932,3 +932,34 @@ Still carried: Ruling 13 binds Task 15 (lazy route boundary from the first commi
 clarification that Caring Contacts is a standalone application owning its own sidebar binds Task 15 and all
 of Plan 2B; and the deferred findings listed above are for the final whole-branch review, the
 highest-value being `savePathwayVersion` storing the authored message snapshot BY REFERENCE.
+
+## FOURTH WORKTREE DESTRUCTION 2026-08-21 — and the first one that cost nothing
+
+The worktree `D:\Worktrees\Database\caring-contacts-phase-2a` was destroyed by the same process that
+took the two under `.claude\worktrees\` earlier the same day. It was chosen precisely BECAUSE that
+parent directory had been untouched. It was not spared.
+
+**Relocating is not protection. That claim is now retracted from every handoff document.** The
+observed method is consistent: the `.git` pointer file is removed first — so git silently resolves to
+the main checkout on the WRONG BRANCH, which is the tell — and the tracked files are deleted
+afterwards. No warning. The cause is still not identified; there were 82 registered worktrees on this
+repository at the time.
+
+**Nothing was lost, for the first time.** The branch had been pushed roughly an hour earlier. Verified
+after the event rather than assumed: `git ls-remote` returned `32bfbdae5`, byte-identical to the local
+branch pointer, which itself survived in the main checkout. A fresh worktree was created from the
+pushed branch, and all 34 rulings, every tracked record and every archive file were present in it.
+
+Two design decisions from earlier in the session were vindicated within hours:
+
+- The `.superpowers/sdd/` workspace, having been made a GENERATED MIRROR rather than a source, was
+  restored on the bare worktree by `node scripts/rebuild-caring-contacts-sdd-workspace.mjs` — 22 files,
+  instantly, with no dependencies installed. When it was a source, its loss was unrecoverable.
+- Every ruling, finding and resume point being a TRACKED file meant the destruction was an
+  inconvenience rather than an amputation.
+
+**The rule this establishes, and it supersedes any earlier advice about where to work: PUSH AFTER
+EVERY TASK.** A pushed branch is the only thing that has ever survived on this machine. While
+`npm run typecheck` is knowingly red, that means `SKIP_STATIC_GUARD=1 git push` — the red is
+documented and expected, and pushing a feature branch triggers no CI (ci.yml runs on push only for
+main and release/**, and on pull_request).

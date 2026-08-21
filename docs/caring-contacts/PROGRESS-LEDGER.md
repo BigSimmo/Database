@@ -143,15 +143,28 @@ and carries a warning header.
 
 ## 9. Durability — read this
 
-Everything above lives on **one workstation**. As of 2026-08-21 the branch has **never been pushed**: 53
-commits exist only on this machine. That is the single largest risk to this record, and it is not
-theoretical — on 2026-08-21 another process on this workstation repeatedly deleted the working directory
-mid-session. Committed work survived every time; git-ignored scratch did not.
+**The branch is pushed.** `origin/claude/suicide-contact-mockup-b5aaa0` on github.com/BigSimmo/Database
+holds every commit. That is the source of truth. No directory on this workstation is.
 
-**Two rules follow, and they are why the record survived at all:**
+This is not a precaution, it is a lesson already paid for. On 2026-08-21 **four** working directories were
+destroyed by another process on this machine — under `.claude\worktrees\` and under `D:\Worktrees\`,
+including the one holding this work, and one through an explicit `git worktree lock`. The `.git` pointer
+file is removed first, so git silently resolves to the main checkout on the wrong branch; the tracked files
+follow. There is no warning and the cause is not identified. **Relocating is not protection.**
 
-1. Anything needed to resume must be a **tracked file**, never git-ignored scratch.
-2. Commit early and often; local commits cost nothing and are what survived.
+The last of those four cost nothing, because by then the branch had been pushed. The three before it cost
+uncommitted work and, once, an entire git-ignored session ledger.
 
-The remaining exposure is disk failure or loss of the machine. Push the branch, or copy `D:\Repos\Database`
-and both handoff bundles somewhere off this computer.
+**Three rules follow:**
+
+1. **Push after every task.** A pushed branch is the only thing that has ever survived here. While
+   typecheck is knowingly red, that needs `SKIP_STATIC_GUARD=1 git push` — the red is documented and
+   expected, and pushing a feature branch triggers no CI.
+2. Anything needed to resume must be a **tracked file**, never git-ignored scratch. The
+   `.superpowers/sdd/` workspace is therefore regenerated from tracked records by
+   `node scripts/rebuild-caring-contacts-sdd-workspace.mjs`, needs no dependencies, and is disposable.
+3. Commit early and often; local commits cost nothing and are what survived each time.
+
+Off-machine copies of the chat transcripts live in `D:\Repos\caring-contacts-handoff-2026-08-20\` and
+`D:\Repos\caring-contacts-handoff-2026-08-21\`. Those are on the same workstation and are **not**
+protected by the push — copy them elsewhere if they matter.

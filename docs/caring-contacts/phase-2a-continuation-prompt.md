@@ -12,15 +12,35 @@ file.
 Caring Contacts — Phase 2A, continue with Task 11b. Read before writing anything.
 
 ═══ WHERE THE WORK IS ═══
-Repository:  D:\Repos\Database                              (remote: github.com/BigSimmo/Database)
-Worktree:    D:\Worktrees\Database\caring-contacts-phase-2a  ← work HERE
-Branch:      claude/suicide-contact-mockup-b5aaa0            (tree clean, 54 commits ahead of main)
+Repository:  D:\Repos\Database            (remote: github.com/BigSimmo/Database)
+Branch:      claude/suicide-contact-mockup-b5aaa0  — PUSHED. origin holds it. That is the source of truth.
 
-Do NOT create or use a worktree under D:\Repos\Database\.claude\worktrees\. The original one for this
-work was destroyed by another process on this workstation on 2026-08-21 mid-session, taking an hour of
-uncommitted work with it; only committed work survived, and it happened repeatedly. Dependencies are
-already installed at the path above and `npm ci` takes ~58 minutes here, so do not discard them.
-Commit early and often — local commits cost nothing and are the only thing that survived.
+FIRST ACTION — make yourself a working copy. Do NOT assume one already exists:
+    cd D:\Repos\Database
+    git fetch origin
+    git worktree add D:\Worktrees\Database\<a-fresh-name> claude/suicide-contact-mockup-b5aaa0
+Then confirm you are where you think you are: `git rev-parse --abbrev-ref HEAD` must print
+claude/suicide-contact-mockup-b5aaa0.
+
+WORKING DIRECTORIES ON THIS MACHINE DO NOT SURVIVE. On 2026-08-21 four were destroyed by another
+process — under .claude\worktrees\ AND under D:\Worktrees\, one of them holding this exact work, and
+one through an explicit `git worktree lock`. RELOCATING IS NOT PROTECTION. The `.git` pointer file is
+removed first, so git silently resolves to the MAIN CHECKOUT ON THE WRONG BRANCH; the tracked files
+go afterwards. There is no warning and the cause is not identified.
+
+What actually protects the work — proven, because this branch survived a destruction today because
+of it:
+  * Commit early and often, and PUSH AFTER EVERY TASK. A pushed branch is the only thing that has
+    ever survived here. Pushing needs SKIP_STATIC_GUARD=1 while typecheck is knowingly red (below).
+  * Anything needed to resume must be a TRACKED file. Git-ignored scratch dies with the directory.
+  * After any long gap — a slow install, a subagent, a queued test run — re-check the branch before
+    trusting the working copy. If `git status` starts reporting files you never touched, your
+    worktree is gone and you are standing in the main checkout.
+
+Dependencies: a fresh worktree has none, and `npm ci` takes ~58 minutes on this machine. If an
+earlier worktree still exists with node_modules, reuse it rather than reinstalling. The SDD workspace
+needs no dependencies at all — restore it with
+`node scripts/rebuild-caring-contacts-sdd-workspace.mjs`.
 
 ═══ THE FILE MAP — everything that exists, and when to read it ═══
 
@@ -129,6 +149,21 @@ the host app's navigation. The tools-catalogue entry is only the front door.
 
 Synthetic, non-clinical prototype. Patient-visible copy is PROVISIONAL and not clinically approved.
 Phase 2A is foundations; the clinician-facing screens are Phase 2B, a separate plan.
+
+═══ SKILLS TO USE, AND ONE NOT TO ═══
+  superpowers:subagent-driven-development   THE method for this task. Invoke it first.
+  superpowers:test-driven-development       test-first, then prove the test can fail.
+  superpowers:verification-before-completion  evidence before any claim that something passes.
+  superpowers:requesting-code-review        for the task review after the implementer returns.
+  superpowers:receiving-code-review         when adjudicating findings — verify them, do not just
+                                            agree. Three findings this branch accepted were real;
+                                            one earlier "proof" proved something else entirely.
+  gates (repo skill)                        picking the smallest correct verification gate and
+                                            proving it actually ran.
+
+  Do NOT use superpowers:brainstorming or superpowers:writing-plans. The plan and the spec already
+  exist and are binding; re-deriving them costs tokens twice and risks a divergence a reviewer must
+  then adjudicate.
 
 ═══ METHOD — this matters for cost as much as for quality ═══
 Execute with superpowers:subagent-driven-development. Dispatch a fresh implementer subagent for Task

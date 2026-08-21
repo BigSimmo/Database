@@ -97,12 +97,26 @@ contains `*`), so it remains disposable by design.
 
 ## 4. Exactly where the work stopped
 
-**Branch:** `claude/suicide-contact-mockup-b5aaa0`
-**Worktree:** `D:\Worktrees\Database\caring-contacts-phase-2a`
-(the original worktree under `.claude\worktrees\` was destroyed by another process on this workstation
-on 2026-08-21 — see the build record. Do not recreate one there. Dependencies are already installed at
-the path above, and `npm ci` takes about 58 minutes on this machine.)
-**Head:** `c3d211ed2`. Working tree clean. Nothing pushed, no PR.
+**Branch:** `claude/suicide-contact-mockup-b5aaa0` — **PUSHED to origin.** GitHub holds it; that is the
+source of truth, not any directory on this workstation.
+
+**Working copy:** make your own. Do not assume one exists:
+
+```
+cd D:\Repos\Database
+git fetch origin
+git worktree add D:\Worktrees\Database\<a-fresh-name> claude/suicide-contact-mockup-b5aaa0
+```
+
+**Working directories on this machine do not survive.** On 2026-08-21 four were destroyed by another
+process — under `.claude\worktrees\` **and** under `D:\Worktrees\`, one of them holding this exact work,
+and one through an explicit `git worktree lock`. **Relocating is not protection.** The `.git` pointer file
+goes first, so git silently resolves to the main checkout on the wrong branch; the tracked files follow.
+No warning, and the cause is not identified. Commit often, **push after every task**, and keep anything
+needed to resume in a **tracked** file — git-ignored scratch dies with the directory. This branch survived
+a destruction today only because it had been pushed.
+
+**Head at last push:** `32bfbdae5`. Nothing merged, no pull request.
 
 ### Done and reviewed clean
 
