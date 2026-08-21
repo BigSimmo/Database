@@ -48,10 +48,14 @@ export function resolveLocalArtifactPath(requestedPath: string, cwd = process.cw
 export type BlindGateOutcome = {
   grounded: boolean | null;
   tier: string | null;
-  degraded: boolean | null;
+  degraded: boolean;
   degraded_reason: string | null;
   fallback_reason: string | null;
   gate_reasons: string[];
+  // Whether the dump record carried each key at all. An older capture script omits the newer
+  // keys entirely; the pack must not render a field one side recorded and the other did not,
+  // or the asymmetry becomes a systematic side marker (PR #2208 review).
+  recorded: { tier: boolean; degraded: boolean; fallback: boolean; gate_reasons: boolean };
 };
 
 export type BlindNormalizedCase = {
@@ -59,7 +63,10 @@ export type BlindNormalizedCase = {
   question: string;
   answer: string;
   sections: Array<{ heading: string; body: string }>;
-  citations: Array<{ title: string; filename: string; page: number | null }>;
+  citation_count: number | null;
+  // The sources the answer actually cites (dump field cited_sources); null when the capture
+  // predates that field. The broader retrieved-source diagnostics are never rendered.
+  cited_sources: Array<{ title: string; filename: string; page: number | null }> | null;
   gate: BlindGateOutcome;
 };
 
@@ -86,7 +93,7 @@ export function parseAnswerDump(jsonText: string, label: string): BlindNormalize
     if (seen.has(id)) throw new Error(`${label}: duplicate case id ${id}.`);
     seen.add(id);
     const sections = Array.isArray(record.answer_sections) ? record.answer_sections : [];
-    const sources = Array.isArray(record.sources) ? record.sources : [];
+    const citedSources = Array.isArray(record.cited_sources) ? record.cited_sources : null;
     const degraded = (record.degraded_mode ?? null) as { active?: unknown; reason?: unknown } | null;
     const gateReasons = Array.isArray(record.generation_quality_gate_reasons)
       ? record.generation_quality_gate_reasons
@@ -99,21 +106,30 @@ export function parseAnswerDump(jsonText: string, label: string): BlindNormalize
         const raw = (section ?? {}) as Record<string, unknown>;
         return { heading: asString(raw.heading), body: asString(raw.body) };
       }),
-      citations: sources.map((source) => {
-        const raw = (source ?? {}) as Record<string, unknown>;
-        return {
-          title: asString(raw.title),
-          filename: asString(raw.filename),
-          page: typeof raw.page === "number" ? raw.page : null,
-        };
-      }),
+      citation_count: typeof record.citation_count === "number" ? record.citation_count : null,
+      cited_sources: citedSources
+        ? citedSources.map((source) => {
+            const raw = (source ?? {}) as Record<string, unknown>;
+            return {
+              title: asString(raw.title),
+              filename: asString(raw.filename),
+              page: typeof raw.page === "number" ? raw.page : null,
+            };
+          })
+        : null,
       gate: {
         grounded: typeof record.grounded === "boolean" ? record.grounded : null,
         tier: asString(record.answer_quality_tier) || null,
-        degraded: degraded ? Boolean(degraded.active) : null,
+        degraded: degraded ? Boolean(degraded.active) : false,
         degraded_reason: degraded ? asString(degraded.reason) || null : null,
         fallback_reason: asString(record.fallback_reason) || null,
         gate_reasons: gateReasons.filter((reason): reason is string => typeof reason === "string"),
+        recorded: {
+          tier: "answer_quality_tier" in record,
+          degraded: "degraded_mode" in record,
+          fallback: "fallback_reason" in record,
+          gate_reasons: "generation_quality_gate_reasons" in record,
+        },
       },
     };
   });
@@ -162,26 +178,54 @@ function assertBlindSafe(artifactName: string, text: string, forbidden: string[]
   }
 }
 
-function renderAnswerSide(letter: "A" | "B", side: BlindNormalizedCase): string[] {
+type PairRenderPlan = {
+  citedSources: boolean;
+  tier: boolean;
+  degraded: boolean;
+  fallback: boolean;
+  gateReasons: boolean;
+};
+
+// A field appears in the pack only when BOTH sides of the pair recorded it. Rendering
+// "unknown" on one side against a concrete value on the other would be a systematic side
+// marker that defeats the blinding (PR #2208 review).
+function pairRenderPlan(a: BlindNormalizedCase, b: BlindNormalizedCase): PairRenderPlan {
+  return {
+    citedSources: a.cited_sources !== null && b.cited_sources !== null,
+    tier: a.gate.recorded.tier && b.gate.recorded.tier,
+    degraded: a.gate.recorded.degraded && b.gate.recorded.degraded,
+    fallback: a.gate.recorded.fallback && b.gate.recorded.fallback,
+    gateReasons: a.gate.recorded.gate_reasons && b.gate.recorded.gate_reasons,
+  };
+}
+
+function renderAnswerSide(letter: "A" | "B", side: BlindNormalizedCase, plan: PairRenderPlan): string[] {
   const lines: string[] = [`### Answer ${letter}`, ""];
   lines.push(side.answer.trim() ? side.answer.trim() : "_(no answer text)_");
   for (const section of side.sections) {
     lines.push("", `#### ${section.heading.trim() || "(untitled section)"}`, "", section.body.trim());
   }
   lines.push("", "Citations:");
-  if (side.citations.length === 0) lines.push("- (none)");
-  for (const citation of side.citations) {
-    const page = citation.page === null ? "" : `, p. ${citation.page}`;
-    lines.push(`- ${citation.title || "(untitled)"} (${citation.filename || "unknown file"}${page})`);
+  if (plan.citedSources) {
+    const cited = side.cited_sources ?? [];
+    if (cited.length === 0) lines.push("- (none)");
+    for (const citation of cited) {
+      const page = citation.page === null ? "" : `, p. ${citation.page}`;
+      lines.push(`- ${citation.title || "(untitled)"} (${citation.filename || "unknown file"}${page})`);
+    }
+  } else {
+    lines.push(
+      `- ${side.citation_count ?? "an unknown number of"} cited source(s); details not recorded in this capture`,
+    );
   }
   const gate = side.gate;
-  const gateParts = [
-    `grounded=${gate.grounded === null ? "unknown" : gate.grounded}`,
-    `tier=${gate.tier ?? "unknown"}`,
-    `degraded=${gate.degraded === null ? "unknown" : gate.degraded}${gate.degraded_reason ? ` (${gate.degraded_reason})` : ""}`,
-    `fallback=${gate.fallback_reason ?? "none"}`,
-    `gate_reasons=[${gate.gate_reasons.join(", ")}]`,
-  ];
+  const gateParts = [`grounded=${gate.grounded === null ? "unknown" : gate.grounded}`];
+  if (plan.tier) gateParts.push(`tier=${gate.tier ?? "unspecified"}`);
+  if (plan.degraded) {
+    gateParts.push(`degraded=${gate.degraded}${gate.degraded_reason ? ` (${gate.degraded_reason})` : ""}`);
+  }
+  if (plan.fallback) gateParts.push(`fallback=${gate.fallback_reason ?? "none"}`);
+  if (plan.gateReasons) gateParts.push(`gate_reasons=[${gate.gate_reasons.join(", ")}]`);
   lines.push("", `Gate outcome: ${gateParts.join(", ")}`);
   return lines;
 }
@@ -223,15 +267,20 @@ export function buildBlindArtifacts(input: BlindBuildInput) {
     "<!-- notes= is optional free text. Do not open assignment-key.json until done. -->",
     "",
   ];
+  const normalizeQuestion = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase();
   pairedIds.forEach((id, index) => {
     const before = beforeById.get(id)!;
     const after = afterById.get(id)!;
+    if (normalizeQuestion(before.question) !== normalizeQuestion(after.question)) {
+      throw new Error(`Paired case ${id} has different question text in the two dumps — the captures do not match.`);
+    }
+    const plan = pairRenderPlan(before, after);
     const aSide = assignment.get(id) === "before" ? before : after;
     const bSide = assignment.get(id) === "before" ? after : before;
     const pairNumber = String(index + 1).padStart(2, "0");
     packLines.push(`## Pair ${pairNumber} — ${id}`, "", `**Question:** ${aSide.question || bSide.question}`, "");
-    packLines.push(...renderAnswerSide("A", aSide), "");
-    packLines.push(...renderAnswerSide("B", bSide), "");
+    packLines.push(...renderAnswerSide("A", aSide, plan), "");
+    packLines.push(...renderAnswerSide("B", bSide, plan), "");
     packLines.push("### Verdict", "", `Record it in verdict-sheet.md under \`${id}\`.`, "");
     sheetLines.push(`${id}: verdict= notes=`);
   });

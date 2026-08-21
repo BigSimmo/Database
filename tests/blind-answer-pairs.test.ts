@@ -26,6 +26,8 @@ type FixtureCase = {
   answer: string;
   answer_sections?: Array<{ heading: string; body: string }>;
   sources?: Array<{ title: string; filename: string; page: number | null }>;
+  cited_sources?: Array<{ title: string; filename: string; page: number | null }>;
+  citation_count?: number;
   grounded?: boolean;
   answer_quality_tier?: string | null;
   degraded_mode?: { active: boolean; reason: string | null } | null;
@@ -33,6 +35,9 @@ type FixtureCase = {
   generation_quality_gate_reasons?: string[];
 };
 
+// New-style record: carries every gate key (null-valued when inapplicable) plus cited_sources.
+// The retrieved-source list deliberately contains an uncited trap document that must never
+// reach the reading pack.
 function makeDumpJson(cases: FixtureCase[], marker: string): string {
   return JSON.stringify(
     {
@@ -49,6 +54,39 @@ function makeDumpJson(cases: FixtureCase[], marker: string): string {
         grounded: true,
         confidence: "medium",
         capture_only: false,
+        answer_quality_tier: null,
+        degraded_mode: null,
+        fallback_reason: null,
+        generation_quality_gate_reasons: [],
+        citation_count: 1,
+        cited_sources: [{ title: "Prescribing guideline", filename: "guideline.pdf", page: 12 }],
+        sources: [
+          { title: "Prescribing guideline", filename: "guideline.pdf", page: 12 },
+          { title: "Uncited retrieval hit", filename: "uncited-retrieval.pdf", page: 3 },
+        ],
+        ...entry,
+      })),
+    },
+    null,
+    2,
+  );
+}
+
+// Legacy-style record: predates cited_sources and the four gate-outcome keys entirely.
+function makeLegacyDumpJson(cases: FixtureCase[], marker: string): string {
+  return JSON.stringify(
+    {
+      generated_at: TRAP_TIMESTAMP,
+      case_count: cases.length,
+      dump_marker: marker,
+      cases: cases.map((entry) => ({
+        route: "fast",
+        routing_reason: TRAP_ROUTING,
+        model: TRAP_MODEL,
+        grounded: true,
+        confidence: "medium",
+        citation_count: 1,
+        sources: [{ title: "Prescribing guideline", filename: "guideline.pdf", page: 12 }],
         ...entry,
       })),
     },
@@ -68,7 +106,6 @@ function fixtureCases(side: "one" | "two"): FixtureCase[] {
         ? `Side-one answer for ${id}: check levels at baseline and repeat before review.`
         : `Side-two answer for ${id}: check levels at baseline, after dose changes, then quarterly.`,
     answer_sections: [{ heading: "Monitoring", body: `Side-${side} monitoring detail for ${id}.` }],
-    sources: [{ title: "Prescribing guideline", filename: "guideline.pdf", page: 12 }],
   }));
   if (side === "two") {
     cases[2] = {
@@ -208,6 +245,45 @@ describe("blinding is real", () => {
     expect(pairThree).toContain("gate_reasons=[unsupported_claims]");
   });
 
+  it("renders only the sources the answer actually cited, never the retrieval diagnostics", () => {
+    expect(artifacts.readingPack).toContain("Prescribing guideline (guideline.pdf, p. 12)");
+    expect(artifacts.readingPack).not.toContain("Uncited retrieval hit");
+    expect(artifacts.readingPack).not.toContain("uncited-retrieval.pdf");
+  });
+
+  it("omits fields one side never recorded instead of rendering an asymmetric unknown", () => {
+    // A legacy dump (no cited_sources, no gate-outcome keys) paired against a new-style dump
+    // must not produce per-side "unknown" markers that identify the older capture.
+    const legacy = makeLegacyDumpJson(
+      [{ id: "quality-case-01", question: "Question for quality-case-01?", answer: "Legacy answer." }],
+      "LEGACY-MARKER",
+    );
+    const modern = makeDumpJson(
+      [
+        {
+          id: "quality-case-01",
+          question: "Question for quality-case-01?",
+          answer: "Modern answer.",
+          answer_quality_tier: "model_synthesis",
+          generation_quality_gate_reasons: ["unsupported_claims"],
+        },
+      ],
+      "MODERN-MARKER",
+    );
+    const mixed = buildBlindArtifacts({
+      beforeText: legacy,
+      afterText: modern,
+      beforeLabel: BEFORE_LABEL,
+      afterLabel: AFTER_LABEL,
+    });
+    expect(mixed.readingPack).not.toContain("tier=");
+    expect(mixed.readingPack).not.toContain("gate_reasons=");
+    expect(mixed.readingPack).not.toContain("degraded=");
+    expect(mixed.readingPack).not.toContain("(guideline.pdf");
+    expect(mixed.readingPack).toContain("1 cited source(s); details not recorded in this capture");
+    expect(mixed.readingPack).toContain("Gate outcome: grounded=true");
+  });
+
   it("emits a byte-identical pack with a fully flipped key when the inputs are swapped", () => {
     // Identical pack bytes admitting two different valid keys is the proof that the
     // assignment is not a function of anything the reader can see.
@@ -321,6 +397,27 @@ describe("input validation", () => {
     ).toThrow("nothing to pair");
     expect(() => buildBlindArtifacts({ ...buildInput, afterLabel: BEFORE_LABEL })).toThrow("must differ");
     expect(() => buildBlindArtifacts({ ...buildInput, beforeLabel: " " })).toThrow("must be non-empty");
+  });
+
+  it("rejects a paired id whose question text differs between the dumps", () => {
+    const before = makeDumpJson([{ id: "quality-case-01", question: "Lithium monitoring?", answer: "A." }], "M-Q1");
+    const after = makeDumpJson([{ id: "quality-case-01", question: "Clozapine monitoring?", answer: "B." }], "M-Q2");
+    expect(() =>
+      buildBlindArtifacts({ beforeText: before, afterText: after, beforeLabel: BEFORE_LABEL, afterLabel: AFTER_LABEL }),
+    ).toThrow("different question text");
+    // Whitespace/case-only differences are the same question.
+    const afterSameQuestion = makeDumpJson(
+      [{ id: "quality-case-01", question: "  lithium   MONITORING? ", answer: "B." }],
+      "M-Q3",
+    );
+    expect(() =>
+      buildBlindArtifacts({
+        beforeText: before,
+        afterText: afterSameQuestion,
+        beforeLabel: BEFORE_LABEL,
+        afterLabel: AFTER_LABEL,
+      }),
+    ).not.toThrow();
   });
 
   it("rejects malformed dumps with the offending side named", () => {

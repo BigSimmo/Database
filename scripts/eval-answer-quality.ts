@@ -299,6 +299,14 @@ export function buildRagDiagnosticDumpRecord(id: string, question: string, answe
         ? null
         : 0,
     citation_count: answer.citations.length,
+    // Only the sources the answer actually cites: the blinded reading pack renders this list
+    // (not the broader retrieved-source diagnostics below) so grounding is judged on real
+    // citations (PR #2208 review).
+    cited_sources: buildBoundedRagSourceDiagnostics(
+      answer.sources.filter((source) =>
+        answer.citations.some((citation) => citation?.chunk_id && citation.chunk_id === source.id),
+      ),
+    ),
     answer_length: answer.answer?.length ?? 0,
     answer: displaySafeDiagnosticText(answer.answer ?? "", MAX_DIAGNOSTIC_ANSWER_CHARS),
     answer_sections: (answer.answerSections ?? []).map((section) => ({

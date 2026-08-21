@@ -268,6 +268,22 @@ describe("answer dump records", () => {
     expect(JSON.stringify(record)).not.toContain("request-private");
   });
 
+  it("dumps cited sources as the subset of retrieved sources the answer actually cites", () => {
+    const withSources = {
+      ...answer,
+      citations: [{ chunk_id: "chunk-1" }],
+      sources: [
+        { id: "chunk-1", title: "Cited guideline", file_name: "cited.pdf", page_number: 4, content: "cited text" },
+        { id: "chunk-2", title: "Uncited retrieval hit", file_name: "uncited.pdf", page_number: 9, content: "other" },
+      ],
+    } as unknown as RagAnswer;
+    const record = buildRagDiagnosticDumpRecord("cited-case", "Monitoring question?", withSources);
+    expect(record.sources).toHaveLength(2);
+    expect(record.cited_sources).toHaveLength(1);
+    expect(record.cited_sources[0]).toMatchObject({ title: "Cited guideline", filename: "cited.pdf", page: 4 });
+    expect(record.citation_count).toBe(1);
+  });
+
   it("dumps the generation gate outcome defensively for both v18 and v19 answer shapes", () => {
     const rich = buildRagDiagnosticDumpRecord("gate-case", "Monitoring question?", {
       ...answer,
