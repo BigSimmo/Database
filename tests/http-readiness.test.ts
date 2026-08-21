@@ -53,8 +53,16 @@ describe("bounded HTTP readiness", () => {
         url,
         isReady: ({ statusCode, body }: { statusCode?: number; body: string }) =>
           statusCode === 200 && body === "ready",
-        timeoutMs: 1_000,
-        requestTimeoutMs: 40,
+        // The first two responses never end, so they consume the whole request
+        // budget however large it is — the stall path is exercised either way.
+        // What the budget must NOT do is cut off the THIRD response, which is
+        // healthy: that misreads a good response as stalled and polls a fourth
+        // time, failing this test's `toBe(3)`. At 40ms it did exactly that on a
+        // Windows workstation, reproducibly, on an idle machine running this
+        // file alone. Raised to 250ms, with the overall deadline lifted to keep
+        // room for two full stalls plus the real attempt.
+        timeoutMs: 5_000,
+        requestTimeoutMs: 250,
         pollIntervalMs: 5,
       }),
     ).resolves.toBeUndefined();
@@ -76,7 +84,14 @@ describe("bounded HTTP readiness", () => {
       waitForHttpReadiness({
         url,
         isReady: () => false,
-        timeoutMs: 180,
+        // Every response stalls here, so each attempt costs the full 40ms and
+        // the deadline decides how many fit. 180ms left room for four, which is
+        // thin: one late timer on a loaded machine yields a single attempt and
+        // fails `toBeGreaterThan(1)` — the shape reported from a Windows
+        // workstation. 600ms fits roughly thirteen, so the assertion needs the
+        // loop to actually poll rather than to win a race. The deadline is
+        // still honoured and still bounded; both assertions below are unchanged.
+        timeoutMs: 600,
         requestTimeoutMs: 40,
         pollIntervalMs: 5,
         timeoutErrorMessage: "readiness deadline elapsed",
