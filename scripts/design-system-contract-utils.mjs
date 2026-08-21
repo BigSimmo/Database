@@ -484,7 +484,7 @@ const RAW_GAP_UTILITY = new RegExp(String.raw`^gap(?:-[xy])?-${RAW_LITERAL_VALUE
  * Own metric, for the same reason gap got one: this debt is concentrated in a
  * different set of files and will be paid down at its own pace.
  */
-const RAW_MARGIN_UTILITY = new RegExp(String.raw`^m[xytrbles]?-${RAW_LITERAL_VALUE}$`);
+const RAW_MARGIN_UTILITY = new RegExp(String.raw`^-?m[xytrbles]?-${RAW_LITERAL_VALUE}$`);
 /**
  * The CSS-declaration half of the same four rules, so a literal cannot simply
  * move from a class into `globals.css` to escape the ratchet — the same reason
@@ -504,6 +504,12 @@ const RAW_PADDING_PROPERTY = /^padding(?:-(?:top|right|bottom|left|inline|block)
 const RAW_RADIUS_PROPERTY = /^border(?:-(?:top|bottom)-(?:left|right)|-(?:start|end)-(?:start|end))?-radius$/;
 /** `gap` is the shorthand; `row-gap`/`column-gap` are the longhands it expands to. */
 const RAW_GAP_PROPERTY = /^(?:gap|row-gap|column-gap)$/;
+/**
+ * Margin, matching the padding shape. Both the `[margin-top:22px]` arbitrary-property
+ * utility and a plain `margin-top: 22px` declaration route through
+ * `recordRawScaleLiteralProperty`, so one branch closes both spellings at once.
+ */
+const RAW_MARGIN_PROPERTY = /^margin(?:-(?:top|right|bottom|left|inline|block)(?:-(?:start|end))?)?$/;
 const CSS_WIDE_KEYWORD = /^(?:inherit|initial|unset|revert|revert-layer|normal|auto)$/;
 const CSS_ZERO_VALUE = /^-?0(?:\.0+)?(?:[a-z%]+)?$/i;
 const ARBITRARY_PROPERTY_UTILITY = /^\[([a-z-]+):([^\]]+)\]$/i;
@@ -525,6 +531,9 @@ function recordRawScaleLiteralProperty(result, relativePath, line, prop, value, 
   }
   if (RAW_GAP_PROPERTY.test(prop)) {
     result.rawGapLiterals.push(`${relativePath}:${line} (${label})`);
+  }
+  if (RAW_MARGIN_PROPERTY.test(prop)) {
+    result.rawMarginLiterals.push(`${relativePath}:${line} (${label})`);
   }
   if (prop === "line-height") {
     result.rawLineHeightLiterals.push(`${relativePath}:${line} (${label})`);
@@ -1458,6 +1467,7 @@ export function analyzeCssContractsInSource(relativePath, sourceText) {
     onePixelShadowSpreads: [],
     rawGapLiterals: [],
     rawLineHeightLiterals: [],
+    rawMarginLiterals: [],
     rawPaddingLiterals: [],
     rawRadiusLiterals: [],
     rawZIndices: [],
@@ -1676,6 +1686,7 @@ export function findRawScaleLiteralDeclarationsInSource(sourceText) {
     padding: analysis.rawPaddingLiterals,
     radius: analysis.rawRadiusLiterals,
     gap: analysis.rawGapLiterals,
+    margin: analysis.rawMarginLiterals,
     lineHeight: analysis.rawLineHeightLiterals,
   };
 }

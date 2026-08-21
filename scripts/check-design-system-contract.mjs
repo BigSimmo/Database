@@ -241,6 +241,7 @@ for (const file of files) {
     recordDebt("rawPaddingLiterals", file.relativePath, cssAnalysis.rawPaddingLiterals.length);
     recordDebt("rawRadiusLiterals", file.relativePath, cssAnalysis.rawRadiusLiterals.length);
     recordDebt("rawGapLiterals", file.relativePath, cssAnalysis.rawGapLiterals.length);
+    recordDebt("rawMarginLiterals", file.relativePath, cssAnalysis.rawMarginLiterals.length);
     recordDebt("rawLineHeightLiterals", file.relativePath, cssAnalysis.rawLineHeightLiterals.length);
     imageInversionFindings.push(...cssAnalysis.imageInversions);
     layoutTransitionFindings.push(...cssAnalysis.layoutTransitions);
