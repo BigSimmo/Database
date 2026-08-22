@@ -51,7 +51,14 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { ISSUES_PATH, checkIssues, parseIssues } from "./check-outstanding-issues.mjs";
-import { allocateDisplayId, displayIdForUlid, issueIdCell, issueIdCitations, issueUlid } from "./issue-id.mjs";
+import {
+  allocateDisplayId,
+  displayIdForUlid,
+  issueIdCell,
+  issueIdCitations,
+  issueUlid,
+  normalizeIssueDisplayId,
+} from "./issue-id.mjs";
 
 const OPEN_CELLS = 7; // ID | Pri | Type | Summary | Detail / next action | Source | Added
 const ARCHIVE_CELLS = 5; // ID | Type | Summary | Outcome | Resolved
@@ -316,14 +323,15 @@ export function updateQueueRow(markdown, id, fields) {
 
   return guarded(markdown, (current) => {
     const parsed = parseIssues(current);
-    const cited = (parsed.queueCitations ?? []).filter((citation) => citation.id === String(id));
+    const normalizedId = normalizeIssueDisplayId(id);
+    const cited = (parsed.queueCitations ?? []).filter((citation) => citation.id === normalizedId);
     const lineNumbers = [...new Set(cited.map((citation) => citation.line))];
     if (lineNumbers.length === 0) {
-      throw new Error(`${id} has no recommended-execution-queue row; the queue carries only scheduled work`);
+      throw new Error(`${normalizedId} has no recommended-execution-queue row; the queue carries only scheduled work`);
     }
     if (lineNumbers.length > 1) {
       throw new Error(
-        `${id} is cited by ${lineNumbers.length} queue rows (lines ${lineNumbers.join(", ")}); refusing to guess which`,
+        `${normalizedId} is cited by ${lineNumbers.length} queue rows (lines ${lineNumbers.join(", ")}); refusing to guess which`,
       );
     }
 
