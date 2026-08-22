@@ -26,6 +26,14 @@ const reviewedActionPins = new Map([
       // run output, config-snapshot scoping to the working tree, and checkout
       // auth cleanup when API commit signing is enabled.
       ["1623c36729ac1cd5895198cded705a287de7db79", "v1.0.187"],
+      // Reviewed 2026-08-17 for PR #2011 (Run PR sweep): annotated tag v1.0.193
+      // peels to this commit. Release notes for v1.0.188-v1.0.193 cover only
+      // MCP GitHub-Actions-results pagination, structured-tool-result text
+      // preservation, content-based (not extension-based) binary-file
+      // detection, branch-name validation under commit signing, docs fixes,
+      // and setup-bun cache tuning — no change to permissions, secrets
+      // handling, or the action's trust boundary.
+      ["9d7150bc8a3dae8149739a88019d192b579ad90c", "v1.0.193"],
     ]),
   ],
   // Reviewed 2026-08-13 for the credential-isolated Run PR operator: annotated
