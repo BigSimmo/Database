@@ -2571,3 +2571,37 @@ about the branch being ours alone is now void:
 - **Fetch before every push, not after a rejection.** The rejection is the cheap failure. The
   expensive one is a green gate run against a tree that already contained someone else's half-finished
   edit.
+
+## The phantom failures are explained, and the explanation is Ruling 66
+
+The condensed bar's implementer reported ten distinct `npm run test` failures across two runs, with
+different sets each time and four reproducing with its change reverted, and honestly declined to claim
+a green suite. That report was accurate about what it saw and wrong about what it meant.
+
+A full run at 2026-08-23 00:19 (real run — `Test Files 2 failed | 701 passed | 2 skipped (705)`,
+`Tests 3 failed | 7841 passed | 29 skipped (7873)`, no EPERM anywhere in the output) produced two
+failing files:
+
+- **`tests/caring-contacts-explained-automation.dom.test.tsx`** — `expected 'Sending stopped. 0 of 3
+restart appro…' to contain 'the whole service'`. Read cold, that is a serious regression: the bar had
+  apparently lost the service-wide scope, and "Sending stopped" alone can be read as this patient's plan
+  having stopped rather than the entire service. **Re-run against the same committed tree minutes later:
+  `Test Files 1 passed (1)` / `Tests 22 passed (22)`.** Nothing was committed between the two runs and
+  `git status` shows that test file unmodified. The full run had simply read a source file while a
+  concurrently-running fix agent held it in an intermediate state.
+- **`tests/codex-cloud-setup.test.ts`** — `Test timed out in 120000ms`, in a Codex Cloud configuration
+  contract that touches nothing in this domain. A timeout under a machine running a full suite plus
+  three agents is contention, not logic.
+
+**So the branch is green on its own work, and the "failures" were an artefact of measuring a moving
+tree.** Two lessons, and the second is the one that generalises:
+
+- **A failure observed under concurrency is a hypothesis, not a result.** The single cheapest
+  discriminator is re-running the one file alone against a named commit. It cost one command here and
+  turned an apparent safety regression into a non-event.
+- **The trap runs the other way too, and that direction is worse.** The same interleaving that
+  invented a failure can hide a real one — a file read before a bad edit lands passes, and reports
+  green for a tree that no longer exists. **Green under concurrency is worth no more than red under
+  concurrency.** Any full-suite claim on this branch must name the commit it ran against and be taken
+  on a quiet tree; this record's earlier "fully green for the first time" claim predates the discovery
+  that the branch is shared and should be read with that caveat.
