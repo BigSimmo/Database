@@ -4723,7 +4723,7 @@ html.theme-transitioning *:after {
 @media (max-width: 639px) {
   .clinical-ask-action-rail {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: flex-end;
     gap: calc(2 * var(--radius-xs));
@@ -4735,6 +4735,7 @@ html.theme-transitioning *:after {
     padding-inline: var(--spacing-icon-sm);
     background: var(--surface-raised);
     border: 1px solid var(--border);
+    white-space: nowrap;
   }
   .clinical-ask-action-rail p {
     flex-basis: 100%;
@@ -4753,9 +4754,14 @@ html.theme-transitioning *:after {
 .clinical-ask-action-rail,
 .clinical-ask-output-actions {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: calc(2 * var(--radius-xs));
+}
+.clinical-ask-action-rail {
+  flex-wrap: nowrap;
+}
+.clinical-ask-output-actions {
+  flex-wrap: wrap;
 }
 .clinical-ask-action-rail button,
 .clinical-ask-workspace button,

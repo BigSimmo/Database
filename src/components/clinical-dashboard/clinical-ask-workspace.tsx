@@ -6,13 +6,14 @@ import { Sheet } from "@/components/ui/sheet";
 import { identifierShapeWarning } from "@/lib/clinical-ask/context";
 import { ClinicalAskAnswerSurface } from "./clinical-ask-answer-surface";
 import { useClinicalAskSession } from "./clinical-ask-session-context";
+import { clinicalAskWorkspaceVisible } from "./use-clinical-ask-shell-state";
 
 export function ClinicalAskWorkspace({ onDraftChange }: { onDraftChange?(draft: string): void } = {}) {
   const router = useRouter();
   const session = useClinicalAskSession();
   const [contextOpen, setContextOpen] = useState(false);
   const contextTriggerRef = useRef<HTMLButtonElement>(null);
-  if (!session.mode && !session.response && !session.submitted) return null;
+  if (!clinicalAskWorkspaceVisible(session)) return null;
   const suggested = session.suggestions.filter((item) => item.status === "suggested");
   const hasContext = Object.keys(session.confirmedContext).length > 0 || suggested.length > 0;
   return (

@@ -175,7 +175,7 @@ describe("MasterSearchHeader DOM", () => {
       />,
     );
     expect(screen.getByRole("button", { name: "Ask Services" })).toBeDisabled();
-    expect(screen.getByText("Asking Services…")).toBeInTheDocument();
+    expect(screen.getByText("Asking…")).toBeInTheDocument();
     (speech as { state: string }).state = "listening";
     rerender(
       <ClinicalAskComposerActions

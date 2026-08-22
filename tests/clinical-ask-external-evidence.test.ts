@@ -48,6 +48,24 @@ describe("retrieveExternalEvidence", () => {
     );
   });
 
+  it("keeps allowlisted extracts when the provider adds unknown result fields", async () => {
+    webSearch.mockResolvedValue({
+      output: [
+        {
+          type: "web_search_call",
+          results: [{ ...valid, provider_metadata: { source_id: "provider-1" } }],
+        },
+      ],
+    });
+    const evidence = await retrieveExternalEvidence(
+      clinicalAskCases[0],
+      ["health.wa.gov.au"],
+      new AbortController().signal,
+    );
+    expect(evidence).toHaveLength(1);
+    expect(evidence[0]?.extract).toBe(valid.text);
+  });
+
   it("degrades provider failure to no external evidence", async () => {
     webSearch.mockResolvedValue({ status: "failed", output: [] });
     expect(

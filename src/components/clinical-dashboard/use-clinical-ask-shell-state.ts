@@ -5,8 +5,26 @@ import {
   useClinicalAskSession,
   type useClinicalAskSession as UseClinicalAskSession,
 } from "@/components/clinical-dashboard/clinical-ask-session-context";
+import { useClinicalAskRunner } from "@/components/clinical-dashboard/use-clinical-ask-runner";
+import type { AppModeId } from "@/lib/app-modes";
+import { isClinicalAskModeId, type ClinicalAskModeId } from "@/lib/clinical-ask/contracts";
+
+export type ClinicalDashboardProps = {
+  initialSearchMode?: AppModeId;
+  initialQuery?: string;
+  focusSearch?: boolean;
+  autoRunSearch?: boolean;
+};
 
 type ClinicalAskSession = ReturnType<typeof UseClinicalAskSession>;
+
+export function clinicalAskWorkspaceVisible(session: {
+  mode: ClinicalAskModeId | null;
+  response: unknown;
+  submitted: boolean;
+}) {
+  return Boolean(session.mode || session.response || session.submitted);
+}
 
 export function useClinicalAskShellState(accountId: string | undefined): {
   clinicalAskSession: ClinicalAskSession;
@@ -32,4 +50,29 @@ export function useClinicalAskShellState(accountId: string | undefined): {
     }
   }, [accountId, clinicalAskSession]);
   return { clinicalAskSession, clinicalAskOnline };
+}
+
+export function useClinicalAskDashboardChrome({
+  accountId,
+  searchMode,
+  query,
+}: {
+  accountId: string | undefined;
+  searchMode: AppModeId;
+  query: string;
+}) {
+  const { clinicalAskSession, clinicalAskOnline } = useClinicalAskShellState(accountId);
+  const clinicalAskMode = isClinicalAskModeId(searchMode) ? searchMode : null;
+  const runModeClinicalAsk = useClinicalAskRunner({
+    clinicalAskMode,
+    clinicalAskOnline,
+    clinicalAskSession,
+    query,
+  });
+  return {
+    clinicalAskSession,
+    clinicalAskOnline,
+    clinicalAskMode,
+    runModeClinicalAsk,
+  };
 }

@@ -49,13 +49,14 @@ import {
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { ClinicalAskSessionProvider } from "@/components/clinical-dashboard/clinical-ask-session-context";
-import { useClinicalAskShellState } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
+import {
+  type ClinicalDashboardProps,
+  useClinicalAskDashboardChrome,
+} from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
 import {
   ClinicalAskComposerActions,
   ClinicalAskWorkspace,
 } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
-import { isClinicalAskModeId } from "@/lib/clinical-ask/contracts";
-import { useClinicalAskRunner } from "@/components/clinical-dashboard/use-clinical-ask-runner";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
@@ -272,21 +273,6 @@ import {
 } from "@/components/clinical-dashboard/answer-thread-turn";
 import type { AnswerFeedbackType } from "@/lib/answer-feedback";
 export type { AnswerFeedbackType } from "@/lib/answer-feedback";
-
-/**
- * Renders the clinical search dashboard, including document search, answer generation, conversation history, source management, and ingestion controls.
- *
- * @param initialSearchMode - The mode selected when the dashboard loads.
- * @param initialQuery - The initial search or composer query.
- * @param focusSearch - Whether to focus the search input on load.
- * @param autoRunSearch - Whether to automatically submit the initial query.
- */
-type ClinicalDashboardProps = {
-  initialSearchMode?: AppModeId;
-  initialQuery?: string;
-  focusSearch?: boolean;
-  autoRunSearch?: boolean;
-};
 
 export function ClinicalDashboard(props: ClinicalDashboardProps = {}) {
   return (
@@ -566,7 +552,11 @@ function ClinicalDashboardContent({
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const auth = useAuthSession();
-  const { clinicalAskSession, clinicalAskOnline } = useClinicalAskShellState(auth.session?.user.id);
+  const { clinicalAskSession, clinicalAskOnline, clinicalAskMode, runModeClinicalAsk } = useClinicalAskDashboardChrome({
+    accountId: auth.session?.user.id,
+    searchMode,
+    query,
+  });
   const {
     status: authStatus,
     authorizationHeader,
@@ -2683,11 +2673,6 @@ function ClinicalDashboardContent({
     focusComposerInput();
   }
 
-  function stageClinicalAskFollowUpDraft(draft: string) {
-    setQuery(draft);
-    focusComposerInput();
-  }
-
   function handleFollowUpQuote(quote: QuoteCard) {
     stageAnswerFollowUpDraft(createQuoteFollowUp(quote));
   }
@@ -3112,16 +3097,9 @@ function ClinicalDashboardContent({
           differentialsCompareAddonActive,
           patientDetailsAddonActive,
           heroOwnsPhoneComposer,
-          clinicalAskActionsVisible: isClinicalAskModeId(searchMode),
+          clinicalAskActionsVisible: Boolean(clinicalAskMode),
         }),
   );
-  const clinicalAskMode = isClinicalAskModeId(searchMode) ? searchMode : null;
-  const runModeClinicalAsk = useClinicalAskRunner({
-    clinicalAskMode,
-    clinicalAskOnline,
-    clinicalAskSession,
-    query,
-  });
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
   const setupCheckCount = setupChecks.length || fallbackSetupChecks.length;
   const activeIndexingWorkCount =
@@ -3352,8 +3330,6 @@ function ClinicalDashboardContent({
           canAccessFavourites={favouritesAccessible}
           onRequestAccountSetup={() => openAccountSetup("favourites")}
           onAsk={ask}
-          clinicalAskMode={clinicalAskMode ?? undefined}
-          onClinicalAsk={runModeClinicalAsk}
           clinicalAskActive={clinicalAskSession.submitted}
           clinicalAskActions={
             clinicalAskMode ? (
@@ -3702,7 +3678,7 @@ function ClinicalDashboardContent({
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 
-                <ClinicalAskWorkspace onDraftChange={stageClinicalAskFollowUpDraft} />
+                <ClinicalAskWorkspace onDraftChange={stageAnswerFollowUpDraft} />
                 {showSharedHome ? (
                   // The one home surface, shared by every registered mode. It sits above every
                   // mode-specific branch so picking a mode on `/` changes only its

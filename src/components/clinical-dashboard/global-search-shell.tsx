@@ -70,6 +70,8 @@ import {
   ClinicalAskWorkspace,
 } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 import { isClinicalAskModeId } from "@/lib/clinical-ask/contracts";
+import { clinicalAskWorkspaceVisible } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
+import type { ClinicalAskShellBindings } from "@/components/clinical-dashboard/clinical-ask-shell-bindings";
 
 // Namespaced mode homes share this client shell but never render the dashboard
 // body — keep ClinicalDashboard out of their parse/eval path until `/` needs it.
@@ -86,6 +88,8 @@ const ClinicalAskShellBindingsLayer = dynamic(
 
 const inactiveClinicalAskShellBindings = {
   clinicalAskSession: {
+    mode: null,
+    response: null,
     submitted: false,
     clear: () => undefined,
   },
@@ -113,7 +117,6 @@ import {
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalQueryMode } from "@/lib/types";
-import type { ClinicalAskShellBindings } from "@/components/clinical-dashboard/clinical-ask-shell-bindings";
 
 const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
   { value: "auto", label: "Auto" },
@@ -1070,7 +1073,7 @@ function GlobalStandaloneSearchShellBody({
               {/* Paint RSC mode-home HTML immediately. A ClientHydrationBoundary here
                 blanked every standalone mode until JS mounted (hard-load LCP hit). */}
               <SearchCommandProvider value={searchCommandContextValue}>
-                {clinicalAskMode || clinicalAskSession.submitted ? (
+                {clinicalAskWorkspaceVisible(clinicalAskSession) ? (
                   <ClinicalAskWorkspace onDraftChange={stageClinicalAskDraft} />
                 ) : null}
                 {pendingModeNavigation ? (

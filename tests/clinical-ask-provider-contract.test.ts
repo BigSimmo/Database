@@ -10,16 +10,21 @@ describe("Clinical Ask provider placement", () => {
     expect(dashboard).toMatch(
       /export function ClinicalDashboard[\s\S]*?<ClinicalAskSessionProvider>[\s\S]*?<ClinicalDashboardContent \{\.\.\.props\} \/>[\s\S]*?<\/ClinicalAskSessionProvider>/,
     );
-    expect(dashboard).toMatch(
-      /function ClinicalDashboardContent[\s\S]*?useClinicalAskShellState\(auth\.session\?\.user\.id\)/,
-    );
+    expect(dashboard).toMatch(/function ClinicalDashboardContent[\s\S]*?useClinicalAskDashboardChrome\(\{/);
   });
 
   it("forwards Clinical Ask follow-ups into the dashboard-owned composer draft", () => {
     const dashboard = source("src/components/ClinicalDashboard.tsx");
-    expect(dashboard).toContain("<ClinicalAskWorkspace onDraftChange={stageClinicalAskFollowUpDraft} />");
+    expect(dashboard).toContain("<ClinicalAskWorkspace onDraftChange={stageAnswerFollowUpDraft} />");
     expect(dashboard).toMatch(
-      /function stageClinicalAskFollowUpDraft\(draft: string\) \{\s*setQuery\(draft\);\s*focusComposerInput\(\);/,
+      /function stageAnswerFollowUpDraft\(draft: string\) \{\s*setQuery\(draft\);\s*focusComposerInput\(\);/,
     );
+  });
+
+  it("does not reserve empty-home Clinical Ask slots with loading skeletons", () => {
+    const lazy = source("src/components/clinical-dashboard/clinical-dashboard-lazy.tsx");
+    const workspace = lazy.slice(lazy.indexOf("export const ClinicalAskWorkspace"));
+    expect(workspace).toContain("loading: () => null");
+    expect(workspace).not.toContain("LoadingPanel");
   });
 });

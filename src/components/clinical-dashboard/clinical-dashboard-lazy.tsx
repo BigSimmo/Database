@@ -70,10 +70,12 @@ export const IngestionQualityConsole = dynamic(
 
 export const ClinicalAskWorkspace = dynamic(
   () => import("@/components/clinical-dashboard/clinical-ask-workspace").then((m) => m.ClinicalAskWorkspace),
-  { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={5} label="Loading Clinical Ask workspace" /> },
+  // Empty-home idle render is null. A skeleton here shifts SharedHomeEmptyState
+  // (Lighthouse CLS on `/`) and pushes the in-flow composer into the PWA sheet.
+  { ssr: false, loading: () => null },
 );
 export const ClinicalAskComposerActions = dynamic(
   () =>
     import("@/components/clinical-dashboard/clinical-ask-composer-actions").then((m) => m.ClinicalAskComposerActions),
-  { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={2} label="Loading Clinical Ask actions" /> },
+  { ssr: false, loading: () => null },
 );

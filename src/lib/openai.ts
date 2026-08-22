@@ -101,7 +101,11 @@ export async function transcribeClinicalAskAudio(file: File, signal: AbortSignal
   return { transcript: result.text, model: env.OPENAI_TRANSCRIPTION_MODEL };
 }
 
-/** Server-only bounded web search used by Clinical Ask's governed authority adapter. */
+/** Server-only bounded web search used by Clinical Ask's governed authority adapter.
+ * `filters.allowed_domains` and `include: web_search_call.results` are runtime
+ * Responses fields; the installed SDK request type still omits them, so the
+ * payload is asserted after construction rather than dropping the allow-list.
+ */
 export async function createClinicalAskWebSearchResponse(args: {
   input: Array<Record<string, unknown>>;
   allowedDomains: readonly string[];
@@ -109,23 +113,25 @@ export async function createClinicalAskWebSearchResponse(args: {
   timeoutMs: number;
 }) {
   const client = createOpenAIClient();
-  return client.responses.create(
-    {
-      model: env.OPENAI_ANSWER_MODEL,
-      store: false,
-      input: args.input as never,
-      tools: [
-        {
-          type: "web_search",
-          filters: { allowed_domains: [...args.allowedDomains] },
-          search_context_size: "medium",
-        },
-      ],
-      include: ["web_search_call.action.sources", "web_search_call.results"],
-      metadata: { operation: "clinical_ask_external_search" },
-    } as never,
-    { signal: args.signal, timeout: args.timeoutMs, maxRetries: 0 },
-  );
+  const request = {
+    model: env.OPENAI_ANSWER_MODEL,
+    store: false,
+    input: args.input,
+    tools: [
+      {
+        type: "web_search" as const,
+        filters: { allowed_domains: [...args.allowedDomains] },
+        search_context_size: "medium" as const,
+      },
+    ],
+    include: ["web_search_call.action.sources", "web_search_call.results"] as const,
+    metadata: { operation: "clinical_ask_external_search" },
+  };
+  return client.responses.create(request as unknown as Parameters<typeof client.responses.create>[0], {
+    signal: args.signal,
+    timeout: args.timeoutMs,
+    maxRetries: 0,
+  });
 }
 
 function normalizeQueryEmbeddingText(text: string) {

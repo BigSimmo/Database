@@ -58,7 +58,7 @@ export function ClinicalAskComposerActions({
         aria-label={`Ask ${label}`}
         title={reason}
       >
-        {active ? `Asking ${label}…` : `Ask ${label}`}
+        {active ? "Asking…" : "Ask"}
       </button>
       {reason ? <p role="status">{reason}</p> : null}
     </div>

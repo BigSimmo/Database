@@ -7,15 +7,13 @@ import { createClinicalAskWebSearchResponse } from "@/lib/openai";
 const externalSearchTimeoutMs = 20_000;
 const injectionPattern =
   /\b(?:ignore (?:previous|prior|system) instructions|reveal the system prompt|override the rules)\b/i;
-const resultSchema = z
-  .object({
-    url: z.string(),
-    title: z.string().min(1).max(500),
-    text: z.string().min(1).max(2_000),
-    redirect_url: z.string().optional(),
-    published_at: z.string().nullable().optional(),
-  })
-  .strict();
+const resultSchema = z.object({
+  url: z.string(),
+  title: z.string().min(1).max(500),
+  text: z.string().min(1).max(2_000),
+  redirect_url: z.string().optional(),
+  published_at: z.string().nullable().optional(),
+});
 
 function rawResults(response: unknown): unknown[] {
   const output = (response as { output?: unknown }).output;
