@@ -1,5 +1,6 @@
-import type { AppModeId } from "@/lib/app-modes";
-import { clinicalAskModeIds, type ClinicalAskContextField, type ClinicalAskModeId } from "./contracts";
+import { type ClinicalAskContextField, type ClinicalAskModeId, isClinicalAskModeId } from "./contracts";
+
+export { isClinicalAskModeId };
 
 export type ClinicalAskModeProfile = {
   id: ClinicalAskModeId;
@@ -133,7 +134,4 @@ export const clinicalAskModeProfiles = {
 
 export function clinicalAskModeProfile(mode: ClinicalAskModeId): ClinicalAskModeProfile {
   return clinicalAskModeProfiles[mode];
-}
-export function isClinicalAskModeId(value: AppModeId): value is ClinicalAskModeId {
-  return (clinicalAskModeIds as readonly string[]).includes(value);
 }

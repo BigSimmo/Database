@@ -49,9 +49,11 @@ import {
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { useClinicalAskShellState } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
-import { ClinicalAskComposerActions } from "@/components/clinical-dashboard/clinical-ask-composer-actions";
-import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-ask-workspace";
-import { isClinicalAskModeId } from "@/lib/clinical-ask/mode-profiles";
+import {
+  ClinicalAskComposerActions,
+  ClinicalAskWorkspace,
+} from "@/components/clinical-dashboard/clinical-dashboard-lazy";
+import { isClinicalAskModeId } from "@/lib/clinical-ask/contracts";
 import { useClinicalAskRunner } from "@/components/clinical-dashboard/use-clinical-ask-runner";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";

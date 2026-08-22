@@ -1,3 +1,4 @@
+import type { AppModeId } from "@/lib/app-modes";
 import type { RetrievalAccessScope } from "@/lib/owner-scope";
 
 export const clinicalAskModeIds = [
@@ -10,6 +11,10 @@ export const clinicalAskModeIds = [
   "therapy-compass",
 ] as const;
 export type ClinicalAskModeId = (typeof clinicalAskModeIds)[number];
+
+export function isClinicalAskModeId(value: AppModeId): value is ClinicalAskModeId {
+  return (clinicalAskModeIds as readonly string[]).includes(value);
+}
 export type ClinicalAskContextField =
   | "ageGroup"
   | "careSetting"
