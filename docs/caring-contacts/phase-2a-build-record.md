@@ -1941,3 +1941,45 @@ falsifiability proof.
 Also sent: the forced-colours assertion has no discriminating power — both its checks pass even with the
 forced-colours rule deleted, because the marker carries an unconditional border and the token maps to
 `ButtonBorder` anyway. That is the decorative-assertion class this branch has now met ten times.
+
+### Task 15 fix round scoped re-review — ALL SEVEN ADDRESSED
+
+## Task 15: COMPLETE (commits `65afc286f`..`a0865f19f`, review clean after 1 fix round)
+
+Full suite 698 files / 7740 tests, zero failures. Browser proof 9 passed. `tsc` exit 0, eslint clean.
+Bundle re-measured on a clean rebuild: 2,028 gzip bytes exclusive to `/caring-contacts`, and the
+dashboard route downloads zero of them.
+
+The wording pin was verified as a genuine DOUBLE pin rather than a circular one: both assertions compare
+against the same literal written directly in the test, not against each other, so one catches a reworded
+constant and the other independently catches a component rendering text that differs from its constant.
+
+### The three deleted assertions — adjudicated, and the adjudication matters
+
+I asked the re-reviewer to second-guess this specifically, because deleting assertions is normally
+forbidden on this branch. Its verdict, reached by verifying the mechanism rather than accepting the
+explanation: **right call, nothing real lost.**
+
+Chromium's forced-colors mode overrides author colours to system colours for any element without
+`forced-color-adjust: none`. So an assertion that toggles a CSS custom property _behind_ that override
+can never observe a difference in rendered output — it is testing something the browser's own algorithm
+makes unobservable **by construction**, not something the implementer failed to exercise hard enough.
+That is a genuine tautology, and keeping it would be worse than having nothing there, because it reports
+coverage it does not have.
+
+Two details that settle it completely:
+
+- The three assertions were added and removed **within this same round**. They never existed at the
+  diff's base, and a sweep of every removed line in the whole diff finds only three `expect(` lines, all
+  in the forced-colours test, all with direct semantic replacements through a new helper. So this is not
+  "delete an existing safeguard" — it is "do not commit decorative assertions that were explored and
+  shown dead."
+- The implementer did not overreach into false confidence. It ran four mutations, reported plainly that
+  only one assertion on this surface can discriminate, and said in both the code comment and the report
+  that a real high-contrast theme in CI is the only way to strengthen it further — rather than inventing
+  another assertion to look thorough.
+
+**The general rule this settles: an assertion that cannot fail is not neutral, it is negative.** It
+occupies the place where a real check would go and it reports coverage that does not exist. Removing one
+is not a loosening, provided the removal is disclosed with the evidence that it was unfalsifiable — and
+provided nothing weaker but real was quietly dropped alongside it, which was checked here line by line.
