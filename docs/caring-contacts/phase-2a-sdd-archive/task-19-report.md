@@ -12,15 +12,15 @@ produce one. Step 1's registration guard was therefore already green, and
 needed editing, so none was edited.
 
 **Nothing already in the spec was weakened, and this is checkable rather than asserted.** The
-diff of the spec in commit `25495d5ae` contains **zero deleted lines** apart from the one import
-statement that was replaced by a longer import block:
+diff of the spec in commit `25495d5ae` contains **zero deleted lines** — one import block added
+above the existing import, and one block of tests added below the existing ones:
 
 ```
 git diff 25495d5ae~1 25495d5ae -- tests/ui-caring-contacts-workspace.spec.ts | grep "^-" | grep -v "^---"
 (no output)
 ```
 
-Nine existing tests, 199 lines, untouched. 391 lines added below them.
+Nine existing tests, 199 lines, untouched. The file grew from 199 lines to 591.
 
 ### The overlay half (brief item 5)
 
@@ -41,18 +41,18 @@ transcribed. A modality typed into the spec by hand would agree with the table o
 typed and drift silently afterwards, which is the one failure a browser proof of a frozen
 contract must not have.
 
-Geometry is stated per modality as what the modality *means*, not as the number that happened to
+Geometry is stated per modality as what the modality _means_, not as the number that happened to
 be measured:
 
-| Modality               | What is asserted                                                          |
-| ---------------------- | ------------------------------------------------------------------------- |
-| `full-screen-stage`    | phone only; fills the viewport in both axes                               |
-| `session-gate`         | phone: fills the viewport. Desktop: wider than a dialog may ever be       |
-| `bottom-sheet`         | phone only; spans the width, anchored to the bottom edge                  |
-| `inspection-drawer`    | desktop only; right-anchored, at most 56% of the viewport width           |
-| `dialog`               | desktop only; at most 640px wide                                          |
-| `status-banner`        | spans the width, anchored to the bottom edge, at either size              |
-| every modality         | no edge outside the viewport (±2px for sub-pixel rounding)                |
+| Modality            | What is asserted                                                    |
+| ------------------- | ------------------------------------------------------------------- |
+| `full-screen-stage` | phone only; fills the viewport in both axes                         |
+| `session-gate`      | phone: fills the viewport. Desktop: wider than a dialog may ever be |
+| `bottom-sheet`      | phone only; spans the width, anchored to the bottom edge            |
+| `inspection-drawer` | desktop only; right-anchored, at most 56% of the viewport width     |
+| `dialog`            | desktop only; at most 640px wide                                    |
+| `status-banner`     | spans the width, anchored to the bottom edge, at either size        |
+| every modality      | no edge outside the viewport (±2px for sub-pixel rounding)          |
 
 Ruling 60's 640–767 band is deliberately not sampled, and the spec says so at the constant that
 would have to change to sample it.
@@ -118,23 +118,30 @@ and ran cleanly. Recorded rather than explained; it did not recur.
 
 Six mutations, each run on its own, each checked for **which** assertion it reddened.
 
-| # | Mutation | Target assertion | Result |
-| - | -------- | ---------------- | ------ |
-| M0 | `shell.tsx`: every `WIDTH_STATE_MARKERS` row's `state` set to `compact` (the brief's Step 5) | the width-state equality, line 105 | **red at 768, 1024 and 1440**; 320/390/430 stayed green, correctly |
-| M1a | the rendered `data-overlay-modality` forced to `dialog` at 390 | stamped modality, line 410 | **red** on the first overlay |
-| M1b | the rendered `data-overlay-dismissal` forced to `recovery-only` at 390 | stamped dismissal, line 411 | **red** on the first overlay |
-| M2 | `sheet.tsx`: `sm:max-w-lg` → `sm:max-w-4xl` | dialog width ≤ 640, line 376 | **red**, `Expected: <= 640 / Received: 896` |
-| M3 | `sheet.tsx`: the Escape handler's `onCloseRef.current()` deleted | Escape closes it, line 429 | **red**, `Expected: 0 / Received: 1` |
-| M4 | `sheet.tsx`: the focus-restore candidate list reduced to `[null]` | focus returned to the opener, line 482 | **red** |
-| M5 | `shell.tsx`: `<main>` given `min-w-[420px]` | reflow overflow, line 560 | **red**, `Expected: <= 2 / Received: 100` |
-| M6 | `shell.tsx` `focusRing` emptied **and** the `globals.css` `:focus-visible` rule set to `outline: none` | focus ring present, line 546 | **red** in all four modes |
+Line numbers below are the **committed** file's. Two mutations ran against a file whose numbering
+differed slightly, so the run output quoted a different number; both are given.
+
+| #   | Mutation                                                                                              | Target assertion                              | Result                                                             |
+| --- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
+| M0  | `shell.tsx`: every `WIDTH_STATE_MARKERS` row's `state` set to `compact` (the brief's Step 5)          | width-state equality, line 105                | **red at 768, 1024 and 1440**; 320/390/430 stayed green, correctly |
+| M1a | the rendered `data-overlay-modality` forced to `dialog` at 390                                        | stamped modality, line 409 (run quoted 410)   | **red** on the first overlay                                       |
+| M1b | the rendered `data-overlay-dismissal` forced to `recovery-only` at 390                                | stamped dismissal, line 410 (run quoted 411)  | **red** on the first overlay                                       |
+| M2  | `sheet.tsx`: `sm:max-w-lg` → `sm:max-w-4xl`                                                           | dialog width ≤ 640, line 376                  | **red**, `Expected: <= 640 / Received: 896`                        |
+| M3  | `sheet.tsx`: the Escape handler's `onCloseRef.current()` deleted                                      | Escape closes it, line 429                    | **red**, `Expected: 0 / Received: 1`                               |
+| M4  | `sheet.tsx`: the focus-restore candidate list reduced to `[null]`                                     | focus returned to the opener, line 482        | **red**                                                            |
+| M5  | `shell.tsx`: `<main>` given `min-w-[420px]`                                                           | reflow overflow, line 566 (run quoted 560)    | **red**, `Expected: <= 2 / Received: 100`                          |
+| M6  | `shell.tsx` `focusRing` emptied **and** the `globals.css` `:focus-visible` rule set to `outline:none` | focus ring present, line 552 (run quoted 546) | **red** in all four modes                                          |
+
+M1a and M1b each inserted one extra line above the assertion, so the run reported one line later.
+M5 and M6 ran before the six-line comment correction described below was made, so the committed
+file numbers those two assertions six lines later than the run did.
 
 **Did each reach the assertion it targets, rather than an earlier one?** Checked for every
 mutation, and the answer is yes in every case:
 
 - **M0** — the overflow check on line 101 runs first and stayed green; the failure is line 105.
 - **M1a** — the deep-link count and the URL assertion run first and stayed green.
-- **M1b** — line 410 (modality) runs first and stayed green; the failure is line 411.
+- **M1b** — the modality assertion runs first and stayed green; the failure is the next statement.
 - **M2** — modality, dismissal and `expectFullyOnScreen` all run before line 376 and all stayed
   green (896px still fits inside 1440).
 - **M3** — every assertion in the loop body ran green before the Escape check.
@@ -144,7 +151,7 @@ mutation, and the answer is yes in every case:
 
 **Two honest qualifications.**
 
-*M1a and M1b mutate the rendered DOM, not production source.* The stamp is written in
+_M1a and M1b mutate the rendered DOM, not production source._ The stamp is written in
 `overlay-host.tsx`, which this task is forbidden to edit and which another agent was actively
 committing to while this work ran. Forcing the attribute to a wrong-but-valid value through
 `page.evaluate` proves the assertion is genuinely wired to the attribute and fires when it
@@ -155,7 +162,7 @@ held instead by `tests/caring-contacts-overlay-definitions.test.ts`, which parse
 than it is. Every other mutation is a real source mutation, applied and reverted, with a clean
 `git status` afterwards.
 
-*M6 needed two edits, and that is the finding.* Removing only the shell's own
+_M6 needed two edits, and that is the finding._ Removing only the shell's own
 `focus-visible:outline-2` utilities left all four focus-ring tests **green**, because the app-wide
 `:where(button, a, …):focus-visible` rule in `globals.css` still draws a 2px ring. That is the
 correct answer — the ring is still there — but it means the assertion protects the application's
@@ -188,7 +195,7 @@ unexplained was found, and therefore nothing was fixed under this step:
    1360×1208 → 1184×721). The mockup has a referral queue, a needs-action list, sending windows,
    an activity feed and three counts. Production has the shell, the heading, the unavailable "New
    plan" control, a "What this screen will show" paragraph and the More destinations panel.
-   Justified: those dashboard components *are* the Plan 2B surfaces, and Ruling 52 governs the
+   Justified: those dashboard components _are_ the Plan 2B surfaces, and Ruling 52 governs the
    unbuilt destinations. This is the largest difference and it is the declared shape of Phase 2A.
 2. **D2 — overlay copy is the frozen matrix's plain Australian English**, not the mockup's.
    Justified: `interaction-matrix.md` is the frozen record and the mockup predates it.
@@ -211,7 +218,7 @@ because every screen that would show them is Plan 2B. The fifth — genuine `rai
 compositions at 768 and 1024 — is not in the atlas at all (it samples only 390 and 1440) but is
 proved directly by the browser spec at all six widths.
 
-*Capture caveat, recorded so nobody misreads the image:* the atlas capture hides the fixed phone
+_Capture caveat, recorded so nobody misreads the image:_ the atlas capture hides the fixed phone
 dock with an injected style and this capture did not, so the production phone Today image shows
 the dock painted across the middle of a full-height screenshot. That is a capture artefact; dock
 clearance is asserted at all six widths in the spec.
@@ -250,8 +257,6 @@ No positioning was changed. This is the owner's decision, per Ruling 63.
 
 ## `verify:pr-local`
 
-Recorded in the "Concerns" section below if the final line differs from what is written here.
-
 The gate was **already red before this task's commits**, on `docs:check-links`, from three
 references inside the Task 15 and Task 18 evidence records:
 
@@ -276,18 +281,79 @@ each is there. After that:
 docs link check passed: 2302 repo path references resolve.
 ```
 
-**Decisive line from the full gate:**
+**Decisive lines from the full gate:**
 
-<!-- verify:pr-local result -->
+<!-- verify:pr-local result: pasted verbatim below -->
+
+The gate ran four times. The first three ended before reaching anything substantial and each is
+reported, because a summary that quoted only the last one would hide two real facts about how this
+repository behaves under concurrent agents.
+
+**Run 1 — exit 75, blocked, not red.** `lint` could not get the exclusive heavy-run lease:
 
 ```
-PR-local verification summary:
+DATABASE_HEAVY_RUN_ADMISSION_BUSY
+Another Database heavyweight command is active (PID 42780, worktree D:\Worktrees\Database\cc-2a-live,
+started 2026-08-22T06:31:47.361Z): vitest run --reporter=dot
+- failed: lint (exit 75)
+```
+
+That is the documented "blocked, retry" exit, not a failure. Another agent held the lease with a
+full Vitest run in this same worktree; the gate was re-run once it released.
+
+**Runs 2 and 3 — this report's own defects.** `format:changed` flagged this file as unformatted,
+then `docs:check-links` flagged an elided path inside it (`…json` reads as a repo path). Both
+fixed here.
+
+**Run 4 — everything green except two unrelated timeouts.** `lint` and `typecheck` both passed:
+
+```
 - completed: check:runtime, check:installed-lock-parity, format:changed, check:npm-ci-dry-run,
   sitemap:check, docs:check-index, docs:check-inventory, docs:check-scripts, docs:check-links,
-  check:branch-review-ledger, check:outstanding-issues, check:ledger-write-discipline, lint,
-  typecheck, test, build, check:rag:fixtures, check:medication-interactions,
-  check:medication-lexicon-report
+  check:branch-review-ledger, check:outstanding-issues, check:ledger-write-discipline, lint, typecheck
+- failed: test (exit 1)
+- not reached: build, check:rag:fixtures, check:medication-interactions, check:medication-lexicon-report
 ```
+
+```
+ Test Files  2 failed | 699 passed | 2 skipped (703)
+      Tests  2 failed | 7774 passed | 29 skipped (7805)
+   Duration  687.74s
+```
+
+**The two failures are environmental, not a regression, and that was verified rather than
+assumed.** Both are 30-second timeouts in tests that shell out to a child process, in files
+nothing in this change touches:
+
+```
+FAIL |node| tests/codex-cloud-setup.test.ts > writes managed shell policy behaviorally …
+FAIL |node| tests/design-sync-contract.test.ts > keeps sources, entry exports, previews … in parity
+Error: Test timed out in 30000ms.
+```
+
+Re-run on their own, both pass:
+
+```
+ Test Files  2 passed (2)
+      Tests  41 passed (41)
+   Duration  63.91s
+```
+
+The 687-second suite ran while other agents held Vitest and lint leases on the same machine, which
+is the load these two child-process tests time out under.
+
+**The four steps run 4 never reached were then run directly, and all four passed:**
+
+```
+Client bundle secret surface check passed.
+Offline RAG fixture and manifest validation passed (36 golden cases, 26 suites).
+[medication-interactions] data/medication-interaction-index.json is up to date (525 rows).
+[lexicon-report] docs/medication-interaction-lexicon-review.md is up to date (37 catalogue terms).
+EXIT=0
+```
+
+So every step of `verify:pr-local` has passed, with `test` carrying two machine-load timeouts that
+were individually reproduced green.
 
 ## Outstanding work recorded
 
@@ -301,15 +367,15 @@ Queued add request at docs/outstanding-issues-inbox/a3f85721-7092-45b0-b292-a70b
 
 ## Files changed
 
-| File | Change |
-| ---- | ------ |
-| `tests/ui-caring-contacts-workspace.spec.ts` | +391 lines, 0 deletions: the overlay matrix, the focus-return tests, the reflow test and the four focus-ring tests |
-| `docs/design-system/adoption-manifest.json` | regenerated by the pre-commit hook; the spec now names the Sheet and overlay surfaces it drives |
-| `docs/caring-contacts/phase-2a-visual-differences.md` | new — the atlas comparison under Ruling 62 |
-| `docs/caring-contacts/phase-2a-sdd-archive/task-15-report.md` | one corrected file path |
-| `scripts/check-docs-links.mjs` | two intentional absences added to the existing allowlist |
-| `docs/outstanding-issues-inbox/a3f85721-….json` | the Phase 2B request |
-| `docs/caring-contacts/phase-2a-sdd-archive/task-19-report.md` | this report |
+| File                                                               | Change                                                                                                                  |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `tests/ui-caring-contacts-workspace.spec.ts`                       | 199 → 591 lines, 0 deletions: the overlay matrix, the focus-return tests, the reflow test and the four focus-ring tests |
+| `docs/design-system/adoption-manifest.json`                        | regenerated by the pre-commit hook; the spec now names the Sheet and overlay surfaces it drives                         |
+| `docs/caring-contacts/phase-2a-visual-differences.md`              | new — the atlas comparison under Ruling 62                                                                              |
+| `docs/caring-contacts/phase-2a-sdd-archive/task-15-report.md`      | one corrected file path                                                                                                 |
+| `scripts/check-docs-links.mjs`                                     | two intentional absences added to the existing allowlist                                                                |
+| the Phase 2B inbox request file (`docs/outstanding-issues-inbox/`) | the Phase 2B request                                                                                                    |
+| `docs/caring-contacts/phase-2a-sdd-archive/task-19-report.md`      | this report                                                                                                             |
 
 Not edited, deliberately: `playwright.config.ts`, `scripts/playwright-pr-shards.mjs`,
 `tests/playwright-project-isolation.test.ts` (all three already register the spec);
@@ -320,7 +386,7 @@ Not edited, deliberately: `playwright.config.ts`, `scripts/playwright-pr-shards.
 ## Self-review
 
 - **The matrix cannot drift from the table.** Modality, dismissal and the overlay count are all
-  read from `WORKSPACE_OVERLAY_DEFINITIONS`; the test *name* interpolates
+  read from `WORKSPACE_OVERLAY_DEFINITIONS`; the test _name_ interpolates
   `WORKSPACE_OVERLAY_DEFINITIONS.length`, so a 25th row renames the test rather than being
   silently skipped.
 - **The dismissal helper fails closed.** An unrecognised `dismissal` throws rather than defaulting
