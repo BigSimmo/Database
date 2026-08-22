@@ -86,6 +86,8 @@ const documentedRedirectTargets: Record<string, string> = {
 const routeDescriptions: Record<string, string> = {
   "/": "Main Clinical KB shell.",
   "/applications": "Legacy application launcher redirect to Tools.",
+  "/caring-contacts":
+    "Caring Contacts workspace — a synthetic, non-clinical demonstration of caring-contact follow-up. Standalone: it owns its own navigation and is entered from the Tools catalogue.",
   "/calculators": "Psychiatry rating scale scoring and clinical decision calculators.",
   "/dictionary": "Clinical dictionary home with term search and category navigation.",
   "/dictionary/[slug]": "Source-governed clinical term definition, distinction, and reference detail.",
@@ -239,6 +241,10 @@ const routeOwnershipRows = [
   ["Safety Plan", "src/app/safety-plan, src/components/patient-safety-plan.tsx"],
   ["Privacy", "src/app/privacy"],
   ["Tools", "src/components/applications-launcher-page.tsx"],
+  [
+    "Caring Contacts workspace",
+    "src/app/caring-contacts, src/components/caring-contacts/workspace, src/lib/caring-contacts-routes.ts",
+  ],
   ["Mockups", "src/app/mockups"],
 ] as const;
 
