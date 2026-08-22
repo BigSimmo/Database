@@ -468,7 +468,11 @@ describe("eval quality reporting", () => {
       substantive_grounded_rate: 0.4,
       comparison_source_extractive_fallback_count: 1,
     });
-    expect(report.blocking_threshold_failures).toContain("RAG source_backed_review_fallback_count 3 above 0");
+    // 3 still blocks against the two-case allowance the threshold now carries (see
+    // qualityThresholds in scripts/eval-quality.ts): the gate fires on a rise BEYOND the two
+    // conversions canary 32589154243 attributed to `guidance_wrapper_fragment`, not on
+    // degradation as such.
+    expect(report.blocking_threshold_failures).toContain("RAG source_backed_review_fallback_count 3 above 2");
     expect(renderEvalQualityMarkdown(report)).toContain("| Source-backed review fallbacks | 3 |");
     expect(renderEvalQualityMarkdown(report)).toContain("| Substantive grounded answers | 2 |");
   });

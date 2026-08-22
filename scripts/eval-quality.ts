@@ -215,7 +215,23 @@ const qualityThresholds = {
   ragGroundedSupportedRate: 0.9,
   ragUnsupportedCorrectRate: 1,
   ragCitationFailureRate: 0,
-  ragSourceBackedReviewFallbackCount: 0,
+  // A source-backed review fallback is a DEGRADED answer, not a defective one: the written
+  // answer failed a quality gate, so the reader is shown the cited documents instead of prose
+  // that cannot be checked against them. A threshold of 0 encoded the opposite assumption —
+  // that any degradation is a failure — which only held while the quality gates were missing
+  // the answers they should have caught. Packet 2 of #231 (PR #2285, ledger #NPQJKP) added the
+  // `guidance_wrapper_fragment` predicate, and canary run 32589154243 (2026-08-22) converted
+  // exactly the two answers it was built for — `antipsychotic-metabolic-monitoring` and
+  // `discharge-documentation`, both `final_quality_gate:guidance_wrapper_fragment` — from
+  // fluent non-sentences into source pointers. That is the gate working, so a permanently red
+  // weekly canary would teach us to ignore it.
+  //
+  // 2 is therefore an allowance for the two known conversions, not a rate. It is deliberately
+  // NOT a rate and deliberately NOT open-ended: a third fallback still blocks, because a rise
+  // beyond the two cases we can name is the signal this threshold exists to carry. Do not raise
+  // it again to clear a red run — investigate which case degraded and why, exactly as this
+  // change did.
+  ragSourceBackedReviewFallbackCount: 2,
   numericGroundingFailureRate: 0,
   staleTopResultRate: 0.25,
   reviewRequiredTopResultRate: 0.25,
