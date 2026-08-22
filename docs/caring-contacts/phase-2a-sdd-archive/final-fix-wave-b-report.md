@@ -304,8 +304,8 @@ that would otherwise have caught it.
   anywhere under `src/lib/caring-contacts/**`, not even a `node:` builtin.
   `tests/caring-contacts-message-policy.test.ts` already held one file to this shape; this holds the
   whole tree to it.
-- `importSpecifiers` is now `/\b(?:from|import|require)\s*\(?\s*["']([^"']+)["']/g`, catching
-  `require(` and dynamic `import(` as well as the static forms. It feeds both tests, so the
+- `importSpecifiers` now recognises static imports plus `require(` and dynamic `import(` calls.
+  It feeds both tests, so the
   relative-escape assertion gained the same reach.
 - A third case tests the extractor directly against all five specifier forms, so a future narrowing
   of that regex goes red on the extractor rather than silently on the tree.
