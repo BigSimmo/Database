@@ -2038,3 +2038,39 @@ rather than inventing a data path.
   "communicated through text, icon and structure, never colour alone" means. A greyscale render would add
   little, and Task 15 already established that most forced-colours assertions on this surface cannot
   discriminate — so adding one would be adding an assertion that cannot fail.
+
+### Ruling 56 implemented at `1453258c9`, and the leak path checked rather than accepted
+
+`page.tsx` is now async and reads the real state through the same three lines the HTTP handler uses:
+`resolveDemoActor()`, `caringContactsStore()`, `getServiceState({ actor })`. No literal state anywhere.
+The required-prop test is a `@ts-expect-error` type assertion **proven falsifiable** — restoring the
+optional prop yields `TS2578: Unused '@ts-expect-error' directive` on that exact line, which is the right
+way to test a type-level guarantee.
+
+A failed read is deliberately **not** caught and reaches `error.tsx`. That is correct and worth
+recording: there is no honest fallback, because rendering "running" when the store was unreachable is
+exactly the claim spec §4.2 forbids.
+
+**The leak path I checked myself, because the implementer's own framing understated the risk.** It
+reported that the note "travels through props but is never rendered". That is only safe if nothing on
+that path is a client component — a `"use client"` boundary would serialise the whole record into the
+HTML payload and put a responder's free-text note into the page source for every team to read, without
+it ever appearing on screen. Verified:
+
+- Neither `shell.tsx` nor `service-state-banner.tsx` carries `"use client"`; both are Server Components.
+- The only client components in the workspace tree are `unavailable-destination.tsx` and `error.tsx`.
+- The banner's subtree contains one of them — the service-stop control — and it is passed `id`, `label`,
+  `reason` and `className`, **all literal constants**. Nothing derived from the state.
+- `note` is read nowhere in the banner or the shell.
+
+So the two narrowings sitting at separate boundaries is correct rather than a gap: `ServiceStopBannerFacts`
+governs rendering and `service-state-view.ts` governs the HTTP route, and they are genuinely different
+boundaries returning different shapes. The comment at the top of the banner explaining the note is out of
+scope by construction is the artefact that stops a later edit reintroducing it.
+
+**Owed and being run: the browser proof against the now-async page.** Making the one production screen an
+async Server Component that awaits a cookie read and a store read, inside a `next/dynamic` boundary, is a
+material change that no unit test exercises — nothing imports the page module. The focused spec drives the
+real page and is the right gate. Two things specifically at risk: the duplicate-shell assertion, because
+an awaited read changes exactly the streaming behaviour that produced that defect in Task 15; and the
+synthetic marker, which now renders behind an awaited read.
