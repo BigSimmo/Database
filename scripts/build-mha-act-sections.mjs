@@ -24,7 +24,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const catalogPath = join(root, "data", "forms-catalog.json");
@@ -352,6 +352,12 @@ export function checkProblems({ source, curated, catalog, supplemental }) {
       // The basis is what makes an asserted mapping checkable rather than folklore.
       problems.push(`Supplemental cue for Form ${form.code} has no stated basis.`);
     }
+    if (!["reviewed", "drafted"].includes(form.status)) {
+      problems.push(`Supplemental cue for Form ${form.code} has unknown status "${form.status}".`);
+    }
+    if (form.status === "reviewed" && (!form.reviewedBy?.trim() || !form.reviewedAt?.trim())) {
+      problems.push(`Reviewed supplemental cue for Form ${form.code} needs reviewedBy and reviewedAt.`);
+    }
     if (catalogCodes.has(normalizeFormCode(form.code))) {
       problems.push(
         `Form ${form.code} has both a catalogue section cue and a supplemental one — remove the supplemental entry.`,
@@ -400,7 +406,10 @@ function check() {
   );
 }
 
-const isEntrypoint = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+// `file://${process.argv[1]}` is not a valid comparison on Windows because argv
+// carries backslashes and the URL has an extra leading slash. Use the same
+// cross-platform conversion as the repository's other directly invoked scripts.
+const isEntrypoint = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isEntrypoint) {
   if (process.argv.includes("--refresh")) await refresh();
   else if (process.argv.includes("--draft")) draft();

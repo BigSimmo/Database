@@ -72,26 +72,21 @@ describe("psychiatry form records", () => {
     expect(form?.summaryCards?.some((card) => card.id === "source")).toBe(false);
     // Source status remains on the rail / overview, not in the priority-fact grid.
     expect(form?.source?.status).toBe("Source checked");
-    // Form 13 has no archive row and so no section cue of its own; it reaches the same
-    // card through the supplemental map instead of falling back to Source status.
-    expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "source")).toBe(false);
-    expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "act-sections")).toBe(true);
-
-    // Form 4C is the shape that motivated the rollout: a boilerplate catalogue row whose
-    // only real authority content is its section cue.
-    const form4c = formCatalogDetails(getFormRecord("transfer-order")!);
-    expect(form4c?.actSections?.map((entry) => entry.section)).toEqual(["66", "91"]);
-    expect(form4c?.actSections?.every((entry) => entry.summary?.trim())).toBe(true);
+    // Draft section summaries and supplemental form mappings remain staged for
+    // clinical review; they cannot replace the conservative Source status card.
+    expect(getFormRecord("form-1b")?.summaryCards?.some((card) => card.id === "source")).toBe(true);
+    expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "source")).toBe(true);
+    expect(formCatalogDetails(getFormRecord("transfer-order")!)?.actSections).toBeUndefined();
   });
 
-  it("gives every one of the 54 forms an Act-sections card", () => {
+  it("keeps every unreviewed form on the Source status card", () => {
     expect(formRecords).toHaveLength(54);
-    for (const form of formRecords) {
+    for (const form of formRecords.filter((entry) => entry.slug !== "form-1a")) {
       expect(
-        form.summaryCards?.map((card) => card.id),
+        form.summaryCards?.some((card) => card.id === "source"),
         form.slug,
-      ).toEqual(["clock", "authority", "criteria", "act-sections"]);
-      expect(formCatalogDetails(form)?.actSections?.length, form.slug).toBeGreaterThan(0);
+      ).toBe(true);
+      expect(formCatalogDetails(form)?.actSections, form.slug).toBeUndefined();
     }
   });
 
@@ -102,15 +97,12 @@ describe("psychiatry form records", () => {
     // the superseded legal summary forever and bypass the hash gate entirely.
     const rows = buildDefaultFormRows("00000000-0000-4000-8000-000000000001");
     const seeded = structuredClone(rows.find((row) => row.slug === "form-1b"))!;
-    const payload = seeded.catalog_payload as { actSections: { section: string; summary?: string }[] };
-    payload.actSections = payload.actSections.map((section) => ({ ...section, summary: "SUPERSEDED SUMMARY" }));
+    const payload = seeded.catalog_payload as { actSections?: { section: string; summary?: string }[] };
+    payload.actSections = [{ section: "66", summary: "SUPERSEDED SUMMARY" }];
 
     const merged = mergeRegistryRecordsWithDefaults("form", [seeded as never]);
     const record = merged.find((entry) => entry.slug === "form-1b");
-    const summaries = formCatalogDetails(record!)?.actSections?.map((section) => section.summary);
-
-    expect(summaries).not.toContain("SUPERSEDED SUMMARY");
-    expect(summaries).toEqual(formCatalogDetails(getFormRecord("form-1b")!)?.actSections?.map((s) => s.summary));
+    expect(formCatalogDetails(record!)?.actSections).toBeUndefined();
   });
 
   it("covers the seven unindexed forms from the supplemental cue map", () => {
@@ -123,27 +115,19 @@ describe("psychiatry form records", () => {
       expect(record, entry.code).toBeTruthy();
       const details = formCatalogDetails(record!);
       expect(details?.sourceFacts?.sectionCue, entry.code).toBeFalsy();
-      expect(
-        details?.actSections?.map((section) => section.section),
-        entry.code,
-      ).toEqual(entry.sections);
-      expect(
-        details?.actSections?.every((section) => section.summary?.trim()),
-        entry.code,
-      ).toBe(true);
+      expect(details?.actSections, entry.code).toBeUndefined();
+      expect(entry.status, entry.code).toBe("drafted");
       expect(entry.basis.trim().length, entry.code).toBeGreaterThan(40);
     }
   });
 
-  it("caps the Act-sections card detail once a form cites more sections than fit as chips", () => {
-    // Form 5A cites 11 sections; the card shows a count instead of an unreadable list,
-    // and the chip row collapses the remainder behind an overflow control.
-    const form5a = getFormRecord("form-5a");
-    expect(formCatalogDetails(form5a!)?.actSections).toHaveLength(11);
-    expect(form5a?.summaryCards?.find((card) => card.id === "act-sections")?.detail).toBe("11 sections cited");
-    // A form within the limit still lists its sections.
-    expect(getFormRecord("transfer-order")?.summaryCards?.find((card) => card.id === "act-sections")?.detail).toBe(
-      "66 · 91",
+  it("keeps the existing reviewed Form 1A override renderable", () => {
+    // Form 1A's existing reviewed override remains the only renderable Act-section
+    // card until the staged shared summaries receive review sign-off.
+    const form1a = getFormRecord("form-1a");
+    expect(formCatalogDetails(form1a!)?.actSections).toHaveLength(6);
+    expect(form1a?.summaryCards?.find((card) => card.id === "act-sections")?.detail).toBe(
+      "26 · 31 · 36 · 37 · 41 · 42",
     );
   });
 

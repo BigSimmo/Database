@@ -44,7 +44,16 @@ export const mhaActMetadata = {
 
 const bySection = new Map(file.sections.map((entry) => [entry.section, entry]));
 
-type FormsActSectionCuesFile = { forms: { code: string; sections: string[]; basis: string }[] };
+type FormsActSectionCuesFile = {
+  forms: {
+    code: string;
+    sections: string[];
+    basis: string;
+    status: "reviewed" | "drafted";
+    reviewedBy?: string;
+    reviewedAt?: string;
+  }[];
+};
 
 const normalizeFormCode = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
 
@@ -54,10 +63,9 @@ const normalizeFormCode = (value: string) => value.trim().toLowerCase().replace(
  * `data/forms-act-section-cues.json` so the mapping can be checked.
  */
 const supplementalCueByCode = new Map(
-  (formsActSectionCues as FormsActSectionCuesFile).forms.map((form) => [
-    normalizeFormCode(form.code),
-    form.sections.join(", "),
-  ]),
+  (formsActSectionCues as FormsActSectionCuesFile).forms
+    .filter((form) => form.status === "reviewed")
+    .map((form) => [normalizeFormCode(form.code), form.sections.join(", ")]),
 );
 
 /** The section cue for a form: its own if the archive indexed one, else the supplemental map. */
@@ -87,11 +95,9 @@ export function mhaActSection(section: string): MhaActSection | undefined {
  * Renderable Act sections for a form's cue, or `undefined` to leave the Source status
  * card in place.
  *
- * Returns `undefined` unless EVERY cited section has a summary (drafted or reviewed).
- * That is the staged-rollout gate: a form flips to the Act-sections card only once its
- * whole citation list is written, so no form ever shows a half-populated authority card.
- * Drafted sections carry `reviewStatus` through to the sheet, which shows the
- * awaiting-review caveat.
+ * Returns `undefined` unless EVERY cited section has a clinically reviewed summary.
+ * Drafted summaries remain in the review artifact, but they cannot replace the
+ * conservative Source status card in the clinical UI.
  *
  * Throws for a cue naming a section absent from the curated file — that is a data
  * defect the build gate also catches, and it must never render as a dead chip.
@@ -108,12 +114,12 @@ export function actSectionsForCue(cue: string | undefined | null): FormActSectio
     return entry;
   });
 
-  if (sections.some((entry) => entry.status === "pending" || !entry.summary?.trim())) return undefined;
+  if (sections.some((entry) => entry.status !== "reviewed" || !entry.summary?.trim())) return undefined;
 
   return sections.map((entry) => ({
     section: entry.section,
     title: entry.title,
     summary: entry.summary,
-    reviewStatus: entry.status === "reviewed" ? "reviewed" : "drafted",
+    reviewStatus: "reviewed",
   }));
 }

@@ -9,7 +9,13 @@ import {
   citedSections,
   parseSectionCue as scriptParseSectionCue,
 } from "../scripts/build-mha-act-sections.mjs";
-import { actSectionsForCue, mhaActMetadata, mhaActSection, parseSectionCue } from "@/lib/mha-act-sections";
+import {
+  actSectionsForCue,
+  mhaActMetadata,
+  mhaActSection,
+  parseSectionCue,
+  sectionCueForForm,
+} from "@/lib/mha-act-sections";
 
 describe("parseSectionCue", () => {
   it("reads every cue shape present in the forms catalogue", () => {
@@ -81,21 +87,20 @@ describe("Act section coverage", () => {
 });
 
 describe("actSectionsForCue", () => {
-  it("marks every summary with the review status it actually has", () => {
-    // A drafted summary was written from the Act text but carries no clinician sign-off,
-    // and the section sheet says so. Never let a drafted entry render as reviewed.
-    const sections = actSectionsForCue("sections 66, 91");
-    expect(sections?.map((entry) => entry.section)).toEqual(["66", "91"]);
-    for (const entry of sections ?? []) {
-      const source = mhaActSection(entry.section);
-      expect(entry.reviewStatus).toBe(source?.status === "reviewed" ? "reviewed" : "drafted");
-      expect(entry.summary?.trim()).not.toBe("");
-    }
+  it("withholds drafted summaries from the clinical UI", () => {
+    expect(actSectionsForCue("sections 66, 91")).toBeUndefined();
   });
 
   it("returns no sections for a form with no cue", () => {
     expect(actSectionsForCue(undefined)).toBeUndefined();
     expect(actSectionsForCue("")).toBeUndefined();
+  });
+
+  it("withholds supplemental mappings until their own review is signed off", () => {
+    for (const entry of formsActSectionCues.forms) {
+      expect(entry.status).toBe("drafted");
+      expect(sectionCueForForm(entry.code, undefined), entry.code).toBeUndefined();
+    }
   });
 });
 
@@ -112,8 +117,9 @@ describe("actSectionsForCue against reviewed data", () => {
     },
     sections: [
       { section: "66", title: "Transfer from general hospital", summary: "Summary of 66.", status: "reviewed" },
-      { section: "91", title: "Transfer between authorised hospitals", summary: "Summary of 91.", status: "drafted" },
+      { section: "91", title: "Transfer between authorised hospitals", summary: "Summary of 91.", status: "reviewed" },
       { section: "45", title: "Still being written", status: "pending" },
+      { section: "46", title: "Awaiting review", summary: "Summary of 46.", status: "drafted" },
     ],
   };
 
@@ -125,7 +131,7 @@ describe("actSectionsForCue against reviewed data", () => {
         section: "91",
         title: "Transfer between authorised hospitals",
         summary: "Summary of 91.",
-        reviewStatus: "drafted",
+        reviewStatus: "reviewed",
       },
       { section: "66", title: "Transfer from general hospital", summary: "Summary of 66.", reviewStatus: "reviewed" },
     ]);
@@ -135,6 +141,12 @@ describe("actSectionsForCue against reviewed data", () => {
     vi.doMock("../data/mha-2014-sections.json", () => ({ default: reviewedFixture }));
     const { actSectionsForCue: withFixture } = await import("@/lib/mha-act-sections");
     expect(withFixture("sections 66, 45")).toBeUndefined();
+  });
+
+  it("withholds the whole list when one cited summary is still drafted", async () => {
+    vi.doMock("../data/mha-2014-sections.json", () => ({ default: reviewedFixture }));
+    const { actSectionsForCue: withFixture } = await import("@/lib/mha-act-sections");
+    expect(withFixture("sections 66, 46")).toBeUndefined();
   });
 
   it("throws for a cue naming a section with no curated entry", async () => {

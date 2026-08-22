@@ -371,7 +371,8 @@ function detailsFor(form: OfficialForm): FormCatalogDetails {
     priorityFacts: priorityFacts(raw.priorityFacts),
     // A hand-written per-form override wins; otherwise the form's own section cue
     // resolves against the shared Act summaries, which yields sections only once every
-    // one of them has been clinically reviewed.
+    // one of them has been clinically reviewed. Supplemental cues are also withheld
+    // until their form-to-section mapping has its own review sign-off.
     actSections:
       actSections(raw.actSections) ?? actSectionsForCue(sectionCueForForm(form.code, sourceFacts?.sectionCue)),
     sourceFacts,
