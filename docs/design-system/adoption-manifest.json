@@ -21,6 +21,10 @@
       "documents-source-legacy-redirect": {
         "route": "src/app/(search-app)/documents/source/page.tsx",
         "kind": "next-redirect-only"
+      },
+      "ward-management-constellation-legacy-redirect": {
+        "route": "src/app/ward-management/constellation/page.tsx",
+        "kind": "next-redirect-only"
       }
     },
     "evidence": {
@@ -3171,6 +3175,63 @@
       "roots": []
     },
     {
+      "id": "ward-management-constellation-legacy-redirect",
+      "disposition": "legacy-redirect",
+      "documentedDisposition": "Retired Phase 1 constellation URLs redirect to /ward-management/network; they do not own a visual surface.",
+      "routes": ["src/app/ward-management/constellation/page.tsx"],
+      "routeRoots": false,
+      "proofApplicability": "not-applicable",
+      "nonVisualRoute": {
+        "contract": {
+          "route": "src/app/ward-management/constellation/page.tsx",
+          "kind": "next-redirect-only"
+        },
+        "source": {
+          "importsNextRedirect": true,
+          "hasDefaultFunction": true,
+          "hasJsx": false,
+          "terminalOutcomes": ["redirect"],
+          "redirectOnly": true
+        },
+        "topologyMatches": true
+      },
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "dark": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "print": {
+          "status": "not-applicable",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-applicable",
+        "files": []
+      },
+      "permittedComponentFamilies": [],
+      "sanctionedSpecialPatterns": [],
+      "roots": []
+    },
+    {
       "id": "favourites",
       "disposition": "owned",
       "documentedDisposition": null,
@@ -3948,6 +4009,7 @@
       "src/app/reference/colour-coding/page.tsx",
       "src/app/safety-plan/page.tsx",
       "src/app/ward-management/capacity/page.tsx",
+      "src/app/ward-management/constellation/page.tsx",
       "src/app/ward-management/ed/[edId]/page.tsx",
       "src/app/ward-management/exceptions/page.tsx",
       "src/app/ward-management/governance/page.tsx",
@@ -4028,6 +4090,7 @@
       "src/app/reference/colour-coding/page.tsx",
       "src/app/safety-plan/page.tsx",
       "src/app/ward-management/capacity/page.tsx",
+      "src/app/ward-management/constellation/page.tsx",
       "src/app/ward-management/ed/[edId]/page.tsx",
       "src/app/ward-management/exceptions/page.tsx",
       "src/app/ward-management/governance/page.tsx",
@@ -4048,15 +4111,15 @@
     "literalCkbV2RootCount": 1,
     "inheritedCkbV2RootCount": 93,
     "dynamicCkbV2RootCount": 0,
-    "v2MountedSurfaceCount": 16,
-    "declaredV2SurfaceCount": 16
+    "v2MountedSurfaceCount": 17,
+    "declaredV2SurfaceCount": 17
   },
   "summary": {
     "registeredComponentCount": 54,
     "previewCount": 54,
     "productImportedComponentCount": 34,
     "rootCount": 94,
-    "productionRouteCount": 78,
-    "nextUiEntryCount": 139
+    "productionRouteCount": 79,
+    "nextUiEntryCount": 140
   }
 }

@@ -13,7 +13,7 @@
   --ed-space-14: 0.875rem;
   --ed-space-16: 1rem;
   --ed-space-20: 1.25rem;
-  --ed-space-48: 3rem;
+  --ed-space-48: var(--spacing-tap);
   --ed-leading-body: 1.4;
   --ed-leading-prose: 1.5;
   display: grid;

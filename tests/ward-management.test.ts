@@ -7,6 +7,8 @@ import { movementById, wardMovements } from "../src/components/ward-management/w
 import { NOW_ANCHOR, allUnits } from "../src/components/ward-management/ward-sites";
 import { toolCatalogRecordById } from "../src/lib/tools-catalog";
 
+const modesSource = readFileSync("src/components/ward-management/ward-management-modes.tsx", "utf8");
+
 /**
  * The mode strip renders one literal `<Link href="...">` per view so
  * `tests/route-reachability.test.ts` can find the hrefs by static AST scan. Reading the
@@ -23,6 +25,12 @@ function routeFileFor(href: string) {
 }
 
 describe("Ward Flow synthetic prototype", () => {
+  it("declares every queue and capacity header as a column header", () => {
+    const thTags = [...modesSource.matchAll(/<th(?:\s[^>]*)?>/g)].map((match) => match[0]);
+    expect(thTags).toHaveLength(12);
+    expect(thTags.every((tag) => tag.includes('scope="col"'))).toBe(true);
+  });
+
   it("keeps the production route reachable from the Tools catalogue", () => {
     expect(toolCatalogRecordById("ward-management").href).toBe("/ward-management");
   });

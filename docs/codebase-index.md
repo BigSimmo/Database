@@ -358,7 +358,8 @@ visible reasons and a human confirms or overrides.
   derivations)
 - **Surfaces:** `ward-management-console.tsx` (command), `ward-management-modes.tsx` (mode
   workspaces), `ward-management-network.tsx` (network diagram), `ward-management-navigation.tsx`,
-  `coordinator/coordinator-screen.tsx` (Phase 3 live coordinator screen — priority queue, statewide
+  `src/app/ward-management/constellation/page.tsx` (retired constellation; server redirect to
+  `/ward-management/network`), `coordinator/coordinator-screen.tsx` (Phase 3 live coordinator screen — priority queue, statewide
   flow diagram, explainable shortlist), `ward/ward-screen.tsx` (Task 8: one inpatient unit's own
   view — `/ward-management/ward/[unitId]`; capacity confirmation, incoming-referral accept/hold/
   decline, restriction notices, withdrawn referrals), `officer/officer-screen.tsx` (Task 9: the
