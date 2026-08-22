@@ -192,6 +192,15 @@ function CondensedStoppedBar({ facts }: { facts: ServiceStopBannerFacts }) {
  *
  * Takes the whole `ServiceState` because that is what a caller holds, reads exactly two of
  * its fields, and hands them to the narrowed renderer above. `note` is read nowhere.
+ *
+ * The narrowing happens HERE rather than at the call site, which means `state.note` would
+ * compile inside this function even though it cannot compile inside `CondensedStoppedBar`.
+ * That is deliberate and was ruled on in fix round 1. It is exactly the shape
+ * `ServiceStateBanner` below already has, and the two are siblings a reader compares: making
+ * one of them take pre-narrowed facts while the other takes the record would cost a reader
+ * more than it buys, since this three-line wrapper renders no JSX of its own and the
+ * note-sentinel test in `caring-contacts-explained-automation.dom.test.tsx` scans the whole
+ * rendered markup at runtime. The compile-time guarantee is where the JSX is.
  */
 export function CondensedServiceStopBar({ state }: { state: ServiceState }) {
   if (!state.stopped) return null;

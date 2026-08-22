@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 import { render, screen } from "@testing-library/react";
@@ -327,6 +327,67 @@ function workspaceSourceFiles() {
  * on screen — and every DOM test above would stay green, because JSDOM has no RSC
  * payload to inspect.
  */
+/**
+ * Every module specifier a source file names: `from "x"`, a bare `import "x"`, and `import("x")`.
+ */
+const MODULE_SPECIFIER = /(?:from|import)\s*\(?\s*["']([^"']+)["']/g;
+
+/**
+ * Resolves a specifier to a file this guard should follow, or `null`.
+ *
+ * Two kinds are followed. **Relative** specifiers, because a helper authored beside a client
+ * component is the realistic way a client module acquires something it should not have. And
+ * **aliased `@/…` specifiers that land inside a caring-contacts directory**, for the same reason
+ * one directory further out. Everything else — `react`, `@/components/ui-primitives`, the shared
+ * design-system graph — is deliberately NOT followed: that graph reaches most of `src/`, and a
+ * guard that walks the whole application is a guard nobody can reason about. The residual gap is
+ * stated in the test below rather than papered over.
+ */
+function resolveGuardedModule(fromFile: string, specifier: string): string | null {
+  let base: string;
+  if (specifier.startsWith(".")) {
+    base = path.resolve(path.dirname(fromFile), specifier);
+  } else if (specifier.startsWith("@/")) {
+    base = path.join(process.cwd(), "src", specifier.slice(2));
+    if (!base.split(path.sep).includes("caring-contacts")) return null;
+  } else {
+    return null;
+  }
+
+  const candidates = [
+    base,
+    ...CLIENT_CAPABLE_EXTENSIONS.map((extension) => base + extension),
+    ...CLIENT_CAPABLE_EXTENSIONS.map((extension) => path.join(base, `index${extension}`)),
+  ];
+  return candidates.find((candidate) => existsSync(candidate) && statSync(candidate).isFile()) ?? null;
+}
+
+/**
+ * `entry` plus every module reachable from it through the specifiers above, transitively.
+ *
+ * Fix round 1, finding 2. The scan below used to read an allowlisted component's OWN source and
+ * stop there. `service-stop-scroll-watcher.tsx` passes that check and then imports
+ * `service-stop-bar-anchors.ts`, which nothing constrained at all — so the guard certified
+ * exactly the one file it happened to open. That is the same shape as the top-level-only
+ * directory read and the `.ts`/`.tsx`-only extension list this file has already had to widen
+ * twice: a check whose claim is broader than the path it walks.
+ */
+function guardedModuleGraph(entry: string): string[] {
+  const seen = new Set<string>();
+  const pending = [entry];
+  while (pending.length > 0) {
+    const file = pending.pop()!;
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const source = readFileSync(file, "utf8");
+    for (const [, specifier] of source.matchAll(MODULE_SPECIFIER)) {
+      const resolved = resolveGuardedModule(file, specifier);
+      if (resolved !== null) pending.push(resolved);
+    }
+  }
+  return [...seen];
+}
+
 describe("the service-state path stays on the server", () => {
   it("keeps every workspace component but the allowlisted client controls a Server Component", () => {
     const clientComponents = workspaceSourceFiles()
@@ -344,7 +405,7 @@ describe("the service-state path stays on the server", () => {
     ).toEqual([...ALLOWED_CLIENT_COMPONENTS].sort());
   });
 
-  it("keeps the service state out of every client component that does exist", () => {
+  it("keeps the service state out of every client component and everything it imports", () => {
     // The complement of the allowlist above, and deliberately the modest version.
     // Tracing which props a JSX element actually receives is not something source
     // text can answer reliably, so this does not attempt it. What it does answer
@@ -354,14 +415,42 @@ describe("the service-state path stays on the server", () => {
     // Every entry is covered, not merely the first (Ruling 59): the allowlist is
     // the whole reason a client boundary is permitted here, so each addition must
     // carry the same proof the original one did.
+    //
+    // And every entry's own imports are covered too (fix round 1, finding 2). Checking a
+    // client component's source alone certifies one file while the boundary is a graph:
+    // a helper it imports is just as much inside the client bundle, and nothing was
+    // holding those. Exposure today was nil; the hole was the guard's, not the code's.
     expect(ALLOWED_CLIENT_COMPONENTS.length).toBeGreaterThan(0);
     for (const name of ALLOWED_CLIENT_COMPONENTS) {
-      const source = readFileSync(path.join(WORKSPACE_DIR, name), "utf8");
+      const entry = path.join(WORKSPACE_DIR, name);
+      const source = readFileSync(entry, "utf8");
       // A stale entry would silently widen the allowlist without covering anything.
       expect(source, `${name} is allowlisted but is not a Client Component`).toMatch(USE_CLIENT_DIRECTIVE);
-      expect(source, `${name} references the service-state module`).not.toMatch(/service-state/);
-      expect(source, `${name} names ServiceState`).not.toMatch(/ServiceState/);
+
+      for (const file of guardedModuleGraph(entry)) {
+        const label = path.relative(process.cwd(), file).split(path.sep).join("/");
+        const moduleSource = readFileSync(file, "utf8");
+        expect(moduleSource, `${label} (reached from ${name}) references the service-state module`).not.toMatch(
+          /service-state/,
+        );
+        expect(moduleSource, `${label} (reached from ${name}) names ServiceState`).not.toMatch(/ServiceState/);
+      }
     }
+  });
+
+  it("actually follows a client component's imports rather than stopping at its own file", () => {
+    // The anti-vacuity guard for the check above. If `guardedModuleGraph` ever stopped
+    // resolving — a changed extension list, a moved file, a regex that no longer matches the
+    // import syntax in use — the loop above would still run, still pass, and cover exactly
+    // what it covered before the fix: one file. This names the concrete edge that fix was
+    // written for, so the coverage cannot quietly evaporate.
+    const watcher = path.join(WORKSPACE_DIR, "service-stop-scroll-watcher.tsx");
+    const reached = guardedModuleGraph(watcher).map((file) =>
+      path.relative(WORKSPACE_DIR, file).split(path.sep).join("/"),
+    );
+    expect(reached, "the module-graph walk does not reach the watcher's own anchors module").toContain(
+      "service-stop-bar-anchors.ts",
+    );
   });
 
   it("keeps the route segment that reads the record a Server Component", () => {
@@ -440,7 +529,14 @@ describe("the condensed service-stop bar", () => {
     // patient's plan. The service-wide scope is the load-bearing half of the claim.
     expect(bar.textContent ?? "").toContain("the whole service");
     // The icon decorates the text; it never carries the state on its own.
-    for (const icon of bar.querySelectorAll("svg")) {
+    //
+    // Fix round 1, finding 3: the count is asserted BEFORE the loop. A `for` over an empty
+    // NodeList passes, so the round-1 form of this went green whether the icon was there,
+    // marked correctly, or missing altogether — it could only ever fail on a *wrongly marked*
+    // icon and never on a *missing* one, which is the more likely edit.
+    const icons = bar.querySelectorAll("svg");
+    expect(icons, "the condensed bar has no icon").toHaveLength(1);
+    for (const icon of icons) {
       expect(icon.getAttribute("aria-hidden")).toBe("true");
     }
   });

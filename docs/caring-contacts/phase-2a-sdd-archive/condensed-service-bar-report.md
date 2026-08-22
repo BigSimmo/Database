@@ -395,3 +395,225 @@ demo store, not something this change introduced or should fix.
 5. **The bar's height is not literally one line at 320 px.** The statement wraps to two lines on the
    narrowest phone. It is `min-h-tap` and grows; it is still roughly a quarter of the full banner's
    height, which is what the owner's decision was buying.
+
+---
+
+# Fix round 1
+
+Review returned APPROVED WITH FINDINGS. All four are addressed below. Two of the proofs are
+**blocked** by a defect in a commit this task did not author — see §R0, which has to come first
+because it changes what the rest of this section can claim.
+
+## R0. The browser proof cannot run at all right now, and it is not this change
+
+The branch is shared. `c3ef20c3f` ("gate caring contacts demo access in production") landed
+mid-task from another session and this work was rebased on top of it. It introduces two
+independent blockers, both outside this change's files.
+
+**Blocker 1 — the Playwright production build fails to type-check, so no browser spec in this
+repository can run.** `run-playwright.mjs` builds its own isolated production app, and `next build`
+type-checks the whole tree:
+
+```
+✓ Compiled successfully in 3.2min
+  Running TypeScript ...
+tests/caring-contacts-api-handler.test.ts(49,45): error TS2704: The operand of a 'delete' operator cannot be a read-only property.
+tests/caring-contacts-session.test.ts(27,20): error TS2540: Cannot assign to 'NODE_ENV' because it is a read-only property.
+… 7 errors in those two files …
+Failed to type check.
+
+Playwright production build failed (status 1).
+```
+
+The cause is `process.env.NODE_ENV = "production"` and `delete process.env.NODE_ENV` in those two
+test files; TypeScript 6 types that property readonly (`vi.stubEnv` is the usual spelling). Both
+files were last touched by `c3ef20c3f` and neither is touched here — `npm run typecheck` reports
+those seven errors and **nothing else**, so every file in this change type-checks clean. This is
+not specific to the caring-contacts spec: `run-playwright.mjs` always builds first, so `ui-smoke`,
+`ui-accessibility` and every other browser gate are equally down until it is fixed.
+
+**Blocker 2 — even with the build fixed, this spec would be entirely red.** Reasoned from three
+lines, not observed, because blocker 1 stops the run before a server exists:
+
+- `scripts/run-playwright.mjs:302` — `NODE_ENV: "production"` in the build/serve environment.
+- `src/lib/caring-contacts-server/session.ts:28` — `isCaringContactsDemoEnabled` returns
+  `environment !== "production"`, pinned by that commit's own unit test
+  (`expect(isCaringContactsDemoEnabled("production")).toBe(false)`).
+- `src/app/caring-contacts/page.tsx:64` — `if (!isCaringContactsDemoEnabled()) notFound();`, and
+  `handler.ts:166`/`:277` refuse every caring-contacts API read and write the same way.
+
+So under the Playwright runner the workspace route 404s and `arrangeServiceStop`'s POST is refused.
+That takes down all thirty-three tests in `ui-caring-contacts-workspace.spec.ts` — the eighteen
+that predate this change included — not merely the new ones.
+
+**Not fixed here, deliberately.** Blocker 1 is another session's test code, and that session has a
+file staged in this worktree right now, so it is live. Blocker 2 is that session's deliberate
+security decision (the demo must fail closed in production) colliding with a browser gate that only
+runs in production; reconciling them is a design call for the owner — most likely an explicit
+build-time opt-in for the Playwright app, in the shape `NEXT_PUBLIC_MOCKUPS_ENABLED` already uses in
+that same runner. Both are reported rather than worked around.
+
+**Consequence for this round:** findings 2, 3 (icon half) and 4 are proved offline below. Finding 1
+is implemented and its premise is measured, but its browser mutation is **unrun**. Finding 3's
+dark-mode mutation is **unrun**. Neither is claimed as proved.
+
+## R1. Finding 1 — the pin was unproven at 1024 and 1440, and the invariant was empty there
+
+Confirmed, and worse than the round-1 concern admitted. Measured on the running app at the frozen
+900px review height:
+
+```
+w=1024 h=900  {"scrollHeight":900,"inner":900,"maxScroll":0}
+w=1440 h=900  {"scrollHeight":900,"inner":900,"maxScroll":0}
+```
+
+`maxScroll` is **zero**. Every sampled offset was filtered out by `.filter(offset => offset <= maxOffset)`,
+leaving only the at-rest sample, so both widths asserted the pre-existing banner behaviour and
+nothing about the handover — while reading as though they covered it. The round-1 claim that the
+invariant "still covers them unconditionally" was true of the code and false of the coverage.
+
+Fixed by sizing the viewport rather than branching on the page:
+
+- `openWorkspace` gains an optional `height` (default unchanged at 900, so no existing call site
+  moves). The service-stop tests pass `STOP_HANDOVER_VIEWPORT_HEIGHT = 500`. Measured room at that
+  height, before the banner adds its own to the document: `maxScroll` 838 / 790 / 744 / 571 / 286 /
+  286 at 320 / 390 / 430 / 768 / 1024 / 1440.
+- The pin test's `if (!bannerGone) { … return; }` escape hatch is **deleted**. It now asserts the
+  banner's bottom has passed the header's bottom, so the test can no longer opt itself out.
+- The invariant test asserts up front that `maxOffset` exceeds the distance the banner has to
+  travel — the degeneracy is caught directly, at the width where it happens.
+- The invariant test also asserts that at the bottom of the range the single statement is the
+  **condensed bar**, not the banner. Without that, a banner that never left would satisfy the loop
+  end to end, which is exactly the degenerate pass round 1 shipped.
+
+A 1440x500 window is an ordinary half-height desktop window, and it is precisely where a stop
+scrolling away hurts.
+
+**Mutation: unrun (blocked, §R0).** Designed: set the watcher's write to
+`outOfView ? "false" : "false"` and expect `pins the condensed bar … at 1440px` to redden at
+`expect(geometry.barDisplayed …).toBe(true)`. Reachability is designed in — the two assertions
+before it (`toHaveCount(1)` on both elements) are unaffected by the mutation, and the new
+banner-has-gone assertion above it passes because the mutation changes only the bar. The same
+mutation reddened the 320/390/430/768 arm of this test in the pre-round-1 run
+(`Expected: true, Received: false` at that line), so the assertion's power is established; what is
+unproven is only that 1024 and 1440 now reach it.
+
+## R2. Finding 2 — the anchors module was in the client graph and nothing guarded it
+
+Confirmed, and it is the same shape as the top-level-only directory read and the `.ts`/`.tsx`-only
+extension list this file has already had to widen twice: a guard whose claim is broader than the
+path it walks. Exposure was nil; the hole was the guard's.
+
+The boundary scan now walks the allowlisted component's imports **transitively**. It follows
+relative specifiers, and `@/…` specifiers that land inside a caring-contacts directory; it does not
+follow `react` or the shared design-system graph, because that graph reaches most of `src/` and a
+guard nobody can reason about is not a guard. That residual boundary is written into the test.
+
+**Mutation M7 — a `ServiceState` reference in the anchors module.** Ran, reddened:
+
+```
+FAIL  the service-state path stays on the server > keeps the service state out of every client
+      component and everything it imports
+AssertionError: src/components/caring-contacts/workspace/service-stop-bar-anchors.ts
+      (reached from service-stop-scroll-watcher.tsx) names ServiceState
+  436 |  expect(moduleSource, `${label} (reached from ${name}) names ServiceState`)
+ Test Files  1 failed (1)
+      Tests  1 failed | 22 passed (23)
+```
+
+Reachability: the entry's own `"use client"` assertion runs first and passed, and the watcher's own
+source passed both regexes before the imported module was reached — the failure is on the new
+assertion, for the imported module, and names the path by which it was reached. Under the round-1
+check this mutation was invisible: that check opened only `path.join(WORKSPACE_DIR, name)` for each
+allowlisted name, and the anchors module is not an allowlisted name, so it was never opened at all.
+
+**Mutation M8 — break the walk** (`if (false && specifier.startsWith("."))`), to prove the
+extension cannot silently evaporate. Ran, reddened the new anti-vacuity test:
+
+```
+FAIL  actually follows a client component's imports rather than stopping at its own file
+AssertionError: the module-graph walk does not reach the watcher's own anchors module:
+      expected [ 'service-stop-scroll-watcher.tsx' ] to include 'service-stop-bar-anchors.ts'
+ Test Files  1 failed (1)
+      Tests  1 failed | 22 passed (23)
+```
+
+Reachability: it is the only assertion in that test. Note what else that run shows — the main scan
+test **passed** under this mutation, silently back to certifying one file. That is the whole reason
+the anti-vacuity test exists, and the received value is literally the round-1 coverage.
+
+## R3. Finding 3 — two assertions that could not fail
+
+**The icon loop.** A `for` over an empty NodeList passes, so the round-1 form could only fail on a
+_wrongly marked_ icon and never on a _missing_ one — the more likely edit. The count is now
+asserted before the loop.
+
+**Mutation M9 — delete the icon.** Ran, reddened:
+
+```
+FAIL  the condensed service-stop bar > states that sending is stopped for the whole service, in words
+AssertionError: the condensed bar has no icon: expected to have a length of 1 but got +0
+  536 |  expect(icons, "the condensed bar has no icon").toHaveLength(1);
+ Test Files  1 failed (1)
+      Tests  1 failed | 22 passed (23)
+```
+
+Reachability: the two text assertions above it (`Sending stopped`, `the whole service`) are
+unaffected by removing an icon and passed, so the failure is at the intended assertion.
+
+**The dark-mode checks.** `not.toBe("rgba(0, 0, 0, 0)")` is near-tautological — almost nothing
+resolves to transparent, so it passed for any colour at all, including a hardcoded one that never
+changes theme, which is the exact defect a dark-mode check exists to catch. The test now reads the
+bar's resolved ink and surface in light **and** dark and asserts they differ from each other, which
+is what the shell's own long-standing dark test does.
+
+**Mutation: unrun (blocked, §R0).** Designed: replace `text-[color:var(--danger-text)]` with
+`text-[color:var(--danger-solid-contrast)]`. That token is `#ffffff` in both themes —
+`src/app/globals.css:436` (light) and `:707` (dark) — so it is opaque, which satisfies the round-1
+assertion, and identical across schemes, which reddens the new one. Reachability is designed in:
+`expect(dark.display …).not.toBe("none")` precedes the colour comparison and is unaffected by an
+ink change. Argued from the token values, not executed; not claimed as proved.
+
+## R4. Finding 4 — stale DOM references after a soft navigation
+
+Fixed rather than documented as a limit, because the fix is three lines and the failure mode is
+nasty. The watcher now resolves its three nodes **inside** `update()`, on every read, instead of
+capturing them once when the effect ran. A client-side navigation back into this route re-renders
+the server tree; the captured banner would then be a detached node whose rectangle is all zeros,
+which reads as "the banner has gone" and would pin the bar permanently. Re-reading three ids costs
+nothing measurable beside the two `getBoundingClientRect` calls next to them, and a missing node is
+simply a frame with nothing to decide.
+
+No test covers it, and that is stated plainly rather than papered over: no route navigates softly
+into this page today, so there is nothing to drive such a test through. It was a latent trap, not
+an observable bug, and it is now closed by construction rather than by coverage.
+
+## R5. Ruled not to fix
+
+`CondensedServiceStopBar({ state: ServiceState })` still holds the whole record, so `state.note`
+would compile in that wrapper even though it cannot compile in the renderer. Left as is by the
+owner's ruling: it is exactly the shape `ServiceStateBanner` beside it already has, the wrapper
+renders no JSX, and the note-sentinel test scans the whole rendered markup at runtime. A comment at
+the wrapper now says so, so the next reader does not re-litigate it.
+
+## R6. Round-1 verification
+
+```
+node scripts/run-vitest.mjs run tests/caring-contacts-explained-automation.dom.test.tsx \\
+  tests/caring-contacts-workspace-shell.dom.test.tsx --reporter=dot
+
+ Test Files  2 passed (2)
+      Tests  33 passed (33)
+```
+
+`eslint` on all four changed files: clean. `tsc --noEmit`: seven errors, all in the two foreign test
+files of §R0, none in any file of this change.
+
+The heavy-run lock refused several attempts (`Database focused-test capacity is full`, from two
+other worktrees), and one attempt died on a Windows `EPERM` renaming the lock sentinel while
+**exiting 0** — the trap exactly as briefed. Every run above was retried until it printed a real
+`Test Files` line; nothing was read off an exit code.
+
+**Still owed, and owed to §R0 rather than to this change:** the clean browser run, the finding-1
+mutation at 1440, and the finding-3 dark-mode mutation. They need the Playwright build to type-check
+and the workspace route to be reachable under `NODE_ENV=production`.

@@ -32,8 +32,13 @@ const REVIEW_WIDTHS = [320, 390, 430, 768, 1024, 1440] as const;
 
 const VIEWPORT_HEIGHT = 900;
 
-async function openWorkspace(page: Page, width: number) {
-  await page.setViewportSize({ width, height: VIEWPORT_HEIGHT });
+/**
+ * `height` is optional and defaults to the frozen review height, so every call site written
+ * before it existed is unchanged. The service-stop block below passes a shorter viewport for a
+ * reason recorded there.
+ */
+async function openWorkspace(page: Page, width: number, height: number = VIEWPORT_HEIGHT) {
+  await page.setViewportSize({ width, height });
   await page.goto(WORKSPACE_ROUTE, { waitUntil: "load" });
   // React streams the segment under `loading.tsx`'s Suspense boundary into a
   // hidden holder before moving it into place, so a production page sampled too
@@ -731,11 +736,33 @@ function maxScrollOffset(page: Page) {
   return page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
 }
 
+/**
+ * The viewport height these tests use, and the whole reason they are not vacuous.
+ *
+ * Fix round 1, finding 1. At the frozen 900px review height this page cannot scroll at all at
+ * 1024 and 1440 — measured `scrollHeight` 900, `innerHeight` 900, **`maxScroll` 0** — so the
+ * sampled offsets were all filtered away by `maxOffset` and the only surviving sample was the
+ * at-rest one. Both widths therefore asserted the pre-existing banner behaviour and said nothing
+ * whatever about the handover, while reading as though they covered it. That is worse than an
+ * uncovered width, because it looks covered.
+ *
+ * At 500px every review width has room to push the banner past the header. Measured without the
+ * banner (it adds its own height to the document on top of these): `maxScroll` 838 / 790 / 744 /
+ * 571 / 286 / 286 at 320 / 390 / 430 / 768 / 1024 / 1440, against a banner that has to travel its
+ * own height — roughly 250px at 320 and less as the text stops wrapping.
+ *
+ * A short window is not a contrivance: 1440x500 is an ordinary half-height desktop window, and it
+ * is exactly where a stop scrolling away hurts. Nothing branches on page height any more — the
+ * handover is ASSERTED at every width, so a page that grows or shrinks under this test reddens it
+ * rather than quietly emptying it.
+ */
+const STOP_HANDOVER_VIEWPORT_HEIGHT = 500;
+
 test.describe("caring-contacts service stop, stated on every screen", () => {
   for (const width of REVIEW_WIDTHS) {
     test(`keeps the stop stated exactly once at every scroll position at ${width}px`, async ({ page }) => {
       await arrangeServiceStop(page);
-      await openWorkspace(page, width);
+      await openWorkspace(page, width, STOP_HANDOVER_VIEWPORT_HEIGHT);
 
       // The page renders the arrangement at all: without this, a store the page
       // cannot see would leave every assertion below trivially satisfied by a
@@ -756,6 +783,21 @@ test.describe("caring-contacts service stop, stated on every screen", () => {
       // arriving are one exchange, and a gap or an overlap in it would be a
       // moment with no statement, or with two.
       const maxOffset = await maxScrollOffset(page);
+      // The range must be big enough to carry the banner past the header, or every
+      // sample below lands where the banner is still on screen and the loop asserts
+      // the behaviour that already existed. That is precisely what happened at 1024
+      // and 1440 in round 1.
+      const bannerTravel = await page.evaluate(
+        ({ full, header }) =>
+          document.querySelector(full)!.getBoundingClientRect().bottom -
+          document.querySelector(header)!.getBoundingClientRect().bottom,
+        { full: FULL_BANNER_SELECTOR, header: WORKSPACE_HEADER_SELECTOR },
+      );
+      expect(
+        maxOffset,
+        `no room to scroll the banner away at ${width}px — this test would prove nothing`,
+      ).toBeGreaterThan(bannerTravel);
+
       const offsets = [40, 80, 120, 200, 320, 480, maxOffset].filter((offset) => offset <= maxOffset);
       for (const offset of offsets) {
         await scrollDocumentTo(page, offset);
@@ -765,13 +807,21 @@ test.describe("caring-contacts service stop, stated on every screen", () => {
           STOPPED_SCOPE_WORDING,
         );
       }
+
+      // …and at the bottom the statement is the CONDENSED BAR, not the banner. Without
+      // this the loop could be satisfied end to end by a banner that never left, which
+      // is the degenerate pass round 1 shipped.
+      expect(
+        (await statementsOnScreen(page))[0]!.selector,
+        `the banner, not the condensed bar, is still the statement at the bottom at ${width}px`,
+      ).toBe(CONDENSED_BAR_SELECTOR);
     });
   }
 
   for (const width of REVIEW_WIDTHS) {
     test(`pins the condensed bar under the header once the banner has gone at ${width}px`, async ({ page }) => {
       await arrangeServiceStop(page);
-      await openWorkspace(page, width);
+      await openWorkspace(page, width, STOP_HANDOVER_VIEWPORT_HEIGHT);
       await scrollDocumentTo(page, await maxScrollOffset(page));
 
       const geometry = await page.evaluate(
@@ -810,16 +860,15 @@ test.describe("caring-contacts service stop, stated on every screen", () => {
         },
       );
 
-      const bannerGone = geometry.bannerBox!.bottom <= geometry.headerBox!.bottom;
-      // 1024 and 1440 currently hold a page short enough that the banner may
-      // never leave — which is the reason the defect looked survivable there.
-      // The invariant test above still covers those widths; this one asserts the
-      // pinned bar only where there is something to pin it for, and asserts the
-      // bar stays away otherwise.
-      if (!bannerGone) {
-        expect(geometry.barDisplayed, `the bar showed at ${width}px while the banner was still on screen`).toBe(false);
-        return;
-      }
+      // Fix round 1, finding 1: no branch. Round 1 skipped this test's real work whenever
+      // the page was too short for the banner to leave, which at the frozen 900px height was
+      // ALWAYS true at 1024 and 1440 — so the two widths where Phase 2B will add content were
+      // the two widths the pin was never measured at. The short viewport above guarantees the
+      // room; this asserts the banner actually used it, so the test can no longer opt itself out.
+      expect(
+        geometry.bannerBox!.bottom,
+        `the banner is still on screen at ${width}px — nothing about the handover is being measured`,
+      ).toBeLessThanOrEqual(geometry.headerBox!.bottom);
 
       expect(geometry.barDisplayed, `the condensed bar did not appear at ${width}px`).toBe(true);
       // Under the header, not behind it. The header measures 87.5px at 320 and
@@ -851,25 +900,45 @@ test.describe("caring-contacts service stop, stated on every screen", () => {
     });
   }
 
-  test("keeps the condensed bar readable in dark and under forced colours", async ({ page, browserName }) => {
-    await arrangeServiceStop(page);
-
-    await page.emulateMedia({ colorScheme: "dark" });
-    await openWorkspace(page, 390);
+  /** The bar's own resolved appearance, read once the handover has happened. */
+  async function condensedBarAppearance(page: Page) {
     await scrollDocumentTo(page, await maxScrollOffset(page));
-    const dark = await page.evaluate((selector) => {
+    return page.evaluate((selector) => {
       const node = document.querySelector(selector)!;
       const style = getComputedStyle(node);
       return { display: style.display, colour: style.color, surface: style.backgroundColor };
     }, CONDENSED_BAR_SELECTOR);
-    expect(dark.display, "the condensed bar is not shown in dark").not.toBe("none");
-    expect(dark.colour, "the condensed bar's ink resolved to nothing in dark").not.toBe("rgba(0, 0, 0, 0)");
-    expect(dark.surface, "the condensed bar's surface resolved to nothing in dark").not.toBe("rgba(0, 0, 0, 0)");
-    await page.emulateMedia({ colorScheme: "light" });
+  }
 
+  test("re-resolves the condensed bar's own colours in dark rather than leaking a light value", async ({ page }) => {
+    await arrangeServiceStop(page);
+
+    await page.emulateMedia({ colorScheme: "light" });
+    await openWorkspace(page, 390, STOP_HANDOVER_VIEWPORT_HEIGHT);
+    const light = await condensedBarAppearance(page);
+
+    await page.emulateMedia({ colorScheme: "dark" });
+    await openWorkspace(page, 390, STOP_HANDOVER_VIEWPORT_HEIGHT);
+    const dark = await condensedBarAppearance(page);
+
+    expect(dark.display, "the condensed bar is not shown in dark").not.toBe("none");
+    // Fix round 1, finding 3. The round-1 form of this compared each value against
+    // `rgba(0, 0, 0, 0)`, which almost nothing resolves to — it passed for any colour at
+    // all, including a hardcoded one that never changes theme, which is the exact defect a
+    // dark-mode check exists to catch. Comparing the two schemes against EACH OTHER has
+    // discriminating power: swapping `--danger-text` for a token whose value is identical
+    // in both themes reddens this and would have sailed through the old assertion.
+    expect(dark.colour, "the condensed bar's ink did not change in dark").not.toBe(light.colour);
+    expect(dark.surface, "the condensed bar's surface did not change in dark").not.toBe(light.surface);
+    await page.emulateMedia({ colorScheme: "light" });
+  });
+
+  test("states the stop in words once forced colours have dropped the tint", async ({ page, browserName }) => {
     test.skip(browserName !== "chromium", "forced-colors emulation is Chromium-only");
+    await arrangeServiceStop(page);
+
     await page.emulateMedia({ forcedColors: "active" });
-    await openWorkspace(page, 390);
+    await openWorkspace(page, 390, STOP_HANDOVER_VIEWPORT_HEIGHT);
     await scrollDocumentTo(page, await maxScrollOffset(page));
     // Forced colours drop the author's tint, so the words are all that is left
     // to carry the state. This is the assertion that makes the bar independent

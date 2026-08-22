@@ -34,16 +34,28 @@ import {
  */
 export function ServiceStopScrollWatcher() {
   useEffect(() => {
-    const bar = document.getElementById(CONDENSED_SERVICE_STOP_BAR_ID);
-    const banner = document.getElementById(SERVICE_STOP_BANNER_ID);
-    const header = document.getElementById(WORKSPACE_HEADER_ID);
-    // Nothing to decide, and nothing to guess at: leave the server's `"false"` in place.
-    if (!bar || !banner || !header) return undefined;
-
     let frame = 0;
 
+    /**
+     * The three nodes are looked up on EVERY read, not captured once when the effect ran.
+     *
+     * Fix round 1, finding 4. Resolving them once at mount is the obvious spelling and it
+     * holds a reference to nodes React may replace: a client-side navigation back into this
+     * route re-renders the server tree, and the banner the watcher was measuring is then a
+     * detached node whose rectangle is all zeros -- which reads as "the banner has gone" and
+     * would pin the bar permanently. No route navigates into this page softly today, so
+     * nothing could observe it; that made it a latent trap rather than a bug, and re-reading
+     * three ids per frame costs nothing measurable next to the two `getBoundingClientRect`
+     * calls beside them. A missing node is simply a frame with nothing to decide.
+     */
     const update = () => {
       frame = 0;
+      const bar = document.getElementById(CONDENSED_SERVICE_STOP_BAR_ID);
+      const banner = document.getElementById(SERVICE_STOP_BANNER_ID);
+      const header = document.getElementById(WORKSPACE_HEADER_ID);
+      // Nothing to decide, and nothing to guess at: leave the server's `"false"` in place.
+      if (!bar || !banner || !header) return;
+
       const outOfView = banner.getBoundingClientRect().bottom <= header.getBoundingClientRect().bottom;
       bar.setAttribute(FULL_BANNER_OUT_OF_VIEW_ATTRIBUTE, outOfView ? "true" : "false");
     };
