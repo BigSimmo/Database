@@ -205,6 +205,53 @@ first implementation and were fixed — which is stronger evidence than a mutati
 
 ---
 
+## 5b. The full offline suite — reported honestly, not as green
+
+`npm run test` is **not fully green on this machine**, and it is not green because of this change.
+Both full runs were made with the change in place:
+
+```
+run A:  Test Files  4 failed | 699 passed | 2 skipped (705)
+        Tests       6 failed | 7834 passed | 29 skipped (7869)
+
+run B:  Test Files  7 failed | 696 passed | 2 skipped (705)
+        Tests      10 failed | 7830 passed | 29 skipped (7869)
+```
+
+Two runs of the same tree gave **different failure sets**, which is itself the finding. The files
+involved across both: `adopt-visual-baselines`, `bundle-budget`, `codex-cloud-setup`,
+`design-sync-contract`, `design-system-adoption`, `test-runner-safety`, `worker-bundle`,
+`http-readiness`. None is in caring-contacts, the workspace shell, the client-boundary guard, or
+route reachability.
+
+Checked rather than assumed, by reverting the change in the working tree and running the same files:
+
+```
+without the change:  Tests  4 failed | 90 passed (94)
+                       codex-cloud-setup x2, design-sync-contract, design-system-adoption
+with the change:     Tests  2 failed | 92 passed (94)
+                       codex-cloud-setup x1, http-readiness
+```
+
+So the failures reproduce **with the change reverted**, and the set moves between runs in both
+directions. They are load- and environment-dependent on this Windows workstation, which was running
+Playwright and lint from two other worktrees throughout (`Database focused-test capacity is full`
+refusals were hit repeatedly and retried, never counted as results).
+
+What _is_ green, deterministically and repeatedly: every caring-contacts and workspace-shell suite.
+
+```
+node scripts/run-vitest.mjs run tests/caring-contacts-explained-automation.dom.test.tsx   tests/caring-contacts-workspace-shell.dom.test.tsx --reporter=dot
+
+ Test Files  2 passed (2)
+      Tests  32 passed (32)
+```
+
+`tsc --noEmit` is clean, `eslint` on all changed files is clean, and `prettier --check .` reports
+`All matched files use Prettier code style!` across the whole tree.
+
+---
+
 ## 6. The defect the browser found, that nothing else could
 
 The first implementation gave the bar `-inset-x-4 sm:-inset-x-6 lg:-inset-x-8` to "undo" the
@@ -325,8 +372,10 @@ demo store, not something this change introduced or should fix.
 - **Prohibited vocabulary.** The statement contains none of the forbidden terms, makes no claim
   that replies are monitored, and uses no transport word as a state label. Australian English,
   sentence case, no bare dash.
-- **Verification actually run:** focused Vitest (green), `tsc --noEmit` (clean), `eslint` on all
-  five changed files (clean), the full offline suite, and the Chromium browser proof.
+- **Verification actually run:** focused Vitest (green, 32/32), `tsc --noEmit` (clean), `eslint` on
+  every changed file (clean), `prettier --check .` (clean), the Chromium browser proof (31/31,
+  exit 0), and two full offline suite runs — which are **not** green on this machine, for reasons
+  shown in §5b to be pre-existing and unrelated.
 
 ## 11. Concerns
 
@@ -340,6 +389,9 @@ demo store, not something this change introduced or should fix.
    those widths may be too short for the banner to leave view, so the pin assertion takes its
    "stays away" branch there. The exactly-one-statement invariant still covers them unconditionally.
    Once Phase 2B fills those pages the pin branch will start exercising, which is the intent.
-4. **The bar's height is not literally one line at 320 px.** The statement wraps to two lines on the
+4. **`npm run test` is not green on this machine.** Ten distinct pre-existing/environmental
+   failures across two runs, none in caring-contacts and four of them reproduced with the change
+   reverted (§5b). I could not deliver a fully green full-suite run and am not claiming one.
+5. **The bar's height is not literally one line at 320 px.** The statement wraps to two lines on the
    narrowest phone. It is `min-h-tap` and grows; it is still roughly a quarter of the full banner's
    height, which is what the owner's decision was buying.
