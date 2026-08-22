@@ -51,7 +51,7 @@ const topicIcons: Record<GuideTopicId, LucideIcon> = {
   "document-scope": SlidersHorizontal,
   "answer-anatomy": ListChecks,
   "sources-citations": Library,
-  "uploads-indexing": FileSearch,
+  "document-administration": FileSearch,
   "privacy-safe-use": ShieldCheck,
   "keyboard-shortcuts": Grid2X2,
 };
@@ -78,7 +78,15 @@ const guideTourAction = cn(primaryControl, "max-sm:rounded-full max-sm:shadow-[v
 /** Secondary dock controls stay quiet pills so the primary action keeps the eye. */
 const guideSecondaryAction = cn(floatingControl, "max-sm:rounded-full max-sm:shadow-[var(--e3)]");
 
-function GuideTopNavigation({ view, onNavigate }: { view: GuideView; onNavigate: (view: GuideView) => void }) {
+function GuideTopNavigation({
+  view,
+  compact,
+  onNavigate,
+}: {
+  view: GuideView;
+  compact: boolean;
+  onNavigate: (view: GuideView) => void;
+}) {
   const items: ReadonlyArray<{ view: GuideView; label: string; icon: LucideIcon }> = [
     { view: "home", label: "Guide home", icon: BookOpen },
     { view: "tour", label: "Guided tour", icon: PlayCircle },
@@ -87,7 +95,10 @@ function GuideTopNavigation({ view, onNavigate }: { view: GuideView; onNavigate:
   return (
     <nav
       aria-label="Guide views"
-      className="grid grid-cols-3 border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]"
+      className={cn(
+        "grid grid-cols-3 border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]",
+        compact && "max-sm:-mt-1",
+      )}
     >
       {items.map((item) => {
         const active = view === item.view || (view === "topic" && item.view === "topics");
@@ -194,7 +205,7 @@ function QuickTasks({ onSelect }: { onSelect: (id: GuideTopicId) => void }) {
       <h2 id="guide-quick-task-heading" className={eyebrowText}>
         What do you need help with?
       </h2>
-      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
         {guideQuickTasks.map((task, index) => {
           const Icon = quickTaskIcons[index];
           return (
@@ -202,10 +213,15 @@ function QuickTasks({ onSelect }: { onSelect: (id: GuideTopicId) => void }) {
               key={task.topicId}
               type="button"
               onClick={() => onSelect(task.topicId)}
-              className={cn(floatingControl, "min-w-0 justify-start px-2.5 text-left text-xs sm:px-3 sm:text-sm")}
+              className={cn(
+                floatingControl,
+                "min-h-14 min-w-0 justify-start gap-2.5 px-2.5 text-left text-xs sm:px-3 sm:text-sm",
+              )}
             >
-              <Icon aria-hidden="true" className="size-icon-md shrink-0" />
-              <span>{task.label}</span>
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                <Icon aria-hidden="true" className="size-icon-md" />
+              </span>
+              <span className="leading-4 sm:leading-5">{task.label}</span>
             </button>
           );
         })}
@@ -231,16 +247,19 @@ function VerificationDemo({ onOpenSourceGuide }: { onOpenSourceGuide: () => void
       </p>
 
       <div className="mt-5 grid gap-4 md:grid-cols-[11rem_minmax(0,1fr)]">
-        <ol className="grid grid-cols-3 gap-2 md:grid-cols-1 md:gap-3" aria-label="Verification steps">
+        <ol
+          className="relative grid grid-cols-3 gap-2 before:absolute before:left-[16.666%] before:right-[16.666%] before:top-3.5 before:h-px before:bg-[color:var(--clinical-accent-border)] md:grid-cols-1 md:gap-3 md:before:hidden"
+          aria-label="Verification steps"
+        >
           {["Check the claim", "Open the citation", "Read the source passage"].map((label, index) => (
             <li
               key={label}
-              className="flex min-w-0 flex-col items-center gap-1.5 text-center text-xs font-medium text-[color:var(--text-heading)] md:flex-row md:items-start md:gap-2 md:text-left md:text-sm"
+              className="relative z-10 flex min-w-0 flex-col items-center gap-2 text-center text-xs font-semibold text-[color:var(--text-heading)] md:flex-row md:items-start md:gap-2.5 md:text-left md:text-sm"
             >
-              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs font-bold text-[color:var(--clinical-accent-contrast)]">
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs font-bold text-[color:var(--clinical-accent-contrast)] ring-4 ring-[color:var(--surface-raised)]">
                 {index + 1}
               </span>
-              <span className="leading-4 md:pt-1 md:leading-5">{label}</span>
+              <span className="max-w-28 leading-4 md:max-w-none md:pt-1 md:leading-5">{label}</span>
             </li>
           ))}
         </ol>
@@ -297,20 +316,28 @@ function SafetyChecklist() {
     "Primary source confirms meaning",
   ];
   return (
-    <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]">
-      <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Before you use an answer</h2>
-      <ul className="mt-2 space-y-1.5">
+    <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--shadow-inset)]">
+      <div className="flex items-center gap-2.5">
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+          <ShieldCheck aria-hidden="true" className="size-icon-md" />
+        </span>
+        <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Before you use an answer</h2>
+      </div>
+      <ul className="mt-3 space-y-1.5">
         {items.map((item) => (
           <li
             key={item}
             className="flex min-h-8 items-center gap-2.5 text-sm font-medium text-[color:var(--text-heading)]"
           >
-            <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-[color:var(--border-strong)]" />
+            <span
+              aria-hidden="true"
+              className="size-2 shrink-0 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]"
+            />
             <span>{item}</span>
           </li>
         ))}
       </ul>
-      <p className="mt-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-xs font-semibold leading-5 text-[color:var(--text-heading)]">
+      <p className="mt-3 rounded-lg border border-[color:var(--warning-border)] border-l-2 bg-[color:var(--warning-soft)] px-3 py-2.5 text-xs font-semibold leading-5 text-[color:var(--text-heading)]">
         Keep clinical judgement in the loop.
       </p>
     </section>
@@ -527,6 +554,7 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
   const [progress, setProgress] = useState<GuideProgress>(() => loadGuideProgress());
   const [tourStepIndex, setTourStepIndex] = useState(0);
   const [tourComplete, setTourComplete] = useState(false);
+  const [headerCompact, setHeaderCompact] = useState(false);
   const contentStartRef = useRef<HTMLDivElement | null>(null);
   const scrollBodyRef = useRef<HTMLDivElement | null>(null);
   const dockScrollHide = useScrollHideReporter(
@@ -539,6 +567,7 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
   function focusPageStart() {
     window.requestAnimationFrame(() => {
       if (scrollBodyRef.current) scrollBodyRef.current.scrollTop = 0;
+      setHeaderCompact(false);
       dockScrollHide.reset();
       contentStartRef.current?.querySelector<HTMLElement>("[data-guide-page-heading]")?.focus({ preventScroll: true });
     });
@@ -558,6 +587,7 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
    */
   function handleBodyScroll(event: UIEvent<HTMLDivElement>) {
     const target = event.currentTarget;
+    setHeaderCompact((compact) => (compact ? target.scrollTop > 8 : target.scrollTop > 48));
     const reserve = contentStartRef.current;
     // `data-reserve-hidden-pad="0"`: the pad collapses to nothing, so the whole
     // padding is what a hide gives back.
@@ -624,10 +654,9 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
         : "Resume guided tour";
   const footer = (
     <>
-      {/* Same localized glass the shared phone dock paints: the footer band itself
-          stays transparent and this scrim tints only around the action, tapering
-          to zero at the physical edge. Without it the Sheet's opaque footer
-          surface reads as a slab covering the content behind the button. */}
+      {/* The guide keeps the shared dock geometry, but its dedicated modifier
+          carries the tint through the Home Indicator region. Meaningful content
+          remains above the inset while the background paints behind it. */}
       <div className="answer-footer-search-backdrop sm:hidden" aria-hidden="true" />
       <div
         data-guide-mobile-footer
@@ -702,11 +731,20 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       labelledBy={guideAccessibleNameId}
       title="Clinical KB Guide Centre"
-      description="Learn how to ask, scope, and verify."
+      descriptionContent={
+        <p className={cn("text-sm leading-6 text-[color:var(--text-muted)]", headerCompact && "max-sm:sr-only")}>
+          Learn how to ask, scope, and verify.
+        </p>
+      }
       closeLabel="Close guide"
       headerLeading={
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-          <BookOpen aria-hidden="true" className="size-6" />
+        <span
+          className={cn(
+            "grid size-10 shrink-0 place-items-center rounded-xl bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+            headerCompact && "max-sm:size-8 max-sm:rounded-lg",
+          )}
+        >
+          <BookOpen aria-hidden="true" className={cn("size-6", headerCompact && "max-sm:size-4")} />
         </span>
       }
       contentClassName="relative font-sans sm:max-w-none lg:h-[min(56rem,calc(100dvh-3rem))] lg:max-w-[min(94vw,90rem)]"
@@ -714,11 +752,16 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
       bodyRef={scrollBodyRef}
       bodyTabIndex={0}
       onBodyScroll={handleBodyScroll}
-      headerBottom={<GuideTopNavigation view={view} onNavigate={navigate} />}
-      // The header stays pinned. It used to collapse with the dock, which cost
-      // 153px of a ~330px scroll range and took "Close guide" and the view tabs
-      // out of reach with it — you could scroll down and have no way to leave.
-      headerClassName="guide-centre-header pt-[max(1rem,env(safe-area-inset-top))] transition-[border-color,opacity] duration-[var(--duration-moderate)] motion-reduce:transition-none sm:pt-5"
+      headerBottom={<GuideTopNavigation view={view} compact={headerCompact} onNavigate={navigate} />}
+      // The branded row compacts on phones, but the title, Close control and
+      // view tabs remain available. Collapsing the whole header previously left
+      // a scrolled reader with no exit and consumed too much collapse runway.
+      headerClassName={cn(
+        "guide-centre-header pt-[max(1rem,env(safe-area-inset-top))] transition-[border-color,background-color] duration-[var(--duration-quick)] motion-reduce:transition-none sm:pt-5",
+        headerCompact &&
+          "guide-centre-header--compact max-sm:px-3 max-sm:pb-2 max-sm:pt-[max(0.5rem,var(--safe-area-top))] max-sm:bg-[color:var(--surface-chrome)]",
+      )}
+      titleClassName={cn(headerCompact && "max-sm:text-base max-sm:leading-5")}
       mobilePlacement="fullscreen"
       footer={footer}
       footerVariant="compact"
@@ -732,7 +775,7 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
         // takes the COMPACT scrim: since the search composer was removed the dock
         // is a single action row, and the default 10rem scrim would tint far more
         // of the page than the control it exists to seat.
-        "answer-footer-search-dock answer-footer-search-edge",
+        "guide-tour-dock answer-footer-search-dock answer-footer-search-edge",
         "absolute inset-x-0 bottom-0 z-30 border-t-0 bg-transparent p-0 shadow-none transition-[transform,opacity] duration-[var(--duration-moderate)] motion-reduce:transition-none sm:static sm:border-t sm:border-[color:var(--border)] sm:bg-[color:var(--surface-raised)] sm:p-4",
         dockHidden &&
           "pointer-events-none translate-y-full opacity-0 sm:pointer-events-auto sm:translate-y-0 sm:opacity-100",
@@ -748,7 +791,10 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
         data-guide-content
         data-reserve-owner="guide-tour-dock"
         data-reserve-hidden-pad="0"
-        className={cn("space-y-4 p-3 sm:p-5", dockHidden ? "pb-0 sm:pb-5" : "pb-24 sm:pb-5")}
+        className={cn(
+          "space-y-5 p-3 sm:p-5",
+          dockHidden ? "pb-0 sm:pb-5" : "pb-[calc(5rem+var(--safe-area-bottom))] sm:pb-5",
+        )}
       >
         {view === "home" ? (
           <>

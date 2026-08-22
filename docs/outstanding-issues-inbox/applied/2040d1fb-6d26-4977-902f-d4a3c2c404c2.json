@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "2040d1fb-6d26-4977-902f-d4a3c2c404c2",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "explain_retrieval_rpc cannot profile the _v2 retrieval RPC family, so the two Phase 1.2 outliers have no EXPLAIN baseline",
+    "detail": "Phase 5 close-out was asked to capture an EXPLAIN baseline for match_document_chunks_text_v2 and match_document_index_units_hybrid_v2 (the two section 1.2 outliers) and could not. public.explain_retrieval_rpc accepts exactly four names -- match_documents_for_query, match_document_chunks_text, match_document_lookup_chunks_text, match_document_table_facts_text -- and raises 22023 Unsupported retrieval RPC for anything else. Verified three ways: its only defining migration 20260626020000_phase7_retrieval_rpc_performance.sql, the supabase/schema.sql live mirror, and a direct call against production returning the 22023 error for both names. Extending the p_rpc branch list is production DDL, and with D4 confirmed ON a migration merged to main deploys automatically, so it needs its own approved window; it was deliberately NOT written during a read-only phase. SECOND, SMALLER GAP recorded at the same time: the function EXPLAINs `select * from public.<rpc>(...)`, so a PL/pgSQL body's inner plan is never exposed and every sample reports a single Function Scan with no index names. Plan section 5.1's 'record plan flips (seq scan -> index scan)' is therefore not answerable through this instrument at all; pg_stat_user_indexes is the durable substitute and is what Phase 5 used. NEXT: author one migration extending the branch list to the _v2 family and ship it in an approved window. STOP: not urgent -- the v1 siblings profiled in Phase 5 cover the same owning tables.",
+    "source": "docs/audit/live-drift-forensics-2026-08.md Phase 5 close-out 5.1(b); supabase/migrations/20260626020000_phase7_retrieval_rpc_performance.sql",
+    "issueUlid": "01M0JTGY6SJYJEM6MAR4FGVWA8"
+  }
+}

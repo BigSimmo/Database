@@ -1,0 +1,1 @@
+| 2026-08-21 | claude/permission-prompts-issue-0dfcf3 | f5042f9f85e9ab62cd34718309dc0a8d5603ed0d | config: .claude/settings.json permission allowlist | approved, low-risk config-only change | manual review, no automated gate needed for allowlist addition |

@@ -1,6 +1,8 @@
 import formsCatalog from "../../data/forms-catalog.json";
 import formsPdfManifest from "../../data/forms-pdf-manifest.json";
 
+import { actSectionsForCue, sectionCueForForm } from "@/lib/mha-act-sections";
+
 import type { FormActSection, FormAvailability, FormCatalogDetails, FormPriorityFactCard } from "@/lib/form-ranker";
 import type { ServiceChipTone, ServiceRecord, ServiceSummaryCard } from "@/lib/services";
 
@@ -211,35 +213,59 @@ function actSections(value: unknown): FormActSection[] | undefined {
   return sections.length ? sections : undefined;
 }
 
+/**
+ * The Priority-facts card labels. Shared with the component so the grid label and the
+ * detail-sheet title fallback can never drift apart again (the sheet used to say
+ * "Criteria" where the grid said "Criteria / threshold").
+ */
+export const PRIORITY_FACT_CARD_LABELS = {
+  clock: "Clock / review",
+  authority: "Made by / authority",
+  criteria: "Criteria / threshold",
+} as const;
+
+/**
+ * Act-section chips rendered before collapsing the remainder behind a "+n" control.
+ * Form 5A cites 11 sections and 4A cites 9; rendering all of them as 48px tap targets
+ * inside one quarter of the 2x2 grid destroys the layout.
+ */
+export const ACT_SECTION_CHIP_LIMIT = 6;
+
 function summaryCardsForDetails(details: FormCatalogDetails, availabilityLabel: string): ServiceSummaryCard[] {
   const facts = details.priorityFacts;
   const cards: ServiceSummaryCard[] = [
     {
       id: "clock",
-      label: "Clock / review",
+      label: PRIORITY_FACT_CARD_LABELS.clock,
       title: facts?.clock?.title ?? details.clock,
       detail: facts?.clock?.detail ?? details.indexedClock,
     },
     {
       id: "authority",
-      label: "Made by / authority",
+      label: PRIORITY_FACT_CARD_LABELS.authority,
       title: facts?.authority?.title ?? details.maker,
       detail: facts?.authority?.detail ?? details.authorises,
     },
     {
       id: "criteria",
-      label: "Criteria / threshold",
+      label: PRIORITY_FACT_CARD_LABELS.criteria,
       title: facts?.criteria?.title ?? details.threshold,
       detail: facts?.criteria?.detail ?? details.doesNotAuthorise,
     },
   ];
 
   if (details.actSections?.length) {
+    const sections = details.actSections;
     cards.push({
       id: "act-sections",
       label: "Act sections",
-      title: "MHA 2014 referral pathway",
-      detail: details.actSections.map((entry) => entry.section).join(" · "),
+      // "MHA 2014 referral pathway" was Form 1A's pilot copy and is untrue of the 46
+      // other forms, which cite transfer, restraint, seclusion and reporting sections.
+      title: "Authority under the Act",
+      detail:
+        sections.length > ACT_SECTION_CHIP_LIMIT
+          ? `${sections.length} sections cited`
+          : sections.map((entry) => entry.section).join(" · "),
     });
     return cards;
   }
@@ -307,6 +333,10 @@ function detailsFor(form: OfficialForm): FormCatalogDetails {
   if (availability === "downloadable" && !pdfAsset) {
     throw new Error(`Missing official PDF manifest entry for Form ${form.code}.`);
   }
+  const sourceFacts =
+    raw.sourceFacts && typeof raw.sourceFacts === "object"
+      ? (raw.sourceFacts as FormCatalogDetails["sourceFacts"])
+      : undefined;
   const details: FormCatalogDetails = {
     id: `form-${normalizeCode(form.code).replace(/[^a-z0-9]+/g, "-")}`,
     form: form.code,
@@ -339,11 +369,13 @@ function detailsFor(form: OfficialForm): FormCatalogDetails {
       : (fallback.practicePearls ?? []),
     preUseChecks: stringArray(raw.preUseChecks).length ? stringArray(raw.preUseChecks) : (fallback.preUseChecks ?? []),
     priorityFacts: priorityFacts(raw.priorityFacts),
-    actSections: actSections(raw.actSections),
-    sourceFacts:
-      raw.sourceFacts && typeof raw.sourceFacts === "object"
-        ? (raw.sourceFacts as FormCatalogDetails["sourceFacts"])
-        : undefined,
+    // A hand-written per-form override wins; otherwise the form's own section cue
+    // resolves against the shared Act summaries, which yields sections only once every
+    // one of them has been clinically reviewed. Supplemental cues are also withheld
+    // until their form-to-section mapping has its own review sign-off.
+    actSections:
+      actSections(raw.actSections) ?? actSectionsForCue(sectionCueForForm(form.code, sourceFacts?.sectionCue)),
+    sourceFacts,
     availability,
     officialPdfUrl: pdfAsset?.officialPdfUrl,
     officialRegisterUrl: officialFormsRegisterUrl,

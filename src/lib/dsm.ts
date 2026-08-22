@@ -87,13 +87,6 @@ function slugFromRecordId(recordId: string) {
   return recordId.replace(/^DSM-[^-]+-/, "").toLowerCase();
 }
 
-export const dsmContentMetadata = {
-  version: exportData.export_format_version,
-  generatedAt: exportData.generated_at,
-  sourceRepository: exportData.source_repository,
-  scope: exportData.content_scope,
-} as const;
-
 /**
  * Categories the app consumes, projected to the three fields it uses.
  *

@@ -189,13 +189,6 @@ function metadataText(metadata: unknown) {
     .join(" ");
 }
 
-export function documentGovernanceText(document: LabelGovernanceDocument) {
-  return [document.title, document.file_name, document.summary?.summary, metadataText(document.metadata)]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-}
-
 function documentGoldLabelText(document: LabelGovernanceDocument) {
   return [document.title, document.file_name, document.summary?.summary, metadataText(document.metadata)]
     .filter(Boolean)

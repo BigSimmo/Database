@@ -44,7 +44,7 @@ const authEmailChangeEvent = "clinical-kb-auth-email-change";
 function getAuthEmailSnapshot() {
   if (typeof window === "undefined") return "";
   try {
-    return window.localStorage.getItem(AUTH_EMAIL_STORAGE_KEY) ?? "";
+    return window.sessionStorage.getItem(AUTH_EMAIL_STORAGE_KEY) ?? "";
   } catch {
     return "";
   }

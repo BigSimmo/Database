@@ -1,19 +1,30 @@
 "use client";
 
-import { ChevronDown, MapPin, ShieldAlert } from "lucide-react";
-import { Suspense, useEffect, useId, useRef, useState } from "react";
+import { ChevronDown, Info, ListTree, Printer, ShieldAlert } from "lucide-react";
+import { Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { NavigationBackButton } from "@/components/navigation-back-button";
+import { PrivacyAtAGlance } from "@/components/privacy/at-a-glance";
+import { ProcessingMap } from "@/components/privacy/processing-map";
+import { PrivacySectionAccordion } from "@/components/privacy/section-accordion";
+import { PrivacySectionIndex } from "@/components/privacy/section-index";
+import { usePrivacyHashSection, writePrivacyHashSection } from "@/components/privacy/use-privacy-hash-section";
 import { PrivacyPageBackButton } from "@/components/privacy-page-back-button";
-import { cn, eyebrowText, searchPageCanvas, searchFocusRing } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
+import { DateDisplay } from "@/components/ui/date-display";
+import { PageHeader } from "@/components/ui/page-header";
+import { cn, eyebrowText, pageContainer, searchPageCanvas, searchFocusRing } from "@/components/ui-primitives";
 import {
+  PRIVACY_CLOSING_NOTE,
+  PRIVACY_CONTENT_AS_OF,
   PRIVACY_DRAFT_DISCLAIMER,
   PRIVACY_IMPORTANT_FULL,
   PRIVACY_IMPORTANT_SHORT,
-  PRIVACY_PROCESSING_MAP,
   PRIVACY_SECTIONS,
+  type PrivacySectionId,
 } from "@/lib/privacy-page-content";
+import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { privacyCopy } from "@/lib/ui-copy";
 
 /**
@@ -21,214 +32,74 @@ import { privacyCopy } from "@/lib/ui-copy";
  *
  * Page structure:
  * - Compact sticky navigation header
- * - In-flow introduction, Important notice, and processing overview
- * - Processing map is the mockup instrument strip — never rounded-full “circle” chips
- * - Accordion with numbered gists; desktop Signal Index
+ * - `PageHeader` owns the h1, the lede, the as-of meta and the print action
+ * - One amber alarm ("Before you use"); the status note is deliberately quieter
+ * - At-a-glance fact grid — the answer layer, and a way into the prose
+ * - Processing map is the mockup instrument strip — never rounded-full "circle" chips
+ * - Accordion with numbered gists; desktop Signal Index and a phone jump control
  *
  * Governance copy stays in `privacy-page-content` (pinned by privacy-ui tests).
+ *
+ * This route is standalone — outside the `(search-app)` group, with no global
+ * shell header — so `InformationPageShell`, `PhoneHeaderCollapsePortal` and the
+ * in-page-nav chrome metrics do not apply and it owns its own sticky bar. The
+ * safe-area pad literals below are pinned by
+ * `tests/search-page-shell-standalone.contract.test.ts`.
  */
 
 const atmosphere =
   "bg-[radial-gradient(ellipse_at_8%_-8%,color-mix(in_srgb,var(--warning-bg)_78%,transparent),transparent_34%),radial-gradient(ellipse_at_92%_4%,color-mix(in_srgb,var(--clinical-accent-soft)_48%,transparent),transparent_42%),linear-gradient(180deg,color-mix(in_srgb,var(--surface)_55%,transparent),transparent_18rem),var(--background)]";
 
-/** Readable content measure for the privacy document, not the 1500px search shell. */
-const pageContainer = "mx-auto w-full max-w-[80rem]";
 const pagePadX = "px-4 sm:px-6 lg:px-8";
 /** Same safe-area top pad as `searchPageShellStandalone` — owned here for sticky chrome. */
 const pagePadTop = "pt-[max(0.75rem,var(--safe-area-top))] sm:pt-[max(1.25rem,var(--safe-area-top))]";
 
-/**
- * Precision instrument — three equal cells at every width.
- * Soft tone washes + MapPin marks; never horizontal pill/circle chips that clip External.
- */
-function ProcessingMap({ density = "comfortable" }: { density?: "comfortable" | "compact" }) {
-  const compact = density === "compact";
-  return (
-    <section aria-label="Where processing happens" className={cn(compact ? "space-y-1.5" : "space-y-2")}>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-        <p className="text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
-          Processing map
-        </p>
-        <p className="text-3xs font-medium text-[color:var(--text-muted)]">Operator must verify regions</p>
-      </div>
-      <div
-        className={cn(
-          "grid grid-cols-3 overflow-hidden rounded-2xl border border-[color:var(--border)] shadow-[var(--shadow-inset)]",
-          "bg-[color:var(--surface-raised)]",
-        )}
-      >
-        {PRIVACY_PROCESSING_MAP.map((cell, index) => (
-          <div
-            key={cell.place}
-            className={cn(
-              "relative min-w-0",
-              compact ? "px-2 py-2 sm:px-3 sm:py-2.5" : "px-2.5 py-2.5 sm:px-4 sm:py-3.5",
-              index > 0 && "border-l border-[color:var(--border)]",
-              cell.tone === "accent" && "bg-[color:var(--clinical-accent-soft)]/55",
-              cell.tone === "warn" && "bg-[color:var(--warning-bg)]/80",
-              cell.tone === "neutral" && "bg-[color:var(--surface-subtle)]/80",
-            )}
-          >
-            <div className={cn("flex items-start", compact ? "gap-1" : "gap-1.5")}>
-              <MapPin
-                aria-hidden="true"
-                className={cn(
-                  "mt-0.5 shrink-0 opacity-80",
-                  compact ? "h-3 w-3" : "h-3.5 w-3.5",
-                  cell.tone === "accent" && "text-[color:var(--clinical-accent)]",
-                  cell.tone === "warn" && "text-[color:var(--warning-text)]",
-                  cell.tone === "neutral" && "text-[color:var(--text-muted)]",
-                )}
-              />
-              <div className="min-w-0">
-                <p
-                  className={cn(
-                    "font-extrabold uppercase tracking-kicker",
-                    compact ? "text-3xs leading-3" : "text-3xs leading-3 sm:text-2xs sm:leading-4",
-                    cell.tone === "accent" && "text-[color:var(--clinical-accent)]",
-                    cell.tone === "warn" && "text-[color:var(--warning-text)]",
-                    cell.tone === "neutral" && "text-[color:var(--text-muted)]",
-                  )}
-                >
-                  {cell.place}
-                </p>
-                <p
-                  className={cn(
-                    "mt-0.5 font-semibold tracking-display text-[color:var(--text-heading)]",
-                    compact ? "text-2xs leading-4" : "text-2xs leading-4 sm:text-sm sm:leading-5",
-                  )}
-                >
-                  {cell.role}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
+/** A quiet metadata chip for the header — not a status, so not a `Chip` tone. */
+const metaChip =
+  "inline-flex items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 py-1 text-3xs font-semibold text-[color:var(--text-muted)]";
 
-function SectionAccordion({
-  openId,
-  setOpenId,
-  expandAll,
-  sectionRefs,
-  idPrefix,
-  stickyOffsetPx,
-}: {
-  openId: string;
-  setOpenId: (id: string) => void;
-  expandAll: boolean;
-  sectionRefs: React.RefObject<Record<string, HTMLElement | null>>;
-  idPrefix: string;
-  stickyOffsetPx: number;
-}) {
+function PrintAction({ label = "Print" }: { label?: string }) {
   return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]",
-        "print:overflow-visible",
-      )}
+    <Button
+      variant="secondary"
+      size="sm"
+      icon={Printer}
+      onClick={() => window.print()}
+      testId="privacy-print"
+      className="print:hidden"
     >
-      {PRIVACY_SECTIONS.map((section, index) => {
-        const expanded = expandAll || openId === section.heading;
-        const panelId = `${idPrefix}-section-${index}`;
-        const triggerId = `${idPrefix}-trigger-${index}`;
-        return (
-          <section
-            key={section.heading}
-            ref={(node) => {
-              sectionRefs.current[section.heading] = node;
-            }}
-            style={{ scrollMarginTop: stickyOffsetPx + 12 }}
-            className={cn(index > 0 && "border-t border-[color:var(--border)]", "print:break-inside-avoid")}
-          >
-            <h3 className="m-0">
-              <button
-                type="button"
-                id={triggerId}
-                onClick={() => setOpenId(expanded && !expandAll ? "" : section.heading)}
-                aria-expanded={expanded}
-                aria-controls={panelId}
-                className={cn(
-                  "group relative flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition duration-[var(--duration-fast)] hover:bg-[color:var(--surface-subtle)] sm:gap-3 sm:px-3.5 sm:py-3 lg:px-5",
-                  searchFocusRing,
-                  "min-h-tap lg:min-h-[calc(var(--spacing-tap)+0.75rem)]",
-                  expanded && "bg-[color:var(--clinical-accent-soft)]/45",
-                )}
-              >
-                {expanded ? (
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-y-2 left-0 w-0.5 rounded-r-full bg-[color:var(--clinical-accent)] print:hidden"
-                  />
-                ) : null}
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "nums mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg text-2xs font-extrabold",
-                    expanded
-                      ? "bg-[color:var(--clinical-accent)] text-[color:var(--surface)]"
-                      : "bg-[color:var(--surface-subtle)] text-[color:var(--clinical-accent)]",
-                  )}
-                >
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold tracking-display text-[color:var(--text-heading)] lg:text-base-minus">
-                    {section.heading}
-                  </span>
-                  {!expanded ? (
-                    <span
-                      aria-hidden="true"
-                      className="mt-0.5 block text-2xs leading-4 text-[color:var(--text-muted)] sm:mt-1 lg:text-xs lg:leading-5"
-                    >
-                      {section.gist}
-                    </span>
-                  ) : (
-                    <span className="mt-0.5 block text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--clinical-accent)] print:hidden sm:mt-1">
-                      Open
-                    </span>
-                  )}
-                </span>
-                <ChevronDown
-                  aria-hidden="true"
-                  className={cn(
-                    "mt-1.5 size-icon-sm shrink-0 text-[color:var(--text-muted)] transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none print:hidden",
-                    expanded && "rotate-180 text-[color:var(--clinical-accent)]",
-                  )}
-                />
-              </button>
-            </h3>
-            <div
-              id={panelId}
-              role="region"
-              aria-labelledby={triggerId}
-              hidden={!expanded}
-              className={cn(
-                "border-t border-[color:var(--clinical-accent-border)]/60 bg-[color:var(--surface-wash)] px-3 py-3 sm:px-3.5 sm:py-3.5 lg:px-5 lg:py-4 lg:pl-[calc(var(--spacing-tap)+0.75rem)]",
-                "print:block",
-              )}
-            >
-              <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-muted)]">{section.body}</p>
-            </div>
-          </section>
-        );
-      })}
-    </div>
+      {label}
+    </Button>
   );
 }
 
 export function PrivacyQuietSignalPage() {
   const noticeId = useId();
   const sectionIdPrefix = useId();
-  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+  const phoneIndexId = useId();
+  const sectionRefs = useRef<Partial<Record<PrivacySectionId, HTMLElement | null>>>({});
   const stickyChromeRef = useRef<HTMLDivElement | null>(null);
-  const pendingScrollHeading = useRef<string | null>(null);
   const [noticeOpen, setNoticeOpen] = useState(false);
-  const [openId, setOpenId] = useState(PRIVACY_SECTIONS[0]?.heading ?? "");
-  const [expandAll, setExpandAll] = useState(false);
+  const [phoneIndexOpen, setPhoneIndexOpen] = useState(false);
+  const firstSectionId = PRIVACY_SECTIONS[0]?.id ?? null;
+  // A set, not one id plus an `expandAll` flag. Those two fought: with everything
+  // expanded, opening any single section collapsed the other nine.
+  const [manualOpenIds, setManualOpenIds] = useState<ReadonlySet<PrivacySectionId>>(
+    () => new Set(firstSectionId ? [firstSectionId] : []),
+  );
+  const [lastSelectedId, setLastSelectedId] = useState<PrivacySectionId | null>(firstSectionId);
+  const hashSectionId = usePrivacyHashSection();
+  const deepLinkHandled = useRef(false);
+  // A deep-linked section is open by derivation, so arriving on
+  // `/privacy#retention` needs no bootstrap render.
+  const openIds: ReadonlySet<PrivacySectionId> = useMemo(
+    () =>
+      hashSectionId && !manualOpenIds.has(hashSectionId)
+        ? new Set<PrivacySectionId>([...manualOpenIds, hashSectionId])
+        : manualOpenIds,
+    [hashSectionId, manualOpenIds],
+  );
+  const activeId = hashSectionId ?? lastSelectedId;
   const [stickyChromeHeightPx, setStickyChromeHeightPx] = useState(80);
   // When enlarged text makes the header taller than the viewport, sticky chrome
   // would cover every accordion hit target — drop sticky in that case.
@@ -252,40 +123,73 @@ export function PrivacyQuietSignalPage() {
     };
   }, []);
 
-  const scrollSectionIntoView = (heading: string) => {
-    const target = sectionRefs.current[heading];
-    if (!target) return;
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  const scrollToSection = useCallback((id: PrivacySectionId) => {
+    // `resolveScrollBehavior`, never a hard-coded "smooth": an explicit behavior in
+    // ScrollIntoViewOptions overrides the reduced-motion CSS in globals.css.
+    sectionRefs.current[id]?.scrollIntoView({ behavior: resolveScrollBehavior(), block: "start" });
+  }, []);
 
-  const selectSection = (heading: string) => {
-    if (!expandAll && openId === heading) {
-      pendingScrollHeading.current = null;
-      scrollSectionIntoView(heading);
-      return;
-    }
-    pendingScrollHeading.current = heading;
-    setExpandAll(false);
-    setOpenId(heading);
-  };
+  /** Open a section and bring it into view — the index and the fact tiles land here. */
+  const openSection = useCallback(
+    (id: PrivacySectionId) => {
+      setManualOpenIds((current) => {
+        if (current.has(id)) return current;
+        const next = new Set(current);
+        next.add(id);
+        return next;
+      });
+      setLastSelectedId(id);
+      setPhoneIndexOpen(false);
+      writePrivacyHashSection(id);
+      deepLinkHandled.current = true;
+      scrollToSection(id);
+    },
+    [scrollToSection],
+  );
 
+  // Arrival only. Later fragment writes scroll from the handler above, so this
+  // never re-runs for an in-page selection.
   useEffect(() => {
-    const heading = pendingScrollHeading.current;
-    if (!heading || openId !== heading || expandAll) return;
-    pendingScrollHeading.current = null;
-    scrollSectionIntoView(heading);
-  }, [openId, expandAll]);
+    if (deepLinkHandled.current || !hashSectionId) return;
+    deepLinkHandled.current = true;
+    scrollToSection(hashSectionId);
+  }, [hashSectionId, scrollToSection]);
+
+  const toggleSection = useCallback(
+    (id: PrivacySectionId) => {
+      setManualOpenIds((current) => {
+        const next = new Set(current);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+      setLastSelectedId(id);
+      // Closing the section the fragment points at has to drop the fragment too,
+      // or the derived open set would immediately reopen it.
+      if (openIds.has(id) && hashSectionId === id) writePrivacyHashSection(null);
+    },
+    [hashSectionId, openIds],
+  );
+
+  const allOpen = openIds.size === PRIVACY_SECTIONS.length;
 
   const toggleExpandAll = () => {
-    setExpandAll((value) => !value);
-    if (expandAll) setOpenId(PRIVACY_SECTIONS[0]?.heading ?? "");
+    if (allOpen && hashSectionId) writePrivacyHashSection(null);
+    setManualOpenIds(allOpen ? new Set() : new Set(PRIVACY_SECTIONS.map((section) => section.id)));
   };
+
+  const expandAllButton = (
+    <Button variant="secondary" size="sm" onClick={toggleExpandAll} testId="privacy-expand-all">
+      {allOpen ? "Collapse all" : "Expand all"}
+    </Button>
+  );
 
   return (
     <main
       id="main-content"
       tabIndex={-1}
       className={cn(
+        "privacy-page",
         searchPageCanvas,
         atmosphere,
         "min-h-dvh focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
@@ -298,6 +202,7 @@ export function PrivacyQuietSignalPage() {
         className={cn(
           chromeSticky && "sticky top-0",
           "z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)]/95 shadow-[var(--e1)] backdrop-blur-xl",
+          "print:hidden",
         )}
       >
         <div className={cn(pagePadX, pagePadTop, "pb-2.5 sm:pb-3")}>
@@ -312,28 +217,45 @@ export function PrivacyQuietSignalPage() {
                 Data handling
               </p>
             </div>
+            <div className="hidden shrink-0 sm:block">
+              <PrintAction />
+            </div>
           </div>
         </div>
       </div>
 
       <div className={cn(pagePadX, "py-5 sm:py-7 lg:py-10")}>
         <div className={cn(pageContainer, "space-y-5 sm:space-y-6")}>
-          <header className="max-w-[48rem]">
-            <p className={cn(eyebrowText, "text-[color:var(--clinical-accent)]")}>Privacy overview</p>
-            <h1 className="mt-2 text-balance text-2xl font-semibold tracking-display text-[color:var(--text-heading)] sm:text-3xl lg:text-4xl">
-              {privacyCopy.pageTitle}
-            </h1>
-            <p className="mt-3 max-w-[62ch] text-sm leading-6 text-[color:var(--text-muted)] sm:text-base sm:leading-7">
-              Understand what information Clinical KB handles, where it is processed, how long it is retained, and what
-              you need to do before using it.
-            </p>
-            <p
-              data-testid="privacy-draft-disclaimer"
-              className="max-w-[68ch] text-xs font-semibold leading-5 text-[color:var(--warning-text)]"
-            >
-              {PRIVACY_DRAFT_DISCLAIMER}
-            </p>
-          </header>
+          <PageHeader
+            eyebrow="Privacy overview"
+            title={privacyCopy.pageTitle}
+            description="Understand what information Clinical KB handles, where it is processed, how long it is retained, and what you need to do before using it."
+            meta={
+              <>
+                <span className={metaChip}>
+                  <span>Describes configured behaviour as of</span>
+                  <DateDisplay value={PRIVACY_CONTENT_AS_OF} kind="generated" className="font-semibold" />
+                </span>
+                <span className={metaChip}>Applies to every Clinical KB mode</span>
+              </>
+            }
+          />
+
+          {/*
+            The status note used to be bold amber body text sitting directly under
+            the lede with no top margin, so it both collided with the paragraph
+            above and competed with the real safety alarm below it. Two amber
+            blocks in one viewport is how an alarm becomes decoration: this one is
+            demoted to a quiet bordered note, and the wording is unchanged.
+          */}
+          <p
+            role="note"
+            data-testid="privacy-draft-disclaimer"
+            className="flex max-w-[68ch] items-start gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2.5 text-xs leading-5 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]"
+          >
+            <Info aria-hidden="true" className="mt-0.5 size-icon-xs shrink-0 text-[color:var(--text-muted)]" />
+            <span>{PRIVACY_DRAFT_DISCLAIMER}</span>
+          </p>
 
           <section
             aria-labelledby="privacy-important-heading"
@@ -362,7 +284,7 @@ export function PrivacyQuietSignalPage() {
                 aria-expanded={noticeOpen}
                 aria-controls={noticeId}
                 className={cn(
-                  "inline-flex min-h-tap shrink-0 items-center justify-center gap-1 self-start rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--surface-raised)] px-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--warning-text)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--warning-bg)] max-sm:w-full",
+                  "inline-flex min-h-tap shrink-0 items-center justify-center gap-1 self-start rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--surface-raised)] px-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--warning-text)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--warning-bg)] max-sm:w-full print:hidden",
                   searchFocusRing,
                 )}
               >
@@ -378,14 +300,19 @@ export function PrivacyQuietSignalPage() {
             </div>
             <div
               id={noticeId}
-              hidden={!noticeOpen}
-              className="border-t border-[color:var(--warning-border)] bg-[color:var(--surface-raised)] px-4 py-3 sm:px-5 sm:py-4 print:block"
+              className={cn(
+                "border-t border-[color:var(--warning-border)] bg-[color:var(--surface-raised)] px-4 py-3 sm:px-5 sm:py-4",
+                !noticeOpen && "hidden",
+                "print:block",
+              )}
             >
               <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-heading)]">
                 {PRIVACY_IMPORTANT_FULL}
               </p>
             </div>
           </section>
+
+          <PrivacyAtAGlance onOpenSection={openSection} />
 
           <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)] sm:p-4">
             <ProcessingMap density="compact" />
@@ -394,101 +321,82 @@ export function PrivacyQuietSignalPage() {
       </div>
 
       <div className={cn(pagePadX, "pb-8 lg:pb-12")}>
-        <div className={cn(pageContainer, "grid grid-cols-1 gap-6 lg:grid-cols-[16.5rem_minmax(0,1fr)] lg:gap-8")}>
+        <div
+          data-print-stack
+          className={cn(pageContainer, "grid grid-cols-1 gap-6 lg:grid-cols-[16.5rem_minmax(0,1fr)] lg:gap-8")}
+        >
           <aside
-            className="hidden h-fit rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-2.5 shadow-[var(--shadow-inset)] lg:sticky lg:block"
+            className="hidden h-fit rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-2.5 shadow-[var(--shadow-inset)] lg:sticky lg:block print:hidden"
             style={{ top: chromeSticky ? stickyChromeHeightPx + 12 : 12 }}
           >
-            <div className="mb-1.5 flex items-center justify-between px-2.5 pt-1.5">
-              <p className="text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
-                On this page
-              </p>
-              <button
-                type="button"
-                onClick={toggleExpandAll}
-                className={cn(
-                  "min-h-tap rounded-md px-1.5 text-3xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-8 sm:py-1",
-                  searchFocusRing,
-                )}
-              >
-                {expandAll ? "Collapse" : "Expand all"}
-              </button>
-            </div>
-            <nav aria-label="Privacy sections" className="grid gap-0.5">
-              {PRIVACY_SECTIONS.map((section, index) => {
-                const active = !expandAll && openId === section.heading;
-                return (
-                  <button
-                    key={section.heading}
-                    type="button"
-                    onClick={() => selectSection(section.heading)}
-                    className={cn(
-                      "relative flex min-h-tap w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-xl px-2.5 text-left transition",
-                      searchFocusRing,
-                      active
-                        ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                        : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                    )}
-                  >
-                    {active ? (
-                      <span
-                        aria-hidden="true"
-                        className="absolute inset-y-1.5 left-0 w-0.5 rounded-r-full bg-[color:var(--clinical-accent)]"
-                      />
-                    ) : null}
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "nums grid h-6 w-6 shrink-0 place-items-center rounded-md text-3xs font-extrabold",
-                        active
-                          ? "bg-[color:var(--clinical-accent)] text-[color:var(--surface)]"
-                          : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-                      )}
-                    >
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-xs font-semibold">{section.short}</span>
-                      <span className="mt-0.5 block truncate text-3xs leading-3 text-[color:var(--text-muted)]">
-                        {section.gist}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </nav>
+            <p className="mb-1.5 px-2.5 pt-1.5 text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
+              On this page
+            </p>
+            <PrivacySectionIndex activeId={activeId} onSelect={openSection} idPrefix={`${sectionIdPrefix}-desktop`} />
           </aside>
 
           <div className="min-w-0 space-y-4 sm:space-y-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="min-w-0">
                 <p className={eyebrowText}>Privacy details</p>
                 <h2 className="mt-1 text-lg font-semibold tracking-display text-[color:var(--text-heading)] sm:text-xl">
                   How your information is handled
                 </h2>
               </div>
-              <button
-                type="button"
-                onClick={toggleExpandAll}
-                className={cn(
-                  "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2.5 text-3xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-soft)] lg:hidden",
-                  searchFocusRing,
-                )}
-              >
-                {expandAll ? "Collapse" : "Expand all"}
-              </button>
+              <div className="flex flex-wrap items-center gap-2 print:hidden">
+                <button
+                  type="button"
+                  onClick={() => setPhoneIndexOpen((value) => !value)}
+                  aria-expanded={phoneIndexOpen}
+                  aria-controls={phoneIndexId}
+                  className={cn(
+                    "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] lg:hidden",
+                    searchFocusRing,
+                  )}
+                >
+                  <ListTree aria-hidden="true" className="size-icon-xs shrink-0" />
+                  Jump to a section
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn(
+                      "size-icon-xs shrink-0 transition-transform duration-[var(--duration-fast)] motion-reduce:transition-none",
+                      phoneIndexOpen && "rotate-180",
+                    )}
+                  />
+                </button>
+                {expandAllButton}
+              </div>
             </div>
-            <SectionAccordion
+
+            {/*
+              In-flow, never sticky: `docs/search-chrome-behaviour.md` allows one
+              phone nav owner per page, and this route's sticky bar is already it.
+            */}
+            <div
+              id={phoneIndexId}
+              className={cn(
+                "rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-2 shadow-[var(--shadow-inset)] lg:hidden",
+                !phoneIndexOpen && "hidden",
+                "print:hidden",
+              )}
+            >
+              <PrivacySectionIndex activeId={activeId} onSelect={openSection} idPrefix={`${sectionIdPrefix}-phone`} />
+            </div>
+
+            <PrivacySectionAccordion
               idPrefix={sectionIdPrefix}
-              openId={openId}
-              setOpenId={(id) => {
-                setExpandAll(false);
-                setOpenId(id);
-              }}
-              expandAll={expandAll}
+              openIds={openIds}
+              onToggle={toggleSection}
               sectionRefs={sectionRefs}
               stickyOffsetPx={chromeSticky ? stickyChromeHeightPx : 0}
             />
+
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-3 shadow-[var(--shadow-inset)] sm:px-4">
+              <p className="min-w-0 max-w-[68ch] text-xs leading-5 text-[color:var(--text-muted)]">
+                {PRIVACY_CLOSING_NOTE}
+              </p>
+              <PrintAction label="Print this page" />
+            </div>
           </div>
         </div>
       </div>

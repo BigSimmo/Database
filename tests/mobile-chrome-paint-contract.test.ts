@@ -59,10 +59,12 @@ describe("mobile chrome paint baseline", () => {
       "@media (prefers-reduced-transparency: reduce)",
       { label: "supports fallback rules", allowRepeatedStart: true },
     );
-    const reducedTransparencySource = sourceFrom(globalStylesSource, "@media (prefers-reduced-transparency: reduce)", {
-      label: "reduced transparency rules",
-      allowRepeatedStart: true,
-    });
+    const reducedTransparencySource = sourceSegment(
+      globalStylesSource,
+      "@media (prefers-reduced-transparency: reduce)",
+      "@layer components {",
+      { label: "reduced transparency footer backdrop rules", allowRepeatedStart: true },
+    );
 
     expect(footerBackdropSource).toContain("color-mix(in srgb, var(--background) 28%, transparent) 58%");
     expect(supportsFallbackSource).toContain("color-mix(in srgb, var(--background) 38%, transparent) 62%");

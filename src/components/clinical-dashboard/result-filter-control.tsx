@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronDown, Funnel, Search, X } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/components/ui-primitives";
@@ -205,6 +205,7 @@ export function ResultFilterTrigger({
   onToggle,
   title,
   label = "Filter",
+  labelVisibility = "responsive",
 }: {
   panelId: string;
   /** Distinct per slot when a page renders the trigger more than once: both
@@ -217,7 +218,11 @@ export function ResultFilterTrigger({
   /** Pointer tooltip, e.g. "Filter services". The accessible name comes from the
       visible label plus the state note below, so this is decoration. */
   title: string;
-  label?: string;
+  /** A node rather than a string so a page can supply contextual wording. */
+  label?: ReactNode;
+  /** Preserve the default compact-band behaviour unless a page has deliberately
+      budgeted room for the visible wordmark at every supported width. */
+  labelVisibility?: "responsive" | "always";
 }) {
   return (
     <button
@@ -251,7 +256,11 @@ export function ResultFilterTrigger({
           several times over. 414–429px is the one band that is genuinely
           single-line and short of width; there a funnel carrying a badge is
           unambiguous. The accessible name is unchanged at every width. */}
-      <span className="min-[414px]:max-[429px]:sr-only">{label}</span>
+      <span
+        className={cn(labelVisibility === "responsive" && "min-filter-label-collapse:max-filter-label-restore:sr-only")}
+      >
+        {label}
+      </span>
       {activeCount > 0 ? (
         // A tinted pill, not a solid disc: a saturated filled circle is the single
         // loudest signal on a bar that is otherwise hairlines and type, and it

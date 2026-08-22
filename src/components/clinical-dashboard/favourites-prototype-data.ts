@@ -131,11 +131,3 @@ export const favouriteSets: FavouriteSet[] = [
     keywords: "clozapine clinic monitoring anc table counselling",
   },
 ];
-
-export function favouriteTypeCount(type: FavouriteTabId) {
-  if (type === "all") return favouriteItems.length + favouriteSets.length;
-  if (type === "sets") return favouriteSets.length;
-  return favouriteItems.filter((item) => item.type === type).length;
-}
-
-export const favouritePrototypeCount = favouriteItems.length + favouriteSets.length;

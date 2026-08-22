@@ -25,8 +25,33 @@
 # still downstream.
 set -uo pipefail
 
-payload="$(cat 2>/dev/null || true)"
+# Read stdin with the `read` builtin instead of `$(cat)`. That is one fewer
+# fork+exec on every single Bash/PowerShell tool call, and it is not slower:
+# measured against payloads from 1 KB to 2 MB it is faster below 256 KB and
+# level above. `read -d ''` consumes to EOF and reports non-zero *there* having
+# already filled the variable, so the `|| true` is the expected path.
+payload=""
+IFS= read -r -d '' payload || true
 [ -z "$payload" ] && exit 0
+
+# --- cheapest possible discriminator, before any subprocess -------------------
+# This hook runs on EVERY Bash/PowerShell call but acts only on `git push`, and
+# reaching "not a push" used to cost two jq runs, a grep and a subshell — on
+# Windows/Git Bash that is well over a second of pure process-spawn latency per
+# tool call. The test below uses shell builtins only.
+#
+# It is deliberately a SUPERSET of the real check further down
+# (`git[[:space:]]+push`), so it can only ever let MORE through, never less: that
+# regex cannot match unless the bytes `git` appear before the bytes `push`,
+# whether the command reaches it jq-decoded, grep-extracted, or as the raw
+# payload. The `\u` arm covers the one theoretical gap in that argument — an
+# encoder emitting `\u0067it push` — at the cost of taking the slow path for the
+# rare payload carrying a unicode escape. Anything rejected here would have
+# exited at that regex anyway.
+case "$payload" in
+*git*push* | *\\u*) ;;
+*) exit 0 ;;
+esac
 
 # --- extract the command ------------------------------------------------------
 if command -v jq >/dev/null 2>&1; then
@@ -67,13 +92,44 @@ if [ -n "$hooks_path" ]; then
   # Normalise Windows backslashes so a native `git config` value compares equal
   # to the POSIX path this script sees.
   normalised="$(printf '%s' "$hooks_path" | tr '\\' '/')"
+  repo_root_n="$(printf '%s' "$repo_root" | tr '\\' '/')"
+  repo_root_n="${repo_root_n%/}"
+  # `core.hooksPath` is absolute OR relative to the top of the working tree, and
+  # git treats `.githooks`, `./.githooks` and the absolute spelling as the same
+  # directory. Resolve to one form before comparing. A `*/.githooks` suffix glob
+  # cannot do that: it needs a `/` before the name, so it silently missed the
+  # bare relative value this repo's own `npm install` writes — leaving the guard
+  # running a full-repository Prettier check on every push in a checkout that was
+  # in fact correctly wired (measured at >100 s per push on the Windows
+  # workstation, 2026-08-22).
   case "$normalised" in
-  */.githooks)
-    if [ -x "$repo_root/.githooks/pre-push" ]; then
-      exit 0
-    fi
+  /* | ?:/*) resolved="$normalised" ;;
+  *) resolved="$repo_root_n/${normalised#./}" ;;
+  esac
+  resolved="${resolved%/}"
+  expected="$repo_root_n/.githooks"
+  # Windows drive-letter paths are case-insensitive, and Bash `=` is not. Git
+  # wires `d:/Database/.githooks` and `D:/Database/.githooks` to the same
+  # directory, so comparing the raw bytes puts the primary (Windows ReFS Dev
+  # Drive) workstation straight back into the >100 s full-repository Prettier
+  # run this whole check exists to avoid. Fold case only for the unambiguous
+  # `X:/...` spelling: the MSYS `/c/...` form is byte-identical to a real POSIX
+  # path, where case IS significant, and folding that could silently
+  # self-disable the guard against a FOREIGN hooks directory — the unsafe
+  # direction. Testing `resolved` alone is enough: a relative `core.hooksPath`
+  # has already been joined onto `repo_root_n`, so it inherits that form.
+  case "$resolved" in
+  ?:/*)
+    resolved="$(printf '%s' "$resolved" | tr '[:upper:]' '[:lower:]')"
+    expected="$(printf '%s' "$expected" | tr '[:upper:]' '[:lower:]')"
     ;;
   esac
+  # Exact equality, not a suffix match: another repository's `.githooks` also
+  # ends in `/.githooks`, and its pre-push hook would not guard THIS push.
+  if [ "$resolved" = "$expected" ] \
+    && [ -x "$repo_root/.githooks/pre-push" ]; then
+    exit 0
+  fi
 fi
 
 # --- run the repository-wide check, never a per-file one ---------------------

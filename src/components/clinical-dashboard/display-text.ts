@@ -8,7 +8,6 @@ import {
   stripClassificationBanner,
 } from "@/lib/source-text-sanitizer";
 import { polishClinicalAnswerProse } from "@/lib/rag/rag-answer-text";
-import type { SearchResult } from "@/lib/types";
 
 const displayJsonArtifactPattern =
   /"?(answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|conflictsOrGaps|quoteCards?|source_chunk_ids|chunk_id)"?\s*:\s*/i;
@@ -223,31 +222,6 @@ export function compactSourceSnippet(value: string, options: CompactSourceSnippe
 }
 
 /**
- * Compacts table fact fields into a deduplicated display representation.
- *
- * @param fact - The table fact whose fields should be compacted
- * @returns The fact identifier and cleaned fields, or `null` when no displayable fields remain
- */
-export function compactTableFact(fact: NonNullable<SearchResult["table_facts"]>[number]) {
-  const fields = [
-    { label: "Table", value: fact.table_title },
-    { label: "Row", value: fact.row_label },
-    { label: "Threshold", value: fact.threshold_value },
-    { label: "Action", value: fact.action },
-  ];
-  const seen = new Set<string>();
-  const cleanedFields = fields.flatMap((field) => {
-    const value = sanitizeDisplayText(String(field.value ?? ""), { minLength: 2, minTokens: 1, compactSource: true });
-    const key = sourceSnippetKey(value);
-    if (!value || !key || seen.has(key)) return [];
-    seen.add(key);
-    return [{ ...field, value: truncateWords(value, 28) }];
-  });
-
-  return cleanedFields.length ? { id: fact.id, fields: cleanedFields } : null;
-}
-
-/**
  * Sanitizes answer text for display while removing embedded artifacts and low-information content.
  *
  * @param options - Controls minimum content thresholds, preformatted text handling, and bold formatting preservation.
@@ -290,19 +264,6 @@ export function cleanDisplayTitle(title: string) {
       .replace(/\s+/g, " ")
       .trim()
   );
-}
-
-export function sourceDisplayTitle(source: SearchResult) {
-  return cleanDisplayTitle(source.title);
-}
-
-export function sourceDisplayMeta(source: SearchResult, title: string) {
-  const fileBase = source.file_name?.replace(/\.pdf$/i, "").trim();
-  const titleBase = title.toLowerCase();
-  const fileBaseNormalized = (fileBase ?? "").toLowerCase();
-  const includeFile =
-    Boolean(fileBase) && fileBaseNormalized !== titleBase && !fileBaseNormalized.startsWith(titleBase);
-  return [includeFile ? source.file_name : null, `page ${source.page_number ?? "n/a"}`].filter(Boolean).join(" · ");
 }
 
 export function comparableAnswerText(value: string) {

@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "6ef54215-950c-4d68-8af9-b2ff5aaedb83",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Do not re-attempt folding AnswerCard's support label inline into VerificationNotice — measured, it saves 4.5px, not a row",
+    "detail": "REFUTED 2026-08-21 by direct measurement; recorded so it is not re-attempted. Context: the full-frontend design review made `support` a required prop on AnswerCard (PR #2210), rendering \"Evidence support: Strong support\" as its own row above the answer prose. That added real height and tripped two tests/ui-smoke.spec.ts phone-geometry budgets in Production UI; d095f96 fixed them properly, by measuring the label's real rendered height via [data-testid=\"answer-card-support\"] and adding it to permittedOverflow and to the post-collapse ceiling, rather than by fudging a constant. The standing follow-up idea was to fold the label INLINE into the end of the VerificationNotice sentence, on the theory that it would then cost nothing and both budgets could return to their original strict constants (+8 / < 72 / < 200). MEASURED, both variants on the same page at 390x900 in demo mode, same Chromium: LANDED standalone row = 11px text on a 16.5px line, and removing it shrinks the answer surface by 24.5px (16.5 line + 8px flex gap) and document scrollHeight by 24px. INLINE variant = the compact notice paragraph is 294px wide at 12px/20px line-height; the `ready` compact wording is 82 chars and wraps to 2 lines (40px), and appending \" Evidence: Strong support.\" (26 chars) tips it to 3 lines (60px) - a 20px cost. So the inline form saves 4.5px, not ~24px. The two budgets overran by only 4px (maxScrollTop 12 vs 8) and 2px (postCollapseMaxOffset 74 vs 72), so 4.5px is a coin-flip rather than a fix, and it is NOT stable across states: the `ungrounded` compact wording is 140 chars against `ready`'s 82, so whether the appended clause tips a line varies by verification state, making the saving unpredictable exactly where the budget is tightest. It also buries a clinical trust signal mid-sentence instead of giving it a scannable row. CONCLUSION: the landed standalone-row design plus d095f96's measured budgets is correct; leave both alone. If the phone answer header ever does need height back, take it from somewhere with a stable cost, not from this label.",
+    "issueUlid": "01M0J90F8F99KVDF221AYHEAG9"
+  }
+}

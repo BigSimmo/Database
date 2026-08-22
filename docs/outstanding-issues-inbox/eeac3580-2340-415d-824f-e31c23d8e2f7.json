@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "eeac3580-2340-415d-824f-e31c23d8e2f7",
+  "createdOn": "2026-08-21",
+  "action": "done",
+  "payload": {
+    "id": "#0HFDWD",
+    "outcome": "Resolved 2026-08-21: CI and PR-policy UI classifiers include the narrow mode, route, copy, navigation, and therapies library owners; self-tests pin app-modes and route ownership as UI.",
+    "baseRowFingerprint": "2487b9ae1b9c3cdea71545ce097e91f5e3c6ca6ee55904c0ff028a4a8f8cac9d"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f7499c28-d1ac-4230-abbe-517b02001f7e",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#5JK9FM",
+    "outcome": "Resolved 2026-08-21. Verified on main at 1cc0d2987: .github/pull_request_template.md now contains 4 occurrences of 'RAG impact', so the exact-format contract enforced by scripts/pr-policy.mjs ragImpactDeclared is visible where the body is authored. Verification: grep -c 'RAG impact' on the template.",
+    "baseRowFingerprint": "c79fcbf6e25949e0baba27c7a9e8fd00f7da9550508057eff8ba8bcd4cb18783"
+  }
+}

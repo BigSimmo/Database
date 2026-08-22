@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "4fede43d-fb12-4d85-ba7d-856c46b183f2",
+  "createdOn": "2026-08-21",
+  "action": "update",
+  "payload": {
+    "id": "#6GW95D",
+    "detail": "UPDATE 2026-08-21 (later the same day): the scope is wider than .claude/worktrees, and the previous update's 69 is itself a floor. An accidental `npx vitest run` issued from C:/Users/joshs instead of the repo root enumerated 253 copies of just TWO test files across the home directory, i.e. 253 separate checkouts of this repository, spread over at least six distinct roots: .codex/worktrees, .gemini/antigravity/worktrees, .copilot/repos/copilot-worktrees, .local/share/opencode/worktree, Documents/Codex/<date>/<chat>/work, and an AppData/Local/pnpm store projects directory (which also contained its own .worktrees). Temp copies under AppData/Local/Temp/guard-push-format-* were still present too. So every AI tool in the fleet keeps its own worktree root and none of them is covered by a sweep scoped to .claude/worktrees. Most had no node_modules (the run failed them with 'Cannot find package'), so raw disk is likely below 253 x 0.89 GB, but the count is the point: any recursive tool run from the home directory now walks all of them. Re-scope this row from 'nine landed worktrees' to a fleet-wide inventory across all six roots before pruning, and keep the #XCAX01 safety preconditions — the 2026-08-21 data-loss incident is why this is not a one-line delete. PRIOR RECORD: UPDATE 2026-08-21 (measured on this machine): the figure recorded here is badly understated and moving the wrong way. git worktree list reported 69 registered worktrees under .claude/worktrees, not nine. At the ~0.89 GB / 51,735-file node_modules per worktree measured in #6SMMB4, even partial installs put this well beyond the 4.5 GB recorded, on a Dev Drive noted as 51% full. SAFETY, learned the hard way on 2026-08-21: a sweep removed an in-use worktree during this very session and destroyed its uncommitted work - see the separate row filed for that. Re-measure actual on-disk size, then prune, but confirm each worktree is landed, holds no uncommitted or unpushed work, AND is not currently checked out by a live agent session before removing it.",
+    "source": "Accidental home-directory vitest run, 2026-08-21: 253 test-file copies across six worktree roots",
+    "baseRowFingerprint": "2edd7af71e7e182cf74874a1de2ebb134df9043b945ad47319f7aacbc0fdca2c"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "f7a561a7-1fe2-4aaa-bbfc-90d24baecc7a",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "tests/settings-dialog-actions.dom.test.tsx contains an assertion that can never run: data-settings-nav-target is emitted nowhere in src",
+    "detail": "Found on the developer-hub branch 2026-08-22 while renaming the Settings entry. The test collects document.querySelectorAll(\"[data-settings-nav-target]\"), maps the attribute, and compares it to the rendered section ids — but guards the comparison with 'if (railLabels.length)'. A repo-wide grep shows data-settings-nav-target is emitted in NO source file, so railLabels is always empty and the comparison never executes. The stated intent, per its own comment, is 'The desktop rail lists exactly the sections that render' — a real invariant that is currently unguarded, and one this branch's rename could have broken silently. Fix is one of two: emit the attribute on the rail so the assertion starts doing its job, or delete the dead branch and assert the rail some other way. That choice belongs to the settings-dialog owner, which is why it was left rather than fixed in passing. Pre-existing and unrelated to the developer hub work.",
+    "source": "Developer hub Phase 1 controller, task 9 (2026-08-22)",
+    "issueUlid": "01M0K9K3HV243HCCZBGGPNX88M"
+  }
+}
