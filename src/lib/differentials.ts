@@ -350,7 +350,7 @@ export const differentialPresentationsCards: DifferentialStreamCard[] = differen
   (presentation) => ({
     id: `presentation-${presentation.id}`,
     title: presentation.title,
-    description: presentation.subtitle,
+    description: presentation.scopeLabel ?? presentation.subtitle,
     examples: presentation.safetySnapshot.tags.slice(0, 3),
     href: `/differentials/presentations/${presentation.id}`,
   }),
@@ -604,13 +604,16 @@ export function rankDifferentialRecords(
 }
 
 function presentationSafetyText(workflow: DifferentialPresentationWorkflow) {
-  return normalizeSearchText([workflow.subtitle, ...workflow.safetySnapshot.tags].join(" "));
+  return normalizeSearchText([workflow.scopeLabel, workflow.subtitle, ...workflow.safetySnapshot.tags].join(" "));
 }
 
 export function presentationFullText(workflow: DifferentialPresentationWorkflow) {
   return normalizeSearchText(
     [
       workflow.title,
+      workflow.sourceTitle,
+      workflow.scopeLabel,
+      ...(workflow.titleAliases ?? []),
       workflow.id,
       workflow.subtitle,
       ...workflow.safetySnapshot.tags,
@@ -634,7 +637,14 @@ export function rankPresentationWorkflows(
 ): DifferentialPresentationMatch[] {
   return rankCatalogRecords(workflows, query, {
     fields: [
-      { id: "title", weight: 8, text: (workflow) => normalizeSearchText(`${workflow.title} ${workflow.id}`) },
+      {
+        id: "title",
+        weight: 8,
+        text: (workflow) =>
+          normalizeSearchText(
+            [workflow.title, workflow.sourceTitle, ...(workflow.titleAliases ?? []), workflow.id].join(" "),
+          ),
+      },
       { id: "safety", weight: 4, text: presentationSafetyText },
       // Cross-entity lane (see rankDifferentialRecords' "presentations" field): the candidate
       // differentials' titles, so a diagnosis-shaped query surfaces the presentations that
@@ -644,9 +654,13 @@ export function rankPresentationWorkflows(
     fullText: presentationFullText,
     contentWeight: 2,
     compactBonus: 6,
-    compactExtraText: (workflow) => normalizeSearchText(workflow.title),
+    compactExtraText: (workflow) =>
+      normalizeSearchText([workflow.title, workflow.sourceTitle, ...(workflow.titleAliases ?? [])].join(" ")),
     phraseBonus: 4,
-    exactValues: (workflow) => [normalizeSearchText(workflow.title), normalizeSearchText(workflow.id)],
+    exactValues: (workflow) =>
+      [workflow.title, workflow.sourceTitle, ...(workflow.titleAliases ?? []), workflow.id]
+        .filter((value): value is string => Boolean(value?.trim()))
+        .map(normalizeSearchText),
     exactBonus: 10,
     expandTokens: expansions.length ? (terms) => [...expandQueryTerms(terms), ...expansions] : expandQueryTerms,
     limit,

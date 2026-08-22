@@ -50,7 +50,7 @@ import {
 
 const scopeOptions = [
   { value: "definitions", label: "Terms" },
-  { value: "abbreviations", label: "Abbrev" },
+  { value: "abbreviations", label: "Abbreviations" },
 ] as const satisfies ReadonlyArray<{ value: DictionaryCatalogueScope; label: string }>;
 
 const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
@@ -121,12 +121,9 @@ function catalogueNoun(scope: DictionaryCatalogueScope, count: number) {
  * a hard constraint with committed tests behind it.
  *
  * The phone control row is sized to its own labels rather than to the viewport.
- * The retired Browse view switch was `layout="equal"` and `w-full` below `sm`,
- * so a scope holding 11 of 107 entries took half the phone width on a second
- * line below a summary line that was two-thirds empty. Measured in Chromium at
- * default text size, the controls need 284px (toggle 161 + letter chip 63 +
- * Filter 44 + two 8px gaps) and have 340px at 390px, 325px at 375px and 270px at
- * 320px — so the row fits from 360px and wraps, rather than clips, below it.
+ * It keeps the complete “Abbreviations” and “Filter” wordmarks, with tighter
+ * phone-only horizontal padding so the idle controls remain one balanced row at
+ * common phone widths and wrap, rather than clip, on compact screens.
  */
 export function DictionaryCataloguePage() {
   const { searchParams, replace, setOne, toggleMany } = useDictionaryUrl();
@@ -308,7 +305,7 @@ export function DictionaryCataloguePage() {
             aria-controls="dictionary-catalogue-results"
             onClick={() => setOne("view", option.value, "definitions")}
             className={cn(
-              "inline-flex items-center gap-1 px-3 text-xs font-extrabold transition-colors motion-reduce:transition-none",
+              "inline-flex items-center gap-0.5 px-1.5 text-xs font-extrabold transition-colors motion-reduce:transition-none sm:gap-1 sm:px-3",
               focusRing,
               active
                 ? "bg-[color:var(--tone-purple)] text-[color:var(--surface)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
@@ -340,7 +337,7 @@ export function DictionaryCataloguePage() {
       data-testid="dictionary-letter-chip"
       title="Jump to a letter"
       className={cn(
-        "inline-flex min-h-tap shrink-0 items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:hidden",
+        "inline-flex min-h-tap shrink-0 items-center gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:hidden",
         focusRing,
       )}
     >
@@ -360,22 +357,18 @@ export function DictionaryCataloguePage() {
       activeCount={activeCount}
       onToggle={() => setFilterOpen((value) => !value)}
       title="Filter the dictionary catalogue"
-      // Icon-only on phones. The wordmark is ~40px of the 284px the row has to
-      // spend, and at 320–360px that is the difference between one line and two.
-      label={<span className="max-sm:sr-only">Filter</span>}
+      labelVisibility="always"
     />
   );
 
   /* Clears the query from the band's own line, which is where the reader is
-     looking when they decide they are done with it. Two slots because the band
-     renders `utilityControls` and `mobileControls` in different places at
-     different widths — one shared testid would be ambiguous under Playwright's
-     strict mode even though only one copy is on screen. */
-  const clearQueryControl = (slot: "desktop" | "phone") => (
+     looking when they decide they are done with it. It is one shared control at
+     every breakpoint; Filter has the band’s dedicated phone slot. */
+  const clearQueryControl = (
     <button
       type="button"
       onClick={clearQuery}
-      data-testid={`dictionary-clear-query-${slot}`}
+      data-testid="dictionary-clear-query"
       className={cn(
         "search-band-ghost grid min-h-tap min-w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border)] text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--text)] motion-reduce:transition-none sm:min-h-10 sm:min-w-10",
         focusRing,
@@ -420,16 +413,13 @@ export function DictionaryCataloguePage() {
               matchCount={hits.length}
               status="ready"
               resultNoun={noun}
-              // Hidden below `sm` by the page, as every band mode does: the band
-              // renders `utilityControls` at every width and `mobileControls`
-              // only on the phone line, so an unguarded node appears twice.
               utilityControls={
-                searching ? <span className="hidden shrink-0 sm:flex">{clearQueryControl("desktop")}</span> : undefined
+                <>
+                  {searching ? clearQueryControl : null}
+                  <span className="hidden shrink-0 sm:flex">{filterTrigger("desktop")}</span>
+                </>
               }
-              // No query, no clear. A control that advertises an action must
-              // perform one, and with only a facet applied there is nothing here
-              // to clear — the shelf's own chips remove those.
-              mobileControls={searching ? clearQueryControl("phone") : undefined}
+              mobileControls={filterTrigger("phone")}
               mobileControlsPlacement="inline"
               appliedFilters={appliedFilters}
               onClearFilters={activeCount ? clearFilters : undefined}
@@ -437,10 +427,11 @@ export function DictionaryCataloguePage() {
           </div>
         ) : null}
         <div className="border-y border-[color:var(--border)] bg-[color:var(--surface)]">
-          <div className="mx-auto grid w-full max-w-[76rem] gap-2 px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
-            {/* Wraps rather than clips: at 320px the controls want 284px against
-                270px of track, so the Filter control drops to a second line
-                instead of squeezing the toggle's counts out of view. */}
+          <div className="mx-auto grid w-full max-w-[76rem] gap-1.5 px-3 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
+            {/* The phone gutter and internal gaps are deliberately tight enough
+                for the complete labels to stay on one row at 390px. At 320px the
+                intrinsic controls still wrap rather than squeezing counts or
+                clipping the Filter wordmark. */}
             <div className="flex flex-wrap items-center gap-2">
               {scopeToggle}
               {/* The alphabet is meaningless against a ranked result set, so it
@@ -449,10 +440,12 @@ export function DictionaryCataloguePage() {
                   same time, so nothing narrows the list without a visible
                   control saying so. */}
               {searching ? null : letterChip}
-              <span className="ml-auto flex items-center gap-2">
-                <span className="hidden sm:flex">{filterTrigger("desktop")}</span>
-                <span className="flex sm:hidden">{filterTrigger("phone")}</span>
-              </span>
+              {showBand ? null : (
+                <span className="ml-auto flex items-center gap-2">
+                  <span className="hidden sm:flex">{filterTrigger("desktop")}</span>
+                  <span className="flex sm:hidden">{filterTrigger("phone")}</span>
+                </span>
+              )}
             </div>
             {/* Wraps rather than scrolls: 27 chips overrun the 76rem container by
                 a chip's width, and a rail that clips Z is worse than a rail that
@@ -571,7 +564,7 @@ export function DictionaryCataloguePage() {
         panelId="dictionary-filter-sheet"
         testId="dictionary-filter-sheet"
         title="Filter and sort"
-        description="Facets narrow the current list; the Terms / Abbrev scope remains a separate control."
+        description="Facets narrow the current list; the Terms / Abbreviations scope remains a separate control."
         groups={groups}
         onClearAll={activeCount ? clearFilters : undefined}
         summary={{ count: hits.length, noun }}

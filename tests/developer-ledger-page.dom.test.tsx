@@ -197,6 +197,16 @@ describe("developer ledger page", () => {
     const snapshot = loadLedgerSnapshot();
     render(<DeveloperLedgerPage />);
     const pending = screen.getByTestId("developer-ledger-pending");
+    // A fully reconciled inbox is a normal resting state, not an anomaly: reconcile
+    // applies every queued request and leaves zero pending until the next branch
+    // queues one. The page renders its empty-state paragraph under the same testid,
+    // so branch on the count instead of assuming the queue is never empty — the
+    // unguarded getAllByRole/pending[0] pair throws on a clean inbox.
+    if (snapshot.counts.pending === 0) {
+      expect(pending).toHaveTextContent("No requests are waiting.");
+      expect(within(pending).queryAllByRole("listitem")).toHaveLength(0);
+      return;
+    }
     expect(within(pending).getAllByRole("listitem")).toHaveLength(snapshot.counts.pending);
     expect(pending).toHaveTextContent(snapshot.pending[0].summary);
   });

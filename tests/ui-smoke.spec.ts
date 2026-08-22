@@ -1304,6 +1304,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const guideSearch = sidebar.getByRole("button", { name: "Search Clinical Guide" });
     await expect(guideSearch).toHaveAttribute("aria-keyshortcuts", "Control+K Meta+K");
     await guideSearch.click();
+    await expect(page).toHaveURL(/\/\?mode=answer&focus=1$/);
     await expect(visibleQuestionInput(page)).toBeFocused();
     await collapseSidebar.focus();
     await page.keyboard.press("Control+K");
@@ -3531,10 +3532,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect.poll(() => requestCount).toBeGreaterThan(baselineRequestCount);
     await currentResponseDelivered;
-    const sourceStatus = page.getByRole("heading", { name: "Source status" }).locator("..");
-    const singularSourceCount = sourceStatus.getByText("1 source", { exact: true });
+    const sourceStatus = page.getByTestId("differentials-source-status");
+    const singularSourceCount = sourceStatus.getByText("1 indexed source match", { exact: true });
     await expect(singularSourceCount).toBeVisible();
-    await expect(sourceStatus).not.toContainText("2 sources");
+    await expect(sourceStatus).not.toContainText("2 indexed source matches");
   });
 
   test("submitted favourites searches stay on the command library route", async ({ page }) => {
