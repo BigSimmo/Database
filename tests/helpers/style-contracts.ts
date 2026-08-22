@@ -343,6 +343,8 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
     "dashboard composer edge — found only after the multiline-selector parser fix; no effect contract yet (#094)",
   "document-mobile-search-edge": "document viewer composer — covered by ui-phone-scroll geometry, not effect",
   "document-mobile-search-pill": "document viewer composer — no effect contract yet (#094)",
+  "guide-tour-dock":
+    "Guide Centre phone dock — the UI smoke journey proves its safe-area paint, CTA clearance, and hide behaviour",
   "edge-glass-header":
     "overlaid glass header — found only after the multiline-selector parser fix; hide/reveal covered by ui-chrome-scroll, effect not contracted",
   "edge-glass-header-backdrop":

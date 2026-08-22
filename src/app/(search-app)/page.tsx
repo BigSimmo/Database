@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
@@ -5,6 +6,7 @@ import { HomePageClient } from "./home-page-client";
 import { appModeHomeHref, isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
 import { isDashboardModeHref } from "@/lib/search-route-ownership";
 import { readSearchNavigationContext } from "@/lib/search-navigation-context";
+import { sharedHomeDocumentTitle } from "@/lib/ui-copy";
 
 type HomeProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -25,6 +27,20 @@ function searchParamsFromRecord(params: Record<string, string | string[] | undef
     }
   }
   return search;
+}
+
+/**
+ * Keep the shared home's browser/assistive-technology title aligned with the
+ * mode-specific heading that is actually rendered. Next's route announcer uses
+ * this title first, so leaving every mode as just "Clinical KB" makes a mode
+ * switch or deep link needlessly ambiguous outside the visual canvas.
+ */
+export async function generateMetadata({ searchParams }: HomeProps): Promise<Metadata> {
+  const params = searchParams ? await searchParams : {};
+  const requestedMode = firstSearchParam(params.mode);
+  const mode = isAppModeId(requestedMode) && isAppModeVisible(requestedMode) ? requestedMode : "answer";
+
+  return { title: sharedHomeDocumentTitle(mode) };
 }
 
 export default async function Home({ searchParams }: HomeProps) {

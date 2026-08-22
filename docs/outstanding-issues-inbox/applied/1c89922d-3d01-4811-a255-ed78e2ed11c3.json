@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "1c89922d-3d01-4811-a255-ed78e2ed11c3",
+  "createdOn": "2026-08-21",
+  "action": "cancel",
+  "payload": {
+    "requestId": "2040d1fb-6d26-4977-902f-d4a3c2c404c2",
+    "reason": "Withdrawn and replaced: the request asserted that the v1 siblings profiled in Phase 5 cover the same owning tables as the two unreachable _v2 RPCs. That is false for one of the two. match_document_index_units_hybrid_v2 delegates to match_document_index_units_hybrid_scoped over document_index_units, and none of the four RPCs explain_retrieval_rpc supports touches that table, so the index-units retrieval path has no EXPLAIN baseline at all rather than a partial stand-in. Raised by Codex review of PR #2250 and confirmed against supabase/schema.sql:8033-8054. Superseded by a corrected add request queued in the same commit."
+  }
+}

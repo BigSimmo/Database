@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "1c7db1b1-d744-4702-b2d8-8117f4cc85ef",
+  "createdOn": "2026-08-21",
+  "action": "done",
+  "payload": {
+    "id": "#75JA0P",
+    "outcome": "Resolved 2026-08-21 by explicit test strategy: retain reduced-motion suite stability while the motion-emulation contract requires every motion-sensitive spec to declare reduced or no-preference coverage; contract tests pass.",
+    "baseRowFingerprint": "c039fc6b287df6fd0fa2278c140fd6d7af4191fdcbe33ec83a473e4a53306372"
+  }
+}

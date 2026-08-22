@@ -35,6 +35,7 @@ contract:
 | Repository            | `BigSimmo/Database`                                                                         |
 | Base image            | Default universal image                                                                     |
 | Node version          | `24`                                                                                        |
+| Python version        | `3.12`                                                                                      |
 | Setup command         | `bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`    |
 | Maintenance command   | `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh` |
 | Environment variables | Use the complete profile below                                                              |
@@ -49,7 +50,7 @@ instead of resolving through `PATH`, so maintenance cannot accidentally wrap an 
 The setup command fails if the required Cloud toolchain cannot be installed. It intentionally does
 not install Railway CLI: hosted Railway access comes from the authenticated workspace app, and the
 CLI postinstall downloads a separate binary that may be blocked in the Cloud setup network. It pins
-Codex CLI `0.146.0`, reviewed on 2026-07-30. OpenAI's
+Codex CLI `0.147.0`, reviewed on 2026-08-22. OpenAI's
 [official Codex CLI guide](https://learn.chatgpt.com/docs/codex/cli) supports Linux installation;
 the npm package is used here so maintenance can verify an exact version without running an
 unversioned installer. Set

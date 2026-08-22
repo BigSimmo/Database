@@ -1,0 +1,725 @@
+{
+  "version": "outstanding-issues-snapshot-v1",
+  "ledger_revision": {
+    "sha": "2327bd9624d788a7b9ecb61eee494f1acd9a1997",
+    "committed_at": "2026-08-22T06:11:46+00:00"
+  },
+  "counts": {
+    "open": 66,
+    "p1": 1,
+    "p2": 36,
+    "p3": 29,
+    "queued": 10,
+    "pending": 0,
+    "resolved": 375
+  },
+  "queue": [
+    {
+      "order": 1,
+      "ids": [
+        "#231"
+      ],
+      "acuity": "A2",
+      "capability": "Specialist — answer generation + Operator",
+      "timing": "Schedule with the next answer-path work; NOT an immediate live investigation",
+      "estimate": "2–4 hours plus provider",
+      "detail": "PHASE 5.2 CONFIRMED SATISFIED with fresh data 2026-08-22 Perth (2026-08-21 UTC), not reopened. This row already recorded that remediation-plan Phase 5.2 is satisfied by S1's 2026-08-17 healthy-latency probes; the Phase 5 close-out re-measured production end to end and confirms it. Retrieval now costs 955 ms on the text fast path and 6,720 ms on hybrid (from 31,610 ms and 21,757 ms at the incident), against answerRouteBudgetMs.fast of 25,000 ms -- so retrieval consumes 4-27% of the fast budget and is no longer capable of binding it. The 2026-08-14 verdict that pre-generation latency WAS the binding cause stands for that window and is now closed out. Residual R4 (chronic ~30 s strong-route provider_timeout on metformin-renal-dosing and valproate-pregnancy, with a safe source-backed extractive fallback) is generation-side and unchanged; no separate R4 row was created, per this row's own instruction. INCONSISTENCY TO FIX AT RECONCILE: the recommended-execution-queue row for #231 still presents it as A1 / 'immediate approved live investigation' with the old framing ('live answers degrade to source-only when answerRouteBudgetMs.fast binds while retrieval is healthy'), which contradicts the P1 -> P2 re-grade recorded in this detail row. The queue entry should be re-graded to match P2 and re-scoped to the R4 generation-side residual, so the queue stops advertising a retrieval investigation that the measurements have closed. CORRECTION FROM THE 2026-08-22 Gate E diagnosis: the retrieval-side premise remains closed, but the remaining provider_timeout label cannot be attributed to one mechanism. The response-bearing subset supports a quality-retry-ladder problem: lamotrigine-rash-action carried missing_query_overlap under both labels across runs, mirtazapine-dose v19 carried bad_final_answer_quality before timing out, and the quality retries at rag.ts:3623 and rag.ts:3709 have no deadline-admission check. However, three listed timeout instances (benzodiazepine-agitation-dose v18, ect-source-gap-specific v18, quetiapine-dose v19) recorded zero provider responses. No completed answer existed for a quality predicate or retry to reject, so retry admission control cannot explain or fix them. NEXT: preserve these as two mechanisms. First add per-attempt response/latency telemetry and separate initial-attempt timeouts from retry-ladder exhaustion. Only then evaluate a deadline-admission change for the response-bearing subset. Do not raise answerRouteBudgetMs or weaken quality gates. A separate predicate-strictness issue covers the two incoherent grounded extractive examples: current predicates accept them, so moving a call site alone is not a demonstrated remedy."
+    },
+    {
+      "order": 2,
+      "ids": [
+        "#023"
+      ],
+      "acuity": "A2",
+      "capability": "Specialist — RAG/browser diagnostics",
+      "timing": "After next weekly/manual matrix green (audit no longer blocks it)",
+      "estimate": "1–2 hours",
+      "detail": "**Partial 2026-07-30:** `release-browser-matrix` no longer depends on `pr-required`, so a blocking scheduled dependency audit cannot skip Firefox/WebKit. Still need one green matrix datapoint + human irrelevant-at-10 disposition. The 2026-07-26 retrieval and answer artifacts are read and compared under resolved #051. Scheduled CI run `30216361999` failed its existing production dependency audit before Firefox/WebKit, while production Chromium passed. After that audit is green, capture one scheduled/manual browser-matrix datapoint; separately record the human decision for the stable irrelevant-at-10 set. #084 now makes each top-10 grade and matched signal reproducible, but it does not substitute for the human disposition. Do not rerun or spend on RAG for this item."
+    },
+    {
+      "order": 3,
+      "ids": [
+        "#018"
+      ],
+      "acuity": "A2",
+      "capability": "Specialist — clinical RAG/retrieval",
+      "timing": "Lithium closed; ADHD/metabolic evidence debt remains",
+      "estimate": "Corpus/operator follow-up",
+      "detail": "Current evidence keeps the mechanisms separate. **Lithium — closed within this item:** the row/atom-aware subject guard, foreign-parameter rejection and query-specific range promotion returned `0.5–1.0 mmol/L` with correct targeting/citation; the full retrieval canary remained 36/36 with recall 1.0 and zero per-case RR regressions, and the full answer canary passed every blocking gate. **ADHD — open corpus debt:** `CG.MHSP.ADHD.pdf` is absent from the hosted corpus and the retrieved chart exposes `accessible_table_count=0`; repair corpus/fixture or ingestion evidence rather than weakening extractive budgets. **Metabolic — open structured-evidence debt:** the standalone plural classifier worsened the live answer and was reverted; obtain auditable schedule text/table evidence before another candidate."
+    },
+    {
+      "order": 4,
+      "ids": [
+        "#001"
+      ],
+      "acuity": "A2",
+      "capability": "Specialist — retrieval/ranking",
+      "timing": "After rollout approval",
+      "estimate": "0.5–1 day plus canary",
+      "detail": "`RAG_SEMANTIC_RERANK_ENABLED=false` from PR #901. Do not enable until the provider-backed 36/36 retrieval-quality gate **and** an ambiguity-focused canary are explicitly approved and recorded."
+    },
+    {
+      "order": 5,
+      "ids": [
+        "#055"
+      ],
+      "acuity": "A2",
+      "capability": "Specialist release owner + Operator",
+      "timing": "Before next full-confidence release/handoff",
+      "estimate": "2–4 hours plus runtime",
+      "detail": "Before the next full-confidence release/handoff, record the candidate/PR SHA and run the local/provider release gates, Firefox/WebKit, required hosted CI, and actionable GitHub review-thread closure once. Stop at the first actionable failure and rerun only the repaired smallest gate."
+    },
+    {
+      "order": 6,
+      "ids": [
+        "#057"
+      ],
+      "acuity": "A2",
+      "capability": "High — release/SRE + Operator",
+      "timing": "After `#056`",
+      "estimate": "2–4 hours plus soak",
+      "detail": "After #056, run the documented soak and rollback against an exact candidate; retain latency/error/rollback evidence. Stop on unsafe data, identity mismatch, or an unowned rollback decision."
+    },
+    {
+      "order": 7,
+      "ids": [
+        "#102"
+      ],
+      "acuity": "A3",
+      "capability": "Operator — Supabase + Specialist",
+      "timing": "Next approved index window, after the ordering question is settled",
+      "estimate": "1–2 hours plus apply",
+      "detail": "UPDATE 2026-08-21 (read-only Supabase MCP get_advisors performance lint against production ref sjrfecxgysukkwxsowpy): documents_title_trgm_idx exists on public.documents and is reported by the unused_index lint as never used. TREAT THAT AS WEAK EVIDENCE, NOT CONFIRMATION: 20260819100200_restore_search_health_trigram_indexes was applied two days earlier and recreating an index resets its usage statistics, so a zero-use reading is expected regardless of whether the bare-column ILIKE predicates can reach it. The same lint currently reports 31 unused indexes, several of them freshly restored in the 20260819100000-100300 batch, which is consistent with a stats reset rather than dead indexing. The row's actual claim - that the index covers a CONCATENATED expression and so cannot serve the bare-column predicates in the documents API route and rag-candidate-sources - was NOT tested, because that needs EXPLAIN or a pg_indexes read and SQL execution was blocked in this session. Re-measure with EXPLAIN in the operator window before applying the prepared runbook."
+    },
+    {
+      "order": 8,
+      "ids": [
+        "#099"
+      ],
+      "acuity": "A3",
+      "capability": "Specialist — answer path",
+      "timing": "After `#098`",
+      "estimate": "Half a day per sub-item",
+      "detail": "**Outcome:** the answer path stops paying avoidable per-request Supabase round trips. **Done 2026-07-29:** shared-cache-hit promotion deferred off the response path with its mid-request staleness guard intact and documented (`rag.ts:3234`, `rag-cache.ts`); scope resolution overlapped with the rate-limit RPC, signal threaded so a client disconnect finally cancels its paginated queries (`answer/route.ts`). **REFUTED on PR #1377 review — do not retry:** the same pass also overlapped scope with the rate-limit RPC and aborted it on deny, claiming the limiter could \"deny for free\". It cannot. With caller-supplied `filters` or explicit ids, scope passes its zero-query early returns (`search-scope.ts:242,253`) into the paginated `documents` loop at `:269`, and an `AbortSignal` cancels the client request without un-executing a statement Postgres already began — so throttled traffic kept burning database capacity while collecting 429s, against `capacity-review.md:106-113`'s first-soft-failure warning. Scope is behind admission again, pinned by `tests/answer-route-preamble.test.ts`. Re-attempting the overlap requires a non-database admission gate ahead of the durable limiter first. **Remaining:** (a) the 8 `setCachedSearch` awaits — deferring changes `throwIfAborted` semantics and widens a real mutation window because the clone happens after an `await`, so each branch needs discharging individually; (b) batch the anonymous subject+global rate-limit pair, which needs a NEW atomic RPC modelled on `consume_summary_rate_limits_atomic` and cannot be called until the operator applies it — `Promise.all` is the WRONG fix because it consumes the global bucket even when the subject bucket already denied; (c) stop the proxy and route handler resolving identity twice per authenticated request — no in-process memo can do this (different `Request` objects), so the proxy must forward unspoofable verified claims via a header it controls. Cross-references #011: halving auth resolutions eases the ~10-connection Auth cap that `capacity-review.md:106-113` calls the first hard failure."
+    },
+    {
+      "order": 9,
+      "ids": [
+        "#100"
+      ],
+      "acuity": "A3",
+      "capability": "Specialist — answer streaming",
+      "timing": "After offline Phase 0/1 design proof",
+      "estimate": "provider-gated rollout",
+      "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987, no provider access): the client-side half has landed. NEXT_PUBLIC_RAG_INCREMENTAL_EVIDENCE_PREVIEW_RENDER is present in .env.example (commented, default false) and is consumed by src/lib/client-env.ts, so the Phase 1 client parsing/rendering flag exists alongside the server-side RAG_INCREMENTAL_EVIDENCE_PREVIEW=false. Remaining scope is therefore narrower than recorded: verify:ui proof of the client render path, then the design's provider-backed acceptance gates before production enablement. Phase 2 stays provider-gated. Not verified: whether the render path is actually exercised by a UI journey."
+    },
+    {
+      "order": 10,
+      "ids": [
+        "#191"
+      ],
+      "acuity": "A3",
+      "capability": "Operator — DB + Specialist",
+      "timing": "Approved live-DB window only",
+      "estimate": "provider-gated",
+      "detail": "**Outcome:** ACL-related migrations are consolidated per maturity work-order X5 without weakening owner-scope/RLS. **Next:** DB-owner approved window only; live-DB provider confirmation required before apply. **Stop:** no hosted apply from an agent session without explicit approval."
+    }
+  ],
+  "open": [
+    {
+      "id": "#001",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Semantic reranking still gated off",
+      "detail": "`RAG_SEMANTIC_RERANK_ENABLED=false` from PR #901. Do not enable until the provider-backed 36/36 retrieval-quality gate **and** an ambiguity-focused canary are explicitly approved and recorded.",
+      "source": "`docs/process-hardening.md` (Semantic reranking rollout debt); PR #901",
+      "added": "2026-07-21"
+    },
+    {
+      "id": "#055",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Run one exact-SHA full release and PR gate",
+      "detail": "Before the next full-confidence release/handoff, record the candidate/PR SHA and run the local/provider release gates, Firefox/WebKit, required hosted CI, and actionable GitHub review-thread closure once. Stop at the first actionable failure and rerun only the repaired smallest gate.",
+      "source": "`docs/launch-operator-runbook.md`; `docs/codex-review-protocol.md`",
+      "added": "2026-07-24"
+    },
+    {
+      "id": "#057",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Complete staging soak and rollback rehearsal",
+      "detail": "After #056, run the documented soak and rollback against an exact candidate; retain latency/error/rollback evidence. Stop on unsafe data, identity mismatch, or an unowned rollback decision.",
+      "source": "`docs/launch-operator-runbook.md`; `docs/audit/capacity-review.md`",
+      "added": "2026-07-24"
+    },
+    {
+      "id": "#018",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Split the lithium, ADHD and metabolic residuals by mechanism",
+      "detail": "Current evidence keeps the mechanisms separate. **Lithium — closed within this item:** the row/atom-aware subject guard, foreign-parameter rejection and query-specific range promotion returned `0.5–1.0 mmol/L` with correct targeting/citation; the full retrieval canary remained 36/36 with recall 1.0 and zero per-case RR regressions, and the full answer canary passed every blocking gate. **ADHD — open corpus debt:** `CG.MHSP.ADHD.pdf` is absent from the hosted corpus and the retrieved chart exposes `accessible_table_count=0`; repair corpus/fixture or ingestion evidence rather than weakening extractive budgets. **Metabolic — open structured-evidence debt:** the standalone plural classifier worsened the live answer and was reverted; obtain auditable schedule text/table evidence before another candidate.",
+      "source": "targeted live lithium/ADHD/metabolic evidence 2026-07-27; `docs/evidence/rag-reliability-evidence-2026-07-27.md`; refuted approaches",
+      "added": "2026-07-21"
+    },
+    {
+      "id": "#023",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Complete scheduled browser and labeling disposition",
+      "detail": "**Partial 2026-07-30:** `release-browser-matrix` no longer depends on `pr-required`, so a blocking scheduled dependency audit cannot skip Firefox/WebKit. Still need one green matrix datapoint + human irrelevant-at-10 disposition. The 2026-07-26 retrieval and answer artifacts are read and compared under resolved #051. Scheduled CI run `30216361999` failed its existing production dependency audit before Firefox/WebKit, while production Chromium passed. After that audit is green, capture one scheduled/manual browser-matrix datapoint; separately record the human decision for the stable irrelevant-at-10 set. #084 now makes each top-10 grade and matched signal reproducible, but it does not substitute for the human disposition. Do not rerun or spend on RAG for this item.",
+      "source": "runs `30216191889`/`30216361999`; per-rank diagnostics #084; session 2026-07-27",
+      "added": "2026-07-21"
+    },
+    {
+      "id": "#099",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Remove the remaining fixed per-request round trips",
+      "detail": "**Outcome:** the answer path stops paying avoidable per-request Supabase round trips. **Done 2026-07-29:** shared-cache-hit promotion deferred off the response path with its mid-request staleness guard intact and documented (`rag.ts:3234`, `rag-cache.ts`); scope resolution overlapped with the rate-limit RPC, signal threaded so a client disconnect finally cancels its paginated queries (`answer/route.ts`). **REFUTED on PR #1377 review — do not retry:** the same pass also overlapped scope with the rate-limit RPC and aborted it on deny, claiming the limiter could \"deny for free\". It cannot. With caller-supplied `filters` or explicit ids, scope passes its zero-query early returns (`search-scope.ts:242,253`) into the paginated `documents` loop at `:269`, and an `AbortSignal` cancels the client request without un-executing a statement Postgres already began — so throttled traffic kept burning database capacity while collecting 429s, against `capacity-review.md:106-113`'s first-soft-failure warning. Scope is behind admission again, pinned by `tests/answer-route-preamble.test.ts`. Re-attempting the overlap requires a non-database admission gate ahead of the durable limiter first. **Remaining:** (a) the 8 `setCachedSearch` awaits — deferring changes `throwIfAborted` semantics and widens a real mutation window because the clone happens after an `await`, so each branch needs discharging individually; (b) batch the anonymous subject+global rate-limit pair, which needs a NEW atomic RPC modelled on `consume_summary_rate_limits_atomic` and cannot be called until the operator applies it — `Promise.all` is the WRONG fix because it consumes the global bucket even when the subject bucket already denied; (c) stop the proxy and route handler resolving identity twice per authenticated request — no in-process memo can do this (different `Request` objects), so the proxy must forward unspoofable verified claims via a header it controls. Cross-references #011: halving auth resolutions eases the ~10-connection Auth cap that `capacity-review.md:106-113` calls the first hard failure.",
+      "source": "`docs/audit/latency-audit-2026-07-28.md` L1-1/L1-3/L1-4; `src/lib/api-rate-limit.ts:276-282`; `src/proxy.ts:125`",
+      "added": "2026-07-29"
+    },
+    {
+      "id": "#100",
+      "priority": "P2",
+      "type": "rec",
+      "summary": "Buffered answer generation has no incremental verified delivery",
+      "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987, no provider access): the client-side half has landed. NEXT_PUBLIC_RAG_INCREMENTAL_EVIDENCE_PREVIEW_RENDER is present in .env.example (commented, default false) and is consumed by src/lib/client-env.ts, so the Phase 1 client parsing/rendering flag exists alongside the server-side RAG_INCREMENTAL_EVIDENCE_PREVIEW=false. Remaining scope is therefore narrower than recorded: verify:ui proof of the client render path, then the design's provider-backed acceptance gates before production enablement. Phase 2 stays provider-gated. Not verified: whether the render path is actually exercised by a UI journey.",
+      "source": "`docs/verified-answer-incremental-delivery-design.md`; `docs/audit/latency-audit-2026-07-28.md` L0-1; `src/lib/answer-stream-contract.ts:18-21`",
+      "added": "2026-07-30"
+    },
+    {
+      "id": "#102",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Apply the additive `documents` index debt (operator)",
+      "detail": "UPDATE 2026-08-21 (read-only Supabase MCP get_advisors performance lint against production ref sjrfecxgysukkwxsowpy): documents_title_trgm_idx exists on public.documents and is reported by the unused_index lint as never used. TREAT THAT AS WEAK EVIDENCE, NOT CONFIRMATION: 20260819100200_restore_search_health_trigram_indexes was applied two days earlier and recreating an index resets its usage statistics, so a zero-use reading is expected regardless of whether the bare-column ILIKE predicates can reach it. The same lint currently reports 31 unused indexes, several of them freshly restored in the 20260819100000-100300 batch, which is consistent with a stats reset rather than dead indexing. The row's actual claim - that the index covers a CONCATENATED expression and so cannot serve the bare-column predicates in the documents API route and rag-candidate-sources - was NOT tested, because that needs EXPLAIN or a pg_indexes read and SQL execution was blocked in this session. Re-measure with EXPLAIN in the operator window before applying the prepared runbook.",
+      "source": "`docs/audit/latency-audit-2026-07-28.md` L2-3/L2-5; `docs/operator-apply-performance-latency-remediation.md`",
+      "added": "2026-07-29"
+    },
+    {
+      "id": "#191",
+      "priority": "P3",
+      "type": "task",
+      "summary": "X5: ACL-migration consolidation (provider-gated)",
+      "detail": "**Outcome:** ACL-related migrations are consolidated per maturity work-order X5 without weakening owner-scope/RLS. **Next:** DB-owner approved window only; live-DB provider confirmation required before apply. **Stop:** no hosted apply from an agent session without explicit approval.",
+      "source": "docs/maturity-backlog-workorders.md X5; #086",
+      "added": "2026-07-31"
+    },
+    {
+      "id": "#231",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Re-scoped: separate initial provider timeouts from quality-retry exhaustion before changing the RAG path",
+      "detail": "PHASE 5.2 CONFIRMED SATISFIED with fresh data 2026-08-22 Perth (2026-08-21 UTC), not reopened. This row already recorded that remediation-plan Phase 5.2 is satisfied by S1's 2026-08-17 healthy-latency probes; the Phase 5 close-out re-measured production end to end and confirms it. Retrieval now costs 955 ms on the text fast path and 6,720 ms on hybrid (from 31,610 ms and 21,757 ms at the incident), against answerRouteBudgetMs.fast of 25,000 ms -- so retrieval consumes 4-27% of the fast budget and is no longer capable of binding it. The 2026-08-14 verdict that pre-generation latency WAS the binding cause stands for that window and is now closed out. Residual R4 (chronic ~30 s strong-route provider_timeout on metformin-renal-dosing and valproate-pregnancy, with a safe source-backed extractive fallback) is generation-side and unchanged; no separate R4 row was created, per this row's own instruction. INCONSISTENCY TO FIX AT RECONCILE: the recommended-execution-queue row for #231 still presents it as A1 / 'immediate approved live investigation' with the old framing ('live answers degrade to source-only when answerRouteBudgetMs.fast binds while retrieval is healthy'), which contradicts the P1 -> P2 re-grade recorded in this detail row. The queue entry should be re-graded to match P2 and re-scoped to the R4 generation-side residual, so the queue stops advertising a retrieval investigation that the measurements have closed. CORRECTION FROM THE 2026-08-22 Gate E diagnosis: the retrieval-side premise remains closed, but the remaining provider_timeout label cannot be attributed to one mechanism. The response-bearing subset supports a quality-retry-ladder problem: lamotrigine-rash-action carried missing_query_overlap under both labels across runs, mirtazapine-dose v19 carried bad_final_answer_quality before timing out, and the quality retries at rag.ts:3623 and rag.ts:3709 have no deadline-admission check. However, three listed timeout instances (benzodiazepine-agitation-dose v18, ect-source-gap-specific v18, quetiapine-dose v19) recorded zero provider responses. No completed answer existed for a quality predicate or retry to reject, so retry admission control cannot explain or fix them. NEXT: preserve these as two mechanisms. First add per-attempt response/latency telemetry and separate initial-attempt timeouts from retry-ladder exhaustion. Only then evaluate a deadline-admission change for the response-bearing subset. Do not raise answerRouteBudgetMs or weaken quality gates. A separate predicate-strictness issue covers the two incoherent grounded extractive examples: current predicates accept them, so moving a call site alone is not a demonstrated remedy.",
+      "source": "docs/audit/live-drift-forensics-2026-08.md Phase 5 close-out 5.1(a) and 5.2; production probes 2026-08-22 Perth (2026-08-21 UTC); docs/rag-improvement/231-diagnosis-2026-08-22.md (corrected after PR #2264 review)",
+      "added": "2026-08-04"
+    },
+    {
+      "id": "#308",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "Desktop /documents/search CLS is 0.119, above threshold and stable across runs and baselines",
+      "detail": "Measured 2026-08-12 during the #147 close-out, twice, on the offline Lighthouse harness (Chromium 141): desktop /documents/search CLS **0.119**, against a committed baseline that also reads **0.119**. So this is long-standing and deterministic, not a regression — and it is above the 0.1 threshold. It sits outside #147's scope, which was mobile only, and it contradicts that row's claim that 'desktop passes everywhere: 0.016-0.097' — that range is stale. Companion desktop values from the same runs, all passing: /dsm 0.014, /forms 0.059-0.064, / 0.006, /therapy-compass 0.000. Desktop attribution completed 2026-08-14: a Playwright + PerformanceObserver(layout-shift) harness against an offline production build at 1350x940 DPR 1 recorded **0.118** CLS. This is a separate attribution measurement, not a replacement for the canonical 0.119 Lighthouse value. One first-paint+~0.3-0.5s event contributed ~99.98% of that harness total: MasterSearchHeader's composer-adoption effect portals the search composer into GlobalSearchShell's desktop slot, while the header shrinks 184px and the slot grows 0 -> 184px. This is shared desktop search-chrome timing, not page-local. Next: reserve the settled height at the adoption boundary under the one-composer/hidden-means-zero-reserve contracts, then re-measure with the same harness. Stop: do not raise the CLS budget; do not read local LCP or TBT from the loopback harness; and do not use a blanket min-height that hides the shift without matching the header reserve.",
+      "source": "Local offline verify:lighthouse runs 2026-08-12 (two runs, identical CLS); #147 close-out; lighthouse-budget.json. Attribution: session 2026-08-14, PR branch codex/visual-layout-polish; desktop CLS script adapted from scripts/measure-cls-attribution.mjs (offline, not committed).",
+      "added": "2026-08-12"
+    },
+    {
+      "id": "#321",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Four follow-up groups cover nine controls after #291",
+      "detail": "PARTIAL 18 August 2026. Of the four follow-up groups: (1) the filmstrip 'Page unknown' control is FIXED — document-image-filmstrip.tsx converted its data-driven disabled state from native disabled to aria-disabled=true + ignoreUnavailableActivation + an sr-only reason, per docs/wiring-conventions.md's stated-reason pattern (settles this one control from #291's follow-up list); tests/document-image-filmstrip.dom.test.tsx gained a focused case (aria-disabled, not natively disabled, accessible description, click is a no-op), vitest run: 3 passed. The other three groups are unchanged and still not single-PR-sized: the six differential comparison page controls remain coupled to its own planned rewrite and pinned density test; DocumentViewer's persistent-access-reason/transient-loading split is a classification design decision, not yet made; the pin-limit control remains a capacity-state judgement call. Stays open for those three.",
+      "source": "PR #1778 body; verified against main 2d27039",
+      "added": "2026-08-14"
+    },
+    {
+      "id": "#2AB2NJ",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Owner decision: enable RAG_TELEMETRY_EXTENDED (verification_latency_ms projection) in production once a dashboard consumer exists",
+      "detail": "Packet S5 (PR #2056, merge 093f9340c) landed the B1 telemetry gap assessment: the one proven gap is verification_latency_ms, now persisted behind RAG_TELEMETRY_EXTENDED (typed, default false) via the allow-listed projection module with canary-absence tests. Enabling it in production is an owner decision gated on a dashboard consumer existing (no consumer today), and is a Railway env change (provider-backed, explicit approval; rollback = set false). Next: when a dashboard question needs verification latency, set RAG_TELEMETRY_EXTENDED=true on the Database service after confirming the canary-absence tests are still green on main. Stop: do not enable speculatively; do not add unproven fields.",
+      "source": "RAG programme coordinator, packet S5 (PR #2056) follow-ups, 2026-08-17",
+      "added": "2026-08-17"
+    },
+    {
+      "id": "#C2D9JF",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Adversarial divergence (S5 harness pin): scope-other-owner-document — abstains in substance but the review fallback still cites in-scope evidence",
+      "detail": "Pinned in tests/rag-adversarial-harness.test.ts KNOWN_DIVERGENCES (self-expiring). Observed shape: grounded false, confidence unsupported, but cited chunk ids [syn-scope-owner-a] — the answer correctly abstains from the other-owner document, yet the review fallback attaches an in-scope citation to an unsupported answer. Fixture: scripts/fixtures/rag-adversarial-cases.v1.json case scope-other-owner-document (category scope_or_tenant). Tenancy/no-read invariant held (the other-owner content is never read). Next: decide whether an unsupported abstention may carry any citation; if not, strip citations on the abstention path (RAG-surface change; own PR; harness pin flips; canary pair). Stop: do not delete the pin without the behaviour change.",
+      "source": "RAG programme coordinator, packet S5 (PR #2056) follow-ups, 2026-08-17",
+      "added": "2026-08-17"
+    },
+    {
+      "id": "#71NT23",
+      "priority": "P2",
+      "type": "task",
+      "summary": "No mobile-WebKit or display-mode:standalone Playwright project exists; phone coverage is a narrow viewport on desktop engines",
+      "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987): partially advanced. playwright.config.ts now carries a documented phone-PWA standalone emulation strategy annotated with this issue id, and defines chromium, chromium-mockups, firefox and webkit projects. What still appears absent is a genuinely mobile-WebKit project - the webkit entry is the desktop engine - and no display-mode standalone project was found. Re-measure the exact project list before scoping the work; physical iPhone Safari/PWA acceptance remains out of scope for any container evidence.",
+      "source": "PR #2046 phone/PWA answer-progress animation defect, 2026-08-17",
+      "added": "2026-08-17"
+    },
+    {
+      "id": "#NTAV3D",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Adversarial divergence (S5 harness pin): scope-guessed-chunk-id — review fallback returns a grounded source pointer echoing the query instead of refusing",
+      "detail": "Pinned in tests/rag-adversarial-harness.test.ts KNOWN_DIVERGENCES (self-expiring). Observed shape: grounded true, cited [syn-scope-guess-a], and the guessed (never-retrieved) chunk id syn-not-retrieved-zzz is never resolved into content — the no-read invariant holds — but the review fallback returns a grounded source pointer that echoes the query text rather than refusing the guessed-id request. Fixture: scripts/fixtures/rag-adversarial-cases.v1.json case scope-guessed-chunk-id (category scope_or_tenant). Next: decide whether a query naming an unretrieved chunk id should refuse rather than fall back to a source pointer (RAG-surface change; own PR; harness pin flips; canary pair). Stop: do not delete the pin without the behaviour change.",
+      "source": "RAG programme coordinator, packet S5 (PR #2056) follow-ups, 2026-08-17",
+      "added": "2026-08-17"
+    },
+    {
+      "id": "#VXB8XA",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Adversarial divergence (S5 harness pin): cite-mismatched-attribution — offline document-match listing cites every retrieved document, not only the claim-bearing one",
+      "detail": "Pinned in tests/rag-adversarial-harness.test.ts KNOWN_DIVERGENCES (self-expiring: the harness asserts the normative B0 fixture contract still FAILS; when behaviour reaches the fixture expectation the pin goes red and must be deleted). Observed shape: cited chunk ids [syn-cite-attrib-a, syn-cite-attrib-b], grounded true, answerQualityTier source_only — the document-match listing attributes both retrieved documents although only one carries the claim. Fixture: scripts/fixtures/rag-adversarial-cases.v1.json case cite-mismatched-attribution (category citation_fabrication). Safety invariants (network, budget, canary absence, forbidden substrings, tenancy) hold; only citation attribution precision diverges. Next: decide whether the document-match listing should cite only claim-bearing documents (RAG-surface change; own PR; RAG impact line; offline harness proves the pin flips; canary pair). Stop: do not delete the pin without the behaviour change; do not weaken the fixture.",
+      "source": "RAG programme coordinator, packet S5 (PR #2056) follow-ups, 2026-08-17",
+      "added": "2026-08-17"
+    },
+    {
+      "id": "#S4K1GA",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Physical iPhone acceptance owed for the answer-progress motion fix (Safari + installed PWA, Motion=Full)",
+      "detail": "PR #2046 fixed the reported defect (OS Reduce Motion froze every animation and set the ECG trace to opacity:0) and added a Motion preference whose \"full\" value opts back in over the OS setting. All executed browser evidence ran on Chromium 1194 in a Cloud container — the repo's own verify:ui gate could not run because check:playwright-browser-revision reports the known #255 drift (expects 1234). Playwright WebKit is not the iOS engine either. Acceptance: on the physical iPhone, in Safari and as the installed PWA, with Settings > Motion set to Full, confirm the ECG strip visibly travels and the current-step spinner rotates; with Motion left on System, confirm the trace stays visible and static rather than blank. Failure to confirm means the defect class is unclosed, which is exactly how #1974/#1989/#1995 were each declared fixed. Relates to #255, #280.",
+      "source": "PR #2046 phone/PWA answer-progress animation defect, 2026-08-17",
+      "added": "2026-08-17"
+    },
+    {
+      "id": "#1PN5BM",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "H5a residual: whether a constant similarity of 1 may contribute to a confidence label is still open, and after G1 it lives only in the hazard doc",
+      "detail": "Packet G1 (PR #2053, merged 2026-08-17) implemented owner decision Option B: buildDocumentSummaryResults now stamps similarity_origin \"document_context\" on document-summary rows, deriveConfidence is unchanged, and document summaries still reach \"high\". That closed the LEGIBILITY half of the H5a live residual -- the fabricated 1.0 is no longer indistinguishable from a perfect cosine at any surface that reads a row. It did NOT answer the underlying governance question: may a score nobody measured contribute to the confidence label a clinician reads at all? Option B was chosen because tagging has no measured safety cost while Option A (tag as synthetic_text, capping summaries at \"medium\") is a label downgrade without measured gain -- so the question was deferred deliberately, not resolved. The paired question row #J912J9 is being closed by G1, so once that closure reconciles this knowledge survives only in docs/clinical-hazard-analysis.md H5a and not in the queue anyone reads. NEXT: no action required unless a measured signal appears; if it does, the tag is what makes the fix cheap -- any future gate can now discriminate the document-summary route without re-deriving provenance. Guard rails already in place: tests/rag-score.test.ts pins the discriminating pair (two document_context citations >= 0.82 -> \"high\"; the identical scores tagged synthetic_text -> \"medium\"), so a silent change in either direction goes red.",
+      "source": "Packet G1 session 2026-08-17 (PR #2053); docs/clinical-hazard-analysis.md H5a; closes-with #J912J9",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#QSHHGK",
+      "priority": "P2",
+      "type": "rec",
+      "summary": "Nothing schedules a bundle-budget baseline refresh, so accumulated growth fails whichever unrelated PR lands last",
+      "detail": "The production baseline sat at ca788d41 (2026-08-13) untouched while main grew +8.03% by 2026-08-18, leaving ~2 points of headroom. PR #2096 (Dictionary) then failed Build at +10.5% for 2.7 points of its own weight. Re-baselined once in docs/evidence/bundle-budget-production-rebaseline-2026-08-18.md, but the same squeeze recurs unless a refresh has an owner or a trigger: options are a scheduled job that re-measures and opens a PR, a drift warning threshold below the failure threshold, or recording the baseline commit distance in the check output so staleness is visible before it blocks someone.",
+      "source": "PR review of #2095/#2096, 2026-08-18",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#6SMMB4",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Confirm D:\\.npm-cache is a registered Dev Drive trusted cache, or Defender is scanning every npm ci",
+      "detail": "The repo lives on a Windows Dev Drive (D:, ReFS, 50 GB) and npm config get cache resolves to D:\\.npm-cache, which is correctly on the same volume. Whether that path is registered as a Dev Drive TRUSTED cache is unverified: 'fsutil devdrv query D:' returns 'Failed to open the volume. Error 5: Access is denied' without elevation, and the non-elevated registry fallback (HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem, FilterAttachModeOnDevDrive and DevDriveTrustSetting) reads empty. If it is not registered, Microsoft Defender real-time scanning runs over every npm ci — and this machine performs a lot of them: 21 D: worktrees each carry their own ~0.89 GB / 51,735-file node_modules, because npm extracts fresh copies rather than hardlinking from cache (ReFS does support hardlinks here, probed directly, but npm does not use them). Next: from an ELEVATED prompt run 'fsutil devdrv query D:' and, if the cache is not listed as trusted, 'fsutil devdrv trust D:\\.npm-cache'. Cheap, one-off, no code change. Not blocking anything.",
+      "source": "session 2026-08-18; fsutil Error 5 without elevation",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#RZQQBT",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Confirm from its own log whether the PreCompact hook's output actually reaches model context",
+      "detail": "UPDATE 2026-08-21 (measured on this machine): still unanswered, and now with a concrete reason. The hook's own log has never been written - neither the main repository's .git/claude-precompact.log nor the per-worktree claude-precompact.log under the .git/worktrees admin directory exists. So no compaction has fired the hook in an inspectable session yet, and the question stays open rather than answered-negative. Next: after the next compaction in a session using this checkout, read that path; an entry proves the hook ran, and its absence in model context would then be the separate question.",
+      "source": "PR #2113 .claude/hooks/precompact-issues-capture.sh",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#164Z0H",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Confirm on a real Claude Code web session that the session-start hook now runs, after the exec-bit fix",
+      "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987): the repo-side half is now proven green. git ls-files -s .claude/hooks/ reports mode 100755 for all five hooks, session-start.sh included, so the 100644 asymmetry recorded here is fixed in the index rather than only on disk. What remains is exactly what this row was filed for and cannot be proven from Windows: one real Claude Code web/container session confirming the hook actually runs and provisions Node 24.",
+      "source": "PR #2113; AGENTS.md 'Claude Code hook scripts'",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#6GW95D",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Fleet-wide worktree inventory and safe orphan cleanup remain, but the Dev Drive capacity emergency is resolved",
+      "detail": "UPDATE 2026-08-21 (later the same day): the scope is wider than .claude/worktrees, and the previous update's 69 is itself a floor. An accidental `npx vitest run` issued from C:/Users/joshs instead of the repo root enumerated 253 copies of just TWO test files across the home directory, i.e. 253 separate checkouts of this repository, spread over at least six distinct roots: .codex/worktrees, .gemini/antigravity/worktrees, .copilot/repos/copilot-worktrees, .local/share/opencode/worktree, Documents/Codex/<date>/<chat>/work, and an AppData/Local/pnpm store projects directory (which also contained its own .worktrees). Temp copies under AppData/Local/Temp/guard-push-format-* were still present too. So every AI tool in the fleet keeps its own worktree root and none of them is covered by a sweep scoped to .claude/worktrees. Most had no node_modules (the run failed them with 'Cannot find package'), so raw disk is likely below 253 x 0.89 GB, but the count is the point: any recursive tool run from the home directory now walks all of them. Re-scope this row from 'nine landed worktrees' to a fleet-wide inventory across all six roots before pruning, and keep the #XCAX01 safety preconditions — the 2026-08-21 data-loss incident is why this is not a one-line delete. PRIOR RECORD: UPDATE 2026-08-21 (measured on this machine): the figure recorded here is badly understated and moving the wrong way. git worktree list reported 69 registered worktrees under .claude/worktrees, not nine. At the ~0.89 GB / 51,735-file node_modules per worktree measured in #6SMMB4, even partial installs put this well beyond the 4.5 GB recorded, on a Dev Drive noted as 51% full. SAFETY, learned the hard way on 2026-08-21: a sweep removed an in-use worktree during this very session and destroyed its uncommitted work - see the separate row filed for that. Re-measure actual on-disk size, then prune, but confirm each worktree is landed, holds no uncommitted or unpushed work, AND is not currently checked out by a live agent session before removing it. UPDATE 2026-08-22: the capacity premise is now false. D: has been expanded to 80 GB total, with 22 GB used and 59 GB available (27% used), so this is no longer a space emergency. The worktree safety/inventory evidence remains relevant: 253 checkouts across at least six roots, and the #XCAX01 preconditions remain mandatory. A same-day .claude/worktrees check found 30 directories: 12 registered to live sessions and 18 unregistered orphans. Sixteen orphans were empty and two held one entry; one empty unregistered directory could not be removed because a live process held it. NEXT: keep this as a low-priority fleet-inventory and safe-orphan-cleanup task. Any future cleanup must cover every root, default to report-only, skip a directory when liveness or cleanliness cannot be proved, and never delete a registered worktree.",
+      "source": "Accidental home-directory vitest run, 2026-08-21: 253 test-file copies across six worktree roots; Dev Drive / worktree inventory re-measured 2026-08-22",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#VKH7N1",
+      "priority": "P3",
+      "type": "rec",
+      "summary": "eval-canary neuroleptic-side-effect-escalation exceeded its 20 s latency SLO once",
+      "detail": "Run 32111839806 (canary pair 32100681177 -> 32111839806, otherwise green): strong generation took 20.2 s on neuroleptic-side-effect-escalation, flagged as a non-blocking latency advisory. Answer was still grounded via the source-backed extractive fallback. Watch on subsequent canaries; escalate only if it repeats or worsens.",
+      "source": "docs/rag-improvement/HANDOVER.md packet table row S2, canary pair 32100681177 -> 32111839806",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#TF6TPJ",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Repeated main-merges on open PR branches cancel required CI, so 'PR required' reads red with zero failing jobs",
+      "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987): the guard that closes the shared root cause has landed. scripts/guard-push.mjs now carries an explicit Guard 2 in-flight CI push guard block naming #HSSHRG, with inFlightCiVerdict() and findInFlightCiRuns(), covering merge-main syncs made outside sync:pr-branches. #HSSHRG was closed on that evidence. This row should be re-checked against that guard and closed too if the false-red symptom is gone; it was NOT verified against a live PR from here, which needs GitHub access.",
+      "source": "PR #2143, runs 32170524256 and 32178668323, 2026-08-18",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#VTEW3W",
+      "priority": "P3",
+      "type": "rec",
+      "summary": "therapyBtn still dresses 13 raw controls across 7 therapy files with no shared equivalent",
+      "detail": "CORRECTION 2026-08-21, superseding the update applied earlier the same day: the count of 21 across 8 files recorded by that update was WRONG, and the 13 across 7 files measured by the request cancelled as c6a9756d is RIGHT. The discrepancy flagged in that cancellation is now resolved by direct re-measurement on main rather than by choosing between the two numbers. Cause of the error: the earlier update counted raw textual occurrences of therapyBtn, which includes one import statement per consuming file plus the export in controls.ts, and then compared that total against a baseline expressed in CALL SITES. That is an apples-to-oranges comparison and it overstated the remaining work. Measured per file, excluding the import line in each and excluding the definition: brief-screen 1, compare-screen 1, detail-screen 1, pathways-screen 1, recommend-screen 1, sheets-screen 7, therapy-card 1 = 13 call sites across 7 .tsx files, with the export at controls.ts:26. Against the 30 call sites recorded 2026-08-18 at adf93a75, that is a real reduction of 17, not the 9 the bad arithmetic implied. The design question and the stop rule are unchanged: nothing shared covers list rows, disclosure headers, section toggles and chips, and this must not be resolved by converting the remaining sites to Button variants.",
+      "source": "session 2026-08-18",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#GBBYTA",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Hoist the filtered-zero empty state out of the documents results grid so it can sit flush under the results band",
+      "detail": "SearchResultsEmptyState renders the filtered-to-zero case nested two divs inside the results grid in document-search-results.tsx (grid gap-3 wrapper, with a conditional 'N results after filters' pill above it), not adjacent to SearchResultsHeaderBand. That nesting blocks the inline treatment evaluated for PR #2147: recovery cannot share the band's bottom edge, the band's data-tone lead is not adjacent so the panel has no state mark, and the filter chips are not near enough for the panel to point at them instead of duplicating them. PR #2147 therefore shipped the self-contained rail panel, which does not depend on adjacency. Hoisting the state to a sibling of the band would let the panel drop its own rail, its named-removal row and its eyebrow — roughly a third less height on phones. Only the documents nesting was verified; the other five consumers (favourites, calculators, forms, services, therapy-compass) were not checked and may nest the same way.",
+      "source": "PR #2147 design review; document-search-results.tsx:1558",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#XPY409",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Phone screenshots and DOM measurements taken before the phone chrome stack settles misreport every offset below it",
+      "detail": "The phone header stack (.phone-sticky-header-stack) is position:fixed and mounts collapsed, and the page reserve max-sm:pt-[var(--phone-overlay-chrome-h)] resolves to the settled height only after mount. A Playwright screenshot or evaluate() run at networkidle can therefore read main at y=72 with the mode-nav rail overlapping it, when the settled layout has main at y=121 with no overlap at all. Measured on /dictionary/browse 2026-08-18: unsettled h1 y=88 (appears hidden behind the rail), settled y=161, and the same page before and after a header redesign both settled to y=161 — i.e. the apparent overlap was pure measurement artefact. This cost a wrong diagnosis and a reverted 'fix' that padded the header to clear a rail that was never covering it. Fix is a documented settle wait (waitForTimeout ~1200ms, or better a wait on the stack's settled height) in the phone verification recipe in docs/testing.md, so the next person measuring phone chrome does not repeat it. Cheap, docs-only.",
+      "source": "Dictionary browse header rebuild, PR #2143, 2026-08-18",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#NEBJAM",
+      "priority": "P2",
+      "type": "rec",
+      "summary": "Therapy keeps a private eight-component UI kit whose shared equivalents it imports zero times, including the badge that carries review status",
+      "detail": "PARTIAL 2026-08-21, verified on origin/main a341832af. PR #2159 began the adoption: therapy-compass/ui.tsx now imports the shared Chip. Eight components remain local to that file - Tag, TagRow, StatusBadge, IconTile, LoadingState, EmptyState, Eyebrow and Meter - including StatusBadge, the badge carrying review status, which is the one that matters for the clinical sign-off work in the therapy review-status row. Next: adopt shared equivalents for the remaining eight, StatusBadge first.",
+      "source": "session 2026-08-18",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#SBKXZ7",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Therapy sign-off has no tooling: nothing stops reviewStatus reviewed being set with an empty checklist, and there is no reviewer attribution",
+      "detail": "Re-queued 2026-08-18 after PR #2145 was closed in favour of #2150, which supersedes the exposure change but does not carry this follow-up. Therapy now ships in production with its review state disclosed rather than hidden, so sign-off is the remaining clinical work. Three gaps. (1) reviewStatus is a bare string in src/data/therapies-source.json; a record can be flipped to reviewed with all seven reviewChecklist booleans still false and nothing detects it. Needs a script that refuses the flip unless the checklist is complete, plus a contract test pinning reviewed implies full checklist. (2) No attribution: none of the 44 record fields carries reviewedBy or reviewedAt, so a sign-off cannot record who signed or when - the same defect #318 flags against the medication interaction lexicon. (3) No review workflow: 205 records x 7 checks is 1435 clinical judgements by hand; a CLI that walks records, shows the fields each check covers, and writes the decision with attribution would make it tractable. State at re-queue: 205 records, all reviewStatus needs_review, all seven checklist booleans false, reviewCompleteness 57-71 with zero records complete. The catalogue notice #2150 adds reads from THERAPY_CATALOGUE_SUMMARY.needsReviewCount and disappears when that reaches zero, so completing sign-off is what retires it. Stop rule: an assistant must never tick clinicalAccuracyReviewed, sourceChecked, evidenceAppraised, safetyCautionsChecked or patientExplanationChecked - those are qualified-clinician attestations. proofread and australianEnglishChecked are non-clinical and may be done with attribution.",
+      "source": "session 2026-08-18",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#BSBE9B",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Docling lab fixtures.v2 table-hardness corpus: add unruled, merged-cell, and rotated-header tables so the Gate B table-heavy improvement leg has measurable headroom",
+      "detail": "The v1 corpus's table strata are cleanly ruled grids on which the legacy extractor already scores cell F1 1.0 (S6 smoke run and the S6b Gate B run), so the pre-agreed table-heavy improvement target was set to 0 pp (parity at ceiling) by owner decision on 2026-08-18. Before any table-heavy delta is treated as decisive for a Docling promotion beyond B4 shadow design, add a docling-lab-fixtures.v2 stratum set where the legacy find_tables path is expected to degrade: unruled tables, merged cells, rotated headers. Fixture-hardness change only — eval/docling/ manifest + generator, no worker or extractor edit. See eval/docling/README.md 'Known limitation (v1 corpus)' and docs/rag-improvement/gate-b-decision-record-2026-08-18.md.",
+      "source": "packet S6b (Gate B run), owner threshold decision 2026-08-18",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#5DYBQQ",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "tests/ui-forms-section-nav.spec.ts 'expands information previews into one continuous answer' failed on PR #2149 and was never reproduced — CI's path-scoped UI jobs can hide a forms regression on main",
+      "detail": "On PR #2149 (a DSM-only, two-file change) Production UI shard 3 failed 166 passed / 1 failed on tests/ui-forms-section-nav.spec.ts:53 'expands information previews into one continuous answer'. The assertion is 'await expect(trigger.getByText(preview)).toHaveCount(0)' at line 65: after clicking the 'Does not authorise' trigger on the form detail route, the preview text 'Psychiatric treatment or detention beyond the linked authority.' must leave the trigger and appear in the panel. It stayed in the trigger. NOT a timing race: the locator polled 24 times over the full 10s timeout and resolved to 1 element every time, so it was a stable wrong state, not a slow transition. NOT attributable to #2149: that PR changed exactly src/components/dsm/dsm-diagnosis-page.tsx and one ledger record, zero forms files; the behaviour lives in src/components/forms/form-detail-page.tsx which shares nothing with the DSM page. NOT a known flake: the identity is absent from tests/flake-ledger.json. NOT explained by recent forms history: the only recent main commit touching forms is 495e097 (#2139), which edited forms-home-page.tsx only (caveat-footer removal), a different component from the form detail page under test. Reproduction was never obtained: the job was re-run once and that re-run was cancelled, and the following full cycle was cancelled too, both by the merge-main sync loop described in the sibling record. #2149 then merged with the question open. The reason this can hide: CI UI jobs are path-scoped, so a docs-only push to main SKIPS Production UI entirely — verified in main run 32183858120 where 'Production UI', 'Production UI critical', 'Build' and 'Lighthouse budget' all report conclusion 'skipped'. The repo's own CI-triage bot nevertheless cited that run as 'Compared with main CI run #12334 (success)', which is an aggregate-level comparison that never exercised this test and must not be read as a green baseline. Given main's docs-heavy traffic, a genuine forms regression could sit on main unexercised. Next: run the single spec against current main to settle it — 'npx playwright test tests/ui-forms-section-nav.spec.ts --project=chromium' after 'npm run ensure' — then either fix form-detail-page.tsx so the preview moves out of the trigger on expand, or, if it passes repeatedly, add the identity to tests/flake-ledger.json under the documented three-reproductions-on-one-SHA rule. Stop rule: do not quarantine on a single observation, and do not weaken the assertion to green it. Note this could not be reproduced locally in the Claude web container because Playwright pins chromium revision 1234 while the image ships 1194 (see #255); forcing a mismatched browser path is disallowed.",
+      "source": "PR #2149 run 32185492075 job 95868823944 (Production UI (3)); main comparison run 32183858120; session 2026-08-18",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#97VQK5",
+      "priority": "P3",
+      "type": "rec",
+      "summary": "Mode home copy drift: three placeholder-punctuation conventions, inconsistent heading levels, and a stale docs/site-map.md mode index",
+      "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987): the documentation half is DONE. CLAUDE.md now reads 15 app modes, and the mode index in docs/site-map.md now carries rows for Calculators, Therapy, Factsheets and Dictionary, so the four missing modes and the stale count are both corrected. REMAINING SCOPE, and the only reason this row stays open: the placeholder-punctuation split (ASCII three dots vs Unicode ellipsis vs no terminator on differentials) and the heading-level inconsistency (h2 on answer/documents/prescribing, h1 elsewhere, so the Documents home has no h1). Both are decisions, and the heading change moves visual baselines.",
+      "source": "PR #2160 cross-mode home audit",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#V0EDR4",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "/favourites and /?mode=favourites render visibly different homes for the same mode",
+      "detail": "NARROWED 2026-08-21, verified on origin/main a341832af. The copy divergence is gone: favourites-hub.tsx:182 now takes title and subtitle from sharedHomePresentation.favourites and its glyph from appModeIcons.favourites. The structural divergence stands: the dashboard hub still renders a ModeHomeHero lockup while the standalone favourites-command-library-page.tsx renders none, its hero having been deliberately deleted under #164, so the same mode still looks different depending on the door. What is left is the owner decision about which treatment is canonical, then applying it to both.",
+      "source": "PR #2160 cross-mode home audit",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#JVYQEM",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Mode-home composer reserve does not account for the suggestion ticket, so every ticket-bearing home carries a ~0.035 CLS shift",
+      "detail": "PARTIALLY STALE as of 2026-08-21 — verify before acting. The phone remedy this row proposes has already landed: --spacing-mode-home-composer-phone in src/app/globals.css now reads 10.125rem, not the 6.625rem recorded here, and the surrounding comment states the raise was made to cover the hint row. What remains open is the WIDE case, which that same comment calls out explicitly: --spacing-mode-home-composer-wide is still 5.5rem (88px) against a settled 160px at 1280 and 199px at 800, and it is deliberately NOT raised to match, because the sm+ surface swaps the phone ticket for a prompt-chip row that rewraps with viewport width, so no single static value is correct at every width. That needs a different mechanism (measure-and-publish, or a container-query reserve), not a bigger constant. Also: do NOT treat this row as the cause of the mobile-/ CLS 0.223 breach seen on PR #2199 — that value is bistable, an order of magnitude larger than the ~0.035 recorded here, and did not reproduce under either local harness; it has its own row. Next: confirm the phone case is closed by measuring a ticket-bearing mode home, then scope the wide-reserve mechanism separately.",
+      "source": "PR #2160 Lighthouse budget failure",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#HVTYAT",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "OpenAI zero-data-retention status contradicts itself: cross-border doc says no, ledger #053 says verified",
+      "detail": "docs/openai-cross-border-basis.md §8 (dated 2026-07-14) records ZDR 'no', DPA executed 'no', Australia data residency 'not enabled'. Completed ledger row #053 (2026-08-18) states the cross-border package was executed and 'verified OpenAI data controls with input/output data sharing disabled and API zero data retention'. One of the two is wrong. This blocks the /privacy page from telling clinicians what actually happens to question text at the provider: the page currently states only code-verifiable request controls (store:false, no raw owner identifier, requested prompt-cache lifetime) and deliberately makes no ZDR or no-training claim, which is correct under either reading but weaker than it could be. Next step: an operator confirms the live OpenAI project's data controls, then either §8's status table is filled in and the page's External provider processing section is strengthened, or #053 is corrected.",
+      "source": "src/lib/privacy-page-content.tsx, docs/openai-cross-border-basis.md §8, docs/privacy-impact-assessment.md PIA-1/PIA-6",
+      "added": "2026-08-19"
+    },
+    {
+      "id": "#1VFSYF",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Close the four operator unknowns the B4 shadow-extraction runbook could not answer from the repository: Railway variable-change behaviour, the shadow-record read path, the timeout rollback threshold, and the worker memory limit/peak",
+      "detail": "TWO OF FOUR ANSWERED 2026-08-21 and folded into docs/worker-deploy-runbook.md section 3. (1) RAILWAY VARIABLE-CHANGE BEHAVIOUR - ANSWERED, and it was a latent safety trap: Railway's docs state that containers read environment variables only at startup, so a variable change never restarts a running container by itself and the new value exists only inside the new deployment. The worker parses WORKER_DOCUMENT_EXTRACTOR_MODE once at process start, so setting the variable is NOT by itself the rollback. Sections 3.5 and 3.7 now state the rollback as two steps (set the variable, then deploy) and warn that stopping after the first leaves docling running. (2) MEMORY LIMIT AND PEAK - ANSWERED by a read-only Railway metrics query on the production worker service over a 7-day window, 10081 samples: memory limit 24 GB, peak 0.566 GB, average 0.139 GB, so roughly 23.4 GB of headroom against the ~1.5 GiB docling needs. The precondition is met with about a fifteenfold margin; section 3.2 now records the numbers as a baseline and requires a busy-window memory-headroom re-check immediately before every shadow enablement and again after any worker image, workload, WORKER_CONCURRENCY, service-plan, or resource-limit change. It also flags that the service reports a 24 vCPU limit while Gate B measured 9-19 s/doc on 2 CPUs, and that the section 3.4 cost model should NOT be assumed to scale down, because docling runs eager and single-process. STILL OPEN, both needing an owner decision rather than investigation: (3) the proposed rollback trigger of more than 10 percent of cohort runs timing out is an unratified operating rule, not a measurement, and nothing in the repository fixes the number; it needs ratifying or replacing, ideally once real wall_ms values exist. (4) there is still no script that reads or aggregates documents.metadata.shadow_extraction, so the first-24-hours watch remains the hand-run SQL query in section 3.6. Recommendation recorded against (4): build the reader when shadow mode is first enabled rather than now, because shadow mode has never run so the table holds zero rows and the tooling cannot be exercised end to end against real data.",
+      "source": "docs/worker-deploy-runbook.md sections 3.2, 3.5 and 3.7; read-only Railway metrics on service worker (project Database 5deaad0b) 2026-08-21",
+      "added": "2026-08-20"
+    },
+    {
+      "id": "#1YPV51",
+      "priority": "P1",
+      "type": "task",
+      "summary": "Reopen #318: the medication interaction lexicon clinical review and sign-off has not actually happened; the lexicon remains clinically unreviewed",
+      "detail": "PARTIAL PROGRESS 2026-08-22, NOT a clinical sign-off. The sign-off block in docs/medication-interaction-lexicon-review.md is deliberately still empty and the document still reads Status: UNREVIEWED, because a Clinical Lead read of the 37-term sheet has still not happened. What DID happen: the owner reviewed seven specific questions raised from the report and one real defect was found and fixed. FIXED: loperamide was resolving as a member of the opioids term because the selector matches the substring Opioid and the catalogue classifies it Peripheral Opioid Agonist. It is P-gp-restricted at therapeutic doses and does not contribute to the sedation and respiratory-depression rows that term drives (35 of 36 rows CRITICAL or HIGH). It is now deny-listed alongside naltrexone and naloxone, which were already excluded for the same class of reason. Proven, not asserted: regenerating the index with and without the change alters 35 medications, removes loperamide as a counterparty from every one of them, adds nothing anywhere, and leaves resolvedRows/unresolvedRows/rowsWithCatalogueTarget unchanged at 392/133/440. FOUR OTHER CHANGES WERE PROPOSED AND WITHDRAWN after reading the implementation: adding moclobemide to maois, removing atomoxetine from snris, folding the Z-drugs into benzodiazepines, and splitting antihistamines by sedation. All four would have overridden deliberate catalogue classifications (moclobemide is subclass RIMA not MAOI; atomoxetine is subclass SNRI (Non-stimulant); zolpidem and zopiclone are class Sedative subclass Z-Drug) or broken a term's meaning. The sedation concern they were aimed at is carried by the cns-depressants term, which is kind: mechanism and deliberately unenumerable, so it warns on no specific drug by design. TWO QUESTIONS REMAIN FOR THE OWNER, both catalogue-level rather than lexicon-level: (1) should moclobemide's RIMA classification make it fire serotonergic interaction warnings alongside the irreversible MAOIs; (2) is atomoxetine correctly classed SNRI for interaction purposes. STILL OPEN: the full clinical read. Do not close this row without explicit owner confirmation that the review was actually carried out.",
+      "source": "session 2026-08-21 ledger reconciliation and docs-truth pass; owner confirmed in chat the 2026-08-18 closure was inaccurate",
+      "added": "2026-08-20"
+    },
+    {
+      "id": "#XCAX01",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "A worktree sweep deleted an in-use worktree mid-session on 2026-08-21 and destroyed its uncommitted work; nothing checks whether a worktree is live before removal",
+      "detail": "Reproduced by loss, not by test. On 2026-08-21 an agent session was working in .claude/worktrees/task-ledger-review-bee095 with 25 staged-but-uncommitted files. Mid-task the directory was emptied, its .git/worktrees admin directory (and therefore its index) was deleted, and the worktree was deregistered, while the session was still running. The staged blobs became unreachable and the work was lost; only the branch ref survived, still at its unchanged base 1cc0d298774e. Every other worktree on disk carried a modification timestamp inside the same twenty-minute span, so this was a sweep across the whole directory rather than a one-off. TWO CONSEQUENCES WORTH SEPARATING. (1) Data loss: removal considered neither uncommitted/untracked content nor whether a process was live in the directory. (2) Silent corruption of the surviving session: after the removal, git commands issued from the deleted path resolved upward to the main checkout D:/Repos/Database, which was on another agent's feature branch with uncommitted modifications - so an unlucky commit would have landed in a different session's branch and working tree. NEXT: before any automated worktree removal, require all three of (a) the branch is merged or its tip is pushed, (b) git status --porcelain --untracked-files=all is empty, and (c) no live process holds the directory; and skip rather than force when any check cannot be evaluated. Prefer a report-only default with an explicit apply flag, matching how sync:pr-branches already separates dry-run from apply. RELATED: #6GW95D records the disk pressure that motivates sweeping, and now carries the same safety caveat.",
+      "source": "Session 2026-08-21; worktree task-ledger-review-bee095 removed while in use",
+      "added": "2026-08-20"
+    },
+    {
+      "id": "#S19JRT",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Add the DB-side structural constraint backing the source_metadata pin, or document why the data-backed pin is sufficient",
+      "detail": "Re-files #343, closed 2026-08-18 with outcome 'Made retrieval row contract source_metadata schema structural and nullish' -- that outcome is false. Verified 2026-08-21: PR #2107 loosened the source_metadata pin in src/lib/rag/rag-row-contracts.ts to .nullish(); PR #2121 restored the strict .nullable()-required-key pin (git log: ce702ba68 then 4575cf57a). The comment at rag-row-contracts.ts:44-49 explicitly reads 'PR #2107 loosened it to .nullish() and this PR restores it. See docs/outstanding-issues.md #343 for the constraint-backing follow-up.' The DB-side structural constraint (check (jsonb_typeof(metadata) = 'object')) was never added: grep of supabase/schema.sql and supabase/migrations/ finds only 'metadata jsonb not null default {}::jsonb' with no jsonb_typeof check anywhere. The cancelled duplicate #ND10QT record itself states '#343, which is still open', confirming the two closures landed inconsistently. Actionable follow-up: add the check (jsonb_typeof(metadata) = 'object') constraint on documents.metadata with a fail-fast validation guard migration per AGENTS.md's guard-migration contract, or record in this row why the Zod-level pin in rag-row-contracts.ts is sufficient without a DB constraint.",
+      "source": "session 2026-08-21 ledger reconciliation and docs-truth pass",
+      "added": "2026-08-20"
+    },
+    {
+      "id": "#50QRCF",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Lighthouse budget mobile-root CLS is intermittent: 0.223 vs 0.016 baseline on one run, ~0.000 on the next, same code",
+      "detail": "CAUSE FOUND AND FIXED — landed on main 2026-08-22 in PR #2253 (merge 66594dd, fix commit 0cf0493). Full evidence is recorded on #TYZK23; this row is the gate-reliability half of the same defect. Summary: the shifting element is the PWA install card (div.pwa-notice-stack), which can mount during a window in which #main-content is briefly absent from the DOM while Next 16 streams and hydrates the route. Its phone geometry is selected by body:has(#main-content[data-phone-footer-owner=\"hero\"]) …, so a card mounting in that gap paints tall (h=401) and is restyled compact (h=161) when the shell returns — one discrete 0.2230 shift. That also explains observation (1) on this row, the part that looked impossible: the gate flips pass/fail on diffs that cannot influence layout because what varies between runs is TIMING (network speed, and whether beforeinstallprompt fires early enough to land inside the gap), not the diff. Deleting one JSON file changes nothing about the page and everything about which side of that race the run lands on — so head c8b7bcdd passing and head 09ff450c failing was never a contradiction. FIXED in src/components/pwa-lifecycle.tsx: the notice stack is held unmounted until the app shell is present. Reproduced locally at exactly 0.2230 before the fix and 0.000 after, using a synthetic beforeinstallprompt at ~120ms plus network throttling. CI on 0cf0493 (run 32531103787): Lighthouse budget SUCCESS. ALSO LANDED, and worth keeping even after this row closes: scripts/run-lighthouse-budget.mjs now prints layout-shift attribution (selector, snippet, score, raw worst item) when grading fails, before the report directory is deleted. This row previously required downloading a CI artifact that this environment cannot reach; that is no longer necessary, and the next occurrence of any layout-shift breach will name its own element. Stop rules honoured: tolerance not widened, baseline not refreshed. NOT CLOSED HERE — close with #TYZK23 and #KFRC3H once further Lighthouse budget runs confirm.",
+      "source": "CI run 32531103787 on head 0cf0493; local reproduction 2026-08-22; merged in PR #2253; full trace on #TYZK23",
+      "added": "2026-08-21"
+    },
+    {
+      "id": "#45V4Y7",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Dead exports on protected surfaces: answerQuestion (rag.ts), embedText (openai.ts), clinicalRankScore (clinical-search.ts)",
+      "detail": "The 2026-08-20 repo-cleanup sweep removed 60+ verified-dead exported symbols but deliberately left three untouched because they sit on RAG-protected surfaces that AGENTS.md requires flagging before any edit, deletion included. All three are exported, imported by nothing, and referenced nowhere else in the tree: src/lib/rag/rag.ts answerQuestion (a thin wrapper superseded by answerQuestionWithScope, which is what /api/answer actually calls), src/lib/openai.ts embedText, and src/lib/clinical-search.ts clinicalRankScore. Removing them cannot change retrieval behaviour because nothing calls them, but the removal still travels through docs/rag-behaviour and the RAG impact declaration on the PR. Next step: confirm with the owner, then delete in a single RAG-scoped PR carrying 'RAG impact: no retrieval behaviour change -- dead exports with zero callers'.",
+      "source": "src/lib/rag/rag.ts, src/lib/openai.ts, src/lib/clinical-search.ts",
+      "added": "2026-08-20"
+    },
+    {
+      "id": "#72G3XZ",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Watch runner usage now that every main push gets its own CI concurrency group",
+      "detail": "PR #2209 (merged af2075a) changed ci.yml so base-branch pushes key concurrency on github.run_id. The defect it fixed was real: cancel-in-progress: false only prevents supersession, while GitHub separately keeps at most ONE pending run per concurrency group, so during a merge burst each newly queued main run cancelled the one already waiting. Observed 2026-08-20: a1c2ced, d745d15, 97f6142 and 1cc0d29 all cancelled while a ~70-minute release-browser-matrix held CI-refs/heads/main, and a mobile-/ CLS regression rode through that gap. The accepted cost is a real one and nobody has measured it yet: a burst of N merges now produces N concurrent runs instead of one plus a survivor, each carrying release-browser-matrix. The in-file comment already accepts this ('concurrent main runs, one per merge, each already scoped by the changes job'), but that was written as a prediction, not an observation. Next: after a few days of normal traffic, compare Actions minutes on main-branch pushes against the week before af2075a, and confirm no queueing/limit pressure appeared. If the cost is worse than the defect, the alternative is a bounded group (for example keyed on run_id only while a long job is in the workflow) rather than reverting to the shared group, which would restore the eviction hole. Pinned by the 'never cancels an in-flight run for a base-branch push' case in tests/ci-cache-safety.test.ts, which now also asserts the per-run key.",
+      "source": "PR #2209, merged af2075a; ci.yml concurrency block",
+      "added": "2026-08-21"
+    },
+    {
+      "id": "#V15EAS",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "therapies-home and therapies-index generated assets are byte-identical, so the home projection saves nothing",
+      "detail": "public/therapy-compass-data/therapies-home.211dab554c4ec62d.json and therapies-index.211dab554c4ec62d.json have identical content hashes. The home asset exists so the Therapy landing page can paint the catalogue count and default artifact destinations without downloading and parsing a full record projection first, but it is currently a byte-for-byte copy of the index, so the landing page pays the full 136 KB it was meant to avoid. This is a projection bug in scripts/build-therapies-index.mjs rather than stray duplication. Next step: either narrow the home projection to the fields THERAPY_CATALOGUE_SUMMARY actually needs, or drop the asset and point the home path at the index. Note the immutable Cache-Control in next.config.ts is keyed on the content hash, so a narrowed projection lands under a new URL and needs the one-generation retention already implemented in generated-assets.ts. Found by the 2026-08-20 repo-cleanup audit.",
+      "source": "scripts/build-therapies-index.mjs, src/components/therapy-compass/data/generated-assets.ts, public/therapy-compass-data/",
+      "added": "2026-08-20"
+    },
+    {
+      "id": "#TYZK23",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "mobile-/ Lighthouse CLS is bistable at 0.016 or 0.223 and reproduces only in CI, so the budget gate randomly reddens UI PRs and each looks like its own regression",
+      "detail": "ROOT CAUSE FOUND, REPRODUCED LOCALLY, AND FIXED — landed on main 2026-08-22 in PR #2253 (merge 66594dd), commits bc23075 (diagnostic) and 0cf0493 (fix). This row asked for the shifting node from a run where the shift actually fired; that evidence now exists. (1) ATTRIBUTION. The Lighthouse artifact could not be downloaded (Azure Blob egress blocked by this network policy), so the attribution was moved into the runner instead: scripts/run-lighthouse-budget.mjs now parses layout-shifts / layout-shift-elements / cumulative-layout-shift out of each per-cell report and prints selector, snippet, score and the raw worst item BEFORE the report directory is deleted, but only when grading already failed. CI then printed: \"mobile-root cls=0.2230 / 0.2230 body.min-h-full > div.pwa-notice-stack\", boundingRect {top:654, bottom:815, width:396, height:161}, nodeLabel \"Install Clinical KB … Install app / Not now\" — the COMPACT install card. (2) MECHANISM. #main-content briefly stops existing while Next 16 streams the route in and React hydrates it. The phone install-card geometry is chosen by body:has(#main-content[data-phone-footer-owner=\"hero\"]) …, so a card mounting inside that gap is styled by a selector that is false: it paints tall (h=401, bottom gap 92px), then is restyled compact (h=161, bottom gap 8px) when the shell returns. One discrete restyle, which is why the value recurs to three decimals instead of drifting. (3) LOCAL REPRODUCTION — the first one anyone has achieved, and the answer to this row note that it \"reproduces only in CI\". Four earlier attempts failed because beforeinstallprompt never fires in this container. Dispatching it synthetically from an init script at ~120ms WITH network throttling reproduced 0.2230 exactly, with the trace: t=4726ms #main-content present (owner=hero) -> t=7855ms #main-content GONE -> t=9083ms pwa-notice-stack mounts top=330 bottom=731 h=401 -> t=9930ms #main-content returns, stack top=654 bottom=815 h=161 -> t=9963ms SHIFT value=0.2230 div.pwa-notice-stack. So it was never CI-specific runner contention or Chromium 151 behaviour; it needed a slow network plus an early install prompt, which CI has and a fast local container does not. (4) FIX. src/components/pwa-lifecycle.tsx holds the notice stack unmounted until the app shell is present, via useSyncExternalStore over a MutationObserver on documentElement. The readyState===\"complete\" escape hatch releases the gate ONLY while the shell has never been seen (appShellHasEverMounted===false); an earlier version without that qualifier was refuted by CI returning the identical 0.2230, because load fires ~4s and the gap is at ~9s. That refuted commit was reverted rather than left in place with a message claiming a fix. Same local reproduction after the fix: CLS 0.000. CI on 0cf0493 (run 32531103787): Lighthouse budget SUCCESS, pr-required SUCCESS. (5) STOP RULES HONOURED: the cls tolerance was not widened, the baseline was not refreshed, and nothing was attributed without a run where the shift fired. NOT CLOSED HERE: one green CI run on a bistable metric is weak on its own — the deterministic local before/after is the stronger half. Close this row together with #50QRCF and #KFRC3H after the next Lighthouse budget runs on main-scoped PRs come back green.",
+      "source": "CI run 32531103787 (Lighthouse budget success) on head 0cf0493; CI attribution output on the failing head; local reproduction 2026-08-22 in the Claude web container; merged in PR #2253",
+      "added": "2026-08-21"
+    },
+    {
+      "id": "#8A00R7",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "AGENTS.md loads ~6k tokens/turn of Codex/Cursor-only sections, but three gates pin them in place",
+      "detail": "AGENTS.md is 1213 lines (~19.6k tokens) loaded every turn, plus CLAUDE.md (~2.4k). 372 of those lines (30 percent, ~6k tokens/turn) are Codex-only or Cursor-only and can never fire in a Claude Code session: Dependency shortcut, Codex review throttling, Codex Desktop worktree setup, Codex productivity defaults, Codex GitHub review behavior, Codex Cloud environment, Cursor Cloud instructions. The obvious fix (move them to docs/ and leave pointers) is BLOCKED: scripts/check-codex-cloud-setup.mjs line 1122 requires exactly one '## Codex Cloud environment' heading in AGENTS.md; scripts/check-codex-autofix-workflow.mjs requires the scoped resolve command, the 'one automatic repair pass per pull request lifetime' phrase and the disposition marker in AGENTS.md; tests/setup-codex-worktree.test.ts line 106 requires 'Never configure Windows Desktop worktrees' and the dry-run command in AGENTS.md. Any restructure must move the gate assertions to the new file paths in the same change. Measured 2026-08-21 on main a341832af.",
+      "source": "Session applying the writing-for-agents skill to AGENTS.md, 2026-08-21",
+      "added": "2026-08-20"
+    },
+    {
+      "id": "#2DQXD8",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "Two contract tests pin unreachable components: VerificationWorkspace and TherapyListItem",
+      "detail": "The 2026-08-20 cleanup sweep found VerificationWorkspace (with its only caller RenderModelSourceList) in src/components/clinical-dashboard/evidence-panels.tsx and TherapyListItem in src/components/therapy-compass/therapy-card.tsx are exported, imported by nothing, and rendered by no route. Removing them was reverted because two committed contract tests assert on the source text of those files: tests/rendered-text-formatting.test.ts requires the literal compactSourceSnippet(source.snippet ?? \"\", { dropTitle: source.title }) to appear in the dashboard surfaces, and that string exists only inside RenderModelSourceList; tests/therapy-review-regressions.test.ts requires therapy-card.tsx to surface reviewStatus, which only TherapyListItem does. Both guards are therefore currently satisfied by code no user can reach, so they are not protecting the live render path they name. Next step: identify the live source-card and therapy-record render paths, repoint both assertions at them, then delete the unreachable components. Do not simply delete the assertions -- they guard clinical output formatting and the per-record review badge.",
+      "source": "tests/rendered-text-formatting.test.ts, tests/therapy-review-regressions.test.ts, src/components/clinical-dashboard/evidence-panels.tsx, src/components/therapy-compass/therapy-card.tsx",
+      "added": "2026-08-20"
+    },
+    {
+      "id": "#61TZJA",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Re-adopt the document-viewer Linux visual baseline after PR #2199 lands",
+      "detail": "PR #2199 makes document search on demand, which moves the document-viewer golden two ways: the overview action reads 'Search document' instead of 'Add to scope', and the closed composer releases the desktop sm:pb-40 clearance that was previously always reserved. The committed tests/__screenshots__/linux/document-viewer.png therefore drifts the moment that PR merges. This is ordinary pixel drift, which scripts/classify-visual-baseline-outcome.mjs scores advisory rather than red, and the visual-baseline job runs only on pushes to main — so the refresh point is post-land, from that run's artifact, via npm run design-system:baselines:adopt. Blocked until #2199 merges: adopting earlier would commit a golden for a state main does not have. Related: the same PR removed .document-viewer-composer from that target's mask (it is no longer rendered in the default state, and assertMaskSelectors fails loudly on a mask matching zero nodes), so the closed composer's resting layout is now inside the compared region rather than painted over. Stop rule: adopt from the CI artifact only, never from a developer machine or this container — font hinting alone would make every later run red, which is what the suite's own header warns about.",
+      "source": "PR #2199 (tests/ui-visual-baseline.spec.ts, commit e6d52b8); ci.yml visual-baseline job",
+      "added": "2026-08-21"
+    },
+    {
+      "id": "#800E5M",
+      "priority": "P2",
+      "type": "rec",
+      "summary": "Reachability scans must not treat in-flight programme scaffolding as dead code (Ward Flow, Caring Contacts)",
+      "detail": "The 2026-08-20 cleanup sweep initially removed symbols from src/components/ward-management/ and src/components/caring-contacts/ because no file imported them. That test is wrong for a programme still under construction. wallClockNow() is a specified export of ward-clock.ts in docs/superpowers/plans/2026-08-18-ward-flow-phase-1-model.md, and movementsByStage(stage) is a specified export of ward-movements.ts in the Phase 2 coordinator plan, whose 55 tasks are all still unchecked -- the consumers (Tasks 5, 7, 8) have not been built yet. Ward Flow itself landed only on 2026-08-19 in PR #2140, and Caring Contacts is an active design programme with no production route. All of those removals were reverted on the owner's instruction and the areas are byte-identical to their pre-sweep state. Recommendation for any future dead-code sweep: before removing a symbol, check whether it is named as a module contract in docs/superpowers/plans/ or docs/superpowers/specs/, and treat any plan with unchecked tasks as in-flight and out of scope. A second trap in the same sweep: this container clones shallow (105 commits spanning only 2026-08-19..2026-08-20), so git cannot date file creation and 'is this recent?' is unanswerable locally -- deepen the clone before relying on file age.",
+      "source": "docs/superpowers/plans/2026-08-18-ward-flow-phase-1-model.md, docs/superpowers/plans/2026-08-18-ward-flow-phase-2-coordinator-screen.md, src/components/ward-management/, src/components/caring-contacts/",
+      "added": "2026-08-20"
+    },
+    {
+      "id": "#4XBMMR",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "public/mockups/** is publicly served and indexable in production; mockups/README.md claims otherwise",
+      "detail": "src/proxy.ts 404s /mockups/* routes when NODE_ENV=production, but its matcher explicitly excludes .svg/.png/.jpg/.jpeg/.gif/.webp/.ico, so the 19 MB of design comps under public/mockups/ are served unauthenticated at psychiatry.tools/mockups/... . src/lib/crawler-policy.ts serves robots.txt as allow:/ by design so crawlers can read per-page noindex metadata, and a raw PNG carries no such metadata; the X-Robots-Tag: noindex header in next.config.ts is scoped to /offline.html alone. mockups/README.md 'Production behavior' asserts that robots.txt disallows indexing, which is false. Content is UI design comps, not clinical or patient data, so this is weight and a broken documented guarantee rather than a privacy incident. Next step: add an X-Robots-Tag: noindex header for /mockups/:path* in next.config.ts, decide whether the comps should ship in the deploy image at all, and correct the README either way. Found by the 2026-08-20 repo-cleanup audit.",
+      "source": "src/proxy.ts, src/lib/crawler-policy.ts, next.config.ts, mockups/README.md, public/mockups/",
+      "added": "2026-08-20"
+    },
+    {
+      "id": "#KFRC3H",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "mobile-/ Lighthouse CLS bistable flake: PR #2234 fixes 8 more racy double-:has() install-card selectors PR #2219 missed; unconfirmed pending CI",
+      "detail": "THE MECHANISM IS NOT THE SELECTOR SHAPE — resolved 2026-08-22, landed on main in PR #2253 (merge 66594dd, fix commit 0cf0493). This row predicted \"if PR #2234 lands and CI is STILL bistable afterward, a fourth mechanism remains\". A fourth mechanism did remain; it has now been traced, reproduced locally and fixed, and it is orthogonal to the double-:has() cleanup. WHAT ACTUALLY FIRES: #main-content briefly stops existing while Next 16 streams the route in and React hydrates it (measured gap roughly t=7.9s to t=9.9s under network throttling). Every phone install-card rule — the one PR #2219 fixed and the eight PR #2234 rewrites alike — is keyed on body:has(#main-content[data-phone-footer-owner=\"hero\"]), so during that gap the OWNERSHIP :has() is false whether or not a second redundant :has() is chained onto it. A card mounting inside the gap paints tall (h=401, bottom gap 92px) and is restyled compact (h=161, bottom gap 8px) when the shell returns: one discrete shift, 0.2230. Removing the redundant second :has() therefore cannot close this, which is exactly consistent with 0.223 surviving BOTH of PR #2219 fixes on run 32477570217 — the observation this row correctly refused to explain away. THE FIX: hold the notice stack unmounted until the app shell is present (src/components/pwa-lifecycle.tsx, useSyncExternalStore over a MutationObserver, with the readyState escape hatch qualified to fire only when the shell has NEVER been seen; an unqualified version was refuted by CI returning the identical 0.2230 and was reverted). CONFIRMED BOTH WAYS: the first successful local reproduction (synthetic beforeinstallprompt at ~120ms plus network throttling) gave exactly 0.2230 before and 0.000 after; CI run 32531103787 on head 0cf0493 reports Lighthouse budget SUCCESS. PR #2234 IS STILL WORTH LANDING — the redundant :has() chains are genuinely racy and its static-contract test guards all nine selectors — but it should be recorded as hardening, not as the cause, and its confirmation criterion of \"N consecutive green CI Lighthouse runs\" can no longer distinguish it from this fix now that both would be on main. Also landed: scripts/run-lighthouse-budget.mjs prints layout-shift attribution on a failing grade, which removes this row blocker of being unable to download the CI artifact. Close with #TYZK23 and #50QRCF once further Lighthouse budget runs confirm.",
+      "source": "CI run 32531103787 on head 0cf0493; local reproduction 2026-08-22; merged in PR #2253; contrast with run 32477570217",
+      "added": "2026-08-21"
+    },
+    {
+      "id": "#8VAY97",
+      "priority": "P2",
+      "type": "task",
+      "summary": "The document_index_units retrieval path has no EXPLAIN baseline, and Phase 5 has no query-specific plan-flip evidence",
+      "detail": "Two Phase 5.1 deliverables are explicitly OPEN, not discharged. Re-graded P3 -> P2 versus the withdrawn request 2040d1fb, because that request understated the gap by claiming substitute coverage that does not exist. (A) NO EXPLAIN BASELINE FOR THE INDEX-UNITS PATH. public.explain_retrieval_rpc accepts exactly four names -- match_documents_for_query, match_document_chunks_text, match_document_lookup_chunks_text, match_document_table_facts_text -- and raises 22023 Unsupported retrieval RPC for anything else, proven against production for both match_document_chunks_text_v2 and match_document_index_units_hybrid_v2. For the first of those the v1 sibling match_document_chunks_text shares the owning table document_chunks and is a usable stand-in. For the second there is none: match_document_index_units_hybrid_v2 delegates to match_document_index_units_hybrid_scoped over document_index_units (supabase/schema.sql:8033-8054), and no supported RPC touches that table. document_index_units is one of the two section 1.2 outliers, so the outlier that most needed a baseline is the one that has none. (B) NO QUERY-SPECIFIC PLAN-FLIP EVIDENCE. explain_retrieval_rpc EXPLAINs `select * from public.<rpc>(...)`, so a PL/pgSQL body's inner plan is never exposed and every sample reports a single Function Scan with no index names. Plan section 5.1's 'record plan flips (seq scan -> index scan)' is therefore unanswerable through this instrument. The pg_stat_user_indexes read captured in Phase 5.1(c) is a WEAKER and DIFFERENT signal, not a substitute: idx_scan is cumulative across every workload touching the table and no before/after delta was captured around the samples, so it can prove an index is never chosen by anything but cannot prove that a given query changed plan. NEXT: one migration extending the explain_retrieval_rpc p_rpc branch list to the _v2 family (at minimum match_document_index_units_hybrid_v2 and match_document_chunks_text_v2), shipped in an approved window -- with D4 ON, merging it to main deploys it, so it needs the window and a green post-merge live-drift run. Then re-run npm run profile:retrieval --analyze to capture the missing baseline. For (B), consider whether an auto_explain-style capture is a better fit than widening the RPC. STOP: do not record the cumulative index-usage read as plan-flip evidence; that conflation is exactly what this row exists to prevent.",
+      "source": "Codex review of PR #2250 (P2, comment 3833062803 and 3833062807); docs/audit/live-drift-forensics-2026-08.md Phase 5 close-out 5.1(b); supabase/schema.sql:8033-8054",
+      "added": "2026-08-21"
+    },
+    {
+      "id": "#47M1XD",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Restored trigram indexes have never been scanned, so the 2026-08-14 incident fix is probably mis-attributed to them rather than to ANALYZE",
+      "detail": "UPDATED 2026-08-22 07:23 UTC by a second read-only production window; supersedes the 2026-08-21 detail, which is preserved in git history. Net effect: the attribution retraction is now STRONGER, and the experiment this row proposed to settle it turns out to be one that CANNOT settle it. (1) A SECOND OBSERVATION WINDOW CLOSES MOST OF THE COUNTER-RESET CAVEAT. Between the 2026-08-21 read and this one the serving indexes advanced under live traffic -- document_chunks_search_idx 37,717 -> 37,911, documents_title_search_idx 37,299 -> 37,512, document_chunks_embedding_hnsw_idx 4,906 -> 4,921, and the sibling-table trigram index document_table_facts_title_row_param_trgm_idx 2,372 -> 2,389 -- while document_chunks_content_trgm_idx (OID 1491258, 68 MB) and documents_title_trgm_idx (OID 1491257, 648 kB) stayed at idx_scan 0 AND idx_tup_read 0, with both OIDs unchanged. Two readings a day apart, with demonstrable retrieval traffic in between, make \"a per-index counter reset hid the usage\" a substantially weaker explanation than \"the planner does not choose these indexes\": a reset before the first read would have been re-populated by the traffic between the two. It is still not proof -- pg_stat_reset_single_table_counters(oid) remains invisible, and the production server is PostgreSQL 17.6 (read via current_setting('server_version')), which predates the pg_stat_all_indexes.stats_reset column added in PG 18. pg_stat_database.stats_reset is NULL and pg_postmaster_start_time() is 2026-06-19, so no database-wide reset is recorded across the whole period in question. (2) THE BEFORE/AFTER ANALYZE EXPERIMENT SHOULD NOT BE RUN AS FRAMED, BECAUSE IT CANNOT DISCRIMINATE. pg_stat_all_tables shows documents, document_chunks, document_table_facts and document_index_units were each ANALYZEd on 2026-08-18 18:08 UTC (the Phase 4 window) and every one of them now reports n_mod_since_analyze = 0. Re-ANALYZing a table with zero modifications since its last analyze re-samples the same rows and produces statistically equivalent statistics, so a flat before/after latency result would be uninformative rather than evidence against the ANALYZE hypothesis. Spending an approved production window on it would buy a null that cannot be interpreted. (3) ONE GENUINELY STALE TABLE, AND IT IS MINOR. document_embedding_fields was last analyzed 2026-06-25 and carries 3,148 modifications against 271,097 live tuples -- about 1.2%, far below the default autoanalyze threshold of 50 + 0.1 * n_live_tup (~27,160), which is why autovacuum has not fired on it. Worth an ANALYZE at the next convenient window as hygiene; not a plausible cause of a 31-second regression. (4) DATABASE-SIDE RETRIEVAL IS FAST RIGHT NOW. EXPLAIN ANALYZE through public.explain_retrieval_rpc in the same window: match_documents_for_query 1.000 ms, match_document_chunks_text 4.306 ms, match_document_lookup_chunks_text 0.904 ms, match_document_table_facts_text 15.760 ms. All four return a single Function Scan node with no inner index names, re-confirming #8VAY97 -- this instrument cannot show plan flips, and the four supported names are still the only ones it accepts. REVISED NEXT: (a) treat the mis-attribution as settled for triage purposes -- the next 30-second retrieval incident checks planner statistics BEFORE hunting missing indexes; (b) do NOT spend an approved production window on a before/after ANALYZE of the four already-current tables, and if a discriminating test is ever wanted it needs a table with pending modifications or a controlled statistics reset, neither of which is worth doing on the live clinical database; (c) an ANALYZE of document_embedding_fields alone is cheap hygiene and needs owner approval like any other production mutation; (d) whether the two trigram indexes earn their ~69 MB is a repo-side migration decision, not an operational one. STOP unchanged: do NOT drop them -- they are repo-defined, the migration chain commands them, and dropping them reopens live drift.",
+      "source": "read-only production windows 2026-08-21 and 2026-08-22 07:23 UTC (pg_stat_all_indexes, pg_stat_all_tables, pg_stat_database, explain_retrieval_rpc); docs/audit/live-drift-forensics-2026-08.md Phase 5 close-out 5.1(c)",
+      "added": "2026-08-21"
+    },
+    {
+      "id": "#K9XD5N",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "DegradedNotice banner shifts the hero section by ~0.16 CLS on / when it appears/disappears (separate from the .pwa-notice-stack fix in PR #2219)",
+      "detail": "scripts/measure-cls-attribution.mjs (offline-only trigger, no install prompt) shows main#main-content > ... > section (the answer-mode hero, sourced from ClinicalDashboard's DegradedNotice) shifting from y=88,h=623 to y=165,h=623 — 0.159 CLS, 2 entries — purely from the in-flow DegradedNotice banner mounting/unmounting above it when isOnline flips. This is distinct from the .pwa-notice-stack root cause fixed in PR #2219 (fix/pwa-notice-cls-shift): that fix collapses .pwa-notice-stack's contribution to 0 under the same harness, but this hero-section shift is untouched by it and remained present in the fixed-code re-run (0.159 total, single source). The real Lighthouse CI trace that motivated #2219 (mobile-root, PRs #2199/#2204, 2026-08-21) named only .pwa-notice-stack as the shift source at score 0.223, so this hero-section mechanism apparently did not fire (or was below threshold) in that specific CI run — but it is a real, reproducible shift on the same route and could surface as a future budget flake. Likely fix direction: reserve the DegradedNotice banner's height (or use the same unmounted-frame-swap pattern) so its mount/unmount does not resize the hero section while already visible.",
+      "source": "Investigation for PR #2219 (fix/pwa-notice-cls-shift), 2026-08-21",
+      "added": "2026-08-21"
+    },
+    {
+      "id": "#BJ80DB",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Windows-only test-budget failures: 3 tests fixed (2 of the original 5, plus 1 newly found in the same file), 2 unreproducible, 1 (hosted-migration-role-guard) still unexplained",
+      "detail": "Supersedes cancelled request 67bf71cf-25cb-40d9-a8a2-bbf993bf6b29, whose diagnosis was partly wrong. ORIGINAL REPORT: a full npm run test on a clean Windows workstation (D:\\Repos\\Database, main at cdfcbaccd, empty tree) exited 1 with 4 files / 5 tests failed, 680 files / 7423 passed, 601.68s. CORRECTED FINDING: main was never broken. A full GATE_RECEIPTS=off npm run test on Linux at the content-identical HEAD is green (696 files, 7770 passed, 4 skipped, exit 0, 196s), and git diff cdfcbaccd..HEAD shows none of the four test files nor their subjects changed. THE ROOT CAUSE FOR THE TWO NOW FIXED IS A TIME BUDGET, NOT A DEFECT IN BEHAVIOUR. (1) codex-cloud-setup 'writes managed shell policy behaviorally and preserves unrelated Codex config' measured 24.96s on that workstation running its file ALONE, against the 30s testTimeout in vitest.config.mts - 83% of budget with nothing competing; a full run puts maxWorkers:4 on the machine and it tips over. It spawns bash scripts/setup-codex-cloud.sh twice, cheap on Linux and expensive on Windows where every spawn goes through Git Bash. Its immediate sibling already carried an explicit 120_000 budget for the same reason (measured 112.9s); this one had been missed. FIXED in PR #2255 by giving it the same budget. (2) http-readiness 'honours the overall deadline when every response remains open' and its neighbour 'destroys stalled requests and resumes polling' both work to millisecond budgets (requestTimeoutMs 40, timeoutMs 180/1000) that Windows cannot hold. The neighbour fails IN ISOLATION ON AN IDLE MACHINE ('expected 4 to be 3'), which is stronger than a load flake: the 40ms request budget bounds not only the two deliberately-stalled responses but also the healthy third one, so a merely-late good response is destroyed as though stalled and the loop polls a fourth time. FIXED in PR #2256 (requestTimeoutMs 40->250 with the deadline 1s->5s; the other case's deadline 180ms->600ms), with a negative proof that breaking the stall-destroy path still fails both. (3) The two document-viewer page-virtualization cases PASS on re-run on that workstation (whole file 3566ms). PR #2252 made their shared failure point legible: flushIdle() could only report 'expected 0 to be greater than 0', which reads as a slow machine; it now names the canvas-budget cause and prints slot/rendered/observer counts. STILL OPEN AND THE REASON THIS ROW EXISTS: hosted-migration-role-guard 'accepts the current repository state' passed on re-run at 1550ms, nowhere near its 30s budget, so the timeout explanation that resolved the other two does NOT fit it and nothing has been changed for it. Its original cause is unexplained. Leading hypothesis, untested: validateRepository() calls repositoryEntries(), which runs git ls-files --cached --others --exclude-standard, so it grades UNTRACKED non-ignored files too - any stray file under scripts/, supabase/migrations/, .github/workflows/ or the guarded exact paths whose name or content matches the reserved role turns it red while git status still looks clean enough to call the tree empty, as would a nested git worktree directory (readFileSync on a directory entry throws EISDIR). It also SHA-256s the on-disk bytes of the pinned immutable migration, so CRLF would break it, though .gitattributes '* text=auto eol=lf' should prevent that and the bytes hash correctly on Linux. NEXT: if it recurs, capture git status --porcelain --untracked-files=all and git ls-files --others --exclude-standard at the moment of failure - the assertion alone will not identify which entry did it. FLAKE POLICY DOES NOT APPLY TO ANY OF THESE: tests/flake-ledger.json is explicitly Playwright-only (exact spec+title, @quarantine tag); all five are Vitest and none are eligible for quarantine. Also note the previously known local-Windows failures (tests/session-start-hook.test.ts, worker-observability) PASSED in the reported run, so any note calling those the known environmental set is stale. STANDING LESSON: on this workstation, a test's assertions being deterministic does NOT make its runtime deterministic. Subprocess-spawning and wall-clock-bounded tests need budgets sized for Windows, and 83%-of-budget in isolation is a latent failure, not a pass.",
+      "source": "PRs #2252, #2255, #2256 (2026-08-21); Windows workstation runs at cdfcbaccd and after",
+      "added": "2026-08-21"
+    },
+    {
+      "id": "#9X40BT",
+      "priority": "P2",
+      "type": "rec",
+      "summary": "Supabase preview-branch compute is an uncapped cost sitting outside the organisation Spend Cap",
+      "detail": "MEASURED 2026-08-22 (read-only list_branches on sjrfecxgysukkwxsowpy): there are currently ZERO preview branches. The only entry returned is the default 'main' branch, which is the production project itself and is not billable preview compute. So the uncapped exposure this row describes is POTENTIAL, not active — nothing is running to clean up, and no agent-side cleanup step exists to take. The one remaining action is the dashboard setting itself, which no agent can change: Supabase dashboard -> Project Settings -> Integrations -> GitHub -> lower 'Automatic branching' limit from 3 to 1, or disable branching. Prior context stands and is the reason lowering is safe: CI's Migration replay job (db-reset-verify, supabase migration up --local) independently replays the whole chain on every database-touching PR, so preview branches are a second net rather than the only one. STOP unchanged: do not change Supabase project settings without explicit owner approval. PRIOR RECORD: Dashboard read 2026-08-21 (the same read that settled D4) shows Automatic branching ON with limit 3 and 'Supabase changes only' enabled, and the same screen warns that Branching Compute is NOT covered by the organisation's Spend Cap. Preview branches did earn their keep once (the 20260819100200 guard failure on PR #2151 was caught by a preview branch building from the chain alone), so this is a cost/benefit decision, not a cleanup.",
+      "source": "Supabase dashboard read 2026-08-21; docs/audit/live-drift-forensics-2026-08.md D4 section; AGENTS.md Supabase project safety",
+      "added": "2026-08-21"
+    },
+    {
+      "id": "#S4R2W3",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "Two clinical questions are answered with a bare list of document titles instead of an answer, and no gate fires",
+      "detail": "Found 2026-08-22 while diagnosing #231 against the 60 Gate E answers (docs/rag-improvement/231-diagnosis-2026-08-22.md section 3.1). Two of the eight identical plain source_only cases are clinical questions that receive the document-inventory answer shape reserved for source-lookup questions. 'What is the duress procedure pathway?' (case quality-duress-pathway, classified query_class document_lookup, intent pathway_referral) and 'When is IM medication used in the agitation pathway?' (case quality-agitation-im-route, query_class medication_dose_risk, intent pathway_referral, routed high_confidence_extractive_retrieval) both return: I found 5 indexed documents that support this query: followed by five titles. Neither question asked which documents exist. The routing chain for both ends at the first token -- no fallback reason, no gate reason, no retry, provider_attempted false -- so nothing flags it. CONTRAST, and why this is a real defect rather than a design choice: the other four cases in the same group (lithium-monitoring-documents, long-acting-injectable-documents, patient-safety-plan-documents, nocc-document-support) literally ask which documents or sources support X, and for those the same document list IS the correct answer. So the shape is right for four and wrong for two, which points at route selection or query classification rather than at the extractive answer builder. NEXT: diagnose separately -- establish whether the fault is hasSourceSupportLookupIntent / the query classifier assigning document_lookup to a pathway question, or shouldUseExtractiveMedicationLookup admitting a pathway question into the high-confidence extractive route. Do NOT fold this into the #231 retry-ladder work or the grounded-extractive gate work; it is a different surface with a different fix. STOP: protected RAG surface (src/lib/rag/rag-routing.ts, clinical-search), flag before editing, behaviour change needs a live eval-canary pair. Lower priority than the other two because the answer is at least honest and cites real documents, rather than being wrong or incoherent.",
+      "source": "docs/rag-improvement/231-diagnosis-2026-08-22.md section 3.1; Gate E dumps output/gate-e/dump-v18.json and dump-v19.json of 2026-08-21; session 2026-08-22",
+      "added": "2026-08-21"
+    },
+    {
+      "id": "#NPQJKP",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Answer-quality predicates accept two incoherent grounded extractive answers; diagnose predicate strictness before changing gate reachability",
+      "detail": "PACKET 2 IMPLEMENTED 2026-08-22, PR pending. Step 1 falsification CONFIRMED the premise before any production change: generatedAnswerQualityFailureReason returned null for BOTH captured answers at their real eval query classes (medication_dose_risk, document_lookup), run against unmodified source. TWO CORRECTIONS TO THE ROW'S OWN FRAMING, both from reading the code. (1) The gate is NOT unreachable on the grounded first-choice extractive path. rag.ts:3113 is only the review-fallback reason labeller; the ENFORCING call is unconditional inside finalizeRagAnswerQualityCore and the grounded path reaches it via finalizeAnswer -> finalizeRagAnswerQuality. No reachability change was needed or made. The only remaining bypass is the preformatted-and-grounded early return, now named and pinned by a test rather than assumed closed. (2) The wrapper is NOT purely a laundering step. The first predicate version — reject any \"The guidance is that X\" whose continuation lacks a verb from openingSentenceActionPattern — broke tests/rag-extractive-procedural-artifact.test.ts, which pins \"the ECT Coordinator places the patient onto BASE\" as a grounded answer; \"places\" is a real finite verb and rightly absent from a clinical-directive list. SHIPPED: isLaunderedGuidanceWrapperAnswer rejects only two shapes no verb list could rescue — a \">\" breadcrumb pointing at a word rather than a figure, and a bare coordinated noun list with no determiner, auxiliary or directive verb — returning reason guidance_wrapper_fragment. Placed after the other prose gates so nothing already-rejected is relabelled; not in the shouldPreserveSourceBackedGeneratedAnswer rescue allowlist, so a flagged answer cannot be recovered to grounded. clippedClinicalFragmentPattern's four-continuation enumeration is left in place and its cases are still rejected. EVAL IMPACT: eval:rag:offline 627/627 and eval:rag:adversarial:offline 25/25, identical before and after (baseline re-run with GATE_RECEIPTS=refresh). source_backed_review_fallback_count cannot be measured offline; threshold is ragSourceBackedReviewFallbackCount 0 in scripts/eval-quality.ts and PREDICTED to rise by +2 per 30-case capture. Threshold NOT adjusted and should not be. OWNER DECISION LEFT OPEN: quality-antipsychotic-metabolic-monitoring lacks acceptSourceOnly, so once it degrades it fails the live answer-quality eval with \"expected grounded answer\" (its mustContainAny is still satisfied — the source-only text echoes the query). That case asserts a grounded answer for a query whose grounded answer is one of the two incoherent outputs this change rejects; whether it should gain acceptSourceOnly like its discharge sibling is a clinical call and was deliberately not made here. STILL OPEN: the live eval-canary pair, which needs owner approval and is the only thing that can confirm the change.",
+      "source": "PR #2285; commit 957b76a; docs/rag-improvement/231-diagnosis-2026-08-22.md §3.1-§3.2; src/lib/rag/rag-extractive-answer.ts isLaunderedGuidanceWrapperAnswer",
+      "added": "2026-08-22"
+    },
+    {
+      "id": "#2TAQDC",
+      "priority": "P3",
+      "type": "rec",
+      "summary": "Nothing stops a future :has(#main-content…) rule inheriting the app-shell hydration gap that caused the mobile-/ CLS flake",
+      "detail": "FILED 2026-08-22 from the fix for #TYZK23 / #50QRCF / #KFRC3H (PR #2253, commit 0cf0493). Established by measurement, not inference: on a throttled phone load, #main-content is absent from the DOM for roughly two seconds while Next 16 streams the route in and React hydrates it (trace: present at t=4726ms, GONE at t=7855ms, back at t=9930ms). Any CSS keyed on body:has(#main-content…) therefore evaluates FALSE for a window during load, and any element mounting inside that window paints with the wrong geometry and is restyled when the shell returns. That is exactly the 0.2230 layout shift three ledger rows chased for a week across four candidate mechanisms. NO LIVE DEFECT TODAY: all eleven current consumers are the PWA install card (src/app/globals.css lines 3018-3047), and 0cf0493 defends that one consumer by holding the notice stack unmounted until the shell is present. What is missing is anything that stops the next one. There is no lint rule, no contract test, and no line in docs/search-chrome-behaviour.md warning that a shell-presence :has() is only sound for an element that cannot mount during hydration — so a twelfth consumer added anywhere would silently reintroduce a bistable CLS that took three ledger rows and several days to attribute. OPTIONS, cheapest first: (a) a paragraph in docs/search-chrome-behaviour.md beside the existing phone-chrome reserve rules, stating the gap and the condition; (b) a static contract test asserting every :has(#main-content…) rule targets a descendant of .pwa-notice-stack, which fails loudly the moment a consumer is added elsewhere and costs nothing to run; (c) a lint rule, almost certainly not worth it for eleven selectors. RECOMMEND (a) plus (b). STOP RULE: do not respond by deleting the :has() selectors. They are the correct way to express phone-composer ownership, and the gap is a property of streaming hydration, not a selector bug.",
+      "source": "commit 0cf0493 and the local reproduction trace, 2026-08-22; src/app/globals.css lines 3018-3047; related rows #TYZK23, #50QRCF, #KFRC3H",
+      "added": "2026-08-22"
+    },
+    {
+      "id": "#JZM7RM",
+      "priority": "P2",
+      "type": "rec",
+      "summary": "Two independent auto-fixers can answer the same PR review comment, and only one of them is governed or documented",
+      "detail": "On PR #2249 a single Codex review comment on .claude/hooks/push-format-guard.sh drew more than one responder: this repo's .github/workflows/codex-autofix-review-comments.yml, and an app-level 'Autofix pull requests' watcher that also instructed a live session to do the identical work. Two complete fixes were built independently and one was discarded. Evidence in local git history: commit 687b166d (author 'Claude', 2026-08-21T19:41:56Z) and c9d990aa (author 'BigSimmo', +0800) both edit the same hook on the same branch claude/push-guard-hookspath-relative; b9414fa0 and 94b6c291 are two separate 'merge main into claude/push-guard-hookspath-relative' commits made minutes apart by those two different identities, and 828106a5 merges the branch into itself to reconcile the divergence. The repo-side Codex workflow carries real safeguards: trusted-bot login gating, a per-PR dedup marker, one automatic repair pass per PR lifetime, and a skip-codex-review opt-out. The app-level watcher has none of these, and the string 'Autofix pull requests' appears nowhere in .github/ or docs/ - it is in neither the repository nor the tooling map, while docs/agents-guide.md line 44 assigns 'Primary PR code-review + automatic resolve' to Codex alone. Next: decide which responder owns automatic resolve, then either document and throttle the app-level watcher in docs/agents-guide.md or disable it, so one comment cannot spawn two competing fixes. Sibling of the ledger item recording the same failure between two human-driven sessions.",
+      "source": "PR #2259 review; verified against local git history at origin/main 226bd32c (687b166d, c9d990aa, b9414fa0, 94b6c291, 828106a5); replaces a mis-filed payload that duplicated inbox request 67bf71cf-25cb-40d9-a8a2-bbf993bf6b29",
+      "added": "2026-08-21"
+    },
+    {
+      "id": "#VV83VA",
+      "priority": "P3",
+      "type": "rec",
+      "summary": "Local process-spawn starvation silently makes every git push take minutes; the one-command diagnostic is not written down anywhere",
+      "detail": "MEASURED TWICE, THREE DAYS APART. On 2026-08-20 a session recorded `gh --version` at 1m37s and concluded gh itself was broken, which made every git push take 5-10 minutes because .githooks/pre-push -> guard-push.mjs invokes gh several times per push. On 2026-08-22 the same binary measured 0.201s, 0.262s and 0.278s on three consecutive runs. IT WAS NEVER GH. The decisive comparison is a binary with nothing to do with gh: `node --version` was 17s on 2026-08-20 and 0.080s on 2026-08-22, a ~200x change. `git --version` measures 0.069s. gh is unchanged between the two readings -- same 2.97.0, same C:\\Program Files\\GitHub CLI\\gh.exe on local disk (not a network path, not a shim), same 41,775,416 bytes, and ZERO extensions installed, so the usual suspects (startup update check, extension probing, slow path) are all excluded. Windows Defender real-time protection was ON in BOTH readings, so Defender alone is not sufficient to cause it either; exclusions could not be read without administrator rights. WHAT ACTUALLY CHANGED: the machine had been rebooted about an hour before the fast reading. The condition is machine-wide process-spawn starvation that accumulates with long uptime and many concurrent agent sessions, and a reboot clears it. The precise mechanism cannot be pinned down retroactively once the state is gone, and that is stated rather than guessed at. IT IS ALREADY REBUILDING: one hour after the reboot the machine showed 49 node processes, 31 claude processes, 548 processes total, and 6.9 GB free of 32 GB. So this recurs rather than being a one-off, and the next session to hit it will again mistake it for a broken tool. NEXT (cheap, docs-only): write the diagnostic down where a session will find it -- `time node --version` is the whole test. Sub-second means the machine is healthy and a slow push is something else; multiple seconds means spawn starvation, and the fix is to close sessions or reboot, NOT to debug gh, git, or the pre-push guard. Natural home is the traps section of AGENTS.md or docs/testing.md. STOP: do not change Windows security settings or add a Defender exclusion on this evidence -- the two readings show Defender is not the discriminating variable, and a security-settings change needs the owner regardless.",
+      "source": "measured 2026-08-20 and 2026-08-22 on the Windows workstation; session 2026-08-22 Phase 5 close-out",
+      "added": "2026-08-21"
+    },
+    {
+      "id": "#778Q0H",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "No gate can detect a React Server Component boundary violation: a component with an event handler and no \"use client\" throws only at request time",
+      "detail": "Found on the developer-hub branch 2026-08-22. src/components/developer-area/hub/panel-card.tsx shipped rendering <button onClick={ignoreUnavailableActivation}> with no \"use client\" directive. Because the hub page is a Server Component, React serialised the handler into the flight stream and the route threw \"Event handlers cannot be passed to Client Component props\" on EVERY render — 17 occurrences on one page load, proven with a dev-server fetch. No gate on the branch could see it: typecheck does not model the RSC boundary; the jsdom DOM tests render the page as an ordinary client tree where onClick is legal; and next build does not catch it either because these routes are Dynamic and are never rendered at build time. Only a live request surfaces it. Corroborating signal that a cheap static rule would work: 12 of the 13 modules importing ignoreUnavailableActivation already carry \"use client\" on line 1, so a lint rule of the form 'a module importing ignoreUnavailableActivation (or otherwise attaching an on* handler) must carry \"use client\"' would have caught the one exception at zero runtime cost.",
+      "source": "Developer hub Phase 1 controller, task 7 review (2026-08-22)",
+      "added": "2026-08-21"
+    },
+    {
+      "id": "#KZJD4Q",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Two zero-cost levers to restore automated review coverage remain unbuilt",
+      "detail": "SPLIT OUT 2026-08-22 from #CCZ4HB, which the owner closed by accepting intermittent CodeRabbit review. The closure decided the BILLING question only; it did not decide these two, which cost nothing and remove no safety, and docs/decisions/ccz4hb-review-coverage.md measures why they matter more than the cap does. That analysis found the binding constraint is volume, not price: CodeRabbit's included reviews refill at 1/hour (24/day) while this repo merged 25.4 PRs/day on average over the preceding month, with single days as high as 67. It also measured that 285 of the last 1190 merged PRs (24%) changed only documentation and 190 (16%) changed only the repo's own record-keeping files (review ledger, outstanding-issues) -- roughly six review credits a day spent on files a code-review bot has nothing useful to say about. LEVER 1: configure CodeRabbit to skip documentation-only PRs; recovers about a quarter of the budget immediately and touches no required check. LEVER 2: stop opening PRs whose only content is a bookkeeping record -- AGENTS.md 'PR bundling' already says to fold those in and is plainly not being followed, and this repo has learned before (.claude/hooks/pr-handoff-stop.sh header) that a prose rule does not hold where a blocked command does. DO NOT build the third idea that analysis rejected: a gate refusing a new branch when an open PR covers the same ground, because 87% of PRs touch a file another PR touched within a day, so it would block roughly seven in ten legitimate branches. Next: implement lever 1 (owner has to make the CodeRabbit config change or approve a committed .coderabbit.yaml), then lever 2 as a push/PR-creation guard rather than prose.",
+      "source": "docs/decisions/ccz4hb-review-coverage.md (branch claude/preserve-review-coverage-docs, local and unpushed as of 2026-08-22); #CCZ4HB closure decision 2026-08-22",
+      "added": "2026-08-22"
+    },
+    {
+      "id": "#243HCC",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "tests/settings-dialog-actions.dom.test.tsx contains an assertion that can never run: data-settings-nav-target is emitted nowhere in src",
+      "detail": "Found on the developer-hub branch 2026-08-22 while renaming the Settings entry. The test collects document.querySelectorAll(\"[data-settings-nav-target]\"), maps the attribute, and compares it to the rendered section ids — but guards the comparison with 'if (railLabels.length)'. A repo-wide grep shows data-settings-nav-target is emitted in NO source file, so railLabels is always empty and the comparison never executes. The stated intent, per its own comment, is 'The desktop rail lists exactly the sections that render' — a real invariant that is currently unguarded, and one this branch's rename could have broken silently. Fix is one of two: emit the attribute on the rail so the assertion starts doing its job, or delete the dead branch and assert the rail some other way. That choice belongs to the settings-dialog owner, which is why it was left rather than fixed in passing. Pre-existing and unrelated to the developer hub work.",
+      "source": "Developer hub Phase 1 controller, task 9 (2026-08-22)",
+      "added": "2026-08-21"
+    },
+    {
+      "id": "#0YK2S3",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "A caring-contacts mockup timer fires after jsdom teardown, so the full unit suite can exit 1 with 8359/8359 passing",
+      "detail": "FOUND 2026-08-22 during PR #2285's verification, unrelated to that change. npm run test can exit 1 while reporting 'Test Files 714 passed (714) / Tests 8359 passed | 1 skipped (8360)' plus 'Errors 1 error'. The error is 'ReferenceError: document is not defined' thrown from Timeout._onTimeout at src/components/caring-contacts/mockups/caring-contact-shell-frame.tsx:104, inside the 250ms window.setTimeout that selectDestination schedules when returning from the More sheet; the callback calls document.querySelector after the jsdom environment for tests/caring-contact-product-redesign.dom.test.tsx has been torn down. Timing-dependent: two runs of verify:pr-local on byte-identical content in the same container disagreed — the first completed all 19 gates at exit 0, the second failed at 'test (exit 1)' on this error and never reached build or the eval gates. IMPACT: an unhandled post-teardown error is indistinguishable at the summary line from a real failure, and it can fail a PR whose diff cannot reach the component. The component is design scratch under mockups/, so no production surface is affected. LIKELY FIX: the component already holds focusTimerRef; the gap is that nothing clears it on unmount. A cleanup effect that calls window.clearTimeout(focusTimerRef.current) on teardown, and/or a guard on document existence inside the callback, should close it. STOP: do not respond by skipping, disabling or quarantining tests/caring-contact-product-redesign.dom.test.tsx — the test is not what is broken, the uncancelled timer is.",
+      "source": "verify:pr-local run 2026-08-22 during PR #2285; src/components/caring-contacts/mockups/caring-contact-shell-frame.tsx:104; tests/caring-contact-product-redesign.dom.test.tsx",
+      "added": "2026-08-22"
+    }
+  ],
+  "pending": []
+}

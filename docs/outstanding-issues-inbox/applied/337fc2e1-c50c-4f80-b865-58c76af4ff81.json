@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "337fc2e1-c50c-4f80-b865-58c76af4ff81",
+  "createdOn": "2026-08-22",
+  "action": "done",
+  "payload": {
+    "id": "#1K6T35",
+    "outcome": "OWNER DECISION 2026-08-22: leave point-in-time recovery OFF and deliberately accept a worst-case recovery point of roughly 24 hours on the live clinical corpus. This row required either enabling the paid add-on or accepting the RPO and amending the plan's unsatisfiable standing rule; the second was chosen and the rule is amended in docs/database-remediation-plan.md under 'Recovery point — owner decision, 2026-08-22', which now requires confirming and recording the latest daily backup timestamp before a mutating phase, stating what a restore would lose, and having a written tested reversal path for anything that rewrites or drops data or policy objects. Scope is explicitly this remediation programme only: the rag-ingestion-reindex plan's stop-before-production-reindex-when-PITR-disabled condition is untouched.",
+    "baseRowFingerprint": "496215aa7a78b850647da871dcaa360a3fb286bba85e484fa9cb10c3e49d3fe3"
+  }
+}

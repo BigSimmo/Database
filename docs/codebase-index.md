@@ -78,7 +78,7 @@ Smaller top-level directories that are easy to miss:
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                             | `src/app/(search-app)/dsm/`                                                               |
 | `/documents/search`, `/source`, `/evidence`, `/[id]`                                                                                                       | `src/app/(search-app)/documents/`                                                         |
 | `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                                                                  | `src/app/(search-app)/factsheets/`                                                        |
-| `/dictionary`, Search, Browse, Topics, Definition, Compare, Sources                                                                                        | `src/app/(search-app)/dictionary/`                                                        |
+| `/dictionary`, Terms (`/search`, one catalogue — `/browse` redirects to it), Topics, Definition, Compare, Sources                                          | `src/app/(search-app)/dictionary/`                                                        |
 | `/favourites`                                                                                                                                              | `src/app/(search-app)/favourites/page.tsx`                                                |
 | `/forms`, `/forms/[slug]`                                                                                                                                  | `src/app/(search-app)/forms/`                                                             |
 | `/medications`, `/medications/[slug]`                                                                                                                      | `src/app/(search-app)/medications/`                                                       |
@@ -173,13 +173,14 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 
 ### Clinical product data
 
-| Module                                                               | Role                                                    |
-| -------------------------------------------------------------------- | ------------------------------------------------------- |
-| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Shared catalogue content with optional owner overrides  |
-| `dictionary-data.ts`, `dictionary.ts`                                | Governed terminology, sources, topics, aliases, filters |
-| `dsm.ts`                                                             | Local DSM diagnosis catalogue and comparison helpers    |
-| `formulation.ts`                                                     | Local formulation mechanism library and builder helpers |
-| `clinical-safety.ts`, `demo-data.ts`, `ui-copy.ts`                   | Safety copy and demo mode                               |
+| Module                                                               | Role                                                                                                                                                                                                                                                                                                                                       |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Shared catalogue content with optional owner overrides                                                                                                                                                                                                                                                                                     |
+| `mha-act-sections.ts`                                                | Mental Health Act 2014 (WA) section summaries shared across forms; `actSectionsForCue` resolves a form's `sourceFacts.sectionCue` and withholds the whole list until every cited section has a summary; `drafted` entries render with an awaiting-clinical-review note, `reviewed` ones name their reviewer (`docs/wiring-conventions.md`) |
+| `dictionary-data.ts`, `dictionary.ts`                                | Governed terminology, sources, topics, aliases, filters; `dictionaryCatalogue` is the one selector behind the merged Terms surface                                                                                                                                                                                                         |
+| `dsm.ts`                                                             | Local DSM diagnosis catalogue and comparison helpers                                                                                                                                                                                                                                                                                       |
+| `formulation.ts`                                                     | Local formulation mechanism library and builder helpers                                                                                                                                                                                                                                                                                    |
+| `clinical-safety.ts`, `demo-data.ts`, `ui-copy.ts`                   | Safety copy and demo mode                                                                                                                                                                                                                                                                                                                  |
 
 ### Infra helpers
 
@@ -257,14 +258,14 @@ Cron-triggered agent for indexing v3 completion gates. Auth via `INDEXING_V3_AGE
 
 ## Scripts (grouped)
 
-| Group                 | Key scripts                                                                                                                            |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Dev/server            | `ensure-local-server.mjs`, `dev-free-port.mjs`, `check-runtime.ts`                                                                     |
-| Ingestion/indexing    | `import-documents.ts`, `reindex.ts`, `reindex-health.ts`, `check-indexing.ts`, `backfill-smart-index.ts`, `recover-ingestion-queue.ts` |
-| Document intelligence | `enrich-documents.ts`, `classify-documents.ts`, `backfill-gold-document-labels.ts`                                                     |
-| Governance            | `audit-source-governance.ts`, `production-readiness.ts`, `check-supabase-project.ts`                                                   |
-| RAG eval              | `eval-rag.ts`, `eval-retrieval.ts`, `eval-quality.ts`, `retrieval-health.ts`                                                           |
-| Maintenance           | `cleanup-storage.ts`, `generate-site-map.ts`, `optimize-public-images.mjs`, `update-docs-inventory.mjs`, `seed-registry-records.ts`    |
+| Group                 | Key scripts                                                                                                                                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Dev/server            | `ensure-local-server.mjs`, `dev-free-port.mjs`, `check-runtime.ts`                                                                                                                                                       |
+| Ingestion/indexing    | `import-documents.ts`, `reindex.ts`, `reindex-health.ts`, `check-indexing.ts`, `backfill-smart-index.ts`, `recover-ingestion-queue.ts`                                                                                   |
+| Document intelligence | `enrich-documents.ts`, `classify-documents.ts`, `backfill-gold-document-labels.ts`                                                                                                                                       |
+| Governance            | `audit-source-governance.ts`, `production-readiness.ts`, `check-supabase-project.ts`                                                                                                                                     |
+| RAG eval              | `eval-rag.ts`, `eval-retrieval.ts`, `eval-quality.ts`, `retrieval-health.ts`                                                                                                                                             |
+| Maintenance           | `cleanup-storage.ts`, `generate-site-map.ts`, `optimize-public-images.mjs`, `update-docs-inventory.mjs`, `seed-registry-records.ts`, `generate-outstanding-issues-snapshot.mjs`, `check-outstanding-issues-snapshot.mjs` |
 
 Golden retrieval fixture: `scripts/fixtures/rag-retrieval-golden.json`
 
@@ -349,6 +350,55 @@ visible reasons and a human confirms or overrides.
 - **Surfaces:** `ward-management-console.tsx` (command), `ward-management-modes.tsx` (mode
   workspaces), `ward-management-network.tsx` (network diagram), `ward-management-navigation.tsx`
 - **Tests:** `tests/ward-management.test.ts`, `tests/ui-ward-management.spec.ts`
+
+### Developer hub (`src/app/mockups/development/`, `src/lib/developer-area/`)
+
+Login-gated internal hub for repository/task state, reachable only to a signed-in administrator
+account (`DeveloperAreaGate`, `src/components/developer-area/developer-area-gate.tsx`; gate helpers
+`src/lib/developer-area/access.ts` + `headers.ts` — see the Supabase/auth/env table above). Phase 1
+ships one live panel; the rest of the registry is declared placeholders.
+
+- **Panel registry:** `src/lib/developer-area/hub-panels.ts` (`HUB_PANELS`, `panelsInGroup`) — one
+  entry per panel with its `group` (`work` | `clinical` | `system` | `reference`) and delivery
+  `phase` (1 = built now; 2–4 = declared placeholder with no `href` yet). Shipping a later-phase
+  panel is flipping its phase and adding an `href`.
+- **Task ledger data:** `src/lib/developer-area/ledger-snapshot.ts` imports the generated
+  `data/outstanding-issues-snapshot.json` (never hand-edited; listed in `.prettierignore`) rather
+  than reading `docs/outstanding-issues.md` at runtime — the production Docker image never copies
+  `docs/`, so a server component reading the ledger live would work in dev and silently find
+  nothing in production (the `#338` failure this feature exists to prevent). Exposes
+  `loadLedgerSnapshot` (throws if the snapshot's `version` doesn't match
+  `LEDGER_SNAPSHOT_VERSION`), `openItemsByPriority`, and `resolveFreshness`.
+- **Snapshot generation:** `scripts/generate-outstanding-issues-snapshot.mjs` parses the ledger
+  markdown and the `docs/outstanding-issues-inbox/` request JSON into
+  `data/outstanding-issues-snapshot.json`; it owns all markdown parsing, so the app itself never
+  parses markdown. Runs from `npm run docs:update` and `npm run prebuild`, and at the end of
+  `npm run issues:reconcile` — the only sanctioned writer of the ledger, which also empties the
+  inbox, so both halves of the snapshot go stale in the same operation. That regeneration sits
+  outside the reconciliation transaction on purpose (the journal restores only the ledger and the
+  pending request files); if it fails, reconcile warns and names `npm run snapshot:issues` rather
+  than claiming the reconcile failed. Commit the regenerated snapshot with the ledger.
+  When git is unavailable — the production image excludes `.git`, and `prebuild` regenerates there —
+  the generator keeps the committed `ledger_revision` instead of overwriting it with `null`, so the
+  freshness stamp can still state the page's age. A preserved revision can only make the page report
+  itself as older than it is, never fresher, and it feeds none of the compared content keys.
+  `scripts/check-outstanding-issues-snapshot.mjs` regenerates the snapshot in memory and compares
+  its content keys (`queue`, `open`, `pending`) against the committed file, failing with the fix
+  command on any mismatch — this is what makes a stale snapshot impossible to ship.
+- **Routes:** `/mockups/development` (`page.tsx`, Server Component) — the grouped hub: environment
+  strip, a blocking-items callout when the ledger has P1s, then one section per non-empty panel
+  group. `/mockups/development/ledger` (`ledger/page.tsx`, Server Component) — the task ledger
+  page: freshness stamp, count tiles, a "blocking now" callout, the recommended running order
+  (acuity — urgency, kept deliberately separate from priority), open items grouped by priority,
+  and pending inbox requests. Both inherit `DeveloperAreaGate` from `layout.tsx`.
+- **Components:** `src/components/developer-area/developer-hub-nav-header.tsx` (`"use client"`,
+  owns the hub's in-page section table and mounts `InPageNavHeader`) and
+  `src/components/developer-area/hub/` — `freshness-stamp.tsx`, `environment-strip.tsx`,
+  `panel-card.tsx` (a Client Component because it renders an inert click handler for
+  not-yet-built panels), `ledger-item.tsx`.
+- **Tests:** `tests/developer-area-access.test.ts`, `tests/developer-hub-panels.test.ts`,
+  `tests/developer-ledger-snapshot.test.ts`, `tests/developer-hub-components.dom.test.tsx`,
+  `tests/developer-hub-page.dom.test.tsx`, `tests/developer-ledger-page.dom.test.tsx`.
 
 ### Global search composer placement rules
 

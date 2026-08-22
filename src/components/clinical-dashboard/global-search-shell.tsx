@@ -508,16 +508,20 @@ function GlobalStandaloneSearchShellBody({
   const isInfoPage = isInformationPage(pathname);
   const shouldShowSearchComposer =
     searchComposerVisible &&
+    pathname !== "/tools" &&
     !isDifferentialPresentationWorkflow &&
     (!isInfoPage || isToolDetailWithFooterSearch(pathname));
+  // `/tools` owns its catalogue controls rather than a shared composer. Keep
+  // the sidebar's cross-guide search usable by returning to Answer first.
+  const openSidebarSearch = pathname === "/tools" ? startNewAnswerChat : () => focusComposerInput(inputRef);
   const heroOwnsPhoneComposer = isStandaloneModeHome && mobileHomeComposerPlacement === "hero";
-  // This flag controls sm+ padding, where every standalone home (including
-  // Tools) keeps its composer in flow. Phone clearance is resolved separately
-  // from heroOwnsPhoneComposer below.
+  // This flag controls sm+ padding for standalone mode homes. Tools has no
+  // shared composer, so it cannot reserve floating-composer space. Phone
+  // clearance is resolved separately from heroOwnsPhoneComposer below.
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
   // Most standalone mode homes keep the in-flow hero pill at every width. Tools
-  // deliberately uses the shared footer on phones. Document viewer routes own
-  // their own floating composer, so
+  // deliberately has no shared composer. Document viewer routes own their own
+  // floating composer, so
   // the shell keeps only a small pad and lets DocumentViewer manage clearance.
   // Release the large bottom reserve only when the phone bottom composer is
   // actually hidden (MasterSearchHeader's bottomComposerHidden). Header-only
@@ -890,7 +894,7 @@ function GlobalStandaloneSearchShellBody({
               onPrefetchSettings={loadSettingsDialog}
               onPrefetchAccount={prefetchAccountDialog}
               onPrefetchApplications={prefetchApplications}
-              onOpenSearch={() => focusComposerInput(inputRef)}
+              onOpenSearch={openSidebarSearch}
             />
           </div>
         </div>
@@ -962,7 +966,6 @@ function GlobalStandaloneSearchShellBody({
             recentQueries={recentQueries}
             onPickRecent={pickRecentQuery}
             onCrossModeSearch={crossModeSearch}
-            headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
             mobileSearchPlacement="bottom"
             mobileHomeComposerPlacement={mobileHomeComposerPlacement}
             // Every phone dock is the compact single-row pill so content keeps
@@ -980,8 +983,7 @@ function GlobalStandaloneSearchShellBody({
               shouldShowSearchComposer && !isStandaloneModeHome ? desktopPageComposerSlotId : undefined
             }
             // Most standalone homes keep the in-flow hero pill at every width.
-            // Tools keeps that placement from sm up but uses the same global
-            // footer dock as submitted views on phones.
+            // Tools suppresses the shared composer at every breakpoint.
             heroComposerBreakpoint={mobileHomeComposerPlacement === "footer" ? "sm-up" : "all"}
             // Phones: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the top bar to hand space back to content.
@@ -1118,9 +1120,7 @@ function GlobalStandaloneSearchShellBody({
       <SidebarAccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
       <ClinicalMobileSidebar
         open={mobileMenuOpen}
-        // The workflow header keeps its menu trigger past md, so the drawer
-        // must stay available until the locked desktop rail takes over at lg.
-        hiddenFrom={isDifferentialPresentationWorkflow ? "lg" : "md"}
+        hiddenFrom="md"
         recentQueries={recentQueries}
         identity={sidebarIdentity}
         activeMode={searchMode}
@@ -1133,7 +1133,7 @@ function GlobalStandaloneSearchShellBody({
         onPrefetchSettings={loadSettingsDialog}
         onPrefetchAccount={prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
-        onOpenSearch={() => focusComposerInput(inputRef)}
+        onOpenSearch={openSidebarSearch}
       />
     </div>
   );

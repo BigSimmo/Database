@@ -1009,33 +1009,39 @@
   "presentations": [
     {
       "id": "acute-confusion-encephalopathy",
-      "title": "Delirium / Acute Confusion / Encephalopathy",
-      "subtitle": "Delirium and its encephalopathic mimics are acute medical emergencies needing same-hour vitals, glucose and precipitant work-up."
+      "title": "Acute confusion and delirium",
+      "subtitle": "Delirium and its encephalopathic mimics are acute medical emergencies needing same-hour vitals, glucose and precipitant work-up.",
+      "titleAliases": ["Delirium / Acute Confusion / Encephalopathy", "acute confusional state"]
     },
     {
       "id": "psychosis-first-episode-medical-psychosis",
-      "title": "Psychosis / First-Episode Medical Psychosis",
-      "subtitle": "First-episode psychosis needs same-day assessment to exclude medical/substance causes; graded urgent unless medical instability or delirium escalates it to emergent."
+      "title": "First-episode and acute psychosis",
+      "subtitle": "First-episode psychosis needs same-day assessment to exclude medical/substance causes; graded urgent unless medical instability or delirium escalates it to emergent.",
+      "titleAliases": ["Psychosis / First-Episode Medical Psychosis", "first episode psychosis"]
     },
     {
       "id": "catatonia-psychomotor-shutdown-malignant-syndromes",
-      "title": "Catatonia / Psychomotor Shutdown / Malignant Syndromes",
-      "subtitle": "Malignant catatonia, NMS and serotonin toxicity are life-threatening; catatonia risks dehydration, VTE and autonomic instability."
+      "title": "Catatonia and severe psychomotor syndromes",
+      "subtitle": "Malignant catatonia, NMS and serotonin toxicity are life-threatening; catatonia risks dehydration, VTE and autonomic instability.",
+      "titleAliases": ["Catatonia / Psychomotor Shutdown / Malignant Syndromes", "psychomotor shutdown"]
     },
     {
       "id": "suicidal-ideation-suicide-attempt-self-harm",
-      "title": "Suicidal Ideation / Suicide Attempt / Self-Harm",
-      "subtitle": "Active suicidality or a recent attempt requires urgent safety review and medical clearance."
+      "title": "Suicidality and self-harm",
+      "subtitle": "Active suicidality or a recent attempt requires urgent safety review and medical clearance.",
+      "titleAliases": ["Suicidal Ideation / Suicide Attempt / Self-Harm"]
     },
     {
       "id": "aggression-violence-homicidal-ideation",
-      "title": "Aggression / Violence / Homicidal Ideation",
-      "subtitle": "Acute aggression or homicidal intent threatens immediate safety and may signal delirium, intoxication or mania."
+      "title": "Violence, aggression, and risk to others",
+      "subtitle": "Acute aggression or homicidal intent threatens immediate safety and may signal delirium, intoxication or mania.",
+      "titleAliases": ["Aggression / Violence / Homicidal Ideation"]
     },
     {
       "id": "mania-hypomania-mixed-states",
-      "title": "Mania / Hypomania / Mixed States",
-      "subtitle": "Acute mania carries high risk from impaired judgement, exhaustion and behavioural dyscontrol; mixed states elevate suicide risk."
+      "title": "Mania and mixed mood states",
+      "subtitle": "Acute mania carries high risk from impaired judgement, exhaustion and behavioural dyscontrol; mixed states elevate suicide risk.",
+      "titleAliases": ["Mania / Hypomania / Mixed States"]
     },
     {
       "id": "substance-intoxication",
@@ -1049,13 +1055,15 @@
     },
     {
       "id": "medication-side-effects-iatrogenic-toxicity-qt-risk",
-      "title": "Medication Side Effects / Iatrogenic Toxicity / QT Risk",
-      "subtitle": "Lithium toxicity, clozapine adverse effects, serotonin syndrome, NMS and QT prolongation are time-critical iatrogenic emergencies."
+      "title": "Psychotropic adverse effects and toxicity",
+      "subtitle": "Lithium toxicity, clozapine adverse effects, serotonin syndrome, NMS and QT prolongation are time-critical iatrogenic emergencies.",
+      "titleAliases": ["Medication Side Effects / Iatrogenic Toxicity / QT Risk"]
     },
     {
       "id": "akathisia-epse-tremor-sedation",
-      "title": "Akathisia / EPSE / Tremor / Sedation",
-      "subtitle": "Akathisia and EPSE cause marked distress and adherence breakdown and elevate suicide risk; acute dystonia can need faster intervention."
+      "title": "Medication-related movement effects and sedation",
+      "subtitle": "Akathisia and EPSE cause marked distress and adherence breakdown and elevate suicide risk; acute dystonia can need faster intervention.",
+      "titleAliases": ["Akathisia / EPSE / Tremor / Sedation", "extrapyramidal side effects"]
     },
     {
       "id": "hallucinations",
@@ -1064,13 +1072,15 @@
     },
     {
       "id": "delusions-paranoia-thought-interference-command-phenomena",
-      "title": "Delusions / Paranoia / Thought Interference / Command Phenomena",
-      "subtitle": "Delusions / Paranoia / Thought Interference / Command Phenomena"
+      "title": "Delusions and threat-related experiences",
+      "subtitle": "Delusions / Paranoia / Thought Interference / Command Phenomena",
+      "titleAliases": ["Delusions / Paranoia / Thought Interference / Command Phenomena"]
     },
     {
       "id": "disorganised-behaviour-disorganised-thought-or-speech",
-      "title": "Disorganised Behaviour / Disorganised Thought or Speech",
-      "subtitle": "Disorganised Behaviour / Disorganised Thought or Speech"
+      "title": "Disorganised thought, speech, and behaviour",
+      "subtitle": "Disorganised Behaviour / Disorganised Thought or Speech",
+      "titleAliases": ["Disorganised Behaviour / Disorganised Thought or Speech"]
     },
     {
       "id": "depression",
@@ -1079,48 +1089,57 @@
     },
     {
       "id": "anxiety-panic-obsessions-health-anxiety",
-      "title": "Anxiety / Panic / Obsessions / Health Anxiety",
-      "subtitle": "Anxiety / Panic / Obsessions / Health Anxiety"
+      "title": "Anxiety and obsessional presentations",
+      "subtitle": "Anxiety / Panic / Obsessions / Health Anxiety",
+      "titleAliases": ["Anxiety / Panic / Obsessions / Health Anxiety"]
     },
     {
       "id": "dissociation-trauma-response-somatisation-functional-neurological-symptoms",
-      "title": "Dissociation / Trauma Response / Somatisation / Functional Neurological Symptoms",
-      "subtitle": "Dissociation / Trauma Response / Somatisation / Functional Neurological Symptoms"
+      "title": "Trauma-related, dissociative, and functional symptoms",
+      "subtitle": "Dissociation / Trauma Response / Somatisation / Functional Neurological Symptoms",
+      "titleAliases": ["Dissociation / Trauma Response / Somatisation / Functional Neurological Symptoms"]
     },
     {
       "id": "sleep-disturbance-insomnia-reduced-need-for-sleep",
-      "title": "Sleep Disturbance / Insomnia / Reduced Need for Sleep",
-      "subtitle": "Sleep Disturbance / Insomnia / Reduced Need for Sleep"
+      "title": "Sleep disturbance and reduced need for sleep",
+      "subtitle": "Sleep Disturbance / Insomnia / Reduced Need for Sleep",
+      "titleAliases": ["Sleep Disturbance / Insomnia / Reduced Need for Sleep"]
     },
     {
       "id": "mood-lability-emotional-dysregulation",
-      "title": "Mood Lability / Emotional Dysregulation",
-      "subtitle": "Mood Lability / Emotional Dysregulation"
+      "title": "Mood instability and emotional dysregulation",
+      "subtitle": "Mood Lability / Emotional Dysregulation",
+      "titleAliases": ["Mood Lability / Emotional Dysregulation"]
     },
     {
       "id": "cognitive-impairment-memory-dementia-bpsd",
-      "title": "Cognitive Impairment / Memory / Dementia / BPSD",
-      "subtitle": "Cognitive Impairment / Memory / Dementia / BPSD"
+      "title": "Cognitive impairment and behavioural change",
+      "subtitle": "Cognitive Impairment / Memory / Dementia / BPSD",
+      "titleAliases": ["Cognitive Impairment / Memory / Dementia / BPSD"]
     },
     {
       "id": "poor-functioning-neglect-negative-symptoms-poor-judgement-poor-rapport",
-      "title": "Poor Functioning / Neglect / Negative Symptoms / Poor Judgement / Poor Rapport",
-      "subtitle": "Poor Functioning / Neglect / Negative Symptoms / Poor Judgement / Poor Rapport"
+      "title": "Functional decline and reduced engagement",
+      "subtitle": "Poor Functioning / Neglect / Negative Symptoms / Poor Judgement / Poor Rapport",
+      "titleAliases": ["Poor Functioning / Neglect / Negative Symptoms / Poor Judgement / Poor Rapport"]
     },
     {
       "id": "treatment-refusal-non-adherence-poor-insight",
-      "title": "Treatment Refusal / Non-Adherence / Poor Insight",
-      "subtitle": "Treatment Refusal / Non-Adherence / Poor Insight"
+      "title": "Treatment refusal, non-adherence, and impaired insight",
+      "subtitle": "Treatment Refusal / Non-Adherence / Poor Insight",
+      "titleAliases": ["Treatment Refusal / Non-Adherence / Poor Insight"]
     },
     {
       "id": "autism-intellectual-disability-adhd-developmental-overlap",
-      "title": "Autism / Intellectual Disability / ADHD / Developmental Overlap",
-      "subtitle": "Autism / Intellectual Disability / ADHD / Developmental Overlap"
+      "title": "Neurodevelopmental diagnostic overlap",
+      "subtitle": "Autism / Intellectual Disability / ADHD / Developmental Overlap",
+      "titleAliases": ["Autism / Intellectual Disability / ADHD / Developmental Overlap"]
     },
     {
       "id": "food-refusal-not-eating-eating-disorder-spectrum",
-      "title": "Food Refusal / Not Eating / Eating Disorder Spectrum",
-      "subtitle": "Food Refusal / Not Eating / Eating Disorder Spectrum"
+      "title": "Reduced intake and eating-disorder presentations",
+      "subtitle": "Food Refusal / Not Eating / Eating Disorder Spectrum",
+      "titleAliases": ["Food Refusal / Not Eating / Eating Disorder Spectrum"]
     },
     {
       "id": "perinatal-acute-psychiatry",
@@ -1129,8 +1148,9 @@
     },
     {
       "id": "personality-related-interpersonal-conflict-antisocial-conduct",
-      "title": "Personality-Related Interpersonal Conflict / Antisocial Conduct",
-      "subtitle": "Personality-Related Interpersonal Conflict / Antisocial Conduct"
+      "title": "Interpersonal conflict and complex behavioural presentations",
+      "subtitle": "Personality-Related Interpersonal Conflict / Antisocial Conduct",
+      "titleAliases": ["Personality-Related Interpersonal Conflict / Antisocial Conduct"]
     },
     {
       "id": "older-adult-first-presentation-psychosis-traps",
@@ -1149,13 +1169,17 @@
     },
     {
       "id": "psychomotor-retardation-mutism-severe-withdrawal",
-      "title": "Psychomotor Retardation / Mutism / Severe Withdrawal",
-      "subtitle": "Psychomotor Retardation / Mutism / Severe Withdrawal"
+      "title": "Psychomotor slowing, mutism, and withdrawal",
+      "subtitle": "Psychomotor Retardation / Mutism / Severe Withdrawal",
+      "titleAliases": ["Psychomotor Retardation / Mutism / Severe Withdrawal"]
     },
     {
       "id": "somatic-symptoms-illness-anxiety-functional-neurological-symptoms-factitious-presentation",
-      "title": "Somatic Symptoms / Illness Anxiety / Functional Neurological Symptoms / Factitious Presentation",
-      "subtitle": "Somatic Symptoms / Illness Anxiety / Functional Neurological Symptoms / Factitious Presentation"
+      "title": "Complex physical and functional symptom presentations",
+      "subtitle": "Somatic Symptoms / Illness Anxiety / Functional Neurological Symptoms / Factitious Presentation",
+      "titleAliases": [
+        "Somatic Symptoms / Illness Anxiety / Functional Neurological Symptoms / Factitious Presentation"
+      ]
     },
     {
       "id": "focused-diagnostic-trap-tables",
