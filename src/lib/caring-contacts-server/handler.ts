@@ -106,6 +106,20 @@ export function invalidRequestResponse(): Response {
 }
 
 /**
+ * Any request field that becomes an audit `objectId` -- or an identifier of any kind. Constrained
+ * to the audit trail's own id grammar so free text is refused with a clean 400 at the edge rather
+ * than travelling into the audit path, where it would be rejected too late to matter. Never use it
+ * for a field that legitimately holds free text (an incident note, a decline reason): those are
+ * body-only and never reach an audit event.
+ *
+ * It is a first line, not the only one -- see `recordAccessAttempt`, which does not trust that any
+ * value reaching it passed this schema.
+ */
+export const auditableIdentifier = z
+  .string()
+  .refine(isAccessObjectIdShape, { message: "must be an identifier, not free text" });
+
+/**
  * Every write carries an idempotency key -- the store contract's first rule, so that a retried
  * request can never send a second caring contact. Every write route therefore REQUIRES one in the
  * body rather than deriving a default: a key derived from the request's identifiers cannot capture
@@ -113,17 +127,6 @@ export function invalidRequestResponse(): Response {
  * different writes would collide on one key and be refused as a replay of each other. Only the
  * caller knows whether this request is a retry of the last one.
  */
-/**
- * Any request field that becomes an audit `objectId` -- or an identifier of any kind. Constrained
- * to the audit trail's own id grammar so free text is refused with a clean 400 at the edge rather
- * than travelling into the audit path, where it would be rejected too late to matter. Never use it
- * for a field that legitimately holds free text (an incident note, a decline reason): those are
- * body-only and never reach an audit event.
- */
-export const auditableIdentifier = z
-  .string()
-  .refine(isAccessObjectIdShape, { message: "must be an identifier, not free text" });
-
 export function writeContextFor(actor: Actor, key: string): WriteContext {
   return { actor, idempotencyKey: idempotencyKey(key) };
 }
@@ -182,29 +185,44 @@ async function recordAccessAttempt(
   objectId: string,
   outcome: AuditOutcome,
 ): Promise<boolean> {
-  // Belt to the route schemas' braces. `buildAccessAuditEvent` rejects an objectId outside its id
-  // grammar, and both callers here treat a failed record as non-fatal -- so an identifier nobody
-  // anticipated could otherwise cost the trail the whole event. Substituting the bare object-type
-  // name (a shape that module's own allowlist documents as legitimate) keeps the event: who,
-  // what kind of object, which outcome, and when. The rejected value is never recorded anywhere,
-  // because free text is exactly what it might be.
-  const safeObjectId = isAccessObjectIdShape(objectId) ? objectId : access.objectType;
-
-  const record: AccessRecord = {
+  const attributes: Omit<AccessRecord, "objectId"> = {
     actorId: actor.id,
     actorRoles: actorRoleNames(actor),
     teamId: actor.teamId,
     kind: access.kind,
     objectType: access.objectType,
-    objectId: safeObjectId,
     outcome,
   };
-  try {
-    await store.recordAccess(record);
-    return true;
-  } catch {
-    return false;
-  }
+
+  const offer = async (candidateObjectId: string): Promise<boolean> => {
+    try {
+      await store.recordAccess({ ...attributes, objectId: candidateObjectId });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  if (await offer(objectId)) return true;
+
+  // The retry is triggered by the FAILURE ITSELF, never by a predicate that guesses which failures
+  // are possible. `buildAccessAuditEvent` applies at least two independent guards -- the id-shape
+  // allowlist and, after it, the audit event's own mobile-number scan -- and their grammars
+  // overlap: "0412345678" is a legal identifier shape AND a mobile number. A substitution keyed on
+  // the first guard therefore left the second one able to throw the whole event away, which is how
+  // an actor could still switch off their own audit record from the wire. Testing for the second
+  // guard as well would only move the boundary; a third guard added later would reopen it.
+  //
+  // The retry value is the bare object-type name, which that module's allowlist documents as a
+  // legitimate shape and which is alphanumeric with no digits, so it satisfies every guard by
+  // construction. The event survives with who, what kind of object, which outcome and when. The
+  // caller's value is never recorded anywhere, because free text is exactly what it might be.
+  //
+  // Exactly once, and no loop: if the constant fails too, the trail itself is unavailable rather
+  // than the caller's input being at fault, and the callers' existing behaviour is the right one --
+  // 503 on a read, discard on a write.
+  if (objectId === access.objectType) return false;
+  return offer(access.objectType);
 }
 
 export type WriteHandlerConfig<TBody, TResult> = {

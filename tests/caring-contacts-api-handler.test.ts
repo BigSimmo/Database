@@ -392,6 +392,46 @@ describe("caring-contacts API boundary", () => {
     expect(recorded()).toEqual([expect.objectContaining({ objectType: "plan", objectId: "plan" })]);
   });
 
+  // Fix round 2, Important 1 half 2. The shape allowlist and the mobile-number scan are two
+  // INDEPENDENT guards and their grammars overlap: "0412345678" is a legal identifier shape AND a
+  // mobile number, so a substitution keyed on the first guard left the second one able to throw
+  // the event away. The pair above cannot tell "the record is unfailable" apart from "the record
+  // survives the one rejection reason we thought of"; this is the case that can.
+  it("still records exactly one audit event when the denied write carries a mobile-shaped identifier", async () => {
+    const { store, recorded } = await inMemoryStoreWithSpy();
+    const auditor = demoActorForRole("auditor");
+    const before = (await store.listAuditEvents({ actor: auditor })).length;
+    const handler = writeHandler({
+      schema: z.object({ id: z.string() }),
+      action: "publishPathwayVersion",
+      access: { objectType: "pathwayVersion", objectId: (body) => body.id },
+      write: async () => ({ ok: true, value: null }),
+    });
+
+    const response = await handler(post("/api/caring-contacts/pathway-versions", { id: "0412345678" }));
+
+    expect(response.status).toBe(403);
+    expect(recorded()).toHaveLength(1);
+    expect(await store.listAuditEvents({ actor: auditor })).toHaveLength(before + 1);
+    expect(recorded()[0]).toMatchObject({ objectType: "pathwayVersion", objectId: "pathwayVersion" });
+  });
+
+  // Fix round 2, Minor 1. Same residual on the read side, through the real route: the segment
+  // passes the route's shape guard, then the mobile-number scan rejects the event, and the caller
+  // was told the TRAIL was down.
+  it("does not report the audit trail as unavailable for a mobile-shaped path segment", async () => {
+    const { recorded } = await inMemoryStoreWithSpy();
+    const { GET } = await import("@/app/api/caring-contacts/plans/[planId]/route");
+
+    const response = await GET(get("/api/caring-contacts/plans/0412345678"), {
+      params: Promise.resolve({ planId: "0412345678" }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({ refusal: "not-found" });
+    expect(recorded()).toEqual([expect.objectContaining({ objectType: "plan", objectId: "plan", outcome: "denied" })]);
+  });
+
   // Fix round 1, Minor 3. Pre-existing store behaviour, deliberately unchanged: `runWrite` returns
   // the cached result before building an event, so a replay is not a second attempt. Pinned here
   // because it sits on the edge of Ruling 45's invariant and nothing covered it.

@@ -656,3 +656,114 @@ for either Ruling 49 refusal) turned out not to exist anywhere, so none was made
   constrained; access-trail body handling; pre-record-400 comments
 - `tests/caring-contacts-api-handler.test.ts` — nine new tests; spy tightened so it counts events
   that entered the trail rather than events offered to it
+
+---
+
+# Fix round 2 — Important 1 half 2, Minor 1 residual, one cosmetic
+
+## Important 1 half 2 — the record was still suppressible, and now is not
+
+The re-review was right, and the diagnosis is worth restating because it is the general lesson:
+**`buildAccessAuditEvent` applies at least two independent guards, and the round-1 fix was keyed on
+the first one.** The id-shape allowlist runs first; the audit event's own mobile-number scan runs
+after it, over every field value including `objectId`. Their grammars overlap — `0412345678` is a
+legal identifier shape _and_ a mobile number — so a value could pass the substitution check
+unchanged and still have the event thrown away by the second guard. `SYN-PLAN-0412345678` is a
+plausible synthetic id, not a contrived string.
+
+Round 1's fix covered exactly the cases half 1 already rejects at the edge, and stopped at the
+boundary of the first guard. That is the shape of the mistake, and testing for the mobile pattern as
+well would have been the same mistake one guard later.
+
+**RED before the fix**, both sides, exactly the case the re-reviewer named:
+
+```
+ FAIL  ... > still records exactly one audit event when the denied write carries a mobile-shaped identifier
+AssertionError: expected [] to have a length of 1 but got +0
+ FAIL  ... > does not report the audit trail as unavailable for a mobile-shaped path segment
+AssertionError: expected 503 to be 404
+```
+
+Zero audit events for a 403, and a caller-shaped input reported as an infrastructure fault.
+
+**The fix: the failure itself is the trigger.** `recordAccessAttempt` no longer asks any predicate
+which failures are possible. It offers the record with the caller's `objectId`; if that fails **for
+any reason**, it retries exactly once with the constant `access.objectType`. A bare object-type name
+is alphanumeric with no digits, so it satisfies every guard by construction — including guards that
+do not exist yet, which is the point. No predicate to keep in step with the audit module, and a
+third guard added tomorrow cannot reopen the hole.
+
+If the retry also fails, that is a genuine trail failure rather than a caller-induced one, and the
+callers' existing behaviour stands: 503 on a read, discard on a write. There is no loop — a guard
+returns early when the supplied id already _is_ the object-type name, so the constant is never
+offered twice. That path is covered by the existing "releases nothing when the access event cannot
+be recorded" test, which rejects every `recordAccess` call and still gets its 503.
+
+**Post-fix mutation.** I did not mutate the code to something arbitrary; I regressed it to round 1's
+exact logic (`return isAccessObjectIdShape(objectId) ? false : offer(access.objectType);`), which is
+the sharpest available test of whether the new cases actually distinguish the two designs:
+
+```
+ FAIL  ... > still records exactly one audit event when the denied write carries a mobile-shaped identifier
+AssertionError: expected [] to have a length of 1 but got +0
+ FAIL  ... > does not report the audit trail as unavailable for a mobile-shaped path segment
+AssertionError: expected 503 to be 404
+```
+
+2 of 31 red — the two new cases and nothing else, so they catch precisely this residual and the
+round-1 pair still cannot see it. Reverted.
+
+## Minor 1 — the read-side residual
+
+Same root cause, same fix. `GET /api/caring-contacts/plans/0412345678` now returns 404
+`{ refusal: "not-found" }` with one access event recorded (`objectId: "plan"`, `outcome: "denied"`),
+instead of 503 `access-audit-unavailable`. Tested through the real route, so the route's own shape
+guard is in the path and the test proves the handler's behaviour behind it.
+
+## Cosmetic
+
+The `auditableIdentifier` doc block had been inserted between the idempotency-key doc block and
+`writeContextFor`, leaving two stacked blocks and `writeContextFor` undocumented. Reattached, and
+`auditableIdentifier`'s doc now says explicitly that it is a first line rather than the only one —
+`recordAccessAttempt` does not trust that a value reaching it passed that schema.
+
+## Verification
+
+```
+$ node scripts/run-vitest.mjs run tests/caring-contacts-api-handler.test.ts --reporter=dot
+ Test Files  1 passed (1)
+      Tests  31 passed (31)
+```
+
+```
+$ node ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit
+tsc exit: 0  diagnostics lines: 0
+
+$ npx eslint src/lib/caring-contacts-server/handler.ts tests/caring-contacts-api-handler.test.ts
+eslint exit: 0
+```
+
+The full `npm run test` was not run this round, and was not required: nothing was exported from a
+sealed-domain module. The only files changed are `src/lib/caring-contacts-server/handler.ts` and
+`tests/caring-contacts-api-handler.test.ts`. `src/lib/caring-contacts/access-audit.ts` was not
+touched this round.
+
+**Typecheck note — a shared worktree, not my change.** The first two `tsc` runs failed with a single
+diagnostic each, both naming Task 15's new test files against modules that did not exist yet
+(`.../workspace/width-state`, then `.../workspace/shell`). Neither run produced a diagnostic in any
+file I own; the count of diagnostics naming my files was 0 on every run. As instructed I waited and
+retried rather than drawing a conclusion, and the third run came back clean at exit 0 once the other
+agent's modules landed. The evidence pasted above is that third run.
+
+**Formatting note.** I ran `npx prettier --write` on my two files rather than the whole-tree
+`npm run format`, because a whole-tree write could have modified Task 15's in-flight files. I
+verified with `npx prettier --check` that their two new test files are already Prettier-clean, so
+the whole-tree run would have been a no-op for them in any case — but the narrower command cannot
+touch work that is not mine, and that seemed the right trade while the worktree is shared. My commit
+contains only my own files, added by explicit path.
+
+## Files changed this round
+
+- `src/lib/caring-contacts-server/handler.ts` — failure-triggered retry in `recordAccessAttempt`;
+  doc blocks reattached
+- `tests/caring-contacts-api-handler.test.ts` — two new tests, one per side of the residual
