@@ -3129,7 +3129,22 @@ export function ClinicalDashboard({
       },
       controller.signal,
       clinicalAskSession.receiveEvent,
-    ).finally(() => clinicalAskSession.setAbortController(null));
+    )
+      .then((payload) => {
+        // When the stream fails before delivering any SSE event (e.g. 401, 429,
+        // network error), streamClinicalAsk returns a failed payload but never
+        // calls onEvent. Deliver a synthetic error event so the session exits
+        // the submitted/pending state rather than staying stuck.
+        if (payload.response.state === "failed") {
+          clinicalAskSession.receiveEvent({
+            type: "error",
+            code: payload.response.code,
+            retryable: payload.response.retryable,
+            message: payload.response.message,
+          });
+        }
+      })
+      .finally(() => clinicalAskSession.setAbortController(null));
   }, [clinicalAskMode, clinicalAskOnline, clinicalAskSession, query]);
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
   const setupCheckCount = setupChecks.length || fallbackSetupChecks.length;

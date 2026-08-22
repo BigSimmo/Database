@@ -480,7 +480,22 @@ function GlobalStandaloneSearchShellBody({
       },
       controller.signal,
       clinicalAskSession.receiveEvent,
-    ).finally(() => clinicalAskSession.setAbortController(null));
+    )
+      .then((payload) => {
+        // When the stream fails before delivering any SSE event (e.g. 401, 429,
+        // network error), streamClinicalAsk returns a failed payload but never
+        // calls onEvent. Deliver a synthetic error event so the session exits
+        // the submitted/pending state rather than staying stuck.
+        if (payload.response.state === "failed") {
+          clinicalAskSession.receiveEvent({
+            type: "error",
+            code: payload.response.code,
+            retryable: payload.response.retryable,
+            message: payload.response.message,
+          });
+        }
+      })
+      .finally(() => clinicalAskSession.setAbortController(null));
   }, [clinicalAskMode, clinicalAskOnline, clinicalAskSession, query]);
   // No shell-owned route claims the Patient details dock addon. `/medications`
   // is a standalone mode home (composer in the hero, no dock to portal into),
