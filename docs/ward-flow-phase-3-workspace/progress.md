@@ -1441,3 +1441,200 @@ them, which is right — `AGENTS.md` is explicit that "nothing imports it" is ne
 near sufficient in this repository, and a cleanup sweep on exactly that reasoning had to be walked
 back seven times. Carried to the whole-branch review with `npm run check:dead-code-candidate` as the
 gate that would have to clear it.
+
+### Task 11 — the emergency department screen, landed at `66c4f7b80` and verified
+
+**My own verification at `66c4f7b80`:** `node_modules` **523**; `tsc --noEmit` clean; node-env ward
+suites **139 passed across 11 files**; ED route warmed (200); ward Chromium gate **38 passed (2.3m)**
+across all three spec files — 32 baseline plus its six. Server liveness proved with a Node request
+first, per R61.
+
+**`npm run lint`: the implementer could not run it and said so; I could and did.** Three attempts
+over about twenty minutes all failed with `EPERM … owner.json` under shared-machine lock contention,
+and it recorded "lint not run" rather than a pass. Mine acquired the lock — the output echoes the
+inner `lint:internal` eslint invocation with no busy marker and no findings. Clean.
+
+**The access-target quarantine holds, and I checked it by reading rather than trusting the guards.**
+R28 recorded that the two static guards are file-scoped and would not catch the shape this screen was
+most likely to have. Read directly: `accessTargetLine()` takes only `minutesInDepartment`, derived
+from `movement.openedAt`; it never reads `legalForm`, never constructs a `{code, label, kind}`
+literal, and never writes a `dueAt`. Its own doc comment states the prohibition and names Task 6A's
+seven-surface incident. The rendered wording is deliberately free of "due", "deadline", "breach",
+"overdue" and "legal" — on screen it reads "1h 30m over the 4h 00m **departmental access target**",
+and the page banner says in full that the four-hour figure is "a performance measure it is judged on,
+not a Mental Health Act deadline."
+
+**Both clocks read correctly on screen.** WF-005, the one community-formed patient at peel-ed: 5h 30m
+in department against 8h 00m since formed — the legal clock is **longer**, which is the whole point.
+Every other patient shows the two equal. No patient's legal clock reads shorter than their time in
+department.
+
+The implementer also disclosed a real bug **in its own test**: a handover click fired before
+hydration finished, so it silently did nothing — the missing `networkidle` wait every other
+interactive test in that file already had. It reproduced the failure against the live app rather
+than assuming, then added the wait to all five of its new tests. That is a test that could not fail,
+caught by its author.
+
+### Looking at that screenshot found a second, larger instance of the R58 defect class
+
+WF-319 renders "Handover ready" with an outstanding item of "TRANSPORT — Not yet requested". That
+reads perfectly sensibly to a human and **the model forbids it**: spec section 6 defines
+`HANDOVER_READY` as "Stage becomes `handover_ready`; **transport requested**", and the reducer
+implements exactly that — it creates the `transport` object in the same update that sets the stage.
+So `handover_ready` without a transport job is unreachable.
+
+Measured across the whole fixture:
+
+| condition                                    | count | ids                                    |
+| -------------------------------------------- | ----- | -------------------------------------- |
+| `handover_ready` **with** transport          | 2     | WF-005, WF-015                         |
+| `handover_ready` **without** transport       | **5** | WF-008, WF-305, WF-312, WF-319, WF-326 |
+| …of those, also with **no `acceptedUnitId`** | **4** | WF-305, WF-312, WF-319, WF-326         |
+
+The second row of that table is worse than the first. `HANDOVER_READY` requires stage `bed_held`;
+`bed_held` is reached from `accepted_awaiting_bed`; and `ACCEPT_IN_PRINCIPLE` is what sets
+`acceptedUnitId`. So four movements are recorded as ready to hand over to a ward that never accepted
+them. Checked and clean: `bed_held` without `bedHeldUntil` is 0, and accepted/bed_held/moving without
+`acceptedUnitId` is 0 — so this is confined to `handover_ready`.
+
+**My own contract invariant should have caught this and did not.** Under R58 I specified
+`moving ⇒ collectedAt`, `arrived ⇒ arrivedAt`, and stamp ordering — a list I wrote, not the complete
+set of stage-producing transitions read off the reducer. That is the F5 and F11 lesson for the third
+time in this phase: **the instance was fixed and the class was left alone.**
+
+Ruling R63 — fix this before Task 12, and this time derive the invariant from the reducer's complete
+set of stage-producing transitions rather than from any list of mine. Every stage that a reducer
+branch produces implies whatever that same branch writes; the invariant must enumerate those
+implications exhaustively and be built by reading the reducer, so a future stage added to the machine
+cannot silently escape it. Task 12's end-to-end journey walks a patient through handover, and the
+officer screen and tracker both read this data, so proving the loop on incoherent state would prove
+nothing. Cost if wrong: a larger fixture correction than R58's, touching five records and possibly
+their stages rather than adding one field, with every derived baseline moving — which is why it
+re-runs every gate rather than the ward ones.
+
+Ruling R64 — prefer correcting each record's **stage** to whatever its own fields honestly support,
+rather than inventing the fields a stage implies. Giving four movements a fabricated `acceptedUnitId`
+and a fabricated transport job would manufacture acceptances no ward ever gave. Moving them back to a
+stage their data actually supports invents nothing. It also has a useful side effect: a movement at
+`bed_held` makes the ED screen's new "Mark handover ready" control genuinely live, which is exactly
+the transition Task 12's journey needs to click through. Cost if wrong: the board's stage
+distribution shifts and some screens show fewer late-stage patients — against the alternative of
+recording acceptances that never happened, on a clinical surface.
+
+### The clinician answered questions 3 and 1 — two model changes, one of them with a large blast radius
+
+**Verbatim:** _"For question 3… the reality is in ED that a patient needs review before they are
+referred for a bed as they may not need a bed. Update this behaviour. Also change the 4 hour limit
+to 24 for patients in ED."_
+
+### Change A — the access target becomes 24 hours
+
+`ED_ACCESS_TARGET_MINUTES` goes from **240 to 1440**. Straightforward in code, but two consequences
+must travel with it:
+
+- Spec section 7 names "the four-hour access target … the number a department is judged on". The
+  product owner has now superseded that figure for this prototype's purpose. The spec is the binding
+  authority but he is its author; the spec text is updated to record the change rather than left
+  contradicting the code.
+- Any on-screen or in-test wording naming "four" must move with it. The constant's name stays
+  accurate, and the deliberate absence of "due", "deadline", "breach" and "legal" from the rendered
+  wording stays exactly as Task 11 built it.
+
+Clinically this reads as the more meaningful figure for this cohort: mental health patients breach a
+four-hour target so routinely that it stops discriminating, whereas a 24-hour marker separates a bad
+day from a genuine outlier.
+
+### Change B — review before referral. Measured before acting, and the letter of it is very large.
+
+His sentence is about **workflow order**: a patient is reviewed, and only then referred for a bed,
+because review may conclude no bed is needed.
+
+Measured against the real fixture before scoping anything:
+
+| population                                         | count  |
+| -------------------------------------------------- | ------ |
+| open movements                                     | 41     |
+| open **and** at a referable stage                  | 17     |
+| …of those, examined with outcome `inpatient_order` | **2**  |
+| …of those, **no examination at all**               | **15** |
+| open and already **past** the referral stage       | 24     |
+| …of those, **no examination at all**               | **23** |
+
+So the strict reading — gate `REFER_TO_UNITS` on a recorded examination with outcome
+`inpatient_order` — would make **15 of 17** currently-referable patients unreferrable, and would
+declare **23 patients already in beds, on transport or awaiting handover** to be in states they could
+never lawfully have reached. That is a re-authoring of most of the fixture.
+
+There is also a real modelling subtlety that argues against the strict reading being what he meant:
+**21 of the 41 open movements carry no legal form at all** — they are voluntary. The model's
+`examination` field is specifically the Mental Health Act examination that follows a Form 1A. A
+voluntary patient never has one, yet plainly still needs clinical review before a bed is sought. So
+"review" in his sentence is broader than the field the model happens to carry.
+
+Ruling R65 — implement the priority consequence now, which is what question 3 actually asked, and
+surface the workflow-gating reading with its measured cost rather than guessing between them. His
+sentence was answering "should being examined confer priority of its own?", and it answers it
+clearly: a patient confirmed to need a bed should not sit below one nobody has assessed yet. That is
+a contained, testable change in `ward-priority.ts` — no fixture rewrite, no invented data.
+
+The stricter reading — that the reducer should refuse a referral before review — is a defensible
+second interpretation, but acting on it means re-authoring 38 of 41 open movements on a guess, and
+the voluntary-patient gap above suggests the model would need a broader notion of "reviewed" than
+`examination` before the gate could even be written honestly. That is a product decision with a large
+and hard-to-reverse blast radius, so it is put to him with the numbers attached rather than assumed.
+
+Cost if wrong: if he meant the strict gate, the priority change is still correct and additive, and
+the gate lands as a follow-up rather than being re-done. If he meant only priority, nothing is
+wasted.
+
+### Handover-coherence fix landed at `954c153e6` — verified
+
+**My own verification:** `node_modules` **523**; `tsc --noEmit` clean; node-env **143 passed across
+11 files** — 139 baseline plus exactly the 4 new invariants. Tree clean.
+
+The five stage decisions were made per-record against the fields each actually holds, not by blanket
+rule, which is what R64 required:
+
+- **WF-008 → `accepted_awaiting_bed`** — has `acceptedUnitId: "fre-adult-open"` but no
+  `bedHeldUntil` and no transport.
+- **WF-305, WF-312, WF-319, WF-326 → `placement_requested`** — no `acceptedUnitId` at all, so
+  nothing past `destination_review` is honest for them.
+
+**I checked the one justification most likely to be confabulated.** The report says WF-008 "self-
+discharged before any of that happened", which is the kind of narrative detail an agent invents to
+make a decision sound reasoned. It is grounded: WF-008 genuinely carries a `closure` field in the
+fixture. Verified by reading the record rather than accepting the sentence.
+
+On-screen result, counted from the live DOM: **no patient shows "Handover ready" with "Not yet
+requested" transport any more.** WF-319 now reads "Placement requested" with its handover control
+unavailable and the reducer's own reason quoted. Two of seven peel-ed patients have a genuinely live
+"Mark handover ready" control.
+
+### Clinical change 1 landed at `f08abf3df` — the access target is 24 hours
+
+Commit 2 (the priority factor) was complete but uncommitted when the agent stalled waiting on a
+Monitor event that never fired — the same shared-lock contention that has now blocked three separate
+gate runs. **I backed up all three modified files before reading them** and resumed the agent with
+instructions to run gates directly rather than through monitors.
+
+**The factor it wrote is right and I am accepting it as-is.** Read before resuming:
+
+- Named **"Bed need confirmed"**, detail "Examination outcome: inpatient order — bed confirmed as
+  needed". Operational wording throughout — no severity, acuity or risk, per the Global Constraint
+  that killed a previous score for exactly that ambiguity.
+- **25 points**, justified explicitly as sitting between the statutory-timing tiers of 20
+  ("critical") and 30 ("breached"): a stronger signal than an unbreached legal timer, but not
+  inflated to read like a deadline.
+- Its comment records why the strict reading was **not** taken, with my measured numbers — 2 of 17
+  referable movements examined, 23 more already past that stage unexamined — so the next reader sees
+  the reasoning rather than re-deriving it.
+- **The voluntary-patient gap is documented as a KNOWN GAP in the code itself**, stating that 21 of
+  41 open movements carry no legal form, never receive a Mental Health Act examination, and therefore
+  can never earn this factor — and that **no proxy has been invented** to cover them. That is the
+  honest shape: the model cannot evidence review for a voluntary patient, and the code says so
+  rather than pretending otherwise.
+
+Ruling R66 — accept the 25-point weight without re-litigating it. It is defensible against the
+existing scale, it is documented, and the score orders only within an urgency tier so no cross-tier
+consequence follows. Cost if wrong: examined patients rank slightly too high or too low within their
+own tier, visible immediately on the queue screenshot and changeable by one number.
