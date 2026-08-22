@@ -1,5 +1,9 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ back: vi.fn(), replace: vi.fn() }),
+}));
 
 import { FreshnessStamp } from "@/components/developer-area/hub/freshness-stamp";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
