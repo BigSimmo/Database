@@ -1,8 +1,8 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "cc037fb227210054b7718eaa587f1c112acff562",
-    "committed_at": "2026-08-22T04:57:01+08:00"
+    "sha": "2327bd9624d788a7b9ecb61eee494f1acd9a1997",
+    "committed_at": "2026-08-22T06:11:46Z"
   },
   "counts": {
     "open": 78,
@@ -10,7 +10,7 @@
     "p2": 43,
     "p3": 33,
     "queued": 11,
-    "pending": 2,
+    "pending": 7,
     "resolved": 359
   },
   "queue": [
@@ -842,10 +842,40 @@
   ],
   "pending": [
     {
+      "request_id": "65494c5f-927b-4d0d-8564-5933a7c723f3",
+      "action": "update",
+      "summary": "#47M1XD: detail → UPDATED 2026-08-22 07:23 UTC by a second read-only production window; supersedes the 2026-08-21 detail, which is preserved in git history. Net effect: the attribution retraction is now STRONGER, and the experiment this row proposed to settle it turns out to be one that CANNOT settle it. (1) A SECOND OBSERVATION WINDOW CLOSES MOST OF THE COUNTER-RESET CAVEAT. Between the 2026-08-21 read and this one the serving indexes advanced under live traffic -- document_chunks_search_idx 37,717 -> 37,911, documents_title_search_idx 37,299 -> 37,512, document_chunks_embedding_hnsw_idx 4,906 -> 4,921, and the sibling-table trigram index document_table_facts_title_row_param_trgm_idx 2,372 -> 2,389 -- while document_chunks_content_trgm_idx (OID 1491258, 68 MB) and documents_title_trgm_idx (OID 1491257, 648 kB) stayed at idx_scan 0 AND idx_tup_read 0, with both OIDs unchanged. Two readings a day apart, with demonstrable retrieval traffic in between, make \"a per-index counter reset hid the usage\" a substantially weaker explanation than \"the planner does not choose these indexes\": a reset before the first read would have been re-populated by the traffic between the two. It is still not proof -- pg_stat_reset_single_table_counters(oid) remains invisible, and the production server is PostgreSQL 17.6 (read via current_setting('server_version')), which predates the pg_stat_all_indexes.stats_reset column added in PG 18. pg_stat_database.stats_reset is NULL and pg_postmaster_start_time() is 2026-06-19, so no database-wide reset is recorded across the whole period in question. (2) THE BEFORE/AFTER ANALYZE EXPERIMENT SHOULD NOT BE RUN AS FRAMED, BECAUSE IT CANNOT DISCRIMINATE. pg_stat_all_tables shows documents, document_chunks, document_table_facts and document_index_units were each ANALYZEd on 2026-08-18 18:08 UTC (the Phase 4 window) and every one of them now reports n_mod_since_analyze = 0. Re-ANALYZing a table with zero modifications since its last analyze re-samples the same rows and produces statistically equivalent statistics, so a flat before/after latency result would be uninformative rather than evidence against the ANALYZE hypothesis. Spending an approved production window on it would buy a null that cannot be interpreted. (3) ONE GENUINELY STALE TABLE, AND IT IS MINOR. document_embedding_fields was last analyzed 2026-06-25 and carries 3,148 modifications against 271,097 live tuples -- about 1.2%, far below the default autoanalyze threshold of 50 + 0.1 * n_live_tup (~27,160), which is why autovacuum has not fired on it. Worth an ANALYZE at the next convenient window as hygiene; not a plausible cause of a 31-second regression. (4) DATABASE-SIDE RETRIEVAL IS FAST RIGHT NOW. EXPLAIN ANALYZE through public.explain_retrieval_rpc in the same window: match_documents_for_query 1.000 ms, match_document_chunks_text 4.306 ms, match_document_lookup_chunks_text 0.904 ms, match_document_table_facts_text 15.760 ms. All four return a single Function Scan node with no inner index names, re-confirming #8VAY97 -- this instrument cannot show plan flips, and the four supported names are still the only ones it accepts. REVISED NEXT: (a) treat the mis-attribution as settled for triage purposes -- the next 30-second retrieval incident checks planner statistics BEFORE hunting missing indexes; (b) do NOT spend an approved production window on a before/after ANALYZE of the four already-current tables, and if a discriminating test is ever wanted it needs a table with pending modifications or a controlled statistics reset, neither of which is worth doing on the live clinical database; (c) an ANALYZE of document_embedding_fields alone is cheap hygiene and needs owner approval like any other production mutation; (d) whether the two trigram indexes earn their ~69 MB is a repo-side migration decision, not an operational one. STOP unchanged: do NOT drop them -- they are repo-defined, the migration chain commands them, and dropping them reopens live drift.; source → read-only production windows 2026-08-21 and 2026-08-22 07:23 UTC (pg_stat_all_indexes, pg_stat_all_tables, pg_stat_database, explain_retrieval_rpc); docs/audit/live-drift-forensics-2026-08.md Phase 5 close-out 5.1(c)",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "7ab00925-b9c6-4395-b708-5485d9908fc0",
+      "action": "done",
+      "summary": "#056: Closed 2026-08-22: staging ikoiolksxqxfxgiyqpnu is at full parity with production and with the repository chain, so the migration-history gap this row was opened for no longer exists. Verified by a read-only query run from a dedicated linked worktree (project ref re-read from supabase/.temp/project-ref immediately before the call, and the worktree unlinked afterwards; production sjrfecxgysukkwxsowpy was never a target of this read): supabase_migrations.schema_migrations holds 211 rows, latest version 20260820120000, zero rows with statements IS NULL, public.migration_history_versions() present via to_regprocedure, and the 20260820120000 row carries 3 statements. That equals both the 211 migration files on main and the 211 remote versions live-drift run 32514326022 read from production, so all three sides agree. THE 19 CHECK:DRIFT FINDINGS IN THIS ROW ARE NOT LOST BY CLOSING IT. They were a schema.sql-versus-chain disagreement rather than staging staleness, and they were resolved separately: PR #2106 codified the live SET work_mem on the ten match_* RPCs, the eight schema-only objects and the three chain-stale columns, and PR #2151 (remediation Phase 4) settled document_chunks_content_trgm_idx. grep now finds work_mem in supabase/schema.sql, and live-drift 32514326022 reports \"No unexpected schema drift between live and supabase/schema.sql.\" NOT RE-RUN IN THIS WINDOW, and never gated on the history gap: indexing, health, identity and data-boundary proof. #057 (documented staging soak and rollback against an exact candidate) remains the open follow-on and is unblocked on parity grounds. Nothing was recreated and no production clinical document was copied.",
+      "created_at": "2026-08-22"
+    },
+    {
       "request_id": "7eab660a-07d4-4a78-86c9-06d71904ec1b",
       "action": "add",
       "summary": "No gate can detect a React Server Component boundary violation: a component with an event handler and no \"use client\" throws only at request time",
       "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "993f7ca7-5277-4399-82fc-19ff981823e4",
+      "action": "update",
+      "summary": "#M6JNR8: priority → P1; source → PR #2260 review thread discussion_r3833600137; RE-CONFIRMED AND EMPIRICALLY RE-PROVEN 2026-08-22 in a second session that was tasked with fixing the #231 queue row and could not: a probe commit changing queue row 1 from A1 to A2 was refused by npm run check:ledger-write-discipline with 'docs/outstanding-issues.md does not exactly match the audited application of 0 moved inbox request(s) from the base', and the probe was reverted; re-graded P2 -> P1 because the stale row is the first thing the session-start hook surfaces and has now mis-directed two sessions; docs/outstanding-issues.md queue row 1 and row #231; scripts/outstanding-issues.mjs:255-279; scripts/check-ledger-write-discipline.mjs:130-175",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "9bc32602-fe95-40e6-a28c-f28149863699",
+      "action": "done",
+      "summary": "#3514B7: Closed 2026-08-22: the premise is falsified -- 20260820120000_migration_history_versions_rpc no longer \"exists nowhere in the repository\". It landed on main in PR #2198 (a341832af, \"fix(db): read migration history through a service-role RPC so live-drift can pass (#316)\"), which added supabase/migrations/20260820120000_migration_history_versions_rpc.sql alongside the supabase/schema.sql mirror and a regenerated supabase/drift-manifest.json in the same commit, so the chain, the mirror and the manifest agree by construction. supabase/migrations now holds 211 files with that version as the newest, and \"migration_history_versions\" resolves in supabase/schema.sql, supabase/drift-manifest.json and scripts/check-migration-history-alignment.ts. This row's own suspicion was right: the RPC was indeed the fix for the PGRST106 failure recorded in #M54C4N, applied live on 2026-08-20 with the repo side still unmerged, and PR #2198 is the merge that closed the window. The row's NEXT asked to identify the PR or, failing that, to capture the live definition and land it forward; the PR is identified and the forward migration is landed, so no live capture is needed. Repo/live agreement is proven rather than assumed: live-drift run 32514326022 (head main 11550416206e8c90900ddeea0993337824873a55, conclusion success) reports \"No unexpected schema drift between live and supabase/schema.sql.\", \"Local migration versions: 211\", \"Remote migration versions: 211 (read via rpc)\" and \"Remote-only (Preview blockers): 0\" -- production is no longer ahead of the repository. The row's STOP was honoured: nothing was applied, repaired or mark-applied on production.",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "c6d13677-3dc7-4bea-9a49-d3e200b4eb3e",
+      "action": "done",
+      "summary": "#M54C4N: Closed 2026-08-22: fixed by PR #2198 (a341832af), which landed migration 20260820120000_migration_history_versions_rpc together with the supabase/schema.sql mirror, a regenerated supabase/drift-manifest.json and a rewritten scripts/check-migration-history-alignment.ts -- option (c) from this row's own OPTIONS list, a service-role security-definer RPC listing versions, with the PGRST106 Accept-Profile read retained only as a fallback. Verified against the run itself, not the claim: live-drift run 32514326022 (workflow \"Live drift check\", head branch main, head SHA 11550416206e8c90900ddeea0993337824873a55, created 2026-08-21T18:37:51Z, conclusion success). Its \"Compare live schema drift\" step reports \"No unexpected schema drift between live and supabase/schema.sql.\" and the previously failing \"Align migration history for Supabase Preview\" step now reports \"Local migration versions: 211\", \"Remote migration versions: 211 (read via rpc)\", \"Remote-only (Preview blockers): 0\", \"Local-only (pending apply): 0\" and \"Migration history alignment OK: every remote version exists locally.\" Both gates the post-merge contract requires are therefore green in the same run. Pinned issue #1963 auto-closed 2026-08-21T18:38:42Z; this was the first green live-drift since 2026-07-19, ending a 33-day red streak.",
+      "created_at": "2026-08-22"
     },
     {
       "request_id": "f7a561a7-1fe2-4aaa-bbfc-90d24baecc7a",
