@@ -19,6 +19,7 @@
 import { awstCalendarDay, awstIsoTimestamp, type Clock } from "./clock";
 import type { ActorId } from "./ids";
 import type { TransitionResult } from "./model";
+import { isAwstCalendarDay } from "./schedule";
 
 export type PlanAssignment = {
   ownerId: ActorId | null;
@@ -48,6 +49,14 @@ export function unassigned(): PlanAssignment {
  *   * `plan-not-claimed` -- `reassign` and `startCoverage` both require an existing owner; there
  *     is nobody to reassign from or cover for otherwise.
  *   * `reassignment-reason-required` -- `reassign` requires a non-blank reason.
+ *   * `coverage-window-not-calendar-day` -- `startCoverage` requires both ends to be real AWST
+ *     calendar days in `YYYY-MM-DD` form. Checked BEFORE the ordering, because `until > from` is a
+ *     lexical string compare that any pair of words satisfies: `"cherry" > "banana"` is true, so a
+ *     window of nonsense used to be accepted and stored, and `effectiveResponder` -- which compares
+ *     these as calendar days -- then silently named the wrong person. The Postgres schema's own
+ *     `~ '^\d{4}-\d{2}-\d{2}$'` check caught the same input by raising, which is a throw where this
+ *     domain's convention is a named refusal, and it meant the two stores answered one malformed
+ *     request two different ways.
  *   * `coverage-window-invalid` -- `startCoverage` requires `until` strictly after `from`.
  *
  * `reassign` appends to `reassignmentHistory` and keeps the full history -- a reassignment never
@@ -90,6 +99,11 @@ export function applyAssignmentAction(
 
     case "startCoverage": {
       if (assignment.ownerId === null) return { ok: false, reason: "plan-not-claimed" };
+      // Shape before ordering. The ordering test below is a lexical string compare, so it cannot
+      // tell a malformed window from an ordered one -- see the refusal list above.
+      if (!isAwstCalendarDay(action.from) || !isAwstCalendarDay(action.until)) {
+        return { ok: false, reason: "coverage-window-not-calendar-day" };
+      }
       if (!(action.until > action.from)) return { ok: false, reason: "coverage-window-invalid" };
       return {
         ok: true,

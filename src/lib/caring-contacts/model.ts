@@ -21,8 +21,31 @@ export type PathwayVersionState = "draft" | "inReview" | "approved" | "retired";
 export type MessageType = "standard" | "first" | "closing";
 export type SendingPreference = "morning" | "afternoon" | "earlyEvening";
 
-const TERMINAL_PLAN_STATES: readonly PlanState[] = ["withdrawn", "cancelled", "completed"];
+/**
+ * The plan states that end an episode.
+ *
+ * Exported because it was needed in three places and declared in three places: this module, the
+ * in-memory store and the Postgres store each carried their own copy, so "which states are
+ * terminal" could be changed in one and not the others. The de-identification policy module's own
+ * terminal list is deliberately NOT this constant -- it is declared over the parallel
+ * `EpisodeState` union, and the two were kept separate on purpose.
+ */
+export const TERMINAL_PLAN_STATES: readonly PlanState[] = Object.freeze(["withdrawn", "cancelled", "completed"]);
+
 const TERMINAL_CONTACT_STATES: readonly ContactState[] = ["delivered", "suppressed", "cancelled"];
+
+/**
+ * Contact states that mean the message already left. Reporting only -- nothing keys a send off it.
+ * Exported for the same reason as `TERMINAL_PLAN_STATES`: both stores had written their own copy.
+ */
+export const DISPATCHED_CONTACT_STATES: readonly ContactState[] = Object.freeze([
+  "sent",
+  "delivered",
+  "notDelivered",
+  "numberInvalid",
+  "contactChanged",
+  "statusUnavailable",
+]);
 
 export type Plan = { id: PlanId; teamId: TeamId; state: PlanState; version: number };
 export type Contact = { id: ContactId; planId: PlanId; state: ContactState; version: number };

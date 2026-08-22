@@ -22,7 +22,15 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { fixedClock } from "@/lib/caring-contacts/clock";
 import { createPostgresRepository } from "@/lib/caring-contacts/db/postgres-repository";
-import { actorId, idempotencyKey, teamId } from "@/lib/caring-contacts/ids";
+import {
+  actorId,
+  idempotencyKey,
+  pathwayVersionId,
+  patientId,
+  planId,
+  referralId,
+  teamId,
+} from "@/lib/caring-contacts/ids";
 import type { Actor } from "@/lib/caring-contacts/permissions";
 
 import { describeCaringContactRepositoryContract } from "./helpers/caring-contacts-repository-contract";
@@ -114,5 +122,131 @@ describe("the first-ever-stop race is genuinely reached (postgres only)", () => 
     // question about the whole table, not about either team's scoped view of it.
     const incidents = await pool.query("select count(*)::int as recorded from caring_contacts.service_stops");
     expect(incidents.rows[0].recorded).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Patient detail must not reach the idempotency table.
+//
+// The shared contract already proves patient detail stays out of plan reads and out of the audit
+// trail (see "keeps patient-identifying detail out of plan reads and the audit trail"). That check
+// reads the RECORDS a store hands back, and stops one table short: `idempotency_records` is written
+// by every single write, is scoped to the writing team by row-level security, and holds a
+// fingerprint computed over the request -- `createPlan`'s request carries the patient's name, mobile
+// number, identifiers and cultural identity, and `stopService`'s carries a responder's free-text
+// incident note.
+//
+// This half has to live here rather than in the shared contract because the only way to ask the
+// question honestly is to read the table itself, and that table exists in one store only. Read as
+// the migration role deliberately: whether the row holds patient text is a question about the whole
+// table, not about one team's scoped view of it.
+// ---------------------------------------------------------------------------
+describe("no patient detail reaches idempotency_records (postgres only)", () => {
+  /** 2026-03-02 11:00 AWST, the instant the shared contract fixes its own clock to. */
+  const NOW = "2026-03-02T03:00:00.000Z";
+
+  const COORDINATOR: Actor = {
+    id: actorId("IDEM-ACTOR"),
+    teamId: teamId("IDEM-TEAM"),
+    roles: ["coordinator"],
+  };
+
+  const PATIENT_NAME = "Jordan Nguyen";
+  const PATIENT_MOBILE = "+61 491 570 156";
+  const PATIENT_IDENTIFIER = "UR-00219384";
+  const CULTURAL_IDENTITY = "Noongar";
+
+  it("stores no row containing the patient's name, mobile number, identifiers or cultural identity", async () => {
+    const store = createPostgresRepository(poolAsSqlConnectionPool(pool), fixedClock(NOW));
+    const context = (key: string) => ({ actor: COORDINATOR, idempotencyKey: idempotencyKey(key) });
+
+    const referral = await store.createReferral(
+      { referralId: referralId("IDEM-REFERRAL"), patientId: patientId("IDEM-PATIENT") },
+      context("idem-referral"),
+    );
+    expect(referral.ok).toBe(true);
+    const pathway = await store.savePathwayVersion(
+      {
+        version: {
+          id: pathwayVersionId("IDEM-PATHWAY"),
+          teamId: COORDINATOR.teamId,
+          state: "draft",
+          authorId: COORDINATOR.id,
+          approvals: [],
+          publishedAt: null,
+          retiredAt: null,
+          retirementUrgency: null,
+          snapshot: {
+            cadenceLabels: ["Day 3"],
+            messageTextByType: { standard: "Checking in.", first: "Welcome.", closing: "Last one." },
+          },
+        },
+      },
+      context("idem-pathway"),
+    );
+    expect(pathway.ok).toBe(true);
+
+    const created = await store.createPlan(
+      {
+        planId: planId("IDEM-PLAN"),
+        referralId: referralId("IDEM-REFERRAL"),
+        patientId: patientId("IDEM-PATIENT"),
+        pathwayVersionId: pathwayVersionId("IDEM-PATHWAY"),
+        dischargeAt: new Date("2026-03-02T02:00:00.000Z"),
+        sendingPreference: "morning",
+        patientDetail: {
+          patientName: PATIENT_NAME,
+          patientMobileNumber: PATIENT_MOBILE,
+          patientIdentifiers: [PATIENT_IDENTIFIER],
+          culturalIdentity: CULTURAL_IDENTITY,
+        },
+      },
+      context("idem-create"),
+    );
+    expect(created.ok).toBe(true);
+
+    // Positive controls. The write really happened, it really recorded the patient detail where the
+    // detail belongs, and it really wrote an idempotency row -- so an empty search below is the
+    // fingerprint being opaque rather than nothing having been written at all.
+    const episode = await store.getEpisode(planId("IDEM-PLAN"), { actor: COORDINATOR });
+    expect(episode?.patientName).toBe(PATIENT_NAME);
+    expect(episode?.culturalIdentity).toBe(CULTURAL_IDENTITY);
+
+    const rows = await pool.query(
+      "select fingerprint, result::text as result from caring_contacts.idempotency_records",
+    );
+    expect(rows.rows.length).toBeGreaterThan(0);
+
+    const stored = JSON.stringify(rows.rows);
+    for (const secret of [
+      PATIENT_NAME,
+      "Jordan",
+      "Nguyen",
+      PATIENT_MOBILE,
+      "491 570 156",
+      PATIENT_IDENTIFIER,
+      CULTURAL_IDENTITY,
+    ]) {
+      expect(stored).not.toContain(secret);
+    }
+  });
+
+  it("stores no row containing a responder's free-text incident note", async () => {
+    const store = createPostgresRepository(poolAsSqlConnectionPool(pool), fixedClock(NOW));
+    const note = "Reached Jordan Nguyen's old number 0491 570 156 at 09:12";
+
+    const stopped = await store.stopService(
+      { reason: "wrong-recipient", note },
+      { actor: COORDINATOR, idempotencyKey: idempotencyKey("idem-stop") },
+    );
+    expect(stopped.ok).toBe(true);
+
+    const rows = await pool.query("select fingerprint from caring_contacts.idempotency_records");
+    expect(rows.rows.length).toBeGreaterThan(0);
+
+    const fingerprints = JSON.stringify(rows.rows);
+    for (const secret of ["Jordan", "Nguyen", "570 156", "09:12"]) {
+      expect(fingerprints).not.toContain(secret);
+    }
   });
 });

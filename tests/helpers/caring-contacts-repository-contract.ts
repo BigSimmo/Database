@@ -619,6 +619,14 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
 
         // ...and the detail is still held, released only through the episode projection.
         expect((await store.getEpisode(PLAN_ID, { actor: TEAM_LEAD_A }))?.patientName).toBe("Jordan Nguyen");
+
+        // WHAT THIS TEST CANNOT SEE. It reads the records a store hands BACK, and stops one table
+        // short: every write also inserts an `idempotency_records` row holding a fingerprint of the
+        // request, and this request's fingerprint was a faithful rendering of the four fields above.
+        // A store test cannot ask that question of an in-memory Map, so the other half lives in
+        // tests/caring-contacts-postgres-repository.test.ts ("no patient detail reaches
+        // idempotency_records"), which reads the table itself as the migration role. ../fingerprint
+        // now hashes, so neither store can write the request's text into that row.
       });
     });
 
@@ -1750,6 +1758,47 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         expect(invertedWindow).toEqual({ ok: false, reason: "coverage-window-invalid" });
       });
 
+      it("refuses a coverage window that is not an AWST calendar day, by name in both stores", async () => {
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        unwrap(
+          await store.applyAssignment(
+            { planId: plan.plan.id, action: { type: "claim", actorId: COORDINATOR_A.id } },
+            writeContext(COORDINATOR_A, "aa-cal-claim"),
+          ),
+        );
+
+        // A coverage window is an AWST calendar day (YYYY-MM-DD), which is what `effectiveResponder`
+        // compares on. The only check the domain used to make was `until > from` -- a LEXICAL string
+        // compare, which "cherry" > "banana" satisfies. So this pair was accepted and stored by the
+        // in-memory store, where `effectiveResponder` then silently named the wrong person, while
+        // the Postgres schema's own `~ '^\d{4}-\d{2}-\d{2}$'` check raised and escaped as a throw.
+        // Two stores, two answers, and a throw where this domain's convention is a named refusal.
+        const nonsense = await store.applyAssignment(
+          {
+            planId: plan.plan.id,
+            action: { type: "startCoverage", actorId: TEAM_LEAD_A.id, from: "banana", until: "cherry" },
+          },
+          writeContext(TEAM_LEAD_A, "aa-cal-1"),
+        );
+        expect(nonsense).toEqual({ ok: false, reason: "coverage-window-not-calendar-day" });
+
+        // A date that LOOKS like a calendar day but is not one. The schema's regular expression
+        // accepts this; only the domain predicate rejects it, which is why the rule belongs there.
+        const impossibleDay = await store.applyAssignment(
+          {
+            planId: plan.plan.id,
+            action: { type: "startCoverage", actorId: TEAM_LEAD_A.id, from: "2026-02-30", until: "2026-03-05" },
+          },
+          writeContext(TEAM_LEAD_A, "aa-cal-2"),
+        );
+        expect(impossibleDay).toEqual({ ok: false, reason: "coverage-window-not-calendar-day" });
+
+        // ...and nothing was stored by either store, so the refusal is a refusal rather than a
+        // rejected value that still reached the assignment.
+        expect((await store.getAssignment(plan.plan.id, { actor: COORDINATOR_A }))?.coveredBy).toBeNull();
+      });
+
       it("refuses an unknown plan and returns null/unassigned for reads", async () => {
         const store = await newStore();
         const missing = await store.applyAssignment(
@@ -1891,6 +1940,55 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         expect(second.note).toBe("the original account of the incident");
         expect(second.stoppedBy).toBe(COORDINATOR_A.id);
         expect(second.reason).toBe("wrong-recipient");
+      });
+
+      it("returns a pathway version whose governed message text a caller cannot rewrite in place", async () => {
+        // The one value in this store that IS the clinical message a patient receives. A reader
+        // holding the live snapshot could rewrite the approved wording with no version bump, no
+        // approval, and no audit event -- which is the whole of what pathway governance exists to
+        // prevent. The Postgres store round-trips through `jsonb` and so copies for free; the
+        // in-memory store had to be made to, which is exactly the drift a shared contract is for.
+        const store = await newStore();
+        const version = draftPathwayVersion(COORDINATOR_A, "EXT-PATHWAY-SNAPSHOT");
+        unwrap(await store.savePathwayVersion({ version }, writeContext(COORDINATOR_A, "snapshot-save")));
+
+        const first = await store.getPathwayVersion(version.id, { actor: COORDINATOR_A });
+        if (first === null) throw new Error("expected a pathway version");
+        // Positive control: the governed wording really is what the read hands back, so the
+        // unchanged values below are the copy holding rather than the read returning nothing.
+        expect(first.snapshot.messageTextByType.standard).toBe("Checking in.");
+
+        const mutableSnapshot = first.snapshot as unknown as {
+          cadenceLabels: string[];
+          messageTextByType: Record<string, string>;
+        };
+        try {
+          mutableSnapshot.messageTextByType.standard = "Rewritten without approval.";
+          mutableSnapshot.cadenceLabels.push("Day 999");
+        } catch {
+          // A frozen snapshot throws in strict mode. Either defence is acceptable; what is not
+          // acceptable is the write landing on the stored version.
+        }
+
+        const second = await store.getPathwayVersion(version.id, { actor: COORDINATOR_A });
+        expect(second?.snapshot.messageTextByType.standard).toBe("Checking in.");
+        expect(second?.snapshot.cadenceLabels).toEqual(["Day 3"]);
+
+        const listed = (await store.listPathwayVersions({ actor: COORDINATOR_A })).find(
+          (candidate) => candidate.id === version.id,
+        );
+        expect(listed?.snapshot.messageTextByType.standard).toBe("Checking in.");
+        expect(listed?.snapshot.cadenceLabels).toEqual(["Day 3"]);
+
+        // ...and the object the CALLER passed to `savePathwayVersion` is not the stored one either.
+        const callerSnapshot = version.snapshot as unknown as { messageTextByType: Record<string, string> };
+        try {
+          callerSnapshot.messageTextByType.standard = "Rewritten through the caller's own object.";
+        } catch {
+          // Same as above: a frozen caller object is one acceptable outcome.
+        }
+        const third = await store.getPathwayVersion(version.id, { actor: COORDINATOR_A });
+        expect(third?.snapshot.messageTextByType.standard).toBe("Checking in.");
       });
     });
 
@@ -2333,6 +2431,103 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
           writeContext(COORDINATOR_A, "mrc-5"),
         );
         expect(cleared).toEqual({ ok: true, value: undefined });
+      });
+
+      it("actually removes the identifying detail, rather than only recording that it was cleared", async () => {
+        // Ruling 64. `cleared_at` used to be the ONLY thing this write touched: the plan kept the
+        // patient's name, mobile number, identifiers and cultural identity, and `getEpisode` handed
+        // all four back afterwards -- so anything reading the clearance record concluded a clearance
+        // had happened that never had. A column named `cleared_at` must mean cleared.
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, "mrc-deid-withdraw"),
+          ),
+        );
+
+        // Positive control: every field this write must remove is genuinely present first, so the
+        // absences below are the clearance acting rather than the fixture never having held them.
+        const before = await store.getEpisode(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(before?.patientName).toBe(PATIENT_DETAIL.patientName);
+        expect(before?.patientMobileNumber).toBe(PATIENT_DETAIL.patientMobileNumber);
+        expect(before?.patientIdentifiers).toEqual([...PATIENT_DETAIL.patientIdentifiers]);
+
+        unwrap(await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "mrc-deid")));
+
+        const after = await store.getEpisode(plan.plan.id, { actor: TEAM_LEAD_A });
+        // The episode is still THERE -- de-identification keeps everything aggregate reporting
+        // needs. It is the four identifying fields, and only those, that are gone.
+        expect(after).not.toBeNull();
+        expect(after?.state).toBe("withdrawn");
+        expect(after?.pathwayVersionId).toBe(plan.pathwayVersionId);
+        expect(after?.counts.contactsScheduled).toBe(before?.counts.contactsScheduled);
+        expect(after?.planDates.completedAt).toEqual(before?.planDates.completedAt);
+
+        expect(after?.patientName).toBe("");
+        expect(after?.patientMobileNumber).toBe("");
+        expect(after?.patientIdentifiers).toEqual([]);
+        expect(after?.culturalIdentity).toBeNull();
+        expect(JSON.stringify(after)).not.toContain("Jordan");
+        expect(JSON.stringify(after)).not.toContain("491 570 156");
+        expect(JSON.stringify(after)).not.toContain("UR-00219384");
+      });
+
+      it("clears the cultural-identity report too, which lives outside the plan row", async () => {
+        // Cultural identity is deliberately held in its own projection rather than on the plan, so
+        // a store that de-identified only the plan row would leave it behind -- and it is one of the
+        // four fields ../retention names.
+        const store = await newStore();
+        const referral = referralId("EXT-REFERRAL-CULTURAL");
+        const pathway = "EXT-PATHWAY-CULTURAL";
+        const patient = patientId("EXT-PATIENT-CULTURAL");
+        const cultural = planId("EXT-PLAN-CULTURAL");
+
+        unwrap(
+          await store.createReferral(
+            { referralId: referral, patientId: patient },
+            writeContext(COORDINATOR_A, "cul-r"),
+          ),
+        );
+        unwrap(
+          await store.savePathwayVersion(
+            { version: draftPathwayVersion(COORDINATOR_A, pathway) },
+            writeContext(COORDINATOR_A, "cul-p"),
+          ),
+        );
+        const created = unwrap(
+          await store.createPlan(
+            {
+              planId: cultural,
+              referralId: referral,
+              patientId: patient,
+              pathwayVersionId: pathwayVersionId(pathway),
+              dischargeAt: DISCHARGE_AT,
+              sendingPreference: "morning",
+              patientDetail: { ...PATIENT_DETAIL, culturalIdentity: "Noongar" },
+            },
+            writeContext(COORDINATOR_A, "cul-create"),
+          ),
+        );
+        const activated = unwrap(
+          await store.activatePlan(
+            { planId: cultural, expectedVersion: created.plan.version },
+            writeContext(COORDINATOR_A, "cul-activate"),
+          ),
+        );
+        unwrap(
+          await store.withdrawPlan(
+            { planId: cultural, expectedVersion: activated.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, "cul-withdraw"),
+          ),
+        );
+
+        expect((await store.getEpisode(cultural, { actor: TEAM_LEAD_A }))?.culturalIdentity).toBe("Noongar");
+
+        unwrap(await store.markRetentionCleared({ planId: cultural }, writeContext(COORDINATOR_A, "cul-clear")));
+
+        expect((await store.getEpisode(cultural, { actor: TEAM_LEAD_A }))?.culturalIdentity).toBeNull();
       });
 
       it("refuses while the service is stopped, like every other ordinary mutation", async () => {

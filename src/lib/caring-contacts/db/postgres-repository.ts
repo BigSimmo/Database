@@ -44,7 +44,7 @@ import { applyHospitalStatusEvent, applyWithdrawalRequest, sendableContacts } fr
 import { fingerprintOf } from "../fingerprint";
 import { actorId as toActorId, contactId, idempotencyKey as toIdempotencyKey, teamId as toTeamId } from "../ids";
 import type { PathwayVersionId, PatientId, PlanId, ReferralId, TeamId } from "../ids";
-import { applyContactTransition, applyPlanTransition } from "../model";
+import { DISPATCHED_CONTACT_STATES, applyContactTransition, applyPlanTransition } from "../model";
 import type {
   Contact,
   ContactAction,
@@ -90,9 +90,14 @@ import {
 } from "../service-state";
 import { emptyTrainingRecord, recordCompetency, type TrainingCompetency, type TrainingRecord } from "../training";
 import {
+  CLEARED_PATIENT_DETAIL,
+  PATHWAY_VERSION_READ_ACTIONS,
+  READ_ACTIONS,
   REPOSITORY_REFUSALS,
   SERVICE_STATE_UNSET_TEAM,
   contactIdentifierFor,
+  isTerminalPlan,
+  outcomeFor,
   type AccessTrailQuery,
   type CaringContactRepository,
   type ContactProviderStatusInput,
@@ -139,33 +144,15 @@ export type SqlConnection = { query(text: string, values?: readonly SqlValue[]):
 export type SqlConnectionPool = { withConnection<T>(work: (connection: SqlConnection) => Promise<T>): Promise<T> };
 
 // ---------------------------------------------------------------------------
-// Shared constants (kept identical to the in-memory store on purpose)
+// Shared constants
+//
+// `TERMINAL_PLAN_STATES` and `DISPATCHED_CONTACT_STATES` now come from ../model, and `READ_ACTIONS`,
+// `PATHWAY_VERSION_READ_ACTIONS`, `isTerminalPlan` and `outcomeFor` from ../repository. Each of them
+// used to be declared here AND in the in-memory store, with a comment saying the two copies were
+// "kept identical on purpose" -- which is a promise, not a mechanism. `READ_ACTIONS` is the one that
+// carried real risk: it is the map from read surface to required capability, so two copies meant a
+// change to who may read an episode could land in one store only.
 // ---------------------------------------------------------------------------
-
-const TERMINAL_PLAN_STATES: readonly PlanState[] = ["withdrawn", "cancelled", "completed"];
-
-const DISPATCHED_CONTACT_STATES: readonly ContactState[] = [
-  "sent",
-  "delivered",
-  "notDelivered",
-  "numberInvalid",
-  "contactChanged",
-  "statusUnavailable",
-];
-
-const READ_ACTIONS = Object.freeze({
-  plan: "viewReferral",
-  contacts: "viewReferral",
-  auditTrail: "viewAccessTrail",
-  episode: "generateClinicalRecordSummary",
-  referral: "viewReferral",
-} as const satisfies Record<string, CaringContactAction>);
-
-/** Either governance action reading a pathway version's content is granted by. */
-const PATHWAY_VERSION_READ_ACTIONS: readonly CaringContactAction[] = Object.freeze([
-  "authorPathwayVersion",
-  "approvePathwayVersion",
-]);
 
 /**
  * The two ways a single person could otherwise supply a second restart approval, keyed by the
@@ -318,14 +305,6 @@ function toAuditEvent(row: SqlRow): AuditEvent {
     idempotencyKey: toIdempotencyKey(textOf(row.idempotency_key)),
     timestamp: textOf(row.occurred_at),
   };
-}
-
-function isTerminalPlan(state: PlanState): boolean {
-  return TERMINAL_PLAN_STATES.includes(state);
-}
-
-function outcomeFor(state: PlanState): PlanOutcome {
-  return state === "withdrawn" || state === "cancelled" || state === "completed" ? state : "inProgress";
 }
 
 /**
@@ -1727,8 +1706,17 @@ export function createPostgresRepository(
             // Two approvals racing each other reach the database rather than the check above. Mapped
             // by CONSTRAINT NAME, never by reading the message text, so both stores answer a
             // duplicate role and a duplicate person with the reasons ../service-state uses.
-            const refusal = RESTART_APPROVAL_REFUSALS[recorded.constraint ?? ""];
-            if (refusal) return { ok: false, reason: refusal };
+            //
+            // Looked up by OWN property. This is a frozen object literal indexed by a string read
+            // off a driver error, so `RESTART_APPROVAL_REFUSALS["toString"]` would be a FUNCTION and
+            // `if (refusal)` would treat it as a mapped refusal -- returning a function as the
+            // reason instead of rethrowing an unrecognised constraint. Same shape as the
+            // capability-table lookup in ../permissions; see the note there.
+            const constraint = recorded.constraint ?? "";
+            const refusal = Object.hasOwn(RESTART_APPROVAL_REFUSALS, constraint)
+              ? RESTART_APPROVAL_REFUSALS[constraint]
+              : undefined;
+            if (refusal !== undefined) return { ok: false, reason: refusal };
             throw recorded.error;
           }
 
@@ -2068,6 +2056,32 @@ export function createPostgresRepository(
                set terminal_at = excluded.terminal_at, cleared_at = excluded.cleared_at`,
             [input.planId, team, admitted.value, clock.now()],
           );
+
+          // Ruling 64: PERFORM the clearance, in the SAME transaction that records it. Writing
+          // `cleared_at` and nothing else left the patient's name, mobile number, identifiers and
+          // cultural identity all in place -- `getEpisode` handed every one of them back afterwards
+          // -- while anything reading `cleared_at` concluded they had been removed. Same transaction
+          // rather than a later sweep, so a committed clearance record and un-cleared detail cannot
+          // coexist: if the de-identification fails, the record does not commit either.
+          //
+          // The four fields are exactly ../retention's list. `patient_name` and
+          // `patient_mobile_number` are `not null` in the schema, so the cleared value is the empty
+          // string ../repository fixes for both stores; cultural identity lives in its own
+          // projection and is DELETED, because that table holds nothing but the identity itself.
+          await connection.query(
+            `update caring_contacts.plans
+                set patient_name = $2, patient_mobile_number = $3, patient_identifiers = $4
+              where id = $1`,
+            [
+              input.planId,
+              CLEARED_PATIENT_DETAIL.patientName,
+              CLEARED_PATIENT_DETAIL.patientMobileNumber,
+              [...CLEARED_PATIENT_DETAIL.patientIdentifiers],
+            ],
+          );
+          await connection.query("delete from caring_contacts.cultural_identity_reports where plan_id = $1", [
+            input.planId,
+          ]);
 
           return { ok: true, value: undefined };
         },

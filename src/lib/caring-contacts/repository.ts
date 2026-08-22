@@ -16,8 +16,29 @@
 // Every refusal is a named, machine-readable reason. Nothing here is thrown for an expected
 // condition; a throw means the write could not be completed at all and nothing was recorded.
 //
-// This module is types and named constants only. Both the in-memory store (Task 9) and the
-// Postgres store (Task 11) implement it, and both are exercised by the identical contract suite.
+// WHAT THE REPLAY RECORD MAY HOLD. Both stores persist two things per write: an opaque fingerprint
+// of the request (see ./fingerprint — hashed there so neither store can write the request's text
+// into a row) and the ORIGINAL result, which a replay returns verbatim. The result is therefore
+// bounded by the return types declared below, and those already exclude patient-identifying detail:
+// every write returns a `PlanRecord`, `StoredContact`, `Referral`, `PathwayVersion`,
+// `PlanAssignment`, `DispatchRecord`, `ServiceState`, `NotificationPreferences`, `TrainingRecord`
+// or `void`, and `StoredPlan`'s `patientDetail` is released through `getEpisode` alone. A new write
+// that would put anything else identifying in a result needs a NARROWER RETURN TYPE, not a filter on
+// the way into storage: the stored result is the answer a replay must return, so filtering it makes
+// a genuine retry receive less than the first call did.
+//
+// The one free-text field that does reach it is `ServiceState.note`, and it is a KNOWN RESIDUAL
+// rather than a settled decision. `stopService`'s row is written under the reporting team's own id,
+// which is fine. `approveServiceRestart`'s is not: restart approvals are service-wide, so another
+// team's approver stores the reporting team's note under THEIR team id, and this table's row-level
+// security is team-scoped -- while `narrowServiceStateForActor` on the server surface gates that
+// note behind `viewPatientRecord` for the reporting team. Narrowing `approveServiceRestart`'s
+// return type is the recommended fix; it spans this contract and the API surface, so it was left
+// for a decision rather than guessed at. See the wave A review report.
+//
+// This module is types, named constants, and the few pure helpers both stores would otherwise each
+// declare for themselves. Both the in-memory store (Task 9) and the Postgres store (Task 11)
+// implement it, and both are exercised by the identical contract suite.
 import { teamId } from "./ids";
 import type { AccessedObjectType, AccessRecord } from "./access-audit";
 import type { AssignmentAction, PlanAssignment } from "./assignment";
@@ -35,10 +56,11 @@ import type {
   ReferralId,
   TeamId,
 } from "./ids";
+import { TERMINAL_PLAN_STATES } from "./model";
 import type { Contact, Plan, PlanState, ProviderStatus, Referral, SendingPreference, TransitionResult } from "./model";
 import type { NotificationPreferences } from "./notification-preferences";
 import type { PathwayVersion, PathwayVersionAction } from "./pathway-versions";
-import type { CaringContactActor } from "./permissions";
+import type { CaringContactAction, CaringContactActor } from "./permissions";
 import type { ReferralAction } from "./referrals";
 import type { ServiceRestartApprovalRole, ServiceState, ServiceStopReason } from "./service-state";
 import type { TrainingCompetency, TrainingRecord } from "./training";
@@ -133,6 +155,65 @@ export type RepositoryRefusal = (typeof REPOSITORY_REFUSALS)[keyof typeof REPOSI
 
 /** What the episode ended as. Held separately from `Plan.state` because it outlives the plan. */
 export type PlanOutcome = "inProgress" | "withdrawn" | "cancelled" | "completed";
+
+/**
+ * The capability each read surface requires.
+ *
+ * This is an ACCESS-CONTROL RULE, not a value list, which is why it lives on the contract rather
+ * than in either store. Both stores had written their own identical copy — the Postgres one
+ * commented "kept identical to the in-memory store on purpose" — so a change to who may read an
+ * episode could land in one store and not the other, and the shared contract would only notice if
+ * it happened to exercise that surface with that role.
+ *
+ * Kept as a map rather than inline so every read surface has to name the capability it requires,
+ * and a new read cannot default to visible.
+ */
+export const READ_ACTIONS = Object.freeze({
+  plan: "viewReferral",
+  contacts: "viewReferral",
+  auditTrail: "viewAccessTrail",
+  episode: "generateClinicalRecordSummary",
+  referral: "viewReferral",
+} as const satisfies Record<string, CaringContactAction>);
+
+/** Either governance action reading a pathway version's content is granted by. Same rule, same reason. */
+export const PATHWAY_VERSION_READ_ACTIONS: readonly CaringContactAction[] = Object.freeze([
+  "authorPathwayVersion",
+  "approvePathwayVersion",
+]);
+
+/**
+ * Whether a plan has ended, and what it ended as.
+ *
+ * Both were written twice, once per store, over a `TERMINAL_PLAN_STATES` that was itself written
+ * three times. They are here rather than in ./model because `PlanOutcome` is a storage projection
+ * that outlives the plan, and `outcomeFor` is the one mapping from the lifecycle state to it.
+ */
+export function isTerminalPlan(state: PlanState): boolean {
+  return TERMINAL_PLAN_STATES.includes(state);
+}
+
+export function outcomeFor(state: PlanState): PlanOutcome {
+  return state === "withdrawn" || state === "cancelled" || state === "completed" ? state : "inProgress";
+}
+
+/**
+ * What every store writes in place of the patient-identifying detail once a retention clearance is
+ * recorded (`markRetentionCleared`).
+ *
+ * It lives on the contract rather than in either store because the clearance is the one write whose
+ * WHOLE meaning is what is no longer held: two stores clearing to two different shapes would be two
+ * different answers to "was this episode de-identified", and the contract could only catch the
+ * difference where it happened to look. The four fields are exactly ../retention's list — name,
+ * mobile number, identifiers, cultural identity — and `Episode` types the first two as `string`
+ * rather than `string | null`, so an emptied field is the cleared value.
+ */
+export const CLEARED_PATIENT_DETAIL: EpisodePatientDetail = Object.freeze({
+  patientName: "",
+  patientMobileNumber: "",
+  patientIdentifiers: Object.freeze([]),
+  culturalIdentity: null,
+});
 
 /**
  * A stored contact keeps its planned entry verbatim, including the real `sendAt` of an absorbed

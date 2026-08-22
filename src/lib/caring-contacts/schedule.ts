@@ -95,6 +95,24 @@ function formatCalendarDay(parts: CalendarParts): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * True only for a real AWST calendar day in `YYYY-MM-DD` form — the shape `PlannedContact.calendarDay`
+ * carries and every calendar comparison in this domain assumes.
+ *
+ * Exported because it was needed twice and existed once. `./assignment` compares coverage windows as
+ * calendar days, but validated them only with `until > from` — a LEXICAL string compare that
+ * `"cherry" > "banana"` satisfies — so a window of nonsense was accepted, stored, and then silently
+ * named the wrong responder. The Postgres schema carried a `~ '^\d{4}-\d{2}-\d{2}$'` check, which
+ * made the database the only thing enforcing a rule the domain owns, and made the two stores answer
+ * the same malformed request differently. The rule belongs here, beside the format it defines.
+ *
+ * Stricter than that regular expression on purpose: it rejects `2026-02-30` and `2026-13-01` as
+ * well, so the SQL check is defence in depth rather than the enforcement.
+ */
+export function isAwstCalendarDay(value: string): boolean {
+  return typeof value === "string" && parseCalendarDay(value) !== null;
+}
+
 function parseCalendarDay(calendarDay: string): CalendarParts | null {
   if (!CALENDAR_DAY_PATTERN.test(calendarDay)) return null;
   const [year, month, day] = calendarDay.split("-").map(Number);

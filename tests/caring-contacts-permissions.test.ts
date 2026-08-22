@@ -21,14 +21,16 @@ import {
 
 const TEAM_A = teamId("TEAM-A");
 const TEAM_B = teamId("TEAM-B");
-const ROLES: readonly CaringContactRole[] = [
-  "coordinator",
-  "teamLead",
-  "auditor",
-  "clinicalProgrammeLead",
-  "livedExperienceRepresentative",
-];
-const SYSTEM_ROLES: readonly CaringContactSystemRole[] = ["contactDispatcher"];
+// DERIVED from the grant tables, never hand-written. `ROLE_ACTIONS` is a
+// `Record<CaringContactRole, ...>`, so a sixth role is FORCED into the production table by the
+// compiler -- but a hand-written array here typed `readonly CaringContactRole[]` (not a tuple) is
+// never required to be exhaustive, so the new role would be silently absent from every "for every
+// role" claim in this file, including the one that keeps `triggerServiceSafetyStop` unblockable and
+// the one holding the human and system grant tables disjoint. `permissions.ts` already derives
+// `ALL_ACTIONS` from a `Record<Union, true>` registry for exactly this reason; the same pattern was
+// simply never applied to roles.
+const ROLES: readonly CaringContactRole[] = Object.keys(ROLE_ACTIONS) as CaringContactRole[];
+const SYSTEM_ROLES: readonly CaringContactSystemRole[] = Object.keys(SYSTEM_ROLE_ACTIONS) as CaringContactSystemRole[];
 
 const resourceIn = (team = TEAM_A): Resource => ({ teamId: team });
 
@@ -440,6 +442,82 @@ describe("every CaringContactAction is explicitly classified", () => {
       resourceIn(),
     );
     expect(decision).toEqual({ allowed: false, reason: "action-not-granted" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The grant tables are looked up by own property, never by prototype inheritance
+//
+// `ROLE_ACTIONS` and `SYSTEM_ROLE_ACTIONS` are frozen OBJECT LITERALS, so every key an ordinary
+// object inherits resolves to something: `ROLE_ACTIONS["constructor"]` is a function, and calling
+// `.includes` on a function is a TypeError. An unknown-shaped role therefore used to CRASH the
+// capability check rather than refuse it -- and the `?? []` guard beside it never fired, because a
+// function is not nullish.
+//
+// This exact shape has been found and fixed twice already on this branch, in
+// caring-contacts-overlay-definitions and in the overlay host's block-reason wording, and neither
+// fix travelled. The check has to be repeated per lookup, so it is asserted per lookup.
+// ---------------------------------------------------------------------------
+describe("an unknown-shaped role is refused rather than throwing", () => {
+  const INHERITED_KEYS = [
+    "constructor",
+    "toString",
+    "valueOf",
+    "hasOwnProperty",
+    "__proto__",
+    "isPrototypeOf",
+    "propertyIsEnumerable",
+    "toLocaleString",
+  ] as const;
+
+  it.each(INHERITED_KEYS)("refuses a human role named %s with action-not-granted", (key) => {
+    const actor = actorWith([key as CaringContactRole]);
+    expect(canPerformCaringContactAction(actor, "viewReferral", resourceIn())).toEqual({
+      allowed: false,
+      reason: "action-not-granted",
+    });
+  });
+
+  it.each(INHERITED_KEYS)("refuses a system role named %s with action-not-granted", (key) => {
+    const actor: SystemActor = {
+      id: actorId("SYSTEM-UNKNOWN"),
+      teamId: TEAM_A,
+      systemRole: key as CaringContactSystemRole,
+    };
+    expect(canPerformCaringContactAction(actor, "startContactDispatch", resourceIn())).toEqual({
+      allowed: false,
+      reason: "action-not-granted",
+    });
+  });
+
+  it("refuses a plain unknown role, and still allows a real role alongside it", () => {
+    const actor = actorWith(["notARole" as CaringContactRole]);
+    expect(canPerformCaringContactAction(actor, "viewReferral", resourceIn())).toEqual({
+      allowed: false,
+      reason: "action-not-granted",
+    });
+
+    const mixed = actorWith(["constructor" as CaringContactRole, "coordinator"]);
+    expect(canPerformCaringContactAction(mixed, "viewReferral", resourceIn())).toEqual({ allowed: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The role lists this file iterates are DERIVED, not hand-written
+//
+// `ROLES` and `SYSTEM_ROLES` were literal arrays typed `readonly CaringContactRole[]` rather than
+// tuples, so TypeScript never required them to be exhaustive. `ROLE_ACTIONS` is a
+// `Record<CaringContactRole, ...>`, so a sixth role is FORCED into the production grant table and
+// silently absent from a hand-written list here -- and every "for every role" claim in this file,
+// including the one that keeps a safety stop unblockable, would have gone on passing green while
+// saying nothing about the new role.
+// ---------------------------------------------------------------------------
+describe("the role lists cannot fall behind the grant tables", () => {
+  it("derives every role from the grant table itself", () => {
+    expect([...ROLES].sort()).toEqual(Object.keys(ROLE_ACTIONS).sort());
+    expect([...SYSTEM_ROLES].sort()).toEqual(Object.keys(SYSTEM_ROLE_ACTIONS).sort());
+    expect(ROLES.length).toBeGreaterThan(0);
+    expect(SYSTEM_ROLES.length).toBeGreaterThan(0);
   });
 });
 

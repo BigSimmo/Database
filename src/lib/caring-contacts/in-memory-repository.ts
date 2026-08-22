@@ -25,8 +25,8 @@ import { fingerprintOf } from "./fingerprint";
 import { applyHospitalStatusEvent, applyWithdrawalRequest, sendableContacts } from "./hospital-events";
 import { contactId } from "./ids";
 import type { ActorId, ContactId, PathwayVersionId, PlanId, TeamId } from "./ids";
-import { applyContactTransition, applyPlanTransition } from "./model";
-import type { Contact, ContactAction, ContactState, Plan, PlanState, Referral, TransitionResult } from "./model";
+import { DISPATCHED_CONTACT_STATES, applyContactTransition, applyPlanTransition } from "./model";
+import type { Contact, ContactAction, ContactState, Plan, Referral, TransitionResult } from "./model";
 import { defaultNotificationPreferences, type NotificationPreferences } from "./notification-preferences";
 import { applyPathwayVersionTransition, type PathwayVersion } from "./pathway-versions";
 import {
@@ -48,9 +48,14 @@ import {
 } from "./service-state";
 import { emptyTrainingRecord, recordCompetency, type TrainingCompetency, type TrainingRecord } from "./training";
 import {
+  CLEARED_PATIENT_DETAIL,
+  PATHWAY_VERSION_READ_ACTIONS,
+  READ_ACTIONS,
   REPOSITORY_REFUSALS,
   SERVICE_STATE_UNSET_TEAM,
   contactIdentifierFor,
+  isTerminalPlan,
+  outcomeFor,
   type AccessTrailQuery,
   type CaringContactRepository,
   type ContactProviderStatusInput,
@@ -62,7 +67,6 @@ import {
   type HospitalStatusOutcome,
   type PathwayVersionTransitionInput,
   type PlanLifecycleInput,
-  type PlanOutcome,
   type PlanRecord,
   type ReadContext,
   type ReferralTransitionInput,
@@ -76,36 +80,6 @@ import {
 } from "./repository";
 import type { Episode } from "./episode";
 import { buildApprovedSchedule, type PlannedContact } from "./schedule";
-
-const TERMINAL_PLAN_STATES: readonly PlanState[] = ["withdrawn", "cancelled", "completed"];
-
-/** Contact states that mean the message already left. Used only for reporting counts. */
-const DISPATCHED_CONTACT_STATES: readonly ContactState[] = [
-  "sent",
-  "delivered",
-  "notDelivered",
-  "numberInvalid",
-  "contactChanged",
-  "statusUnavailable",
-];
-
-/**
- * Reads an actor may make. Kept as a map rather than inline so every read surface has to name the
- * capability it requires, and a new read cannot default to visible.
- */
-const READ_ACTIONS = Object.freeze({
-  plan: "viewReferral",
-  contacts: "viewReferral",
-  auditTrail: "viewAccessTrail",
-  episode: "generateClinicalRecordSummary",
-  referral: "viewReferral",
-} as const satisfies Record<string, CaringContactAction>);
-
-/** Either governance action reading a pathway version's content is granted by. */
-const PATHWAY_VERSION_READ_ACTIONS: readonly CaringContactAction[] = Object.freeze([
-  "authorPathwayVersion",
-  "approvePathwayVersion",
-]);
 
 type StagedWrite<T> = {
   value: T;
@@ -167,10 +141,6 @@ function toPlanRecord(stored: StoredPlan): PlanRecord {
   };
 }
 
-function isTerminalPlan(state: PlanState): boolean {
-  return TERMINAL_PLAN_STATES.includes(state);
-}
-
 /**
  * A read must never hand out the stored assignment itself. `ownerId`, `claimedAt` and `coveredBy`
  * are all mutable, so a caller holding the live object could rewrite who owns a plan in place --
@@ -186,6 +156,31 @@ function cloneAssignment(assignment: PlanAssignment): PlanAssignment {
   };
 }
 
+/**
+ * A read must never hand out the stored pathway version, and above all never the stored SNAPSHOT.
+ *
+ * The snapshot is the governed clinical message text a patient actually receives. A caller holding
+ * the live object could rewrite the approved wording in place -- with no version bump, no second
+ * approval, and no audit event -- which is the entire failure that pathway governance exists to
+ * prevent. `{ ...stored }` is a SHALLOW copy and so hands out exactly that object; the Postgres
+ * store round-trips its snapshot through `jsonb` and therefore copies for free, which is precisely
+ * how the two stores came to differ on the one type carrying clinical content.
+ *
+ * Frozen as well as copied. Copying stops a caller's write from reaching storage; freezing stops it
+ * silently succeeding on the copy and leaving the caller believing it changed the approved wording.
+ * Same rule as `cloneStoredContact`, `toPlanRecord`, `cloneAssignment` and `getServiceState`.
+ */
+function clonePathwayVersion(version: PathwayVersion): PathwayVersion {
+  return Object.freeze({
+    ...version,
+    approvals: Object.freeze(version.approvals.map((approval) => Object.freeze({ ...approval }))),
+    snapshot: Object.freeze({
+      cadenceLabels: Object.freeze([...version.snapshot.cadenceLabels]),
+      messageTextByType: Object.freeze({ ...version.snapshot.messageTextByType }),
+    }),
+  });
+}
+
 /** Storage key for one contact's one dispatch attempt. */
 function dispatchKey(id: ContactId, attempt: number): string {
   return `${id}::${attempt}`;
@@ -194,10 +189,6 @@ function dispatchKey(id: ContactId, attempt: number): string {
 /** Storage key for a per-actor, per-team record (notification preferences, training). */
 function actorScopeKey(teamId: TeamId, actorId: ActorId): string {
   return `${teamId}::${actorId}`;
-}
-
-function outcomeFor(state: PlanState): PlanOutcome {
-  return state === "withdrawn" || state === "cancelled" || state === "completed" ? state : "inProgress";
 }
 
 /**
@@ -236,7 +227,15 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
   const dispatchAttempts = new Map<string, number>();
   const notificationPreferences = new Map<string, NotificationPreferences>();
   const trainingRecords = new Map<string, TrainingRecord>();
-  const retentionCleared = new Set<string>();
+  /**
+   * The in-memory twin of `caring_contacts.retention_state`: when the episode ended, and when its
+   * identifying detail was cleared. It was a `Set<string>` that nothing ever read, which is how the
+   * clearance came to be recorded without being performed — with no readable record, the shared
+   * contract could not compare the two stores on it at all. It holds the same two instants the
+   * Postgres row does now; neither store exposes it through `CaringContactRepository`, so the
+   * comparable evidence a clearance happened is the de-identified episode itself.
+   */
+  const retentionCleared = new Map<string, { terminalAt: Date; clearedAt: Date }>();
 
   /**
    * The one service-wide safety-stop record (Ruling 3: never one per team). `reportedByTeamId` on
@@ -872,11 +871,17 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
             publishedAt: null,
             retiredAt: null,
             retirementUrgency: null,
-            snapshot: input.version.snapshot,
+            // Deep-copied on the way IN as well as on the way out. Storing the caller's own object
+            // would leave the governed message text rewritable through the reference the caller
+            // already holds, with no version bump and no audit event.
+            snapshot: clonePathwayVersion(input.version).snapshot,
           };
           return {
             ok: true,
-            value: { value: { ...version }, commit: () => pathwayVersions.set(version.id, version) },
+            value: {
+              value: clonePathwayVersion(version),
+              commit: () => pathwayVersions.set(version.id, version),
+            },
           };
         },
       });
@@ -911,7 +916,7 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
           return {
             ok: true,
             value: {
-              value: { ...transitioned.value },
+              value: clonePathwayVersion(transitioned.value),
               commit: () => pathwayVersions.set(input.pathwayVersionId, transitioned.value),
             },
           };
@@ -923,13 +928,13 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
       const stored = pathwayVersions.get(id);
       if (!stored) return null;
       if (!mayReadAny(context.actor, PATHWAY_VERSION_READ_ACTIONS, stored.teamId)) return null;
-      return { ...stored };
+      return clonePathwayVersion(stored);
     },
 
     async listPathwayVersions(context: ReadContext) {
       return [...pathwayVersions.values()]
         .filter((version) => mayReadAny(context.actor, PATHWAY_VERSION_READ_ACTIONS, version.teamId))
-        .map((version) => ({ ...version }));
+        .map(clonePathwayVersion);
     },
 
     // ---------------------------------------------------------------------
@@ -1238,7 +1243,24 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
             planDates: { completedAt: stored.completedAt },
           });
           if (!admitted.ok) return admitted;
-          return { ok: true, value: { value: undefined, commit: () => retentionCleared.add(input.planId) } };
+          // Ruling 64: PERFORM the clearance, do not merely record one. This write used to add the
+          // plan id to a set and touch nothing else, so the patient's name, mobile number,
+          // identifiers and cultural identity all survived it and `getEpisode` handed every one of
+          // them back afterwards -- while anything reading the clearance record concluded they had
+          // been removed. A record named "cleared" must mean cleared, and it happens in the same
+          // staged commit as the record so the two can never come apart.
+          const clearedAt = clock.now();
+          const cleared: StoredPlan = { ...stored, patientDetail: { ...CLEARED_PATIENT_DETAIL } };
+          return {
+            ok: true,
+            value: {
+              value: undefined,
+              commit: () => {
+                plans.set(input.planId, cleared);
+                retentionCleared.set(input.planId, { terminalAt: admitted.value, clearedAt });
+              },
+            },
+          };
         },
       });
     },

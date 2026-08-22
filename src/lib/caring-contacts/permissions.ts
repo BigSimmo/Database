@@ -226,6 +226,27 @@ export const SYSTEM_ROLE_ACTIONS: Readonly<Record<CaringContactSystemRole, reado
   });
 
 /**
+ * The grant a role holds, looked up by OWN property only.
+ *
+ * `ROLE_ACTIONS` and `SYSTEM_ROLE_ACTIONS` are frozen object literals, so every key an ordinary
+ * object inherits resolves to something: `ROLE_ACTIONS["constructor"]` is a function, and calling
+ * `.includes` on a function is a TypeError -- an unknown-shaped role CRASHED the capability check
+ * rather than being refused by it. A `?? []` guard beside such a lookup is not a guard, because a
+ * function is not nullish.
+ *
+ * This exact shape has been found and fixed twice already on this branch, in
+ * `tests/caring-contacts-overlay-definitions.test.ts` and in `overlay-host.tsx`, and neither fix
+ * travelled. It is a helper rather than a repeated `Object.hasOwn` so the third site is also the
+ * last one: both lookups below go through here.
+ */
+function grantedActionsFor(
+  table: Readonly<Record<string, readonly CaringContactAction[]>>,
+  role: string,
+): readonly CaringContactAction[] {
+  return Object.hasOwn(table, role) ? table[role] : [];
+}
+
+/**
  * True for a system actor. An object carrying `systemRole` is treated as system-only even if it
  * also carries a `roles` array, so smuggling human roles onto a dispatcher grants nothing.
  */
@@ -257,13 +278,13 @@ export function canPerformCaringContactAction(
     return { allowed: false, reason: "cross-team-denied" };
   }
   if (isSystemActor(actor)) {
-    const granted = (SYSTEM_ROLE_ACTIONS[actor.systemRole] ?? []).includes(action);
+    const granted = grantedActionsFor(SYSTEM_ROLE_ACTIONS, actor.systemRole).includes(action);
     return granted ? { allowed: true } : { allowed: false, reason: "action-not-granted" };
   }
   if (actor.roles.length === 0) {
     return { allowed: false, reason: "no-roles" };
   }
-  const granted = actor.roles.some((role) => ROLE_ACTIONS[role].includes(action));
+  const granted = actor.roles.some((role) => grantedActionsFor(ROLE_ACTIONS, role).includes(action));
   return granted ? { allowed: true } : { allowed: false, reason: "action-not-granted" };
 }
 

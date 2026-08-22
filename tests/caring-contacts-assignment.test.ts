@@ -63,6 +63,48 @@ describe("plan ownership", () => {
     ).toEqual({ ok: false, reason: "coverage-window-invalid" });
   });
 
+  // The window is an AWST calendar day, which is what `effectiveResponder` compares on. `until >
+  // from` alone is a LEXICAL string compare, and "cherry" > "banana" satisfies it -- so a window of
+  // pure nonsense used to be accepted, stored, and then silently name the wrong responder.
+  it.each([
+    ["pure nonsense", "banana", "cherry"],
+    ["a full ISO instant rather than a calendar day", "2026-08-20T00:00:00.000Z", "2026-08-27T00:00:00.000Z"],
+    ["a day that does not exist", "2026-02-30", "2026-03-05"],
+    ["a month that does not exist", "2026-13-01", "2026-13-08"],
+    ["an empty string", "", "2026-08-27"],
+    ["a two-digit year", "26-08-20", "26-08-27"],
+  ])("refuses a coverage window that is not an AWST calendar day (%s)", (_label, from, until) => {
+    expect(
+      applyAssignmentAction(claimed(), { type: "startCoverage", actorId: actorId("C"), from, until }, clock),
+    ).toEqual({ ok: false, reason: "coverage-window-not-calendar-day" });
+  });
+
+  it("checks the calendar-day shape before the ordering, so nonsense is never merely 'inverted'", () => {
+    expect(
+      applyAssignmentAction(
+        claimed(),
+        { type: "startCoverage", actorId: actorId("C"), from: "cherry", until: "banana" },
+        clock,
+      ),
+    ).toEqual({ ok: false, reason: "coverage-window-not-calendar-day" });
+  });
+
+  it("still accepts a well-formed window, so the new refusal is not refusing everything", () => {
+    expect(
+      applyAssignmentAction(
+        claimed(),
+        { type: "startCoverage", actorId: actorId("C"), from: "2026-02-28", until: "2026-02-29" },
+        clock,
+      ).ok,
+    ).toBe(false); // 2026 is not a leap year, so the 29th does not exist.
+    const valid = applyAssignmentAction(
+      claimed(),
+      { type: "startCoverage", actorId: actorId("C"), from: "2024-02-28", until: "2024-02-29" },
+      clock,
+    );
+    expect(valid.ok).toBe(true);
+  });
+
   it("measures queue age against the 60-minute escalation", () => {
     expect(UNCLAIMED_ESCALATION_MINUTES).toBe(60);
     expect(queueAgeMinutes("2026-08-19T00:00:00.000Z", "2026-08-19T01:30:00.000Z")).toBe(90);
