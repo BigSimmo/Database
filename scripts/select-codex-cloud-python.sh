@@ -4,11 +4,17 @@ set -Eeuo pipefail
 
 select_codex_cloud_python() {
   local expected_version="$1"
-  local command_name command_path actual_version
+  local command_name command_path actual_version host_path
   local candidates=("python${expected_version}" python3 python)
+  host_path=":${PATH}:"
+  while [[ "$host_path" == *":$HOME/.cache/clinical-kb-codex/ocr-venv-${expected_version}/bin:"* ]]; do
+    host_path="${host_path//:$HOME/.cache/clinical-kb-codex/ocr-venv-${expected_version}/bin:/:}"
+  done
+  host_path="${host_path#:}"
+  host_path="${host_path%:}"
 
   for command_name in "${candidates[@]}"; do
-    command_path="$(command -v "$command_name" 2>/dev/null || true)"
+    command_path="$(PATH="$host_path" command -v "$command_name" 2>/dev/null || true)"
     [[ -n "$command_path" ]] || continue
     actual_version="$("$command_path" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || true)"
     if [[ "$actual_version" = "$expected_version" ]]; then

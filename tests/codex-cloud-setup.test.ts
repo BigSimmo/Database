@@ -759,14 +759,22 @@ describe("Codex Cloud environment contract", () => {
   });
 
   it("prefers the exact Python 3.12 interpreter over an older python3 alias", () => {
+    const home = temporaryDirectory("codex-cloud-python-home-");
     const bin = temporaryDirectory("codex-cloud-python-");
     writeFakePython(bin, "python3", "3.11");
     const exactPython = writeFakePython(bin, "python3.12", "3.12");
+    const staleVenvBin = path.join(home, ".cache", "clinical-kb-codex", "ocr-venv-3.12", "bin");
+    mkdirSync(staleVenvBin, { recursive: true });
+    writeFakePython(staleVenvBin, "python3.12", "3.12");
 
     const result = spawnSync(bashCommand, ["scripts/select-codex-cloud-python.sh", "3.12"], {
       cwd: repoRoot,
       encoding: "utf8",
-      env: { ...process.env, PATH: `${bashPathEntry(bin)}:/usr/bin:/bin` },
+      env: {
+        ...process.env,
+        HOME: bashPathEntry(home),
+        PATH: `${bashPathEntry(staleVenvBin)}:${bashPathEntry(bin)}:/usr/bin:/bin`,
+      },
     });
 
     expect(result.status, result.stderr || result.stdout).toBe(0);
