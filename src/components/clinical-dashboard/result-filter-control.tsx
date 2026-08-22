@@ -205,6 +205,7 @@ export function ResultFilterTrigger({
   onToggle,
   title,
   label = "Filter",
+  labelVisibility = "responsive",
 }: {
   panelId: string;
   /** Distinct per slot when a page renders the trigger more than once: both
@@ -217,12 +218,11 @@ export function ResultFilterTrigger({
   /** Pointer tooltip, e.g. "Filter services". The accessible name comes from the
       visible label plus the state note below, so this is decoration. */
   title: string;
-  /** A node rather than a string so a page can decide where its own wordmark is
-      affordable — Dictionary hands over `<span className="max-sm:sr-only">Filter</span>`,
-      because on its phone control row the word is ~40px of a 284px budget. The
-      accessible name is unchanged either way: `sr-only` keeps the label in the
-      accessibility tree, it only stops it taking width. */
+  /** A node rather than a string so a page can supply contextual wording. */
   label?: ReactNode;
+  /** Preserve the default compact-band behaviour unless a page has deliberately
+      budgeted room for the visible wordmark at every supported width. */
+  labelVisibility?: "responsive" | "always";
 }) {
   return (
     <button
@@ -256,7 +256,11 @@ export function ResultFilterTrigger({
           several times over. 414–429px is the one band that is genuinely
           single-line and short of width; there a funnel carrying a badge is
           unambiguous. The accessible name is unchanged at every width. */}
-      <span className="min-[414px]:max-[429px]:sr-only">{label}</span>
+      <span
+        className={cn(labelVisibility === "responsive" && "min-filter-label-collapse:max-filter-label-restore:sr-only")}
+      >
+        {label}
+      </span>
       {activeCount > 0 ? (
         // A tinted pill, not a solid disc: a saturated filled circle is the single
         // loudest signal on a bar that is otherwise hairlines and type, and it
