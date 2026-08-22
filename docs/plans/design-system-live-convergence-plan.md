@@ -267,7 +267,7 @@ Use `npm run verify:ui` only when shared UI foundations changed or the PR-local 
 - deterministic demo-mode browser checks;
 - design-system, adoption, design-sync, lint, type, unit, and local production-build checks;
 - screenshot candidate generation;
-- feature-branch commits and native Cloud PR publication when the connector is available.
+- feature-branch commits only; branch or pull-request publication requires separate explicit user authorization.
 
 ### Local operator or human required
 
