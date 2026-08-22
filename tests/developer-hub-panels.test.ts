@@ -4,6 +4,7 @@ import { HUB_PANELS, panelsInGroup } from "@/lib/developer-area/hub-panels";
 // not bound by eslint.config.mjs's mockup-import boundary and may import this
 // constant freely — see the anti-drift assertion below.
 import { CARING_CONTACT_MOCKUP_ROUTES } from "@/components/caring-contacts/mockups/routes";
+import { CARE_PLAN_ROUTES } from "@/components/care-plan/mockups/routes";
 
 describe("hub panels", () => {
   it("gives every built panel a destination and every planned panel none", () => {
@@ -32,11 +33,16 @@ describe("hub panels", () => {
   });
 
   it("keeps the existing prototypes reachable as real destinations", () => {
-    for (const id of ["caring-contact", "ward-flow"]) {
+    for (const id of ["care-plan", "caring-contact", "ward-flow"]) {
       const panel = HUB_PANELS.find((entry) => entry.id === id);
       expect(panel?.phase, `${id} should be built`).toBe(1);
       expect(panel?.href, `${id} needs a destination`).toBeTruthy();
     }
+  });
+
+  it("keeps the Care Plan href in sync with its route source", () => {
+    const panel = HUB_PANELS.find((entry) => entry.id === "care-plan");
+    expect(panel?.href).toBe(CARE_PLAN_ROUTES.home);
   });
 
   it("never points a card at its own section", () => {

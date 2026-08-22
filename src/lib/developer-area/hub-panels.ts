@@ -93,8 +93,8 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 2,
   },
   { id: "routes", name: "Routes and modes", summary: "Every page and all 15 modes", group: "reference", phase: 2 },
-  // Two real prototype cards, not one generic self-linking "Prototypes" card.
-  // This is also what preserves the Caring Contact and Ward Flow entries the
+  // Three real prototype cards, not one generic self-linking "Prototypes" card.
+  // This is also what preserves the Care Plan, Caring Contact, and Ward Flow entries the
   // spec requires to survive the hub rewrite.
   //
   // This module is production space (`src/lib/**`), not `src/app/mockups/**`,
@@ -107,6 +107,15 @@ export const HUB_PANELS: readonly HubPanel[] = [
   // `tests/developer-hub-panels.test.ts`, which asserts this literal equals
   // `CARING_CONTACT_MOCKUP_ROUTES.today` — if that route is ever renamed, the
   // test goes red rather than this link silently rotting.
+  {
+    id: "care-plan",
+    name: "Care Plan",
+    summary:
+      "Stage B prototype: Management Plan authoring, ED Presentation continuity, and Personal Safety Plan; later routes remain specimens",
+    group: "reference",
+    phase: 1,
+    href: "/mockups/care-plan",
+  },
   {
     id: "caring-contact",
     name: "Caring contact",

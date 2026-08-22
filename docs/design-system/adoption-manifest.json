@@ -782,7 +782,11 @@
         "preview": ".design-sync/previews/ErrorSummary.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-form-field.dom.test.tsx"],
+      "testFiles": [
+        "tests/care-plan-linked-routes.dom.test.tsx",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/ui-v2-form-field.dom.test.tsx"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -1634,6 +1638,7 @@
         "tests/mobile-sheet-safe-area-contract.test.ts",
         "tests/mode-nav-contract.test.ts",
         "tests/mode-nav.dom.test.tsx",
+        "tests/print-output-capabilities.dom.test.tsx",
         "tests/rag-answer-fallback.test.ts",
         "tests/settings-dialog-actions.dom.test.tsx",
         "tests/sheet-focus-stress.dom.test.tsx",
