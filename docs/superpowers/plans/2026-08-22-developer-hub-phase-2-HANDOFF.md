@@ -44,11 +44,13 @@ scoped re-review. **28 tests pass** in `tests/repo-awareness-generator.test.ts`;
 
 The plan carries the full code. In order:
 
-6. Assemble the snapshot, resolve the captured revision, write `data/repo-awareness-snapshot.json`, wire `snapshot:repo-awareness` into `docs:update` (**not** `prebuild` — ruling R5).
-7. The staleness gate, registered in three places: `verify:cheap:internal`, `scripts/verify-pr-local.mjs`, and `.github/workflows/ci.yml`.
-8. The typed reader with its version guard.
-9. – 12. The four pages: routes, documentation, test health, review state.
-10. Flip the four registry entries to `phase: 1`, rename `work-in-flight` to "Review state" (keeping its id), update `docs/codebase-index.md`, run `npm run docs:update`.
+| Task    | What                                                                                                                                                                                |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 6       | Assemble the snapshot, resolve the captured revision, write `data/repo-awareness-snapshot.json`, wire `snapshot:repo-awareness` into `docs:update` (**not** `prebuild` — ruling R5) |
+| 7       | The staleness gate, registered in three places: `verify:cheap:internal`, `scripts/verify-pr-local.mjs`, and `.github/workflows/ci.yml`                                              |
+| 8       | The typed reader with its version guard                                                                                                                                             |
+| 9 to 12 | The four pages: routes, documentation, test health, review state. Each adds a route, so each must regenerate and commit the snapshot (ruling S1)                                    |
+| 13      | Flip the four registry entries to `phase: 1`, rename `work-in-flight` to "Review state" keeping its id, update `docs/codebase-index.md`, run `npm run docs:update`                  |
 
 Then the controller-only acceptance in the plan's final section — `npm run build`, a live render of
 all five developer routes, `verify:pr-local`, `verify:phone-chrome`, and a determinism check.
