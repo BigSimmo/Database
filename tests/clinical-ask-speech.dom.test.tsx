@@ -94,7 +94,7 @@ describe("useClinicalAskSpeech", () => {
     expect(hook.result.current.state).toBe("requesting_permission");
     act(() => hook.result.current.cancel());
     await act(async () => {
-      resolvePermission({ getTracks: () => [lateTrack] } as MediaStream);
+      resolvePermission({ getTracks: () => [lateTrack] } as unknown as MediaStream);
       await startPromise;
     });
     expect(lateTrack.stop).toHaveBeenCalledOnce();
