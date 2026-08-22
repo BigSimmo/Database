@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "d1763a59-f5ba-436f-808a-189bde920e7c",
+  "createdOn": "2026-08-22",
+  "action": "cancel",
+  "payload": {
+    "requestId": "fe5acdef-dd9d-4aad-be88-edf6d531985a",
+    "reason": "Stale optimistic-concurrency fingerprint and over-broad root-cause conclusion. Superseded by 1f2a0d03-e7be-4e77-9e41-d3e5e854ab9f, reread from current main and narrowed to the evidence-supported paths."
+  }
+}
