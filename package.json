@@ -104,6 +104,7 @@
     "issues:add": "node scripts/ledger-inbox.mjs add",
     "issues:done": "node scripts/ledger-inbox.mjs done",
     "issues:update": "node scripts/ledger-inbox.mjs update",
+    "issues:queue": "node scripts/ledger-inbox.mjs queue",
     "issues:reconcile": "node scripts/ledger-inbox.mjs reconcile",
     "issues:report": "node scripts/issues-report.mjs",
     "ledger:lookup": "node scripts/branch-review-ledger.mjs lookup",

@@ -289,6 +289,33 @@ export function issueRowFingerprint(markdown, issueId) {
   return createHash("sha256").update(normalized).digest("hex");
 }
 
+/**
+ * Fingerprint the recommended-execution-queue row that cites `issueId`.
+ *
+ * The queue is a second table about the same issues, and until ledger #M6JNR8
+ * no writer could edit it — only `pruneResolvedIdFromQueue` on close. A queue
+ * row could therefore contradict its own Open-items row indefinitely, which is
+ * how `#231` kept presenting as an A1 live investigation after the row itself
+ * recorded the P1 -> P2 re-grade that closed that cause.
+ *
+ * Fingerprinting is what lets a queue edit be optimistic in the same way an
+ * Open-items edit is: the request records what it read, and reconciliation
+ * refuses it if the row moved underneath. Returns null when no queue row cites
+ * the id, and null when more than one does — an ambiguous target must fail
+ * rather than have a writer guess which row was meant.
+ */
+export function queueRowFingerprint(markdown, issueId) {
+  const id = normalizeIssueDisplayId(issueId);
+  const lines = markdown.split("\n");
+  const citations = (parseIssues(markdown).queueCitations ?? []).filter((citation) => citation.id === id);
+  const uniqueLines = [...new Set(citations.map((citation) => citation.line))];
+  if (uniqueLines.length !== 1) return null;
+  const raw = lines[uniqueLines[0] - 1];
+  if (typeof raw !== "string") return null;
+  const normalized = `| ${cells(raw).join(" | ")} |`;
+  return createHash("sha256").update(normalized).digest("hex");
+}
+
 export function isValidIssueRowFingerprint(value) {
   return ISSUE_ROW_FINGERPRINT.test(String(value ?? ""));
 }

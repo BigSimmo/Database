@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e0508db3-fdbc-4d76-9d6a-5e592b77d198",
+  "createdOn": "2026-08-22",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Two zero-cost levers to restore automated review coverage remain unbuilt",
+    "detail": "SPLIT OUT 2026-08-22 from #CCZ4HB, which the owner closed by accepting intermittent CodeRabbit review. The closure decided the BILLING question only; it did not decide these two, which cost nothing and remove no safety, and docs/decisions/ccz4hb-review-coverage.md measures why they matter more than the cap does. That analysis found the binding constraint is volume, not price: CodeRabbit's included reviews refill at 1/hour (24/day) while this repo merged 25.4 PRs/day on average over the preceding month, with single days as high as 67. It also measured that 285 of the last 1190 merged PRs (24%) changed only documentation and 190 (16%) changed only the repo's own record-keeping files (review ledger, outstanding-issues) -- roughly six review credits a day spent on files a code-review bot has nothing useful to say about. LEVER 1: configure CodeRabbit to skip documentation-only PRs; recovers about a quarter of the budget immediately and touches no required check. LEVER 2: stop opening PRs whose only content is a bookkeeping record -- AGENTS.md 'PR bundling' already says to fold those in and is plainly not being followed, and this repo has learned before (.claude/hooks/pr-handoff-stop.sh header) that a prose rule does not hold where a blocked command does. DO NOT build the third idea that analysis rejected: a gate refusing a new branch when an open PR covers the same ground, because 87% of PRs touch a file another PR touched within a day, so it would block roughly seven in ten legitimate branches. Next: implement lever 1 (owner has to make the CodeRabbit config change or approve a committed .coderabbit.yaml), then lever 2 as a push/PR-creation guard rather than prose.",
+    "source": "docs/decisions/ccz4hb-review-coverage.md (branch claude/preserve-review-coverage-docs, local and unpushed as of 2026-08-22); #CCZ4HB closure decision 2026-08-22",
+    "issueUlid": "01M0MMGFRKKZJD4QXBPQR2WX6A"
+  }
+}
