@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   CARING_CONTACTS_ROLE_COOKIE,
@@ -7,9 +7,14 @@ import {
   demoActorForRole,
   resolveDemoActor,
 } from "@/lib/caring-contacts-server/session";
+import { logger } from "@/lib/logger";
 
 vi.mock("next/headers", () => ({
-  cookies: vi.fn(async () => ({ get: (name: string) => mockCookies[name] })),
+  cookies: vi.fn(async () => ({ get: (name: string) => mockCookies[name], set: () => undefined })),
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
 let mockCookies: Record<string, { value: string } | undefined> = {};
@@ -46,5 +51,48 @@ describe("demo role switcher", () => {
 
   it("names the acting role in the actor id so the audit trail can show it", () => {
     expect(demoActorForRole("auditor").id).toBe("demo-auditor");
+  });
+});
+
+/**
+ * The switcher's POST decides, in one `catch`, whether the failure it caught was the caller's or
+ * the server's. Both used to be logged the same way -- not at all -- so the ONE genuine server
+ * fault this route can produce was the one fault that never reached the logs.
+ */
+describe("the demo role switcher's POST", () => {
+  function switchRole(role: unknown): Request {
+    return new Request("http://localhost/api/caring-contacts/session", {
+      method: "POST",
+      body: JSON.stringify({ role }),
+    });
+  }
+
+  beforeEach(() => {
+    mockCookies = {};
+    vi.mocked(logger.error).mockClear();
+  });
+
+  it("does not log an error for a role the demo does not offer -- that is the caller's mistake", async () => {
+    const { POST } = await import("@/app/api/caring-contacts/session/route");
+
+    const response = await POST(switchRole("administrator"));
+
+    expect(response.status).toBe(400);
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("logs an error when the cookie write itself fails, because that one IS a server fault", async () => {
+    vi.mocked(cookies).mockResolvedValueOnce({
+      get: (name: string) => mockCookies[name],
+      set: () => {
+        throw new Error("the cookie jar is read-only in this context");
+      },
+    } as unknown as Awaited<ReturnType<typeof cookies>>);
+    const { POST } = await import("@/app/api/caring-contacts/session/route");
+
+    const response = await POST(switchRole("auditor"));
+
+    expect(response.status).toBe(500);
+    expect(logger.error).toHaveBeenCalled();
   });
 });

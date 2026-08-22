@@ -16,7 +16,7 @@ import {
   resolveDemoActor,
 } from "@/lib/caring-contacts-server/session";
 import type { CaringContactRole } from "@/lib/caring-contacts/permissions";
-import { jsonError } from "@/lib/http";
+import { jsonError, PublicApiError } from "@/lib/http";
 import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
@@ -51,9 +51,14 @@ export async function POST(request: Request) {
 
     return Response.json({ role: actor.roles[0] });
   } catch (error) {
-    // The only error this handler can realistically throw is the 400 PublicApiError
-    // setRoleSchema raises on an invalid role -- an expected client mistake, not a fault, so it
-    // should not write an error log the way a genuine server fault would elsewhere in this repo.
-    return jsonError(error, 500, { log: false });
+    // The EXPECTED error is the 400 `PublicApiError` setRoleSchema raises on a role the demo does
+    // not offer. That is the caller's mistake, not a fault, so it must not write an error log the
+    // way a genuine server fault does elsewhere in this repo.
+    //
+    // Anything else -- `cookies()` rejecting, `cookieStore.set` throwing -- is a real 500, and
+    // suppressing its log made the only server fault this route can produce the one fault that
+    // never reached the logs. So the suppression is scoped to the expected case rather than
+    // applied to the whole `catch`.
+    return jsonError(error, 500, { log: !(error instanceof PublicApiError) });
   }
 }

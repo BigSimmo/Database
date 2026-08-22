@@ -686,4 +686,39 @@ describe("service-state read narrowing (Ruling 43)", () => {
     });
     expect(recorded()).toContainEqual(expect.objectContaining({ objectType: "serviceState", outcome: "allowed" }));
   });
+
+  it("narrows the note out of the POST reply too, not only the GET", async () => {
+    // The first and second restart approvals leave the service STOPPED, so `approveServiceRestart`
+    // hands back the still-stopped record -- note and all. `writeHandler` serialises whatever the
+    // write returns, so an unnarrowed POST reply releases the reporting team's incident note to
+    // the approver. Capability is checked here against the APPROVER'S OWN team, while the note is
+    // only releasable to an actor of the REPORTING team, so the two questions are not the same one
+    // and a second team's approver is a legitimate reader of a reply they may not read the note in.
+    const { store } = await inMemoryStoreWithSpy({ actorRole: "teamLead" });
+    const stopped = await store.stopService(
+      { reason: "duplicate-send", note: "Rowan Mira Delacroix received the same message twice." },
+      {
+        actor: { id: actorId("ACTOR-NORTH"), teamId: REPORTING_TEAM, roles: ["teamLead"] },
+        idempotencyKey: idempotencyKey("seed-stop-before-approval"),
+      },
+    );
+    if (!stopped.ok) throw new Error(`seed stopService refused: ${stopped.reason}`);
+
+    const { POST } = await import("@/app/api/caring-contacts/service-state/route");
+    const response = await POST(
+      post("/api/caring-contacts/service-state", {
+        type: "approveRestart",
+        role: "incidentLead",
+        idempotencyKey: "approve-restart-1",
+      }),
+    );
+    const body = await response.text();
+
+    // The approval was accepted: this is the reply of a write that succeeded, not of one refused
+    // before it could leak anything.
+    expect(response.status).toBe(200);
+    expect(JSON.parse(body)).toMatchObject({ value: { stopped: true, reason: "duplicate-send" } });
+    expect(body).not.toMatch(/Rowan|Mira/);
+    expect(body).not.toMatch(/"note"/);
+  });
 });

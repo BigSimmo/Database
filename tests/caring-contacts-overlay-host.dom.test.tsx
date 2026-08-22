@@ -276,6 +276,19 @@ describe("the overlay host", () => {
     expect(screen.queryByRole("button", { name: /^close$/i })).toBeNull();
   });
 
+  it("puts opening focus on the recovery action of an overlay that cannot be dismissed", async () => {
+    // WCAG 2.4.3. A `recovery-only` Sheet is given no `title`, so the shared Sheet renders no
+    // header and its close-button fallback resolves to null. With no other focus hint in the panel
+    // the opening focus lands on `document.body` -- on the ONE overlay a person cannot dismiss and
+    // must act on, which a screen reader announces as nothing having happened at all.
+    setViewportWidth(1440);
+    render(<OverlayHost openOverlayId="session-expiry" onClose={noop} onCommit={noop} blockReason={null} />);
+
+    const action = screen.getByTestId("workspace-overlay-action");
+    await waitFor(() => expect(action).toHaveFocus());
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
   it("never traps focus in the offline status banner", () => {
     setViewportWidth(1440);
     render(<OverlayHost openOverlayId="offline-banner" onClose={noop} onCommit={noop} blockReason={null} />);

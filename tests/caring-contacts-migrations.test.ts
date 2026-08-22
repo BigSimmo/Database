@@ -1207,4 +1207,90 @@ describe("the workspace schema", () => {
       expect(rows).toEqual([]);
     });
   });
+
+  describe("the audit trail itself cannot be rewritten or deleted", () => {
+    // `audit-integrity-loss` is one of the five reasons that halts the WHOLE service, so the trail
+    // is the last table in this schema that should be quietly editable. `service_stops` was given
+    // an immutability trigger and the audit table -- deliberately outside `attach_audit_guard`, so
+    // that deleting a row required no audit event of its own -- was not.
+    const EVENT_KEY = "audit-immutability-1";
+
+    async function recordEvent(): Promise<void> {
+      await runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, async (client) => {
+        await client.query("insert into caring_contacts.teams (id) values ($1) on conflict (id) do nothing", [
+          TEAM_NORTH,
+        ]);
+        await insertAuditEvent(client, {
+          teamId: TEAM_NORTH,
+          actorId: "ACTOR-NORTH",
+          actorRoles: ["coordinator"],
+          action: "activatePlan",
+          objectType: "plan",
+          objectId: "PLAN-N",
+          outcome: "allowed",
+          idempotencyKey: EVENT_KEY,
+        });
+      });
+    }
+
+    beforeEach(async () => {
+      await recordEvent();
+    });
+
+    // Run as the migration superuser ON PURPOSE, which is the opposite of this file's usual rule.
+    // A superuser bypasses row-level security AND holds every privilege, so a refusal here is the
+    // trigger's doing and nothing else's -- the grant narrowing below cannot be what produced it.
+    it("refuses an update even from the schema owner, who bypasses row-level security", async () => {
+      await expect(pool.query("update caring_contacts.audit_events set outcome = 'denied'")).rejects.toThrow(
+        /caring-contacts-audit-immutable/,
+      );
+
+      const { rows } = await pool.query<{ outcome: string }>("select outcome from caring_contacts.audit_events");
+      expect(rows.map((row) => row.outcome)).toEqual(["allowed"]);
+    });
+
+    it("refuses a delete even from the schema owner", async () => {
+      await expect(pool.query("delete from caring_contacts.audit_events")).rejects.toThrow(
+        /caring-contacts-audit-immutable/,
+      );
+
+      const { rows } = await pool.query<{ count: string }>(
+        "select count(*)::text as count from caring_contacts.audit_events",
+      );
+      expect(rows[0].count).toBe("1");
+    });
+
+    it("leaves the application role no UPDATE or DELETE privilege to reach the trigger with", async () => {
+      // Defence in depth, and the two halves answer different questions: the trigger says the row
+      // is frozen for everyone, the grant says the application never had the privilege to try.
+      const { rows } = await pool.query<{ privilege_type: string }>(
+        `select privilege_type from information_schema.role_table_grants
+         where grantee = 'caring_contacts_app' and table_schema = 'caring_contacts'
+           and table_name = 'audit_events'
+         order by privilege_type`,
+      );
+      expect(rows.map((row) => row.privilege_type)).toEqual(["INSERT", "SELECT"]);
+    });
+
+    it("refuses the application role before the trigger is even reached", async () => {
+      await expect(
+        runInTeamSession(pool, { teamId: TEAM_NORTH }, (client) =>
+          client.query("delete from caring_contacts.audit_events"),
+        ),
+      ).rejects.toThrow(/permission denied/i);
+    });
+
+    it("still lets the suite truncate the trail, which is how every other test here starts clean", async () => {
+      // The constraint the trigger had to be written around. TRUNCATE fires statement-level
+      // truncate triggers only, never the per-row DELETE trigger above, so blocking DELETE does
+      // not strand `truncateCaringContactsData` -- and if a later change made it a per-row delete,
+      // this is the assertion that would say so rather than 40 unrelated tests failing at once.
+      await expect(truncateCaringContactsData(pool)).resolves.toBeUndefined();
+
+      const { rows } = await pool.query<{ count: string }>(
+        "select count(*)::text as count from caring_contacts.audit_events",
+      );
+      expect(rows[0].count).toBe("0");
+    });
+  });
 });

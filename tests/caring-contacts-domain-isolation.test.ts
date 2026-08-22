@@ -5,7 +5,6 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const DOMAIN_ROOT = path.join(process.cwd(), "src", "lib", "caring-contacts");
-const FORBIDDEN = [/^@\/components/, /^@\/app/, /^@\/lib\//, /^@supabase/, /^openai$/, /^next(\/|$)/];
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -14,23 +13,53 @@ function walk(dir: string): string[] {
   });
 }
 
+/**
+ * Every module specifier in a file, however it is written.
+ *
+ * The earlier form required WHITESPACE after the keyword, so `await import("@supabase/supabase-js")`
+ * and `require("openai")` -- the two shapes a provider is most likely to arrive through once
+ * someone wants it loaded lazily -- were invisible to both assertions below. `\s*\(?\s*` covers the
+ * call forms without loosening the quoted-specifier capture that follows.
+ */
 function importSpecifiers(source: string): string[] {
-  return [...source.matchAll(/(?:from|import)\s+["']([^"']+)["']/g)].map((match) => match[1]);
+  return [...source.matchAll(/\b(?:from|import|require)\s*\(?\s*["']([^"']+)["']/g)].map((match) => match[1]);
 }
 
 describe("caring-contacts domain isolation", () => {
   it("imports nothing from outside its own directory", () => {
+    // An ALLOWLIST, not a denylist, and the difference is the whole property. The claim being made
+    // is that this domain is self-contained and provider-free -- and a denylist can only ever say
+    // that the six things somebody thought of are absent. It named `@supabase` and `openai`, so
+    // `twilio`, `redis` and `stripe` all passed, and a messaging provider is exactly what a
+    // caring-contact domain would reach for first.
+    //
+    // Inverting it is free here rather than aspirational: there is currently not one non-relative
+    // specifier anywhere under this tree, not even a `node:` builtin. `tests/caring-contacts-
+    // message-policy.test.ts` already holds one file to this shape; this holds the whole tree to it.
     const offences: string[] = [];
     for (const file of walk(DOMAIN_ROOT)) {
       for (const specifier of importSpecifiers(readFileSync(file, "utf8"))) {
         if (specifier.startsWith("node:")) continue;
         if (specifier.startsWith(".")) continue;
-        if (FORBIDDEN.some((pattern) => pattern.test(specifier))) {
-          offences.push(`${path.relative(process.cwd(), file)} -> ${specifier}`);
-        }
+        offences.push(`${path.relative(process.cwd(), file)} -> ${specifier}`);
       }
     }
     expect(offences).toEqual([]);
+  });
+
+  it("sees a provider arriving through require or a dynamic import, not only a static one", () => {
+    // The extractor, tested directly. Every specifier form below was invisible to the previous
+    // whitespace-requiring pattern, so a sealed module could have loaded a provider lazily and
+    // both assertions in this file would have reported green.
+    const source = [
+      'import Twilio from "twilio";',
+      'const { createClient } = require("redis");',
+      'await import("@supabase/supabase-js");',
+      'export { send } from "./dispatch";',
+      'import "node:crypto";',
+    ].join("\n");
+
+    expect(importSpecifiers(source)).toEqual(["twilio", "redis", "@supabase/supabase-js", "./dispatch", "node:crypto"]);
   });
 
   it("never escapes its directory with a relative import", () => {

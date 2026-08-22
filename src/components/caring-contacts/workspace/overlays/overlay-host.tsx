@@ -219,6 +219,17 @@ type OverlayBodyProps = {
   headingId: string | null;
   blockReason: string | null;
   checkpointOpen: boolean;
+  /**
+   * Stamps the shared Sheet's `data-sheet-autofocus` hook on the action control.
+   *
+   * WCAG 2.4.3, and the reason it is decided here rather than in the design system. A
+   * `recovery-only` overlay is given no `title` (see the Sheet below), so the Sheet renders no
+   * header and its close-button fallback resolves to null -- and with no other hint in the panel
+   * the opening focus lands on `document.body`. On the one overlay a person cannot dismiss and
+   * must act on, a screen reader announces that as nothing having happened. The Sheet already
+   * exposes the hook for exactly this; the overlay only has to say which control is the target.
+   */
+  autoFocusAction: boolean;
   onActivate: () => void;
 };
 
@@ -229,7 +240,15 @@ type OverlayBodyProps = {
  * browser, which is why they are stamped from the definition rather than from
  * anything this component decided for itself.
  */
-function OverlayBody({ definition, modality, headingId, blockReason, checkpointOpen, onActivate }: OverlayBodyProps) {
+function OverlayBody({
+  definition,
+  modality,
+  headingId,
+  blockReason,
+  checkpointOpen,
+  autoFocusAction,
+  onActivate,
+}: OverlayBodyProps) {
   // Rule 9, and both halves of it: a mutating overlay's action is refused with
   // the named reason visible, and a read-only overlay stays fully usable —
   // blocking a preview nobody can change would be the same defect pointing the
@@ -301,6 +320,7 @@ function OverlayBody({ definition, modality, headingId, blockReason, checkpointO
         <button
           type="button"
           data-testid="workspace-overlay-action"
+          data-sheet-autofocus={autoFocusAction ? "true" : undefined}
           aria-disabled={blocked ? "true" : undefined}
           aria-describedby={blocked ? reasonId : undefined}
           onClick={blocked ? ignoreUnavailableActivation : onActivate}
@@ -415,6 +435,10 @@ export function OverlayHost({ openOverlayId, onClose, onCommit, blockReason }: O
       // A Sheet header already renders the title; the surfaces without one carry
       // their heading in the body and name the dialog through it.
       headingId={modality === "status-banner" || !dismissible ? headingId : null}
+      // Only a Sheet-borne overlay that cannot be dismissed: the status banner is not a dialog,
+      // takes no focus by design (Rule 4), and a dismissible Sheet already has a close control for
+      // the shared component's own fallback to find.
+      autoFocusAction={modality !== "status-banner" && !dismissible}
       blockReason={blockReason}
       checkpointOpen={checkpointOpen}
       onActivate={activate}
