@@ -258,7 +258,7 @@ export function restrictionNotice(movement: Movement, unit: Unit): RestrictionNo
  * This is a shortlist of candidates, never a destination — a unit appearing here has not been
  * referred or accepted; see `destinationUnit` for the movement's actual recorded destination.
  */
-export function eligibleCandidates(movement: Movement, now: Instant, limit = 3) {
+export function eligibleCandidates(movement: Movement, now: Instant, limit = 3, units: readonly Unit[] = allUnits()) {
   // Eligible-first cut FIRST, restrictiveness reorder SECOND, deliberately in two passes rather
   // than one combined sort. A single combined sort could pull in a unit that was previously
   // outside the top `limit` (a candidate ranked 4th purely because it is restrictive would climb
@@ -266,7 +266,7 @@ export function eligibleCandidates(movement: Movement, now: Instant, limit = 3) 
   // just a reorder, and `/ward-management/network` shows this same shortlist. Truncating on
   // eligibility alone first keeps the returned SET identical to before this ordering rule
   // existed; only the ORDER within that set can move.
-  const eligibleFirst = allUnits()
+  const eligibleFirst = units
     .filter((unit) => unit.cohort === movement.cohort)
     .map((unit) => ({ unit, verdict: eligibility(movement, unit, now) }))
     .sort((a, b) => Number(b.verdict.eligible) - Number(a.verdict.eligible))
@@ -338,6 +338,23 @@ export function buildActionInbox(movements: Movement[], now: Instant): InboxItem
       icon: CircleAlert,
       title: "Legal timing breached",
       detail: `${movement.id} · ${formatRemaining(minutesUntil(dueAt, now))}`,
+      owner: movement.owner,
+      movementId: movement.id,
+    });
+  }
+
+  const expiredBedHolds = movements.filter(
+    (movement) => movement.stage === "bed_held" && movement.bedHeldUntil !== undefined && movement.bedHeldUntil < now,
+  );
+  for (const movement of expiredBedHolds) {
+    const bedHeldUntil = movement.bedHeldUntil;
+    if (bedHeldUntil === undefined) continue;
+    items.push({
+      id: `bed-hold-${movement.id}`,
+      tone: "danger",
+      icon: CircleAlert,
+      title: "Bed hold expired",
+      detail: `${movement.id} · ${formatRemaining(minutesUntil(bedHeldUntil, now))}`,
       owner: movement.owner,
       movementId: movement.id,
     });
