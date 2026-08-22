@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "b7b5fb83-303c-43d4-89dd-228c03bb820e",
+  "createdOn": "2026-08-22",
+  "action": "update",
+  "payload": {
+    "id": "#6GW95D",
+    "pri": "P3",
+    "detail": "UPDATE 2026-08-22 (fleet inventory COMPLETE; cleanup deliberately DEFERRED by the owner). The inventory this row asked for is done and the 253 figure is superseded by a measured one. Scanning eight roots (.claude/worktrees, D:/Worktrees, .codex/worktrees, .gemini/antigravity/worktrees, .copilot/repos/copilot-worktrees, .local/share/opencode/worktree, Documents/Codex, AppData/Local/Temp) found 208 checkouts of this repository. Of those, 92 are registered git worktrees of D:/Repos/Database and 116 are SEPARATE FULL CLONES with their own object databases (76 under .codex, 26 under .copilot, 13 under Documents/Codex, 1 under Temp). Zero unregistered worktrees and zero stale gitdir pointers - every checkout pointing at the main repo is properly registered, so scripts/clean-worktree.mjs sees all of them. 54 carry node_modules. 18 non-checkout leftover directories sit under .claude/worktrees; 12 of them held zero files and were removed, and 7 more could not be removed because a live process holds them (filed separately). npm run clean:worktree --merged --squashed --dry-run identified 23 landed candidates totalling 9.30 GB (C: 4.74 GB across 11, D: 4.56 GB across 12), of which 12 are proven-or-corroborated and 11 are 'NOT fully corroborated' and are skipped by the tool's own safety re-verification. CAPACITY IS NOT THE ISSUE: D: is 80 GB with 53 GB free (35% used). DECISION 2026-08-22: the owner halted the removal mid-run and all 13 removed worktrees were restored (branch, head and clean tree verified individually; dependencies restored by byte-identical copy). Five live chats had had their working directory deleted underneath them. Cleanup is therefore DEFERRED indefinitely - do not resume it without an explicit fresh instruction naming the exact paths. Two process lessons for whoever does: a 'git refused' or EPERM removal means a live process holds that directory and is a STOP, never something to retry on a later pass; and the candidate list must be shown and approved before any deletion, not after. The 116 separate clones, not the worktrees, are the real disk mass and none of them is covered by clean-worktree.mjs at all.",
+    "source": "session 2026-08-22, GitHub issue #2270 Part A",
+    "baseRowFingerprint": "8f90caf18d6739560ea60b190fe0154ce1c0e955737ff3eb5fbf3b54d697d799"
+  }
+}

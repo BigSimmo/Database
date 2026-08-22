@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "a5310065-4f20-4036-8992-bc94f7e7e7d2",
+  "createdOn": "2026-08-22",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "verify:phone-chrome can report a green pass having run zero browser tests when its changed-file selector finds no phone-chrome-affecting path",
+    "detail": "Measured 2026-08-22 while running the A2 browser gates for issue #2270. Invoked bare on a clean main checkout, verify:phone-chrome derived its inputs from the working-tree diff, found only one untracked docs/outstanding-issues-inbox JSON, printed 'Note: No phone-chrome-affecting file was detected; only prerequisite checks were selected', ran docs:check-index and docs:check-links, and exited 0. Nothing browser-related executed, yet the exit code is indistinguishable from a full pass. This is the exact false-green class that AGENTS.md's evidence rule exists to catch: exit 0 alone is not proof. Reporting that run as 'verify:phone-chrome green' would have been wrong. The real gate only engaged after passing an explicit --files list of the merged Dictionary scope (git diff --name-only 66594ddc1^1..main filtered to src/ and tests/ui-), which then selected lock-parity, runtime, contracts, focused-browser and full-ui and produced 133 contract tests, 12 focused phone journeys and 473 Chromium tests, all green. Suggested fix: when the selector resolves to zero phone-chrome-affecting inputs, print the conclusion as a distinct non-proof outcome (a named skip, or a non-zero advisory code) rather than an unqualified exit 0, so a caller cannot mistake 'nothing selected' for 'everything passed'.",
+    "source": "session 2026-08-22, GitHub issue #2270 Part A",
+    "issueUlid": "01M0MN4HFYX76T8AQWNK5EJ75G"
+  }
+}

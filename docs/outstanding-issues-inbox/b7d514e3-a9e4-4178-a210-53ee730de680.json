@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b7d514e3-a9e4-4178-a210-53ee730de680",
+  "createdOn": "2026-08-22",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Seven live Claude Code sessions point at worktree directories that are completely empty, so those chats have no working copy to act on",
+    "detail": "Measured 2026-08-22 while taking the fleet worktree inventory for #6GW95D. Seven registered worktree directories under .claude/worktrees contain zero regular files: caring-contacts-phase-2a-a4f69a, database-test-queue-contention-6baedb, developer-button-settings-fb9b51, ed-care-plans-impl-7f44cd, phase-4-index-restoration-b0f4ea, vibrant-diffie-c93450 and wave-1-canary-s2-unlock-17d673. Each is the recorded cwd of an existing session in the session registry, titled respectively Suicide, Dev Drive, Developer, Care Plan, Database, Ward Flow and RAG; the Database one was still marked running. They were already empty before this session touched anything (the inventory counted files first and only then attempted removal, and all seven then refused with EPERM because a live process holds the directory handle open, so nothing was deleted from them here). No git history is at risk: every branch still exists at its recorded head. Impact is that resuming any of those chats operates on an empty directory. Cheap fix per directory once the holding process is closed: git -C D:/Repos/Database worktree add <path> <branch>, then node scripts/setup-codex-worktree.mjs inside it to restore dependencies by byte-identical copy (about 90 seconds, not an hour-long npm ci). Worth understanding the cause before repairing them - something is emptying worktree contents while leaving the directory registered and locked, which is the same failure family as the 2026-08-21 data-loss incident recorded against #XCAX01.",
+    "source": "session 2026-08-22, GitHub issue #2270 Part A",
+    "issueUlid": "01M0MN6FQHRDBT2SDVK5GDRBBP"
+  }
+}
