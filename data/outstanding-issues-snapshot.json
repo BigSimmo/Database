@@ -1,8 +1,8 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "ab5c69c339baff0191f49ff43fb861756c9dbce3",
-    "committed_at": "2026-08-22T20:29:29+00:00"
+    "sha": "6085a0a59aca4c1bb9e19fb4d490fd34dec950cd",
+    "committed_at": "2026-08-22T20:52:39Z"
   },
   "counts": {
     "open": 73,
@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 1,
+    "pending": 15,
     "resolved": 376
   },
   "queue": [
@@ -786,10 +786,94 @@
   ],
   "pending": [
     {
+      "request_id": "049e0356-b6ad-4382-8f34-958d2681c60e",
+      "action": "add",
+      "summary": "Caring Contacts: grow the safety-incident responder note into a lightweight patient case-note capability, and settle its retention disposition then",
+      "created_at": "2026-08-20"
+    },
+    {
+      "request_id": "0807d756-ecd5-4988-b4e3-9c5ec5e41ee3",
+      "action": "cancel",
+      "summary": "Cancel request 95eba5d7-8f01-46e5-8342-3e01ddf6d3a1: Fixed on branch claude/suicide-contact-mockup-b5aaa0 before this request was ever reconciled, so there is no open row to close. The request's premise was wrong: it says THIS IS A SHARED DESIGN-SYSTEM FIX, NOT A WORKSPACE ONE, but sheet.tsx already exposes the hook its own controller looks for. src/components/caring-contacts/workspace/overlays/overlay-host.tsx now stamps data-sheet-autofocus=\"true\" on the overlay action control when the overlay is not dismissible and is not the status banner, so startSheetOpenFocus resolves the recovery action instead of falling through to document.body. No change to sheet.tsx, so no blast radius across other Sheet consumers. Pinned by \"puts opening focus on the recovery action of an overlay that cannot be dismissed\" in tests/caring-contacts-overlay-host.dom.test.tsx, which was watched failing on document.body first.",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "0f9238c1-8add-450c-92d1-917376761248",
+      "action": "add",
+      "summary": "Caring Contacts patient-visible reply wording is now factually wrong and must change before any demonstration",
+      "created_at": "2026-08-18"
+    },
+    {
+      "request_id": "6a617628-6b65-4f7f-b361-f96da2d0880a",
+      "action": "add",
+      "summary": "Railway has no Australian region, so the current app tier cannot host a real-patient Caring Contacts deployment",
+      "created_at": "2026-08-18"
+    },
+    {
+      "request_id": "73810780-d91c-403f-96ab-e659a75c8688",
+      "action": "add",
+      "summary": "Caring Contacts hospital referral feed feasibility is unconfirmed and is the largest programme risk",
+      "created_at": "2026-08-18"
+    },
+    {
       "request_id": "7dc2d09a-b05c-4d10-b198-263af3c0f45e",
       "action": "update",
       "summary": "#RSD9EJ: source → PR #2298 push attempts 2026-08-22/23 (squash-merged as f3d1a3cce2c943ad3083425ed9c7c46dbef23087; the feature branch and its commits 90b5de61f/7703188ef/55f3a47fa are NOT reachable from any ref -- view them on the PR page, not via git); scripts/guard-push.mjs; scripts/check-ledger-write-discipline.mjs; commit 9a382a050 (#2294) is the reconcile whose applied/ records triggered the false positive and IS on main. REPRODUCTION without those commits: branch from main, let a reconcile PR land on main, merge origin/main into the branch, then push -- guard-push refuses with 'applied/<uuid>.json was introduced without moving the identical pending request from the base' while 'node scripts/check-ledger-write-discipline.mjs --base origin/main --head HEAD' passes on the same tree. The divergence between those two results is the bug.",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "82838fb1-7ed2-4f37-bd50-191a603ecd0f",
+      "action": "add",
+      "summary": "docs:check-links passes over a broken relative markdown link in a spec, so a binding document went missing unnoticed",
+      "created_at": "2026-08-18"
+    },
+    {
+      "request_id": "95eba5d7-8f01-46e5-8342-3e01ddf6d3a1",
+      "action": "add",
+      "summary": "Caring Contacts: a non-dismissible overlay opens with focus outside its own dialog (WCAG 2.4.3)",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "a06c9a8d-8c82-47a0-be9f-58f2a2a0273f",
+      "action": "add",
+      "summary": "The Caring Contacts service safety stop halts sending across every patient and team, but the rule that it is stored as ONE record rather than one row per team is currently carried only by a field name (reportedByTeamId) and a doc comment in src/lib/caring-contacts/service-state.ts. Migration 0003 (Phase 2A Task 11) must enforce it in the schema with a fixed-key singleton row plus a test, and every dispatch path must read that one record regardless of the dispatching team. Without it, a stop raised by one team would leave every other team still sending during an incident.",
+      "created_at": "2026-08-19"
+    },
+    {
+      "request_id": "a3f85721-7092-45b0-b292-a70b6546e3d1",
+      "action": "add",
+      "summary": "Caring Contacts Phase 2B — the screens",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "ba2bdfba-b1e1-4e13-83b4-8cb0f3ddc092",
+      "action": "add",
+      "summary": "Caring Contacts: three unmitigated hazards block any real-patient pilot (safety officer, lived-experience review, Aboriginal health review)",
+      "created_at": "2026-08-18"
+    },
+    {
+      "request_id": "d6b9ff08-391f-4ed7-bbb3-aa8e8f95dd3f",
+      "action": "add",
+      "summary": "Caring Contacts: the desktop session gate renders as a 1392x170 letterbox, not a gate",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "d9c78396-1cea-45bd-a4a7-067865151dd3",
+      "action": "add",
+      "summary": "run-playwright reported a production build failure with no compile error, once, unreproduced",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "da3f61df-433f-438e-abb3-4c5f10358c09",
+      "action": "add",
+      "summary": "Caring Contacts database and row-level-security suite runs in no automated gate",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "ebf42f52-3e74-484f-81cd-ebcbd4954b10",
+      "action": "add",
+      "summary": "Caring Contacts synthetic production build: spec approved and committed, implementation plan not yet written",
+      "created_at": "2026-08-18"
     }
   ]
 }
