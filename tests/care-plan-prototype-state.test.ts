@@ -1307,10 +1307,23 @@ describe("Care Plan scenarios, reset, and determinism", () => {
       versionConflict: { active: false },
       patientPlans: [],
       patientPlanVersions: [],
-      patientResources: [],
       auditEvents: [],
       lastOutcome: null,
     });
+    /**
+     * The two Patient Plan collections start empty because a patient copy is
+     * produced when somebody makes one, and seeding an edition would put
+     * patient-facing wording on the record that nobody wrote.
+     *
+     * The resource catalogue is not an edition of anything. It is the list a
+     * clinician chooses from, so Task 9 seeds it: an empty one would mean every
+     * patient copy started with nothing to offer, and the housing and money
+     * entries are frequently the whole point of the sheet.
+     */
+    expect(createInitialPrototypeState().patientResources.length).toBeGreaterThan(0);
+    expect(createInitialPrototypeState().patientResources.every((resource) => resource.id.startsWith("SYN-"))).toBe(
+      true,
+    );
     expect(createInitialPrototypeState("empty").selectedPatientId).toBeNull();
     expect(createInitialPrototypeState("overdue-plan").selectedPatientId).toBe(MIRA);
     expect(createInitialPrototypeState("withdrawn-plan").selectedPatientId).toBe(EVELYN);
