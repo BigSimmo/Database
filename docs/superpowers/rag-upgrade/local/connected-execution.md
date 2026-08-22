@@ -8,7 +8,7 @@ L00 creates a new isolated Windows worktree from the exact remote commit that at
 
 Record the accepted Cloud branch, remote tip, package hash, `PROGRAMME.json` path/hash/commit and every P00–P17 receipt before comparing current `origin/main`. Current-main overlap is classified, never silently absorbed. A mismatch in accepted code, source contracts, generated types or runtime behaviour is `NO_GO` and starts a separately reviewed remediation programme; it never rewrites the accepted Cloud lineage.
 
-L00 is offline and read-only. It runs setup, runtime/lock parity, package parity and receipt validation. It also proves the local controller/reviewer route and resolved skills. No hosted or provider action is permitted.
+L00 is offline and read-only. It runs setup, runtime/lock parity, package parity and receipt validation, including `npm run plans:rag:receipts:check -- --before-local L00`. Later local phases use the same checker with that phase id. `--before-local` belongs to `scripts/check-rag-phase-receipts.mjs`; `scripts/rag-phase-launch-check.mjs` is Cloud P00–P17 only. L00 also proves the local controller/reviewer route and resolved skills. No hosted or provider action is permitted.
 
 ## Ordered local phases
 

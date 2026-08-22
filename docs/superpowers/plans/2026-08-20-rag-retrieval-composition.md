@@ -681,7 +681,7 @@ Offline code may land behind the programme shadow flag. Implement only the measu
 
 - [ ] **Step 4: Run the focused offline proof**
 
-Run: `node scripts/run-vitest.mjs run tests/rag-generation-degradation.test.ts tests/rag-provider.test.ts tests/rag-route-budget.test.ts tests/rag-answer-fallback.test.ts tests/rag-eval-cases.test.ts`
+Run: `node scripts/run-vitest.mjs run tests/rag-generation-degradation.test.ts tests/rag-provider.test.ts tests/rag-route-budget.test.ts tests/rag-answer-fallback.test.ts tests/rag-eval-cases.test.ts tests/rag-guidance-wrapper-quality-gate.test.ts`
 
 Expected: PASS/source-only. Provider comparison and the target-slice acceptance threshold remain explicitly unrun until authorized.
 
