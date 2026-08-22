@@ -275,6 +275,27 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(modeButton).toHaveAttribute("aria-expanded", "false");
   });
 
+  test("shared-home mode changes keep the document title aligned with visible copy", async ({ page }) => {
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+
+    await expect(page).toHaveTitle("Clinical Answers | Clinical KB");
+    await page.getByRole("button", { name: /Mode\s*Answer/i }).click();
+    const modeMenu = page.getByRole("menu");
+    await expect(modeMenu).toBeVisible();
+    await modeMenu.getByText("Dictionary", { exact: true }).click();
+
+    await expect(page).toHaveURL(/\?mode=dictionary$/);
+    await expect(page.getByRole("heading", { level: 2, name: "Clinical Dictionary" })).toBeVisible();
+    await expect(page).toHaveTitle("Clinical Dictionary | Clinical KB");
+
+    // Repeated parameters are an adversarial deep-link case. The first value is
+    // the canonical selection used by both the server metadata and client state.
+    await page.goto("/?mode=therapy-compass&mode=dictionary", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 2, name: "Therapy" })).toBeVisible();
+    await expect(page).toHaveTitle("Therapy | Clinical KB");
+  });
+
   test("an open sheet deactivates the page behind it and releases it on close", async ({ page }) => {
     // jsdom cannot enforce `inert`, so the browser is the only place the modal
     // containment contract (and its release) can actually be proven.
