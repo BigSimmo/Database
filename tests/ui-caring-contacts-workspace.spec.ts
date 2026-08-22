@@ -248,6 +248,25 @@ const INSPECTION_DRAWER_MAX_WIDTH_RATIO = 0.56;
 /** Sub-pixel rounding on a fractional viewport, not a licence to be off by a control's width. */
 const EDGE_TOLERANCE = 2;
 
+/**
+ * The floor every overlay surface clears, whatever its modality.
+ *
+ * Without it two branches below state only one side of their bound — the desktop
+ * session gate says "wider than a dialog" and the dialog says "no wider than 640"
+ * — so a 1392x0 gate and a 1px dialog would both satisfy their own branch and
+ * `expectFullyOnScreen` as well. A collapsed panel is in fact caught downstream,
+ * by the decision control having to be fully in the viewport, but that is an
+ * unstated dependency between two assertions rather than a stated contract. This
+ * states it.
+ *
+ * 320 is the narrowest viewport this workspace supports, so nothing narrower than
+ * that can be a usable surface. 96 is a heading, a line of plain-words
+ * explanation and a 48px tap target — the least an overlay can be and still carry
+ * what the frozen table gives it.
+ */
+const MIN_SURFACE_WIDTH = 320;
+const MIN_SURFACE_HEIGHT = 96;
+
 type OverlayBox = { x: number; y: number; width: number; height: number };
 
 /**
@@ -328,6 +347,12 @@ function expectFullyOnScreen(box: OverlayBox, width: number, label: string) {
  */
 function expectModalityGeometry(box: OverlayBox, modality: string, width: number, label: string) {
   expectFullyOnScreen(box, width, label);
+  expect(box.width, `${label} is narrower than the narrowest supported viewport`).toBeGreaterThanOrEqual(
+    MIN_SURFACE_WIDTH,
+  );
+  expect(box.height, `${label} is too short to carry its heading, summary and action`).toBeGreaterThanOrEqual(
+    MIN_SURFACE_HEIGHT,
+  );
   const compact = widthStateFor(width) === "compact";
 
   switch (modality) {

@@ -55,13 +55,32 @@ const ALLOWLIST = new Set([
   "src/app/(search-app)/tools/page.tsx",
   "src/lib/tools.ts",
   "src/components/ServiceDetailPage.tsx",
-  // Caring Contacts Phase 2A evidence records. Both are deliberately absent and both are
-  // named in prose that must not be rewritten: the first is a route file Task 15 considered
-  // and decided against after reading the Next 16 docs, the second is a temporary mutation
-  // probe Task 18 created, quoted the failure of, and deleted.
-  "src/app/caring-contacts/not-found.tsx",
-  "src/components/caring-contacts/workspace/overlays/guard-probe.tsx",
 ]);
+
+// Paths a SPECIFIC document intentionally names although they do not exist, keyed by the
+// document. Preferred over ALLOWLIST above, which suppresses a path everywhere: a global
+// entry keeps passing if the file is later created and then deleted again, in a document
+// that never meant to reference it. Scope new suppressions here unless the path is
+// genuinely repo-wide.
+const SCOPED_ALLOWLIST = new Map([
+  [
+    "docs/caring-contacts/phase-2a-sdd-archive/task-15-report.md",
+    // A nested not-found route Task 15 considered and decided against after reading the
+    // Next 16 docs. Naming it is the point of the paragraph.
+    new Set(["src/app/caring-contacts/not-found.tsx"]),
+  ],
+  [
+    "docs/caring-contacts/phase-2a-sdd-archive/task-18-report.md",
+    // A temporary mutation probe Task 18 created, quoted the failure of, and deleted.
+    new Set(["src/components/caring-contacts/workspace/overlays/guard-probe.tsx"]),
+  ],
+]);
+
+/** True when `repoRelative` is allowed outright, or allowed for the document being scanned. */
+function isAllowedPath(repoRelative, target) {
+  if (ALLOWLIST.has(repoRelative)) return true;
+  return SCOPED_ALLOWLIST.get(target)?.has(repoRelative) === true;
+}
 
 const DATED_DOC = /\b20\d{2}-\d{2}(-\d{2})?\b/;
 // Historical directories: only scanned with --all.
@@ -193,7 +212,7 @@ for (const target of defaultTargets()) {
   const failures = [];
 
   const check = (repoRelative, label) => {
-    if (ALLOWLIST.has(repoRelative)) return;
+    if (isAllowedPath(repoRelative, target)) return;
     checked += 1;
     if (!repoPathExists(repoRelative)) failures.push(label);
   };
@@ -203,7 +222,7 @@ for (const target of defaultTargets()) {
     const value = stripSuffixes(rawCandidate);
     const base = ROOT_PREFIXES.some((prefix) => value.startsWith(prefix)) ? globBaseDir(value) : null;
     if (base !== null) {
-      if (ALLOWLIST.has(value)) continue;
+      if (isAllowedPath(value, target)) continue;
       checked += 1;
       if (!existsSync(path.join(repoRoot, base))) failures.push(`${value} (glob base '${base}' missing)`);
       continue;
@@ -227,7 +246,7 @@ for (const target of defaultTargets()) {
     }
     const rootStyle = path.posix.normalize(value);
     const candidates = rootStyle === relative || rootStyle.startsWith("..") ? [relative] : [rootStyle, relative];
-    if (candidates.some((candidate) => ALLOWLIST.has(candidate))) continue;
+    if (candidates.some((candidate) => isAllowedPath(candidate, target))) continue;
     checked += 1;
     const found = candidates.some((candidate) => repoPathExists(candidate));
     if (!found)

@@ -132,6 +132,22 @@ differed slightly, so the run output quoted a different number; both are given.
 | M5  | `shell.tsx`: `<main>` given `min-w-[420px]`                                                           | reflow overflow, line 566 (run quoted 560)    | **red**, `Expected: <= 2 / Received: 100`                          |
 | M6  | `shell.tsx` `focusRing` emptied **and** the `globals.css` `:focus-visible` rule set to `outline:none` | focus ring present, line 552 (run quoted 546) | **red** in all four modes                                          |
 
+**Correction to the M1a and M1b rows, which read stronger than the evidence supports.** "stamped
+modality → red" implies the browser proof establishes that the stamp derives from the frozen
+table. **It does not, and nothing in this spec does:** `expectedModalityAt` here is a line-for-line
+duplicate of `modalityFor` in the host — both compute
+`widthStateFor(w) === "compact" ? phoneModality : desktopModality` from the same import — so the
+two sides cannot disagree about the table, and M1 mutates the rendered DOM rather than the source
+that writes it. What M1a and M1b actually establish is narrower but still real: the assertion is
+wired to the attribute, and the width the host resolves at page load produces the stamp the table
+would produce at that width — which catches an SSR default or a missed hydration, a genuine
+failure class. The contract itself is held elsewhere and is cited above:
+`tests/caring-contacts-overlay-definitions.test.ts` parses `interaction-matrix.md` row for row.
+
+For the record, and against the same standard: the load-bearing half of this matrix — geometry and
+Escape — **is** properly falsifiable. M2 through M5 are genuine source mutations with quoted
+expected and received values.
+
 M1a and M1b each inserted one extra line above the assertion, so the run reported one line later.
 M5 and M6 ran before the six-line comment correction described below was made, so the committed
 file numbers those two assertions six lines later than the run did.
@@ -352,8 +368,26 @@ Offline RAG fixture and manifest validation passed (36 golden cases, 26 suites).
 EXIT=0
 ```
 
-So every step of `verify:pr-local` has passed, with `test` carrying two machine-load timeouts that
-were individually reproduced green.
+### State of the gate, plainly
+
+**`npm run verify:pr-local` is RED. Its `test` step exited 1 and no later run has made it green.**
+It is red _with cause_ — the cause is understood, evidenced and unrelated to this change — but a
+later reader must not take the paragraphs above as a green gate.
+
+- **What is red:** the `test` step, on two files, `tests/codex-cloud-setup.test.ts` and
+  `tests/design-sync-contract.test.ts`, both with `Error: Test timed out in 30000ms`.
+- **Why it is not this change:** neither file contains the string `caring`; neither is touched by
+  any commit here; both spawn child processes and time out on machine load; `lint` and `typecheck`
+  were green in the same run; and both files pass on their own — `Test Files 2 passed (2) / Tests
+41 passed (41)`.
+- **Independent evidence, not only my own reconstruction:** the Task 19 review verified the
+  reconstruction and directed that the gate **not** be re-run. It also closed the two gaps the
+  reconstruction could not close itself, running `docs:check-links` against the final committed
+  content (`2319 repo path references resolve`) and `prettier --check` on it — both green.
+- **What that leaves unproven:** nothing was found unproven. The four steps `verify:pr-local` never
+  reached were run directly and passed, so every step of the gate has an individual green result.
+  What does not exist is a single end-to-end `verify:pr-local` invocation that exits 0, and this
+  report does not claim one.
 
 ## Outstanding work recorded
 
@@ -436,3 +470,174 @@ Not edited, deliberately: `playwright.config.ts`, `scripts/playwright-pr-shards.
 5. **A `run-playwright` invocation once reported a production build failure with no compile error
    in its output** and the identical command immediately afterwards was clean. Not reproduced, not
    explained.
+
+---
+
+# Fix round 1
+
+Six items from the Task 19 review. Three Important, three Minor. What changed, and what did not.
+
+## Important 1 — the three confirmed items are now `/issues` rows, not prose
+
+The review confirmed Concern 2 at source and made the right point about where it was recorded:
+prose inside a phase archive is not this repository's cross-session memory. Three inbox requests
+were queued with `npm run issues:add`. `docs/outstanding-issues.md` was not edited.
+
+| Request file (under `docs/outstanding-issues-inbox/`) | Pri / type   | What it records                                                                     |
+| ----------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------- |
+| `95eba5d7-8f01-46e5-8342-3e01ddf6d3a1.json`           | P2 / `task`  | The focus defect: a non-dismissible overlay opens with focus outside its own dialog |
+| `d6b9ff08-391f-4ed7-bbb3-aa8e8f95dd3f.json`           | P3 / `rec`   | The desktop session gate rendering 1392×170 — an owner decision                     |
+| `d9c78396-1cea-45bd-a4a7-067865151dd3.json`           | P3 / `issue` | The unreproduced `run-playwright` production build failure                          |
+
+The focus row carries the whole chain the reviewer traced, so it is actionable without this
+report: the host passes an empty `title` for a non-dismissible row, the shared `Sheet` renders no
+header for a falsy title, so its close-button ref stays null, and the open-focus controller
+resolves its three candidates — an initial-focus ref, a deferred autofocus child, that close
+button — to null and returns early without falling back to the panel. The row states that this
+**fails WCAG 2.4.3 Focus Order**, and that the fix belongs in the shared `Sheet` rather than in
+this workspace, so it needs its own change and its own browser proof and affects every `Sheet`
+consumer.
+
+The session-gate row names both resolutions available — amend the frozen matrix row, or give
+`session-gate` its own geometry in the shared `Sheet` — and records that this spec's only
+assertion there, wider than a dialog may ever be, survives either.
+
+## Important 2 — the M1 evidence claim is corrected in place
+
+Corrected beside the rows that make the claim, in the mutation section above, not appended here.
+The short version: `expectedModalityAt` duplicates the host's modality decision line for line from
+the same import, so the two sides cannot disagree about the table; combined with M1 being
+DOM-level, nothing in the browser proof establishes that the stamp derives from the frozen table.
+It establishes that the assertion is wired to the attribute, and that the width the host resolves
+at page load produces the stamp the table would produce — narrower, but a real failure class. The
+contract is held by `tests/caring-contacts-overlay-definitions.test.ts`, which is cited. The
+load-bearing half of the matrix, geometry and Escape, is properly falsifiable through M2–M5.
+
+## Important 3 — the gate is stated as red-with-cause
+
+A "State of the gate, plainly" subsection was added to the `verify:pr-local` section above. It
+opens by saying the gate is red, names the two timing-out files and the cause, cites the review's
+independent `docs:check-links` and `prettier --check` results on the final committed content, and
+states what does not exist: a single end-to-end `verify:pr-local` invocation that exits 0. The
+gate was **not** re-run, as directed.
+
+## Minor 4 — the shard timing was stale, and fixing it forced a rebalance
+
+`scripts/playwright-pr-shards.mjs` said "Measured locally at ~10.0s for 9 tests" with
+`fullSeconds: 10.0`. The spec is now 18 tests at 34.2s. The report was also wrong to list that
+file under "not edited, deliberately": that reasoning was true of registration and not of timing.
+
+Updating the number alone would have turned a committed test red, so this is more than a comment
+fix. Measured with the module's own `estimatedPrUiShardSeconds`:
+
+| Shard totals (post-critical) | 1     | 2         | 3     | Spread   | Ceiling |
+| ---------------------------- | ----- | --------- | ----- | -------- | ------- |
+| Before                       | 240.9 | 248.9     | 240.7 | 8.2      | 10      |
+| With 34.2 and no rebalance   | 240.9 | **273.1** | 240.7 | **32.4** | 10      |
+| After the rebalance          | 245.9 | 254.4     | 254.4 | 8.5      | 10      |
+
+The three shards were already near-equal, so no single move could fix it — shards 1 and 3 both
+needed lifting while 2 came down. Two of the smallest entries moved: `ui-phone-motion` (5.0s) to
+shard 1 and `answer-progress-ui-smoke` (13.7s) to shard 3. Neither spec changed; only its group
+did, and each carries a comment saying why it moved. Full spread is 13.2s against its 30s ceiling.
+
+`tests/playwright-pr-shards.test.ts` and `tests/playwright-project-isolation.test.ts` both pass:
+
+```
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+```
+
+## Minor 5 — the two one-sided geometry branches now have a floor
+
+Desktop `session-gate` asserted only `width > 640` and `dialog` only `width <= 640`, so a 1392×0
+gate and a 1px dialog satisfied both, plus `expectFullyOnScreen`. A collapsed panel was in fact
+caught — by the decision control having to be fully in the viewport — but that is an unstated
+dependency between two assertions rather than a stated contract.
+
+Both are closed with one bound applied to every modality rather than patched into the two
+branches, because the same hole existed unremarked in the `bottom-sheet` and `status-banner`
+heights:
+
+- `MIN_SURFACE_WIDTH = 320` — the narrowest viewport this workspace supports; nothing narrower can
+  be a usable surface.
+- `MIN_SURFACE_HEIGHT = 96` — a heading, a line of plain-words explanation, and a 48px tap target.
+
+Both are stated at the constants with the reasoning, and the dependency they replace is named
+there too. Nothing existing was deleted or loosened; these are additional lower bounds.
+
+**Two new mutations, to the same standard as the first six.** A new assertion with no falsifiability
+evidence is exactly what this task was meant to stop adding.
+
+| #   | Mutation                                                      | Target assertion               | Result                                      |
+| --- | ------------------------------------------------------------- | ------------------------------ | ------------------------------------------- |
+| M7  | `sheet.tsx`: `sm:max-w-lg` → `sm:max-w-[100px]`               | `MIN_SURFACE_WIDTH`, line 350  | **red**, `Expected: >= 320 / Received: 100` |
+| M8  | `sheet.tsx`: `max-h-[40px]` appended last in the panel `cn()` | `MIN_SURFACE_HEIGHT`, line 353 | **red**, `Expected: >= 96 / Received: 40`   |
+
+Both reach the assertion they target: `expectFullyOnScreen` runs before either and passed in both
+cases (a 100px-wide or 40px-tall panel is still comfortably inside the viewport), and the
+modality-specific branch runs after both, so neither failure came from a branch assertion.
+
+**M8's first attempt is worth recording, because it is the failure mode this whole discipline
+guards against.** Adding `max-h-[40px]` to the panel's _base_ class string produced a green run —
+the test passed and would have been reported as evidence. It was not evidence: `cn()` merges
+Tailwind classes and keeps the last conflicting one, so the later `max-h-full` on the fullscreen
+branch silently dropped the cap and the rendered height never changed. A mutation that does not
+change the value the assertion reads proves nothing, and a green result is exactly what it looks
+like. Re-applying the cap as the final argument to `cn()` made it win the merge, and the
+assertion reddened.
+
+## Minor 6 — the allowlist suppression is now scoped to the two files that need it
+
+The global allowlist in `scripts/check-docs-links.mjs` suppresses a path repo-wide, so my two
+entries would have kept a stale reference passing in any document — including after a route file
+were created and deleted again, in a document that never meant to name it.
+
+The mechanism did not support scoping, so scoping was added: a `SCOPED_ALLOWLIST` map from
+document to the set of paths that document may name, and an `isAllowedPath(repoRelative, target)`
+helper used at all three call sites. The global list is unchanged and its pre-existing entries
+stay global; only my two entries moved, each filed under the document that names it. A comment on
+the new map tells the next person to prefer it.
+
+**This narrows the gate rather than widening it, and that was checked rather than assumed.**
+Repointing one map key at a filename that does not exist makes the check fail on exactly the
+document that lost its suppression:
+
+```
+docs/caring-contacts/phase-2a-sdd-archive/task-15-report.md:
+  MISSING src/app/caring-contacts/not-found.tsx
+docs link check FAILED: 1 missing path(s) across 2320 checked references.
+```
+
+Reverted, it passes: `docs link check passed: 2319 repo path references resolve.`
+
+The report-filename typo fix from the previous round is unchanged.
+
+## Re-run after the spec change
+
+Minor 5 edits the spec, so it was re-run rather than reasoned about.
+
+`node scripts/run-playwright.mjs tests/ui-caring-contacts-workspace.spec.ts --project=chromium`,
+**exit code 0**, no `DATABASE_HEAVY_RUN_ADMISSION_BUSY` marker and no exit 75 — a real run, not a
+lease block:
+
+```
+  18 passed (42.7s)
+```
+
+All 18 individually green, including the four whose geometry now carries the new floor:
+
+```
+  ok 10 … opens all 24 overlays at their frozen modality and geometry at 390px (8.7s)
+  ok 12 … opens all 24 overlays at their frozen modality and geometry at 1440px (9.6s)
+```
+
+## Files changed in this round
+
+| File                                                          | Change                                                                   |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `tests/ui-caring-contacts-workspace.spec.ts`                  | two shared lower bounds on overlay surface geometry (additive)           |
+| `scripts/playwright-pr-shards.mjs`                            | re-measured timing, rebalanced two specs across shards, comments updated |
+| `scripts/check-docs-links.mjs`                                | scoped allowlist mechanism; my two entries moved off the global list     |
+| `docs/caring-contacts/phase-2a-sdd-archive/task-19-report.md` | the M1 correction, the red-with-cause statement, and this section        |
+| `docs/outstanding-issues-inbox/` (three new request files)    | the focus defect, the session-gate question, the build failure           |
