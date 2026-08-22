@@ -7,8 +7,8 @@
 // seam, not of either store.
 //
 // The store and the demo-role cookie are both replaced here: `caringContactsStore()` is memoised
-// at module scope in production (deliberately -- see store.ts), so a test that used the real one
-// would share a single in-memory workspace across every case in this file.
+// process-wide (deliberately -- see store.ts), so a test that used the real one would share a
+// single in-memory workspace across every case in this file.
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";

@@ -6,7 +6,7 @@
 // with no database at all. That in-memory fallback is what the demo and this repository's offline
 // test suite run against.
 //
-// Memoised at module scope, built lazily on the first call. Two reasons, not one:
+// Memoised on the first call, then reused. Two reasons, not one:
 //   * the Postgres branch would otherwise build a brand-new `pg.Pool` on every call -- and once a
 //     route handler calls this per request (Task 14+), that is unbounded connection growth with
 //     nothing ever ending a pool;
@@ -14,9 +14,17 @@
 //     ../caring-contacts/in-memory-repository.ts). An unmemoised call would hand back a fresh,
 //     empty store on every request, and nothing written by one request would ever be visible to
 //     the next -- silently breaking the demo, not just wasting resources.
-// Node's module cache makes the single `cachedStore` below a process-wide singleton. The
-// Clinical-KB-separation guard still runs before a pool is ever constructed, including on this
-// first call -- memoisation only means it runs once, never that it is skipped.
+// Memoisation is pinned on `globalThis`, not a module-scoped `let`. Turbopack gives App Router
+// pages and route handlers separate module registries under `next dev`, so a module-level
+// singleton is instantiated twice: a stop posted to `/api/caring-contacts/service-state` would
+// update the route-handler store while `src/app/caring-contacts/page.tsx` still read a running
+// copy and omit the safety banner. `globalThis` is process-wide in the Node runtime this seam
+// uses (`export const runtime = "nodejs"`), which is the same pattern `api-rate-limit.ts` and
+// `upload-admission.ts` already use for cross-module process state. The production webpack
+// build already shared one instance through Node's require cache; this makes the demo store
+// match that under Turbopack too. The Clinical-KB-separation guard still runs before a pool is
+// ever constructed, including on this first call -- memoisation only means it runs once, never
+// that it is skipped.
 import "server-only";
 
 import { systemClock } from "@/lib/caring-contacts/clock";
@@ -27,13 +35,16 @@ import type { CaringContactRepository } from "@/lib/caring-contacts/repository";
 import { assertNotClinicalKbProject, caringContactsDatabaseUrl } from "./config";
 import { createCaringContactsPool } from "./pool";
 
-let cachedStore: Promise<CaringContactRepository> | null = null;
+export const CARING_CONTACTS_STORE_GLOBAL_KEY = "__caringContactsCachedStore";
+
+type GlobalWithCaringContactsStore = typeof globalThis & {
+  [CARING_CONTACTS_STORE_GLOBAL_KEY]?: Promise<CaringContactRepository>;
+};
 
 export async function caringContactsStore(): Promise<CaringContactRepository> {
-  if (!cachedStore) {
-    cachedStore = buildStore();
-  }
-  return cachedStore;
+  const runtime = globalThis as GlobalWithCaringContactsStore;
+  runtime[CARING_CONTACTS_STORE_GLOBAL_KEY] ??= buildStore();
+  return runtime[CARING_CONTACTS_STORE_GLOBAL_KEY];
 }
 
 async function buildStore(): Promise<CaringContactRepository> {
