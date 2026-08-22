@@ -36,10 +36,30 @@ against):
 
 **Standing rules for every phase.** No hosted mutation without explicit approval for that phase.
 Never raw-SQL a drift fix — every live change is codified (migration + `schema.sql` mirror +
-regenerated `drift-manifest.json`) in the same change. PITR/backup restore point captured before
-any mutating phase. Every phase ends with pasted decisive evidence, not exit codes. RAG-protected
+regenerated `drift-manifest.json`) in the same change. Every phase ends with pasted decisive
+evidence, not exit codes. RAG-protected
 surfaces (`match_*` RPCs, anything under `src/lib/rag/**`) are flagged before editing and
 behaviour changes need a live eval-canary pair (36/36, recall 1.0, zero per-case rr regressions).
+
+**Recovery point — owner decision, 2026-08-22 (`#1K6T35`).** This rule used to read "PITR/backup
+restore point captured before any mutating phase". It was unsatisfiable: point-in-time recovery is a
+paid add-on and is **off** on the live project (`supabase backups list` on 2026-08-19 reported
+`pitr_enabled false`, `walg_enabled true`, seven retained daily physical backups). A checklist item
+nobody can satisfy reads as met by default whenever nobody checks it, which is exactly what happened
+through Phases 1-4. The owner has decided to **leave PITR off and accept a worst case of roughly 24
+hours of data loss** on the clinical corpus, so the rule now states the true position:
+
+> The only restore point is the most recent daily physical backup, up to ~24 h old. Before any
+> mutating phase, confirm the latest backup's completion timestamp and record it, and state in the
+> phase's evidence what would be lost by restoring to it. Phases whose every statement has an exact
+> one-statement inverse and no data-loss surface (the Phase 4 index work) may proceed on that basis.
+> Anything that rewrites or drops data or policy objects must additionally have a written, tested
+> reversal path, because there is no restore point finer than the last nightly backup.
+
+This decision covers **this remediation programme only**. It does not relax the separate
+`docs/superpowers/plans/2026-08-20-rag-ingestion-reindex.md` gate, which stops before a production
+re-index or backfill when PITR is disabled — that plan mutates the corpus itself and its stop
+condition stands until it is revisited on its own terms.
 
 ---
 

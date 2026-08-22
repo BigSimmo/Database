@@ -154,6 +154,28 @@ describe("production mockup boundary", () => {
     expect(shouldBlockProductionMockups("/applications", { NODE_ENV: "production" })).toBe(false);
   });
 
+  it("lets the Care Plan subtree reach its own developer gate, and keeps look-alike prefixes blocked", () => {
+    // The gated prefix is exactly `/mockups/care-plan`. Its base, a patient deep
+    // route and an episode deep route must reach DeveloperAreaGate rather than a
+    // bare 404; every neighbouring path that merely begins with the same
+    // characters stays behind the blanket production block.
+    for (const path of [
+      "/mockups/care-plan",
+      "/mockups/care-plan/patients/SYN-PATIENT-001/management-plan",
+      "/mockups/care-plan/patients/SYN-PATIENT-001/presentations/SYN-PRESENTATION-001",
+    ]) {
+      expect(shouldBlockProductionMockups(path, { NODE_ENV: "production" }), path).toBe(false);
+    }
+    for (const path of [
+      "/mockups/care-plan-archive",
+      "/mockups/care-plan-archive/patients/SYN-PATIENT-001",
+      "/mockups/care-plans",
+      "/mockups/care-plan-2024/system-states",
+    ]) {
+      expect(shouldBlockProductionMockups(path, { NODE_ENV: "production" }), path).toBe(true);
+    }
+  });
+
   it("lets the developer-gated hub and Caring Contact subtree through the blanket block, without opting in the flag", () => {
     // These two subtrees carry their own signed-in-administrator gate
     // (DeveloperAreaGate) instead of the flat 404 — no NEXT_PUBLIC_MOCKUPS_ENABLED
@@ -178,6 +200,16 @@ describe("developer-area header (x-developer-area)", () => {
     const developmentResponse = await proxy(developmentRequest);
     expect(developmentResponse.headers.get("x-middleware-request-x-developer-area")).toBe("1");
     expect(developmentResponse.headers.get("x-middleware-request-x-developer-area-path")).toBe("/mockups/development");
+
+    const carePlanRequest = requestFor("/mockups/care-plan/patients/SYN-PATIENT-001/presentations");
+    const carePlanResponse = await proxy(carePlanRequest);
+    expect(carePlanResponse.headers.get("x-middleware-request-x-developer-area")).toBe("1");
+    expect(carePlanResponse.headers.get("x-middleware-request-x-developer-area-path")).toBe(
+      "/mockups/care-plan/patients/SYN-PATIENT-001/presentations",
+    );
+
+    const carePlanLookAlikeResponse = await proxy(requestFor("/mockups/care-plan-archive"));
+    expect(carePlanLookAlikeResponse.headers.get("x-middleware-request-x-developer-area")).toBeNull();
 
     const otherMockupRequest = requestFor("/mockups/tools-workflow-board");
     otherMockupRequest.headers.set("x-developer-area", "1");

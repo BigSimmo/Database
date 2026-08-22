@@ -26,6 +26,8 @@ export type LexiconTerm = {
   surfaces: string[];
   kind: LexiconTermKind;
   select?: CatalogueSelector;
+  /** Source records that can mention this term without declaring a matching counterparty. */
+  sourceDenySlugs?: string[];
   note?: string;
 };
 
@@ -40,7 +42,17 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     id: "opioids",
     surfaces: ["opioids", "opioid", "opioid analgesia", "opiates", "full agonists"],
     kind: "catalogue",
-    select: { subclassIncludes: ["Opioid"], denySlugs: ["naltrexone", "naloxone"] },
+    // `loperamide` is denied for the same reason as the antagonists: the subclass
+    // match is a substring one, and the catalogue classifies it "Peripheral Opioid
+    // Agonist" — P-gp keeps it out of the CNS at therapeutic doses, so it does not
+    // add to the sedation and respiratory-depression rows this term drives (35 of
+    // its 36 rows are CRITICAL or HIGH). Its real risk, QTc prolongation in
+    // overdose or with P-gp inhibitors, is carried by the catalogue's own per-drug
+    // QTc data and the `qtc-prolonging` mechanism term, not by this one.
+    select: { subclassIncludes: ["Opioid"], denySlugs: ["naltrexone", "naloxone", "loperamide"] },
+    // Loperamide's own P-gp row describes possible opioid sedation, but does
+    // not declare every opioid as a counterparty.
+    sourceDenySlugs: ["loperamide"],
   },
   { id: "ssris", surfaces: ["ssris", "ssri"], kind: "catalogue", select: { subclassIncludes: ["SSRI"] } },
   { id: "snris", surfaces: ["snris", "snri"], kind: "catalogue", select: { subclassIncludes: ["SNRI"] } },

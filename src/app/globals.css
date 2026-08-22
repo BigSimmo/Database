@@ -76,6 +76,11 @@
   --breakpoint-phone: 640px;
   --breakpoint-tablet: 768px;
   --breakpoint-desktop: 1024px;
+  /* The one narrow phone interval where the shared filter wordmark would make
+     a single-line control band wrap. The upper token is exclusive, so this is
+     exactly 414–429px. */
+  --breakpoint-filter-label-collapse: 414px;
+  --breakpoint-filter-label-restore: 430px;
 
   /* Radius ladder: 4 · 6 · 10 · 12 · 16 · 20 — the 4px grid with two deliberate
      half-steps. `sm` is 6px, for chips and pills that read as too heavy at 8.
@@ -449,6 +454,7 @@
   --danger-solid-hover: #85140d;
   --danger-solid-active: #6f120c;
   --danger-solid-contrast: #ffffff;
+  --print-furniture-gap: 4mm;
 
   --info: var(--info-text);
   --info-soft: var(--info-bg);
@@ -2619,6 +2625,29 @@ summary::-webkit-details-marker {
     padding-bottom: max(0.45rem, var(--safe-area-bottom));
   }
 
+  /* Guide Centre: the CTA stays above the Home Indicator while its dedicated
+     glass tray paints through the complete safe-area region. The shared search
+     dock deliberately fades to transparent at the physical edge; on this
+     fullscreen white Sheet that exposed a separate white strip below the CTA. */
+  .guide-tour-dock.answer-footer-search-dock.answer-footer-search-edge {
+    padding-top: var(--spacing-icon-xs);
+    padding-bottom: calc(var(--spacing-icon-xs) + var(--safe-area-bottom));
+  }
+
+  .guide-tour-dock.answer-footer-search-dock .answer-footer-search-backdrop {
+    height: max(7.5rem, calc(var(--safe-area-bottom) + 6rem));
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      color-mix(in srgb, var(--surface-raised) 24%, transparent) 28%,
+      color-mix(in srgb, var(--surface-raised) 72%, transparent) 58%,
+      color-mix(in srgb, var(--surface-raised) 88%, var(--clinical-accent-soft)) 82%,
+      color-mix(in srgb, var(--surface-raised) 88%, var(--clinical-accent-soft)) 100%
+    );
+    mask-image: linear-gradient(180deg, transparent 0%, black 30%, black 100%);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 30%, black 100%);
+  }
+
   /* Must beat the edge-to-edge dock rule above (transform: none) so scroll-hide
      actually slides the bar off-screen once data-scroll-hidden is set.
      Use --safe-area-bottom (not env() alone) so Playwright/PWA inset simulation
@@ -4650,8 +4679,50 @@ html.theme-transitioning *:after {
     color: var(--text-muted);
     font-size: 9pt;
   }
+
+  /*
+   * Opt-in print capabilities, declared here beside the rules that decide what
+   * prints at all. Each is inert until a `PrintOutput` or `PrintSection` asks
+   * for it, so no existing printed document changes.
+   */
+
+  [data-print-break-inside="avoid"] {
+    break-inside: avoid;
+  }
+
+  [data-print-break-before="page"] {
+    break-before: page;
+  }
+
+  /*
+   * Monochrome output. A greyscale printer flattens the tint that carried a
+   * state on screen, so the tint is removed outright and the border and the
+   * words carry it instead. Deliberately fixed ink rather than a token: this is
+   * a paper palette and must not follow the reader's theme.
+   */
+  [data-print-monochrome],
+  [data-print-monochrome] * {
+    background-color: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+    border-color: #000000 !important;
+  }
+
+  [data-print-stamp],
+  [data-print-confidential] {
+    display: block !important;
+    margin-top: var(--print-furniture-gap);
+    color: var(--text-muted);
+    font-size: 9pt;
+  }
 }
 
 [data-print-provenance] {
+  display: none;
+}
+
+/* Print furniture. It exists for the paper and would only be noise on screen. */
+[data-print-confidential],
+[data-print-stamp] {
   display: none;
 }

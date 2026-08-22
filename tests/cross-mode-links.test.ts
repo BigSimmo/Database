@@ -81,6 +81,17 @@ describe("buildCrossModeLinks", () => {
     expect(links[0]!.detailHref).toMatch(/^\/differentials\/(diagnoses|presentations)\//);
   });
 
+  it("keeps retitled presentations findable by their imported title", () => {
+    const links = buildCrossModeLinks("poor rapport", { differentials });
+
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatchObject({
+      modeId: "differentials",
+      slug: "poor-functioning-neglect-negative-symptoms-poor-judgement-poor-rapport",
+      detailHref: "/differentials/presentations/poor-functioning-neglect-negative-symptoms-poor-judgement-poor-rapport",
+    });
+  });
+
   it("does not surface differentials for queries that only name a medication", () => {
     const links = buildCrossModeLinks("acamprosate renal dosing", { medications, differentials });
     expect(links.length).toBeGreaterThan(0);

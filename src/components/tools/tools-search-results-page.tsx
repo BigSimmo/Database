@@ -476,8 +476,11 @@ export function ToolsSearchResultsPage({
                 <Search className="h-7 w-7 text-[color:var(--clinical-accent)]" aria-hidden="true" />
                 <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">No tools match</h2>
                 <p className="max-w-md text-sm text-[color:var(--text-muted)]">
-                  Refine the search above or choose another tool category.
+                  Try another search or return to the full tools catalogue.
                 </p>
+                <Link href="/tools" className={floatingControl}>
+                  Show all tools
+                </Link>
               </div>
             )}
           </section>
