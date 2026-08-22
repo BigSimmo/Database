@@ -548,6 +548,21 @@ export function PatientPlanPrintSurface({
           </p>
         </PrintSection>
 
+        {stale ? (
+          // A stale copy is going to paper here just as readably as a current
+          // one — the domain rule this warning exists to serve is that nothing
+          // is hidden or withdrawn on the person's behalf. What must not happen
+          // is the paper leaving the room silent about it: the on-screen
+          // StaleNotice above sits outside this element and the shared print
+          // rule hides everything outside `[data-print-output]`, so this is the
+          // one copy of the warning a reader holding the sheet ever sees.
+          <p data-testid="care-plan-patient-plan-print-stale" className={styles.printRecordWarning}>
+            <strong>This copy needs updating.</strong> The Management Plan has moved on since version{" "}
+            {String(version.version)} of this copy was written. Everything here is still shown, and nothing has been
+            changed or taken away. Check with the team before treating it as current.
+          </p>
+        ) : null}
+
         <PatientPlanSections sections={version.sections} gaps="omit" />
 
         <PatientPlanResources resources={version.resources} />

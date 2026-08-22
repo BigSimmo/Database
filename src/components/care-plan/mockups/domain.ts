@@ -281,13 +281,21 @@ export function getOpenPatientPlanDraft(
  * A stale copy stays fully readable and is never regenerated, hidden, or
  * withdrawn on the person's behalf. They may be holding the paper; the
  * application's account of what they were given has to stay true to it.
+ *
+ * A `null` Management Plan current-version identifier means the Management
+ * Plan was withdrawn with nothing approved to replace it — not that nothing
+ * ever compares. A current Patient Plan version can only exist if a
+ * Management Plan was once approved for it to be derived from, so a source
+ * that is now current-less is exactly the "moved on underneath the copy"
+ * case this function exists to catch, and is stale by the same reasoning as
+ * a source that moved on to a different version.
  */
 export function isPatientPlanVersionStale(
   version: PatientPlanVersion | null,
   managementPlanCurrentVersionId: SyntheticId | null,
 ): boolean {
   if (version === null || version.state !== "current") return false;
-  if (managementPlanCurrentVersionId === null) return false;
+  if (managementPlanCurrentVersionId === null) return true;
   return version.derivedFromManagementVersionId !== managementPlanCurrentVersionId;
 }
 

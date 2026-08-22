@@ -1037,6 +1037,84 @@ describe("Patient Plan staleness", () => {
     expect(JSON.stringify(stillTheSameCopy)).not.toContain("stale");
   });
 
+  it("treats a withdrawn source with nothing to replace it as stale, not as having nothing to compare", () => {
+    const before = withApprovedCopy();
+    const plan = before.patientPlans[0];
+    const copy = getCurrentPatientPlanVersion(before.patientPlanVersions, plan?.id ?? "SYN-NONE");
+
+    const withdrawn = asUser(before, "senior_clinician");
+    const after = prototypeReducer(withdrawn, {
+      type: "withdraw-current-management-version",
+      patientId: MIRA,
+      reason: "The plan no longer fits and a new one will be written with Mira.",
+    });
+    const management = after.managementPlans.find((candidate) => candidate.patientId === MIRA);
+
+    // Withdrawal, not a newer version: the source has no Current version at
+    // all, which is a stronger reason to update the copy than a mere version
+    // mismatch, not an absence of anything to compare against.
+    expect(management?.currentVersionId).toBeNull();
+    expect(isPatientPlanVersionStale(copy, management?.currentVersionId ?? null)).toBe(true);
+  });
+
+  it("raises the same stale-copy Review Trigger when the source is withdrawn instead of superseded", () => {
+    const before = withApprovedCopy();
+    const openBefore = before.reviewTriggers.filter((trigger) => trigger.source === "patient_plan_stale");
+    expect(openBefore).toEqual([]);
+
+    const after = prototypeReducer(asUser(before, "senior_clinician"), {
+      type: "withdraw-current-management-version",
+      patientId: MIRA,
+      reason: "The plan no longer fits and a new one will be written with Mira.",
+    });
+
+    const raised = after.reviewTriggers.filter((trigger) => trigger.source === "patient_plan_stale");
+    expect(raised).toHaveLength(1);
+    expect(raised[0]?.status).toBe("open");
+    expect(raised[0]?.patientId).toBe(MIRA);
+    // Same literal the superseded-version path uses: the instinct on reading
+    // "stale" is to take the copy away, and withdrawal is not an exception.
+    expect(raised[0]?.reason).toMatch(/stays readable and unchanged/i);
+
+    // A further withdrawal-adjacent action does not stack a second item.
+    const again = prototypeReducer(after, {
+      type: "withdraw-current-management-version",
+      patientId: MIRA,
+      reason: "Repeated dispatch should not raise a second trigger.",
+    });
+    // Refused outright: there is no Current Plan left to withdraw a second time.
+    expect(again.lastOutcome?.kind).toBe("error");
+    expect(again.lastOutcome?.message).toMatch(/no Current Plan to withdraw/i);
+    expect(again.reviewTriggers.filter((trigger) => trigger.source === "patient_plan_stale")).toHaveLength(1);
+  });
+
+  it("refuses to approve a Patient Plan draft once the source it was written from is no longer the Current Plan", () => {
+    const { state, draft } = stateWithDraft(MIRA, "senior_clinician");
+    const saved = run(state, {
+      type: "save-patient-plan-draft",
+      versionId: draft.id,
+      input: { sections: filled(draft.sections), resources: [...draft.resources] },
+    });
+
+    // Move the Management Plan on underneath the still-open draft, before it
+    // is ever approved. No Patient Plan was Current at that moment, so the
+    // ordinary superseded-version stale trigger never fires for this draft.
+    const movedOn = prototypeReducer(saved, {
+      type: "approve-management-version",
+      versionId: awaitingVersionId(saved),
+    });
+    expect(movedOn.patientPlans.find(({ patientId }) => patientId === MIRA)?.currentVersionId).toBeNull();
+
+    const attempt = prototypeReducer(movedOn, { type: "approve-patient-plan-version", versionId: draft.id });
+
+    expect(attempt.lastOutcome?.kind).toBe("error");
+    expect(attempt.lastOutcome?.message).toMatch(/no longer the Current Plan/i);
+    // Nothing was promoted: the draft stays a draft and no Patient Plan
+    // became Current from an already-obsolete source.
+    expect(attempt.patientPlanVersions.find(({ id }) => id === draft.id)?.state).toBe("draft");
+    expect(attempt.patientPlans.find(({ patientId }) => patientId === MIRA)?.currentVersionId).toBeNull();
+  });
+
   it("never regenerates, hides, or withdraws a copy the person may be holding", () => {
     const before = withApprovedCopy();
     const copyBefore = before.patientPlanVersions.map((version) => ({ ...version }));

@@ -29,16 +29,32 @@ export function ContactActions({
   scenario,
   reviewsHref,
   onIntent,
+  blockedReason,
 }: {
   contact: CmhtContact;
   scenario: PrototypeScenario;
   reviewsHref: string;
   onIntent: (channel: ContactChannel) => void;
+  /**
+   * Set when the mutation guard refuses `record-contact-intent` (offline,
+   * permission unavailable, identity uncertain, a version conflict, or a role
+   * that does not carry the capability). The anchors stay on screen with their
+   * real `mailto:`/`tel:` targets — withholding the details would send the
+   * reader nowhere at all — but the launch itself is stopped and no intent is
+   * recorded, matching every other guarded action in this prototype.
+   */
+  blockedReason: string | null;
 }) {
   const [failedChannel, setFailedChannel] = useState<ContactChannel | null>(null);
 
   function handleLaunch(channel: ContactChannel) {
     return (event: MouseEvent<HTMLAnchorElement>) => {
+      // Guarded: the reducer would refuse this dispatch, so the external
+      // application is never asked to open and nothing is recorded either.
+      if (blockedReason !== null) {
+        event.preventDefault();
+        return;
+      }
       // The launch-failure specimen: the external application never opens, so
       // the anchor's default navigation is stopped and the failure is stated.
       // The details stay exactly where they were — withholding them would send
@@ -112,6 +128,12 @@ export function ContactActions({
             ? "Nothing was sent, and no message exists."
             : "No call was placed, and no call exists."}{" "}
           {`Use the details above directly: ${contact.sharedMailbox}, or ${contact.dutyTelephoneDisplay}.`}
+        </p>
+      )}
+
+      {blockedReason === null ? null : (
+        <p role="alert" data-testid="care-plan-contact-blocked" className={styles.contactWarning}>
+          {blockedReason}
         </p>
       )}
     </SectionFrame>

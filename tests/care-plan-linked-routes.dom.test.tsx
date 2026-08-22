@@ -871,6 +871,7 @@ describe("Care Plan review currency with no review date", () => {
         activeSection={null}
         reviewsHref={CARE_PLAN_ROUTES.reviews}
         onRecordContactIntent={() => {}}
+        contactBlockedReason={null}
       />,
     );
   }
@@ -976,6 +977,23 @@ describe("Care Plan CMHT contact actions", () => {
     // The contact details themselves are still on screen.
     const contacts = screen.getByRole("region", { name: "Community mental health team" });
     expect(within(contacts).getByRole("link", { name: "Call North River CMHT" })).toBeInTheDocument();
+  });
+
+  it("stops a guarded contact launch instead of opening the external application anyway", async () => {
+    const user = userEvent.setup();
+    renderRoute(CARE_PLAN_ROUTES.patient, "scenario=permission-unavailable");
+    const contacts = screen.getByRole("region", { name: "Community mental health team" });
+    const emailLink = within(contacts).getByRole("link", { name: "Email North River CMHT" });
+
+    await user.click(emailLink);
+
+    // The mutation guard's own reason is shown, and no contact-intent audit
+    // outcome ever appears: the reducer was never asked to dispatch, which is
+    // the observable half of "the launch never happened" available in jsdom
+    // (a `mailto:`/`tel:` anchor click is not real navigation either way).
+    const blocked = within(contacts).getByTestId("care-plan-contact-blocked");
+    expect(blocked).toHaveTextContent(/permission for this action could not be confirmed/i);
+    expect(screen.queryByTestId("care-plan-outcome")).not.toBeInTheDocument();
   });
 });
 
@@ -3366,5 +3384,15 @@ describe("Care Plan Patient Plan", () => {
       within(screen.getByTestId("care-plan-patient-plan-sections")).getAllByRole("heading", { level: 3 }),
     ).toHaveLength(8);
     expect(screen.queryByTestId("care-plan-patient-plan-no-current")).toBeNull();
+
+    // The same currency warning shown on screen must reach the printed sheet.
+    // The screen-only StaleNotice above sits outside `[data-print-output]`, so
+    // if the print surface carries no warning of its own a clinician can print
+    // and hand over an earlier-version copy whose paper looks current.
+    goTo(carePlanRoute.patientPlanPrint("SYN-PATIENT-002"));
+    const paper = screen.getByTestId("care-plan-patient-plan-print-output");
+    const staleOnPaper = within(paper).getByTestId("care-plan-patient-plan-print-stale");
+    expect(staleOnPaper).toHaveTextContent(/needs updating/i);
+    expect(staleOnPaper.closest("[data-print-hide='true']")).toBeNull();
   });
 });

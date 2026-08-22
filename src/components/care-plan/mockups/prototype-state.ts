@@ -953,6 +953,40 @@ export function prototypeReducer(
       const withdrawnAt = prototypeTimestamp(state);
       const actor = state.users.find(({ id }) => id === state.activeUserId);
 
+      /**
+       * Withdrawal leaves the plan with no Current version at all — not merely
+       * a different one — and a Current Patient Plan copy derived from what
+       * was just withdrawn is exactly as out of date as one derived from a
+       * superseded version. The same mechanism `approve-management-version`
+       * uses applies here: the copy is never touched, and the discrepancy goes
+       * in front of a human once, deduplicated per plan.
+       */
+      const patientPlan = state.patientPlans.find((candidate) => candidate.patientId === plan.patientId) ?? null;
+      const currentPatientVersion =
+        patientPlan === null ? null : getCurrentPatientPlanVersion(state.patientPlanVersions, patientPlan.id);
+      const staleTriggerAlreadyOpen = state.reviewTriggers.some(
+        (trigger) =>
+          trigger.managementPlanId === plan.id && trigger.source === "patient_plan_stale" && trigger.status === "open",
+      );
+      const staleTrigger: ReviewTrigger | null =
+        currentPatientVersion !== null && !staleTriggerAlreadyOpen
+          ? {
+              id: nextSyntheticId(
+                "SYN-TRIGGER",
+                state.reviewTriggers.map(({ id }) => id),
+              ),
+              patientId: plan.patientId,
+              managementPlanId: plan.id,
+              source: "patient_plan_stale",
+              sourceId: currentPatientVersion.id,
+              reason: `Version ${current.version} was withdrawn and ${patient.preferredName} now has no Current Plan. Patient Plan version ${currentPatientVersion.version} was written from it, so it stays readable and unchanged until somebody goes through it with them.`,
+              status: "open",
+              createdAt: prototypeTimestamp(state, 1),
+              resolvedAt: null,
+              resolution: null,
+            }
+          : null;
+
       return {
         ...state,
         managementPlanVersions: state.managementPlanVersions.map((candidate) =>
@@ -970,6 +1004,7 @@ export function prototypeReducer(
         managementPlans: state.managementPlans.map((candidate) =>
           candidate.id === plan.id ? { ...candidate, currentVersionId: null } : candidate,
         ),
+        reviewTriggers: staleTrigger === null ? state.reviewTriggers : [...state.reviewTriggers, staleTrigger],
         auditEvents: withAudit(state, {
           type: "management_version_withdrawn",
           patientId: patient.id,
@@ -978,7 +1013,10 @@ export function prototypeReducer(
         }),
         lastOutcome: {
           kind: "success",
-          message: `Version ${current.version} withdrawn. ${patient.preferredName} now has no Current Plan, and no earlier version was put back into use.`,
+          message:
+            staleTrigger === null
+              ? `Version ${current.version} withdrawn. ${patient.preferredName} now has no Current Plan, and no earlier version was put back into use.`
+              : `Version ${current.version} withdrawn. ${patient.preferredName} now has no Current Plan, and no earlier version was put back into use. This person's Patient Plan was written from it and now needs updating; it stays readable and an open Review Trigger was raised.`,
         },
       };
     }
@@ -1521,6 +1559,29 @@ export function prototypeReducer(
         return refuse(
           state,
           `Patient Plan version ${version.version} cannot be approved while ${gaps.length} ${gaps.length === 1 ? "section is" : "sections are"} still blank: ${gaps.map((section) => section.heading).join("; ")}. A blank heading on a copy handed to somebody reads as though nothing about them was worth writing.`,
+        );
+      }
+
+      /**
+       * The Management Plan can move on while this draft sits open — another
+       * version approved, or the source withdrawn — and a draft is not
+       * revalidated against that until the moment it is itself approved. What
+       * must not happen is turning an already-obsolete draft into the Current
+       * Patient Plan copy: it would print as current when it was written from
+       * a version nobody is treating as current any more, and because no
+       * Patient Plan was current when the source moved on, the ordinary
+       * stale-copy Review Trigger was never raised for it either.
+       */
+      const draftPatient = findPatient(state, plan.patientId);
+      const sourceManagementPlan = draftPatient === null ? null : findManagementPlan(state, draftPatient);
+      const sourceCurrentVersion =
+        sourceManagementPlan === null
+          ? null
+          : getCurrentManagementPlanVersion(state.managementPlanVersions, sourceManagementPlan.id);
+      if (sourceCurrentVersion === null || version.derivedFromManagementVersionId !== sourceCurrentVersion.id) {
+        return refuse(
+          state,
+          `Patient Plan version ${version.version} was written from a Management Plan version that is no longer the Current Plan, so it cannot be approved as though it still matched. Start a new draft from the Current Plan and go through it again with this person.`,
         );
       }
 

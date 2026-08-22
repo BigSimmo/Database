@@ -10,6 +10,7 @@ import { PROTOTYPE_NOW } from "./fixtures";
 import { PatientDirectory } from "./patient-directory";
 import { PatientWorkspace } from "./patient-workspace";
 import { useCarePlanPrototype } from "./prototype-provider";
+import { getPrototypeMutationBlockReason } from "./prototype-state";
 import { CARE_PLAN_ROUTES } from "./routes";
 import type { CmhtContact, Patient, PatientSnapshot, PrototypeScenario, SyntheticId } from "./types";
 
@@ -55,6 +56,16 @@ export function ClinicalSnapshotSurface({
     if (snapshot === null) return;
     dispatch({ type: "record-contact-intent", patientId: snapshot.patient.id, cmhtId: contact.id, channel });
   }
+
+  const contactBlockedReason =
+    snapshot === null || snapshot.cmht === null
+      ? null
+      : getPrototypeMutationBlockReason(state, {
+          type: "record-contact-intent",
+          patientId: snapshot.patient.id,
+          cmhtId: snapshot.cmht.id,
+          channel: "email",
+        });
 
   const workspaceRef = useRef<HTMLElement>(null);
   const lastVariant = useRef<ClinicalSnapshotVariant | null>(null);
@@ -115,6 +126,7 @@ export function ClinicalSnapshotSurface({
         activeSection={variant === "patient" ? "overview" : null}
         reviewsHref={CARE_PLAN_ROUTES.reviews}
         onRecordContactIntent={recordContactIntent}
+        contactBlockedReason={contactBlockedReason}
         showFullRecordLink={variant !== "patient"}
       />
     );

@@ -48,6 +48,13 @@ export type PatientWorkspaceProps = {
   activeSection: PatientSectionKey | null;
   reviewsHref: string;
   onRecordContactIntent: (contact: CmhtContact, channel: "email" | "call") => void;
+  /**
+   * The mutation-guard reason for `record-contact-intent`, computed by the
+   * caller (which holds prototype state); `null` when the contact block is
+   * not rendered at all. Passed straight through to `ContactActions`, which
+   * stops the anchor launch and records nothing while it is set.
+   */
+  contactBlockedReason: string | null;
   /** Home renders the workspace beside the directory and offers the full record. */
   showFullRecordLink?: boolean;
   /**
@@ -76,6 +83,7 @@ export function PatientWorkspace({
   activeSection,
   reviewsHref,
   onRecordContactIntent,
+  contactBlockedReason,
   showFullRecordLink = false,
   ref,
 }: PatientWorkspaceProps) {
@@ -225,6 +233,7 @@ export function PatientWorkspace({
               scenario={scenario}
               reviewsHref={reviewsHref}
               onIntent={(channel) => onRecordContactIntent(cmht, channel)}
+              blockedReason={contactBlockedReason}
             />
           )}
         </>
