@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (256 files) and the `package.json` script surface (259 entries),
+Curated map of `scripts/` (260 files) and the `package.json` script surface (263 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -126,16 +126,9 @@ the task before you start.
 ## Build & assets [live/infra]
 
 `build-worker.mjs`, `build-analyze.mjs`, `build-therapies-index.mjs`,
-`build-cross-mode-differentials-index.mjs`, `build-mha-act-sections.mjs`,
-`build-ranking-snapshot.ts`,
+`build-cross-mode-differentials-index.mjs`, `build-ranking-snapshot.ts`,
 `generate-site-map.ts`, `generate-brand-assets.ts`, `generate-sample-documents.ts`,
 `check-sample-extraction.ts`, `optimize-public-images.mjs`.
-
-`build-mha-act-sections.mjs` is the only script here that touches the network, and only in
-its `--refresh` mode, which fetches the current consolidated Mental Health Act 2014 (WA)
-and re-extracts the sections cited by the Forms mode. Run it manually; `--draft` and
-`--check` are offline, and `check:mha-act-sections` (in `verify:cheap`) runs `--check`
-only. See "Deriving Act sections on form pages" in `docs/wiring-conventions.md`.
 
 ## Maintenance & ops [live]
 
