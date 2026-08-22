@@ -2538,3 +2538,36 @@ Fix: hash the canonical string inside `fingerprint.ts`, so both stores change to
 The value is only ever compared for equality, so replay semantics are unchanged. Then narrow what
 `result` may hold. And add the test that would have caught it, beside the existing one that checks the
 same property about the audit trail and stops one table short.
+
+## Ruling 66 — this branch is not exclusively ours, and the push proved it
+
+The condensed-bar push was rejected non-fast-forward. `origin/claude/suicide-contact-mockup-b5aaa0`
+had gained `c3ef20c3f` "fix: gate caring contacts demo access in production", authored by BigSimmo at
+2026-08-22 19:22 +0800 — seven files across the session route, the access-trail route, the workspace
+page, `caring-contacts-server/handler.ts`, `caring-contacts-server/session.ts`, and two test files.
+**Another session is working the same branch concurrently.** Nothing in this session created it.
+
+Ruling: [66] Rebase our two unpushed commits onto the foreign tip rather than merging or forcing.
+— Why: our two commits had never left this machine, so rebasing them rewrites nothing that anyone
+else could hold; a force-push would have destroyed `c3ef20c3f`, which is real work by the owner's
+own identity, and a merge commit would add a topology this branch has not used once in 124 commits.
+The file sets are disjoint — the foreign commit touches no file either of ours touches — so the
+rebase was expected to be clean and was. — Cost if wrong: our two commits carry new SHAs
+(`db4c37eca`→`e93a48b7b`, `e7dc04c4a`→`41302cdc0`), so any note elsewhere citing the old SHAs is
+now stale. The commits recorded in the condensed-bar report are among them.
+
+**The standing consequence, and it is the important half.** Every assumption this programme has made
+about the branch being ours alone is now void:
+
+- **A full-suite result can be invalidated by a commit we did not make.** The condensed bar's
+  implementer reported ten distinct `npm run test` failures across two runs with _different sets each
+  time_, four of which reproduced with its own change reverted. That reads as flake or lock
+  contention, and it may be — but a concurrent session editing `caring-contacts-server/handler.ts`
+  and `session.ts` mid-run is an equally good explanation, and it was not available to that agent.
+  **Re-verify green against a known tip, and record the tip alongside the result**; a bare "the suite
+  is green" no longer means anything on this branch.
+- **`git status` clean is no longer evidence the tree is ours.** The pre-push guard's file set, the
+  formatter's file set, and any `git add -A` all now reach another session's in-flight work.
+- **Fetch before every push, not after a rejection.** The rejection is the cheap failure. The
+  expensive one is a green gate run against a tree that already contained someone else's half-finished
+  edit.
