@@ -107,8 +107,39 @@ is the only damage it carried — its tracked tree was clean and byte-identical 
 | 5. Plan reading, boundary, print | **complete, review clean** | `9bab6ad44..90c1d01a3` | 291/291 passing + Therapy Compass 25/25, typecheck + lint clean, 61 mutations / 61 red |
 | 6–11                             | not started                | —                      | —                                                                                      |
 
-Stage A is Tasks 1–5. **Task 5 ends with a mandatory stop for user review** before
-Task 6 begins.
+Stage A is Tasks 1–5. The plan makes Task 5 a mandatory stop for user review; **the user
+lifted that stop on 22 August 2026**, instructing the session to report at the boundary and
+continue into Stage B without waiting. Recorded here because the plan's own text still says
+otherwise.
+
+### Stage A checkpoint — run 22 August 2026
+
+| Check                     | Result                                                                                                                                                                                             |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Full Stage A test set     | `Test Files 6 passed (6)` / `Tests 291 passed (291)` — after one lease refusal, retried until acquired                                                                                             |
+| `npm run typecheck`       | exit 0, zero diagnostics                                                                                                                                                                           |
+| Local server identity     | `/api/local-project-id` returns `clinical-kb:4573c0c0381a` — this project, on the printed port                                                                                                     |
+| All 21 routes over HTTP   | every one 200                                                                                                                                                                                      |
+| Unknown patient parameter | reaches `notFound()` (`NEXT_HTTP_ERROR_FALLBACK;404` in the payload) and leaks **zero** occurrences of another patient's name or MRN                                                               |
+| Server-rendered DOM       | correct: rail, both synthetic markers, search, three patients rendering three genuinely distinct plan states (`Current version 2`, `No plan in use`, `Withdrawn`), identity band, patient sections |
+| **Browser visual proof**  | **NOT OBTAINED — see below**                                                                                                                                                                       |
+
+**The browser walk could not be performed, and nothing about rendering should be inferred
+from the attempt.** The browser pane in this session does not composite frames, so every
+screenshot timed out and the accessibility tree came back empty even on the production app
+at `/`. The DOM was readable, which is where the server-rendered evidence above comes from,
+but no pixel was ever painted, nothing was clicked, and no viewport was resized. Phone
+layout at 320 px and 390 px, dark mode, forced colours, reduced motion, focus rings and
+print preview all remain **unverified**, exactly as the plan always intended for Task 11.
+
+One observation from that attempt needs recording so a later session does not re-diagnose
+it as a Care Plan defect: the DOM showed two `<main>` landmarks, the Suspense fallback
+visible at full height and the real content inside a `display:none` container with no React
+fiber attached — i.e. never hydrated. **The pre-existing, shipped Caring Contacts prototype
+reproduced this identically**, and so did the main application at `/`. It is therefore a
+property of this non-compositing browser session, not of Care Plan, and not a regression
+introduced by Tasks 3–5. It is also not evidence that the prototype hydrates correctly —
+that question is simply still open, and Task 11's Chromium journeys are what will answer it.
 
 ### Task 1 — complete
 
@@ -571,6 +602,16 @@ Recorded, not fixed. None blocks a later task.
 
 The hand-rolled `aria-live` region was **not** deferred: it was removed as part of Important #3,
 because it double-announced against the focus move that fix depends on.
+
+**Stage A checkpoint** — found by the controller's own run, not by any task review.
+
+- The Stage A test output is **not pristine**, and no task report mentioned it. Two warnings
+  appear on every run: a React `act` warning from
+  `keeps the typed search term across a navigation because the shell persists` ("A component
+  suspended inside an `act` scope, but the `act` call was not awaited"), and a jsdom
+  `Not implemented: navigation to another Document`. The repository's standing rule is that
+  warnings in test output are findings and output should be pristine; both are test hygiene
+  rather than product defects, but they are noise that could mask a real warning in Stage B.
 
 **Task 4** — raised by the task reviewer and the fix-round re-reviewer, recorded rather than fixed.
 
