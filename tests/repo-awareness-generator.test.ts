@@ -106,12 +106,21 @@ describe("buildDocumentationSection", () => {
     );
   });
 
-  it("does not let an external URL that ends in a doc name catalogue that doc", () => {
-    // `https://example.com/testing.md` must not satisfy `docs/testing.md`. This
-    // fixture catalogues testing.md by a real relative link as well, so the
-    // assertion below is on a doc the external URL is the ONLY candidate for.
-    const section = buildDocumentationSection(["docs/only-external.md"], "[x](https://example.com/only-external.md)");
+  it("is not fooled by a repository URL that contains a doc path", () => {
+    // Removing the URL strip in `catalogueTargets` makes this red: the bare
+    // regex would match `docs/only-external.md` inside the blob URL and mark a
+    // document catalogued that the index never lists.
+    const readme = "See the source at https://github.com/BigSimmo/Database/blob/main/docs/only-external.md for detail.";
+    const section = buildDocumentationSection(["docs/only-external.md"], readme);
     expect(section.documents[0].catalogued).toBe(false);
+    expect(section.counts.uncatalogued).toBe(1);
+  });
+
+  it("still catalogues a document named in ordinary prose", () => {
+    // The guard against URLs must not cost us the real prose case, which is the
+    // reason the second scan exists at all.
+    const section = buildDocumentationSection(["docs/testing.md"], "Read `docs/testing.md` before changing a test.");
+    expect(section.documents[0].catalogued).toBe(true);
   });
 
   it("assigns a section from the first directory under docs/, or root", () => {

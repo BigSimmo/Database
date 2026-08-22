@@ -89,10 +89,10 @@ export function buildRoutesSection(siteMap: SiteMapInput = collectSiteMapData())
 }
 
 const DOCS_ROOT = "docs";
-const README_PATH = "docs/README.md";
+export const README_PATH = "docs/README.md";
 
 /**
- * Review records get their own panel and would otherwise be 454 of the ~280
+ * Review records get their own panel and would otherwise be 455 of the ~280
  * rows here, drowning the documents a reader is actually looking for. Inbox
  * requests are JSON transactions, not documents.
  */
@@ -122,21 +122,30 @@ function documentSection(repoPath: string): string {
  * uses: a markdown link written relative to `docs/`, or a full `docs/…` path
  * named in prose or a code span.
  *
- * An absolute URL is skipped explicitly. `https://example.com/testing.md`
- * normalises to a plausible-looking `docs/…` path only if you let it, and a
- * document catalogued by a third-party URL is a false negative in the one
- * column this panel exists to report.
+ * An absolute URL is stripped before either scan runs, so neither route can be
+ * fooled by a plausible-looking `docs/…md` substring inside it — a GitHub blob
+ * link such as `https://github.com/…/blob/main/docs/some-doc.md` must not
+ * catalogue `docs/some-doc.md`, and a document catalogued by a third-party or
+ * repository URL rather than the index's own text is a false positive in the
+ * one column this panel exists to report.
  */
 function catalogueTargets(readmeMarkdown: string): Set<string> {
   const targets = new Set<string>();
 
-  for (const match of readmeMarkdown.matchAll(/\]\(([^)\s#]+)/g)) {
+  // Both loops below scan for `docs/…md`, and an absolute URL can contain that
+  // substring — `https://github.com/…/blob/main/docs/some-doc.md` would
+  // otherwise mark that document catalogued when the index never listed it.
+  // Stripping URLs first is what makes the claim in this docstring true for
+  // BOTH loops rather than only the link loop.
+  const withoutUrls = readmeMarkdown.replace(/https?:\/\/\S+/g, " ");
+
+  for (const match of withoutUrls.matchAll(/\]\(([^)\s#]+)/g)) {
     const target = match[1];
     if (target.includes("://") || target.startsWith("/") || target.startsWith("#")) continue;
     targets.add(path.posix.normalize(path.posix.join(DOCS_ROOT, target)));
   }
 
-  for (const match of readmeMarkdown.matchAll(/docs\/[A-Za-z0-9._/-]+\.md/g)) targets.add(match[0]);
+  for (const match of withoutUrls.matchAll(/docs\/[A-Za-z0-9._/-]+\.md/g)) targets.add(match[0]);
 
   return targets;
 }
