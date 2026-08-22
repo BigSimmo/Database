@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "4df11bb5-3d3a-46bc-bf82-3be1bed87663",
+  "createdOn": "2026-08-22",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Common cardiovascular drugs are absent from the medication catalogue, so patients taking them get silence rather than an interaction check",
+    "detail": "SPLIT OUT 2026-08-22 from the #1YPV51 clinical sign-off, which recorded this as the one finding the lexicon review could NOT fix. The interaction terms acei, arbs and statins resolve to one or two drugs each -- acei to Perindopril alone, arbs to Candesartan alone, statins to Atorvastatin and Rosuvastatin -- not because the mapping is wrong but because ramipril, lisinopril, irbesartan and simvastatin are not in data/medications-snapshot.json at all. Simvastatin is the notable one: it has the largest CYP3A4 interaction profile of the statins and is entirely unrepresented. CONSEQUENCE, and it is the dangerous shape: a clinician entering a patient on ramipril sees no alert, and on screen that is indistinguishable from 'checked and clear'. The sign-off sheet's 'What this tool can never warn about' section already names the same failure mode for the 20 catalogue medications that sit outside every resolved interaction row; this is that boundary reached from the other side -- the drug is not in the catalogue at all. NEXT: decide whether the catalogue should be widened to the common ACE inhibitors, ARBs and statins prescribed in Australian practice, which is a clinical-content decision about source coverage rather than a code change, and needs the same source-backed review any catalogue addition needs. STOP: do not 'fix' this by loosening the lexicon terms -- the terms are correct; the drugs are missing. Related: #1YPV51 (the sign-off recording this), and the corpus-coverage limit documented in docs/medication-interaction-lexicon-review.md.",
+    "source": "docs/medication-interaction-lexicon-review.md sign-off 2026-08-22; data/medications-snapshot.json; clinical review session 2026-08-22",
+    "issueUlid": "01M0MX15KK4AM8Z0TXNDG8EGEE"
+  }
+}
