@@ -341,7 +341,12 @@ visible reasons and a human confirms or overrides.
   `coordinator/coordinator-screen.tsx` (Phase 3 live coordinator screen — priority queue, statewide
   flow diagram, explainable shortlist), `ward/ward-screen.tsx` (Task 8: one inpatient unit's own
   view — `/ward-management/ward/[unitId]`; capacity confirmation, incoming-referral accept/hold/
-  decline, restriction notices, withdrawn referrals)
+  decline, restriction notices, withdrawn referrals), `officer/officer-screen.tsx` (Task 9: the
+  transport officer's phone — `/ward-management/transport/officer`; every transport job not yet
+  arrived, since `TransportJob` carries a `provider` organisation and no officer identity;
+  queue-plus-pinned-action-bar pattern inherited from `shortlist-panel.tsx`, one job "active" at a
+  time with its four transport actions — accepted, en route, collected, arrived — pinned to the
+  viewport bottom on phone widths)
 - **State layer (Phase 3):** `ward-flow-provider.tsx` (`WardFlowProvider`/`useWardFlow`, mounted at
   `src/app/ward-management/layout.tsx`), `ward-flow-reducer.ts` (the one mutation path),
   `ward-flow-events.ts` (event/role table)

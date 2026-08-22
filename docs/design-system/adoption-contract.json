@@ -499,11 +499,13 @@
         "src/app/ward-management/patients/[patientId]/page.tsx",
         "src/app/ward-management/queue/page.tsx",
         "src/app/ward-management/transport/page.tsx",
+        "src/app/ward-management/transport/officer/page.tsx",
         "src/app/ward-management/ward/[unitId]/page.tsx"
       ],
       "routeRoots": true,
       "roots": [
         "src/components/ward-management/coordinator/coordinator-screen.tsx",
+        "src/components/ward-management/officer/officer-screen.tsx",
         "src/components/ward-management/ward-management-console.tsx",
         "src/components/ward-management/ward-management-modes.tsx",
         "src/components/ward-management/ward-management-navigation.tsx",

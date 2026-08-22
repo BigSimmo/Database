@@ -58,3 +58,53 @@ test.describe("Ward screen", () => {
     await expect(page.getByTestId("ward-unit-beds")).toHaveCount(0);
   });
 });
+
+test.describe("Transport officer screen", () => {
+  test.describe.configure({ timeout: 45_000 });
+
+  /**
+   * Task 9-12 preflight, Task 9 section: the brief's own test takes `.first()` of the job
+   * locator, and ruling R24 already found `.first()` breaks the moment fixture order shifts.
+   * WF-005 is pinned deliberately instead — verified against the real fixture (see the task
+   * report's re-measurement) to carry `escortRequired: true` and to be the screen's own default
+   * selection (first in `movements` array order among the eight jobs not yet arrived), so no
+   * click is needed before this locator resolves.
+   */
+  test("gives the officer four actions and nothing else", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/ward-management/transport/officer", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-officer-screen")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+
+    const job = page.getByTestId("ward-officer-job-WF-005");
+    await expect(job).toContainText(/escort/i);
+
+    // Exactly four actions, pinned and reachable without scrolling.
+    const actions = job.getByRole("button");
+    await expect(actions).toHaveCount(4);
+    for (const action of await actions.all()) {
+      const box = await action.boundingBox();
+      expect(box!.height).toBeGreaterThanOrEqual(48);
+    }
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(2);
+  });
+
+  /**
+   * Spec §7: the model carries no officer identity, so this screen must say — on screen, in
+   * real text — that it shows every job rather than a filtered "yours". Global Constraint:
+   * display less rather than something plausible.
+   */
+  test("states it is showing every job rather than inventing an officer to own them", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/ward-management/transport/officer", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-officer-screen")).toBeVisible({ timeout: 15_000 });
+
+    await expect(page.getByTestId("ward-officer-governance")).toContainText(/every/i);
+    // All eight seed jobs not yet arrived are on screen — never filtered to an inferred "mine".
+    await expect(page.locator('[data-testid^="ward-officer-job-"]')).toHaveCount(8);
+  });
+});

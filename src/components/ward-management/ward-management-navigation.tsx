@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   Activity,
+  Ambulance,
   BedSingle,
   Building2,
   CircleAlert,
@@ -112,6 +113,30 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
         <RailLink href="/ward-management/ward/rph-adult-secure" label="Ward — RPH Adult Secure">
           <Building2 aria-hidden="true" />
         </RailLink>
+        {/* Task 9: unlike the ward link immediately above, `/ward-management/transport/officer`
+            is a STATIC route (no `[unitId]`-style bracket segment), so it falls inside
+            `tests/route-reachability.test.ts`'s scanned scope rather than being exempt as a
+            dynamic detail route. That scanner's AST walk only registers a JSX element literally
+            named `Link` (imported from `next/link`) whose OWN `href` attribute is a string
+            literal — `RailLink` below passes `href` through as a destructured prop, so a
+            `RailLink`-wrapped href reads as a plain `Identifier` to the scanner, not a literal,
+            and stays invisible to it (confirmed: swapping this back to `<RailLink href="...">`
+            reproduces the orphan-route failure this comment exists to prevent — see the task
+            report). This is a raw `<Link>`, not `RailLink`, for exactly that reason. Labelled
+            "Officer" rather than "Transport officer": Playwright's default accessible-name match
+            is a substring match, and the eight-mode strip already has a "Transport" link (the
+            live tracker, `/ward-management/transport`) — a name containing "Transport" makes
+            `getByRole("link", { name: "Transport" })` resolve to two elements and breaks
+            `tests/ui-ward-management.spec.ts`'s existing "opens every Ward Flow mode" walk, which
+            is not scoped by exact match (also confirmed by running that spec). */}
+        <Link
+          href="/ward-management/transport/officer"
+          aria-label="Officer"
+          title="Officer"
+          className={shellStyles.railLink}
+        >
+          <Ambulance aria-hidden="true" />
+        </Link>
         <RailLink href="/?mode=answer" label="Favourites">
           <HeartPulse aria-hidden="true" />
         </RailLink>
