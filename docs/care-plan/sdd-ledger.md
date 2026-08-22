@@ -106,7 +106,8 @@ is the only damage it carried — its tracked tree was clean and byte-identical 
 | 4. Snapshot, search, contacts      | **complete, review clean** | `f2f6389fa..d66e7a38b` | 232/232 passing, typecheck + lint clean, 62 mutations / 62 red suites                                           |
 | 5. Plan reading, boundary, print   | **complete, review clean** | `9bab6ad44..90c1d01a3` | 291/291 passing + Therapy Compass 25/25, typecheck + lint clean, 61 mutations / 61 red                          |
 | 6. Authoring, approval, withdrawal | **complete, review clean** | `f0ab0d41b..2113fe97f` | 306/306 passing + form-field consumers 161/161, typecheck + lint clean, 28 mutations / 27 killed + 1 equivalent |
-| 7–11                               | not started                | —                      | —                                                                                                               |
+| 7. ED presentations, amendments    | **complete, review clean** | `e02a03ab9..a8a8264be` | 335/335 passing, typecheck + lint clean, 40 mutations / 40 killed                                               |
+| 8–11                               | not started                | —                      | —                                                                                                               |
 
 Stage A is Tasks 1–5. The plan makes Task 5 a mandatory stop for user review; **the user
 lifted that stop on 22 August 2026**, instructing the session to report at the boundary and
@@ -274,6 +275,33 @@ the heading `Comparing Current version 0`. Reachable today on `SYN-PATIENT-005`.
 that has happened on this project rather than a reviewer finding it. Its scenario-sync test
 navigated only the pathname, leaving every effect dependency untouched, so the effect never
 re-ran and the test would have passed whatever the guard did.
+
+### Task 7 — complete
+
+- Dispatched opus. Returned `DONE_WITH_CONCERNS` at `2be157ff1` (12 files, +2288/−18, 332
+  tests, 34 mutations all killed). Task review (opus) returned Spec ❌ with **no Critical**,
+  three Important and a long Minor list. One fix round (`a8a8264be`); the scoped re-review
+  verdicted every item ADDRESSED with no new breakage and no test loosened to accommodate the
+  fixture change.
+- Final: `Test Files 4 passed (4)` / `Tests 335 passed (335)`. Typecheck and lint fresh under
+  `GATE_RECEIPTS=refresh`, Prettier clean, all staged blobs free of CR, control bytes, NBSP
+  and BOM.
+
+**The finding that mattered most was clinical, not structural.** A correction that changed two
+fields at once could be **partially applied while the banner reported success**: clearing the
+one-line note and changing plan helpfulness in the same correction refused the note (it
+precedes helpfulness in field order), appended the helpfulness amendment, closed the sheet, and
+overwrote the refusal in `lastOutcome` with the success message. On a record whose entire
+purpose is that corrections are visible and attributed, a correction discarded with no trace is
+the worst available outcome. It now refuses the whole save before dispatching anything, names
+the offending field, and leaves the sheet open holding the clinician's typed work.
+
+**The seventh guard-that-cannot-fail.** The task legitimately relocated the episode page's
+parameter check — the old server guard would have 404'd every episode recorded in a live
+session — but the test holding it asserted an alternation, `isSyntheticPatientId` **or**
+`isSyntheticPresentationForPatient`, which the patient half satisfied alone. Deleting the
+presentation check entirely left the suite green. It is now checked per parameter, by name,
+with a fail-closed count of how many pages carry `[presentationId]`.
 
 ---
 
@@ -637,6 +665,41 @@ text against itself. Six conflicts found, six ruled.
     the diff rather than from the implementer's word. _Cost if wrong:_ a one-line flip, and the
     ordering test pins whichever way it points.
 
+### Task 7
+
+41. **The one-line note keeps the specification's label, not the brief's.** The brief calls the
+    required free text `Anything worth flagging?`; the specification says
+    `In one line: why they came and what happened`, twice. That line was deliberately made to
+    do the work the separate `presenting indication` and `assessment outcome` fields would
+    otherwise do, on the reasoning that one line from the clinician who was there beats two
+    structured boxes that get skipped at the end of a shift. The brief's wording invites an
+    optional afterthought instead. _Cost if wrong:_ none — the spec states it twice and the
+    plan's own Global Constraints agree.
+
+42. **The fixtures were wrong and the reducer right on append-only.** `SYN-PRESENTATION-002`
+    and `-003` stored the _corrected_ value on the episode with the amendment recording what it
+    replaced; the reducer never rewrites an episode. Both conventions were pinned by committed
+    tests in different files, and the implementer correctly refused to resolve it alone. The
+    glossary settles it: a Presentation Amendment "preserves the original record", and the
+    specification says the original text is not replaced. So the episode holds what was first
+    recorded and the amendment records what it became.
+
+    Fixtures on this project are written to be imitated — an earlier ruling says so in those
+    words — so leaving two records encoding the opposite convention was the real risk. Both
+    corrected, `tests/care-plan-domain.test.ts:748` inverted to assert the **earliest**
+    amendment's `originalValue`, and a chain invariant added. Nothing rendered wrongly under
+    either model beforehand, because `getRecordedPresentationValue` reads the first correction's
+    `originalValue`, which is truthful either way — good design that happened to mask the
+    contradiction. _Cost if wrong:_ two fixture records and one inverted assertion; the
+    reviewer traced the blast radius and confirmed no filter, count or other assertion moved.
+
+43. **A correction refuses as a whole rather than applying in part — the implementer's trade,
+    accepted.** Recording the valid corrections and reporting the rest would need per-dispatch
+    outcomes from the reducer, which is a reducer change and out of scope. Refusing everything
+    is the conservative direction, the error names the offending field, and the sheet keeps the
+    clinician's typed work so nothing is lost. _Cost if wrong:_ a clinician who blanks one
+    field must fix it before any of their other corrections are recorded — friction, not loss.
+
 ---
 
 ## Deferred minors — for the whole-branch review to triage
@@ -705,6 +768,37 @@ because it double-announced against the focus move that fix depends on.
   It matches the already-reviewed `shareBlockedReason` convention in the same file, so it is a
   consistent extension rather than a new deviation — but the two patterns should be
   reconciled before handoff.
+
+**Task 7** — recorded rather than fixed.
+
+- **The amendment-chain invariant's second half is correct but unexercised.** The guard asserts
+  both that the episode field equals the earliest amendment's `originalValue` _and_ that each
+  later amendment's `originalValue` equals the previous one's `replacementValue`. No fixture has
+  a field corrected twice, so every chain has length one and the second loop never runs. The
+  implementer's claim that restoring the old convention "takes down both halves at once" is
+  overstated: both kills land on the first half, checked from two files. The clean close is a
+  unit test with a constructed two-link chain — **not** bending a fixture to exercise a test.
+  Flagged deliberately for the whole-branch review, because untested guard code is how this
+  project got seven guards that could not fail.
+- The `[presentationId]` parameter-guard regex does not require the matched call's argument to
+  be literally named `presentationId`, unlike its `[patientId]` sibling, so a wrong-variable
+  mix-up would pass.
+- The invariant guard's fail-closed threshold is `chains.size > 1` rather than `> 0`. It still
+  fails on zero corrections, but its message would fire misleadingly if exactly one distinct
+  field ever carried a correction.
+- `linkedPlanLabel` returns `No Current Plan was available` for a non-null version id that
+  resolves to nothing, conflating "the version is unknown" with "there was none".
+- `isSyntheticPresentationForPatient` now has no production consumer — only the `index.ts`
+  re-export and its own test — while still reading as a live guard.
+- The reason-required refusal sentence is duplicated verbatim between `presentation-pages.tsx`
+  and `prototype-state.ts`; two copies in two modules will drift.
+- `presentation-pages.tsx` is 648 lines carrying two independent surfaces plus the amendment
+  sheet. Brief-mandated grouping, so noted rather than charged.
+- `effectivePresentation` re-filters the amendment array once for corrections and again per
+  field, up to seven passes per timeline entry; same family as `AmendableRow`'s double call.
+- **`portal={false}` on the amendment Sheet is Task 11's first look.** It is the one decision in
+  this task that changes where focus containment lives, and with `css: false` no committed test
+  can see its overlay, backdrop or focus trap.
 
 **Stage A checkpoint** — found by the controller's own run, not by any task review.
 
