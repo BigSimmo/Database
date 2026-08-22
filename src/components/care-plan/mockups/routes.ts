@@ -65,6 +65,15 @@ export const carePlanRoute = {
   managementPlan(patientId: string) {
     return `${patientPath(patientId)}/management-plan`;
   },
+  /** Where a replacement version is drafted. Reached only by a role that carries
+   *  the authoring capability; the reducer rechecks that either way. */
+  managementPlanEdit(patientId: string) {
+    return `${patientPath(patientId)}/management-plan/edit`;
+  },
+  /** Where a submitted version is compared and decided on. */
+  managementPlanReview(patientId: string) {
+    return `${patientPath(patientId)}/management-plan/review`;
+  },
   managementPlanPrint(patientId: string) {
     return `${patientPath(patientId)}/management-plan/print`;
   },

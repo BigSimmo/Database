@@ -96,6 +96,13 @@
   gap: 0.5rem 0.75rem;
 }
 
+/* The switcher sits under the displayed clinician in the rail, so it is narrow
+   and quiet: it explains why an action is offered, it is not itself an action. */
+.appRoot .roleSwitcher {
+  min-height: var(--spacing-tap);
+  font-size: 0.75rem;
+}
+
 .appRoot .marker {
   border: 1px solid var(--clinical-accent-border);
   border-radius: var(--radius-sm);
@@ -516,6 +523,90 @@
 }
 
 .appRoot .pinnedBoundaryLink,
+/* --- Authoring surfaces ---------------------------------------------------- */
+
+/* The shared field control fixes a one-line height for inputs. A clinical
+   section is a list of points, so the height is released here and nowhere else. */
+.appRoot .planTextArea {
+  height: auto;
+  min-height: 5.5rem;
+  padding-block: 0.5rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.appRoot .form {
+  display: grid;
+  gap: 1rem;
+}
+
+.appRoot .formErrorSummary {
+  margin-block-end: 0.25rem;
+}
+
+.appRoot .formGrid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 48rem) {
+  .appRoot .formGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Controls wrap rather than scroll, so a 320px phone never gains a horizontal
+   page scroll because an action label is long. */
+.appRoot .actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.appRoot .planActions {
+  margin-block-start: 0.5rem;
+}
+
+.appRoot .diffSection {
+  display: grid;
+  gap: 0.5rem;
+  border-block-start: 1px solid var(--border);
+  padding-block-start: 0.75rem;
+}
+
+.appRoot .diffHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.appRoot .diffColumns {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 48rem) {
+  .appRoot .diffColumns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.appRoot .diffColumn {
+  display: grid;
+  gap: 0.25rem;
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  padding: 0.5rem 0.75rem;
+}
+
+.appRoot .diffColumnLabel {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
 .appRoot .inlineLink {
   color: var(--clinical-accent);
   font-weight: 700;

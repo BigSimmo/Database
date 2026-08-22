@@ -544,8 +544,8 @@ export type PrototypeCapability =
  * would only be a dead branch in an otherwise exhaustive switch, and a dead
  * branch is where an unenforced transition hides.
  *
- * Deferred to their own tasks, deliberately absent here: the Management Plan
- * patient-sharing record, and the four Patient Plan actions.
+ * Deferred to their own tasks, deliberately absent here: the four Patient Plan
+ * actions.
  */
 export type CarePlanPrototypeAction =
   | { type: "select-patient"; patientId: SyntheticId }
@@ -562,6 +562,9 @@ export type CarePlanPrototypeAction =
       reason: string;
       nextReviewDueAt: string;
     }
+  /** Records that the person has been shown their own Current Plan. It writes one
+   *  date and one audit event; it never produces a Patient Plan. */
+  | { type: "record-plan-shared-with-patient"; patientId: SyntheticId }
   | { type: "record-presentation"; presentationId: SyntheticId; input: NewEdPresentationInput }
   | {
       type: "amend-presentation";

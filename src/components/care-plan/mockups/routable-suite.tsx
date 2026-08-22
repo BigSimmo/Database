@@ -6,11 +6,13 @@ import { useMemo } from "react";
 import { CarePlanShellFrame } from "./care-plan-shell-frame";
 import styles from "./care-plan.module.css";
 import { ClinicalSnapshotSurface, type ClinicalSnapshotVariant } from "./clinical-snapshot-page";
+import { ManagementPlanFormSurface } from "./management-plan-form";
 import { ManagementPlanPrintSurface } from "./management-plan-print";
 import { ManagementPlanSurface } from "./management-plan-read";
+import { ManagementPlanReviewSurface } from "./management-plan-review";
 import { useCarePlanPrototype } from "./prototype-provider";
 import { CARE_PLAN_BASE, CARE_PLAN_ROUTES, isSyntheticPatientId, type CarePlanDestination } from "./routes";
-import type { PrototypeScenario } from "./types";
+import type { PrototypeScenario, SyntheticId } from "./types";
 
 /**
  * The approved heading and purpose of each route in the family. Task 3 renders
@@ -275,10 +277,10 @@ export function carePlanPatientIdFromPathname(pathname: string): string | null {
  * own directory search rather than borrowing the shell composer.
  *
  * Task 5 added two more, the Management Plan and its clinician copy, which own
- * their own surfaces rather than a snapshot variant. Every remaining route still
- * renders its route-purpose specimen, including `/management-plan/edit` and
- * `/management-plan/review`: reading comes first, and an authoring surface
- * sketched early would reserve attention for controls nobody can use yet.
+ * their own surfaces rather than a snapshot variant. Task 6 added the two
+ * Management Plan authoring routes — the drafting form and the approval
+ * surface — which is why they no longer render a specimen. Every remaining route
+ * still does.
  */
 const SNAPSHOT_VARIANT_BY_ROUTE_KEY: Partial<Record<string, ClinicalSnapshotVariant>> = {
   home: "home",
@@ -297,7 +299,7 @@ export type CarePlanRouteSurfaceProps = {
  * callback, so every route can be exercised without a router.
  */
 export function CarePlanRouteSurface({ pathname, query = "", navigate }: CarePlanRouteSurfaceProps) {
-  const { state } = useCarePlanPrototype();
+  const { state, dispatch } = useCarePlanPrototype();
   const route = useMemo(() => resolveCarePlanRoute(pathname), [pathname]);
   const scenario = useMemo(() => scenarioFromQuery(query), [query]);
   const activeUser = state.users.find((user) => user.id === state.activeUserId);
@@ -310,7 +312,13 @@ export function CarePlanRouteSurface({ pathname, query = "", navigate }: CarePla
       activeDestination={route.destination}
       title={route.heading}
       scenario={scenario}
-      activeUser={{ displayName: activeUser?.displayName ?? "", title: activeUser?.title ?? "" }}
+      activeUser={{
+        id: activeUser?.id ?? "",
+        displayName: activeUser?.displayName ?? "",
+        title: activeUser?.title ?? "",
+      }}
+      prototypeUsers={state.users}
+      onSelectUser={(userId) => dispatch({ type: "set-active-user", userId: userId as SyntheticId })}
       onSearchSubmit={() => navigate(CARE_PLAN_ROUTES.patients)}
       // Home and Patients own an in-flow directory search, so the shell stands
       // its own composer down rather than putting two search fields on one page.
@@ -320,6 +328,10 @@ export function CarePlanRouteSurface({ pathname, query = "", navigate }: CarePla
         <ClinicalSnapshotSurface variant={snapshotVariant} patientId={patientId ?? undefined} scenario={scenario} />
       ) : route.key === ROUTE_DEFINITIONS.managementPlan.key ? (
         <ManagementPlanSurface patientId={patientId} scenario={scenario} />
+      ) : route.key === ROUTE_DEFINITIONS.managementPlanEdit.key ? (
+        <ManagementPlanFormSurface patientId={patientId} scenario={scenario} navigate={navigate} />
+      ) : route.key === ROUTE_DEFINITIONS.managementPlanReview.key ? (
+        <ManagementPlanReviewSurface patientId={patientId} scenario={scenario} navigate={navigate} />
       ) : route.key === ROUTE_DEFINITIONS.managementPlanPrint.key ? (
         <ManagementPlanPrintSurface patientId={patientId} scenario={scenario} />
       ) : (

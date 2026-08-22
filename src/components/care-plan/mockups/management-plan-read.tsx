@@ -1,37 +1,47 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
-import { EmptyState, InlineNotice } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
+import { Sheet } from "@/components/ui/sheet";
+import { TextField } from "@/components/ui/text-field";
+import { EmptyState, InlineNotice, ignoreUnavailableActivation } from "@/components/ui-primitives";
 
 import styles from "./care-plan.module.css";
 import { ContactActions } from "./contact-actions";
-import { buildPatientSnapshot, deriveReviewState } from "./domain";
+import { addIsoMonths, buildPatientSnapshot, canPerformAction, deriveReviewState } from "./domain";
 import { PROTOTYPE_NOW } from "./fixtures";
 import { PatientNavigation } from "./patient-navigation";
 import { useCarePlanPrototype } from "./prototype-provider";
+import { getPrototypeMutationBlockReason } from "./prototype-state";
 import {
   CurrentPlanSummary,
   DefinitionRow,
   FIRST_MINUTE_SECTION_LABEL,
+  FULL_PLAN_SECTION_KEYS,
+  FULL_PLAN_SECTION_LABEL,
   MANAGEMENT_VERSION_STATE_LABEL,
   NOT_RECORDED,
   PROTOTYPE_OUTCOME_TONE,
   ParticipationMarker,
   PinnedSafetyBoundary,
+  PlanTextArea,
   ReviewWarning,
   SectionFrame,
   StatusMark,
   SyntheticMarker,
+  WHY_THIS_PLAN_EXISTS_LABEL,
   formatPerthDate,
 } from "./prototype-ui";
 import { CARE_PLAN_ROUTES, carePlanRoute } from "./routes";
 import {
   FIRST_MINUTE_CONTENT_KEYS,
+  REVIEW_INTERVAL_MONTHS,
   type CmhtContact,
   type ManagementPlanContent,
   type ManagementPlanVersion,
+  type Patient,
   type PrototypeScenario,
   type PrototypeUser,
   type SyntheticId,
@@ -40,46 +50,17 @@ import {
 /**
  * The full Management Plan reading surface.
  *
- * Reading comes first, and nothing here reserves space, navigation depth, or
- * attention for the authoring controls that arrive in a later task: there is no
- * edit entry point, no approval control, and no disabled placeholder standing in
- * for one. A reader without authoring permission sees a clean reading surface.
+ * Reading comes first. The authoring and governance controls Task 6 added sit in
+ * one block at the very foot of the page — below the plan, below the version in
+ * progress, and below the team's telephone number — and each one appears only
+ * for a role that carries it. A reader without authoring permission still sees a
+ * clean reading surface with no placeholders standing in for controls they can
+ * never use.
  *
  * The pinned safety boundary and the Current Plan summary card are the shared
  * components the Clinical Snapshot also renders, so a safety-critical element
  * cannot drift into two different renderings of itself.
  */
-
-/**
- * The full-plan tier: every content field that is neither one of the five
- * first-minute sections nor `whyThisPlanExists`, which the tier renders first in
- * its own right.
- *
- * Derived from the content type rather than transcribed. A transcribed list
- * checks membership but not exhaustiveness, so a twelfth content field added
- * later would render on no surface at all and nothing would go red — the exact
- * failure the specification legislated against for the summary card. Because
- * `FullPlanContentKey` is an `Exclude` over `keyof ManagementPlanContent`, the
- * label record below stops compiling the moment a field is added without a
- * heading, and `FULL_PLAN_SECTION_KEYS` is read back off that record rather than
- * being written out a second time.
- */
-type FullPlanContentKey = Exclude<
-  keyof ManagementPlanContent,
-  (typeof FIRST_MINUTE_CONTENT_KEYS)[number] | "whyThisPlanExists"
->;
-
-/** Headings, in the one approved order; the order of this literal is the order
- *  the tier renders, because the keys are read back from it. */
-const FULL_PLAN_SECTION_LABEL: Record<FullPlanContentKey, string> = {
-  whatThePersonWants: "What this person wants",
-  practicalNeeds: "Practical needs",
-  physicalHealthAndMedication: "Physical health and medication",
-  whoElseIsInvolved: "Who else is involved",
-  reviewTriggers: "What should prompt a review",
-};
-
-export const FULL_PLAN_SECTION_KEYS = Object.keys(FULL_PLAN_SECTION_LABEL) as readonly FullPlanContentKey[];
 
 function displayName(users: readonly PrototypeUser[], id: SyntheticId | null): string | undefined {
   if (id === null) return undefined;
@@ -117,7 +98,7 @@ function FullPlanTier({ content }: { content: ManagementPlanContent }) {
       testId="care-plan-full-plan"
       description="Everything agreed beyond the first minute. Read it when there is time; the summary above is what to read when there is not."
     >
-      <PlanSubsection id="care-plan-full-plan-whyThisPlanExists" heading="Why this plan exists">
+      <PlanSubsection id="care-plan-full-plan-whyThisPlanExists" heading={WHY_THIS_PLAN_EXISTS_LABEL}>
         {content.whyThisPlanExists.trim() === "" ? (
           <p className={styles.sectionEmpty}>{NOT_RECORDED}</p>
         ) : (
@@ -152,6 +133,209 @@ function SupersededContent({ version }: { version: ManagementPlanVersion }) {
           <PlanList items={version.content[key]} />
         </PlanSubsection>
       ))}
+    </SectionFrame>
+  );
+}
+
+/**
+ * The governance actions on a plan, and the only authoring entry point on this
+ * page.
+ *
+ * Each control is rendered only when the signed-in role carries the capability
+ * behind it. That is deliberate and is not the stated-reason pattern: a control
+ * this role can never use tells a reader nothing they can act on, and five of
+ * them in a row at the foot of a clinical document is exactly the crowding that
+ * pushes reading content off a phone screen. Where the role *does* carry the
+ * action but something else blocks it — offline, an unconfirmed identity, a
+ * version conflict — the control stays, with the reducer's own reason beside it.
+ *
+ * The reducer is still the final guard for every one of them.
+ */
+function PlanActions({
+  patient,
+  currentVersion,
+  openDraft,
+}: {
+  patient: Patient;
+  currentVersion: ManagementPlanVersion | null;
+  openDraft: ManagementPlanVersion | null;
+}) {
+  const { state, dispatch } = useCarePlanPrototype();
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawReason, setWithdrawReason] = useState("");
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewReason, setReviewReason] = useState("");
+  const [reviewDate, setReviewDate] = useState(() => addIsoMonths(PROTOTYPE_NOW, REVIEW_INTERVAL_MONTHS).slice(0, 10));
+  const [reviewError, setReviewError] = useState<string | null>(null);
+
+  const actor = state.users.find((user) => user.id === state.activeUserId) ?? null;
+  if (actor === null) return null;
+
+  const mayAuthor = canPerformAction(actor.role, "author_management_draft");
+  const mayWithdraw = canPerformAction(actor.role, "withdraw_management_version");
+  const mayRecordReview = canPerformAction(actor.role, "record_formal_review");
+  const mayShare = currentVersion !== null;
+
+  if (!mayAuthor && !mayWithdraw && !mayRecordReview && !mayShare) return null;
+
+  const shareBlockedReason = getPrototypeMutationBlockReason(state, {
+    type: "record-plan-shared-with-patient",
+    patientId: patient.id,
+  });
+
+  const draftHref =
+    openDraft === null || openDraft.state === "draft"
+      ? carePlanRoute.managementPlanEdit(patient.id)
+      : carePlanRoute.managementPlanReview(patient.id);
+  const draftLabel =
+    openDraft === null
+      ? "Draft a replacement version"
+      : openDraft.state === "draft"
+        ? `Continue Draft version ${openDraft.version}`
+        : `Open the version awaiting approval`;
+
+  function recordFormalReview() {
+    if (reviewReason.trim() === "") {
+      setReviewError("Say what was reviewed, so a later reader can see what the review covered.");
+      return;
+    }
+    setReviewOpen(false);
+    setReviewError(null);
+    dispatch({
+      type: "record-formal-management-review",
+      patientId: patient.id,
+      reason: reviewReason,
+      nextReviewDueAt: `${reviewDate}T12:00:00+08:00`,
+    });
+  }
+
+  function withdrawPlan() {
+    if (withdrawReason.trim() === "") {
+      setWithdrawError("Withdrawing a plan needs a recorded reason, so a later reader can see why.");
+      return;
+    }
+    setWithdrawOpen(false);
+    setWithdrawError(null);
+    dispatch({ type: "withdraw-current-management-version", patientId: patient.id, reason: withdrawReason });
+  }
+
+  return (
+    <SectionFrame
+      id="care-plan-plan-actions"
+      heading="Plan actions"
+      testId="care-plan-plan-actions"
+      tone="secondary"
+      className={styles.planActions}
+      description="Everything here changes the record rather than the reading of it. Nothing above this line depends on any of it."
+    >
+      {shareBlockedReason === null ? null : (
+        <p
+          id="care-plan-plan-actions-blocked"
+          role="alert"
+          data-testid="care-plan-plan-actions-blocked"
+          className={styles.contactWarning}
+        >
+          {shareBlockedReason}
+        </p>
+      )}
+
+      <div className={styles.actionRow} data-print-hide="true">
+        {mayAuthor ? (
+          <Link href={draftHref} className={styles.contactAction}>
+            {draftLabel}
+          </Link>
+        ) : null}
+
+        {mayShare ? (
+          <Button
+            variant="secondary"
+            aria-disabled={shareBlockedReason === null ? undefined : true}
+            aria-describedby={shareBlockedReason === null ? undefined : "care-plan-plan-actions-blocked"}
+            onClick={
+              shareBlockedReason === null
+                ? () => dispatch({ type: "record-plan-shared-with-patient", patientId: patient.id })
+                : ignoreUnavailableActivation
+            }
+          >
+            Record that this plan has been shown to this person
+          </Button>
+        ) : null}
+
+        {mayRecordReview && currentVersion !== null ? (
+          <Button variant="secondary" onClick={() => setReviewOpen(true)}>
+            Record a formal review
+          </Button>
+        ) : null}
+
+        {mayWithdraw && currentVersion !== null ? (
+          <Button variant="danger" onClick={() => setWithdrawOpen(true)}>
+            Withdraw this plan
+          </Button>
+        ) : null}
+      </div>
+
+      <Sheet
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        title="Record a formal review"
+        description="A formal review records that the plan was looked at and moves its next review date. It writes no new version and changes no plan content."
+        closeLabel="Cancel"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="secondary" onClick={() => setReviewOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={recordFormalReview}>
+              Record this review
+            </Button>
+          </div>
+        }
+      >
+        <PlanTextArea
+          id="care-plan-formal-review-reason"
+          label="What was reviewed"
+          required
+          value={reviewReason}
+          error={reviewError ?? undefined}
+          onChange={(text) => setReviewReason(text)}
+        />
+        <TextField
+          id="care-plan-formal-review-date"
+          label="Next review date"
+          type="date"
+          required
+          value={reviewDate}
+          onChange={(event) => setReviewDate(event.target.value)}
+        />
+      </Sheet>
+
+      <Sheet
+        open={withdrawOpen}
+        onClose={() => setWithdrawOpen(false)}
+        title="Withdraw this plan"
+        description={`${patient.preferredName} will have no Current Plan afterwards. No earlier version is put back into use, and nothing is deleted: the withdrawn version stays readable, and the withdrawal date, your name, and your reason are shown wherever the plan would have been.`}
+        closeLabel="Cancel"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="secondary" onClick={() => setWithdrawOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={withdrawPlan}>
+              Withdraw this plan
+            </Button>
+          </div>
+        }
+      >
+        <PlanTextArea
+          id="care-plan-withdraw-reason"
+          label="Why is this plan being withdrawn"
+          required
+          value={withdrawReason}
+          error={withdrawError ?? undefined}
+          onChange={(text) => setWithdrawReason(text)}
+        />
+      </Sheet>
     </SectionFrame>
   );
 }
@@ -351,6 +535,15 @@ export function ManagementPlanSurface({
           onIntent={(channel) => recordContactIntent(cmht, channel)}
         />
       )}
+
+      {/*
+        Authoring is supporting machinery, so it sits last: below the plan, below
+        the version in progress, and below the team's telephone number. A reader
+        whose role carries none of these actions sees none of them — an absent
+        control is quieter than a refused one, and the reading surface is the
+        primary use of this page.
+      */}
+      <PlanActions patient={patient} currentVersion={currentManagementVersion} openDraft={openManagementDraft} />
 
       <p className={styles.planFooterLink} data-print-hide="true">
         <Link href={carePlanRoute.managementPlanPrint(patient.id)} className={styles.inlineLink}>

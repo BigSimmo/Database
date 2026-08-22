@@ -220,6 +220,11 @@ const CAPABILITY_BY_ACTION: Record<CarePlanPrototypeAction["type"], PrototypeCap
   "approve-management-version": "approve_management_version",
   "withdraw-current-management-version": "withdraw_management_version",
   "record-formal-management-review": "record_formal_review",
+  // Showing someone their own plan is something any role that may read the plan
+  // can do at a bedside; recording that it happened is the same event written
+  // down. Gating it to the authoring roles would leave the commonest person to
+  // actually do it — the clinician in front of the patient — unable to say so.
+  "record-plan-shared-with-patient": "read_plan",
   "record-presentation": "record_presentation",
   "amend-presentation": "record_presentation",
   "create-safety-plan-draft": "author_safety_plan",
@@ -923,6 +928,48 @@ export function prototypeReducer(
         lastOutcome: {
           kind: "success",
           message: `Formal review recorded. Version ${current.version} stays the Current Plan and its next review date has moved.`,
+        },
+      };
+    }
+
+    case "record-plan-shared-with-patient": {
+      const patient = findPatient(state, action.patientId);
+      if (patient === null) return refuse(state, "That synthetic patient record does not exist.");
+      const plan = findManagementPlan(state, patient);
+      const current = plan === null ? null : getCurrentManagementPlanVersion(state.managementPlanVersions, plan.id);
+      if (current === null) {
+        return refuse(state, `${patient.preferredName} has no Current Plan to show them.`);
+      }
+      // One date, so a second record would replace a recorded fact with another
+      // and the first sharing would leave the record with nothing saying so.
+      if (current.sharedWithPatientAt !== null) {
+        return refuse(
+          state,
+          `Version ${current.version} is already recorded as shown to ${patient.preferredName} on ${current.sharedWithPatientAt}. Nothing was changed.`,
+          "info",
+        );
+      }
+
+      const sharedWithPatientAt = prototypeTimestamp(state);
+
+      return {
+        ...state,
+        // The plan's content is untouched. This records only that a clinician
+        // went through the existing Current Plan with the person; it writes no
+        // patient-facing edition, which is a separate document with its own
+        // wording, its own version, and its own approval.
+        managementPlanVersions: state.managementPlanVersions.map((candidate) =>
+          candidate.id === current.id ? { ...candidate, sharedWithPatientAt } : candidate,
+        ),
+        auditEvents: withAudit(state, {
+          type: "management_plan_shared_with_patient",
+          patientId: patient.id,
+          objectId: current.id,
+          evidence: `Current Plan version ${current.version} was recorded as shown to ${patient.preferredName}. This records what a clinician entered, and is not evidence of what was understood or agreed.`,
+        }),
+        lastOutcome: {
+          kind: "success",
+          message: `Recorded that ${patient.preferredName} has been shown version ${current.version}. No patient copy was written, and the plan itself is unchanged.`,
         },
       };
     }

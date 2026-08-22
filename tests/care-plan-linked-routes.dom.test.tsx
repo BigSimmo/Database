@@ -3,21 +3,33 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CarePlanErrorBoundary } from "@/components/care-plan/mockups/care-plan-error-boundary";
-import { buildPatientSnapshot } from "@/components/care-plan/mockups/domain";
+import { BANNED_ADMISSION_CONSTRUCTIONS, buildPatientSnapshot } from "@/components/care-plan/mockups/domain";
 import { PROTOTYPE_NOW, syntheticManagementPlanVersions } from "@/components/care-plan/mockups/fixtures";
-import { FULL_PLAN_SECTION_KEYS } from "@/components/care-plan/mockups/management-plan-read";
+import { diffManagementPlanContent } from "@/components/care-plan/mockups/management-plan-diff";
+import { managementPlanFieldId } from "@/components/care-plan/mockups/management-plan-form";
 import { PatientWorkspace } from "@/components/care-plan/mockups/patient-workspace";
 import { CarePlanPrototypeProvider } from "@/components/care-plan/mockups/prototype-provider";
 import { createInitialPrototypeState } from "@/components/care-plan/mockups/prototype-state";
-import { FIRST_MINUTE_SECTION_LABEL } from "@/components/care-plan/mockups/prototype-ui";
-import { CarePlanRouteSurface } from "@/components/care-plan/mockups/routable-suite";
+import {
+  FIRST_MINUTE_SECTION_LABEL,
+  FULL_PLAN_SECTION_KEYS,
+  FULL_PLAN_SECTION_LABEL,
+} from "@/components/care-plan/mockups/prototype-ui";
+import { CarePlanRouteSurface, scenarioFromQuery } from "@/components/care-plan/mockups/routable-suite";
 import { CARE_PLAN_ROUTES, carePlanRoute } from "@/components/care-plan/mockups/routes";
 import { FIRST_MINUTE_CONTENT_KEYS } from "@/components/care-plan/mockups/types";
 
+/**
+ * A route rendered with the world its own address names. The provider is seeded
+ * from the same query string the surface reads, so a specimen scenario degrades
+ * the reducer as well as the rendering — otherwise `?scenario=offline` would
+ * change a data attribute and nothing else, and every refusal asserted below
+ * would be asserted against a state that was never offline.
+ */
 function renderRoute(pathname: string, query = "") {
   const navigate = vi.fn();
   render(
-    <CarePlanPrototypeProvider>
+    <CarePlanPrototypeProvider scenario={scenarioFromQuery(query)}>
       <CarePlanRouteSurface pathname={pathname} query={query} navigate={navigate} />
     </CarePlanPrototypeProvider>,
   );
@@ -130,6 +142,51 @@ describe("Care Plan route shell", () => {
     expect(within(identity).getByText("Emergency Physician, North River Hospital ED")).toBeInTheDocument();
   });
 
+  /**
+   * Approval is role-gated, withdrawal is senior-only, and a prototype that
+   * cannot move between those two views cannot demonstrate its own central
+   * governance rule. The switcher is interaction modelling: it explains why an
+   * action is offered, and the reducer stays the final guard either way.
+   */
+  it("offers a prototype role switcher beside the signed-in clinician", () => {
+    renderRoute(CARE_PLAN_ROUTES.home);
+    const identity = screen.getByTestId("care-plan-active-user");
+    const switcher = within(identity).getByRole("combobox", { name: "Prototype role" });
+    expect(switcher).toHaveValue("SYN-USER-ED-001");
+    expect(
+      within(identity)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual([
+      "Dr Casey Example — Emergency department clinician",
+      "Morgan Sample — Emergency department mental health liaison clinician",
+      "Dr Taylor Fiction — Named senior clinician",
+      "Riley Demo — Care planning coordinator",
+    ]);
+  });
+
+  it("changes the signed-in synthetic clinician when a different role is chosen", async () => {
+    const user = userEvent.setup();
+    renderRoute(CARE_PLAN_ROUTES.home);
+    await user.selectOptions(screen.getByRole("combobox", { name: "Prototype role" }), "SYN-USER-SENIOR-001");
+
+    const identity = screen.getByTestId("care-plan-active-user");
+    expect(within(identity).getByText("Dr Taylor Fiction")).toBeInTheDocument();
+    expect(within(identity).getByText("Consultant Psychiatrist, North River Health Service")).toBeInTheDocument();
+  });
+
+  it("says plainly that the role switcher is not authentication", () => {
+    renderRoute(CARE_PLAN_ROUTES.home);
+    const identity = screen.getByTestId("care-plan-active-user");
+    expect(identity).toHaveTextContent(/explains which actions are offered/i);
+    expect(identity).toHaveTextContent(/not a sign-in, and it protects nothing/i);
+  });
+
+  it("keeps the role switcher off a printed page", () => {
+    renderRoute(carePlanRoute.managementPlanPrint("SYN-PATIENT-001"));
+    expect(screen.getByRole("combobox", { name: "Prototype role" }).closest("[data-print-hide='true']")).not.toBeNull();
+  });
+
   it("renders the desktop rail as real links built from the route registry", () => {
     renderRoute(CARE_PLAN_ROUTES.home);
     const rail = screen.getByRole("navigation", { name: "Care Plan sections" });
@@ -234,17 +291,10 @@ describe("Care Plan route shell", () => {
 
   // Home, Patients and the patient Overview are deliberately absent: Task 4
   // replaced their purpose surface with the real Clinical Snapshot. The
-  // Management Plan and its print route are absent for the same reason from
-  // Task 5, and the block below asserts none of the five renders a purpose
-  // surface at all. `/management-plan/edit` and `/management-plan/review` stay
-  // on their specimens until the authoring task builds them.
+  // Management Plan and its print route went the same way in Task 5, and the two
+  // Management Plan authoring routes in Task 6. The block below asserts that
+  // none of those seven renders a purpose surface at all.
   it.each([
-    [CARE_PLAN_ROUTES.managementPlanEdit, "Draft Management Plan Version", "Create or edit a draft version"],
-    [
-      CARE_PLAN_ROUTES.managementPlanReview,
-      "Review submitted version",
-      "Compare, return for changes, and approve a submitted version",
-    ],
     [
       CARE_PLAN_ROUTES.patientPlan,
       "Patient Plan",
@@ -333,6 +383,8 @@ describe("Care Plan route shell", () => {
       CARE_PLAN_ROUTES.patients,
       CARE_PLAN_ROUTES.patient,
       CARE_PLAN_ROUTES.managementPlan,
+      CARE_PLAN_ROUTES.managementPlanEdit,
+      CARE_PLAN_ROUTES.managementPlanReview,
       CARE_PLAN_ROUTES.managementPlanPrint,
     ]) {
       const { unmount } = render(
@@ -1098,17 +1150,6 @@ describe("Care Plan Management Plan reading", () => {
     expect(screen.queryByRole("region", { name: "Current Plan" })).toBeNull();
   });
 
-  it("reserves no space, depth or attention for the authoring controls of a later task", () => {
-    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
-    expect(screen.queryByTitle(/coming soon/i)).toBeNull();
-    expect(document.querySelector("[aria-disabled='true']")).toBeNull();
-    for (const link of screen.getAllByRole("link")) {
-      const href = link.getAttribute("href") ?? "";
-      expect(/\/management-plan\/(?:edit|review)$/.test(href), `${href} is an authoring surface`).toBe(false);
-    }
-    expect(screen.queryAllByRole("button", { name: /edit|approve|withdraw|submit|return for changes/i })).toEqual([]);
-  });
-
   it("offers the printed copy as navigation to the print route rather than an action here", () => {
     renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
     expect(screen.getByRole("link", { name: /Print this plan/i })).toHaveAttribute(
@@ -1233,6 +1274,520 @@ describe("Care Plan Management Plan print", () => {
 
     expect(focusedNames).toEqual(["H1"]);
     expect(screen.getByRole("heading", { level: 1, name: "Print Management Plan" })).toHaveFocus();
+  });
+});
+
+// --- Stage B: governed authoring ----------------------------------------------
+
+const SENIOR = "SYN-USER-SENIOR-001";
+const LIAISON = "SYN-USER-LIAISON-001";
+
+async function signInAs(user: ReturnType<typeof userEvent.setup>, userId: string) {
+  await user.selectOptions(screen.getByRole("combobox", { name: "Prototype role" }), userId);
+}
+
+function recordFocusOrder(): { stop: () => string[] } {
+  const seen: string[] = [];
+  const listener = (event: Event) => {
+    const target = event.target as HTMLElement | null;
+    seen.push(target?.getAttribute("data-testid") ?? target?.id ?? target?.tagName ?? "");
+  };
+  document.addEventListener("focusin", listener);
+  return {
+    stop() {
+      document.removeEventListener("focusin", listener);
+      return seen;
+    },
+  };
+}
+
+describe("Care Plan authoring entry points on the reading surface", () => {
+  /**
+   * The reading surface is the primary use, and a reader without authoring
+   * permission gets a clean one. Role-inapplicable controls are absent, not
+   * rendered as a row of unavailable buttons — the stated-reason pattern is for
+   * an action this role *could* take but cannot right now.
+   */
+  it("shows a reader with no authoring permission no authoring controls at all", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    expect(screen.queryByTitle(/coming soon/i)).toBeNull();
+    expect(document.querySelector("[aria-disabled='true']")).toBeNull();
+    for (const link of screen.getAllByRole("link")) {
+      const href = link.getAttribute("href") ?? "";
+      expect(/\/management-plan\/(?:edit|review)$/.test(href), `${href} is an authoring surface`).toBe(false);
+    }
+    expect(
+      screen.queryAllByRole("button", { name: /draft|approve|withdraw|submit|return for changes|formal review/i }),
+    ).toEqual([]);
+  });
+
+  it("offers a drafting entry point to a clinician who may author", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    await signInAs(user, LIAISON);
+
+    expect(screen.getByRole("link", { name: /Draft a replacement version/i })).toHaveAttribute(
+      "href",
+      carePlanRoute.managementPlanEdit("SYN-PATIENT-001"),
+    );
+    // Approval and withdrawal are not this role's, so they are absent rather
+    // than shown unavailable.
+    expect(screen.queryAllByRole("button", { name: /withdraw|formal review/i })).toEqual([]);
+  });
+
+  it("offers withdrawal and formal review only to the named senior clinician", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    await signInAs(user, SENIOR);
+
+    expect(screen.getByRole("button", { name: /Withdraw this plan/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Record a formal review/i })).toBeInTheDocument();
+  });
+
+  // Authoring is supporting machinery. It never occupies space the first-minute
+  // reading content needs, and never appears above it.
+  it("keeps every authoring control below the whole reading surface", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    await signInAs(user, SENIOR);
+
+    const actions = screen.getByTestId("care-plan-plan-actions");
+    for (const testId of [
+      "care-plan-pinned-safety-boundary",
+      "care-plan-current-plan-metadata",
+      "care-plan-first-minute-sections",
+      "care-plan-full-plan",
+      "care-plan-plan-governance",
+    ]) {
+      expect(
+        screen.getByTestId(testId).compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING,
+        `the authoring controls must follow ${testId}`,
+      ).toBeTruthy();
+    }
+  });
+
+  it("records that the plan has been shown to this person without writing a patient copy", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-002"), "scenario=overdue-plan");
+    await user.click(screen.getByRole("button", { name: /Record that this plan has been shown/i }));
+
+    const outcome = screen.getByTestId("care-plan-outcome");
+    expect(outcome).toHaveTextContent(/Recorded that Mira has been shown version 1/i);
+    expect(outcome).toHaveTextContent(/No patient copy was written/i);
+    expect(screen.getByTestId("care-plan-plan-governance")).toHaveTextContent(/Shown on/i);
+  });
+
+  it("refuses a second sharing record rather than replacing the recorded date", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    await user.click(screen.getByRole("button", { name: /Record that this plan has been shown/i }));
+    expect(screen.getByTestId("care-plan-outcome")).toHaveTextContent(/already recorded as shown to Rowan/i);
+  });
+
+  it("records a formal review that moves the date without creating a version", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-002"), "scenario=overdue-plan");
+    await signInAs(user, SENIOR);
+    await user.click(screen.getByRole("button", { name: /Record a formal review/i }));
+
+    const sheet = screen.getByRole("dialog", { name: /Record a formal review/i });
+    await user.type(
+      within(sheet).getByRole("textbox", { name: /What was reviewed/i }),
+      "Reviewed with the Coastal Plains team; the agreed order of assessment still describes what happens.",
+    );
+    await user.clear(within(sheet).getByLabelText(/Next review date/i));
+    await user.type(within(sheet).getByLabelText(/Next review date/i), "2027-08-20");
+    await user.click(within(sheet).getByRole("button", { name: /Record this review/i }));
+
+    expect(screen.getByTestId("care-plan-outcome")).toHaveTextContent(/Formal review recorded/i);
+    expect(screen.getByTestId("care-plan-outcome")).toHaveTextContent(/stays the Current Plan/i);
+    // The content is untouched and no new version appeared; only the date moved,
+    // which is what takes the plan out of the overdue state.
+    expect(screen.getByTestId("care-plan-current-plan-metadata")).toHaveTextContent("Current version 1");
+    expect(screen.getByTestId("care-plan-current-plan-metadata")).toHaveTextContent("20/08/2027");
+    expect(screen.queryByTestId("care-plan-review-warning")).toBeNull();
+    expect(screen.getByTestId("care-plan-first-minute-sections")).toHaveTextContent(
+      /hearing aids in before you start/i,
+    );
+  });
+
+  it("withdraws a Current plan for a senior clinician and shows the withdrawal line afterwards", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    await signInAs(user, SENIOR);
+    await user.click(screen.getByRole("button", { name: /Withdraw this plan/i }));
+
+    const sheet = screen.getByRole("dialog", { name: /Withdraw this plan/i });
+    await user.type(
+      within(sheet).getByRole("textbox", { name: /Why is this plan being withdrawn/i }),
+      "Rowan has moved out of the catchment and the plan no longer describes the service that would use it.",
+    );
+    await user.click(within(sheet).getByRole("button", { name: /Withdraw this plan/i }));
+
+    expect(screen.getByTestId("care-plan-withdrawn-notice")).toHaveTextContent(
+      /Plan withdrawn on .* by Dr Taylor Fiction — Rowan has moved out of the catchment/i,
+    );
+    // Never a bare No Current Plan, and no superseded version put back in use.
+    expect(screen.queryByText("No Current Plan")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Current Plan" })).toBeNull();
+  });
+});
+
+describe("Care Plan Management Plan drafting", () => {
+  it("starts a replacement version from the Current Plan without displacing it", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlanEdit("SYN-PATIENT-001"));
+    await signInAs(user, LIAISON);
+    await user.click(screen.getByRole("button", { name: /Start a replacement version/i }));
+
+    // Initialised from the Current version's content, not from an empty form.
+    const approach = screen.getByRole("textbox", { name: /How to approach this person/i }) as HTMLTextAreaElement;
+    expect(approach.value).toContain("Introduce yourself by name and role");
+    expect(screen.getByTestId("care-plan-form-current-plan-notice")).toHaveTextContent(
+      /Current version 2 stays in use until a senior clinician approves a replacement/i,
+    );
+  });
+
+  it("says plainly when drafting is not part of the signed-in role", () => {
+    renderRoute(carePlanRoute.managementPlanEdit("SYN-PATIENT-001"));
+    expect(screen.getByTestId("care-plan-form-unavailable")).toHaveTextContent(/Dr Casey Example/);
+    expect(screen.getByTestId("care-plan-form-unavailable")).toHaveTextContent(/does not carry this action/i);
+    expect(screen.queryAllByRole("textbox")).toEqual([]);
+  });
+
+  it("keeps a version awaiting approval read-only and sends the reader to the review route", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlanEdit("SYN-PATIENT-002"), "scenario=overdue-plan");
+    await signInAs(user, LIAISON);
+
+    expect(screen.getByTestId("care-plan-form-read-only")).toHaveTextContent(
+      /Version 2 is awaiting approval and cannot be edited/i,
+    );
+    expect(screen.queryAllByRole("textbox")).toEqual([]);
+    expect(screen.getByRole("link", { name: /Open the version awaiting approval/i })).toHaveAttribute(
+      "href",
+      carePlanRoute.managementPlanReview("SYN-PATIENT-002"),
+    );
+  });
+
+  it("lists every required field in a linked summary and moves focus to the first invalid one", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlanEdit("SYN-PATIENT-005"));
+    await signInAs(user, LIAISON);
+
+    await user.clear(screen.getByRole("textbox", { name: /Reason for this version/i }));
+    for (const key of FIRST_MINUTE_CONTENT_KEYS) {
+      await user.clear(screen.getByRole("textbox", { name: new RegExp(FIRST_MINUTE_SECTION_LABEL[key], "i") }));
+    }
+    await user.clear(screen.getByRole("textbox", { name: /Why this plan exists/i }));
+
+    const focus = recordFocusOrder();
+    await user.click(screen.getByRole("button", { name: /Submit for senior approval/i }));
+    const order = focus.stop();
+
+    const summary = screen.getByTestId("error-summary");
+    expect(within(summary).getAllByTestId("error-summary-link")).toHaveLength(7);
+    expect(within(summary).getAllByRole("link")[0]).toHaveAttribute(
+      "href",
+      `#${managementPlanFieldId("revisionReason")}`,
+    );
+
+    // Final-state focus assertions are provably unable to fail in this shell, so
+    // this asserts the order of the focus events: the summary appears first and
+    // focus lands last on the first invalid field.
+    expect(order).toContain("error-summary");
+    expect(order.at(-1)).toBe(managementPlanFieldId("revisionReason"));
+    expect(order.indexOf("error-summary")).toBeLessThan(order.length - 1);
+    // Nothing was submitted.
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("does not require the five optional full-plan sections", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlanEdit("SYN-PATIENT-005"));
+    await signInAs(user, LIAISON);
+
+    for (const key of FULL_PLAN_SECTION_KEYS) {
+      await user.clear(screen.getByRole("textbox", { name: new RegExp(FULL_PLAN_SECTION_LABEL[key], "i") }));
+    }
+    await user.click(screen.getByRole("button", { name: /Submit for senior approval/i }));
+
+    expect(screen.queryByTestId("error-summary")).toBeNull();
+    expect(screen.getByRole("dialog", { name: /Submit version 1 for senior approval/i })).toBeInTheDocument();
+  });
+
+  /**
+   * A wording guard, not clinical interpretation. It refuses a construction that
+   * reads at 3am as a pre-authorised refusal by a clinician who has never met the
+   * person; it takes no view on whether the clinical position is right. The
+   * banned phrase is read from the exported constant rather than retyped.
+   */
+  it("rejects a prohibitive admission construction and names the one it found", async () => {
+    const banned = BANNED_ADMISSION_CONSTRUCTIONS[0] ?? "";
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlanEdit("SYN-PATIENT-005"));
+    await signInAs(user, LIAISON);
+
+    const field = screen.getByRole("textbox", { name: /What we have agreed to do/i });
+    await user.clear(field);
+    await user.type(field, `This person ${banned} when they attend at night.`);
+    await user.click(screen.getByRole("button", { name: /Submit for senior approval/i }));
+
+    const error = screen.getByTestId("care-plan-banned-wording-error");
+    expect(error).toHaveTextContent(banned);
+    expect(error).toHaveTextContent(/does not set a ceiling on the care offered on the day/i);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  // A Draft never hides or replaces the Current Plan, at any point in the edit.
+  it("leaves the Current Plan in use while a replacement is being written", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlanEdit("SYN-PATIENT-001"));
+    await signInAs(user, LIAISON);
+    await user.click(screen.getByRole("button", { name: /Start a replacement version/i }));
+    await user.type(screen.getByRole("textbox", { name: /Reason for this version/i }), " Extended after the review.");
+    await user.click(screen.getByRole("button", { name: /Save Draft/i }));
+
+    expect(screen.getByTestId("care-plan-form-outcome")).toHaveTextContent(/Draft version 3 saved/i);
+    expect(screen.getByTestId("care-plan-form-current-plan-notice")).toHaveTextContent(
+      /Current version 2 stays in use/i,
+    );
+  });
+
+  it("saves a draft and says plainly that it is not approved for use", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlanEdit("SYN-PATIENT-005"));
+    await signInAs(user, LIAISON);
+
+    const field = screen.getByRole("textbox", { name: /What helps/i });
+    await user.type(field, "\nA charged phone, and a stated time for the next update.");
+    await user.click(screen.getByRole("button", { name: /Save Draft/i }));
+
+    expect(screen.getByTestId("care-plan-form-outcome")).toHaveTextContent(/Draft version 1 saved/i);
+    expect(screen.getByTestId("care-plan-form-outcome")).toHaveTextContent(/not approved for use/i);
+  });
+
+  it("submits a draft through a confirmation and navigates to the review route", async () => {
+    const user = userEvent.setup();
+    const navigate = renderRoute(carePlanRoute.managementPlanEdit("SYN-PATIENT-005"));
+    await signInAs(user, LIAISON);
+    await user.click(screen.getByRole("button", { name: /Submit for senior approval/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /Submit version 1 for senior approval/i });
+    expect(dialog).toHaveTextContent(/A senior clinician decides whether it becomes the Current Plan/i);
+    await user.click(within(dialog).getByRole("button", { name: /Submit for approval/i }));
+
+    expect(navigate).toHaveBeenCalledWith(carePlanRoute.managementPlanReview("SYN-PATIENT-005"));
+  });
+
+  it("states why nothing can be saved while the device is offline", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlanEdit("SYN-PATIENT-005"), "scenario=offline");
+    await signInAs(user, LIAISON);
+
+    const save = screen.getByRole("button", { name: /Save Draft/i });
+    expect(save).toHaveAttribute("aria-disabled", "true");
+    expect(save).not.toHaveAttribute("disabled");
+    expect(screen.getByTestId("care-plan-form-blocked")).toHaveTextContent(/offline, so nothing was changed/i);
+
+    await user.click(save);
+    expect(screen.queryByTestId("care-plan-form-outcome")).toBeNull();
+  });
+});
+
+describe("Care Plan Management Plan comparison", () => {
+  it("labels a section that gains content Added and one that loses it Removed", () => {
+    const base = syntheticManagementPlanVersions[0]?.content;
+    expect(base, "the fixtures must carry at least one version").toBeDefined();
+    if (!base) return;
+
+    const changes = diffManagementPlanContent(
+      { ...base, practicalNeeds: [], whatHelps: ["A quiet space."] },
+      { ...base, practicalNeeds: ["Large-print information."], whatHelps: [] },
+    );
+    const byKey = new Map(changes.map((change) => [change.key, change.status]));
+    expect(byKey.get("practicalNeeds")).toBe("Added");
+    expect(byKey.get("whatHelps")).toBe("Removed");
+    expect(byKey.get("whyThisPlanExists")).toBe("Unchanged");
+  });
+
+  it("covers every content field exactly once, in the reading order", () => {
+    const base = syntheticManagementPlanVersions[0]?.content;
+    if (!base) throw new Error("the fixtures must carry at least one version");
+    const keys = diffManagementPlanContent(base, base).map((change) => change.key);
+    expect(keys).toEqual([...FIRST_MINUTE_CONTENT_KEYS, "whyThisPlanExists", ...FULL_PLAN_SECTION_KEYS]);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("compares the submitted version against the Current one with semantic labels", () => {
+    renderRoute(carePlanRoute.managementPlanReview("SYN-PATIENT-002"), "scenario=overdue-plan");
+    const diff = screen.getByTestId("care-plan-diff");
+    expect(diff).toHaveTextContent(/Comparing Current version 1 with proposed version 2/i);
+
+    // Mira's version 2 fills two sections her Current version left empty, and
+    // leaves the fifth first-minute section word for word as it was.
+    expect(within(diff).getByTestId("care-plan-diff-practicalNeeds")).toHaveTextContent("Added");
+    expect(within(diff).getByTestId("care-plan-diff-whatWouldMakeThisDifferent")).toHaveTextContent("Unchanged");
+    expect(within(diff).getByTestId("care-plan-diff-agreedEdApproach")).toHaveTextContent("Changed");
+  });
+
+  it("offers no way to edit the version while it is awaiting approval", () => {
+    renderRoute(carePlanRoute.managementPlanReview("SYN-PATIENT-002"), "scenario=overdue-plan");
+    expect(within(screen.getByTestId("care-plan-review-proposed")).queryAllByRole("textbox")).toEqual([]);
+    expect(within(screen.getByTestId("care-plan-diff")).queryAllByRole("textbox")).toEqual([]);
+  });
+
+  it("names the author, owner, proposed approver, reason and participation state", () => {
+    renderRoute(carePlanRoute.managementPlanReview("SYN-PATIENT-002"), "scenario=overdue-plan");
+    const proposed = screen.getByTestId("care-plan-review-proposed");
+    expect(proposed).toHaveTextContent("Morgan Sample");
+    expect(proposed).toHaveTextContent(/Any named senior clinician/i);
+    expect(proposed).toHaveTextContent(/the medical-first order needs stating more plainly/i);
+    expect(proposed).toHaveTextContent("Written without this person's involvement");
+  });
+
+  // The Current Plan is never displaced by a version awaiting a decision.
+  it("keeps the Current Plan visible and unchanged while a version awaits approval", () => {
+    renderRoute(carePlanRoute.managementPlanReview("SYN-PATIENT-002"), "scenario=overdue-plan");
+    const card = screen.getByRole("region", { name: "Current Plan" });
+    expect(within(card).getByText("Current version 1")).toBeInTheDocument();
+    expect(
+      card.compareDocumentPosition(screen.getByTestId("care-plan-diff")) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+});
+
+describe("Care Plan Management Plan approval", () => {
+  /**
+   * The brief's worked example, corrected against the fixtures: `SYN-MGMT-VERSION-004`
+   * on `SYN-MGMT-PLAN-002` is version 2 awaiting approval, and the version it
+   * would replace is version 1 — not 3 and 2. The route, the role selection, and
+   * the approver's name all hold as written.
+   */
+  it("requires named senior approval before an awaiting version becomes Current", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlanReview("SYN-PATIENT-002"), "scenario=overdue-plan");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Prototype role" }), "SYN-USER-SENIOR-001");
+    await user.click(screen.getByRole("button", { name: "Approve version 2" }));
+    const dialog = screen.getByRole("dialog", { name: "Approve Management Plan version 2" });
+    await user.click(within(dialog).getByRole("button", { name: "Approve and make Current" }));
+
+    expect(screen.getByRole("heading", { level: 2, name: "Current Plan" })).toBeInTheDocument();
+    expect(screen.getByText(/Current version 2/i)).toBeInTheDocument();
+    expect(screen.getByText(/Approved by Dr Taylor Fiction/i)).toBeInTheDocument();
+  });
+
+  it("leaves exactly one Current version and supersedes the one it replaced", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlanReview("SYN-PATIENT-002"), "scenario=overdue-plan");
+    await signInAs(user, SENIOR);
+    await user.click(screen.getByRole("button", { name: "Approve version 2" }));
+    await user.click(
+      within(screen.getByRole("dialog", { name: /Approve Management Plan version 2/i })).getByRole("button", {
+        name: "Approve and make Current",
+      }),
+    );
+
+    expect(screen.getAllByText(/^Current version \d+$/)).toHaveLength(1);
+    expect(screen.getByText("Current version 2")).toBeInTheDocument();
+    expect(screen.queryByText("Current version 1")).toBeNull();
+    expect(screen.getByTestId("care-plan-review-none-awaiting")).toHaveTextContent(/No version is awaiting approval/i);
+  });
+
+  /**
+   * A version may be approved at any participation state — a person's absence
+   * must never block their plan being written — but the consequence is stated
+   * before the decision, and it lands in a queue somebody owns rather than only
+   * as a marker whoever opens the plan might read.
+   */
+  it("states the involvement consequence in the dialog and raises the Review Trigger", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlanReview("SYN-PATIENT-002"), "scenario=overdue-plan");
+    await signInAs(user, SENIOR);
+    await user.click(screen.getByRole("button", { name: "Approve version 2" }));
+
+    const dialog = screen.getByRole("dialog", { name: /Approve Management Plan version 2/i });
+    expect(dialog).toHaveTextContent(/No involvement has been recorded for Mira/i);
+    expect(dialog).toHaveTextContent(/permanent marker saying it was written without this person's involvement/i);
+    expect(dialog).toHaveTextContent(/raise an open Review Trigger/i);
+
+    await user.click(within(dialog).getByRole("button", { name: "Approve and make Current" }));
+    expect(screen.getByTestId("care-plan-review-outcome")).toHaveTextContent(/open Review Trigger was raised/i);
+    expect(
+      within(screen.getByRole("region", { name: "Current Plan" })).getByText(
+        "Written without this person's involvement",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("states why a clinician who is not the named senior cannot approve", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlanReview("SYN-PATIENT-002"), "scenario=overdue-plan");
+    await signInAs(user, LIAISON);
+
+    const approve = screen.getByRole("button", { name: "Approve version 2" });
+    expect(approve).toHaveAttribute("aria-disabled", "true");
+    expect(approve).not.toHaveAttribute("disabled");
+    expect(screen.getByTestId("care-plan-review-blocked")).toHaveTextContent(/Morgan Sample/);
+    expect(screen.getByTestId("care-plan-review-blocked")).toHaveTextContent(/does not carry this action/i);
+
+    await user.click(approve);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByTestId("care-plan-review-proposed")).toHaveTextContent(/Awaiting Approval version 2/i);
+  });
+
+  it("states why a version conflict blocks the decision", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlanReview("SYN-PATIENT-002"), "scenario=version-conflict");
+    await signInAs(user, SENIOR);
+
+    expect(screen.getByRole("button", { name: "Approve version 2" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByTestId("care-plan-review-blocked")).toHaveTextContent(/A newer version of this record exists/i);
+  });
+
+  it("returns a version for changes with a required reason and sends the author to the draft", async () => {
+    const user = userEvent.setup();
+    const navigate = renderRoute(carePlanRoute.managementPlanReview("SYN-PATIENT-002"), "scenario=overdue-plan");
+    await signInAs(user, SENIOR);
+    await user.click(screen.getByRole("button", { name: /Return for changes/i }));
+
+    const sheet = screen.getByRole("dialog", { name: /Return version 2 for changes/i });
+    // The reason is what the author is given to work from, so it is required.
+    await user.click(within(sheet).getByRole("button", { name: /Return for changes/i }));
+    expect(within(sheet).getByTestId("field-error")).toHaveTextContent(/needs a reason/i);
+    expect(navigate).not.toHaveBeenCalled();
+
+    await user.type(
+      within(sheet).getByRole("textbox", { name: /What needs to change/i }),
+      "Please name who agreed the order of assessment and on what date.",
+    );
+    await user.click(within(sheet).getByRole("button", { name: /Return for changes/i }));
+
+    expect(navigate).toHaveBeenCalledWith(carePlanRoute.managementPlanEdit("SYN-PATIENT-002"));
+    expect(screen.getByTestId("care-plan-review-outcome")).toHaveTextContent(/returned to Draft for changes/i);
+    expect(screen.getByTestId("care-plan-review-outcome")).toHaveTextContent(/Current Plan is unchanged/i);
+  });
+
+  it("announces every outcome through a live region rather than a silent update", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlanReview("SYN-PATIENT-002"), "scenario=overdue-plan");
+    await signInAs(user, SENIOR);
+    await user.click(screen.getByRole("button", { name: "Approve version 2" }));
+    await user.click(
+      within(screen.getByRole("dialog", { name: /Approve Management Plan version 2/i })).getByRole("button", {
+        name: "Approve and make Current",
+      }),
+    );
+
+    const outcome = screen.getByTestId("care-plan-review-outcome");
+    expect(within(outcome).getByRole("status")).toHaveTextContent(/now the Current Plan/i);
+  });
+
+  it("says plainly when nothing is awaiting a decision", () => {
+    renderRoute(carePlanRoute.managementPlanReview("SYN-PATIENT-001"));
+    expect(screen.getByTestId("care-plan-review-none-awaiting")).toHaveTextContent(/No version is awaiting approval/i);
+    expect(screen.queryByTestId("care-plan-diff")).toBeNull();
+    expect(screen.getByRole("region", { name: "Current Plan" })).toBeInTheDocument();
   });
 });
 

@@ -3,7 +3,7 @@
 import { createContext, useContext, useMemo, useReducer, type ReactNode } from "react";
 
 import { createInitialPrototypeState, prototypeReducer } from "./prototype-state";
-import type { CarePlanPrototypeAction, CarePlanPrototypeState } from "./types";
+import type { CarePlanPrototypeAction, CarePlanPrototypeState, PrototypeScenario } from "./types";
 
 type CarePlanPrototypeContextValue = {
   state: CarePlanPrototypeState;
@@ -23,9 +23,21 @@ const CarePlanPrototypeContext = createContext<CarePlanPrototypeContextValue | n
  * state — blocking a clinician's draft because their wifi blipped would be a
  * failure this application invented. `connectivity.online` is a specimen flag,
  * set from the System states route and nowhere else.
+ *
+ * `scenario` seeds the starting world, and only the starting world: it is read
+ * once, so changing it later does nothing and cannot silently discard work held
+ * in memory. Switching specimens after mount is `apply-scenario`'s job. The
+ * route-family layout is a server component and cannot read a query string, so
+ * it passes nothing and the default stands.
  */
-export function CarePlanPrototypeProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(prototypeReducer, undefined, () => createInitialPrototypeState());
+export function CarePlanPrototypeProvider({
+  children,
+  scenario = "normal",
+}: {
+  children: ReactNode;
+  scenario?: PrototypeScenario;
+}) {
+  const [state, dispatch] = useReducer(prototypeReducer, scenario, createInitialPrototypeState);
   const value = useMemo(() => ({ state, dispatch }), [state]);
 
   return <CarePlanPrototypeContext.Provider value={value}>{children}</CarePlanPrototypeContext.Provider>;

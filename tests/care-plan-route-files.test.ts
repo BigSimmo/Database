@@ -87,6 +87,17 @@ describe("Care Plan route registry", () => {
     expect(carePlanRoute.managementPlan("SYN-PATIENT-003")).toBe(
       "/mockups/care-plan/patients/SYN-PATIENT-003/management-plan",
     );
+    // Both authoring addresses existed in `CARE_PLAN_ROUTES` from Task 3 but had
+    // no builder, so an authoring link could only be reached by hand-writing the
+    // suffix — the one thing this registry exists to prevent.
+    expect(carePlanRoute.managementPlanEdit("SYN-PATIENT-003")).toBe(
+      "/mockups/care-plan/patients/SYN-PATIENT-003/management-plan/edit",
+    );
+    expect(carePlanRoute.managementPlanReview("SYN-PATIENT-003")).toBe(
+      "/mockups/care-plan/patients/SYN-PATIENT-003/management-plan/review",
+    );
+    expect(carePlanRoute.managementPlanEdit("SYN-PATIENT-001")).toBe(CARE_PLAN_ROUTES.managementPlanEdit);
+    expect(carePlanRoute.managementPlanReview("SYN-PATIENT-001")).toBe(CARE_PLAN_ROUTES.managementPlanReview);
     expect(carePlanRoute.safetyPlan("SYN-PATIENT-003")).toBe("/mockups/care-plan/patients/SYN-PATIENT-003/safety-plan");
     expect(carePlanRoute.presentations("SYN-PATIENT-003")).toBe(
       "/mockups/care-plan/patients/SYN-PATIENT-003/presentations",
@@ -447,6 +458,8 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       `${COMPONENT_ROOT}/patient-workspace.tsx`,
       `${COMPONENT_ROOT}/management-plan-read.tsx`,
       `${COMPONENT_ROOT}/management-plan-print.tsx`,
+      `${COMPONENT_ROOT}/management-plan-form.tsx`,
+      `${COMPONENT_ROOT}/management-plan-review.tsx`,
     ];
     for (const file of consumers) {
       const source = readFileSync(resolve(process.cwd(), file), "utf8");

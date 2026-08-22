@@ -3,7 +3,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { cn, semanticChipTone, type SemanticChipTone } from "@/components/ui-primitives";
+import { FormField } from "@/components/ui/form-field";
+import { cn, fieldControlPlain, semanticChipTone, type SemanticChipTone } from "@/components/ui-primitives";
 
 import styles from "./care-plan.module.css";
 import { SYNTHETIC_DATA_MARKER } from "./fixtures";
@@ -13,6 +14,7 @@ import {
   type ManagementPlanVersion,
   type ParticipationState,
   type PrototypeOutcome,
+  type PrototypeRole,
   type ReviewState,
 } from "./types";
 
@@ -43,6 +45,44 @@ export const FIRST_MINUTE_SECTION_LABEL: Record<(typeof FIRST_MINUTE_CONTENT_KEY
   agreedEdApproach: "What we have agreed to do",
   whatWouldMakeThisDifferent: "What would make this presentation different",
 };
+
+/**
+ * The full-plan tier: every content field that is neither one of the five
+ * first-minute sections nor `whyThisPlanExists`, which the tier renders first in
+ * its own right.
+ *
+ * Derived from the content type rather than transcribed. A transcribed list
+ * checks membership but not exhaustiveness, so a twelfth content field added
+ * later would render on no surface at all and nothing would go red — the exact
+ * failure the specification legislated against for the summary card. Because
+ * `FullPlanContentKey` is an `Exclude` over `keyof ManagementPlanContent`, the
+ * label record below stops compiling the moment a field is added without a
+ * heading, and `FULL_PLAN_SECTION_KEYS` is read back off that record rather than
+ * being written out a second time.
+ *
+ * It lives here rather than on the reading surface because three surfaces now
+ * need it: the reading tier, the drafting form, and the change table.
+ */
+export type FullPlanContentKey = Exclude<
+  keyof ManagementPlanContent,
+  (typeof FIRST_MINUTE_CONTENT_KEYS)[number] | "whyThisPlanExists"
+>;
+
+/** Headings, in the one approved order; the order of this literal is the order
+ *  the tier renders, because the keys are read back from it. */
+export const FULL_PLAN_SECTION_LABEL: Record<FullPlanContentKey, string> = {
+  whatThePersonWants: "What this person wants",
+  practicalNeeds: "Practical needs",
+  physicalHealthAndMedication: "Physical health and medication",
+  whoElseIsInvolved: "Who else is involved",
+  reviewTriggers: "What should prompt a review",
+};
+
+export const FULL_PLAN_SECTION_KEYS = Object.keys(FULL_PLAN_SECTION_LABEL) as readonly FullPlanContentKey[];
+
+/** The heading of the one required full-plan field, which the tier renders in
+ *  its own right above the five optional ones. */
+export const WHY_THIS_PLAN_EXISTS_LABEL = "Why this plan exists";
 
 export const FIRST_MINUTE_SECTION_ID_PREFIX = "care-plan-first-minute";
 
@@ -87,6 +127,23 @@ const REVIEW_STATE_TONE: Record<ReviewState, SemanticChipTone> = {
   within_review: "success",
   due_soon: "warning",
   overdue: "danger",
+};
+
+/**
+ * The displayed name of each synthetic responsibility. Sentence case, because it
+ * appears mid-sentence in a switcher option beside a clinician's name.
+ *
+ * `prototype-state.ts` carries its own lower-case forms for audit and refusal
+ * prose, where the label lands inside a longer sentence. Both are deliberate: a
+ * refusal reads "signed in with the named senior clinician role", and an option
+ * reads "Dr Taylor Fiction — Named senior clinician".
+ */
+export const PROTOTYPE_ROLE_LABEL: Record<PrototypeRole, string> = {
+  ed_clinician: "Emergency department clinician",
+  liaison_clinician: "Emergency department mental health liaison clinician",
+  cmht_clinician: "Community mental health team clinician",
+  senior_clinician: "Named senior clinician",
+  plan_coordinator: "Care planning coordinator",
 };
 
 export const MANAGEMENT_VERSION_STATE_LABEL: Record<ManagementPlanVersion["state"], string> = {
@@ -223,6 +280,53 @@ export function ReviewWarning({
           ? `This plan was due for review on ${formatPerthDate(reviewDueAt)}. It remains the Current Plan and is still the agreed approach; arrange a review.`
           : `This plan is due for review on ${formatPerthDate(reviewDueAt)}.`}
     </p>
+  );
+}
+
+/**
+ * A multi-line field wearing the repository field shell.
+ *
+ * `@/components/ui` has no textarea, and every clinical field in this prototype
+ * is prose or a list of points, so this composes `FormField` — the same shell
+ * `TextField` and `Select` fold onto — rather than hand-rolling a fourth one.
+ * The shared control class fixes a one-line height, which the module class
+ * releases; everything else about the shell is inherited, including the rule
+ * that the hint survives an error.
+ */
+export function PlanTextArea({
+  label,
+  id,
+  value,
+  onChange,
+  hint,
+  error,
+  required,
+  rows = 4,
+}: {
+  label: string;
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+  hint?: string;
+  error?: string;
+  required?: boolean;
+  rows?: number;
+}) {
+  return (
+    <FormField label={label} id={id} hint={hint} error={error} required={required}>
+      {(field) => (
+        <textarea
+          id={field.id}
+          rows={rows}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          aria-required={field.required || undefined}
+          aria-invalid={field.invalid || undefined}
+          aria-describedby={field.describedBy}
+          className={cn(fieldControlPlain, styles.planTextArea)}
+        />
+      )}
+    </FormField>
   );
 }
 

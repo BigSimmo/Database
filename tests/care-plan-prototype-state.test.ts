@@ -1118,6 +1118,82 @@ describe("Care Plan contact and worklist actions", () => {
   });
 });
 
+/**
+ * Recording that the person has been shown their own plan. It is a record of
+ * something a clinician did with the document, not a transformation of it: it
+ * writes one date and one audit event, and it produces no Patient Plan.
+ */
+describe("Care Plan sharing the plan with the person", () => {
+  it("records the date against the Current version and audits it", () => {
+    const state = createInitialPrototypeState("overdue-plan");
+    const next = prototypeReducer(state, { type: "record-plan-shared-with-patient", patientId: MIRA });
+
+    expect(next.managementPlanVersions.find(({ id }) => id === "SYN-MGMT-VERSION-003")?.sharedWithPatientAt).toEqual(
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+    );
+    expect(next.auditEvents).toHaveLength(1);
+    expect(next.auditEvents[0]).toMatchObject({
+      type: "management_plan_shared_with_patient",
+      patientId: MIRA,
+      objectId: "SYN-MGMT-VERSION-003",
+    });
+    expect(next.lastOutcome?.kind).toBe("success");
+  });
+
+  // Task 9 writes the patient-facing edition. This action must not quietly do it.
+  it("creates no Patient Plan and changes no plan content", () => {
+    const state = createInitialPrototypeState("overdue-plan");
+    const next = prototypeReducer(state, { type: "record-plan-shared-with-patient", patientId: MIRA });
+
+    expect(next.patientPlans).toEqual([]);
+    expect(next.patientPlanVersions).toEqual([]);
+    const before = state.managementPlanVersions.find(({ id }) => id === "SYN-MGMT-VERSION-003");
+    const after = next.managementPlanVersions.find(({ id }) => id === "SYN-MGMT-VERSION-003");
+    expect(after?.content).toEqual(before?.content);
+    expect(after?.state).toBe("current");
+    expect(next.reviewTriggers).toEqual(state.reviewTriggers);
+  });
+
+  it("refuses when there is no Current Plan to show anyone", () => {
+    const state = createInitialPrototypeState();
+    for (const patientId of [EVELYN, JORDAN] as const) {
+      const next = prototypeReducer(state, { type: "record-plan-shared-with-patient", patientId });
+      expect(next.auditEvents, `${patientId} has no Current Plan`).toEqual([]);
+      expect(next.lastOutcome?.message).toMatch(/no Current Plan/i);
+    }
+  });
+
+  /**
+   * `sharedWithPatientAt` is one date, so a second record would silently replace
+   * a recorded fact with a different one and the first sharing would vanish from
+   * the record without anything saying so.
+   */
+  it("refuses a second record and names the date already held", () => {
+    const state = createInitialPrototypeState();
+    const again = prototypeReducer(state, { type: "record-plan-shared-with-patient", patientId: ROWAN });
+
+    expect(again.auditEvents).toEqual([]);
+    expect(again.lastOutcome?.kind).toBe("info");
+    expect(again.lastOutcome?.message).toMatch(/already recorded/i);
+    expect(again.managementPlanVersions).toEqual(state.managementPlanVersions);
+  });
+
+  it("is blocked offline, like every other action that changes a record", () => {
+    const offline = createInitialPrototypeState("offline");
+    const next = prototypeReducer(
+      { ...offline, selectedPatientId: MIRA },
+      {
+        type: "record-plan-shared-with-patient",
+        patientId: MIRA,
+      },
+    );
+
+    expect(next.lastOutcome?.kind).toBe("blocked");
+    expect(next.auditEvents).toEqual([]);
+    expect(next.managementPlanVersions).toEqual(offline.managementPlanVersions);
+  });
+});
+
 // --- Degraded states, scenarios, and determinism ------------------------------------
 
 describe("Care Plan degraded states", () => {

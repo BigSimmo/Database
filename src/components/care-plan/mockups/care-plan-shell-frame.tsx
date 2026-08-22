@@ -15,17 +15,19 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
 import { SearchField } from "@/components/ui/text-field";
 
 import styles from "./care-plan.module.css";
+import { PROTOTYPE_ROLE_LABEL } from "./prototype-ui";
 import {
   CARE_PLAN_MORE_DESTINATIONS,
   CARE_PLAN_PRIMARY_DESTINATIONS,
   CARE_PLAN_SYSTEM_STATES_DESTINATION,
   type CarePlanDestination,
 } from "./routes";
-import type { PrototypeScenario } from "./types";
+import type { PrototypeScenario, PrototypeUser } from "./types";
 
 const DESTINATION_ICON: Record<CarePlanDestination, LucideIcon> = {
   Home,
@@ -56,7 +58,11 @@ export type CarePlanShellFrameProps = {
   /** The named specimen state reconstructed from the URL, for inspection only. */
   scenario: PrototypeScenario;
   /** The synthetic clinician the prototype is signed in as. */
-  activeUser: { displayName: string; title: string };
+  activeUser: { id: string; displayName: string; title: string };
+  /** Every synthetic clinician the switcher can move between. */
+  prototypeUsers: readonly PrototypeUser[];
+  /** Called with the chosen synthetic user; the caller dispatches `set-active-user`. */
+  onSelectUser: (userId: string) => void;
   /** Called when the one search slot is submitted. */
   onSearchSubmit: () => void;
   /**
@@ -86,6 +92,8 @@ export function CarePlanShellFrame({
   title,
   scenario,
   activeUser,
+  prototypeUsers,
+  onSelectUser,
   onSearchSubmit,
   routeOwnsSearch = false,
   headerAction,
@@ -157,12 +165,30 @@ export function CarePlanShellFrame({
             </Link>
           </nav>
 
+          {/*
+            The displayed clinician, and the control that changes which one is
+            displayed. It is interaction modelling: it explains why an action is
+            offered on the surfaces below, and the reducer rechecks the role on
+            every change either way. It authenticates nobody and protects nothing.
+          */}
           <div
             data-testid="care-plan-active-user"
             className="rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2"
           >
             <p className="text-sm font-semibold text-[color:var(--text)]">{activeUser.displayName}</p>
             <p className="text-xs text-[color:var(--text-muted)]">{activeUser.title}</p>
+            <Select
+              label="Prototype role"
+              className={styles.roleSwitcher}
+              fieldClassName="mt-2"
+              value={activeUser.id}
+              onChange={(event) => onSelectUser(event.target.value)}
+              hint="Choosing a clinician here explains which actions are offered. It is not a sign-in, and it protects nothing."
+              options={prototypeUsers.map((user) => ({
+                value: user.id,
+                label: `${user.displayName} — ${PROTOTYPE_ROLE_LABEL[user.role]}`,
+              }))}
+            />
           </div>
         </aside>
 
