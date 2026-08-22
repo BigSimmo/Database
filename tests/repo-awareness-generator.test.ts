@@ -1,11 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { appModeDefinitions } from "@/lib/app-modes";
+import { removePathSync } from "../scripts/retryable-fs.mjs";
 import {
   buildDocumentationSection,
   buildReviewStateSection,
@@ -86,7 +87,7 @@ describe("listDocumentPaths", () => {
       execFileSync("git", ["add", "docs/tracked.md"], { cwd: repoRoot });
       callback(repoRoot);
     } finally {
-      rmSync(repoRoot, { recursive: true, force: true });
+      removePathSync(repoRoot, { recursive: true });
     }
   }
 
@@ -284,7 +285,7 @@ describe("buildTestHealthSection", () => {
       writeFileSync(bad, JSON.stringify({ $comment: "no flakes key" }), "utf8");
       expect(() => readFlakeLedger(bad)).toThrow(/flake-ledger\.json: expected a "flakes" array/);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePathSync(dir, { recursive: true });
     }
   });
 });
@@ -353,7 +354,7 @@ describe("buildReviewStateSection", () => {
       writeFileSync(path.join(dir, "fff.record.md"), "# not a table row\n", "utf8");
       expect(() => readReviewRecordRows(dir)).toThrow(/fff\.record\.md: no review record row found/);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePathSync(dir, { recursive: true });
     }
   });
 });
