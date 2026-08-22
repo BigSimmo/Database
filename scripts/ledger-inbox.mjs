@@ -803,6 +803,7 @@ function selfTest() {
     "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
     "| --- | --- | --- | --- | --- | --- | --- |",
     "| #001 | P2 | issue | one | d | s | 2026-01-01 |",
+    "| #041061 <!-- issue-ulid:01M00000000410610000000000 --> | P2 | task | modern | d | s | 2026-01-01 |",
     "",
     "## Resolved / archive",
     "",
@@ -834,6 +835,18 @@ function selfTest() {
     action: "update",
     payload: { id: "#001", summary: "updated", baseRowFingerprint: issueRowFingerprint(base, "#001") },
   };
+  const modernUpdate = {
+    ...update,
+    id: "66666666-6666-4666-8666-666666666666",
+    payload: {
+      id: "#041061",
+      summary: "modern updated",
+      baseRowFingerprint: issueRowFingerprint(base, "#041061"),
+    },
+  };
+  if (!applyRequest(base, modernUpdate).includes("| modern updated |")) {
+    throw new Error("self-test failed: modern Crockford display id update was not applied");
+  }
   const cancel = {
     version: 1,
     id: "44444444-4444-4444-8444-444444444444",

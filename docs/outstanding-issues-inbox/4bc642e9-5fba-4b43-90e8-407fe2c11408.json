@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4bc642e9-5fba-4b43-90e8-407fe2c11408",
+  "createdOn": "2026-08-21",
+  "action": "done",
+  "payload": {
+    "id": "#P5542X",
+    "outcome": "Resolved 2026-08-21: clinical-risk classification includes mode gating, therapy reachability, review/policy/content library surfaces, with explicit app-modes and therapies self-tests.",
+    "baseRowFingerprint": "3f7ae2707188de8d13433bdb06a9501e36c6946472bc9a78e75749de0051eb8f"
+  }
+}

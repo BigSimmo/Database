@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5201bfa7-4966-4583-abff-02305de82219",
+  "createdOn": "2026-08-21",
+  "action": "done",
+  "payload": {
+    "id": "#CHW9N3",
+    "outcome": "Resolved 2026-08-21: mode-home loading coverage derives from exported standaloneModeHomePaths, and the newly exposed documents gap now has ModeHomeRouteLoading.",
+    "baseRowFingerprint": "76f2027c2d55767c65558c8135322be91962a46c13e505bd94f0c4a1063e690e"
+  }
+}

@@ -7,7 +7,15 @@
  * (#116). This helper turns that silence into an explicit fail/pass/retry
  * verdict from mergeable / mergeable_state. It never updates branches.
  */
-export function classifyMergeability({ mergeable, mergeableState, draft } = {}) {
+export function classifyMergeability({ mergeable, mergeableState, draft, state: prState, merged } = {}) {
+  if (merged === true || String(prState ?? "").toLowerCase() === "closed") {
+    return {
+      ok: true,
+      action: "skip",
+      reason: merged === true ? "merged" : "closed",
+      message: "Closed PR: mergeability no longer needs to be computed.",
+    };
+  }
   if (draft) {
     return {
       ok: true,
@@ -57,6 +65,8 @@ function assert(condition, label) {
 }
 
 function selfTest() {
+  assert(classifyMergeability({ merged: true, state: "closed" }).reason === "merged", "merged PRs skip");
+  assert(classifyMergeability({ merged: false, state: "closed" }).reason === "closed", "closed PRs skip");
   assert(classifyMergeability({ draft: true }).action === "skip", "drafts skip");
   assert(classifyMergeability({ mergeable: null, mergeableState: "unknown" }).action === "retry", "unknown retries");
   assert(classifyMergeability({ mergeable: undefined, mergeableState: "" }).action === "retry", "empty retries");
