@@ -20,7 +20,13 @@ import {
   isValidIssueRowFingerprint,
   queueRowFingerprint,
 } from "./check-outstanding-issues.mjs";
-import { isIssueDisplayId, isIssueUlid, issueUlid, issueUlidFromRequest } from "./issue-id.mjs";
+import {
+  isIssueDisplayId,
+  isIssueUlid,
+  issueUlid,
+  issueUlidFromRequest,
+  normalizeIssueDisplayId,
+} from "./issue-id.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const INBOX_DIR = "docs/outstanding-issues-inbox";
@@ -164,15 +170,17 @@ function mutationConflicts(requests) {
   const byIssue = new Map();
   for (const request of requests) {
     if (request.action === "add" || request.action === "cancel") continue;
-    // Keyed by target ROW, not by issue. A `queue` request and an `update`
-    // request for the same id edit two different tables and cannot clobber each
-    // other, and re-grading an item usually means doing both in one batch — so
-    // treating them as a conflict would force an artificial cancel/relanded
-    // round trip for the ordinary case (ledger #M6JNR8).
-    const id = `${request.action === "queue" ? "queue " : ""}${request.payload.id}`;
-    const requestIds = byIssue.get(id) ?? [];
-    requestIds.push(request.id);
-    byIssue.set(id, requestIds);
+    const id = normalizeIssueDisplayId(request.payload.id);
+    // Key by the rows a request actually mutates. `update` changes only the
+    // Open-items row and `queue` changes only its queue row, so they can safely
+    // share a batch. `done` moves the Open-items row *and* prunes its queue
+    // citation, so it conflicts with either action on the same issue.
+    const targets = request.action === "done" ? [id, `queue ${id}`] : [request.action === "queue" ? `queue ${id}` : id];
+    for (const target of targets) {
+      const requestIds = byIssue.get(target) ?? [];
+      requestIds.push(request.id);
+      byIssue.set(target, requestIds);
+    }
   }
   return [...byIssue.entries()].filter(([, requestIds]) => requestIds.length > 1);
 }
@@ -1024,6 +1032,20 @@ function selfTest() {
   }
   if (mutationConflicts([regrade, { ...regrade, id: "88888888-8888-4888-8888-888888888888" }]).length !== 1) {
     throw new Error("self-test failed: two queue edits for one id must conflict");
+  }
+  for (const requests of [
+    [regrade, done],
+    [done, regrade],
+  ]) {
+    let queueClosureRejected = false;
+    try {
+      applyRequestBatch(queueBase, requests);
+    } catch (error) {
+      queueClosureRejected = /explicit cancellation decision/.test(String(error));
+    }
+    if (!queueClosureRejected) {
+      throw new Error("self-test failed: a queue edit and closure must require an explicit cancellation decision");
+    }
   }
 
   const added = applyRequest(base, add);
