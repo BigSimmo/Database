@@ -115,6 +115,11 @@ export const sharedHomePresentation = {
   },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 
+/** Browser/assistive-technology title for the mode selected on the shared home. */
+export function sharedHomeDocumentTitle(modeId: AppModeId) {
+  return `${sharedHomePresentation[modeId].title} | Clinical KB`;
+}
+
 export const sharedHomeEmptyState = {
   starterActionsLabel: "Starter actions",
   recentLabel: "Recent searches",
