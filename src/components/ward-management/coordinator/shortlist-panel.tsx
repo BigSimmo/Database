@@ -320,14 +320,17 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
                 to PARALLEL_REFERRAL_CAP live referrals at once, and each is a fact a coordinator
                 acts on (review Minor 6: a hidden parallel referral is exactly the trust failure
                 the cap and this record exist to prevent). "Parallel referral" is the label Task
-                5's Refer action uses everywhere this fact is surfaced. */}
+                5's Refer action uses everywhere this fact is surfaced. Whole-branch review M3:
+                `data-testid` here (never present before) is what lets a test assert the real
+                COUNT of these badges — the journey's own "Three live referrals" comment used to
+                sit over an assertion one badge alone could satisfy. */}
             {referredUnits.map(({ id, unit }) =>
               unit ? (
-                <span key={id} className={styles.shortlistReferredBadge}>
+                <span key={id} data-testid="ward-shortlist-referred-badge" className={styles.shortlistReferredBadge}>
                   Parallel referral: {unit.name}
                 </span>
               ) : (
-                <span key={id} className={styles.shortlistUnresolvedBadge}>
+                <span key={id} data-testid="ward-shortlist-referred-badge" className={styles.shortlistUnresolvedBadge}>
                   Parallel referral to an unresolved unit.
                 </span>
               ),

@@ -70,7 +70,7 @@ export function WardRoleSwitcher() {
   // render, exactly like `coordinator-screen.tsx`'s own `selectedMovement` derivation.
   const focusMovement = focusMovementId ? movements.find((movement) => movement.id === focusMovementId) : undefined;
 
-  // Ward candidates: an accepted destination is the definitive single answer (REFER_TO_UNITS's
+  // Ward candidates: an accepted destination is the definitive single answer (ACCEPT_IN_PRINCIPLE's
   // own reducer case empties `referredUnitIds` the moment one unit accepts — see
   // `ward-flow-reducer.ts`'s `case "ACCEPT_IN_PRINCIPLE"`), so it is checked first. Short of
   // that, every currently live referral is a candidate destination — never just the first one.

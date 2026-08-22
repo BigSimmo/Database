@@ -391,8 +391,10 @@ test.describe("Role switcher — the loop", () => {
     await shortlist.getByTestId("ward-shortlist-candidate-rgh-adult-secure").click();
     await shortlist.getByTestId("ward-shortlist-refer").click();
     // Three live referrals — exactly why the ward hop below cannot be inferred and must use the
-    // picker (addendum R52).
-    await expect(shortlist).toContainText(/Parallel referral|referred to 3/i);
+    // picker (addendum R52). Whole-branch review M3: the old regex-based `toContainText` assertion
+    // was satisfied by a single "Parallel referral" badge, so it never actually checked the claim
+    // this comment makes. `toHaveCount(3)` on the real badge locator checks the stated claim.
+    await expect(shortlist.getByTestId("ward-shortlist-referred-badge")).toHaveCount(3);
 
     // --- Step 3: Ward, reached via the picker (three live referrals — R52). ---
     await switchTo("RPH Adult Secure");
