@@ -40,20 +40,12 @@ Every task had its own review; Tasks 3, 4 and 5 each needed a fix round, and eac
 scoped re-review. **28 tests pass** in `tests/repo-awareness-generator.test.ts`;
 `typecheck:source` is green.
 
-**One check is outstanding, and it is the first thing to do.** The batched `npm run lint` covering
-Tasks 4 and 5 never got a turn on the run coordinator before this session ended — another worktree
-held the exclusive Playwright lease for hours. It is not known-failing; it is unrun. Lint was also
-the gate that caught the only Critical finding on this branch so far (an unused constant, which
-fails because `lint:internal` runs `--max-warnings 0`), so do not assume the diff is clean because
-tests and typecheck are:
+**All three gates are green as of this handoff.** The batched `npm run lint` covering Tasks 4 and 5
+finally got a turn on the run coordinator and passed clean — ESLint emitted no findings at all
+(`--max-warnings 0`, exit 0). That matters because lint caught this branch's only Critical finding
+(an unused constant in Task 3), so it is the gate least safe to infer from green tests.
 
-```bash
-npm run lint
-```
-
-Retry it inline on "capacity is full" rather than forcing the lock. The pushed commits are otherwise
-green, and CI enforces lint independently, so nothing is at risk — it is a latency question, not a
-correctness one.
+Nothing is outstanding. Task 6 is a clean start.
 
 ## 3. What is next — Tasks 6 to 13
 
