@@ -170,6 +170,50 @@ export type ModuleComponents = {
   defaultAlias: string | null;
 };
 
+/**
+ * Whether a particular export reaches a module that carries `"use client"`.
+ *
+ * A directive-free barrel does not erase the client boundary. The server still
+ * receives a client reference when it imports a binding the barrel forwards
+ * from a client module, so follow named, imported and star re-exports before
+ * deciding that an import is server-side. `seen` makes re-export cycles
+ * terminate rather than turn a malformed barrel into an unbounded walk.
+ */
+function exportedBindingIsClient(
+  fromFile: string,
+  specifier: string,
+  exported: string,
+  load: (file: string) => ModuleComponents,
+  resolve: (fromFile: string, specifier: string) => string | null,
+  seen = new Set<string>(),
+): boolean {
+  const target = resolve(fromFile, specifier);
+  if (!target) return false;
+  const key = `${target}::${exported}`;
+  if (seen.has(key)) return false;
+  seen.add(key);
+
+  const moduleInfo = load(target);
+  if (moduleInfo.isClient) return true;
+
+  const local = exported === "default" ? (moduleInfo.defaultAlias ?? "default") : exported;
+  const forwarded = moduleInfo.imports.get(local);
+  if (forwarded && exportedBindingIsClient(target, forwarded.specifier, forwarded.imported, load, resolve, seen)) {
+    return true;
+  }
+  for (const reExport of moduleInfo.reExports) {
+    if (
+      reExport.exported === exported &&
+      exportedBindingIsClient(target, reExport.specifier, reExport.local, load, resolve, seen)
+    ) {
+      return true;
+    }
+  }
+  return moduleInfo.starReExports.some((starSpecifier) =>
+    exportedBindingIsClient(target, starSpecifier, exported, load, resolve, seen),
+  );
+}
+
 /** Statements with no top-level name of their own are attributed here. */
 const MODULE_SCOPE = "*module*";
 
@@ -653,10 +697,9 @@ export function serverRenderedHandlerViolations(
       // A locally declared component is another Server Component; a function
       // prop between two Server Components never crosses the boundary.
       if (!imported) continue;
-      const targetFile = resolve(file, imported.specifier);
-      // A bare package specifier is not resolvable here - do not guess.
-      if (!targetFile) continue;
-      if (load(targetFile).isClient) report(`<${handler.target.root}>`);
+      if (exportedBindingIsClient(file, imported.specifier, imported.imported, load, resolve)) {
+        report(`<${handler.target.root}>`);
+      }
     }
 
     for (const rendered of declaration.renders) {
@@ -743,7 +786,7 @@ function patternNames(node: unknown, into: Set<string>) {
  */
 export function clientDataUsages(
   sourceText: string,
-  isClientSpecifier: (specifier: string) => boolean,
+  isClientSpecifier: (specifier: string, exported: string) => boolean,
 ): ClientDataFinding[] {
   const source = parseModuleSource(sourceText);
   if (hasUseClientDirective(source)) return [];
@@ -752,10 +795,19 @@ export function clientDataUsages(
   for (const statement of source.program.body) {
     if (statement.type !== "ImportDeclaration") continue;
     if (statement.importKind === "type") continue;
-    if (!isClientSpecifier(statement.source.value)) continue;
     for (const specifier of statement.specifiers) {
       if (specifier.type === "ImportSpecifier" && specifier.importKind === "type") continue;
-      bindings.set(specifier.local.name, statement.source.value);
+      const exported =
+        specifier.type === "ImportDefaultSpecifier"
+          ? "default"
+          : specifier.type === "ImportNamespaceSpecifier"
+            ? "*"
+            : specifier.imported.type === "Identifier"
+              ? specifier.imported.name
+              : specifier.imported.value;
+      if (isClientSpecifier(statement.source.value, exported)) {
+        bindings.set(specifier.local.name, statement.source.value);
+      }
     }
   }
   if (bindings.size === 0) return [];
@@ -1033,6 +1085,21 @@ describe("rsc boundary - check A: event handlers on the server side", () => {
     expect(violations.map(({ file, attribute, target }) => ({ file, attribute, target }))).toEqual([
       { file: "page.tsx", attribute: "onSelect", target: "<ClientCard>" },
     ]);
+  });
+
+  it("reports a function handed to a client component re-exported by a barrel", () => {
+    const project = fixtureProject({
+      "page.tsx": `import { ClientCard } from "./barrel";
+         export default function Page() {
+           return <ClientCard onSelect={() => choose()} />;
+         }`,
+      "./barrel": `export { ClientCard } from "./client-card";`,
+      "./client-card": `"use client";
+         export function ClientCard({ onSelect }) {
+           return <button onClick={onSelect}>Pick</button>;
+         }`,
+    });
+    expect(serverRenderedHandlerViolations(["page.tsx"], project.load, project.resolve)).toHaveLength(1);
   });
 
   it("does not report a function handed to another Server Component's prop", () => {
@@ -1387,6 +1454,24 @@ describe("rsc boundary - check B: server modules reading client data", () => {
     expect(findings).toEqual([{ binding: "MODE_ROWS", specifier: "./client-catalog", usage: "member", line: 4 }]);
   });
 
+  it("reports client data reached through a directive-free barrel", () => {
+    const project = fixtureProject({
+      "page.tsx": `import { MODE_ROWS } from "./barrel";
+         export const count = MODE_ROWS.length;`,
+      "./barrel": `export { MODE_ROWS } from "./client-catalog";`,
+      "./client-catalog": `"use client";
+         export const MODE_ROWS = [];`,
+    });
+    expect(
+      clientDataUsages(
+        `import { MODE_ROWS } from "./barrel";
+         export const count = MODE_ROWS.length;`,
+        (specifier, exported) =>
+          exportedBindingIsClient("page.tsx", specifier, exported, project.load, project.resolve),
+      ),
+    ).toEqual([{ binding: "MODE_ROWS", specifier: "./barrel", usage: "member", line: 2 }]);
+  });
+
   it("reports calling a value imported from a client module", () => {
     const findings = clientDataUsages(
       `import { buildRows } from "./client-catalog";
@@ -1593,13 +1678,12 @@ describe("rsc boundary - the repository", () => {
   });
 
   it("has no server module reading data out of a client module", { timeout: 120_000 }, () => {
-    const { fileSet, isClient, serverModules } = boundaryState();
+    const { load, resolve, serverModules } = boundaryState();
     const violations: string[] = [];
     for (const [file, reachingEntries] of serverModules) {
-      const findings = clientDataUsages(readSource(file), (specifier) => {
-        const target = resolveModule(file, specifier, fileSet);
-        return target !== null && isClient(target);
-      });
+      const findings = clientDataUsages(readSource(file), (specifier, exported) =>
+        exportedBindingIsClient(file, specifier, exported, load, resolve),
+      );
       for (const finding of findings) {
         violations.push(
           `${relative(file)}:${finding.line} ${finding.usage} on ${finding.binding} from ${finding.specifier} - reached by ${reachingEntries
