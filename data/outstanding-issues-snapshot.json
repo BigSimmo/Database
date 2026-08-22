@@ -10,7 +10,7 @@
     "p2": 43,
     "p3": 33,
     "queued": 11,
-    "pending": 32,
+    "pending": 41,
     "resolved": 359
   },
   "queue": [
@@ -884,6 +884,12 @@
       "created_at": "2026-08-21"
     },
     {
+      "request_id": "337fc2e1-c50c-4f80-b865-58c76af4ff81",
+      "action": "done",
+      "summary": "#1K6T35: OWNER DECISION 2026-08-22: leave point-in-time recovery OFF and deliberately accept a worst-case recovery point of roughly 24 hours on the live clinical corpus. This row required either enabling the paid add-on or accepting the RPO and amending the plan's unsatisfiable standing rule; the second was chosen and the rule is amended in docs/database-remediation-plan.md under 'Recovery point — owner decision, 2026-08-22', which now requires confirming and recording the latest daily backup timestamp before a mutating phase, stating what a restore would lose, and having a written tested reversal path for anything that rewrites or drops data or policy objects. Scope is explicitly this remediation programme only: the rag-ingestion-reindex plan's stop-before-production-reindex-when-PITR-disabled condition is untouched.",
+      "created_at": "2026-08-22"
+    },
+    {
       "request_id": "3552c196-bf4f-49c8-a39b-28f8876d8caf",
       "action": "done",
       "summary": "#P5542X: Resolved 2026-08-21: clinical-risk classification includes mode gating, therapy reachability, review/policy/content library surfaces, with explicit app-modes and therapies self-tests.",
@@ -926,6 +932,18 @@
       "created_at": "2026-08-21"
     },
     {
+      "request_id": "54bbb5e0-a573-47e5-9daa-f7eedc4e6b73",
+      "action": "done",
+      "summary": "#M6JNR8: Resolved 2026-08-22: scripts/outstanding-issues.mjs gains updateQueueRow and scripts/ledger-inbox.mjs gains a 'queue' action (npm run issues:queue), so a recommended-execution-queue row can be corrected through the same immutable-request + serial-reconcile transaction as every other ledger mutation — option (a) of the two this row offered, not the audited hand-edit path. Acuity, Capability, When, Estimate and Outcome are editable; Order and the ID(s) cell deliberately are not, since Order is renumbered on every close and changing membership is an add or a done. Queue edits carry their own queueRowFingerprint, so they are optimistic against the QUEUE row rather than the Open-items row, and mutationConflicts namespaces them separately so a re-grade and a detail update for the same id can land in one batch. The #231 instance this row was filed for is queued as a 'queue' request in the same PR.",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "5bdfac3c-a3b4-4f00-869c-9a59cc756e11",
+      "action": "done",
+      "summary": "#CCZ4HB: OWNER DECISION 2026-08-22: leave the CodeRabbit spending cap as it is and accept that automated review from that bot is intermittent. Option (c) of the three this row offered — not a gate, not a cap raise. Recorded in AGENTS.md 'Automated review coverage (owner decision, 2026-08-22)' with the measurements (skipped on PRs #2113, #2252, #2255, #2256, #2263, #2278), the fact that the ChatGPT Codex connector still reviews and is unaffected, the draft-PR interaction, and the standing prohibition on weakening any required check to compensate. Re-open only if the Codex connector also stops reviewing, or if the owner revisits the billing decision.",
+      "created_at": "2026-08-22"
+    },
+    {
       "request_id": "65494c5f-927b-4d0d-8564-5933a7c723f3",
       "action": "update",
       "summary": "#47M1XD: detail → UPDATED 2026-08-22 07:23 UTC by a second read-only production window; supersedes the 2026-08-21 detail, which is preserved in git history. Net effect: the attribution retraction is now STRONGER, and the experiment this row proposed to settle it turns out to be one that CANNOT settle it. (1) A SECOND OBSERVATION WINDOW CLOSES MOST OF THE COUNTER-RESET CAVEAT. Between the 2026-08-21 read and this one the serving indexes advanced under live traffic -- document_chunks_search_idx 37,717 -> 37,911, documents_title_search_idx 37,299 -> 37,512, document_chunks_embedding_hnsw_idx 4,906 -> 4,921, and the sibling-table trigram index document_table_facts_title_row_param_trgm_idx 2,372 -> 2,389 -- while document_chunks_content_trgm_idx (OID 1491258, 68 MB) and documents_title_trgm_idx (OID 1491257, 648 kB) stayed at idx_scan 0 AND idx_tup_read 0, with both OIDs unchanged. Two readings a day apart, with demonstrable retrieval traffic in between, make \"a per-index counter reset hid the usage\" a substantially weaker explanation than \"the planner does not choose these indexes\": a reset before the first read would have been re-populated by the traffic between the two. It is still not proof -- pg_stat_reset_single_table_counters(oid) remains invisible, and the production server is PostgreSQL 17.6 (read via current_setting('server_version')), which predates the pg_stat_all_indexes.stats_reset column added in PG 18. pg_stat_database.stats_reset is NULL and pg_postmaster_start_time() is 2026-06-19, so no database-wide reset is recorded across the whole period in question. (2) THE BEFORE/AFTER ANALYZE EXPERIMENT SHOULD NOT BE RUN AS FRAMED, BECAUSE IT CANNOT DISCRIMINATE. pg_stat_all_tables shows documents, document_chunks, document_table_facts and document_index_units were each ANALYZEd on 2026-08-18 18:08 UTC (the Phase 4 window) and every one of them now reports n_mod_since_analyze = 0. Re-ANALYZing a table with zero modifications since its last analyze re-samples the same rows and produces statistically equivalent statistics, so a flat before/after latency result would be uninformative rather than evidence against the ANALYZE hypothesis. Spending an approved production window on it would buy a null that cannot be interpreted. (3) ONE GENUINELY STALE TABLE, AND IT IS MINOR. document_embedding_fields was last analyzed 2026-06-25 and carries 3,148 modifications against 271,097 live tuples -- about 1.2%, far below the default autoanalyze threshold of 50 + 0.1 * n_live_tup (~27,160), which is why autovacuum has not fired on it. Worth an ANALYZE at the next convenient window as hygiene; not a plausible cause of a 31-second regression. (4) DATABASE-SIDE RETRIEVAL IS FAST RIGHT NOW. EXPLAIN ANALYZE through public.explain_retrieval_rpc in the same window: match_documents_for_query 1.000 ms, match_document_chunks_text 4.306 ms, match_document_lookup_chunks_text 0.904 ms, match_document_table_facts_text 15.760 ms. All four return a single Function Scan node with no inner index names, re-confirming #8VAY97 -- this instrument cannot show plan flips, and the four supported names are still the only ones it accepts. REVISED NEXT: (a) treat the mis-attribution as settled for triage purposes -- the next 30-second retrieval incident checks planner statistics BEFORE hunting missing indexes; (b) do NOT spend an approved production window on a before/after ANALYZE of the four already-current tables, and if a discriminating test is ever wanted it needs a table with pending modifications or a controlled statistics reset, neither of which is worth doing on the live clinical database; (c) an ANALYZE of document_embedding_fields alone is cheap hygiene and needs owner approval like any other production mutation; (d) whether the two trigram indexes earn their ~69 MB is a repo-side migration decision, not an operational one. STOP unchanged: do NOT drop them -- they are repo-defined, the migration chain commands them, and dropping them reopens live drift.; source → read-only production windows 2026-08-21 and 2026-08-22 07:23 UTC (pg_stat_all_indexes, pg_stat_all_tables, pg_stat_database, explain_retrieval_rpc); docs/audit/live-drift-forensics-2026-08.md Phase 5 close-out 5.1(c)",
@@ -962,6 +980,12 @@
       "created_at": "2026-08-21"
     },
     {
+      "request_id": "8db683bd-8be5-4f86-912a-bcf40eb0404c",
+      "action": "cancel",
+      "summary": "Cancel request 54bbb5e0-a573-47e5-9daa-f7eedc4e6b73: Reissued as a single closure that also carries the evidence from cancelled request 993f7ca7, which had independently re-proven the defect in another session. Requests are immutable, so folding that evidence into the outcome means replacing this one rather than editing it.",
+      "created_at": "2026-08-22"
+    },
+    {
       "request_id": "993f7ca7-5277-4399-82fc-19ff981823e4",
       "action": "update",
       "summary": "#M6JNR8: priority → P1; source → PR #2260 review thread discussion_r3833600137; RE-CONFIRMED AND EMPIRICALLY RE-PROVEN 2026-08-22 in a second session that was tasked with fixing the #231 queue row and could not: a probe commit changing queue row 1 from A1 to A2 was refused by npm run check:ledger-write-discipline with 'docs/outstanding-issues.md does not exactly match the audited application of 0 moved inbox request(s) from the base', and the probe was reverted; re-graded P2 -> P1 because the stale row is the first thing the session-start hook surfaces and has now mis-directed two sessions; docs/outstanding-issues.md queue row 1 and row #231; scripts/outstanding-issues.mjs:255-279; scripts/check-ledger-write-discipline.mjs:130-175",
@@ -978,6 +1002,18 @@
       "action": "cancel",
       "summary": "Cancel request 3552c196-bf4f-49c8-a39b-28f8876d8caf: Duplicate done request created by overlapping command completion; retain 4bc642e9-5fba-4b43-90e8-407fe2c11408.",
       "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "acc8b0f7-b363-4888-9eb8-1712f48e2779",
+      "action": "cancel",
+      "summary": "Cancel request 993f7ca7-5277-4399-82fc-19ff981823e4: Superseded: this request re-grades #M6JNR8 to P1 so the queue-edit gap gets fixed sooner, and the fix has now landed in this PR (updateQueueRow plus the 'queue' inbox action), so the row is being closed rather than re-prioritised. Nothing from it is lost: its empirical proof — that a probe commit changing queue row 1 from A1 to A2 was refused by check:ledger-write-discipline with 'does not exactly match the audited application of 0 moved inbox request(s) from the base', and that the stale row had by then mis-directed two sessions — is carried verbatim into the closure outcome, which is the durable record. Cancelled only because two mutations on one row need an explicit decision, not because the finding was wrong; it was correct and it is the reason this was built.",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "ae7596a8-9064-4554-9530-4d145a02672c",
+      "action": "queue",
+      "summary": "#231: RE-SCOPED 2026-08-22 (was A1 / retrieval-budget investigation). The retrieval-side premise is CLOSED and measured: retrieval costs 955 ms text / 6,720 ms hybrid against a 25,000 ms fast budget (4-27%), so it cannot bind it. What remains is the generation-side R4 residual — chronic ~30 s strong-route provider_timeout on metformin-renal-dosing and valproate-pregnancy, with a safe source-backed extractive fallback already in place — plus the 2026-08-22 Gate E finding that the remaining provider_timeout label cannot be attributed to one mechanism and partly reflects the quality-retry ladder. **Gate:** focused answer-route tests offline first; live probe only with explicit provider approval. **Stop:** do not weaken quality gates to hide timeouts; flag RAG surfaces before edit.",
+      "created_at": "2026-08-22"
     },
     {
       "request_id": "afaa753b-41ae-4bee-8c63-89c649cdcfd5",
@@ -1016,10 +1052,22 @@
       "created_at": "2026-08-21"
     },
     {
+      "request_id": "e0508db3-fdbc-4d76-9d6a-5e592b77d198",
+      "action": "add",
+      "summary": "Two zero-cost levers to restore automated review coverage remain unbuilt",
+      "created_at": "2026-08-22"
+    },
+    {
       "request_id": "eeac3580-2340-415d-824f-e31c23d8e2f7",
       "action": "done",
       "summary": "#0HFDWD: Resolved 2026-08-21: CI and PR-policy UI classifiers include the narrow mode, route, copy, navigation, and therapies library owners; self-tests pin app-modes and route ownership as UI.",
       "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "f046ea4a-214f-4917-8740-4f56565fee0b",
+      "action": "done",
+      "summary": "#M6JNR8: Resolved 2026-08-22: scripts/outstanding-issues.mjs gains updateQueueRow and scripts/ledger-inbox.mjs gains a 'queue' action (npm run issues:queue), so a recommended-execution-queue row can be corrected through the same immutable-request + serial-reconcile transaction as every other ledger mutation — option (a) of the two this row offered, not the audited hand-edit path. Acuity, Capability, When, Estimate and Outcome are editable; Order and the ID(s) cell deliberately are not, since Order is renumbered on every close and changing queue membership is an add or a done. Queue edits carry their own queueRowFingerprint, so they are optimistic against the QUEUE row rather than the Open-items row, and mutationConflicts namespaces queue targets separately so a re-grade and a detail update for the same id can land in one batch. Both writers gained mutation-tested self-tests. EVIDENCE CARRIED FROM CANCELLED REQUEST 993f7ca7 (a second session, 2026-08-22, independently tasked with fixing the #231 queue row and unable to): a probe commit changing queue row 1 from A1 to A2 was refused by npm run check:ledger-write-discipline with 'docs/outstanding-issues.md does not exactly match the audited application of 0 moved inbox request(s) from the base', and the probe was reverted; that session re-graded this row P2 -> P1 on the grounds that the stale queue row is the first thing the session-start hook surfaces and had by then mis-directed two sessions. That re-grade is superseded by this closure, not rejected. The #231 instance is corrected by a 'queue' request in the same PR.",
+      "created_at": "2026-08-22"
     },
     {
       "request_id": "f7a561a7-1fe2-4aaa-bbfc-90d24baecc7a",
@@ -1032,6 +1080,12 @@
       "action": "cancel",
       "summary": "Cancel request afaa753b-41ae-4bee-8c63-89c649cdcfd5: Duplicate done request created by overlapping command completion; retain 5201bfa7-4966-4583-abff-02305de82219.",
       "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "fac29c48-c558-4249-97ed-c86e61b61b97",
+      "action": "update",
+      "summary": "#9X40BT: detail → MEASURED 2026-08-22 (read-only list_branches on sjrfecxgysukkwxsowpy): there are currently ZERO preview branches. The only entry returned is the default 'main' branch, which is the production project itself and is not billable preview compute. So the uncapped exposure this row describes is POTENTIAL, not active — nothing is running to clean up, and no agent-side cleanup step exists to take. The one remaining action is the dashboard setting itself, which no agent can change: Supabase dashboard -> Project Settings -> Integrations -> GitHub -> lower 'Automatic branching' limit from 3 to 1, or disable branching. Prior context stands and is the reason lowering is safe: CI's Migration replay job (db-reset-verify, supabase migration up --local) independently replays the whole chain on every database-touching PR, so preview branches are a second net rather than the only one. STOP unchanged: do not change Supabase project settings without explicit owner approval. PRIOR RECORD: Dashboard read 2026-08-21 (the same read that settled D4) shows Automatic branching ON with limit 3 and 'Supabase changes only' enabled, and the same screen warns that Branching Compute is NOT covered by the organisation's Spend Cap. Preview branches did earn their keep once (the 20260819100200 guard failure on PR #2151 was caught by a preview branch building from the chain alone), so this is a cost/benefit decision, not a cleanup.",
+      "created_at": "2026-08-22"
     }
   ]
 }

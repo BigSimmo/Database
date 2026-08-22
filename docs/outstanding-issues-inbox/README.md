@@ -1,6 +1,6 @@
 # Outstanding-issues inbox
 
-Feature branches never edit `../outstanding-issues.md` directly. Use `npm run issues:add`, `npm run issues:update`, or `npm run issues:done`; each writes one validated JSON request in this directory, so concurrent PRs add different files and merge cleanly.
+Feature branches never edit `../outstanding-issues.md` directly. Use `npm run issues:add`, `npm run issues:update`, `npm run issues:queue`, or `npm run issues:done`; each writes one validated JSON request in this directory, so concurrent PRs add different files and merge cleanly.
 
 When multiple landed requests mutate the same canonical issue, keep the intended request and add an immutable cancellation request for each rejected mutation:
 
