@@ -2074,3 +2074,56 @@ material change that no unit test exercises — nothing imports the page module.
 real page and is the right gate. Two things specifically at risk: the duplicate-shell assertion, because
 an awaited read changes exactly the streaming behaviour that produced that defect in Task 15; and the
 synthetic marker, which now renders behind an awaited read.
+
+### Task 16 task review — APPROVED, with two missing guards
+
+The reviewer found **no path by which the note reaches a browser**, checking five independently including
+one I had not: that `next/dynamic` on a Server Component creates no client boundary, verified against
+Next's own lazy-loading guide rather than assumed. It also confirmed the `@ts-expect-error` required-prop
+test is a real guarantee by checking `tsconfig.typecheck.json` actually compiles that file, and that the
+whole diff contains exactly three deleted lines, all signature and call-site changes with equivalents.
+
+Two things make this task defensible rather than merely correct. The JSX lives in a function whose
+**parameter type cannot name `note`**, so rendering it is a compile error rather than a judgement call.
+And the sentinel privacy test asserts `toMatchObject({ stopped: true })` on the fixture, so the scan
+cannot pass vacuously against a fixture that silently stopped being stopped — the failure mode that makes
+sentinel scans untrustworthy elsewhere.
+
+### Important 1 — the remedy half of spec §4.4 was unguarded on the surface that renders everywhere
+
+§4.4 has two halves: state the reason, AND state what would change it. The banner's own comment claims
+the remedy is stated, and `describeServiceStop` does produce it. **But deleting that sentence left every
+test on this branch green.** `AutomatedState` has a remedy assertion; the banner — every screen, every
+team — did not. Sent for fixing with a required falsifiability proof.
+
+### Important 2 — and this one corrects ME, which is worth recording plainly
+
+The property keeping the note off the wire has two halves. The first, that `ServiceStopBannerFacts` omits
+`note`, is enforced by the type system and holds forever. The second, that nothing on the `serviceState`
+path is a client component, **is enforced by nothing at all.** I checked it by hand and recorded it as
+verified. That was a **point-in-time verification, not a regression guard**, and the reviewer was right
+to say so.
+
+The exposure is concrete: the shell's prop type puts `note` in scope for every future edit. Adding
+`"use client"` to the shell or the banner, or passing a `serviceState`-derived prop to a new client
+child, would serialise a responder's free-text note into the HTML payload **for every team to read in the
+page source** — while all eleven DOM tests stayed green, because JSDOM has no RSC payload to inspect.
+
+**The general lesson, and it applies to every manual check in this ledger: a verification I performed is
+evidence about one commit; only a test is evidence about every future commit.** Where a controller check
+establishes a safety property, the question to ask immediately is whether anything stops the next edit
+undoing it. Here nothing did. A source-text guard is now required, proven falsifiable by adding
+`"use client"` and watching it redden.
+
+### Deferred to Task 19, recorded so it is a decision rather than a default
+
+**The banner is not sticky and scrolls out of view.** Spec §4.2 requires it on every screen, not always
+in view, so this is not a violation — but whether a safety stop should remain visible while a clinician
+scrolls is a real question, and Task 19's browser proof at six widths is where it can actually be judged
+rather than guessed.
+
+### Accepted as scoped
+
+`loading.tsx` and `error.tsx` render outside the shell and so show no banner. Neither claims the service
+is running — the error page says nothing was sent and nothing was changed — so there is no false
+confidence.
