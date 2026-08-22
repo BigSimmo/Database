@@ -1,8 +1,8 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "66df9ff4f756e32c1ffc185b9715b0775dfc7851",
-    "committed_at": "2026-08-23T02:43:54+08:00"
+    "sha": "ab5c69c339baff0191f49ff43fb861756c9dbce3",
+    "committed_at": "2026-08-22T20:29:29+00:00"
   },
   "counts": {
     "open": 73,
@@ -712,24 +712,6 @@
       "added": "2026-08-22"
     },
     {
-      "id": "#4AM8Z0",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Common cardiovascular drugs are absent from the medication catalogue, so patients taking them get silence rather than an interaction check",
-      "detail": "SPLIT OUT 2026-08-22 from the #1YPV51 clinical sign-off, which recorded this as the one finding the lexicon review could NOT fix. The interaction terms acei, arbs and statins resolve to one or two drugs each -- acei to Perindopril alone, arbs to Candesartan alone, statins to Atorvastatin and Rosuvastatin -- not because the mapping is wrong but because ramipril, lisinopril, irbesartan and simvastatin are not in data/medications-snapshot.json at all. Simvastatin is the notable one: it has the largest CYP3A4 interaction profile of the statins and is entirely unrepresented. CONSEQUENCE, and it is the dangerous shape: a clinician entering a patient on ramipril sees no alert, and on screen that is indistinguishable from 'checked and clear'. The sign-off sheet's 'What this tool can never warn about' section already names the same failure mode for the 20 catalogue medications that sit outside every resolved interaction row; this is that boundary reached from the other side -- the drug is not in the catalogue at all. NEXT: decide whether the catalogue should be widened to the common ACE inhibitors, ARBs and statins prescribed in Australian practice, which is a clinical-content decision about source coverage rather than a code change, and needs the same source-backed review any catalogue addition needs. STOP: do not 'fix' this by loosening the lexicon terms -- the terms are correct; the drugs are missing. Related: #1YPV51 (the sign-off recording this), and the corpus-coverage limit documented in docs/medication-interaction-lexicon-review.md.",
-      "source": "docs/medication-interaction-lexicon-review.md sign-off 2026-08-22; data/medications-snapshot.json; clinical review session 2026-08-22",
-      "added": "2026-08-22"
-    },
-    {
-      "id": "#RSD9EJ",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "The pre-push ledger guard uses the previous branch tip as its baseline, so it false-positives after a branch merges main",
-      "detail": "OBSERVED 2026-08-22/23 on branch claude/lexicon-clinical-signoff (PR #2298). SYMPTOM: git push refused by scripts/guard-push.mjs with 'docs/outstanding-issues-inbox/applied/<uuid>.json was introduced without moving the identical pending request from the base' and 'reconciliation moved only part of the base inbox', for applied records the branch never touched. CAUSE: the pre-push guard diffs against the PREVIOUSLY PUSHED BRANCH TIP; scripts/check-ledger-write-discipline.mjs diffs against the base branch. When a reconcile lands on main and the branch merges main, main's applied/ records enter the diff relative to the old branch tip and look like a partial reconciliation done on the branch. EVIDENCE, all three checked: the named applied records exist on origin/main; git diff origin/main...HEAD -- docs/outstanding-issues.md was EMPTY, so the branch's canonical ledger was byte-identical to main's; and git log --diff-filter=A named commit 9a382a050 'chore(ledger): reconcile 43 queued inbox requests (#2294)' as their origin. Running the gate with the correct base -- node scripts/check-ledger-write-discipline.mjs --base origin/main --head <branch> -- PASSED on the same trees throughout. SECOND SYMPTOM FROM THE SAME CAUSE: the guard also refuses the deletion of a branch-local inbox request that has been pushed but never merged. Editing or deleting such a request is LEGITIMATE -- immutability binds requests present in the base, and the gate confirms this by passing -- but the guard sees it as mutating a published record. This wasted a cycle: the deletion was reverted as if it had been a mistake, then a Cursor autofix agent performed the identical deletion on the same branch and the gate passed. CONSEQUENCE: SKIP_LEDGER_WRITE_GUARD=1 becomes routine on ordinary branches, which is how a guard stops being read -- and this guard exists to make an accidental ledger rewrite impossible. NEXT: give the pre-push guard the same baseline the gate uses (merge base with the upstream default branch), and add a regression test for the exact shape: branch, reconcile on main, merge main into branch, assert the guard passes; plus a second for deleting a pushed-but-unmerged branch-local request. STOP: do not relax what the guard checks -- the baseline is wrong, not the rule.",
-      "source": "PR #2298 push attempts 2026-08-22/23; scripts/guard-push.mjs; scripts/check-ledger-write-discipline.mjs; commits 9a382a050 (#2294) and 7703188ef",
-      "added": "2026-08-22"
-    },
-    {
       "id": "#Y090R5",
       "priority": "P2",
       "type": "issue",
@@ -745,6 +727,24 @@
       "summary": "tests/gate-receipts.test.ts has two file-mode assertions that can never pass on the Windows workstation, so npm run test is permanently 2-red locally",
       "detail": "Measured 2026-08-22. 'gate receipts - file modes (Codex review, PR #2216)' has two cases that call chmodSync(path, 0o755) and then assert the computed input signature changed: 'changes the signature when only the WORKING-TREE mode changes' (line 160) and 'keeps both modes, so one cannot cancel the other' (line 170). The primary workstation is a Windows ReFS Dev Drive with core.fileMode=false, where chmod is a silent no-op, so the working-tree mode never changes and the signatures collide. Reproduced on an unmodified main at 73b1e71a0 with a clean working tree for those files: Tests 2 failed | 32 passed (34). Also seen inside a full local suite run as Tests 2 failed | 7728 passed | 72 skipped (7802). CI is Linux so it stays green there, which is why this has not surfaced before. Cost: every local npm run test and every verify:pr-local exits non-zero on this machine, which both hides real regressions in the noise and stops verify:pr-local before it reaches build, bundle-budget and the RAG fixture checks. Suggested fix: skip the two cases when the filesystem cannot represent an exec bit (probe once by chmod-ing a temp file and re-statting, rather than testing process.platform), keeping the index-mode half of the coverage which does work. See also the related exec-bit trap already documented in AGENTS.md under 'Claude Code hook scripts'.",
       "source": "session 2026-08-22, GitHub issue #2270 Part A",
+      "added": "2026-08-22"
+    },
+    {
+      "id": "#4AM8Z0",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Common cardiovascular drugs are absent from the medication catalogue, so patients taking them get silence rather than an interaction check",
+      "detail": "SPLIT OUT 2026-08-22 from the #1YPV51 clinical sign-off, which recorded this as the one finding the lexicon review could NOT fix. The interaction terms acei, arbs and statins resolve to one or two drugs each -- acei to Perindopril alone, arbs to Candesartan alone, statins to Atorvastatin and Rosuvastatin -- not because the mapping is wrong but because ramipril, lisinopril, irbesartan and simvastatin are not in data/medications-snapshot.json at all. Simvastatin is the notable one: it has the largest CYP3A4 interaction profile of the statins and is entirely unrepresented. CONSEQUENCE, and it is the dangerous shape: a clinician entering a patient on ramipril sees no alert, and on screen that is indistinguishable from 'checked and clear'. The sign-off sheet's 'What this tool can never warn about' section already names the same failure mode for the 20 catalogue medications that sit outside every resolved interaction row; this is that boundary reached from the other side -- the drug is not in the catalogue at all. NEXT: decide whether the catalogue should be widened to the common ACE inhibitors, ARBs and statins prescribed in Australian practice, which is a clinical-content decision about source coverage rather than a code change, and needs the same source-backed review any catalogue addition needs. STOP: do not 'fix' this by loosening the lexicon terms -- the terms are correct; the drugs are missing. Related: #1YPV51 (the sign-off recording this), and the corpus-coverage limit documented in docs/medication-interaction-lexicon-review.md.",
+      "source": "docs/medication-interaction-lexicon-review.md sign-off 2026-08-22; data/medications-snapshot.json; clinical review session 2026-08-22",
+      "added": "2026-08-22"
+    },
+    {
+      "id": "#RSD9EJ",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "The pre-push ledger guard uses the previous branch tip as its baseline, so it false-positives after a branch merges main",
+      "detail": "OBSERVED 2026-08-22/23 on branch claude/lexicon-clinical-signoff (PR #2298). SYMPTOM: git push refused by scripts/guard-push.mjs with 'docs/outstanding-issues-inbox/applied/<uuid>.json was introduced without moving the identical pending request from the base' and 'reconciliation moved only part of the base inbox', for applied records the branch never touched. CAUSE: the pre-push guard diffs against the PREVIOUSLY PUSHED BRANCH TIP; scripts/check-ledger-write-discipline.mjs diffs against the base branch. When a reconcile lands on main and the branch merges main, main's applied/ records enter the diff relative to the old branch tip and look like a partial reconciliation done on the branch. EVIDENCE, all three checked: the named applied records exist on origin/main; git diff origin/main...HEAD -- docs/outstanding-issues.md was EMPTY, so the branch's canonical ledger was byte-identical to main's; and git log --diff-filter=A named commit 9a382a050 'chore(ledger): reconcile 43 queued inbox requests (#2294)' as their origin. Running the gate with the correct base -- node scripts/check-ledger-write-discipline.mjs --base origin/main --head <branch> -- PASSED on the same trees throughout. SECOND SYMPTOM FROM THE SAME CAUSE: the guard also refuses the deletion of a branch-local inbox request that has been pushed but never merged. Editing or deleting such a request is LEGITIMATE -- immutability binds requests present in the base, and the gate confirms this by passing -- but the guard sees it as mutating a published record. This wasted a cycle: the deletion was reverted as if it had been a mistake, then a Cursor autofix agent performed the identical deletion on the same branch and the gate passed. CONSEQUENCE: SKIP_LEDGER_WRITE_GUARD=1 becomes routine on ordinary branches, which is how a guard stops being read -- and this guard exists to make an accidental ledger rewrite impossible. NEXT: give the pre-push guard the same baseline the gate uses (merge base with the upstream default branch), and add a regression test for the exact shape: branch, reconcile on main, merge main into branch, assert the guard passes; plus a second for deleting a pushed-but-unmerged branch-local request. STOP: do not relax what the guard checks -- the baseline is wrong, not the rule.",
+      "source": "PR #2298 push attempts 2026-08-22/23; scripts/guard-push.mjs; scripts/check-ledger-write-discipline.mjs; commits 9a382a050 (#2294) and 7703188ef",
       "added": "2026-08-22"
     },
     {
