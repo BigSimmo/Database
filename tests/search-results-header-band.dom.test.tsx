@@ -575,6 +575,22 @@ describe("SearchResultsHeaderBand", () => {
     expect(screen.getByTestId("trigger")).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("trigger")).toHaveAttribute("aria-controls", "panel");
   });
+
+  it("lets a caller keep the filter wordmark visible at every width", () => {
+    render(
+      <ResultFilterTrigger
+        panelId="panel"
+        testId="always-labelled-trigger"
+        title="Filter the dictionary catalogue"
+        open={false}
+        activeCount={0}
+        onToggle={vi.fn()}
+        labelVisibility="always"
+      />,
+    );
+
+    expect(screen.getByText("Filter", { selector: "span" })).not.toHaveClass("min-[414px]:max-[429px]:sr-only");
+  });
 });
 
 describe("ResultFilterSheet facet groups", () => {
