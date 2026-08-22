@@ -13,15 +13,32 @@ import { loadLedgerSnapshot, openItemsByPriority } from "@/lib/developer-area/le
  */
 const acuityOverride = vi.hoisted(() => ({ value: null as string | null }));
 
+/**
+ * Overrides `open[0].detail`. Added for the pipe-escape test below: the one
+ * live row that used to carry a literal `|` (`#SZGPAH`) was resolved and
+ * archived by an upstream `main` merge, so the property this test pins can no
+ * longer be exercised by any open row. `null` means "do not override".
+ */
+const openDetailOverride = vi.hoisted(() => ({ value: null as string | null }));
+
 vi.mock("@/lib/developer-area/ledger-snapshot", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/developer-area/ledger-snapshot")>();
   return {
     ...actual,
     loadLedgerSnapshot: () => {
-      const snapshot = actual.loadLedgerSnapshot();
-      if (acuityOverride.value === null) return snapshot;
-      const acuity = acuityOverride.value;
-      return { ...snapshot, queue: snapshot.queue.map((entry) => ({ ...entry, acuity })) };
+      let snapshot = actual.loadLedgerSnapshot();
+      if (acuityOverride.value !== null) {
+        const acuity = acuityOverride.value;
+        snapshot = { ...snapshot, queue: snapshot.queue.map((entry) => ({ ...entry, acuity })) };
+      }
+      if (openDetailOverride.value !== null) {
+        const detail = openDetailOverride.value;
+        snapshot = {
+          ...snapshot,
+          open: snapshot.open.map((item, index) => (index === 0 ? { ...item, detail } : item)),
+        };
+      }
+      return snapshot;
     },
   };
 });
@@ -30,6 +47,7 @@ afterEach(cleanup);
 
 afterEach(() => {
   acuityOverride.value = null;
+  openDetailOverride.value = null;
 });
 
 describe("developer ledger page", () => {
@@ -189,36 +207,44 @@ describe("developer ledger page", () => {
   });
 
   it("shows no markdown pipe escape to the reader", () => {
-    // `open.#SZGPAH.detail` carried a literal `\|` — a markdown-table artifact
-    // that has no business in a JSON data contract, and that the page would
-    // otherwise render verbatim. Fixed in the generator, pinned here end to end.
+    // `open.#SZGPAH.detail` used to carry a literal `\|` — a markdown-table
+    // artifact that has no business in a JSON data contract, and that the page
+    // would otherwise render verbatim. Fixed in the generator; pinned here
+    // end to end.
+    //
+    // The positive half was originally derived from the live snapshot at
+    // render time, deliberately not naming `#SZGPAH`, so the assertion would
+    // survive that row being resolved. It didn't survive: `#SZGPAH` was
+    // resolved and archived by an upstream `main` merge, and with it went the
+    // only open row anywhere in the ledger that contained a pipe — so the
+    // derived filter now runs over zero rows every time, not just on the day
+    // `#SZGPAH` closes. A non-empty guard on that filter caught exactly this
+    // and failed loud instead of passing vacuously, per its own comment. But a
+    // property that has already gone vacuous once, through no change of ours,
+    // will drift again the next time the ledger is regenerated — live data is
+    // proven unreliable as the carrier for this specific property. So the
+    // positive half now renders against a mocked snapshot with a row whose
+    // `detail` holds a real pipe, following the override pattern in
+    // `tests/developer-hub-page.dom.test.tsx`. With a fixture we control there
+    // is no "maybe zero rows" case, so the guard is gone too — not weakened,
+    // removed, because the condition it protected against no longer exists for
+    // this assertion.
+    const { container: liveContainer } = render(<DeveloperLedgerPage />);
+
+    // Durable negative, unaffected by the fixture below: it runs against the
+    // real, unmocked snapshot and holds whatever the ledger happens to
+    // contain. `String.raw` on purpose — a plain "\|" is just "|" after JS
+    // escape processing, which would assert no pipe character at all.
+    expect(liveContainer.textContent).not.toContain(String.raw`\|`);
+    cleanup();
+
+    openDetailOverride.value = "Row detail with a | pipe character that must render as a literal pipe.";
     const snapshot = loadLedgerSnapshot();
+    const first = snapshot.open[0];
+    expect(first.detail).toContain("|");
+
     const { container } = render(<DeveloperLedgerPage />);
-
-    // `String.raw` on purpose: a plain "\|" is just "|" after JS escape
-    // processing, which would assert the page contains no pipe character at all.
-    // This half is durable — it holds whatever the ledger happens to contain.
+    expect(container.textContent).toContain(first.detail);
     expect(container.textContent).not.toContain(String.raw`\|`);
-
-    // The positive half is derived from the snapshot at render time rather than
-    // quoting a row. Naming `#SZGPAH`'s text would bind this suite to that row
-    // staying open — and `#SZGPAH` is itself an issue about stale Playwright
-    // assertions, so resolving it would turn this red on whichever unrelated PR
-    // carried the regeneration.
-    const withPipe = snapshot.open.filter((row) => row.detail.includes("|"));
-
-    // Guard, not ceremony: without it the loop below can run zero times and the
-    // positive half quietly stops asserting. `#SZGPAH` is itself an open issue
-    // about stale assertions, so the day it is resolved with no other open row
-    // carrying a literal pipe, this test would pass while proving nothing. It
-    // should fail out loud instead — the fix then is to point it at a row that
-    // does exercise the unescape, never to delete the guard.
-    expect(withPipe.length, "no open row carries a literal pipe: the unescape is no longer exercised").toBeGreaterThan(
-      0,
-    );
-
-    for (const item of withPipe) {
-      expect(container.textContent).toContain(item.detail);
-    }
   });
 });
