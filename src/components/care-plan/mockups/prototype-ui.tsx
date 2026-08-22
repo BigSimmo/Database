@@ -106,6 +106,27 @@ export function formatPerthDate(iso: string | null): string {
 export const NOT_RECORDED = "Not recorded";
 
 /**
+ * Australian date and time of day, from the same Perth-local ISO strings. An ED
+ * Presentation is read by time of night as much as by date — "arrived at 9:40 pm"
+ * is the difference between a routine afternoon attendance and a long wait after
+ * the department filled up — so the timeline states both.
+ *
+ * The `+08:00` timestamp already carries the Perth wall clock, so this needs no
+ * clock, locale table, or timezone library, and an unreadable value returns
+ * `Not recorded` rather than a plausible-looking wrong time.
+ */
+export function formatPerthDateTime(iso: string | null): string {
+  if (iso === null) return NOT_RECORDED;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
+  if (match === null) return NOT_RECORDED;
+  const [, year, month, day, hour, minute] = match;
+  const hours = Number(hour);
+  const meridiem = hours < 12 ? "am" : "pm";
+  const twelveHour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${day}/${month}/${year}, ${twelveHour}:${minute} ${meridiem}`;
+}
+
+/**
  * How each outcome the reducer returns is weighted on screen. Shared, because a
  * refusal that reads as a warning on one route and as an error on the next tells
  * a reader the two are different events when they are the same object.

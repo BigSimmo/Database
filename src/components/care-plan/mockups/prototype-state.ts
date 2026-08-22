@@ -22,6 +22,7 @@ import {
   canPerformAction,
   getCurrentManagementPlanVersion,
   getCurrentSafetyPlanVersion,
+  getEffectivePresentationValue,
   getOpenManagementDraft,
 } from "./domain";
 import {
@@ -458,16 +459,17 @@ const AMENDABLE_FIELD_ANSWERS: Partial<Record<AmendableField, readonly string[]>
  * The value a correction is replacing: the latest amendment for that field when
  * the field has already been corrected, otherwise the recorded original. The
  * episode itself is never rewritten, so the stored original always survives.
+ *
+ * The rule lives in `domain.ts` because the reading surfaces need the same
+ * answer. A second private copy here would be free to drift, and a drift would
+ * mean a correction refused as a no-op against a value the screen never showed.
  */
 function effectiveFieldValue(
   state: CarePlanPrototypeState,
   presentation: EdPresentation,
   field: AmendableField,
 ): string {
-  const latest = state.presentationAmendments
-    .filter((amendment) => amendment.presentationId === presentation.id && amendment.field === field)
-    .at(-1);
-  return latest ? latest.replacementValue : presentation[field];
+  return getEffectivePresentationValue(state.presentationAmendments, presentation, field);
 }
 
 /**

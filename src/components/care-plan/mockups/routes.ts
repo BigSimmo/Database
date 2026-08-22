@@ -86,6 +86,10 @@ export const carePlanRoute = {
   presentations(patientId: string) {
     return `${patientPath(patientId)}/presentations`;
   },
+  /** Where one concise ED Presentation is recorded. */
+  newPresentation(patientId: string) {
+    return `${patientPath(patientId)}/presentations/new`;
+  },
   presentation(patientId: string, presentationId: string) {
     return `${patientPath(patientId)}/presentations/${presentationId}`;
   },
@@ -124,10 +128,34 @@ export function isSyntheticPatientId(patientId: string): boolean {
 
 /**
  * An episode belongs to exactly one patient, so a valid episode identifier under
- * the wrong patient is still an unknown address and the page must not render it.
+ * the wrong patient is still an unknown address and nothing may render it.
+ *
+ * This answers the question against the fixtures, which is everything the
+ * prerendered parameter list knows. It is not what the episode page asks — see
+ * `isSyntheticPresentationId` for why.
  */
 export function isSyntheticPresentationForPatient(patientId: string, presentationId: string): boolean {
   return PRESENTATION_PAIRS.has(`${patientId}/${presentationId}`);
+}
+
+const SYNTHETIC_PRESENTATION_ID = /^SYN-PRESENTATION-\d{3,}$/;
+
+/**
+ * Whether an address names an identifier in the synthetic episode series at all.
+ *
+ * The episode page is a server component and cannot see the session's memory, so
+ * it cannot ask the question that matters — does this episode belong to this
+ * patient. An episode recorded during the session is a real address the
+ * fixture-derived pairing has never heard of, so answering with
+ * `isSyntheticPresentationForPatient` there would send a clinician who has just
+ * recorded an ED Presentation to a 404 for the record they created.
+ *
+ * The page therefore refuses only what is not an address at all, and the surface
+ * — which holds the state — makes the belongs-to-this-patient decision and shows
+ * identity uncertainty rather than a nearby person's episode.
+ */
+export function isSyntheticPresentationId(presentationId: string): boolean {
+  return SYNTHETIC_PRESENTATION_ID.test(presentationId);
 }
 
 export type CarePlanDestination = "Home" | "Patients" | "Reviews" | "Team" | "Governance" | "System states";

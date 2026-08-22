@@ -11,8 +11,10 @@
 
 import {
   REVIEW_DUE_SOON_DAYS,
+  type AmendableField,
   type CmhtContact,
   type EdPresentation,
+  type PresentationAmendment,
   type ManagementPlanVersion,
   type Patient,
   type PatientSnapshot,
@@ -272,6 +274,58 @@ export function countPresentationActivity(
     .sort((left, right) => right.count - left.count || left.siteId.localeCompare(right.siteId));
 
   return { patientId, windowMonths, windowStart, windowEnd, total: inWindow.length, bySite };
+}
+
+/**
+ * Every correction recorded against one episode, oldest first, optionally
+ * narrowed to a single field. Corrections are appended, never rewritten, so the
+ * array order is the chronology.
+ */
+export function getPresentationAmendments(
+  amendments: readonly PresentationAmendment[],
+  presentationId: SyntheticId,
+  field?: AmendableField,
+): PresentationAmendment[] {
+  return amendments.filter(
+    (amendment) => amendment.presentationId === presentationId && (field === undefined || amendment.field === field),
+  );
+}
+
+/**
+ * The value an amendable field currently carries: the latest correction for that
+ * field when it has been corrected, otherwise the value stored on the episode.
+ * The episode itself is never rewritten, so the stored value always survives.
+ *
+ * The write path in `prototype-state.ts` resolves the same question before it
+ * appends a correction, and calls this rather than keeping its own copy — a
+ * reading surface and the reducer disagreeing about what "the current value" is
+ * would let a correction be refused as a no-op while the screen showed something
+ * else.
+ */
+export function getEffectivePresentationValue(
+  amendments: readonly PresentationAmendment[],
+  presentation: EdPresentation,
+  field: AmendableField,
+): string {
+  return getPresentationAmendments(amendments, presentation.id, field).at(-1)?.replacementValue ?? presentation[field];
+}
+
+/**
+ * The value the field was first recorded as, which is what a reader must still
+ * see beside every correction.
+ *
+ * It reads the first correction's `originalValue` rather than the stored field.
+ * For anything this prototype records the two are the same string, because the
+ * reducer never rewrites an episode — but the seeded fixtures carry the
+ * corrected value on the episode as well, so reading the stored field there
+ * would print the correction twice and lose the thing it replaced.
+ */
+export function getRecordedPresentationValue(
+  amendments: readonly PresentationAmendment[],
+  presentation: EdPresentation,
+  field: AmendableField,
+): string {
+  return getPresentationAmendments(amendments, presentation.id, field)[0]?.originalValue ?? presentation[field];
 }
 
 export function buildPatientSnapshot(

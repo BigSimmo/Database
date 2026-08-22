@@ -10,6 +10,12 @@ import { ManagementPlanFormSurface } from "./management-plan-form";
 import { ManagementPlanPrintSurface } from "./management-plan-print";
 import { ManagementPlanSurface } from "./management-plan-read";
 import { ManagementPlanReviewSurface } from "./management-plan-review";
+import { PresentationFormSurface } from "./presentation-form";
+import {
+  PresentationDetailSurface,
+  PresentationTimelineSurface,
+  presentationIdFromPathname,
+} from "./presentation-pages";
 import { useCarePlanPrototype } from "./prototype-provider";
 import { CARE_PLAN_BASE, CARE_PLAN_ROUTES, isSyntheticPatientId, type CarePlanDestination } from "./routes";
 import type { PrototypeScenario, SyntheticId } from "./types";
@@ -279,8 +285,9 @@ export function carePlanPatientIdFromPathname(pathname: string): string | null {
  * Task 5 added two more, the Management Plan and its clinician copy, which own
  * their own surfaces rather than a snapshot variant. Task 6 added the two
  * Management Plan authoring routes — the drafting form and the approval
- * surface — which is why they no longer render a specimen. Every remaining route
- * still does.
+ * surface. Task 7 added the three ED Presentation routes — the timeline, the
+ * recording form, and one episode with its corrections. Every remaining route
+ * still renders a specimen.
  */
 const SNAPSHOT_VARIANT_BY_ROUTE_KEY: Partial<Record<string, ClinicalSnapshotVariant>> = {
   home: "home",
@@ -371,6 +378,16 @@ export function CarePlanRouteSurface({ pathname, query = "", navigate }: CarePla
         <ManagementPlanReviewSurface patientId={patientId} scenario={scenario} navigate={navigate} />
       ) : route.key === ROUTE_DEFINITIONS.managementPlanPrint.key ? (
         <ManagementPlanPrintSurface patientId={patientId} scenario={scenario} />
+      ) : route.key === ROUTE_DEFINITIONS.presentations.key ? (
+        <PresentationTimelineSurface patientId={patientId} scenario={scenario} />
+      ) : route.key === ROUTE_DEFINITIONS.newPresentation.key ? (
+        <PresentationFormSurface patientId={patientId} scenario={scenario} navigate={navigate} />
+      ) : route.key === ROUTE_DEFINITIONS.presentation.key ? (
+        <PresentationDetailSurface
+          patientId={patientId}
+          presentationId={presentationIdFromPathname(pathname)}
+          scenario={scenario}
+        />
       ) : (
         <RoutePurposeSurface purpose={route.purpose} />
       )}

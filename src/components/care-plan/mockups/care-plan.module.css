@@ -531,6 +531,7 @@
  * `tests/care-plan-route-files.test.ts` now guards it.
  */
 .appRoot .pinnedBoundaryLink,
+.appRoot .timelineLink,
 .appRoot .inlineLink {
   color: var(--clinical-accent);
   font-weight: 700;
@@ -897,6 +898,189 @@
   color: var(--text);
   font-size: 0.875rem;
   line-height: 1.55;
+}
+
+/* --- ED Presentation surfaces ---------------------------------------------- */
+
+/*
+ * The timeline is a line with a node against each episode. Both are decoration:
+ * the entries are an ordered list of headed, labelled facts, so a reader who
+ * never sees the line loses nothing. The rules below therefore never size, clip,
+ * or truncate an entry — the line follows the content, not the other way round.
+ */
+.appRoot .timeline {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.appRoot .timelineEntry {
+  display: grid;
+  position: relative;
+  grid-template-columns: 0.75rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+/* The connecting line, drawn behind the node and hidden from assistive
+   technology at the element that renders it. */
+.appRoot .timelineEntry::before {
+  content: "";
+  position: absolute;
+  inset-block: 0.75rem -0.75rem;
+  inset-inline-start: 0.3125rem;
+  width: 2px;
+  background: var(--border);
+}
+
+.appRoot .timelineEntry:last-child::before {
+  display: none;
+}
+
+.appRoot .timelineNode {
+  z-index: 1;
+  margin-block-start: 0.5rem;
+  border: 2px solid var(--clinical-accent);
+  border-radius: 50%;
+  background: var(--surface-raised);
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.appRoot .timelineBody {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  padding: 0.75rem 0.875rem;
+  min-width: 0;
+}
+
+.appRoot .timelineArrival {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.appRoot .timelineSite {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+/* The one action on the timeline: it is a tap target, so it carries the full
+   production tap height rather than sitting as a bare inline link. */
+.appRoot .timelineRecordLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--spacing-tap);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding-inline: 0.875rem;
+  color: var(--clinical-accent);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+/* --- ED Presentation corrections ------------------------------------------- */
+
+/*
+ * A correction never replaces what it corrects. The value first recorded keeps
+ * full-strength ink; the correction sits beneath it, marked in words rather than
+ * by colour, so the pair reads the same in forced colours and in greyscale.
+ */
+.appRoot .amendedOriginal {
+  display: block;
+  color: var(--text);
+}
+
+.appRoot .amendedReplacement {
+  display: block;
+  border-inline-start: 2px solid var(--clinical-accent);
+  padding-inline-start: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.appRoot .amendmentList {
+  display: grid;
+  gap: 0.625rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.appRoot .amendmentEntry {
+  display: grid;
+  gap: 0.1875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+  padding: 0.625rem 0.75rem;
+}
+
+.appRoot .amendmentHeading {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.appRoot .amendmentChange,
+.appRoot .amendmentReason {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.appRoot .amendmentAttribution {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.appRoot .amendmentForm {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.appRoot .amendmentGroup {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+}
+
+.appRoot .amendmentGroupLegend {
+  padding-inline: 0.25rem;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+/* --- Recording form -------------------------------------------------------- */
+
+.appRoot .presentationDisclosure {
+  background: var(--surface-raised);
+}
+
+.appRoot .disclosureBody {
+  display: grid;
+  gap: 0.875rem;
+  padding: 0.75rem;
 }
 
 @media (min-width: 40rem) {

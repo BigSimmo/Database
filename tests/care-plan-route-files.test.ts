@@ -12,6 +12,7 @@ import {
   carePlanRoute,
   isSyntheticPatientId,
   isSyntheticPresentationForPatient,
+  isSyntheticPresentationId,
 } from "@/components/care-plan/mockups/routes";
 import { DEVELOPER_GATED_PATH_PREFIXES } from "@/lib/developer-area/headers";
 
@@ -102,6 +103,13 @@ describe("Care Plan route registry", () => {
     expect(carePlanRoute.presentations("SYN-PATIENT-003")).toBe(
       "/mockups/care-plan/patients/SYN-PATIENT-003/presentations",
     );
+    // The recording address existed in `CARE_PLAN_ROUTES` from Task 3 with no
+    // builder beside it, so the only way to link to it was to hand-write the
+    // suffix — the same gap the two authoring addresses had until Task 6.
+    expect(carePlanRoute.newPresentation("SYN-PATIENT-003")).toBe(
+      "/mockups/care-plan/patients/SYN-PATIENT-003/presentations/new",
+    );
+    expect(carePlanRoute.newPresentation("SYN-PATIENT-001")).toBe(CARE_PLAN_ROUTES.newPresentation);
     expect(carePlanRoute.presentation("SYN-PATIENT-003", "SYN-PRESENTATION-012")).toBe(
       "/mockups/care-plan/patients/SYN-PATIENT-003/presentations/SYN-PRESENTATION-012",
     );
@@ -149,6 +157,22 @@ describe("Care Plan finite synthetic parameters", () => {
     // Episode 009 belongs to another patient, so this pairing must not resolve.
     expect(isSyntheticPresentationForPatient("SYN-PATIENT-001", "SYN-PRESENTATION-009")).toBe(false);
     expect(isSyntheticPresentationForPatient("SYN-PATIENT-001", "SYN-PRESENTATION-999")).toBe(false);
+  });
+
+  /**
+   * The episode page cannot ask the pairing question — it is a server component
+   * with no view of the session's memory, and an episode recorded in this
+   * session is a real address the fixtures have never heard of. It refuses what
+   * is not an address at all, and the surface makes the belongs-to-this-patient
+   * decision against the state it can actually see.
+   */
+  it("accepts an episode identifier recorded in this session while still refusing a non-address", () => {
+    expect(isSyntheticPresentationId("SYN-PRESENTATION-001")).toBe(true);
+    expect(isSyntheticPresentationId("SYN-PRESENTATION-021")).toBe(true);
+    expect(isSyntheticPresentationId("SYN-PATIENT-001")).toBe(false);
+    expect(isSyntheticPresentationId("SYN-PRESENTATION-")).toBe(false);
+    expect(isSyntheticPresentationId("../../etc/passwd")).toBe(false);
+    expect(isSyntheticPresentationId("SYN-PRESENTATION-001/../../secret")).toBe(false);
   });
 });
 
@@ -539,7 +563,9 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       return declared;
     }
 
-    for (const className of ["pinnedBoundaryLink", "inlineLink"]) {
+    // Task 7 added the two episode links. `timelineLink` shares the rule above,
+    // which is exactly the arrangement that broke once — so it is on the list.
+    for (const className of ["pinnedBoundaryLink", "inlineLink", "timelineLink", "timelineRecordLink"]) {
       const declared = declaredPropertiesFor(className);
       expect(declared.size, `.${className} matched no rule at all — has it been renamed or rebound?`).toBeGreaterThan(
         0,

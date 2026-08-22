@@ -291,9 +291,10 @@ describe("Care Plan route shell", () => {
 
   // Home, Patients and the patient Overview are deliberately absent: Task 4
   // replaced their purpose surface with the real Clinical Snapshot. The
-  // Management Plan and its print route went the same way in Task 5, and the two
-  // Management Plan authoring routes in Task 6. The block below asserts that
-  // none of those seven renders a purpose surface at all.
+  // Management Plan and its print route went the same way in Task 5, the two
+  // Management Plan authoring routes in Task 6, and the three ED Presentation
+  // routes in Task 7. The block below asserts that none of those ten renders a
+  // purpose surface at all.
   it.each([
     [
       CARE_PLAN_ROUTES.patientPlan,
@@ -317,9 +318,6 @@ describe("Care Plan route shell", () => {
       "Co-produce or revise a Personal Safety Plan Version",
     ],
     [CARE_PLAN_ROUTES.safetyPlanPrint, "Print Personal Safety Plan", "Print-optimised patient copy"],
-    [CARE_PLAN_ROUTES.presentations, "ED Presentations", "Longitudinal ED Presentation timeline"],
-    [CARE_PLAN_ROUTES.newPresentation, "Record ED Presentation", "Record a concise ED Presentation"],
-    [CARE_PLAN_ROUTES.presentation, "ED Presentation", "View an episode, plan-use feedback, outcome, and amendments"],
     [
       CARE_PLAN_ROUTES.history,
       "History",
@@ -386,6 +384,9 @@ describe("Care Plan route shell", () => {
       CARE_PLAN_ROUTES.managementPlanEdit,
       CARE_PLAN_ROUTES.managementPlanReview,
       CARE_PLAN_ROUTES.managementPlanPrint,
+      CARE_PLAN_ROUTES.presentations,
+      CARE_PLAN_ROUTES.newPresentation,
+      CARE_PLAN_ROUTES.presentation,
     ]) {
       const { unmount } = render(
         <CarePlanPrototypeProvider>
@@ -1975,6 +1976,471 @@ describe("Care Plan specimen scenarios reach the reducer", () => {
     expect(helps.value, "the draft must survive an ordinary navigation").toContain(typed);
     // …and so must who is signed in, which a reconstruction would also reset.
     expect(within(screen.getByTestId("care-plan-active-user")).getByText("Morgan Sample")).toBeInTheDocument();
+  });
+});
+
+/**
+ * Task 7 — the ED Presentation surfaces.
+ *
+ * `ROWAN` carries eight episodes, two amendable ones and both an open and a
+ * resolved Review Trigger, so it is the patient every ordinary assertion uses.
+ * The patients with an awaiting-approval version, a draft-only plan, a withdrawn
+ * plan and no plan at all are each used exactly where their state is the point.
+ */
+const COORDINATOR = "SYN-USER-COORD-001";
+const ROWAN_PATIENT = "SYN-PATIENT-001";
+const MIRA_PATIENT = "SYN-PATIENT-002";
+const EVIE_PATIENT = "SYN-PATIENT-004";
+const ALEX_PATIENT = "SYN-PATIENT-005";
+
+type PresentationAnswers = {
+  site: string;
+  disposition: string;
+  availability: string;
+  use: string;
+  helpfulness: string;
+  note: string;
+};
+
+/**
+ * The six required answers, filled the way a clinician would. The worked example
+ * in the task brief fills only three of them; the six are what the specification
+ * actually requires, so a helper that filled fewer would make every success test
+ * below assert against a form that could not have saved.
+ */
+async function recordRequiredAnswers(
+  user: ReturnType<typeof userEvent.setup>,
+  overrides: Partial<PresentationAnswers> = {},
+) {
+  const answers: PresentationAnswers = {
+    site: "SYN-ED-001",
+    disposition: "discharged_home",
+    availability: "available",
+    use: "used",
+    helpfulness: "helpful",
+    note: "Came in late after a difficult evening and went home the same night.",
+    ...overrides,
+  };
+  await user.selectOptions(screen.getByLabelText(/^Emergency department/), answers.site);
+  await user.selectOptions(screen.getByLabelText(/^Disposition/), answers.disposition);
+  await user.selectOptions(screen.getByLabelText(/^Was the Current Plan available\?/), answers.availability);
+  await user.selectOptions(screen.getByLabelText(/^Was the Current Plan used\?/), answers.use);
+  await user.selectOptions(screen.getByLabelText(/^Was the plan helpful\?/), answers.helpfulness);
+  await user.clear(screen.getByLabelText(/^In one line: why they came and what happened/));
+  await user.type(screen.getByLabelText(/^In one line: why they came and what happened/), answers.note);
+}
+
+async function submitPresentation(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "Record ED presentation" }));
+}
+
+describe("Care Plan ED Presentation timeline", () => {
+  it("lists every episode for this patient newest first, as a semantic list with the recorded facts", () => {
+    renderRoute(carePlanRoute.presentations(ROWAN_PATIENT));
+    const entries = within(screen.getByTestId("care-plan-presentation-timeline")).getAllByRole("listitem");
+    expect(entries).toHaveLength(8);
+
+    const newest = entries[0]!;
+    expect(within(newest).getByText("North River Hospital ED")).toBeInTheDocument();
+    expect(within(newest).getByText(/Mental health admission/)).toBeInTheDocument();
+    expect(within(newest).getByText(/Came in by taxi late evening/)).toBeInTheDocument();
+    expect(within(newest).getByText(/Current version 2/)).toBeInTheDocument();
+    expect(within(newest).getByText(/Out of hours; message left on the shared mailbox/)).toBeInTheDocument();
+    expect(within(newest).getByText(/First admission since the plan was agreed/)).toBeInTheDocument();
+
+    // Newest first, proved by the arrival dates rather than by the order of the
+    // fixture array, which a later edit could reorder without anything failing.
+    const arrivals = entries.map((entry) => within(entry).getByTestId("care-plan-presentation-arrival").textContent);
+    const parsed = arrivals.map((text) => {
+      const [day, month, year] = String(text).slice(0, 10).split("/");
+      return Date.parse(`${year}-${month}-${day}`);
+    });
+    expect(parsed).toEqual([...parsed].sort((left, right) => right - left));
+  });
+
+  it("states the observation window and the objective counts without a label, verdict or ranking", () => {
+    renderRoute(carePlanRoute.presentations(ROWAN_PATIENT));
+    const activity = screen.getByTestId("care-plan-presentation-activity");
+    expect(activity).toHaveTextContent(/7 ED Presentations recorded in the 12 months to 20\/08\/2026/i);
+    expect(activity).toHaveTextContent(/North River Hospital ED: 5/);
+    expect(activity).toHaveTextContent(/Coastal Plains Hospital ED: 2/);
+    expect(activity).toHaveTextContent(/Counts describe what happened. They decide nothing/i);
+
+    // Sorting people by how often they attend belongs to the Identification
+    // Review workflow and nowhere else.
+    expect(screen.queryByRole("combobox", { name: /sort/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /sort/i })).toBeNull();
+  });
+
+  it("filters the timeline by emergency department without changing the counts", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.presentations(ROWAN_PATIENT));
+    await user.selectOptions(screen.getByLabelText(/^Emergency department/), "SYN-ED-002");
+
+    const entries = within(screen.getByTestId("care-plan-presentation-timeline")).getAllByRole("listitem");
+    expect(entries).toHaveLength(2);
+    for (const entry of entries) expect(within(entry).getByText("Coastal Plains Hospital ED")).toBeInTheDocument();
+    expect(screen.getByTestId("care-plan-presentation-activity")).toHaveTextContent(/7 ED Presentations recorded/);
+  });
+
+  it("filters the timeline by disposition and says plainly when nothing matches", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.presentations(ROWAN_PATIENT));
+    await user.selectOptions(screen.getByLabelText(/^Disposition/), "mental_health_admission");
+    expect(within(screen.getByTestId("care-plan-presentation-timeline")).getAllByRole("listitem")).toHaveLength(1);
+
+    await user.selectOptions(screen.getByLabelText(/^Disposition/), "transfer");
+    expect(screen.queryByTestId("care-plan-presentation-timeline")).toBeNull();
+    expect(screen.getByTestId("care-plan-presentation-none-matching")).toHaveTextContent(
+      /No recorded ED Presentation matches those filters/i,
+    );
+  });
+
+  it("shows how many corrections an episode carries and links each episode to its own address", () => {
+    renderRoute(carePlanRoute.presentations(ROWAN_PATIENT));
+    const entries = within(screen.getByTestId("care-plan-presentation-timeline")).getAllByRole("listitem");
+
+    const amended = entries.find((entry) => entry.textContent?.includes("Presented while staying with family"))!;
+    expect(within(amended).getByText(/1 correction recorded/i)).toBeInTheDocument();
+
+    const unamended = entries.find((entry) => entry.textContent?.includes("Came in by taxi late evening"))!;
+    expect(within(unamended).getByText(/No corrections recorded/i)).toBeInTheDocument();
+
+    expect(within(entries[0]!).getByRole("link", { name: /Open this ED Presentation/i })).toHaveAttribute(
+      "href",
+      carePlanRoute.presentation(ROWAN_PATIENT, "SYN-PRESENTATION-001"),
+    );
+    expect(screen.getByRole("link", { name: "Record ED presentation" })).toHaveAttribute(
+      "href",
+      carePlanRoute.newPresentation(ROWAN_PATIENT),
+    );
+  });
+});
+
+describe("Care Plan ED Presentation recording", () => {
+  it("refuses to record until every required answer is given, and names each one", async () => {
+    const user = userEvent.setup();
+    const navigate = renderRoute(carePlanRoute.newPresentation(ROWAN_PATIENT));
+    await user.clear(screen.getByLabelText(/^In one line: why they came and what happened/));
+    await submitPresentation(user);
+
+    const summary = screen.getByTestId("error-summary");
+    for (const label of [
+      "Emergency department",
+      "Disposition",
+      "Was the Current Plan available?",
+      "Was the Current Plan used?",
+      "Was the plan helpful?",
+      "In one line: why they came and what happened",
+    ]) {
+      expect(within(summary).getByText(new RegExp(label.replace(/[?]/g, "\\?")))).toBeInTheDocument();
+    }
+    expect(navigate).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("care-plan-presentation-recorded")).toBeNull();
+  });
+
+  it("keeps the optional detail behind one disclosure that is closed on open and never blocks the save", async () => {
+    const user = userEvent.setup();
+    const navigate = renderRoute(carePlanRoute.newPresentation(ROWAN_PATIENT));
+    const disclosure = screen.getByRole("button", { name: /Add more detail/i });
+    expect(disclosure).toHaveAttribute("aria-expanded", "false");
+
+    await recordRequiredAnswers(user);
+    await submitPresentation(user);
+
+    expect(screen.getByTestId("care-plan-presentation-recorded")).toBeInTheDocument();
+    expect(navigate).toHaveBeenCalledTimes(1);
+
+    // Nothing optional was filled in, so the episode carries none of it — and it
+    // reads as not recorded rather than as an invented value.
+    expect(screen.getByTestId("care-plan-presentation-recorded")).toHaveTextContent(
+      /Presenting indication\s*Not recorded/,
+    );
+  });
+
+  it("opens the optional detail on request", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.newPresentation(ROWAN_PATIENT));
+    await user.click(screen.getByRole("button", { name: /Add more detail/i }));
+    expect(screen.getByRole("button", { name: /Add more detail/i })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("links the Current version at form open and never a version still being written", () => {
+    renderRoute(carePlanRoute.newPresentation(MIRA_PATIENT));
+    // Mira has Current version 1 and version 2 awaiting a senior decision.
+    const linked = screen.getByTestId("care-plan-presentation-linked-plan");
+    expect(linked).toHaveTextContent(/Current version 1/);
+    expect(linked).not.toHaveTextContent(/version 2/);
+  });
+
+  it("says no Current Plan was available and records no plan version when only a draft exists", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.newPresentation(ALEX_PATIENT));
+    expect(screen.getByTestId("care-plan-presentation-linked-plan")).toHaveTextContent(
+      /No Current Plan was available/i,
+    );
+
+    await recordRequiredAnswers(user, {
+      availability: "unavailable",
+      use: "not_applicable",
+      helpfulness: "not_assessed",
+    });
+    await submitPresentation(user);
+    expect(screen.getByTestId("care-plan-presentation-recorded")).toHaveTextContent(/No Current Plan was available/i);
+  });
+
+  it("records plan-use feedback and creates a Review Suggested item without changing the plan", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.newPresentation(ROWAN_PATIENT));
+    await recordRequiredAnswers(user, { use: "partially_used", helpfulness: "mixed" });
+    await user.type(screen.getByLabelText(/^Why is review suggested\?/), "The sensory guidance needs clarification.");
+    await submitPresentation(user);
+
+    expect(screen.getByRole("status")).toHaveTextContent(/ED Presentation recorded in this synthetic session/i);
+    expect(screen.getByText(/Review Suggested/i)).toBeInTheDocument();
+    expect(screen.getByText(/Current version 2/i)).toBeInTheDocument();
+    expect(screen.getByTestId("care-plan-presentation-recorded")).toHaveTextContent(
+      /The Management Plan itself is unchanged/i,
+    );
+    // The sentence the clinician wrote is what reaches the queue. A reason typed
+    // without also ticking the box is still a suggestion to review, and dropping
+    // it would replace a specific request with a generic one.
+    expect(screen.getByTestId("care-plan-presentation-trigger")).toHaveTextContent(
+      /The sensory guidance needs clarification/,
+    );
+  });
+
+  it("offers no recording form at all to a role that does not carry the action", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.newPresentation(ROWAN_PATIENT));
+    await signInAs(user, COORDINATOR);
+
+    expect(screen.getByTestId("care-plan-presentation-unavailable")).toHaveTextContent(
+      /care planning coordinator role, which does not carry this action/i,
+    );
+    expect(screen.queryByRole("button", { name: "Record ED presentation" })).toBeNull();
+  });
+
+  it("raises no review request when the plan was available, used, and helped", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.newPresentation(ROWAN_PATIENT));
+    await recordRequiredAnswers(user);
+    await submitPresentation(user);
+
+    expect(screen.getByTestId("care-plan-presentation-recorded")).toBeInTheDocument();
+    expect(screen.queryByTestId("care-plan-presentation-trigger")).toBeNull();
+  });
+
+  it("raises a review request when an episode ends in an admission", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.newPresentation(EVIE_PATIENT));
+    await recordRequiredAnswers(user, { disposition: "mental_health_admission" });
+    await submitPresentation(user);
+
+    expect(screen.getByTestId("care-plan-presentation-trigger")).toHaveTextContent(
+      /This episode ended in an admission/i,
+    );
+  });
+
+  it("requires a reason when a plan review is suggested", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.newPresentation(ROWAN_PATIENT));
+    await recordRequiredAnswers(user);
+    await user.click(screen.getByRole("checkbox", { name: /Suggest a plan review/i }));
+    await submitPresentation(user);
+
+    expect(within(screen.getByTestId("error-summary")).getByText(/Why is review suggested\?/)).toBeInTheDocument();
+    expect(screen.queryByTestId("care-plan-presentation-recorded")).toBeNull();
+  });
+
+  it("requires a reason when the agreed approach could not be followed", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.newPresentation(ROWAN_PATIENT));
+    await recordRequiredAnswers(user);
+    await user.click(screen.getByRole("button", { name: /Add more detail/i }));
+    await user.click(screen.getByRole("checkbox", { name: /The agreed approach could not be followed/i }));
+    await submitPresentation(user);
+
+    expect(
+      within(screen.getByTestId("error-summary")).getByText(/Why was the agreed approach not followed\?/),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("care-plan-presentation-recorded")).toBeNull();
+  });
+
+  it("raises a review request when a deviation is recorded with its reason", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.newPresentation(EVIE_PATIENT));
+    await recordRequiredAnswers(user);
+    await user.click(screen.getByRole("button", { name: /Add more detail/i }));
+    await user.click(screen.getByRole("checkbox", { name: /The agreed approach could not be followed/i }));
+    await user.type(
+      screen.getByLabelText(/^Why was the agreed approach not followed\?/),
+      "No side room was free, so the low-stimulus space could not be offered.",
+    );
+    await submitPresentation(user);
+
+    expect(screen.getByTestId("care-plan-presentation-trigger")).toHaveTextContent(/No side room was free/);
+  });
+
+  it("does not raise a second review request for a reason already open on this plan", async () => {
+    const user = userEvent.setup();
+    const navigate = vi.fn();
+    const surface = (pathname: string) => (
+      <CarePlanPrototypeProvider>
+        <CarePlanRouteSurface pathname={pathname} query="" navigate={navigate} />
+      </CarePlanPrototypeProvider>
+    );
+    const { rerender } = render(surface(carePlanRoute.newPresentation(EVIE_PATIENT)));
+
+    await recordRequiredAnswers(user, { disposition: "mental_health_admission" });
+    await submitPresentation(user);
+    expect(screen.getByTestId("care-plan-presentation-trigger")).toBeInTheDocument();
+
+    // Leave the form and come back, exactly as the address change would.
+    rerender(surface(carePlanRoute.presentations(EVIE_PATIENT)));
+    rerender(surface(carePlanRoute.newPresentation(EVIE_PATIENT)));
+
+    await recordRequiredAnswers(user, { disposition: "mental_health_admission" });
+    await submitPresentation(user);
+    expect(screen.getByTestId("care-plan-presentation-recorded")).toBeInTheDocument();
+    expect(screen.queryByTestId("care-plan-presentation-trigger")).toBeNull();
+  });
+
+  it("navigates to the episode the reducer actually appended", async () => {
+    const user = userEvent.setup();
+    const navigate = renderRoute(carePlanRoute.newPresentation(ROWAN_PATIENT));
+    await recordRequiredAnswers(user);
+    await submitPresentation(user);
+    expect(navigate).toHaveBeenCalledWith(carePlanRoute.presentation(ROWAN_PATIENT, "SYN-PRESENTATION-021"));
+  });
+
+  it("refuses to record while the prototype is offline, and says so", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.newPresentation(ROWAN_PATIENT), "scenario=offline");
+    expect(screen.getByRole("button", { name: "Record ED presentation" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByTestId("care-plan-presentation-blocked")).toHaveTextContent(/offline, so nothing was changed/i);
+
+    await recordRequiredAnswers(user);
+    await submitPresentation(user);
+    expect(screen.queryByTestId("care-plan-presentation-recorded")).toBeNull();
+  });
+
+  it("writes nothing against a record that is not confirmed as the right person", () => {
+    renderRoute(carePlanRoute.newPresentation(ROWAN_PATIENT), "scenario=identity-uncertain");
+    expect(screen.getByTestId("care-plan-identity-uncertain")).toHaveTextContent(
+      /has not been confirmed as the right person/i,
+    );
+    expect(screen.queryByRole("button", { name: "Record ED presentation" })).toBeNull();
+  });
+});
+
+describe("Care Plan ED Presentation detail and corrections", () => {
+  const AMENDED = carePlanRoute.presentation(ROWAN_PATIENT, "SYN-PRESENTATION-003");
+  const NEWEST = carePlanRoute.presentation(ROWAN_PATIENT, "SYN-PRESENTATION-001");
+
+  it("shows the immutable episode, who recorded it and when, and the linked plan version", () => {
+    renderRoute(NEWEST);
+    const episode = screen.getByTestId("care-plan-presentation-episode");
+    expect(episode).toHaveTextContent(/North River Hospital ED/);
+    expect(episode).toHaveTextContent(/Mental health admission/);
+    expect(episode).toHaveTextContent(/Came in by taxi late evening/);
+    expect(episode).toHaveTextContent(/Current version 2/);
+    expect(screen.getByTestId("care-plan-presentation-attribution")).toHaveTextContent(/Dr Casey Example/);
+    expect(screen.getByTestId("care-plan-presentation-trigger")).toHaveTextContent(
+      /First mental-health admission since this version was agreed/i,
+    );
+  });
+
+  it("renders optional detail nobody filled in as Not recorded rather than dropping it", () => {
+    renderRoute(carePlanRoute.presentation(ALEX_PATIENT, "SYN-PRESENTATION-018"));
+    const episode = screen.getByTestId("care-plan-presentation-episode");
+    expect(episode).toHaveTextContent(/Presenting indication\s*Not recorded/);
+    expect(episode).toHaveTextContent(/Assessment outcome\s*Not recorded/);
+  });
+
+  it("shows an existing correction beside the value first recorded, never in place of it", () => {
+    renderRoute(AMENDED);
+    const episode = screen.getByTestId("care-plan-presentation-episode");
+    expect(episode).toHaveTextContent(/Recorded as Helpful/);
+    expect(episode).toHaveTextContent(/Corrected to Helped in part/);
+    expect(screen.getByTestId("care-plan-presentation-amendments")).toHaveTextContent(
+      /Recorded as helpful at the end of the shift/,
+    );
+  });
+
+  it("appends a correction with its author, time and reason, keeping the original on screen", async () => {
+    const user = userEvent.setup();
+    renderRoute(NEWEST);
+    await user.click(screen.getByRole("button", { name: "Amend recorded outcome" }));
+
+    const sheet = screen.getByRole("dialog", { name: /Correct this ED Presentation/i });
+    await user.selectOptions(within(sheet).getByLabelText(/^Disposition/), "short_stay");
+    await user.type(
+      within(sheet).getByLabelText(/^Why is this being corrected\?/),
+      "Recorded as an admission at handover; it was a short stay in the observation unit.",
+    );
+    await user.click(within(sheet).getByRole("button", { name: "Record correction" }));
+
+    const episode = screen.getByTestId("care-plan-presentation-episode");
+    expect(episode).toHaveTextContent(/Recorded as Mental health admission/);
+    expect(episode).toHaveTextContent(/Corrected to Short stay/);
+
+    const amendments = screen.getByTestId("care-plan-presentation-amendments");
+    expect(amendments).toHaveTextContent(/Dr Casey Example/);
+    expect(amendments).toHaveTextContent(/it was a short stay in the observation unit/);
+  });
+
+  it("appends one correction per changed plan-use answer under a single reason", async () => {
+    const user = userEvent.setup();
+    renderRoute(NEWEST);
+    await user.click(screen.getByRole("button", { name: "Amend recorded outcome" }));
+
+    const sheet = screen.getByRole("dialog", { name: /Correct this ED Presentation/i });
+    await user.selectOptions(within(sheet).getByLabelText(/^Was the Current Plan used\?/), "partially_used");
+    await user.selectOptions(within(sheet).getByLabelText(/^Was the plan helpful\?/), "mixed");
+    await user.type(
+      within(sheet).getByLabelText(/^Why is this being corrected\?/),
+      "On reflection only part of the plan could be followed on the night.",
+    );
+    await user.click(within(sheet).getByRole("button", { name: "Record correction" }));
+
+    const entries = within(screen.getByTestId("care-plan-presentation-amendments")).getAllByRole("listitem");
+    expect(entries).toHaveLength(2);
+    for (const entry of entries) {
+      expect(entry).toHaveTextContent(/On reflection only part of the plan could be followed/);
+    }
+  });
+
+  it("refuses a correction with no reason, and one that changes nothing", async () => {
+    const user = userEvent.setup();
+    renderRoute(NEWEST);
+    await user.click(screen.getByRole("button", { name: "Amend recorded outcome" }));
+    const sheet = screen.getByRole("dialog", { name: /Correct this ED Presentation/i });
+
+    await user.selectOptions(within(sheet).getByLabelText(/^Disposition/), "short_stay");
+    await user.click(within(sheet).getByRole("button", { name: "Record correction" }));
+    expect(within(sheet).getByTestId("care-plan-amendment-error")).toHaveTextContent(
+      /needs a reason, so a later reader can see why/i,
+    );
+    expect(screen.queryByTestId("care-plan-presentation-amendments")).toHaveTextContent(/No corrections recorded/i);
+
+    await user.selectOptions(within(sheet).getByLabelText(/^Disposition/), "mental_health_admission");
+    await user.type(within(sheet).getByLabelText(/^Why is this being corrected\?/), "Nothing actually changed here.");
+    await user.click(within(sheet).getByRole("button", { name: "Record correction" }));
+    expect(within(sheet).getByTestId("care-plan-amendment-error")).toHaveTextContent(
+      /Change at least one answer before recording a correction/i,
+    );
+  });
+
+  it("refuses to show an episode recorded against another patient", () => {
+    // Episode 009 is Mira's. Under Rowan's address it is an unknown record, and
+    // showing the nearest match would be showing the wrong person's episode.
+    renderRoute(carePlanRoute.presentation(ROWAN_PATIENT, "SYN-PRESENTATION-009"));
+    expect(screen.getByTestId("care-plan-presentation-identity-uncertain")).toHaveTextContent(
+      /does not belong to the patient named in this address/i,
+    );
+    expect(screen.queryByTestId("care-plan-presentation-episode")).toBeNull();
+    expect(screen.queryByText(/Fell at home in the morning/)).toBeNull();
   });
 });
 
