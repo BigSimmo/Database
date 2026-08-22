@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { CaringContactsShell } from "@/components/caring-contacts/workspace/shell";
+import { FICTIONAL_DATA_MARKER } from "@/components/caring-contacts/workspace/synthetic-marker";
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 
 /**
@@ -60,6 +61,20 @@ describe("caring-contacts workspace shell", () => {
     expect(screen.getByTestId("caring-contacts-synthetic-marker")).toBeInTheDocument();
   });
 
+  it("says in so many words that the data is invented", () => {
+    renderShell();
+    // Presence by test id is not enough. Without this, the wording could be
+    // changed to anything at all — including something that no longer says the
+    // data is invented — and every gate on this branch would still pass. This is
+    // the safeguard that makes listing a workspace of invented patients in the
+    // live tools catalogue defensible, so its text is pinned, exactly as the
+    // prototype's copy is pinned by caring-contact-product-redesign.dom.test.tsx.
+    expect(FICTIONAL_DATA_MARKER).toBe("Synthetic prototype — fictional data only");
+    expect(screen.getByTestId("caring-contacts-synthetic-marker")).toHaveTextContent(
+      "Synthetic prototype — fictional data only",
+    );
+  });
+
   it("keeps the frozen rail destination set, in order, with only Today navigable", () => {
     renderShell();
     expect(destinationsOf(screen.getByRole("navigation", { name: "Workspace" }))).toEqual([
@@ -94,6 +109,37 @@ describe("caring-contacts workspace shell", () => {
     // `today` is the only Caring Contacts route with a page. Every other declared
     // destination is an unavailable control until Plan 2B builds its page.
     expect(new Set(internalHrefs)).toEqual(new Set([CARING_CONTACTS_ROUTES.today]));
+  });
+
+  it("keeps the More panel's destination set, in order, all of them unavailable", () => {
+    renderShell();
+    expect(destinationsOf(screen.getByRole("region", { name: "More destinations" }))).toEqual(
+      [
+        "Team",
+        "Guidance",
+        "Reports",
+        "Service stop",
+        "Access trail",
+        "Workload",
+        "Reconciliation",
+        "Notifications",
+        "Training",
+        "Coverage",
+      ].map((label) => ({ label, kind: "unavailable" })),
+    );
+  });
+
+  it("makes the workspace's primary control an unavailable one, not a dead button", () => {
+    const { container } = renderShell();
+    const primary = screen.getByTestId("caring-contacts-primary-control").closest("button");
+    expect(primary, "the primary control is not a button").not.toBeNull();
+    expect(primary!.textContent).toBe("New plan");
+    expect(destinationKind(primary!)).toBe("unavailable");
+    expectStatesItsReason(primary!);
+    // 3 unbuilt rail destinations + 2 on the phone bar + 10 in the More panel + this one.
+    expect([...container.querySelectorAll("button")].filter((c) => destinationKind(c) === "unavailable")).toHaveLength(
+      16,
+    );
   });
 
   it("states a reason on every destination that is not built yet", () => {

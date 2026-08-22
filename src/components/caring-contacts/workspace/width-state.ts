@@ -2,10 +2,13 @@
  * The frozen four-state width mapping from the coordination design spec §7.
  *
  * This is the single source: no component may re-derive a breakpoint. The shell
- * expresses the states in Tailwind media classes (`md:` / `lg:` / `xl:`) so the
- * layout itself needs no JavaScript; this module exists for the overlay
- * modality decision (a sheet on a compact screen is a dialog on a wide one) and
- * for tests.
+ * expresses the states as CSS media ranges, so the layout itself needs no
+ * JavaScript; this module exists for the overlay modality decision (a sheet on a
+ * compact screen is a dialog on a wide one) and for tests.
+ *
+ * Do NOT reach for `md:` / `lg:` / `xl:` here. `md` and `lg` happen to equal 768
+ * and 1024, but `xl` is 1280 — not the frozen 1440 — and believing otherwise is
+ * exactly what put the `wide` state on the wrong boundary once already.
  *
  * These numbers are deliberately NOT a named `--breakpoint-*` design token —
  * design-system GATES §3b prohibits adding one.

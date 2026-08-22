@@ -59,6 +59,21 @@ function displayedWidthStates(page: Page) {
   );
 }
 
+/**
+ * What the marker looks like once forced colours have had their way with it.
+ *
+ * Only the border is reported, because only the border turned out to be
+ * falsifiable — see the test below.
+ */
+function markerBorder(page: Page) {
+  return page.evaluate(() => {
+    const marker = document.querySelector("[data-synthetic-marker]");
+    if (!marker) throw new Error("the synthetic marker is missing");
+    const style = getComputedStyle(marker);
+    return { width: style.borderTopWidth, colour: style.borderTopColor };
+  });
+}
+
 function shellColours(page: Page) {
   return page.evaluate(() => {
     const chrome = document.querySelector("[data-testid='caring-contacts-rail']");
@@ -143,26 +158,29 @@ test.describe("caring-contacts workspace shell", () => {
     await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
   });
 
-  test("keeps the synthetic marker and navigation visible under forced colours", async ({ page, browserName }) => {
+  test("keeps the synthetic marker delimited once forced colours drop its tint", async ({ page, browserName }) => {
     test.skip(browserName !== "chromium", "forced-colors emulation is Chromium-only");
+
     await page.emulateMedia({ forcedColors: "active" });
     await openWorkspace(page, 390);
 
-    // Forced colours drop background colours, so a badge that relies on a tinted
-    // background alone disappears. The marker is the safeguard that says every
-    // patient here is invented; it may never become invisible.
-    const marker = page.getByTestId("caring-contacts-synthetic-marker");
-    await expect(marker).toBeVisible();
-    const border = await marker.evaluate((node) => {
-      const style = getComputedStyle(node);
-      return { width: style.borderTopWidth, colour: style.borderTopColor };
-    });
-    expect(Number.parseFloat(border.width), "the synthetic marker has no border under forced colours").toBeGreaterThan(
-      0,
-    );
-    expect(border.colour, "the synthetic marker border is transparent under forced colours").not.toBe(
-      "rgba(0, 0, 0, 0)",
-    );
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+
+    // Forced colours drop an author background, so the badge's tint goes and the
+    // border is the only thing left delimiting the one safeguard that says these
+    // patients are invented.
+    //
+    // This is the only assertion here that was shown to be able to fail:
+    // removing the marker's `border` class reddens it. Three other candidates
+    // were tried and discarded because nothing could make them fail on a v2
+    // surface — the marker's ink and surface are forced to system colours by the
+    // user agent whatever the CSS says, and `--clinical-accent-soft` already maps
+    // to `Canvas`, so "the tint was dropped" and "the tint was kept" look
+    // identical. Details in the task report; decoration is not left here to look
+    // thorough.
+    const border = await markerBorder(page);
+    expect(Number.parseFloat(border.width), "the marker has no border under forced colours").toBeGreaterThan(0);
+    expect(border.colour, "the marker border is transparent under forced colours").not.toBe("rgba(0, 0, 0, 0)");
 
     await expect(page.getByTestId("caring-contacts-phone-dock")).toBeVisible();
     expect(await documentOverflow(page), "horizontal overflow under forced colours").toBeLessThanOrEqual(2);

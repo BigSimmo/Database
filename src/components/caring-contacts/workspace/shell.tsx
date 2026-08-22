@@ -4,21 +4,12 @@ import type { ComponentType, ReactNode, SVGProps } from "react";
 
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 
+import { SyntheticMarker } from "./synthetic-marker";
 import { UnavailableDestination } from "./unavailable-destination";
 import type { WorkspaceWidthState } from "./width-state";
 
-/**
- * The safeguard wording, repeated verbatim from the frozen prototype baseline.
- *
- * It is redeclared here rather than imported: production may never import from
- * the frozen prototype tree, and `tests/caring-contact-route-files.test.ts`
- * holds that separation in both directions — including against a mere mention
- * of the prototype's path, which is why this comment names it in words only.
- * Rendering the marker as visible text on every screen — not as a tooltip
- * alone — is what makes listing this workspace in the live tools catalogue
- * defensible: every patient in it is invented.
- */
-export const FICTIONAL_DATA_MARKER = "Synthetic prototype — fictional data only";
+// Re-exported so Tasks 16-18 keep one import site for the shell and its safeguard.
+export { FICTIONAL_DATA_MARKER } from "./synthetic-marker";
 
 /** The anchor the phone "More" destination jumps to. */
 const MORE_DESTINATIONS_ID = "caring-contacts-more";
@@ -67,7 +58,7 @@ const PRIMARY_DESTINATIONS: readonly WorkspaceDestination[] = [
 ];
 
 /** The phone bar carries three destinations plus a jump to the More panel. */
-const PHONE_DESTINATIONS = PRIMARY_DESTINATIONS.filter((destination) => destination.label !== "Templates");
+const PHONE_DESTINATIONS = PRIMARY_DESTINATIONS.filter((destination) => destination.id !== "templates");
 
 /**
  * Every remaining declared destination, with what it will hold.
@@ -97,25 +88,30 @@ const MORE_DESTINATIONS: readonly { id: string; label: string; reason: string }[
  * against `widthStateFor()` itself rather than against a second copy of the
  * numbers.
  *
- * `wide` is `min-[1440px]:`, not `xl:`: Tailwind's `xl` is 1280px and the frozen
- * boundary is 1440. Design-system GATES §3b forbids adding a named
- * `--breakpoint-*` token for these states, so the arbitrary variant is the
- * correct expression of the frozen number.
+ * No named Tailwind breakpoint is used here. Tailwind's `xl` is 1280px, not the
+ * frozen 1440, and design-system GATES §3b forbids adding a named
+ * `--breakpoint-*` token for these states — so each range is written out.
  *
- * Each marker is `hidden` plus exactly ONE variant that turns it back on, over a
- * range that no other marker's range overlaps. The obvious spelling —
- * `hidden lg:block min-[1440px]:hidden` — is wrong, and wrong silently: Tailwind
- * sorts named breakpoints against each other, but an arbitrary `min-[…]` variant
- * is not guaranteed to be emitted after a named one, so at 1440px `lg:block` won
- * and both `split` and `wide` showed at once. Variant-versus-base ordering is
- * guaranteed; variant-versus-variant is not. Caught by the browser proof at
- * 1440px, which is the width the four-state mapping exists for.
+ * Each marker is `hidden` plus exactly ONE variant that turns it back on. The
+ * obvious spelling — `hidden lg:block min-[1440px]:hidden` — is wrong, and wrong
+ * silently: Tailwind sorts named breakpoints against each other, but an
+ * arbitrary `min-[…]` variant is not guaranteed to be emitted after a named one,
+ * so at 1440px `lg:block` won and both `split` and `wide` showed at once.
+ * Variant-versus-base ordering is guaranteed; variant-versus-variant is not.
+ * Caught by the browser proof at 1440px, the width the mapping exists for.
+ *
+ * The ranges use media-query range syntax so consecutive bounds MEET rather than
+ * merely approach: `< 768px` and `768px <=` share an exact edge, where a
+ * `max-[767.98px]` / `min-[768px]` pair would leave 767.98-768.00 showing no
+ * marker at all. Integer widths never land there, but 400% zoom produces
+ * fractional widths, and a width with no state would fail Task 19 confusingly
+ * rather than usefully.
  */
 const WIDTH_STATE_MARKERS: readonly { state: WorkspaceWidthState; className: string; label: string }[] = [
-  { state: "compact", className: "hidden max-[767.98px]:block", label: "Compact layout" },
-  { state: "rail", className: "hidden min-[768px]:max-[1023.98px]:block", label: "Rail layout" },
-  { state: "split", className: "hidden min-[1024px]:max-[1439.98px]:block", label: "Split layout" },
-  { state: "wide", className: "hidden min-[1440px]:block", label: "Wide layout" },
+  { state: "compact", className: "hidden [@media_(width_<_768px)]:block", label: "Compact layout" },
+  { state: "rail", className: "hidden [@media_(768px_<=_width_<_1024px)]:block", label: "Rail layout" },
+  { state: "split", className: "hidden [@media_(1024px_<=_width_<_1440px)]:block", label: "Split layout" },
+  { state: "wide", className: "hidden [@media_(width_>=_1440px)]:block", label: "Wide layout" },
 ];
 
 export type CaringContactsShellProps = {
@@ -213,13 +209,7 @@ export function CaringContactsShell({ title, description, children }: CaringCont
               </span>
               <span className="truncate text-sm font-semibold text-[color:var(--text-heading)]">Caring Contacts</span>
             </div>
-            <span
-              data-synthetic-marker
-              data-testid="caring-contacts-synthetic-marker"
-              className="ml-auto inline-flex items-center rounded-[var(--radius-sm)] border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-1 text-2xs font-semibold text-[color:var(--clinical-accent)] sm:text-xs forced-colors:border-[CanvasText]"
-            >
-              {FICTIONAL_DATA_MARKER}
-            </span>
+            <SyntheticMarker className="ml-auto" />
           </div>
         </header>
 

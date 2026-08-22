@@ -1,5 +1,6 @@
 "use client";
 
+import { SyntheticMarker } from "@/components/caring-contacts/workspace/synthetic-marker";
 import { RouteErrorBoundary } from "@/components/route-error-boundary";
 
 /**
@@ -24,14 +25,19 @@ export default function CaringContactsErrorBoundary({
   retry: () => void;
 }) {
   return (
-    <RouteErrorBoundary
-      error={error}
-      reset={retry}
-      title="The Caring Contacts workspace could not be shown"
-      description="Nothing was sent and nothing was changed. You can try again, or refresh the browser."
-      logLabel="Unhandled runtime error captured by the Caring Contacts boundary:"
-      showReload
-      minHeightClass="min-h-dvh"
-    />
+    <>
+      {/* Carried here too: a printout or screenshot of a failed workspace screen
+          should still say that everything behind it is invented. */}
+      <SyntheticMarker className="m-4" />
+      <RouteErrorBoundary
+        error={error}
+        reset={retry}
+        title="The Caring Contacts workspace could not be shown"
+        description="Nothing was sent and nothing was changed. You can try again, or refresh the browser."
+        logLabel="Unhandled runtime error captured by the Caring Contacts boundary:"
+        showReload
+        minHeightClass="min-h-dvh"
+      />
+    </>
   );
 }

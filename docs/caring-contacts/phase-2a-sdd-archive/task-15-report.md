@@ -684,3 +684,172 @@ spec did not depend on the dev server.
    bottom reserve. I implemented it as specified and added the assertion that can actually
    fail: after scrolling to the document bottom, the last control in the More panel must also
    clear the dock. Reporting this rather than quietly substituting the stronger one.
+
+---
+
+# Addendum 2 — fix round 1 of 5
+
+Seven items, all addressed. Ruling 54 noted, no action taken. Full suite green.
+
+## Important — the safeguard's wording is now pinned
+
+`FICTIONAL_DATA_MARKER` moved to its own module,
+`src/components/caring-contacts/workspace/synthetic-marker.tsx`, which also exports a
+`SyntheticMarker` component (see Minor 6 — it is now rendered from three places, so it needed
+one home). `shell.tsx` re-exports the constant so Tasks 16–18 keep one import site.
+
+`tests/caring-contacts-workspace-shell.dom.test.tsx` gained a test that pins the text from both
+directions: the constant's value, **and** the text the component actually renders. Either alone
+would leave a hole — the first would miss a component that stopped rendering the constant, the
+second would pass on any wording at all.
+
+**Proved it can fail.** Reworded the constant to `"Caring Contacts workspace"` — wording that no
+longer says the data is invented, which is exactly the failure the ruling names:
+
+```
+AssertionError: expected 'Caring Contacts workspace' to be 'Synthetic prototype — fictional data …'
+Expected: "Synthetic prototype — fictional data only"
+Received: "Caring Contacts workspace"
+ Test Files  1 failed (1) / Tests  1 failed | 9 passed (10)
+```
+
+Reverted; back to `Tests 10 passed (10)`.
+
+## Minor 1 — the forced-colours proof, and what I could not make fail
+
+You asked me to make it discriminating, delete the rule, confirm it reddens, and **say so
+plainly if it does not**. It does not, and the reason is worth recording.
+
+**First, the fact.** I probed the resolved palette in Chromium under `forcedColors: "active"`:
+
+```
+CanvasText: rgb(0, 0, 0)   ButtonBorder: rgb(0, 0, 0)   Canvas: rgb(255, 255, 255)   LinkText: rgb(0, 0, 159)
+```
+
+`CanvasText` and `ButtonBorder` are the same colour. And the effective token mapping for this
+surface is not the one quoted in the ruling: `globals.css:4121-4122` is the **compatibility**
+layer, but `/caring-contacts` is a v2 surface, so `src/app/ckb-v2-tokens.css` wins and it maps
+`--clinical-accent-border: CanvasText` outright. So `forced-colors:border-[CanvasText]` on the
+marker restates a value the token already has, twice over. **No assertion can discriminate on
+that class.**
+
+**Mutation A — the one you asked for.** Deleted `forced-colors:border-[CanvasText]`:
+`1 passed (3.2s)`. It did not redden, as predicted. I have **kept the class** rather than delete
+it to make a mutation land: on a real Windows high-contrast theme `ButtonBorder` and `CanvasText`
+can differ, and the compatibility layer still maps to `ButtonBorder` if v2 is ever rolled back.
+It is defensive, and unfalsifiable in this palette is not the same as pointless.
+
+**Mutation B — the token mapping.** Removed `--clinical-accent: LinkText` from the forced-colours
+block, first in `globals.css` (`1 passed` — that declaration is inert for this surface, which is
+how I found the ckb-v2 layer), then in `ckb-v2-tokens.css` (`1 passed` as well). Also did not
+redden: under forced colours the user agent replaces the ink whatever the CSS says. So a
+"the marker takes part in the token mapping" assertion cannot fail either, and I removed the
+two I had written for it rather than leave them looking thorough.
+
+**Mutation C — the one that works.** Removed the marker's `border` class:
+
+```
+Error: the marker has no border under forced colours
+expect(received).toBeGreaterThan(expected)
+> 213 |  expect(Number.parseFloat(forced.borderWidth), …).toBeGreaterThan(0);
+  1 failed
+```
+
+Reverted; back to `9 passed`. So the border-width assertion you flagged as decorative is in
+fact the **only** discriminating one available here — just not on the class it appeared to
+guard. It catches the real forced-colours failure: the tint is dropped and a badge with no
+border stops being a badge.
+
+**Mutation D — `forced-color-adjust-none` on the marker.** Also `1 passed`. My "the tint was
+dropped" assertion could not fail either, because `--clinical-accent-soft` already maps to
+`Canvas`, so "tint kept" and "tint dropped" are the same colour. Removed.
+
+**Net result.** The forced-colours test now contains only assertions that were shown able to
+fail — visibility, the border width and colour, the dock, and overflow — with a comment naming
+the three candidates that were tried and discarded and why. Nothing pre-existing was deleted or
+loosened; what I removed were unfalsifiable assertions I had added earlier in this same round.
+
+## Minor 2 — the sub-pixel gap is closed
+
+The markers now use media-query range syntax, so consecutive bounds **meet** rather than
+approach:
+
+```
+compact  @media (width < 768px)
+rail     @media (768px <= width < 1024px)
+split    @media (1024px <= width < 1440px)
+wide     @media (width >= 1440px)
+```
+
+Each is still `hidden` plus exactly one variant, so only variant-versus-base ordering matters —
+the property that made the round-2 fix safe is preserved. Verified in a real browser at every
+boundary and one pixel either side, which also confirms the syntax compiles through Tailwind:
+
+```
+width 320: ["compact"]   width 767: ["compact"]   width 768: ["rail"]    width 1023: ["rail"]
+width 1024: ["split"]    width 1439: ["split"]    width 1440: ["wide"]   width 1920: ["wide"]
+```
+
+Exactly one state at every width, and no width between 767 and 768 can now fall through, so
+Task 19's 400% zoom will get a usable failure rather than a confusing `[]`.
+
+## Minor 3 — the stale `xl:` prose is gone
+
+`width-state.ts`'s header no longer says `md:`/`lg:`/`xl:`; it now says the shell uses written-out
+CSS media ranges and adds an explicit warning not to reach for `xl:`, naming 1280 versus the
+frozen 1440 as the belief that put the wide state on the wrong boundary once already. The
+`docs/codebase-index.md` row carries the same correction. `shell.tsx`'s own comment was updated
+to match the new spelling and to record why the ranges meet exactly.
+
+## Minor 4 — the phone bar filters by id
+
+`PHONE_DESTINATIONS` now filters on `destination.id !== "templates"`. Renaming a label can no
+longer change the phone bar's membership.
+
+## Minor 5 — the More panel is pinned, in order
+
+Two additions to the DOM test:
+
+- The More panel is asserted as an ordered `{label, kind}` list of all ten destinations, using
+  the same DOM-derived `destinationKind` as the two navigations — so the panel now has the same
+  guarantee they do.
+- The primary control is asserted by name, kind, and the full unavailable convention, and the
+  count of unavailable controls is tightened from `toBeGreaterThanOrEqual(5)` to an exact
+  `toHaveLength(16)` — three rail, two phone, ten panel, one primary. The looser assertion was
+  not removed; the exact one sits beside it.
+
+## Minor 6 — the marker is on the loading and error states
+
+`loading.tsx` and `error.tsx` both render `SyntheticMarker` now. Neither shows invented data
+today, but Tasks 16–18 make the loading state data-driven, and a screenshot or printout of
+either should say what it is. Two lines each, done while it is cheap.
+
+## Ruling 54 — noted, no change
+
+`patientRoute` and `pathwayRoute` left exactly as they are.
+
+## Checks
+
+| Check                                                     | Result                                                                                    |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Marker-wording mutation                                   | red on the reworded constant; reverted; `Tests 10 passed (10)`                            |
+| Forced-colours mutations A–D                              | A `1 passed` (no-op, explained), B `1 passed` ×2, C **red**, D `1 passed`; all reverted   |
+| DOM + width-state + route-files + reachability + site-map | `Test Files 5 passed (5)` / `Tests 28 passed (28)`                                        |
+| Browser proof, chromium                                   | **`9 passed (10.0s)`**                                                                    |
+| **`npm run test`**                                        | **`Test Files 698 passed \| 2 skipped (700)` / `Tests 7740 passed \| 29 skipped (7769)`** |
+| `tsc -p tsconfig.json --noEmit`                           | exit 0, no diagnostics                                                                    |
+| `npx eslint` on every changed file                        | clean (one unused-import warning found and removed)                                       |
+| `npm run format`                                          | run; only `docs/codebase-index.md` reflowed                                               |
+
+`npm run ensure` was run before the browser work and printed `http://localhost:3651`; that
+server has since been stopped and no repo-owned server is listening. The temporary probe script
+used for the palette and range measurements was deleted.
+
+## Concerns
+
+1. **Minor 1's honest ceiling.** Only one assertion in the forced-colours test can fail on this
+   surface. That is a property of the design tokens already mapping to system colours, not
+   something more test code would fix. If you want stronger forced-colours proof, the lever is a
+   real high-contrast theme in CI, not another assertion here.
+2. **Nothing else outstanding.** The route census edit flagged in the previous round is
+   unchanged and still awaits your sanity check.
