@@ -352,7 +352,7 @@ function StatusBannerSurface({ children }: { children: ReactNode }) {
     <div
       role="status"
       data-testid="workspace-overlay-status-banner"
-      className="fixed inset-x-0 bottom-0 z-[var(--z-toast)] border-t border-[color:var(--border)] bg-[color:var(--surface-chrome)] px-4 pb-[var(--safe-area-bottom)] pt-4 shadow-[var(--shadow-elevated)] sm:px-6 forced-colors:bg-[Canvas]"
+      className="fixed inset-x-0 bottom-0 z-[var(--z-toast)] border-t border-[color:var(--border)] bg-[color:var(--surface-chrome)] px-4 pb-[var(--safe-area-bottom)] pt-4 shadow-[var(--e4)] sm:px-6 forced-colors:bg-[Canvas]"
     >
       <div className="mx-auto w-full max-w-6xl">{children}</div>
     </div>,
