@@ -1,5 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { validateJsonSchema } from "../scripts/lib/json-schema-contract-validator.mjs";
@@ -59,7 +61,18 @@ const operationalSchema = JSON.parse(
 const operationalTemplate = JSON.parse(
   readFileSync("docs/superpowers/rag-upgrade/canonical/operational-receipt.template.json", "utf8"),
 );
-const manifest = JSON.parse(readFileSync("docs/superpowers/rag-upgrade/canonical/programme-manifest.json", "utf8"));
+type ProgrammeManifest = {
+  phases: Array<{ id: string }>;
+  localPhases: Array<{ id: string; closesGate?: string | null }>;
+  requiredResidualGates: Array<{ id: string }>;
+  adaptiveEffortPolicy: {
+    highLaunchPhases: string[];
+    xhighLaunchPhases: string[];
+  };
+};
+const manifest = JSON.parse(
+  readFileSync("docs/superpowers/rag-upgrade/canonical/programme-manifest.json", "utf8"),
+) as ProgrammeManifest;
 
 describe("RAG plan execution packages", () => {
   it("keeps Local and Cloud task bodies identical and executable", () => {
@@ -81,6 +94,20 @@ describe("RAG plan execution packages", () => {
     expect(brief).toContain("# Exact task brief: P00/adaptive/task-0");
     expect(brief).toContain("### Task 0:");
     expect(brief).not.toContain("### Task 1:");
+  });
+
+  it("rejects a valueless --out flag", () => {
+    try {
+      execFileSync(
+        process.execPath,
+        ["scripts/rag-task-brief.mjs", "--variant", "cloud", "--phase", "P00", "--task", "0", "--out"],
+        { cwd: process.cwd(), encoding: "utf8", stdio: "pipe" },
+      );
+      throw new Error("expected rag-task-brief to fail");
+    } catch (error) {
+      expect(error).toMatchObject({ status: 1 });
+      expect(String((error as { stderr?: string }).stderr)).toContain("--out requires a value");
+    }
   });
 
   it("fails closed when the declared Cloud phase uses the wrong adaptive effort", () => {
@@ -108,6 +135,35 @@ describe("RAG plan execution packages", () => {
         stdio: "pipe",
       }),
     ).not.toThrow();
+  });
+
+  it("fails closed with schema errors instead of throwing on malformed connected receipts", () => {
+    const tmp = join(tmpdir(), `rag-connected-${process.pid}.json`);
+    writeFileSync(tmp, JSON.stringify({ schemaVersion: 1 }));
+    try {
+      execFileSync(process.execPath, ["scripts/check-rag-phase-receipts.mjs", "--connected", tmp], {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        stdio: "pipe",
+      });
+      throw new Error("expected connected receipt validation to fail");
+    } catch (error) {
+      expect(error).toMatchObject({ status: 1 });
+      const stderr = String((error as { stderr?: string }).stderr);
+      expect(stderr).toContain("missing required property");
+      expect(stderr).not.toContain("TypeError");
+    } finally {
+      unlinkSync(tmp);
+    }
+  });
+
+  it("validates operational prerequisite receipts against HEAD", () => {
+    const source = readFileSync("scripts/check-rag-phase-receipts.mjs", "utf8");
+    const start = source.indexOf("function validateOperationalReceipt");
+    const end = source.indexOf("const printVariant");
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    expect(source.slice(start, end)).toContain("readWorkingOrHeadJson(path, errors, requireTracked)");
   });
 
   it("enforces required, additional, enum, pattern, and strategy fields from the JSON Schema", () => {
@@ -192,6 +248,22 @@ describe("RAG plan execution packages", () => {
 
     expect(validateJsonSchema(connectedTemplate, connectedSchema)).toEqual([]);
     expect(validateJsonSchema(operationalTemplate, operationalSchema)).toEqual([]);
+
+    const acceptedWithoutTimestamp = structuredClone(operationalTemplate);
+    acceptedWithoutTimestamp.status = "accepted";
+    expect(validateJsonSchema(acceptedWithoutTimestamp, operationalSchema).join("\n")).toContain("oneOf");
+
+    const acceptedWithoutPass = structuredClone(operationalTemplate);
+    acceptedWithoutPass.status = "accepted";
+    acceptedWithoutPass.acceptedAt = "2026-08-23T00:00:00.000Z";
+    expect(validateJsonSchema(acceptedWithoutPass, operationalSchema).join("\n")).toContain("oneOf");
+
+    const acceptedOperational = structuredClone(operationalTemplate);
+    acceptedOperational.status = "accepted";
+    acceptedOperational.acceptedAt = "2026-08-23T00:00:00.000Z";
+    acceptedOperational.review.specVerdict = "PASS";
+    acceptedOperational.review.qualityVerdict = "PASS";
+    expect(validateJsonSchema(acceptedOperational, operationalSchema)).toEqual([]);
     const selfReportedLocalRoute = structuredClone(connectedTemplate);
     selfReportedLocalRoute.controllerRouting.routeEvidence.source = "self-report";
     expect(validateJsonSchema(selfReportedLocalRoute, connectedSchema).join("\n")).toContain("must be one of");
@@ -252,7 +324,7 @@ describe("RAG plan execution packages", () => {
     ];
     expect(new Set(launchIds).size).toBe(cloudIds.length);
     expect([...launchIds].sort()).toEqual([...cloudIds].sort());
-    expect(manifest.phases.at(-1).id).toBe("P17");
+    expect(manifest.phases.at(-1)?.id).toBe("P17");
     expect(manifest.localPhases.map((phase) => phase.id)).toEqual(
       Array.from({ length: 11 }, (_, index) => `L${String(index).padStart(2, "0")}`),
     );
@@ -307,6 +379,45 @@ describe("RAG plan execution packages", () => {
         "2026-08-23T03:30:00.000Z",
       ).join("\n"),
     ).toContain("not valid when operation");
+    expect(
+      connectedOperationAcceptanceErrors(
+        "L03",
+        ["migration-deploy"],
+        [{ ...approval, actions: ["supabase db inspect"] }],
+        [{ ...operation, outcome: "passed", commandOrAction: "supabase db push" }],
+        "2026-08-23T01:30:00.000Z",
+      ).join("\n"),
+    ).toContain("outside the approved action list");
+    expect(
+      connectedOperationAcceptanceErrors(
+        "L03",
+        ["migration-deploy"],
+        [{ ...approval, actions: ["supabase db inspect"] }],
+        [{ ...operation, outcome: "passed", commandOrAction: "supabase db inspect" }],
+        "2026-08-23T01:30:00.000Z",
+      ),
+    ).toEqual([]);
+    expect(
+      connectedOperationAcceptanceErrors(
+        "L03",
+        ["migration-deploy"],
+        [{ ...approval, approvedAt: "not-a-date" }],
+        [{ ...operation, outcome: "passed", commandOrAction: "supabase db inspect" }],
+        "2026-08-23T01:30:00.000Z",
+      ).join("\n"),
+    ).toContain("unparseable timestamp");
+    expect(
+      connectedOperationAcceptanceErrors(
+        "L03",
+        ["migration-deploy"],
+        [approval],
+        [{ ...operation, performedAt: "not-a-date", outcome: "passed" }],
+        "2026-08-23T01:30:00.000Z",
+      ).join("\n"),
+    ).toContain("unparseable performedAt");
+    expect(
+      connectedOperationAcceptanceErrors("L03", ["migration-deploy"], [approval], [operation], "not-a-date").join("\n"),
+    ).toContain("not a parseable timestamp");
   });
 
   it("fails closed on broken phase lineage, package identity, resume state, and reused agents", () => {

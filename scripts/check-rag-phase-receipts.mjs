@@ -53,6 +53,18 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
+function readWorkingOrHeadJson(path, errors, requireTracked) {
+  const relativePath = relative(repositoryRoot, path).split(sep).join("/");
+  if (requireTracked) validateTrackedReceipt(path, errors);
+  try {
+    const raw = requireTracked ? runGit(["show", `HEAD:${relativePath}`]) : readFileSync(path, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    errors.push(`${relativePath}: receipt is not valid JSON${requireTracked ? " at HEAD" : ""}`);
+    return null;
+  }
+}
+
 function argument(name) {
   const index = process.argv.indexOf(name);
   return index === -1 ? null : (process.argv[index + 1] ?? null);
@@ -509,6 +521,7 @@ function validateTaskEvidence(task, errors) {
 
 function validatePhaseReceipt(receipt, expectedPhaseId = null, requireTracked = false) {
   const errors = validateJsonSchema(receipt, phaseSchema);
+  if (errors.length > 0) return errors;
   const phase = manifest.phases.find((candidate) => candidate.id === receipt.phaseId);
   const accepted = receipt.status === "accepted";
   if (!phase) return [...errors, `unknown phaseId ${receipt.phaseId ?? "(missing)"}`];
@@ -747,6 +760,7 @@ function validateRequiredReceipt(phaseId, currentHead, errors) {
 
 function validateProgrammeReceipt(receipt, requireTracked) {
   const errors = validateJsonSchema(receipt, programmeSchema);
+  if (errors.length > 0) return errors;
   const accepted = receipt.status === "accepted";
   if (receipt.packageBaseSha !== manifest.reconciledBase)
     errors.push(`packageBaseSha must equal reconciledBase ${manifest.reconciledBase}`);
@@ -890,20 +904,29 @@ function validateLocalRouting(routing, expectedReasoning, label, errors, require
   }
 }
 
-function programmeReceiptIdentity(errors) {
+function programmeReceiptIdentity(errors, requireTracked = false) {
   const path = join(receiptRoot, "PROGRAMME.json");
   if (!existsSync(path)) {
     errors.push("local execution requires accepted PROGRAMME.json");
     return null;
   }
-  const receipt = readJson(path);
+  const receipt = readWorkingOrHeadJson(path, errors, requireTracked);
+  if (!receipt) return null;
   if (receipt.status !== "accepted") errors.push("local execution requires accepted PROGRAMME.json status");
   const commit = receiptCommit(path);
+  const relativePath = relative(repositoryRoot, path).split(sep).join("/");
+  let bytes;
+  try {
+    bytes = requireTracked ? Buffer.from(runGit(["show", `HEAD:${relativePath}`])) : readFileSync(path);
+  } catch {
+    errors.push(`${relativePath}: programme receipt bytes are unavailable${requireTracked ? " at HEAD" : ""}`);
+    return null;
+  }
   return {
-    path: relative(repositoryRoot, path).split(sep).join("/"),
+    path: relativePath,
     receipt,
     commit,
-    sha256: sha256(readFileSync(path)),
+    sha256: sha256(bytes),
   };
 }
 
@@ -941,6 +964,7 @@ function expectedRemainingGates(phaseId) {
 
 function validateConnectedReceipt(receipt, expectedPhaseId = null, requireTracked = false) {
   const errors = validateJsonSchema(receipt, connectedPhaseSchema);
+  if (errors.length > 0) return errors;
   const phase = manifest.localPhases.find((candidate) => candidate.id === receipt.phaseId);
   const accepted = receipt.status === "accepted";
   if (!phase) return [...errors, `unknown local phaseId ${receipt.phaseId ?? "(missing)"}`];
@@ -979,7 +1003,7 @@ function validateConnectedReceipt(receipt, expectedPhaseId = null, requireTracke
     if (!capabilityNames.has(skill)) errors.push(`${phase.id}: missing capability evidence for ${skill}`);
   }
   validateCapabilityEvidence(receipt.capabilityEvidence, `${phase.id}/capabilities`, errors, requireTracked);
-  const programme = programmeReceiptIdentity(errors);
+  const programme = programmeReceiptIdentity(errors, requireTracked);
   if (programme) {
     const binding = receipt.offlineProgrammeBinding;
     if (binding.programmeReceiptPath !== programme.path) errors.push(`${phase.id}: programme receipt path mismatch`);
@@ -1036,7 +1060,8 @@ function validateConnectedReceipt(receipt, expectedPhaseId = null, requireTracke
 
 function validateOperationalReceipt(receipt, requireTracked = false) {
   const errors = validateJsonSchema(receipt, operationalSchema);
-  const programme = programmeReceiptIdentity(errors);
+  if (errors.length > 0) return errors;
+  const programme = programmeReceiptIdentity(errors, requireTracked);
   const localReceipts = [];
   let l10Commit = null;
   for (const phase of manifest.localPhases) {
@@ -1045,7 +1070,8 @@ function validateOperationalReceipt(receipt, requireTracked = false) {
       errors.push(`operational acceptance requires ${phase.id} receipt`);
       continue;
     }
-    const local = readJson(path);
+    const local = readWorkingOrHeadJson(path, errors, requireTracked);
+    if (!local) continue;
     localReceipts.push(local);
     errors.push(...validateConnectedReceipt(local, phase.id, requireTracked).map((error) => `${phase.id}: ${error}`));
     if (local.status !== "accepted" || local.decision !== "GO") {
@@ -1177,7 +1203,8 @@ if (explicitConnectedReceipt) {
   if (!existsSync(path)) errors.push(`connected receipt does not exist: ${explicitConnectedReceipt}`);
   else {
     const requireTracked = process.argv.includes("--require-tracked");
-    errors.push(...validateConnectedReceipt(readJson(path), null, requireTracked));
+    const receipt = readJson(path);
+    errors.push(...validateConnectedReceipt(receipt, null, requireTracked));
     if (requireTracked) validateTrackedReceipt(path, errors);
   }
 }
@@ -1228,7 +1255,7 @@ if (beforeLocalPhaseId) {
   if (phaseIndex === -1) errors.push(`unknown --before-local phase ${beforeLocalPhaseId}`);
   else {
     const currentHead = runGit(["rev-parse", "HEAD"]).trim();
-    const programme = programmeReceiptIdentity(errors);
+    const programme = programmeReceiptIdentity(errors, true);
     if (programme) {
       errors.push(...validateProgrammeReceipt(programme.receipt, true).map((error) => `PROGRAMME: ${error}`));
     }
@@ -1237,7 +1264,8 @@ if (beforeLocalPhaseId) {
       const path = connectedReceiptPath(phase.id);
       if (!existsSync(path)) errors.push(`${beforeLocalPhaseId}: missing accepted local receipt ${phase.id}`);
       else {
-        const receipt = readJson(path);
+        const receipt = readWorkingOrHeadJson(path, errors, true);
+        if (!receipt) continue;
         priorLocalReceipts.push(receipt);
         errors.push(...validateConnectedReceipt(receipt, phase.id, true).map((error) => `${phase.id}: ${error}`));
         if (receipt.status !== "accepted" || receipt.decision !== "GO") {
@@ -1295,11 +1323,13 @@ if (acceptLocalPhaseId) {
       errors.push(`${acceptLocalPhaseId}: acceptance requires accepted GO`);
     }
     const phaseIndex = manifest.localPhases.findIndex((phase) => phase.id === acceptLocalPhaseId);
-    const priorLocalReceipts = manifest.localPhases
-      .slice(0, Math.max(phaseIndex, 0))
-      .map((phase) => connectedReceiptPath(phase.id))
-      .filter((priorPath) => existsSync(priorPath))
-      .map((priorPath) => readJson(priorPath));
+    const priorLocalReceipts = [];
+    for (const phase of manifest.localPhases.slice(0, Math.max(phaseIndex, 0))) {
+      const priorPath = connectedReceiptPath(phase.id);
+      if (!existsSync(priorPath)) continue;
+      const prior = readWorkingOrHeadJson(priorPath, errors, true);
+      if (prior) priorLocalReceipts.push(prior);
+    }
     validateConnectedAgentHistory(priorLocalReceipts, errors, receipt);
     validateTrackedReceipt(path, errors);
     const commit = receiptCommit(path);

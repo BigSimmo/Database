@@ -186,7 +186,7 @@ function validateCanonicalBodies() {
       errors.push(`programme-manifest.json: ${phaseId} has no phase-specific skill profile`);
     }
     const phase = manifest.phases.find((candidate) => candidate.id === phaseId);
-    const expectedReviewReasoning = manifest.adaptiveEffortPolicy.phaseReviewEscalations.includes(phaseId)
+    const expectedReviewReasoning = manifest.adaptiveEffortPolicy?.phaseReviewEscalations?.includes(phaseId)
       ? "xhigh"
       : "high";
     if (phase?.reviewReasoning !== expectedReviewReasoning) {

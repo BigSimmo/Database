@@ -266,16 +266,28 @@ export function operationalMetadataPaths(receipt, receiptPath) {
   ].filter(Boolean);
 }
 
+function parsedTimestamp(value) {
+  if (typeof value !== "string" || value.trim() === "") return Number.NaN;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
 export function connectedOperationAcceptanceErrors(phaseId, requiredClasses, approvals, operations, acceptedAt) {
   const errors = [];
+  const acceptedAtMs = parsedTimestamp(acceptedAt);
+  if (!Number.isFinite(acceptedAtMs)) {
+    errors.push(`${phaseId}: acceptedAt is not a parseable timestamp`);
+  }
   const approvalsById = new Map(approvals.map((approval) => [approval.authorizationId, approval]));
   const operationClasses = new Set(operations.map((operation) => operation.operationClass));
   for (const requiredClass of requiredClasses) {
     if (!operationClasses.has(requiredClass)) errors.push(`${phaseId}: missing required operation ${requiredClass}`);
   }
   for (const operation of operations) {
-    const performedAt = Date.parse(operation.performedAt);
-    if (!Number.isFinite(performedAt) || performedAt > Date.parse(acceptedAt)) {
+    const performedAt = parsedTimestamp(operation.performedAt);
+    if (!Number.isFinite(performedAt)) {
+      errors.push(`${phaseId}: operation ${operation.operationClass} has an unparseable performedAt`);
+    } else if (Number.isFinite(acceptedAtMs) && performedAt > acceptedAtMs) {
       errors.push(`${phaseId}: operation ${operation.operationClass} must occur no later than acceptance`);
     }
     if (operation.outcome !== "passed") {
@@ -290,7 +302,11 @@ export function connectedOperationAcceptanceErrors(phaseId, requiredClasses, app
       errors.push(`${phaseId}: operation ${operation.operationClass} references unknown approval`);
       continue;
     }
-    if (Date.parse(approval.approvedAt) > performedAt || Date.parse(approval.expiresAt) < performedAt) {
+    const approvedAt = parsedTimestamp(approval.approvedAt);
+    const expiresAt = parsedTimestamp(approval.expiresAt);
+    if (!Number.isFinite(approvedAt) || !Number.isFinite(expiresAt)) {
+      errors.push(`${phaseId}: approval has an unparseable timestamp`);
+    } else if (Number.isFinite(performedAt) && (approvedAt > performedAt || expiresAt < performedAt)) {
       errors.push(`${phaseId}: approval is not valid when operation ${operation.operationClass} was performed`);
     }
     if (!approval.actionClasses.includes(operation.operationClass)) {
@@ -298,6 +314,13 @@ export function connectedOperationAcceptanceErrors(phaseId, requiredClasses, app
     }
     if (approval.service !== operation.service || approval.target !== operation.target) {
       errors.push(`${phaseId}: operation ${operation.operationClass} must match approval service and target`);
+    }
+    if (Array.isArray(approval.actions) && approval.actions.length > 0) {
+      if (!approval.actions.includes(operation.commandOrAction)) {
+        errors.push(
+          `${phaseId}: command ${operation.commandOrAction ?? "(missing)"} is outside the approved action list`,
+        );
+      }
     }
   }
   if (phaseId === "L08") {

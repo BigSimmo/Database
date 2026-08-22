@@ -7,7 +7,7 @@ description: Execute one RAG Cloud phase with fresh agents, adaptive effort, imm
 
 Read the generated package and root `AGENTS.md`.
 
-1. Require `TARGET_PHASE` before inspection. Match the manifest high/xhigh launch set and repository xhigh marker. Run `scripts/rag-phase-launch-check.mjs`.
+1. Require `TARGET_PHASE` before inspection. Run `node scripts/rag-phase-launch-check.mjs --target TARGET_PHASE --effort high|xhigh` from the manifest launch set; add `--xhigh-confirmed` only for xhigh.
 2. Prove controller routing with the route-evidence schema. Hash this skill, helpers and phase skills. Dispatch the manifest-routed read-only probe; bind its ID and direct dispatch record. Stop on unverified route, runtime or capability.
 3. Scan the plan, receipts, relevant code, and worktrees for conflicts. Preserve unrelated or quarantined work.
 4. Record `TASK_BASE`; generate the brief; dispatch a fresh implementer; require proof, self-review and defined completion status.

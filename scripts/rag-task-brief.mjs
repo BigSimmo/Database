@@ -5,7 +5,10 @@ const root = resolve(import.meta.dirname, "..");
 
 function value(name, fallback = null) {
   const index = process.argv.indexOf(name);
-  return index === -1 ? fallback : process.argv[index + 1];
+  if (index === -1) return fallback;
+  const next = process.argv[index + 1];
+  if (!next || next.startsWith("--")) fail(`${name} requires a value`);
+  return next;
 }
 
 function fail(message) {
