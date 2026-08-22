@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -950,6 +950,19 @@ describe("Care Plan CMHT contact actions", () => {
     }
   });
 
+  it.each(["permission-unavailable", "version-conflict"])(
+    "prevents an unrecordable contact launch when %s blocks its audit intent",
+    (scenario) => {
+      renderRoute(CARE_PLAN_ROUTES.patient, `scenario=${scenario}`);
+      const email = screen.getByRole("link", { name: "Email North River CMHT" });
+
+      expect(email).toHaveAttribute("aria-disabled", "true");
+      expect(fireEvent.click(email)).toBe(false);
+      expect(screen.getByRole("alert")).toHaveTextContent(/nothing was changed|newer version/i);
+      expect(screen.queryByTestId("care-plan-outcome")).toBeNull();
+    },
+  );
+
   it("keeps unverified contact details visible with a warning, last-verified date and a Reviews link", () => {
     renderRoute(carePlanRoute.patient("SYN-PATIENT-003"));
     const contacts = screen.getByRole("region", { name: "Community mental health team" });
@@ -1263,6 +1276,24 @@ describe("Care Plan Management Plan print", () => {
     // The outcome notice is screen chrome and never travels onto the paper.
     expect(outcome.closest("[data-print-hide='true']")).not.toBeNull();
   });
+
+  it.each(["permission-unavailable", "version-conflict"])(
+    "does not open the browser print dialogue when %s blocks the print intent",
+    async (scenario) => {
+      const user = userEvent.setup();
+      const printSpy = vi.fn();
+      vi.stubGlobal("print", printSpy);
+      renderRoute(carePlanRoute.managementPlanPrint("SYN-PATIENT-001"), `scenario=${scenario}`);
+
+      const printButton = screen.getByRole("button", { name: /Print this plan/i });
+      expect(printButton).toHaveAttribute("aria-disabled", "true");
+      expect(printButton).toHaveAccessibleDescription(screen.getByTestId("care-plan-print-blocked").textContent ?? "");
+      await user.click(printButton);
+
+      expect(printSpy).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("care-plan-print-outcome")).toBeNull();
+    },
+  );
 
   it("keeps the print control off the paper", () => {
     renderRoute(carePlanRoute.managementPlanPrint("SYN-PATIENT-001"));

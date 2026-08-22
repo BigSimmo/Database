@@ -28,10 +28,12 @@ export function ClinicalSnapshotSurface({
   variant,
   patientId,
   scenario,
+  initialSearchQuery = "",
 }: {
   variant: ClinicalSnapshotVariant;
   patientId?: string;
   scenario: PrototypeScenario;
+  initialSearchQuery?: string;
 }) {
   const { state, dispatch } = useCarePlanPrototype();
 
@@ -136,12 +138,16 @@ export function ClinicalSnapshotSurface({
   return (
     <div className={styles.snapshotSplit}>
       <PatientDirectory
+        // A shell-submitted query changes the key so the directory's deliberately
+        // local editing state is seeded on navigation without a state-setting effect.
+        key={`${variant}:${initialSearchQuery}`}
         patients={state.patients}
         presentations={state.edPresentations}
         now={PROTOTYPE_NOW}
         selectedPatientId={state.selectedPatientId}
         onSelectPatient={(id) => dispatch({ type: "select-patient", patientId: id })}
         reviewsHref={CARE_PLAN_ROUTES.reviews}
+        initialQuery={initialSearchQuery}
         listAllWhenEmpty={variant === "patients"}
         planStatusFor={planStatusFor}
       />

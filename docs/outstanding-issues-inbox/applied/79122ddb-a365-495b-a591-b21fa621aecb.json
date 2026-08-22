@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "79122ddb-a365-495b-a591-b21fa621aecb",
+  "createdOn": "2026-08-22",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Nothing stops a future :has(#main-content…) rule inheriting the app-shell hydration gap that caused the mobile-/ CLS flake",
+    "detail": "FILED 2026-08-22 from the fix for #TYZK23 / #50QRCF / #KFRC3H (PR #2253, commit 0cf0493). Established by measurement, not inference: on a throttled phone load, #main-content is absent from the DOM for roughly two seconds while Next 16 streams the route in and React hydrates it (trace: present at t=4726ms, GONE at t=7855ms, back at t=9930ms). Any CSS keyed on body:has(#main-content…) therefore evaluates FALSE for a window during load, and any element mounting inside that window paints with the wrong geometry and is restyled when the shell returns. That is exactly the 0.2230 layout shift three ledger rows chased for a week across four candidate mechanisms. NO LIVE DEFECT TODAY: all eleven current consumers are the PWA install card (src/app/globals.css lines 3018-3047), and 0cf0493 defends that one consumer by holding the notice stack unmounted until the shell is present. What is missing is anything that stops the next one. There is no lint rule, no contract test, and no line in docs/search-chrome-behaviour.md warning that a shell-presence :has() is only sound for an element that cannot mount during hydration — so a twelfth consumer added anywhere would silently reintroduce a bistable CLS that took three ledger rows and several days to attribute. OPTIONS, cheapest first: (a) a paragraph in docs/search-chrome-behaviour.md beside the existing phone-chrome reserve rules, stating the gap and the condition; (b) a static contract test asserting every :has(#main-content…) rule targets a descendant of .pwa-notice-stack, which fails loudly the moment a consumer is added elsewhere and costs nothing to run; (c) a lint rule, almost certainly not worth it for eleven selectors. RECOMMEND (a) plus (b). STOP RULE: do not respond by deleting the :has() selectors. They are the correct way to express phone-composer ownership, and the gap is a property of streaming hydration, not a selector bug.",
+    "source": "commit 0cf0493 and the local reproduction trace, 2026-08-22; src/app/globals.css lines 3018-3047; related rows #TYZK23, #50QRCF, #KFRC3H",
+    "issueUlid": "01M0KYT2B62TAQDC83BFQSR2EX"
+  }
+}

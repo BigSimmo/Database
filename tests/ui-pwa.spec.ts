@@ -445,7 +445,7 @@ test.describe("Clinical KB PWA", () => {
       page.waitForURL((url) => url.pathname === "/" && url.search === "", { waitUntil: "domcontentloaded" }),
       page.getByRole("link", { name: "Try again" }).click(),
     ]);
-    await expect(page).toHaveTitle("Clinical KB");
+    await expect(page).toHaveTitle("Clinical Answers | Clinical KB");
     await expect(page.locator("#main-content")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Clinical KB is offline" })).toHaveCount(0);
 

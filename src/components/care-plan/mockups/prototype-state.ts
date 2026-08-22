@@ -1016,7 +1016,7 @@ export function prototypeReducer(
           message:
             staleTrigger === null
               ? `Version ${current.version} withdrawn. ${patient.preferredName} now has no Current Plan, and no earlier version was put back into use.`
-              : `Version ${current.version} withdrawn. ${patient.preferredName} now has no Current Plan, and no earlier version was put back into use. This person's Patient Plan was written from it and now needs updating; it stays readable and an open Review Trigger was raised.`,
+              : `Version ${current.version} withdrawn. ${patient.preferredName} now has no Current Plan, and their Patient Plan stays readable but needs updating; an open Review Trigger was raised.`,
         },
       };
     }
@@ -1260,11 +1260,54 @@ export function prototypeReducer(
         amendedAt: prototypeTimestamp(state),
       };
 
+      // The timeline renders an amendment over the original record. Review
+      // triggers must make the same decision from that effective record; using
+      // the stored original here leaves a newly corrected admission or adverse
+      // plan-use answer visible on screen but absent from Reviews.
+      const amendments = [...state.presentationAmendments, amendment];
+      const reviewRelevant = action.field === "planHelpfulness" || action.field === "disposition";
+      const effectivePresentation: EdPresentation = {
+        ...presentation,
+        planHelpfulness: getEffectivePresentationValue(amendments, presentation, "planHelpfulness") as PlanHelpfulness,
+        disposition: getEffectivePresentationValue(amendments, presentation, "disposition") as Disposition,
+      };
+      const patient = findPatient(state, presentation.patientId);
+      const plan = patient === null ? null : findManagementPlan(state, patient);
+      const hasEverHadAVersion =
+        plan !== null && state.managementPlanVersions.some((existing) => existing.planId === plan.id);
+      const candidate = reviewRelevant && hasEverHadAVersion ? reviewTriggerReasonFor(effectivePresentation) : null;
+      const alreadyOpen =
+        plan !== null &&
+        candidate !== null &&
+        state.reviewTriggers.some(
+          (trigger) =>
+            trigger.managementPlanId === plan.id && trigger.source === candidate.source && trigger.status === "open",
+        );
+      const newTrigger: ReviewTrigger | null =
+        plan !== null && candidate !== null && !alreadyOpen
+          ? {
+              id: nextSyntheticId(
+                "SYN-TRIGGER",
+                state.reviewTriggers.map(({ id }) => id),
+              ),
+              patientId: presentation.patientId,
+              managementPlanId: plan.id,
+              source: candidate.source,
+              sourceId: presentation.id,
+              reason: candidate.reason,
+              status: "open",
+              createdAt: prototypeTimestamp(state, 1),
+              resolvedAt: null,
+              resolution: null,
+            }
+          : null;
+
       return {
         ...state,
         // The episode is untouched. A correction is appended beside it, with who
         // made it, when, what it replaced, and why.
-        presentationAmendments: [...state.presentationAmendments, amendment],
+        presentationAmendments: amendments,
+        reviewTriggers: newTrigger === null ? state.reviewTriggers : [...state.reviewTriggers, newTrigger],
         auditEvents: withAudit(state, {
           type: "presentation_amended",
           patientId: presentation.patientId,
@@ -1273,7 +1316,10 @@ export function prototypeReducer(
         }),
         lastOutcome: {
           kind: "success",
-          message: "Correction recorded beside the original. The original ED Presentation record is unchanged.",
+          message:
+            newTrigger === null
+              ? "Correction recorded beside the original. The original ED Presentation record is unchanged."
+              : "Correction recorded beside the original. The original ED Presentation record is unchanged, and an open Review Trigger was raised for the team to look at.",
         },
       };
     }
@@ -1543,6 +1589,19 @@ export function prototypeReducer(
       const plan = state.patientPlans.find(({ id }) => id === version.planId) ?? null;
       if (plan === null) return refuse(state, "That version has no Patient Plan record.");
 
+      const patient = findPatient(state, plan.patientId);
+      const managementPlan = patient === null ? null : findManagementPlan(state, patient);
+      const currentManagement =
+        managementPlan === null
+          ? null
+          : getCurrentManagementPlanVersion(state.managementPlanVersions, managementPlan.id);
+      if (currentManagement === null || currentManagement.id !== version.derivedFromManagementVersionId) {
+        return refuse(
+          state,
+          `Patient Plan version ${version.version} was made from a Management Plan that is no longer Current, so it cannot be approved. Start a new copy from the agreed plan instead.`,
+        );
+      }
+
       const approver = state.users.find(({ id }) => id === state.activeUserId) ?? null;
       if (approver === null || isBlank(approver.displayName)) {
         return refuse(state, "Approval must name the clinician approving it. Nothing was changed.");
@@ -1559,29 +1618,6 @@ export function prototypeReducer(
         return refuse(
           state,
           `Patient Plan version ${version.version} cannot be approved while ${gaps.length} ${gaps.length === 1 ? "section is" : "sections are"} still blank: ${gaps.map((section) => section.heading).join("; ")}. A blank heading on a copy handed to somebody reads as though nothing about them was worth writing.`,
-        );
-      }
-
-      /**
-       * The Management Plan can move on while this draft sits open — another
-       * version approved, or the source withdrawn — and a draft is not
-       * revalidated against that until the moment it is itself approved. What
-       * must not happen is turning an already-obsolete draft into the Current
-       * Patient Plan copy: it would print as current when it was written from
-       * a version nobody is treating as current any more, and because no
-       * Patient Plan was current when the source moved on, the ordinary
-       * stale-copy Review Trigger was never raised for it either.
-       */
-      const draftPatient = findPatient(state, plan.patientId);
-      const sourceManagementPlan = draftPatient === null ? null : findManagementPlan(state, draftPatient);
-      const sourceCurrentVersion =
-        sourceManagementPlan === null
-          ? null
-          : getCurrentManagementPlanVersion(state.managementPlanVersions, sourceManagementPlan.id);
-      if (sourceCurrentVersion === null || version.derivedFromManagementVersionId !== sourceCurrentVersion.id) {
-        return refuse(
-          state,
-          `Patient Plan version ${version.version} was written from a Management Plan version that is no longer the Current Plan, so it cannot be approved as though it still matched. Start a new draft from the Current Plan and go through it again with this person.`,
         );
       }
 

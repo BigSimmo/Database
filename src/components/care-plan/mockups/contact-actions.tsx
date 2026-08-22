@@ -105,13 +105,31 @@ export function ContactActions({
       </dl>
 
       <div className={styles.contactActions} data-print-hide="true">
-        <a href={buildCmhtMailto(contact)} className={styles.contactAction} onClick={handleLaunch("email")}>
+        <a
+          href={buildCmhtMailto(contact)}
+          className={styles.contactAction}
+          onClick={handleLaunch("email")}
+          aria-disabled={blockedReason === null ? undefined : "true"}
+          aria-describedby={blockedReason === null ? undefined : "care-plan-contact-blocked"}
+        >
           {`Email ${contact.name}`}
         </a>
-        <a href={buildCmhtTel(contact)} className={styles.contactAction} onClick={handleLaunch("call")}>
+        <a
+          href={buildCmhtTel(contact)}
+          className={styles.contactAction}
+          onClick={handleLaunch("call")}
+          aria-disabled={blockedReason === null ? undefined : "true"}
+          aria-describedby={blockedReason === null ? undefined : "care-plan-contact-blocked"}
+        >
           {`Call ${contact.name}`}
         </a>
-        <a href={buildCmhtTel(contact, "after_hours")} className={styles.contactAction} onClick={handleLaunch("call")}>
+        <a
+          href={buildCmhtTel(contact, "after_hours")}
+          className={styles.contactAction}
+          onClick={handleLaunch("call")}
+          aria-disabled={blockedReason === null ? undefined : "true"}
+          aria-describedby={blockedReason === null ? undefined : "care-plan-contact-blocked"}
+        >
           Call the after-hours line
         </a>
       </div>
@@ -132,7 +150,7 @@ export function ContactActions({
       )}
 
       {blockedReason === null ? null : (
-        <p role="alert" data-testid="care-plan-contact-blocked" className={styles.contactWarning}>
+        <p id="care-plan-contact-blocked" role="alert" data-testid="care-plan-contact-blocked" className={styles.contactWarning}>
           {blockedReason}
         </p>
       )}

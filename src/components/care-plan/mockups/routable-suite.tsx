@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CarePlanShellFrame } from "./care-plan-shell-frame";
 import styles from "./care-plan.module.css";
@@ -315,6 +315,7 @@ export type CarePlanRouteSurfaceProps = {
  */
 export function CarePlanRouteSurface({ pathname, query = "", navigate }: CarePlanRouteSurfaceProps) {
   const { state, dispatch } = useCarePlanPrototype();
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
   const route = useMemo(() => resolveCarePlanRoute(pathname), [pathname]);
   const scenario = useMemo(() => scenarioFromQuery(query), [query]);
   const activeUser = state.users.find((user) => user.id === state.activeUserId);
@@ -371,13 +372,21 @@ export function CarePlanRouteSurface({ pathname, query = "", navigate }: CarePla
       }}
       prototypeUsers={state.users}
       onSelectUser={(userId) => dispatch({ type: "set-active-user", userId: userId as SyntheticId })}
-      onSearchSubmit={() => navigate(CARE_PLAN_ROUTES.patients)}
+      onSearchSubmit={(searchQuery) => {
+        setPatientSearchQuery(searchQuery);
+        navigate(CARE_PLAN_ROUTES.patients);
+      }}
       // Home and Patients own an in-flow directory search, so the shell stands
       // its own composer down rather than putting two search fields on one page.
       routeOwnsSearch={snapshotVariant === "home" || snapshotVariant === "patients"}
     >
       {snapshotVariant !== undefined ? (
-        <ClinicalSnapshotSurface variant={snapshotVariant} patientId={patientId ?? undefined} scenario={scenario} />
+        <ClinicalSnapshotSurface
+          variant={snapshotVariant}
+          patientId={patientId ?? undefined}
+          scenario={scenario}
+          initialSearchQuery={snapshotVariant === "patients" ? patientSearchQuery : ""}
+        />
       ) : route.key === ROUTE_DEFINITIONS.managementPlan.key ? (
         <ManagementPlanSurface patientId={patientId} scenario={scenario} />
       ) : route.key === ROUTE_DEFINITIONS.managementPlanEdit.key ? (

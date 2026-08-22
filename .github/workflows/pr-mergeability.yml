@@ -69,6 +69,8 @@ jobs:
                 mergeable: latestPr.mergeable,
                 mergeableState: latestPr.mergeable_state,
                 draft: latestPr.draft,
+                state: latestPr.state,
+                merged: latestPr.merged,
               });
 
               await core.summary
@@ -158,6 +160,8 @@ jobs:
                     mergeable: latestPr.mergeable,
                     mergeableState: latestPr.mergeable_state,
                     draft: latestPr.draft,
+                    state: latestPr.state,
+                    merged: latestPr.merged,
                   });
                   if (verdict.action !== "retry") break;
                   if (attempt < maxAttempts) await sleep(3000);

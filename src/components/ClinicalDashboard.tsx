@@ -89,6 +89,7 @@ import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import {
+  mobileComposerIdleReserve,
   resolveDashboardVisibleMobileComposerReserve,
   resolveMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
@@ -117,7 +118,7 @@ import {
   setupRecheckPollMs,
   shorterPollDelay,
 } from "@/components/clinical-dashboard/clinical-dashboard-helpers";
-import { answerRecovery, errorCopy } from "@/lib/ui-copy";
+import { answerRecovery, errorCopy, sharedHomeDocumentTitle } from "@/lib/ui-copy";
 import { summarizeBulkReindexPayload } from "@/lib/bulk-reindex-results";
 import {
   type DocumentDrawerMode,
@@ -2984,6 +2985,13 @@ export function ClinicalDashboard({
     loading,
     submittedAnswerSearchActive,
   });
+  // The mode pill rewrites the shared-home URL with history.replaceState rather
+  // than asking Next to navigate. Server metadata therefore cannot update after
+  // an in-place mode choice; keep the accessible browser title aligned with the
+  // visible mode heading on that client-only path as well.
+  useEffect(() => {
+    if (showSharedHome) document.title = sharedHomeDocumentTitle(searchMode);
+  }, [searchMode, showSharedHome]);
   const showAnswerPending =
     activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
   const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
@@ -3006,10 +3014,16 @@ export function ClinicalDashboard({
         activeModeResultKind === "services" ||
         activeModeResultKind === "forms") &&
         modeSearchSubmitted));
+  // `/tools` owns the tools catalogue, but the legacy `/?mode=tools` entry
+  // still renders this dashboard path. Keep both entry points composer-free so
+  // the alias cannot mount a second ownership model (hero/page/dock) behind
+  // the canonical route's no-composer contract. Modes that only borrow the
+  // `tools` result kind remain on the shared home and are intentionally exempt.
+  const toolsDirectoryWithoutComposer = activeModeResultKind === "tools" && !showSharedHome;
   const showDesktopHomeComposer =
     !error &&
     (showSharedHome ||
-      activeModeResultKind === "tools" ||
+      (!toolsDirectoryWithoutComposer && activeModeResultKind === "tools") ||
       (activeModeResultKind === "favourites" && favouritesAccessible) ||
       (!loading &&
         ((searchMode === "documents" &&
@@ -3026,14 +3040,21 @@ export function ClinicalDashboard({
             !(query.trim() && documentMatches.length > 0)))));
   const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
   const desktopResultComposerSlotId =
-    !desktopHomeComposerSlotId && searchMode !== "answer" ? desktopPageComposerSlotId : undefined;
-  // Most mounted mode homes keep the in-flow hero pill on phones. Tools is the
-  // deliberate exception: its content-rich directory keeps the compact footer.
-  // Modes borrowing `kind: "tools"` (Factsheets, Dictionary, Therapy Compass) opt back in via `showSharedHome`.
+    !desktopHomeComposerSlotId && searchMode !== "answer" && !toolsDirectoryWithoutComposer
+      ? desktopPageComposerSlotId
+      : undefined;
+  // Most mounted mode homes keep the in-flow hero pill on phones. The Tools
+  // directory has no composer at any breakpoint. Modes borrowing `kind:
+  // "tools"` (Factsheets, Dictionary, Therapy Compass) opt back in via
+  // `showSharedHome`.
   const heroComposerBreakpoint =
     showDesktopHomeComposer && (showSharedHome || activeModeResultKind !== "tools") ? "all" : "sm-up";
   const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
-  const hasMobileBottomSearch = searchMode !== "answer" && !heroOwnsPhoneComposer;
+  const hasMobileBottomSearch = searchMode !== "answer" && !heroOwnsPhoneComposer && !toolsDirectoryWithoutComposer;
+  // Tools owns its local catalogue controls, so the sidebar's cross-guide
+  // search action must leave the directory before trying to focus a shared
+  // composer that is intentionally absent.
+  const openSidebarSearch = toolsDirectoryWithoutComposer ? startNewChat : focusComposerInput;
   // Favourites and Tools are content-rich hubs that stay top-aligned; the shared
   // home mounts neither, so it centres like every other mode.
   const centeredModeHome =
@@ -3053,13 +3074,15 @@ export function ClinicalDashboard({
   // Hidden dock pad must stay at 0rem — Safari toolbar safe-area recreates a blank band.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,
-    resolveDashboardVisibleMobileComposerReserve({
-      searchMode,
-      hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
-      differentialsCompareAddonActive,
-      patientDetailsAddonActive,
-      heroOwnsPhoneComposer,
-    }),
+    toolsDirectoryWithoutComposer
+      ? mobileComposerIdleReserve
+      : resolveDashboardVisibleMobileComposerReserve({
+          searchMode,
+          hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
+          differentialsCompareAddonActive,
+          patientDetailsAddonActive,
+          heroOwnsPhoneComposer,
+        }),
   );
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
   const setupCheckCount = setupChecks.length || fallbackSetupChecks.length;
@@ -3268,7 +3291,7 @@ export function ClinicalDashboard({
         onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
         onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
-        onOpenSearch={focusComposerInput}
+        onOpenSearch={openSidebarSearch}
         showAccountLibrary={favouritesAccessible}
       />
       <PhoneFooterLayerFrame
@@ -3329,6 +3352,7 @@ export function ClinicalDashboard({
           composerFollowUpSuggestionsDisabled={loading}
           showPhoneSuggestionTickerOnHome={heroOwnsPhoneComposer}
           sharedHomeIdentity={showSharedHome}
+          searchComposerVisible={!toolsDirectoryWithoutComposer}
           composerPlaceholder={searchMode === "answer" && latestAnswerQuery ? "Ask a follow-up..." : undefined}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
           // Every phone dock is the compact single-row pill so content keeps
@@ -4064,7 +4088,7 @@ export function ClinicalDashboard({
           onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
           onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
           onPrefetchApplications={prefetchApplications}
-          onOpenSearch={focusComposerInput}
+          onOpenSearch={openSidebarSearch}
           showAccountLibrary={favouritesAccessible}
         />
       </PhoneFooterLayerFrame>

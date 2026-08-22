@@ -1108,7 +1108,7 @@ describe("Patient Plan staleness", () => {
     const attempt = prototypeReducer(movedOn, { type: "approve-patient-plan-version", versionId: draft.id });
 
     expect(attempt.lastOutcome?.kind).toBe("error");
-    expect(attempt.lastOutcome?.message).toMatch(/no longer the Current Plan/i);
+    expect(attempt.lastOutcome?.message).toMatch(/no longer Current/i);
     // Nothing was promoted: the draft stays a draft and no Patient Plan
     // became Current from an already-obsolete source.
     expect(attempt.patientPlanVersions.find(({ id }) => id === draft.id)?.state).toBe("draft");

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "7c0f035c-2b63-47c2-b5a6-6df0118fdb9f",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "Two independent auto-fixers can answer the same PR review comment, and only one of them is governed or documented",
+    "detail": "On PR #2249 a single Codex review comment on .claude/hooks/push-format-guard.sh drew more than one responder: this repo's .github/workflows/codex-autofix-review-comments.yml, and an app-level 'Autofix pull requests' watcher that also instructed a live session to do the identical work. Two complete fixes were built independently and one was discarded. Evidence in local git history: commit 687b166d (author 'Claude', 2026-08-21T19:41:56Z) and c9d990aa (author 'BigSimmo', +0800) both edit the same hook on the same branch claude/push-guard-hookspath-relative; b9414fa0 and 94b6c291 are two separate 'merge main into claude/push-guard-hookspath-relative' commits made minutes apart by those two different identities, and 828106a5 merges the branch into itself to reconcile the divergence. The repo-side Codex workflow carries real safeguards: trusted-bot login gating, a per-PR dedup marker, one automatic repair pass per PR lifetime, and a skip-codex-review opt-out. The app-level watcher has none of these, and the string 'Autofix pull requests' appears nowhere in .github/ or docs/ - it is in neither the repository nor the tooling map, while docs/agents-guide.md line 44 assigns 'Primary PR code-review + automatic resolve' to Codex alone. Next: decide which responder owns automatic resolve, then either document and throttle the app-level watcher in docs/agents-guide.md or disable it, so one comment cannot spawn two competing fixes. Sibling of the ledger item recording the same failure between two human-driven sessions.",
+    "source": "PR #2259 review; verified against local git history at origin/main 226bd32c (687b166d, c9d990aa, b9414fa0, 94b6c291, 828106a5); replaces a mis-filed payload that duplicated inbox request 67bf71cf-25cb-40d9-a8a2-bbf993bf6b29",
+    "issueUlid": "01M0K1F646JZM7RMCMPM6W5J0H"
+  }
+}

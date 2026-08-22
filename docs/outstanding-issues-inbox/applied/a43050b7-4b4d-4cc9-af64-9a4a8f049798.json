@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "a43050b7-4b4d-4cc9-af64-9a4a8f049798",
+  "createdOn": "2026-08-21",
+  "action": "cancel",
+  "payload": {
+    "requestId": "3552c196-bf4f-49c8-a39b-28f8876d8caf",
+    "reason": "Duplicate done request created by overlapping command completion; retain 4bc642e9-5fba-4b43-90e8-407fe2c11408."
+  }
+}
