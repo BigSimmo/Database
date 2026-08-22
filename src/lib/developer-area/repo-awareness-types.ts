@@ -54,3 +54,17 @@ export type TestHealthSection = {
   quarantined: QuarantinedTest[];
   counts: { quarantined: number };
 };
+
+export type ReviewRecord = {
+  date: string;
+  ref: string;
+  head: string;
+  scope: string;
+  outcome: string;
+  checks: string;
+};
+
+export type ReviewStateSection = {
+  records: ReviewRecord[];
+  counts: { records: number; refs: number };
+};

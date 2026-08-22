@@ -1,11 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { appModeDefinitions, appModeHomeHref } from "@/lib/app-modes";
 import {
   REPO_AWARENESS_SNAPSHOT_VERSION,
   type DocumentationSection,
+  type ReviewStateSection,
   type RouteArea,
   type RoutesSection,
   type TestHealthSection,
@@ -259,4 +260,85 @@ export function readFlakeLedger(ledgerPath = FLAKE_LEDGER_PATH): FlakeLedgerFile
     );
   }
   return ledger;
+}
+
+export const REVIEW_RECORDS_DIR = "docs/branch-review-records";
+
+const RECORD_ROW = /^\|\s*\d{4}-\d{2}-\d{2}\s*\|/;
+
+/**
+ * Escape-aware, and it unescapes as it goes. Deliberately NOT `splitCells` from
+ * `scripts/outstanding-issues.mjs`, for two independent reasons:
+ *
+ *  1. That module is JavaScript with no type declarations, so importing it here
+ *     would put an implicit `any` into a strict TypeScript build.
+ *  2. It deliberately PRESERVES `\|` because the ledger tooling round-trips
+ *     cells back into markdown, and unescaping there would emit a bare pipe
+ *     into a table row and corrupt `issues:reconcile`. This snapshot is a
+ *     one-way export, so it must do the opposite — the same split Phase 1
+ *     documented when it put `unescapeCell` in the generator rather than in the
+ *     shared splitter.
+ *
+ * `tests/repo-awareness-generator.test.ts` runs the whole committed corpus
+ * through this function, so a divergence in behaviour fails on real data.
+ */
+function splitRecordCells(line: string): string[] {
+  const inner = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  const cells: string[] = [];
+  let cell = "";
+  for (let index = 0; index < inner.length; index += 1) {
+    if (inner[index] === "\\" && inner[index + 1] === "|") {
+      cell += "|";
+      index += 1;
+      continue;
+    }
+    if (inner[index] === "|") {
+      cells.push(cell.trim());
+      cell = "";
+      continue;
+    }
+    cell += inner[index];
+  }
+  cells.push(cell.trim());
+  return cells;
+}
+
+export function readReviewRecordRows(dir = REVIEW_RECORDS_DIR): { file: string; line: string }[] {
+  return readdirSync(dir)
+    .filter((name) => name.endsWith(".record.md"))
+    .sort()
+    .map((name) => {
+      const file = `${dir}/${name}`;
+      const line = readFileSync(file, "utf8")
+        .split("\n")
+        .map((entry) => entry.trim())
+        .find((entry) => RECORD_ROW.test(entry));
+      if (!line) throw new Error(`${file}: no review record row found.`);
+      return { file, line };
+    });
+}
+
+export function buildReviewStateSection(rows: readonly { file: string; line: string }[]): ReviewStateSection {
+  const records = rows
+    .map(({ file, line }) => {
+      const cells = splitRecordCells(line);
+      if (cells.length !== 6) {
+        throw new Error(`${file}: expected 6 columns in the review record row, found ${cells.length}.`);
+      }
+      const [date, ref, head, scope, outcome, checks] = cells;
+      // `head` is kept verbatim. Older records carry abbreviated SHAs, and
+      // rejecting them would drop real reviews from the panel.
+      return { date, ref, head, scope, outcome, checks };
+    })
+    // Newest first, then ref, then head — a total order, so two records sharing
+    // a date cannot swap places between runs and fail the staleness gate.
+    .sort(
+      (left, right) =>
+        right.date.localeCompare(left.date) || left.ref.localeCompare(right.ref) || left.head.localeCompare(right.head),
+    );
+
+  return {
+    records,
+    counts: { records: records.length, refs: new Set(records.map((record) => record.ref)).size },
+  };
 }

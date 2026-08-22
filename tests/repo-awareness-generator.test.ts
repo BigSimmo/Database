@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { appModeDefinitions } from "@/lib/app-modes";
 import {
   buildDocumentationSection,
+  buildReviewStateSection,
   buildRoutesSection,
   buildTestHealthSection,
   readFlakeLedger,
@@ -239,6 +240,82 @@ describe("buildTestHealthSection", () => {
       expect(() => readFlakeLedger(bad)).toThrow(/flake-ledger\.json: expected a "flakes" array/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+const ROW_A = {
+  file: "docs/branch-review-records/aaa.record.md",
+  line: "| 2026-08-15 | claude/one | 02d2e7fc839cf370b512f66b255d5f9e9b42f377 | ledger triage | Approved | ledger guards passed |",
+};
+const ROW_B = {
+  file: "docs/branch-review-records/bbb.record.md",
+  line: "| 2026-08-20 | claude/two | 639108f07aa1bcd2ee3344556677889900aabbcc | hub | Approved | 2 failed \\| 14 passed |",
+};
+
+describe("buildReviewStateSection", () => {
+  it("parses the six columns of a record row", () => {
+    const section = buildReviewStateSection([ROW_A]);
+    expect(section.records).toEqual([
+      {
+        date: "2026-08-15",
+        ref: "claude/one",
+        head: "02d2e7fc839cf370b512f66b255d5f9e9b42f377",
+        scope: "ledger triage",
+        outcome: "Approved",
+        checks: "ledger guards passed",
+      },
+    ]);
+  });
+
+  it("unescapes a markdown-escaped pipe, so no reader sees a literal backslash", () => {
+    // The escape is a markdown-table artifact. Carrying it into JSON is how the
+    // Phase 1 ledger page came to render "2 failed \\| 14 passed".
+    const section = buildReviewStateSection([ROW_B]);
+    expect(section.records[0].checks).toBe("2 failed | 14 passed");
+  });
+
+  it("orders newest first so the most recent review is the first thing read", () => {
+    const section = buildReviewStateSection([ROW_A, ROW_B]);
+    expect(section.records.map((record) => record.ref)).toEqual(["claude/two", "claude/one"]);
+  });
+
+  it("counts records and distinct refs", () => {
+    const again = { file: "docs/branch-review-records/ccc.record.md", line: ROW_A.line };
+    const section = buildReviewStateSection([ROW_A, ROW_B, again]);
+    expect(section.counts).toEqual({ records: 3, refs: 2 });
+  });
+
+  it("fails loudly and names the file when a row has the wrong number of columns", () => {
+    const short = { file: "docs/branch-review-records/ddd.record.md", line: "| 2026-08-15 | claude/one |" };
+    expect(() => buildReviewStateSection([short])).toThrow(/ddd\.record\.md/);
+  });
+
+  it("keeps an abbreviated head verbatim rather than rejecting the record", () => {
+    // Older records were written with abbreviated SHAs. Rejecting them would
+    // drop real reviews from the panel, which is the failure mode the
+    // no-silent-drop rule exists to prevent — loudly or otherwise.
+    const abbreviated = {
+      file: "docs/branch-review-records/eee.record.md",
+      line: "| 2026-01-02 | r | 1a2b3c4 | s | o | c |",
+    };
+    expect(buildReviewStateSection([abbreviated]).records[0].head).toBe("1a2b3c4");
+  });
+});
+
+describe("the real review record corpus", () => {
+  it("parses every committed record into six populated columns", async () => {
+    // Real-data proof for the locally-owned splitter. A fixture-only test would
+    // not have caught the escaped pipes that actually appear in the corpus.
+    const { readReviewRecordRows, buildReviewStateSection: build } =
+      await import("../scripts/generate-repo-awareness-snapshot");
+    const section = build(readReviewRecordRows());
+    expect(section.counts.records).toBeGreaterThan(400);
+    for (const record of section.records) {
+      expect(record.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(record.ref.length).toBeGreaterThan(0);
+      expect(record.head).toMatch(/^[0-9a-f]{7,40}$/);
+      expect(record.checks).not.toMatch(/\\\|/);
     }
   });
 });
