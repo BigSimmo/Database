@@ -2231,3 +2231,56 @@ An existing test went red because the new file's header comment _mentioned_ the 
 prose. The implementer reworded its comment and touched no assertion, which is correct. The guard is a
 source-text scan and cannot distinguish a prose mention from an import — a known and acceptable
 limitation, recorded so the next author to hit it does not think they have found a bug.
+
+### Task 17 task review — APPROVED, zero Critical and zero Important
+
+**The first task on this branch to draw no Important finding.**
+
+The reviewer did not take the transcription on trust. It parsed the matrix document and `definitions.ts`
+**independently of the committed test**, applied its own normalisation tables, and compared row by row:
+24 rows, six fields deep, **zero mismatches**. Id order identical to both the brief and the document, 16
+mutating, fresh authentication exactly `withdrawal` and `reassignment`, every modality tally matching, no
+prohibited vocabulary anywhere in the file including comments, Australian English and sentence case
+throughout, no bare dash.
+
+That independent re-derivation is what makes this table trustworthy as the contract Tasks 18 and 19 build
+on — a review that only read the committed test would have been checking the test against itself.
+
+Four things it called better than asked for: `MUTATING_OVERLAY_IDS` derived from the table rather than
+hand-listed, removing a second copy that could drift; the mutation column read through an explicit
+three-entry table, so `Yes; two stage` without a hyphen now throws instead of silently reading as
+one-stage; surfacing the `action-only` discrepancy rather than smoothing it; and comments explaining _why_
+not to tidy away the reserved member or replace the lookups with a transform — precisely the two edits a
+future author is most likely to make.
+
+**On Ruling 57's totality it went further than I asked.** It checked the adjacent hole: if the matrix's
+columns were reordered or one inserted, the shifted cell text lands in a lookup table whose vocabulary
+does not overlap, so column drift also fails loudly rather than silently.
+
+### Five Minors, all the same class, all sent for fixing
+
+Every one is an assertion that cannot fail, which is why none was left:
+
+1. A lookup comparison where both sides optional-chain over the same array, so a renamed row makes both
+   sides `undefined` and the assertion passes. **A lookup test that passes when the thing it looks up is
+   missing is not testing the lookup.**
+2. `MUTATING_OVERLAY_IDS` asserted against the very expression that defines it — the code re-derived
+   against itself. The reviewer noted it would become meaningful if the export were later hand-written; I
+   rejected that as sufficient, because "meaningful later" is exactly how a decorative assertion earns
+   its place and then never leaves. **Repointed at the frozen record**: it now asserts against the matrix
+   document's own mutation column, so it bites today AND still catches the hand-written-list regression.
+3. A lookup on a plain object literal, so a matrix cell reading `constructor` returns a function rather
+   than `undefined`. No silent pass is possible — a function is not a modality string — but the message
+   would be illegible. Made unconditional rather than incidental.
+4. The file calls itself a frozen contract while `Object.freeze` is shallow and the fields are not
+   `readonly`, so the renderer could mutate a definition at runtime and at type level. **Make the type say
+   what the comment claims.**
+5. The matrix column headers are taken on faith. Column drift already fails closed through the
+   normalisation, but it reports "unmapped phone modality value `Dialog`" rather than "the columns moved",
+   which sends the next reader hunting the wrong thing.
+
+### Left deliberately unguarded, and the reviewer agreed
+
+`tone` joins `summary`, `decision` and `availability`: no matrix column, so nothing compares it. Inventing
+a check would pin the implementer's own choices while looking like verification of the frozen record. All
+four go to the owner for a human read.
