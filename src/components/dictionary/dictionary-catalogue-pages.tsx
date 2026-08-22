@@ -305,7 +305,7 @@ export function DictionaryCataloguePage() {
             aria-controls="dictionary-catalogue-results"
             onClick={() => setOne("view", option.value, "definitions")}
             className={cn(
-              "inline-flex items-center gap-1 px-2 text-xs font-extrabold transition-colors motion-reduce:transition-none sm:px-3",
+              "inline-flex items-center gap-0.5 px-1.5 text-xs font-extrabold transition-colors motion-reduce:transition-none sm:gap-1 sm:px-3",
               focusRing,
               active
                 ? "bg-[color:var(--tone-purple)] text-[color:var(--surface)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
@@ -337,7 +337,7 @@ export function DictionaryCataloguePage() {
       data-testid="dictionary-letter-chip"
       title="Jump to a letter"
       className={cn(
-        "inline-flex min-h-tap shrink-0 items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:hidden",
+        "inline-flex min-h-tap shrink-0 items-center gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:hidden",
         focusRing,
       )}
     >
@@ -427,10 +427,11 @@ export function DictionaryCataloguePage() {
           </div>
         ) : null}
         <div className="border-y border-[color:var(--border)] bg-[color:var(--surface)]">
-          <div className="mx-auto grid w-full max-w-[76rem] gap-2 px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
-            {/* Wraps rather than clips: at 320px the controls want 284px against
-                270px of track, so the Filter control drops to a second line
-                instead of squeezing the toggle's counts out of view. */}
+          <div className="mx-auto grid w-full max-w-[76rem] gap-1.5 px-3 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
+            {/* The phone gutter and internal gaps are deliberately tight enough
+                for the complete labels to stay on one row at 390px. At 320px the
+                intrinsic controls still wrap rather than squeezing counts or
+                clipping the Filter wordmark. */}
             <div className="flex flex-wrap items-center gap-2">
               {scopeToggle}
               {/* The alphabet is meaningless against a ranked result set, so it
