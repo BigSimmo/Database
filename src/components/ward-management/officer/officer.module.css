@@ -12,7 +12,7 @@
   --of-space-14: 0.875rem;
   --of-space-16: 1rem;
   --of-space-20: 1.25rem;
-  --of-space-48: 3rem;
+  --of-space-48: var(--spacing-tap);
   --of-leading-body: 1.4;
   --of-leading-prose: 1.5;
   /*

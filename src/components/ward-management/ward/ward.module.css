@@ -15,7 +15,7 @@
   --wd-space-14: 0.875rem;
   --wd-space-16: 1rem;
   --wd-space-20: 1.25rem;
-  --wd-space-48: 3rem;
+  --wd-space-48: var(--spacing-tap);
   --wd-leading-body: 1.4;
   --wd-leading-prose: 1.5;
   display: grid;
