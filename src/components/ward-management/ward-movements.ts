@@ -156,6 +156,10 @@ const seededMovements: Movement[] = [
       escortRequired: true,
       acceptedAt: NOW_ANCHOR - 50,
       enRouteAt: NOW_ANCHOR - 15,
+      // Collected 8 minutes after going en route (a short RGH-to-RGH-Adult-Secure hop), so at
+      // NOW_ANCHOR the crew has been driving with the patient for 7 minutes — clearly still
+      // mid-transfer, not close enough to arrival to also need `arrivedAt`.
+      collectedAt: NOW_ANCHOR - 7,
     },
     blocker: "None — in transit",
     withdrawnReferrals: [
@@ -390,6 +394,9 @@ const seededMovements: Movement[] = [
       formRequired: "Form 1A",
       acceptedAt: NOW_ANCHOR - 45,
       enRouteAt: NOW_ANCHOR - 10,
+      // A short secure-escort hop (FSH to RPH Adult Secure): collected 6 minutes after going en
+      // route, so only 4 minutes into the drive to the destination at NOW_ANCHOR.
+      collectedAt: NOW_ANCHOR - 4,
     },
     blocker: "None — in transit",
     withdrawnReferrals: [],
@@ -531,6 +538,15 @@ function stageFields(
       };
     case "moving": {
       const acceptedAt = NOW_ANCHOR - (40 + (index % 15));
+      const enRouteAt = acceptedAt + (10 + (index % 10));
+      // Stage "moving" means the crew already collected the patient — PATIENT_COLLECTED is the
+      // only reducer transition that produces it, and it always sets `transport.collectedAt` in
+      // the same update (ward-flow-reducer.ts). A generated "moving" record with no
+      // `collectedAt` would be a state the reducer itself could never produce. The pickup-drive
+      // offset varies by index (8-25 minutes) so generated in-transit journeys read as being at
+      // different points, never one shared constant; the `Math.min` keeps `collectedAt` at or
+      // before `NOW_ANCHOR` even for an index/gap combination narrower than the largest offset.
+      const collectedAt = enRouteAt + Math.min(NOW_ANCHOR - enRouteAt, 8 + (index % 18));
       return {
         acceptedUnitId: fallbackUnitId(cohort, security, index),
         transport: {
@@ -538,7 +554,8 @@ function stageFields(
           provider: "St John WA",
           escortRequired: index % 2 === 0,
           acceptedAt,
-          enRouteAt: acceptedAt + (10 + (index % 10)),
+          enRouteAt,
+          collectedAt,
         },
       };
     }

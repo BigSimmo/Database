@@ -5,6 +5,7 @@ import type { WardFlowState } from "../src/components/ward-management/ward-flow-
 import { PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 import { eligibleCandidates } from "../src/components/ward-management/ward-derivations";
+import { wardMovements } from "../src/components/ward-management/ward-movements";
 
 const NOW = NOW_ANCHOR;
 const MOVEMENT_ID = "WF-001";
@@ -176,5 +177,121 @@ describe("invariants across every reachable state", () => {
     for (const text of inspected) {
       expect(text).not.toMatch(forbidden);
     }
+  });
+});
+
+/**
+ * Fixture coherence, not reducer coherence: the invariants above walk one movement through
+ * `wardFlowReducer` and check every state the reducer itself produces. These invariants instead
+ * inspect `wardMovements` — the hand-authored + generated seed data — directly, because the
+ * fixture does not go through the reducer at all. Nothing stops fixture authoring from putting a
+ * movement in a stage/stamp combination the reducer could never reach on its own, and that is
+ * exactly what happened: six "moving" movements shipped with `transport.collectedAt` unset, a
+ * state `PATIENT_COLLECTED` (the only producer of stage "moving") cannot leave behind, because it
+ * always sets `collectedAt` in the same update it sets the stage.
+ *
+ * Every rule below is read off `ward-flow-reducer.ts`'s transport transitions, not guessed:
+ * - `PATIENT_COLLECTED` requires stage `"handover_ready"` and `transport.enRouteAt`, and moves
+ *   the movement to stage `"moving"` while setting `transport.collectedAt` — so stage `"moving"`
+ *   without `collectedAt` is unreachable.
+ * - `PATIENT_ARRIVED` requires stage `"moving"` and `transport.collectedAt`, and moves the
+ *   movement to stage `"arrived"` while setting `transport.arrivedAt` — so a movement with a
+ *   transport job that is stage `"arrived"` and lacks `arrivedAt` is unreachable. (No current
+ *   fixture record actually carries stage `"arrived"` together with a `transport` job — the two
+ *   hand-authored and generated "arrived" records both close without ever having had transport at
+ *   all — so this branch does not fire against today's data. It still guards a real invariant: a
+ *   future "arrived" record that does carry a transport job must carry its arrival stamp too, and
+ *   the mutation below (see the transport-stage-coherence report) proves the assertion still kills
+ *   a violation when one is introduced.)
+ * - `TRANSPORT_EN_ROUTE` requires `transport.acceptedAt`; `PATIENT_COLLECTED` requires
+ *   `transport.enRouteAt`; `PATIENT_ARRIVED` requires `transport.collectedAt` — so the four
+ *   transport stamps can only ever be present in the order acceptedAt, enRouteAt, collectedAt,
+ *   arrivedAt: a later one is never set without every earlier one.
+ * - Every event's `now` becomes the stamp it writes, and nothing in the reducer moves the clock
+ *   backward, so on any real walk every stamp is `<= NOW_ANCHOR` and `>=` whichever stamp on the
+ *   same job preceded it.
+ */
+describe("fixture stage/stamp coherence (ward-movements.ts)", () => {
+  it("never leaves a 'moving' movement without the collection its stage implies", () => {
+    // Counts records the assertion actually inspected (stage === "moving"), not every iteration
+    // of the loop. A counter that increments on every movement regardless of stage would prove
+    // only that `wardMovements` is non-empty — which is always true — not that this assertion
+    // ever ran. That is the exact shape of defect this project has shipped before (Task 1's
+    // privacy guard, whose loop bodies executed zero times and so could never fail).
+    let matched = 0;
+    for (const movement of wardMovements) {
+      if (movement.stage === "moving") {
+        matched += 1;
+        expect(
+          movement.transport?.collectedAt,
+          `${movement.id} is stage "moving" but transport.collectedAt is unset — PATIENT_COLLECTED ` +
+            `is the only reducer transition that produces "moving" and it always sets collectedAt`,
+        ).toBeDefined();
+      }
+    }
+    // Six records are stage "moving" today (WF-006, WF-014, WF-306, WF-313, WF-320, WF-327) — the
+    // exact defect this fix corrects. If a future edit removed every "moving" record or renamed
+    // the stage, this would go red instead of the assertion above silently inspecting nothing.
+    expect(matched).toBeGreaterThan(0);
+  });
+
+  it("never leaves an 'arrived' movement's transport job without the arrival it implies", () => {
+    let matched = 0;
+    for (const movement of wardMovements) {
+      if (movement.stage === "arrived" && movement.transport) {
+        matched += 1;
+        expect(
+          movement.transport.arrivedAt,
+          `${movement.id} is stage "arrived" with a transport job but transport.arrivedAt is unset`,
+        ).toBeDefined();
+      }
+    }
+    // No current fixture record is stage "arrived" while still carrying a transport job — both
+    // the hand-authored WF-007 and every generated "arrived" record close without ever having had
+    // a transport job at all. This is a forward-looking guard, not a vacuous one: asserting the
+    // real count (0) today, rather than `toBeGreaterThan(0)`, keeps that honest instead of
+    // inventing a fixture record just to make a non-zero check pass. The assertion above still
+    // runs on every movement that matches the condition, and still fails the moment one exists —
+    // proved by mutation in the accompanying report, which forces a "moving" movement's stage to
+    // "arrived" without giving it `arrivedAt` and confirms both this line and the inner assertion
+    // go red.
+    expect(matched).toBe(0);
+  });
+
+  it("only ever fills transport stamps in the order the reducer allows, never after NOW_ANCHOR", () => {
+    let inspected = 0;
+    for (const movement of wardMovements) {
+      const transport = movement.transport;
+      if (!transport) continue;
+      inspected += 1;
+      const { acceptedAt, enRouteAt, collectedAt, arrivedAt } = transport;
+
+      if (enRouteAt !== undefined) {
+        expect(acceptedAt, `${movement.id} has transport.enRouteAt without transport.acceptedAt`).toBeDefined();
+      }
+      if (collectedAt !== undefined) {
+        expect(enRouteAt, `${movement.id} has transport.collectedAt without transport.enRouteAt`).toBeDefined();
+      }
+      if (arrivedAt !== undefined) {
+        expect(collectedAt, `${movement.id} has transport.arrivedAt without transport.collectedAt`).toBeDefined();
+      }
+
+      const stamps = [acceptedAt, enRouteAt, collectedAt, arrivedAt].filter(
+        (stamp): stamp is number => stamp !== undefined,
+      );
+      for (const stamp of stamps) {
+        expect(stamp, `${movement.id} has a transport stamp after NOW_ANCHOR (${NOW_ANCHOR})`).toBeLessThanOrEqual(
+          NOW_ANCHOR,
+        );
+      }
+      for (let i = 1; i < stamps.length; i += 1) {
+        expect(stamps[i], `${movement.id}'s transport stamps are not in non-decreasing order`).toBeGreaterThanOrEqual(
+          stamps[i - 1],
+        );
+      }
+    }
+    // Every movement with a transport job must actually have been walked — a filter that quietly
+    // matched nothing would make every expectation above vacuously true.
+    expect(inspected).toBeGreaterThan(0);
   });
 });
