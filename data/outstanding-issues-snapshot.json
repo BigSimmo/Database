@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "6085a0a59aca4c1bb9e19fb4d490fd34dec950cd",
-    "committed_at": "2026-08-22T20:52:39Z"
+    "committed_at": "2026-08-22T20:52:39+00:00"
   },
   "counts": {
     "open": 73,
@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 15,
+    "pending": 16,
     "resolved": 376
   },
   "queue": [
@@ -843,6 +843,12 @@
       "request_id": "a3f85721-7092-45b0-b292-a70b6546e3d1",
       "action": "add",
       "summary": "Caring Contacts Phase 2B — the screens",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "b5d6b1be-d1c9-4739-898a-33aec4a656a5",
+      "action": "add",
+      "summary": "Document /ward-management/constellation as an intentional unlinked compatibility redirect",
       "created_at": "2026-08-22"
     },
     {
