@@ -179,10 +179,40 @@ function PlanActions({
 
   if (!mayAuthor && !mayWithdraw && !mayRecordReview && !mayShare) return null;
 
+  /**
+   * Every one of these actions changes a record, so every one of them can be
+   * refused for the same reasons, and each control says so for itself. Computing
+   * the reason for only one of them left withdrawal — the most consequential
+   * control here — looking available until a clinician had opened the sheet,
+   * typed a reason, and confirmed.
+   *
+   * Identical reasons are stated once and shared. Offline blocks all three at
+   * the same moment, and three identical paragraphs would be noise rather than
+   * emphasis.
+   */
   const shareBlockedReason = getPrototypeMutationBlockReason(state, {
     type: "record-plan-shared-with-patient",
     patientId: patient.id,
   });
+  const reviewBlockedReason = getPrototypeMutationBlockReason(state, {
+    type: "record-formal-management-review",
+    patientId: patient.id,
+    reason: "",
+    nextReviewDueAt: "",
+  });
+  const withdrawBlockedReason = getPrototypeMutationBlockReason(state, {
+    type: "withdraw-current-management-version",
+    patientId: patient.id,
+    reason: "",
+  });
+
+  const blockedReasonIds = new Map<string, string>();
+  for (const reason of [shareBlockedReason, reviewBlockedReason, withdrawBlockedReason]) {
+    if (reason !== null && !blockedReasonIds.has(reason)) {
+      blockedReasonIds.set(reason, `care-plan-plan-actions-blocked-${blockedReasonIds.size + 1}`);
+    }
+  }
+  const describedByFor = (reason: string | null) => (reason === null ? undefined : blockedReasonIds.get(reason));
 
   const draftHref =
     openDraft === null || openDraft.state === "draft"
@@ -229,16 +259,11 @@ function PlanActions({
       className={styles.planActions}
       description="Everything here changes the record rather than the reading of it. Nothing above this line depends on any of it."
     >
-      {shareBlockedReason === null ? null : (
-        <p
-          id="care-plan-plan-actions-blocked"
-          role="alert"
-          data-testid="care-plan-plan-actions-blocked"
-          className={styles.contactWarning}
-        >
-          {shareBlockedReason}
+      {[...blockedReasonIds].map(([reason, id]) => (
+        <p key={id} id={id} role="alert" data-testid="care-plan-plan-actions-blocked" className={styles.contactWarning}>
+          {reason}
         </p>
-      )}
+      ))}
 
       <div className={styles.actionRow} data-print-hide="true">
         {mayAuthor ? (
@@ -251,7 +276,7 @@ function PlanActions({
           <Button
             variant="secondary"
             aria-disabled={shareBlockedReason === null ? undefined : true}
-            aria-describedby={shareBlockedReason === null ? undefined : "care-plan-plan-actions-blocked"}
+            aria-describedby={describedByFor(shareBlockedReason)}
             onClick={
               shareBlockedReason === null
                 ? () => dispatch({ type: "record-plan-shared-with-patient", patientId: patient.id })
@@ -263,13 +288,23 @@ function PlanActions({
         ) : null}
 
         {mayRecordReview && currentVersion !== null ? (
-          <Button variant="secondary" onClick={() => setReviewOpen(true)}>
+          <Button
+            variant="secondary"
+            aria-disabled={reviewBlockedReason === null ? undefined : true}
+            aria-describedby={describedByFor(reviewBlockedReason)}
+            onClick={reviewBlockedReason === null ? () => setReviewOpen(true) : ignoreUnavailableActivation}
+          >
             Record a formal review
           </Button>
         ) : null}
 
         {mayWithdraw && currentVersion !== null ? (
-          <Button variant="danger" onClick={() => setWithdrawOpen(true)}>
+          <Button
+            variant="danger"
+            aria-disabled={withdrawBlockedReason === null ? undefined : true}
+            aria-describedby={describedByFor(withdrawBlockedReason)}
+            onClick={withdrawBlockedReason === null ? () => setWithdrawOpen(true) : ignoreUnavailableActivation}
+          >
             Withdraw this plan
           </Button>
         ) : null}

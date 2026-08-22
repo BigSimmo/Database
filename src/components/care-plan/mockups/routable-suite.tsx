@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { CarePlanShellFrame } from "./care-plan-shell-frame";
 import styles from "./care-plan.module.css";
@@ -305,6 +305,43 @@ export function CarePlanRouteSurface({ pathname, query = "", navigate }: CarePla
   const activeUser = state.users.find((user) => user.id === state.activeUserId);
   const snapshotVariant = SNAPSHOT_VARIANT_BY_ROUTE_KEY[route.key];
   const patientId = useMemo(() => carePlanPatientIdFromPathname(pathname), [pathname]);
+  const queryParams = useMemo(() => new URLSearchParams(query), [query]);
+
+  /**
+   * Put the scenario the address names into the reducer, so a specimen degrades
+   * the prototype rather than only its rendering.
+   *
+   * Without this the lens was one-way. `?scenario=offline` set a data attribute
+   * and the surfaces' `scenario` prop, while `connectivity`, `permission`,
+   * `identity` and `versionConflict` stayed at their defaults — so every branch
+   * of `getPrototypeMutationBlockReason` was unreachable in the running
+   * application, and the refusals Tasks 4, 5 and 6 built could be proved only in
+   * a test that constructed the state by hand.
+   *
+   * The guard is the whole point. `apply-scenario` reconstructs the fixtures, so
+   * dispatching it on an ordinary navigation would throw away a draft that
+   * exists only in memory — which is why this project removed an online/offline
+   * listener once already. It therefore dispatches only when the scenario named
+   * in the URL actually differs from the one the reducer holds, and it resets to
+   * `normal` on leaving only when the current scenario was the one this address
+   * put there. A scenario chosen by hand on the System states screen is left
+   * alone. Mirrors the same guarded sync in the sibling Caring Contacts
+   * prototype.
+   */
+  const queryScenarioRef = useRef<PrototypeScenario | null>(null);
+  useEffect(() => {
+    if (queryParams.has("scenario")) {
+      queryScenarioRef.current = scenario;
+      if (state.scenario !== scenario) dispatch({ type: "apply-scenario", scenario });
+      return;
+    }
+    if (queryScenarioRef.current === null) return;
+    const wasQueryDerived = state.scenario === queryScenarioRef.current;
+    queryScenarioRef.current = null;
+    if (wasQueryDerived && state.scenario !== "normal") {
+      dispatch({ type: "apply-scenario", scenario: "normal" });
+    }
+  }, [dispatch, queryParams, scenario, state.scenario]);
 
   return (
     <CarePlanShellFrame

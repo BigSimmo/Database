@@ -11,7 +11,7 @@ import { EmptyState, InlineNotice, ignoreUnavailableActivation } from "@/compone
 import styles from "./care-plan.module.css";
 import { buildPatientSnapshot, deriveReviewState } from "./domain";
 import { PROTOTYPE_NOW } from "./fixtures";
-import { ManagementPlanDiff } from "./management-plan-diff";
+import { ManagementPlanDiff, ManagementPlanFirstVersion } from "./management-plan-diff";
 import { useCarePlanPrototype } from "./prototype-provider";
 import { getPrototypeMutationBlockReason } from "./prototype-state";
 import {
@@ -207,12 +207,26 @@ export function ManagementPlanReviewSurface({
             </dl>
           </SectionFrame>
 
-          <ManagementPlanDiff
-            current={currentManagementVersion?.content ?? awaiting.content}
-            proposed={awaiting.content}
-            currentVersionNumber={currentManagementVersion?.version ?? 0}
-            proposedVersionNumber={awaiting.version}
-          />
+          {/*
+            A first version has nothing to be compared against. Feeding it to the
+            change table against itself labelled every section `Unchanged` beside
+            a `version 0` that does not exist, which is the opposite of what a
+            senior clinician deciding on a person's first plan needs to read.
+          */}
+          {currentManagementVersion === null ? (
+            <ManagementPlanFirstVersion
+              proposed={awaiting.content}
+              proposedVersionNumber={awaiting.version}
+              preferredName={patient.preferredName}
+            />
+          ) : (
+            <ManagementPlanDiff
+              current={currentManagementVersion.content}
+              proposed={awaiting.content}
+              currentVersionNumber={currentManagementVersion.version}
+              proposedVersionNumber={awaiting.version}
+            />
+          )}
 
           <SectionFrame
             id="care-plan-review-decision"

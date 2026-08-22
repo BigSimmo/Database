@@ -409,9 +409,15 @@ describe("Care Plan patient directory", () => {
 
   // The brief's worked example, corrected against the fixtures: Mira's plan
   // carries Current version 1 and Awaiting Approval version 2, not 2 and 3.
+  //
+  // Deliberately no `scenario=overdue-plan`. Mira's overdue review date and her
+  // awaiting version are fixture facts and need no specimen; naming the scenario
+  // would pre-select her, and the search and the click this test exists to
+  // exercise would then be landing on a patient who was already open.
   it("finds a synthetic patient and keeps Current Plan above an awaiting draft", async () => {
     const user = userEvent.setup();
-    renderRoute(CARE_PLAN_ROUTES.home, "scenario=overdue-plan");
+    renderRoute(CARE_PLAN_ROUTES.home);
+    expect(screen.getByRole("region", { name: "Rowan Sample clinical snapshot" })).toBeInTheDocument();
     await user.type(screen.getByRole("searchbox", { name: "Search synthetic patients" }), "SYN-MRN-0002");
     await user.click(screen.getByRole("button", { name: /Open Mira Example/i }));
 
@@ -1411,6 +1417,46 @@ describe("Care Plan authoring entry points on the reading surface", () => {
     );
   });
 
+  /**
+   * Every one of the four plan actions changes a record, so every one of them can
+   * be blocked by the same degraded states. The first shape of this block
+   * computed a reason for the sharing control only: formal review and withdrawal
+   * were plain enabled buttons whose refusal a clinician discovered only after
+   * opening a sheet, typing a reason, and confirming — worst on withdrawal, the
+   * most consequential control on the page.
+   */
+  it("states the degraded-state reason on every plan action, not only the first", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"), "scenario=offline");
+    await signInAs(user, SENIOR);
+
+    for (const name of [/Record that this plan has been shown/i, /Record a formal review/i, /Withdraw this plan/i]) {
+      const control = screen.getByRole("button", { name });
+      expect(control, `${name} must say why it is unavailable`).toHaveAttribute("aria-disabled", "true");
+      expect(control).not.toHaveAttribute("disabled");
+      const describedBy = control.getAttribute("aria-describedby") ?? "";
+      expect(document.getElementById(describedBy)?.textContent ?? "").toMatch(/offline, so nothing was changed/i);
+    }
+
+    // Activation does nothing: no sheet, and no record written.
+    await user.click(screen.getByRole("button", { name: /Withdraw this plan/i }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await user.click(screen.getByRole("button", { name: /Record a formal review/i }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("region", { name: "Current Plan" })).toBeInTheDocument();
+  });
+
+  // One reason, stated once. Three identical paragraphs saying the device is
+  // offline is noise, not emphasis.
+  it("states one shared reason once rather than repeating it per control", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"), "scenario=offline");
+    await signInAs(user, SENIOR);
+
+    const notices = within(screen.getByTestId("care-plan-plan-actions")).getAllByRole("alert");
+    expect(notices).toHaveLength(1);
+  });
+
   it("withdraws a Current plan for a senior clinician and shows the withdrawal line afterwards", async () => {
     const user = userEvent.setup();
     renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
@@ -1493,11 +1539,11 @@ describe("Care Plan Management Plan drafting", () => {
     );
 
     // Final-state focus assertions are provably unable to fail in this shell, so
-    // this asserts the order of the focus events: the summary appears first and
-    // focus lands last on the first invalid field.
-    expect(order).toContain("error-summary");
+    // this asserts the order of the focus events. Exactly one owner moves focus,
+    // and it moves it to the first invalid field: the summary never takes focus
+    // and is therefore never cut off part-read.
     expect(order.at(-1)).toBe(managementPlanFieldId("revisionReason"));
-    expect(order.indexOf("error-summary")).toBeLessThan(order.length - 1);
+    expect(order, "the summary must not take focus as well").not.toContain("error-summary");
     // Nothing was submitted.
     expect(screen.queryByRole("dialog")).toBeNull();
   });
@@ -1578,6 +1624,47 @@ describe("Care Plan Management Plan drafting", () => {
     await user.click(within(dialog).getByRole("button", { name: /Submit for approval/i }));
 
     expect(navigate).toHaveBeenCalledWith(carePlanRoute.managementPlanReview("SYN-PATIENT-005"));
+  });
+
+  /**
+   * Asserting on the mocked `navigate` proves the address and nothing about what
+   * is at it. Alex has no Current Plan, and the first shape of this route
+   * compared the proposed content against itself: every one of the eleven
+   * sections read `Unchanged`, against `Comparing Current version 0`. A senior
+   * clinician deciding on a patient's *first* plan was told nothing had changed.
+   * So this follows the navigation and renders the destination.
+   */
+  it("shows a first version as a first version, not as a comparison against nothing", async () => {
+    const user = userEvent.setup();
+    const navigate = vi.fn();
+    const surface = (pathname: string) => (
+      <CarePlanPrototypeProvider>
+        <CarePlanRouteSurface pathname={pathname} query="" navigate={navigate} />
+      </CarePlanPrototypeProvider>
+    );
+    const { rerender } = render(surface(carePlanRoute.managementPlanEdit("SYN-PATIENT-005")));
+    await signInAs(user, LIAISON);
+    await user.click(screen.getByRole("button", { name: /Submit for senior approval/i }));
+    await user.click(
+      within(screen.getByRole("dialog", { name: /Submit version 1 for senior approval/i })).getByRole("button", {
+        name: /Submit for approval/i,
+      }),
+    );
+
+    rerender(surface(carePlanRoute.managementPlanReview("SYN-PATIENT-005")));
+
+    const first = screen.getByTestId("care-plan-review-first-version");
+    expect(first).toHaveTextContent(/This is the first version of Alex's Management Plan/i);
+    expect(first).toHaveTextContent(/no earlier version to compare it against/i);
+    // The whole of what is proposed is readable, since there is nothing to diff.
+    expect(first).toHaveTextContent(/Alex asked not to take part in writing this plan/i);
+
+    // Never a comparison table, and never a version number that does not exist.
+    expect(screen.queryByTestId("care-plan-diff")).toBeNull();
+    expect(screen.queryByText(/Unchanged in both versions/i)).toBeNull();
+    expect(screen.queryByText(/version 0/i)).toBeNull();
+    // The decision itself is still offered.
+    expect(screen.getByRole("button", { name: "Approve version 1" })).toBeInTheDocument();
   });
 
   it("states why nothing can be saved while the device is offline", async () => {
@@ -1741,8 +1828,19 @@ describe("Care Plan Management Plan approval", () => {
     renderRoute(carePlanRoute.managementPlanReview("SYN-PATIENT-002"), "scenario=version-conflict");
     await signInAs(user, SENIOR);
 
-    expect(screen.getByRole("button", { name: "Approve version 2" })).toHaveAttribute("aria-disabled", "true");
+    const approve = screen.getByRole("button", { name: "Approve version 2" });
+    expect(approve).toHaveAttribute("aria-disabled", "true");
+    expect(approve).not.toHaveAttribute("disabled");
     expect(screen.getByTestId("care-plan-review-blocked")).toHaveTextContent(/A newer version of this record exists/i);
+
+    // Activation does nothing, as with the offline and non-senior refusals: the
+    // attribute alone is a claim about the control, not about what it does.
+    await user.click(approve);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByTestId("care-plan-review-proposed")).toHaveTextContent(/Awaiting Approval version 2/i);
+    expect(
+      within(screen.getByRole("region", { name: "Current Plan" })).getByText("Current version 1"),
+    ).toBeInTheDocument();
   });
 
   it("returns a version for changes with a required reason and sends the author to the draft", async () => {
@@ -1788,6 +1886,84 @@ describe("Care Plan Management Plan approval", () => {
     expect(screen.getByTestId("care-plan-review-none-awaiting")).toHaveTextContent(/No version is awaiting approval/i);
     expect(screen.queryByTestId("care-plan-diff")).toBeNull();
     expect(screen.getByRole("region", { name: "Current Plan" })).toBeInTheDocument();
+  });
+});
+
+/**
+ * Until this task the scenario named in a URL reached the `data-care-plan-scenario`
+ * attribute and the surfaces' `scenario` prop, and stopped there. The reducer's
+ * own flags — `connectivity`, `permission`, `identity`, `versionConflict` — were
+ * never set by an address, so every branch of `getPrototypeMutationBlockReason`
+ * was dead in the running application across Tasks 4, 5 and 6.
+ *
+ * These render the provider with no seed, so only the sync under test can put the
+ * reducer into a specimen state.
+ */
+describe("Care Plan specimen scenarios reach the reducer", () => {
+  function surface(pathname: string, query: string, navigate = vi.fn()) {
+    return (
+      <CarePlanPrototypeProvider>
+        <CarePlanRouteSurface pathname={pathname} query={query} navigate={navigate} />
+      </CarePlanPrototypeProvider>
+    );
+  }
+
+  it("applies a scenario named in the URL to the reducer, not only to the rendering", async () => {
+    const user = userEvent.setup();
+    render(surface(carePlanRoute.managementPlanEdit("SYN-PATIENT-005"), "scenario=offline"));
+    await signInAs(user, LIAISON);
+
+    expect(screen.getByRole("button", { name: /Save Draft/i })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByTestId("care-plan-form-blocked")).toHaveTextContent(/offline, so nothing was changed/i);
+  });
+
+  it("returns to the ordinary world when the reader leaves a scenario address", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(surface(carePlanRoute.managementPlanEdit("SYN-PATIENT-005"), "scenario=offline"));
+    await signInAs(user, LIAISON);
+    expect(screen.getByTestId("care-plan-form-blocked")).toBeInTheDocument();
+
+    rerender(surface(carePlanRoute.managementPlanEdit("SYN-PATIENT-005"), ""));
+    expect(screen.queryByTestId("care-plan-form-blocked")).toBeNull();
+  });
+
+  /**
+   * `apply-scenario` reconstructs the fixtures, so dispatching it on an ordinary
+   * navigation would throw away work that only exists in memory. An earlier
+   * ruling on this project removed an online/offline listener for exactly that
+   * reason. This is the harm, stated as a test: a clinician half-way through
+   * drafting a version must not lose it by following a link.
+   *
+   * The second navigation is the one that matters. A link that only changes the
+   * path leaves the effect's dependencies untouched, so it never re-runs and the
+   * test would pass whatever the guard did — a control proved exactly that. A
+   * link that keeps the scenario but changes another query parameter, which
+   * `carePlanRoute.withQuery` exists to build, does re-run it. That is where the
+   * guard earns its place.
+   */
+  it("does not reconstruct the world when navigating inside one scenario", async () => {
+    const user = userEvent.setup();
+    const edit = carePlanRoute.managementPlanEdit("SYN-PATIENT-005");
+    const { rerender } = render(surface(edit, "scenario=overdue-plan"));
+    await signInAs(user, LIAISON);
+
+    const typed = "A seat away from the corridor, and a stated time for the next update.";
+    await user.type(screen.getByRole("textbox", { name: /What helps/i }), `\n${typed}`);
+    await user.click(screen.getByRole("button", { name: /Save Draft/i }));
+    expect(screen.getByTestId("care-plan-form-outcome")).toHaveTextContent(/Draft version 1 saved/i);
+
+    // An ordinary link, inside the same scenario, and back again.
+    rerender(surface(carePlanRoute.managementPlan("SYN-PATIENT-005"), "scenario=overdue-plan"));
+    rerender(surface(edit, "scenario=overdue-plan"));
+
+    // …and a link that keeps the scenario while changing the query around it.
+    rerender(surface(edit, "scenario=overdue-plan&view=awaiting"));
+    rerender(surface(edit, "scenario=overdue-plan"));
+
+    const helps = screen.getByRole("textbox", { name: /What helps/i }) as HTMLTextAreaElement;
+    expect(helps.value, "the draft must survive an ordinary navigation").toContain(typed);
+    // …and so must who is signed in, which a reconstruction would also reset.
+    expect(within(screen.getByTestId("care-plan-active-user")).getByText("Morgan Sample")).toBeInTheDocument();
   });
 });
 

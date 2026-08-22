@@ -114,6 +114,49 @@ function ComparedLines({ label, lines }: { label: string; lines: readonly string
   );
 }
 
+/**
+ * The whole of a proposed version, when there is no Current Plan to compare it
+ * against.
+ *
+ * A first version has no earlier edition, and running it through the comparison
+ * against itself labelled all eleven sections `Unchanged` — telling a senior
+ * clinician deciding on a person's *first* plan that nothing had changed, beside
+ * a version number that does not exist. There is nothing to diff, so this shows
+ * what is actually proposed and says plainly why there is no table.
+ */
+export function ManagementPlanFirstVersion({
+  proposed,
+  proposedVersionNumber,
+  preferredName,
+}: {
+  proposed: ManagementPlanContent;
+  proposedVersionNumber: number;
+  preferredName: string;
+}) {
+  return (
+    <SectionFrame
+      id="care-plan-review-first-version"
+      heading="What this version says"
+      testId="care-plan-review-first-version"
+      description={`This is the first version of ${preferredName}'s Management Plan, so there is no earlier version to compare it against. The whole of version ${proposedVersionNumber} is shown instead.`}
+    >
+      {COMPARED_KEYS.map((key) => (
+        <section
+          key={key}
+          data-testid={`care-plan-review-first-version-${key}`}
+          aria-labelledby={`care-plan-review-first-version-${key}-heading`}
+          className={styles.diffSection}
+        >
+          <h3 id={`care-plan-review-first-version-${key}-heading`} className={styles.subsectionHeading}>
+            {SECTION_HEADING[key]}
+          </h3>
+          <ComparedLines label={`Proposed version ${proposedVersionNumber}`} lines={linesOf(proposed, key)} />
+        </section>
+      ))}
+    </SectionFrame>
+  );
+}
+
 export function ManagementPlanDiff({
   current,
   proposed,

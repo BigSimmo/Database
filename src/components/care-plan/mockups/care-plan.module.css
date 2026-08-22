@@ -522,7 +522,22 @@
   line-height: 1.5;
 }
 
+/*
+ * Both link classes, together. Keep this rule whole: a block inserted between
+ * the comma and its continuation silently rebinds `.pinnedBoundaryLink` to
+ * whatever follows, and the pinned boundary's jump link stops looking like a
+ * link with nothing on any gate going red. That happened on 2026-08-22, and
+ * `keeps the pinned boundary's jump link … looking like a link` in
+ * `tests/care-plan-route-files.test.ts` now guards it.
+ */
 .appRoot .pinnedBoundaryLink,
+.appRoot .inlineLink {
+  color: var(--clinical-accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
 /* --- Authoring surfaces ---------------------------------------------------- */
 
 /* The shared field control fixes a one-line height for inputs. A clinical
@@ -605,13 +620,6 @@
   color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 700;
-}
-
-.appRoot .inlineLink {
-  color: var(--clinical-accent);
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
 }
 
 .appRoot .sectionFrame {

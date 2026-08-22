@@ -480,6 +480,82 @@ describe("Care Plan synthetic, memory-only boundary", () => {
   });
 
   /**
+   * The existing guard above proves nothing *hides* the pinned safety boundary.
+   * Nothing proved its link was still a link — and on 2026-08-22 it stopped being
+   * one. A new rule block was inserted between `.appRoot .pinnedBoundaryLink,`
+   * and the `.appRoot .inlineLink { … }` continuation it belonged to, so the
+   * boundary's jump link silently rebound to a textarea rule: no accent colour,
+   * no weight, no underline, and a 5.5rem min-height.
+   *
+   * Every gate was blind to it. Vitest runs with `css: false`, so the DOM tests
+   * only ever see that a class token was applied. The suppression guard above
+   * matches `pinnedBoundary\w*` but inspects declarations for hiding, and a
+   * silent rebinding hides nothing. The `.appRoot` scoping guard splits the
+   * selector list on `,` and both halves still started with `.appRoot`.
+   *
+   * So this asserts the affordance itself: the two link classes must each resolve
+   * to a rule that still declares a colour, a weight, and an underline. It fails
+   * closed when a class is renamed or stops matching any rule at all.
+   */
+  it("keeps the pinned boundary's jump link, and every inline link, looking like a link", () => {
+    const css = readFileSync(resolve(process.cwd(), `${COMPONENT_ROOT}/care-plan.module.css`), "utf8").replace(
+      /\/\*[\s\S]*?\*\//g,
+      "",
+    );
+
+    const rules = css
+      .replace(/@[^{]*\{/g, "")
+      .split("}")
+      .flatMap((chunk) => {
+        const [head, body] = chunk.split("{");
+        if (head === undefined || body === undefined) return [];
+        return [
+          {
+            selectors: head
+              .split(",")
+              .map((part) => part.trim())
+              .filter((part) => part.length > 0),
+            body,
+          },
+        ];
+      });
+
+    function declaredPropertiesFor(className: string): Map<string, string> {
+      const declared = new Map<string, string>();
+      for (const rule of rules) {
+        if (!rule.selectors.includes(`.appRoot .${className}`)) continue;
+        for (const declaration of rule.body.split(";")) {
+          const separator = declaration.indexOf(":");
+          if (separator === -1) continue;
+          declared.set(
+            declaration.slice(0, separator).trim().toLowerCase(),
+            declaration
+              .slice(separator + 1)
+              .trim()
+              .toLowerCase(),
+          );
+        }
+      }
+      return declared;
+    }
+
+    for (const className of ["pinnedBoundaryLink", "inlineLink"]) {
+      const declared = declaredPropertiesFor(className);
+      expect(declared.size, `.${className} matched no rule at all — has it been renamed or rebound?`).toBeGreaterThan(
+        0,
+      );
+      expect(declared.has("color"), `.${className} declares no colour, so it does not read as a link`).toBe(true);
+      expect(declared.has("font-weight"), `.${className} declares no font weight, so it does not read as a link`).toBe(
+        true,
+      );
+      const underline = declared.get("text-decoration") ?? declared.get("text-decoration-line") ?? "";
+      expect(underline, `.${className} is not underlined, so it carries no affordance beyond colour`).toContain(
+        "underline",
+      );
+    }
+  });
+
+  /**
    * `styles.someName` on a class the stylesheet never defines is invisible at
    * runtime and invisible to the DOM tests, because the CSS Module proxy returns
    * the key name whether or not a rule exists. It is dead intent: an element

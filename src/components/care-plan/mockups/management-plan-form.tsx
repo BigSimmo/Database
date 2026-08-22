@@ -182,25 +182,21 @@ function validate(values: FormValues): FieldEntry[] {
       message,
     });
 
-  if (values.ownerId.trim() === "") {
-    entries.push({
-      fieldId: managementPlanFieldId("ownerId"),
-      label: "Plan owner",
-      message: "Name the clinician who owns this plan.",
-    });
-  }
+  /*
+   * Owner and participation state are deliberately absent from this function.
+   * Both are `<select>` values seeded from the version being edited, and both are
+   * typed unions with no empty member, so a "not chosen" branch for either could
+   * never fire — dead code inside the one function this task's error tests
+   * exercise, which is worse than a shorter validator. If either control ever
+   * gains a placeholder, the branch comes back with a test that reaches it; until
+   * then the reducer stays the guard, and it refuses an owner who is not a
+   * synthetic user.
+   */
   if (values.reviewDate.trim() === "" || Number.isNaN(Date.parse(toPerthTimestamp(values.reviewDate)))) {
     entries.push({
       fieldId: managementPlanFieldId("reviewDueAt"),
       label: "Next review date",
       message: "Enter the date this plan is next due for review.",
-    });
-  }
-  if (values.participationState.trim() === "") {
-    entries.push({
-      fieldId: managementPlanFieldId("participationState"),
-      label: "This person's part in this version",
-      message: "Record what part this person took in writing it.",
     });
   }
   if (values.revisionReason.trim() === "") {
@@ -449,7 +445,6 @@ export function ManagementPlanFormSurface({
     if (saveBlockedReason !== null || draft === null) return;
     const blocking = validate(values).filter(
       (entry) =>
-        entry.fieldId === managementPlanFieldId("ownerId") ||
         entry.fieldId === managementPlanFieldId("reviewDueAt") ||
         entry.fieldId === managementPlanFieldId("agreedEdApproach"),
     );
@@ -488,10 +483,17 @@ export function ManagementPlanFormSurface({
       )}
 
       <form className={styles.form} onSubmit={handleSave} noValidate>
+        {/*
+          One focus owner. The summary stays linked and visible, and this form
+          moves focus to the first invalid field — so a failed submit lands the
+          reader on the work rather than starting the summary and cutting it off
+          part-read, which is what two owners produced.
+        */}
         <ErrorSummary
           heading="This version could not be submitted"
           errors={errors}
           attempt={attempt}
+          manageFocus={false}
           className={styles.formErrorSummary}
         />
 
