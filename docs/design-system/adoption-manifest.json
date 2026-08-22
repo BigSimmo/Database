@@ -427,6 +427,7 @@
         "tests/probe-generation-quality.test.ts",
         "tests/rag-claim-support.test.ts",
         "tests/rag-eval-source-governance.test.ts",
+        "tests/rag-guidance-wrapper-quality-gate.test.ts",
         "tests/source-backed-recovery-cross-reference.test.ts",
         "tests/ui-smoke.spec.ts",
         "tests/ui-v2-components.dom.test.tsx"
