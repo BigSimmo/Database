@@ -107,7 +107,8 @@ is the only damage it carried — its tracked tree was clean and byte-identical 
 | 5. Plan reading, boundary, print   | **complete, review clean** | `9bab6ad44..90c1d01a3` | 291/291 passing + Therapy Compass 25/25, typecheck + lint clean, 61 mutations / 61 red                          |
 | 6. Authoring, approval, withdrawal | **complete, review clean** | `f0ab0d41b..2113fe97f` | 306/306 passing + form-field consumers 161/161, typecheck + lint clean, 28 mutations / 27 killed + 1 equivalent |
 | 7. ED presentations, amendments    | **complete, review clean** | `e02a03ab9..a8a8264be` | 335/335 passing, typecheck + lint clean, 40 mutations / 40 killed                                               |
-| 8–11                               | not started                | —                      | —                                                                                                               |
+| 8. Personal Safety Plan, print     | **complete, review clean** | `5e8f812a7..79cfa97b3` | 369/369 passing, typecheck + lint clean, 58 mutations / 58 killed                                               |
+| 9–11                               | not started                | —                      | —                                                                                                               |
 
 Stage A is Tasks 1–5. The plan makes Task 5 a mandatory stop for user review; **the user
 lifted that stop on 22 August 2026**, instructing the session to report at the boundary and
@@ -302,6 +303,39 @@ session — but the test holding it asserted an alternation, `isSyntheticPatient
 `isSyntheticPresentationForPatient`, which the patient half satisfied alone. Deleting the
 presentation check entirely left the suite green. It is now checked per parameter, by name,
 with a fail-closed count of how many pages carry `[presentationId]`.
+
+### Task 8 — complete
+
+- Dispatched opus. Returned `DONE_WITH_CONCERNS` at `87b28b3ac` (365 tests, 44 mutations all
+  killed). Task review (opus) returned Spec ❌ with **no Critical** and **one Important** —
+  but that one was the most consequential finding in the whole build. One fix round
+  (`79cfa97b3`); the scoped re-review verdicted every item ADDRESSED with no new breakage.
+- Final: `Test Files 4 passed (4)` / `Tests 369 passed (369)`. Typecheck and lint fresh,
+  Prettier clean, 58 mutations across the task, all killed.
+
+**The printed patient copy handed a person a list of blanks about their own life.** The print
+surface reused the reading surface's section component, which renders `Not recorded` for an
+empty section. `SYN-SAFETY-VERSION-004` is a genuinely current plan whose owner declined to
+write one in her own words — all six patient-voice arrays empty, holding only crisis numbers.
+Printing it produced a sheet addressed to her reading `Last confirmed — Not recorded`, then
+"This is your plan, in your own words.", then six headings each answered `Not recorded`,
+including **`My reasons for living — Not recorded`**.
+
+Nothing was broken. `Not recorded` is correct on the clinician's reading surface, and the print
+surface simply inherited it. No test had ever printed that patient — every print test used
+`SYN-PATIENT-001`. It took a reviewer reading the page as its recipient rather than as an
+engineer. The printed copy now omits an empty section entirely rather than printing its heading
+over a blank, suppresses the own-words claim and the `Last confirmed` row when there is nothing
+to claim, and keeps `Not recorded` unchanged for the clinician — with a control proving the fix
+cannot be re-applied to the reading surface and quietly remove that signal.
+
+**Two more guards that could not fail, both found by the implementer's own controls.** That
+makes nine on this project, and these two were a **new shape**: assertions that read their
+expected value from the same constant the component renders from, so they can never disagree
+with what is on screen. One test for "the declined label must not deny the plan exists" compared
+the rendered text against `PATIENT_CONFIRMATION_LABEL.declined` — which passes for _any_ label,
+including the defective one it was written to catch. Repaired with a literal forbidden-phrasing
+regex applied across all four labels and all four explanations.
 
 ---
 
@@ -700,6 +734,48 @@ text against itself. Six conflicts found, six ruled.
     clinician's typed work so nothing is lost. _Cost if wrong:_ a clinician who blanks one
     field must fix it before any of their other corrections are recorded — friction, not loss.
 
+### Task 8
+
+44. **A person's own six sections are required only when they confirmed or discussed the
+    version.** The brief's literal "at least one item in every section" cannot coexist with its
+    own "do not treat declined or unavailable as non-compliance": `SYN-SAFETY-VERSION-004` is a
+    legitimate declined-and-current version holding only crisis numbers and is unreproducible
+    under the literal rule, and requiring seven sections of somebody's own words when they took
+    no part would make a clinician **invent words and attribute them to the patient**. The
+    implementer raised this rather than choosing silently, and the reviewer confirmed the
+    reasoning survives contact with the code and the fixtures. Review date, collaboration note
+    and `professionalAndEmergencySupport` stay mandatory in all four states, and the per-person
+    name, relationship and phone checks run whether or not the section is required — nothing
+    lets a strictly empty plan become Current. _Cost if wrong:_ a clinician can make a sparse
+    version current for someone who took no part, which is the situation the relaxation exists
+    to serve.
+
+45. **The printed copy omits an empty section rather than printing its heading over a blank,
+    and the own-words claim is conditioned on content rather than on confirmation state.**
+    Omission beats rewording here: six headings each inviting her to write would read as a
+    checklist of things she declined to do, and what remains — her contacts and the crisis
+    block — is what her plan actually is. Conditioning on content rather than on
+    `patientConfirmation` was the implementer's own variation on the instruction and is the
+    safer one: content is what makes the sentence true or false, and it also covers a
+    `confirmed` version that somehow holds nothing. The two agree in every state the form can
+    produce. _Cost if wrong:_ a future data path that produced a current version with an empty
+    `professionalAndEmergencySupport` would drop those contact lines from the paper, though the
+    hardcoded crisis block still renders — recorded below as a defensive carve-out worth adding.
+
+46. **`print-failure` records no audit event at all.** The only available action's outcome
+    message asserts "The print view was opened", which did not happen, and adding a new action
+    is barred by the pre-flight ruling assigning actions to tasks. Recording nothing is the only
+    honest option inside that constraint, and it matches the standing rule that an Audit Event
+    describes only evidence the application actually has. _Cost if wrong:_ a failed print leaves
+    no trace in the chronology at all — recorded as a deferred minor for a later task, since a
+    contact action _does_ record an attempt that is explicitly not evidence of delivery.
+
+47. **The printed title is an `<h2>`, not the brief's `<h1>`.** A committed test has pinned
+    exactly one `<h1>` per route since Task 3 and the shell owns it; Task 5's clinician print
+    resolved the identical tension the same way. The printed document still carries a clear
+    accessible title, asserted by role and level. _Cost if wrong:_ none — consistent with the
+    other print surface.
+
 ---
 
 ## Deferred minors — for the whole-branch review to triage
@@ -800,6 +876,26 @@ because it double-announced against the focus move that fix depends on.
   this task that changes where focus containment lives, and with `css: false` no committed test
   can see its overlay, backdrop or focus trap.
 
+**Task 8** — recorded rather than fixed.
+
+- A failed print leaves **no trace at all** (Ruling 46). A later task should decide whether an
+  attempt-that-failed deserves its own event, as a contact action's `email_intent_opened`
+  records an attempt that is explicitly not evidence of delivery.
+- `emptySections="omit"` applies uniformly to all seven keys including
+  `professionalAndEmergencySupport`. That section is required unconditionally by the form and
+  non-empty in every fixture, so it cannot vanish today — but a future data path bypassing form
+  validation would silently drop those contact lines from the paper. Worth a defensive
+  carve-out.
+- The `Review currency unknown` branch is implemented correctly but unreachable from fixtures:
+  the only `reviewDueAt: null` version is a draft, and drafts never render the review mark.
+- `safety-plan-pages.tsx` combines the reading surface, the print surface and `CrisisContacts`
+  at 564 lines. Task 5 split its two surfaces; Task 7 combined. Precedent exists either way and
+  the shared `SafetyPlanSections` is a real reason to keep them together.
+- Support-row keys and field ids remain index-based (`support-${index}`); pre-existing pattern,
+  and the removal flow is test-covered.
+- `key={item}` on list items matches the established pattern rather than being this task's to
+  change.
+
 **Stage A checkpoint** — found by the controller's own run, not by any task review.
 
 - The Stage A test output is **not pristine**, and no task report mentioned it. Two warnings
@@ -888,3 +984,19 @@ fictional data only` and `SYNTHETIC_DATA_MARKER`'s `… fictional people, teams,
    convention is held by three tests rather than by an invariant. The whole-branch review
    should consider a single focus owner that descendants request, rather than each surface
    claiming focus for itself.
+8. **A generative assertion can never disagree with what it checks.** Task 8 found two of its
+   own controls surviving, and both were this shape: a test comparing rendered text against the
+   very constant the component renders from. "The declined label must not deny the plan exists"
+   asserted against `PATIENT_CONFIRMATION_LABEL.declined`, which passes for _any_ label —
+   including the defective one it was written to catch. The fix is a **literal** expectation:
+   spell the forbidden phrasing out as a regex and apply it across every label and explanation.
+   Structural presence-or-absence checks may read from the constant; content-quality checks
+   never may. Nine guards that could not fail have now shipped here — but the last three were
+   caught by implementers' own positive controls rather than by reviewers, which is the
+   direction of travel worth keeping.
+9. **Read the page as the person receiving it, not as the person who built it.** Task 8's worst
+   defect broke no rule, failed no gate, and was invisible to 365 passing tests: a printed sheet
+   handed to a patient reading `My reasons for living — Not recorded`. Every automated check
+   this project has is a check on structure. The one class of harm it cannot see is a page that
+   is technically correct and cruel to read. Before any patient-facing surface is called done,
+   somebody must read it straight through as its recipient.
