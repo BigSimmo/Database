@@ -449,6 +449,7 @@
   --danger-solid-hover: #85140d;
   --danger-solid-active: #6f120c;
   --danger-solid-contrast: #ffffff;
+  --print-furniture-gap: 4mm;
 
   --info: var(--info-text);
   --info-soft: var(--info-bg);
@@ -4184,10 +4185,6 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
  * transitional back-compat until every chrome owner is attribute-marked.
  * ========================================================================= */
 @media print {
-  :root {
-    --print-furniture-gap: 4mm;
-  }
-
   html,
   body {
     min-width: 0;
