@@ -74,8 +74,6 @@ export const ClinicalAskWorkspace = dynamic(
 );
 export const ClinicalAskComposerActions = dynamic(
   () =>
-    import("@/components/clinical-dashboard/clinical-ask-composer-actions").then(
-      (m) => m.ClinicalAskComposerActions,
-    ),
+    import("@/components/clinical-dashboard/clinical-ask-composer-actions").then((m) => m.ClinicalAskComposerActions),
   { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={2} label="Loading Clinical Ask actions" /> },
 );
