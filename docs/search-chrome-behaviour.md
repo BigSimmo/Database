@@ -39,13 +39,15 @@ the guided-tour action and nothing else; `tests/guide-centre.dom.test.tsx` and
 `--surface-raised` slab with a hard top border reads as a cover over the content behind
 the control, which is exactly what every phone composer avoids.
 
-So the guide footer carries `answer-footer-search-dock answer-footer-search-edge` and
-renders one `.answer-footer-search-backdrop` child, the same pair the shell dock uses.
-`globals.css` then owns the phone geometry — flush `left/right/bottom: 0`, safe-area
-padding, `background: transparent` — and the scrim tints only around the pill before
-tapering to zero at the physical edge. The band's own border, surface and elevation are
-`sm:` only, and the scrim is `sm:hidden`, so the tablet/desktop dialog footer is
-unchanged.
+So the guide footer carries `guide-tour-dock answer-footer-search-dock
+answer-footer-search-edge` and renders one `.answer-footer-search-backdrop` child. The
+shared classes own the phone geometry — flush `left/right/bottom: 0`, safe-area padding,
+`background: transparent` — while the guide modifier keeps a restrained surface tint
+through the Home Indicator region. The CTA remains above the effective inset; only its
+background paints behind system chrome. This guide-only terminal tint is deliberate: the
+shared search dock fades to transparent at the physical edge, which exposed a distinct
+white strip against the fullscreen Sheet. The band's own border, surface and elevation
+remain `sm:` only, and the scrim is `sm:hidden`, so tablet/desktop is unchanged.
 
 Four consequences worth keeping:
 
@@ -56,17 +58,20 @@ Four consequences worth keeping:
   the default was required, and it was, while the pill sat below the row.
 - The footer wrapper is the dock element, so its children need `relative z-10` to paint
   above the scrim.
-- **Only the dock hides; the Sheet header stays pinned.** This is not a symmetry violation —
+- **Only the dock hides; the Sheet header stays pinned and compacts.** This is not a symmetry violation —
   AGENTS.md's header/footer symmetry rule is scoped to chrome that _shares a scroll
-  container_, and the Sheet header is a sibling of `.polished-scroll`, not inside it. Two
-  reasons it must stay:
-  - "Close guide" and the view tabs live in that header. Collapsing it inert left a reader
+  container, and the Sheet header is a sibling of `.polished-scroll`, not inside it. On
+  phones the branded row enters its compact treatment beyond 48px and expands again only
+  within 8px of the top, avoiding threshold flicker. The title, "Close guide" control and
+  all three view tabs stay rendered, visible and interactive in both states. Two reasons
+  the complete header must never collapse or become inert:
+  - "Close guide" and the view tabs live there. Collapsing the full header left a reader
     who had scrolled down with no way out of the dialog.
   - The runway maths. Hiding is refused unless the release fits the remaining scroll
     (`collapseHasSafeRunway` in `use-hide-on-scroll.ts`). The header is ~153px and the dock
-    reserve ~96px against a ~330px range on a 390x820 phone, so charging both refused
-    **every** hide once these pages were shortened. Charging only the dock (~96px) leaves a
-    ~233px post-collapse range, which clears the bar.
+    reserve against a ~330px range on a 390x820 phone, so charging both refused **every**
+    hide once these pages were shortened. Charging only the guide-owned dock reserve leaves
+    enough post-collapse range to clear the action.
 - The dock's budget is read straight off `[data-guide-content]`'s padding, not through
   `readChromeCollapseMetrics`. That helper resolves `universal-header-collapse` against the
   **document**, which from inside a fullscreen modal is the shell header behind the dialog —
@@ -82,8 +87,9 @@ Four consequences worth keeping:
   pill radius and elevation stay `max-sm:`; from `sm` the footer is a real band where the
   square-cornered `primaryControl` is correct.
 - The band's glass and the pill are proven in a **browser**, not by class presence:
-  `tests/guide-centre-chrome.spec.ts` asserts the painted background, border, flush
-  geometry and the resolved scrim height, plus the pill's rendered radius and fill. jsdom
+  the Guide Centre journeys in `tests/ui-smoke.spec.ts` assert the painted background, border, flush
+  geometry, terminal safe-area tint and resolved scrim height, plus the pill's rendered
+  radius and fill. jsdom
   cannot evaluate the `max-sm:` media query or resolve the custom property
   `data-footer-variant` redefines, and tailwind-merge keeps both the base and the variant
   utility, so stylesheet order — not the class list — decides which one wins.

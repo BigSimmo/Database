@@ -5499,8 +5499,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await expect(mobileFooter).toHaveAttribute("aria-hidden", "true");
     await expect(mobileFooter).toHaveAttribute("inert", "");
-    // Only the dock hides. The header is pinned so "Close guide" and the view
-    // tabs stay reachable however far the reader has scrolled.
+    // Only the dock hides. The pinned header compacts, while "Close guide" and
+    // the view tabs stay reachable however far the reader has scrolled.
+    await expect(mobileHeader).toHaveClass(/guide-centre-header--compact/);
     await expect(mobileHeader).toHaveAttribute("aria-hidden", "false");
     await expect(mobileHeader).not.toHaveAttribute("inert");
     await expect(dialog.getByRole("button", { name: "Close guide" })).toBeVisible();
@@ -5538,6 +5539,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await expect(mobileFooter).toHaveAttribute("aria-hidden", "false");
     await expect(mobileFooter).not.toHaveAttribute("inert");
+    await expect(mobileHeader).not.toHaveClass(/guide-centre-header--compact/);
     // The dock carries the guided tour and nothing else — no composer, no input.
     await expect(dialog.locator("[data-guide-universal-search]")).toHaveCount(0);
     await expect(dialog.locator("input")).toHaveCount(0);
@@ -5570,5 +5572,83 @@ test.describe("Clinical KB UI smoke coverage", () => {
       reopenedDialog.getByRole("heading", { level: 2, name: "Ask for one decision at a time" }),
     ).toBeFocused();
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("guide centre phone dock paints through the bottom safe area", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+
+    const dialog = await openGuide(page);
+    await dialog.evaluate((element) => element.style.setProperty("--safe-area-bottom", "34px"));
+    const band = dialog.locator(".guide-tour-dock");
+    await expect(band).toBeVisible();
+
+    const painted = await band.evaluate((element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      const scrim = element.querySelector(".answer-footer-search-backdrop");
+      const scrimStyle = scrim ? window.getComputedStyle(scrim) : null;
+      const action = element.querySelector<HTMLElement>("[data-guide-tour-action-row] button");
+      const actionRect = action?.getBoundingClientRect();
+      const contentElement = element.closest('[role="dialog"]')?.querySelector("[data-guide-content]");
+      return {
+        background: style.backgroundColor,
+        borderTopWidth: style.borderTopWidth,
+        boxShadow: style.boxShadow,
+        paddingBottom: Number.parseFloat(style.paddingBottom),
+        left: Math.round(rect.left),
+        right: Math.round(window.innerWidth - rect.right),
+        bottom: Math.round(window.innerHeight - rect.bottom),
+        scrimDisplay: scrimStyle?.display ?? null,
+        scrimHeight: scrimStyle ? Math.round(Number.parseFloat(scrimStyle.height)) : 0,
+        scrimBackground: scrimStyle?.backgroundImage ?? "",
+        scrimMask: scrimStyle?.maskImage || scrimStyle?.getPropertyValue("-webkit-mask-image") || "",
+        actionBottomClearance: actionRect ? Math.round(window.innerHeight - actionRect.bottom) : 0,
+        contentPaddingBottom: contentElement
+          ? Number.parseFloat(window.getComputedStyle(contentElement).paddingBottom)
+          : 0,
+      };
+    });
+
+    // The wrapper remains a flush, transparent dock; its child scrim owns paint.
+    expect(painted.background).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+    expect(painted.borderTopWidth).toBe("0px");
+    expect(painted.boxShadow === "none" || /rgba\(0, 0, 0, 0\)/.test(painted.boxShadow)).toBe(true);
+    expect(painted.left).toBe(0);
+    expect(painted.right).toBe(0);
+    expect(painted.bottom).toBe(0);
+
+    // At a seeded 34px inset, the guide-specific 130px scrim remains compact
+    // while its opaque terminal mask keeps the Home Indicator region painted.
+    expect(painted.scrimDisplay).toBe("block");
+    expect(painted.scrimHeight).toBeGreaterThanOrEqual(130);
+    expect(painted.scrimHeight).toBeLessThan(160);
+    expect(painted.scrimBackground).not.toBe("none");
+    expect(painted.scrimMask).toMatch(/100%/);
+    expect(painted.scrimMask).not.toMatch(/transparent 100%/);
+    expect(painted.paddingBottom).toBeGreaterThanOrEqual(44);
+    expect(painted.actionBottomClearance).toBeGreaterThanOrEqual(44);
+    expect(painted.contentPaddingBottom).toBeGreaterThanOrEqual(114);
+
+    const action = band.locator("[data-guide-tour-action-row] button");
+    await expect(action).toHaveCount(1);
+    const pill = await action.evaluate((element) => {
+      const style = window.getComputedStyle(element);
+      const probe = document.createElement("div");
+      probe.style.backgroundColor = "var(--command)";
+      element.parentElement?.append(probe);
+      const commandFill = window.getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return {
+        background: style.backgroundColor,
+        commandFill,
+        borderRadius: Number.parseFloat(style.borderTopLeftRadius),
+        minHeight: Number.parseFloat(style.minHeight),
+      };
+    });
+    expect(pill.borderRadius).toBeGreaterThan(100);
+    expect(pill.minHeight).toBeGreaterThanOrEqual(48);
+    expect(pill.background).toBe(pill.commandFill);
   });
 });
