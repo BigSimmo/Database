@@ -444,13 +444,8 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
 
       await expect(page.getByTestId("tools-search-results-page")).toBeVisible();
       await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
-      if (viewport.name === "phone") {
-        await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toHaveCount(0);
-        await expect(page.locator("form.answer-footer-search-dock")).toBeVisible();
-      } else {
-        await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
-        await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
-      }
+      await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
+      await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     });
   }
@@ -492,21 +487,14 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
         await expect(page.getByRole("button", { name: "View details for Clinical KB Search" })).toBeVisible();
       }
       await expect(page.getByLabel("Mode Tools")).toBeVisible();
-      await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
-      if (viewport.name === "mobile") {
-        // Tools delegates its phone composer to the same shared global footer
-        // used by submitted views; tablet and desktop retain the hero slot.
-        await expect(page.getByTestId("tools-home").getByTestId("global-search-input")).toHaveCount(0);
-        await expect(page.locator("form.answer-footer-search-dock")).toBeVisible();
-      } else {
-        await expect(page.getByTestId("tools-home").getByTestId("global-search-input")).toBeVisible();
-      }
+      await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
+      await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
       await expect(page.getByTestId("tools-local-search-input")).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     });
   }
 
-  test("all tools are visible immediately with optional shared search", async ({ page }) => {
+  test("all tools are visible immediately without a shared search composer", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/tools");
 
@@ -515,20 +503,9 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Clinical KB Search" }).first()).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
-    await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
-    await expect(results.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
     await expect(page.getByTestId("tools-local-search-input")).toHaveCount(0);
-
-    // Browsing needs no query; typing simply narrows the already-visible directory.
-    await fillHydratedGlobalSearch(page, "medication");
-    await expect(results.getByRole("heading", { level: 1, name: "medication" })).toBeVisible();
-    await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
-    await expect(results.getByRole("heading", { level: 2, name: "Documents" })).toHaveCount(0);
-
-    await visibleGlobalSearchInput(page).fill("");
-    await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
-    await expect(results.getByRole("heading", { level: 2, name: "Documents" })).toBeVisible();
 
     const categories = results.getByRole("radiogroup", { name: "Tool category" });
     await categories.getByRole("radio", { name: /Treat/ }).click();
@@ -545,17 +522,13 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("submitting the Tools composer opens the route-owned results page", async ({ page }) => {
+  test("a submitted Tools URL opens the route-owned results page without a composer", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await gotoLauncher(page, "/?mode=tools");
-
-    await fillHydratedGlobalSearch(page, "Compare");
-    const submit = page.locator('button[aria-label="Search tools"]:visible');
-    await expect(submit).toBeEnabled();
-    await Promise.all([page.waitForURL(/\/tools\?q=Compare&run=1$/), submit.click()]);
+    await gotoLauncher(page, "/tools?q=Compare&run=1");
 
     const results = page.getByTestId("tools-search-results-page");
     await expect(results).toBeVisible();
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.getByTestId("tools-home")).toHaveCount(0);
     await expect(results.getByRole("heading", { level: 1, name: "Compare" })).toBeVisible();
     await expect(results.getByText("2 tools", { exact: true })).toBeVisible();
@@ -577,7 +550,8 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
 
     const results = page.getByTestId("tools-search-results-page");
     await expect(results).toBeVisible();
-    await expect(page.locator("form.answer-footer-search-dock")).toBeVisible();
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
+    await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
 
     const filterTrigger = results.getByTestId("tools-search-filter-trigger-phone");
     await filterTrigger.click();
@@ -611,19 +585,14 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Tool results" })).toBeVisible();
       await expect(page.getByRole("heading", { level: 2, name: "Clinical KB Search" }).first()).toBeVisible();
-      if (width < 640) {
-        await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toHaveCount(0);
-        await expect(page.locator("form.answer-footer-search-dock")).toBeVisible();
-      } else {
-        await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
-        await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
-      }
+      await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
+      await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     }
 
     await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
     await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
-    await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -650,27 +619,25 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(page.locator('a[href^="http://localhost"], a[href^="http://127.0.0.1"]')).toHaveCount(0);
   });
 
-  test("search and filters reduce visible application rows without overflow", async ({ page }) => {
+  test("a URL query and filters reduce visible application rows without overflow", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await gotoLauncher(page, "/?mode=tools");
+    await gotoLauncher(page, "/tools?q=medication");
 
-    await fillHydratedGlobalSearch(page, "medication");
-
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.getByTestId("application-card-medication-prescribing")).toBeVisible();
     await expect(page.getByTestId("application-card-documents")).toBeHidden();
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("non-submitted tools query keeps the all-results page and home composer", async ({ page }) => {
+  test("non-submitted tools query keeps the all-results page without a composer", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/tools?q=medication&focus=1");
 
     await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
-    await expect(page.locator('input[placeholder="Search tools..."]:visible').first()).toHaveValue("medication");
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
 
     const results = page.getByTestId("tools-search-results-page");
     await expect(results).toBeVisible();
-    await expect(results.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
     await expect(results.getByRole("heading", { level: 1, name: "medication" })).toBeVisible();
     await expect(results.getByRole("group", { name: "Filter tools by category" })).toBeVisible();
     const medicationDetails = results.getByRole("button", { name: "View details for Medication Prescribing" });

@@ -449,6 +449,7 @@ function GlobalStandaloneSearchShellBody({
   const isInfoPage = isInformationPage(pathname);
   const shouldShowSearchComposer =
     searchComposerVisible &&
+    pathname !== "/tools" &&
     !isDifferentialPresentationWorkflow &&
     (!isInfoPage || isToolDetailWithFooterSearch(pathname));
   const heroOwnsPhoneComposer = isStandaloneModeHome && mobileHomeComposerPlacement === "hero";
