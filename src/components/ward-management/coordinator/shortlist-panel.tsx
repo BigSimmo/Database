@@ -16,6 +16,7 @@ import {
 import { eligibility, type GateResult } from "@/components/ward-management/ward-eligibility";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { PARALLEL_REFERRAL_CAP, type Movement, type Unit } from "@/components/ward-management/ward-model";
+import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { operationalScore } from "@/components/ward-management/ward-priority";
 import { allEmergencyDepartments, unitById } from "@/components/ward-management/ward-sites";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
@@ -96,9 +97,10 @@ function legalFormLine(movement: Movement, now: Instant) {
  * off `gate.pass`; nothing else is permitted to decide it (see the report's red/green proof).
  */
 export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, dispatch }: ShortlistPanelProps) {
+  const { units } = useWardFlow();
   const shortlist = useMemo(
-    () => (movement ? eligibleCandidates(movement, now, PARALLEL_REFERRAL_CAP) : []),
-    [movement, now],
+    () => (movement ? eligibleCandidates(movement, now, PARALLEL_REFERRAL_CAP, units) : []),
+    [movement, now, units],
   );
 
   // The unit whose gates this panel currently explains. A selection carried over from another
