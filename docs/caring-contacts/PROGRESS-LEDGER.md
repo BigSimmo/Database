@@ -4,7 +4,7 @@
 a second copy of the detail: each row points at the file that holds the reasoning. Where this file and a
 detailed record disagree, **the detailed record wins** — this one is a summary and can go stale.
 
-Last updated at head `19405fae6`, 2026-08-22. Branch `claude/suicide-contact-mockup-b5aaa0`, pushed.
+Last updated at head `2596599ed`, 2026-08-22. Branch `claude/suicide-contact-mockup-b5aaa0`, pushed.
 
 ---
 
@@ -56,8 +56,8 @@ experience and clinical sign-off are required before any real use.
 | —    | **Checkpoint 2**                                 | **PASSED** — see the build record                      |
 | 12   | Database config that can never hit Clinical KB   | Complete, batched with 13, 1 fix round, review clean   |
 | 13   | Demo role switcher                               | Complete, batched with 12, 1 fix round, review clean   |
-| 14   | Route handlers that audit every view             | **IN PROGRESS** — closes Phase 1 open item 1           |
-| 15   | Route group, four width states, inbound link     | Not started — lazy route boundary required (Ruling 13) |
+| 14   | Route handlers that audit every view             | Complete, 2 fix rounds, review clean                   |
+| 15   | Route group, four width states, inbound link     | **IN PROGRESS**                                        |
 | 16   | Service-state banner                             | Not started                                            |
 | 17   | The frozen 24-row overlay definition table       | Not started — Opus work                                |
 | 18   | One renderer, twenty-four overlays               | Not started — Opus work                                |
