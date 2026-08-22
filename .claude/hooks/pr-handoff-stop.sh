@@ -1,40 +1,149 @@
 #!/usr/bin/env bash
-# Stop the session once its pull request exists.
+# Bound how long a session babysits its own pull request.
 #
-# Why: an agent session (especially Claude Code on the web, which keeps running
-# after the PR is opened) that stays attached to its own PR burns usage in a
-# long tail of `gh pr checks` / `gh run watch` / branch-sync polling, or of
-# Monitor/wake-up loops parked on the same PR. Opening the PR is the handoff;
-# CI, review bots, and merge are the user's call from there.
+# Why a budget and not a ban: opening the PR is the handoff, but walking away
+# the instant it exists is not useful either — a check that goes red ninety
+# seconds later is still this session's to fix, and it is the cheapest moment
+# to fix it. The waste worth stopping is the *unbounded* tail: a session
+# (especially Claude Code on the web, which keeps running after the PR is
+# opened) polling `gh pr checks` / `gh run watch` indefinitely, or parking a
+# cron entry on the PR that outlives the session entirely.
+#
+# So from the moment the PR URL comes back the session may follow its own PR —
+# read checks and run logs, re-run a failed job, sync the branch, push fixes —
+# for CLAUDE_PR_BABYSIT_BUDGET_MINUTES (default 30). When that budget is spent
+# the follow tools are denied, and the session reports where CI stands and
+# stops. See AGENTS.md "Babysit the pull request, then stop".
 #
 # Two modes, both registered in .claude/settings.json:
 #
 #   post  PostToolUse — after a call that created a PR (the `gh pr create` CLI or
 #         a GitHub MCP create_pull_request tool) AND whose output contains a real
-#         PR URL, drop a session-scoped marker and tell the model the handoff is
-#         complete and the turn should end.
+#         PR URL, drop a session-scoped marker stamped with the open time and
+#         tell the model the babysit budget has started.
 #
-#   pre   PreToolUse — while that marker exists, deny the PR/CI-following tools:
-#         shell polling commands, GitHub MCP PR/CI read tools, and the loop
-#         machinery (Monitor / ScheduleWakeup / CronCreate). This is the part
-#         with teeth: prose rules in AGENTS.md have not held, a denied tool call
-#         does.
+#   pre   PreToolUse — while that marker exists:
+#           * inside the budget, PR/CI follow tools pass. Monitor and
+#             ScheduleWakeup pass too: waiting between looks is how the roughly
+#             five-minute cadence floor gets honoured, and denying the wait only
+#             produces tight polling instead.
+#           * outside the budget, those same tools are denied. This is the part
+#             with teeth: prose rules in AGENTS.md have not held, a denied tool
+#             call does.
+#           * CronCreate is denied either way. A cron entry outlives the session,
+#             so no later budget check can ever stop it.
 #
 # Escape hatch: prefix a shell command with CLAUDE_ALLOW_PR_FOLLOW=1 (the user
-# asking for CI to be watched is the authorisation). For non-shell tools the
-# unlock is deleting the marker, which the deny reason spells out — do that only
-# on an explicit user ask.
+# asking for CI to be watched past the budget is the authorisation). For
+# non-shell tools the unlock is deleting the marker, which the deny reason
+# spells out — do that only on an explicit user ask.
 #
 # `Run PR` sweeps, pr-ci-fix work, and reviews of someone else's PR are
 # untouched: they never create a PR, so no marker is ever written.
 #
-# Contract: never fails a tool call by accident. Any parse problem exits 0 with
-# no decision, which leaves the tool call exactly as it was.
+# Contract: never fails a tool call by accident. Any parse problem — a malformed
+# payload, an unreadable marker timestamp, a clock that moved backwards — exits 0
+# with no decision, which leaves the tool call exactly as it was.
 set -uo pipefail
 
 mode="${1:-}"
-payload="$(cat 2>/dev/null || true)"
+case "$mode" in
+post | pre) ;;
+*) exit 0 ;;
+esac
+
+# Read stdin with the `read` builtin instead of `$(cat)`: one fewer fork+exec on
+# every Bash/PowerShell call, and not slower — measured from 1 KB to 2 MB it wins
+# below 256 KB and draws above. `read -d ''` consumes to EOF and reports non-zero
+# *there* having already filled the variable, so `|| true` is the expected path.
+payload=""
+IFS= read -r -d '' payload || true
 [ -z "$payload" ] && exit 0
+
+# --- fast reject, before any subprocess ---------------------------------------
+# Both modes are registered on EVERY Bash/PowerShell call, and in almost all of
+# them there is nothing to do. Reaching that conclusion used to cost four jq
+# runs, a grep and a `git rev-parse` — on Windows/Git Bash that is roughly two
+# seconds of pure process-spawn latency, twice per tool call. Everything under
+# this banner uses shell builtins only.
+#
+# Each test below is a deliberate SUPERSET of the decision it stands in for, so
+# it can only ever let MORE through, never less. Anything it rejects would have
+# reached the same exit further down, just slower.
+
+# Post mode acts only when tool_response carries a `github.com/<…>/pull/<n>` URL
+# (the URL gate in the post branch). That match is case-sensitive, so the raw
+# payload must contain the lowercase bytes `pull`; JSON escaping `/` as `\/`
+# cannot hide them. The `\u` arm keeps the claim airtight against a hypothetical
+# encoder emitting `\u0070ull`.
+if [ "$mode" = post ]; then
+  case "$payload" in
+  *pull* | *\\u*) ;;
+  *) exit 0 ;;
+  esac
+fi
+
+# Resolve the git directory the way `git rev-parse --absolute-git-dir` does, with
+# builtins only. fast_git_dir is left EMPTY whenever the answer is not certain —
+# any of git's own discovery controls being set, a `.git` file that does not
+# resolve, a cwd that is itself a git dir, or no repository above cwd — and every
+# one of those falls through to the authoritative `git rev-parse` in the marker
+# section below.
+#
+# The discovery controls are load-bearing, not decoration. GIT_CEILING_DIRECTORIES
+# in particular stops git ascending, so from a ceiling-excluded subdirectory git
+# reports NO repository and the marker belongs in TMPDIR — while a naive upward
+# walk finds the excluded checkout's `.git` and puts it there instead. Those two
+# answers disagreeing across a post/pre pair is exactly how this guard would stop
+# firing, so treat every discovery control as uncertain rather than guessing.
+fast_git_dir=""
+resolve_fast_git_dir() {
+  # Keep in sync with git's discovery controls; an unrecognised one must fail
+  # closed to `git rev-parse`, never be walked past.
+  [ -n "${GIT_DIR:-}${GIT_COMMON_DIR:-}${GIT_WORK_TREE:-}${GIT_CEILING_DIRECTORIES:-}${GIT_DISCOVERY_ACROSS_FILESYSTEM:-}" ] && return 0
+  # cwd is itself a git dir (bare repo): walking up would find a different repo.
+  [ -f "$PWD/HEAD" ] && [ -d "$PWD/objects" ] && [ -d "$PWD/refs" ] && return 0
+  local dir="$PWD" line target
+  while :; do
+    if [ -d "$dir/.git" ]; then
+      fast_git_dir="$dir/.git"
+      return 0
+    fi
+    if [ -f "$dir/.git" ]; then
+      # Linked worktree: a one-line `gitdir: <path>` pointer.
+      IFS= read -r line <"$dir/.git" 2>/dev/null || return 0
+      line="${line%$'\r'}"
+      case "$line" in
+      "gitdir: "*)
+        target="${line#gitdir: }"
+        case "$target" in
+        /* | [A-Za-z]:[/\\]*) ;;
+        *) target="$dir/$target" ;;
+        esac
+        [ -d "$target" ] && fast_git_dir="$target"
+        ;;
+      esac
+      return 0
+    fi
+    case "$dir" in "" | /) break ;; esac
+    dir="${dir%/*}"
+    [ -z "$dir" ] && dir=/
+  done
+  return 0
+}
+resolve_fast_git_dir
+
+# Pre mode's entire job is gated on this session's marker existing (the first
+# line of the pre branch), and no marker is written until this session opens a
+# PR. The id is read with bash's own regex engine and accepted only in the same
+# safe charset the full parse enforces, so a path-injection id matches nothing
+# here and falls through to be rejected there. `-e`, not `-f`: anything present
+# at that path defers to the slow path rather than short-circuiting it.
+if [ "$mode" = pre ] && [ -n "$fast_git_dir" ]; then
+  if [[ "$payload" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([A-Za-z0-9_-]+)\" ]]; then
+    [ -e "$fast_git_dir/claude-pr-handoff-${BASH_REMATCH[1]}" ] || exit 0
+  fi
+fi
 
 # Extract a JSON string value for key $1 from the raw payload (first match).
 # Handles only simple double-quoted values (no escapes). Empty on miss.
@@ -134,17 +243,21 @@ fi
 
 # --- marker location ----------------------------------------------------------
 # Absolute git dir so the marker path is valid from any cwd (and for linked
-# worktrees). Falls back to TMPDIR outside a repo.
-git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
+# worktrees). The builtin resolver above answers this without spawning git in
+# the ordinary cases; `git rev-parse` stays the authority everywhere it did not.
+# Falls back to TMPDIR outside a repo.
+git_dir="$fast_git_dir"
+[ -z "$git_dir" ] && git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
 [ -z "$git_dir" ] && git_dir="${TMPDIR:-/tmp}"
 marker="$git_dir/claude-pr-handoff-$session_id"
 
 # Intentionally do not prune sibling sessions' markers. Post-mode runs on every
 # Bash/PowerShell call (settings matcher), so age-based deletion of *other*
-# sessions' files would disarm a long-lived handoff session that only uses
-# Read/Edit after opening its PR (those tools never refresh mtime via pre-mode
-# touch). Markers are one-line files under the git dir and disappear with the
-# worktree; leftover orphans are cheap hygiene, not worth silent enforcement loss.
+# sessions' files would disarm a session that is still inside its babysit budget.
+# The budget is measured from the `epoch=` stamp in the marker's contents, never
+# from its mtime, so nothing here needs to touch the file to keep it live.
+# Markers are one-line files under the git dir and disappear with the worktree;
+# leftover orphans are cheap hygiene, not worth silent enforcement loss.
 
 json_escape() {
   # Escape backslash/quote, fold newlines to spaces, and strip other C0 control
@@ -169,11 +282,23 @@ matches_pr_write_tool() {
     | grep -Eqi '(create|merge)_?pull_?request$'
 }
 
+
+# --- babysit budget -----------------------------------------------------------
+# Minutes a session may follow its own pull request after opening it. A value
+# that is not a plain integer, or falls outside 1..240, is ignored in favour of
+# the default: a typo must not remove the ceiling or pin it to zero.
+budget_minutes="${CLAUDE_PR_BABYSIT_BUDGET_MINUTES:-30}"
+if ! printf '%s' "$budget_minutes" | grep -Eq '^[0-9]+$' ||
+  [ "$budget_minutes" -lt 1 ] ||
+  [ "$budget_minutes" -gt 240 ]; then
+  budget_minutes=30
+fi
+
 case "$mode" in
 post)
   # A PR-creating call that actually returned a PR URL. Both halves matter:
-  # without the URL check a failed create would end the session with no PR to
-  # hand off.
+  # without the URL check a failed create would start a babysit budget with no
+  # PR to babysit.
   created=1
   if is_shell_tool && shell_input_matches 'gh[[:space:]]+pr[[:space:]]+create'; then
     created=0
@@ -189,60 +314,86 @@ post)
   [ -n "$tool_output" ] || exit 0
   printf '%s' "$tool_output" | grep -Eq 'github\.com/[^ "]+/pull/[0-9]+' || exit 0
 
-  # Only tell the model tools are denied when the marker actually landed. A
+  # `epoch=` is what pre-mode measures the budget from. A clock that cannot be
+  # read is written as unknown, and pre-mode then fails open rather than denying
+  # on a timestamp it never had.
+  opened_epoch="$(date -u +%s 2>/dev/null || true)"
+  printf '%s' "$opened_epoch" | grep -Eq '^[0-9]+$' || opened_epoch="unknown"
+
+  # Only tell the model a budget is running when the marker actually landed. A
   # failed write (permissions / full disk) must fail open with no context —
-  # otherwise the model stops while pre-mode never enforces.
-  if ! printf 'pr-opened %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)" >"$marker" 2>/dev/null; then
+  # otherwise the model paces itself against a ceiling pre-mode never enforces.
+  if ! printf 'pr-opened %s epoch=%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)" \
+    "$opened_epoch" >"$marker" 2>/dev/null; then
     exit 0
   fi
   [ -f "$marker" ] || exit 0
 
-  context='The pull request is open. That is the end of this session'\''s handoff. Record the ledger row if it is still owed, give the user the PR URL and a short summary, then stop. Do NOT watch CI, poll checks, read workflow runs or job logs, re-run workflows, sync the branch from main, answer review bots, or park a Monitor / ScheduleWakeup / cron loop on this PR — following the PR from here is the wasted-usage loop this repo has explicitly ruled out (AGENTS.md "Stop when the pull request is open"). Those tools are now denied for the rest of this session. If the user asks for CI babysitting afterwards, that is their call and it is allowed then.'
+  context="The pull request is open: hand over its URL and stop. Do not read checks, wait, sync from main, or push follow-up fixes unless the user expressly asks to babysit or continue PR work. If they do ask in this session, CI follow-up is bounded to ${budget_minutes} minutes; use a slow cadence and stop as soon as CI settles. Do not park a cron job on this PR — it would outlive the session. See AGENTS.md \"Babysit the pull request, then stop\"."
   printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' "$(json_escape "$context")"
   exit 0
   ;;
 
 pre)
   [ -f "$marker" ] || exit 0
-  # Refresh mtime so prune retention tracks last activity, not creation time.
-  touch "$marker" 2>/dev/null || true
   matches_pr_write_tool && exit 0
+
+  # How much of the budget is left. Every unreadable input fails open: a marker
+  # written before this budget existed, or a clock that jumped, must not silently
+  # deny an entire session.
+  opened_epoch="$(sed -n 's/.*epoch=\([0-9][0-9]*\).*/\1/p' "$marker" 2>/dev/null | head -n1)"
+  [ -n "$opened_epoch" ] || exit 0
+  now_epoch="$(date -u +%s 2>/dev/null || true)"
+  printf '%s' "$now_epoch" | grep -Eq '^[0-9]+$' || exit 0
+  elapsed=$((now_epoch - opened_epoch))
+  [ "$elapsed" -lt 0 ] && exit 0
+  expired=0
+  [ "$elapsed" -ge $((budget_minutes * 60)) ] && expired=1
+
+  spent_reason="Blocked: the ${budget_minutes}-minute budget for babysitting this session's own pull request is spent, and following it further is the unbounded loop AGENTS.md \"Babysit the pull request, then stop\" rules out. Tell the user where CI stands, hand over the PR URL, and stop."
 
   reason=""
 
-  # 1. Loop machinery — parking a wake-up or watcher on the PR is the same loop
-  #    by another route, and hooks are the only thing that can see these.
+  # 1. Loop machinery. CronCreate is denied for the whole session at any point in
+  #    the budget: a cron entry outlives the session, so no later budget check
+  #    can stop it. Monitor and ScheduleWakeup are how the cadence floor gets
+  #    honoured, so they pass until the budget is spent.
   case "$tool_name" in
-  Monitor | ScheduleWakeup | CronCreate)
-    reason='Blocked: this session already opened its pull request, so parking a watcher/wake-up/cron on it is the wasted-usage loop AGENTS.md "Stop when the pull request is open" rules out. Hand the PR URL to the user and stop.'
+  CronCreate)
+    reason="Blocked: a cron entry parked on this pull request outlives the session, so no later budget check can stop it. Babysit within the session's own budget instead — ScheduleWakeup is the right way to wait between checks — then report where CI stands and stop. AGENTS.md \"Babysit the pull request, then stop\"."
+    ;;
+  Monitor | ScheduleWakeup)
+    [ "$expired" -eq 1 ] && reason="$spent_reason"
     ;;
   esac
 
   # 2. GitHub MCP tools that read or mutate PR / CI state.
   # Keep this token list in sync with the PreToolUse matcher in .claude/settings.json.
-  if [ -z "$reason" ] && printf '%s' "$tool_name" \
+  if [ -z "$reason" ] && [ "$expired" -eq 1 ] && printf '%s' "$tool_name" \
     | grep -Eqi 'pull_?request|workflow_run|workflow_job|check_run|check_suite|job_log|pr_status|update_branch'; then
-    reason='Blocked: this session already opened its pull request, so reading or nudging its CI and review state is the wasted-usage loop AGENTS.md "Stop when the pull request is open" rules out. Hand the PR URL to the user and stop.'
+    reason="$spent_reason"
   fi
 
-  # 3. Shell polling. Narrow on purpose: committing, pushing, ledger appends, and
-  #    `gh pr merge` (already gated on explicit user confirmation) stay allowed.
-  #    Matches are substring-based (cheap, no shell parse); false positives that
-  #    only *mention* a blocked token can use CLAUDE_ALLOW_PR_FOLLOW=1.
-  if [ -z "$reason" ] && is_shell_tool; then
+  # 3. Shell polling, once the budget is spent. Narrow on purpose: committing,
+  #    pushing, ledger appends, and `gh pr merge` (already gated on explicit user
+  #    confirmation) stay allowed throughout. Matches are substring-based (cheap,
+  #    no shell parse); false positives that only *mention* a blocked token can
+  #    use CLAUDE_ALLOW_PR_FOLLOW=1.
+  if [ -z "$reason" ] && [ "$expired" -eq 1 ] && is_shell_tool; then
     # Escape hatch: documented prefix only (not an incidental echo/mention).
     # A quote-truncated command_text still sees a leading CLAUDE_ALLOW_PR_FOLLOW=1.
     printf '%s' "$command_text" \
       | grep -Eq '^[[:space:]]*CLAUDE_ALLOW_PR_FOLLOW=1([[:space:]]|$)' \
       && exit 0
-    # comment/review cover the "answer review bots" loop named in AGENTS.md;
-    # merge stays allowed (explicit-confirmation rule elsewhere).
+    # comment/review cover the "answer review bots" tail; merge stays allowed
+    # (explicit-confirmation rule elsewhere).
     follow_re='gh[[:space:]]+pr[[:space:]]+(checks|status|view|diff|list|comment|review)'
     follow_re="$follow_re"'|gh[[:space:]]+run[[:space:]]+(watch|view|list|rerun|download)'
     follow_re="$follow_re"'|gh[[:space:]]+api[^|;]*(actions/runs|check-runs|check-suites|/pulls/)'
     follow_re="$follow_re"'|sync:pr-branches'
     if shell_command_matches "$follow_re"; then
-      reason='Blocked: this session already opened its pull request, so following it (CI polling, run logs, branch sync) is the wasted-usage loop AGENTS.md "Stop when the pull request is open" rules out. Hand the PR URL to the user and stop. If the user has asked for this check, re-run it prefixed with CLAUDE_ALLOW_PR_FOLLOW=1.'
+      reason="$spent_reason If the user has asked for CI to be watched past the budget, re-run the command prefixed with CLAUDE_ALLOW_PR_FOLLOW=1."
     fi
   fi
 

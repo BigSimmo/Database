@@ -82,7 +82,9 @@ describe("decoration-on-text contracts", () => {
   // mode builds its groups with `resultFilterGroup`/`resultFilterFacetGroup`
   // — one check now covers both call shapes.
   it("keeps facet and scope counts on a text tier", () => {
-    const line = lineContaining(resultFilterControl, ">{option.hint}<");
+    // `hintLabel ?? hint` since counted options display a short form while the
+    // announced name keeps the unit; the tier requirement is unchanged.
+    const line = lineContaining(resultFilterControl, ">{option.hintLabel ?? option.hint}<");
     expect(line, "{option.hint} must not use the decoration tier").not.toContain("var(--text-soft)");
     expect(line).toContain("text-[color:var(--text-muted)]");
   });

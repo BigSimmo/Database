@@ -14,143 +14,111 @@ import type { AppModeId } from "@/lib/app-modes";
  * never hardcoded here.
  */
 
-export type SharedHomeVerification = {
-  label: string;
-  body: string;
-};
-
 export type SharedHomePresentation = {
   title: string;
   subtitle: string;
-  /**
-   * The mode's review-before-use caveat, rendered under the composer.
-   *
-   * Optional because it is a genuine instruction, not decoration: modes whose
-   * footer would only restate what the mode does render nothing, matching the
-   * rule in `ModeHomeVerificationFooter`.
-   */
-  verification?: SharedHomeVerification;
+  suggestions: readonly string[];
 };
 
 /**
  * Per-mode copy for the one shared home at `/`.
  *
  * `/` is the single home page for every mode — the mode pill retargets the
- * composer rather than navigating (see `appModeSelectionHref`), so this table is
- * the *only* thing that changes between modes on that page. Each entry mirrors
- * the mode's own standalone home (`*-home-page.tsx`) so a clinician sees the
- * same words whichever door they came through.
+ * composer rather than navigating (see `appModeSelectionHref`), so this table
+ * drives the mode-specific hero title and subtitle on that page.
+ *
+ * Titles here provide full descriptive clinical labels (e.g. "Clinical Services",
+ * "Differential Diagnosis", "Medication Guidance", "Patient Factsheets",
+ * "Clinical Dictionary") while standalone mode surfaces and workspaces
+ * (`*-home-page.tsx`, `medication-prescribing-workspace.tsx`, etc.) present
+ * concise mode titles ("Services", "Differentials", "Medication", "Factsheets",
+ * "Dictionary") with matched subtitles and clinical intent.
  */
 export const sharedHomePresentation = {
   answer: {
     title: "Clinical Answers",
     subtitle: "Ask a clinical question or search your documents.",
-    verification: {
-      label: "Clinical decision support",
-      body: "Verify against cited sources before clinical use",
-    },
+    suggestions: ["lithium level timing", "clozapine ANC monitoring", "ECT consent requirements"],
   },
   documents: {
     title: "Clinical Documents",
     subtitle: "Open, browse, and continue reading your clinical sources.",
+    suggestions: ["clozapine ANC thresholds", "lithium monitoring table", "QT prolongation quote"],
   },
   services: {
     title: "Clinical Services",
     subtitle: "Search by need, catchment, or route.",
-    verification: {
-      label: "Referral fit",
-      body: "Need, catchment, eligibility and route",
-    },
+    suggestions: ["crisis ATSI phone WA", "perinatal psychiatry metro", "older adult CMH Fremantle"],
   },
   forms: {
     title: "Clinical Forms",
     subtitle: "The WA MHA 2014 forms register.",
-    verification: {
-      label: "Source catalogue reviewed",
-      body: "Official-source MHA 2014 forms · verify before use",
-    },
+    suggestions: ["transport order", "Form 3A detention", "extension of transport"],
   },
   favourites: {
-    title: "Clinical Favourites",
+    title: "Favourites",
     subtitle: "Saved notes, sources, and sets.",
+    suggestions: ["ward round set", "pinned monitoring tables", "clozapine clinic"],
   },
   differentials: {
     title: "Differential Diagnosis",
     subtitle: "Match your catalogue to your library.",
-    verification: {
-      label: "Decision support",
-      body: "Review before use",
-    },
+    suggestions: ["acute confusion", "first episode psychosis", "catatonia vs NMS"],
   },
   dsm: {
     title: "DSM-5 Diagnosis",
     subtitle: "Criteria, specifiers, and comparisons.",
-    verification: {
-      label: "Local reference content",
-      body: "Clinical review required",
-    },
+    suggestions: ["major depressive disorder", "F31.81", "panic disorder criteria"],
   },
   specifiers: {
     title: "Diagnostic Specifiers",
     subtitle: "Check specifier fit and exclusions.",
-    verification: {
-      label: "Diagnostic decision support",
-      body: "Review criteria and exclusions before documenting",
-    },
+    suggestions: ["depressed but racing thoughts", "returns every winter", "much better but not fully recovered"],
   },
   formulation: {
     title: "Clinical Formulation",
     subtitle: "Build a formulation from the evidence.",
-    verification: {
-      label: "Hypothesis-led decision support",
-      body: "Check fit, alternatives, risk, and context before using a draft",
-    },
+    suggestions: ["avoidance after panic", "rumination after rejection", "dissociation under threat"],
   },
   prescribing: {
     title: "Medication Guidance",
     subtitle: "Medication dosing and safety.",
-    verification: {
-      label: "Prescribing support",
-      body: "Confirm against source",
-    },
+    suggestions: ["acamprosate renal", "naltrexone dose ceiling", "disulfiram counselling"],
   },
   tools: {
     title: "Clinical Tools",
     subtitle: "Clinical tools and applications.",
+    suggestions: ["renal calculator", "dose converter", "clinical forms"],
   },
   calculators: {
     title: "Clinical Calculators",
     subtitle: "Validated psychiatry scores with the indication, items, and next actions in one place.",
-    verification: {
-      label: "Source-cited scoring",
-      body: "Scores support clinical judgement and never replace a full assessment. Nothing entered here is stored.",
-    },
+    suggestions: ["depression severity", "anxiety screening", "alcohol use"],
   },
   "therapy-compass": {
-    title: "Therapy Compass",
+    // "Therapy", not "Therapy Compass": the mode's own copy rule, pinned by
+    // tests/therapy-compass-mode-wiring.test.ts, which the retired detailed home
+    // followed. This title became user-visible when that home was consolidated here.
+    title: "Therapy",
     subtitle: "Source-grounded therapy records.",
-    verification: {
-      label: "Decision support",
-      body: "Source-grounded — review status before clinical use",
-    },
+    suggestions: ["trauma-focused CBT", "behavioural activation", "insomnia"],
   },
   factsheets: {
     title: "Patient Factsheets",
     subtitle: "Plain-language patient handouts.",
-    verification: {
-      label: "Demonstration patient information",
-      body: "Connect only governance-approved content before publication",
-    },
+    suggestions: ["sertraline", "lithium monitoring", "CBT"],
   },
   dictionary: {
     title: "Clinical Dictionary",
     subtitle: "Source-governed psychiatric terms, abbreviations, and distinctions.",
-    verification: {
-      label: "Source-checked reference terminology",
-      body: "Not patient-specific guidance",
-    },
+    suggestions: ["mental state examination", "auditory hallucination", "ACT"],
   },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
+
+/** Browser/assistive-technology title for the mode selected on the shared home. */
+export function sharedHomeDocumentTitle(modeId: AppModeId) {
+  return `${sharedHomePresentation[modeId].title} | Clinical KB`;
+}
 
 export const sharedHomeEmptyState = {
   starterActionsLabel: "Starter actions",

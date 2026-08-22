@@ -77,7 +77,7 @@ export function buildContentSecurityPolicy({
     // server-side only, so the browser gets no provider origin (2026-07-13 audit).
     "img-src 'self' data: blob: https://*.supabase.co; " +
     "media-src 'self' https://*.supabase.co; " +
-    "connect-src 'self' https://*.supabase.co; " +
+    "connect-src 'self' https://*.supabase.co https://*.ingest.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io; " +
     "worker-src 'self'; " +
     "manifest-src 'self'; " +
     scriptSrc +

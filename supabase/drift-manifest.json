@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-18T08:30:22.062Z",
+  "generated_at": "2026-08-20T15:53:04.540Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "87ac9fc4849ee9cf0404a7260ef1b8bf08a14067573f3a87574a14bbc10469cf",
-  "replay_seconds": 75,
+  "schema_sha256": "6fe4883e03fa662dc90e09f3cfd8d35ab9fcf965bfe87bad64db73f1fab5986e",
+  "replay_seconds": 58,
   "snapshot": {
     "views": [
       {
@@ -7144,6 +7144,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "4e8e4f9ee726a5eef77d6d6a646fe787",
+        "signature": "public.migration_history_versions()"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "2cea59a50141b1479ad8a3d493f80189",
         "signature": "public.notify_document_change_ingestion_webhook()"
       },
@@ -7336,7 +7344,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "f4f5f536026c4dd27d506a8e40b8c6d7",
+        "def_hash": "85df52de66e4e89d4a328b81a3a87c90",
         "signature": "public.search_schema_health()"
       },
       {

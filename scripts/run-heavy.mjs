@@ -4,6 +4,8 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { childProcessExitCode } from "./child-process-result.mjs";
+import { arbitrate, recordGateOutcome } from "./gate-arbiter.mjs";
+import { consultGateReceipt, recordGateReceipt } from "./gate-receipts.mjs";
 import { typescriptBuildInfoPath } from "./test-cache-path.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 
@@ -33,6 +35,23 @@ const typecheckBuildInfo =
     : null;
 if (typecheckBuildInfo) mkdirSync(path.dirname(typecheckBuildInfo), { recursive: true });
 const effectiveForwarded = typecheckBuildInfo ? [...forwarded, "--tsBuildInfoFile", typecheckBuildInfo] : forwarded;
+// Consulted BEFORE the cross-worktree lease is requested: a gate that is already
+// proven on this exact content must not queue behind another worktree's Playwright
+// run only to exit 0 without doing anything. `AGENTS.md` states "do not rerun an
+// unchanged successful gate"; this is the enforcement of it.
+const receipt = consultGateReceipt({ projectRoot, gate: script, args: effectiveForwarded, env: process.env });
+if (receipt.reuse) {
+  console.log(receipt.message);
+  process.exit(0);
+}
+
+// Weighed before the lease request, like the receipt above: a run the arbiter would
+// defer must not queue for cross-worktree capacity first. Advisory unless
+// GATE_ARBITER=enforce — a gate a human typed still runs by default.
+const verdict = arbitrate({ projectRoot, gate: script, args: effectiveForwarded, env: process.env });
+if (verdict.action !== "run") console.log(verdict.message);
+if (verdict.enforce) process.exit(0);
+
 const configuredWaitTimeoutMs = Number(process.env.HEAVY_RUN_WAIT_TIMEOUT_MS);
 const waitTimeoutMs = Number.isFinite(configuredWaitTimeoutMs) ? configuredWaitTimeoutMs : undefined;
 /** Keep in sync with `HEAVY_RUN_ADMISSION_BUSY_*` in `scripts/guard-push.mjs`. */
@@ -97,9 +116,20 @@ function runNpmScript() {
 }
 
 let exitCode = 1;
+const startedAt = Date.now();
 try {
   exitCode = await runNpmScript();
 } finally {
   lock.release();
 }
+
+// Pure observation: never changes what the run did, only whether the arbiter still
+// believes this gate earns its runtime on this class of change.
+recordGateOutcome({ projectRoot, gate: script, exitCode, durationMs: Date.now() - startedAt, env: process.env });
+
+const recorded = recordGateReceipt({ projectRoot, decision: receipt, exitCode, env: process.env });
+if (exitCode === 0 && recorded.recorded) {
+  console.log(`[gate-receipts] recorded a pass for "${receipt.gate}" (${receipt.fileCount} input files).`);
+}
+
 process.exit(exitCode);

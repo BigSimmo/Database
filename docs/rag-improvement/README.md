@@ -13,6 +13,8 @@ infrastructure, corrected.
 behaviour change needs a live eval-canary pair (provider-backed, ~$1–2, explicit approval per
 run). Nothing here authorises reindexing, migrations, or provider calls by itself.
 
+**Canonical task queue:** per `AGENTS.md`, canonical cross-session task tracking and deduplication live in [`docs/outstanding-issues.md`](../outstanding-issues.md). Always consult the canonical ledger first. Check open PRs only when explicit owner approval for provider access exists; otherwise continue with local/offline evidence and note the duplicate-risk caveat.
+
 ---
 
 ## 1. Review verdict on the original PDF
@@ -119,6 +121,16 @@ question type, and (c) be moderately longer (~1.5×) where evidence supports it,
 raising the source-only fallback rate or weakening a single grounding gate.
 
 ### A1 — Diagnose generation-quality fallbacks before changing length (prerequisite; `#231`)
+
+> **Diagnosis updated 2026-08-22 — read it before acting on `#231`:**
+> [`231-diagnosis-2026-08-22.md`](231-diagnosis-2026-08-22.md). The retrieval-budget premise is
+> false: `answerRouteBudgetMs.fast` binds in only 3 of 60 case-runs, and half the timeouts use the
+> 35 s strong budget. The remaining `provider_timeout` label contains two paths: response-bearing
+> cases support a quality-retry ladder with no deadline admission check, while three zero-response
+> cases need per-attempt timing/response telemetry before attribution. A grounded first-choice
+> extractive answer bypasses the quality-gate call site, but the two cited incoherent answers pass
+> the current predicates, so predicate strictness must be established before a reachability edit.
+> Item 4 below stands and is reinforced, not rebutted.
 
 **Problem.** Healthy retrieval still sometimes ends in a source-only fallback. The decisive
 extended-budget probe completed generation inside the route deadline and still failed the
@@ -358,7 +370,8 @@ default-off flags.
 ## 5. Sequencing summary
 
 Execution across cloud sessions is coordinated by [HANDOVER.md](HANDOVER.md): per-session
-work packets, the live status table, checklists, and paste-ready prompts.
+work packets, the live status table, checklists, and paste-ready prompts. Canonical task
+ownership and cross-session tracking remain registered in [`docs/outstanding-issues.md`](../outstanding-issues.md).
 
 | Order | Item                                            | Depends on                      | Behaviour change?                         |
 | ----- | ----------------------------------------------- | ------------------------------- | ----------------------------------------- |

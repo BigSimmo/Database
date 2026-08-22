@@ -1238,11 +1238,10 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    // 60: the previous 51 production pages, the eight-route Dictionary surface
-    // (its shared mode home and governed detail routes), and the one-page
-    // `caring-contacts-workspace` surface added by Task 15. This is a census, so
-    // it still fails on any route nobody meant to add.
-    expect(manifest.routeCoverage.discovered).toHaveLength(60);
+    // 76 = 59 + 6 + 10 + 1: the base routes, the six mode-search routes, the
+    // ten-route Ward Flow prototype, and the Caring Contacts workspace. This is
+    // a census, so a route nobody intended to add still fails the contract.
+    expect(manifest.routeCoverage.discovered).toHaveLength(76);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

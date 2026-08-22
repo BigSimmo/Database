@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronDown, Funnel, Search, X } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/components/ui-primitives";
@@ -39,6 +39,12 @@ export type ResultFilterOption<Value extends string> = {
   label: string;
   /** Trailing detail — a count, a qualifier. Never the only thing distinguishing two options. */
   hint?: string;
+  /** Short display form of `hint`. The announced name keeps `hint`'s units
+      ("1 loaded source"); the visible column shows only `hintLabel` ("1"). A
+      count phrased in full is wide enough that four options wrap one per line,
+      which is what pushed documents' governance groups into a ragged column.
+      Omit to display `hint` verbatim. */
+  hintLabel?: string;
   /** Canonical text used to find an abbreviated display label. */
   searchText?: string;
   /** Renders as a dead end: focusable and explained, but not selectable. */
@@ -199,6 +205,7 @@ export function ResultFilterTrigger({
   onToggle,
   title,
   label = "Filter",
+  labelVisibility = "responsive",
 }: {
   panelId: string;
   /** Distinct per slot when a page renders the trigger more than once: both
@@ -211,7 +218,11 @@ export function ResultFilterTrigger({
   /** Pointer tooltip, e.g. "Filter services". The accessible name comes from the
       visible label plus the state note below, so this is decoration. */
   title: string;
-  label?: string;
+  /** A node rather than a string so a page can supply contextual wording. */
+  label?: ReactNode;
+  /** Preserve the default compact-band behaviour unless a page has deliberately
+      budgeted room for the visible wordmark at every supported width. */
+  labelVisibility?: "responsive" | "always";
 }) {
   return (
     <button
@@ -245,7 +256,11 @@ export function ResultFilterTrigger({
           several times over. 414–429px is the one band that is genuinely
           single-line and short of width; there a funnel carrying a badge is
           unambiguous. The accessible name is unchanged at every width. */}
-      <span className="min-[414px]:max-[429px]:sr-only">{label}</span>
+      <span
+        className={cn(labelVisibility === "responsive" && "min-filter-label-collapse:max-filter-label-restore:sr-only")}
+      >
+        {label}
+      </span>
       {activeCount > 0 ? (
         // A tinted pill, not a solid disc: a saturated filled circle is the single
         // loudest signal on a bar that is otherwise hairlines and type, and it
@@ -340,7 +355,7 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
 
   return (
     <section className="min-w-0 border-t border-[color:var(--border)] py-1 first:border-t-0">
-      <h3 className="flex min-h-9 items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+      <h3 className="flex min-h-9 items-center gap-1.5 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         {/* The id is on the label text alone, not the heading — same fix as
             ResultFilterFacetChips' own badge: with the id on the h3 itself, a
             sibling `note` would concatenate into the group's accessible name
@@ -416,7 +431,9 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
             >
               {selected ? <Check aria-hidden="true" className="h-3 w-3 shrink-0" /> : null}
               <span className="truncate">{option.label}</span>
-              {option.hint ? <span className="nums text-[color:var(--text-muted)]">{option.hint}</span> : null}
+              {option.hint ? (
+                <span className="nums text-[color:var(--text-muted)]">{option.hintLabel ?? option.hint}</span>
+              ) : null}
               {deadEnd ? (
                 <span id={deadEndDescId} className="sr-only">
                   Not selectable from here.
@@ -483,8 +500,22 @@ export function ResultFilterFacetChips({
     !group.optionSections &&
     ((group.options.length >= 6 && group.options.length <= 20) ||
       (visibleOptions.length >= 6 && visibleOptions.length <= 20));
+  // Counted groups of two to five options sit below the six-option dense
+  // threshold, so they used to render as wrapping chips. A chip carrying a
+  // count is wide enough that four of them wrap one per line and leave a ragged
+  // right edge with most of the row empty — documents' Source status and
+  // Clinical validation are exactly that shape. The dense row renderer in two
+  // columns packs the same options into half the height with an aligned count
+  // column. A group with no counts keeps the chip row, which is still the right
+  // renderer for short bare labels.
+  const isCountedCompact =
+    !group.optionSections &&
+    visibleOptions.length >= 2 &&
+    visibleOptions.length <= 5 &&
+    visibleOptions.some((option) => Boolean(option.hint));
+  const usesRowRenderer = isDenseList || isCountedCompact;
 
-  const renderOptions = (items: ReadonlyArray<ResultFilterOption<string>>, isDense: boolean = isDenseList) =>
+  const renderOptions = (items: ReadonlyArray<ResultFilterOption<string>>, isDense: boolean = usesRowRenderer) =>
     items.map((option) => {
       const selected = group.selected.has(option.value);
       const deadEnd = Boolean(option.disabled) && !selected;
@@ -503,7 +534,7 @@ export function ResultFilterFacetChips({
           }}
           className={cn(
             isDense
-              ? "flex min-h-tap w-full min-w-0 items-center justify-between gap-2.5 rounded-lg border px-3 py-2 text-left text-xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-9 sm:py-1.5"
+              ? "flex min-h-tap w-full min-w-0 items-center justify-between gap-2.5 rounded-lg border px-3 py-2 text-left text-xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-10 sm:py-1.5"
               : "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-10 sm:gap-1 sm:px-2",
             "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             selected
@@ -528,8 +559,8 @@ export function ResultFilterFacetChips({
             <span className="truncate">{option.label}</span>
           </div>
           {option.hint ? (
-            <span className="nums shrink-0 text-right text-xs font-bold tabular-nums text-[color:var(--text-muted)]">
-              {option.hint}
+            <span className="nums shrink-0 text-right text-2xs font-semibold tabular-nums text-[color:var(--text-muted)]">
+              {option.hintLabel ?? option.hint}
             </span>
           ) : null}
           {deadEnd ? (
@@ -543,7 +574,7 @@ export function ResultFilterFacetChips({
 
   return (
     <section className="min-w-0 border-t border-[color:var(--border)] py-1 first:border-t-0">
-      <h3 className="flex min-h-9 items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+      <h3 className="flex min-h-9 items-center gap-1.5 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         {/* The id is on the label text alone, not the heading. With the badge
             inside the labelled element the group's accessible name became
             "Domain 1" — the selection count leaking into the dimension's name,
@@ -555,7 +586,7 @@ export function ResultFilterFacetChips({
             aria-controls={disclosure.contentId}
             onClick={disclosure.onToggle}
             className={cn(
-              "flex min-h-tap w-full items-center gap-1.5 text-left text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)] sm:min-h-10",
+              "flex min-h-tap w-full items-center gap-1.5 text-left text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)] sm:min-h-10",
               "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             )}
           >
@@ -598,7 +629,16 @@ export function ResultFilterFacetChips({
         aria-labelledby={groupLabelId}
         className={cn(
           "pb-2.5",
-          group.optionSections ? "grid gap-3" : isDenseList ? "grid gap-1" : "flex flex-wrap gap-2 sm:gap-1.5",
+          group.optionSections
+            ? "grid gap-3"
+            : isDenseList
+              ? "grid gap-1"
+              : isCountedCompact
+                ? // Two-up only once a column can actually hold a label. At
+                  // 320px each column's inner width is ~117px, which truncates
+                  // "Locally reviewed"; the narrowest phones keep one column.
+                  "grid grid-cols-1 gap-1.5 min-[380px]:grid-cols-2"
+                : "flex flex-wrap gap-2 sm:gap-1.5",
         )}
       >
         {group.optionSections
@@ -624,7 +664,7 @@ export function ResultFilterFacetChips({
                 </section>
               );
             })
-          : renderOptions(visibleOptions, isDenseList)}
+          : renderOptions(visibleOptions, usesRowRenderer)}
       </div>
     </section>
   );
@@ -665,7 +705,7 @@ export function ResultFilterScopeSelector<Value extends string>({
 }) {
   return (
     <fieldset className="min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5">
-      <legend className="px-1 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+      <legend className="px-1 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         {label}
       </legend>
       <div className="grid gap-2 sm:grid-cols-2">
@@ -899,7 +939,26 @@ export function ResultFilterSheet({
       open={open}
       onClose={onClose}
       title={title}
-      description={description}
+      // Header density is driven from here rather than from `Sheet`, so every
+      // filter surface tightens together while the app's other dialogs keep
+      // their own header. Three stacked tiers — a text-lg title, a three-line
+      // text-sm description and a bordered 48px close box — spent most of a
+      // phone viewport before the first filter was reachable.
+      descriptionContent={
+        description ? (
+          <p className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">{description}</p>
+        ) : undefined
+      }
+      headerClassName="items-start px-4 py-3 sm:px-5 sm:py-3.5"
+      titleClassName="text-base sm:text-lg"
+      // `Sheet` takes this INSTEAD of `toolbarButton` (`??`, not a merge), so
+      // the tap target has to be restated. It stays h-tap/w-tap: 48px is this
+      // repo's production floor and dropping to 44px reintroduces a known
+      // ui-smoke flake. Only the border, fill and shadow are removed.
+      closeButtonClassName={cn(
+        "grid h-tap w-tap shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] motion-reduce:transition-none",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+      )}
       portal
       placement="responsive-right"
       id={panelId}
@@ -911,7 +970,7 @@ export function ResultFilterSheet({
             onClick={onClearAll}
             data-testid={`${testId}-clear`}
             className={cn(
-              "search-band-ghost inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-2xs font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
+              "search-band-ghost inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-2xs font-semibold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
               "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             )}
           >
@@ -936,7 +995,7 @@ export function ResultFilterSheet({
               onClick={onApply ?? onClose}
               data-testid={`${testId}-done`}
               className={cn(
-                "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-hover)] sm:min-h-10",
+                "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-xs font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-hover)] sm:min-h-10",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               )}
             >
@@ -953,7 +1012,7 @@ export function ResultFilterSheet({
               type="button"
               onClick={secondaryAction.onClick}
               className={cn(
-                "flex min-h-tap w-full items-center justify-between gap-3 rounded-lg border-t border-[color:var(--border)] px-1 pt-2.5 text-left text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
+                "flex min-h-tap w-full items-center justify-between gap-3 rounded-lg border-t border-[color:var(--border)] px-1 pt-2.5 text-left text-xs font-semibold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               )}
             >
@@ -968,14 +1027,14 @@ export function ResultFilterSheet({
     >
       <div className="grid min-w-0 gap-1">
         {coverage ? (
-          <div className="min-w-0 pb-2.5">
+          <div className="min-w-0 pb-2">
             <div
               role="progressbar"
               aria-label={coverage.label ?? "Visible results"}
               aria-valuemin={0}
               aria-valuemax={Math.max(coverage.totalCount, 0)}
               aria-valuenow={Math.min(coverage.visibleCount, Math.max(coverage.totalCount, 0))}
-              className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
+              className="h-1 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
             >
               <span
                 aria-hidden
@@ -989,9 +1048,11 @@ export function ResultFilterSheet({
                 }}
               />
             </div>
-            <p className="nums mt-1.5 text-xs font-semibold text-[color:var(--text-muted)]">
-              <span className="text-[color:var(--text-heading)]">{coverage.visibleCount.toLocaleString()}</span> of{" "}
-              {coverage.totalCount.toLocaleString()} retrieved matches visible
+            <p className="nums mt-1 text-2xs font-medium text-[color:var(--text-muted)]">
+              <span className="font-semibold text-[color:var(--text-heading)]">
+                {coverage.visibleCount.toLocaleString()}
+              </span>{" "}
+              of {coverage.totalCount.toLocaleString()} retrieved matches visible
             </p>
           </div>
         ) : null}

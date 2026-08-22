@@ -65,8 +65,8 @@ const universalPayload = {
         {
           id: "acute-confusion-encephalopathy",
           kind: "presentations",
-          title: "Delirium / Acute Confusion / Encephalopathy",
-          subtitle: "Delirium and its encephalopathic mimics are acute medical emergencies",
+          title: "Acute confusion and delirium",
+          subtitle: "Covers delirium, acute confusion, toxic-metabolic encephalopathy, and post-ictal confusion.",
           href: "/differentials/presentations/acute-confusion-encephalopathy",
           score: 18,
           badge: "Emergent",
@@ -173,7 +173,7 @@ test.describe("universal search typeahead", () => {
     await expect(page.getByRole("option", { name: /View all in Medication/ })).toBeVisible();
     // Presentations render as their own group borrowing the differentials mode target.
     await expect(page.getByText("Presentations · 1")).toBeVisible();
-    await expect(page.getByRole("option", { name: /Acute Confusion/ })).toBeVisible();
+    await expect(page.getByRole("option", { name: /Acute confusion and delirium/i })).toBeVisible();
     await expect(page.getByRole("option", { name: /View all in Differentials/ })).toBeVisible();
   });
 
@@ -208,6 +208,22 @@ test.describe("universal search typeahead", () => {
     expect(await input.getAttribute("aria-activedescendant")).toBeNull();
   });
 
+  test("Escape dismisses the dropdown without erasing the typed query", async ({ page }) => {
+    // The composer input is `type="search"`, whose native Chromium Escape gesture
+    // clears the field. Escape must only dismiss the dropdown; the query stays put
+    // so a reader can reopen or edit it instead of retyping from scratch.
+    await mockUniversalSearch(page);
+    const input = await openComposer(page);
+    await input.fill("acamprosate");
+
+    const listbox = page.getByRole("listbox", { name: "Documents search suggestions" });
+    await expect(listbox).toBeVisible();
+
+    await input.press("Escape");
+    await expect(listbox).toBeHidden();
+    await expect(input).toHaveValue("acamprosate");
+  });
+
   test("does not count document-only hits as visible Medication rows", async ({ page }) => {
     await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
       await fulfillUniversalSearch(route, {
@@ -230,7 +246,7 @@ test.describe("universal search typeahead", () => {
     const input = await openComposer(page);
     await input.fill("acute confusion");
 
-    const option = page.getByRole("option", { name: /Acute Confusion/ });
+    const option = page.getByRole("option", { name: /Acute confusion and delirium/i });
     await expect(option).toBeVisible();
     await option.click();
     await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, {
@@ -374,15 +390,16 @@ test.describe("universal search typeahead", () => {
     await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
   });
 
-  test("shows submitted cross-mode matches once for Favourites and after a Tools search", async ({ page }) => {
+  test("shows submitted cross-mode matches once for Favourites and the composer-free legacy Tools URL", async ({
+    page,
+  }) => {
     await mockUniversalSearch(page);
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/favourites?q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("universal-also-matches")).toHaveCount(1);
 
-    const input = await openComposer(page, "/tools?focus=1");
-    await input.fill("acamprosate");
-    await input.press("Enter");
+    await page.goto("/?mode=tools&q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("global-search-input")).toHaveCount(0);
     await expect(page.getByTestId("universal-also-matches")).toBeVisible();
   });
 });

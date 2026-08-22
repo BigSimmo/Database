@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b10cb24d-17fa-40ca-b8bb-90eee806ea0a",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Tools and Favourites bespoke home composer slots skip the SSR height reservation chrome invariant 15 requires",
+    "detail": "ModeHomeTemplate renders its composer slot with data-composer-reserve='pending' plus min-h tokens (mode-home-template.tsx:316-320) so the hero does not shift when the portal attaches. The two bespoke homes hand-roll the slot without either: favourites-command-library-page.tsx:1426 and tools-search-results-page.tsx:353, plus favourites-hub.tsx:187. Those three get no SSR height reservation, which is the CLS that invariant 15 exists to prevent. Found during the PR #2160 cross-mode audit.",
+    "source": "PR #2160 cross-mode home audit",
+    "issueUlid": "01M0BEA1WHYJ3R7Y86ZGZ9FEV4"
+  }
+}

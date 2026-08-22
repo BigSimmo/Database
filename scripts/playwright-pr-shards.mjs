@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|dictionary|document-canvas|tools|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|dictionary|document-canvas|tools|ward-(?:management|coordinator)|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * One source of truth for shard membership and its latest hosted timing sample.
@@ -59,6 +59,10 @@ export const prUiSpecProfiles = Object.freeze([
   // `tests/playwright-pr-shards.test.ts`. Two small specs moved out to lift the
   // other two shards instead of packing this one.
   { file: "tests/ui-caring-contacts-workspace.spec.ts", shard: 2, fullSeconds: 34.2, criticalSeconds: 0 },
+  // New ward-management/ward-coordinator suites; keep on the lightest measured
+  // shard until hosted timing is available.
+  { file: "tests/ui-ward-coordinator.spec.ts", shard: 2, fullSeconds: 0, criticalSeconds: 0 },
+  { file: "tests/ui-ward-management.spec.ts", shard: 2, fullSeconds: 0, criticalSeconds: 0 },
 
   // Moved here from shard 2 by Task 19 to offset the re-measured Caring Contacts
   // workspace spec; its own timing is unchanged.

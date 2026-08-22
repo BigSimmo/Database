@@ -12,19 +12,28 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, s
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { addIssue, resolveIssue, updateIssue } from "./outstanding-issues.mjs";
+import { addIssue, resolveIssue, updateIssue, updateQueueRow } from "./outstanding-issues.mjs";
 import {
   ISSUES_PATH,
   checkIssues,
   issueRowFingerprint,
   isValidIssueRowFingerprint,
+  queueRowFingerprint,
 } from "./check-outstanding-issues.mjs";
-import { isIssueDisplayId, isIssueUlid, issueUlid, issueUlidFromRequest } from "./issue-id.mjs";
+import {
+  isIssueDisplayId,
+  isIssueUlid,
+  issueUlid,
+  issueUlidFromRequest,
+  normalizeIssueDisplayId,
+} from "./issue-id.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const INBOX_DIR = "docs/outstanding-issues-inbox";
 const APPLIED_DIR = path.posix.join(INBOX_DIR, "applied");
-const ACTIONS = new Set(["add", "done", "update", "cancel"]);
+const ACTIONS = new Set(["add", "done", "update", "queue", "cancel"]);
+// Fields a `queue` request may carry, mirroring updateQueueRow's editable map.
+const QUEUE_FIELDS = ["acuity", "capability", "when", "estimate", "outcome"];
 const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RECONCILE_LOCK_NAME = "outstanding-issues-reconcile.lock";
 const OWNERLESS_LOCK_GRACE_MS = 5 * 60 * 1000;
@@ -54,7 +63,7 @@ export function validateRequest(request) {
   if (![1, 2].includes(request.version)) problems.push("version must be 1 or 2");
   if (!REQUEST_ID.test(request.id ?? "")) problems.push("id must be a UUID");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(request.createdOn ?? "")) problems.push("createdOn must be YYYY-MM-DD");
-  if (!ACTIONS.has(request.action)) problems.push("action must be add, done, update, or cancel");
+  if (!ACTIONS.has(request.action)) problems.push("action must be add, done, update, queue, or cancel");
   if (!request.payload || typeof request.payload !== "object") problems.push("payload must be an object");
   if (request.action === "add") {
     for (const field of ["pri", "type", "summary"])
@@ -92,6 +101,20 @@ export function validateRequest(request) {
       problems.push("update pri must be P1, P2, or P3");
     }
   }
+  if (request.action === "queue") {
+    if (!isIssueDisplayId(request.payload?.id)) problems.push("queue requires a canonical issue display id");
+    // A queue re-grade is usually exactly one cell (acuity), so requiring any
+    // one field rather than a prose field keeps the common correction — the
+    // #M6JNR8 instance — expressible without inventing filler text.
+    if (!QUEUE_FIELDS.some((field) => request.payload?.[field] !== undefined)) {
+      problems.push(`queue requires one of ${QUEUE_FIELDS.join(", ")}`);
+    }
+    if (
+      request.payload?.baseRowFingerprint !== undefined &&
+      !isValidIssueRowFingerprint(request.payload.baseRowFingerprint)
+    )
+      problems.push("queue requires a valid baseRowFingerprint");
+  }
   if (request.action === "cancel") {
     if (!REQUEST_ID.test(request.payload?.requestId ?? "")) {
       problems.push("cancel requires a pending request UUID");
@@ -108,6 +131,20 @@ export function applyRequest(markdown, request) {
     throw new Error("cancel requests must be applied through batch reconciliation");
   }
   const options = { date: request.createdOn };
+  if (request.action === "queue" && request.payload?.baseRowFingerprint) {
+    const id = request.payload.id;
+    const fingerprint = queueRowFingerprint(markdown, id);
+    if (!fingerprint) {
+      throw new Error(
+        `${id} no longer has exactly one queue row; reread and reissue this request from the latest ledger`,
+      );
+    }
+    if (fingerprint !== String(request.payload.baseRowFingerprint).toLowerCase()) {
+      throw new Error(
+        `${id} queue row is stale: it changed after this request was queued; reread and reissue from the latest ledger`,
+      );
+    }
+  }
   if ((request.action === "done" || request.action === "update") && request.payload?.baseRowFingerprint) {
     const id = request.payload.id;
     const fingerprint = issueRowFingerprint(markdown, id);
@@ -125,6 +162,7 @@ export function applyRequest(markdown, request) {
     return addIssue(markdown, request.payload, { ...options, issueUlid: durableId });
   }
   if (request.action === "done") return resolveIssue(markdown, request.payload.id, request.payload.outcome, options);
+  if (request.action === "queue") return updateQueueRow(markdown, request.payload.id, request.payload);
   return updateIssue(markdown, request.payload.id, request.payload);
 }
 
@@ -132,10 +170,17 @@ function mutationConflicts(requests) {
   const byIssue = new Map();
   for (const request of requests) {
     if (request.action === "add" || request.action === "cancel") continue;
-    const id = request.payload.id;
-    const requestIds = byIssue.get(id) ?? [];
-    requestIds.push(request.id);
-    byIssue.set(id, requestIds);
+    const id = normalizeIssueDisplayId(request.payload.id);
+    // Key by the rows a request actually mutates. `update` changes only the
+    // Open-items row and `queue` changes only its queue row, so they can safely
+    // share a batch. `done` moves the Open-items row *and* prunes its queue
+    // citation, so it conflicts with either action on the same issue.
+    const targets = request.action === "done" ? [id, `queue ${id}`] : [request.action === "queue" ? `queue ${id}` : id];
+    for (const target of targets) {
+      const requestIds = byIssue.get(target) ?? [];
+      requestIds.push(request.id);
+      byIssue.set(target, requestIds);
+    }
   }
   return [...byIssue.entries()].filter(([, requestIds]) => requestIds.length > 1);
 }
@@ -406,6 +451,229 @@ function assertFreshReconciliationBase() {
   }
 }
 
+/**
+ * Detect whether another unmerged branch on `origin` carries inbox
+ * reconciliations (applied inbox records under `docs/outstanding-issues-inbox/applied/`).
+ *
+ * This provides a pre-flight remote interlock so concurrent `issues:reconcile`
+ * branches are not created simultaneously against the same base (issue #EH9VA6).
+ *
+ * When offline or when git ls-remote fails, it fails open (returns an empty list)
+ * so offline workflows and tests are not blocked.
+ *
+ * @param {{
+ *   lsRemoteOutput?: string,
+ *   runner?: (args: string[]) => string,
+ *   originRef?: string,
+ *   currentBranch?: string,
+ *   warn?: (message: string) => void
+ * }} [options]
+ * @returns {Array<{ branch: string, sha: string, unmergedCount?: number, reason: string }>}
+ */
+export function findUnmergedRemoteReconciliations(options = {}) {
+  const runner =
+    options.runner ??
+    ((args) =>
+      execFileSync("git", args, {
+        cwd: ROOT,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim());
+
+  let lsRemoteText = options.lsRemoteOutput;
+  if (lsRemoteText === undefined) {
+    try {
+      lsRemoteText = runner(["ls-remote", "--heads", "origin"]);
+    } catch {
+      // Offline or network error: fail open safely.
+      return [];
+    }
+  }
+
+  if (!lsRemoteText || typeof lsRemoteText !== "string") return [];
+
+  const originMainRef = options.originRef ?? "refs/remotes/origin/main";
+  let currentBranch = options.currentBranch;
+  if (currentBranch === undefined) {
+    try {
+      currentBranch = runner(["branch", "--show-current"]).trim();
+    } catch {
+      currentBranch = "";
+    }
+  }
+
+  const lines = lsRemoteText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const candidateBranches = [];
+  const shasToCheck = [];
+
+  for (const line of lines) {
+    const parts = line.split(/\s+/);
+    if (parts.length < 2) continue;
+    const sha = parts[0];
+    const ref = parts[1];
+    const branchName = ref.replace(/^refs\/heads\//, "");
+    if (!/^[0-9a-f]{40}$/i.test(sha)) continue;
+    if (branchName === "main" || branchName === "master" || (currentBranch && branchName === currentBranch)) continue;
+
+    candidateBranches.push({ branch: branchName, sha });
+    shasToCheck.push(sha);
+  }
+
+  if (candidateBranches.length === 0) return [];
+
+  let mainApplied = new Set();
+  try {
+    const mainTree = execFileSync("git", ["ls-tree", "-r", "--name-only", originMainRef, "--", APPLIED_DIR], {
+      cwd: ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    mainApplied = new Set(
+      mainTree
+        .trim()
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+  } catch {
+    // If originMainRef cannot be inspected, fail open for tree diffs
+  }
+
+  let localShas = new Set();
+  try {
+    const checkOutput = execFileSync("git", ["cat-file", "--batch-check=%(objectname) %(objecttype)"], {
+      cwd: ROOT,
+      input: shasToCheck.join("\n") + "\n",
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "ignore"],
+    });
+    for (const entry of checkOutput.split("\n")) {
+      const [sha, type] = entry.trim().split(" ");
+      if (type === "commit") localShas.add(sha);
+    }
+  } catch {
+    // If batch-check fails, fallback
+  }
+
+  const detected = [];
+  const presentCandidates = candidateBranches.filter((b) => localShas.has(b.sha));
+  const presentShas = presentCandidates.map((b) => b.sha);
+
+  if (presentShas.length > 0) {
+    try {
+      const logArgs = [
+        "log",
+        "--format=COMMIT:%H",
+        "--name-only",
+        `^${originMainRef}`,
+        ...presentShas,
+        "--",
+        APPLIED_DIR,
+      ];
+      const logOutput = execFileSync("git", logArgs, {
+        cwd: ROOT,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      });
+      if (logOutput) {
+        const suspiciousCommits = new Set();
+        for (const block of logOutput.split("COMMIT:").filter(Boolean)) {
+          const blines = block.trim().split("\n");
+          const cSha = blines[0].trim();
+          const files = blines
+            .slice(1)
+            .map((f) => f.trim())
+            .filter(Boolean);
+          if (files.some((f) => !mainApplied.has(f))) {
+            suspiciousCommits.add(cSha);
+          }
+        }
+
+        if (suspiciousCommits.size > 0) {
+          for (const candidate of presentCandidates) {
+            try {
+              const branchLog = execFileSync(
+                "git",
+                ["log", "-1", "--format=%H", `^${originMainRef}`, candidate.sha, "--", APPLIED_DIR],
+                { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+              ).trim();
+              if (branchLog && suspiciousCommits.has(branchLog)) {
+                const branchApplied = execFileSync(
+                  "git",
+                  ["ls-tree", "-r", "--name-only", candidate.sha, "--", APPLIED_DIR],
+                  { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+                )
+                  .trim()
+                  .split("\n")
+                  .map((s) => s.trim())
+                  .filter(Boolean);
+                const unmerged = branchApplied.filter((f) => !mainApplied.has(f));
+                if (unmerged.length > 0) {
+                  detected.push({
+                    branch: candidate.branch,
+                    sha: candidate.sha,
+                    unmergedCount: unmerged.length,
+                    reason: `carries ${unmerged.length} unmerged applied inbox record(s) under ${APPLIED_DIR}`,
+                  });
+                }
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
+      }
+    } catch {
+      // fail open
+    }
+  }
+
+  for (const candidate of candidateBranches) {
+    if (localShas.has(candidate.sha)) continue;
+    if (/(?:issues|ledger|inbox)[-_]?reconcile|reconcile[-_]?(?:issues|ledger|inbox)/i.test(candidate.branch)) {
+      detected.push({
+        branch: candidate.branch,
+        sha: candidate.sha,
+        reason: "unfetched remote branch name indicates an in-flight unmerged reconcile branch",
+      });
+    }
+  }
+
+  return detected;
+}
+
+export function assertSafeRemoteReconciliation(argv = [], options = {}) {
+  const allowConcurrent =
+    argv.includes("--allow-concurrent") ||
+    argv.includes("--force") ||
+    process.env.ALLOW_CONCURRENT_RECONCILE === "true";
+  const skipRemoteCheck =
+    argv.includes("--no-remote-check") ||
+    argv.includes("--skip-remote-check") ||
+    process.env.SKIP_REMOTE_CHECK === "true";
+
+  if (skipRemoteCheck) return;
+
+  const conflicts = findUnmergedRemoteReconciliations(options);
+  if (conflicts.length === 0) return;
+
+  const detail = conflicts.map((c) => `  - ${c.branch} (${c.sha.slice(0, 12)}): ${c.reason}`).join("\n");
+  const message =
+    `detected unmerged branch(es) on origin carrying pending inbox reconciliations:\n${detail}\n` +
+    "Concurrent reconciliations cause canonical-ledger conflicts or corrupted reconciliation journals (#EH9VA6). " +
+    "Land or close the existing reconciliation PR(s) before starting a new one, or pass --allow-concurrent to override.";
+
+  if (allowConcurrent) {
+    const warn = options.warn ?? ((msg) => console.warn(msg));
+    warn(`warning: ${message}`);
+  } else {
+    throw new Error(message);
+  }
+}
+
 function createRequest(action, argv) {
   const payload =
     action === "add"
@@ -421,23 +689,41 @@ function createRequest(action, argv) {
         ? { id: argv[1], outcome: argValue(argv, "outcome") }
         : action === "cancel"
           ? { requestId: argv[1], reason: argValue(argv, "reason") }
-          : {
-              // `pri` rides the same update request as the prose fields so a
-              // demotion and the reason for it land as one auditable mutation.
-              // Without it the CLI could not express a re-prioritisation at all,
-              // which is the half of ledger #313 the inbox would otherwise
-              // reintroduce: updateIssue accepts --pri and validateRequest
-              // permits it, but nothing could produce the payload.
-              id: argv[1],
-              pri: argValue(argv, "pri"),
-              summary: argValue(argv, "summary"),
-              detail: argValue(argv, "detail"),
-              source: argValue(argv, "source"),
-            };
+          : action === "queue"
+            ? {
+                id: argv[1],
+                acuity: argValue(argv, "acuity"),
+                capability: argValue(argv, "capability"),
+                when: argValue(argv, "when"),
+                estimate: argValue(argv, "estimate"),
+                outcome: argValue(argv, "outcome"),
+              }
+            : {
+                // `pri` rides the same update request as the prose fields so a
+                // demotion and the reason for it land as one auditable mutation.
+                // Without it the CLI could not express a re-prioritisation at all,
+                // which is the half of ledger #313 the inbox would otherwise
+                // reintroduce: updateIssue accepts --pri and validateRequest
+                // permits it, but nothing could produce the payload.
+                id: argv[1],
+                pri: argValue(argv, "pri"),
+                summary: argValue(argv, "summary"),
+                detail: argValue(argv, "detail"),
+                source: argValue(argv, "source"),
+              };
   if (["done", "update"].includes(action) && typeof payload.id === "string") {
     const currentFingerprint = issueRowFingerprint(readOutstandingIssues(), payload.id);
     if (currentFingerprint === null) {
       throw new Error(`ledger request rejected: ${payload.id} is not in Open items`);
+    }
+    payload.baseRowFingerprint = currentFingerprint;
+  }
+  if (action === "queue" && typeof payload.id === "string") {
+    const currentFingerprint = queueRowFingerprint(readOutstandingIssues(), payload.id);
+    if (currentFingerprint === null) {
+      throw new Error(
+        `ledger request rejected: ${payload.id} does not have exactly one recommended-execution-queue row`,
+      );
     }
     payload.baseRowFingerprint = currentFingerprint;
   }
@@ -451,6 +737,41 @@ function createRequest(action, argv) {
   console.log(
     `Queued ${action} request at ${relative}. It is merge-safe; run npm run issues:reconcile after this PR lands.`,
   );
+}
+
+/**
+ * `reconcile` is the only sanctioned writer of docs/outstanding-issues.md, and
+ * it also moves every request it applied into `applied/` — so both the ledger
+ * content and the inbox change, and data/outstanding-issues-snapshot.json (which
+ * the developer hub renders) is behind the moment reconciliation returns.
+ * Without this, every reconcile PR failed `check:outstanding-issues` with a fix
+ * command. That is fail-closed and nothing wrong shipped, but a sanctioned path
+ * that is routinely red is how gates come to be routed around.
+ *
+ * Deliberately OUTSIDE the reconciliation transaction, and only after it has
+ * committed. `recoverReconcileTransaction` journals exactly two things — the
+ * ledger backup and the pending request paths — and widening it to cover a
+ * third, derived artifact would complicate the one transaction in this repo
+ * that most needs to stay simple. The snapshot is regenerable from the ledger
+ * at any time, so a failure here is a warning naming its own fix rather than a
+ * failed reconcile: printing "refusing to reconcile" after the ledger has
+ * already been rewritten would misdescribe the repository.
+ *
+ * Spawned with `cwd: ROOT` because the generator resolves its paths relative to
+ * the working directory, and reconcile may be invoked from a subdirectory.
+ */
+function regenerateLedgerSnapshot() {
+  try {
+    execFileSync(process.execPath, ["scripts/generate-outstanding-issues-snapshot.mjs"], {
+      cwd: ROOT,
+      stdio: ["ignore", "inherit", "inherit"],
+    });
+    console.log("Commit data/outstanding-issues-snapshot.json alongside the ledger.");
+  } catch (error) {
+    console.warn(
+      `warning: the ledger was reconciled but data/outstanding-issues-snapshot.json was NOT regenerated (${error instanceof Error ? error.message : String(error)}). Run: npm run snapshot:issues`,
+    );
+  }
 }
 
 function reconcile(argv) {
@@ -482,6 +803,13 @@ function reconcile(argv) {
     return;
   }
   assertFreshReconciliationBase();
+  try {
+    assertSafeRemoteReconciliation(argv);
+  } catch (error) {
+    console.error(`refusing to reconcile: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
+    return;
+  }
 
   const apply = () => {
     const current = readFileSync(path.join(ROOT, ISSUES_PATH), "utf8");
@@ -538,6 +866,7 @@ function reconcile(argv) {
     rmSync(path.join(lockPath, RECONCILE_BACKUP_NAME), { force: true });
     transactionOpen = false;
     console.log(`Applied ${pending.length} request(s); their immutable audit records are under ${APPLIED_DIR}.`);
+    regenerateLedgerSnapshot();
   } catch (error) {
     if (transactionOpen) {
       try {
@@ -573,6 +902,7 @@ function selfTest() {
     "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
     "| --- | --- | --- | --- | --- | --- | --- |",
     "| #001 | P2 | issue | one | d | s | 2026-01-01 |",
+    "| #041061 <!-- issue-ulid:01M00000000410610000000000 --> | P2 | task | modern | d | s | 2026-01-01 |",
     "",
     "## Resolved / archive",
     "",
@@ -604,6 +934,18 @@ function selfTest() {
     action: "update",
     payload: { id: "#001", summary: "updated", baseRowFingerprint: issueRowFingerprint(base, "#001") },
   };
+  const modernUpdate = {
+    ...update,
+    id: "66666666-6666-4666-8666-666666666666",
+    payload: {
+      id: "#041061",
+      summary: "modern updated",
+      baseRowFingerprint: issueRowFingerprint(base, "#041061"),
+    },
+  };
+  if (!applyRequest(base, modernUpdate).includes("| modern updated |")) {
+    throw new Error("self-test failed: modern Crockford display id update was not applied");
+  }
   const cancel = {
     version: 1,
     id: "44444444-4444-4444-8444-444444444444",
@@ -630,6 +972,80 @@ function selfTest() {
   const reprioritised = applyRequest(base, reprioritise);
   if (!/\|\s*#001\s*\|\s*P3\s*\|/.test(reprioritised)) {
     throw new Error("self-test failed: a pri-only update did not reach the Pri cell");
+  }
+
+  // #M6JNR8: a queue re-grade must survive the whole path — validated, carried
+  // by a request, fingerprinted against the queue row rather than the
+  // Open-items row, and written to the Acuity cell without disturbing Order or
+  // the ID(s) linkage. The base fixture's queue is deliberately two columns
+  // wide, so this needs a fixture shaped like the real seven-column queue.
+  const queueBase = base.replace(
+    ["| Order | ID(s) |", "| --- | --- |", "| 1 | `#001` |"].join("\n"),
+    [
+      "| Order | ID(s) | Acuity | Capability | When | Estimate | Outcome |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| 1 | `#001` | A1 | Specialist | Immediate | 2h | investigate |",
+    ].join("\n"),
+  );
+  const regrade = {
+    version: 1,
+    id: "77777777-7777-4777-8777-777777777777",
+    createdOn: "2026-08-13",
+    action: "queue",
+    payload: {
+      id: "#001",
+      acuity: "A3",
+      when: "After the next release",
+      baseRowFingerprint: queueRowFingerprint(queueBase, "#001"),
+    },
+  };
+  if (validateRequest(regrade).length > 0) {
+    throw new Error("self-test failed: a queue re-grade request must validate");
+  }
+  if (validateRequest({ ...regrade, payload: { id: "#001" } }).length === 0) {
+    throw new Error("self-test failed: a queue request with no editable field must be rejected");
+  }
+  const regraded = applyRequest(queueBase, regrade);
+  if (!/\|\s*1\s*\|\s*`#001`\s*\|\s*A3\s*\|/.test(regraded)) {
+    throw new Error("self-test failed: a queue re-grade did not reach the Acuity cell");
+  }
+  if (!/\|\s*#001\s*\|\s*P2\s*\|/.test(regraded)) {
+    throw new Error("self-test failed: a queue re-grade must not touch the Open-items row");
+  }
+  // The whole point of the fingerprint is that it tracks the QUEUE row: an edit
+  // to the Open-items row must not invalidate a queued re-grade, and an edit to
+  // the queue row must.
+  let staleQueueRejected = false;
+  try {
+    applyRequest(queueBase.replace("| 1 | `#001` | A1 |", "| 1 | `#001` | A2 |"), regrade);
+  } catch (error) {
+    staleQueueRejected = /stale/.test(String(error));
+  }
+  if (!staleQueueRejected) throw new Error("self-test failed: stale queue request was not rejected");
+  if (!applyRequest(queueBase.replace("| #001 | P2 | issue | one |", "| #001 | P2 | issue | one prime |"), regrade)) {
+    throw new Error("self-test failed: an unrelated Open-items edit invalidated a queue re-grade");
+  }
+  // A queue edit and an Open-items update for the same id are two rows, so
+  // reconciling both in one batch must not demand a cancellation decision.
+  if (mutationConflicts([regrade, update]).length > 0) {
+    throw new Error("self-test failed: a queue edit and an open-row update were treated as conflicting");
+  }
+  if (mutationConflicts([regrade, { ...regrade, id: "88888888-8888-4888-8888-888888888888" }]).length !== 1) {
+    throw new Error("self-test failed: two queue edits for one id must conflict");
+  }
+  for (const requests of [
+    [regrade, done],
+    [done, regrade],
+  ]) {
+    let queueClosureRejected = false;
+    try {
+      applyRequestBatch(queueBase, requests);
+    } catch (error) {
+      queueClosureRejected = /explicit cancellation decision/.test(String(error));
+    }
+    if (!queueClosureRejected) {
+      throw new Error("self-test failed: a queue edit and closure must require an explicit cancellation decision");
+    }
   }
 
   const added = applyRequest(base, add);
@@ -695,6 +1111,65 @@ function selfTest() {
   if (processIsAlive(0) || processIsAlive("not-a-pid")) {
     throw new Error("self-test failed: invalid PID was treated as alive");
   }
+
+  // Pre-flight remote interlock self-test (#EH9VA6)
+  const offlineResult = findUnmergedRemoteReconciliations({
+    runner: () => {
+      throw new Error("offline");
+    },
+  });
+  if (offlineResult.length !== 0) {
+    throw new Error("self-test failed: remote check must fail open when offline");
+  }
+
+  const cleanRemoteOutput = [`${"a".repeat(40)}\trefs/heads/main`, `${"b".repeat(40)}\trefs/heads/feature-branch`].join(
+    "\n",
+  );
+  const cleanResult = findUnmergedRemoteReconciliations({
+    lsRemoteOutput: cleanRemoteOutput,
+    currentBranch: "feature-branch",
+  });
+  if (cleanResult.length !== 0) {
+    throw new Error("self-test failed: clean remote branches must report no conflicts");
+  }
+
+  const conflictingRemoteOutput = [
+    `${"a".repeat(40)}\trefs/heads/main`,
+    `${"c".repeat(40)}\trefs/heads/claude/issues-reconcile-20260818`,
+  ].join("\n");
+  const conflictResult = findUnmergedRemoteReconciliations({
+    lsRemoteOutput: conflictingRemoteOutput,
+    currentBranch: "feature-branch",
+  });
+  if (conflictResult.length === 0 || conflictResult[0].branch !== "claude/issues-reconcile-20260818") {
+    throw new Error("self-test failed: unmerged reconcile branch on origin was not detected");
+  }
+
+  let remoteInterlockError = false;
+  try {
+    assertSafeRemoteReconciliation([], {
+      lsRemoteOutput: conflictingRemoteOutput,
+      currentBranch: "feature-branch",
+    });
+  } catch (error) {
+    remoteInterlockError = /detected unmerged branch/.test(String(error));
+  }
+  if (!remoteInterlockError) {
+    throw new Error(
+      "self-test failed: assertSafeRemoteReconciliation must throw when unmerged reconcile branch is found",
+    );
+  }
+
+  const remoteWarnings = [];
+  assertSafeRemoteReconciliation(["--allow-concurrent"], {
+    lsRemoteOutput: conflictingRemoteOutput,
+    currentBranch: "feature-branch",
+    warn: (msg) => remoteWarnings.push(msg),
+  });
+  if (remoteWarnings.length === 0 || !remoteWarnings[0].includes("claude/issues-reconcile-20260818")) {
+    throw new Error("self-test failed: --allow-concurrent must warn loudly rather than throw");
+  }
+
   console.log("ledger inbox self-test passed.");
 }
 
@@ -726,7 +1201,7 @@ function main() {
       );
       return;
     }
-    throw new Error("usage: ledger-inbox.mjs <add|done|update|cancel|reconcile|check> [args]");
+    throw new Error("usage: ledger-inbox.mjs <add|done|update|queue|cancel|reconcile|check> [args]");
   } catch (error) {
     console.error(`ledger inbox: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;

@@ -35,15 +35,41 @@ runs:
         restore-keys: |
           playwright-chromium-${{ runner.os }}-
 
+    # The browser archive is cached, but apt libraries are runner-local and must be
+    # installed even on a browser-cache hit. `install-deps` shells out to `apt-get
+    # update`, which occasionally hangs indefinitely against the runner's default
+    # azure.archive.ubuntu.com mirror (no timeout of its own) and silently burns the
+    # whole job until something external cancels it. Rewrite the flaky azure mirror
+    # to archive.ubuntu.com, set bounded APT timeouts, and bound each attempt with
+    # retries so a stuck mirror fails fast and recovers instead of stalling the job.
     - name: Install Chromium
       shell: bash
       run: |
-        if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
-          npx playwright install-deps chromium
-          npx playwright install chromium
-        else
-          npx playwright install --with-deps chromium
+        if command -v sudo >/dev/null 2>&1; then
+          sudo sed -i 's/azure\.archive\.ubuntu\.com/archive.ubuntu.com/g' /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list 2>/dev/null || true
+          sudo mkdir -p /etc/apt/apt.conf.d
+          sudo tee /etc/apt/apt.conf.d/99flaky-mirror-resilience >/dev/null << 'EOF'
+        Acquire::Retries "3";
+        Acquire::http::Timeout "30";
+        Acquire::https::Timeout "30";
+        EOF
         fi
+        install_chromium() {
+          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+            npx playwright install-deps chromium
+            npx playwright install chromium
+          else
+            npx playwright install --with-deps chromium
+          fi
+        }
+        for attempt in 1 2 3; do
+          if timeout 180 bash -c "$(declare -f install_chromium); install_chromium"; then
+            exit 0
+          fi
+          echo "Chromium install attempt $attempt timed out or failed, retrying..." >&2
+          sleep 5
+        done
+        exit 1
 
     - name: Pin the Chromium executable path
       shell: bash

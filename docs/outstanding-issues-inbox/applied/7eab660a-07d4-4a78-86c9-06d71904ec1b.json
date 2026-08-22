@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "7eab660a-07d4-4a78-86c9-06d71904ec1b",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "No gate can detect a React Server Component boundary violation: a component with an event handler and no \"use client\" throws only at request time",
+    "detail": "Found on the developer-hub branch 2026-08-22. src/components/developer-area/hub/panel-card.tsx shipped rendering <button onClick={ignoreUnavailableActivation}> with no \"use client\" directive. Because the hub page is a Server Component, React serialised the handler into the flight stream and the route threw \"Event handlers cannot be passed to Client Component props\" on EVERY render — 17 occurrences on one page load, proven with a dev-server fetch. No gate on the branch could see it: typecheck does not model the RSC boundary; the jsdom DOM tests render the page as an ordinary client tree where onClick is legal; and next build does not catch it either because these routes are Dynamic and are never rendered at build time. Only a live request surfaces it. Corroborating signal that a cheap static rule would work: 12 of the 13 modules importing ignoreUnavailableActivation already carry \"use client\" on line 1, so a lint rule of the form 'a module importing ignoreUnavailableActivation (or otherwise attaching an on* handler) must carry \"use client\"' would have caught the one exception at zero runtime cost.",
+    "source": "Developer hub Phase 1 controller, task 7 review (2026-08-22)",
+    "issueUlid": "01M0K9JSNC778Q0HZKFBXQCTXS"
+  }
+}

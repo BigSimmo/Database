@@ -4,8 +4,11 @@ import { describe, expect, it } from "vitest";
 import {
   HISTORY_PROBE_MIGRATION,
   compareDriftSnapshots,
+  diffColumns,
+  fieldDiff,
   historyEntryProblems,
   normalizedSchemaSha256,
+  selfTest,
 } from "../scripts/check-drift";
 
 const root = join(__dirname, "..");
@@ -338,6 +341,56 @@ describe("compareDriftSnapshots", () => {
       const r2 = compareDriftSnapshots(clone(), withHistory([], "no_statements_column"), []);
       expect(r2.findings).toEqual([]);
       expect(r2.infos.some((i: string) => i.includes("no_statements_column"))).toBe(true);
+    });
+  });
+
+  describe("wide-table column diff and selfTest (#90EVWZ)", () => {
+    it("runs check-drift offline selfTest without throwing", () => {
+      expect(() => selfTest()).not.toThrow();
+    });
+
+    it("outputs full column names and property diffs for wide tables without 240-char clipping", () => {
+      const wideColumns = Array.from({ length: 25 }, (_, i) => ({
+        name: `column_${String(i).padStart(2, "0")}_very_long_descriptive_name_padding_the_json`,
+        type: "text",
+        not_null: false,
+        default: null,
+        identity: "",
+        generated: "",
+      }));
+
+      // Mutate the 25th column (late in the alphabet)
+      const liveColumns = wideColumns.map((c, i) => (i === 24 ? { ...c, type: "bigint", not_null: true } : { ...c }));
+
+      const expTable = {
+        name: "document_chunks_wide",
+        rls_enabled: true,
+        rls_forced: false,
+        reloptions: null,
+        acl: ["postgres=arwdDxtm/postgres"],
+        columns: wideColumns,
+      };
+      const liveTable = {
+        ...expTable,
+        columns: liveColumns,
+      };
+
+      const diff = fieldDiff("tables", expTable, liveTable);
+      expect(diff).toContain("column_24_very_long_descriptive_name_padding_the_json");
+      expect(diff).toContain('type: manifest="text" live="bigint"');
+      expect(diff).toContain("not_null: manifest=false live=true");
+      expect(diff).not.toContain("…");
+    });
+
+    it("detects missing and unexpected columns in diffColumns", () => {
+      const colA = { name: "col_a", type: "text", not_null: false, default: null, identity: "", generated: "" };
+      const colB = { name: "col_b", type: "integer", not_null: true, default: null, identity: "", generated: "" };
+
+      const diffMissing = diffColumns([colA, colB], [colA]);
+      expect(diffMissing).toContain("missing_in_live(col_b:");
+
+      const diffUnexpected = diffColumns([colA], [colA, colB]);
+      expect(diffUnexpected).toContain("unexpected_in_live(col_b:");
     });
   });
 });

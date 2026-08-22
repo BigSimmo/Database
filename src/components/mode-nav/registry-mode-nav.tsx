@@ -8,7 +8,6 @@ import {
   ListChecks,
   Network,
   Search,
-  LibraryBig,
   Sparkles,
   Stethoscope,
   Waypoints,
@@ -38,7 +37,11 @@ export const registryModeNavDensityProfiles = {
   differentials: "balanced-four",
   factsheets: "two-item",
   "therapy-compass": "balanced-four",
-  dictionary: "extended",
+  // Four destinations with medium labels, the same family as differentials:
+  // "Compare" and "Sources" are well inside the budget calibrated for
+  // "Presentations". `extended` was chosen when the mode had five destinations
+  // and Search/Browse were two names for one place.
+  dictionary: "balanced-four",
 } as const satisfies Record<ModeNavAdoptedMode, ModeNavDensityProfile>;
 
 /**
@@ -62,7 +65,6 @@ const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> = {
   // that for its card/list view toggle, and one glyph must not mean two things
   // on the same screen.
   topics: BookOpenText,
-  browse: LibraryBig,
   sources: BookMarked,
 };
 

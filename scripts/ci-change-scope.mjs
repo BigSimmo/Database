@@ -40,7 +40,7 @@ const outputs = [
 ];
 
 function normalizePath(filePath) {
-  return filePath
+  return String(filePath ?? "")
     .replaceAll("\\", "/")
     .replace(/^\.\/+/, "")
     .replace(/^github\//, ".github/");
@@ -93,6 +93,12 @@ const mockupPatterns = [
   // from losing the only lane that runs its `@mockup` journey.
   /^src\/components\/[^/]+-mockups?\//,
   /^src\/components\/.*-mockups?\.tsx$/,
+  // ...and the NESTED form: `caring-contacts/mockups/` holds 12 components whose
+  // filenames carry no `-mockup` suffix, so neither rule above reaches them. The
+  // two rules above cover a top-level `*-mockups/` directory and a `*-mockups.tsx`
+  // file at any depth; a plain `mockups/` segment one level down fell between them
+  // and left those journeys unrun (found 2026-08-21).
+  /^src\/components\/(?:[^/]+\/)+mockups?\//,
   // Three of the advisory specs carry `@mockup` without "mockup" in the
   // filename, so a name-based rule alone misses them. `assertMockupSpecParity`
   // below holds this list to `mockupSpecPattern` in playwright.config.ts.
@@ -181,6 +187,10 @@ const uiPatterns = [
   // PNG reports ui_changed=false, the visual job is skipped, and an incorrect or
   // corrupted baseline is never compared against the app it claims to describe.
   /^tests\/__screenshots__\//,
+  // Library modules that configure modes, shell routing, UI copy, navigation,
+  // or rendering lists. Editing these directly alters what the browser shell
+  // and mode homes render without touching a component or route file (#0HFDWD).
+  /^src\/lib\/(?:app-modes|app-mode-icons|search-route-ownership|ui-copy|mode-home-composer|mode-secondary-navigation|category-identity(?:-icons)?|brand-mark|brand-image|search-command-surface|search-navigation-context|search-scope-filter-chips|search-shell-props|document-flow-routes|document-viewer-navigation|differentials-navigation|therapy-compass-navigation|therapies)\.tsx?$/,
   // The pre-merge Lighthouse budget and its inputs. Without these, enabling
   // enforcement, refreshing the baseline, or breaking the runner is not exercised
   // until some unrelated UI or build change happens to trigger the job.
@@ -705,6 +715,15 @@ function selfTest() {
   assertScope("advisory-on-for-mockup-component", ["src/components/search-mockups.tsx"], {
     advisory_ui_changed: true,
   });
+  // A mockup component in a NESTED `mockups/` directory whose own filename gives
+  // no hint — the case the suffix-based rules miss. Both directions are pinned so
+  // the added pattern cannot quietly widen to ordinary component directories.
+  assertScope("advisory-on-for-nested-mockup-dir", ["src/components/caring-contacts/mockups/product-pages.tsx"], {
+    advisory_ui_changed: true,
+  });
+  assertScope("advisory-off-for-ordinary-nested-component", ["src/components/caring-contacts/contact-card.tsx"], {
+    advisory_ui_changed: false,
+  });
   // A mockup component edited without its `src/app/mockups` route wrapper. The
   // filename is singular, and `ui-tools-task-directory.spec.ts` is its only
   // browser coverage — excluded from every production project by its `@mockup`
@@ -1041,6 +1060,23 @@ function selfTest() {
     ui_changed: true,
     build_changed: true,
     db_changed: false,
+  });
+  // Mode configuration, routing, UI copy and therapies feed shell/home rendering (#0HFDWD)
+  assertScope("mode-config-triggers-ui", ["src/lib/app-modes.ts"], {
+    ui_changed: true,
+    source_changed: true,
+  });
+  assertScope("search-route-ownership-triggers-ui", ["src/lib/search-route-ownership.ts"], {
+    ui_changed: true,
+    source_changed: true,
+  });
+  assertScope("ui-copy-triggers-ui", ["src/lib/ui-copy.ts"], {
+    ui_changed: true,
+    source_changed: true,
+  });
+  assertScope("therapies-lib-triggers-ui", ["src/lib/therapies.ts"], {
+    ui_changed: true,
+    source_changed: true,
   });
   assertScope("rag-fixture", ["src/lib/retrieval-selection.ts", "scripts/fixtures/rag-retrieval-golden.json"], {
     rag_eval_changed: true,

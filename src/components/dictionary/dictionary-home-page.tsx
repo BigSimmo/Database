@@ -1,37 +1,37 @@
-import { BookOpen, GitCompareArrows, LibraryBig, List, Quote, Tags } from "lucide-react";
+import { GitCompareArrows, LibraryBig, List, Tags } from "lucide-react";
 
-import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
+import { appModeIcons } from "@/lib/app-mode-icons";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { dictionaryEntries, dictionaryTopics } from "@/lib/dictionary-data";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 
 export function DictionaryHomePage() {
   return (
     <ModeHomeMain testId="dictionary-home-main" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="dictionary-home"
-        title="Dictionary"
-        subtitle="Source-governed psychiatric terms, abbreviations, and distinctions."
-        icon={BookOpen}
+        title={sharedHomePresentation.dictionary.title}
+        subtitle={sharedHomePresentation.dictionary.subtitle}
+        icon={appModeIcons.dictionary}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Dictionary tasks"
         actions={[
           {
-            title: "Search terms",
-            description: "Find definitions, abbreviations, and topics",
-            icon: Quote,
-            href: "/dictionary/search",
-          },
-          {
-            title: "Browse A–Z",
-            description: `Scan all ${dictionaryEntries.length} canonical entries`,
+            // Search and Browse are one destination: an empty query lists the
+            // whole catalogue, a typed one narrows the same list. Two tiles
+            // pointing at the same page would only make the reader choose
+            // between two words for the same thing.
+            title: "Clinical terms",
+            description: `Search or browse all ${dictionaryEntries.length} canonical entries`,
             icon: List,
-            href: "/dictionary/browse",
+            href: "/dictionary/search",
           },
           {
             title: "Abbreviations",
             description: "Resolve governed abbreviations and ambiguity",
             icon: Tags,
-            href: "/dictionary/browse?view=abbreviations",
+            href: "/dictionary/search?view=abbreviations",
           },
           {
             title: "Clinical topics",
@@ -63,12 +63,6 @@ export function DictionaryHomePage() {
           },
           { label: "Source governance", shortLabel: "Sources", href: "/dictionary/sources", tone: "info" },
         ]}
-        footer={
-          <ModeHomeVerificationFooter
-            label="Source-checked reference terminology"
-            body="Not patient-specific guidance"
-          />
-        }
       />
     </ModeHomeMain>
   );

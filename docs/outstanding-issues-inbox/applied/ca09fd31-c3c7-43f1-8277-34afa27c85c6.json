@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ca09fd31-c3c7-43f1-8277-34afa27c85c6",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#D6G8TC",
+    "outcome": "Resolved 2026-08-21. Verified on main at 1cc0d2987: src/components/therapy-compass/ contains zero <h1 elements - the only remaining match is a prose comment in compare-screen.tsx. detail-screen.tsx, sheets-screen.tsx and other-screen.tsx no longer render their own h1, so the patient-sheet builder's double-h1 is gone too. The documented stop rule (do not add a print exception for <header>) was not triggered. Verification: grep for '<h1' across therapy-compass.",
+    "baseRowFingerprint": "b4f770cc8142bf3827911b5010d8e86f94143be98a5193efa803b556408608d0"
+  }
+}

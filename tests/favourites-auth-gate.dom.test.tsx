@@ -108,9 +108,9 @@ describe("favourites auth gate DOM", () => {
     ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/documents" },
-      { name: "Services", href: "/services" },
+      { name: "Services", href: "/?mode=services" },
       { name: "Medication", href: "/medications" },
-      { name: "Factsheets", href: "/factsheets" },
+      { name: "Factsheets", href: "/?mode=factsheets" },
       { name: "Tools", href: "/tools" },
     ]);
     expect(screen.queryByRole("link", { name: "Favourites" })).toBeNull();
@@ -277,6 +277,13 @@ describe("favourites auth gate DOM", () => {
 
     expect(screen.getByRole("radio", { name: "Saved (1)" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Saved workflows" })).toBeVisible();
+  });
+
+  it("offers an all-tools recovery path when a URL query has no matching tools", () => {
+    render(<ToolsSearchResultsPage initialQuery="no-such-tool" canAccessFavourites={false} />);
+
+    expect(screen.getByRole("heading", { level: 2, name: "No tools match" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Show all tools" })).toHaveAttribute("href", "/tools");
   });
 
   it("omits Favourites from the mode menu for guests", async () => {

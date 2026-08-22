@@ -1,4 +1,5 @@
 import {
+  Activity,
   Brain,
   Calculator,
   ClipboardList,
@@ -89,6 +90,15 @@ const fixtureExtras: ToolFixtureExtras[] = [
     lastUsed: "Today, 8:15 AM",
     primaryAction: "Refer",
     secondary: "Access pathways, criteria, contacts",
+  },
+  {
+    id: "ward-management",
+    icon: Activity,
+    area: "coordination",
+    status: "ready",
+    lastUsed: "Not yet opened",
+    primaryAction: "Coordinate",
+    secondary: "Patient flow, bed capacity, destination matching",
   },
   {
     id: "forms",

@@ -4,7 +4,13 @@ import { pathToFileURL } from "node:url";
 import { format } from "prettier";
 
 import { appModeDefinitions, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
+import {
+  consolidatedModeHomeRedirectEntries,
+  unsubmittedModeSearchRedirectEntries,
+} from "@/lib/consolidated-mode-home-redirect";
 import { documentsSearchHref, DOCUMENTS_MODE_HOME_ROUTE } from "@/lib/document-flow-routes";
+import { factsheetSlugs } from "@/components/factsheets/factsheets-data";
+import { dictionaryEntries, dictionaryTopics } from "@/lib/dictionary-data";
 import { differentialRecords } from "@/lib/differentials";
 import { dsmDiagnoses } from "@/lib/dsm";
 import { formulationMechanisms } from "@/lib/formulation";
@@ -40,13 +46,40 @@ type SiteMapData = {
 
 const productRouteHandlerPaths = new Set(["/applications"]);
 
+/*
+ * Consolidated homes are read from the redirect map, not scraped out of page
+ * bodies. `discoverRedirects` finds a redirect by matching `redirect("literal")`,
+ * and these stubs compute their target so the query survives the hop — so the
+ * regex stopped seeing them and the map described them as pages rendering a home.
+ */
+const consolidatedRedirectTargets = Object.fromEntries(
+  consolidatedModeHomeRedirectEntries.map(([route, modeId]) => [route, `/?mode=${modeId}`]),
+);
+
+/*
+ * The four `<mode>/search` routes with no browse view. Conditional, not absolute:
+ * they forward only when the query is empty, and render results otherwise — so
+ * they are described rather than listed as plain redirects.
+ */
+const unsubmittedSearchRedirectDescriptions = Object.fromEntries(
+  unsubmittedModeSearchRedirectEntries.map(([route, modeId]) => [
+    route,
+    `Submitted ${modeId} results. An empty query forwards to \`/?mode=${modeId}\` so the retired mode home is not rendered a second time.`,
+  ]),
+);
+
 const documentedRedirectTargets: Record<string, string> = {
+  ...consolidatedRedirectTargets,
   "/applications": "/tools",
   // The source page redirects a valid id to the canonical `/documents/[id]` viewer
   // (page.tsx line 20) and only falls back to `/documents/search` for an invalid id
   // (line 14). Pin the canonical target here so the generated map does not report the
   // invalid-id fallback that its first-`redirect()` regex would otherwise capture.
   "/documents/source": "/documents/[id]",
+  "/documents/source/evidence": "/documents/[id]",
+  // Pinned because the page forwards the incoming query string, so its
+  // `redirect()` argument is a template literal the regex above cannot read.
+  "/dictionary/browse": "/dictionary/search",
 };
 
 const routeDescriptions: Record<string, string> = {
@@ -54,6 +87,17 @@ const routeDescriptions: Record<string, string> = {
   "/applications": "Legacy application launcher redirect to Tools.",
   "/caring-contacts":
     "Caring Contacts workspace — a synthetic, non-clinical demonstration of caring-contact follow-up. Standalone: it owns its own navigation and is entered from the Tools catalogue.",
+  "/calculators": "Psychiatry rating scale scoring and clinical decision calculators.",
+  "/dictionary": "Clinical dictionary home with term search and category navigation.",
+  "/dictionary/[slug]": "Source-governed clinical term definition, distinction, and reference detail.",
+  "/dictionary/browse":
+    "Compatibility redirect to `/dictionary/search`, which is now the whole catalogue; the query string is carried across.",
+  "/dictionary/compare": "Side-by-side clinical term definition and nuance comparison.",
+  "/dictionary/search":
+    "The clinical term and abbreviation catalogue: an empty query lists everything, a typed query narrows the same list.",
+  "/dictionary/sources": "Clinical dictionary governance, references, and source catalogue.",
+  "/dictionary/topics": "Clinical dictionary topic category index.",
+  "/dictionary/topics/[slug]": "Clinical dictionary topic category term list.",
   "/differentials": "Differentials home and search surface.",
   "/differentials/compare":
     "Compare queue: empty state or selected diagnosis ids (Search edit links preserve ids); Open comparison launches a catalogue presentation workflow or an ad-hoc workspace (`workspace=1`).",
@@ -61,43 +105,59 @@ const routeDescriptions: Record<string, string> = {
   "/differentials/diagnoses/[slug]": "Differential diagnosis detail.",
   "/differentials/presentations": "Presentation catalogue stream.",
   "/differentials/presentations/[slug]": "Presentation comparison workflow.",
-  "/dsm": "DSM-5 Diagnosis home.",
-  "/dsm/search": "DSM diagnosis search and catalogue browser.",
-  "/dsm/compare": "DSM diagnosis comparison.",
-  "/dsm/diagnoses/[slug]": "DSM diagnosis criteria and information.",
-  "/dsm/diagnoses/[slug]/differentials": "DSM diagnosis differential considerations.",
+  "/documents": "Documents mode home and source document library surface.",
   "/documents/[id]": "Document viewer/detail page.",
   "/documents/search": "Documents search command centre.",
   "/documents/source": "Compatibility redirect to the canonical live document viewer when a valid id is supplied.",
   "/documents/source/evidence": "Compatibility redirect sharing the canonical live document viewer handoff.",
+  "/dsm": "DSM-5 Diagnosis home.",
+  "/dsm/compare": "DSM diagnosis comparison.",
+  "/dsm/diagnoses/[slug]": "DSM diagnosis criteria and information.",
+  "/dsm/diagnoses/[slug]/differentials": "DSM diagnosis differential considerations.",
+  "/dsm/search": "DSM diagnosis search and catalogue browser.",
+  "/factsheets": "Patient information factsheets home and topic browser.",
+  "/factsheets/[slug]": "Plain-language patient factsheet reading and printable handout view.",
+  "/factsheets/search": "Patient information factsheet search command centre.",
   "/favourites": "Saved clinical items and sets.",
   "/forms": "Forms home and search surface.",
   "/forms/[slug]": "Registry-backed form detail.",
-  "/medications": "Medication mode home.",
-  "/medications/[slug]": "Medication detail.",
-  "/privacy": "Privacy and data-processing governance draft.",
-  "/safety-plan": "Patient safety plan generator (Stanley-Brown six steps) — a Tools-page clinical tool.",
-  "/services": "Services home and search surface.",
-  "/services/[slug]": "Registry-backed service detail.",
   "/formulation": "Clinical formulation home and local mechanism search surface.",
   "/formulation/[slug]": "Formulation mechanism decision-support guide.",
   "/formulation/builder": "Structured clinical formulation builder.",
   "/formulation/compare": "Side-by-side mechanism comparison.",
   "/formulation/map": "Formulation mechanism domain map.",
+  "/medications": "Medication mode home.",
+  "/medications/[slug]": "Medication detail.",
+  "/privacy": "Privacy and data-processing governance draft.",
+  "/reference/colour-coding": "Clinical domain and category colour-coding palette reference.",
+  "/safety-plan": "Patient safety plan generator (Stanley-Brown six steps) — a Tools-page clinical tool.",
+  "/services": "Services home and search surface.",
+  "/services/[slug]": "Registry-backed service detail.",
   "/specifiers": "Psychiatric specifier home and local search surface.",
   "/specifiers/[slug]": "Psychiatric specifier decision-support guide.",
   "/specifiers/builder": "Structured diagnostic wording builder.",
   "/specifiers/compare": "Side-by-side psychiatric specifier comparison.",
   "/specifiers/map": "Psychiatric specifier family map.",
   "/therapy-compass": "Therapy home (source-grounded therapy decision support).",
-  "/therapy-compass/search": "Therapy library search surface.",
-  "/therapy-compass/recommend": "Recommend a therapy from a clinical question and constraints.",
-  "/therapy-compass/compare": "Side-by-side therapy comparison.",
-  "/therapy-compass/pathways": "Problem-based clinical therapy pathways.",
-  "/therapy-compass/review": "Therapy records awaiting qualified-clinician source review.",
   "/therapy-compass/[slug]": "Therapy record detail.",
   "/therapy-compass/[slug]/brief": "Therapy brief-intervention view.",
   "/therapy-compass/[slug]/sheet": "Therapy patient-sheet builder.",
+  "/therapy-compass/compare": "Side-by-side therapy comparison.",
+  "/therapy-compass/pathways": "Problem-based clinical therapy pathways.",
+  "/therapy-compass/recommend": "Recommend a therapy from a clinical question and constraints.",
+  "/therapy-compass/review": "Therapy records awaiting qualified-clinician source review.",
+  "/therapy-compass/search": "Therapy library search surface.",
+  "/tools": "Clinical tools and applications launcher directory.",
+  "/ward-management": "Statewide psychiatry ward demand, bed capacity, and patient flow console.",
+  "/ward-management/capacity": "Ward bed availability, unit occupancy, and staffing capacity.",
+  "/ward-management/constellation": "Statewide psychiatric hospital network constellation view.",
+  "/ward-management/exceptions": "Patient flow exceptions, delays, and escalation alerts.",
+  "/ward-management/governance": "Ward coordination governance, compliance, and audit log.",
+  "/ward-management/movements": "Scheduled and completed patient transfers and bed movements.",
+  "/ward-management/network": "Psychiatric bed network status and regional catchment map.",
+  "/ward-management/patients/[patientId]": "Synthetic patient placement and transfer trajectory detail.",
+  "/ward-management/queue": "Priority referral queue and triage waiting list.",
+  "/ward-management/transport": "Patient inter-hospital transfer and transport logistics.",
 };
 
 const publicRouteHandlerDescriptions: Record<string, string> = {
@@ -106,31 +166,44 @@ const publicRouteHandlerDescriptions: Record<string, string> = {
 };
 
 const apiDescriptions: Record<string, string> = {
+  "/api/account/favourites": "Account saved favourites operations.",
+  "/api/account/preferences": "Account density, motion, and UI preferences.",
   "/api/answer": "Generate answer response.",
   "/api/answer/stream": "Streaming answer response.",
+  "/api/answer-feedback": "Answer quality feedback submission.",
+  "/api/differentials": "Differential diagnosis catalogue operations.",
+  "/api/differentials/[slug]": "Differential diagnosis detail endpoint.",
+  "/api/differentials/presentations/[slug]": "Presentation workflow comparison data endpoint.",
   "/api/documents": "Document collection operations.",
   "/api/documents/[id]": "Document detail operations.",
   "/api/documents/[id]/labels": "Document label operations.",
   "/api/documents/[id]/reindex": "Single-document reindex operation.",
+  "/api/documents/[id]/reviews": "Document clinical review audit log.",
   "/api/documents/[id]/search": "Search within one document.",
   "/api/documents/[id]/signed-url": "Private document signed URL.",
   "/api/documents/[id]/summarize": "Document summary operation.",
   "/api/documents/[id]/table-facts": "Document table facts.",
   "/api/documents/bulk": "Bulk document operations.",
   "/api/documents/bulk/reindex": "Bulk reindex operation.",
+  "/api/documents/signed-urls": "Bulk private document signed URLs.",
   "/api/eval-cases": "Evaluation case data.",
   "/api/health": "Health check.",
+  "/api/health/ready": "Readiness health check.",
   "/api/images/[id]/signed-url": "Private image signed URL.",
+  "/api/images/signed-urls": "Bulk private image signed URLs.",
   "/api/ingestion/batches": "Ingestion batch state.",
   "/api/ingestion/jobs": "Ingestion job collection.",
   "/api/ingestion/jobs/[id]/retry": "Retry ingestion job.",
   "/api/ingestion/quality": "Ingestion quality reporting.",
   "/api/jobs": "Administrator/ops job listing (not a client product API; see docs/api-jobs-ops-surface.md).",
   "/api/local-project-id": "Local project identity guard.",
+  "/api/medications": "Medication catalog collection operations.",
+  "/api/medications/[slug]": "Medication detail endpoint.",
   "/api/registry/records": "Registry record collection.",
   "/api/registry/records/[slug]": "Registry record detail.",
   "/api/search": "Search endpoint.",
   "/api/search/interaction": "Search interaction telemetry.",
+  "/api/search/universal": "Cross-entity universal search endpoint.",
   "/api/setup-status": "Setup status.",
   "/api/upload": "Upload endpoint.",
   "/api/webhooks/railway": "Railway deploy webhook -> chat forwarder.",
@@ -138,7 +211,7 @@ const apiDescriptions: Record<string, string> = {
 };
 
 const routeOwnershipRows = [
-  ["Root dashboard and query modes", "src/app/page.tsx, src/lib/app-modes.ts"],
+  ["Root dashboard and query modes", "src/app/(search-app)/page.tsx, src/lib/app-modes.ts"],
   ["Global shell layouts", "src/app/*/layout.tsx, src/components/clinical-dashboard/global-search-shell.tsx"],
   ["Services", "src/app/(search-app)/services, src/lib/services.ts, src/app/api/registry/records"],
   ["Forms", "src/app/(search-app)/forms, src/lib/forms.ts, src/app/api/registry/records"],
@@ -155,6 +228,13 @@ const routeOwnershipRows = [
     "src/app/(search-app)/medications, src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
   ],
   ["Documents", "src/app/(search-app)/documents, src/lib/document-flow-routes.ts"],
+  ["Calculators", "src/app/(search-app)/calculators, src/components/calculators"],
+  ["Therapy Compass", "src/app/(search-app)/therapy-compass, src/lib/therapies.ts"],
+  ["Factsheets", "src/app/(search-app)/factsheets, src/components/factsheets"],
+  ["Dictionary", "src/app/(search-app)/dictionary, src/lib/dictionary.ts"],
+  ["Ward Management", "src/app/ward-management, src/components/ward-management"],
+  ["Safety Plan", "src/app/safety-plan, src/components/patient-safety-plan.tsx"],
+  ["Privacy", "src/app/privacy"],
   ["Tools", "src/components/applications-launcher-page.tsx"],
   [
     "Caring Contacts workspace",
@@ -213,16 +293,40 @@ function discoverRoutes(kind: RouteKind): DiscoveredRoute[] {
     .sort((left, right) => left.route.localeCompare(right.route) || left.file.localeCompare(right.file));
 }
 
+/*
+ * Applied last, so a derived entry wins over any hand-written description left
+ * behind for a path that has since become a redirect. `/dsm` read "DSM-5
+ * Diagnosis home." long after it stopped rendering one.
+ */
+Object.assign(
+  routeDescriptions,
+  Object.fromEntries(
+    consolidatedModeHomeRedirectEntries.map(([route, modeId]) => [
+      route,
+      `Compatibility redirect to the shared home at \`/?mode=${modeId}\`; a submitted \`?q=…&run=1\` forwards to \`${route}/search\`.`,
+    ]),
+  ),
+  unsubmittedSearchRedirectDescriptions,
+);
+
+const conditionalRedirectRoutes = new Set(unsubmittedModeSearchRedirectEntries.map(([route]) => route));
+
 function discoverRedirects(routes: DiscoveredRoute[]): RedirectRoute[] {
-  return routes
-    .map((route) => {
-      const source = readFileSync(path.join(process.cwd(), route.file), "utf8");
-      const target =
-        documentedRedirectTargets[route.route] ?? source.match(/\bredirect\(\s*["']([^"']+)["']\s*\)/)?.[1];
-      return target ? { ...route, target } : null;
-    })
-    .filter((value): value is RedirectRoute => Boolean(value))
-    .sort((left, right) => left.route.localeCompare(right.route));
+  return (
+    routes
+      // The `<mode>/search` routes forward only an EMPTY query and render results
+      // otherwise, so listing them here would claim they never render anything.
+      // Their conditional behaviour is stated in `routeDescriptions` instead.
+      .filter((route) => !conditionalRedirectRoutes.has(route.route))
+      .map((route) => {
+        const source = readFileSync(path.join(process.cwd(), route.file), "utf8");
+        const target =
+          documentedRedirectTargets[route.route] ?? source.match(/\bredirect\(\s*["']([^"']+)["']\s*\)/)?.[1];
+        return target ? { ...route, target } : null;
+      })
+      .filter((value): value is RedirectRoute => Boolean(value))
+      .sort((left, right) => left.route.localeCompare(right.route))
+  );
 }
 
 function discoverNonRoutedMockupArtifacts() {
@@ -385,6 +489,33 @@ function renderModePageIndex() {
       detail:
         "Canonical all-tools results directory at `/tools`; the universal mode picker opens it directly. `/?mode=tools` remains a dashboard-mode alias.",
     },
+    {
+      mode: "Calculators",
+      home: appModeHomeHref("calculators"),
+      search: appModeHomeHref("calculators", { query: "PHQ-9", focus: true, run: true }),
+      detail: "`/calculators/search` scored results; an empty query forwards back to the shared home.",
+    },
+    {
+      mode: "Factsheets",
+      home: appModeHomeHref("factsheets"),
+      search: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
+      detail:
+        "`/factsheets/search` is also a query-free browse surface linked from the mode nav; `/factsheets/[slug]` records.",
+    },
+    {
+      mode: "Dictionary",
+      home: appModeHomeHref("dictionary"),
+      search: appModeHomeHref("dictionary", { query: "MSE", focus: true, run: true }),
+      detail:
+        "`/dictionary/search` is one catalogue for both searching and browsing; `/dictionary/browse` redirects to it. Also `/topics`, `/topics/[slug]`, `/compare`, `/sources` and `/dictionary/[slug]` records.",
+    },
+    {
+      mode: "Therapy Compass",
+      home: appModeHomeHref("therapy-compass"),
+      search: appModeHomeHref("therapy-compass", { query: "CBT", focus: true, run: true }),
+      detail:
+        "Keeps a home of its own at `/therapy-compass`; `/search` (query-free browse), `/recommend`, `/compare`, `/pathways`, `/review`, and `/[slug]` records with `/brief` and `/sheet` outputs.",
+    },
   ]);
 }
 
@@ -427,6 +558,10 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "/formulation/[slug]",
         "/therapy-compass/[slug]",
         "/medications/[slug]",
+        "/dictionary/[slug]",
+        "/dictionary/topics/[slug]",
+        "/factsheets/[slug]",
+        "/ward-management/patients/[patientId]",
       ].includes(route.route),
   );
   const mockupRoutes = data.pageRoutes.filter((route) => route.route.startsWith("/mockups"));
@@ -499,11 +634,31 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
       ...renderSlugInventory("Therapy slugs", "/therapy-compass/[slug]", therapySlugs()),
       "",
       ...renderSlugInventory("Medication slugs", "/medications/[slug]", medicationSlugs),
+      "",
+      ...renderSlugInventory("Factsheet slugs", "/factsheets/[slug]", factsheetSlugs()),
+      "",
+      ...renderSlugInventory(
+        "Clinical dictionary term slugs",
+        "/dictionary/[slug]",
+        dictionaryEntries.map((entry) => entry.slug),
+      ),
+      "",
+      ...renderSlugInventory(
+        "Clinical dictionary topic slugs",
+        "/dictionary/topics/[slug]",
+        dictionaryTopics.map((topic) => topic.slug),
+      ),
     ]),
     ...section("Document viewer route", [
       bullet(
         "/documents/[id]",
         "Document viewer/detail page. Individual document IDs are intentionally not enumerated in this sitemap.",
+      ),
+    ]),
+    ...section("Ward management patient route", [
+      bullet(
+        "/ward-management/patients/[patientId]",
+        "Synthetic patient placement and transfer trajectory detail. Synthetic patient IDs are generated runtime data and intentionally not enumerated in this sitemap.",
       ),
     ]),
     ...section("Mockup/prototype routes", [

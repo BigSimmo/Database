@@ -94,7 +94,7 @@ describe("audit navigation and auth regressions", () => {
     const focusLeaveContract = sourceSegment(
       masterSearchHeaderSource,
       "ref={modeMenuRef}",
-      'className={cn("relative z-[60]',
+      'className="relative z-[60]',
       { label: "master mode-menu focus boundary" },
     );
 
@@ -187,21 +187,6 @@ describe("audit navigation and auth regressions", () => {
   });
 
   it("gates private polling and mutations on local readiness plus authenticated status", () => {
-    const uploadReadOnlyContract = sourceSegment(
-      clinicalDashboardSource,
-      "const uploadReadOnlyMode =",
-      "const canUsePrivateApis =",
-      { label: "upload read-only capability" },
-    );
-    // Uploads stay writable in local no-auth; only explicit demo / auth-unavailable lock them.
-    expect(uploadReadOnlyContract).toContain("const uploadReadOnlyMode = resolveUploadReadOnlyMode({");
-    expect(uploadReadOnlyContract).toContain("explicitDemoMode,");
-    expect(uploadReadOnlyContract).toContain("authUnavailableFallback: browserAuthUnavailableDemoFallback");
-    expect(uploadReadOnlyContract).not.toContain("localNoAuthMode");
-    expect(uploadReadOnlyContract).not.toMatch(/const uploadReadOnlyMode = clientDemoMode\b/);
-    expect(uploadReadOnlyContract).not.toMatch(/const uploadReadOnlyMode = resolveClientDemoMode\b/);
-    expect(source("src/lib/client-env.ts")).toContain("localNoAuthMode: false");
-
     const privateCapabilityContract = sourceSegment(
       clinicalDashboardSource,
       "const canUsePrivateApis =",
@@ -231,50 +216,82 @@ describe("audit navigation and auth regressions", () => {
     );
     expect(labelMutationContract).toContain("if (!canUsePrivateApis) return false;");
 
-    const uploadMutationContract = sourceSegment(
+    const indexingAdministrationContract = sourceSegment(
       clinicalDashboardSource,
-      "function openUploadDrawer()",
-      "function openEvidenceDrawer()",
-      { label: "private upload mutation" },
+      "const openLibraryHealthTarget = useCallback(",
+      "const timeoutId = window.setTimeout(prefetchApplications, 250);",
+      { label: "private indexing administration" },
     );
-    expect(uploadMutationContract).toContain("if (!canUseAdministrativeApis) {");
+    expect(indexingAdministrationContract).toContain("if (!canUseAdministrativeApis) {");
+
+    // Guard text alone would pass even if the guard fell through to the drawer-opening calls, so
+    // pin the ORDER: the early return has to precede every administrative state change, and the
+    // non-administrator branch must reach none of them.
+    const guardIndex = indexingAdministrationContract.indexOf("if (!canUseAdministrativeApis) {");
+    const earlyReturnIndex = indexingAdministrationContract.indexOf("return;", guardIndex);
+    expect(earlyReturnIndex, "the administrator guard must return, not just warn").toBeGreaterThan(guardIndex);
+
+    const deniedBranch = indexingAdministrationContract.slice(guardIndex, earlyReturnIndex);
+    expect(deniedBranch).not.toContain("setIndexingAdminDrawerOpen(true)");
+    expect(deniedBranch).not.toContain("setIndexingAdminMobileTab");
+    expect(deniedBranch).not.toContain('setDocumentsDrawerMode("admin")');
+
+    for (const administrativeCall of [
+      "settingsState.setIndexingAdminDrawerOpen(true);",
+      'settingsState.setIndexingAdminMobileTab("jobs");',
+      'settingsState.setDocumentsDrawerMode("admin");',
+    ]) {
+      const callIndex = indexingAdministrationContract.indexOf(administrativeCall);
+      expect(callIndex, `${administrativeCall} must exist in the administrator path`).toBeGreaterThan(-1);
+      expect(callIndex, `${administrativeCall} must sit after the non-administrator early return`).toBeGreaterThan(
+        earlyReturnIndex,
+      );
+    }
+
+    // Rendering is gated on the same capability, so losing access mid-session cannot leave jobs,
+    // batches or quality data painted from component state.
+    expect(clinicalDashboardSource).toContain("{settingsState.indexingAdminDrawerOpen && canUseAdministrativeApis ? (");
   });
 
-  it("keeps the private upload workspace tabs and panels programmatically associated", () => {
-    expect(clinicalDashboardSource).toContain('aria-label="Upload and indexing sections"');
+  it("keeps private indexing administration associated without exposing uploads", () => {
+    expect(clinicalDashboardSource).toContain('aria-label="Indexing administration sections"');
     expect(clinicalDashboardSource).toContain('role="tab"');
     expect(clinicalDashboardSource).toContain("aria-selected={active}");
     expect(clinicalDashboardSource).toContain("aria-controls={tab.panelId}");
     expect(clinicalDashboardSource).toContain("tabIndex={active ? 0 : -1}");
-    expect(clinicalDashboardSource).toContain('role={uploadUsesDesktopRegions ? "region" : "tabpanel"}');
-    for (const tab of ["setup", "upload", "jobs", "quality"]) {
-      expect(clinicalDashboardSource).toContain(`"dashboard-upload-tab-${tab}"`);
+    expect(clinicalDashboardSource).toContain('role={indexingAdminUsesDesktopRegions ? "region" : "tabpanel"}');
+    for (const tab of ["setup", "jobs", "quality"]) {
+      expect(clinicalDashboardSource).toContain(`"dashboard-indexing-admin-tab-${tab}"`);
     }
-    for (const section of ["setup", "upload", "indexing", "quality"]) {
+    for (const section of ["setup", "indexing", "quality"]) {
       expect(clinicalDashboardSource).toContain(`id="dashboard-${section}-section-heading"`);
     }
     // The viewport-driven region/tabpanel role is wired through the extracted hook, whose
     // media-query subscription carries the guard with it.
-    expect(clinicalDashboardSource).toContain("useUploadDesktopLayout()");
+    expect(clinicalDashboardSource).toContain("useIndexingAdminDesktopLayout()");
     // Assert the EXPORTED hook's return wires the media-query subscription through
     // useSyncExternalStore with the () => false server snapshot, and that the call closes
     // right after that snapshot. Scoping to the exported function body (not the whole file)
     // plus the `return` anchor and trailing `)` means a stale/disconnected call elsewhere, a
     // comment or string, a present-but-unused helper, a dropped SSR fallback, or a mutated
     // snapshot such as `() => false || getUploadDesktopLayoutSnapshot()` all fail the guard.
-    const uploadDesktopHookSource = source("src/components/clinical-dashboard/use-upload-desktop-layout.ts");
-    const useUploadDesktopLayoutBody = sourceSegment(
-      uploadDesktopHookSource,
-      "export function useUploadDesktopLayout(",
-      "}",
-      { label: "upload desktop layout hook" },
+    const indexingAdminDesktopHookSource = source(
+      "src/components/clinical-dashboard/use-indexing-admin-desktop-layout.ts",
     );
-    expect(useUploadDesktopLayoutBody).toMatch(
-      /return\s+useSyncExternalStore\(\s*subscribeToUploadDesktopLayout,\s*getUploadDesktopLayoutSnapshot,\s*\(\)\s*=>\s*false\s*,?\s*\)\s*;?\s*$/,
+    const useIndexingAdminDesktopLayoutBody = sourceSegment(
+      indexingAdminDesktopHookSource,
+      "export function useIndexingAdminDesktopLayout(",
+      "}",
+      { label: "indexing admin desktop layout hook" },
+    );
+    expect(useIndexingAdminDesktopLayoutBody).toMatch(
+      /return\s+useSyncExternalStore\(\s*subscribeToIndexingAdminDesktopLayout,\s*getIndexingAdminDesktopLayoutSnapshot,\s*\(\)\s*=>\s*false\s*,?\s*\)\s*;?\s*$/,
     );
     // The source contract prevents the old effect/setState viewport pattern from returning.
-    expect(uploadDesktopHookSource).not.toContain("useEffect");
-    expect(uploadDesktopHookSource).not.toContain("useState");
-    expect(uploadDesktopHookSource).not.toContain("setUploadUsesDesktopRegions");
+    expect(indexingAdminDesktopHookSource).not.toContain("useEffect");
+    expect(indexingAdminDesktopHookSource).not.toContain("useState");
+    expect(indexingAdminDesktopHookSource).not.toContain("setIndexingAdminUsesDesktopRegions");
+    expect(clinicalDashboardSource).not.toContain("UploadPanel");
+    expect(clinicalDashboardSource).not.toContain('type="file"');
   });
 });

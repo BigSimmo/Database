@@ -211,63 +211,6 @@ function VisualEvidenceStrip({
   return <section className="space-y-3 scroll-mt-4 sm:scroll-mt-6">{content}</section>;
 }
 
-export function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
-  const tableMarkdown = item.accessibleTableMarkdown?.trim() ? item.accessibleTableMarkdown : null;
-  const title = compactClinicalTableCaption(item);
-
-  return (
-    <section className={cn(tableCard, "max-w-lg")} aria-label="Inline table preview">
-      <div
-        className={cn(
-          tableCardHeader,
-          "flex min-h-10 items-center justify-between gap-2 bg-[color:var(--surface)] py-2",
-        )}
-      >
-        <span className="hidden min-w-0 truncate sm:inline">{title}</span>
-        <span className="min-w-0 truncate sm:hidden">{title}</span>
-        <div className="flex shrink-0 items-center gap-1 sm:hidden" aria-label="Table actions">
-          <Link
-            href={item.viewer_href}
-            className={cn(chatMicroAction, "min-h-tap min-w-tap justify-center px-0")}
-            aria-label="Open table source"
-          >
-            <ExternalLink aria-hidden="true" className="h-4 w-4" />
-          </Link>
-        </div>
-      </div>
-      <div className="p-1.5 sm:p-2">
-        <AccessibleTable
-          caption={title}
-          markdown={tableMarkdown}
-          rows={item.tableRows}
-          columns={item.tableColumns}
-          compact
-          expandOnMobile
-          previewRows={3}
-          hidePreviewCaption
-          hidePreviewRowCount
-          densePreview
-          clinicalOnly
-          dialogTitle={item.tableTitle || item.caption || title}
-          lowConfidenceFallback={
-            item.signed_url_endpoint ? (
-              <SourceImage endpoint={item.signed_url_endpoint} caption={item.tableTitle || item.caption || title} />
-            ) : undefined
-          }
-        />
-      </div>
-      <div className={cn(tableMicroActionRow, "hidden sm:flex")}>
-        <Link href={item.viewer_href} className={chatMicroAction}>
-          Expand
-        </Link>
-        <Link href={item.viewer_href} className={chatMicroAction}>
-          Source
-        </Link>
-      </div>
-    </section>
-  );
-}
-
 export function CanonicalAnswerTable({ table }: { table: CanonicalAnswerTableRecord }) {
   const normalizedTable = {
     header: table.headers.map((header) => header ?? ""),
@@ -507,7 +450,7 @@ function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
           key={`${warning}:${index}`}
           className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2"
         >
-          <span className="nums grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-2xs font-bold text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
+          <span className="nums grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-2xs font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
             {index + 1}
           </span>
           <p className="line-clamp-2 text-xs leading-5 text-[color:var(--text)]">{warning}</p>

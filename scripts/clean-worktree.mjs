@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, lstatSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -78,6 +78,64 @@ export function identifyOrphanedWorktrees(worktrees, { existsFn = existsSync, ma
 }
 
 /**
+ * Calculate disk usage (bytes and file count) for a directory tree safely.
+ */
+export function getDirectoryDiskUsage(
+  dirPath,
+  { readdirFn = readdirSync, statFn = statSync, lstatFn = lstatSync, existsFn = existsSync } = {},
+) {
+  if (!dirPath || !existsFn(dirPath)) return { bytes: 0, fileCount: 0 };
+  let totalBytes = 0;
+  let fileCount = 0;
+
+  function walk(current) {
+    let entries;
+    try {
+      entries = readdirFn(current, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const fullPath = path.join(current, entry.name);
+      try {
+        if (entry.isDirectory()) {
+          walk(fullPath);
+        } else if (entry.isFile()) {
+          const st = statFn(fullPath);
+          totalBytes += st.size || 0;
+          fileCount += 1;
+        } else if (entry.isSymbolicLink()) {
+          const st = lstatFn(fullPath);
+          totalBytes += st.size || 0;
+          fileCount += 1;
+        }
+      } catch {
+        // Skip unreadable files or transient locks
+      }
+    }
+  }
+
+  walk(dirPath);
+  return { bytes: totalBytes, fileCount };
+}
+
+/**
+ * Format byte count into human-readable string.
+ */
+export function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let val = bytes;
+  let unitIndex = -1;
+  while (val >= 1024 && unitIndex < units.length - 1) {
+    val /= 1024;
+    unitIndex += 1;
+  }
+  return `${val.toFixed(2)} ${units[unitIndex]}`;
+}
+
+/**
  * Identify worktrees whose branch has already landed in origin/main and that hold no
  * unsaved work — the case `identifyOrphanedWorktrees` above structurally cannot see.
  *
@@ -107,29 +165,52 @@ export function identifyOrphanedWorktrees(worktrees, { existsFn = existsSync, ma
  *
  * Returns candidates only; it never removes anything and never shells out on its own.
  */
+/**
+ * @param {Array<any>} worktrees
+ * @param {{
+ *   isMergedFn?: (branch: string, baseRef?: string) => boolean,
+ *   statusFn?: (worktreePath: string) => string,
+ *   aheadCountFn?: (branch: string, baseRef?: string) => number,
+ *   rawAheadCountFn?: ((branch: string, baseRef?: string) => number) | null,
+ *   existsFn?: (path: string) => boolean,
+ *   diskUsageFn?: ((path: string) => { bytes: number, fileCount: number }) | null,
+ *   mainPath?: string | null,
+ *   currentPath?: string | null,
+ *   baseRef?: string,
+ *   drive?: string | null
+ * }} [options]
+ * @returns {Array<any>}
+ */
 export function identifyMergedWorktrees(
   worktrees,
   {
     isMergedFn = () => false,
     statusFn = () => "",
     aheadCountFn = () => 0,
-    // Raw `baseRef..branch` count, used for REPORTING only — never as a gate. See the note at
-    // the ahead check below for why the two counters have to be reported separately.
     rawAheadCountFn = null,
     existsFn = existsSync,
+    diskUsageFn = null,
     mainPath = null,
     currentPath = null,
     baseRef = "origin/main",
+    drive = null,
   } = {},
 ) {
   if (!Array.isArray(worktrees) || worktrees.length === 0) return [];
   const main = mainPath ? path.resolve(mainPath) : path.resolve(worktrees[0].path);
   const current = currentPath ? path.resolve(currentPath) : null;
+  const targetDrive = drive ? drive.replace(/:?$/, "").toUpperCase() : null;
 
   const merged = [];
   for (let i = 0; i < worktrees.length; i += 1) {
     const wt = worktrees[i];
     const resolvedPath = path.resolve(wt.path);
+
+    // Filter by drive if requested (e.g. "D" for Dev Drive)
+    if (targetDrive) {
+      const match = /^([a-zA-Z]):/.exec(wt.path) || /^([a-zA-Z]):/.exec(resolvedPath);
+      if (!match || match[1].toUpperCase() !== targetDrive) continue;
+    }
 
     // Never nominate main/root, and never nominate the worktree this process is running
     // inside: removing your own cwd leaves git and the caller's shell in a broken state.
@@ -165,19 +246,27 @@ export function identifyMergedWorktrees(
     if (!Number.isFinite(ahead) || ahead !== 0) continue;
 
     // Report the RAW count alongside it. A squash-merged branch keeps its original commits
-    // forever, so it stays genuinely ahead of the base — 3, 4, even 19 commits — while the
-    // unlanded count is 0. Printing a bare "0 commits ahead" therefore stated something the
-    // reader could disprove in one `git rev-list` and made the whole line look untrustworthy.
-    // Observed 2026-08-18 reviewing a real fleet: every squash candidate read "0 commits
-    // ahead" while being ahead by 3 to 19.
-    const rawAhead = (rawAheadCountFn ?? aheadCountFn)(wt.branch, baseRef);
-    const aheadNote = Number.isFinite(rawAhead) && rawAhead !== ahead ? `${rawAhead} ahead of ${baseRef}, ` : "";
+    if (ahead !== 0) continue;
+
+    let rawAhead = Number.NaN;
+    if (typeof rawAheadCountFn === "function") {
+      rawAhead = rawAheadCountFn(wt.branch, baseRef);
+    }
+
+    let usage = null;
+    if (typeof diskUsageFn === "function") {
+      usage = diskUsageFn(wt.path);
+    }
+
+    const aheadNote =
+      Number.isFinite(rawAhead) && rawAhead > 0 ? `(${rawAhead} upstream commits accounted for by squash); ` : "";
 
     merged.push({
       ...wt,
       mergedInto: baseRef,
       aheadUnlanded: ahead,
       aheadRaw: Number.isFinite(rawAhead) ? rawAhead : null,
+      diskUsage: usage,
       reason: `branch merged into ${baseRef}; clean tree; ${aheadNote}0 unlanded commits${wt.head ? ` (tip ${wt.head.slice(0, 9)})` : ""}`,
     });
   }
@@ -185,12 +274,127 @@ export function identifyMergedWorktrees(
 }
 
 /**
+ * Re-verify safety immediately before removing a candidate worktree (#6GW95D).
+ * Prevents racing with active sessions that may have switched branches, added commits,
+ * or left untracked work.
+ * @param {any} wt
+ * @param {Object} [options]
+ * @param {string | null} [options.mainPath]
+ * @param {string | null} [options.currentPath]
+ * @param {(path: string) => boolean} [options.existsFn]
+ * @param {(path: string) => string} [options.statusFn]
+ * @param {(path: string) => string | null} [options.branchFn]
+ * @param {(branch: string, baseRef?: string) => number} [options.aheadCountFn]
+ * @param {(wt: any, baseRef?: string) => string} [options.confidenceFn]
+ * @param {string} [options.baseRef]
+ * @returns {{ safe: boolean, reason?: string }}
+ */
+export function verifyWorktreeSafetyBeforeRemove(
+  wt,
+  {
+    mainPath = null,
+    currentPath = null,
+    existsFn = existsSync,
+    statusFn = gitWorktreeStatus,
+    branchFn = gitWorktreeBranch,
+    aheadCountFn = gitAheadCount,
+    confidenceFn = describeMergeConfidence,
+    baseRef = "origin/main",
+  } = {},
+) {
+  if (!wt || !wt.path) {
+    return { safe: false, reason: "invalid worktree descriptor" };
+  }
+
+  const resolved = path.resolve(wt.path);
+  if (mainPath && resolved === path.resolve(mainPath)) {
+    return { safe: false, reason: "refusing to remove main worktree" };
+  }
+  if (currentPath && resolved === path.resolve(currentPath)) {
+    return { safe: false, reason: "refusing to remove current working directory worktree" };
+  }
+
+  if (!existsFn(wt.path)) {
+    return { safe: false, reason: "directory does not exist on disk" };
+  }
+
+  if (wt.locked) {
+    return { safe: false, reason: "worktree is locked" };
+  }
+
+  // Check branch at the worktree immediately before deletion
+  const currentBranch = branchFn(wt.path);
+  if (!currentBranch || currentBranch === "HEAD" || currentBranch.startsWith("detached")) {
+    return { safe: false, reason: "worktree has detached HEAD or invalid branch" };
+  }
+  const cleanBranch = currentBranch.replace(/^refs\/heads\//, "");
+  const expectedBranch = (wt.branch || "").replace(/^refs\/heads\//, "");
+  if (expectedBranch && cleanBranch !== expectedBranch) {
+    return {
+      safe: false,
+      reason: `branch switched from ${expectedBranch} to ${cleanBranch} since scan`,
+    };
+  }
+
+  // Check status immediately before deletion
+  const status = statusFn(wt.path);
+  if (typeof status !== "string" || status.trim() !== "") {
+    return { safe: false, reason: "working tree has uncommitted or untracked changes" };
+  }
+
+  // Check unlanded ahead count
+  const ahead = aheadCountFn(currentBranch, baseRef);
+  if (!Number.isFinite(ahead) || ahead > 0) {
+    return { safe: false, reason: `branch has ${ahead} unlanded commit(s) ahead of ${baseRef}` };
+  }
+
+  // Check confidence / corroboration. Both the "not fully corroborated" result and
+  // the "corroboration check failed" result are unsafe — the latter means the git
+  // checks themselves errored, so merge state is unknown and must not be treated as
+  // proven. A non-string result fails closed too rather than defaulting to safe.
+  const confidence = confidenceFn(wt, baseRef);
+  if (
+    typeof confidence !== "string" ||
+    confidence.includes("NOT fully corroborated") ||
+    confidence.includes("corroboration check failed")
+  ) {
+    return { safe: false, reason: `removal blocked: ${confidence}` };
+  }
+
+  return { safe: true, confidence };
+}
+
+/**
+ * The actual confirmation gate. `--remove` is reachable from any agent session in any
+ * worktree on this machine (Claude Code, Codex, Antigravity/Gemini — only Claude Code's own
+ * permission config in .claude/settings.json can gate a Bash call before it runs, and that
+ * file governs nothing outside Claude Code). A worktree destroyed here has no local reflog of
+ * its own to recover from, so the actual deletion needs a second, tool-agnostic gate that only
+ * a human sets: CLEAN_WORKTREE_CONFIRM=1 in the invoking shell. No default flips this on.
+ *
+ * Called from BOTH `parseArgs` (so a CLI run without the confirm var fails fast, before it
+ * even lists candidates) AND `runMergedWorktreeReport` immediately before the deletion loop —
+ * the CLI is not the only caller: `runMergedWorktreeReport` is exported and any programmatic
+ * caller (a test, another script) can pass `{ remove: true, dryRun: false }` directly, bypassing
+ * `parseArgs` entirely. A single check living only in `parseArgs` would leave that path able to
+ * delete worktrees with no confirmation at all.
+ */
+function assertRemovalConfirmed(remove, dryRun) {
+  if (remove && !dryRun && process.env.CLEAN_WORKTREE_CONFIRM !== "1") {
+    throw new Error(
+      "--remove refused: set CLEAN_WORKTREE_CONFIRM=1 in your shell to confirm you (a human) reviewed the " +
+        "candidate list above and want these worktrees deleted. This gate exists because a worktree removed " +
+        "here has no reflog of its own — see AGENTS.md 'Worktree sweep destroys live work'.",
+    );
+  }
+}
+
+/**
  * Parse CLI arguments for batch size and flags.
  *
  * `--merged` is deliberately list-only. `--remove` is a separate opt-in that is meaningless
  * on its own: allowing a bare `--remove` would make it ambiguous whether the caller meant the
- * default `git worktree prune` path or a bulk directory deletion, and that ambiguity is not
- * something a script holding 36 GB of other people's branches should resolve by guessing.
+ * default `git worktree prune` path or a bulk directory deletion.
  */
 export function parseArgs(argv) {
   let batchSize = 10;
@@ -199,10 +403,15 @@ export function parseArgs(argv) {
   let merged = false;
   let remove = false;
   let squashed = false;
+  let help = false;
+  let baseRef = "origin/main";
+  let drive = null;
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === "--self-test") {
+    if (arg === "--help" || arg === "-h") {
+      help = true;
+    } else if (arg === "--self-test") {
       selfTest = true;
     } else if (arg === "--dry-run") {
       dryRun = true;
@@ -212,6 +421,28 @@ export function parseArgs(argv) {
       remove = true;
     } else if (arg === "--squashed") {
       squashed = true;
+    } else if (arg === "--base") {
+      const val = argv[i + 1];
+      if (!val || val.startsWith("-")) {
+        throw new Error("Missing value for --base.");
+      }
+      baseRef = val;
+      i += 1;
+    } else if (arg.startsWith("--base=")) {
+      const val = arg.slice("--base=".length);
+      if (!val) throw new Error("Missing value for --base.");
+      baseRef = val;
+    } else if (arg === "--drive") {
+      const val = argv[i + 1];
+      if (!val || val.startsWith("-")) {
+        throw new Error("Missing value for --drive.");
+      }
+      drive = val;
+      i += 1;
+    } else if (arg.startsWith("--drive=")) {
+      const val = arg.slice("--drive=".length);
+      if (!val) throw new Error("Missing value for --drive.");
+      drive = val;
     } else if (arg === "--batch-size") {
       const val = parseInt(argv[i + 1], 10);
       if (Number.isNaN(val) || val <= 0) {
@@ -225,68 +456,68 @@ export function parseArgs(argv) {
         throw new Error(`Invalid --batch-size: ${arg.slice("--batch-size=".length)}. Must be a positive integer.`);
       }
       batchSize = val;
+    } else {
+      throw new Error(`Unknown argument: ${arg}. Run with --help for usage.`);
     }
   }
+
   if (remove && !merged) {
     throw new Error("--remove is only valid together with --merged. Run `--merged` alone to list candidates first.");
   }
+  // Fail fast at the CLI so a run without the confirm var doesn't even list candidates.
+  // `--dry-run` documents that it "wins over --remove" (see printHelp below) and never
+  // deletes anything, so `assertRemovalConfirmed` exempts it — the safe preflight preview an
+  // operator runs before setting CLEAN_WORKTREE_CONFIRM=1 for real must stay usable.
+  assertRemovalConfirmed(remove, dryRun);
   if (squashed && !merged) {
     throw new Error("--squashed is only valid together with --merged.");
   }
-  return { batchSize, dryRun, selfTest, merged, remove, squashed };
+  return { batchSize, dryRun, selfTest, merged, remove, squashed, help, baseRef, drive };
+}
+
+export function printHelp() {
+  console.log(`clean-worktree — safely identify and prune disconnected, orphaned, and landed worktrees.
+
+Usage:
+  node scripts/clean-worktree.mjs [options]
+  npm run clean:worktree [-- options]
+
+Options:
+  --help, -h          Show this help message.
+  --merged            List clean worktrees whose branch has landed in origin/main (ancestor test).
+  --squashed          Pair with --merged to include branches squash-merged into origin/main (patch-id test).
+  --remove            Execute removal of eligible worktrees (requires --merged; defaults to list-only).
+  --dry-run           Preview actions without deleting anything (wins over --remove).
+  --base <ref>        Base ref to compare against (default: origin/main).
+  --drive <letter>    Filter candidates to a specific drive (e.g., D: or D for Dev Drive).
+  --batch-size <N>    Maximum number of worktrees to prune in one run (default: 10).
+  --self-test         Run offline self-test assertions.
+
+Safety Rules:
+  - Main/root worktree and the current worktree are never pruned.
+  - Worktrees with uncommitted/untracked changes, detached HEAD, or locks are skipped.
+  - Re-verifies every candidate immediately before deletion to prevent racing active sessions (#6GW95D).
+  - Candidates marked 'NOT fully corroborated' are skipped during removal unless explicitly reviewed.
+  - Never passes --force to git worktree remove.
+`);
 }
 
 /**
  * Real-git adapters for `identifyMergedWorktrees`. They live outside the pure function so
- * `selfTest()` never spawns git, and each one fails CLOSED: an error while asking git a
- * question is treated as "this worktree is not a candidate", never as "it is safe to delete".
+ * `selfTest()` never spawns git, and each one fails CLOSED using argument arrays.
  */
 function gitBranchIsAncestor(branch, baseRef) {
   try {
-    // Exit 0 = ancestor, exit 1 = not, anything else = error. All non-zero throws here.
-    execSync(`git merge-base --is-ancestor "${branch}" "${baseRef}"`, { stdio: "ignore" });
+    execFileSync("git", ["merge-base", "--is-ancestor", branch, baseRef], { stdio: "ignore" });
     return true;
   } catch {
     return false;
   }
 }
 
-/**
- * Opt-in (`--merged --squashed`) content-equality test, for branches this repo SQUASH-merged.
- *
- * WHY this is needed at all. `gitBranchIsAncestor` above is the strictly correct test and it
- * is the default, but it answers "is this exact commit reachable from origin/main" — and a
- * squash merge never leaves the branch tip reachable. This repo squash-merges as its normal
- * path (AGENTS.md: "this repo's normal squash-merge folds every commit into one on `main`"),
- * so the ancestor test alone barely fires. Measured here 2026-08-18 across the 49 registered
- * worktrees: ancestor-only nominated 1; of the 40 it rejected, 8 were in fact fully landed via
- * squash. That is the difference between a cleanup that reclaims nothing and one that does.
- *
- * HOW it decides. Replay the branch's ENTIRE diff from its merge-base as one synthetic commit,
- * then ask `git cherry` whether origin/main already contains a commit with that patch-id
- * ("-" = already upstream). Comparing the whole-branch patch is what makes it match a single
- * squashed commit, which per-commit `git cherry` cannot do.
- *
- * WHY it is still conservative. Patch-id equality is exact. If main moved on and altered those
- * same lines afterwards, the ids stop matching and the branch is reported NOT merged — a false
- * negative, which costs disk, never work. `commit-tree` writes one dangling object that
- * ordinary `git gc` reclaims; it mutates no ref and touches no remote.
- */
 const squashMergeVerdictCache = new Map();
 
 function gitBranchSquashMerged(branch, baseRef) {
-  // Memoised because the ahead-count guard below asks the same question a second time, and
-  // each answer costs a `git cherry` patch-id scan. On this fleet that halves the wall clock.
-  //
-  // The separator below is NUL because a git ref may contain almost any byte except NUL, so it is
-  // the one delimiter that cannot collide with a ref name. Always write it as the six-character
-  // JS escape, never as a literal NUL byte in the source. A raw NUL makes every text tool treat
-  // this file as binary: `grep` suppresses matches and prints only "Binary file matches", and
-  // `file` reports "binary data". Git still diffs it as text, so the damage never shows up in
-  // review — it shows up in verification, where a `git diff … | grep <pattern>` check returns
-  // empty whether or not the pattern is present. That is a check that cannot fail, and it
-  // produced a false "this function is untouched" result during this file's own review on
-  // 2026-08-18.
   const key = `${baseRef}\u0000${branch}`;
   if (squashMergeVerdictCache.has(key)) return squashMergeVerdictCache.get(key);
   const verdict = computeBranchSquashMerged(branch, baseRef);
@@ -296,33 +527,18 @@ function gitBranchSquashMerged(branch, baseRef) {
 
 function revParseOrNull(spec) {
   try {
-    return execSync(`git rev-parse "${spec}"`, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return execFileSync("git", ["rev-parse", spec], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
   } catch {
     return null;
   }
 }
 
-/**
- * Describe HOW strong the "already landed" evidence is for one candidate.
- *
- * The two merge tests are not equally trustworthy and the listing must not present them as
- * though they were. `merge-base --is-ancestor` is proof: every commit is reachable from the base
- * ref, full stop. The patch-id test behind `--squashed` is an *inference* — it says the branch's
- * combined diff matched something that landed, which is the right call for a squash-merging repo
- * but is not the same claim.
- *
- * Why it matters concretely: reviewing this fleet on 2026-08-18, one squash-inferred candidate
- * (`claude/rag-d4-reconcile-inbox`, 21 changed files) still had 2 files differing from
- * origin/main. Both were high-churn append-only documents — `docs/outstanding-issues.md` and a
- * handover doc — so the difference is almost certainly main moving on after the branch landed,
- * not lost work. "Almost certainly" is exactly the distinction this line exists to surface: the
- * operator, not the script, decides. That is also why `--remove` stays a separate opt-in.
- *
- * Cost is bounded — this runs over the candidate list, never the whole fleet.
- */
 function describeMergeConfidence(wt, baseRef) {
   try {
-    execSync(`git merge-base --is-ancestor "${wt.branch}" "${baseRef}"`, {
+    execFileSync("git", ["merge-base", "--is-ancestor", wt.branch, baseRef], {
       stdio: ["ignore", "ignore", "ignore"],
     });
     return `proven — every commit on this branch is reachable from ${baseRef}`;
@@ -331,11 +547,11 @@ function describeMergeConfidence(wt, baseRef) {
   }
 
   try {
-    const base = execSync(`git merge-base "${baseRef}" "${wt.branch}"`, {
+    const base = execFileSync("git", ["merge-base", baseRef, wt.branch], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
-    const files = execSync(`git diff --name-only ${base} "${wt.branch}"`, {
+    const files = execFileSync("git", ["diff", "--name-only", base, wt.branch], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
       maxBuffer: 8 * 1024 * 1024,
@@ -364,18 +580,14 @@ function describeMergeConfidence(wt, baseRef) {
 function computeBranchSquashMerged(branch, baseRef) {
   if (gitBranchIsAncestor(branch, baseRef)) return true;
   try {
-    const run = (cmd) => execSync(cmd, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-    const mergeBase = run(`git merge-base "${baseRef}" "${branch}"`);
-    const tree = run(`git rev-parse "${branch}^{tree}"`);
+    const run = (...args) =>
+      execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    const mergeBase = run("merge-base", baseRef, branch);
+    const tree = run("rev-parse", `${branch}^{tree}`);
     if (!mergeBase || !tree) return false;
-    const synthetic = run(`git commit-tree "${tree}" -p "${mergeBase}" -m squash-merge-probe`);
+    const synthetic = run("commit-tree", tree, "-p", mergeBase, "-m", "squash-merge-probe");
     if (!synthetic) return false;
-    // The third argument bounds the scan to `mergeBase..baseRef`. Without it `git cherry`
-    // patch-ids every commit in origin/main's whole history for every branch examined, which
-    // on a 48-worktree fleet is thousands of redundant diffs; a squash of THIS branch can only
-    // exist after its own merge-base, so the bound is free correctness-wise.
-    const verdict = run(`git cherry "${baseRef}" "${synthetic}" "${mergeBase}"`);
-    // "- <sha>" means the patch is already upstream; "+ <sha>" means it is not.
+    const verdict = run("cherry", baseRef, synthetic, mergeBase);
     return verdict.startsWith("-");
   } catch {
     return false;
@@ -384,20 +596,29 @@ function computeBranchSquashMerged(branch, baseRef) {
 
 function gitWorktreeStatus(worktreePath) {
   try {
-    return execSync(`git -C "${worktreePath}" status --porcelain`, {
+    return execFileSync("git", ["-C", worktreePath, "status", "--porcelain"], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     });
   } catch (err) {
-    // An unreadable status is not a clean status; return a non-empty sentinel so the caller
-    // treats the worktree as dirty and keeps it.
     return `?? status unavailable (${err.message})`;
+  }
+}
+
+function gitWorktreeBranch(worktreePath) {
+  try {
+    return execFileSync("git", ["-C", worktreePath, "rev-parse", "--abbrev-ref", "HEAD"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "";
   }
 }
 
 function gitAheadCount(branch, baseRef) {
   try {
-    const out = execSync(`git rev-list --count "${baseRef}..${branch}"`, {
+    const out = execFileSync("git", ["rev-list", "--count", `${baseRef}..${branch}`], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     });
@@ -408,32 +629,6 @@ function gitAheadCount(branch, baseRef) {
   }
 }
 
-/**
- * Ahead-count companion used only in `--squashed` mode.
- *
- * WHY the plain `gitAheadCount` cannot be reused here. It asks "how many commits are in
- * origin/main..branch", a commit-graph proxy for "how much work is unlanded". Squash merging
- * breaks that proxy: a fully-landed branch keeps every one of its original commits, so it
- * reports ahead > 0 forever. Pairing it with the squash test cancels the squash test out —
- * measured 2026-08-18 on the 48-worktree fleet, that combination nominated 1 worktree while 8
- * more were provably landed.
- *
- * WHY it is not a per-commit patch-id count either. That was the first attempt and it is a
- * subtler version of the same bug: a squash commit's patch-id matches the branch's COMBINED
- * diff, never the individual commits it folded, so `git cherry` marks every commit of a
- * multi-commit landed branch "+". It rescued only the accidental single-commit cases — 4 of
- * the 8 — and silently vetoed the rest.
- *
- * WHAT it does instead, and why redundancy is the honest answer. Whole-branch patch-id
- * equality (`gitBranchSquashMerged`) already proves the branch's entire diff is upstream,
- * which is strictly stronger than any commit count. So in this mode the guard is subsumed by
- * the merge test and returns 0; a branch that is NOT content-equal falls back to the real
- * graph count. Keeping a check that can only produce false negatives would be worse than
- * admitting it is redundant here. The cached verdict makes the extra call free.
- *
- * Blast radius either way: `git worktree remove` deletes the working directory, not the
- * branch. The ref and its commits survive in the repo, so a wrong call costs a re-checkout.
- */
 function gitAheadUnlandedCount(branch, baseRef) {
   if (gitBranchSquashMerged(branch, baseRef)) return 0;
   return gitAheadCount(branch, baseRef);
@@ -441,7 +636,7 @@ function gitAheadUnlandedCount(branch, baseRef) {
 
 function gitCurrentWorktreePath() {
   try {
-    return execSync("git rev-parse --show-toplevel", {
+    return execFileSync("git", ["rev-parse", "--show-toplevel"], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
@@ -500,13 +695,17 @@ export function selfTest() {
   }
 
   // Test arg parsing
+  const helpArgs = parseArgs(["--help"]);
+  if (!helpArgs.help) {
+    throw new Error("selfTest failed: parseArgs failed for --help");
+  }
   const args1 = parseArgs(["--batch-size", "5", "--dry-run"]);
   if (args1.batchSize !== 5 || !args1.dryRun) {
     throw new Error("selfTest failed: parseArgs failed for --batch-size 5");
   }
-  const args2 = parseArgs(["--batch-size=20"]);
-  if (args2.batchSize !== 20) {
-    throw new Error("selfTest failed: parseArgs failed for --batch-size=20");
+  const args2 = parseArgs(["--batch-size=20", "--base=upstream/main", "--drive=D"]);
+  if (args2.batchSize !== 20 || args2.baseRef !== "upstream/main" || args2.drive !== "D") {
+    throw new Error("selfTest failed: parseArgs failed for --batch-size=20, --base=upstream/main, --drive=D");
   }
   let threw = false;
   try {
@@ -522,9 +721,40 @@ export function selfTest() {
   if (!args3.merged || args3.remove) {
     throw new Error("selfTest failed: --merged must default to list-only (remove=false)");
   }
-  const args4 = parseArgs(["--merged", "--remove"]);
+  // One outer try/finally for the whole CLEAN_WORKTREE_CONFIRM cycle: if any assertion in
+  // here throws (including the negative one right below), the real env var must still be
+  // restored before selfTest() exits, or a caller running selfTest() inside a longer-lived
+  // process (not a one-shot CLI invocation) inherits a deleted CLEAN_WORKTREE_CONFIRM.
+  const savedConfirm = process.env.CLEAN_WORKTREE_CONFIRM;
+  let args4;
+  try {
+    delete process.env.CLEAN_WORKTREE_CONFIRM;
+    let unconfirmedRemoveThrew = false;
+    try {
+      parseArgs(["--merged", "--remove"]);
+    } catch {
+      unconfirmedRemoveThrew = true;
+    }
+    if (!unconfirmedRemoveThrew) {
+      throw new Error("selfTest failed: --merged --remove without CLEAN_WORKTREE_CONFIRM=1 must refuse");
+    }
+
+    // `--dry-run` can delete nothing, so it must stay usable as a preflight preview without
+    // the confirm var — this was the actual P2 Codex found: the gate above fired before
+    // dry-run got a chance to win.
+    const dryRunArgs = parseArgs(["--merged", "--remove", "--dry-run"]);
+    if (!dryRunArgs.merged || !dryRunArgs.remove || !dryRunArgs.dryRun) {
+      throw new Error("selfTest failed: --merged --remove --dry-run without CLEAN_WORKTREE_CONFIRM=1 must still parse");
+    }
+
+    process.env.CLEAN_WORKTREE_CONFIRM = "1";
+    args4 = parseArgs(["--merged", "--remove"]);
+  } finally {
+    if (savedConfirm === undefined) delete process.env.CLEAN_WORKTREE_CONFIRM;
+    else process.env.CLEAN_WORKTREE_CONFIRM = savedConfirm;
+  }
   if (!args4.merged || !args4.remove) {
-    throw new Error("selfTest failed: --merged --remove did not set both flags");
+    throw new Error("selfTest failed: --merged --remove (confirmed) did not set both flags");
   }
   let removeThrew = false;
   try {
@@ -549,8 +779,35 @@ export function selfTest() {
     throw new Error("selfTest failed: parseArgs accepted a bare --squashed without --merged");
   }
 
-  // Merged-worktree identification. Every fixture below is a worktree that a naive
-  // "is it merged?" check would happily delete; only `merged-clean` may actually qualify.
+  // Test formatBytes
+  if (formatBytes(0) !== "0 B" || formatBytes(1024) !== "1.00 KB" || formatBytes(1024 * 1024 * 5.5) !== "5.50 MB") {
+    throw new Error(`selfTest failed: formatBytes returned unexpected results: ${formatBytes(1024)}`);
+  }
+
+  // Test disk usage mock
+  const mockReaddir = (dir) => {
+    if (dir === "/mock") {
+      return [
+        { name: "file1.txt", isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false },
+        { name: "sub", isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false },
+      ];
+    }
+    if (dir === path.join("/mock", "sub")) {
+      return [{ name: "file2.txt", isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false }];
+    }
+    return [];
+  };
+  const mockStat = (p) => ({ size: p.includes("file1") ? 1000 : 2000 });
+  const usage = getDirectoryDiskUsage("/mock", {
+    readdirFn: mockReaddir,
+    statFn: mockStat,
+    existsFn: () => true,
+  });
+  if (usage.bytes !== 3000 || usage.fileCount !== 2) {
+    throw new Error(`selfTest failed: getDirectoryDiskUsage got bytes=${usage.bytes}, files=${usage.fileCount}`);
+  }
+
+  // Merged-worktree identification
   const mergedPorcelain = [
     "worktree /path/to/main",
     "HEAD 1111111111111111111111111111111111111111",
@@ -592,7 +849,6 @@ export function selfTest() {
     throw new Error(`selfTest failed: expected 8 parsed merged-mode worktrees, got ${mergedParsed.length}`);
   }
 
-  // Everything is merged except refs/heads/unmerged; the detached entry has no branch at all.
   const mockIsMerged = (branch) => branch !== "refs/heads/unmerged";
   const mockStatus = (p) => (p === "/path/to/merged-dirty" ? " M src/lib/rag/rag.ts\n?? scratch.txt\n" : "");
   const mockAhead = (branch) => (branch === "refs/heads/merged-ahead" ? 2 : 0);
@@ -613,52 +869,59 @@ export function selfTest() {
   if (candidates[0].path !== "/path/to/merged-clean") {
     throw new Error(`selfTest failed: expected /path/to/merged-clean, got ${candidates[0].path}`);
   }
-  if (!candidates[0].reason || !candidates[0].reason.includes("origin/main")) {
-    throw new Error("selfTest failed: merged candidate is missing a human-readable merge reason");
-  }
-  if (candidates[0].mergedInto !== "origin/main") {
-    throw new Error("selfTest failed: merged candidate did not record its base ref");
-  }
 
-  const candidatePaths = new Set(candidates.map((c) => c.path));
-  for (const mustSkip of [
-    ["/path/to/main", "main worktree"],
-    ["/path/to/merged-dirty", "dirty working tree"],
-    ["/path/to/merged-ahead", "commits ahead of origin/main"],
-    ["/path/to/detached", "detached HEAD"],
-    ["/path/to/merged-locked", "locked worktree"],
-    ["/path/to/unmerged", "branch not merged"],
-    ["/path/to/current", "current worktree"],
-  ]) {
-    if (candidatePaths.has(mustSkip[0])) {
-      throw new Error(`selfTest failed: ${mustSkip[1]} (${mustSkip[0]}) must never be a merged candidate`);
-    }
-  }
-
-  // A missing directory belongs to the orphan path, not the merged path.
-  const missingDirCandidates = identifyMergedWorktrees(mergedParsed, {
-    isMergedFn: mockIsMerged,
-    statusFn: mockStatus,
-    aheadCountFn: mockAhead,
-    existsFn: () => false,
+  // Pre-removal safety verification assertions (#6GW95D)
+  const safeResult = verifyWorktreeSafetyBeforeRemove(candidates[0], {
     mainPath: "/path/to/main",
     currentPath: "/path/to/current",
-  });
-  if (missingDirCandidates.length !== 0) {
-    throw new Error("selfTest failed: worktrees missing from disk must not be merged candidates");
-  }
-
-  // Fail-closed contract: git errors surface as NaN/non-empty status and must keep the worktree.
-  const failClosed = identifyMergedWorktrees(mergedParsed, {
-    isMergedFn: mockIsMerged,
-    statusFn: () => "?? status unavailable (git exploded)",
-    aheadCountFn: () => Number.NaN,
     existsFn: () => true,
+    statusFn: () => "",
+    branchFn: () => "merged-clean",
+    aheadCountFn: () => 0,
+    confidenceFn: () => "proven — every commit on this branch is reachable from origin/main",
+  });
+  if (!safeResult.safe) {
+    throw new Error(`selfTest failed: clean candidate marked unsafe: ${safeResult.reason}`);
+  }
+
+  // Switched branch detection
+  const switchedBranch = verifyWorktreeSafetyBeforeRemove(candidates[0], {
     mainPath: "/path/to/main",
     currentPath: "/path/to/current",
+    existsFn: () => true,
+    statusFn: () => "",
+    branchFn: () => "feature-switched",
+    aheadCountFn: () => 0,
   });
-  if (failClosed.length !== 0) {
-    throw new Error("selfTest failed: unreadable git state must fail closed to zero candidates");
+  if (switchedBranch.safe) {
+    throw new Error("selfTest failed: switched branch was not caught by pre-removal safety check");
+  }
+
+  // Dirty working tree detection
+  const dirtySafety = verifyWorktreeSafetyBeforeRemove(candidates[0], {
+    mainPath: "/path/to/main",
+    currentPath: "/path/to/current",
+    existsFn: () => true,
+    statusFn: () => " M file.ts\n",
+    branchFn: () => "merged-clean",
+    aheadCountFn: () => 0,
+  });
+  if (dirtySafety.safe) {
+    throw new Error("selfTest failed: dirty tree was not caught by pre-removal safety check");
+  }
+
+  // Uncorroborated candidate blocked
+  const uncorroborated = verifyWorktreeSafetyBeforeRemove(candidates[0], {
+    mainPath: "/path/to/main",
+    currentPath: "/path/to/current",
+    existsFn: () => true,
+    statusFn: () => "",
+    branchFn: () => "merged-clean",
+    aheadCountFn: () => 0,
+    confidenceFn: () => "inferred from patch-id, NOT fully corroborated — 2 of 21 files differ",
+  });
+  if (uncorroborated.safe) {
+    throw new Error("selfTest failed: uncorroborated candidate was not blocked by pre-removal safety check");
   }
 
   console.log("[clean-worktree] Self-test passed successfully.");
@@ -669,9 +932,7 @@ export function runWorktreeCleanup(options = {}) {
 
   console.log("[clean-worktree] Cleaning ephemeral debug files and logs...");
   try {
-    // -f: force, -d: directories, -x: ignored and untracked files
-    // We explicitly scope this to known debug patterns to preserve user work.
-    execSync("git clean -fdx tmp-*.py test-output.txt *.log", {
+    execFileSync("git", ["clean", "-fdx", "tmp-*.py", "test-output.txt", "*.log"], {
       stdio: "inherit",
     });
     console.log("[clean-worktree] Worktree sanitized.");
@@ -682,7 +943,7 @@ export function runWorktreeCleanup(options = {}) {
   console.log("[clean-worktree] Inspecting registered worktrees...");
   let porcelainOutput = "";
   try {
-    porcelainOutput = execSync("git worktree list --porcelain", {
+    porcelainOutput = execFileSync("git", ["worktree", "list", "--porcelain"], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     });
@@ -715,7 +976,7 @@ export function runWorktreeCleanup(options = {}) {
 
   try {
     console.log(`[clean-worktree] Pruning ${batch.length} disconnected/orphaned worktree(s)...`);
-    execSync("git worktree prune --expire now", { stdio: "inherit" });
+    execFileSync("git", ["worktree", "prune", "--expire", "now"], { stdio: "inherit" });
     console.log("[clean-worktree] Worktree prune complete.");
   } catch (err) {
     console.error("[clean-worktree] Failed during git worktree prune:", err.message);
@@ -726,23 +987,19 @@ export function runWorktreeCleanup(options = {}) {
 /**
  * `--merged` mode: report (and only on explicit `--remove`, delete) worktrees whose branch
  * already landed in origin/main.
- *
- * This is strictly additive and opt-in. `runWorktreeCleanup()` above is what
- * `npm run clean:worktree` — and therefore `verify:preflight` — invokes, and its behaviour is
- * deliberately untouched: nothing on the preflight path may start deleting directories.
- *
- * Listing is the default and removal is the exception, because the population this walks is
- * 41 populated worktrees on the maintainer's machine (~36 GB, ~2.1M files, one measured at
- * 51,735 files / 0.89 GB) and a wrong bulk delete there is not recoverable from the deleted
- * worktree's own reflog.
  */
 export function runMergedWorktreeReport(options = {}) {
-  const { batchSize = 10, remove = false, squashed = false, baseRef = "origin/main" } = options;
+  const {
+    batchSize = 10,
+    remove = false,
+    squashed = false,
+    dryRun = false,
+    baseRef = "origin/main",
+    drive = null,
+  } = options;
 
-  // Without the base ref every ancestor test would answer "not merged" and the mode would
-  // silently report nothing. Say so instead of returning a misleading empty list.
   try {
-    execSync(`git rev-parse --verify --quiet "${baseRef}"`, { stdio: ["ignore", "ignore", "ignore"] });
+    execFileSync("git", ["rev-parse", "--verify", "--quiet", baseRef], { stdio: ["ignore", "ignore", "ignore"] });
   } catch {
     console.error(`[clean-worktree] Base ref ${baseRef} not found. Fetch it first; refusing to guess merge state.`);
     throw new Error(`Base ref ${baseRef} is unavailable`);
@@ -750,7 +1007,7 @@ export function runMergedWorktreeReport(options = {}) {
 
   let porcelainOutput = "";
   try {
-    porcelainOutput = execSync("git worktree list --porcelain", {
+    porcelainOutput = execFileSync("git", ["worktree", "list", "--porcelain"], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     });
@@ -761,8 +1018,12 @@ export function runMergedWorktreeReport(options = {}) {
 
   const worktrees = parseWorktreePorcelain(porcelainOutput);
   const currentPath = gitCurrentWorktreePath();
+  const mainPath = worktrees[0]?.path ?? null;
   const mode = squashed ? "ancestor-or-squash (--squashed)" : "ancestor-only";
-  console.log(`[clean-worktree] ${worktrees.length} registered worktree(s); base ref ${baseRef}; merge test: ${mode}.`);
+  const driveFilterNote = drive ? ` (filtered to drive ${drive.toUpperCase()})` : "";
+  console.log(
+    `[clean-worktree] ${worktrees.length} registered worktree(s); base ref ${baseRef}; merge test: ${mode}${driveFilterNote}.`,
+  );
 
   const candidates = identifyMergedWorktrees(worktrees, {
     isMergedFn: squashed ? gitBranchSquashMerged : gitBranchIsAncestor,
@@ -770,8 +1031,11 @@ export function runMergedWorktreeReport(options = {}) {
     aheadCountFn: squashed ? gitAheadUnlandedCount : gitAheadCount,
     rawAheadCountFn: gitAheadCount,
     existsFn: existsSync,
+    diskUsageFn: (p) => getDirectoryDiskUsage(p),
+    mainPath,
     currentPath,
     baseRef,
+    drive,
   });
 
   if (candidates.length === 0) {
@@ -782,37 +1046,103 @@ export function runMergedWorktreeReport(options = {}) {
     return;
   }
 
-  console.log(`[clean-worktree] ${candidates.length} merged worktree(s) eligible for removal:`);
+  let totalReclaimableBytes = 0;
+  let totalFiles = 0;
+  const driveBreakdown = new Map();
+
   for (const wt of candidates) {
-    console.log(`  - ${wt.path}`);
+    const bytes = wt.diskUsage?.bytes ?? 0;
+    const files = wt.diskUsage?.fileCount ?? 0;
+    totalReclaimableBytes += bytes;
+    totalFiles += files;
+
+    const driveMatch = /^([a-zA-Z]):/.exec(path.resolve(wt.path));
+    const driveKey = driveMatch ? `${driveMatch[1].toUpperCase()}:` : "Other";
+    const currentDriveStats = driveBreakdown.get(driveKey) || { bytes: 0, count: 0 };
+    driveBreakdown.set(driveKey, {
+      bytes: currentDriveStats.bytes + bytes,
+      count: currentDriveStats.count + 1,
+    });
+  }
+
+  console.log(
+    `\n[clean-worktree] ${candidates.length} merged worktree(s) eligible for removal (reclaimable: ${formatBytes(totalReclaimableBytes)}, ${totalFiles.toLocaleString()} files):`,
+  );
+  for (const wt of candidates) {
+    const sizeStr = wt.diskUsage
+      ? ` [${formatBytes(wt.diskUsage.bytes)}, ${wt.diskUsage.fileCount.toLocaleString()} files]`
+      : "";
+    console.log(`  - ${wt.path}${sizeStr}`);
     console.log(`      branch: ${wt.branch}`);
     console.log(`      reason: ${wt.reason}`);
     console.log(`      confidence: ${describeMergeConfidence(wt, baseRef)}`);
   }
 
-  if (!remove) {
-    console.log(`[clean-worktree] Listed ${candidates.length} candidate(s). Nothing was removed.`);
-    console.log(`[clean-worktree] Re-run with \`--merged${squashed ? " --squashed" : ""} --remove\` to delete these.`);
+  if (driveBreakdown.size > 1 || driveBreakdown.has("D:")) {
+    console.log("\n[clean-worktree] Drive usage breakdown:");
+    for (const [drv, stats] of driveBreakdown) {
+      console.log(`  - ${drv} ${formatBytes(stats.bytes)} across ${stats.count} worktree(s)`);
+    }
+  }
+
+  if (!remove || dryRun) {
+    console.log(
+      `\n[clean-worktree] Listed ${candidates.length} candidate(s) (${formatBytes(totalReclaimableBytes)}). Nothing was removed.`,
+    );
+    if (dryRun) {
+      console.log(
+        `[clean-worktree] [dry-run] Would prune up to ${Math.min(batchSize, candidates.length)} worktree(s) in next batch.`,
+      );
+    } else {
+      console.log(
+        `[clean-worktree] Re-run with \`--merged${squashed ? " --squashed" : ""} --remove\` to delete these.`,
+      );
+    }
     if (!squashed) {
       console.log("[clean-worktree] Note: squash-merged branches are invisible to the ancestor test. Try --squashed.");
     }
     return;
   }
 
+  // Re-assert at the deletion boundary itself, not just at CLI parse time: this function is
+  // exported and a programmatic caller can reach here with `{ remove: true, dryRun: false }`
+  // without ever going through `parseArgs`.
+  assertRemovalConfirmed(remove, dryRun);
+
   const batch = candidates.slice(0, batchSize);
   console.log(
-    `[clean-worktree] Removing ${batch.length} of ${candidates.length} candidate(s) (batch size ${batchSize})...`,
+    `\n[clean-worktree] Removing ${batch.length} of ${candidates.length} candidate(s) (batch size ${batchSize})...`,
   );
 
   let removed = 0;
   let skipped = 0;
+  let freedBytes = 0;
+
   for (const wt of batch) {
+    const safety = verifyWorktreeSafetyBeforeRemove(wt, {
+      mainPath,
+      currentPath,
+      existsFn: existsSync,
+      statusFn: gitWorktreeStatus,
+      branchFn: gitWorktreeBranch,
+      aheadCountFn: squashed ? gitAheadUnlandedCount : gitAheadCount,
+      confidenceFn: describeMergeConfidence,
+      baseRef,
+    });
+
+    if (!safety.safe) {
+      skipped += 1;
+      console.warn(`  - SKIPPED (safety re-verification failed): ${wt.path} — ${safety.reason}`);
+      continue;
+    }
+
+    const sizeBefore = wt.diskUsage?.bytes ?? getDirectoryDiskUsage(wt.path).bytes;
+
     try {
-      // Never `--force`. If git refuses — a submodule, a lock we failed to see, or state that
-      // appeared after the scan — that refusal is information, not an obstacle to override.
-      execSync(`git worktree remove "${wt.path}"`, { stdio: ["ignore", "pipe", "pipe"] });
+      execFileSync("git", ["worktree", "remove", wt.path], { stdio: ["ignore", "pipe", "pipe"] });
       removed += 1;
-      console.log(`  - removed: ${wt.path}`);
+      freedBytes += sizeBefore;
+      console.log(`  - removed: ${wt.path} (freed ${formatBytes(sizeBefore)})`);
     } catch (err) {
       skipped += 1;
       console.warn(`  - SKIPPED (git refused): ${wt.path} — ${err.message.trim()}`);
@@ -820,7 +1150,7 @@ export function runMergedWorktreeReport(options = {}) {
   }
 
   console.log(
-    `[clean-worktree] Removed ${removed}, skipped ${skipped}, remaining candidates ${candidates.length - batch.length}.`,
+    `[clean-worktree] Removed ${removed} worktrees (freed ${formatBytes(freedBytes)}), skipped ${skipped}, remaining candidates ${candidates.length - batch.length}.`,
   );
 }
 
@@ -834,6 +1164,11 @@ function main() {
     process.exit(1);
   }
 
+  if (parsed.help) {
+    printHelp();
+    return;
+  }
+
   if (parsed.selfTest) {
     selfTest();
     return;
@@ -841,9 +1176,7 @@ function main() {
 
   if (parsed.merged) {
     try {
-      // --dry-run is an explicit alias for list-only, and it wins over --remove so that a
-      // habitual `--dry-run` can never be defeated by a stray --remove on the same line.
-      runMergedWorktreeReport({ ...parsed, remove: parsed.remove && !parsed.dryRun });
+      runMergedWorktreeReport(parsed);
     } catch (err) {
       console.error("[clean-worktree] Merged-worktree report failed:", err.message);
       process.exit(1);

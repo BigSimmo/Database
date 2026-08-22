@@ -33,7 +33,13 @@ PYTHON_BIN="$LEGACY_PY" "$LEGACY_PY" "$LAB/harness/run_corpus.py" \
   --out "$OUT/raw/legacy.json"
 
 echo "== phase 3: docling engine =="
-DOCLING_PYTHON="$DOCLING_PY" DOCLING_ARTIFACTS_PATH=/opt/docling-models \
+# TORCHDYNAMO_DISABLE=1: docling's models call torch.compile, whose Inductor
+# backend needs a C++ compiler at runtime — the sandbox image deliberately has
+# none, which failed every clean conversion in run 32171549648 with
+# InvalidCxxCompiler. Eager mode is deterministic and needs no toolchain; each
+# document runs in a fresh process anyway, so per-doc compilation only added
+# overhead.
+TORCHDYNAMO_DISABLE=1 DOCLING_PYTHON="$DOCLING_PY" DOCLING_ARTIFACTS_PATH=/opt/docling-models \
   "$DOCLING_PY" "$LAB/harness/run_corpus.py" \
   --engine docling \
   --corpus "$OUT/corpus" \

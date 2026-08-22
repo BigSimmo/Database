@@ -86,11 +86,64 @@ export function checkMedspacyPrerequisites(): Promise<PrerequisiteCheck> {
   return probePythonJson(script, "medspaCy assertion-tagging prerequisites ready.");
 }
 
-function probePythonJson(script: string, readyDetail: string): Promise<PrerequisiteCheck> {
+// Packet B4: only meaningful when WORKER_DOCUMENT_EXTRACTOR_MODE=shadow (main.ts warns) or
+// when the docling interpreter is configured at all (validate-runtime.ts errors, so the image
+// build proves the docling venv). Workers without docling must keep starting cleanly while
+// the mode is "legacy" — shadow extraction fails open at run time either way.
+export function checkDoclingShadowPrerequisites(): Promise<PrerequisiteCheck> {
+  const pythonBin = env.WORKER_DOCLING_PYTHON_BIN;
+  if (!pythonBin) {
+    return Promise.resolve({
+      ok: false,
+      detail: "WORKER_DOCLING_PYTHON_BIN is not set; shadow extraction will record runtime_unavailable.",
+    });
+  }
+  const script = [
+    "import json",
+    "result = {'ok': True, 'missing': []}",
+    "try:",
+    "    import docling",
+    "    from docling.document_converter import DocumentConverter",
+    "except Exception as exc:",
+    "    result['ok'] = False",
+    "    result['missing'].append(f'docling: {exc}')",
+    "print(json.dumps(result))",
+  ].join("\n");
+
+  return probePythonJson(script, "Docling shadow-extraction prerequisites ready.", {
+    pythonBin,
+    env: { TORCHDYNAMO_DISABLE: "1", HF_HUB_OFFLINE: process.env.HF_HUB_OFFLINE ?? "1" },
+    timeoutMs: 120_000,
+  });
+}
+
+function probePythonJson(
+  script: string,
+  readyDetail: string,
+  options: { pythonBin?: string; env?: Record<string, string>; timeoutMs?: number } = {},
+): Promise<PrerequisiteCheck> {
   return new Promise((resolve) => {
-    const child = spawn(env.PYTHON_BIN, ["-c", script], { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(options.pythonBin ?? env.PYTHON_BIN, ["-c", script], {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: options.env ? { ...process.env, ...options.env } : process.env,
+    });
     let stdout = "";
     let stderr = "";
+    let settled = false;
+    const timer = options.timeoutMs
+      ? setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          child.kill();
+          resolve({ ok: false, detail: `Python prerequisite check timed out after ${options.timeoutMs}ms.` });
+        }, options.timeoutMs)
+      : null;
+    const finish = (check: PrerequisiteCheck) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      resolve(check);
+    };
 
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
@@ -99,21 +152,21 @@ function probePythonJson(script: string, readyDetail: string): Promise<Prerequis
       stderr += chunk.toString();
     });
     child.on("error", (error) => {
-      resolve({ ok: false, detail: `Python unavailable: ${error.message}` });
+      finish({ ok: false, detail: `Python unavailable: ${error.message}` });
     });
     child.on("close", (code) => {
       if (code !== 0) {
-        resolve({ ok: false, detail: stderr.trim() || `Python prerequisite check exited with ${code}` });
+        finish({ ok: false, detail: stderr.trim() || `Python prerequisite check exited with ${code}` });
         return;
       }
       try {
         const parsed = JSON.parse(stdout) as { ok: boolean; missing?: string[] };
-        resolve({
+        finish({
           ok: parsed.ok,
           detail: parsed.ok ? readyDetail : `Missing ${parsed.missing?.join("; ")}`,
         });
       } catch {
-        resolve({ ok: false, detail: "Python prerequisite check returned invalid output." });
+        finish({ ok: false, detail: "Python prerequisite check returned invalid output." });
       }
     });
   });

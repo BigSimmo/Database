@@ -76,6 +76,11 @@
   --breakpoint-phone: 640px;
   --breakpoint-tablet: 768px;
   --breakpoint-desktop: 1024px;
+  /* The one narrow phone interval where the shared filter wordmark would make
+     a single-line control band wrap. The upper token is exclusive, so this is
+     exactly 414–429px. */
+  --breakpoint-filter-label-collapse: 414px;
+  --breakpoint-filter-label-restore: 430px;
 
   /* Radius ladder: 4 · 6 · 10 · 12 · 16 · 20 — the 4px grid with two deliberate
      half-steps. `sm` is 6px, for chips and pills that read as too heavy at 8.
@@ -93,6 +98,9 @@
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --radius-2xl: 1.25rem;
+  /* Fully-round role (chips, pills, avatars). Call sites carried a bare
+     `, 9999px` fallback before this was declared. */
+  --radius-pill: 9999px;
 
   /* Minimum interactive target (WCAG 2.5.5 / 2.5.8) — 48px, and the design
      system's ONE tap knob (SPEC §4.10, DECISIONS §C2). It is declared here in
@@ -120,11 +128,27 @@
      client host adopts them. Without this structural reserve, Therapy moved the
      entire action stack when hydration relocated the composer (CLS 0.248).
      These are layout tokens, not a second v2 colour/theme source. */
-  /* Re-measured after the privacy notice stopped spending a full 48px tap box
-     on its own wrapped line: the settled phone composer block is 106px, so the
-     old 7.625rem (122px) left a 16px empty band under it. The wide value was
-     already exact (88px) and the notice is a single 16px line from sm up. */
-  --spacing-mode-home-composer-phone: 6.625rem;
+  /* Re-measured 2026-08-19 at 390px across six mode homes (therapy-compass,
+     dsm, forms, factsheets, specifiers, and the shared `/` home): every one
+     settles at 162px, not the 106px this reserved. The 56px difference is the
+     smart-search hint, which `UniversalSearchCommandSurface` renders INSIDE
+     this slot above the composer: a 48px hint row plus the 8px flex gap that
+     separates it from the composer (`gap-2` on `.universal-command-surface` —
+     the `gap-1` in that same expression is the bottom-dock placement, not this
+     slot). The earlier measurement counted only the composer pill plus the
+     privacy notice, before that hint existed. Under-reserving it meant the slot
+     grew on portal adoption and pushed the action and pill stacks down on every
+     ticket-bearing mode home (measured CLS: specifiers 0.055, dsm 0.047,
+     therapy 0.042, `/` 0.020, forms 0.019, factsheets 0.017). Both the hint row
+     and its gap are fixed-height on phone, so 162px is exact: the settled
+     layout is unchanged and only the pre-adoption reserve grows.
+
+     The wide value is knowingly still short (88px against a settled 160px at
+     1280 and 199px at 800). It is NOT simply raised to match: the sm+ surface
+     swaps the phone ticket for a prompt-chip row that rewraps with viewport
+     width, so no single static value is correct at every width. That needs a
+     different mechanism and is tracked separately. */
+  --spacing-mode-home-composer-phone: 10.125rem;
   --spacing-mode-home-composer-wide: 5.5rem;
 
   /* Hero medallion. Scales continuously with the viewport the way --text-hero
@@ -196,12 +220,12 @@
      baseline (23.2px at ≤~393px) is unchanged, then it ramps to the 2.15rem cap
      by ~1033px — no breakpoint jumps. Generates the `text-hero` utility.
      clamp() font sizes are not flagged by scripts/check-type-scale.mjs. */
-  --text-hero: clamp(1.45rem, 1.02rem + 1.75vw, 2.15rem);
+  --text-hero: clamp(1.75rem, 1.2rem + 2vw, 2.25rem);
   /* Companion line-height marks --text-hero as a font-SIZE token (Tailwind v4
      `--text-<name>--line-height` convention) so downstream tooling never
      misreads the clamp() value as a font-family list. Call sites that set an
      explicit leading-* utility still win over this default. */
-  --text-hero--line-height: 1.15;
+  --text-hero--line-height: 1.12;
 
   /* Named leading steps for the two contexts the stepped scale could not
      express, so neither has to be spelled as an arbitrary value. Tailwind owns
@@ -210,7 +234,7 @@
        leading-display  1.05  large display headings — hero/mode-home/detail h1
        leading-prose    1.6   the max-w-[68ch] body measure */
   --leading-display: 1.05;
-  --leading-prose: 1.6;
+  --leading-prose: 1.65;
 
   /* ---- Letterspacing scale -------------------------------------------------
      Measured 7 Aug 2026, production only (`*-mockups.tsx` and `mockups/` are
@@ -263,10 +287,6 @@
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
-
-  --spring-tight: cubic-bezier(0.175, 0.885, 0.32, 1.15);
-  --spring-bouncy: cubic-bezier(0.34, 1.3, 0.64, 1);
-  --spring-gentle: cubic-bezier(0.25, 1, 0.5, 1);
 
   --animate-fade-up: fade-up 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-overlay-in: overlay-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -434,6 +454,7 @@
   --danger-solid-hover: #85140d;
   --danger-solid-active: #6f120c;
   --danger-solid-contrast: #ffffff;
+  --print-furniture-gap: 4mm;
 
   --info: var(--info-text);
   --info-soft: var(--info-bg);
@@ -473,12 +494,6 @@
   --z-toast: 110;
   --panel-gloss: color-mix(in srgb, var(--surface-lux) 82%, transparent);
 
-  /* Motion primitives (shared by both themes). The duration values live with
-     the easing tokens lower in this block (120/180/240ms); they are not
-     redeclared here to avoid shadowed, dead definitions. */
-  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
-
   /* Selection emphasis: crisp accent ring + shadow tinted to the same hue as
      the elevation ladder (these were the last flat-grey shadows in the set). */
   --glow-primary: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 40%, transparent), 0 8px 20px rgb(11 42 56 / 10%);
@@ -503,6 +518,9 @@
   --shadow-soft: var(--e2);
   --shadow-hover: var(--e3);
   --shadow-elevated: var(--e4);
+  /* Floating overlay surfaces (menus, popovers). Aliased to the elevated tier
+     because that is what the existing production popovers already use. */
+  --shadow-overlay: var(--e4);
   --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 90%), var(--e4);
   --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 58%);
   /* Active left-rail marker (nav/list "current" indicator). One token so the
@@ -572,7 +590,7 @@
   --duration-moderate: 200ms;
   --duration-slow: 240ms;
   --duration-deliberate: 300ms;
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
   /* CSS keyword ease-out equivalent — do not conflate with chrome-reveal / soft.
      Named --ease-out-keyword (not --ease-out): Tailwind v4 owns --ease-out inside
@@ -750,6 +768,9 @@
   --shadow-soft: var(--e2);
   --shadow-hover: var(--e3);
   --shadow-elevated: var(--e4);
+  /* Floating overlay surfaces (menus, popovers). Aliased to the elevated tier
+     because that is what the existing production popovers already use. */
+  --shadow-overlay: var(--e4);
   --shadow-lux: var(--e4);
   --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 4%);
   /* A drop shadow does not read on a near-black ground, so the lifted control
@@ -1107,24 +1128,6 @@ summary::-webkit-details-marker {
   :root {
     --mode-home-copy-reserve: calc(var(--text-hero) * var(--leading-display) + 0.25rem + 1.25rem);
   }
-}
-
-/* Shared-home verification reserve.
- *
- * The same jump the copy reserve above prevents, one block lower. On `/` the
- * mode pill swaps the whole page's copy in place, and each mode's
- * review-before-use caveat is a different length — measured in Chromium across
- * every entry in sharedHomePresentation, the footer renders at 0, 18, 36 or
- * 52px. Because the mode home is vertically centred, that difference moves the
- * composer: Formulation sat 8px above Specifiers at 320px before this reserve.
- *
- * Flat rather than banded, unlike the copy reserve: Calculators' caveat wraps
- * to three lines at every phone width, so a per-width band would resolve to the
- * same value three times. 3 line boxes (leading-4) + the footer's own pt-0.5 +
- * two gap-y-0.5 wrap gaps. Dead space below the shortest caveat costs nothing
- * visible — it lands inside the centring gap, with no content beneath it. */
-:root {
-  --mode-home-verification-reserve: calc(3 * 1rem + 0.125rem + 2 * 0.125rem);
 }
 
 .mode-home-composer-slot {
@@ -1939,11 +1942,17 @@ summary::-webkit-details-marker {
 }
 
 .answer-footer-search-input {
+  appearance: none;
   padding-inline: 0.35rem;
   font-size: 16px;
   font-weight: 560;
   line-height: 1.2;
   letter-spacing: 0;
+}
+
+.answer-footer-search-input::-webkit-search-cancel-button,
+.answer-footer-search-input::-webkit-search-decoration {
+  appearance: none;
 }
 
 /* The universal composer form is the visible control and already owns its
@@ -2082,15 +2091,6 @@ summary::-webkit-details-marker {
     padding-left: max(0.75rem, var(--safe-area-left));
     padding-right: max(0.75rem, var(--safe-area-right));
   }
-
-  .medication-filter-strip {
-    overscroll-behavior-inline: contain;
-    scroll-padding-left: max(1.75rem, calc(var(--safe-area-left) + 1rem));
-    scroll-padding-right: max(1.75rem, calc(var(--safe-area-right) + 1rem));
-    padding-left: max(1.75rem, calc(var(--safe-area-left) + 1rem));
-    padding-right: max(1.75rem, calc(var(--safe-area-right) + 1rem));
-  }
-
   .medication-mobile-result {
     padding-block: 0.75rem;
     padding-left: max(1rem, var(--safe-area-left));
@@ -2137,8 +2137,7 @@ summary::-webkit-details-marker {
    substantial left/right cutout insets. Preserve the normal tablet card gutter,
    then add only the safe-area remainder so text never sits beneath a notch. */
 @media (min-width: 640px) and (max-width: 1023px) {
-  .medication-results-inset,
-  .medication-filter-strip {
+  .medication-results-inset {
     padding-left: max(0px, calc(var(--safe-area-left) - 1rem));
     padding-right: max(0px, calc(var(--safe-area-right) - 1rem));
   }
@@ -2159,10 +2158,8 @@ summary::-webkit-details-marker {
   align-items: stretch;
   gap: 0.375rem;
 }
-
 .smart-search-rotating-text,
-.smart-search-prompt-row,
-.smart-search-suggestion-row {
+.smart-search-prompt-row {
   display: none;
 }
 
@@ -2230,9 +2227,7 @@ summary::-webkit-details-marker {
   .smart-search-rotating-text {
     display: flex;
   }
-
-  .smart-search-prompt-row,
-  .smart-search-suggestion-row {
+  .smart-search-prompt-row {
     display: flex;
   }
 }
@@ -2522,14 +2517,6 @@ summary::-webkit-details-marker {
     right: auto;
     bottom: auto;
   }
-
-  .forms-hero-search-edge {
-    left: 50%;
-    right: auto;
-    top: clamp(25rem, 44dvh, 28rem);
-    width: min(calc(100vw - 3rem - var(--safe-area-left) - var(--safe-area-right)), 54rem);
-    transform: translateX(-50%);
-  }
 }
 
 @media (min-width: 1024px) {
@@ -2636,6 +2623,29 @@ summary::-webkit-details-marker {
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge.document-mobile-search-compact,
   .answer-footer-search-dock.answer-footer-search-edge.document-mobile-search-compact {
     padding-bottom: max(0.45rem, var(--safe-area-bottom));
+  }
+
+  /* Guide Centre: the CTA stays above the Home Indicator while its dedicated
+     glass tray paints through the complete safe-area region. The shared search
+     dock deliberately fades to transparent at the physical edge; on this
+     fullscreen white Sheet that exposed a separate white strip below the CTA. */
+  .guide-tour-dock.answer-footer-search-dock.answer-footer-search-edge {
+    padding-top: var(--spacing-icon-xs);
+    padding-bottom: calc(var(--spacing-icon-xs) + var(--safe-area-bottom));
+  }
+
+  .guide-tour-dock.answer-footer-search-dock .answer-footer-search-backdrop {
+    height: max(7.5rem, calc(var(--safe-area-bottom) + 6rem));
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      color-mix(in srgb, var(--surface-raised) 24%, transparent) 28%,
+      color-mix(in srgb, var(--surface-raised) 72%, transparent) 58%,
+      color-mix(in srgb, var(--surface-raised) 88%, var(--clinical-accent-soft)) 82%,
+      color-mix(in srgb, var(--surface-raised) 88%, var(--clinical-accent-soft)) 100%
+    );
+    mask-image: linear-gradient(180deg, transparent 0%, black 30%, black 100%);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 30%, black 100%);
   }
 
   /* Must beat the edge-to-edge dock rule above (transform: none) so scroll-hide
@@ -3015,30 +3025,47 @@ summary::-webkit-details-marker {
 /* The in-flow phone home composer sits near the viewport centre. Keep the
    browser-native install prompt below it without moving page content: the full
    value proposition remains on larger and dock-owned surfaces, while the phone
-   hero gets a concise, action-first card. */
+   hero gets a concise, action-first card.
+
+   Every rule below gates on ONE :has() only — the hero-composer ownership
+   attribute on #main-content, which is a static per-route render prop (see
+   heroOwnsPhoneComposer in global-search-shell.tsx) and never changes after a
+   route's first paint. Compacting for the native install card itself uses a
+   plain descendant combinator off .pwa-install-native-sheet, NOT a second
+   :has(.pwa-install-native-sheet) existence check: .pwa-install-grip/-tagline/
+   -copy/-support/-benefits/-header/-body/-compact-copy/-actions are always
+   literal descendants of that card when it renders, in the same React commit
+   and the same browser paint, so the descendant selector cannot observe a
+   frame where the card exists without its compacted geometry. A second
+   ancestor-level :has() re-checking a fact the DOM tree already guarantees
+   was exactly the shape of bug fixed for .pwa-notice-stack's own bottom-gap
+   rule below in PR #2219 (see useSettledNoticeSignature in pwa-lifecycle.tsx
+   and tests/pwa-lifecycle.dom.test.tsx) — this mirrors that fix across the
+   remaining eight rules in this block, which still carried the same
+   two-:has() pattern after that PR landed. */
 @media (max-width: 639.98px) {
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-notice-stack {
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-notice-stack {
     --pwa-notice-bottom-gap: max(0.5rem, var(--safe-area-bottom));
   }
 
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-grip,
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-tagline,
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-copy,
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-support,
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-benefits {
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-grip,
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-tagline,
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-copy,
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-support,
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-benefits {
     display: none;
   }
 
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-header {
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-header {
     min-height: 3.25rem;
     padding-block: calc(2 * var(--pwa-inset-xs));
   }
 
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-body {
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-body {
     padding: var(--pwa-inset-sm) var(--pwa-inset-xl) var(--pwa-inset-xl);
   }
 
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-compact-copy {
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-compact-copy {
     display: block;
     color: var(--text-muted);
     font-size: 0.75rem;
@@ -3046,7 +3073,7 @@ summary::-webkit-details-marker {
     line-height: var(--pwa-line-height-support);
   }
 
-  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-actions {
+  body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-install-native-sheet .pwa-install-actions {
     margin-top: var(--pwa-inset-sm);
   }
 }
@@ -3084,11 +3111,9 @@ summary::-webkit-details-marker {
 @keyframes pwa-notice-in {
   from {
     opacity: 0;
-    transform: translateY(0.625rem) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 
@@ -3177,43 +3202,7 @@ td,
   container-name: search-results-main;
   min-width: 0;
 }
-
-.search-results-cards-compact {
-  display: none;
-}
-
-.search-results-table-desktop {
-  display: block;
-}
-
 @media (max-width: 1023px) {
-  .search-results-table-desktop {
-    display: none !important;
-  }
-
-  .search-results-cards-compact {
-    display: block !important;
-  }
-}
-
-@container search-results-main (max-width: 56rem) {
-  .search-results-table-desktop {
-    display: none;
-  }
-
-  .search-results-cards-compact {
-    display: block;
-  }
-}
-
-@container search-results-main (min-width: 56.01rem) {
-  .search-results-table-desktop {
-    display: block;
-  }
-
-  .search-results-cards-compact {
-    display: none;
-  }
 }
 
 /* ── Mode navigation ──────────────────────────────────────────────────────
@@ -4055,11 +4044,6 @@ html[data-motion="reduced"] .stagger-item {
   html:not([data-motion="full"]) .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
     transform: none !important;
   }
-
-  /* Opt-in soft opacity fade for critical feedback state changes */
-  .fade-accessible-reduced {
-    transition: opacity var(--duration-fast) var(--ease-out-soft) !important;
-  }
 }
 
 /*
@@ -4168,6 +4152,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --shadow-card: none;
     --shadow-hover: none;
     --shadow-elevated: none;
+    --shadow-overlay: none;
     --shadow-lux: none;
     --shadow-inset: none;
     --shadow-rail-active: none;
@@ -4339,6 +4324,29 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
 
   .safety-plan-tool [data-safety-plan-copy] header {
     display: grid !important;
+  }
+}
+
+/* Data-handling page (/privacy) print export.
+ * The page is written to be filed in a governance pack, so a printed copy has to
+ * carry the title, the fact summary and every section heading. The transitional
+ * element-name rules above (`header`, `nav`, `button { display: none }`) would
+ * drop all three, because this page's section headings are disclosure triggers
+ * and its summary tiles are buttons. Chrome that genuinely should not print is
+ * removed by `data-print-hide` / `print:hidden` instead, and the two-column
+ * reading layout collapses to one column once the sticky index is gone.
+ * Scoped to the route so no other page's print behaviour changes. */
+@media print {
+  .privacy-page header {
+    display: block !important;
+  }
+
+  .privacy-page [data-print-keep] {
+    display: flex !important;
+  }
+
+  .privacy-page [data-print-stack] {
+    display: block !important;
   }
 }
 
@@ -4628,25 +4636,12 @@ html.theme-transitioning *:after {
 }
 
 @media (max-width: 640px) {
-  [data-therapy-scroll-sm],
-  .therapy-compare-table {
+  [data-therapy-scroll-sm] {
     overflow-x: auto !important;
     overscroll-behavior-inline: contain;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
   }
-
-  .therapy-compare-tabs {
-    gap: 18px !important;
-    overflow-x: auto;
-    overscroll-behavior-inline: contain;
-    scrollbar-width: thin;
-  }
-
-  .therapy-compare-tabs > * {
-    flex: none;
-  }
-
   .therapy-pathway-list {
     border-right: 0 !important;
     border-bottom: 1px solid var(--border);
@@ -4702,8 +4697,50 @@ html.theme-transitioning *:after {
     color: var(--text-muted);
     font-size: 9pt;
   }
+
+  /*
+   * Opt-in print capabilities, declared here beside the rules that decide what
+   * prints at all. Each is inert until a `PrintOutput` or `PrintSection` asks
+   * for it, so no existing printed document changes.
+   */
+
+  [data-print-break-inside="avoid"] {
+    break-inside: avoid;
+  }
+
+  [data-print-break-before="page"] {
+    break-before: page;
+  }
+
+  /*
+   * Monochrome output. A greyscale printer flattens the tint that carried a
+   * state on screen, so the tint is removed outright and the border and the
+   * words carry it instead. Deliberately fixed ink rather than a token: this is
+   * a paper palette and must not follow the reader's theme.
+   */
+  [data-print-monochrome],
+  [data-print-monochrome] * {
+    background-color: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+    border-color: #000000 !important;
+  }
+
+  [data-print-stamp],
+  [data-print-confidential] {
+    display: block !important;
+    margin-top: var(--print-furniture-gap);
+    color: var(--text-muted);
+    font-size: 9pt;
+  }
 }
 
 [data-print-provenance] {
+  display: none;
+}
+
+/* Print furniture. It exists for the paper and would only be noise on screen. */
+[data-print-confidential],
+[data-print-stamp] {
   display: none;
 }

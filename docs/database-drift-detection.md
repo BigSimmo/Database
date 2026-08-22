@@ -123,22 +123,61 @@ How `check:drift` treats it (`scripts/check-drift.ts`):
   repo-ahead mechanism, not a special case. Deployment is a separately approved
   production migration window (plan approval map, Phase 6.1, after Phase 4).
 
-**Expected first live run after deployment.** Only five versions are seeded in
-the allowlist (below); the remaining §1.1 rows — `20260701040000
-drop_dead_drifted_hybrid_variants`, `20260702100000
-add_claim_ingestion_jobs_comment`, `20260702110000 drop_redundant_indexes`,
-`20260702120000 rag_retrieval_logs_retention`, `20260702130000
-storage_cleanup_jobs_document_fk`, `20260702140000
-fix_reset_document_index_duplicate`, `20260702150000
-documents_owner_covering_index`, `20260702160000 fix_invoke_agent_url_to_guc`,
-`20260702180000 promote_index_generation_id_columns`, and the 2026-07-12 batch
-`20260712165915`…`20260712173000` — have **no repo-provable guard** and will be
-reported as findings. That is the intended behaviour ("a history-repair row
-without a validating guard migration becomes permanent, visible drift"); the
-follow-up is to author fail-fast guard migrations for them (Phase 4.4 batches
-cover the index ones) and allowlist each with a `validation` guard, not to
-allowlist them bare. Versions the live probe does not report surface as stale
-entries, which is how a wrong seed is caught.
+**Live state after Phase 6.2 (2026-08-19).** The probe went live on production on
+2026-08-18 (forensics §3.7) and reported exactly twenty no-statements rows: the
+2026-07-01…07-02 cluster and the 2026-07-12 batch of §1.1. All twenty are now
+covered — five seeded `superseded` entries (`20260701010000`, `020000`, `030000`,
+`060000`, `20260702000000`) and fifteen `validation` entries pointing at the six
+Phase 6.2 guard migrations `20260819110000`…`20260819110500` (dropped objects,
+comments + retention cron, document foreign keys, operational index shapes, the
+`index_generation_id` promotion, function bodies; see forensics §"6.2
+completion" for the per-version classification). Those guards were applied to
+production by a real `supabase db push` and to staging by the Phase 2 method, so
+their own history rows carry statements and can never themselves surface in the
+probe. **Any `[migration_history] no_statements` line from now on is therefore
+new history repair**, not known backlog: it means someone marked a version
+applied without executing it and without shipping a guard — the exact event the
+contract forbids. Treat it as a P1 finding: author the guard first, never
+allowlist bare. Versions the live probe does not report surface as stale
+entries, which is how a wrong seed is caught; against staging every
+`migration_history` entry reads stale by design (staging's chain was replayed
+with statements), so never run `--prune-stale` there.
+
+## Migration-history alignment (`npm run check:migration-history`)
+
+A second, separate step of `.github/workflows/live-drift.yml`, added by Phase 0
+(PR #1939). It compares the versions in `supabase/migrations` against the versions
+recorded in live `supabase_migrations.schema_migrations` and fails when live holds
+a version with no local file — the state that makes a hosted Supabase Preview
+branch fail with "Remote migration versions not found in local migrations
+directory". It is not the probe above: the probe asks whether an applied version
+executed its DDL, this asks whether an applied version exists in the repo at all.
+
+**It could never pass on this project until 2026-08-20.** The original
+implementation read the history table straight through PostgREST with
+`Accept-Profile: supabase_migrations`, and this project has never exposed that
+schema to the Data API, so the read returned `406 PGRST106` every time. The defect
+stayed hidden because the drift comparison ran first and always failed, leaving
+this step `skipped`; Phase 6.2 cleared the last drift finding on 2026-08-19 and the
+step ran for the first time ever, becoming the sole reason the job still concluded
+`failure` — and therefore the sole reason pinned issue #1963 stayed open against a
+clean database.
+
+The read now goes through **`public.migration_history_versions()`** (migration
+`20260820120000`), a `stable` `security definer` function with `search_path` pinned
+to `''`, granted to `service_role` only, that returns `{probe, versions}` for every
+row of the history table. It is deliberately the smallest possible authority:
+exposing `supabase_migrations` to the Data API would widen the public API surface
+of a clinical project for one weekly read, and routing through the management API
+would put an account-scoped access token into CI.
+
+The Accept-Profile read is retained as a fallback for any environment that does
+expose the schema, and is tried **only** when the RPC itself is absent. Every other
+outcome is an error, including a database with no history table at all
+(`probe: no_history_table`) — a check that reports "aligned" because it could not
+look would be worse than the red job it replaced. When neither path works the
+failure names the remedy: apply `20260820120000` through the normal linked
+migration workflow. Pinned by `tests/migration-history-alignment.test.ts`.
 
 ## Guard-migration contract
 

@@ -13,7 +13,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { createBrowserStore } from "@/lib/client-store-factory";
 
@@ -212,6 +212,112 @@ function InstallManualSteps() {
       </li>
     </ol>
   );
+}
+
+/**
+ * `.pwa-notice-stack` is `position: fixed; bottom: …`, so when the set of
+ * visible cards changes while the stack is ALREADY rendered (e.g. the offline
+ * card clears the same instant `connectionRestored`/`showInstall` turn true,
+ * which happens because both react to the same `online` event landing in one
+ * React commit), the stack's height changes and its already-painted top edge
+ * moves — a real, attributable layout shift. A brand-new mount from an
+ * unmounted (`null`) stack does not shift anything, because the Layout
+ * Instability API only scores elements that were already visible in the prior
+ * frame. Confirmed with `scripts/measure-cls-attribution.mjs`: a synthetic
+ * offline→online blip while an install prompt is pending reproduced
+ * `.pwa-notice-stack` as a real shift source (~0.24 CLS on `/`), matching the
+ * magnitude Lighthouse reported in CI (0.223, PRs #2199/#2204, 2026-08-21).
+ *
+ * This hook forces every transition between two DIFFERENT non-empty card
+ * combinations through one unmounted frame, so the stack only ever grows from
+ * nothing or shrinks to nothing — never resizes while a sibling card is still
+ * on screen.
+ */
+/**
+ * The one element every phone geometry rule for this component selects on.
+ *
+ * `.pwa-notice-stack` and the native install sheet are sized and positioned by
+ * `body:has(#main-content[data-phone-footer-owner="hero"]) …` — the bottom gap
+ * collapses from `0.75rem + 5rem` to `max(0.5rem, safe-area)`, and the sheet
+ * drops its grip, tagline, copy, support and benefits rows. While that selector
+ * is false the stack paints tall and high; when it turns true the stack is
+ * restyled underneath itself.
+ */
+const APP_SHELL_SELECTOR = "#main-content";
+
+function subscribeToAppShell(onStoreChange: () => void): () => void {
+  // The shell is replaced as a subtree (React swapping a Suspense fallback for
+  // the route, then hydrating), so observe the document rather than a node that
+  // may not exist yet — or may momentarily stop existing.
+  const observer = new MutationObserver(onStoreChange);
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+  window.addEventListener("load", onStoreChange);
+  return () => {
+    observer.disconnect();
+    window.removeEventListener("load", onStoreChange);
+  };
+}
+
+let appShellHasEverMounted = false;
+
+function appShellReadySnapshot(): boolean {
+  if (document.querySelector(APP_SHELL_SELECTOR)) {
+    appShellHasEverMounted = true;
+    return true;
+  }
+  // A surface that renders no `#main-content` at all must still get notices, so
+  // `load` releases the gate — but ONLY while the shell has never been seen. It
+  // deliberately does not release a shell that exists and is momentarily absent:
+  // that gap is the bug. Measured on `/` at Lighthouse's 412x823 mobile
+  // emulation with the install prompt firing early on a throttled connection:
+  // shell at 4726ms, GONE at 7855ms, install card mounts at 9083ms into the gap
+  // (401px tall, bottom 731), shell returns at 9930ms and the card is restyled
+  // to 161px at bottom 815 — one shift, 0.2230, matching CI's mobile-root
+  // breach to four decimals. `load` has long since fired by 9083ms, which is
+  // exactly why a bare readyState check does not hold here (ledger `#TYZK23`).
+  return document.readyState === "complete" && !appShellHasEverMounted;
+}
+
+/** Server render has no DOM to inspect, and must not paint the stack. */
+function appShellAbsentOnServer(): boolean {
+  return false;
+}
+
+function useAppShellReady(): boolean {
+  // A DOM subscription, not derived state: `useSyncExternalStore` is the
+  // supported shape for "read an external system, re-render when it changes".
+  return useSyncExternalStore(subscribeToAppShell, appShellReadySnapshot, appShellAbsentOnServer);
+}
+
+function useSettledNoticeSignature(signature: string | null): string | null {
+  const [rendered, setRendered] = useState(signature);
+  const previousSignatureRef = useRef(signature);
+
+  useEffect(() => {
+    if (signature === previousSignatureRef.current) return;
+    const previous = previousSignatureRef.current;
+    previousSignatureRef.current = signature;
+    if (previous !== null && signature !== null) {
+      setRendered(null);
+      // Double rAF: the first guarantees the null frame actually paints before
+      // the second schedules the new content, so the browser never coalesces
+      // straight from the old box to the new one without an empty frame
+      // between — the same pattern DocumentViewer uses to force a real paint
+      // boundary before re-focusing after a state change.
+      let innerFrame = 0;
+      const outerFrame = window.requestAnimationFrame(() => {
+        innerFrame = window.requestAnimationFrame(() => setRendered(signature));
+      });
+      return () => {
+        window.cancelAnimationFrame(outerFrame);
+        window.cancelAnimationFrame(innerFrame);
+      };
+    }
+    setRendered(signature);
+    return undefined;
+  }, [signature]);
+
+  return rendered;
 }
 
 /**
@@ -489,11 +595,29 @@ export function PwaLifecycle() {
     setActivatedUpdateReady(false);
   };
 
-  const showOffline = !isOnline && !offlineNoticeDismissed;
-  const showUpdate = isOnline && (Boolean(waitingWorker) || activatedUpdateReady);
-  const showInstall = isOnline && !showUpdate && Boolean(installPrompt);
-  const showIosInstallHint = isOnline && !showUpdate && !showInstall && showIosHint;
-  if (!showOffline && !connectionRestored && !showInstall && !showUpdate && !showIosInstallHint) return null;
+  const wantsOffline = !isOnline && !offlineNoticeDismissed;
+  const wantsUpdate = isOnline && (Boolean(waitingWorker) || activatedUpdateReady);
+  const wantsInstall = isOnline && !wantsUpdate && Boolean(installPrompt);
+  const wantsIosInstallHint = isOnline && !wantsUpdate && !wantsInstall && showIosHint;
+  const desiredSignature =
+    wantsOffline || connectionRestored || wantsUpdate || wantsIosInstallHint || wantsInstall
+      ? [wantsOffline, connectionRestored, wantsUpdate, wantsIosInstallHint, wantsInstall]
+          .map((flag) => (flag ? "1" : "0"))
+          .join("")
+      : null;
+  const settledSignature = useSettledNoticeSignature(desiredSignature);
+  // Mid-transition: the stack is passing through its one-frame unmounted gap
+  // (see useSettledNoticeSignature) before the new combination renders.
+  // The stack's phone geometry is chosen by `:has(#main-content…)`. Painting
+  // while that element is absent — including the hydration gap where it briefly
+  // stops existing — means being restyled a moment later. See useAppShellReady.
+  const appShellReady = useAppShellReady();
+  if (!appShellReady) return null;
+  if (settledSignature === null || settledSignature !== desiredSignature) return null;
+  const showOffline = wantsOffline;
+  const showUpdate = wantsUpdate;
+  const showInstall = wantsInstall;
+  const showIosInstallHint = wantsIosInstallHint;
 
   return (
     <div className="pwa-notice-stack">

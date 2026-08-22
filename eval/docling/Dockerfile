@@ -9,6 +9,10 @@
 # python3 is 3.11, matching both hashed locks consumed below).
 FROM node:24-bookworm-slim@sha256:235600a8101ab264e117b1768e925532262668dc9b581ef1dd7d96ced463b8e7
 
+# libgl1 + libglib2.0-0: OpenCV's runtime shared libraries. docling's rapidocr
+# stage imports cv2 during `docling-tools models download` (and again at run
+# time), and the slim base ships neither — run 32165911181 failed the prefetch
+# with `ImportError: libGL.so.1: cannot open shared object file`.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     python3 \
@@ -16,6 +20,8 @@ RUN apt-get update \
     tesseract-ocr \
     fonts-dejavu-core \
     ca-certificates \
+    libgl1 \
+    libglib2.0-0 \
   && rm -rf /var/lib/apt/lists/*
 
 # Legacy comparator venv: read-only consumption of the worker's production hashed

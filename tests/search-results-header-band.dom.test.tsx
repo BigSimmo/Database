@@ -575,6 +575,22 @@ describe("SearchResultsHeaderBand", () => {
     expect(screen.getByTestId("trigger")).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("trigger")).toHaveAttribute("aria-controls", "panel");
   });
+
+  it("lets a caller keep the filter wordmark visible at every width", () => {
+    render(
+      <ResultFilterTrigger
+        panelId="panel"
+        testId="always-labelled-trigger"
+        title="Filter the dictionary catalogue"
+        open={false}
+        activeCount={0}
+        onToggle={vi.fn()}
+        labelVisibility="always"
+      />,
+    );
+
+    expect(screen.getByText("Filter", { selector: "span" })).not.toHaveClass("min-[414px]:max-[429px]:sr-only");
+  });
 });
 
 describe("ResultFilterSheet facet groups", () => {
@@ -1431,10 +1447,12 @@ describe("SearchResultsEmptyState", () => {
     // owns that role on every search route, and a second one made singular
     // `getByRole("status")` queries across the suite ambiguous.
     expect(screen.getByText("No matches for “unmatched therapy”")).toBeVisible();
-    // `searchCommandSurfaceByMode` is a `Partial<Record<…>>` with no
-    // therapy-compass entry, so this mode has neither an example nor a
-    // cross-mode route. The body must not tell the reader to "try an example, or
-    // jump to another mode" when the panel renders no control for either.
+    // No `onTryExample` or `onCrossMode` handler is passed here — matching the
+    // real Therapy call site (therapy-compass/screens/search-screen.tsx) — so
+    // this panel has neither an example nor a cross-mode route to offer, even
+    // though the mode now carries a full `searchCommandSurfaceByMode` entry. The
+    // body must not tell the reader to "try an example, or jump to another mode"
+    // when the panel renders no control for either.
     expect(screen.getByText("Check the spelling, or try a broader term.")).toBeVisible();
     expect(screen.queryByRole("button", { name: /^Try:/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Search in / })).toBeNull();

@@ -25,6 +25,7 @@ import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-
 import { cardSelected, cardSurface, focusRing } from "@/components/card-recipes";
 import { CategoryIconTile } from "@/components/category-icon-tile";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
+import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
 import { cn, controlBase, floatingControl } from "@/components/ui-primitives";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
@@ -40,11 +41,11 @@ import {
 } from "@/lib/tools-catalog";
 
 // A partial second copy of the launcher's icon map used to live here: 8 of the
-// 13 tools, with a `?? Grid2X2` fallback that silently gave `guidelines`,
-// `care-plans`, `safety-plan`, `calculators` and `monitoring` a generic grid
-// glyph on this page while the launcher showed them a real one. Identity now
-// comes from `src/lib/category-identity.ts`, where the record is exhaustive by
-// type, so the partial copy cannot come back.
+// 14 tools, with a `?? Grid2X2` fallback that silently gave `guidelines`,
+// `care-plans`, `safety-plan`, `calculators`, `monitoring`, and `ward-management`
+// a generic grid glyph on this page while the launcher showed them a real one.
+// Identity now comes from `src/lib/category-identity.ts`, where the record is
+// exhaustive by type, so the partial copy cannot come back.
 
 const filterOptions = [
   { id: "all", label: "All tools" },
@@ -353,7 +354,8 @@ export function ToolsSearchResultsPage({
         <DesktopComposerPortalSlot
           id={desktopComposerSlotId}
           data-testid="tools-results-home-composer"
-          className="mode-home-composer-slot mx-auto mb-4 hidden w-full max-w-3xl [&:not(:empty)]:block sm:mb-6"
+          data-composer-reserve={modeHomeComposerReservePendingValue}
+          className="mode-home-composer-slot mx-auto mb-4 block w-full max-w-3xl min-h-0 data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)] sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] [&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)] sm:mb-6"
         />
       ) : null}
       <section
@@ -474,8 +476,11 @@ export function ToolsSearchResultsPage({
                 <Search className="h-7 w-7 text-[color:var(--clinical-accent)]" aria-hidden="true" />
                 <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">No tools match</h2>
                 <p className="max-w-md text-sm text-[color:var(--text-muted)]">
-                  Refine the search above or choose another tool category.
+                  Try another search or return to the full tools catalogue.
                 </p>
+                <Link href="/tools" className={floatingControl}>
+                  Show all tools
+                </Link>
               </div>
             )}
           </section>

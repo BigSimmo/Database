@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c4984226-e979-4e43-842e-0ff4f6cd006a",
+  "createdOn": "2026-08-21",
+  "action": "done",
+  "payload": {
+    "id": "#GKFK9V",
+    "outcome": "Resolved 2026-08-21: docs/rag-improvement/HANDOVER.md session-start now links the canonical outstanding ledger, programme status table, and duplicate-PR check with provider-boundary guidance.",
+    "baseRowFingerprint": "997ac294fa787ea228407d113a91f8fa5e8eb84305740487b98e32a73246a7eb"
+  }
+}

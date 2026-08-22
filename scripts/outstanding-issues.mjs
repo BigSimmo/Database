@@ -30,6 +30,7 @@
 //   node scripts/outstanding-issues.mjs done '#151' --outcome "Resolved ..."
 //   node scripts/outstanding-issues.mjs update '#151' --detail "..."
 //   node scripts/outstanding-issues.mjs update '#151' --pri P3
+//   node scripts/outstanding-issues.mjs queue '#151' --acuity A2 --when "..."
 //   node scripts/outstanding-issues.mjs --self-test
 //
 // `update --pri` exists because re-prioritising is the mutation triage performs
@@ -38,18 +39,34 @@
 // that. Deliberately per-row: there is no bulk re-prioritise mode, because a
 // sweep that moves many rows at once is the kind of change that should be
 // visible row by row in review.
+//
+// `queue` closes the same gap one table over (ledger #M6JNR8). The recommended
+// execution queue could only be pruned on close, never corrected, so a re-grade
+// recorded against an Open-items row left the queue advertising the old acuity
+// and timing forever — and the queue is what an operator reads to decide what to
+// start, so a stale row there is the one that actually misdirects work.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { ISSUES_PATH, checkIssues, parseIssues } from "./check-outstanding-issues.mjs";
-import { allocateDisplayId, displayIdForUlid, issueIdCell, issueIdCitations, issueUlid } from "./issue-id.mjs";
+import {
+  allocateDisplayId,
+  displayIdForUlid,
+  issueIdCell,
+  issueIdCitations,
+  issueUlid,
+  normalizeIssueDisplayId,
+} from "./issue-id.mjs";
 
 const OPEN_CELLS = 7; // ID | Pri | Type | Summary | Detail / next action | Source | Added
 const ARCHIVE_CELLS = 5; // ID | Type | Summary | Outcome | Resolved
 const PRIORITIES = new Set(["P1", "P2", "P3"]);
 const TYPES = new Set(["task", "issue", "rec"]);
+// Queue row is Order | ID(s) | Acuity | Capability | When | Estimate | Outcome.
+// Order and ID(s) are deliberately absent — see updateQueueRow.
+const QUEUE_EDITABLE = { acuity: 2, capability: 3, when: 4, estimate: 5, outcome: 6 };
 
 /**
  * Make one cell safe to place in a markdown table.
@@ -278,6 +295,62 @@ export function updateIssue(markdown, id, fields) {
   });
 }
 
+/**
+ * Edit the recommended-execution-queue row that cites `id` (ledger #M6JNR8).
+ *
+ * The queue owns recommended order, acuity, capability, timing and approvals,
+ * and it was the one table in this ledger no writer could correct. `done`
+ * pruned rows and nothing else touched them, so a re-grade recorded against an
+ * Open-items row left the queue asserting the old acuity indefinitely — the
+ * `#231` instance kept sending sessions at an "Immediate approved live
+ * investigation" for a cause the ledger had already measured closed.
+ *
+ * Deliberately NOT editable: Order and the ID(s) cell. Order is derived — it is
+ * renumbered 1..N whenever a row is pruned, so a hand-set value would be
+ * silently overwritten by the next close. The ID(s) cell is the linkage
+ * `checkIssues` validates against Open items; changing queue membership is an
+ * add or a close, not an edit. Re-ordering the queue therefore stays out of
+ * scope and remains a separate, visible decision.
+ */
+export function updateQueueRow(markdown, id, fields) {
+  const requested = Object.keys(QUEUE_EDITABLE).filter((key) => fields[key] !== undefined);
+  if (requested.length === 0) {
+    const flags = Object.keys(QUEUE_EDITABLE)
+      .map((key) => `--${key}`)
+      .join(", ");
+    throw new Error(`pass at least one of ${flags}`);
+  }
+
+  return guarded(markdown, (current) => {
+    const parsed = parseIssues(current);
+    const normalizedId = normalizeIssueDisplayId(id);
+    const cited = (parsed.queueCitations ?? []).filter((citation) => citation.id === normalizedId);
+    const lineNumbers = [...new Set(cited.map((citation) => citation.line))];
+    if (lineNumbers.length === 0) {
+      throw new Error(`${normalizedId} has no recommended-execution-queue row; the queue carries only scheduled work`);
+    }
+    if (lineNumbers.length > 1) {
+      throw new Error(
+        `${normalizedId} is cited by ${lineNumbers.length} queue rows (lines ${lineNumbers.join(", ")}); refusing to guess which`,
+      );
+    }
+
+    const lines = current.split("\n");
+    const cells = splitCells(lines[lineNumbers[0] - 1]);
+    for (const key of requested) {
+      const column = QUEUE_EDITABLE[key];
+      if (column >= cells.length) {
+        throw new Error(
+          `the queue row for ${id} has ${cells.length} cells, so --${key} (column ${column + 1}) has nowhere to go`,
+        );
+      }
+      cells[column] = escapeCell(fields[key]);
+    }
+    lines[lineNumbers[0] - 1] = buildRow(cells);
+    return lines.join("\n");
+  });
+}
+
 function argValue(argv, name) {
   const index = argv.indexOf(`--${name}`);
   return index >= 0 ? argv[index + 1] : undefined;
@@ -298,6 +371,8 @@ function selfTest() {
     "| 1 | `#005` | A2 | High | now | 1h | solo |",
     "| 2 | `#013`, `#016` | A3 | High | later | 1d | composite |",
     "| 3 | `#006` | A3 | High | later | 1h | trailing |",
+    "| 4 | `#DREDWA` | A2 | Med | later | 2h | crockford |",
+    "| 5 | `#TF6TPJ` | A2 | Med | later | 2h | anti-churn |",
     "",
     "## Open items",
     "",
@@ -307,6 +382,8 @@ function selfTest() {
     "| #006 | P3 | task | second | detail two | src | 2026-01-02 |",
     "| #013 | P3 | task | left | detail | src | 2026-01-03 |",
     "| #016 | P3 | task | right | detail | src | 2026-01-04 |",
+    "| #DREDWA <!-- issue-ulid:01M09A9WXBDREDWA7KN2EB1JRA --> | P3 | rec | Crockford rec | detail | src | 2026-01-05 |",
+    "| #TF6TPJ <!-- issue-ulid:01M0BEKPPPTF6TPJJMJ4WW5KWJ --> | P2 | task | In-flight CI guard | detail | src | 2026-01-06 |",
     "",
     "## Resolved / archive",
     "",
@@ -457,6 +534,61 @@ function selfTest() {
   const bothCells = splitCells(parseIssues(both).rows.find((r) => r.id === "#006").raw);
   check("update --pri combines with --detail", bothCells[1] === "P3" && bothCells[4] === "demoted because ...");
 
+  // Crockford ULID operations (#DREDWA and all-digit #041061)
+  const resolvedDredwa = resolveIssue(fixture, "#DREDWA", "Resolved Crockford item", { date: "2026-03-05" });
+  const dredwaMoved = parseIssues(resolvedDredwa).rows.find((r) => r.id === "#DREDWA");
+  check(
+    "done archives #DREDWA preserving ULID comment",
+    dredwaMoved && dredwaMoved.table === "archive" && dredwaMoved.ulid === "01M09A9WXBDREDWA7KN2EB1JRA",
+  );
+  check("done drops #DREDWA from queue", !resolvedDredwa.includes("`#DREDWA`"));
+
+  const updatedDredwa = updateIssue(fixture, "#DREDWA", { pri: "P1", detail: "promoted crockford" });
+  const dredwaUpdated = parseIssues(updatedDredwa).rows.find((r) => r.id === "#DREDWA");
+  check(
+    "update modifies #DREDWA in place",
+    dredwaUpdated &&
+      dredwaUpdated.table === "open" &&
+      splitCells(dredwaUpdated.raw)[1] === "P1" &&
+      dredwaUpdated.raw.includes("promoted crockford"),
+  );
+
+  const resolvedTf6tpj = resolveIssue(fixture, "#TF6TPJ", "Resolved TF6TPJ item", { date: "2026-03-05" });
+  const tf6tpjMoved = parseIssues(resolvedTf6tpj).rows.find((r) => r.id === "#TF6TPJ");
+  check(
+    "done archives #TF6TPJ preserving ULID",
+    tf6tpjMoved && tf6tpjMoved.table === "archive" && tf6tpjMoved.ulid === "01M0BEKPPPTF6TPJJMJ4WW5KWJ",
+  );
+  check("done drops #TF6TPJ from queue", !resolvedTf6tpj.includes("`#TF6TPJ`"));
+
+  const updatedTf6tpj = updateIssue(fixture, "#TF6TPJ", { pri: "P3", summary: "TF6TPJ summary updated" });
+  const tf6tpjUpdated = parseIssues(updatedTf6tpj).rows.find((r) => r.id === "#TF6TPJ");
+  check(
+    "update modifies #TF6TPJ in place",
+    tf6tpjUpdated &&
+      tf6tpjUpdated.table === "open" &&
+      splitCells(tf6tpjUpdated.raw)[1] === "P3" &&
+      tf6tpjUpdated.raw.includes("TF6TPJ summary updated"),
+  );
+
+  // Also test all-digit Crockford ULID operations on the dynamically added row (testId is #041061)
+  const resolvedAllDigit = resolveIssue(added, testId, "Resolved all-digit added item", { date: "2026-03-05" });
+  const allDigitMoved = parseIssues(resolvedAllDigit).rows.find((r) => r.id === testId);
+  check(
+    "done archives all-digit Crockford #041061",
+    allDigitMoved && allDigitMoved.table === "archive" && allDigitMoved.ulid === testUlid,
+  );
+
+  const updatedAllDigit = updateIssue(added, testId, { pri: "P3", summary: "all digit summary updated" });
+  const allDigitUpdated = parseIssues(updatedAllDigit).rows.find((r) => r.id === testId);
+  check(
+    "update modifies all-digit Crockford #041061 in place",
+    allDigitUpdated &&
+      allDigitUpdated.table === "open" &&
+      splitCells(allDigitUpdated.raw)[1] === "P3" &&
+      allDigitUpdated.raw.includes("all digit summary updated"),
+  );
+
   // refusals
   const rejects = (label, run) => {
     try {
@@ -475,6 +607,64 @@ function selfTest() {
   rejects("bad update priority", () => updateIssue(fixture, "#006", { pri: "P9" }));
   rejects("lowercase update priority", () => updateIssue(fixture, "#006", { pri: "p1" }));
   rejects("archived row cannot be re-prioritised", () => updateIssue(resolved, "#005", { pri: "P1" }));
+
+  // queue (#M6JNR8): the recommended-execution-queue row is editable, and the
+  // Order and ID(s) cells are not. Order is renumbered on every close, so a
+  // writer that could set it would be writing a value the next close discards.
+  const queueLine = (markdown, id) => {
+    const parsed = parseIssues(markdown);
+    const line = [...new Set((parsed.queueCitations ?? []).filter((c) => c.id === id).map((c) => c.line))][0];
+    return splitCells(markdown.split("\n")[line - 1]);
+  };
+  const regraded = updateQueueRow(fixture, "#005", { acuity: "A3", when: "after the audit" });
+  const regradedCells = queueLine(regraded, "#005");
+  check("queue writes the Acuity cell", regradedCells[2] === "A3");
+  check("queue writes the When cell", regradedCells[4] === "after the audit");
+  check(
+    "queue leaves Order, ID(s) and untouched columns alone",
+    regradedCells[0] === "1" &&
+      regradedCells[1] === "`#005`" &&
+      regradedCells[3] === "High" &&
+      regradedCells[5] === "1h" &&
+      regradedCells[6] === "solo",
+  );
+  check(
+    "queue does not touch the Open-items row",
+    splitCells(parseIssues(regraded).rows.find((r) => r.id === "#005").raw)[1] === "P2",
+  );
+
+  // A composite ID(s) cell is one row shared by two issues; addressing it by
+  // either cited id must reach the same row rather than only the first.
+  const compositeByFirst = queueLine(updateQueueRow(fixture, "#013", { estimate: "2d" }), "#013");
+  const compositeBySecond = queueLine(updateQueueRow(fixture, "#016", { estimate: "2d" }), "#016");
+  check("queue reaches a composite row by its first id", compositeByFirst[5] === "2d");
+  check("queue reaches a composite row by its second id", compositeBySecond[5] === "2d");
+  check("queue keeps the composite ID(s) cell intact", compositeBySecond[1] === "`#013`, `#016`");
+
+  // Escaping is the same hazard as everywhere else in this file: a bare pipe in
+  // prose would silently become a column boundary.
+  check("queue escapes pipes in new text", updateQueueRow(fixture, "#005", { outcome: "a | b" }).includes("a \\| b"));
+
+  // Assert the MESSAGE, not merely that something threw. Without the explicit
+  // "no queue row" guard the lookup still fails — on a NaN index, several frames
+  // later, with a message about splitting undefined — so a bare rejects() here
+  // passes whether or not the guard exists and pins nothing.
+  const rejectsWith = (label, pattern, run) => {
+    try {
+      run();
+      failures.push(`${label} should have thrown`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!pattern.test(message)) failures.push(`${label} threw the wrong error: ${message}`);
+    }
+  };
+  rejectsWith("queue with no editable field", /--acuity/, () => updateQueueRow(fixture, "#005", {}));
+  rejectsWith("queue for an id with no queue row", /no recommended-execution-queue row/, () =>
+    updateQueueRow(fixture, "#008", { acuity: "A1" }),
+  );
+  // Order is not in the editable map, so passing it alone is "no editable field"
+  // rather than a silent no-op write — and the queue row must be untouched.
+  rejectsWith("queue refuses to set Order", /--acuity/, () => updateQueueRow(fixture, "#005", { order: "9" }));
 
   if (failures.length > 0) {
     console.error("outstanding-issues writer self-test FAILED:");
@@ -515,8 +705,16 @@ function main() {
         detail: argValue(argv, "detail"),
         source: argValue(argv, "source"),
       });
+    } else if (command === "queue") {
+      next = updateQueueRow(markdown, positional, {
+        acuity: argValue(argv, "acuity"),
+        capability: argValue(argv, "capability"),
+        when: argValue(argv, "when"),
+        estimate: argValue(argv, "estimate"),
+        outcome: argValue(argv, "outcome"),
+      });
     } else {
-      console.error("usage: outstanding-issues.mjs <add|done|update> [id] [--flags]  (see file header)");
+      console.error("usage: outstanding-issues.mjs <add|done|update|queue> [id] [--flags]  (see file header)");
       process.exitCode = 1;
       return;
     }

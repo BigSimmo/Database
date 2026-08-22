@@ -56,7 +56,8 @@ import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/univ
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { canAccessFavouritesMode } from "@/lib/app-modes";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { modeHomeComposerReservePendingValue, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 import { useAuthSession } from "@/lib/supabase/client";
 
 type FavouriteType =
@@ -141,15 +142,7 @@ const fallbackIconByType: Record<PrototypeFavouriteItem["type"], LucideIcon> = {
 };
 
 function lastUsedScore(lastUsed: string): number {
-  const lower = lastUsed.toLowerCase();
-  if (lower.startsWith("today")) {
-    const timeMatch = lastUsed.match(/(\d{1,2}):(\d{2})/);
-    if (timeMatch) return 100_000 + Number(timeMatch[1]) * 60 + Number(timeMatch[2]);
-    return 100_000;
-  }
-  if (lower.startsWith("yesterday")) return 50_000;
-  if (lower.startsWith("mon")) return 10_000;
-  return 1_000;
+  return lastOpenedScore(lastUsed);
 }
 
 function isSourceBacked(item: FavouriteItem): boolean {
@@ -196,6 +189,7 @@ function toCommandItem(
   item: PrototypeFavouriteItem,
   lastOpenedMap: Record<string, number>,
   pinnedIds: ReadonlySet<string>,
+  demoMode: boolean = false,
 ): FavouriteItem {
   const type =
     item.type === "sources" && item.primaryAction === "Run"
@@ -212,7 +206,9 @@ function toCommandItem(
     lastUsed:
       lastOpenedMap[item.id] !== undefined
         ? formatLastOpened(lastOpenedMap[item.id])
-        : (lastUsedByItemId[item.id] ?? "Saved"),
+        : demoMode && lastUsedByItemId[item.id]
+          ? lastUsedByItemId[item.id]
+          : "Saved",
     action: item.primaryAction,
     href: item.href,
     icon: item.icon ?? fallbackIconByType[item.type],
@@ -242,8 +238,11 @@ function buildFavouriteSets(items: FavouriteItem[]): FavouriteSet[] {
 }
 
 function getMostRecentlyUsedItem(items: FavouriteItem[]): FavouriteItem | null {
-  if (items.length === 0) return null;
-  return [...items].sort((first, second) => lastUsedScore(second.lastUsed) - lastUsedScore(first.lastUsed))[0] ?? null;
+  const withOpened = items.filter((item) => lastUsedScore(item.lastUsed) > 1000);
+  if (withOpened.length === 0) return null;
+  return (
+    [...withOpened].sort((first, second) => lastUsedScore(second.lastUsed) - lastUsedScore(first.lastUsed))[0] ?? null
+  );
 }
 
 function filterAndSortItems(
@@ -270,6 +269,7 @@ function filterAndSortItems(
   const effectiveSort: SortMode = viewMode === "recent" ? "last-used" : sortMode;
 
   return items
+    .filter((item) => viewMode !== "recent" || lastUsedScore(item.lastUsed) > 1000)
     .filter((item) => selectedTypeIds.size === 0 || selectedTypeIds.has(item.tabId))
     .filter((item) => selectedSetTitles.size === 0 || selectedSetTitles.has(item.set))
     .filter((item) => !pinnedOnly || item.pinned === true)
@@ -333,7 +333,11 @@ function ContinueStrip({ item }: { item: FavouriteItem }) {
         <div className="flex min-w-0 flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3 sm:px-4">
           <div className="flex min-w-0 items-start gap-3 sm:flex-1">
             <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-            <Link href={item.href} className={cn("min-w-0 flex-1 text-left", focusRing)}>
+            <Link
+              href={item.href}
+              onClick={() => recordFavouriteOpened(item.id)}
+              className={cn("min-w-0 flex-1 text-left", focusRing)}
+            >
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <p className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--success)]">
                   Continue
@@ -349,6 +353,7 @@ function ContinueStrip({ item }: { item: FavouriteItem }) {
           </div>
           <Link
             href={item.href}
+            onClick={() => recordFavouriteOpened(item.id)}
             aria-label={`Continue ${item.title}`}
             className={cn(
               "inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)] sm:min-h-9 sm:w-auto",
@@ -464,7 +469,10 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
               "flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
               focusRing,
             )}
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              recordFavouriteOpened(item.id);
+              setOpen(false);
+            }}
           >
             <ExternalLink className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
             {actionLabel}
@@ -543,6 +551,7 @@ function FavouriteMobileCard({ item }: { item: FavouriteItem }) {
       <div className="mt-3 grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2">
         <Link
           href={item.href}
+          onClick={() => recordFavouriteOpened(item.id)}
           aria-label={`Open ${item.title}`}
           className={cn(
             "inline-flex h-tap min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm-minus font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
@@ -614,31 +623,38 @@ function FavouritesDashboardBand({
             View all
           </button>
         </div>
-        <ul className="divide-y divide-[color:var(--border)]">
-          {recentItems.map((item) => (
-            <li key={item.id} className="flex min-w-0 items-center gap-2.5 px-3.5 py-2.5">
-              <Chip size="compact" appearance={typeAppearance[item.type]}>
-                {item.type}
-              </Chip>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-sm font-bold text-[color:var(--text-heading)]">{item.title}</span>
-                <span className="truncate text-2xs font-medium text-[color:var(--text-muted)]">
-                  {item.set} · {item.lastUsed}
+        {recentItems.length === 0 ? (
+          <p className="px-3.5 py-4 text-xs font-medium text-[color:var(--text-muted)]">
+            Recently opened favourites will appear here as you use them.
+          </p>
+        ) : (
+          <ul className="divide-y divide-[color:var(--border)]">
+            {recentItems.map((item) => (
+              <li key={item.id} className="flex min-w-0 items-center gap-2.5 px-3.5 py-2.5">
+                <Chip size="compact" appearance={typeAppearance[item.type]}>
+                  {item.type}
+                </Chip>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm font-bold text-[color:var(--text-heading)]">{item.title}</span>
+                  <span className="truncate text-2xs font-medium text-[color:var(--text-muted)]">
+                    {item.set} · {item.lastUsed}
+                  </span>
                 </span>
-              </span>
-              <Link
-                href={item.href}
-                aria-label={`Open ${item.title}`}
-                className={cn(
-                  "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
-                  focusRing,
-                )}
-              >
-                Open
-              </Link>
-            </li>
-          ))}
-        </ul>
+                <Link
+                  href={item.href}
+                  onClick={() => recordFavouriteOpened(item.id)}
+                  aria-label={`Open ${item.title}`}
+                  className={cn(
+                    "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
+                    focusRing,
+                  )}
+                >
+                  Open
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section
@@ -832,6 +848,7 @@ function FavouritesTable({
                     </button>
                     <Link
                       href={item.href}
+                      onClick={() => recordFavouriteOpened(item.id)}
                       className={cn("block min-w-0 max-w-full rounded-md text-left xl:hidden", focusRing)}
                     >
                       <span className="line-clamp-1 block text-sm-minus font-bold text-[color:var(--text-heading)]">
@@ -872,6 +889,7 @@ function FavouritesTable({
                     <div className="flex items-center justify-end gap-2">
                       <Link
                         href={item.href}
+                        onClick={() => recordFavouriteOpened(item.id)}
                         aria-label={`Open ${item.title}`}
                         className={cn(
                           "inline-flex h-9 min-w-16 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-2xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
@@ -988,6 +1006,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
             <p className="mt-1 text-2xs font-medium text-[color:var(--text-muted)]">Saved action: {actionLabel}</p>
             <Link
               href={item.href}
+              onClick={() => recordFavouriteOpened(item.id)}
               className={cn(
                 "mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]",
                 focusRing,
@@ -1128,7 +1147,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const items = useMemo(
     () =>
       [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map((item) =>
-        toCommandItem(item, lastOpenedMap, pinnedIds),
+        toCommandItem(item, lastOpenedMap, pinnedIds, demoMode),
       ),
     [demoMode, savedRegistryFavourites, lastOpenedMap, pinnedIds],
   );
@@ -1183,7 +1202,8 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     continueItem !== null && filteredItems.some((item) => item.id === continueItem.id) && filteredItems.length > 0;
   const recentItems = useMemo(
     () =>
-      [...items]
+      items
+        .filter((item) => lastOpenedScore(item.lastUsed) > 1000)
         .sort((first, second) => lastOpenedScore(second.lastUsed) - lastOpenedScore(first.lastUsed))
         .slice(0, recentPreviewLimit),
     [items],
@@ -1347,7 +1367,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
         <div className="mx-auto grid min-w-0 max-w-[40rem] gap-4 px-4 py-8 sm:px-6">
           <header data-testid="favourites-command-library" className="flex min-w-0 flex-wrap items-baseline gap-x-3">
             <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
-              Favourites
+              {sharedHomePresentation.favourites.title}
             </h1>
             <p className="text-pretty text-sm-minus font-medium leading-6 text-[color:var(--text-muted)]">
               Sign up to save favourites and access them across devices.
@@ -1406,7 +1426,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 saying here, and it is not a heading. */}
             <header data-testid="favourites-command-library" className="flex min-w-0 flex-wrap items-baseline gap-x-3">
               <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
-                Favourites
+                {sharedHomePresentation.favourites.title}
               </h1>
               <p className="nums text-sm font-medium text-[color:var(--text-muted)]">
                 {items.length} {items.length === 1 ? "item" : "items"}
@@ -1424,7 +1444,8 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
 
             <DesktopComposerPortalSlot
               id={modeHomeDesktopComposerSlotId}
-              className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
+              data-composer-reserve={modeHomeComposerReservePendingValue}
+              className="mode-home-composer-slot block w-full max-w-3xl min-h-0 data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)] sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] [&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
             />
 
             <SearchResultsHeaderBand

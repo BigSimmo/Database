@@ -62,11 +62,6 @@ function recordsState(
   return { status, records: [], total: 0, verifiedCount: 0, demoMode: false, governance: {}, kind, view, ...extra };
 }
 
-/** Count records whose authoritative validation status is reviewed/approved. */
-export function countVerifiedRegistryRecords(state: RegistryRecordsState) {
-  return state.verifiedCount;
-}
-
 /** Owner-scoped registry list (Services/Forms home and search surfaces). Choose
  *  summary for counts-only homes, search for compact identity matching, and
  *  full for result rendering. Pass enabled:false until the mode is active. */

@@ -68,7 +68,7 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     await expect(mockup.locator("aside").getByRole("heading", { name: "Risk & Safety" })).toBeVisible();
 
     await page.locator('[data-testid="global-search-input"]:visible').fill("");
-    await expect(mockup.getByRole("heading", { level: 1, name: "All" })).toBeVisible();
+    await expect(mockup.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
     const renderedResultCount = await mockup.getByRole("article").count();
     expect(renderedResultCount).toBeGreaterThan(4);
     await expect(mockup.getByText(`${renderedResultCount} tools`, { exact: true })).toBeVisible();
@@ -124,8 +124,14 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     const mockup = await gotoMockup(page, 1440);
     await page.locator('[data-testid="global-search-input"]:visible').fill("");
 
-    await expect(mockup.getByText("14 tools", { exact: true })).toBeVisible();
-    await expect(mockup.locator('section[aria-label="Tool results"] article')).toHaveCount(14);
+    // The claim is self-consistency — the headline count matches the rows actually
+    // rendered — so it reads the rendered count rather than pinning an absolute.
+    // A hard-coded total silently rots the moment the catalogue gains a tool, which
+    // is what "Add Ward Flow" (#2140) did to the 14 this line used to carry.
+    const results = mockup.locator('section[aria-label="Tool results"] article');
+    const rendered = await results.count();
+    expect(rendered, "the unfiltered mockup must render at least one tool").toBeGreaterThan(0);
+    await expect(mockup.getByText(`${rendered} tools`, { exact: true })).toBeVisible();
   });
 
   test("phone keeps results visible until Details opens the preferred bottom sheet", async ({ page }) => {

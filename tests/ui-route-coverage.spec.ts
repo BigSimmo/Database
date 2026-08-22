@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import type { Route } from "playwright-core";
-import { expect, test, type Page } from "playwright/test";
+import { expect, test, type Locator, type Page } from "playwright/test";
 
 import { demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 import { getDifferentialDetailContext, getDifferentialRecord } from "../src/lib/differentials";
@@ -207,6 +207,33 @@ async function expectNoHorizontalOverflow(page: Page) {
     .toBeLessThanOrEqual(2);
 }
 
+/**
+ * `gotoApp` settles on `domcontentloaded` and the ready assertions below read
+ * server-rendered markup, so every one of them can pass before React has
+ * hydrated the route. `toBeEnabled()` does not close that gap — the SSR button
+ * is enabled and clickable while its `onClick` is still absent, and a click
+ * landing in that window is simply dropped, leaving the state attribute at its
+ * server value until the assertion times out. That is how the DSM review-lens
+ * step failed on PR #2211's `Production UI (1)` (run 32470201734), where
+ * `aria-pressed` stayed `"false"` for the full 10s on a single resolved button.
+ * Wait for the handler itself before clicking, the same way `ui-smoke.spec.ts`
+ * and `ui-tools.spec.ts` do.
+ */
+async function waitForReactEventHandler(locator: Locator, eventName: "onChange" | "onClick" | "onSubmit" = "onClick") {
+  await expect
+    .poll(
+      async () =>
+        locator.evaluate((element, reactEventName) => {
+          const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
+          if (!propsKey) return false;
+          const props = (element as unknown as Record<string, Record<string, unknown>>)[propsKey];
+          return typeof props?.[reactEventName] === "function";
+        }, eventName),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+}
+
 async function proveRenderedRoute(
   page: Page,
   path: string,
@@ -249,20 +276,24 @@ test.describe("previously uncovered production routes", () => {
       page,
       "/therapy-compass",
       async (currentPage) => {
+        // `/therapy-compass` redirects onto the shared home, whose per-mode title
+        // is a level-2 heading under the page's sr-only "Clinical Guide" h1.
         await expect(currentPage.getByRole("main")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "Therapy", level: 1, exact: true })).toBeVisible({
+        await expect(currentPage.getByRole("heading", { name: "Therapy", level: 2, exact: true })).toBeVisible({
           timeout: 30_000,
         });
       },
       async (currentPage) => {
-        const search = currentPage
-          .getByRole("region", { name: "Common therapy searches" })
-          .getByRole("button", { name: "Anxiety in outpatient care", exact: true });
-        await expect(search).toBeEnabled();
-        await search.click();
+        // The "Common therapy searches" pills lived on the retired detailed home,
+        // which moved to /mockups when Therapy joined the shared home. The
+        // destination they opened is what this step is really about, so go there:
+        // a submitted therapy search, which is also where the mode nav renders.
+        await currentPage.goto("/therapy-compass/search?q=Anxiety+in+outpatient+care&run=1", {
+          waitUntil: "domcontentloaded",
+        });
         await expect(
           currentPage.getByRole("heading", { name: "Anxiety in outpatient care", level: 1, exact: true }),
-        ).toBeVisible();
+        ).toBeVisible({ timeout: 30_000 });
         await expect(visibleByTestId(currentPage, "search-query-ribbon")).toBeVisible();
         // The common-search pill lands on `/therapy-compass/search`, which is the
         // shared `ModeNav`. It portals into the header collapse host (outside
@@ -374,6 +405,9 @@ test.describe("previously uncovered production routes", () => {
     await expect(page.getByRole("heading", { name: "Therapy Comparison", level: 1 })).toBeVisible();
   });
 
+  // `/dsm` redirects onto the shared home, so the route this proves is the shared
+  // one with DSM preselected. Comparison moved with it: the Compare action was on
+  // the retired detailed home, and its live entry point is the DSM mode nav.
   test("DSM home renders responsively and opens comparison", async ({ page }) => {
     await proveRenderedRoute(
       page,
@@ -382,12 +416,15 @@ test.describe("previously uncovered production routes", () => {
         // Scope to the visible owner: Next streaming can leave a hidden duplicate
         // page root (#093), and bare getByTestId then fails Playwright strict mode
         // (Production UI shard 2 on PR #1729).
-        await expect(visibleByTestId(currentPage, "dsm-home-main")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "DSM-5 Diagnosis", level: 1 })).toBeVisible();
+        await expect(visibleByTestId(currentPage, "shared-home-empty-state")).toBeVisible();
+        await expect(currentPage.getByRole("heading", { name: "DSM-5 Diagnosis", level: 2 })).toBeVisible();
       },
       async (currentPage) => {
-        const compare = visibleByTestId(currentPage, "dsm-home-compare");
-        await expect(compare).toBeEnabled();
+        await currentPage.goto("/dsm/search?q=major+depressive&run=1", { waitUntil: "domcontentloaded" });
+        const compare = currentPage
+          .getByRole("navigation", { name: "DSM-5 Diagnosis pages" })
+          .getByRole("link", { name: "Compare", exact: true });
+        await expect(compare).toBeVisible();
         await compare.click();
         await expect(currentPage).toHaveURL(/\/dsm\/compare$/);
         await expect(currentPage.getByRole("heading", { name: "Compare DSM diagnoses", level: 1 })).toBeVisible();
@@ -414,6 +451,14 @@ test.describe("previously uncovered production routes", () => {
           name: "Remove Major depressive disorder from comparison",
         });
         await expect(remove).toBeEnabled();
+        // `DsmCompareRemoveLink` is a `<Link>` whose `onClick` calls
+        // `preventDefault()` and then `window.location.assign(href)`. Before
+        // hydration the anchor is a bare `<a href>`, so a click there races two
+        // different navigations — the browser's native one, or React capturing
+        // the discrete event for replay once the root hydrates — and neither is
+        // guaranteed to leave the URL where this step asserts it. Waiting for
+        // the handler makes the assign hop the only path the click can take.
+        await waitForReactEventHandler(remove);
         await Promise.all([
           currentPage.waitForURL(/\/dsm\/compare\?ids=bipolar-ii-disorder$/, {
             timeout: 30_000,
@@ -437,6 +482,7 @@ test.describe("previously uncovered production routes", () => {
       async (currentPage) => {
         const medicalLens = currentPage.getByRole("button", { name: /Substance \/ medical/ });
         await expect(medicalLens).toBeEnabled();
+        await waitForReactEventHandler(medicalLens);
         await medicalLens.click();
         await expect(medicalLens).toHaveAttribute("aria-pressed", "true");
       },
@@ -458,6 +504,7 @@ test.describe("previously uncovered production routes", () => {
         const before = await selects.evaluateAll((items) => items.map((item) => (item as HTMLSelectElement).value));
         const swap = currentPage.getByRole("button", { name: "Swap compared specifiers" });
         await expect(swap).toBeEnabled();
+        await waitForReactEventHandler(swap);
         await swap.click();
         await expect
           .poll(() => selects.evaluateAll((items) => items.map((item) => (item as HTMLSelectElement).value)))
@@ -477,12 +524,14 @@ test.describe("previously uncovered production routes", () => {
       },
       async (currentPage) => {
         const courseJump = currentPage.getByTestId("specifier-map-jump-course-onset");
+        await waitForReactEventHandler(courseJump);
         await courseJump.click();
         await expect(courseJump).toHaveAttribute("aria-current", "true");
         await expect(currentPage).toHaveURL(/#course-onset$/);
 
         const mixedFeatures = currentPage.getByRole("button", { name: "Mixed features" });
         await expect(mixedFeatures).toBeEnabled();
+        await waitForReactEventHandler(mixedFeatures);
         await mixedFeatures.click();
         await expect(mixedFeatures).toHaveAttribute("aria-pressed", "true");
         await expect(currentPage.getByRole("heading", { name: "Mixed features", level: 2 })).toBeVisible();

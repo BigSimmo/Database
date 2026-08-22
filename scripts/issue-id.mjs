@@ -54,8 +54,14 @@ export function canonicalLegacyIssueId(number) {
   return `#${String(number).padStart(3, "0")}`;
 }
 
+export function normalizeIssueDisplayId(value) {
+  const trimmed = String(value ?? "").trim();
+  if (LEGACY_ISSUE_ID_PATTERN.test(trimmed)) return trimmed;
+  return trimmed.toUpperCase();
+}
+
 export function isIssueDisplayId(value) {
-  const id = String(value ?? "");
+  const id = normalizeIssueDisplayId(value);
   if (DISPLAY_ISSUE_ID_PATTERN.test(id)) return true;
   if (!LEGACY_ISSUE_ID_PATTERN.test(id)) return false;
   const number = Number(id.slice(1));

@@ -90,9 +90,12 @@ src/components/dsm/dsm-page-header.tsx
 src/components/clinical-dashboard/search-results-header-band.tsx
 ```
 
-`PageHeader` and `Breadcrumb` have **zero** product mounts; `InformationPageHeader`
-(`information-page-shell.tsx`) is defined but unused. Adoption converges the hand-rolled
-headers onto `PageHeader` + `Breadcrumb`.
+`InformationPageHeader` (`information-page-shell.tsx`) is defined but unused. `PageHeader`
+is no longer unmounted: ten product files render it — eight under
+`therapy-compass/` (the workspace and its seven screens), `privacy-quiet-signal-page.tsx`, and
+`dsm/dsm-page-header.tsx`, which renders it alongside `InformationPageBreadcrumbs`. `Breadcrumb` is rendered by
+`ui/page-header.tsx` and `information-page-shell.tsx`. Adoption converges the remaining
+hand-rolled headers onto `PageHeader` + `Breadcrumb`.
 
 **Explicitly NOT in the headers allowlist**, despite being header-adjacent:
 `global-search-shell.tsx`, `shared-search-app-shell.tsx`, `master-search-header.tsx`,
@@ -301,7 +304,7 @@ held with the wave's prep material; the files are the contract here.
 
 | Surface    | Pin files                                                                                                                                                                                                                                                                                                                                                      |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| forms      | `tests/ui-tools.spec.ts` (forms home/results/detail) · `tests/forms-back-navigation.dom.test.tsx` · `tests/information-page-shell.dom.test.tsx` · `tests/patient-profile-panel.dom.test.tsx` · `tests/settings-inert-preferences.dom.test.tsx` · `tests/upload-size-precheck.dom.test.tsx` · `tests/ui-v2-form-field.dom.test.tsx`                             |
+| forms      | `tests/ui-tools.spec.ts` (forms home/results/detail) · `tests/forms-back-navigation.dom.test.tsx` · `tests/information-page-shell.dom.test.tsx` · `tests/patient-profile-panel.dom.test.tsx` · `tests/settings-inert-preferences.dom.test.tsx` · `tests/ui-v2-form-field.dom.test.tsx`                                                                         |
 | headers    | `tests/search-results-header-band.dom.test.tsx` · `tests/header-scroll-hide-contract.test.ts` · `tests/ui-style-contract.spec.ts` + `tests/helpers/style-contracts.ts` · `tests/ui-route-coverage.spec.ts`                                                                                                                                                     |
 | catalogues | `tests/ui-tools.spec.ts` (services/differentials) · `tests/ui-specifiers.spec.ts` · `tests/ui-formulation.spec.ts` · `tests/ui-route-coverage.spec.ts` · `tests/registry-retry.dom.test.tsx` · `tests/page-secondary-navigation.dom.test.tsx`                                                                                                                  |
 | docs       | `tests/document-filter-panel.dom.test.tsx` · `tests/document-search-record-fault.dom.test.tsx` · `tests/document-clinical-summary.dom.test.tsx` · `tests/document-section-nav.dom.test.tsx` · `tests/document-section-summary.dom.test.tsx` · `tests/document-section-nav-contract.test.ts` · `tests/ui-smoke.spec.ts` (documents)                             |
@@ -334,15 +337,13 @@ chrome differs between them.
 This PR records executable evidence rather than committing image baselines. The generated adoption
 manifest remains `baseline: not-committed`, and no Playwright snapshot PNG is an adoption claim.
 
-| Surface          | Current adopted evidence                                                                                                                                                                                                                                                                                                                                                                                   | Focused owner/check                                                                                                                 |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| forms            | `FormField` is mounted by `TextField`/`Select`/`Checkbox`/`RadioGroup`; required labels carry a text marker and optional labels remain unmarked; validation errors associate via `aria-describedby`; form state is preserved across back-navigation.                                                                                                                                                       | `tests/ui-v2-form-field.dom.test.tsx`, `tests/forms-back-navigation.dom.test.tsx`                                                   |
-| catalogues       | Shared search, sort, and filter action bars across Differentials, Formulations, and Specifiers are standardized under `<CatalogueToolbar />`; shared mode status notices delegate to DS `EmptyState`; therapy loading/empty wrappers delegate to `LoadingPanel`/`EmptyState`; differential and favourites chip wrappers delegate to DS `Chip` while retaining their surface-specific density/tone mapping. | `tests/design-system-target-evidence.test.ts`, `tests/catalogue-toolbar.dom.test.tsx`, `tests/mode-home-status-notice.dom.test.tsx` |
-| docs             | `DocumentFrame` serves as single canonical viewing chrome across document details and viewer surfaces; document section nav supports keyboard & anchor navigation; document search filter shelf and clinical summary toggle are integrated.                                                                                                                                                                | `tests/document-section-nav.dom.test.tsx`, `tests/document-frame-contract.test.ts`                                                  |
-| provenance       | `DoseLine` and `AnswerFooter` wire source provenance badges (`SourceDesignationBadge`, `SourceStatusBadge`, `SourceProvenance`) so dose rows, guideline citations, and answer footer strips display source authority and currency cleanly when metadata is present in the payload.                                                                                                                         | `tests/dose-line.dom.test.tsx`, `tests/ui-v2-answer-safety.dom.test.tsx`                                                            |
-| overlays         | `Sheet` portals to `OverlayRoot`'s modal host by default. Settings, the mobile Clinical Guide sidebar, and the three answer-review sheets use that default; none opts out with `portal={false}`.                                                                                                                                                                                                           | `tests/sheet.dom.test.tsx`, `tests/design-system-target-evidence.test.ts`                                                           |
-| answer           | The three product copy paths share the payload builder described in §2.6; answer-review overlays retain their existing content, dismissal, and focus-return props while using the portal default.                                                                                                                                                                                                          | `tests/answer-copy-payload.test.ts`, `tests/answer-clipboard-product-path.dom.test.tsx`                                             |
-| cross-mode links | `responsive-compact` deliberately mounts a phone chip rail and an `md+` card rail so SSR and hydration agree. CSS makes only one rail visible/in the accessibility tree; selectors and analytics must target the variant rail, while `cross-mode-links-rail` remains the phone-only contract.                                                                                                              | `tests/design-system-target-evidence.test.ts`, focused `tests/ui-smoke.spec.ts` CrossModeLinks journeys                             |
+| Surface            | Current adopted evidence                                                                                                                                                                                                                                                                      | Focused owner/check                                                                                     |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| forms              | `FormField` is mounted by `TextField`/`Select`; required labels carry a text marker and optional labels remain unmarked.                                                                                                                                                                      | `tests/ui-v2-form-field.dom.test.tsx`                                                                   |
+| headers/catalogues | Shared mode status notices now delegate to DS `EmptyState`; therapy loading/empty wrappers delegate to `LoadingPanel`/`EmptyState`; differential and favourites chip wrappers delegate to DS `Chip` while retaining their surface-specific density/tone mapping.                              | `tests/design-system-target-evidence.test.ts`, `tests/mode-home-status-notice.dom.test.tsx`             |
+| overlays           | `Sheet` portals to `OverlayRoot`'s modal host by default. Settings, the mobile Clinical Guide sidebar, and the three answer-review sheets use that default; none opts out with `portal={false}`.                                                                                              | `tests/sheet.dom.test.tsx`, `tests/design-system-target-evidence.test.ts`                               |
+| answer             | The three product copy paths share the payload builder described in §2.6; answer-review overlays retain their existing content, dismissal, and focus-return props while using the portal default.                                                                                             | `tests/answer-copy-payload.test.ts`, `tests/answer-clipboard-product-path.dom.test.tsx`                 |
+| cross-mode links   | `responsive-compact` deliberately mounts a phone chip rail and an `md+` card rail so SSR and hydration agree. CSS makes only one rail visible/in the accessibility tree; selectors and analytics must target the variant rail, while `cross-mode-links-rail` remains the phone-only contract. | `tests/design-system-target-evidence.test.ts`, focused `tests/ui-smoke.spec.ts` CrossModeLinks journeys |
 
 **Residual evidence requirement.** Static and DOM checks establish portal ownership and preserve
 focus-return inputs, but they do not prove every nested overlay's keyboard sequence in a real browser.
@@ -361,12 +362,12 @@ product exclusions; the only route-only disposition is the documented legacy doc
 redirect. Shared shell/component roots carry their own explicit `shared-shell` disposition.
 
 Registered public components: 54
-Declared product roots: 68
+Declared product roots: 89
 Roots with a literal `.ckb-v2` opt-in: 1
-Roots inheriting `.ckb-v2` from the global `<html>`: 67
-Production surfaces observed under v2: 15/15
+Roots inheriting `.ckb-v2` from the global `<html>`: 88
+Production surfaces observed under v2: 16/16
 Dynamic `ckb-v2` constructions: 0
-Declared production page routes: 60/60
+Declared production page routes: 76/76
 
 Source observation and contract declaration are independent. A literal `ckb-v2` on the global `<html>` makes every production surface inherit v2, but it does not approve that adoption.
 The Proof column summarizes each surface's dark, forced-colours, 320px, print and browser declarations; exact statuses and evidence paths live in the manifest.
@@ -375,16 +376,17 @@ Observed v2 under a compatibility declaration fails closed. A declared v2 shell 
 | Surface                            | Disposition     | Routes | Roots | Declared shell | Observed shell (mount)     | Proof          | Baseline       |
 | ---------------------------------- | --------------- | -----: | ----: | -------------- | -------------------------- | -------------- | -------------- |
 | `root-shell-and-settings`          | shared-shell    |      3 |     6 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `catalogues-forms-and-info`        | owned           |     21 |    21 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `differentials`                    | owned           |      6 |     6 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `formulation`                      | owned           |      5 |     5 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `specifiers`                       | owned           |      5 |     5 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `catalogues-forms-and-info`        | owned           |     23 |    23 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `differentials`                    | owned           |      7 |     7 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `formulation`                      | owned           |      6 |     6 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `specifiers`                       | owned           |      6 |     6 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `therapy-compass`                  | owned           |      9 |    10 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `documents-and-source-evidence`    | owned           |      3 |     4 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `documents-source-legacy-redirect` | legacy-redirect |      1 |     0 | v2             | v2 (inherited-global-root) | not-applicable | not-applicable |
 | `favourites`                       | owned           |      1 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `tools-and-calculators`            | owned           |      2 |     2 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `tools-and-calculators`            | owned           |      3 |     3 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `caring-contacts-workspace`        | owned           |      1 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `ward-management`                  | owned           |     10 |    15 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `privacy-safety-and-reference`     | owned           |      3 |     3 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `search-results-shared`            | shared-shell    |      0 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `answers-shared`                   | shared-shell    |      0 |     2 | v2             | v2 (inherited-global-root) | passed         | not-committed  |

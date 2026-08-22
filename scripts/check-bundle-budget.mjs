@@ -155,15 +155,26 @@ export function measureChunkPaths(paths, readFile = readFileSync) {
 /**
  * Pure comparison. Returns { status: "ok"|"warn"|"fail", overPct, ... }.
  * - no baseline → "warn" (nothing to compare yet).
- * - within tolerance → "ok".
+ * - within tolerance and over warnTolerancePct → "warn" (drift warning below hard ceiling).
+ * - within tolerance and within warnTolerancePct → "ok".
  * - over tolerance → "fail" if enforcing, else "warn".
  */
 export function compareToBudget(current, budget) {
   const baseline = budget?.totalGzipBytes ?? null;
   const tolerancePct = budget?.tolerancePct ?? 10;
+  const warnTolerancePct = typeof budget?.warnTolerancePct === "number" ? budget.warnTolerancePct : null;
   const enforce = Boolean(budget?.enforce);
   if (baseline == null) {
-    return { status: "warn", reason: "no baseline recorded", overPct: null, baseline, tolerancePct, enforce };
+    return {
+      status: "warn",
+      reason: "no baseline recorded",
+      overPct: null,
+      baseline,
+      tolerancePct,
+      warnTolerancePct,
+      enforce,
+      isDriftWarning: false,
+    };
   }
   // A zero baseline is valid (e.g. `--update` after a build with no mockup-exclusive
   // chunks). `(0 - 0) / 0` is NaN and would permanently fail an unchanged empty
@@ -175,14 +186,45 @@ export function compareToBudget(current, budget) {
         : Number.POSITIVE_INFINITY
       : ((current.totalGzipBytes - baseline) / baseline) * 100;
   const withinTolerance = Number.isFinite(overPct) && overPct <= tolerancePct;
+  const isDriftWarning =
+    withinTolerance && warnTolerancePct !== null && Number.isFinite(overPct) && overPct > warnTolerancePct;
   const overPctLabel = Number.isFinite(overPct) ? overPct.toFixed(1) : "∞";
+
+  if (!withinTolerance) {
+    return {
+      status: enforce ? "fail" : "warn",
+      reason: `+${overPctLabel}% vs baseline (tolerance ${tolerancePct}%)`,
+      overPct,
+      baseline,
+      tolerancePct,
+      warnTolerancePct,
+      enforce,
+      isDriftWarning: false,
+    };
+  }
+
+  if (isDriftWarning) {
+    return {
+      status: "warn",
+      reason: `+${overPctLabel}% vs baseline (drift warning > ${warnTolerancePct}%, tolerance ${tolerancePct}%)`,
+      overPct,
+      baseline,
+      tolerancePct,
+      warnTolerancePct,
+      enforce,
+      isDriftWarning: true,
+    };
+  }
+
   return {
-    status: withinTolerance ? "ok" : enforce ? "fail" : "warn",
-    reason: withinTolerance ? "within tolerance" : `+${overPctLabel}% vs baseline (tolerance ${tolerancePct}%)`,
+    status: "ok",
+    reason: "within tolerance",
     overPct,
     baseline,
     tolerancePct,
+    warnTolerancePct,
     enforce,
+    isDriftWarning: false,
   };
 }
 
@@ -407,6 +449,35 @@ export function resolveBaselineSource(environment = process.env, readHead = read
   return null;
 }
 
+export const STALE_BASELINE_COMMIT_DISTANCE_THRESHOLD = 50;
+
+/**
+ * Resolve commit distance between baseline SHA and current Git HEAD.
+ * @param {string | null | undefined} baselineSha
+ * @param {string} [cwd]
+ * @param {typeof execFileSync} [exec]
+ * @returns {number | null}
+ */
+export function resolveBaselineCommitDistance(baselineSha, cwd = root, exec = execFileSync) {
+  if (!baselineSha || typeof baselineSha !== "string" || !/^[0-9a-f]{40}$/i.test(baselineSha.trim())) {
+    return null;
+  }
+  try {
+    const raw = exec("git", ["-C", cwd, "rev-list", "--count", `${baselineSha.trim().toLowerCase()}..HEAD`], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    const count = typeof raw === "string" ? raw.trim() : "";
+    if (!/^\d+$/.test(count)) {
+      return null;
+    }
+    const n = Number.parseInt(count, 10);
+    return Number.isSafeInteger(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Injectable stdio/timer/exit surface for {@link exitProcess}. Defaults match
  * Node's process helpers; tests pass narrow mocks. Typed via JSDoc so Vitest
@@ -473,8 +544,98 @@ function isMainModule() {
   }
 }
 
+export function selfTest() {
+  const failures = [];
+  const check = (label, condition) => {
+    if (!condition) failures.push(label);
+  };
+
+  // compareToBudget
+  const okVerdict = compareToBudget(
+    { totalGzipBytes: 1000 },
+    { enforce: true, tolerancePct: 10, totalGzipBytes: 1000 },
+  );
+  check("compareToBudget: exact baseline is ok", okVerdict.status === "ok" && !okVerdict.isDriftWarning);
+
+  const driftVerdict = compareToBudget(
+    { totalGzipBytes: 1060 },
+    { enforce: true, tolerancePct: 10, warnTolerancePct: 5, totalGzipBytes: 1000 },
+  );
+  check(
+    "compareToBudget: 6% growth triggers drift warning",
+    driftVerdict.status === "warn" && driftVerdict.isDriftWarning,
+  );
+
+  const failVerdict = compareToBudget(
+    { totalGzipBytes: 1150 },
+    { enforce: true, tolerancePct: 10, warnTolerancePct: 5, totalGzipBytes: 1000 },
+  );
+  check(
+    "compareToBudget: 15% growth fails when enforcing",
+    failVerdict.status === "fail" && !failVerdict.isDriftWarning,
+  );
+
+  const noBaselineVerdict = compareToBudget({ totalGzipBytes: 1000 }, { enforce: true, totalGzipBytes: null });
+  check(
+    "compareToBudget: no baseline warns",
+    noBaselineVerdict.status === "warn" && noBaselineVerdict.baseline === null,
+  );
+
+  const zeroBaselineOk = compareToBudget({ totalGzipBytes: 0 }, { enforce: true, tolerancePct: 10, totalGzipBytes: 0 });
+  check("compareToBudget: zero baseline unchanged is ok", zeroBaselineOk.status === "ok");
+
+  const zeroBaselineGrew = compareToBudget(
+    { totalGzipBytes: 50 },
+    { enforce: true, tolerancePct: 10, totalGzipBytes: 0 },
+  );
+  check("compareToBudget: zero baseline growth fails", zeroBaselineGrew.status === "fail");
+
+  // resolveBaselineCommitDistance
+  const nullSha = resolveBaselineCommitDistance("not-a-sha");
+  check("resolveBaselineCommitDistance: invalid sha returns null", nullSha === null);
+
+  const nonNumericExec = () => "12trailing\n";
+  const nonNumeric = resolveBaselineCommitDistance("a".repeat(40), root, nonNumericExec);
+  check("resolveBaselineCommitDistance: non-numeric count returns null", nonNumeric === null);
+
+  const mockExec = () => "12\n";
+  const distance = resolveBaselineCommitDistance("a".repeat(40), root, mockExec);
+  check("resolveBaselineCommitDistance: mock exec returns count", distance === 12);
+
+  // measureChunks
+  const m = measureChunks([{ name: "test.js", buffer: Buffer.from("console.log('hello');") }]);
+  check("measureChunks: measures files", m.files === 1 && m.totalRawBytes > 0 && m.totalGzipBytes > 0);
+
+  // normalizeManifestRoute
+  check("normalizeManifestRoute: /page -> /", normalizeManifestRoute("/page") === "/");
+  check(
+    "normalizeManifestRoute: /(group)/route/page -> /route",
+    normalizeManifestRoute("/(group)/route/page") === "/route",
+  );
+
+  // clientRouteAndChunkNamesFromManifestSource
+  const manifestSrc = 'globalThis.__RSC_MANIFEST["/page"]={"clientModules":{"a":{"chunks":["static/chunks/a.js"]}}};';
+  const parsed = clientRouteAndChunkNamesFromManifestSource(manifestSrc);
+  check(
+    "clientRouteAndChunkNamesFromManifestSource parses chunks",
+    parsed && parsed.route === "/" && parsed.chunks.has("a.js"),
+  );
+
+  if (failures.length > 0) {
+    console.error("[bundle-budget] self-test FAILED:");
+    for (const f of failures) console.error(`  - ${f}`);
+    return 1;
+  }
+  console.log("[bundle-budget] self-test passed.");
+  return 0;
+}
+
 /** Run the check. Returns the process exit code (does not exit by itself). */
 export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
+  if (argv.includes("--self-test")) {
+    return selfTest();
+  }
+
   const asJson = argv.includes("--json");
   const update = argv.includes("--update");
 
@@ -601,6 +762,7 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
     {
       totalGzipBytes: budget?.production?.gzipBytes ?? null,
       tolerancePct: budget?.production?.tolerancePct ?? 10,
+      warnTolerancePct: budget?.production?.warnTolerancePct ?? 5,
       enforce,
     },
   );
@@ -609,7 +771,12 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
   // which is worse than no gate. It is always reported, enforced only on a jump.
   const mockupVerdict = compareToBudget(
     { totalGzipBytes: mockupGzipBytes },
-    { totalGzipBytes: budget?.mockups?.gzipBytes ?? null, tolerancePct: budget?.mockups?.tolerancePct ?? 25, enforce },
+    {
+      totalGzipBytes: budget?.mockups?.gzipBytes ?? null,
+      tolerancePct: budget?.mockups?.tolerancePct ?? 25,
+      warnTolerancePct: budget?.mockups?.warnTolerancePct ?? 15,
+      enforce,
+    },
   );
   const routeVerdicts = Object.fromEntries(
     Object.entries(routeMeasurements.measured).map(([route, measurement]) => [
@@ -619,17 +786,25 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
         {
           totalGzipBytes: budget?.routes?.[route]?.gzipBytes ?? null,
           tolerancePct: budget?.routes?.[route]?.tolerancePct ?? 10,
+          warnTolerancePct: budget?.routes?.[route]?.warnTolerancePct ?? 5,
           enforce,
         },
       ),
     ]),
   );
 
+  const baselineSource = budget?.baselineSource ?? null;
+  const baselineCommitDistance = resolveBaselineCommitDistance(baselineSource, root);
+  const baselineDistanceText =
+    baselineCommitDistance !== null ? `${baselineCommitDistance} commit(s) behind HEAD` : "distance unresolvable";
+
   if (asJson) {
     console.log(
       JSON.stringify(
         {
           current: { ...current, measured: undefined },
+          baselineSource,
+          baselineCommitDistance,
           production: { gzipBytes: productionGzipBytes, verdict: productionVerdict },
           mockups: {
             gzipBytes: mockupGzipBytes,
@@ -651,7 +826,8 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
     );
   } else {
     console.log(
-      `[bundle-budget] client chunks: ${current.files} files, ${kb(current.totalGzipBytes)} gzip (${kb(current.totalRawBytes)} raw) across ${routeCount} routes.`,
+      `[bundle-budget] client chunks: ${current.files} files, ${kb(current.totalGzipBytes)} gzip (${kb(current.totalRawBytes)} raw) across ${routeCount} routes.` +
+        (baselineSource ? ` Baseline commit: ${baselineSource.slice(0, 12)} (${baselineDistanceText}).` : ""),
     );
     // Say which question each number answers — the ambiguity these two lines
     // remove is the whole point of splitting the budget (`#013`/`#252`).
@@ -674,6 +850,15 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
           (verdict.baseline != null
             ? ` — baseline ${kb(verdict.baseline)}, ${verdict.reason}.`
             : " — no baseline recorded."),
+      );
+    }
+    if (
+      baselineSource &&
+      baselineCommitDistance !== null &&
+      baselineCommitDistance > STALE_BASELINE_COMMIT_DISTANCE_THRESHOLD
+    ) {
+      console.warn(
+        `[bundle-budget] WARN (stale baseline) — baseline commit ${baselineSource.slice(0, 12)} is ${baselineCommitDistance} commits behind HEAD (staleness threshold: ${STALE_BASELINE_COMMIT_DISTANCE_THRESHOLD}). Consider refreshing with \`npm run check:bundle-budget -- --update\`.`,
       );
     }
     console.log("[bundle-budget] largest chunks (gzip):");
@@ -713,6 +898,8 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
       console.log(
         `[bundle-budget] warn-only: no ${label} baseline — capture one with --update after a known-good build, then set enforce:true.`,
       );
+    } else if (verdict.isDriftWarning) {
+      console.warn(`[bundle-budget] WARN (drift warning) — ${label} ${verdict.reason}.`);
     } else {
       console.warn(`[bundle-budget] WARN (not enforced) — ${label} ${verdict.reason}.`);
     }

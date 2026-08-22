@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -267,11 +267,17 @@ describe("DifferentialsHome compare selection URL handoff", () => {
     expect(bestMatch).not.toHaveClass("border-[color:var(--success-border)]");
 
     const resultRow = screen.getByTestId("differential-compact-result");
-    const clinicalCue = alphabeticalFirst!.currentPresentation.find((cue) => cue.trim());
+    const clinicalCues = alphabeticalFirst!.currentPresentation
+      .flatMap((value) => value.split(/\s*\/\s*/))
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .slice(0, 4);
     const investigation = alphabeticalFirst!.investigations.find((step) => step.trim());
-    expect(clinicalCue).toBeTruthy();
+    expect(clinicalCues).not.toHaveLength(0);
     expect(investigation).toBeTruthy();
-    expect(resultRow).toHaveTextContent(clinicalCue!.replaceAll("/", " / ").replace(/\s+/g, " ").trim().toLowerCase());
+    for (const cue of clinicalCues) {
+      expect(within(resultRow).getByText(cue, { exact: false })).toBeInTheDocument();
+    }
     expect(resultRow).not.toHaveTextContent(investigation!);
 
     await act(async () => {
@@ -332,6 +338,23 @@ describe("DifferentialsHome compare selection URL handoff", () => {
 
     await screen.findByTestId("differential-best-match-card");
     expect(screen.queryAllByTestId("differential-best-match-panel")).toHaveLength(0);
+  });
+
+  it("does not claim catalogue results exist when the catalogue fails or returns no matches", async () => {
+    catalogState.status = "error";
+    const { rerender } = render(
+      <DifferentialsHome query="Pain" loading={false} searchSubmitted onRunSearch={vi.fn()} />,
+    );
+
+    expect(screen.getByTestId("differentials-source-status")).toHaveTextContent(
+      "Indexed sources have not been checked",
+    );
+    expect(screen.queryByText(/showing reviewed catalogue results/i)).not.toBeInTheDocument();
+
+    catalogState.status = "ready";
+    rerender(<DifferentialsHome query="Pain" loading={false} searchSubmitted onRunSearch={vi.fn()} />);
+
+    expect(screen.queryByText(/showing reviewed catalogue results/i)).not.toBeInTheDocument();
   });
 
   it("renders duplicate clinical cues without duplicate React keys", async () => {

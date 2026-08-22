@@ -4,9 +4,12 @@ import { describe, expect, it } from "vitest";
 
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
+import { consolidatedModeHomeModeIds } from "@/lib/consolidated-mode-home-redirect";
+
 import {
   isAlwaysStandaloneShellPath,
   isDashboardModeHref,
+  dashboardOwnedModeHomeModeId,
   isDashboardOwnedModeHomePath,
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
@@ -57,26 +60,49 @@ describe("shared-search route ownership", () => {
   });
 
   it("classifies standalone mode homes from pathname alone", () => {
-    for (const pathname of [
-      "/services",
-      "/forms",
-      "/favourites",
-      "/differentials",
-      "/dsm",
-      "/specifiers",
-      "/formulation",
-      "/factsheets",
-      "/therapy-compass",
-      "/tools",
-      "/calculators",
-      "/documents",
-      "/medications",
-    ]) {
+    for (const pathname of ["/favourites", "/tools", "/medications", "/documents"]) {
       expect(isStandaloneModeHomePath(pathname)).toBe(true);
     }
     expect(isStandaloneModeHomePath("/")).toBe(false);
     expect(isStandaloneModeHomePath("/services/crisis")).toBe(false);
     expect(isStandaloneModeHomePath("/dsm/search")).toBe(false);
+  });
+
+  /*
+   * Consolidated modes own no composer at their bare path.
+   *
+   * The ten consolidated modes no longer render a home of their own —
+   * they redirect onto the one shared home at `/?mode=<id>`, whose composer the
+   * dashboard owns. Claiming standalone ownership for a path that renders nothing
+   * would reserve hero composer geometry on a route that never paints, so these
+   * must classify false while their SUB-routes keep standalone shell treatment.
+   */
+  it("does not claim composer ownership for consolidated mode homes", () => {
+    for (const modeId of consolidatedModeHomeModeIds) {
+      expect(isStandaloneModeHomePath(`/${modeId}`)).toBe(false);
+    }
+    // Each namespace still needs the standalone shell for its own sub-routes.
+    for (const modeId of consolidatedModeHomeModeIds) {
+      expect(isAlwaysStandaloneShellPath(`/${modeId}`)).toBe(true);
+    }
+  });
+
+  /*
+   * A dashboard-owned mode home names its mode through the pathname, not `?mode=`.
+   * ClinicalDashboard's `?mode=` sync returns early without that parameter, and the
+   * dashboard stays mounted across a client navigation onto `/documents` (unlike
+   * /tools, /favourites and /medications, which are always-standalone and remount).
+   * So the pathname is the only thing that can tell it which mode it is now — with
+   * it missing, clicking Documents in the sidebar moved the URL while the header
+   * and highlight stayed on the previous mode.
+   */
+  it("names the mode behind a dashboard-owned mode home", () => {
+    expect(dashboardOwnedModeHomeModeId("/documents")).toBe("documents");
+    for (const pathname of ["/", "/tools", "/favourites", "/medications", "/documents/search", "/?mode=documents"]) {
+      expect(dashboardOwnedModeHomeModeId(pathname), pathname).toBeNull();
+    }
+    // Every path it names must also be one the dashboard actually renders.
+    expect(isDashboardOwnedModeHomePath("/documents")).toBe(true);
   });
 
   it("marks route-owned namespaced paths as always-standalone shell (no searchParams gate)", () => {
@@ -160,7 +186,7 @@ describe("shared-search route ownership", () => {
     expect(shellSource).toMatch(/main\.scrollTop = 0[\s\S]*\}, \[pathname\]\)/);
   });
 
-  it("reserves home geometry without inflating the header while the hero portal attaches", () => {
+  it("reserves home and desktop geometry without inflating the header while the portal attaches", () => {
     const headerSource = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/master-search-header.tsx"),
       "utf8",
@@ -170,6 +196,11 @@ describe("shared-search route ownership", () => {
     expect(headerSource).toMatch(
       /const homePortalPending =\s*Boolean\(desktopHomeComposerSlotId\) && homeComposerMediaEligible && !desktopComposerPortalFallback/,
     );
+    expect(headerSource).toContain("const portalPending = homePortalPending;");
+    expect(headerSource).toMatch(
+      /const isPageDesktopComposerPending =\s*isDefaultComposer && Boolean\(desktopPageComposerSlotId\) && !desktopComposerPortalFallback/,
+    );
+    expect(headerSource).toContain('isPageDesktopComposerPending && "sm:hidden"');
     expect(headerSource).toContain("setHomeComposerMediaEligible(mediaQuery.matches)");
     expect(headerSource).toContain("const portalFallbackDelayMs = 8_000");
     expect(headerSource).toContain("let portalFailureStartedAt: number | null = null");
@@ -179,7 +210,7 @@ describe("shared-search route ownership", () => {
     expect(headerSource).not.toContain("portalRetryStartedAt");
     expect(headerSource).not.toContain("portalRetryCount");
     expect(headerSource).toMatch(
-      /desktopComposerPortalActive && desktopComposerPortalHost\s*\?\s*null\s*:\s*homePortalPending\s*\?\s*null\s*:\s*renderSearchComposer\("default"\)/,
+      /desktopComposerPortalActive && desktopComposerPortalHost\s*\?\s*null\s*:\s*portalPending\s*\?\s*null\s*:\s*renderSearchComposer\("default"\)/,
     );
     expect(headerSource).toContain("setDesktopComposerPortalFallback(true)");
   });
@@ -191,6 +222,22 @@ describe("shared-search route ownership", () => {
     );
     const slotSource = readFileSync(resolve(process.cwd(), "src/components/desktop-composer-portal-slot.tsx"), "utf8");
     const homeTemplateSource = readFileSync(resolve(process.cwd(), "src/components/mode-home-template.tsx"), "utf8");
+    const favouritesPageSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/favourites-command-library-page.tsx"),
+      "utf8",
+    );
+    const favouritesHubSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/favourites-hub.tsx"),
+      "utf8",
+    );
+    const toolsPageSource = readFileSync(
+      resolve(process.cwd(), "src/components/tools/tools-search-results-page.tsx"),
+      "utf8",
+    );
+    const shellSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
+      "utf8",
+    );
     const globalsSource = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
     const composerLibSource = readFileSync(resolve(process.cwd(), "src/lib/mode-home-composer.ts"), "utf8");
     expect(composerLibSource).toContain('desktopComposerSlotReadyAttr = "data-composer-slot-ready"');
@@ -209,12 +256,35 @@ describe("shared-search route ownership", () => {
     );
     expect(homeTemplateSource).toContain("[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)]");
     expect(homeTemplateSource).not.toContain("mode-home-composer-slot hidden");
+
+    // Bespoke mode homes (favourites and tools) satisfy Chrome Invariant 15 with pending reserve & min-h tokens
+    for (const bespokeSource of [favouritesPageSource, favouritesHubSource, toolsPageSource]) {
+      expect(bespokeSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
+      expect(bespokeSource).toContain(
+        "data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)]",
+      );
+      expect(bespokeSource).toContain(
+        "sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)]",
+      );
+      expect(bespokeSource).toContain("[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)]");
+      expect(bespokeSource).toContain("sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]");
+    }
+
+    // Desktop page composer slot in GlobalSearchShell reserves height to avoid 0.118 CLS layout jump
+    expect(shellSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
+    expect(shellSource).toContain("sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)]");
+    expect(shellSource).toContain("sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]");
+
     // Unconditional always-on reserve would leave a permanent empty band when
     // the portal never adopts; pending/filled gating is the CLS-safe contract.
     expect(homeTemplateSource).not.toMatch(
       /mode-home-composer-slot block min-h-\[var\(--spacing-mode-home-composer-phone\)\]/,
     );
-    expect(globalsSource).toContain("--spacing-mode-home-composer-phone: 6.625rem");
+    // 162px: the settled phone composer block, measured across six mode homes.
+    // It must equal that height, not merely be non-zero — a reserve short of the
+    // settled height is what shifted the action/pill stacks on adoption, and a
+    // reserve above it would leave a permanent empty band.
+    expect(globalsSource).toContain("--spacing-mode-home-composer-phone: 10.125rem");
     expect(globalsSource).toContain("--spacing-mode-home-composer-wide: 5.5rem");
   });
 
@@ -352,8 +422,54 @@ describe("shared-search route ownership", () => {
     expect(seedEffect).toMatch(/focus: searchParams\.get\("focus"\) === "1"/);
     expect(seedEffect).toContain("scopeFilters: navigationContext.scopeFilters");
     expect(seedEffect).toContain("Settings landing view also wins over last-mode");
-    expect(readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8")).toContain(
-      "useHomeModeSeed({ pathname, searchParams, lastAppMode })",
+    // The hook also owns the `?mode=` sync and the dashboard-owned-home arrival
+    // reset, so the dashboard hands it the pathname and the reset it needs.
+    const dashboard = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
+    expect(dashboard).toContain("useHomeModeSeed({");
+    for (const prop of ["pathname,", "searchParams,", "setSearchMode,", "stopSearch,", "clearModeResultState,"]) {
+      expect(dashboard.slice(dashboard.indexOf("useHomeModeSeed({"))).toContain(prop);
+    }
+    // The dashboard must not keep a second `?mode=` sync of its own.
+    expect(dashboard).not.toContain("lastSyncedSearchParamsRef.current = searchParamString");
+  });
+
+  it("resets composer, submission and result state when a dashboard-owned home is reached", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/use-home-mode-seed.ts"),
+      "utf8",
     );
+    const arrivalStart = source.indexOf("const previousPathnameRef");
+    expect(arrivalStart).toBeGreaterThan(-1);
+    const arrival = source.slice(arrivalStart, source.indexOf("Seed a cold `/` visit"));
+    // `/documents/search` -> `/documents` and Answer -> `/documents` both keep the
+    // dashboard mounted, so arriving at the home has to clear what came before it:
+    // `modeSearchSubmitted` alone decides whether the home or results render.
+    expect(arrival).toContain("stopSearchRef.current()");
+    expect(arrival).toContain("clearModeResultState()");
+    expect(arrival).toContain('setQuery("")');
+    expect(arrival).toContain("setModeSearchSubmitted(false)");
+    expect(arrival).toContain("setSearchMode(pathMode)");
+    // The reset must not be conditional on the mode actually changing: arriving on
+    // `/documents` from `/documents/search` keeps the same mode and stale results.
+    expect(arrival).not.toContain("pathMode === searchMode");
+    // Keyed on a pathname transition, so a search submitted from the home (query
+    // string only) cannot wipe the results the visitor just asked for, and a cold
+    // mount cannot clear a restored answer thread.
+    expect(arrival).toContain("previousPathname === null || previousPathname === pathname");
+  });
+
+  it("keeps the phone composer rendered during SSR while preserving desktop layout reservation", () => {
+    const headerSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/master-search-header.tsx"),
+      "utf8",
+    );
+    // SSR and unknown media state must not blank out search for phone viewports
+    expect(headerSource).not.toMatch(
+      /const pagePortalPending =\s*Boolean\(desktopPageComposerSlotId\) && !usesPhoneSearchLayout/,
+    );
+    expect(headerSource).toMatch(
+      /const isPageDesktopComposerPending =\s*isDefaultComposer && Boolean\(desktopPageComposerSlotId\) && !desktopComposerPortalFallback/,
+    );
+    expect(headerSource).toContain('isPageDesktopComposerPending && "sm:hidden"');
   });
 });

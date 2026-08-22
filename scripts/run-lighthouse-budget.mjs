@@ -37,7 +37,7 @@
  *        --keep (leave reports in place), --dir <path>.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
@@ -64,6 +64,7 @@ import {
   processTimeoutMs,
   remainingMs,
 } from "./lighthouse-time-budget.mjs";
+import { routeWithLighthouseParams } from "./lib/lighthouse-route-params.mjs";
 import {
   appName,
   circularProjectPortRange,
@@ -93,6 +94,88 @@ const relativeRunRoot = `.next-playwright/${runId}`;
 const absoluteRunRoot = path.join(projectRoot, relativeRunRoot);
 const relativeDistDir = `${relativeRunRoot}/dist`;
 const relativeTsConfigPath = `${relativeRunRoot}/tsconfig.json`;
+
+/**
+ * Layout-shift audits, newest Lighthouse naming first.
+ *
+ * `layout-shifts` is the Lighthouse 12 audit and the only one that itemises a
+ * shift per element. `layout-shift-elements` is its pre-12 name, kept so a
+ * pinned-version rollback still attributes. `cumulative-layout-shift` is the
+ * metric audit itself: it carries `debugdata` rather than nodes, so it is the
+ * last resort and usually contributes nothing but the score.
+ */
+const LAYOUT_SHIFT_AUDIT_IDS = ["layout-shifts", "layout-shift-elements", "cumulative-layout-shift"];
+
+/**
+ * Print the elements Lighthouse blamed for layout shift, for every measured
+ * route, when grading has already failed.
+ *
+ * Purely diagnostic: it reads the reports this runner just wrote and writes to
+ * the log. It never grades, never mutates a report, and swallows every error —
+ * a malformed report must not convert a graded failure into a crash, because
+ * the grader's exit code is the verdict and this only annotates it.
+ */
+function reportLayoutShiftAttribution(directory) {
+  try {
+    if (!existsSync(directory)) return;
+    const lines = [];
+    for (const file of readdirSync(directory).sort()) {
+      if (!file.endsWith(".json") || file === "summary.json") continue;
+      let audits;
+      try {
+        audits = JSON.parse(readFileSync(path.join(directory, file), "utf8"))?.audits;
+      } catch {
+        continue;
+      }
+      if (!audits) continue;
+      const cell = file.replace(/\.json$/, "");
+      const cls = audits["cumulative-layout-shift"]?.numericValue;
+      const items = LAYOUT_SHIFT_AUDIT_IDS.flatMap((id) =>
+        Array.isArray(audits[id]?.details?.items) ? audits[id].details.items : [],
+      );
+      const nodes = items
+        .flatMap((item) => [item, ...(Array.isArray(item?.subItems?.items) ? item.subItems.items : [])])
+        .map((item) => ({
+          score: typeof item?.score === "number" ? item.score : null,
+          node: item?.node ?? item?.extra ?? null,
+        }))
+        .filter((entry) => entry.node)
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+        .slice(0, 6);
+      if (nodes.length === 0 && !(cls > 0)) continue;
+      lines.push(`${cell}  cls=${typeof cls === "number" ? cls.toFixed(4) : "n/a"}`);
+      if (nodes.length === 0) {
+        lines.push("    (no element attribution in this report)");
+        continue;
+      }
+      for (const { score, node } of nodes) {
+        const where = node.selector || node.nodeLabel || node.path || "(unnamed node)";
+        const snippet = String(node.snippet ?? "")
+          .replace(/\s+/g, " ")
+          .slice(0, 160);
+        lines.push(`    ${score === null ? "     -" : score.toFixed(4)}  ${where}`);
+        if (snippet) lines.push(`             ${snippet}`);
+      }
+      // The selector alone says WHICH element moved, not WHY. Lighthouse's own
+      // root-cause sub-items (unsized media, a web font swapping, an injected
+      // iframe, a running animation) and the shift's timing live in the raw
+      // item, and naming the element was not enough to close `#TYZK23` — the
+      // first attributed run pointed at `.pwa-notice-stack`, and the obvious
+      // reading of that (it paints before the shell decides its geometry) was
+      // measured and refuted. So print the item itself for the worst cell.
+      if (cls > 0.05 && items.length > 0) {
+        const worst = items.reduce((a, b) => ((b?.score ?? 0) > (a?.score ?? 0) ? b : a), items[0]);
+        lines.push(`    raw: ${JSON.stringify(worst).slice(0, 1400)}`);
+      }
+    }
+    if (lines.length === 0) return;
+    console.log("::group::lighthouse layout-shift attribution");
+    for (const line of lines) console.log(line);
+    console.log("::endgroup::");
+  } catch {
+    // Diagnostics must never mask the graded result.
+  }
+}
 
 /**
  * Refuse to recursively delete anything but a runner-owned reports directory.
@@ -255,6 +338,7 @@ process.once("exit", cleanup);
 const budget = loadBudget();
 const routes = budget.routes ?? [];
 const strategies = budget.strategies ?? ["mobile", "desktop"];
+
 /**
  * Pinned in `lighthouse-budget.json` so this runner and the live-domain workflow
  * share one version; `tests/check-lighthouse-budget.test.ts` fails if they drift.
@@ -385,7 +469,7 @@ try {
           ...npxInvocation.prefixArgs,
           "--yes",
           `lighthouse@${LIGHTHOUSE_VERSION}`,
-          `${baseUrl}${route}`,
+          `${baseUrl}${routeWithLighthouseParams(route)}`,
           "--output=json",
           `--output-path=${output}`,
           `--preset=${strategy === "desktop" ? "desktop" : "perf"}`,
@@ -583,6 +667,17 @@ try {
       stdio: "inherit",
     },
   );
+
+  // A failing CLS cell used to be a bare number: the grader prints
+  // `mobile-root cls +0.207 vs baseline` and nothing about WHICH element moved,
+  // so every investigation had to download the retained artifact — and ledger
+  // `#TYZK23` stalled precisely there, because the shift is bistable and fires
+  // only on CI (four local configurations, up to 20x CPU throttling and a
+  // throttled network, all measured 0.000). The report already carries the
+  // answer; print it into the job log so a red gate names its own cause.
+  // Log-only: it never changes the verdict, and it runs before the reports are
+  // cleared for a non-`--keep` run.
+  if (childProcessExitCode(grade) !== 0) reportLayoutShiftAttribution(reportDirectory);
 
   if (!keep) removePathSync(reportDirectory, { recursive: true });
   const exitCode = childProcessExitCode(grade);

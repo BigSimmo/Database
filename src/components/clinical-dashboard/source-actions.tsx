@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ExternalLink, FileText, Filter, Search } from "lucide-react";
+import { FileText, Filter, Search } from "lucide-react";
 import { cn, floatingControl, metadataPillDensity, primaryControl } from "@/components/ui-primitives";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import type { CrossModeLink } from "@/lib/cross-mode-links";
@@ -215,42 +215,4 @@ export function logCrossModeLinkOpen(query: string, link: Pick<CrossModeLink, "m
     }),
     keepalive: true,
   }).catch(() => undefined);
-}
-
-export function SourcePassageLinks({
-  heading,
-  sources,
-  query,
-  compact = false,
-}: {
-  heading: string;
-  sources: SearchResult[];
-  query?: string;
-  compact?: boolean;
-}) {
-  if (sources.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {sources.slice(0, compact ? 2 : 3).map((source, index) => (
-        <Link
-          key={`${heading}:${source.id}:${index}`}
-          href={sourceResultHref(source)}
-          onClick={() => query && logSourceOpen(query, source)}
-          className={
-            compact
-              ? cn(metadataPillDensity.interactiveCompact, "gap-1.5")
-              : cn(floatingControl, "min-h-tap gap-1.5 px-2.5 text-2xs sm:min-h-9 sm:px-3")
-          }
-          title={`${source.title} · page ${source.page_number ?? "n/a"} · chunk ${source.chunk_index}`}
-          aria-label={`Open source passage #${index + 1}`}
-        >
-          <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
-          <span>p.{source.page_number ?? "n/a"}</span>
-          <span className="hidden sm:inline">chunk {source.chunk_index}</span>
-          {source.source_strength ? <span className="hidden sm:inline">· {source.source_strength}</span> : null}
-        </Link>
-      ))}
-    </div>
-  );
 }

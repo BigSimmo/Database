@@ -3181,7 +3181,15 @@ declare
     'document_index_units_document_idx',
     'rag_retrieval_logs_owner_created_idx',
     'rag_retrieval_logs_miss_idx',
-    'rag_retrieval_logs_strategy_idx'
+    'rag_retrieval_logs_strategy_idx',
+    'documents_search_idx',
+    'documents_registry_projection_lookup_idx',
+    'document_chunks_anchor_idx',
+    'document_embedding_fields_search_tsv_chunk_gin_idx',
+    'document_index_units_heading_path_idx',
+    'document_index_units_search_idx',
+    'document_index_units_terms_idx',
+    'document_memory_cards_search_idx'
   ];
   -- Verified live equivalents: same table/column intent, different migration-era name.
   index_aliases constant jsonb := jsonb_build_object(
@@ -3680,6 +3688,43 @@ $$;
 
 revoke execute on function public.schema_drift_snapshot() from public, anon, authenticated;
 grant execute on function public.schema_drift_snapshot() to service_role;
+
+-- Applied migration version list backing the live-drift workflow's
+-- "Align migration history for Supabase Preview" step
+-- (`npm run check:migration-history`). Service-role only; complements
+-- schema_drift_snapshot(), which reports only the rows recorded WITHOUT
+-- executed statements. Keep this definition byte-identical to its defining
+-- migration, supabase/migrations/20260820120000_migration_history_versions_rpc.sql;
+-- tests/drift-detection.test.ts enforces the parity.
+create or replace function public.migration_history_versions()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path to ''
+as $$
+declare
+  versions jsonb := '[]'::jsonb;
+  probe text := 'no_history_table';
+begin
+  if to_regclass('supabase_migrations.schema_migrations') is not null then
+    execute 'select coalesce(jsonb_agg(jsonb_build_object('
+      || '''version'', m.version, ''name'', m.name'
+      || ') order by m.version), ''[]''::jsonb) '
+      || 'from supabase_migrations.schema_migrations m'
+      into versions;
+    probe := 'ok';
+  end if;
+
+  return jsonb_build_object(
+    'probe', probe,
+    'versions', versions
+  );
+end;
+$$;
+
+revoke execute on function public.migration_history_versions() from public, anon, authenticated;
+grant execute on function public.migration_history_versions() to service_role;
 
 create or replace function public.explain_retrieval_rpc(
   p_rpc text,

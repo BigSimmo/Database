@@ -77,7 +77,28 @@ let animationFrameCallbacks = new Map<number, FrameRequestCallback>();
 let nextAnimationFrame = 1;
 
 async function flushIdle() {
-  await waitFor(() => expect(idleCallbacks.length).toBeGreaterThan(0));
+  try {
+    await waitFor(() => expect(idleCallbacks.length).toBeGreaterThan(0));
+  } catch (cause) {
+    // `waitFor` alone reports "expected 0 to be greater than 0", which reads as
+    // a slow machine and is usually not one. The viewer schedules render-ahead
+    // ONLY when `liveCanvasLimit > 1`, and `resolveLiveCanvasWindow` collapses
+    // that to 1 whenever `perCanvasPixels` is 0 — which is exactly what jsdom's
+    // zero-width layout measurement yields before `contentWidth` lands. In that
+    // case no callback is ever scheduled and no amount of waiting produces one,
+    // so say which of the two happened instead of timing out opaquely.
+    const slots = screen.queryAllByTestId("pdf-page-slot");
+    throw new Error(
+      "No render-ahead idle callback was scheduled within the waitFor window. " +
+        "The viewer schedules one only while the canvas budget allows more than one live " +
+        "canvas; a zero-width measurement collapses that budget to the reader's page alone " +
+        "and skips scheduling entirely. Observed at timeout: " +
+        `${slots.length} page slot(s), ` +
+        `${slots.filter((slot) => slot.getAttribute("data-rendered") === "true").length} rendered, ` +
+        `${observers.length} intersection observer(s).`,
+      { cause },
+    );
+  }
   const pending = idleCallbacks;
   idleCallbacks = [];
   await act(async () => {

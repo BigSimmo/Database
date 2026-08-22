@@ -50,6 +50,7 @@ jobs:
             const {
               buildTriageBody,
               classifyFailedJobs,
+              executedJobNames,
               failedJobNames,
               selectLatestDefaultBranchRun,
             } = await import(moduleUrl);
@@ -80,6 +81,9 @@ jobs:
             // accidentally select a different workflow and misattribute a PR failure.
             let mainRun;
             let mainFailingJobs = [];
+            // `undefined` (not []) until the baseline's jobs are read: an empty list would claim
+            // the baseline ran nothing, which is a different statement from "not established".
+            let mainExecutedJobs;
             try {
               const { data: mainRuns } = await github.rest.actions.listWorkflowRuns({
                 owner: context.repo.owner,
@@ -94,20 +98,24 @@ jobs:
                 currentRunId: run.id,
                 defaultBranch: context.payload.repository.default_branch,
               });
-              if (mainRun?.conclusion === "failure") {
+              if (mainRun) {
+                // Read the baseline's jobs whatever its conclusion. CI is path-scoped, so a green
+                // main run routinely SKIPS the very job that failed here; without this the comment
+                // cited that aggregate green as though it covered the failure (ledger #5DYBQQ).
                 const mainJobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   run_id: mainRun.id,
                   per_page: 100,
                 });
-                mainFailingJobs = failedJobNames(mainJobs);
+                mainExecutedJobs = executedJobNames(mainJobs);
+                if (mainRun.conclusion === "failure") mainFailingJobs = failedJobNames(mainJobs);
               }
             } catch (e) {
               core.info(`main-side check skipped: ${e.message}`);
             }
 
-            const classifications = classifyFailedJobs(failed, mainRun, mainFailingJobs);
+            const classifications = classifyFailedJobs(failed, mainRun, mainFailingJobs, mainExecutedJobs);
             const body = buildTriageBody(classifications, mainRun);
             const marker = "<!-- ci-triage -->";
 
