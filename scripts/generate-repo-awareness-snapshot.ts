@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { appModeDefinitions, appModeHomeHref } from "@/lib/app-modes";
@@ -7,6 +8,7 @@ import {
   type DocumentationSection,
   type RouteArea,
   type RoutesSection,
+  type TestHealthSection,
 } from "@/lib/developer-area/repo-awareness-types";
 
 import { collectSiteMapData } from "./generate-site-map";
@@ -195,4 +197,50 @@ export function buildDocumentationSection(docPaths: readonly string[], readmeMar
       sections: sections.length,
     },
   };
+}
+
+export const FLAKE_LEDGER_PATH = "tests/flake-ledger.json";
+
+export type FlakeLedgerFile = { $comment?: string; flakes: readonly Record<string, unknown>[] };
+
+function requireString(entry: Record<string, unknown>, field: string): string {
+  const value = entry[field];
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`${FLAKE_LEDGER_PATH}: entry ${String(entry.id ?? "(no id)")} is missing "${field}".`);
+  }
+  return value;
+}
+
+export function buildTestHealthSection(ledger: FlakeLedgerFile): TestHealthSection {
+  const quarantined = ledger.flakes
+    // These ten calls ARE the required-field list, mirroring `requiredFields`
+    // in `scripts/flake-ledger.mjs`. A separate validation loop would be dead
+    // code, since every field is read — and therefore checked — right here.
+    .map((entry) => {
+      return {
+        id: requireString(entry, "id"),
+        title: requireString(entry, "title"),
+        spec: requireString(entry, "spec"),
+        reason: requireString(entry, "reason"),
+        owner: requireString(entry, "owner"),
+        reproduction: requireString(entry, "reproduction"),
+        first_seen: requireString(entry, "firstSeen"),
+        last_seen: requireString(entry, "lastSeen"),
+        expires: requireString(entry, "expires"),
+        tracking: requireString(entry, "tracking"),
+      };
+    })
+    // Soonest expiry first: the quarantine closest to lapsing is the one that
+    // needs a decision. `id` breaks ties so the order is total.
+    .sort((left, right) => left.expires.localeCompare(right.expires) || left.id.localeCompare(right.id));
+
+  return {
+    note: typeof ledger.$comment === "string" ? ledger.$comment : null,
+    quarantined,
+    counts: { quarantined: quarantined.length },
+  };
+}
+
+export function readFlakeLedger(ledgerPath = FLAKE_LEDGER_PATH): FlakeLedgerFile {
+  return JSON.parse(readFileSync(ledgerPath, "utf8")) as FlakeLedgerFile;
 }

@@ -4,6 +4,7 @@ import { appModeDefinitions } from "@/lib/app-modes";
 import {
   buildDocumentationSection,
   buildRoutesSection,
+  buildTestHealthSection,
   type SiteMapInput,
 } from "../scripts/generate-repo-awareness-snapshot";
 
@@ -143,5 +144,72 @@ describe("buildDocumentationSection", () => {
   it("sorts documents by path so listing order cannot make the gate fire", () => {
     const section = buildDocumentationSection([...DOC_PATHS].reverse(), README);
     expect(section.documents.map((document) => document.path)).toEqual([...DOC_PATHS].sort());
+  });
+});
+
+const FLAKE = {
+  id: "ui-smoke-composer",
+  title: "phone composer stays docked @quarantine",
+  spec: "tests/ui-smoke.spec.ts",
+  reason: "Sub-pixel rounding on the dock reserve",
+  owner: "frontend",
+  reproduction: "npm run verify:ui -- --grep composer",
+  firstSeen: "2026-08-01",
+  lastSeen: "2026-08-03",
+  expires: "2026-09-01",
+  tracking: "docs/process-hardening.md#known-flakes",
+};
+
+describe("buildTestHealthSection", () => {
+  it("carries the ledger's own comment so an empty panel can say why in words", () => {
+    const section = buildTestHealthSection({ $comment: "intentionally empty", flakes: [] });
+    expect(section.note).toBe("intentionally empty");
+    expect(section.quarantined).toEqual([]);
+    expect(section.counts).toEqual({ quarantined: 0 });
+  });
+
+  it("uses a null note when the ledger carries no comment", () => {
+    expect(buildTestHealthSection({ flakes: [] }).note).toBeNull();
+  });
+
+  it("maps every required ledger field, renaming the dates to snake case", () => {
+    const section = buildTestHealthSection({ flakes: [FLAKE] });
+    expect(section.quarantined).toEqual([
+      {
+        id: "ui-smoke-composer",
+        title: "phone composer stays docked @quarantine",
+        spec: "tests/ui-smoke.spec.ts",
+        reason: "Sub-pixel rounding on the dock reserve",
+        owner: "frontend",
+        reproduction: "npm run verify:ui -- --grep composer",
+        first_seen: "2026-08-01",
+        last_seen: "2026-08-03",
+        expires: "2026-09-01",
+        tracking: "docs/process-hardening.md#known-flakes",
+      },
+    ]);
+    expect(section.counts.quarantined).toBe(1);
+  });
+
+  it("never stores whether an entry has expired", () => {
+    // Expiry is arithmetic against the current date. Storing it would change
+    // the file's bytes daily and fail the staleness gate on an unchanged repo.
+    const section = buildTestHealthSection({ flakes: [FLAKE] });
+    expect(section.quarantined[0]).not.toHaveProperty("expired");
+    expect(section.counts).not.toHaveProperty("expired");
+  });
+
+  it("fails loudly and names the entry when a required field is missing or blank", () => {
+    expect(() => buildTestHealthSection({ flakes: [{ ...FLAKE, owner: "" }] })).toThrow(/ui-smoke-composer.*owner/);
+    expect(() => buildTestHealthSection({ flakes: [{ ...FLAKE, tracking: undefined }] })).toThrow(
+      /ui-smoke-composer.*tracking/,
+    );
+  });
+
+  it("sorts by expiry then id so ledger ordering cannot make the gate fire", () => {
+    const later = { ...FLAKE, id: "b-later", expires: "2026-09-10" };
+    const sameDay = { ...FLAKE, id: "a-same" };
+    const section = buildTestHealthSection({ flakes: [later, FLAKE, sameDay] });
+    expect(section.quarantined.map((entry) => entry.id)).toEqual(["a-same", "ui-smoke-composer", "b-later"]);
   });
 });

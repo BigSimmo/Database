@@ -34,3 +34,23 @@ export type DocumentationSection = {
   sections: { name: string; documents: number; uncatalogued: number }[];
   counts: { documents: number; catalogued: number; uncatalogued: number; sections: number };
 };
+
+export type QuarantinedTest = {
+  id: string;
+  title: string;
+  spec: string;
+  reason: string;
+  owner: string;
+  reproduction: string;
+  first_seen: string;
+  last_seen: string;
+  expires: string;
+  tracking: string;
+};
+
+export type TestHealthSection = {
+  /** The ledger's own explanation of its state, so an empty panel can quote it. */
+  note: string | null;
+  quarantined: QuarantinedTest[];
+  counts: { quarantined: number };
+};
