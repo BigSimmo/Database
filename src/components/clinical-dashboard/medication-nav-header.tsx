@@ -170,6 +170,7 @@ export function MedicationNavHeader({
   return (
     <InPageNavHeader
       {...shared}
+      className="sm:border-b-[color:var(--border-lux)] sm:bg-[color:var(--surface-lux)] sm:py-3 sm:shadow-[var(--e1)]"
       sections={buildMedicationNavSections(record)}
       activeId={activeTab}
       onSelectSection={(id) => {

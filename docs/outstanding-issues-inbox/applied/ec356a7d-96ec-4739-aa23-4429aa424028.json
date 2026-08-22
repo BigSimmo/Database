@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ec356a7d-96ec-4739-aa23-4429aa424028",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Nine landed worktrees are still on disk holding ~4.5 GB on a 51%-full Dev Drive; removal was deferred because the fleet was live",
+    "detail": "clean-worktree.mjs gained list-only --merged and --squashed in PR #2113 and identified 9 landed worktrees across the 50-worktree fleet, 5 of them on D:. Removal was NOT performed and must not be run blind. Re-verifying each candidate immediately before deletion, twice, showed the fleet is actively worked: database-coordination-chat-9c8cbd and database-drift-remeasure-phase2-7c4215 each held 2 unmerged commits despite the scan minutes earlier reporting '0 commits ahead', their newest files were written the same afternoon, and bundle-baseline had been switched to a different branch mid-scan and was running Playwright (the push guard named it as holding the heavy-run lease). Deleting any of them would have destroyed unmerged work. Next: run 'node scripts/clean-worktree.mjs --merged --squashed' when no other Codex/Gemini/Claude session is active, read the confidence line on each candidate, and re-run with --remove. Skip any candidate marked 'NOT fully corroborated' — that label means the patch-id test inferred the landing but some changed files still differ from origin/main, which is usually base churn but is not proof. D: was 25.3 GB of 50 GB used with roughly 19 GB of that duplicated node_modules across 21 worktrees at ~0.89 GB each. Ignore the C: worktrees entirely; they belong to Codex and Antigravity sessions. Stop rule: never pass --force to git worktree remove, and never remove a worktree that is ahead of origin/main.",
+    "source": "PR #2113 scripts/clean-worktree.mjs; live fleet re-verification 2026-08-18",
+    "issueUlid": "01M0ACDZTT6GW95D8BVH6EAHKV"
+  }
+}

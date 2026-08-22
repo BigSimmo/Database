@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "05bd88ac-f24f-464a-8853-5d7ff55b375b",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "The document_index_units retrieval path has no EXPLAIN baseline, and Phase 5 has no query-specific plan-flip evidence",
+    "detail": "Two Phase 5.1 deliverables are explicitly OPEN, not discharged. Re-graded P3 -> P2 versus the withdrawn request 2040d1fb, because that request understated the gap by claiming substitute coverage that does not exist. (A) NO EXPLAIN BASELINE FOR THE INDEX-UNITS PATH. public.explain_retrieval_rpc accepts exactly four names -- match_documents_for_query, match_document_chunks_text, match_document_lookup_chunks_text, match_document_table_facts_text -- and raises 22023 Unsupported retrieval RPC for anything else, proven against production for both match_document_chunks_text_v2 and match_document_index_units_hybrid_v2. For the first of those the v1 sibling match_document_chunks_text shares the owning table document_chunks and is a usable stand-in. For the second there is none: match_document_index_units_hybrid_v2 delegates to match_document_index_units_hybrid_scoped over document_index_units (supabase/schema.sql:8033-8054), and no supported RPC touches that table. document_index_units is one of the two section 1.2 outliers, so the outlier that most needed a baseline is the one that has none. (B) NO QUERY-SPECIFIC PLAN-FLIP EVIDENCE. explain_retrieval_rpc EXPLAINs `select * from public.<rpc>(...)`, so a PL/pgSQL body's inner plan is never exposed and every sample reports a single Function Scan with no index names. Plan section 5.1's 'record plan flips (seq scan -> index scan)' is therefore unanswerable through this instrument. The pg_stat_user_indexes read captured in Phase 5.1(c) is a WEAKER and DIFFERENT signal, not a substitute: idx_scan is cumulative across every workload touching the table and no before/after delta was captured around the samples, so it can prove an index is never chosen by anything but cannot prove that a given query changed plan. NEXT: one migration extending the explain_retrieval_rpc p_rpc branch list to the _v2 family (at minimum match_document_index_units_hybrid_v2 and match_document_chunks_text_v2), shipped in an approved window -- with D4 ON, merging it to main deploys it, so it needs the window and a green post-merge live-drift run. Then re-run npm run profile:retrieval --analyze to capture the missing baseline. For (B), consider whether an auto_explain-style capture is a better fit than widening the RPC. STOP: do not record the cumulative index-usage read as plan-flip evidence; that conflation is exactly what this row exists to prevent.",
+    "source": "Codex review of PR #2250 (P2, comment 3833062803 and 3833062807); docs/audit/live-drift-forensics-2026-08.md Phase 5 close-out 5.1(b); supabase/schema.sql:8033-8054",
+    "issueUlid": "01M0JWT29F8VAY97CG3PM5X2QW"
+  }
+}

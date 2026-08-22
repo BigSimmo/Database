@@ -2,18 +2,31 @@
 /**
  * guard-push — pre-push safety net for this repo's known, repeated traps.
  *
- * Runs five independent guards; any one can BLOCK the push (non-zero exit).
- * All except the auto-merge ownership guard have an explicit override env var:
+ * Runs six independent guards; any one can BLOCK the push (non-zero exit).
+ * All except the auto-merge force-push guard have an explicit override env var:
  *
- *   1. Auto-merge ownership guard (all PR branches)
- *      Per-PR auto-merge state is user-owned. Pushing to a PR whose auto-merge is
- *      already armed can race the merge and, for actors without write permission,
- *      GitHub disables auto-merge. If `gh` reports an armed autoMergeRequest for
- *      the current branch's open PR, block without an automation override.
+ *   1. Auto-merge force-push guard (all PR branches)
+ *      Per-PR auto-merge state is user-owned. An ordinary fast-forward push to a PR
+ *      whose auto-merge is already armed is safe — GitHub re-validates required
+ *      checks against the new head before it will merge, so an additive commit
+ *      cannot make it merge something unvalidated. That is allowed through with a
+ *      warning note. A force-push (history rewrite) while armed is different: it
+ *      can discard the commit GitHub already validated or is mid-evaluating, and
+ *      for actors without write permission GitHub disables auto-merge outright. If
+ *      `gh` reports an armed autoMergeRequest AND this push force-updates that
+ *      branch, block without an automation override.
  *      Fails OPEN (never blocks) when gh is missing/unauthenticated, so
  *      contributors without gh can still push.
  *
- *   2. Format-before-push
+ *   2. In-flight CI push guard (all PR branches)
+ *      Detects when an operator or branch sync pushes a commit to a PR branch while
+ *      required CI runs are currently in-flight (queued, in_progress, waiting, requested, pending)
+ *      on GitHub Actions for that PR. Pushing a new commit restarts CI and cancels
+ *      the in-flight run via cancel-in-progress, wasting runner capacity and hiding
+ *      actionable test signals (see #HSSHRG).
+ *      Override: SKIP_IN_FLIGHT_CI_GUARD=1.
+ *
+ *   3. Format-before-push
  *      verify:cheap does NOT run format:check but CI requires it, so unformatted
  *      files reach CI and fail there. Reproduces what CI sees: the pushed blobs
  *      *and* the pushed prettier config are materialised into a scratch tree and
@@ -22,12 +35,12 @@
  *      correction, both left the guard green and CI red.
  *      Override: SKIP_FORMAT_GUARD=1.
  *
- *   3. Drift-manifest freshness
+ *   4. Drift-manifest freshness
  *      Editing supabase/schema.sql without regenerating supabase/drift-manifest.json
  *      fails check:drift in CI. Caught here at push time instead. Override:
  *      SKIP_DRIFT_GUARD=1.
  *
- *   4. Static gate (lint + source typecheck)
+ *   5. Static gate (lint + source typecheck)
  *      Neither lint nor typecheck was in the pre-push path, so a plain lint error
  *      (PR #1606) and a plain type error (PR #1618) each burned a full CI cycle
  *      for a defect one local command would have caught. Runs eslint over the
@@ -36,7 +49,7 @@
  *      defect that is not in the push. Both are incremental (seconds when warm).
  *      Skips loudly when node_modules is absent. Override: SKIP_STATIC_GUARD=1.
  *
- *   5. Ledger write discipline
+ *   6. Ledger write discipline
  *      The historical Markdown ledgers are serial-only. Feature PRs add immutable
  *      review records or issue-inbox JSON; only a verified transaction may change
  *      the canonical issue ledger. Override: SKIP_LEDGER_WRITE_GUARD=1.
@@ -47,7 +60,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, lstatSync, mkdtempSync, readFileSync, rmdirSync, rmSync, symlinkSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -116,17 +129,66 @@ export function pushedBranchNames(ranges, fallbackBranch = "") {
   return [...branches];
 }
 
-/** Exported for tests: existing branches compare from their remote tip; new
- * branches compare from the PR merge base so newer main-only commits are out of
- * scope for transaction guards that accept explicit base/head commits. */
-export function guardBaseForRange(range, cwd = PROJECT_ROOT) {
-  if (range.remoteSha && range.remoteSha !== ZERO_SHA) return range.remoteSha;
+/** True when `ancestor` is reachable from `descendant`, i.e. the push fast-forwards. */
+function isAncestor(ancestor, descendant, cwd = PROJECT_ROOT) {
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], { cwd, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Exported for tests: true when this range rewrites the remote branch's history
+ * (force-push) rather than fast-forwarding it. A brand-new branch (remote sha
+ * all-zero) is never a force-push — there is no prior tip to discard. */
+export function isForcePushRange(range, cwd = PROJECT_ROOT) {
+  if (!range.remoteSha || range.remoteSha === ZERO_SHA) return false;
+  return !isAncestor(range.remoteSha, range.localSha, cwd);
+}
+
+/** Exported for tests: branches this push force-updates — the one case the
+ * auto-merge guard still hard-blocks while armed, with no override. */
+export function forcePushedBranchNames(ranges, cwd = PROJECT_ROOT) {
+  const branches = new Set();
+  for (const range of ranges) {
+    if (!isForcePushRange(range, cwd)) continue;
+    const ref = range.remoteRef || range.localRef || "";
+    if (ref.startsWith("refs/heads/")) branches.add(ref.slice("refs/heads/".length));
+  }
+  return branches;
+}
+
+/** Merge base with origin/main — the base a PR is actually evaluated against, and
+ * the same one CI passes as LEDGER_WRITE_BASE_SHA (.github/workflows/ci.yml). */
+function mainMergeBase(range, cwd = PROJECT_ROOT) {
   if (!tryGit(["rev-parse", "--verify", "--quiet", MAIN_REMOTE_REF], cwd)) return undefined;
   return tryGit(["merge-base", MAIN_REMOTE_REF, range.localSha], cwd);
 }
 
+/** Exported for tests: a fast-forward push compares from its remote tip; a new
+ * branch, or one whose history was rewritten, compares from the PR merge base so
+ * newer main-only commits are out of scope for transaction guards that accept
+ * explicit base/head commits.
+ *
+ * The rewritten-history case matters: after a force-push the old remote tip is an
+ * abandoned line, so every request it carried reads as deleted and the ledger
+ * transaction guard can never pass — no matter how clean the rebuild is. Falling
+ * back to the merge base asks the question CI asks instead of an unanswerable one. */
+export function guardBaseForRange(range, cwd = PROJECT_ROOT) {
+  if (range.remoteSha && range.remoteSha !== ZERO_SHA) {
+    if (isAncestor(range.remoteSha, range.localSha, cwd)) return range.remoteSha;
+    return mainMergeBase(range, cwd);
+  }
+  return mainMergeBase(range, cwd);
+}
+
 export function changedFilesForRange(range, cwd = PROJECT_ROOT) {
-  const existingRemote = range.remoteSha && range.remoteSha !== ZERO_SHA;
+  // A rewritten history is treated like a new branch here for the same reason as
+  // guardBaseForRange: `<abandoned tip>..<local>` is not the set of files this push
+  // actually introduces relative to main.
+  const existingRemote =
+    range.remoteSha && range.remoteSha !== ZERO_SHA && isAncestor(range.remoteSha, range.localSha, cwd);
   const hasOriginMain = !existingRemote && tryGit(["rev-parse", "--verify", "--quiet", MAIN_REMOTE_REF], cwd);
   const spec = existingRemote
     ? `${range.remoteSha}..${range.localSha}`
@@ -188,20 +250,48 @@ function ghIsAvailable() {
   }
 }
 
-/** Exported for tests: decide from a parsed `gh pr view` payload. */
-export function autoMergeVerdict(branch, prPayload) {
-  if (!prPayload) return { block: false, reason: "no-open-pr" };
-  if (prPayload.state && prPayload.state !== "OPEN") return { block: false, reason: "pr-not-open" };
+/**
+ * Exported for tests: decide from a parsed `gh pr view` payload.
+ *
+ * Auto-merge itself is user-owned, so automation never disables/re-enables it —
+ * that stays a hard, unconditional rule with no code path here at all. An
+ * ordinary fast-forward push while armed is allowed through (with a warning):
+ * GitHub re-validates required checks against the new head before it merges, so
+ * an additive commit cannot make it merge something that was never validated. A
+ * force-push while armed is the actual race — it can discard the commit GitHub
+ * already validated or is mid-evaluating — so that alone still blocks.
+ */
+export function autoMergeVerdict(branch, prPayload, isForcePush = false, carriesMigration = false) {
+  if (!prPayload) return { block: false, warn: false, reason: "no-open-pr" };
+  if (prPayload.state && prPayload.state !== "OPEN") return { block: false, warn: false, reason: "pr-not-open" };
   if (prPayload.autoMergeRequest) {
-    return { block: true, reason: "auto-merge-armed", number: prPayload.number };
+    // Merging to `main` applies migrations to the live clinical database automatically,
+    // within seconds, with no deploy step in between (AGENTS.md, "Supabase project safety").
+    // Auto-merge on such a PR therefore schedules an unattended production schema change,
+    // which is why AGENTS.md forbids it outright. That rule was documentation-only until
+    // this branch: nothing in the push path knew what a migration was.
+    if (carriesMigration) {
+      return { block: true, warn: false, reason: "auto-merge-armed-migration", number: prPayload.number };
+    }
+    if (isForcePush) {
+      return { block: true, warn: false, reason: "auto-merge-armed-force-push", number: prPayload.number };
+    }
+    return { block: false, warn: true, reason: "auto-merge-armed-fast-forward", number: prPayload.number };
   }
-  return { block: false, reason: "auto-merge-not-armed" };
+  return { block: false, warn: false, reason: "auto-merge-not-armed" };
 }
 
-function autoMergeGuard(branches) {
+/** Exported for tests: does this push carry a hosted migration? */
+export function touchesProductionMigrations(changedFiles = []) {
+  return changedFiles.some((f) => f.startsWith("supabase/migrations/"));
+}
+
+function autoMergeGuard(branches, forcePushBranches = new Set(), changedFiles = []) {
   if (!ghIsAvailable()) {
     return { name: "auto-merge", ok: true, note: "gh not available — auto-merge check skipped (fail-open)" };
   }
+  const warnings = [];
+  const migrations = touchesProductionMigrations(changedFiles);
   for (const branch of branches) {
     let payload;
     try {
@@ -214,23 +304,179 @@ function autoMergeGuard(branches) {
       // No PR for this branch, or gh unauthenticated: fail open.
       continue;
     }
-    const verdict = autoMergeVerdict(branch, payload);
+    const verdict = autoMergeVerdict(branch, payload, forcePushBranches.has(branch), migrations);
     if (verdict.block) {
-      return {
-        name: "auto-merge",
-        ok: false,
-        message:
-          `PR #${verdict.number} on ${branch} has auto-merge ARMED.\n` +
-          `  Auto-merge state is user-owned; automation must not disable it or push through it.\n` +
-          `  Leave this PR untouched until it merges or the user manually changes that state.`,
-      };
+      const message =
+        verdict.reason === "auto-merge-armed-migration"
+          ? `PR #${verdict.number} on ${branch} has auto-merge ARMED and this push carries a hosted migration.\n` +
+            `  Merging to main applies migrations to the LIVE clinical database automatically, within seconds.\n` +
+            `  Auto-merge on a migration PR therefore schedules an unattended production schema change.\n` +
+            `  Ask the user to disable auto-merge and merge it inside an approved window. No override.`
+          : `PR #${verdict.number} on ${branch} has auto-merge ARMED and this push force-updates the branch.\n` +
+            `  A force-push while armed can discard the commit GitHub already validated or is mid-evaluating.\n` +
+            `  Push a fast-forward commit instead, or wait for the user to change the auto-merge state. No override.`;
+      return { name: "auto-merge", ok: false, message };
     }
+    if (verdict.warn) {
+      warnings.push(`PR #${verdict.number} on ${branch} has auto-merge ARMED — pushing anyway (fast-forward).`);
+    }
+  }
+  if (warnings.length > 0) {
+    return {
+      name: "auto-merge",
+      ok: true,
+      note:
+        warnings.join(" ") +
+        " Auto-merge state is still user-owned — do not disable/re-enable it, and never force-push while armed.",
+    };
   }
   return { name: "auto-merge", ok: true };
 }
 
 // ---------------------------------------------------------------------------
-// Guard 2: format-before-push
+// Guard 2: in-flight CI push guard (#HSSHRG)
+// ---------------------------------------------------------------------------
+export const ACTIVE_CI_RUN_STATES = new Set(["pending", "queued", "in_progress", "requested", "waiting"]);
+
+export function isRequiredCiWorkflow(run) {
+  if (!run) return false;
+  const name = String(run.name || run.workflowName || "").trim();
+  if (name === "CI") return true;
+  const workflowPath = String(run.path || run.workflow_path || "").replaceAll("\\", "/");
+  return /(?:^|\/)ci\.yml$/.test(workflowPath);
+}
+
+export function findInFlightCiRuns(runsPayload) {
+  const runs = Array.isArray(runsPayload)
+    ? runsPayload
+    : Array.isArray(runsPayload?.workflow_runs)
+      ? runsPayload.workflow_runs
+      : [];
+
+  return runs.filter((run) => {
+    if (!isRequiredCiWorkflow(run)) return false;
+    const status = String(run.status || "").toLowerCase();
+    const conclusion = String(run.conclusion || "").toLowerCase();
+    if (conclusion && conclusion !== "null" && conclusion !== "undefined" && conclusion !== "") {
+      return false;
+    }
+    return ACTIVE_CI_RUN_STATES.has(status);
+  });
+}
+
+export function inFlightCiVerdict(branch, prPayload, runsPayload) {
+  if (!branch || branch === "main" || branch === "master" || branch.startsWith("release/")) {
+    return { block: false, reason: "base-branch" };
+  }
+  if (!prPayload) return { block: false, reason: "no-open-pr" };
+  if (prPayload.state && prPayload.state !== "OPEN") return { block: false, reason: "pr-not-open" };
+
+  const inFlight = findInFlightCiRuns(runsPayload);
+  if (inFlight.length === 0) {
+    return { block: false, reason: "no-in-flight-ci", number: prPayload.number };
+  }
+
+  return {
+    block: true,
+    reason: "required-ci-in-flight",
+    number: prPayload.number,
+    runs: inFlight,
+  };
+}
+
+function defaultPrView(branch) {
+  try {
+    const raw = execFileSync("gh", ["pr", "view", branch, "--json", "number,state,headRefOid,headRefName,url"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function defaultRunsFetch(branch, exec = execFileSync) {
+  try {
+    // Scope to the required CI workflow and page across the full run history. A
+    // bare `--limit 10` over every workflow can hide an older in-flight CI run
+    // behind newer non-CI runs, which would let the push through and cancel the
+    // run this guard exists to protect (#HSSHRG).
+    const raw = exec(
+      "gh",
+      [
+        "run",
+        "list",
+        "--branch",
+        branch,
+        "--workflow",
+        "ci.yml",
+        "--limit",
+        "100",
+        "--json",
+        "databaseId,name,workflowName,status,conclusion,url,headSha",
+      ],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    );
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+export function inFlightCiGuard(
+  branches,
+  _ranges = [],
+  // `ghAvailable` is injectable for the same reason `prViewer`/`runFetcher` are: without it
+  // the fail-open below short-circuits before either injected fetcher is consulted, so the
+  // message-formatting cases could only ever run where the `gh` binary happens to be
+  // installed. They passed in CI and failed in every container without it, which reads as a
+  // product regression and is not one.
+  { prViewer = defaultPrView, runFetcher = defaultRunsFetch, ghAvailable = ghIsAvailable } = {},
+) {
+  void _ranges;
+  if (process.env.SKIP_IN_FLIGHT_CI_GUARD === "1") {
+    return { name: "in-flight-ci", ok: true, skipped: "SKIP_IN_FLIGHT_CI_GUARD=1" };
+  }
+  if (!ghAvailable()) {
+    return { name: "in-flight-ci", ok: true, note: "gh not available — in-flight CI check skipped (fail-open)" };
+  }
+
+  for (const branch of branches) {
+    if (!branch || branch === "main" || branch === "master" || branch.startsWith("release/")) continue;
+    const prPayload = prViewer(branch);
+    if (!prPayload || prPayload.state !== "OPEN") continue;
+
+    const runsPayload = runFetcher(branch);
+    const verdict = inFlightCiVerdict(branch, prPayload, runsPayload);
+    if (verdict.block) {
+      const runLines = verdict.runs
+        .map(
+          (r) =>
+            `  - Run ${r.databaseId || r.id || ""}: ${r.name || r.workflowName || "CI"} (${r.status || "in_progress"})${r.url ? ` ${r.url}` : ""}`,
+        )
+        .join("\n");
+      return {
+        name: "in-flight-ci",
+        ok: false,
+        message:
+          `PR #${verdict.number} on ${branch} has required CI run(s) currently IN-FLIGHT on GitHub Actions:\n` +
+          `${runLines}\n` +
+          `  Pushing a new commit now will cancel the in-flight run via cancel-in-progress and restart CI (#HSSHRG).\n` +
+          `  Wait for the in-flight run to finish before pushing, or override with:\n` +
+          `    SKIP_IN_FLIGHT_CI_GUARD=1 git push`,
+      };
+    }
+  }
+
+  return { name: "in-flight-ci", ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Guard 3: format-before-push
 // ---------------------------------------------------------------------------
 function fileSha256(file) {
   try {
@@ -256,6 +502,13 @@ function worktreeRoots() {
  * guard must work before that junction exists, but accepting an arbitrary
  * sibling would let a stale Prettier version disagree with CI. Byte-identical
  * lockfiles plus the installed package version make the fallback deterministic.
+ *
+ * The borrow is deliberately NOT gated on whether the donor worktree is idle.
+ * "Actively in use" is not cheaply detectable — an in-flight `npm ci` in another
+ * process leaves nothing this can read — and a heuristic that misfires would
+ * silently disable the format guard. The borrow is read-only; the deletion risk
+ * lived entirely in the scratch checkout's teardown, which unlinkDependencyLink
+ * and cleanupFormatCheckout now handle without following the link.
  */
 export function findPrettierBin(projectRoot, candidateRoots) {
   const lockPath = path.join(projectRoot, "package-lock.json");
@@ -396,9 +649,113 @@ function checkPushedCommit(prettierBin, sha, files) {
     }
     return { verdict: "formatted" };
   } finally {
-    tryGit(["worktree", "remove", "--force", dir]);
-    rmSync(dir, { recursive: true, force: true });
+    cleanupFormatCheckout(dir);
   }
+}
+
+/**
+ * Remove the linked dependency tree from a scratch checkout WITHOUT following it.
+ *
+ * That link is not necessarily this worktree's own `node_modules`. When the
+ * pushing worktree has none, findPrettierBin deliberately borrows ANOTHER
+ * worktree's real tree, and on Windows the borrow is linked in as a junction.
+ * Everything cleanupFormatCheckout runs afterwards — `git worktree remove
+ * --force` and a recursive rmSync — is a force-delete over the directory holding
+ * that link, and neither respects `git worktree lock`. So the link is removed
+ * first, by a call that operates on the link itself rather than on what it points
+ * at.
+ *
+ * lstat, not existsSync: existsSync FOLLOWS the link, so once the borrowed tree
+ * has gone away the link reads as absent and an existsSync-gated cleanup skips
+ * it — leaving it in place for the force-deletes to interpret instead. lstat
+ * sees the link whether or not it still resolves.
+ *
+ * unlink removes a junction and a POSIX directory symlink alike, and Windows can
+ * want rmdir for a directory reparse point; rmdir on a junction also removes the
+ * link, never its target. Neither call descends, and rmSync({recursive:true}) is
+ * never used on this path under any branch.
+ *
+ * A real directory here is refused outright. Nothing in guard-push creates one,
+ * so one means something unexpected — and recursively deleting an unexpected
+ * directory is precisely the outcome this function exists to prevent.
+ *
+ * @returns {{removed: boolean, reason: "unlink"|"rmdir"|"absent"|"not-a-link"|"unreadable"|"failed", detail?: string}}
+ */
+export function unlinkDependencyLink(linkPath) {
+  let stats;
+  try {
+    stats = lstatSync(linkPath);
+  } catch (error) {
+    if (error?.code === "ENOENT") return { removed: false, reason: "absent" };
+    return { removed: false, reason: "unreadable", detail: describeError(error) };
+  }
+  if (!stats.isSymbolicLink()) return { removed: false, reason: "not-a-link" };
+  try {
+    unlinkSync(linkPath);
+    return { removed: true, reason: "unlink" };
+  } catch {
+    // A directory reparse point can refuse unlink on Windows; rmdir removes the
+    // link itself in that case, and still never touches the target.
+  }
+  try {
+    rmdirSync(linkPath);
+    return { removed: true, reason: "rmdir" };
+  } catch (error) {
+    return { removed: false, reason: "failed", detail: describeError(error) };
+  }
+}
+
+function describeError(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Tear down a format-check scratch checkout, link first.
+ *
+ * The ordering is the point: the link is gone before `git worktree remove
+ * --force` and before the recursive delete, so whether either of those can
+ * traverse a junction never has to be relied upon.
+ *
+ * When the link could NOT be removed, neither force-delete runs. Swallowing that
+ * failure and continuing is the single case where a force-delete would run over
+ * a directory still holding a live link into another worktree's node_modules. A
+ * leftover scratch directory is cheap and the `git worktree prune` at the top of
+ * checkPushedCommit clears its registration on the next push; the alternative is
+ * not cheap.
+ *
+ * Dependencies are injectable so the ordering and the skip are unit-testable
+ * without creating and destroying real worktrees.
+ */
+export function cleanupFormatCheckout(
+  dir,
+  {
+    unlink = unlinkDependencyLink,
+    removeWorktree = (target) => tryGit(["worktree", "remove", "--force", target]),
+    removeDir = (target) => rmSync(target, { recursive: true, force: true }),
+    log = console.error,
+  } = {},
+) {
+  const linkPath = path.join(dir, "node_modules");
+  const result = unlink(linkPath);
+  if (!result.removed && result.reason !== "absent") {
+    log(
+      "[guard-push] left " +
+        dir +
+        " in place: could not remove the linked dependency tree at " +
+        linkPath +
+        " (" +
+        result.reason +
+        (result.detail ? ": " + result.detail : "") +
+        ").\n" +
+        "  Skipping the force worktree removal and the recursive delete — neither may run over a " +
+        "directory that still holds a live link into another worktree's node_modules.\n" +
+        "  Remove it by hand once nothing is using it.",
+    );
+    return result;
+  }
+  removeWorktree(dir);
+  removeDir(dir);
+  return result;
 }
 
 function chunk(items, size) {
@@ -515,7 +872,7 @@ export function formatGuard(changedBlobs, prettierResolver = resolvePrettierBin)
 }
 
 // ---------------------------------------------------------------------------
-// Guard 3: drift-manifest freshness
+// Guard 4: drift-manifest freshness
 // ---------------------------------------------------------------------------
 /** Exported for tests: pure comparison of schema text vs the manifest's sha. */
 export function driftVerdict(schemaText, manifestJson) {
@@ -554,7 +911,7 @@ function driftGuard(changedFiles) {
 }
 
 // ---------------------------------------------------------------------------
-// Guard 4: static gate (lint + source typecheck)
+// Guard 5: static gate (lint + source typecheck)
 // ---------------------------------------------------------------------------
 /**
  * Roots that `lint:internal` passes to eslint, plus `eslint-rules/` (custom
@@ -640,7 +997,9 @@ export function pushedTipMatchesHead(ranges, headSha = tryGit(["rev-parse", "HEA
   if (!headSha || !Array.isArray(ranges) || ranges.length === 0) return { ok: true };
   // Only branch tips are checked against HEAD. Tag / note / other refs have
   // object SHAs that are not the commit checked out in the working tree.
-  const branchRanges = ranges.filter((range) => !range.localRef || range.localRef.startsWith("refs/heads/"));
+  const branchRanges = ranges.filter(
+    (range) => !range.localRef || range.localRef === "HEAD" || range.localRef.startsWith("refs/heads/"),
+  );
   if (branchRanges.length === 0) return { ok: true };
   const mismatch = branchRanges.find((range) => range.localSha && range.localSha !== headSha);
   if (!mismatch) return { ok: true };
@@ -874,7 +1233,7 @@ export function staticGuard(changedFiles, options = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Guard 5: ledger write discipline
+// Guard 6: ledger write discipline
 // ---------------------------------------------------------------------------
 export function hasHotLedgerWrite(changedFiles) {
   return changedFiles.some((file) => LEDGER_HOT_PATHS.has(file.replaceAll("\\", "/")));
@@ -940,10 +1299,12 @@ function main() {
   if (ranges.length === 0) process.exit(0); // deletion-only push or nothing to do
   const branch = currentBranch();
   const pushedBranches = pushedBranchNames(ranges, branch);
+  const forcePushBranches = forcePushedBranchNames(ranges);
   const changedFiles = collectChangedFiles(ranges);
   // formatGuard reads the pushed blobs; drift/static only need the paths.
   const results = [
-    autoMergeGuard(pushedBranches),
+    autoMergeGuard(pushedBranches, forcePushBranches, changedFiles),
+    inFlightCiGuard(pushedBranches, ranges),
     formatGuard(collectChangedBlobs(ranges)),
     driftGuard(changedFiles),
     staticGuard(changedFiles, { ranges }),
@@ -953,6 +1314,7 @@ function main() {
 }
 
 function readStdinSync() {
+  if (process.stdin.isTTY) return "";
   try {
     return readFileSync(0, "utf8");
   } catch {
@@ -974,12 +1336,17 @@ function assert(condition, label) {
 function selfTest() {
   // auto-merge verdicts
   assert(
-    autoMergeVerdict("codex/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 6 }).block === true,
-    "armed auto-merge on codex/* blocks",
+    autoMergeVerdict("codex/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 6 }).block === false,
+    "armed auto-merge does not block a fast-forward push",
   );
   assert(
-    autoMergeVerdict("claude/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 7 }).block === true,
-    "armed auto-merge on claude/* blocks",
+    autoMergeVerdict("codex/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 6 }).warn === true,
+    "armed auto-merge still warns on a fast-forward push",
+  );
+  assert(
+    autoMergeVerdict("claude/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 7 }, true).block ===
+      true,
+    "armed auto-merge blocks a force-push",
   );
   assert(
     autoMergeVerdict("claude/x", { autoMergeRequest: null, state: "OPEN" }).block === false,
@@ -989,6 +1356,50 @@ function selfTest() {
   assert(
     autoMergeVerdict("claude/x", { autoMergeRequest: {}, state: "MERGED" }).block === false,
     "non-open PR does not block",
+  );
+
+  // in-flight CI verdicts (#HSSHRG)
+  const activeCiRun = { databaseId: 101, name: "CI", status: "in_progress", conclusion: null };
+  const queuedCiRun = { databaseId: 102, workflowName: "CI", status: "queued", conclusion: "" };
+  const completedCiRun = { databaseId: 103, name: "CI", status: "completed", conclusion: "success" };
+  const nonCiRun = { databaseId: 104, name: "Deploy", status: "in_progress", conclusion: null };
+
+  assert(
+    findInFlightCiRuns([activeCiRun, completedCiRun, nonCiRun]).length === 1,
+    "findInFlightCiRuns filters active CI runs",
+  );
+  assert(
+    findInFlightCiRuns({ workflow_runs: [queuedCiRun] }).length === 1,
+    "findInFlightCiRuns handles workflow_runs payload",
+  );
+  assert(
+    inFlightCiVerdict("claude/feature", { state: "OPEN", number: 42 }, [activeCiRun]).block === true,
+    "inFlightCiVerdict blocks when required CI is in-flight on open PR",
+  );
+  assert(
+    inFlightCiVerdict("claude/feature", { state: "OPEN", number: 42 }, [completedCiRun]).block === false,
+    "inFlightCiVerdict allows push when CI run is completed",
+  );
+  assert(
+    inFlightCiVerdict("claude/feature", { state: "CLOSED", number: 42 }, [activeCiRun]).block === false,
+    "inFlightCiVerdict does not block closed PRs",
+  );
+  assert(
+    inFlightCiVerdict("main", { state: "OPEN", number: 1 }, [activeCiRun]).block === false,
+    "inFlightCiVerdict never blocks base branch pushes",
+  );
+
+  const mockBlockedGuard = inFlightCiGuard(["claude/feature"], [], {
+    prViewer: () => ({ state: "OPEN", number: 99 }),
+    runFetcher: () => [activeCiRun],
+    // Same reason as the injected fetchers: the real probe short-circuits this case on any
+    // machine without `gh`, so the self-test would silently assert nothing there.
+    ghAvailable: () => true,
+  });
+  assert(mockBlockedGuard.ok === false, "inFlightCiGuard blocks on active CI run");
+  assert(
+    mockBlockedGuard.message.includes("#99") && mockBlockedGuard.message.includes("101"),
+    "inFlightCiGuard message names PR and run ID",
   );
 
   // drift verdicts
@@ -1045,6 +1456,14 @@ function selfTest() {
   assert(needsRepoWideLint(["eslint-rules/x.mjs"]) === true, "eslint-rules change escalates to repo-wide lint");
   assert(needsRepoWideLint(["src/lib/a.ts"]) === false, "ordinary source does not escalate lint");
   assert(pushedTipMatchesHead([{ localSha: "aaa" }], "aaa").ok === true, "matching tip and HEAD is fine");
+  assert(
+    pushedTipMatchesHead([{ localSha: "aaa", localRef: "HEAD" }], "aaa").ok === true,
+    "matching HEAD localRef is fine",
+  );
+  assert(
+    pushedTipMatchesHead([{ localSha: "aaa", localRef: "HEAD" }], "bbb").ok === false,
+    "mismatched HEAD localRef fails closed",
+  );
   assert(pushedTipMatchesHead([{ localSha: "aaa" }], "bbb").ok === false, "mismatched tip fails closed");
   assert(
     staticGuard(["docs/only.md"]).ok === true && staticGuard(["docs/only.md"]).message === undefined,

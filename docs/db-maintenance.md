@@ -69,6 +69,57 @@ targeted eval-owner cleanup; requires `--owner-email`, supports `--dry-run`, def
 days). It is deliberately unscheduled — it is not the retention mechanism, and its absence
 from cron is not a gap.
 
+## Post-restore environment recovery controls & sanity checks
+
+A schema restore is not operationally complete until all five environment-owned controls have been re-created and verified (`#326`, `docs/disaster-recovery-runbook.md`). Follow these operational runbook steps and sanity checks after any schema restore or disaster recovery drill:
+
+### 1. `pg_cron` schedules & retention jobs
+
+- **Procedure:** Re-create scheduled jobs for ingestion workers and telemetry retention (`purge-expired-rag-queries`, `purge-rag-retrieval-logs`, `purge-rag-query-misses`, `purge-rag-response-cache`).
+- **Sanity check:** Verify with a read-only query:
+  ```sql
+  SELECT jobid, jobname, schedule, active FROM cron.job ORDER BY jobid;
+  ```
+  Confirm all four retention jobs and any active ingestion cron rows report `active = true`.
+
+### 2. Supabase Vault secrets
+
+- **Procedure:** Re-add required secrets (`cron_ingestion_jwt`, `indexing_v3_agent_secret`) via the Supabase Vault.
+- **Sanity check:** Verify names and timestamps only with a read-only query (NEVER print or log secret values):
+  ```sql
+  SELECT name, description, created_at FROM vault.decrypted_secrets ORDER BY name;
+  ```
+  Confirm expected secret names are present and non-null.
+
+### 3. Custom database GUCs
+
+- **Procedure:** Re-set required custom parameters (e.g. `app.indexing_agent_url`) using `ALTER DATABASE postgres SET ...`.
+- **Sanity check:** Verify settings with a read-only query:
+  ```sql
+  SELECT name, setting, source FROM pg_settings WHERE name LIKE 'app.%';
+  ```
+  Confirm configured values match the target environment.
+
+### 4. Supabase Edge Functions
+
+- **Procedure:** Redeploy required edge functions (`indexing-v3-agent`, ingestion worker) with the Deno v2.x toolchain in an explicitly approved change window:
+  ```bash
+  supabase functions deploy indexing-v3-agent --project-ref <PROJECT_REF>
+  ```
+- **Sanity check:** Verify function presence and status via `supabase functions list` and run health probes without mutating data.
+
+### 5. Dashboard-owned configuration
+
+- **Procedure:** Re-enter auth provider configuration (magic link, Google/Apple/Microsoft SSO redirect URLs, rotating keys), connection pool limits (e.g. auth pool pinned at 10 connections), per-project API keys (`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`), and `E2E_USER_*` test credentials.
+- **Sanity check:** Run `npm run check:env-parity` and names-only checks to verify all consuming environments have valid, non-empty references without logging secret material.
+
+### 6. Post-restore system health verification
+
+- **RPC health check:** Run `SELECT (public.search_schema_health())->>'ok';` (must return `true` with `missing: []`).
+- **Index verification:** Run `npm run check:indexing` to confirm required retrieval and operational indexes are valid.
+- **Drift verification:** Run `npm run check:drift` to confirm schema parity with the canonical drift manifest.
+- **Golden retrieval eval:** For a data restore, run `npm run eval:retrieval:quality` (must pass 36/36) before pointing production traffic.
+
 ## Cross-references
 
 - Weekly eval canary + liveness probe: `docs/observability-slos.md` §3 (the `static-pr` job
@@ -78,3 +129,4 @@ from cron is not a gap.
   slot fired and succeeded, and Monday 2026-07-20 has no slot under the weekly cron).
 - RAG-protected surfaces and change protocol: `docs/rag-behaviour/safeguards.md`.
 - Hybrid RPC health: `search_schema_health()` execution smoke + `npm run check:indexing`.
+- Disaster recovery runbook & post-restore procedures: `docs/disaster-recovery-runbook.md`.

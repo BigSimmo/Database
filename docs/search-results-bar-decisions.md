@@ -60,28 +60,24 @@ contract: see [search-chrome-behaviour.md](search-chrome-behaviour.md).
   one control sitting flush against the sort group rendered as a different component. It
   now uses the band's own control recipe — the same string `Save search` and `Retry` use —
   with the active/resting colours as mutually exclusive branches.
-- **Every mode's phone filter is now the badged trigger, not a select.** The `w-full`
-  native select is gone from all seven surfaces that shipped one — differentials, services,
-  factsheets, prescribing, the tools launcher, and formulation and specifiers, which each
-  passed _two_ in a two-column grid. Each now passes one `ResultFilterTrigger`
-  (`result-filter-control.tsx`) with `mobileControlsPlacement="inline"`, so the one-line
-  band is universal rather than a documents/therapy-compass exception. What the select cost:
-  a whole second band row; no way to say how many filters were active without spending
-  label width on it; and, because the iOS anti-zoom rule pins every native select to 16 px
-  below `sm`, a value rendered at the same size as the query heading above it. Single-choice
-  dimensions moved into `ResultFilterSheet`, one `role="radiogroup"` per dimension — real
-  radio semantics, because these are one-of-N and an `aria-pressed` bank asserts otherwise.
-  Documents keeps its own panel; multi-select facet groups with counts, a find-a-filter
-  field and collapse-by-default are not radios.
+- **Every mode uses one adaptive filter system, not a phone-only substitute.** Each result
+  surface passes `ResultFilterTrigger` at phone and desktop breakpoints. The trigger opens
+  `ResultFilterSheet`, which is a bottom sheet on phones and a restrained right drawer from
+  `sm` up. The old native selects, bespoke desktop dropdowns and competing rails are gone.
+  Lenses render as roving radio groups; facets render as individually reachable multi-select
+  rows; `Search in` is a labelled, count-bearing scope selector. Dense catalogues gain search
+  and collapsible groups from the shared component rather than from route-local panels.
+  Documents now uses the same panel with staged application and a typed secondary Browse all
+  sources action. The filter contract, including mode ownership, is in
+  [filter-contract.md](filter-contract.md).
 - **`mobileControlsPlacement` still defaults to `row`.** Nothing relies on that fallback
   now that every caller passes `inline`, and it stays anyway: a new mode that forgets the
   prop, or one with a genuine reason to hand over something full-width, should degrade to a
   second row rather than to an unreadable 58 px line at 320 px. Do not flip the default.
-- **Filter at the right edge, Sort inboard.** Sort is set about once a session. Filter is
-  the only control carrying state and the one returned to repeatedly, and on a phone the
-  right edge is where the thumb already is. The page filter is therefore the utility
-  rail's **last** child; `tests/ui-tools.spec.ts` asserts that placement and a matched
-  phone tap height, rather than the Sort/Filter adjacency it asserted before.
+- **Filter is pinned at the right edge; Sort stays inboard.** Sort is set about once a
+  session. Filter carries narrowing state and is returned to repeatedly, so it is a pinned
+  sibling after the optional utility rail rather than a child that can scroll away.
+  `tests/ui-tools.spec.ts` asserts the placement and matched phone tap height.
 - **The shelf.** A labelled `Filtered by` row under the bar, one tap to remove each
   filter, trailing `Clear` once more than one is applied. The chips scroll in an inner
   track; the label and `Clear` are pinned outside it, because the shelf was one
@@ -98,31 +94,23 @@ contract: see [search-chrome-behaviour.md](search-chrome-behaviour.md).
   on every keystroke. Only a fault removes it, because filtering a result set that never
   loaded is meaningless.
 
-## The shelf is scoped to two modes, on purpose
+## The shelf is shared state, not a mode exception
 
-`documents` and `therapy-compass` only. Both have multi-valued filters hidden behind a
-panel, so what is applied is not otherwise visible. Of the other ten results-band modes:
+Any mode with hidden, multi-dimensional or non-default scope state passes `appliedFilters`
+and `onClearFilters`. The shelf is prop-driven; the shared bar never infers refinement state
+from context. `AppliedFilterChip` carries a compact `valueLabel`, an optional desktop
+`groupLabel`, a complete `accessibleLabel` when necessary, and `onRemove`.
 
-- Differentials, prescribing, specifiers, formulation, services, and factsheets keep a
-  single-choice dimension whose desktop control is already on screen, and whose phone
-  trigger carries a count badge, so a shelf would restate what is visible either way.
-- Forms still ships a Filter trigger whose panel is a coming-soon placeholder, not applied
-  filter state, so there is nothing for a shelf to show.
-- Favourites renders its own active-filter chips inside `filterControls` rather than the
-  shared shelf props.
-- DSM filters by category through navigation links, and tools through a single category
-  dimension — neither passes `appliedFilters`.
+The shelf is required for Documents, Services, Forms, Differential workspaces, DSM,
+Specifiers, Formulation, Medication, Therapy, Calculators when narrowed, and Favourites. A
+compact category lens may omit it only when the active value remains directly visible at that
+breakpoint. Selected retrieval and result facets remain visible at zero results so recovery is
+always possible.
 
-Two traps met while drawing that line:
-
-- **Count what a control does, not how many there are.** Formulation's "Pattern" and
-  factsheets' "Category" look like filters and are navigation (`router.push`). Services'
-  "quick filter" rewrites the query. None of them belong behind a filter surface.
-- **A shared component must not read filter state from context.** The original shelf
-  pulled `commandScopes` from a context that no page populated. It passed a DOM test which
-  constructed that context by hand, and rendered for nobody in production. The replacement
-  is prop-driven — the page supplies `appliedFilters` (`id`, `label`, `onRemove`) and an
-  optional `onClearFilters`. Keep it that way.
+Count what narrows results, not how many controls happen to be visible. Scope is counted when
+non-default. Sort, display density, grouping, comparison state, suggested searches and
+Recently used views are excluded. Query-replacing presets belong near the composer, never in
+the shelf or filter badge.
 
 ## Deliberately not done
 

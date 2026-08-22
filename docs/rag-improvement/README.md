@@ -13,6 +13,8 @@ infrastructure, corrected.
 behaviour change needs a live eval-canary pair (provider-backed, ~$1–2, explicit approval per
 run). Nothing here authorises reindexing, migrations, or provider calls by itself.
 
+**Canonical task queue:** per `AGENTS.md`, canonical cross-session task tracking and deduplication live in [`docs/outstanding-issues.md`](../outstanding-issues.md). Always consult the canonical ledger first. Check open PRs only when explicit owner approval for provider access exists; otherwise continue with local/offline evidence and note the duplicate-risk caveat.
+
 ---
 
 ## 1. Review verdict on the original PDF
@@ -90,11 +92,16 @@ this plan:
   (`src/lib/rag/rag-second-stage.ts`) → `chooseAnswerRoute` (`src/lib/rag/rag-routing.ts`) →
   fast/strong generation (reasoning-effort routing, not different models) → numeric
   verification, claim support, citation sanitisation → render policy trust ladder.
-- **Answer shape today:** the `answer` field is prompted to 1–3 sentences (~35–75 words);
-  `answerSections` carries 0–1 sections for simple facts, 2–5 for complex questions. The
-  prompt (`answerInstructions`, `rag.ts:3150`) and the "Interpreted clinical task" block
-  built by `buildAnswerInput` already carry `intent`, `query_class`, `answer_focus`,
-  `answer_scope`, and the full `answer_plan.*` fields.
+- **Answer shape today (post-S2, prompt `clinical-rag-answer-v19`, 2026-08-18):** the
+  `answer` field is prompted to 2–4 sentences (~60–110 words) for complex questions, with the
+  narrow-question rule verbatim (a definition, one threshold, a single dose, or a yes/no stays
+  1–3 sentences, ~35–75 words); `answerSections` carries 0–1 sections for simple facts, 3–6
+  for complex questions when the excerpts support them (schema `maxItems` 6). The prompt
+  (`answerInstructions`, `src/lib/rag/rag-answer-instructions.ts`) and the "Interpreted
+  clinical task" block built by `buildAnswerInput` carry `intent`, `query_class`,
+  `answer_focus`, `answer_scope`, the A2 `related_information_menu` line
+  (`src/lib/rag/answer-composition.ts`), and the full `answer_plan.*` fields. Before S2 the
+  targets were 1–3 sentences / 35–75 words and 2–5 sections.
 - **Budgets:** `unsupported 0 / extractive 12s / fast 25s / strong 35s`; a
   truncation self-heal retries with `strongRetryMaxOutputTokens`. Source-only fallback
   (`source_backed_review_fallback`) fires on quality-gate failure, ungrounded extractive
@@ -114,6 +121,16 @@ question type, and (c) be moderately longer (~1.5×) where evidence supports it,
 raising the source-only fallback rate or weakening a single grounding gate.
 
 ### A1 — Diagnose generation-quality fallbacks before changing length (prerequisite; `#231`)
+
+> **Diagnosis updated 2026-08-22 — read it before acting on `#231`:**
+> [`231-diagnosis-2026-08-22.md`](231-diagnosis-2026-08-22.md). The retrieval-budget premise is
+> false: `answerRouteBudgetMs.fast` binds in only 3 of 60 case-runs, and half the timeouts use the
+> 35 s strong budget. The remaining `provider_timeout` label contains two paths: response-bearing
+> cases support a quality-retry ladder with no deadline admission check, while three zero-response
+> cases need per-attempt timing/response telemetry before attribution. A grounded first-choice
+> extractive answer bypasses the quality-gate call site, but the two cited incoherent answers pass
+> the current predicates, so predicate strictness must be established before a reachability edit.
+> Item 4 below stands and is reinforced, not rebutted.
 
 **Problem.** Healthy retrieval still sometimes ends in a source-only fallback. The decisive
 extended-budget probe completed generation inside the route deadline and still failed the
@@ -257,7 +274,22 @@ As PDF PR 1: dashboard questions first (stage timeout rate, fallback rate, candi
 distribution, p50/p95 stage latency); map to existing Sentry/answer-telemetry fields; add
 `RAG_TELEMETRY_EXTENDED` (typed in `src/lib/env.ts`, default `false`) only for proven gaps;
 unit tests assert canaries never appear in emitted objects. Much of this is shared with
-Track A1's instrumentation — build once. Phoenix decision record: **deferred**.
+Track A1's instrumentation — build once.
+
+**Delivered by packet S5 (2026-08-17):** the assessment found three of the four dashboard
+questions fully answerable from the fields PR #1899 and earlier instrumentation already
+persist to `rag_queries.metadata`; the single proven gap was `verification_latency_ms`
+(measured into `latencyTimings`, dropped at the persistence boundary). It ships behind
+`RAG_TELEMETRY_EXTENDED` through the allow-listed numeric projection in
+`src/lib/rag/rag-answer-telemetry-metadata.ts`, with canary-absence tests in
+`tests/rag-telemetry-canary-absence.test.ts`.
+
+**Phoenix decision record — closed 2026-08-17: deferred.** `src/instrumentation.ts` and
+`src/lib/observability/agent-monitoring.ts` already trace without content capture; the B1
+assessment showed the named dashboard questions answerable from existing fields plus one
+flag-gated addition; a second tracing vendor would add a data-processing route (Gate A)
+before proving value. Revisit only if a dashboard question becomes unanswerable from
+`rag_queries.metadata` plus the existing Sentry surface.
 
 ### B2 — Offline adversarial regression harness
 
@@ -268,6 +300,16 @@ deterministic assertion functions with their own tests, fed by B0 fixtures. New 
 only; fails closed on missing fixture, network attempt, or budget breach. If Promptfoo's
 dependency footprint proves heavy, a plain Vitest harness over the same fixtures is an
 acceptable substitute — the fixtures and assertions are the asset, not the runner.
+
+**Delivered by packet S5 (2026-08-17) as the plain-Vitest substitute** (no dependency
+change; a Promptfoo experiment would be its own PR): `eval:rag:adversarial:offline` runs
+`scripts/check-rag-adversarial-fixtures.mjs` then `tests/rag-adversarial-harness.test.ts`
+over the 24 B0 cases with a stubbed-throwing `fetch`, a per-case Supabase round-trip
+ceiling, and canary-absence assertions on every persisted telemetry row. CI runs it in the
+`safety` job only when `rag_eval_changed` is true; `verify:pr-local` selects it for the
+same scope. Three fixture expectations diverge from current pipeline behaviour and are
+pinned in the harness's self-expiring `KNOWN_DIVERGENCES` register rather than being
+recalibrated away.
 
 ### B3 — Docling lab benchmark (isolated)
 
@@ -328,7 +370,8 @@ default-off flags.
 ## 5. Sequencing summary
 
 Execution across cloud sessions is coordinated by [HANDOVER.md](HANDOVER.md): per-session
-work packets, the live status table, checklists, and paste-ready prompts.
+work packets, the live status table, checklists, and paste-ready prompts. Canonical task
+ownership and cross-session tracking remain registered in [`docs/outstanding-issues.md`](../outstanding-issues.md).
 
 | Order | Item                                            | Depends on                      | Behaviour change?                         |
 | ----- | ----------------------------------------------- | ------------------------------- | ----------------------------------------- |
@@ -343,19 +386,27 @@ work packets, the live status table, checklists, and paste-ready prompts.
 | 9     | B5/B6 Ragas/reranker                            | conditional                     | No until separately promoted              |
 | 10    | B7 DSPy                                         | ≥100 labelled cases             | No until separately promoted              |
 
+Cross-links: `#231` cross-links to `docs/database-remediation-plan.md` Phase 5.2 (re-test after
+the trigram-index restore) — satisfied by S1's healthy-latency probes 2026-08-17; `#316` Phase
+1.2 found the RPC divergence attribute-only.
+
 ## 6. Verification commands (per PR, smallest first)
 
 ```bash
 npm run format                      # and COMMIT the result before push
 npm run test:focused -- --files <changed source + tests>
 npm run check:rag:fixtures          # existing golden/snapshot validator
+npm run check:rag:adversarial-fixtures  # adversarial fixture contract (B0)
 npm run eval:rag:offline            # offline RAG suite (Track A PRs)
+npm run eval:rag:adversarial:offline    # offline adversarial harness (B2, RAG-surface PRs)
 npm run verify:pr-local -- --dry-run --files <paths>   # then run selected gate
 npm run check:production-readiness  # domain changes (env flags, answer path)
 ```
 
 Live canary pairs fire only via the `eval-canary` repository dispatch with explicit owner
-approval per run; regression → single-commit revert + confirmation run.
+approval per run; regression → single-commit revert + confirmation run. See
+`docs/rag-behaviour/safeguards.md` § the eval-canary pair protocol for the exact trigger
+mechanics (dispatch/cron-only, no `ref` input) and the comparison command.
 
 ## 7. Rollback map
 

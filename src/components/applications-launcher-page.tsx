@@ -2,29 +2,23 @@
 
 import Link from "next/link";
 import {
-  Activity,
-  Brain,
-  Calculator,
+  BadgeCheck,
   ChevronRight,
-  ClipboardCheck,
   ClipboardList,
   ExternalLink,
-  FileCheck2,
-  FileText,
   Grid2X2,
   Palette,
-  Pill,
   Plus,
   Search,
   ShieldCheck,
   Sparkles,
-  Star,
-  Users,
   Waves,
   type LucideIcon,
 } from "lucide-react";
 import { type FormEvent, useId, useMemo, useState } from "react";
 
+import { cardInteractive, cardSelected, cardSelectedDanger, focusRing } from "@/components/card-recipes";
+import { CategoryIconTile } from "@/components/category-icon-tile";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { ModeHomeHero } from "@/components/mode-home-template";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
@@ -36,15 +30,18 @@ import {
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { cn, EmptyState } from "@/components/ui-primitives";
+import { cn, EmptyState, eyebrowText } from "@/components/ui-primitives";
 import { Chip, type ChipStatusTone } from "@/components/ui/chip";
 import { Sheet } from "@/components/ui/sheet";
+import { TOOL_AREA_LABEL, toolIdentity } from "@/lib/category-identity";
+import { categoryGlyph } from "@/lib/category-identity-icons";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
 import { useAuthSession } from "@/lib/supabase/client";
 import {
   toolCatalogRecordsForSession,
   type ToolCatalogArea,
+  type ToolCatalogId,
   type ToolCatalogRecord,
   type ToolCatalogStatus,
 } from "@/lib/tools-catalog";
@@ -53,18 +50,18 @@ type LauncherStatus = ToolCatalogStatus;
 type LauncherArea = ToolCatalogArea;
 type LauncherFilter = "all" | LauncherArea | "more";
 
-type LauncherApp = ToolCatalogRecord & { icon: LucideIcon };
+// The catalogue record is the whole app: identity is looked up from the record's
+// `id` and `area` rather than carried as an extra field, so a launcher app and a
+// search-results tool cannot disagree about their own glyph.
+type LauncherApp = ToolCatalogRecord;
 
-const focusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+function launcherAppMatchesFilter(app: LauncherApp, filter: LauncherFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "more") return app.area === "coordination" || app.area === "saved";
+  return app.area === filter;
+}
 
-const areaLabels: Record<LauncherArea, string> = {
-  assessment: "Assess",
-  reference: "Evidence",
-  care: "Treat",
-  coordination: "Coordinate",
-  saved: "Saved",
-};
+const areaLabels = TOOL_AREA_LABEL;
 
 const statusLabels: Record<LauncherStatus, string> = {
   ready: "Ready",
@@ -72,55 +69,28 @@ const statusLabels: Record<LauncherStatus, string> = {
   review_due: "Review due",
 };
 
-// Categorical identity tones from the token system (--type-*) so icons stay
-// legible in dark mode and forced-colors; "safety" is genuinely semantic and
-// uses the danger triad.
-const iconToneClasses: Record<LauncherArea | "safety" | "medication" | "differentials", string> = {
-  assessment:
-    "border-[color:var(--type-service-border)] bg-[color:var(--type-service-soft)] text-[color:var(--type-service)]",
-  reference: "border-[color:var(--type-table-border)] bg-[color:var(--type-table-soft)] text-[color:var(--type-table)]",
-  care: "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]",
-  coordination:
-    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-  saved: "border-[color:var(--type-search-border)] bg-[color:var(--type-search-soft)] text-[color:var(--type-search)]",
-  safety: "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
-  medication: "border-[color:var(--type-form-border)] bg-[color:var(--type-form-soft)] text-[color:var(--type-form)]",
-  differentials:
-    "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]",
-};
-
-// Presentation-only mapping: the shared tools catalog is icon-free so it can be used by
-// server code (universal search); icons are attached at the UI boundary.
-const launcherIconById: Record<string, LucideIcon> = {
-  "clinical-kb-search": Search,
-  differentials: Brain,
-  documents: FileText,
-  guidelines: ShieldCheck,
-  "risk-safety": ShieldCheck,
-  "medication-prescribing": Pill,
-  services: Users,
-  "ward-management": Activity,
-  forms: FileCheck2,
-  "care-plans": ClipboardCheck,
-  "safety-plan": ClipboardList,
-  calculators: Calculator,
-  monitoring: Waves,
-  favourites: Star,
-};
-
+// Glyph and accent both come from `src/lib/category-identity.ts` now. Two maps
+// used to live here — a 14-entry `launcherIconById` and an `iconToneClasses`
+// keyed by a union of areas *and* three ad-hoc tool ids, reconciled by an
+// `appIconTone` function that overrode the area for `differentials`, `forms` and
+// `medication-prescribing`. The tools *search results* page carried its own
+// 8-entry copy with a different fallback, so five tools showed one glyph on the
+// launcher and a generic grid glyph in results, and every results tile was
+// painted the same purple regardless of area. Both surfaces now read the one
+// registry, so a tool looks like itself wherever it is reached — including
+// Ward Flow's `ward-management` tool, which is keyed through the same registry
+// rather than a local map.
 function launcherAppsForSession(canAccessFavourites: boolean): LauncherApp[] {
   return toolCatalogRecordsForSession({
     authenticated: canAccessFavourites,
     demoMode: false,
-  }).map((record) => ({
-    ...record,
-    icon: launcherIconById[record.id] ?? Sparkles,
-  }));
+  });
 }
 
 const toolsLauncherCopy = {
   heading: "Tools",
   description: "Assessment, prescribing, workflows.",
+  showAllLabel: "Show all",
   allSectionLabel: "All tools",
   countNoun: "tools",
   emptyTitle: "No tools match",
@@ -130,16 +100,18 @@ const toolsLauncherCopy = {
   openSelectedAriaLabel: "Open selected tool",
 };
 
+// A third copy of the same id→glyph decision used to live here, so a quick
+// action could drift from the card it opens. Only the wording is local now.
 const quickActionsBase = [
-  { label: "Ask", desktopLabel: "Ask evidence", icon: Search, id: "clinical-kb-search" },
-  { label: "Compare", desktopLabel: "Compare", icon: Brain, id: "differentials" },
-  { label: "Prescribe", desktopLabel: "Prescribe", icon: Pill, id: "medication-prescribing" },
-  { label: "Safety", desktopLabel: "Safety check", icon: ShieldCheck, id: "risk-safety" },
-  { label: "Docs", desktopLabel: "Documents", icon: FileText, id: "documents" },
-  { label: "Refer", desktopLabel: "Refer", icon: Users, id: "services" },
-  { label: "Forms", desktopLabel: "Forms", icon: FileCheck2, id: "forms" },
-  { label: "Saved", desktopLabel: "Favourites", icon: Star, id: "favourites" },
-] as const;
+  { label: "Ask", desktopLabel: "Ask evidence", id: "clinical-kb-search" },
+  { label: "Compare", desktopLabel: "Compare", id: "differentials" },
+  { label: "Prescribe", desktopLabel: "Prescribe", id: "medication-prescribing" },
+  { label: "Safety", desktopLabel: "Safety check", id: "risk-safety" },
+  { label: "Docs", desktopLabel: "Documents", id: "documents" },
+  { label: "Refer", desktopLabel: "Refer", id: "services" },
+  { label: "Forms", desktopLabel: "Forms", id: "forms" },
+  { label: "Saved", desktopLabel: "Favourites", id: "favourites" },
+] as const satisfies ReadonlyArray<{ label: string; desktopLabel: string; id: ToolCatalogId }>;
 
 const desktopFiltersBase: Array<{ id: LauncherFilter; label: string }> = [
   { id: "all", label: "All tools" },
@@ -158,14 +130,11 @@ const mobileFilters: Array<{ id: LauncherFilter; label: string }> = [
   { id: "more", label: "More" },
 ];
 
-/** Full catalog length (includes Favourites). Prefer session-filtered lists in UI. */
-export const applicationsLauncherItemCount = launcherAppsForSession(true).length;
-
-function appById(id: string, apps: LauncherApp[]) {
+function appById(id: ToolCatalogId, apps: LauncherApp[]) {
   return apps.find((app) => app.id === id) ?? apps[0];
 }
 
-function initialToolId(query: string | undefined, apps: LauncherApp[]) {
+function initialToolId(query: string | undefined, apps: LauncherApp[]): ToolCatalogId {
   const normalized = query?.trim().toLowerCase();
   if (!normalized) return "risk-safety";
   return (
@@ -187,28 +156,20 @@ function desktopFiltersForSession(canAccessFavourites: boolean) {
   return canAccessFavourites ? desktopFiltersBase : desktopFiltersBase.filter((filter) => filter.id !== "saved");
 }
 
-function appIconTone(app: LauncherApp) {
-  if (app.id === "risk-safety") return iconToneClasses.safety;
-  if (app.id === "medication-prescribing") return iconToneClasses.medication;
-  if (app.id === "differentials" || app.id === "forms") return iconToneClasses.differentials;
-  return iconToneClasses[app.area];
-}
-
-function ToolIcon({ app, size = "md" }: { app: LauncherApp; size?: "sm" | "md" | "lg" }) {
-  const Icon = app.icon;
-  return (
-    <span
-      className={cn(
-        "grid shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
-        appIconTone(app),
-        size === "sm" && "h-9 w-9",
-        size === "md" && "h-12 w-12",
-        size === "lg" && "h-14 w-14",
-      )}
-    >
-      <Icon className={cn(size === "sm" ? "size-icon-lg" : size === "md" ? "h-6 w-6" : "h-7 w-7")} aria-hidden />
-    </span>
-  );
+/**
+ * Tool identity tile. Colour groups the family (five accents, matching the five
+ * filter chips a clinician can actually apply); the glyph distinguishes the
+ * individual tool.
+ *
+ * `risk-safety` no longer gets a permanent danger-red tile. Red here asserted
+ * caution about a *route*, not about a patient, and it spent the loudest colour
+ * in the system on a navigation target — the same category error the factsheet
+ * accents make. Safety is carried by the shield glyph, which is now unique to
+ * it, and by the danger-toned selected state, which is a real state.
+ */
+function ToolIcon({ app, size = "md" }: { app: LauncherApp; size?: "sm" | "md" }) {
+  const identity = toolIdentity(app.id, app.area);
+  return <CategoryIconTile icon={identity.icon} accent={identity.accent} size={size} />;
 }
 
 // Launcher status vocabulary mapped onto the design-system `Chip`. The tone and
@@ -223,8 +184,12 @@ const statusChipTone: Record<StatusChipTone, ChipStatusTone> = {
   high: "info",
 };
 
+// `source` used ShieldCheck too, so one card could show the same shield three
+// times over — on the "Source-backed" chip, on the Guidelines tile, and on the
+// Risk & safety tile — for three unrelated meanings. Source-backed is a
+// verification claim, so it takes the verification glyph; the shield is safety.
 const statusChipIcon: Partial<Record<StatusChipTone, LucideIcon>> = {
-  source: ShieldCheck,
+  source: BadgeCheck,
   safety: Sparkles,
 };
 
@@ -313,7 +278,7 @@ function QuickActions({
   apps,
   canAccessFavourites,
 }: {
-  onSelect: (id: string) => void;
+  onSelect: (id: ToolCatalogId) => void;
   mobile?: boolean;
   apps: LauncherApp[];
   canAccessFavourites: boolean;
@@ -326,7 +291,7 @@ function QuickActions({
     >
       {quickActions.slice(0, mobile ? 8 : 6).map((action) => {
         const app = appById(action.id, apps);
-        const Icon = action.icon;
+        const identity = toolIdentity(app.id, app.area);
         return (
           <button
             key={action.label}
@@ -343,13 +308,13 @@ function QuickActions({
             )}
           >
             <span
+              data-category-accent={identity.accent}
               className={cn(
-                "grid place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
-                appIconTone(app),
+                "grid place-items-center rounded-lg border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] text-[color:var(--cat-accent)] shadow-[var(--shadow-inset)] forced-colors:border",
                 mobile ? "h-7 w-7" : "h-8 w-8",
               )}
             >
-              <Icon className={mobile ? "h-4 w-4" : "h-5 w-5"} aria-hidden />
+              {categoryGlyph(identity.icon, mobile ? "size-icon-md" : "size-icon-lg")}
             </span>
             <span className="min-w-0">
               <span
@@ -383,10 +348,12 @@ function FilterTabs({
   activeFilter,
   onFilterChange,
   canAccessFavourites,
+  filterCounts,
 }: {
   activeFilter: LauncherFilter;
   onFilterChange: (filter: LauncherFilter) => void;
   canAccessFavourites: boolean;
+  filterCounts: Readonly<Record<string, number>>;
 }) {
   const desktopFilters = desktopFiltersForSession(canAccessFavourites);
   const filterPanelId = useId();
@@ -396,7 +363,11 @@ function FilterTabs({
   // One array for the desktop rail and the phone sheet. The categories partition
   // the tool list, so this is a lens at both breakpoints — the rail used to say
   // many-of-N with `aria-pressed` while the sheet said one-of-N.
-  const launcherFilterOptions = desktopFilters.map((filter) => ({ value: filter.id, label: filter.label }));
+  const launcherFilterOptions = desktopFilters.map((filter) => ({
+    value: filter.id,
+    label: filter.label,
+    hint: String(filterCounts[filter.id] ?? 0),
+  }));
   return (
     <>
       <div className="hidden sm:block">
@@ -447,98 +418,117 @@ function FilterTabs({
                   onFilterChange("all");
                 }
           }
+          summary={{
+            count: filterCounts[resolvedFilter] ?? 0,
+            noun: (filterCounts[resolvedFilter] ?? 0) === 1 ? "tool" : "tools",
+          }}
         />
       </div>
     </>
   );
 }
 
+/**
+ * One tool card at two densities.
+ *
+ * `ToolCard` and `MobileToolRow` used to be separate components rendering the
+ * same content, and they had already drifted: different resting elevation
+ * (`--shadow-card` against `--shadow-inset`), different selected tint (`/50`
+ * against `/55`), and a hover lift on one but not the other. They keep their
+ * two test ids — `ui-smoke` and `ui-tools` target both, and `ui-smoke` is a
+ * blocking suite at zero retries — but there is now one implementation.
+ *
+ * The `Details` affordance is gone. It was a `<span>` painted as a solid accent
+ * button *inside* the card's own `<button>`: it read as a nested control while
+ * being announced as nothing, it was the loudest element on the card, and since
+ * every card carried an identical one it distinguished nothing. The card is the
+ * control; a chevron on the decoration tier says so without competing with the
+ * title. It takes the category accent on hover, so the affordance points back at
+ * the card's own family rather than at the product blue.
+ */
 function ToolCard({
   app,
   selected,
   onSelect,
+  density = "card",
 }: {
   app: LauncherApp;
   selected: boolean;
-  onSelect: (id: string) => void;
+  onSelect: (id: ToolCatalogId) => void;
+  density?: "card" | "row";
 }) {
+  const identity = toolIdentity(app.id, app.area);
+  const row = density === "row";
   return (
     <button
       type="button"
       aria-haspopup="dialog"
       aria-label={`View details for ${app.title}`}
-      data-testid={`application-card-${app.id}`}
+      data-testid={`application-${row ? "row" : "card"}-${app.id}`}
+      data-category-accent={identity.accent}
       onClick={() => onSelect(app.id)}
       className={cn(
-        "group grid min-h-[9.25rem] grid-cols-[auto_minmax(0,1fr)_auto] gap-4 rounded-lg border bg-[color:var(--surface-lux)] p-4 text-left shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)] motion-reduce:hover:translate-y-0",
-        selected
-          ? app.id === "risk-safety"
-            ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/45"
-            : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/50"
-          : "border-[color:var(--border)]",
-        focusRing,
+        cardInteractive,
+        "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] text-left",
+        row ? "min-h-tap items-center gap-3 p-3" : "items-start gap-4 p-4",
+        // `risk-safety` keeps a danger-toned SELECTED state. Selection is a real
+        // state, unlike the permanent red tile this card used to carry, where
+        // the loudest colour in the system described a navigation target.
+        selected && (app.id === "risk-safety" ? cardSelectedDanger : cardSelected),
       )}
     >
-      <ToolIcon app={app} size="lg" />
+      <ToolIcon app={app} size={row ? "sm" : "md"} />
       <span className="min-w-0">
-        <span className="block text-base font-extrabold leading-5 text-[color:var(--text-heading)]">{app.title}</span>
-        <span className="mt-2 block text-sm font-medium leading-5 text-[color:var(--text-muted)] [overflow-wrap:anywhere]">
+        {/* Size carries the hierarchy, not weight. `font-extrabold` at
+            `text-base` put the card title at the same visual weight as the
+            section heading above it, so a grid of cards read as a wall of
+            headings. */}
+        <span
+          className={cn(
+            "block font-semibold text-[color:var(--text-heading)]",
+            row ? "truncate text-sm leading-5" : "text-lg leading-6",
+          )}
+        >
+          {app.title}
+        </span>
+        <span
+          className={cn(
+            "block font-medium text-[color:var(--text-muted)] [overflow-wrap:anywhere]",
+            row ? "mt-0.5 text-xs leading-4" : "mt-1 text-sm leading-5",
+          )}
+        >
           {app.description}
         </span>
-        <span className="mt-3 block text-xs font-bold text-[color:var(--text-heading)]">
-          Best for: <span className="font-medium text-[color:var(--text-muted)]">{app.bestFor}</span>
-        </span>
-        <span className="mt-3 block">
-          <ToolChips app={app} />
-        </span>
+        {row ? null : (
+          <>
+            {/* "Best for:" was a bold inline run inside the body copy, which
+                gave a label the same emphasis as the clinical text it labels.
+                It is a kicker, so it uses the shared eyebrow recipe. */}
+            <span className="mt-3 block">
+              <span className={eyebrowText}>Best for</span>
+              <span className="mt-0.5 block text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                {app.bestFor}
+              </span>
+            </span>
+            <span className="mt-3 block">
+              <ToolChips app={app} />
+            </span>
+          </>
+        )}
       </span>
-      <span className="self-end rounded-lg bg-[color:var(--clinical-accent)] px-3 py-2 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
-        Details
-        <ChevronRight className="ml-1 inline h-3.5 w-3.5" aria-hidden />
-      </span>
+      <ChevronRight
+        className={cn(
+          "size-icon-lg shrink-0 text-[color:var(--decoration-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--cat-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0",
+          row ? "self-center" : "self-start",
+        )}
+        aria-hidden
+      />
     </button>
   );
 }
 
-function MobileToolRow({
-  app,
-  selected,
-  onSelect,
-}: {
-  app: LauncherApp;
-  selected: boolean;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-haspopup="dialog"
-      aria-label={`View details for ${app.title}`}
-      data-testid={`application-row-${app.id}`}
-      onClick={() => onSelect(app.id)}
-      className={cn(
-        "grid min-h-[5.25rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-[color:var(--surface-lux)] px-3 py-3 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)]",
-        selected
-          ? app.id === "risk-safety"
-            ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/45"
-            : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/55"
-          : "border-[color:var(--border)]",
-        focusRing,
-      )}
-    >
-      <ToolIcon app={app} size="sm" />
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-extrabold text-[color:var(--text-heading)]">{app.title}</span>
-        <span className="mt-1 block text-xs font-medium leading-4 text-[color:var(--text-muted)] [overflow-wrap:anywhere]">
-          {app.description}
-        </span>
-      </span>
-      <span className="inline-flex min-h-9 items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3 text-2xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
-        Details
-        <ChevronRight className="ml-1 h-3 w-3" aria-hidden />
-      </span>
-    </button>
-  );
+function MobileToolRow(props: { app: LauncherApp; selected: boolean; onSelect: (id: ToolCatalogId) => void }) {
+  return <ToolCard {...props} density="row" />;
 }
 
 function DetailSection({
@@ -758,16 +748,29 @@ export function ApplicationsLauncherWorkspace({
   const selectedId = detailOpen || selection.queryKey === normalizedQuery ? selection.id : queryDerivedId;
   const effectiveFilter: LauncherFilter = activeFilter === "saved" && !canAccessFavourites ? "all" : activeFilter;
 
+  const queryMatchedApps = useMemo(
+    () =>
+      launcherApps.filter(
+        (app) =>
+          !normalizedQuery ||
+          [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, areaLabels[app.area], ...app.keywords]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(normalizedQuery),
+      ),
+    [launcherApps, normalizedQuery],
+  );
+  const filterCounts = Object.fromEntries(
+    desktopFilters.map((filter) => [
+      filter.id,
+      queryMatchedApps.filter((app) => launcherAppMatchesFilter(app, filter.id)).length,
+    ]),
+  );
+
   const filteredApps = useMemo(() => {
     return launcherApps.filter((app) => {
-      const matchesFilter =
-        effectiveFilter === "all"
-          ? true
-          : effectiveFilter === "more"
-            ? app.area === "coordination" || app.area === "saved"
-            : effectiveFilter === "saved"
-              ? app.area === "saved"
-              : app.area === effectiveFilter;
+      const matchesFilter = launcherAppMatchesFilter(app, effectiveFilter);
       const matchesQuery =
         !normalizedQuery ||
         [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, areaLabels[app.area], ...app.keywords]
@@ -797,7 +800,7 @@ export function ApplicationsLauncherWorkspace({
     if (controlledQuery === undefined && !searchCommand) setLocalQuery(nextQuery);
   }
 
-  function openTool(id: string) {
+  function openTool(id: ToolCatalogId) {
     setSelection({ queryKey: normalizedQuery, id });
     setDetailOpen(true);
   }
@@ -829,10 +832,24 @@ export function ApplicationsLauncherWorkspace({
           headingLevel={1}
         />
 
+        <Link
+          href="/tools"
+          aria-label="Show all tools"
+          data-testid="tools-show-all"
+          className={cn(
+            "inline-flex min-h-tap items-center justify-center gap-2 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-soft)] sm:text-sm lg:min-h-9",
+            focusRing,
+          )}
+        >
+          <Grid2X2 className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" strokeWidth={1.75} aria-hidden="true" />
+          {copy.showAllLabel}
+        </Link>
+
         {desktopComposerSlotId ? (
           <DesktopComposerPortalSlot
             id={desktopComposerSlotId}
-            className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
+            data-composer-reserve={modeHomeComposerReservePendingValue}
+            className="mode-home-composer-slot hidden w-full max-w-3xl sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
           />
         ) : (
           <ToolSearch
@@ -870,6 +887,7 @@ export function ApplicationsLauncherWorkspace({
                 activeFilter={effectiveFilter}
                 onFilterChange={setActiveFilter}
                 canAccessFavourites={canAccessFavourites}
+                filterCounts={filterCounts}
               />
             }
           />
@@ -883,6 +901,7 @@ export function ApplicationsLauncherWorkspace({
                 activeFilter={effectiveFilter}
                 onFilterChange={setActiveFilter}
                 canAccessFavourites={canAccessFavourites}
+                filterCounts={filterCounts}
               />
               <p className="hidden min-h-10 items-center rounded-lg px-1 text-xs font-bold text-[color:var(--text-muted)] lg:inline-flex">
                 Sorted A to Z
@@ -935,8 +954,4 @@ export function ApplicationsLauncherWorkspace({
       <DetailDialog app={selectedApp} open={detailOpen} onClose={() => setDetailOpen(false)} />
     </main>
   );
-}
-
-export function ApplicationsLauncherPage({ query }: { query?: string }) {
-  return <ApplicationsLauncherWorkspace query={query} desktopComposerSlotId={modeHomeDesktopComposerSlotId} />;
 }

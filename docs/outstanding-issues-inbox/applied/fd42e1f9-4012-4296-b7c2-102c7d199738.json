@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "fd42e1f9-4012-4296-b7c2-102c7d199738",
+  "createdOn": "2026-08-15",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Make the retrieval row contract's source_metadata pin structural, not data-guaranteed",
+    "detail": "rag-row-contracts.ts pins source_metadata to a JSON object via z.record(...), but documents.metadata is bare jsonb and permits arrays and scalars. Measured against the live project (sjrfecxgysukkwxsowpy) on 2026-08-15: all 2851 documents are object-typed, so nothing breaks today and no live errors exist. The guarantee is data, not schema — a future ingest path could violate it and take retrieval down for that document's chunks. Fix is either a check (jsonb_typeof(metadata) = 'object') constraint on public.documents, or loosening the pin. Every other required field in that contract is backed by a not-null constraint.",
+    "source": "PR #1946 review + live Supabase verification 2026-08-15"
+  }
+}

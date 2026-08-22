@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { ACTIVE_INDEXING_POLL_MS, indexingListResponse, offsetPagination } from "@/lib/api-list-response";
+import {
+  ACTIVE_INDEXING_POLL_MS,
+  indexingListResponse,
+  offsetPagination,
+  parseListRows,
+} from "@/lib/api-list-response";
 import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { demoDocuments } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
@@ -96,9 +101,17 @@ const SUMMARY_LIST_COLUMNS = [
 const VALID_STATUSES = new Set(["queued", "processing", "indexed", "failed"]);
 const ACTIVE_DOCUMENT_STATUSES = new Set(["queued", "processing"]);
 
-type DocumentListRow = Record<string, unknown> & { id: string; owner_id?: unknown; status?: string | null };
-type LabelListRow = Record<string, unknown> & { document_id: string };
-type SummaryListRow = Record<string, unknown> & { document_id: string };
+const documentListRowSchema = z
+  .object({
+    id: z.string(),
+    owner_id: z.unknown().optional(),
+    status: z.string().nullable().optional(),
+  })
+  .passthrough();
+const labelListRowSchema = z.object({ document_id: z.string() }).passthrough();
+const summaryListRowSchema = z.object({ document_id: z.string() }).passthrough();
+
+type DocumentListRow = z.infer<typeof documentListRowSchema>;
 
 function projectPublicFields<T extends Record<string, unknown>>(row: T, columns: string): Partial<T> {
   const projected: Record<string, unknown> = {};
@@ -189,7 +202,7 @@ export async function GET(request: Request) {
     // An authenticated caller reads PUBLIC (owner_id IS NULL) documents alongside their own via
     // withOwnerReadScope. Redact operator-internal storage fields on the rows they do not own so a
     // shared public document never exposes its owner's storage_path/content_hash/etc. (S1/D1).
-    const rawDocuments = (error ? [] : (data ?? [])) as unknown as DocumentListRow[];
+    const rawDocuments = parseListRows(error ? [] : data, documentListRowSchema);
     const ownedDocumentIds = new Set(
       rawDocuments.filter((document) => callerOwnsDocumentRow(document, access.ownerId)).map((document) => document.id),
     );
@@ -207,31 +220,64 @@ export async function GET(request: Request) {
     }
 
     const ownedIds = [...ownedDocumentIds];
-    const emptyResult = () => Promise.resolve({ data: [], error: null });
-    const [ownedLabelsResult, publicLabelsResult, ownedSummariesResult, publicSummariesResult] = await Promise.all([
-      ownedIds.length
-        ? supabase.from("document_labels").select(LABEL_LIST_COLUMNS).in("document_id", ownedIds)
-        : emptyResult(),
-      publicDocumentIds.length
-        ? supabase.from("document_labels").select(PUBLIC_LABEL_LIST_COLUMNS).in("document_id", publicDocumentIds)
-        : emptyResult(),
-      ownedIds.length
-        ? supabase.from("document_summaries").select(SUMMARY_LIST_COLUMNS).in("document_id", ownedIds)
-        : emptyResult(),
-      publicDocumentIds.length
-        ? supabase.from("document_summaries").select(PUBLIC_SUMMARY_LIST_COLUMNS).in("document_id", publicDocumentIds)
-        : emptyResult(),
+    const ownedLabelsPromises = [];
+    for (let i = 0; i < ownedIds.length; i += 100) {
+      ownedLabelsPromises.push(
+        supabase
+          .from("document_labels")
+          .select(LABEL_LIST_COLUMNS)
+          .in("document_id", ownedIds.slice(i, i + 100)),
+      );
+    }
+    const publicLabelsPromises = [];
+    for (let i = 0; i < publicDocumentIds.length; i += 100) {
+      publicLabelsPromises.push(
+        supabase
+          .from("document_labels")
+          .select(PUBLIC_LABEL_LIST_COLUMNS)
+          .in("document_id", publicDocumentIds.slice(i, i + 100)),
+      );
+    }
+    const ownedSummariesPromises = [];
+    for (let i = 0; i < ownedIds.length; i += 100) {
+      ownedSummariesPromises.push(
+        supabase
+          .from("document_summaries")
+          .select(SUMMARY_LIST_COLUMNS)
+          .in("document_id", ownedIds.slice(i, i + 100)),
+      );
+    }
+    const publicSummariesPromises = [];
+    for (let i = 0; i < publicDocumentIds.length; i += 100) {
+      publicSummariesPromises.push(
+        supabase
+          .from("document_summaries")
+          .select(PUBLIC_SUMMARY_LIST_COLUMNS)
+          .in("document_id", publicDocumentIds.slice(i, i + 100)),
+      );
+    }
+
+    const [ownedLabelsResults, publicLabelsResults, ownedSummariesResults, publicSummariesResults] = await Promise.all([
+      Promise.all(ownedLabelsPromises),
+      Promise.all(publicLabelsPromises),
+      Promise.all(ownedSummariesPromises),
+      Promise.all(publicSummariesPromises),
     ]);
 
-    for (const result of [ownedLabelsResult, publicLabelsResult, ownedSummariesResult, publicSummariesResult]) {
-      if (result.error) throw new Error(result.error.message);
+    for (const res of [
+      ...ownedLabelsResults,
+      ...publicLabelsResults,
+      ...ownedSummariesResults,
+      ...publicSummariesResults,
+    ]) {
+      if (res.error) throw new Error(res.error.message);
     }
 
     const labelsByDocument = new Map<string, unknown[]>();
-    const labelRows = [
-      ...(ownedLabelsResult.data ?? []),
-      ...(publicLabelsResult.data ?? []),
-    ] as unknown as LabelListRow[];
+    const labelRows = parseListRows(
+      [...ownedLabelsResults.flatMap((res) => res.data ?? []), ...publicLabelsResults.flatMap((res) => res.data ?? [])],
+      labelListRowSchema,
+    );
     for (const label of labelRows) {
       const existing = labelsByDocument.get(label.document_id) ?? [];
       existing.push(
@@ -239,16 +285,18 @@ export async function GET(request: Request) {
       );
       labelsByDocument.set(label.document_id, existing);
     }
+    const summaryRows = parseListRows(
+      [
+        ...ownedSummariesResults.flatMap((res) => res.data ?? []),
+        ...publicSummariesResults.flatMap((res) => res.data ?? []),
+      ],
+      summaryListRowSchema,
+    );
     const summariesByDocument = new Map(
-      [...(ownedSummariesResult.data ?? []), ...(publicSummariesResult.data ?? [])].map((value) => {
-        const summary = value as unknown as SummaryListRow;
-        return [
-          summary.document_id,
-          ownedDocumentIds.has(summary.document_id)
-            ? summary
-            : projectPublicFields(summary, PUBLIC_SUMMARY_LIST_COLUMNS),
-        ];
-      }),
+      summaryRows.map((summary) => [
+        summary.document_id,
+        ownedDocumentIds.has(summary.document_id) ? summary : projectPublicFields(summary, PUBLIC_SUMMARY_LIST_COLUMNS),
+      ]),
     );
 
     return documentsResponse(

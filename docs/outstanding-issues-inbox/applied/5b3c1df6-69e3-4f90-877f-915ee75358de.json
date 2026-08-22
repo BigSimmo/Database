@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5b3c1df6-69e3-4f90-877f-915ee75358de",
+  "createdOn": "2026-08-20",
+  "action": "update",
+  "payload": {
+    "id": "#97VQK5",
+    "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987): the documentation half is DONE. CLAUDE.md now reads 15 app modes, and the mode index in docs/site-map.md now carries rows for Calculators, Therapy, Factsheets and Dictionary, so the four missing modes and the stale count are both corrected. REMAINING SCOPE, and the only reason this row stays open: the placeholder-punctuation split (ASCII three dots vs Unicode ellipsis vs no terminator on differentials) and the heading-level inconsistency (h2 on answer/documents/prescribing, h1 elsewhere, so the Documents home has no h1). Both are decisions, and the heading change moves visual baselines.",
+    "baseRowFingerprint": "613151322bad442a568da3c651e77b94d119c55367fffc88d6f74e8edd89aef8"
+  }
+}

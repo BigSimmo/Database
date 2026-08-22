@@ -88,8 +88,6 @@ export const formulationTemplates = formulationContent.formulationTemplates;
 export const formulationSections = formulationContent.formulationSections;
 export const formulationQualityPrompts = formulationContent.formulationQualityPrompts;
 export const formulationSourceLibrary = formulationContent.sourceLibrary;
-export const formulationWarnings = formulationContent.sourceWarnings;
-
 /**
  * The domains at least one mechanism actually carries — 9 of the 12 declared.
  *

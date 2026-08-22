@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "3dda04ff-1ae9-4153-80ed-ad081931e396",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "9792c896-78d8-46ab-b194-6a52b7fd7cab",
+    "reason": "Superseded by the single combined #316 update queued in the same batch, which merges this request's dispatch proof and corrected drift figures with the incident-session findings from request bbf21714 so the row carries one coherent account instead of two partial ones."
+  }
+}

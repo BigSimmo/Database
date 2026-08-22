@@ -85,8 +85,20 @@ export function reflowWrappedAgitationDoseLines(value: string) {
  * Reflow OCR/PDF visual line wraps without joining across semantic source
  * boundaries. Blank lines, bullets, terminal punctuation, colons, and numbered
  * headings remain hard boundaries.
+ *
+ * With `requireContinuationStart`, a line additionally joins the previous one
+ * only when it visibly continues its sentence (starts with a lowercase letter,
+ * digit, or opening parenthesis). Capitalized lines then start a new block:
+ * joining separate capitalized items ("Stop clozapine" / "Starting dose
+ * 12.5 mg") would manufacture claim support from unrelated source lines. The
+ * default keeps the historical aggressive join for the sanitized policy-source
+ * and table-row callers, whose known texts wrap across capitalized proper
+ * nouns ("…Emergency\nDepartment (AHS-ED)…").
  */
-export function reflowBoundedSourceLines(value: string) {
+const wrapContinuationLineStartPattern = /^[a-z0-9(]/;
+
+export function reflowBoundedSourceLines(value: string, options?: { requireContinuationStart?: boolean }) {
+  const requireContinuationStart = options?.requireContinuationStart ?? false;
   const blocks: string[] = [];
   let wrappedLines: string[] = [];
   const flush = () => {
@@ -107,6 +119,7 @@ export function reflowBoundedSourceLines(value: string) {
       continue;
     }
     if (sourceBulletLinePattern.test(line)) flush();
+    if (requireContinuationStart && wrappedLines.length > 0 && !wrapContinuationLineStartPattern.test(line)) flush();
     wrappedLines.push(line);
     if (/[.!?]\s*$/.test(line) || /:\s*$/.test(line)) flush();
   }

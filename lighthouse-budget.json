@@ -3,7 +3,7 @@
   "enforce": true,
   "$lighthouseVersion": "Pinned exactly, not `lighthouse@12`: a patch published between a baseline run and its follow-up would silently change the measurement. Kept in step with LIGHTHOUSE_VERSION in .github/workflows/live-web-vitals.yml by tests/check-lighthouse-budget.test.ts so the two Lighthouse entry points cannot drift apart.",
   "lighthouseVersion": "12.8.2",
-  "routes": ["/", "/therapy-compass", "/documents/search", "/dsm", "/forms"],
+  "routes": ["/", "/documents/search"],
   "strategies": ["mobile", "desktop"],
   "tolerance": {
     "lcpMs": {
@@ -20,75 +20,34 @@
   },
   "baseline": {
     "desktop-documents-search": {
-      "lcpMs": 783.0789,
+      "lcpMs": 866.307,
       "cls": 0.1192626548872241,
-      "tbtMs": 0,
-      "fcpMs": 341.0263,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
-    },
-    "desktop-dsm": {
-      "lcpMs": 845.9704999999998,
-      "cls": 0.01385597670614338,
-      "tbtMs": 0,
-      "fcpMs": 387.58820000000003,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
-    },
-    "desktop-forms": {
-      "lcpMs": 876.0039,
-      "cls": 0.0633683272433484,
-      "tbtMs": 14,
-      "fcpMs": 341.7154,
+      "tbtMs": 4.499999999999943,
+      "fcpMs": 340.1535,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "desktop-root": {
-      "lcpMs": 868.109,
-      "cls": 0.006415130023640662,
-      "tbtMs": 2,
-      "fcpMs": 337.5545,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
-    },
-    "desktop-therapy-compass": {
-      "lcpMs": 793.2665999999999,
-      "cls": 0,
-      "tbtMs": 0,
-      "fcpMs": 344.4222,
+      "lcpMs": 822.2584000000003,
+      "cls": 0.007423798266351459,
+      "tbtMs": 2.5,
+      "fcpMs": 335.5646,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "mobile-documents-search": {
-      "lcpMs": 2380.327,
+      "lcpMs": 2271.699,
       "cls": 0,
-      "tbtMs": 375.2569999999996,
-      "fcpMs": 2380.327,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
-    },
-    "mobile-dsm": {
-      "lcpMs": 2373.182,
-      "cls": 0.03530337546450838,
-      "tbtMs": 361.0809999999392,
-      "fcpMs": 2373.182,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
-    },
-    "mobile-forms": {
-      "lcpMs": 2357.471,
-      "cls": 0.07497720365583048,
-      "tbtMs": 315.7259999999992,
-      "fcpMs": 2357.471,
+      "tbtMs": 347.6690000000003,
+      "fcpMs": 2271.699,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "mobile-root": {
-      "lcpMs": 2364.533,
-      "cls": 0.01269102607447784,
-      "tbtMs": 338.5250000000019,
-      "fcpMs": 2364.533,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
-    },
-    "mobile-therapy-compass": {
-      "lcpMs": 2387.501,
-      "cls": 0,
-      "tbtMs": 296.71299999999974,
-      "fcpMs": 2387.501,
+      "lcpMs": 2252.856,
+      "cls": 0.01575010076343992,
+      "tbtMs": 296.28300000000127,
+      "fcpMs": 2252.856,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     }
   },
-  "updatedAt": "2026-08-13T12:02:17.964Z"
+  "updatedAt": "2026-08-18T16:00:09.578Z",
+  "$routes": "Only surfaces that still render. `/therapy-compass`, `/dsm` and `/forms` were removed when home consolidation turned them into redirect stubs: Lighthouse followed the 307 and graded `/?mode=<id>` against a baseline captured on the retired detailed home, which the checker reports as \"measured a different page than requested\". All three now render the same shared home as `/`, so removing them costs duplication rather than coverage. Restoring per-mode coverage means measuring the `<mode>/search` results routes, and those need baseline rows the dispatch-only refresh job records \u2014 do that rather than hand-writing numbers."
 }

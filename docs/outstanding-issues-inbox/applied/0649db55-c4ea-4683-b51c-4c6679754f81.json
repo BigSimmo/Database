@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "0649db55-c4ea-4683-b51c-4c6679754f81",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "R2 + R3: claim-support strictness rejects verbatim-faithful guideline restatements (directive normativity; topic-overlap dilution) — packet S1c",
+    "detail": "R2: normativeDirectiveActions in src/lib/rag/rag-claim-support.ts has no pattern for 'usual / recommended ... dose is ...' guideline phrasing, so imperative claims ('start lithium at 500 mg nocte') fail against descriptive norms; reproduced offline on the EMHS lithium chunk. R3: a claim synthesising two adjacent source bullets fails the >=50% single-segment topic-overlap requirement even when every atom matches; reproduced offline. Fix R2 with a small pattern addition plus adversarial negatives; MEASURE R3 before loosening. One PR after S1b merges and its canary is green; RAG impact behaviour change; canary pair. Packet: docs/rag-improvement/HANDOVER.md S1c. Stop: no grounding-gate weakening beyond the two named artefacts.",
+    "source": "RAG programme coordinator, S1 PR #2022 residuals and #212 handover follow-ups, 2026-08-17",
+    "issueUlid": "01M07SS71R6BG9X2VAGXMM1A1G"
+  }
+}

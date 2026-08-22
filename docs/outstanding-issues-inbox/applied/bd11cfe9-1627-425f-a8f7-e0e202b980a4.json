@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "bd11cfe9-1627-425f-a8f7-e0e202b980a4",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#235",
+    "detail": "CLOSURE ATTEMPTED AND REJECTED 2026-08-14 — read this before closing again. PR #1940 queued a `done` for this row citing ADOPTION.md section 7.1's per-surface executable-evidence table; the closure was cancelled on review with the reason \"executable evidence does not replace the requested desktop and phone proof shots\". The cancellation is correct, and the trap is worth naming: section 7.1 opens with \"This PR records executable evidence RATHER THAN committing image baselines\", so the very section that looks like the evidence says in its first line that it is not. A test that proves a component is mounted is not a picture of the surface, and this row asks for the picture. IN FLIGHT note retired: PR #1842 merged, so the do-not-start warning no longer applies. The requirement is unchanged. The adoption contract asks for a proof shot per adopted surface. Wave 5 captured four - DSM header, settings rows, patient panel, answer surface - and none for the forms fold, the catalogue and docs surfaces, the headers convergence, or the empty states adopted since. Section 7 therefore reads as complete while most of the adoption is unevidenced, which matters because the proof shot is what a later reader uses to tell an intended restyle from a regression (the #229 DSM eyebrow was almost rediscovered as a defect for exactly this reason). Next action: capture the missing shots against a warmed local server (npm run ensure) and attach them to section 7. Cheap and mechanical - no gate, no provider access. Stop: this is not the visual-baseline harness (#118) - do not commit Playwright snapshot PNGs or flip that job to blocking. Stop: do not close this row on unit, DOM or contract evidence of any kind."
+  }
+}

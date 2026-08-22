@@ -1,15 +1,19 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MedicationPrescribingWorkspace } from "@/components/clinical-dashboard/medication-prescribing-workspace";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 
-// The prescribing results view filters a medication catalogue through a
-// best/indication/safety/monitoring lens strip. The catalogue hook fetches
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}));
+
+// The prescribing results view filters a medication catalogue through scope,
+// match-quality, class and clinical-signal controls. The catalogue hook fetches
 // `/api/medications` (and reads the auth session), so it is mocked with a fixed
-// set of results chosen to land in different filter buckets; the filter strip is
-// the unit under test. Only usePatientProfile needs a real provider (the profile
-// stays empty here, so no per-patient alert badges are computed).
+// set of results chosen to land in different filter buckets. Only
+// usePatientProfile needs a real provider (the profile stays empty here, so no
+// per-patient alert badges are computed).
 
 type Result = {
   id: string;
@@ -23,7 +27,7 @@ type Result = {
   tone: "teal" | "blue" | "slate";
 };
 
-// Clozapine: danger + exact fit → best, indication, safety (not monitoring).
+// Clozapine: danger + exact fit → Safety (not Monitoring).
 const clozapine: Result = {
   id: "clozapine",
   name: "Clozapine",
@@ -35,7 +39,7 @@ const clozapine: Result = {
   actionTone: "danger",
   tone: "teal",
 };
-// Lithium: warning + monitor language → every filter.
+// Lithium: warning + monitor language → both clinical signals.
 const lithium: Result = {
   id: "lithium",
   name: "Lithium",
@@ -47,7 +51,7 @@ const lithium: Result = {
   actionTone: "warning",
   tone: "blue",
 };
-// Sertraline: neutral + related match → best only.
+// Sertraline: neutral + related match → neither clinical signal.
 const sertraline: Result = {
   id: "sertraline",
   name: "Sertraline",
@@ -118,14 +122,15 @@ function rowVisible(name: string): boolean {
   return screen.queryAllByText(name).length > 0;
 }
 
-// The rail is a one-of-N lens, so its options are radios in a radiogroup, not
-// pressed toggles. The accessible name carries the count as "Best (3)".
+// Match quality is a one-of-N lens, so its options are radios in a radiogroup.
 function filterButton(label: string): HTMLElement {
   return screen.getByRole("radio", { name: new RegExp(`^${label}`, "i") });
 }
 
 afterEach(() => {
   catalogInterpretation.current = undefined;
+  window.history.replaceState(null, "", "/");
+  cleanup();
   vi.restoreAllMocks();
 });
 
@@ -141,6 +146,14 @@ describe("MedicationPrescribingWorkspace — home vs submitted results", () => {
     renderWorkspace({ query: "l", showHome: false });
     expect(screen.queryByTestId("medication-home")).not.toBeInTheDocument();
     expect(screen.getAllByTestId("medication-result-clozapine-desktop").length).toBeGreaterThan(0);
+  });
+
+  it("uses concise, interval-safe dose labels", () => {
+    renderWorkspace({ showHome: false });
+    expect(screen.getByText("Usual dose")).toBeInTheDocument();
+    expect(screen.getByText("Max dose")).toBeInTheDocument();
+    expect(screen.getAllByText("Max").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Ceiling")).not.toBeInTheDocument();
   });
 });
 
@@ -182,44 +195,58 @@ describe("MedicationPrescribingWorkspace — query interpretation", () => {
   });
 });
 
-describe("MedicationPrescribingWorkspace — result filter strip", () => {
-  it("labels each lens with the count of matching results", () => {
+describe("MedicationPrescribingWorkspace — refined filters", () => {
+  function openFilters() {
+    fireEvent.click(screen.getByTestId("medication-filter-trigger-desktop"));
+  }
+
+  it("separates match quality from overlapping clinical signals with projected counts", () => {
     renderWorkspace();
-    // best = 3 (all), indication = 2 (exact-fit), safety = 2 (non-neutral), monitor = 1.
-    expect(filterButton("Best").textContent).toContain("3");
-    expect(filterButton("Indication").textContent).toContain("2");
-    expect(filterButton("Safety").textContent).toContain("2");
-    expect(filterButton("Monitor").textContent).toContain("1");
+    openFilters();
+
+    expect(filterButton("All qualities").textContent).toContain("3");
+    expect(filterButton("Exact clinical fit").textContent).toContain("2");
+    expect(filterButton("Related match").textContent).toContain("1");
+    expect(screen.getByRole("button", { name: /^Safety \(2\)$/ })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /^Monitoring \(1\)$/ })).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("defaults to the Best lens with every result shown", () => {
+  it("defaults to Best matches and all match qualities with ranked rows unchanged", () => {
     renderWorkspace();
-    expect(filterButton("Best")).toHaveAttribute("aria-checked", "true");
-    expect(filterButton("Safety")).toHaveAttribute("aria-checked", "false");
+    openFilters();
+
+    expect(screen.getByRole("radio", { name: /Best matches/ })).toBeChecked();
+    expect(filterButton("All qualities")).toHaveAttribute("aria-checked", "true");
     expect(rowVisible("Clozapine")).toBe(true);
     expect(rowVisible("Lithium")).toBe(true);
     expect(rowVisible("Sertraline")).toBe(true);
   });
 
-  it("narrows to indication-relevant results and drops related-only matches", () => {
+  it("round-trips a match-quality URL refinement without changing patient safety chrome", () => {
     renderWorkspace();
-    fireEvent.click(filterButton("Indication"));
+    openFilters();
+    fireEvent.click(filterButton("Exact clinical fit"));
+    expect(new URLSearchParams(window.location.search).get("match")).toBe("exact");
 
-    expect(filterButton("Indication")).toHaveAttribute("aria-checked", "true");
-    expect(filterButton("Best")).toHaveAttribute("aria-checked", "false");
+    cleanup();
+    renderWorkspace();
     expect(rowVisible("Clozapine")).toBe(true);
     expect(rowVisible("Lithium")).toBe(true);
-    // Sertraline is a "Related match", so it leaves the Indication lens.
     expect(rowVisible("Sertraline")).toBe(false);
+    expect(screen.getByText(/Patient details/i)).toBeInTheDocument();
   });
 
-  it("narrows the Monitor lens to results with monitoring signals only", () => {
+  it("keeps Safety and Monitoring as OR values in one clinical-signal facet", () => {
     renderWorkspace();
-    fireEvent.click(filterButton("Monitor"));
+    openFilters();
+    fireEvent.click(screen.getByRole("button", { name: /^Safety \(2\)$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Monitoring \(1\)$/ }));
+    expect(new URLSearchParams(window.location.search).get("signal")).toBe("monitoring,safety");
 
-    expect(filterButton("Monitor")).toHaveAttribute("aria-checked", "true");
+    cleanup();
+    renderWorkspace();
     expect(rowVisible("Lithium")).toBe(true);
-    expect(rowVisible("Clozapine")).toBe(false);
+    expect(rowVisible("Clozapine")).toBe(true);
     expect(rowVisible("Sertraline")).toBe(false);
   });
 });

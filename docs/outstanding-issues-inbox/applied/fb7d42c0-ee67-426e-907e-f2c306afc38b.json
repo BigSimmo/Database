@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "fb7d42c0-ee67-426e-907e-f2c306afc38b",
+  "createdOn": "2026-08-17",
+  "action": "done",
+  "payload": {
+    "id": "#J912J9",
+    "outcome": "Answered and implemented (packet G1, PR for branch claude/g1-rag-document-context-qn9ubx). Owner decided Option B on 2026-08-17: document-summary rows keep the high confidence label, and the fabricated similarity gets its own provenance value rather than being folded into synthetic_text. Landed: document_context added to the similarity_origin union (src/lib/types.ts) and to the streamed-preview client-source validator (src/lib/answer-stream-contract.ts), and stamped in buildDocumentSummaryResults (src/lib/rag/rag-row-contracts.ts). Per the decision deriveConfidence (src/lib/rag/rag-answer-support.ts) is unchanged and still excludes only synthetic_text, and rag.ts synthetic_similarity_count still counts only synthetic_text; both are pinned by discriminating tests that go red on the rejected Option A fold. Option A (tag as synthetic_text so summaries cap at medium) recorded as rejected. docs/clinical-hazard-analysis.md H5a marks the decision implemented and names the residual: the tag closes the legibility gap, not the deeper question of whether a constant 1.0 should contribute to a confidence label, but any future gate can now discriminate the route without re-deriving provenance. No retrieval behaviour change; no canary.",
+    "baseRowFingerprint": "e072b25f5773f1945471f8081b307f5f74766ef400aaad8c01d27f186066eea6"
+  }
+}

@@ -3,12 +3,14 @@
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { InformationPageShell } from "@/components/information-page-shell";
 import { cn, pageContainer } from "@/components/ui-primitives";
+import { isInformationPage } from "@/lib/information-pages";
 
 import { TcProvider, useTcBindings } from "./bindings";
-import { accentControl, therapyBtn } from "./controls";
-import { TherapyModeNav } from "./nav";
 
 function TherapyCompassFooter() {
   return (
@@ -27,24 +29,32 @@ function TherapyCompassDataError() {
       aria-busy={b.loading}
       className="mx-auto my-10 max-w-2xl rounded-xl border border-[color:var(--danger)] bg-[color:var(--danger-soft)] p-6"
     >
-      <h1 className="m-0 mb-2 text-xl text-[color:var(--text-heading)]">Therapy could not load</h1>
-      <p className="m-0 mb-4 leading-normal text-[color:var(--text-muted)]">
-        The therapy catalogue is unavailable. No results are being shown as a substitute.
-      </p>
-      <button
-        type="button"
-        className={`${therapyBtn} ${accentControl}`}
-        onClick={b.retryData}
-        // Native `disabled` alone: retry-while-loading is transient, not an
-        // unavailability with a reason to announce, so the browser semantics are
-        // the right ones. The `aria-disabled` that used to sit beside it changed
-        // nothing — the native attribute wins on focus either way.
-        disabled={b.loading}
-      >
-        {b.loading ? "Retrying…" : "Retry"}
-      </button>
+      <PageHeader
+        title="Therapy could not load"
+        description="The therapy catalogue is unavailable. No results are being shown as a substitute."
+        actions={
+          <Button variant="primary" onClick={b.retryData} busy={b.loading} busyLabel="Retrying…">
+            Retry
+          </Button>
+        }
+      />
     </section>
   );
+}
+
+function TherapyCompassInformationRoute({ children }: { children: ReactNode }) {
+  const b = useTcBindings();
+  if (b.error) {
+    return (
+      <InformationPageShell testId="therapy-information-error">
+        <TherapyCompassDataError />
+      </InformationPageShell>
+    );
+  }
+  if (b.loading && b.therapies.length === 0) {
+    return <InformationPageShell testId="therapy-information-loading">{children}</InformationPageShell>;
+  }
+  return children;
 }
 
 function TherapyCompassMain({
@@ -79,6 +89,7 @@ function TherapyCompassMain({
 export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isHome = pathname === "/therapy-compass";
+  const informationPage = isInformationPage(pathname);
 
   return (
     <TcProvider>
@@ -86,15 +97,13 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
         data-therapy-root
         className="min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))]"
       >
-        {/* Every route but the mode home carries the shared bar, which pins
-            itself inside the universal header's collapse track and so hides and
-            reveals with it at every width. Home keeps none: `ModeHomeTemplate`
-            already surfaces the same destinations as tiles, which is the
-            convention every mode home follows. */}
-        {isHome ? null : <TherapyModeNav />}
-        <TherapyCompassMain showFooter={!isHome} asMain={!isHome}>
-          {children}
-        </TherapyCompassMain>
+        {informationPage ? (
+          <TherapyCompassInformationRoute>{children}</TherapyCompassInformationRoute>
+        ) : (
+          <TherapyCompassMain showFooter={!isHome} asMain={!isHome}>
+            {children}
+          </TherapyCompassMain>
+        )}
       </div>
     </TcProvider>
   );

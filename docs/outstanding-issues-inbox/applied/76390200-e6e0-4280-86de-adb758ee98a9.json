@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "76390200-e6e0-4280-86de-adb758ee98a9",
+  "createdOn": "2026-08-21",
+  "action": "cancel",
+  "payload": {
+    "requestId": "0a0ab127-0cc1-4b14-b4ce-fd839a98386c",
+    "reason": "Superseded, not rejected: its content is carried forward verbatim in substance as Part A of the merged #231 detail queued by request fe5acdef on 2026-08-22. Both requests mutate #231 and the update action replaces detail rather than appending, so only one can survive reconcile. The two records agree and reinforce each other -- the Phase 5 close-out measured retrieval down to 955-6720 ms of the 25000 ms fast budget, and the Gate E answer-level diagnosis shows the remaining 16-22 s is enough for one generation attempt but not for the retry the quality ladder then launches unguarded. The queue re-grade this request asked for at reconcile is also carried forward."
+  }
+}

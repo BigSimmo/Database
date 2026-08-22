@@ -586,7 +586,3 @@ export async function extractDocument(args: { buffer: Buffer; fileName: string; 
 
   return extractTxt(args.buffer);
 }
-
-export async function fileToBase64(filePath: string) {
-  return (await readFile(filePath)).toString("base64");
-}

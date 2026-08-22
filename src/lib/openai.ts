@@ -158,7 +158,7 @@ function requestOptions(options?: Pick<TextGenerationOptions, "operation" | "tim
 function promptCacheKeyFor(operation: OpenAIOperation) {
   switch (operation) {
     case "answer":
-      return "clinical-rag-answer-v18";
+      return "clinical-rag-answer-v19";
     case "summary":
       return "clinical-document-summary-v1";
     case "vision_caption":

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "24408f86-38ff-4715-affa-55d6c7bc1bb7",
+  "createdOn": "2026-08-15",
+  "action": "cancel",
+  "payload": {
+    "requestId": "0948fcd2-2e51-47bc-8990-7ec002934e43",
+    "reason": "Superseded by the corrected forensic record: it falsely narrows the index window, overstates unresolved hash mismatches as body differences, and combines separately approved Phase 3 and Phase 4 work."
+  }
+}

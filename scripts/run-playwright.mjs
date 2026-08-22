@@ -82,12 +82,34 @@ const relativeRunRoot = `.next-playwright/${runId}`;
 const absoluteRunRoot = path.join(projectRoot, relativeRunRoot);
 const relativeDistDir = `${relativeRunRoot}/dist`;
 const relativeTsConfigPath = `${relativeRunRoot}/tsconfig.json`;
+const configuredWaitTimeoutMs = Number(process.env.HEAVY_RUN_WAIT_TIMEOUT_MS);
+const waitTimeoutMs = Number.isFinite(configuredWaitTimeoutMs) ? configuredWaitTimeoutMs : undefined;
+const ADMISSION_BUSY_EXIT = 75;
+const ADMISSION_BUSY_MARKER = "DATABASE_HEAVY_RUN_ADMISSION_BUSY";
+// Match only the coordinator's actual capacity/timeout messages (test-run-lock.mjs
+// busyMessage() and the initializing-coordinator branch) — not every error that
+// merely mentions "Database heavyweight", such as an inherited-lease mismatch or a
+// coordinator-directory setup failure. Those are configuration bugs, not admission
+// contention, and must keep failing with the ordinary exit 1 below.
+const ADMISSION_BUSY_PATTERN =
+  /^(?:Database focused-test capacity is full|Another Database heavyweight command is active|A Database heavyweight coordinator is being initialized\b.*retry shortly\.)/;
 
 let lock;
 try {
-  lock = acquireHeavyRunLock({ projectRoot, command: `playwright ${playwrightArgs.join(" ")}` });
+  lock = acquireHeavyRunLock({
+    projectRoot,
+    command: `playwright ${playwrightArgs.join(" ")}`,
+    ...(waitTimeoutMs === undefined ? {} : { waitTimeoutMs }),
+  });
 } catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
+  const message = String(error?.message ?? error);
+  if (ADMISSION_BUSY_PATTERN.test(message)) {
+    console.error(ADMISSION_BUSY_MARKER);
+    console.error(`Playwright did not run: ${message}`);
+    console.error("Wait for the active heavyweight run to finish, then retry this command.");
+    process.exit(ADMISSION_BUSY_EXIT);
+  }
+  console.error(message);
   process.exit(1);
 }
 
@@ -261,6 +283,33 @@ try {
           baseUrl: "../..",
           paths: { "@/*": ["src/*"] },
         },
+        // Declaring include/exclude here (rather than leaving them unset and
+        // inheriting the root tsconfig.json's) is deliberate. TypeScript resolves
+        // an extended config's *inherited* relative include/exclude entries
+        // against the repo root, so an unset include here would still resolve
+        // "**/*.ts" and ".next/dev/types/**/*.ts" against the shared top-level
+        // .next/ directory — not this isolated run's own NEXT_DIST_DIR output
+        // under `dist/`. That pulls stale/foreign route types from whatever the
+        // top-level .next happens to contain (a prior `npm run dev` or `npm run
+        // build`) into this run's typecheck. Excluding the repo-root .next/ and
+        // pointing at this run's own dist/types + dist/dev/types keeps the
+        // isolated build's typecheck scoped to itself (outstanding-issues #210).
+        include: [
+          "../../next-env.d.ts",
+          "../../**/*.ts",
+          "../../**/*.tsx",
+          "../../**/*.mts",
+          "dist/types/**/*.ts",
+          "dist/dev/types/**/*.ts",
+        ],
+        exclude: [
+          "../../node_modules",
+          "../../scratch/**",
+          "../../supabase/functions/**",
+          "../../worktrees/**",
+          "../../scripts/archive/**",
+          "../../.next/**",
+        ],
       },
       null,
       2,

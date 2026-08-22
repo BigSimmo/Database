@@ -6,6 +6,7 @@ import {
   DENSITY_OPTIONS,
   JURISDICTION_OPTIONS,
   LANDING_OPTIONS,
+  MOTION_OPTIONS,
   POPULATION_OPTIONS,
   normalizePreferences,
 } from "../src/components/clinical-dashboard/use-app-preferences";
@@ -56,6 +57,17 @@ describe("app preference normalisation", () => {
     expect(result.landing).toBe(DEFAULT_PREFERENCES.landing);
     expect(result.showRecentOnHome).toBe(DEFAULT_PREFERENCES.showRecentOnHome);
     expect(result.compactCitations).toBe(DEFAULT_PREFERENCES.compactCitations);
+  });
+
+  it("accepts all three motion values and defaults to following the OS", () => {
+    // "full" is the explicit opt-in that overrides an OS Reduce Motion request;
+    // "system" must stay the default so nobody silently gains motion.
+    expect(DEFAULT_PREFERENCES.motion).toBe("system");
+    for (const motion of ["system", "reduced", "full"] as const) {
+      expect(normalizePreferences({ motion }).motion).toBe(motion);
+    }
+    expect(normalizePreferences({ motion: "always" }).motion).toBe("system");
+    expect(MOTION_OPTIONS.map((option) => option.value)).toEqual(["system", "reduced", "full"]);
   });
 
   it("keeps every default within its published option set", () => {

@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "05a7854d-49d3-40b1-8973-fbbf191883da",
+  "createdOn": "2026-08-22",
+  "action": "update",
+  "payload": {
+    "id": "#50QRCF",
+    "detail": "CAUSE FOUND AND FIXED — landed on main 2026-08-22 in PR #2253 (merge 66594dd, fix commit 0cf0493). Full evidence is recorded on #TYZK23; this row is the gate-reliability half of the same defect. Summary: the shifting element is the PWA install card (div.pwa-notice-stack), which can mount during a window in which #main-content is briefly absent from the DOM while Next 16 streams and hydrates the route. Its phone geometry is selected by body:has(#main-content[data-phone-footer-owner=\"hero\"]) …, so a card mounting in that gap paints tall (h=401) and is restyled compact (h=161) when the shell returns — one discrete 0.2230 shift. That also explains observation (1) on this row, the part that looked impossible: the gate flips pass/fail on diffs that cannot influence layout because what varies between runs is TIMING (network speed, and whether beforeinstallprompt fires early enough to land inside the gap), not the diff. Deleting one JSON file changes nothing about the page and everything about which side of that race the run lands on — so head c8b7bcdd passing and head 09ff450c failing was never a contradiction. FIXED in src/components/pwa-lifecycle.tsx: the notice stack is held unmounted until the app shell is present. Reproduced locally at exactly 0.2230 before the fix and 0.000 after, using a synthetic beforeinstallprompt at ~120ms plus network throttling. CI on 0cf0493 (run 32531103787): Lighthouse budget SUCCESS. ALSO LANDED, and worth keeping even after this row closes: scripts/run-lighthouse-budget.mjs now prints layout-shift attribution (selector, snippet, score, raw worst item) when grading fails, before the report directory is deleted. This row previously required downloading a CI artifact that this environment cannot reach; that is no longer necessary, and the next occurrence of any layout-shift breach will name its own element. Stop rules honoured: tolerance not widened, baseline not refreshed. NOT CLOSED HERE — close with #TYZK23 and #KFRC3H once further Lighthouse budget runs confirm.",
+    "source": "CI run 32531103787 on head 0cf0493; local reproduction 2026-08-22; merged in PR #2253; full trace on #TYZK23",
+    "baseRowFingerprint": "4d77b7b9d2e1af63d40db9b661c4b25c390e3b65fd30df9e3355733d40d0c892"
+  }
+}

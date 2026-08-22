@@ -1,18 +1,15 @@
 import type { ReactNode } from "react";
 import { Info, Network, ShieldCheck } from "lucide-react";
 
-import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
-import { cn, eyebrowText } from "@/components/ui-primitives";
+import { cardSurface } from "@/components/card-recipes";
+import { InformationPageShell } from "@/components/information-page-shell";
+import { cn } from "@/components/ui-primitives";
 
-export const formulationCard =
-  "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]";
+/** Was byte-identical to `specifierCard`; both now name the shared recipe. */
+export const formulationCard = cardSurface;
 
 export function FormulationPageShell({ children, className }: { children: ReactNode; className?: string }) {
   return <InformationPageShell className={className}>{children}</InformationPageShell>;
-}
-
-export function FormulationBreadcrumbs({ current }: { current?: string }) {
-  return <InformationPageBreadcrumbs home={{ label: "Formulation", href: "/formulation" }} current={current} />;
 }
 
 export function MechanismDomainChips({ values, limit }: { values: string[]; limit?: number }) {
@@ -81,12 +78,4 @@ export function SessionPrivacyNote() {
   );
 }
 
-export function SectionHeading({ eyebrow, title, body }: { eyebrow?: string; title: string; body?: string }) {
-  return (
-    <header className="grid gap-1.5">
-      {eyebrow ? <p className={eyebrowText}>{eyebrow}</p> : null}
-      <h2 className="text-xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-2xl">{title}</h2>
-      {body ? <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">{body}</p> : null}
-    </header>
-  );
-}
+export { SectionHeading } from "@/components/ui/section-heading";

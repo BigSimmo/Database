@@ -1,18 +1,11 @@
 import { appModeHomeHref, type AppModeId } from "@/lib/app-modes";
+import { therapyWorkspaceNavigationEntries } from "@/lib/therapy-compass-navigation";
 
 export type ModeSecondaryNavigationEntry = {
   id: string;
   label: string;
   shortLabel?: string;
   href?: string;
-  action?:
-    | "search"
-    | "therapy-search"
-    | "therapy-recommend"
-    | "therapy-compare"
-    | "therapy-pathways"
-    | "therapy-brief"
-    | "therapy-sheets";
 };
 
 /**
@@ -21,7 +14,7 @@ export type ModeSecondaryNavigationEntry = {
  * secondary bar must never repeat a generic Home destination.
  */
 export const modeSecondaryNavigationRegistry = {
-  // Empty is a real answer, not a gap. These seven modes each registered one
+  // Empty is a real answer, not a gap. These eight modes each registered one
   // `action: "search"` entry, which rendered a lone <button> inside its own
   // <nav> landmark whose only effect was focusing a composer already visible on
   // the same screen — a landmark and a tab stop spent on a no-op. Every one of
@@ -57,24 +50,26 @@ export const modeSecondaryNavigationRegistry = {
   ],
   prescribing: [],
   tools: [],
-  // Inert: `PageSecondaryNavigation` early-returns on `/therapy-compass*`, and
-  // the mode's live destination list is `useTherapyNavItems` in
-  // `src/components/therapy-compass/nav.tsx`, which feeds the shared `ModeNav`.
-  // Kept because this registry is a 13-mode contract, not because it renders.
-  // Editing these entries changes nothing a user sees.
+  calculators: [],
+  // Record-owned outputs (briefs and patient sheets) deliberately stay off the
+  // global mode bar: they require an explicitly selected therapy. This prevents
+  // a generic navigation action from silently opening an unrelated default
+  // record. The global/sidebar mode switch already owns Home.
   "therapy-compass": [
-    { id: "search", label: "Search", action: "therapy-search" },
-    { id: "recommend", label: "Recommend", action: "therapy-recommend" },
-    { id: "compare", label: "Compare", action: "therapy-compare" },
-    { id: "pathways", label: "Pathways", action: "therapy-pathways" },
-    { id: "brief", label: "Brief Intervention", action: "therapy-brief" },
-    { id: "sheets", label: "Patient Sheets", action: "therapy-sheets" },
+    { id: "search", label: "Search", href: "/therapy-compass/search" },
+    { id: "recommend", label: "Recommend", href: "/therapy-compass/recommend" },
+    { id: "compare", label: "Compare", href: "/therapy-compass/compare" },
+    { id: "pathways", label: "Pathways", href: "/therapy-compass/pathways" },
   ],
-  // Two genuinely distinct surfaces: `/factsheets` is the browse home (category
-  // chips + a featured grid) and `/factsheets/search` is a separate component
-  // with filters, a view toggle and result rows. `/factsheets/[slug]` is a
-  // record and never reaches here — `hasLocalInformationPageNavigation` returns
-  // null for it first.
+  // Two genuinely distinct surfaces: the mode home and `/factsheets/search`, a
+  // separate component with filters, a view toggle and result rows.
+  // `/factsheets/[slug]` is a record and never reaches here —
+  // `hasLocalInformationPageNavigation` returns null for it first.
+  //
+  // Topics resolves through `appModeHomeHref`, so it followed factsheets onto the
+  // shared lightweight home when `/factsheets` became a redirect. The label still
+  // says Topics while the destination is that home; renaming it is a copy decision
+  // left to the owner rather than folded into the consolidation.
   // No `focus: true` on Topics, unlike the Search/Find entry of every mode
   // above. Those tabs are the mode's search affordance, so focusing the composer
   // on arrival is the point. Topics is a browse destination — autofocusing there
@@ -83,6 +78,21 @@ export const modeSecondaryNavigationRegistry = {
   factsheets: [
     { id: "topics", label: "Topics", href: appModeHomeHref("factsheets") },
     { id: "search", label: "Search", href: "/factsheets/search" },
+  ],
+  // Search and Browse were one catalogue behind two destinations: the same
+  // entries, the same rows, the same data, so a reader who typed a term while on
+  // Browse had to change tab to see it. They are merged onto `/dictionary/search`,
+  // which is why the surviving tab is labelled for the content ("Terms") rather
+  // than for one of the two verbs it now covers. `/dictionary/browse` redirects.
+  //
+  // Four destinations, not five, is also what puts Terms and Topics — the two a
+  // reader reaches for — in the phone bar's three slots beside More, instead of
+  // Search and Browse, which were the same place.
+  dictionary: [
+    { id: "search", label: "Terms", href: "/dictionary/search" },
+    { id: "topics", label: "Topics", href: "/dictionary/topics" },
+    { id: "compare", label: "Compare", href: "/dictionary/compare" },
+    { id: "sources", label: "Sources", href: "/dictionary/sources" },
   ],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
@@ -106,9 +116,8 @@ export type RoutedModeSecondaryNavigationId = Extract<RegistryEntry, { href: str
  * mode onto a different navigation surface. Adoption is a per-mode decision
  * with its own density evidence (`tests/ui-mode-nav-density.spec.ts`).
  *
- * `therapy-compass` is absent because it never reaches this registry:
- * `PageSecondaryNavigation` early-returns on `/therapy-compass*` and the mode
- * feeds `ModeNav` from `useTherapyNavItems` instead.
+ * Therapy uses the same registry as every other multi-route catalogue. Its
+ * record-owned brief and patient-sheet outputs are intentionally absent.
  */
 export const MODE_NAV_ADOPTED_MODES = [
   "dsm",
@@ -116,6 +125,8 @@ export const MODE_NAV_ADOPTED_MODES = [
   "formulation",
   "differentials",
   "factsheets",
+  "therapy-compass",
+  "dictionary",
 ] as const satisfies readonly AppModeId[];
 
 export type ModeNavAdoptedMode = (typeof MODE_NAV_ADOPTED_MODES)[number];
@@ -175,6 +186,22 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     // without this branch it would inherit the mode's first entry.
     return null;
   }
+  if (modeId === "therapy-compass") {
+    if (pathname === "/therapy-compass/search") return "search";
+    if (pathname === "/therapy-compass/recommend") return "recommend";
+    if (pathname === "/therapy-compass/compare") return "compare";
+    if (pathname === "/therapy-compass/pathways") return "pathways";
+    return null;
+  }
+  if (modeId === "dictionary") {
+    // `/dictionary/browse` is absent deliberately: it redirects to
+    // `/dictionary/search` before a page renders, so it can never reach here.
+    if (pathname === "/dictionary/search") return "search";
+    if (pathname === "/dictionary/topics" || pathname.startsWith("/dictionary/topics/")) return "topics";
+    if (pathname === "/dictionary/compare") return "compare";
+    if (pathname === "/dictionary/sources") return "sources";
+    return null;
+  }
   // Every mode with destinations has a branch above; the rest register none, so
   // nothing can be current. This used to be
   // `modeSecondaryNavigationRegistry[modeId][0]?.id ?? null`, which existed only
@@ -219,6 +246,11 @@ export function isModeSecondaryNavigationRoute(params: {
   // `hasSubmittedSearch` early return, and Topics is marked current there.
   if (modeId === "factsheets") return pathname === "/factsheets/search";
   if (modeId === "therapy-compass") return pathname !== "/therapy-compass";
+  if (modeId === "dictionary") {
+    return ["/dictionary/search", "/dictionary/topics", "/dictionary/compare", "/dictionary/sources"].includes(
+      pathname,
+    );
+  }
   return false;
 }
 
@@ -251,6 +283,10 @@ export function modeSecondaryNavigationHref(params: {
 }): string {
   const { modeId, itemId, href, currentSearchParams } = params;
   const query = currentSearchParams.get("q") ?? currentSearchParams.get("query") ?? "";
+
+  if (modeId === "therapy-compass") {
+    return navigationHrefWithParams(href, therapyWorkspaceNavigationEntries(currentSearchParams));
+  }
 
   if (modeId === "differentials") {
     const entries: Array<readonly [string, string]> = query ? [["q", query]] : [];
@@ -356,6 +392,31 @@ export function modeSecondaryNavigationHref(params: {
       // re-places the composer — a layout jump from clicking where you already are.
       ...(query && currentSearchParams.get("run") === "1" ? ([["run", "1"]] as const) : []),
     ]);
+  }
+
+  if (modeId === "dictionary") {
+    if (itemId === "search") {
+      // Terms is the current tab on `/dictionary/search`, so its own link must
+      // not reset what you are looking at: `view` (the Terms/Abbrev scope),
+      // `letter` and `run` travel with the query and the facets. `run` in
+      // particular flips `hasSubmittedModeSearch` in `global-search-shell.tsx`,
+      // which re-places the composer — a layout jump from clicking the tab you
+      // are already on.
+      return navigationHrefWithParams(href, [
+        ...(query ? ([["q", query]] as const) : []),
+        ...(query && currentSearchParams.get("run") === "1" ? ([["run", "1"]] as const) : []),
+        ...(currentSearchParams.get("view") ? ([["view", currentSearchParams.get("view") ?? ""]] as const) : []),
+        ...(currentSearchParams.get("letter") ? ([["letter", currentSearchParams.get("letter") ?? ""]] as const) : []),
+        ...currentSearchParams.getAll("topic").map((value) => ["topic", value] as const),
+        ...currentSearchParams.getAll("kind").map((value) => ["kind", value] as const),
+      ]);
+    }
+    if (itemId === "compare") {
+      return navigationHrefWithParams(href, [
+        ...(currentSearchParams.get("a") ? ([["a", currentSearchParams.get("a") ?? ""]] as const) : []),
+        ...(currentSearchParams.get("b") ? ([["b", currentSearchParams.get("b") ?? ""]] as const) : []),
+      ]);
+    }
   }
 
   return href;

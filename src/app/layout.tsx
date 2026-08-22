@@ -146,7 +146,7 @@ export default async function RootLayout({
           // read it), which reads as a hydration mismatch on this attribute.
           suppressHydrationWarning
           dangerouslySetInnerHTML={{
-            __html: `${THEME_BOOTSTRAP_SCRIPT}(function(){try{var p=JSON.parse(localStorage.getItem("clinical-kb-preferences")||"{}");if(p&&typeof p==="object"){if(p.density==="compact"||p.density==="spacious"){document.documentElement.setAttribute("data-density",p.density);}if(p.motion==="reduced"){document.documentElement.setAttribute("data-motion","reduced");}}}catch(e){/* storage blocked or stored preferences JSON corrupt - the default density/motion apply */}})();`,
+            __html: `${THEME_BOOTSTRAP_SCRIPT}(function(){try{var p=JSON.parse(localStorage.getItem("clinical-kb-preferences")||"{}");if(p&&typeof p==="object"){if(p.density==="compact"||p.density==="spacious"){document.documentElement.setAttribute("data-density",p.density);}if(p.motion==="reduced"||p.motion==="full"){document.documentElement.setAttribute("data-motion",p.motion);}}}catch(e){/* storage blocked or stored preferences JSON corrupt - the default density/motion apply */}})();`,
           }}
         />
         <a

@@ -7,9 +7,10 @@ import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
 import { invalidateRagCachesForDocumentMutation } from "@/lib/rag/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
-import type { DocumentLabel, DocumentLabelType } from "@/lib/types";
+import type { DocumentLabelType } from "@/lib/types";
 import { parseJsonBody } from "@/lib/validation/body";
 import { parseRouteParams } from "@/lib/validation/params";
+import { assertDocumentLabelRows } from "@/lib/validation/row-contracts";
 
 export const runtime = "nodejs";
 
@@ -101,7 +102,9 @@ async function selectLabels(supabase: ReturnType<typeof createAdminClient>, docu
     .order("label", { ascending: true });
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as DocumentLabel[];
+  const rows = data ?? [];
+  assertDocumentLabelRows(rows);
+  return rows;
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {

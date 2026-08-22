@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "1ead9bb9-5e9d-4b54-b530-87586d594f0a",
+  "createdOn": "2026-08-18",
+  "action": "cancel",
+  "payload": {
+    "requestId": "779bc0e9-c28f-40ab-abda-cfdcf93ea752",
+    "reason": "Superseded by d25147c8-3da0-4062-9ce0-356e59a16c63 (this PR): #321 has a newer PARTIAL update reflecting the filmstrip fix actually shipped in this PR."
+  }
+}

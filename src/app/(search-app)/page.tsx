@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
@@ -5,6 +6,7 @@ import { HomePageClient } from "./home-page-client";
 import { appModeHomeHref, isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
 import { isDashboardModeHref } from "@/lib/search-route-ownership";
 import { readSearchNavigationContext } from "@/lib/search-navigation-context";
+import { sharedHomeDocumentTitle } from "@/lib/ui-copy";
 
 type HomeProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -27,6 +29,20 @@ function searchParamsFromRecord(params: Record<string, string | string[] | undef
   return search;
 }
 
+/**
+ * Keep the shared home's browser/assistive-technology title aligned with the
+ * mode-specific heading that is actually rendered. Next's route announcer uses
+ * this title first, so leaving every mode as just "Clinical KB" makes a mode
+ * switch or deep link needlessly ambiguous outside the visual canvas.
+ */
+export async function generateMetadata({ searchParams }: HomeProps): Promise<Metadata> {
+  const params = searchParams ? await searchParams : {};
+  const requestedMode = firstSearchParam(params.mode);
+  const mode = isAppModeId(requestedMode) && isAppModeVisible(requestedMode) ? requestedMode : "answer";
+
+  return { title: sharedHomeDocumentTitle(mode) };
+}
+
 export default async function Home({ searchParams }: HomeProps) {
   // The dashboard reads and updates the query string throughout its client
   // lifecycle. Render it for the incoming request so `useSearchParams()` is
@@ -35,8 +51,17 @@ export default async function Home({ searchParams }: HomeProps) {
   await connection();
   const params = searchParams ? await searchParams : {};
   const requestedMode = firstSearchParam(params.mode);
-  const initialSearchMode: AppModeId =
-    isAppModeId(requestedMode) && isAppModeVisible(requestedMode) ? requestedMode : "answer";
+  let initialSearchMode: AppModeId = "answer";
+  if (isAppModeId(requestedMode) && isAppModeVisible(requestedMode)) {
+    initialSearchMode = requestedMode;
+  } else if (requestedMode) {
+    // Hidden or malformed mode links must not leave an impossible mode in the
+    // browser URL. Canonicalising to Answer also lets same-path navigations clear
+    // submitted search state rather than retaining results under a rejected mode.
+    const canonicalParams = searchParamsFromRecord(params);
+    canonicalParams.set("mode", "answer");
+    redirect(`/?${canonicalParams.toString()}`);
+  }
 
   // `/` is the single home page for every mode: the mode pill retargets the
   // composer rather than navigating, so a bare `/?mode=<id>` must RENDER home

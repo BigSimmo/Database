@@ -4,8 +4,8 @@
  * the floating composer on read-focused routes.
  *
  * Basic chrome for these pages lives in `src/components/information-page-shell.tsx`.
- * Intentional opt-outs from that shell (different product chrome): document viewer,
- * therapy-compass CSS workspace, differentials presentation workflow.
+ * Intentional opt-outs from that shell (different product chrome): document viewer
+ * and the differentials presentation workflow.
  */
 
 export type InformationPageMode =
@@ -15,12 +15,20 @@ export type InformationPageMode =
   | "specifiers"
   | "formulation"
   | "factsheets"
+  | "dictionary"
   | "therapy-compass"
   | "differentials"
   | "dsm"
   | "documents";
 
-const TOOL_SUFFIXES = new Set(["builder", "compare", "map"]);
+// Reserved route suffixes, not record slugs. `search` is here because home
+// consolidation gave every consolidated mode a `<mode>/search` results route:
+// without it, `/formulation/search` reads as the record `search`, the route is
+// classified as an information page, and information pages suppress the
+// composer — so a submitted search rendered its results with no way to refine
+// them. `/factsheets` and `/dictionary` had already hand-excluded "search" for
+// the same reason, which is the signal this belonged in the shared set.
+const TOOL_SUFFIXES = new Set(["builder", "compare", "map", "search"]);
 
 /**
  * `/services/some-slug`, but not `/services`, a tool suffix, or a deeper path.
@@ -48,6 +56,9 @@ export function isInformationPage(pathname: string): boolean {
   if (isSlugDetail(pathname, "/specifiers")) return true;
   if (isSlugDetail(pathname, "/formulation")) return true;
   if (isSlugDetail(pathname, "/factsheets", ["search"])) return true;
+  if (isSlugDetail(pathname, "/dictionary", ["search", "browse", "topics", "compare", "sources"])) return true;
+  if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
+    return true;
 
   // Therapy compass detail: /therapy-compass/[slug]/brief or /sheet (and bare slug if present)
   if (
@@ -81,5 +92,7 @@ export const informationPageShellModes = [
   "specifiers",
   "formulation",
   "factsheets",
+  "dictionary",
+  "therapy-compass",
   "dsm",
 ] as const satisfies readonly InformationPageMode[];

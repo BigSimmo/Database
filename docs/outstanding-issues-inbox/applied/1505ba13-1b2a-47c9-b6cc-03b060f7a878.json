@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "1505ba13-1b2a-47c9-b6cc-03b060f7a878",
+  "createdOn": "2026-08-18",
+  "action": "update",
+  "payload": {
+    "id": "#222",
+    "detail": "PR #2072 merged into main 2026-08-18 citing this row, but only shipped a cosmetic font-weight change (font-extrabold to font-semibold) in mode-home-template.tsx and a SearchResultsEmptyState class-alignment tweak in search-results-header-band.tsx — not the PageHeader/EmptyState convergence decision this row actually asks for. Stays open: the in-scope-or-not decision still hasn't been made.",
+    "baseRowFingerprint": "ba6621ae785bf636071d361b64b416ca35d8e6bc893eb6bb1ccef662dae46465"
+  }
+}

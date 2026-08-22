@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "19762e55-fa25-41de-a5a2-7f4932a545fe",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#324",
+    "detail": "**Outcome:** the file-level merge-loss detector is delivered; one authoritative row now tracks its remaining operational decision. **Delivered:** PR #1944 added scripts/audit-merge-loss.mjs through npm run audit:merge-loss and focused tests. It compares every changed file in a bounded main-history window with the landing commit's first parent, then reports possible reverts for human review. The implementation independently rediscovered the acf78bf casualties, including the #1803 token-retirement loss, and deliberately remains advisory because blob equality cannot distinguish a deliberate revert from an accidental merge-resolution loss. **Remaining:** decide whether it runs after merges or on a schedule, who triages positive findings, and whether the separate branch-versus-squash inbox-request-loss case should be a second detector or a mode of the same tool. A scheduled or required check without a named human disposition path would become ignorable noise. **Stop:** do not reimplement the delivered script, and do not make either detector blocking or auto-close findings until that ownership decision exists.",
+    "source": "session 2026-08-13 blob sweep; PR #1944 audit implementation and tests; PR #1937 inbox-loss case; consolidated by PR #1956 review follow-up"
+  }
+}

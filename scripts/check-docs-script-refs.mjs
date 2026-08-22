@@ -36,7 +36,6 @@ const ALLOWLIST = new Set([
   "<name>",
   "your-script",
   "test:e2e:advisory", // renamed to test:e2e:regression (2026-07); kept for historical ledger accuracy
-  "check:rag:adversarial-fixtures", // planned command named by docs/rag-improvement/README.md (not yet built)
 ]);
 
 /** Script names defined in package.json. */

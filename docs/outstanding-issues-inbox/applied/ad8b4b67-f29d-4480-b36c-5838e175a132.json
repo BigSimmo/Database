@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ad8b4b67-f29d-4480-b36c-5838e175a132",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#299",
+    "outcome": "Approved standardizing error-handling guards on design system ErrorState component",
+    "baseRowFingerprint": "11018731e7a335b40726b1b01adb8536633fd2983b990e0ad2b7ffc04931f8fc"
+  }
+}

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { ApplicationsLauncherPage } from "@/components/applications-launcher-page";
 import { ToolsSearchResultsPage } from "@/components/tools/tools-search-results-page";
 
 type ToolsRouteProps = {
@@ -19,7 +18,6 @@ export const metadata: Metadata = {
 export default async function ToolsRoute({ searchParams }: ToolsRouteProps) {
   const params = searchParams ? await searchParams : {};
   const query = (firstSearchParam(params.q) ?? firstSearchParam(params.query) ?? "").trim();
-  const hasSubmittedSearch = firstSearchParam(params.run) === "1" && query.length > 0;
 
-  return hasSubmittedSearch ? <ToolsSearchResultsPage initialQuery={query} /> : <ApplicationsLauncherPage />;
+  return <ToolsSearchResultsPage initialQuery={query} />;
 }

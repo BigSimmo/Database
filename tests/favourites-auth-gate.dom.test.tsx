@@ -10,6 +10,7 @@ import { FavouritesCommandLibraryPage } from "@/components/clinical-dashboard/fa
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { ApplicationsLauncherWorkspace } from "@/components/applications-launcher-page";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { ToolsSearchResultsPage } from "@/components/tools/tools-search-results-page";
 import { filterCrossModesForSession, visibleAppModeDefinitionsForSession } from "@/lib/app-modes";
 import { toolCatalogRecordsForSession } from "@/lib/tools-catalog";
 
@@ -59,6 +60,7 @@ function sidebarProps(showAccountLibrary: boolean) {
     onPickRecent: () => undefined,
     onOpenSettings: () => undefined,
     onOpenAccount: () => undefined,
+    onOpenSearch: () => undefined,
   };
 }
 
@@ -92,6 +94,7 @@ describe("favourites auth gate DOM", () => {
     authSession.session = null;
     authSession.error = null;
     authSession.notice = null;
+    window.localStorage.clear();
     vi.clearAllMocks();
   });
 
@@ -99,15 +102,15 @@ describe("favourites auth gate DOM", () => {
     const { rerender } = render(<ClinicalSidebarContent {...sidebarProps(false)} />);
 
     expect(screen.queryByRole("navigation", { name: "Your library" })).toBeNull();
-    const navigation = within(screen.getByRole("navigation", { name: "Navigation" }));
+    const navigation = within(screen.getByRole("navigation", { name: "Pinned shortcuts" }));
     expect(
       navigation.getAllByRole("link").map((link) => ({ name: link.textContent, href: link.getAttribute("href") })),
     ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/documents" },
-      { name: "Services", href: "/services" },
+      { name: "Services", href: "/?mode=services" },
       { name: "Medication", href: "/medications" },
-      { name: "Factsheets", href: "/factsheets" },
+      { name: "Factsheets", href: "/?mode=factsheets" },
       { name: "Tools", href: "/tools" },
     ]);
     expect(screen.queryByRole("link", { name: "Favourites" })).toBeNull();
@@ -119,7 +122,9 @@ describe("favourites auth gate DOM", () => {
     expect(screen.getByRole("navigation", { name: "Your library" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Favourites" })).toHaveAttribute("href", "/favourites");
     expect(
-      within(screen.getByRole("navigation", { name: "Navigation" })).queryByRole("link", { name: "Favourites" }),
+      within(screen.getByRole("navigation", { name: "Pinned shortcuts" })).queryByRole("link", {
+        name: "Favourites",
+      }),
     ).toBeNull();
   });
 
@@ -133,7 +138,7 @@ describe("favourites auth gate DOM", () => {
     authSession.status = "signed_out";
     render(<FavouritesCommandLibraryPage query="" demoMode={false} />);
 
-    expect(screen.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Favourites" })).toBeVisible();
     expect(screen.getByText(/Sign up to save favourites and access them across devices/i)).toBeVisible();
     expect(screen.getByTestId("favourites-open-account-setup")).toBeVisible();
     expect(screen.getByRole("heading", { name: "Sign up to save favourites" })).toBeVisible();
@@ -144,7 +149,7 @@ describe("favourites auth gate DOM", () => {
     authSession.status = "signed_out";
     render(<FavouritesCommandLibraryPage query="" demoMode={true} />);
 
-    expect(screen.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Favourites" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: "Sign up to save favourites" })).toBeNull();
     expect(screen.queryByTestId("favourites-open-account-setup")).toBeNull();
   });
@@ -154,18 +159,24 @@ describe("favourites auth gate DOM", () => {
 
     expect(screen.getByRole("heading", { name: "Sign up to save favourites" })).toBeVisible();
     expect(screen.getByText(/Sign in or create an account to save favourites/i)).toBeVisible();
-    expect(screen.getByText("Saved favourites")).toBeVisible();
+    expect(screen.getByText("Save favourites")).toBeVisible();
   });
 
   it("separates account-synced data from device-only recents", () => {
     render(<AccountSetupDialog open onClose={() => undefined} />);
 
-    expect(screen.getByRole("heading", { name: "What’s saved where" })).toBeVisible();
-    expect(screen.getAllByText("Account")).toHaveLength(2);
-    expect(screen.getByText("This device")).toBeVisible();
-    expect(screen.getByText(/Recent searches/i)).toBeVisible();
-    expect(screen.getByText(/Stay in this browser session and do not sync/i)).toBeVisible();
-    expect(screen.getByText(/No PHI required\./i)).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Your workspace, wherever you work." })).toBeVisible();
+    expect(screen.getByText("Save favourites")).toBeVisible();
+    expect(screen.getByText(/Reopen trusted resources on any device/i)).toBeVisible();
+    expect(screen.getByText("Keep your clinical defaults")).toBeVisible();
+    expect(screen.getByText(/Your jurisdiction and answer style follow you/i)).toBeVisible();
+    expect(screen.getByText("Recent searches stay here")).toBeVisible();
+    expect(screen.getByText(/Browser activity does not sync to your account/i)).toBeVisible();
+    expect(screen.getAllByText("Do not enter patient-identifiable information.")).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "Privacy and data processing" })).toHaveLength(2);
+    for (const privacyLink of screen.getAllByRole("link", { name: "Privacy and data processing" })) {
+      expect(privacyLink).toHaveAttribute("href", "/privacy");
+    }
     expect(screen.queryByText(/Everything syncs across your devices/i)).toBeNull();
     expect(screen.queryByText(/never shared/i)).toBeNull();
     expect(screen.queryByText("Account-scoped saves")).toBeNull();
@@ -178,7 +189,7 @@ describe("favourites auth gate DOM", () => {
     const apple = screen.getByRole("button", { name: "Continue with Apple" });
     const google = screen.getByRole("button", { name: "Continue with Google" });
     const microsoft = screen.getByRole("button", { name: "Continue with Microsoft" });
-    const email = screen.getByLabelText(/Email address/);
+    const email = screen.getByLabelText(/Work email/);
 
     expect(apple.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(google.compareDocumentPosition(microsoft) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -206,16 +217,16 @@ describe("favourites auth gate DOM", () => {
     for (const provider of ["Apple", "Google", "Microsoft"]) {
       expect(screen.getByRole("button", { name: `Continue with ${provider}` })).toBeDisabled();
     }
-    expect(screen.getByRole("button", { name: "Continue with email" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Continue securely" })).toBeDisabled();
   });
 
   it("submits email and announces success and failure feedback", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<AccountSetupDialog open onClose={() => undefined} />);
 
-    const submit = screen.getByRole("button", { name: "Continue with email" });
+    const submit = screen.getByRole("button", { name: "Continue securely" });
     expect(submit).toBeDisabled();
-    const email = screen.getByLabelText(/Email address/);
+    const email = screen.getByLabelText(/Work email/);
     expect(email).toHaveAttribute("data-sheet-autofocus", "true");
     await user.type(email, "clinician@clinic.example");
     await user.click(submit);
@@ -245,7 +256,7 @@ describe("favourites auth gate DOM", () => {
   it("keeps Tools Saved workflows available when Favourites access is granted", () => {
     render(<ApplicationsLauncherWorkspace canAccessFavourites={true} />);
 
-    expect(screen.getByRole("radio", { name: "Saved" })).toBeVisible();
+    expect(screen.getByRole("radio", { name: "Saved (1)" })).toBeVisible();
     expect(screen.getByTestId("tool-shortcut-favourites")).toBeVisible();
     expect(
       toolCatalogRecordsForSession({ authenticated: true, demoMode: false }).some((t) => t.id === "favourites"),
@@ -253,6 +264,26 @@ describe("favourites auth gate DOM", () => {
     expect(filterCrossModesForSession(["favourites", "forms"], { authenticated: false, demoMode: false })).toEqual([
       "forms",
     ]);
+  });
+
+  it("applies the same Favourites access gate to the all-tools results directory", () => {
+    const { rerender } = render(<ToolsSearchResultsPage canAccessFavourites={false} />);
+
+    expect(screen.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+    expect(screen.queryByRole("radio", { name: /Saved/ })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Saved workflows" })).toBeNull();
+
+    rerender(<ToolsSearchResultsPage canAccessFavourites />);
+
+    expect(screen.getByRole("radio", { name: "Saved (1)" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Saved workflows" })).toBeVisible();
+  });
+
+  it("offers an all-tools recovery path when a URL query has no matching tools", () => {
+    render(<ToolsSearchResultsPage initialQuery="no-such-tool" canAccessFavourites={false} />);
+
+    expect(screen.getByRole("heading", { level: 2, name: "No tools match" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Show all tools" })).toHaveAttribute("href", "/tools");
   });
 
   it("omits Favourites from the mode menu for guests", async () => {

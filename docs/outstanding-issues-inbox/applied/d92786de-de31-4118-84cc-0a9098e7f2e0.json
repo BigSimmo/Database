@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d92786de-de31-4118-84cc-0a9098e7f2e0",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Mobile CLS on / has regressed back to 0.236 (baseline 0.013), reopening #147",
+    "detail": "PR #2050 (unrelated differentials-UI change, Server Component, zero client-bundle delta) hit a Lighthouse budget failure: mobile-root CLS measured 0.236 against the committed 0.013 baseline, identical across two independent CI re-runs on two different head SHAs (63808d6b and f6dcb54a) with the pinned matching browser (grade did not refuse for evidence-incomplete/browser-drift, unlike the offline-harness case #147 documented). #147 was marked RESOLVED 2026-08-12 via PR #1616 (use-phone-overlay-chrome-reserve.ts, 80ms ResizeObserver quiet window) with home-page mobile CLS verified at exactly 0.013 -- the same number now used as baseline. Since main's own push-triggered CI skips the Lighthouse budget job entirely (it only runs on pull_request events with UI_CHANGED=true), this regression could have landed on main undetected by any merge that didn't itself touch UI-changed paths. Needs: bisect which merge into main reintroduced the CLS regression on / (or confirm it's not code but an infra/dependency drift), re-verify against the #147 fix's ResizeObserver/quiet-window logic, and unblock the Lighthouse budget CI gate for any PR unlucky enough to touch UI_CHANGED paths in the meantime. Stop: do not silently raise the baseline or disable the gate to clear this -- #147 explicitly warns against a false clean.",
+    "source": "PR #2050 CI runs 32043889926 and 32047381634 (Lighthouse budget failures), cross-referenced with docs/outstanding-issues.md #147 and #118",
+    "issueUlid": "01M08BGBTDTSWDA9D8R7XJWX6R"
+  }
+}

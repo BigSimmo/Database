@@ -15,12 +15,27 @@ import {
   numericBreachConfirmationRuns,
   readReports,
   renderBudgetTable,
+  validateBaselineBrowserVersions,
 } from "../scripts/check-lighthouse-budget.mjs";
+import { routeWithLighthouseParams } from "../scripts/lib/lighthouse-route-params.mjs";
 import { measurementFailureReason } from "../scripts/lighthouse-measurement-outcome.mjs";
 import { deadlineAfter, processTimeoutMs, remainingMs } from "../scripts/lighthouse-time-budget.mjs";
 
-/** Kept in step with lighthouse-budget.json. */
+/**
+ * Synthetic fixture routes for the unit cases below — deliberately more than the
+ * committed budget measures, so run-expansion and completeness have several rows
+ * to work with. The committed list is asserted separately as COMMITTED_ROUTES.
+ */
 const ROUTES = ["/", "/therapy-compass", "/documents/search", "/dsm", "/forms"];
+
+/**
+ * What lighthouse-budget.json actually measures. `/therapy-compass`, `/dsm` and
+ * `/forms` left the budget when home consolidation turned them into redirect
+ * stubs — Lighthouse followed the 307 and graded `/?mode=<id>` against a baseline
+ * captured on the retired detailed home. All three now render the same shared home
+ * as `/`, so their removal costs duplication rather than coverage.
+ */
+const COMMITTED_ROUTES = ["/", "/documents/search"];
 
 const budget = (overrides: Record<string, unknown> = {}) => ({
   enforce: true,
@@ -232,6 +247,23 @@ describe("incompleteBudgetEvidence — completeness derived from what is graded"
     expect(incompleteBudgetEvidence(rows, budget({ baseline: legacy }))).toEqual([]);
   });
 
+  it("keeps drift per run when some baseline rows lack a recorded browser version", () => {
+    // When older baselines contain a mix of versioned and unversioned rows,
+    // drift is not uniform across all expected runs and must list per run.
+    const rows = completeRows();
+    const mixed = Object.fromEntries(
+      Object.entries(baselineFromRows(rows)).map(([run, entry], index) => [
+        run,
+        { ...(entry as object), chromeVersion: index === 0 ? null : "HeadlessChrome/131" },
+      ]),
+    );
+    const problems = incompleteBudgetEvidence(rows, budget({ baseline: mixed }));
+
+    expect(problems).toHaveLength(9);
+    expect(problems.every((problem: string) => problem.includes("measured by a different browser"))).toBe(true);
+    expect(problems[0]).not.toContain("browser drift on");
+  });
+
   it("rejects colliding route slugs before anything is measured", () => {
     // `/a/b` and `/a-b` both write `a-b.json`, so the second overwrites the first and
     // the survivor would satisfy the expected-run check for both pages.
@@ -407,7 +439,7 @@ describe("committed lighthouse-budget.json", () => {
   };
 
   it("measures the routes this suite grades", () => {
-    expect(committed.routes).toEqual(ROUTES);
+    expect(committed.routes).toEqual(COMMITTED_ROUTES);
   });
 
   it("pins the same Lighthouse version as the live-domain workflow", () => {
@@ -485,6 +517,28 @@ describe("committed lighthouse-budget.json", () => {
     expect(runner).toContain("LIGHTHOUSE_PROCESS_TIMEOUT_MS");
     expect(runner).toContain("--max-wait-for-load=60000");
     expect(runner).not.toMatch(/stdio:\s*"inherit",\s*\n\s*timeout,/);
+  });
+
+  it("disables local-dev install prompts during Lighthouse measurements", () => {
+    expect(routeWithLighthouseParams("/forms")).toBe("/forms?pwa-dev=0");
+    expect(routeWithLighthouseParams("/forms?feature=abc")).toBe("/forms?feature=abc&pwa-dev=0");
+  });
+
+  it("attributes a failing layout-shift cell from the reports before they are cleared", () => {
+    const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
+
+    // `#TYZK23`: mobile-/ CLS is bistable and fires only on CI, so a red gate
+    // that prints a bare number forces every investigation through the retained
+    // artifact. The report already names the shifting element.
+    expect(runner).toContain('const LAYOUT_SHIFT_AUDIT_IDS = ["layout-shifts", "layout-shift-elements"');
+    expect(runner).toContain("if (childProcessExitCode(grade) !== 0) reportLayoutShiftAttribution(reportDirectory);");
+
+    // Diagnostics run against the reports, so they must precede the delete that a
+    // non-`--keep` run performs, and must not influence the graded exit code.
+    const attribution = runner.indexOf("if (childProcessExitCode(grade) !== 0) reportLayoutShiftAttribution");
+    const clear = runner.indexOf("if (!keep) removePathSync(reportDirectory, { recursive: true });");
+    expect(attribution).toBeGreaterThan(-1);
+    expect(clear).toBeGreaterThan(attribution);
   });
 });
 
@@ -591,5 +645,51 @@ describe("renderBudgetTable", () => {
     const result = compareToLighthouseBudget(rows, budget({ baseline: baselineFromRows(rows) }));
 
     expect(renderBudgetTable(rows, result)).toContain("within tolerance of the committed baseline");
+  });
+});
+
+describe("validateBaselineBrowserVersions", () => {
+  it("accepts a baseline with exactly one browser version across all rows", () => {
+    const baseline = baselineFromRows(completeRows());
+    const result = validateBaselineBrowserVersions(baseline);
+
+    expect(result.ok).toBe(true);
+    expect(result.versions).toEqual(["HeadlessChrome/140"]);
+    expect(result.error).toBeNull();
+  });
+
+  it("rejects an empty baseline", () => {
+    const result = validateBaselineBrowserVersions({});
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("no baseline rows recorded");
+  });
+
+  it("rejects a baseline with mixed browser versions", () => {
+    const rows = completeRows();
+    const mixed = Object.fromEntries(
+      Object.entries(baselineFromRows(rows)).map(([run, entry], index) => [
+        run,
+        { ...(entry as object), chromeVersion: index % 2 === 0 ? "HeadlessChrome/140" : "HeadlessChrome/141" },
+      ]),
+    );
+    const result = validateBaselineBrowserVersions(mixed);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("expected exactly one baseline Chrome version");
+  });
+
+  it("rejects a baseline where some rows are missing a browser version", () => {
+    const rows = completeRows();
+    const partial = Object.fromEntries(
+      Object.entries(baselineFromRows(rows)).map(([run, entry], index) => [
+        run,
+        { ...(entry as object), chromeVersion: index === 0 ? null : "HeadlessChrome/140" },
+      ]),
+    );
+    const result = validateBaselineBrowserVersions(partial);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("some rows are missing a recorded browser version");
   });
 });

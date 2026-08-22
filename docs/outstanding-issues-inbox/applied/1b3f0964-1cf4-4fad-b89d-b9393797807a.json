@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "1b3f0964-1cf4-4fad-b89d-b9393797807a",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Repeated main-merges on open PR branches cancel required CI, so 'PR required' reads red with zero failing jobs",
+    "detail": "PR #2143 went red on five consecutive heads and was merged past it. Job logs for runs 32170524256 (first) and 32178668323 (last) both report 'CANCELLED with no failing job' and zero failures: the first cancelled only lighthouse-budget while UI_FAST_RESULT and UI_RESULT were success; the last cancelled static-pr, coverage, production-ui-critical, production-ui and lighthouse-budget. Cause is cancel-in-progress firing on each new head, and something merged origin/main into that branch roughly every five minutes during a single working session, minting a head each time. #095 deliberately keeps a cancelled required job RED, which is correct, so the defect is the churn producing the heads, not the aggregate. Consequence beyond noise: the red is indistinguishable at a glance from a real break, and this PR was merged with it red. Next step is to find what is auto-syncing open PR branches (AGENTS.md 'Open PR branch sync (anti-churn)' says sync:pr-branches:apply is operator-run and should be late and once) and make it stop re-syncing a branch whose required CI is in flight. Related to #CCZ4HB, which records the same churn exhausting the review-bot budget.",
+    "source": "PR #2143, runs 32170524256 and 32178668323, 2026-08-18",
+    "issueUlid": "01M0BEKPPPTF6TPJJMJ4WW5KWJ"
+  }
+}

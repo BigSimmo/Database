@@ -3,25 +3,21 @@
 import {
   Bookmark,
   BookmarkCheck,
-  BookOpenText,
   CalendarDays,
   ChevronRight,
   CircleCheck,
   Clipboard,
   ClipboardList,
-  Clock3,
   Download,
   ExternalLink,
   FileText,
   Info,
-  MapPin,
   Navigation,
   Phone,
   Route,
   Scale,
   ShieldCheck,
   Tag,
-  UserRound,
   X,
   CircleX,
   type LucideIcon,
@@ -42,17 +38,16 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
-import { Sheet } from "@/components/ui/sheet";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
 import { FormCodeBadge, splitFormCode } from "@/components/forms/form-code-badge";
+import { PriorityFactsSection } from "@/components/forms/form-priority-facts-section";
 import { DisclosureGroup } from "@/components/ui/disclosure";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, formTitleForCode, type FormRecord } from "@/lib/form-catalog";
-import type { FormActSection, FormPriorityFactCard } from "@/lib/form-ranker";
 import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/service-ranker";
 import { useAccountData } from "@/components/account-data-provider";
 
@@ -124,60 +119,6 @@ function formCode(form: FormRecord) {
 function formShortTitle(form: FormRecord) {
   const details = formCatalogDetails(form);
   return details?.form ? `Form ${details.form}` : displayText(form.catalogueLabel, "Form");
-}
-
-function summaryIcon(card: ServiceSummaryCard) {
-  const label = `${card.id} ${card.label} ${card.title}`.toLowerCase();
-  const Icon =
-    label.includes("act-section") || label.includes("act section")
-      ? BookOpenText
-      : label.includes("clock")
-        ? Clock3
-        : label.includes("destination") || label.includes("place") || label.includes("route")
-          ? MapPin
-          : label.includes("authority") || label.includes("maker")
-            ? UserRound
-            : label.includes("criteria") || label.includes("threshold")
-              ? Scale
-              : ClipboardList;
-  return <Icon className="h-5 w-5" aria-hidden />;
-}
-
-const PRIORITY_FACT_LABELS: Record<string, string> = {
-  clock: "Clock / review",
-  authority: "Made by / authority",
-  criteria: "Criteria",
-};
-
-function priorityFactBody(form: FormRecord, cardId: string): { title: string; body: string; detail?: string } | null {
-  const details = formCatalogDetails(form);
-  if (!details) return null;
-
-  const fromCard = (fact: FormPriorityFactCard | undefined, fallbackBody: string, fallbackDetail?: string) => {
-    if (!fact && !fallbackBody.trim()) return null;
-    const body = fact?.body?.trim() || fallbackBody.trim();
-    if (!body) return null;
-    return {
-      title: fact?.title?.trim() || PRIORITY_FACT_LABELS[cardId] || displayText(cardId),
-      detail: fact?.detail?.trim() || fallbackDetail,
-      body,
-    };
-  };
-
-  if (cardId === "clock") {
-    return fromCard(details.priorityFacts?.clock, details.clock, details.indexedClock);
-  }
-  if (cardId === "authority") {
-    return fromCard(
-      details.priorityFacts?.authority,
-      [details.maker, details.authorises, details.doesNotAuthorise].filter(Boolean).join(" "),
-      details.authorises,
-    );
-  }
-  if (cardId === "criteria") {
-    return fromCard(details.priorityFacts?.criteria, details.threshold, details.doesNotAuthorise);
-  }
-  return null;
 }
 
 function summaryCardsFor(form: FormRecord): ServiceSummaryCard[] {
@@ -277,189 +218,6 @@ function confirmCheckParts(check: string): { cue?: string; body: string } {
   return { cue: "Before use:", body: match[2] ?? "" };
 }
 
-function DetailCardShell({
-  card,
-  children,
-  footer,
-}: {
-  card: ServiceSummaryCard;
-  children?: ReactNode;
-  footer?: ReactNode;
-}) {
-  return (
-    <article className="flex min-h-[5.75rem] flex-col rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-1.5 shadow-[var(--shadow-inset)] sm:min-h-[7rem] sm:p-3">
-      <div className="mb-1 flex items-start gap-1.5 sm:mb-2 sm:gap-2">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] sm:h-9 sm:w-9">
-          {summaryIcon(card)}
-        </span>
-        <p className="min-w-0 pt-0.5 text-2xs font-bold uppercase leading-4 text-[color:var(--text-muted)]">
-          {displayText(card.label, "Priority fact")}
-        </p>
-      </div>
-      {children}
-      {footer}
-    </article>
-  );
-}
-
-function DetailCard({
-  card,
-  onOpenDetail,
-  hasDetail,
-}: {
-  card: ServiceSummaryCard;
-  onOpenDetail?: () => void;
-  hasDetail?: boolean;
-}) {
-  const label = displayText(card.label, "Priority fact");
-  const content = (
-    <>
-      <h3 className="text-xs font-semibold leading-tight text-[color:var(--text-heading)] sm:text-sm sm:leading-5">
-        {displayText(card.title)}
-      </h3>
-      <p className={cn("mt-0.5 text-2xs font-medium leading-4 sm:mt-1 sm:text-xs sm:leading-5", textMuted)}>
-        {displayText(card.detail)}
-      </p>
-    </>
-  );
-
-  if (!hasDetail || !onOpenDetail) {
-    return <DetailCardShell card={card}>{content}</DetailCardShell>;
-  }
-
-  return (
-    <DetailCardShell
-      card={card}
-      footer={<p className={cn("mt-auto pt-1 text-2xs font-medium leading-4 sm:pt-1.5", textMuted)}>Tap for detail</p>}
-    >
-      <button
-        type="button"
-        onClick={onOpenDetail}
-        className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--surface-lux)]"
-        aria-label={`${label}: ${displayText(card.title)}. Open detail.`}
-      >
-        {content}
-      </button>
-    </DetailCardShell>
-  );
-}
-
-function ActSectionsCard({
-  card,
-  sections,
-  onOpenSection,
-}: {
-  card: ServiceSummaryCard;
-  sections: FormActSection[];
-  onOpenSection: (section: string) => void;
-}) {
-  const groupLabelId = useId();
-  return (
-    <DetailCardShell card={card}>
-      <h3
-        id={groupLabelId}
-        className="text-xs font-semibold leading-tight text-[color:var(--text-heading)] sm:text-sm sm:leading-5"
-      >
-        {displayText(card.title, "MHA 2014 referral pathway")}
-      </h3>
-      <div className="mt-1 flex flex-wrap gap-1" role="group" aria-labelledby={groupLabelId}>
-        {sections.map((entry) => (
-          <button
-            key={entry.section}
-            type="button"
-            onClick={() => onOpenSection(entry.section)}
-            className={cn(
-              "inline-flex min-h-12 min-w-12 items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-semibold text-[color:var(--text-heading)]",
-              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-            )}
-            aria-label={`Section ${entry.section}: ${entry.title}. Open detail.`}
-          >
-            {entry.section}
-          </button>
-        ))}
-      </div>
-      <p className={cn("mt-auto pt-1 text-2xs font-medium leading-4 sm:pt-1.5", textMuted)}>
-        Tap a section for authority detail
-      </p>
-    </DetailCardShell>
-  );
-}
-
-function PriorityFactsSection({ form, cards }: { form: FormRecord; cards: ServiceSummaryCard[] }) {
-  const details = formCatalogDetails(form);
-  const actSections = details?.actSections ?? [];
-  const [activeFactId, setActiveFactId] = useState<string | null>(null);
-  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
-
-  const activeFact = activeFactId ? priorityFactBody(form, activeFactId) : null;
-  const activeSection = activeSectionId
-    ? (actSections.find((entry) => entry.section === activeSectionId) ?? null)
-    : null;
-
-  return (
-    <>
-      <section
-        id="form-priority-facts"
-        aria-label="Priority facts"
-        className={cn(inPageAnchor, "space-y-2.5 sm:space-y-3")}
-      >
-        <h2 className="text-base-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-base">
-          Priority facts
-        </h2>
-        <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
-          {cards.map((card) => {
-            if (card.id === "act-sections" && actSections.length) {
-              return (
-                <ActSectionsCard key={card.id} card={card} sections={actSections} onOpenSection={setActiveSectionId} />
-              );
-            }
-            const detail = priorityFactBody(form, card.id);
-            const hasCondensedDetail = Boolean(details?.priorityFacts && detail);
-            return (
-              <DetailCard
-                key={card.id}
-                card={card}
-                hasDetail={hasCondensedDetail}
-                onOpenDetail={hasCondensedDetail ? () => setActiveFactId(card.id) : undefined}
-              />
-            );
-          })}
-        </div>
-      </section>
-
-      <Sheet
-        open={Boolean(activeFact)}
-        onClose={() => setActiveFactId(null)}
-        title={activeFact ? displayText(activeFact.title) : "Priority fact"}
-        description={activeFact?.detail}
-        testId="form-priority-fact-sheet"
-        mobilePlacement="bottom"
-      >
-        {activeFact ? <p className="text-sm leading-6 text-[color:var(--text-body)]">{activeFact.body}</p> : null}
-      </Sheet>
-
-      <Sheet
-        open={Boolean(activeSection)}
-        onClose={() => setActiveSectionId(null)}
-        title={activeSection ? `Section ${activeSection.section}` : "Act section"}
-        description={activeSection?.title}
-        testId="form-act-section-sheet"
-        mobilePlacement="bottom"
-      >
-        {activeSection ? (
-          <div className="space-y-3">
-            <p className="text-sm leading-6 text-[color:var(--text-body)]">{activeSection.summary}</p>
-            <p className={cn("text-xs leading-5", textMuted)}>
-              Condensed reference from the Mental Health Act 2014 (WA). Confirm against the current Act and approved
-              form before clinical or legal use.
-            </p>
-          </div>
-        ) : null}
-      </Sheet>
-    </>
-  );
-}
-
 // Compact code cell for the pathway before/parallel/after lists. Visually it
 // shows only the short head ("6B") so a qualifier like "6B attachment" can't
 // overflow the fixed-width column, but the full code is exposed to assistive
@@ -492,6 +250,10 @@ function PathwayContextCard({
 }) {
   const details = formCatalogDetails(form);
   const [activeTab, setActiveTab] = useState<"pathway" | "source">("pathway");
+  const tabPathwayId = useId();
+  const tabSourceId = useId();
+  const panelPathwayId = `${tabPathwayId}-panel`;
+  const panelSourceId = `${tabSourceId}-panel`;
   const pathwayItems = (items: string[] | undefined, emptyTitle: string, emptyMeta: string) =>
     items?.length
       ? items.map((item) => {
@@ -538,11 +300,13 @@ function PathwayContextCard({
       >
         <button
           type="button"
+          id={tabPathwayId}
           role="tab"
           aria-selected={activeTab === "pathway"}
+          aria-controls={panelPathwayId}
           onClick={() => setActiveTab("pathway")}
           className={cn(
-            "rounded-md px-3 py-2 text-center transition",
+            "min-h-tap rounded-md px-3 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9",
             activeTab === "pathway"
               ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
               : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
@@ -552,11 +316,13 @@ function PathwayContextCard({
         </button>
         <button
           type="button"
+          id={tabSourceId}
           role="tab"
           aria-selected={activeTab === "source"}
+          aria-controls={panelSourceId}
           onClick={() => setActiveTab("source")}
           className={cn(
-            "rounded-md px-3 py-2 text-center transition",
+            "min-h-tap rounded-md px-3 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9",
             activeTab === "source"
               ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
               : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
@@ -566,7 +332,13 @@ function PathwayContextCard({
         </button>
       </div>
       {activeTab === "pathway" ? (
-        <div className="mt-3 space-y-3 border-l border-[color:var(--border-strong)] pl-4">
+        <div
+          id={panelPathwayId}
+          role="tabpanel"
+          aria-labelledby={tabPathwayId}
+          tabIndex={0}
+          className="mt-3 space-y-3 border-l border-[color:var(--border-strong)] pl-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        >
           <div className="relative">
             <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
             <p className="text-2xs font-bold uppercase text-[color:var(--text-muted)]">Before</p>
@@ -689,7 +461,13 @@ function PathwayContextCard({
           </div>
         </div>
       ) : (
-        <div className="mt-3 space-y-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+        <div
+          id={panelSourceId}
+          role="tabpanel"
+          aria-labelledby={tabSourceId}
+          tabIndex={0}
+          className="mt-3 space-y-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        >
           <p className="text-sm font-semibold text-[color:var(--text-heading)]">
             {displayText(details?.sourceFacts?.documentTitle, form.title)}
           </p>
@@ -1042,22 +820,45 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   <FileText className="size-icon-md sm:size-icon-lg" aria-hidden />
                 </span>
                 <div className="min-w-0">
-                  <h2 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                    {formShortTitle(form)}
-                    {details?.availability === "downloadable" ? ".pdf" : ""}
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex h-5 shrink-0 items-center rounded-md bg-[color:var(--clinical-accent-soft)] px-1.5 text-3xs font-bold uppercase leading-none tracking-label text-[color:var(--clinical-accent)]">
+                      {`Form ${formCode(form)}`}
+                    </span>
+                    {details?.availability === "downloadable" ? (
+                      <span className="text-2xs font-semibold uppercase leading-none text-[color:var(--text-muted)]">
+                        PDF
+                      </span>
+                    ) : null}
+                  </div>
+                  <h2 className="mt-1 truncate text-sm font-semibold text-[color:var(--text-heading)]">
+                    {displayText(form.title, `Form ${formCode(form)}`)}
                   </h2>
-                  <p className={cn("mt-0.5 text-xs", textMuted)}>{displayText(form.source?.label, "Official form")}</p>
+                  <p className={cn("mt-0.5 truncate text-xs", textMuted)}>
+                    {displayText(form.source?.label, "Official form")}
+                  </p>
                 </div>
               </div>
               <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
                 {displayText(form.source?.status, "Source status pending")}
               </span>
-              <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
+              <span
+                className={cn(
+                  "hidden min-h-7 items-center rounded-full border px-2 text-xs font-semibold shadow-[var(--shadow-inset)] sm:inline-flex",
+                  details?.officialPdfPasswordProtected ? toneWarning : toneNeutral,
+                )}
+              >
                 {details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}
               </span>
-              <div className="flex items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:hidden">
-                <span>{details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}</span>
-                <ChevronRight className="h-4 w-4" aria-hidden />
+              <div className="flex items-center gap-2 sm:hidden">
+                <span
+                  className={cn(
+                    "inline-flex min-h-6 items-center rounded-full border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)]",
+                    details?.officialPdfPasswordProtected ? toneWarning : toneNeutral,
+                  )}
+                >
+                  {details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}
+                </span>
+                <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
               </div>
               {form.source?.url || details?.localPdfPath ? (
                 <div className="hidden items-center gap-3 sm:flex">
@@ -1066,7 +867,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                       href={form.source.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      className="inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
                     >
                       Official
                       <ExternalLink className="h-4 w-4" aria-hidden />
@@ -1077,7 +878,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                       href={details.localPdfPath}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--text-muted)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      className="inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--text-muted)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
                     >
                       Stored copy
                       <Download className="h-4 w-4" aria-hidden />
@@ -1122,7 +923,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             </section>
 
             <section id="form-information" aria-label="Form information" className={cn(inPageAnchor, "grid gap-2")}>
-              <DisclosureGroup items={formInformationItems(detailRows)} headingLevel={3} />
+              <DisclosureGroup className="min-w-0" items={formInformationItems(detailRows)} headingLevel={3} />
             </section>
 
             {/* The `-mobile`/`-desktop` id pairs below are the section anchors

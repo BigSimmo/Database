@@ -1,4 +1,314 @@
 {
-  "_comment": "Known live-vs-schema.sql divergence. Empty after the forward-only 2026-07-13 reconciliation. Every future entry must carry a specific reason; check:drift fails on anything not listed here.",
-  "entries": []
+  "_comment": "Known live-vs-schema.sql divergence. Object categories (indexes, functions, ...) have been empty since the forward-only 2026-07-13 reconciliation. Every entry must carry a specific reason; check:drift fails on anything not listed here.",
+  "_migration_history_contract": "Entries with category `migration_history` / kind `no_statements` cover supabase_migrations.schema_migrations versions recorded WITHOUT executed statements (history repair / mark-applied rows) that public.schema_drift_snapshot() v2 (migration 20260818090000) reports. Each needs a `reason` and a `guard` = {class, migration, objects}. class `validation`: a later fail-fast validation migration (20260804110240 pattern) proves the objects; required for every version from 20260818000000. class `superseded`: a later migration re-created every listed object with recorded statements (pre-contract history only). class `no_ddl`: the version's own file has no effect (comments / `select 1;`). check:drift ignores a malformed entry (the row stays a finding) and tests/migration-history-guards.test.ts verifies the guard file really covers the listed objects. Seeded 2026-08-18 from docs/audit/live-drift-forensics-2026-08.md section 1.1 (versions resolved by name from the repo, not by a live read); an entry whose version is not reported by the live probe surfaces as a stale entry. See docs/database-drift-detection.md.",
+  "entries": [
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260701010000",
+      "reason": "2026-07-01 hybrid-retrieval hotfix applied to live by raw SQL and mark-applied (forensics section 1.1); match_document_chunks_hybrid has since been redefined by later migrations with recorded statements and its body/ACL sit in the drift inventory",
+      "guard": {
+        "class": "superseded",
+        "migration": "20260714110000_promote_documents_index_generation_id.sql",
+        "objects": ["match_document_chunks_hybrid"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260701020000",
+      "reason": "2026-07-01 hybrid-retrieval hotfix applied to live by raw SQL and mark-applied (forensics section 1.1); all three RPCs were re-codified verbatim from live by 20260701140631 and sit in the drift inventory",
+      "guard": {
+        "class": "superseded",
+        "migration": "20260701140631_codify_live_retrieval_rpcs.sql",
+        "objects": [
+          "match_document_index_units_hybrid",
+          "match_document_embedding_fields_hybrid",
+          "match_document_memory_cards_hybrid_v2"
+        ]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260701030000",
+      "reason": "2026-07-01 search_schema_health execution-smoke revision mark-applied after hand-apply (forensics section 1.1); search_schema_health() was redefined by the M13 guard migration and its def_hash sits in the drift inventory",
+      "guard": {
+        "class": "superseded",
+        "migration": "20260706010000_search_schema_health_m13_guard.sql",
+        "objects": ["search_schema_health"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260701040000",
+      "reason": "2026-07-01 drop of seven dead live-only hybrid variant functions, hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); the guard proves all seven 6-argument signatures are ABSENT (the 7-argument _v2/_v3 overloads schema.sql declares are different objects)",
+      "guard": {
+        "class": "validation",
+        "migration": "20260819110000_validate_history_dropped_objects.sql",
+        "objects": [
+          "eval_memory_retrieval_v2_v3",
+          "match_document_memory_cards_hybrid_v3",
+          "match_document_embedding_fields_rrf",
+          "match_document_embedding_fields_vector",
+          "match_document_chunks_hybrid_review_v1",
+          "match_document_embedding_fields_hybrid_v2",
+          "match_document_index_units_hybrid_v3"
+        ]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260701060000",
+      "reason": "2026-07-01 clinical query-term corrector mark-applied after hand-apply (forensics section 1.1); correct_clinical_query_terms was redefined by the public-title corrector migration and sits in the drift inventory",
+      "guard": {
+        "class": "superseded",
+        "migration": "20260717171000_public_title_corrector.sql",
+        "objects": ["correct_clinical_query_terms"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260702000000",
+      "reason": "2026-07-02 commit_document_index_generation legacy-artifact fix mark-applied after hand-apply (forensics section 1.1); the function was redefined by the generation-commit fence migration and sits in the drift inventory",
+      "guard": {
+        "class": "superseded",
+        "migration": "20260713062125_fence_index_generation_commit.sql",
+        "objects": ["commit_document_index_generation"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260702100000",
+      "reason": "2026-07-02 COMMENT ON FUNCTION claim_ingestion_jobs(text,integer,integer), hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); a pg_description write rather than an empty file, so not no_ddl; the guard proves the comment is present and names the FOR UPDATE OF j, d SKIP LOCKED pattern",
+      "guard": {
+        "class": "validation",
+        "migration": "20260819110100_validate_history_comments_and_retention.sql",
+        "objects": ["claim_ingestion_jobs"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260702110000",
+      "reason": "2026-07-02 drop of two redundant indexes, hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); the guard proves documents_owner_hash_idx and ingestion_jobs_claim_idx are ABSENT (check:drift would also report them as unexpected_live)",
+      "guard": {
+        "class": "validation",
+        "migration": "20260819110000_validate_history_dropped_objects.sql",
+        "objects": ["documents_owner_hash_idx", "ingestion_jobs_claim_idx"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260702120000",
+      "reason": "2026-07-02 retention policy: comments on audit_logs / rag_retrieval_logs plus the pg_cron job purge-rag-retrieval-logs, hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); the guard proves both comments and, where the cron schema exists (production), the job row",
+      "guard": {
+        "class": "validation",
+        "migration": "20260819110100_validate_history_comments_and_retention.sql",
+        "objects": ["audit_logs", "rag_retrieval_logs", "purge-rag-retrieval-logs"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260702130000",
+      "reason": "2026-07-02 orphan cleanup plus FK storage_cleanup_jobs.document_id -> documents(id) on delete set null, hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); the guard proves the constraint shape from pg_constraint (the data delete is not re-validatable)",
+      "guard": {
+        "class": "validation",
+        "migration": "20260819110200_validate_history_document_foreign_keys.sql",
+        "objects": ["storage_cleanup_jobs_document_id_fkey"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260702140000",
+      "reason": "2026-07-02 authoritative reset_document_index(uuid) body (no later migration re-creates it), hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); the guard proves the live def_hash equals supabase/drift-manifest.json",
+      "guard": {
+        "class": "validation",
+        "migration": "20260819110500_validate_history_function_bodies.sql",
+        "objects": ["reset_document_index"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260702150000",
+      "reason": "2026-07-02 RLS covering index documents_owner_id_covering_idx (no later migration with executed statements re-creates it), hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); the guard proves presence, indisvalid/indisready and the canonical pg_get_indexdef",
+      "guard": {
+        "class": "validation",
+        "migration": "20260819110300_validate_history_operational_index_shapes.sql",
+        "objects": ["documents_owner_id_covering_idx"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260702160000",
+      "reason": "2026-07-02 GUC-based invoke_indexing_v3_agent(integer) body, hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); the guard proves the live def_hash equals the manifest; the ALTER DATABASE SET is privilege-guarded with an in-function fallback and is deliberately not validated",
+      "guard": {
+        "class": "validation",
+        "migration": "20260819110500_validate_history_function_bodies.sql",
+        "objects": ["invoke_indexing_v3_agent"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260702180000",
+      "reason": "2026-07-02 promotion of index_generation_id to typed uuid columns on six artifact tables with six partial indexes and three functions (commit_document_index_generation / cleanup_abandoned_document_index_generations were later re-created with statements, is_committed_artifact_generation(uuid,jsonb) was not), hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); the guard proves every column type, every index shape, and the three current def_hashes",
+      "guard": {
+        "class": "validation",
+        "migration": "20260819110400_validate_history_index_generation_promotion.sql",
+        "objects": [
+          "document_images.index_generation_id",
+          "document_table_facts.index_generation_id",
+          "document_embedding_fields.index_generation_id",
+          "document_index_units.index_generation_id",
+          "document_memory_cards.index_generation_id",
+          "document_sections.index_generation_id",
+          "document_images_document_generation_idx",
+          "document_table_facts_document_generation_idx",
+          "document_embedding_fields_document_generation_idx",
+          "document_index_units_document_generation_idx",
+          "document_memory_cards_document_generation_idx",
+          "document_sections_document_generation_idx",
+          "is_committed_artifact_generation",
+          "commit_document_index_generation",
+          "cleanup_abandoned_document_index_generations"
+        ]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260712165915",
+      "reason": "2026-07-12 reconciliation batch (stmt_count 0 on live): drop-and-recreate of three ingestion index shapes, hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); the guard proves presence, indisvalid/indisready and the canonical pg_get_indexdef of all three",
+      "guard": {
+        "class": "validation",
+        "migration": "20260819110300_validate_history_operational_index_shapes.sql",
+        "objects": [
+          "import_batches_status_created_idx",
+          "ingestion_jobs_document_status_idx",
+          "ingestion_jobs_status_next_run_idx"
+        ]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260712170500",
+      "reason": "2026-07-12 reconciliation batch (stmt_count 0 on live): 44 create-if-not-exists operational indexes codified from production, hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); the guard proves the 42 that persist (presence, indisvalid/indisready, canonical pg_get_indexdef); document_table_facts_document_id_idx and document_table_facts_owner_idx were dropped again by 20260712172000 and are proven absent by that version's guard",
+      "guard": {
+        "class": "validation",
+        "migration": "20260819110300_validate_history_operational_index_shapes.sql",
+        "objects": [
+          "audit_logs_owner_id_idx",
+          "clinical_registry_record_sources_owner_id_idx",
+          "differential_records_owner_slug_kind_uidx",
+          "document_chunks_document_id_idx",
+          "document_chunks_meta_rag_indexing_version_idx",
+          "document_embedding_fields_document_generation_idx",
+          "document_embedding_fields_document_id_idx",
+          "document_images_created_at_idx",
+          "document_images_document_generation_idx",
+          "document_images_document_id_idx",
+          "document_images_duplicate_group_idx",
+          "document_images_priority_idx",
+          "document_images_searchable_idx1",
+          "document_index_quality_document_id_idx",
+          "document_index_quality_owner_id_idx",
+          "document_index_units_document_generation_idx",
+          "document_index_units_document_id_idx",
+          "document_index_units_owner_document_created_idx",
+          "document_index_units_owner_id_idx",
+          "document_index_units_source_chunk_id_idx",
+          "document_index_units_source_image_id_idx",
+          "document_labels_owner_id_idx",
+          "document_memory_cards_document_generation_idx",
+          "document_memory_cards_document_id_idx",
+          "document_memory_cards_owner_document_created_idx",
+          "document_sections_document_generation_idx",
+          "document_sections_document_id_idx",
+          "document_summaries_owner_id_idx",
+          "document_table_facts_document_generation_idx",
+          "document_table_facts_title_row_param_trgm_idx",
+          "documents_indexed_updated_at_idx",
+          "image_caption_cache_owner_id_idx",
+          "import_batches_owner_id_idx",
+          "ingestion_job_stages_job_idx",
+          "ingestion_jobs_status_idx",
+          "ingestion_jobs_updated_at_idx",
+          "rag_queries_owner_id_idx",
+          "rag_query_misses_expected_chunk_id_idx",
+          "rag_query_misses_expected_document_id_idx",
+          "rag_query_misses_owner_id_idx",
+          "rag_response_cache_owner_id_idx",
+          "rag_retrieval_logs_owner_id_idx"
+        ]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260712171000",
+      "reason": "2026-07-12 reconciliation batch (stmt_count 0 on live): re-created document FKs on rag_visual_eval_cases / rag_visual_eval_runs with on delete set null, hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); the guard proves both constraint shapes from pg_constraint",
+      "guard": {
+        "class": "validation",
+        "migration": "20260819110200_validate_history_document_foreign_keys.sql",
+        "objects": ["rag_visual_eval_cases_document_id_fkey", "rag_visual_eval_runs_document_id_fkey"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260712171500",
+      "reason": "2026-07-12 reconciliation batch (stmt_count 0 on live): twelve live-ahead function bodies codified from production (four later re-created by 20260714110000 / 20260724120000), hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); the guard proves every current def_hash equals supabase/drift-manifest.json, which live-drift proved equal to production",
+      "guard": {
+        "class": "validation",
+        "migration": "20260819110500_validate_history_function_bodies.sql",
+        "objects": [
+          "get_related_document_metadata",
+          "get_visual_evidence_cards",
+          "match_document_chunks",
+          "match_document_chunks_hybrid",
+          "match_document_chunks_text",
+          "match_document_embedding_fields_text",
+          "match_document_table_facts_text",
+          "match_documents_for_query",
+          "repair_enrichment_quality_batch",
+          "repair_strict_enrichment_gate_batch",
+          "run_all_visual_eval_cases",
+          "run_visual_eval_case"
+        ]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260712172000",
+      "reason": "2026-07-12 reconciliation batch (stmt_count 0 on live): drop of two left-prefix table-fact indexes superseded by the canonical composites, hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); the guard proves document_table_facts_document_id_idx and document_table_facts_owner_idx are ABSENT (the former was the Phase 4 unexpected_live orphan, dropped concurrently 2026-08-19)",
+      "guard": {
+        "class": "validation",
+        "migration": "20260819110000_validate_history_dropped_objects.sql",
+        "objects": ["document_table_facts_document_id_idx", "document_table_facts_owner_idx"]
+      }
+    },
+    {
+      "category": "migration_history",
+      "kind": "no_statements",
+      "key": "20260712173000",
+      "reason": "2026-07-12 reconciliation batch (stmt_count 0 on live): backfill_legacy_index_health_batch(integer) (sole creator), hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); the guard proves the live def_hash equals supabase/drift-manifest.json",
+      "guard": {
+        "class": "validation",
+        "migration": "20260819110500_validate_history_function_bodies.sql",
+        "objects": ["backfill_legacy_index_health_batch"]
+      }
+    }
+  ]
 }

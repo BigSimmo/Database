@@ -40,7 +40,7 @@ const outputs = [
 ];
 
 function normalizePath(filePath) {
-  return filePath
+  return String(filePath ?? "")
     .replaceAll("\\", "/")
     .replace(/^\.\/+/, "")
     .replace(/^github\//, ".github/");
@@ -93,6 +93,12 @@ const mockupPatterns = [
   // from losing the only lane that runs its `@mockup` journey.
   /^src\/components\/[^/]+-mockups?\//,
   /^src\/components\/.*-mockups?\.tsx$/,
+  // ...and the NESTED form: `caring-contacts/mockups/` holds 12 components whose
+  // filenames carry no `-mockup` suffix, so neither rule above reaches them. The
+  // two rules above cover a top-level `*-mockups/` directory and a `*-mockups.tsx`
+  // file at any depth; a plain `mockups/` segment one level down fell between them
+  // and left those journeys unrun (found 2026-08-21).
+  /^src\/components\/(?:[^/]+\/)+mockups?\//,
   // Three of the advisory specs carry `@mockup` without "mockup" in the
   // filename, so a name-based rule alone misses them. `assertMockupSpecParity`
   // below holds this list to `mockupSpecPattern` in playwright.config.ts.
@@ -120,6 +126,11 @@ const docPatterns = [
   /^CHANGELOG(?:\..*)?$/i,
   /^LICENSE(?:\..*)?$/i,
 ];
+
+// This Markdown file is generated from the medication interaction lexicon. A
+// direct edit must run its freshness check; otherwise the ordinary docs-only
+// classification would let a stale clinical-facing report through CI.
+const generatedMedicationLexiconReport = "docs/medication-interaction-lexicon-review.md";
 
 const workflowPatterns = [
   ".github/workflows",
@@ -176,6 +187,10 @@ const uiPatterns = [
   // PNG reports ui_changed=false, the visual job is skipped, and an incorrect or
   // corrupted baseline is never compared against the app it claims to describe.
   /^tests\/__screenshots__\//,
+  // Library modules that configure modes, shell routing, UI copy, navigation,
+  // or rendering lists. Editing these directly alters what the browser shell
+  // and mode homes render without touching a component or route file (#0HFDWD).
+  /^src\/lib\/(?:app-modes|app-mode-icons|search-route-ownership|ui-copy|mode-home-composer|mode-secondary-navigation|category-identity(?:-icons)?|brand-mark|brand-image|search-command-surface|search-navigation-context|search-scope-filter-chips|search-shell-props|document-flow-routes|document-viewer-navigation|differentials-navigation|therapy-compass-navigation|therapies)\.tsx?$/,
   // The pre-merge Lighthouse budget and its inputs. Without these, enabling
   // enforcement, refreshing the baseline, or breaking the runner is not exercised
   // until some unrelated UI or build change happens to trigger the job.
@@ -282,11 +297,20 @@ const ragEvalPatterns = [
   "scripts/fixtures",
   "src/app/api/answer",
   "src/app/api/search",
+  // #SDQSFD: the RAG stack moved into `src/lib/rag/` in #994, but the flat
+  // `src/lib/rag-*.ts` regex below was never widened, so a PR touching only
+  // `src/lib/rag/rag.ts` classified as rag_eval_changed=false and skipped both
+  // `eval:rag:offline` and `eval:rag:adversarial:offline` in CI and
+  // verify:pr-local. PR #2065 reached main that way; the live canary, not the
+  // offline harness, caught it. Directory prefix (not `^src/lib/rag`) so the
+  // whole extracted subtree is covered whatever a file is later named.
+  /^src\/lib\/rag\//,
   /^src\/lib\/(?:rag(?:-[^/]+)?|smart-rag-api|clinical-search|clinical-query-mode|retrieval(?:-[^/]+)?|answer(?:-[^/]+)?|citations|cross-document-synthesis|evidence(?:-[^/]+)?|ranking-config|source(?:-[^/]+)?|chunking|document-index-units|query-privacy|owner-scope|corpus-grounding|indexed-source-formatting)\.ts$/,
   /^src\/components\/(?:.*\/)?(?:answer|source|citation)[^/]*\.tsx?$/i,
-  /^scripts\/(?:check-rag-fixtures|test-rag-offline)\.mjs$/,
+  /^scripts\/(?:check-rag-fixtures|check-rag-adversarial-fixtures|rag-adversarial-contract|test-rag-offline)\.mjs$/,
   /^scripts\/(eval-|run-eval-safe|compare-retrieval-eval|retrieval-health|profile-retrieval|warm-retrieval-cache|tune-search-weights)/,
-  /^tests\/(rag|retrieval|answer|citations|evidence|eval|clinical-safety|source).*\.test\.ts$/,
+  /^tests\/(?:helpers\/)?(rag|retrieval|answer|citations|evidence|eval|clinical-safety|source).*\.test\.ts$/,
+  /^tests\/helpers\/rag-adversarial-assertions\.ts$/,
 ];
 
 // Untrusted-document parsing and ingestion surfaces are guarded by a narrow,
@@ -371,6 +395,7 @@ function isExecutableWorkflowSurfacePath(filePath) {
  * YAML/policy under workflow surfaces stay light; executable files there do not.
  */
 function isRecognisedLightPath(filePath) {
+  if (filePath === generatedMedicationLexiconReport) return false;
   if (pathMatches(filePath, docPatterns)) return true;
   if (!pathMatches(filePath, workflowPatterns)) return false;
   return !isExecutableWorkflowSurfacePath(filePath);
@@ -413,6 +438,7 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
   const docsOnly =
     normalized.length > 0 &&
     normalized.every((file) => pathMatches(file, docPatterns)) &&
+    !normalized.includes(generatedMedicationLexiconReport) &&
     !sourceChanged &&
     !workflowChanged;
   const workflowOnly = workflowChanged && !staticHeavyChanged;
@@ -689,6 +715,15 @@ function selfTest() {
   assertScope("advisory-on-for-mockup-component", ["src/components/search-mockups.tsx"], {
     advisory_ui_changed: true,
   });
+  // A mockup component in a NESTED `mockups/` directory whose own filename gives
+  // no hint — the case the suffix-based rules miss. Both directions are pinned so
+  // the added pattern cannot quietly widen to ordinary component directories.
+  assertScope("advisory-on-for-nested-mockup-dir", ["src/components/caring-contacts/mockups/product-pages.tsx"], {
+    advisory_ui_changed: true,
+  });
+  assertScope("advisory-off-for-ordinary-nested-component", ["src/components/caring-contacts/contact-card.tsx"], {
+    advisory_ui_changed: false,
+  });
   // A mockup component edited without its `src/app/mockups` route wrapper. The
   // filename is singular, and `ui-tools-task-directory.spec.ts` is its only
   // browser coverage — excluded from every production project by its `@mockup`
@@ -766,6 +801,12 @@ function selfTest() {
     static_heavy_changed: false,
     build_changed: false,
     lockfile_changed: false,
+  });
+  assertScope("generated-medication-lexicon-report-stays-heavy", [generatedMedicationLexiconReport], {
+    docs_only: false,
+    docs_changed: true,
+    static_heavy_changed: true,
+    coverage_changed: true,
   });
   assertScope("tests-only", ["tests/rag-routing.test.ts"], {
     source_changed: true,
@@ -1020,14 +1061,76 @@ function selfTest() {
     build_changed: true,
     db_changed: false,
   });
+  // Mode configuration, routing, UI copy and therapies feed shell/home rendering (#0HFDWD)
+  assertScope("mode-config-triggers-ui", ["src/lib/app-modes.ts"], {
+    ui_changed: true,
+    source_changed: true,
+  });
+  assertScope("search-route-ownership-triggers-ui", ["src/lib/search-route-ownership.ts"], {
+    ui_changed: true,
+    source_changed: true,
+  });
+  assertScope("ui-copy-triggers-ui", ["src/lib/ui-copy.ts"], {
+    ui_changed: true,
+    source_changed: true,
+  });
+  assertScope("therapies-lib-triggers-ui", ["src/lib/therapies.ts"], {
+    ui_changed: true,
+    source_changed: true,
+  });
   assertScope("rag-fixture", ["src/lib/retrieval-selection.ts", "scripts/fixtures/rag-retrieval-golden.json"], {
     rag_eval_changed: true,
+    source_changed: true,
+  });
+  // #SDQSFD: the extracted `src/lib/rag/` subtree (#994). Each of these alone
+  // must select the offline RAG contracts — `rag.ts` is the orchestrator and
+  // `answer-composition.ts` carries no `rag-` filename prefix at all, so the
+  // flat `src/lib/rag-*.ts` regex missed it entirely.
+  assertScope("rag-directory-orchestrator", ["src/lib/rag/rag.ts"], {
+    rag_eval_changed: true,
+    source_changed: true,
+  });
+  assertScope("rag-directory-answer-composition", ["src/lib/rag/answer-composition.ts"], {
+    rag_eval_changed: true,
+    source_changed: true,
+  });
+  assertScope("rag-directory-claim-support", ["src/lib/rag/rag-claim-support.ts"], {
+    rag_eval_changed: true,
+    source_changed: true,
+  });
+  // The other direction: the directory prefix must stay a directory prefix. An
+  // unrelated `src/lib` module is still an executable change, but it must not
+  // drag the offline RAG contracts onto every PR.
+  assertScope("non-rag-lib-module-skips-rag-eval", ["src/lib/app-modes.ts"], {
+    rag_eval_changed: false,
     source_changed: true,
   });
   assertScope("rag-fixture-checker", ["scripts/check-rag-fixtures.mjs"], {
     rag_eval_changed: true,
     source_changed: true,
   });
+  // Packet B2: the adversarial fixture validator, contract module, runner and harness
+  // must all re-run the RAG-scoped offline gates when edited.
+  assertScope("rag-adversarial-fixture-checker", ["scripts/check-rag-adversarial-fixtures.mjs"], {
+    rag_eval_changed: true,
+    source_changed: true,
+  });
+  assertScope("rag-adversarial-contract-module", ["scripts/rag-adversarial-contract.mjs"], {
+    rag_eval_changed: true,
+    source_changed: true,
+  });
+  assertScope("rag-adversarial-runner", ["scripts/eval-rag-adversarial-offline.mjs"], {
+    rag_eval_changed: true,
+    source_changed: true,
+  });
+  assertScope(
+    "rag-adversarial-harness",
+    ["tests/rag-adversarial-harness.test.ts", "tests/helpers/rag-adversarial-assertions.ts"],
+    {
+      rag_eval_changed: true,
+      source_changed: true,
+    },
+  );
   assertScope("ingestion-sast-worker", ["worker/python/extract_pdf_assets.py"], {
     ingestion_sast_changed: true,
   });

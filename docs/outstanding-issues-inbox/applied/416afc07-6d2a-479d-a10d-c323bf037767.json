@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "416afc07-6d2a-479d-a10d-c323bf037767",
+  "createdOn": "2026-08-21",
+  "action": "update",
+  "payload": {
+    "id": "#6GW95D",
+    "detail": "PREMISE CORRECTED 2026-08-22: the disk pressure this row was written against is gone. It records a '51%-full Dev Drive'; D: has since been expanded and now measures 80 GB total, 22 GB used, 59 GB available -- 27% used. So worktree removal is no longer urgent on space grounds, and this row should not be actioned as a capacity emergency. WHAT IS STILL TRUE, AND IS A DIFFERENT PROBLEM: .claude/worktrees/ has accumulated directories that are no longer git worktrees at all. Counted 2026-08-22: 30 directories, of which 12 are registered in `git worktree list` and belong to live sessions, and 18 are ORPHANS that git no longer knows about. Sixteen of the eighteen are completely empty and two hold a single entry. They cost almost no disk -- which is exactly why nothing reclaims them -- but they make `ls .claude/worktrees` useless for telling live work from debris, and that ambiguity is what preceded two separate incidents in which a cleanup sweep deleted an in-use worktree mid-session. ONE OF THEM CANNOT BE REMOVED YET: phase-4-index-restoration-b0f4ea is empty and unregistered, but both `rmdir` and PowerShell `Remove-Item` fail with 'being used by another process' -- a live session still holds it as its working directory. It will clear when that session exits; no process was killed to force it. NEXT: separate the two concerns. (a) Reclaim the 18 orphan directories, which is safe to script because 'not in `git worktree list`' plus 'no files' is a strong test -- but the script must skip a directory it cannot remove rather than escalating. (b) Re-scope or close the capacity half of this row, since 59 GB free removes its original justification. STOP: never delete a directory that IS registered in `git worktree list`, even if it looks idle -- that is precisely the mistake that destroyed live work twice.",
+    "source": "measured 2026-08-22 on the Windows workstation (df -h /d; git worktree list vs .claude/worktrees listing); session Phase 5 close-out",
+    "baseRowFingerprint": "2edd7af71e7e182cf74874a1de2ebb134df9043b945ad47319f7aacbc0fdca2c"
+  }
+}

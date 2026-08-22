@@ -54,6 +54,7 @@ import {
 } from "@/lib/rag/rag-answer-text";
 import { cloneAnswer } from "@/lib/rag/rag-cache";
 import { ragProviderMode } from "@/lib/rag/rag-provider";
+import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import {
   isLowYieldClinicalText,
   normalizeInlineBulletGlyphs,
@@ -3242,6 +3243,57 @@ function hasCompleteOpeningSentence(value: string) {
   return openingSentenceActionPattern.test(opening);
 }
 
+// The extractive completer's last-resort branch (completeExtractiveSentence, above) wraps a
+// fragment it could not complete as "The guidance is that <fragment>.", and sentenceFromFact may
+// then splice the query entity in as "The guidance for <entity> is that …". The wrapper supplies
+// both a terminator and the finite verb "is", so the wrapped result passes
+// hasCompleteOpeningSentence even though the text inside it did not.
+//
+// That wrapper is NOT purely laundering — it legitimately rescues well-formed clauses whose only
+// flaw is that openingSentenceActionPattern is a narrow list of clinical directives rather than a
+// general finite-verb test ("… the ECT Coordinator places the patient onto BASE" is a real
+// sentence built on "places", which is not and should not be on that list). So this gate does not
+// ask "does the continuation carry a clinical action". It rejects only two shapes that no verb
+// list could rescue, both observed live in the 2026-08-21 capture
+// (docs/rag-improvement/231-diagnosis-2026-08-22.md §3.1):
+//
+//   1. Layout debris: a ">" breadcrumb pointing at a word rather than a number, which is a
+//      flattened heading trail, not a clinical comparator ("QTc > 500" is untouched).
+//   2. A bare coordinated noun list with no determiner, auxiliary or directive verb anywhere —
+//      "compliance, monitoring and evaluation" — which states nothing that can be checked
+//      against a source.
+//
+// Runs after the other prose gates so anything they already reject keeps its existing reason;
+// this only catches what nothing else does. clippedClinicalFragmentPattern (rag-answer-text.ts)
+// covers the same wrapper for four continuations enumerated one incident at a time, and is
+// deliberately left in place rather than replaced.
+const launderedGuidanceWrapperPattern = /^the\s+guidance(?:\s+for\s+[^.!?]{1,60}?)?\s+is\s+that\s+(.+?)\.?$/i;
+// A ">" aimed at a word, not a figure: "aim > To effectively identify…" is a heading trail left
+// by PDF flattening. Numeric comparators ("ANC > 2.0", "eGFR > 30 mL/min") never match.
+const guidanceWrapperLayoutDebrisPattern = />\s*[A-Za-z]/;
+// A coordinated list of bare nouns: letters, spaces, commas, apostrophes and hyphens only (so a
+// clause carrying parentheses, digits, slashes or other punctuation is never judged here), joined
+// by a comma or "and"/"or".
+const guidanceWrapperNounListShapePattern = /^[A-Za-z][A-Za-z\s,'-]*(?:,|\band\b|\bor\b)[A-Za-z\s,'-]*[A-Za-z]$/;
+const guidanceWrapperDeterminerPattern =
+  /\b(?:the|a|an|this|that|these|those|their|its|his|her|our|your|any|each|every|all|both|no)\b/i;
+const guidanceWrapperAuxiliaryPattern =
+  /\b(?:is|are|was|were|be|been|being|has|have|had|do|does|did|can|could|may|might|must|shall|should|will|would)\b/i;
+
+/** Is laundered guidance wrapper answer. */
+export function isLaunderedGuidanceWrapperAnswer(text: string) {
+  const opening = firstSentence(normalizeSectionText(text)).replace(/\*\*/g, "").trim();
+  const continuation = opening.match(launderedGuidanceWrapperPattern)?.[1]?.trim();
+  if (!continuation) return false;
+  if (guidanceWrapperLayoutDebrisPattern.test(continuation)) return true;
+  return (
+    guidanceWrapperNounListShapePattern.test(continuation) &&
+    !guidanceWrapperDeterminerPattern.test(continuation) &&
+    !guidanceWrapperAuxiliaryPattern.test(continuation) &&
+    !openingSentenceActionPattern.test(continuation)
+  );
+}
+
 /** Has invalid model evidence ids. */
 export function hasInvalidModelEvidenceIds(answer: Pick<RagAnswer, "routingReason">) {
   return /\binvalid_model_citation_ids\b/.test(answer.routingReason ?? "");
@@ -3260,6 +3312,7 @@ export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: st
   if (hasClinicalAnswerQualityIssue(cleanedAnswer)) return "clinical_answer_quality_issue";
   if (isLowYieldClinicalText(cleanedAnswer)) return "low_yield_answer";
   if (isFragmentLikeClinicalAnswer(cleanedAnswer, query)) return "fragment_like_answer";
+  if (isLaunderedGuidanceWrapperAnswer(cleanedAnswer)) return "guidance_wrapper_fragment";
   if (isMissingCriticalQueryIntent(query, cleanedAnswer)) return "missing_query_intent";
   // Core-term (entity/intent) overlap responsiveness check. For extractive/low-confidence answers
   // it always applies. For synthesized model answers it is only safe on narrow simple direct
@@ -3786,6 +3839,78 @@ function applyProviderLabels(answer: RagAnswer): RagAnswer {
   };
 }
 
+/**
+ * Fast-route final-gate gap recovery: when a grounded, cited, low-confidence fast
+ * model answer over strong routine retrieval is only gap-like phrasing, rebuild a
+ * deterministic source-backed answer from the evidence it already cites instead of
+ * shipping a citation-free evidence gap. Mirrors the rag.ts generation-fallback
+ * recovery, which handles the thrown variants of the same failure — today, model
+ * phrasing alone decides which of the two branches a gap-shaped fast answer takes.
+ * Returns null to keep the gap terminal: genuinely empty retrieval, strong-route
+ * gaps, and comparison/dose/threshold classes (whose fallbacks need dedicated
+ * single-chunk handling) never recover here. The rebuilt candidate is routingMode
+ * "extractive", so the re-entrant validation finalize cannot re-trigger this
+ * fast-gated recovery.
+ */
+function recoverFinalGateGapExtractively(
+  answer: RagAnswer,
+  query: string,
+  queryClass: RagQueryClass,
+  gapReason: string,
+): RagAnswer | null {
+  if (answer.routingMode !== "fast") return null;
+  if (!answer.routingReason?.includes("strong_routine_retrieval")) return null;
+  if ((answer.sources?.length ?? 0) === 0) return null;
+  if (queryClass === "comparison" || queryClass === "medication_dose_risk" || queryClass === "table_threshold") {
+    return null;
+  }
+  // Band-coherence source conflicts already have a throw-based recovery in rag.ts.
+  if (answer.routingReason.includes("numeric_band_coherence_gate_source_conflict")) return null;
+  const recoveryRouteReason = [
+    answer.routingReason,
+    `generation_fallback:${gapReason}`,
+    "source_backed_extractive_fallback",
+    `final_quality_gate_source_backed_recovery:${gapReason}`,
+  ].join("; ");
+  const candidate = buildExtractiveAnswer({
+    query,
+    queryClass,
+    results: answer.sources,
+    quoteCards: answer.quoteCards ?? [],
+    documentBreakdown: answer.documentBreakdown ?? [],
+    evidenceSummary: answer.evidenceSummary,
+    sourceCoverage: answer.sourceCoverage,
+    conflictsOrGaps: answer.conflictsOrGaps ?? [],
+    visualEvidence: answer.visualEvidence ?? [],
+    bestSource: answer.bestSource ?? null,
+    smartPanel: answer.smartPanel,
+    relatedDocuments: answer.relatedDocuments ?? [],
+    routeReason: recoveryRouteReason,
+    timings: answer.latencyTimings,
+  });
+  if (!candidate.grounded || candidate.confidence === "unsupported" || candidate.citations.length === 0) return null;
+  if (isBareCrossReferenceAnswer(candidate.answer ?? "")) return null;
+  const smartApiPlan = buildSmartRagApiPlan({
+    query,
+    queryClass,
+    results: candidate.sources,
+    routeMode: "extractive",
+    routeReason: candidate.routingReason,
+    conflictsOrGaps: candidate.conflictsOrGaps ?? [],
+  });
+  const merged: RagAnswer = {
+    ...answer,
+    ...candidate,
+    modelUsed: null,
+    supportedClaims: undefined,
+    evidenceAssessments: undefined,
+    smartApiPlan,
+    responseMode: smartApiPlan.displayMode,
+  };
+  if (!isSafeExtractiveFallbackCandidate(merged, query, queryClass)) return null;
+  return merged;
+}
+
 // Public wrapper: runs quality finalization, then stamps provider/quality labels so the UI can
 // disclose source-only (lower-quality) answers and verify-against-sources guidance.
 /** Finalize rag answer quality. */
@@ -3826,8 +3951,12 @@ function finalizeRagAnswerQualityCore(answer: RagAnswer, query: string, queryCla
   const existingGapAnswer =
     gapLikeAnswer && (!answer.grounded || answer.routingMode === "strong" || answer.confidence === "low");
   if (existingGapAnswer) {
-    const gapAnswer = finalQualityGapAnswer(query, queryClass);
     const gapReason = answer.modelUsed ? "provider_source_gap" : "source_gap";
+    const recovered = recoverFinalGateGapExtractively(answer, query, queryClass, gapReason);
+    // Terminates: the recovered answer is routingMode "extractive", so the fast-gated
+    // recovery cannot re-fire on this re-run.
+    if (recovered) return finalizeRagAnswerQualityCore(recovered, query, queryClass);
+    const gapAnswer = finalQualityGapAnswer(query, queryClass);
     return {
       ...answer,
       answer: gapAnswer,

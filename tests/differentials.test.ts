@@ -7,6 +7,7 @@ import {
   parseSearchAliases,
 } from "../scripts/lib/parse-differentials-export";
 import { staleSeededPresentations } from "@/lib/differential-seed";
+import { normalizePresentationWorkflow } from "@/lib/differential-presentation-display";
 import { isDifferentialMetadataArtifactTitle } from "@/lib/differential-snapshot";
 import {
   buildAdHocPresentationWorkflow,
@@ -233,6 +234,45 @@ describe("differential records", () => {
     ).toBe("Focused Diagnostic Trap Tables");
   });
 
+  it("uses concise presentation titles while retaining imported slash titles as searchable aliases", () => {
+    const snapshot = loadDifferentialSnapshot();
+    const retitled = snapshot.presentations.filter((presentation) => presentation.sourceTitle?.includes("/"));
+
+    expect(retitled).toHaveLength(22);
+    expect(retitled.every((presentation) => !presentation.title.includes("/"))).toBe(true);
+    expect(retitled.every((presentation) => Boolean(presentation.scopeLabel))).toBe(true);
+    expect(retitled.every((presentation) => presentation.titleAliases?.includes(presentation.sourceTitle ?? ""))).toBe(
+      true,
+    );
+
+    const acuteConfusion = snapshot.presentations.find(
+      (presentation) => presentation.id === "acute-confusion-encephalopathy",
+    );
+    expect(acuteConfusion?.title).toBe("Acute confusion and delirium");
+    expect(acuteConfusion?.sourceTitle).toBe("Delirium / Acute Confusion / Encephalopathy");
+    expect(rankPresentationWorkflows(snapshot.presentations, acuteConfusion?.sourceTitle ?? "")[0]?.workflow.id).toBe(
+      "acute-confusion-encephalopathy",
+    );
+  });
+
+  it("normalizes an older stored presentation payload without changing its stable route id", () => {
+    const current = getPresentationWorkflow("acute-confusion-encephalopathy");
+    expect(current).not.toBeNull();
+    const legacyPayload = {
+      ...current!,
+      title: current!.sourceTitle!,
+      sourceTitle: undefined,
+      scopeLabel: undefined,
+      titleAliases: undefined,
+    };
+
+    const normalized = normalizePresentationWorkflow(legacyPayload);
+    expect(normalized.id).toBe(legacyPayload.id);
+    expect(normalized.title).toBe("Acute confusion and delirium");
+    expect(normalized.sourceTitle).toBe("Delirium / Acute Confusion / Encephalopathy");
+    expect(normalized.titleAliases).toContain(legacyPayload.title);
+  });
+
   it("flags a retired presentation slug for pruning, leaving diagnoses alone", () => {
     // Retitling changed the appendix slug, so the old "urgency-urgent" row is no
     // longer produced by the snapshot and must be pruned from seeded owners.
@@ -379,7 +419,7 @@ function presentationMatch(id: string, score: number, candidateSlugs: string[]):
       safetySnapshot: { summary: `${id} safety`, tags: ["tag-one"] },
       criteria: [],
       candidates: candidateSlugs.map((slug) => ({ slug, selected: false, comparison: {} })),
-      reviewChecklist: [],
+      reviewChecklist: [`${id} review step`],
       highestUrgencyNote: "",
       sourceStatus: { label: "", version: "", lastUpdated: "" },
     },
@@ -394,7 +434,13 @@ describe("composeDifferentialSearchResults", () => {
       [diagnosisMatch("alpha", 10), diagnosisMatch("beta", 8)],
       [presentationMatch("workflow-one", 9, ["beta"])],
     );
-    expect(results[0]).toMatchObject({ kind: "presentation", id: "workflow-one", matchLabel: "Best match" });
+    expect(results[0]).toMatchObject({
+      kind: "presentation",
+      id: "workflow-one",
+      matchLabel: "Best match",
+      clinicalCues: ["tag-one"],
+      nextSteps: ["workflow-one review step"],
+    });
     // Candidate diagnoses of the lead presentation come before other diagnoses.
     expect(results[1]).toMatchObject({ kind: "diagnosis", id: "beta" });
     expect(results[2]).toMatchObject({ kind: "diagnosis", id: "alpha" });
@@ -405,7 +451,12 @@ describe("composeDifferentialSearchResults", () => {
       [diagnosisMatch("alpha", 20)],
       [presentationMatch("workflow-one", 3, [])],
     );
-    expect(results[0]).toMatchObject({ kind: "diagnosis", id: "alpha" });
+    expect(results[0]).toMatchObject({
+      kind: "diagnosis",
+      id: "alpha",
+      clinicalCues: ["alpha presentation feature"],
+      nextSteps: ["alpha test"],
+    });
     expect(results[1]).toMatchObject({ kind: "presentation", id: "workflow-one" });
   });
 

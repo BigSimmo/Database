@@ -1,7 +1,20 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, useDeferredValue, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useDeferredValue, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
+import {
+  THERAPY_KNOWN_SCREENS,
+  THERAPY_MAX_COMPARE,
+  readTherapyWorkspaceState,
+  resolveTherapyRoute,
+  therapyHrefWithSearchParams,
+  therapyRecordHref,
+  therapyScreenHref,
+  therapyWorkspaceSearchParams,
+  type TherapySheetSection,
+  type TherapyWorkspaceState,
+} from "@/lib/therapy-compass-navigation";
 
 import { useTherapyData } from "./data/use-therapy-data";
 import { THERAPY_CATALOGUE_SUMMARY } from "./data/generated-assets";
@@ -16,52 +29,7 @@ import {
 } from "./data/select";
 import type { Pathway, ReferenceData, Therapy } from "./data/types";
 
-export const KNOWN_SCREENS = [
-  "search",
-  "detail",
-  "compare",
-  "recommend",
-  "pathways",
-  "brief",
-  "home",
-  "sheets",
-] as const;
-/**
- * The screens with a module of their own. Anything else `resolveRoute` produces
- * — `review` today — falls through to the generic screen, which is what
- * `isOther` below reports. Exported so the mode nav can declare its item ids
- * against it: an id that is not a screen name could never be matched by the
- * `activeId` the nav passes.
- */
-export type TherapyScreen = (typeof KNOWN_SCREENS)[number];
-export const MAX_COMPARE = 4;
-
-// Therapy Compass now owns a route family under this base. Screen state is derived
-// from the pathname (not React state) so every destination is a real URL: Home is the
-// base, the fixed workspaces are static children, and a therapy detail / brief / sheet
-// is `${BASE}/<slug>[/brief|/sheet]`. Reserved segments never collide with therapy
-// slugs (verified in scripts) so a first segment that is not reserved is a slug.
-const BASE = "/therapy-compass";
-const RESERVED_SEGMENTS = new Set(["search", "recommend", "compare", "pathways", "review"]);
-
-function screenHref(screen: string): string {
-  return screen === "home" ? BASE : `${BASE}/${screen}`;
-}
-
-/** Resolve the active screen + therapy slug from the current pathname. */
-function resolveRoute(pathname: string): { screen: string; slug: string | null } {
-  const rest = pathname.startsWith(BASE) ? pathname.slice(BASE.length).replace(/^\/+/, "") : "";
-  const segments = rest ? rest.split("/") : [];
-  if (segments.length === 0) return { screen: "home", slug: null };
-  const [first, second] = segments;
-  if (RESERVED_SEGMENTS.has(first)) return { screen: first, slug: null };
-  // A non-reserved first segment is a therapy slug; the optional second segment
-  // selects the brief-intervention or patient-sheet sub-view.
-  const screen = second === "brief" ? "brief" : second === "sheet" ? "sheets" : "detail";
-  return { screen, slug: first };
-}
-
-type SheetSectionKey = "about" | "steps" | "practice" | "coping" | "contacts";
+type SheetSectionKey = TherapySheetSection;
 
 export type TcBindings = {
   // ---- data -----------------------------------------------------------
@@ -83,23 +51,12 @@ export type TcBindings = {
   goRecommend: () => void;
   goCompare: () => void;
   goPathways: () => void;
-  goBrief: () => void;
-  goSheets: () => void;
   goDetail: () => void;
   goReview: () => void;
+  workspaceHref: (href: string) => string;
   isHome: boolean;
   isOther: boolean;
   otherLabel: string;
-  /**
-   * Real URLs for the two record-scoped destinations, resolved the same way
-   * `goBrief`/`goSheets` resolve their targets. `ModeNav` takes an href and
-   * never an onClick, so the resolution has to be a value rather than a
-   * handler — and one shared helper feeds both, so a link and its imperative
-   * twin can never disagree about where they go.
-   */
-  briefHref: string;
-  sheetHref: string;
-
   // ---- active therapy (detail / brief / sheet) ------------------------
   selectedSlug: string | null;
   selectedTherapy: Therapy | null;
@@ -151,32 +108,21 @@ export type TcBindings = {
 
   // ---- comparison tabs + density -------------------------------------
   cmpTab: string;
-  tabPriorities: string;
-  tabDifferences: string;
-  tabAll: string;
   setTabPriorities: () => void;
   setTabDifferences: () => void;
   setTabAll: () => void;
   density: string;
-  segComfortable: string;
-  segDense: string;
   setComfortable: () => void;
   setDense: () => void;
 
   // ---- brief-intervention tabs ---------------------------------------
   briefTab: string;
-  brief5: string;
-  brief15: string;
-  briefGround: string;
   set5: () => void;
   set15: () => void;
   setGround: () => void;
 
   // ---- patient-sheet tone --------------------------------------------
   sheetTone: string;
-  tonePlain: string;
-  toneWarm: string;
-  toneClinical: string;
   setTonePlain: () => void;
   setToneWarm: () => void;
   setToneClinical: () => void;
@@ -199,31 +145,10 @@ export type TcBindings = {
   toggleContacts: () => void;
   sheetClinician: boolean;
   toggleClinician: () => void;
-  clinicianTrack: string;
-  clinicianKnob: string;
-  printSheet: () => void;
 };
 
 const TcContext = createContext<TcBindings | null>(null);
 
-function tabStyle(active: boolean): string {
-  return [
-    "inline-flex min-h-tap items-center justify-center border-0 border-b-2 border-b-transparent bg-transparent px-1 py-2.5 text-sm font-medium text-[color:var(--text-muted)]",
-    "hover:enabled:text-[color:var(--text)]",
-    active ? "border-b-[color:var(--clinical-accent)] font-semibold text-[color:var(--clinical-accent-hover)]" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-function segStyle(active: boolean): string {
-  return [
-    "inline-flex min-h-tap items-center justify-center rounded-md border-0 bg-transparent px-4 py-[7px] text-sm-minus font-semibold text-[color:var(--text-muted)]",
-    "hover:enabled:bg-[color:var(--surface-subtle)] hover:enabled:text-[color:var(--text)]",
-    active ? "bg-[color:var(--surface)] text-[color:var(--clinical-accent-hover)] shadow-[var(--e1)]" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
 function chipStyle(active: boolean): string {
   return [
     "inline-flex min-h-tap items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-2 text-sm-minus font-semibold text-[color:var(--text-muted)]",
@@ -240,7 +165,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { screen, slug: routeSlug } = resolveRoute(pathname);
+  const { screen, slug: routeSlug } = resolveTherapyRoute(pathname);
   const isHome = screen === "home";
   // Search needs the complete prose corpus to preserve its existing weighted
   // matches (#1471). Home paints from generated summary metadata without a
@@ -254,8 +179,8 @@ export function TcProvider({ children }: { children: ReactNode }) {
   });
   const therapies = useMemo(() => data?.therapies ?? [], [data]);
   // Home reads the build-time summary rather than the catalogue so first paint
-  // never waits on catalogue I/O (`enabled: !isHome` above). The count and the
-  // default slugs are therefore only as true as the last generator run, which
+  // never waits on catalogue I/O (`enabled: !isHome` above). The count is
+  // therefore only as true as the last generator run, which
   // is why `npm run check:therapy-data-index` (build-therapies-index --check)
   // is load-bearing in verify:cheap - do not bypass it. If home ever lists real
   // therapy records rather than a count, it must re-enable `useTherapyData`;
@@ -269,14 +194,19 @@ export function TcProvider({ children }: { children: ReactNode }) {
   // Non-navigational interaction state lives in the provider, which the layout
   // keeps mounted across the tool's routes so selections persist between screens.
   const qParam = (searchParams.get("q") ?? "").trim();
-  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
-  const [compareSlugs, setCompareSlugs] = useState<string[]>([]);
-  const [search, setSearch] = useState<SearchOptions>(() =>
-    qParam ? { ...EMPTY_SEARCH, query: qParam } : EMPTY_SEARCH,
-  );
+  const workspaceFromUrl = readTherapyWorkspaceState(searchParams);
+  const [compareSlugs, setCompareSlugs] = useState<string[]>(workspaceFromUrl.compareSlugs);
+  const [search, setSearch] = useState<SearchOptions>(() => ({
+    ...EMPTY_SEARCH,
+    query: qParam,
+    tags: workspaceFromUrl.topics,
+    briefOnly: workspaceFromUrl.briefOnly,
+    sheetOnly: workspaceFromUrl.sheetOnly,
+    reviewedOnly: workspaceFromUrl.reviewedOnly,
+  }));
   const [recQuery, setRecQuery] = useState("What therapy for anxiety in outpatient care?");
-  const [recConstraints, setRecConstraints] = useState<string[]>(["outpatient"]);
-  const [selectedPathwaySlug, setSelectedPathwaySlug] = useState<string | null>(null);
+  const [recConstraints, setRecConstraints] = useState<string[]>(workspaceFromUrl.constraints);
+  const [selectedPathwaySlug, setSelectedPathwaySlug] = useState<string | null>(workspaceFromUrl.pathwaySlug);
 
   // Seed the search query from a `?q=` deep link (universal-search "view all" or a
   // recent-search pick) and re-sync whenever the deep link changes, using the
@@ -284,38 +214,67 @@ export function TcProvider({ children }: { children: ReactNode }) {
   // deep links is preserved without a setState-in-effect cascade. The sync is
   // unconditional (including an empty `q`) so navigating from `?q=act` back to a
   // query-less URL clears the stale query and the rendered state matches the URL.
-  const [seededQuery, setSeededQuery] = useState(qParam);
-  if (qParam !== seededQuery) {
-    setSeededQuery(qParam);
+  const [cmpTab, setCmpTab] = useState(workspaceFromUrl.comparison);
+  const [density, setDensity] = useState(workspaceFromUrl.density);
+  const [briefTab, setBriefTab] = useState(workspaceFromUrl.duration);
+  const [sheetTone, setSheetTone] = useState(workspaceFromUrl.tone);
+  const [sheetSections, setSheetSections] = useState<Record<SheetSectionKey, boolean>>({
+    about: workspaceFromUrl.sections.includes("about"),
+    steps: workspaceFromUrl.sections.includes("steps"),
+    practice: workspaceFromUrl.sections.includes("practice"),
+    coping: workspaceFromUrl.sections.includes("coping"),
+    contacts: workspaceFromUrl.sections.includes("contacts"),
+  });
+  const [sheetClinician, setSheetClinician] = useState(workspaceFromUrl.clinician);
+
+  // Back/forward and shared links are authoritative for every non-sensitive
+  // workspace choice. Recommendation free text is intentionally absent: it may
+  // contain patient information and remains session-only in `recQuery`.
+  const urlStateKey = searchParams.toString();
+  useEffect(() => {
+    const canonical = therapyWorkspaceSearchParams(searchParams, readTherapyWorkspaceState(searchParams));
+    if (canonical.toString() === urlStateKey) return;
+    router.replace(therapyHrefWithSearchParams(pathname, canonical), { scroll: false });
+  }, [pathname, router, searchParams, urlStateKey]);
+  const [seededQParam, setSeededQParam] = useState(qParam);
+  if (qParam !== seededQParam) {
+    setSeededQParam(qParam);
     setSearch((prev) => ({ ...prev, query: qParam }));
   }
-
-  const [cmpTab, setCmpTab] = useState("differences");
-  const [density, setDensity] = useState("comfortable");
-  const [briefTab, setBriefTab] = useState("5min");
-  const [sheetTone, setSheetTone] = useState("plain");
-  const [sheetSections, setSheetSections] = useState<Record<SheetSectionKey, boolean>>({
-    about: true,
-    steps: true,
-    practice: true,
-    coping: true,
-    contacts: true,
-  });
-  const [sheetClinician, setSheetClinician] = useState(true);
+  const [seededUrlStateKey, setSeededUrlStateKey] = useState(urlStateKey);
+  if (urlStateKey !== seededUrlStateKey) {
+    setSeededUrlStateKey(urlStateKey);
+    setCompareSlugs(workspaceFromUrl.compareSlugs);
+    setSearch((prev) => ({
+      ...prev,
+      tags: workspaceFromUrl.topics,
+      briefOnly: workspaceFromUrl.briefOnly,
+      sheetOnly: workspaceFromUrl.sheetOnly,
+      reviewedOnly: workspaceFromUrl.reviewedOnly,
+    }));
+    setRecConstraints(workspaceFromUrl.constraints);
+    setSelectedPathwaySlug(workspaceFromUrl.pathwaySlug);
+    setCmpTab(workspaceFromUrl.comparison);
+    setDensity(workspaceFromUrl.density);
+    setBriefTab(workspaceFromUrl.duration);
+    setSheetTone(workspaceFromUrl.tone);
+    setSheetSections({
+      about: workspaceFromUrl.sections.includes("about"),
+      steps: workspaceFromUrl.sections.includes("steps"),
+      practice: workspaceFromUrl.sections.includes("practice"),
+      coping: workspaceFromUrl.sections.includes("coping"),
+      contacts: workspaceFromUrl.sections.includes("contacts"),
+    });
+    setSheetClinician(workspaceFromUrl.clinician);
+  }
 
   const bySlug = useMemo(() => new Map(therapies.map((t) => [t.slug, t])), [therapies]);
   const unreviewedTherapies = useMemo(() => therapies.filter((t) => t.reviewStatus !== "reviewed"), [therapies]);
 
-  // Default selections once data arrives so detail/brief/sheet/pathways are never empty.
-  // A slug in the URL always wins; otherwise fall back to any imperatively-set slug,
-  // then the first therapy so the no-arg brief/sheet nav buttons have a target.
-  const defaultTherapy =
-    screen === "brief"
-      ? therapies.find((therapy) => therapy.briefInterventionAvailable)
-      : screen === "sheets"
-        ? therapies.find((therapy) => therapy.patientSheetAvailable)
-        : therapies[0];
-  const effectiveSelectedSlug = routeSlug ?? selectedSlug ?? defaultTherapy?.slug ?? null;
+  // Record-owned outputs require an explicit slug in the URL. No workspace
+  // action is allowed to choose an unrelated default therapy on the reader's
+  // behalf.
+  const effectiveSelectedSlug = routeSlug;
   const selectedTherapy = effectiveSelectedSlug ? (bySlug.get(effectiveSelectedSlug) ?? null) : null;
   const effectivePathwaySlug = selectedPathwaySlug ?? pathways[0]?.slug ?? null;
   const selectedPathway = effectivePathwaySlug ? (pathways.find((p) => p.slug === effectivePathwaySlug) ?? null) : null;
@@ -359,11 +318,42 @@ export function TcProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<TcBindings>(() => {
-    const go = (next: string) => router.push(screenHref(next));
-    const toggleSection = (key: SheetSectionKey) => setSheetSections((prev) => ({ ...prev, [key]: !prev[key] }));
+    const enabledSections = (Object.entries(sheetSections) as Array<[SheetSectionKey, boolean]>)
+      .filter(([, enabled]) => enabled)
+      .map(([key]) => key);
+    const workspaceState: TherapyWorkspaceState = {
+      compareSlugs,
+      topics: search.tags,
+      briefOnly: search.briefOnly,
+      sheetOnly: search.sheetOnly,
+      reviewedOnly: search.reviewedOnly,
+      constraints: recConstraints,
+      pathwaySlug: selectedPathwaySlug,
+      comparison: cmpTab,
+      density,
+      duration: briefTab,
+      tone: sheetTone,
+      sections: enabledSections,
+      clinician: sheetClinician,
+    };
+    const workspaceParams = (patch: Partial<TherapyWorkspaceState> = {}) =>
+      therapyWorkspaceSearchParams(searchParams, { ...workspaceState, ...patch });
+    const pushWorkspace = (href: string, patch: Partial<TherapyWorkspaceState> = {}) =>
+      router.push(therapyHrefWithSearchParams(href, workspaceParams(patch)));
+    const replaceWorkspace = (patch: Partial<TherapyWorkspaceState>) =>
+      router.replace(therapyHrefWithSearchParams(pathname, workspaceParams(patch)), { scroll: false });
+    const go = (next: string) => pushWorkspace(therapyScreenHref(next));
+    const toggleSection = (key: SheetSectionKey) => {
+      const nextSections = { ...sheetSections, [key]: !sheetSections[key] };
+      setSheetSections(nextSections);
+      replaceWorkspace({
+        sections: (Object.entries(nextSections) as Array<[SheetSectionKey, boolean]>)
+          .filter(([, enabled]) => enabled)
+          .map(([section]) => section),
+      });
+    };
     const patchSearch = (patch: Partial<SearchOptions>) => setSearch((prev) => ({ ...prev, ...patch }));
-    const openSlug = (slug: string, sub?: "brief" | "sheet") =>
-      router.push(sub ? `${BASE}/${slug}/${sub}` : `${BASE}/${slug}`);
+    const openSlug = (slug: string, sub?: "brief" | "sheet") => pushWorkspace(therapyRecordHref(slug, sub));
     // Unsupported artifact actions are a no-op. Call sites expose an honest disabled
     // state instead of silently sending the user to a different detail destination.
     const hasBrief = (slug: string | null | undefined) =>
@@ -375,26 +365,6 @@ export function TcProvider({ children }: { children: ReactNode }) {
     const openSheetOr = (slug: string) => {
       if (hasSheet(slug)) openSlug(slug, "sheet");
     };
-    // One resolver for both the href and the imperative push. The generated
-    // default is unconditional rather than home-only: a `<Link>` needs a real
-    // URL for SSR, prefetch and middle-click, and `THERAPY_CATALOGUE_SUMMARY`
-    // is static module data available before the catalogue has loaded. The
-    // consequence is deliberate — these destinations are always navigable, so
-    // with nothing selected they open the first record carrying the artifact.
-    const artifactSlug = (has: (therapy: Therapy) => boolean, fallback: string) => {
-      const selected = effectiveSelectedSlug ? bySlug.get(effectiveSelectedSlug) : undefined;
-      if (selected && has(selected)) return selected.slug;
-      return therapies.find(has)?.slug ?? fallback;
-    };
-    const briefHref = `${BASE}/${artifactSlug(
-      (therapy) => therapy.briefInterventionAvailable,
-      THERAPY_CATALOGUE_SUMMARY.defaultBriefSlug,
-    )}/brief`;
-    const sheetHref = `${BASE}/${artifactSlug(
-      (therapy) => therapy.patientSheetAvailable,
-      THERAPY_CATALOGUE_SUMMARY.defaultSheetSlug,
-    )}/sheet`;
-
     return {
       loading,
       error,
@@ -413,17 +383,12 @@ export function TcProvider({ children }: { children: ReactNode }) {
       goRecommend: () => go("recommend"),
       goCompare: () => go("compare"),
       goPathways: () => go("pathways"),
-      // Same value the nav links to, so the button and the link can never
-      // disagree about the destination.
-      goBrief: () => router.push(briefHref),
-      goSheets: () => router.push(sheetHref),
       goDetail: () => (effectiveSelectedSlug ? openSlug(effectiveSelectedSlug) : go("home")),
       goReview: () => go("review"),
+      workspaceHref: (href) => therapyHrefWithSearchParams(href, workspaceParams()),
       isHome: screen === "home",
-      isOther: !KNOWN_SCREENS.includes(screen as TherapyScreen),
+      isOther: !THERAPY_KNOWN_SCREENS.includes(screen as (typeof THERAPY_KNOWN_SCREENS)[number]),
       otherLabel: screen.charAt(0).toUpperCase() + screen.slice(1),
-      briefHref,
-      sheetHref,
 
       selectedSlug: effectiveSelectedSlug,
       selectedTherapy,
@@ -431,18 +396,10 @@ export function TcProvider({ children }: { children: ReactNode }) {
       open: (slug) => openSlug(slug),
       openBrief: (slug) => openBriefOr(slug),
       openSheet: (slug) => openSheetOr(slug),
-      // On a routed brief/sheet/detail screen the URL slug wins over `selectedSlug`,
-      // so a picker choice must navigate to the chosen therapy's matching subroute
-      // instead of only setting state. Artifact pickers expose only supported records;
-      // the guarded helpers remain no-ops for any stale or programmatic invalid choice.
+      // Artifact pickers always navigate to an explicit record URL. No local
+      // selection can become an invisible fallback for a later output action.
       select: (slug) =>
-        screen === "brief"
-          ? openBriefOr(slug)
-          : screen === "sheets"
-            ? openSheetOr(slug)
-            : screen === "detail"
-              ? openSlug(slug)
-              : setSelectedSlug(slug),
+        screen === "brief" ? openBriefOr(slug) : screen === "sheets" ? openSheetOr(slug) : openSlug(slug),
 
       search,
       searchResults,
@@ -451,77 +408,150 @@ export function TcProvider({ children }: { children: ReactNode }) {
       submitQuery: (q) => {
         patchSearch({ query: q });
         const trimmed = q.trim();
-        // Keep the query in the URL so the search screen is deep-linkable / shareable
-        // and the run-enabled link keeps rendering the tool (not the dashboard).
-        router.push(trimmed ? `${BASE}/search?q=${encodeURIComponent(trimmed)}&run=1` : `${BASE}/search`);
+        const params = workspaceParams();
+        if (trimmed) {
+          params.set("q", trimmed);
+          params.set("run", "1");
+        } else {
+          params.delete("q");
+          params.delete("run");
+        }
+        router.push(therapyHrefWithSearchParams(therapyScreenHref("search"), params));
       },
-      toggleTag: (tag) =>
-        setSearch((prev) => ({
-          ...prev,
-          tags: prev.tags.includes(tag) ? prev.tags.filter((x) => x !== tag) : [...prev.tags, tag],
-        })),
-      toggleBriefOnly: () => setSearch((prev) => ({ ...prev, briefOnly: !prev.briefOnly })),
-      toggleSheetOnly: () => setSearch((prev) => ({ ...prev, sheetOnly: !prev.sheetOnly })),
-      toggleReviewedOnly: () => setSearch((prev) => ({ ...prev, reviewedOnly: !prev.reviewedOnly })),
-      clearSearch: () => setSearch(EMPTY_SEARCH),
+      toggleTag: (tag) => {
+        const tags = search.tags.includes(tag) ? search.tags.filter((x) => x !== tag) : [...search.tags, tag];
+        patchSearch({ tags });
+        replaceWorkspace({ topics: tags });
+      },
+      toggleBriefOnly: () => {
+        const briefOnly = !search.briefOnly;
+        patchSearch({ briefOnly });
+        replaceWorkspace({ briefOnly });
+      },
+      toggleSheetOnly: () => {
+        const sheetOnly = !search.sheetOnly;
+        patchSearch({ sheetOnly });
+        replaceWorkspace({ sheetOnly });
+      },
+      toggleReviewedOnly: () => {
+        const reviewedOnly = !search.reviewedOnly;
+        patchSearch({ reviewedOnly });
+        replaceWorkspace({ reviewedOnly });
+      },
+      clearSearch: () => {
+        setSearch(EMPTY_SEARCH);
+        const params = workspaceParams({ topics: [], briefOnly: false, sheetOnly: false, reviewedOnly: false });
+        params.delete("q");
+        params.delete("run");
+        router.replace(therapyHrefWithSearchParams(pathname, params), { scroll: false });
+      },
       // Filter-only clear. The results-band shelf lists filters and says so
       // ("Filtered by"), so its Clear must not delete the search term the user
       // is reading — that is a control doing more than it advertises.
-      clearSearchFilters: () => setSearch((prev) => ({ ...EMPTY_SEARCH, query: prev.query })),
+      clearSearchFilters: () => {
+        setSearch((prev) => ({ ...EMPTY_SEARCH, query: prev.query }));
+        replaceWorkspace({ topics: [], briefOnly: false, sheetOnly: false, reviewedOnly: false });
+      },
 
       compareSlugs,
       compareTherapies,
       toggleCompare: (slug) => {
-        setCompareSlugs((prev) =>
-          prev.includes(slug) ? prev.filter((x) => x !== slug) : prev.length >= MAX_COMPARE ? prev : [...prev, slug],
-        );
-        go("compare");
+        const next = compareSlugs.includes(slug)
+          ? compareSlugs.filter((value) => value !== slug)
+          : compareSlugs.length >= THERAPY_MAX_COMPARE
+            ? compareSlugs
+            : [...compareSlugs, slug];
+        setCompareSlugs(next);
+        pushWorkspace(therapyScreenHref("compare"), { compareSlugs: next });
       },
-      addCompare: (slug) =>
-        setCompareSlugs((prev) => (prev.includes(slug) || prev.length >= MAX_COMPARE ? prev : [...prev, slug])),
-      removeCompare: (slug) => setCompareSlugs((prev) => prev.filter((x) => x !== slug)),
-      clearCompare: () => setCompareSlugs([]),
+      addCompare: (slug) => {
+        const next =
+          compareSlugs.includes(slug) || compareSlugs.length >= THERAPY_MAX_COMPARE
+            ? compareSlugs
+            : [...compareSlugs, slug];
+        setCompareSlugs(next);
+        replaceWorkspace({ compareSlugs: next });
+      },
+      removeCompare: (slug) => {
+        const next = compareSlugs.filter((value) => value !== slug);
+        setCompareSlugs(next);
+        replaceWorkspace({ compareSlugs: next });
+      },
+      clearCompare: () => {
+        setCompareSlugs([]);
+        replaceWorkspace({ compareSlugs: [] });
+      },
       isInCompare: (slug) => compareSlugs.includes(slug),
 
       recQuery,
       setRecQuery,
       recConstraints,
-      toggleConstraint: (key) =>
-        setRecConstraints((prev) => (prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key])),
+      toggleConstraint: (key) => {
+        const next = recConstraints.includes(key)
+          ? recConstraints.filter((value) => value !== key)
+          : [...recConstraints, key];
+        setRecConstraints(next);
+        replaceWorkspace({ constraints: next });
+      },
       recommendations,
 
       selectedPathwaySlug: effectivePathwaySlug,
       selectedPathway,
-      selectPathway: (slug) => setSelectedPathwaySlug(slug),
+      selectPathway: (slug) => {
+        setSelectedPathwaySlug(slug);
+        replaceWorkspace({ pathwaySlug: slug });
+      },
 
       cmpTab,
-      tabPriorities: tabStyle(cmpTab === "priorities"),
-      tabDifferences: tabStyle(cmpTab === "differences"),
-      tabAll: tabStyle(cmpTab === "all"),
-      setTabPriorities: () => setCmpTab("priorities"),
-      setTabDifferences: () => setCmpTab("differences"),
-      setTabAll: () => setCmpTab("all"),
+      setTabPriorities: () => {
+        setCmpTab("priorities");
+        replaceWorkspace({ comparison: "priorities" });
+      },
+      setTabDifferences: () => {
+        setCmpTab("differences");
+        replaceWorkspace({ comparison: "differences" });
+      },
+      setTabAll: () => {
+        setCmpTab("all");
+        replaceWorkspace({ comparison: "all" });
+      },
       density,
-      segComfortable: segStyle(density === "comfortable"),
-      segDense: segStyle(density === "dense"),
-      setComfortable: () => setDensity("comfortable"),
-      setDense: () => setDensity("dense"),
+      setComfortable: () => {
+        setDensity("comfortable");
+        replaceWorkspace({ density: "comfortable" });
+      },
+      setDense: () => {
+        setDensity("dense");
+        replaceWorkspace({ density: "dense" });
+      },
 
       briefTab,
-      brief5: tabStyle(briefTab === "5min"),
-      brief15: tabStyle(briefTab === "15min"),
-      briefGround: tabStyle(briefTab === "ground"),
-      set5: () => setBriefTab("5min"),
-      set15: () => setBriefTab("15min"),
-      setGround: () => setBriefTab("ground"),
+      set5: () => {
+        setBriefTab("5min");
+        replaceWorkspace({ duration: "5min" });
+      },
+      set15: () => {
+        setBriefTab("15min");
+        replaceWorkspace({ duration: "15min" });
+      },
+      setGround: () => {
+        setBriefTab("ground");
+        replaceWorkspace({ duration: "ground" });
+      },
 
       sheetTone,
-      tonePlain: segStyle(sheetTone === "plain"),
-      toneWarm: segStyle(sheetTone === "warm"),
-      toneClinical: segStyle(sheetTone === "clinical"),
-      setTonePlain: () => setSheetTone("plain"),
-      setToneWarm: () => setSheetTone("warm"),
-      setToneClinical: () => setSheetTone("clinical"),
+      setTonePlain: () => {
+        setSheetTone("plain");
+        replaceWorkspace({ tone: "plain" });
+      },
+      setToneWarm: () => {
+        setSheetTone("warm");
+        replaceWorkspace({ tone: "warm" });
+      },
+      setToneClinical: () => {
+        setSheetTone("clinical");
+        replaceWorkspace({ tone: "clinical" });
+      },
 
       secAbout: sheetSections.about,
       secSteps: sheetSections.steps,
@@ -539,15 +569,16 @@ export function TcProvider({ children }: { children: ReactNode }) {
       toggleCoping: () => toggleSection("coping"),
       toggleContacts: () => toggleSection("contacts"),
       sheetClinician,
-      toggleClinician: () => setSheetClinician((prev) => !prev),
-      clinicianTrack: "",
-      clinicianKnob: "",
-      printSheet: () => {
-        if (typeof window !== "undefined") window.print();
+      toggleClinician: () => {
+        const clinician = !sheetClinician;
+        setSheetClinician(clinician);
+        replaceWorkspace({ clinician });
       },
     };
   }, [
     router,
+    pathname,
+    searchParams,
     loading,
     error,
     retry,
@@ -570,6 +601,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
     recConstraints,
     recommendations,
     effectivePathwaySlug,
+    selectedPathwaySlug,
     selectedPathway,
     cmpTab,
     density,

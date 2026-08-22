@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { sourceFrom } from "./helpers/source-contract";
+
 import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT } from "../src/lib/theme";
 
 const layout = readFileSync(new URL("../src/app/layout.tsx", import.meta.url), "utf8");
@@ -71,7 +73,9 @@ describe("global v2 activation", () => {
 
   it("keeps v2 dark and forced-colour scopes available at the root", () => {
     expect(v2).toMatch(/\.dark \.ckb-v2\.ckb-v2,\s*\n\.ckb-v2\.dark\.ckb-v2\s*\{/);
-    const forcedColours = v2.slice(v2.indexOf("@media (forced-colors: active)"));
+    const forcedColours = sourceFrom(v2, "@media (forced-colors: active)", {
+      label: "v2 @media (forced-colors: active)",
+    });
     expect(forcedColours).toContain(".ckb-v2.ckb-v2,");
     expect(forcedColours).toContain(".dark .ckb-v2.ckb-v2,");
     expect(forcedColours).toContain(".ckb-v2.dark.ckb-v2");

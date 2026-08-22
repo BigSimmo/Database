@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 
 /**
  * Write text to the clipboard, guarded for SSR / unavailable API. Resolves to
@@ -10,9 +11,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * promise rejection escapes.
  */
 export async function copyText(text: string): Promise<boolean> {
-  if (typeof navigator === "undefined" || !navigator.clipboard || !text) return false;
+  if (typeof navigator === "undefined" || !text) return false;
   try {
-    await navigator.clipboard.writeText(text);
+    await copyTextToClipboard(text);
     return true;
   } catch {
     return false;

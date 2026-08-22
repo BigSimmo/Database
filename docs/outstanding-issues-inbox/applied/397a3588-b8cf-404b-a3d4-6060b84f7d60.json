@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "397a3588-b8cf-404b-a3d4-6060b84f7d60",
+  "createdOn": "2026-08-15",
+  "action": "cancel",
+  "payload": {
+    "requestId": "c3622ee1-872f-4476-8b12-20e97057c5d5",
+    "reason": "Superseded by the corrected forensic record: its sampled migration fingerprint does not cover every migration behind the absent-index inventory."
+  }
+}

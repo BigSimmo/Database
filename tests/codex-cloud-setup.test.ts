@@ -112,6 +112,13 @@ function bashPathList(value: string) {
   return value.split(path.delimiter).filter(Boolean).map(bashPathEntry).join(":");
 }
 
+function writeFakePython(directory: string, name: string, version: string) {
+  const executable = path.join(directory, name);
+  writeFileSync(executable, `#!/usr/bin/env bash\nprintf '%s\\n' '${version}'\n`);
+  chmodSync(executable, 0o755);
+  return executable;
+}
+
 function runSetupPolicyOnly(home: string, env: Record<string, string | undefined> = {}) {
   // The test redirects HOME to isolate the generated Codex config. Put the
   // running test process's Node binary first so version-manager launchers that
@@ -751,6 +758,29 @@ describe("Codex Cloud environment contract", () => {
     expect(resolvedPath).toEqual(expect.arrayContaining(["/usr/bin", "/bin"]));
   });
 
+  it("prefers the exact Python 3.12 interpreter over an older python3 alias", () => {
+    const home = temporaryDirectory("codex-cloud-python-home-");
+    const bin = temporaryDirectory("codex-cloud-python-");
+    writeFakePython(bin, "python3", "3.11");
+    const exactPython = writeFakePython(bin, "python3.12", "3.12");
+    const staleVenvBin = path.join(home, ".cache", "clinical-kb-codex", "ocr-venv-3.12", "bin");
+    mkdirSync(staleVenvBin, { recursive: true });
+    writeFakePython(staleVenvBin, "python3.12", "3.12");
+
+    const result = spawnSync(bashCommand, ["scripts/select-codex-cloud-python.sh", "3.12"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        HOME: bashPathEntry(home),
+        PATH: `${bashPathEntry(staleVenvBin)}:${bashPathEntry(bin)}:/usr/bin:/bin`,
+      },
+    });
+
+    expect(result.status, result.stderr || result.stdout).toBe(0);
+    expect(result.stdout.trim()).toBe(bashPathEntry(exactPython));
+  });
+
   it("writes managed shell policy behaviorally and preserves unrelated Codex config", () => {
     const home = temporaryDirectory("codex-cloud-home-");
     mkdirSync(path.join(home, ".codex"), { recursive: true });
@@ -788,7 +818,14 @@ describe("Codex Cloud environment contract", () => {
     expect(rewritten).toContain("[mcp_servers.example]");
     expect(rewritten.match(/^\[shell_environment_policy\]$/gm)).toHaveLength(1);
     expect(rewritten.match(/BEGIN clinical-kb-codex-cloud shell policy/g)).toHaveLength(1);
-  });
+    // Two full `bash scripts/setup-codex-cloud.sh` runs. That is cheap on Linux
+    // and is not on Windows, where each spawn goes through Git Bash: measured at
+    // 24.96s on a Windows workstation running this file ALONE — 83% of the 30s
+    // default in vitest.config.mts. Under a full `npm run test` the four workers
+    // contend and it tips over, which is how this failed there while passing in
+    // isolation and passing everywhere on Linux. The sibling case below already
+    // carries this budget for the same reason; this one was missed.
+  }, 120_000);
 
   it("pins connected retrieval mode and rejects unsafe shell-policy configs", () => {
     const connectedHome = temporaryDirectory("codex-cloud-connected-");

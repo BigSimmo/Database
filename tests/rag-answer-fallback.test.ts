@@ -340,6 +340,56 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer).not.toMatch(/^No current source/i);
   });
 
+  it("recovers a grounded low-confidence cited source-gap phrasing at the final quality gate without a strong retry", async () => {
+    // The S1d shape: grounded, cited, confidence "low", substantive lead misses
+    // providerSourceGapLeadPattern, hedged body matches the finalizer's broad
+    // gap-like regex ("do not provide specific") and survives sanitizeAnswerText.
+    // It passes every in-loop fast-failure screen and used to collapse to a
+    // citation-free evidence_gap in finalizeRagAnswerQualityCore.
+    const dischargeSources = [
+      source({
+        id: "discharge-planning-start",
+        document_id: "discharge-guidance",
+        title: "Admission to Discharge for Mental Health Inpatients (NMHS)",
+        file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+        section_heading: "Discharge planning",
+        content:
+          "Clinicians will actively plan effective and timely discharge from the beginning of admission and review the plan throughout the inpatient stay.",
+      }),
+      source({
+        id: "discharge-documentation",
+        document_id: "discharge-guidance",
+        title: "Admission to Discharge for Mental Health Inpatients (NMHS)",
+        file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+        section_heading: "Discharge documentation",
+        content:
+          "The discharge plan must document ongoing care arrangements, communicate the plan with the consumer, and identify follow-up responsibilities.",
+      }),
+    ];
+    const answer = await answerFromTextSources("Summarize the discharge guidance", dischargeSources, {
+      answer:
+        "Discharge planning begins at admission and the plan is reviewed during the inpatient stay. The discharge documents do not provide specific timing details.",
+      grounded: true,
+      confidence: "low",
+      answerSections: [],
+      citations: [{ chunk_id: "discharge-planning-start" }, { chunk_id: "discharge-documentation" }],
+      quoteCards: [],
+      conflictsOrGaps: [],
+    });
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("generation_fallback:provider_source_gap");
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
+    expect(answer.routingReason).toContain("final_quality_gate_source_backed_recovery:provider_source_gap");
+    expect(answer.routingReason).not.toMatch(/final_quality_gate:/);
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.length).toBeGreaterThan(0);
+    expect(answer.answer).not.toMatch(/do not provide specific/i);
+    expect(answer.latencyTimings?.answer_retry_reasons ?? []).not.toContain("fast_source_gap_retry_strong");
+    expect(answer.latencyTimings?.answer_retry_reasons ?? []).not.toContain("fast_unsupported_retry_strong");
+    expect(answer.latencyTimings?.answer_retry_reasons ?? []).not.toContain("fast_quality_retry_strong");
+  });
+
   it("keeps provider-failed complex comparisons on the source-attributed comparison fallback", async () => {
     const comparisonFact = (documentId: string, chunkId: string, value: string) => ({
       id: `${documentId}-threshold`,
@@ -2027,15 +2077,18 @@ describe("RAG structured-output fallback", () => {
     expect(answerCalls[0]?.[2].instructions).toContain("Within one named scale and source");
     expect(answerCalls[0]?.[2].instructions).toContain("cite the smallest sufficient directly supporting chunk set");
     expect(answerInput).toContain("answer_plan.intent: clinical_synthesis");
-    expect(answerInput).toContain("answer_plan.route_mode: fast");
-    expect(answerInput).toContain("answer_plan.model_strategy: fast_model_then_quality_gate");
+    // Packet S2: the composition menu rides in the interpreted-task block. A monitoring
+    // question classifies medication_dose_risk with a `general` heuristic intent → dosing menu.
+    expect(answerInput).toContain("related_information_menu: monitoring_timing — monitoring schedule and levels;");
+    expect(answerInput).toContain("answer_plan.route_mode: strong");
+    expect(answerInput).toContain("answer_plan.model_strategy: strong_model_then_quality_gate");
     expect(answerInput).toContain("answer_plan.source_policy: required_citations");
-    expect(answer.routingMode).toBe("fast");
-    expect(answer.routingReason).toContain("clinical_fast_grounded_synthesis");
+    expect(answer.routingMode).toBe("strong");
+    expect(answer.routingReason).toContain("medication_dose_risk_strong_route");
     expect(answer.smartApiPlan?.answerPlan).toMatchObject({
       intent: "clinical_synthesis",
-      routeMode: "fast",
-      modelStrategy: "fast_model_then_quality_gate",
+      routeMode: "strong",
+      modelStrategy: "strong_model_then_quality_gate",
       sourcePolicy: "required_citations",
     });
     expect(answer.answer.replace(/\*\*/g, "")).toMatch(/clozapine Monitoring Form/i);
@@ -2276,7 +2329,7 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer).toMatch(/source support|indexed document|supports this query|ECT Procedure/i);
   });
 
-  it("retries template-like fast answers with the strong model before returning", async () => {
+  it("retries template-like dosing-class strong answers with a quality retry before returning", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
     vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
@@ -2386,7 +2439,7 @@ describe("RAG structured-output fallback", () => {
 
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(2);
     expect(answer.routingMode).toBe("strong");
-    expect(answer.routingReason).toContain("fast_template_retry_strong");
+    expect(answer.routingReason).toContain("strong_quality_retry");
     expect(answer.openAIRequestIds ?? []).toEqual(["req_fast_template", "req_strong_natural"]);
     expect(answer.grounded).toBe(true);
     expect(answer.confidence).toBe("medium");
@@ -3561,7 +3614,7 @@ describe("RAG structured-output fallback", () => {
     expect(new Set(answer.sources.map((result) => result.document_id))).toEqual(new Set(["fsh-lithium"]));
     expect(answer.latencyTimings?.answer_retry_count).toBe(2);
     expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
-      "fast_max_output_tokens_retry_strong",
+      "strong_max_output_tokens_retry_strong",
       "strong_max_output_tokens",
     ]);
     expect(answer.openAIRequestIds).toEqual(["req_truncated_1", "req_truncated_2"]);
@@ -4481,7 +4534,7 @@ describe("RAG structured-output fallback", () => {
 
     const plainAnswer = answer.answer.replace(/\*\*/g, "");
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
-    expect(answer.routingMode).toBe("fast");
+    expect(answer.routingMode).toBe("strong");
     expect(answer.grounded).toBe(true);
     expect(plainAnswer).not.toMatch(/^Dosage\b/i);
     expect(plainAnswer).not.toContain("alternative agent where possible");
@@ -4524,7 +4577,7 @@ describe("RAG structured-output fallback", () => {
     );
 
     const plainAnswer = answer.answer.replace(/\*\*/g, "");
-    expect(answer.routingMode).toBe("fast");
+    expect(answer.routingMode).toBe("strong");
     expect(answer.grounded).toBe(true);
     expect(plainAnswer).not.toMatch(/^Dosage\b/i);
     expect(plainAnswer).not.toContain("chart reference only");
@@ -4992,14 +5045,17 @@ describe("budget-aware generation deadlines", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
     vi.stubEnv("OPENAI_API_KEY", "test-key");
-    // Stubbed far above the 25_000ms fast-route budget so the granted timeout can only
-    // come from the deadline: budget - 2_000ms recovery reserve = 23_000ms. Reverting the
-    // call site to the reserve-free requestTimeoutMs would grant the full 25_000ms.
+    // Stubbed far above the granted window below so the value can only come from the
+    // deadline. The retrieval mock additionally burns 10_000ms of the 35_000ms strong
+    // budget, keeping the deadline term (35_000 - 10_000 - 2_000 = 23_000ms) below every
+    // plausible timeout cap — including the 30_000ms default that full-file runs pin when
+    // an earlier import froze env — so this assertion discriminates in both run modes.
+    // Reverting the call site to the reserve-free requestTimeoutMs would grant 25_000ms.
     vi.stubEnv("OPENAI_ANSWER_TIMEOUT_MS", "60000");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
     vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
 
-    // Same retrieval fixture as the model-synthesis test above, which routes fast.
+    // Same retrieval fixture as the model-synthesis test above, which routes strong.
     const clozapineSource = source({
       id: "clozapine-monitoring-1",
       document_id: "clozapine-doc",
@@ -5013,8 +5069,17 @@ describe("budget-aware generation deadlines", () => {
       hybrid_score: 0.94,
       text_rank: 0,
     });
+    let retrievalTimeBurned = false;
     const rpc = vi.fn(async (name: string) => {
-      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: [clozapineSource], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") {
+        // Burn retrieval wall-clock exactly once so the deadline term is the binding
+        // one at the generation call regardless of the effective timeout cap.
+        if (!retrievalTimeBurned) {
+          retrievalTimeBurned = true;
+          vi.setSystemTime(new Date(Date.now() + 10_000));
+        }
+        return { data: [clozapineSource], error: null };
+      }
       if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
@@ -5048,16 +5113,17 @@ describe("budget-aware generation deadlines", () => {
       skipCache: true,
     });
 
-    // Fake timers pin elapsed-at-call to exactly 0ms, so the received timeout must equal
-    // budget - reserve. This is the assertion that fails if generationRequestTimeoutMs is
-    // reverted to requestTimeoutMs at the generation call site.
+    // Fake timers pin elapsed-at-call to exactly the burned 10_000ms, so the received
+    // timeout must equal budget - burned - reserve. This is the assertion that fails if
+    // generationRequestTimeoutMs is reverted to requestTimeoutMs at the generation call
+    // site (that revert would grant 25_000ms).
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
-    expect(grantedTimeoutsMs).toEqual([answerRouteBudgetMs.fast - generationRecoveryReserveMs]);
-    expect(answer.latencyTimings?.route_budget_ms).toBe(answerRouteBudgetMs.fast);
+    expect(grantedTimeoutsMs).toEqual([answerRouteBudgetMs.strong - 10_000 - generationRecoveryReserveMs]);
+    expect(answer.latencyTimings?.route_budget_ms).toBe(answerRouteBudgetMs.strong);
     // The attempt used its whole window, yet the reserve kept the source-backed recovery
     // inside the route budget.
     expect(answer.latencyTimings?.route_deadline_exceeded).toBe(false);
-    expect(answer.latencyTimings?.total_latency_ms).toBeLessThan(answerRouteBudgetMs.fast);
+    expect(answer.latencyTimings?.total_latency_ms).toBeLessThan(answerRouteBudgetMs.strong);
     expect(answer.routingReason).toContain("generation_fallback:provider_timeout");
     expect(answer.sources.length).toBeGreaterThan(0);
   });
@@ -5065,8 +5131,8 @@ describe("budget-aware generation deadlines", () => {
   it("skips the truncation self-heal when the budget reserve would be breached", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
-    // Burn 20_000ms of the 25_000ms fast budget inside the first attempt before it
-    // resolves truncated: the 5_000ms left is below generationRecoveryReserveMs +
+    // Burn 20_000ms of the 35_000ms strong budget inside the first attempt before it
+    // resolves truncated: the 15_000ms left is below generationRecoveryReserveMs +
     // minimumGenerationRetryMs (22_000ms), so the strong self-heal must be skipped
     // instead of spending the recovery reserve on a guaranteed-discard retry.
     const { answer, generateStructuredTextResult } = await lithiumTruncatedGenerationAnswer(20_000);
@@ -5075,7 +5141,7 @@ describe("budget-aware generation deadlines", () => {
     // The skip is recorded without counting as a retry; the terminal truncation throw
     // then lands on the existing source-backed recovery.
     expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
-      "truncation_retry_skipped_budget_reserve:fast_max_output_tokens",
+      "truncation_retry_skipped_budget_reserve:strong_max_output_tokens",
       "generation_max_output_tokens",
     ]);
     expect(answer.latencyTimings?.answer_retry_count).toBe(1);
@@ -5097,7 +5163,7 @@ describe("budget-aware generation deadlines", () => {
 
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(2);
     expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
-      "fast_max_output_tokens_retry_strong",
+      "strong_max_output_tokens_retry_strong",
       "strong_max_output_tokens",
     ]);
     expect(answer.latencyTimings?.answer_retry_count).toBe(2);

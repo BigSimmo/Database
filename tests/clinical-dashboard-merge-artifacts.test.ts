@@ -215,7 +215,11 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     );
 
     expect(documentViewerSource).toContain('data-testid="document-viewer-content"');
-    expect(documentViewerSource).toContain('"max-sm:pb-0"');
+    // DocumentViewer keeps a small 0.75rem (pb-3) resting pad even once the
+    // composer hides, so the last card never paints flush against the
+    // physical bottom edge (see the comment on document-viewer-content in
+    // DocumentViewer.tsx).
+    expect(documentViewerSource).toContain('"max-sm:pb-3"');
     expect(documentViewerSource).toContain("max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]");
     // Hidden document content must not reintroduce Safari toolbar inset padding.
     expect(documentViewerSource).not.toMatch(/composerScrollHidden\s*\?\s*["']max-sm:pb-\[calc\([^"']*safe-area/);

@@ -1,13 +1,16 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { ArrowRight, Check, Copy, Search, Shield, Sparkles } from "lucide-react";
 
-import { pageContainer } from "@/components/ui-primitives";
+import { cardSurface } from "@/components/card-recipes";
+import { PageHeader } from "@/components/ui/page-header";
+import { cn, pageContainer } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
 
 import { useTcBindings } from "../bindings";
-import { commandControl, outlineControl, therapyBtn } from "../controls";
+import { heroCard, therapyBtn } from "../controls";
 import { RECOMMEND_CONSTRAINTS, summarise } from "../data/select";
-import { ArrowRightIcon, CheckIcon, CopyIcon, SearchIcon, ShieldIcon, SparkleIcon } from "../icons";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
 
@@ -38,14 +41,13 @@ export function RecommendScreen() {
 
   return (
     <section data-screen-label="Recommend" className={pageContainer}>
-      <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
-        Recommend Tool
-      </h1>
-      <p className="mt-0 mx-0 mb-[22px] text-sm text-[color:var(--text-muted)]">
-        Refine a clinical question with setting, time and caution constraints.
-      </p>
+      <PageHeader
+        className="mb-[22px]"
+        title="Recommend Tool"
+        description="Refine a clinical question with setting, time and caution constraints."
+      />
 
-      <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] py-[22px] px-6 mb-[22px]">
+      <div className={`${cardSurface} py-[22px] px-6 mb-[22px]`}>
         <label htmlFor="tc-rec-q" className="block text-xs font-semibold text-[color:var(--text-heading)] mb-[9px]">
           What do you need help choosing?
         </label>
@@ -70,37 +72,23 @@ export function RecommendScreen() {
                 aria-pressed={on}
               >
                 {c.label}
-                {on ? (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    aria-hidden="true"
-                  >
-                    <path d="m5 12 5 5 9-11" />
-                  </svg>
-                ) : null}
+                {on ? <Check aria-hidden="true" size={14} /> : null}
               </button>
             );
           })}
         </div>
         <div className="flex items-center justify-between mt-[18px] gap-3 flex-wrap">
-          <button
-            type="button"
-            className={`${therapyBtn} ${outlineControl}`}
+          <Button
+            variant="secondary"
+            icon={copied === "shortlist" ? Check : Copy}
             onClick={copyShortlist}
             disabled={!ranked.length}
           >
-            {copied === "shortlist" ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
             {copied === "shortlist" ? "Copied" : "Copy shortlist"}
-          </button>
-          <button type="button" className={`${therapyBtn} ${commandControl}`} onClick={b.goSearch}>
-            <SearchIcon size={16} strokeWidth={1.9} />
+          </Button>
+          <Button variant="primary" icon={Search} onClick={b.goSearch}>
             Refine in search
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -109,10 +97,10 @@ export function RecommendScreen() {
       ) : (
         <>
           {/* top match */}
-          <div className="bg-[color:var(--surface)] border border-[color:var(--border)] border-l-[3px] border-l-[color:var(--clinical-accent)] rounded-xl shadow-[var(--shadow-soft)] py-[22px] px-6 mb-[26px]">
+          <div className={`${heroCard} py-[22px] px-6 mb-[26px]`}>
             <div className="flex items-start gap-3.5 mb-[18px]">
               <span className="inline-flex items-center justify-center w-[40px] h-[40px] rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] flex-none">
-                <SparkleIcon size={20} strokeWidth={1.7} />
+                <Sparkles aria-hidden="true" size={20} strokeWidth={1.7} />
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2.5 flex-wrap mb-[5px]">
@@ -120,11 +108,6 @@ export function RecommendScreen() {
                   <span className="text-2xs font-semibold text-[color:var(--success-text)] bg-[color:var(--success-bg)] border border-[color:var(--success-border)] py-0.5 px-[9px] rounded-sm">
                     Strong match
                   </span>
-                  {top.modality ? (
-                    <span className="text-2xs font-semibold text-[color:var(--info-text)] bg-[color:var(--info-bg)] border border-[color:var(--info-border)] py-0.5 px-[9px] rounded-sm">
-                      {top.modality}
-                    </span>
-                  ) : null}
                 </div>
                 <p className="m-0 text-sm-minus leading-normal text-[color:var(--text-muted)]">
                   {summarise(top.clinicalSummary, 2) || top.bestUsedFor}
@@ -143,16 +126,13 @@ export function RecommendScreen() {
                 text={`Open the record for the full protocol, or generate a patient sheet.`}
               >
                 <div className="flex gap-2 mt-2.5">
-                  <button
-                    type="button"
-                    className={`${therapyBtn} flex-1 h-[38px] border-0 rounded-md bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] text-sm-minus font-semibold cursor-pointer`}
-                    onClick={() => b.open(top.slug)}
-                  >
+                  <Button variant="primary" size="sm" block onClick={() => b.open(top.slug)}>
                     Open record
-                  </button>
-                  <button
-                    type="button"
-                    className={`${therapyBtn} flex-1 h-[38px] border border-[color:var(--clinical-accent-border)] rounded-md bg-[color:var(--surface)] text-[color:var(--clinical-accent-hover)] text-sm-minus font-semibold cursor-pointer`}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    block
                     onClick={() => {
                       if (!top.patientSheetAvailable) return;
                       b.openSheet(top.slug);
@@ -161,7 +141,7 @@ export function RecommendScreen() {
                     title={top.patientSheetAvailable ? undefined : "This record has no patient sheet"}
                   >
                     {top.patientSheetAvailable ? "Sheet" : "Sheet unavailable"}
-                  </button>
+                  </Button>
                 </div>
               </MatchCell>
             </div>
@@ -174,7 +154,10 @@ export function RecommendScreen() {
             {rest.map(({ therapy: t }, i) => (
               <div
                 key={t.slug}
-                className="grid grid-cols-1 sm:grid-cols-[auto_minmax(220px,_1.3fr)_1.1fr_1.1fr_auto] gap-5 items-center bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--e1)] py-4 px-5"
+                className={cn(
+                  cardSurface,
+                  "grid grid-cols-1 sm:grid-cols-[auto_minmax(220px,_1.3fr)_1.1fr_1.1fr_auto] gap-5 items-center py-4 px-5",
+                )}
               >
                 <span className="inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] text-sm-minus font-bold">
                   {i + 2}
@@ -195,16 +178,12 @@ export function RecommendScreen() {
                 <ColMini eyebrow="TREATS" text={summarise(top === t ? "" : t.bestUsedFor, 1) || t.bestUsedFor || "—"} />
                 <ColMini eyebrow="FIRST STEP" text={t.timeRequired || t.setting || "—"} />
                 <div className="flex gap-1.5">
-                  <button
-                    type="button"
-                    className={`${therapyBtn} h-[34px] py-0 px-3 border-0 rounded-md bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] text-xs font-semibold cursor-pointer`}
-                    onClick={() => b.open(t.slug)}
-                  >
+                  <Button variant="primary" size="sm" onClick={() => b.open(t.slug)}>
                     Open
-                  </button>
-                  <button
-                    type="button"
-                    className={`${therapyBtn} h-[34px] py-0 px-3 border border-[color:var(--border-strong)] rounded-md bg-[color:var(--surface)] text-[color:var(--text)] text-xs font-semibold cursor-pointer`}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => {
                       if (!t.patientSheetAvailable) return;
                       b.openSheet(t.slug);
@@ -213,14 +192,14 @@ export function RecommendScreen() {
                     title={t.patientSheetAvailable ? undefined : "This record has no patient sheet"}
                   >
                     {t.patientSheetAvailable ? "Sheet" : "Sheet unavailable"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
           </div>
 
           <div className="flex items-center gap-2 mt-[18px] text-xs text-[color:var(--text-muted)]">
-            <ShieldIcon size={15} className="text-[color:var(--decoration-soft)]" />
+            <Shield aria-hidden="true" size={15} className="text-[color:var(--decoration-soft)]" />
             Ranking is source-grounded and advisory. Confirm fit, cautions and review status before clinical use.
           </div>
         </>
@@ -245,7 +224,7 @@ function MatchCell({
       className={`bg-[color:var(--surface)] p-3.5 [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-[color:var(--text-muted)]${tone === "accent" ? " bg-[color:var(--clinical-accent-soft)]" : ""}`}
     >
       <div className="mb-2 flex items-center gap-1.5 text-2xs font-bold tracking-eyebrow">
-        <ArrowRightIcon size={13} strokeWidth={1.9} />
+        <ArrowRight aria-hidden="true" size={13} strokeWidth={1.9} />
         {eyebrow}
       </div>
       <p>{text}</p>

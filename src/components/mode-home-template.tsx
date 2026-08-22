@@ -99,7 +99,7 @@ export function ModeHomeHero({
       >
         <Heading
           id={`${testId ?? "mode-home"}-title`}
-          className="text-balance text-hero font-extrabold leading-display tracking-normal text-[color:var(--text-heading)]"
+          className="text-balance text-hero font-semibold leading-display tracking-normal text-[color:var(--text-heading)]"
         >
           {title}
         </Heading>
@@ -140,8 +140,26 @@ export function ModeHomeHero({
 export type ModeHomeMainAlign = "center" | "start" | "startOnPhone";
 
 const MODE_HOME_MAIN_ALIGN_CLASS: Record<ModeHomeMainAlign, string> = {
-  // Short empty homes — centre in the visible canvas.
-  center: "justify-center pt-[clamp(1.25rem,4vh,2.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)]",
+  // Short empty homes — centre in the visible canvas. `justify-center` alone
+  // has no visible effect on phone: `<main>`'s immediate parent
+  // (`mobile-composer-reserve-pad` in GlobalSearchShell) is a plain block
+  // element, not a flex container, so `<main>`'s `flex-1` never fires there
+  // and the box shrinks to its own content height instead of stretching to
+  // fill the viewport — there is nothing to centre within. The sm+ rule
+  // already carries an explicit `min-h` for the same reason, but its formula
+  // (`100dvh - shell-header-h`) is NOT safe to reuse verbatim below sm: on
+  // phone, `mobile-composer-reserve-pad` also adds real top/bottom padding
+  // (`--phone-overlay-chrome-h`, `--mobile-composer-reserve`) that is zero at
+  // sm+ but not on phone. Subtracting only the header there under-accounts
+  // for that padding and pushes the document past the viewport (~40px
+  // overflow, live-verified) — so both padding terms are subtracted here too.
+  // `--mobile-composer-reserve` is a live CSS var, not a baked-in constant:
+  // this composes correctly if its value ever changes for a route that
+  // adopts `center`, at the cost of animating alongside it exactly as the
+  // reserve pad's own padding does — that's the correct behaviour, not jank,
+  // since the available space genuinely is changing too.
+  center:
+    "justify-center pt-[clamp(1.25rem,4vh,2.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)] max-sm:min-h-[calc(100dvh-var(--phone-overlay-chrome-h)-var(--mobile-composer-reserve))]",
   // Tall results / content — keep the top reachable on every breakpoint.
   start: "justify-start pt-3 sm:pt-4",
   // Content-rich homes that still fit after sm — top-align on phone only.
@@ -188,25 +206,16 @@ export function ModeHomeMain({
 }
 
 // One quiet line of text. Deliberately no icon and no accent colour: a shield
-// (and especially a ShieldCheck) reads as "verified", which several of these
-// footers must not assert — validation status varies per document and is
-// surfaced on the results themselves. Hierarchy comes from weight alone, so the
-// label half (capability) carries the emphasis rather than the body half (caveat).
+// (and especially a ShieldCheck) reads as "verified", which this footer must not
+// assert — validation status varies per document and is surfaced on the results
+// themselves. Hierarchy comes from weight alone, so the label half (capability)
+// carries the emphasis rather than the body half (caveat).
 //
-// Modes whose footer said only what the mode does, with no caveat, no longer
-// render this at all; the remaining call sites are the ones whose `body` is a
-// genuine review-before-use instruction.
-export function ModeHomeVerificationFooter({
-  label,
-  body,
-  verifiedCount,
-  totalCount,
-}: {
-  label: string;
-  body: string;
-  verifiedCount?: number;
-  totalCount?: number;
-}) {
+// No mode home renders this any more: the line under the composer was removed
+// from every home page. The sole remaining call site is the therapy-compass
+// page footer, which sits at the bottom of the sub-routes and is explicitly not
+// rendered on the therapy home (`showFooter={!isHome}` in workspace.tsx).
+export function ModeHomeVerificationFooter({ label, body }: { label: string; body: string }) {
   return (
     <p className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 pt-0.5 text-2xs leading-4 text-[color:var(--text-muted)] sm:pt-1">
       {/* The separator is bound to the label as one non-breaking flex item.
@@ -220,11 +229,6 @@ export function ModeHomeVerificationFooter({
         </span>
       </span>
       <span>{body}</span>
-      {typeof verifiedCount === "number" && typeof totalCount === "number" ? (
-        <span className="sr-only">
-          {verifiedCount} of {totalCount} records are locally verified.
-        </span>
-      ) : null}
     </p>
   );
 }

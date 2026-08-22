@@ -1,4 +1,5 @@
 import type { Therapy } from "./types";
+import { scoreTherapyCandidate } from "@/lib/therapy-ranking";
 
 // ---- text helpers -------------------------------------------------------
 
@@ -168,35 +169,18 @@ export function matchesAvailability(therapy: Therapy, reviewedOnly: boolean, bri
   return true;
 }
 
-function scoreTherapy(t: Therapy, q: string): number {
-  if (!q) return 1;
-  const name = lc(t.name);
-  const tags = t.tags.map(lc);
-  let score = 0;
-  if (name === q) score += 100;
-  if (name.startsWith(q)) score += 40;
-  if (name.includes(q)) score += 20;
-  if (t.aliases.some((a) => lc(a).includes(q))) score += 18;
-  if (tags.some((tag) => tag.includes(q))) score += 14;
-  if (lc(t.category).includes(q)) score += 8;
-  if (lc(t.bestUsedFor).includes(q)) score += 6;
-  if (lc(t.targetSymptoms).includes(q)) score += 5;
-  if (lc(t.clinicalSummary).includes(q)) score += 3;
-  if (lc(t.indications).includes(q)) score += 3;
-  return score;
-}
-
 export function searchTherapies(therapies: Therapy[], opts: SearchOptions): Therapy[] {
   const q = opts.query.trim().toLowerCase();
   const topics = new Set(opts.tags);
   const scored = therapies
-    .filter((t) => {
-      if (!matchesAvailability(t, opts.reviewedOnly, opts.briefOnly)) return false;
-      if (opts.sheetOnly && !t.patientSheetAvailable) return false;
-      if (!matchesTopics(t, topics)) return false;
-      return scoreTherapy(t, q) > 0;
+    .map((t) => {
+      if (!matchesAvailability(t, opts.reviewedOnly, opts.briefOnly)) return null;
+      if (opts.sheetOnly && !t.patientSheetAvailable) return null;
+      if (!matchesTopics(t, topics)) return null;
+      const score = scoreTherapyCandidate(t, q);
+      return score > 0 ? { t, s: score } : null;
     })
-    .map((t) => ({ t, s: scoreTherapy(t, q) }));
+    .filter((candidate): candidate is { t: Therapy; s: number } => candidate !== null);
   scored.sort((a, b) => b.s - a.s || a.t.name.localeCompare(b.t.name));
   return scored.map((x) => x.t);
 }
@@ -211,7 +195,6 @@ export function relatedTherapies(all: Therapy[], therapy: Therapy, n = 4): Thera
     if (t.category === therapy.category) s += 5;
     const shared = t.tags.filter((tag) => therapy.tags.includes(tag)).length;
     s += shared * 2;
-    if (t.modality && t.modality === therapy.modality) s += 1;
     return { t, s };
   });
   scored.sort((a, b) => b.s - a.s || a.t.name.localeCompare(b.t.name));
@@ -252,7 +235,7 @@ export const RECOMMEND_CONSTRAINTS: RecommendConstraint[] = [
   {
     key: "skills",
     label: "Skills",
-    match: (t) => lc(`${t.tags.join(" ")} ${t.modality}`).match(/skill|dbt|cbt|behav/) != null,
+    match: (t) => lc(t.tags.join(" ")).match(/skill|dbt|cbt|behav/) != null,
   },
   {
     key: "psychoeducation",
@@ -279,7 +262,7 @@ export function rankRecommendations(
   const cons = RECOMMEND_CONSTRAINTS.filter((c) => constraintKeys.includes(c.key));
   const scored = therapies.map((t) => {
     let score = 0;
-    if (q) score += Math.min(scoreTherapy(t, q), 60);
+    if (q) score += Math.min(scoreTherapyCandidate(t, q), 60);
     for (const c of cons) if (c.match(t)) score += 10;
     if (t.reviewStatus === "reviewed") score += 4;
     if (typeof t.indexCompleteness === "number") score += t.indexCompleteness / 100;

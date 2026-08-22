@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -59,6 +59,22 @@ function FirstSaveProbe() {
         }}
       >
         Save
+      </button>
+    </div>
+  );
+}
+
+function RapidToggleProbe() {
+  const { isSaved, ready, setFavourite } = useAccountData();
+  return (
+    <div>
+      <span data-testid="account-ready">{ready ? "ready" : "loading"}</span>
+      <span data-testid="therapy-saved">{isSaved("therapy", "cbt") ? "saved" : "not saved"}</span>
+      <button type="button" onClick={() => void setFavourite("therapy", "cbt", true)}>
+        Save therapy
+      </button>
+      <button type="button" onClick={() => void setFavourite("therapy", "cbt", false)}>
+        Remove therapy
       </button>
     </div>
   );
@@ -185,5 +201,59 @@ describe("favourites account retry", () => {
     expect(screen.getByTestId("load-error")).toHaveTextContent("");
     expect(screen.getByTestId("status")).toHaveTextContent("ready");
     expect(screen.getByTestId("count")).toHaveTextContent("0");
+  });
+
+  it("serializes opposite writes and leaves the final requested state persisted", async () => {
+    type PutResponse = {
+      ok: boolean;
+      status: number;
+      json: () => Promise<Record<string, never>>;
+    };
+    const pendingPuts: Array<{
+      body: { contentType: string; contentKey: string; saved: boolean };
+      resolve: (response: PutResponse) => void;
+    }> = [];
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ favourites: [] }),
+        });
+      }
+      if (method === "PUT") {
+        return new Promise<PutResponse>((resolve) => {
+          pendingPuts.push({
+            body: JSON.parse(String(init?.body)) as { contentType: string; contentKey: string; saved: boolean },
+            resolve,
+          });
+        });
+      }
+      throw new Error(`Unexpected fetch method: ${method}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <AccountDataProvider>
+        <RapidToggleProbe />
+      </AccountDataProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("account-ready")).toHaveTextContent("ready"));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Save therapy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove therapy" }));
+
+    expect(screen.getByTestId("therapy-saved")).toHaveTextContent("not saved");
+    await waitFor(() => expect(pendingPuts).toHaveLength(1));
+    expect(pendingPuts[0]?.body.saved).toBe(true);
+
+    await act(async () => pendingPuts[0]?.resolve({ ok: true, status: 200, json: async () => ({}) }));
+    await waitFor(() => expect(pendingPuts).toHaveLength(2));
+    expect(pendingPuts[1]?.body.saved).toBe(false);
+
+    await act(async () => pendingPuts[1]?.resolve({ ok: true, status: 200, json: async () => ({}) }));
+    await waitFor(() => expect(screen.getByTestId("therapy-saved")).toHaveTextContent("not saved"));
   });
 });

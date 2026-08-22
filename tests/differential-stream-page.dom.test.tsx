@@ -1,7 +1,7 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DifferentialStreamPage } from "@/components/differentials/differential-stream-page";
 import { buildDifferentialStreamModel } from "@/lib/differential-stream";
@@ -17,7 +17,7 @@ vi.mock("next/navigation", () => ({
     refresh: vi.fn(),
   }),
   usePathname: () => "/differentials/presentations",
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 
 vi.mock("next/link", () => ({
@@ -28,8 +28,14 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+afterEach(() => {
+  cleanup();
+  window.history.replaceState(null, "", "/");
+});
+
 describe("DifferentialStreamPage", () => {
-  it("renders the presentations catalogue as a compact symptom-led pathway workspace", () => {
+  it("renders the presentations catalogue as a compact symptom-led pathway workspace", async () => {
+    const user = userEvent.setup();
     render(<DifferentialStreamPage stream="presentations" />);
 
     expect(screen.getByRole("heading", { level: 1, name: "Presentations" })).toBeInTheDocument();
@@ -38,9 +44,8 @@ describe("DifferentialStreamPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId("search-query-ribbon")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "All" })).toBeInTheDocument();
-    expect(screen.getByText("Symptom-led pathways with priority and safety cues")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Presentation pathways" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Presentation priority" })).toBeInTheDocument();
+    await user.click(screen.getByTestId("differentials-stream-filter-trigger"));
+    expect(screen.getByRole("radiogroup", { name: "Clinical urgency" })).toBeInTheDocument();
     expect(screen.getByText("High-priority presentation pathways")).toBeInTheDocument();
     expect(screen.queryByText("Differentials: Presentations")).not.toBeInTheDocument();
 
@@ -75,10 +80,13 @@ describe("DifferentialStreamPage", () => {
       .find((item) => item?.status === "emergent");
     expect(safetyItem).toBeTruthy();
 
-    render(<DifferentialStreamPage stream="presentations" />);
+    const view = render(<DifferentialStreamPage stream="presentations" />);
 
-    const priorityGroup = screen.getByRole("group", { name: "Presentation priority" });
-    await user.click(within(priorityGroup).getByRole("button", { name: "Urgent" }));
+    await user.click(screen.getByTestId("differentials-stream-filter-trigger"));
+    const priorityGroup = screen.getByRole("radiogroup", { name: "Clinical urgency" });
+    await user.click(within(priorityGroup).getByRole("radio", { name: /^Urgent/ }));
+    expect(new URL(window.location.href).searchParams.get("priority")).toBe("urgent");
+    view.rerender(<DifferentialStreamPage stream="presentations" />);
     expect(screen.queryByTestId(`differential-stream-card-${safetyItem!.slug}`)).not.toBeInTheDocument();
 
     scrollIntoView.mockClear();
@@ -88,36 +96,41 @@ describe("DifferentialStreamPage", () => {
       }),
     );
 
+    expect(new URL(window.location.href).searchParams.has("priority")).toBe(false);
+    view.rerender(<DifferentialStreamPage stream="presentations" />);
     await waitFor(() => expect(screen.getByTestId(`differential-stream-card-${safetyItem!.slug}`)).toBeInTheDocument());
-    expect(within(priorityGroup).getByRole("button", { name: "All priorities" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
     expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "center" }));
   });
 
   it("filters presentations by priority and shared-candidate pathways", async () => {
     const user = userEvent.setup();
-    render(<DifferentialStreamPage stream="presentations" query="agitation" />);
+    const view = render(<DifferentialStreamPage stream="presentations" query="agitation" />);
 
     const initialCards = screen.getAllByTestId(/^differential-stream-card-/).length;
-    const priorityGroup = screen.getByRole("group", { name: "Presentation priority" });
-    await user.click(within(priorityGroup).getByRole("button", { name: "Emergent" }));
+    await user.click(screen.getByTestId("differentials-stream-filter-trigger"));
+    const priorityGroup = screen.getByRole("radiogroup", { name: "Clinical urgency" });
+    await user.click(within(priorityGroup).getByRole("radio", { name: /^Emergent/ }));
+    expect(new URL(window.location.href).searchParams.get("priority")).toBe("emergent");
+    view.rerender(<DifferentialStreamPage stream="presentations" query="agitation" />);
     const emergentCards = screen.getAllByTestId(/^differential-stream-card-/);
     expect(emergentCards.length).toBeLessThan(initialCards);
     expect(emergentCards.every((card) => card.dataset.status === "emergent")).toBe(true);
-    expect(screen.getByRole("button", { name: "Remove Emergent priority filter" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Priority: Emergent filter" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Remove Emergent priority filter" }));
-    const pathwayGroup = screen.getByRole("group", { name: "Related pathway filter" });
-    await user.click(within(pathwayGroup).getByRole("button", { name: "Related pathways" }));
+    await user.click(screen.getByRole("button", { name: "Remove Priority: Emergent filter" }));
+    expect(new URL(window.location.href).searchParams.has("priority")).toBe(false);
+    view.rerender(<DifferentialStreamPage stream="presentations" query="agitation" />);
+    const pathwayGroup = screen.getByRole("radiogroup", { name: "Related pathways" });
+    await user.click(within(pathwayGroup).getByRole("radio", { name: /^Related pathways/ }));
+    expect(new URL(window.location.href).searchParams.get("related")).toBe("1");
+    view.rerender(<DifferentialStreamPage stream="presentations" query="agitation" />);
     expect(screen.getAllByTestId(/^differential-stream-card-/).length).toBeLessThan(initialCards);
-    expect(screen.getByRole("button", { name: /Remove .+ related pathways filter/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Remove Related pathways: .+ filter/ })).toBeInTheDocument();
   });
 
   it("replaces match navigation with a removable focused-family filter", async () => {
     const user = userEvent.setup();
-    render(<DifferentialStreamPage stream="diagnoses" query="pain" />);
+    const view = render(<DifferentialStreamPage stream="diagnoses" query="pain" />);
 
     expect(screen.getByRole("heading", { level: 1, name: "Diagnoses" })).toBeInTheDocument();
     expect(screen.getByText("Compare likely causes and exclusion clues.")).toBeInTheDocument();
@@ -129,13 +142,18 @@ describe("DifferentialStreamPage", () => {
     expect(screen.queryByText(/Related cluster lit for/)).not.toBeInTheDocument();
 
     const initialCards = screen.getAllByTestId(/^differential-stream-card-/).length;
-    await user.click(screen.getByRole("button", { name: "Focused family" }));
+    await user.click(screen.getByTestId("differentials-stream-filter-trigger"));
+    await user.click(screen.getByRole("radio", { name: /^Focused family/ }));
+    expect(new URL(window.location.href).searchParams.get("related")).toBe("1");
+    view.rerender(<DifferentialStreamPage stream="diagnoses" query="pain" />);
 
-    const removeFamily = screen.getByRole("button", { name: /Remove .+ family filter/ });
+    const removeFamily = screen.getByRole("button", { name: /Remove Family: .+ filter/ });
     expect(removeFamily).toBeInTheDocument();
     expect(screen.getAllByTestId(/^differential-stream-card-/).length).toBeLessThan(initialCards);
 
     await user.click(removeFamily);
+    expect(new URL(window.location.href).searchParams.has("related")).toBe(false);
+    view.rerender(<DifferentialStreamPage stream="diagnoses" query="pain" />);
     expect(screen.getAllByTestId(/^differential-stream-card-/)).toHaveLength(initialCards);
   });
 
@@ -151,6 +169,7 @@ describe("DifferentialStreamPage", () => {
     await user.click(byPresentation);
     expect(byUrgency).toHaveAttribute("aria-pressed", "false");
     expect(byPresentation).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("differentials-stream-filter-trigger")).toHaveAccessibleName(/No filters active/);
   });
 
   it("scrolls only for an explicit focus parameter", async () => {
@@ -160,7 +179,8 @@ describe("DifferentialStreamPage", () => {
     initialRender.unmount();
     scrollIntoView.mockClear();
 
-    const focused = differentialDiagnosesCards[0];
+    const focusedMatch = buildDifferentialStreamModel("diagnoses", "pain").items.find((item) => item.isMatch);
+    const focused = differentialDiagnosesCards.find((item) => item.href.endsWith(`/${focusedMatch?.slug ?? ""}`));
     expect(focused).toBeTruthy();
     const focusedSlug = focused!.href.split("/").at(-1);
     expect(focusedSlug).toBeTruthy();

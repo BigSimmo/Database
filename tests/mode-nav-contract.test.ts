@@ -9,6 +9,7 @@ import {
   planModeNavBands,
 } from "@/components/mode-nav/mode-nav-bands";
 import { MODE_NAV_ADOPTED_MODES, modeSecondaryNavigationEntries } from "@/lib/mode-secondary-navigation";
+import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 
@@ -16,14 +17,12 @@ const modeNavSource = read("src/components/mode-nav/mode-nav.tsx");
 const registryModeNavSource = read("src/components/mode-nav/registry-mode-nav.tsx");
 const portalSource = read("src/components/mode-nav/mode-nav-portal.tsx");
 const globalsSource = read("src/app/globals.css");
-const therapyNavSource = read("src/components/therapy-compass/nav.tsx");
 const workspaceSource = read("src/components/therapy-compass/workspace.tsx");
 
 /** The slice of globals.css owned by the bar, so assertions cannot drift into other rules. */
-const modeNavCss = globalsSource.slice(
-  globalsSource.indexOf("@utility mode-nav"),
-  globalsSource.indexOf("/* Motion keyframes"),
-);
+const modeNavCss = sourceSegment(globalsSource, "@utility mode-nav {", "/* Motion keyframes", {
+  label: "modeNav CSS section in globals.css",
+});
 
 describe("ModeNav band planning", () => {
   it("shows every destination when they all fit, with no overflow entry", () => {
@@ -189,47 +188,21 @@ describe("ModeNav item contract", () => {
     expect(modeNavSource).not.toMatch(/onClick\?:/);
   });
 
-  it("gives Therapy its seven destinations in declared order", () => {
-    const itemIds = [...therapyNavSource.matchAll(/\bid: "([a-z-]+)"/g)].map((match) => match[1]);
-    // Order is load-bearing: at three slots the survivors are the first two, so
-    // the library door and the only destination carrying state are the ones
-    // that stay on the bar. Everything from `home` on is reached through More
-    // at every band, which is where the two long labels have to live.
-    expect(itemIds).toEqual(["search", "compare", "recommend", "pathways", "home", "brief", "sheets"]);
-
-    // Compare carries fill, not catalogue size: "3/4" is worth a glance, "205"
-    // is noise on every screen.
-    expect(therapyNavSource).toContain("${b.compareSlugs.length}/${MAX_COMPARE}");
+  it("gives Therapy the four shared workspace destinations in declared order", () => {
+    expect(modeSecondaryNavigationEntries("therapy-compass").map((entry) => entry.id)).toEqual([
+      "search",
+      "recommend",
+      "compare",
+      "pathways",
+    ]);
   });
 
-  it("routes the record-scoped destinations through resolved hrefs, never a handler", () => {
-    // `ModeNavItem` takes an href so deep links, back and prefetch work. These
-    // two resolve a slug, so the resolution has to reach the item as a value.
-    expect(therapyNavSource).toContain("href: b.briefHref");
-    expect(therapyNavSource).toContain("href: b.sheetHref");
-    expect(therapyNavSource).not.toMatch(/onClick/);
-  });
-
-  it("names the active page rather than letting a prefix match claim it", () => {
-    // Home's href is the mode base, and every Therapy route starts with it, so
-    // ModeNav's own `startsWith` derivation would light Home up everywhere.
-    expect(therapyNavSource).toContain("activeId={b.screen}");
-  });
-
-  it("puts every Therapy route on the shared bar", () => {
-    // The pill strip is gone: no second nav, no sideways scroll, no route-local
-    // portal competing for the header's addon slot.
-    expect(therapyNavSource).not.toContain("TherapyCompassNav");
-    expect(therapyNavSource).not.toContain("PhoneHeaderCollapsePortal");
-    expect(therapyNavSource).not.toContain('data-testid="therapy-compass-section-nav"');
+  it("keeps record-owned Brief and Sheet routes off the mode bar", () => {
+    const itemIds = modeSecondaryNavigationEntries("therapy-compass").map((entry) => entry.id);
+    expect(itemIds).not.toContain("brief");
+    expect(itemIds).not.toContain("sheets");
+    expect(workspaceSource).not.toContain("TherapyModeNav");
     expect(globalsSource).not.toContain('[data-testid="therapy-compass-section-nav"]');
-    expect(workspaceSource).toContain("<TherapyModeNav />");
-    expect(workspaceSource).not.toContain("TherapyCompassNav");
-  });
-
-  it("keeps the mode home free of the bar, as every mode home is", () => {
-    // ModeHomeTemplate already surfaces the same destinations as tiles.
-    expect(workspaceSource).toContain("{isHome ? null : <TherapyModeNav />}");
   });
 });
 
@@ -275,13 +248,15 @@ describe("ModeNav overflow slot", () => {
       ["balanced-four", "31rem"],
       ["extended", "33rem"],
     ] as const) {
-      const start = modeNavCss.indexOf(`@container mode-nav (min-width: ${threshold})`);
-      const end = modeNavCss.indexOf("@container mode-nav", start + 1);
-      const block = modeNavCss.slice(start, end < 0 ? undefined : end);
+      const block = sourceSegment(modeNavCss, `@container mode-nav (min-width: ${threshold})`, "@container mode-nav", {
+        label: `mode-nav threshold ${threshold} block`,
+      });
       expect(block).toContain(`data-density-profile="${profile}"`);
       expect(block).toContain('.mode-nav__more[data-active-from="4"] .mode-nav__rule');
     }
-    const at42 = modeNavCss.slice(modeNavCss.indexOf("@container mode-nav (min-width: 42rem)"));
+    const at42 = sourceFrom(modeNavCss, "@container mode-nav (min-width: 42rem)", {
+      label: "mode-nav threshold 42rem block",
+    });
     expect(at42).toContain('data-density-profile="extended"');
     expect(at42).toContain('.mode-nav__more[data-active-from="5"] .mode-nav__rule');
   });
@@ -311,7 +286,10 @@ describe("ModeNav density coverage", () => {
     ),
   );
   const assignedProfiles = new Map(
-    [...registryModeNavSource.matchAll(/^\s{2}([a-z-]+): "([a-z-]+)",$/gm)].map((match) => [match[1], match[2]]),
+    [...registryModeNavSource.matchAll(/^\s{2}(?:"([a-z-]+)"|([a-z-]+)): "([a-z-]+)",$/gm)].map((match) => [
+      match[1] ?? match[2],
+      match[3],
+    ]),
   );
 
   it("drives every adopted mode, not just the first consumer", () => {
@@ -323,9 +301,10 @@ describe("ModeNav density coverage", () => {
     for (const modeId of MODE_NAV_ADOPTED_MODES) {
       expect(covered.has(modeId), `${modeId} adopted the bar but the density spec never loads it`).toBe(true);
     }
-    // Therapy is not registry-driven (`useTherapyNavItems`), so it is not in
-    // MODE_NAV_ADOPTED_MODES — and it is the mode with the long labels.
-    expect(covered.get("therapy-compass")).toBe(7);
+    // Therapy now uses the shared registry and deliberately exposes only the
+    // four workspace destinations. Record-owned outputs require a selected
+    // therapy and therefore stay off the global mode bar.
+    expect(covered.get("therapy-compass")).toBe(4);
   });
 
   it("keeps each mode's declared destination count in step with the registry", () => {
@@ -344,8 +323,8 @@ describe("ModeNav density coverage", () => {
       expect(MODE_NAV_DENSITY_PROFILES).toContain(profile);
       expect(coveredProfiles.get(modeId), `${modeId} browser profile`).toBe(profile);
     }
-    expect(coveredProfiles.get("therapy-compass")).toBe("extended");
-    expect(therapyNavSource).toContain('densityProfile="extended"');
+    expect(coveredProfiles.get("therapy-compass")).toBe("balanced-four");
+    expect(registryModeNavSource).toContain('"therapy-compass": "balanced-four"');
   });
 });
 

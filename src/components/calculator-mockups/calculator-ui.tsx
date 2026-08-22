@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, Check, CheckCheck, ClipboardCopy, RotateCcw, type LucideIcon } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
 
@@ -165,25 +165,6 @@ export function toggleCheckboxAnswer(answers: AnswerMap, itemId: string): Answer
 
 export function selectOptionAnswer(answers: AnswerMap, itemId: string, optionIndex: number): AnswerMap {
   return { ...answers, [itemId]: answers[itemId] === optionIndex ? undefined : optionIndex };
-}
-
-export function useCalculatorState(calc: CalculatorFixture): CalculatorState {
-  const [answers, setAnswers] = useState<AnswerMap>({});
-
-  const toggleCheckbox = useCallback((itemId: string) => {
-    setAnswers((prev) => toggleCheckboxAnswer(prev, itemId));
-  }, []);
-
-  const selectOption = useCallback((itemId: string, optionIndex: number) => {
-    setAnswers((prev) => selectOptionAnswer(prev, itemId, optionIndex));
-  }, []);
-
-  const reset = useCallback(() => setAnswers({}), []);
-
-  return useMemo(
-    () => ({ ...deriveCalculator(calc, answers), answers, toggleCheckbox, selectOption, reset }),
-    [answers, calc, reset, selectOption, toggleCheckbox],
-  );
 }
 
 /* ---------- tone styling ---------- */

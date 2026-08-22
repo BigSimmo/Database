@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "568597bd-fc9f-47d6-b582-443812115e67",
+  "createdOn": "2026-08-15",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "The mode-page comps and the results-band weighting contract disagree about query vs count emphasis",
+    "detail": "Found while shipping #163 (PR #1982). The perfected-combined comps draw the search query large and bold with the match count small and muted beside it, on both /tools and /services. Production does the reverse: SearchResultsHeaderBand renders the count first at font-weight 600 with the query at 450 and muted, and that is not an accident — docs/search-chrome-behaviour.md 'Results band' rules 1 and 2 argue for it explicitly (the query is the sole heading and the count is never one; nothing in the band is bold; the two weights are deliberately near-adjacent steps of one scale separated by tabular numerals and a hairline rather than by shouting). The band is shared by twelve modes and is a visual-baseline target captured from /services?q=CMHT&run=1 (tests/ui-visual-baseline.spec.ts), so changing it is a repo-wide change with a baseline refresh, not a per-mode tweak. #163 was closed without touching it because the outcome that row asked for — query-as-H1 rather than a match-count heading — is already true either way. Next: decide deliberately which artefact is authoritative. If the comps win, the change is a shared-band edit plus a rewrite of Results band rules 1-2 plus refreshed search-results-band and search-results-band-phone baselines, and it should be one PR covering all twelve modes. If the contract wins, the comps should carry a note so the next implementer does not re-open this. Stop: do not add a per-mode variant prop to make services alone read query-dominant — that makes shared chrome mode-conditional to settle a question that has one answer.",
+    "source": "session 2026-08-15; PR #1982; docs/search-chrome-behaviour.md Results band rules 1-2"
+  }
+}

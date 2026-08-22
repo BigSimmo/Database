@@ -4,7 +4,7 @@ export const guideTopicIds = [
   "document-scope",
   "answer-anatomy",
   "sources-citations",
-  "uploads-indexing",
+  "document-administration",
   "privacy-safe-use",
   "keyboard-shortcuts",
 ] as const;
@@ -23,7 +23,6 @@ export type GuideTopic = {
   title: string;
   navLabel: string;
   summary: string;
-  keywords: readonly string[];
   sections: readonly GuideSection[];
 };
 
@@ -33,7 +32,6 @@ export const guideTopics: readonly GuideTopic[] = [
     title: "Getting started with Clinical KB",
     navLabel: "Getting started",
     summary: "Understand what Clinical KB does and follow the evidence-first workflow from question to source.",
-    keywords: ["start", "overview", "workflow", "question", "answer", "evidence", "limitations"],
     sections: [
       {
         heading: "Use it as a source-backed starting point",
@@ -59,7 +57,6 @@ export const guideTopics: readonly GuideTopic[] = [
     title: "Ask better questions",
     navLabel: "Ask better questions",
     summary: "Write one focused, context-rich question that is easy to retrieve and straightforward to verify.",
-    keywords: ["ask", "question", "focused", "population", "context", "prompt", "phi", "privacy"],
     sections: [
       {
         heading: "Ask for one decision at a time",
@@ -84,7 +81,6 @@ export const guideTopics: readonly GuideTopic[] = [
     title: "Choose the right document scope",
     navLabel: "Document scope",
     summary: "Decide when to search the whole library and when a deliberately restricted source set is safer.",
-    keywords: ["scope", "documents", "selected", "all sources", "filters", "clear", "library"],
     sections: [
       {
         heading: "Start broad unless the task is source-specific",
@@ -109,7 +105,6 @@ export const guideTopics: readonly GuideTopic[] = [
     title: "Understand and verify an answer",
     navLabel: "Answer anatomy",
     summary: "Connect important claims to citations, source passages, and the original document before acting.",
-    keywords: ["answer", "anatomy", "claim", "citation", "top source", "verify", "status", "source passage"],
     sections: [
       {
         heading: "Read the status before the prose",
@@ -135,7 +130,6 @@ export const guideTopics: readonly GuideTopic[] = [
     navLabel: "Sources & citations",
     summary:
       "Use source previews, passages, pages, images, and provenance to judge whether evidence supports the answer.",
-    keywords: ["sources", "citations", "pdf", "passage", "quote", "image", "provenance", "current", "outdated"],
     sections: [
       {
         heading: "Move from preview to original",
@@ -156,18 +150,16 @@ export const guideTopics: readonly GuideTopic[] = [
     ],
   },
   {
-    id: "uploads-indexing",
-    title: "Uploads and indexing",
-    navLabel: "Uploads & indexing",
-    summary:
-      "Understand who can add documents, what indexing states mean, and where ordinary users find available sources.",
-    keywords: ["upload", "indexing", "admin", "processing", "failed", "documents", "sources", "demo"],
+    id: "document-administration",
+    title: "Document administration",
+    navLabel: "Document administration",
+    summary: "Understand how documents enter the library, what indexing states mean, and where users find sources.",
     sections: [
       {
         heading: "Use Sources for ordinary document access",
         paragraphs: [
-          "Most users work with documents that are already available through Sources. Upload and indexing tools are restricted to authorised administrators because they change the shared evidence library and require storage, database, extraction, and indexing services.",
-          "A successful upload is not immediately searchable. The document must move through processing and indexing before its contents can appear in search. Demo content is synthetic and does not prove that a real upload pipeline or provider-backed workflow is configured.",
+          "The site does not accept document uploads from users. Documents are added through the administrator backend, then made available through Sources after the required review and indexing workflow.",
+          "A newly added document is not immediately searchable. It must move through processing and indexing before its contents can appear in search. Demo content is synthetic and does not prove that a real ingestion pipeline or provider-backed workflow is configured.",
         ],
       },
       {
@@ -187,7 +179,6 @@ export const guideTopics: readonly GuideTopic[] = [
     navLabel: "Privacy & safe use",
     summary:
       "Protect patient information, retain provenance, and keep clinical judgement in every use of generated content.",
-    keywords: ["privacy", "safe", "phi", "patient", "copy", "provenance", "judgement", "recent searches"],
     sections: [
       {
         heading: "Keep patient information out of search",
@@ -212,7 +203,6 @@ export const guideTopics: readonly GuideTopic[] = [
     title: "Keyboard shortcuts",
     navLabel: "Keyboard shortcuts",
     summary: "Use the implemented search-focus shortcut and standard dialog dismissal without losing your place.",
-    keywords: ["keyboard", "shortcut", "focus", "search", "slash", "escape", "dialog"],
     sections: [
       {
         heading: "Current keyboard controls",
@@ -273,56 +263,3 @@ export const guideQuickTasks = [
   { label: "Verify an answer", topicId: "answer-anatomy" },
   { label: "Use content safely", topicId: "privacy-safe-use" },
 ] as const satisfies ReadonlyArray<{ label: string; topicId: GuideTopicId }>;
-
-export type GuideSearchResult = {
-  topic: GuideTopic;
-  score: number;
-  snippet: string;
-};
-
-function normalized(value: string) {
-  return value
-    .toLocaleLowerCase("en-AU")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function topicBody(topic: GuideTopic) {
-  return topic.sections
-    .flatMap((section) => [section.heading, ...(section.paragraphs ?? []), ...(section.bullets ?? [])])
-    .join(" ");
-}
-
-export function searchGuideTopics(query: string): GuideSearchResult[] {
-  const tokens = normalized(query).split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return [];
-
-  return guideTopics
-    .map((topic, index) => {
-      const titles = normalized([topic.title, topic.navLabel].join(" "));
-      const headings = normalized(topic.sections.map((section) => section.heading).join(" "));
-      const keywords = normalized(topic.keywords.join(" "));
-      const body = normalized([topic.summary, topicBody(topic)].join(" "));
-      if (
-        !tokens.every(
-          (token) =>
-            titles.includes(token) || headings.includes(token) || keywords.includes(token) || body.includes(token),
-        )
-      )
-        return null;
-
-      const score = tokens.reduce((total, token) => {
-        if (titles.includes(token)) return total + 12;
-        if (headings.includes(token)) return total + 9;
-        if (keywords.includes(token)) return total + 4;
-        return total + 1;
-      }, 0);
-      const matchingParagraph = topic.sections
-        .flatMap((section) => [...(section.paragraphs ?? []), ...(section.bullets ?? [])])
-        .find((entry) => tokens.some((token) => normalized(entry).includes(token)));
-      return { topic, score, snippet: matchingParagraph ?? topic.summary, index };
-    })
-    .filter((result): result is GuideSearchResult & { index: number } => result !== null)
-    .sort((a, b) => b.score - a.score || a.index - b.index)
-    .map(({ topic, score, snippet }) => ({ topic, score, snippet }));
-}

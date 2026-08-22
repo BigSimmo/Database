@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TcProvider, useTcBindings } from "@/components/therapy-compass/bindings";
@@ -20,7 +20,14 @@ afterEach(() => vi.unstubAllGlobals());
 
 function Probe() {
   const b = useTcBindings();
-  return <div data-testid="probe" data-screen={b.screen} data-query={b.search.query} />;
+  return (
+    <>
+      <div data-testid="probe" data-screen={b.screen} data-query={b.search.query} />
+      <button type="button" onClick={() => b.setQuery("draft")}>
+        Type draft query
+      </button>
+    </>
+  );
 }
 
 describe("TcProvider URL-driven seeding", () => {
@@ -51,6 +58,32 @@ describe("TcProvider URL-driven seeding", () => {
     );
     expect(getByTestId("probe").getAttribute("data-screen")).toBe("search");
     expect(getByTestId("probe").getAttribute("data-query")).toBe("beta");
+  });
+
+  it("preserves a locally typed query when only workspace filter parameters change", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
+
+    navState.pathname = "/therapy-compass/search";
+    navState.search = "q=alpha";
+    const { getByRole, getByTestId, rerender } = render(
+      <TcProvider>
+        <Probe />
+      </TcProvider>,
+    );
+
+    fireEvent.click(getByRole("button", { name: "Type draft query" }));
+    expect(getByTestId("probe").getAttribute("data-query")).toBe("draft");
+
+    navState.search = "q=alpha&brief=1";
+    rerender(
+      <TcProvider>
+        <Probe />
+      </TcProvider>,
+    );
+    expect(getByTestId("probe").getAttribute("data-query")).toBe("draft");
   });
 
   it("resolves a therapy detail screen + slug from the pathname", () => {

@@ -47,8 +47,8 @@ const listFilterKeys = Object.keys(listFilterLabels) as ListFilterKey[];
 export type ScopeFilterChip = {
   /** Stable identity, also the token `removeScopeFilterValue` resolves. */
   id: string;
-  /** "Topic: agitation" — the group is named because a bare value is ambiguous across 19 keys. */
-  label: string;
+  groupLabel: string;
+  valueLabel: string;
 };
 
 function chipId(key: string, value: string) {
@@ -66,13 +66,14 @@ export function scopeFilterChips(filters: SearchScopeFilters | null | undefined)
   const chips: ScopeFilterChip[] = [];
   for (const key of listFilterKeys) {
     for (const value of filters[key] ?? []) {
-      chips.push({ id: chipId(key, value), label: `${listFilterLabels[key]}: ${value}` });
+      chips.push({ id: chipId(key, value), groupLabel: listFilterLabels[key], valueLabel: value });
     }
   }
   if (filters.locality) {
     chips.push({
       id: chipId("locality", filters.locality),
-      label: `Locality: ${filters.locality === "local" ? "local" : "non-local"}`,
+      groupLabel: "Locality",
+      valueLabel: filters.locality === "local" ? "Local" : "Non-local",
     });
   }
   return chips;

@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { parseIssues } from "../scripts/check-outstanding-issues.mjs";
-import { addIssue, escapeCell, resolveIssue, splitCells, updateIssue } from "../scripts/outstanding-issues.mjs";
+import { issueRowFingerprint, parseIssues } from "../scripts/check-outstanding-issues.mjs";
+import { displayIdForUlid, issueUlid } from "../scripts/issue-id.mjs";
+import {
+  addIssue,
+  escapeCell,
+  resolveIssue,
+  splitCells,
+  updateIssue,
+  updateQueueRow,
+} from "../scripts/outstanding-issues.mjs";
 
 const OPEN_CELLS = 7;
 const ARCHIVE_CELLS = 5;
+const TEST_ULID = issueUlid(Date.UTC(2026, 1, 2), Buffer.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
+const TEST_ID = displayIdForUlid(TEST_ULID);
 
 const ledger = [
   "# Outstanding",
@@ -32,21 +42,72 @@ describe("outstanding-issues writer", () => {
   it("appends into the open table, never the archive", () => {
     // The defect this writer exists for: hand edits anchored on an id that had
     // been archived, so the new row landed in the archive table.
-    const next = addIssue(ledger, { pri: "P1", type: "rec", summary: "third" }, { date: "2026-02-02" });
-    const row = rowFor(next, "#007");
+    const next = addIssue(
+      ledger,
+      { pri: "P1", type: "rec", summary: "third" },
+      { date: "2026-02-02", issueUlid: TEST_ULID },
+    );
+    const row = rowFor(next, TEST_ID);
     expect(row?.table).toBe("open");
-    expect(next.indexOf("| #007 ")).toBeLessThan(next.indexOf("## Resolved / archive"));
+    expect(row?.ulid).toBe(TEST_ULID);
+    expect(next.indexOf(`| ${TEST_ID} `)).toBeLessThan(next.indexOf("## Resolved / archive"));
   });
 
-  it("allocates the marker's id and bumps it", () => {
-    const next = addIssue(ledger, { summary: "third" }, { date: "2026-02-02" });
-    expect(rowFor(next, "#007")).toBeDefined();
-    expect(parseIssues(next).nextId).toBe(8);
+  it("derives a permanent display id and leaves the deprecated marker untouched", () => {
+    const next = addIssue(ledger, { summary: "third" }, { date: "2026-02-02", issueUlid: TEST_ULID });
+    expect(rowFor(next, TEST_ID)?.ulid).toBe(TEST_ULID);
+    expect(parseIssues(next).nextId).toBe(7);
+  });
+
+  // Regression: `issueRowFingerprint` resolved only the legacy numeric form, so
+  // for every row minted after the ULID migration it returned null — and
+  // ledger-inbox.mjs reads null as "no such row" and refuses the request. That
+  // made `npm run issues:done` unusable for any Crockford-id row, reporting
+  // "is not in Open items" about a row sitting in Open items.
+  it("fingerprints open rows by either id generation and handles lowercase display IDs", () => {
+    const withCrockfordRow = addIssue(ledger, { summary: "third" }, { date: "2026-02-02", issueUlid: TEST_ULID });
+
+    const crockford = issueRowFingerprint(withCrockfordRow, TEST_ID);
+    const crockfordLower = issueRowFingerprint(withCrockfordRow, TEST_ID.toLowerCase());
+    const legacy = issueRowFingerprint(withCrockfordRow, "#005");
+
+    expect(crockford).toMatch(/^[0-9a-f]{64}$/);
+    expect(crockfordLower).toBe(crockford);
+    expect(legacy).toMatch(/^[0-9a-f]{64}$/);
+    expect(crockford).not.toBe(legacy);
+
+    // The fingerprint is what makes the concurrency check meaningful: it must
+    // track the row's content, not just its identity.
+    const edited = updateIssue(withCrockfordRow, TEST_ID, { summary: "third edited" });
+    expect(issueRowFingerprint(edited, TEST_ID)).not.toBe(crockford);
+  });
+
+  // The subtle half. Crockford's alphabet includes 0-9, so a ULID-derived
+  // locator can be entirely digits — `TEST_ID` here is `#041061`. Deciding the
+  // lookup from the id's SHAPE therefore reads such a row as a legacy id and
+  // hunts for a sequential number that no ULID row has, which is how the first
+  // attempt at this fix still returned null for a row it could plainly see.
+  it("resolves an all-digit display id to its ULID row, not a legacy number", () => {
+    expect(TEST_ID).toMatch(/^#\d+$/);
+    const next = addIssue(ledger, { summary: "third" }, { date: "2026-02-02", issueUlid: TEST_ULID });
+
+    expect(rowFor(next, TEST_ID)?.number).toBeNull();
+    expect(issueRowFingerprint(next, TEST_ID)).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("returns null for ids that are absent, archived, or malformed", () => {
+    // Still null-safe: the inbox's "no such row" refusal must survive for a row
+    // that genuinely is not in Open items, or the fix would trade one broken
+    // command for a silently wrong one.
+    expect(issueRowFingerprint(ledger, TEST_ID)).toBeNull();
+    expect(issueRowFingerprint(ledger, "#001")).toBeNull(); // archived, not open
+    expect(issueRowFingerprint(ledger, "#nope")).toBeNull();
+    expect(issueRowFingerprint(ledger, "not-an-id")).toBeNull();
   });
 
   it("escapes pipes in prose instead of creating columns", () => {
-    const next = addIssue(ledger, { summary: "a | b", detail: "c | d" }, { date: "2026-02-02" });
-    const row = rowFor(next, "#007");
+    const next = addIssue(ledger, { summary: "a | b", detail: "c | d" }, { date: "2026-02-02", issueUlid: TEST_ULID });
+    const row = rowFor(next, TEST_ID);
     expect(splitCells(row!.raw)).toHaveLength(OPEN_CELLS);
     expect(row!.raw).toContain("a \\| b");
   });
@@ -66,6 +127,48 @@ describe("outstanding-issues writer", () => {
     expect(row?.table).toBe("open");
     expect(splitCells(row!.raw)).toHaveLength(OPEN_CELLS);
     expect(row!.raw).toContain("replaced \\| detail");
+  });
+
+  it("locates a Crockford queue row when a lowercase display id was accepted", () => {
+    const queueLedger = [
+      "# Outstanding",
+      "",
+      "## Recommended execution queue",
+      "",
+      "| Order | ID(s) | Acuity | Capability | When | Estimate | Outcome |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| 1 | `#ABCDEF` | A1 | Specialist | Immediate | 2h | investigate |",
+      "",
+      "## Open items",
+      "",
+      "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| #ABCDEF <!-- issue-ulid:0000000000ABCDEF0000000000 --> | P2 | issue | queued | detail | source | 2026-01-01 |",
+      "",
+      "## Resolved / archive",
+      "",
+      "| ID | Type | Summary | Outcome | Resolved |",
+      "| --- | --- | --- | --- | --- |",
+      "",
+    ].join("\n");
+
+    const next = updateQueueRow(queueLedger, "#abcdef", { acuity: "A2" });
+    expect(next).toContain("| 1 | `#ABCDEF` | A2 | Specialist | Immediate | 2h | investigate |");
+  });
+
+  it("extends a colliding display id and preserves it through update and archive", () => {
+    const firstUlid = "0000000000ABCDEF0000000000";
+    const secondUlid = "0000000000ABCDEF1000000000";
+    const first = addIssue(ledger, { summary: "first modern" }, { date: "2026-02-02", issueUlid: firstUlid });
+    const second = addIssue(first, { summary: "second modern" }, { date: "2026-02-03", issueUlid: secondUlid });
+    expect(rowFor(second, "#ABCDEF")?.ulid).toBe(firstUlid);
+    expect(rowFor(second, "#ABCDEF1")?.ulid).toBe(secondUlid);
+
+    const updated = updateIssue(second, "#ABCDEF1", { detail: "retained identity" });
+    const archived = resolveIssue(updated, "#ABCDEF1", "done", { date: "2026-03-03" });
+    const row = rowFor(archived, "#ABCDEF1");
+    expect(row?.table).toBe("archive");
+    expect(row?.ulid).toBe(secondUlid);
   });
 
   it("refuses edits that would not survive the gate", () => {

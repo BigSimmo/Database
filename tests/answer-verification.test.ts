@@ -28,6 +28,52 @@ function source(overrides: Partial<SearchResult> = {}): SearchResult {
 }
 
 describe("answer-verification (GEN-C2 / GEN-H2)", () => {
+  it("extracts the same clinical value atom through markdown emphasis markers (#231)", () => {
+    // Measured live 2026-08-17: the pipeline's own high-yield bolding produced
+    // "**200 mg**/day", which extracted a bare 200mg atom while the cited source's
+    // "200 mg/day" carried denominatorTime — a verbatim-faithful maximum-dose answer
+    // then failed the exact atom-key match and degraded to source-only.
+    const [plain] = extractClinicalValueAtoms("adjust dose according to response, maximum 200 mg/day");
+    const [bolded] = extractClinicalValueAtoms("The maximum recommended dose of sertraline is **200 mg**/day.");
+    expect(plain?.denominatorTime).toBe("day");
+    expect(bolded?.denominatorTime).toBe("day");
+    expect(bolded?.canonicalValue).toBe("200");
+    expect(bolded?.canonicalUnit).toBe("mg");
+    // The direct numeric-token path folds emphasis too: the bolded dose yields the same
+    // normalized per-day token as the unformatted source text.
+    expect(extractNumericTokens("The maximum recommended dose of sertraline is **200 mg**/day.")).toContain(
+      "200mg/day",
+    );
+    expect(extractNumericTokens("adjust dose according to response, maximum 200 mg/day")).toContain("200mg/day");
+  });
+
+  it("verifies bolded figures against unformatted source text (#231)", () => {
+    const doseSource = source({
+      id: "chunk-dose",
+      content: "sertraline: 50 mg orally once daily initially, adjust dose according to response, maximum 200 mg/day",
+    });
+    const verification = verifyAnswerNumbers(
+      "The maximum recommended dose of sertraline is **200 mg**/day.",
+      [{ chunk_id: "chunk-dose" }],
+      [doseSource],
+    );
+    expect(verification.unverifiedTokens).toEqual([]);
+    expect(verification.hasUnverifiedNumbers).toBe(false);
+  });
+
+  it("still fails a bolded figure absent from the cited source", () => {
+    const doseSource = source({
+      id: "chunk-dose",
+      content: "sertraline: 50 mg orally once daily initially, adjust dose according to response, maximum 200 mg/day",
+    });
+    const verification = verifyAnswerNumbers(
+      "The maximum recommended dose of sertraline is **300 mg**/day.",
+      [{ chunk_id: "chunk-dose" }],
+      [doseSource],
+    );
+    expect(verification.hasUnverifiedNumbers).toBe(true);
+  });
+
   it("detects overlapping labelled score bands without inferring corrected cutoffs", () => {
     const conflicts = detectLabelledNumericBandConflicts(
       "Escalate when the LUNSERS score is medium (41-89), high (81-100), or very high (>101).",

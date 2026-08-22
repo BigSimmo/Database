@@ -107,9 +107,9 @@ plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
 
 Never commit: `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
 
-The product surface is **13 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
+The product surface is **15 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
 answer, documents, services, forms, favourites, differentials, dsm, specifiers, formulation,
-prescribing, tools, therapy-compass, factsheets.
+prescribing, tools, calculators, therapy-compass, factsheets, dictionary.
 
 ## The two flows that matter
 
@@ -142,7 +142,7 @@ Verification pyramid — run the **smallest gate that covers the change**, then 
 | Gate                                      | What it is                                                                                                                                                                                   |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run test:focused -- --files <paths>` | Source-only iteration. Fails closed for deleted files and test infrastructure — then run `npm run test`.                                                                                     |
-| `npm run verify:cheap`                    | The broad local gate: 32 static/consistency gates + `lint` + `typecheck` + full offline unit suite; use for cross-module risk, not automatically                                             |
+| `npm run verify:cheap`                    | The broad local gate: 33 static/consistency gates + `lint` + `typecheck` + full offline unit suite; use for cross-module risk, not automatically                                             |
 | `npm run verify:pr-local`                 | Risk-routed PR mirror: focused docs/workflow contracts for recognised light scope, fail-closed heavy checks for executable or unknown scope. `-- --dry-run --files <paths>` shows selection. |
 | `npm run verify:ui`                       | Chromium production journeys. Run `npm run ensure` first.                                                                                                                                    |
 | `npm run verify:phone-chrome`             | Phone-chrome changes; selects affected owners/journeys before escalating to `verify:ui`                                                                                                      |

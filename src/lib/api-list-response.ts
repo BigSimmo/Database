@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 /**
  * Shared shapes for the admin list endpoints (documents, jobs, ingestion jobs,
@@ -10,6 +11,36 @@ import { NextResponse } from "next/server";
 export const ACTIVE_INDEXING_POLL_MS = 5_000;
 
 export type StatusRow = Record<string, unknown> & { status?: string | null };
+
+const statusRowSchema = z
+  .object({
+    status: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+/**
+ * Validates an untrusted list-query result without exposing schema diagnostics.
+ * Route schemas decide which selected fields are required and whether unknown
+ * fields should be preserved.
+ */
+export function parseListRows<Row>(data: unknown, rowSchema: z.ZodType<Row>): Row[] {
+  const parsed = z.array(rowSchema).safeParse(data);
+  if (!parsed.success) {
+    // Keep dependency-response details out of both the public response and logs.
+    throw new Error("Invalid list data.");
+  }
+  return parsed.data;
+}
+
+/**
+ * Validates untrusted list-query output before it is counted or returned.
+ * Unknown fields are preserved because these endpoints intentionally expose
+ * the selected database rows, but every row must be an object and `status`
+ * must retain the text/null shape used by polling clients.
+ */
+export function parseStatusRows(data: unknown): StatusRow[] {
+  return parseListRows(data, statusRowSchema);
+}
 
 export type OffsetPagination = {
   limit: number;

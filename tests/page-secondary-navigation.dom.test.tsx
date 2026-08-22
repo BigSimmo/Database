@@ -137,10 +137,10 @@ describe("PageSecondaryNavigation", () => {
       "href",
       "/factsheets/search?q=sertraline&category=Medicines&run=1",
     );
-    // Topics is the browse home: it reads neither param, and carries no
-    // focus=1 either — autofocusing the composer there would open the phone
-    // keyboard over the topics the user just asked to browse.
-    expect(screen.getByRole("link", { name: "Topics" })).toHaveAttribute("href", "/factsheets");
+    // Topics is the mode home — the shared lightweight one since `/factsheets`
+    // became a redirect. It reads neither param, and carries no focus=1 either:
+    // autofocusing the composer there would open the phone keyboard unbidden.
+    expect(screen.getByRole("link", { name: "Topics" })).toHaveAttribute("href", "/?mode=factsheets");
   });
 
   it("keeps the newly adopted factsheets bar off its record routes", () => {
@@ -155,7 +155,7 @@ describe("PageSecondaryNavigation", () => {
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
   });
 
-  it("leaves locally controlled information and Therapy workflow navigation to their page owners", async () => {
+  it("leaves information navigation local and renders Therapy workflow navigation from the shared registry", async () => {
     const { rerender } = render(
       <PageSecondaryNavigation modeId="prescribing" pathname="/medications/sertraline" hasSubmittedSearch />,
     );
@@ -168,7 +168,11 @@ describe("PageSecondaryNavigation", () => {
         hasSubmittedSearch={false}
       />,
     );
-    expect(screen.queryByTestId("secondary-navigation")).toBeNull();
+    expect(screen.getByTestId("mode-nav")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("href", "/therapy-compass/search");
+    expect(screen.getByRole("link", { name: "Recommend" })).toHaveAttribute("href", "/therapy-compass/recommend");
+    expect(screen.getByRole("link", { name: "Compare" })).toHaveAttribute("href", "/therapy-compass/compare");
+    expect(screen.getByRole("link", { name: "Pathways" })).toHaveAttribute("href", "/therapy-compass/pathways");
 
     rerender(
       <PageSecondaryNavigation

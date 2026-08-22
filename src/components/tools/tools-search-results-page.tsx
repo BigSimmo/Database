@@ -2,18 +2,12 @@
 
 import Link from "next/link";
 import {
-  Activity,
-  Brain,
+  BadgeCheck,
   ChevronRight,
   ClipboardList,
-  FileCheck2,
-  FileText,
-  Grid2X2,
   Palette,
-  Pill,
   Search,
   ShieldCheck,
-  Users,
   Waves,
   type LucideIcon,
 } from "lucide-react";
@@ -24,28 +18,34 @@ import {
   ResultFilterTrigger,
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
+import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { cardSelected, cardSurface, focusRing } from "@/components/card-recipes";
+import { CategoryIconTile } from "@/components/category-icon-tile";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
+import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
 import { cn, controlBase, floatingControl } from "@/components/ui-primitives";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
 import { normalizeSearchText } from "@/lib/catalog-search";
-import { toolCatalogRecords, toolSearchText, type ToolCatalogArea, type ToolCatalogRecord } from "@/lib/tools-catalog";
+import { toolIdentity } from "@/lib/category-identity";
+import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
+import { useAuthSession } from "@/lib/supabase/client";
+import {
+  toolCatalogRecordsForSession,
+  toolSearchText,
+  type ToolCatalogArea,
+  type ToolCatalogRecord,
+} from "@/lib/tools-catalog";
 
-const focusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-
-const iconByToolId: Record<string, LucideIcon> = {
-  "clinical-kb-search": Search,
-  differentials: Brain,
-  "medication-prescribing": Pill,
-  "risk-safety": ShieldCheck,
-  documents: FileText,
-  services: Users,
-  "ward-management": Activity,
-  forms: FileCheck2,
-};
+// A partial second copy of the launcher's icon map used to live here: 8 of the
+// 14 tools, with a `?? Grid2X2` fallback that silently gave `guidelines`,
+// `care-plans`, `safety-plan`, `calculators`, `monitoring`, and `ward-management`
+// a generic grid glyph on this page while the launcher showed them a real one.
+// Identity now comes from `src/lib/category-identity.ts`, where the record is
+// exhaustive by type, so the partial copy cannot come back.
 
 const filterOptions = [
   { id: "all", label: "All tools" },
@@ -53,6 +53,7 @@ const filterOptions = [
   { id: "reference", label: "Evidence" },
   { id: "care", label: "Treat" },
   { id: "coordination", label: "Coordinate" },
+  { id: "saved", label: "Saved" },
 ] as const satisfies ReadonlyArray<{ id: "all" | ToolCatalogArea; label: string }>;
 
 type FilterId = (typeof filterOptions)[number]["id"];
@@ -62,18 +63,15 @@ function subscribeNoop() {
   return () => undefined;
 }
 
+/**
+ * The tile was hardcoded to `--type-source` for every tool, so the whole results
+ * list read as one purple family while the launcher grouped the same tools into
+ * five. It now takes the area accent, matching both the launcher and the filter
+ * chips above the list.
+ */
 function ToolIcon({ tool, large = false }: { tool: ToolCatalogRecord; large?: boolean }) {
-  const Icon = iconByToolId[tool.id] ?? Grid2X2;
-  return (
-    <span
-      className={cn(
-        "grid shrink-0 place-items-center rounded-xl border border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)] shadow-[var(--shadow-inset)] forced-colors:border",
-        large ? "h-14 w-14" : "h-tap w-tap",
-      )}
-    >
-      <Icon className={large ? "h-7 w-7" : "h-5 w-5"} aria-hidden="true" />
-    </span>
-  );
+  const identity = toolIdentity(tool.id, tool.area);
+  return <CategoryIconTile icon={identity.icon} accent={identity.accent} size={large ? "md" : "sm"} />;
 }
 
 function ToolChips({ tool }: { tool: ToolCatalogRecord }) {
@@ -81,7 +79,7 @@ function ToolChips({ tool }: { tool: ToolCatalogRecord }) {
     <span className="flex flex-wrap gap-1.5">
       {tool.sourceBacked ? (
         <span className="inline-flex min-h-7 items-center gap-1 rounded-full border border-[color:var(--success-border)] bg-[color:var(--success-soft)] px-2.5 text-2xs font-bold text-[color:var(--success)] forced-colors:border">
-          <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+          <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
           Source-backed
         </span>
       ) : null}
@@ -230,11 +228,24 @@ function DetailActions({ tool }: { tool: ToolCatalogRecord }) {
 
 export function ToolsSearchResultsPage({
   initialQuery = "",
+  desktopComposerSlotId,
+  canAccessFavourites: canAccessFavouritesProp,
   testId = "tools-search-results-page",
 }: {
   initialQuery?: string;
+  desktopComposerSlotId?: string;
+  /** Optional deterministic override; defaults to the current auth/demo session gate. */
+  canAccessFavourites?: boolean;
   testId?: string;
 }) {
+  const auth = useAuthSession();
+  const clientDemoMode = resolveClientDemoMode({
+    explicitDemoMode: process.env.NEXT_PUBLIC_DEMO_MODE === "true",
+    authUnavailableFallback: !auth.isConfigured,
+    localNoAuthMode: isLocalNoAuthMode(),
+  });
+  const { favouritesAccessible } = useFavouritesAccess(auth.status === "authenticated", clientDemoMode);
+  const canAccessFavourites = canAccessFavouritesProp ?? favouritesAccessible;
   const searchCommand = useSearchCommand();
   const hydrated = useSyncExternalStore(
     subscribeNoop,
@@ -248,7 +259,7 @@ export function ToolsSearchResultsPage({
   const filterPanelId = useId();
   const [activeFilter, setActiveFilter] = useState<FilterId>("all");
   const [filterOpen, setFilterOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState("differentials");
+  const [selectedId, setSelectedId] = useState("");
   const [phoneDetailOpen, setPhoneDetailOpen] = useState(false);
   const [openSection, setOpenSection] = useState<DetailSectionId | null>(null);
   const detailReturnFocusRef = useRef<HTMLElement | null>(null);
@@ -267,12 +278,24 @@ export function ToolsSearchResultsPage({
     return () => desktopMedia.removeEventListener("change", closePhoneOverlaysOnDesktop);
   }, []);
 
+  const accessibleTools = useMemo(
+    () =>
+      toolCatalogRecordsForSession({
+        authenticated: canAccessFavourites,
+        demoMode: false,
+      }),
+    [canAccessFavourites],
+  );
+  const visibleFilterOptions = useMemo(
+    () => (canAccessFavourites ? filterOptions : filterOptions.filter((option) => option.id !== "saved")),
+    [canAccessFavourites],
+  );
+  const effectiveActiveFilter: FilterId = activeFilter === "saved" && !canAccessFavourites ? "all" : activeFilter;
+
   const queryMatchedTools = useMemo(() => {
     const normalized = normalizeSearchText(query);
-    return toolCatalogRecords.filter(
-      (tool) => (!normalized || toolSearchText(tool).includes(normalized)) && tool.id !== "favourites",
-    );
-  }, [query]);
+    return accessibleTools.filter((tool) => !normalized || toolSearchText(tool).includes(normalized));
+  }, [accessibleTools, query]);
 
   const filterCounts = useMemo<Record<FilterId, number>>(
     () => ({
@@ -281,24 +304,28 @@ export function ToolsSearchResultsPage({
       reference: queryMatchedTools.filter((tool) => tool.area === "reference").length,
       care: queryMatchedTools.filter((tool) => tool.area === "care").length,
       coordination: queryMatchedTools.filter((tool) => tool.area === "coordination").length,
+      saved: queryMatchedTools.filter((tool) => tool.area === "saved").length,
     }),
     [queryMatchedTools],
   );
 
   const filteredTools = useMemo(
-    () => (activeFilter === "all" ? queryMatchedTools : queryMatchedTools.filter((tool) => tool.area === activeFilter)),
-    [activeFilter, queryMatchedTools],
+    () =>
+      effectiveActiveFilter === "all"
+        ? queryMatchedTools
+        : queryMatchedTools.filter((tool) => tool.area === effectiveActiveFilter),
+    [effectiveActiveFilter, queryMatchedTools],
   );
 
   const filterControlOptions = useMemo(
     () =>
-      filterOptions.map((option) => ({
+      visibleFilterOptions.map((option) => ({
         value: option.id,
         label: option.label,
         hint: String(filterCounts[option.id]),
-        disabled: filterCounts[option.id] === 0 && activeFilter !== option.id,
+        disabled: filterCounts[option.id] === 0 && effectiveActiveFilter !== option.id,
       })),
-    [activeFilter, filterCounts],
+    [effectiveActiveFilter, filterCounts, visibleFilterOptions],
   );
 
   const selectedTool = filteredTools.find((tool) => tool.id === selectedId) ?? filteredTools[0] ?? null;
@@ -323,6 +350,14 @@ export function ToolsSearchResultsPage({
       data-testid={testId}
       className="mx-auto w-full max-w-[90rem] overflow-x-hidden px-4 pb-12 pt-4 text-[color:var(--text)] sm:px-6 sm:pt-6 lg:px-8 lg:pt-8"
     >
+      {desktopComposerSlotId ? (
+        <DesktopComposerPortalSlot
+          id={desktopComposerSlotId}
+          data-testid="tools-results-home-composer"
+          data-composer-reserve={modeHomeComposerReservePendingValue}
+          className="mode-home-composer-slot mx-auto mb-4 block w-full max-w-3xl min-h-0 data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)] sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] [&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)] sm:mb-6"
+        />
+      ) : null}
       <section
         className={cn(
           "mx-auto grid max-w-6xl gap-5 lg:items-start",
@@ -332,7 +367,7 @@ export function ToolsSearchResultsPage({
         <div className="min-w-0">
           <SearchResultsHeaderBand
             modeId="tools"
-            query={query}
+            query={query.trim() || "All tools"}
             matchCount={filteredTools.length}
             headingLevel={1}
             filterLabel="Filter tools by category"
@@ -341,7 +376,7 @@ export function ToolsSearchResultsPage({
                 panelId={filterPanelId}
                 testId="tools-search-filter-trigger-phone"
                 open={filterOpen}
-                activeCount={activeFilter === "all" ? 0 : 1}
+                activeCount={effectiveActiveFilter === "all" ? 0 : 1}
                 onToggle={() => setFilterOpen((current) => !current)}
                 title="Filter tools"
               />
@@ -349,7 +384,7 @@ export function ToolsSearchResultsPage({
             mobileControlsPlacement="inline"
             filterControls={
               <SegmentedControl
-                value={activeFilter}
+                value={effectiveActiveFilter}
                 onChange={setActiveFilter}
                 options={filterControlOptions}
                 label="Tool category"
@@ -366,13 +401,13 @@ export function ToolsSearchResultsPage({
               resultFilterGroup({
                 id: "category",
                 label: "Category",
-                value: activeFilter,
+                value: effectiveActiveFilter,
                 options: filterControlOptions,
                 onChange: setActiveFilter,
               }),
             ]}
-            onClearAll={activeFilter === "all" ? undefined : () => setActiveFilter("all")}
-            footerNote={`${filteredTools.length} showing`}
+            onClearAll={effectiveActiveFilter === "all" ? undefined : () => setActiveFilter("all")}
+            summary={{ count: filteredTools.length, noun: filteredTools.length === 1 ? "tool" : "tools" }}
           />
 
           <section aria-label="Tool results" className="mt-4 grid gap-3">
@@ -381,37 +416,47 @@ export function ToolsSearchResultsPage({
                 <article
                   key={tool.id}
                   data-selected={tool.id === selectedTool?.id || undefined}
+                  data-category-accent={toolIdentity(tool.id, tool.area).accent}
                   className={cn(
-                    "relative grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 overflow-hidden rounded-2xl border bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center",
-                    tool.id === selectedTool?.id
-                      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/35"
-                      : "border-[color:var(--border)]",
+                    cardSurface,
+                    "relative grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 overflow-hidden p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center",
+                    tool.id === selectedTool?.id && cardSelected,
                   )}
                 >
                   {tool.id === selectedTool?.id ? (
+                    // The selected rail takes the tool's own category accent
+                    // rather than the product blue, so it agrees with the tile
+                    // beside it instead of overriding it.
                     <span
                       aria-hidden="true"
-                      className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-[color:var(--clinical-accent)]"
+                      className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-[color:var(--cat-accent)]"
                     />
                   ) : null}
                   <ToolIcon tool={tool} />
                   <div className="min-w-0">
-                    <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">{tool.title}</h2>
+                    {/* Size over weight: `text-base font-extrabold` matched the
+                        results heading above the list, so thirteen rows read as
+                        thirteen headings. */}
+                    <h2 className="text-lg font-semibold leading-6 text-[color:var(--text-heading)]">{tool.title}</h2>
                     <p className="mt-1 line-clamp-2 text-sm leading-5 text-[color:var(--text-muted)]">
                       {tool.description}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
                       <ToolChips tool={tool} />
+                      {/* The magnifier here said nothing — "Best for" is not a
+                          search — and it spent an accent-coloured glyph on a
+                          label. Weight alone separates label from value. */}
                       <span className="hidden min-w-0 items-center gap-1.5 text-xs text-[color:var(--text-muted)] sm:inline-flex">
-                        <Search
-                          className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]"
-                          aria-hidden="true"
-                        />
-                        <span className="font-bold text-[color:var(--text)]">Best for</span>
+                        <span className="font-semibold text-[color:var(--text)]">Best for</span>
                         <span className="truncate">{tool.bestFor}</span>
                       </span>
                     </div>
                   </div>
+                  {/* Quiet, not primary. As a filled accent button this was
+                      thirteen primary actions competing down one list, none of
+                      them the page's actual primary action. It is still a real
+                      button — unlike the launcher's, this card is not itself the
+                      control — so it keeps a full tap target and visible edge. */}
                   <button
                     ref={(node) => {
                       if (tool.id === selectedTool?.id && node) detailReturnFocusRef.current = node;
@@ -419,13 +464,10 @@ export function ToolsSearchResultsPage({
                     type="button"
                     aria-label={`View details for ${tool.title}`}
                     onClick={(event) => openTool(tool, event.currentTarget)}
-                    className={cn(
-                      controlBase,
-                      "col-span-2 min-h-tap rounded-xl bg-[color:var(--clinical-accent)] px-4 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] sm:col-span-1",
-                    )}
+                    className={cn(floatingControl, "col-span-2 px-4 text-xs sm:col-span-1")}
                   >
                     Details
-                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                    <ChevronRight className="size-icon-md" aria-hidden="true" />
                   </button>
                 </article>
               ))
@@ -434,8 +476,11 @@ export function ToolsSearchResultsPage({
                 <Search className="h-7 w-7 text-[color:var(--clinical-accent)]" aria-hidden="true" />
                 <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">No tools match</h2>
                 <p className="max-w-md text-sm text-[color:var(--text-muted)]">
-                  Refine the search above or choose another tool category.
+                  Try another search or return to the full tools catalogue.
                 </p>
+                <Link href="/tools" className={floatingControl}>
+                  Show all tools
+                </Link>
               </div>
             )}
           </section>

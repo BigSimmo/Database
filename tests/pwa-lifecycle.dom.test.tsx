@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -132,10 +134,8 @@ describe("PwaLifecycle", () => {
 
     Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
     fireEvent.offline(window);
-    expect(await screen.findByRole("region", { name: "You appear to be offline" })).toBeInTheDocument();
-    expect(
-      screen.getByText(/clinical search, answers, private documents, uploads, and account data require a connection/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "You’re offline" })).toBeInTheDocument();
+    expect(screen.getByText("Clinical search and private features need a connection.")).toBeInTheDocument();
 
     Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
     fireEvent.online(window);
@@ -148,16 +148,16 @@ describe("PwaLifecycle", () => {
 
     Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
     fireEvent.offline(window);
-    expect(await screen.findByRole("region", { name: "You appear to be offline" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "You’re offline" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Dismiss offline notice" }));
-    expect(screen.queryByRole("region", { name: "You appear to be offline" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "You’re offline" })).not.toBeInTheDocument();
 
     Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
     fireEvent.online(window);
     Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
     fireEvent.offline(window);
-    expect(await screen.findByRole("region", { name: "You appear to be offline" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "You’re offline" })).toBeInTheDocument();
   });
 
   it("shows install UI only after browser eligibility and invokes the deferred prompt from a user action", async () => {
@@ -168,6 +168,15 @@ describe("PwaLifecycle", () => {
     const prompt = dispatchInstallEligibility();
     const installRegion = await screen.findByRole("region", { name: "Install Clinical KB" });
     expect(installRegion).toBeInTheDocument();
+    expect(installRegion).toHaveTextContent("Clinical guidelines on your home screen.");
+    expect(installRegion).toHaveTextContent(
+      "Open it from your device like an app. Private clinical features still require a connection.",
+    );
+    expect(installRegion).toHaveTextContent("Free · No app store · Takes a few seconds");
+    expect(screen.getByRole("list", { name: "Install benefits" })).toHaveTextContent(
+      "Quick accessApp-like launchFamiliar workspace",
+    );
+    expect(screen.getByRole("button", { name: "Dismiss install prompt" })).toHaveTextContent("Dismiss");
 
     await user.click(screen.getByRole("button", { name: "Install app" }));
     expect(prompt).toHaveBeenCalledTimes(1);
@@ -181,12 +190,12 @@ describe("PwaLifecycle", () => {
     const user = userEvent.setup();
     render(<PwaLifecycle />);
 
-    expect(await screen.findByText("An update is ready")).toBeInTheDocument();
+    expect(await screen.findByText("Update available")).toBeInTheDocument();
     dispatchInstallEligibility();
     expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument();
     expect(waitingWorker.postMessage).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "Refresh now" }));
+    await user.click(screen.getByRole("button", { name: "Reload" }));
     expect(waitingWorker.postMessage).toHaveBeenCalledWith({ type: "SKIP_WAITING" });
   });
 
@@ -200,8 +209,9 @@ describe("PwaLifecycle", () => {
       container.dispatchEvent(new Event("controllerchange"));
     });
 
-    expect(await screen.findByRole("region", { name: "An update is ready" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Refresh now" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Update available" })).toBeInTheDocument();
+    expect(screen.getByText("Reload when convenient to use the latest version.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Later" })).toBeInTheDocument();
   });
 
@@ -215,7 +225,7 @@ describe("PwaLifecycle", () => {
       container.dispatchEvent(new Event("controllerchange"));
     });
 
-    expect(screen.queryByRole("region", { name: "An update is ready" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Update available" })).not.toBeInTheDocument();
   });
 
   it("shows the one-time iOS Add to Home Screen hint and honours its dismissal window", async () => {
@@ -229,8 +239,12 @@ describe("PwaLifecycle", () => {
       const { unmount } = render(<PwaLifecycle />);
 
       const hint = await screen.findByRole("region", { name: "Install Clinical KB" });
-      expect(hint).toHaveTextContent(/tap Share, then Add to Home Screen/i);
-      expect(hint).toHaveTextContent(/still require a connection/i);
+      expect(hint).toHaveTextContent("In Safari, tap Share, then Add to Home Screen.");
+      expect(hint).toHaveTextContent("Private clinical features still require a connection.");
+      expect(screen.getByRole("list", { name: "Add Clinical KB to your Home Screen" })).toHaveTextContent(
+        "1. Tap Share2. Add to Home Screen",
+      );
+      expect(screen.queryByRole("button", { name: "Install app" })).not.toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "Not now" }));
       await waitFor(() =>
@@ -243,6 +257,168 @@ describe("PwaLifecycle", () => {
       expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument();
     } finally {
       delete (navigator as { userAgent?: string }).userAgent;
+    }
+  });
+});
+
+describe("notice-stack swap settling", () => {
+  // .pwa-notice-stack is position: fixed, bottom-anchored. Root-caused from a
+  // downloaded Lighthouse mobile-root trace (PR #2199/#2204 CI, 2026-08-21):
+  // audits["layout-shifts"] named .pwa-notice-stack as a real shift source at
+  // score 0.223. scripts/measure-cls-attribution.mjs reproduced the mechanism
+  // directly: when the offline card clears the same instant a different card
+  // (connection-restored / the install prompt) appears — both driven by the
+  // same `online` event landing in one React commit — the stack's height
+  // changes while it is already on screen, moving its painted top edge. A
+  // brand-new mount from an unmounted stack does not shift anything (proven
+  // with the same harness: a synthetic beforeinstallprompt alone, with no
+  // other card ever visible, measured 0 shift). useSettledNoticeSignature
+  // forces every transition between two different non-empty card
+  // combinations through one fully-unmounted frame so the swap always
+  // reads as "nothing -> something" instead of "one box resizing into
+  // another" while already visible.
+  it("passes through an unmounted frame when the offline card is replaced by the connection-restored card", async () => {
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    try {
+      render(<PwaLifecycle />);
+      await screen.findByRole("region", { name: "You’re offline" });
+
+      await act(async () => {
+        Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
+        window.dispatchEvent(new Event("online"));
+      });
+
+      // Immediately after the commit that clears the offline card, the stack
+      // must be fully empty — not already showing connection-restored — or
+      // the swap resizes an already-visible fixed element.
+      expect(screen.queryByRole("region", { name: "You’re offline" })).not.toBeInTheDocument();
+      expect(screen.queryByText("Connection restored")).not.toBeInTheDocument();
+
+      await screen.findByText("Connection restored");
+    } finally {
+      Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
+    }
+  });
+});
+
+describe("notice stack waits out the app-shell gap", () => {
+  // `#TYZK23`, root-caused and reproduced. Every phone geometry rule for this
+  // component selects on `body:has(#main-content[data-phone-footer-owner=
+  // "hero"])`, and `#main-content` is not merely late — it briefly STOPS
+  // EXISTING while React swaps the route in and hydrates. Measured on `/` at
+  // Lighthouse's 412x823 mobile emulation, install prompt firing early on a
+  // throttled connection: shell at 4726ms, gone at 7855ms, the install card
+  // mounts at 9083ms inside the gap (401px tall, bottom 731), the shell returns
+  // at 9930ms and the card is restyled to 161px at bottom 815 — one shift,
+  // 0.2230, matching CI's mobile-root breach. With the gate the same run
+  // measures 0.000 and the card mounts straight at its settled 161px.
+  //
+  // NOTE ON ORDER: releasing on `load` is deliberately limited to a document
+  // whose shell has NEVER appeared (a 404 or error page renders no
+  // `#main-content`), which the earlier cases in this file cover — they render
+  // with no shell and still receive notices. These cases mount one, so they run
+  // after those by declaration order.
+  function mountAppShell() {
+    const main = document.createElement("main");
+    main.id = "main-content";
+    main.setAttribute("data-phone-footer-owner", "hero");
+    document.body.appendChild(main);
+    return main;
+  }
+
+  it("holds the stack while the shell is momentarily absent, even after load", async () => {
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    const shell = mountAppShell();
+    try {
+      render(<PwaLifecycle />);
+      await screen.findByRole("region", { name: "You\u2019re offline" });
+
+      // The hydration gap. `document.readyState` is already "complete" here,
+      // which is exactly why a bare readyState fallback does not hold: it
+      // released the stack into this window and the restyle followed.
+      expect(document.readyState).toBe("complete");
+      await act(async () => {
+        shell.remove();
+      });
+      expect(screen.queryByRole("region", { name: "You\u2019re offline" })).not.toBeInTheDocument();
+
+      await act(async () => {
+        mountAppShell();
+      });
+      await screen.findByRole("region", { name: "You\u2019re offline" });
+    } finally {
+      document.getElementById("main-content")?.remove();
+      Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
+    }
+  });
+});
+
+describe("notice stack positioning", () => {
+  it("does not gate the mobile-home stack position on an asynchronously mounted install card", () => {
+    const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
+
+    expect(styles).toContain('body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-notice-stack');
+    expect(styles).not.toContain(
+      'body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-notice-stack',
+    );
+  });
+});
+
+describe("notice entrance animation", () => {
+  it("keeps the asynchronously mounted notice geometry stable", () => {
+    const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
+    const start = styles.indexOf("@keyframes pwa-notice-in");
+    const end = styles.indexOf("@media (min-width: 640px)", start);
+    const keyframes = styles.slice(start, end);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(keyframes).toContain("opacity");
+    expect(keyframes).not.toMatch(
+      /\b(?:transform|translate|scale|top|right|bottom|left|margin|padding|width|height)\b/,
+    );
+  });
+});
+
+describe("notice-stack hero-compact geometry selectors", () => {
+  // The phone-hero compacting rules for the native install card each gate on
+  // ONE :has() (hero-composer ownership on #main-content, a static per-route
+  // render prop that never changes after first paint) plus a plain descendant
+  // combinator off .pwa-install-native-sheet. A rule chaining a SECOND
+  // :has(.pwa-install-native-sheet) instead re-derives, via ancestor-existence
+  // matching, a fact the DOM tree already guarantees through containment —
+  // the exact pattern root-caused for .pwa-notice-stack's own bottom-gap rule
+  // (mobile-root Lighthouse CLS 0.223, layout-shifts audit naming
+  // .pwa-notice-stack; see docs/outstanding-issues.md "bistable"). Guard every
+  // rule in the block, not just one, so a future edit cannot silently
+  // reintroduce the two-:has() shape on a sibling selector.
+  it("never re-gates the native install card's compacting rules on a second :has(.pwa-install-native-sheet)", () => {
+    const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
+    const start = styles.indexOf(
+      '@media (max-width: 639.98px) {\n  body:has(#main-content[data-phone-footer-owner="hero"])',
+    );
+    const end = styles.indexOf("\n}", start);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const block = styles.slice(start, end);
+
+    expect(block).not.toContain(':has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet)');
+    for (const selector of [
+      ".pwa-notice-stack",
+      ".pwa-install-grip",
+      ".pwa-install-tagline",
+      ".pwa-install-copy",
+      ".pwa-install-support",
+      ".pwa-install-benefits",
+      ".pwa-install-header",
+      ".pwa-install-body",
+      ".pwa-install-compact-copy",
+      ".pwa-install-actions",
+    ]) {
+      expect(block).toContain(
+        `body:has(#main-content[data-phone-footer-owner="hero"]) ${selector === ".pwa-notice-stack" ? selector : `.pwa-install-native-sheet ${selector}`}`,
+      );
     }
   });
 });

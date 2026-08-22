@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "d194f4ec-568c-4689-a411-22447c59fb53",
+  "createdOn": "2026-08-15",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Recurring 'Unhandled server request error' on /api/search and /api/search/universal is untriaged",
+    "detail": "Three Sentry issue groups in clinibase-xz over 24h (JAVASCRIPT-NEXTJS-Y, -Z, -10), 17 events, 0 users impacted, all titled 'Error: Unhandled server request error' with culprit chunk 1261.js:2:4801. Top frames are /api/search/route.js and /api/search/universal/route.js. First seen 2026-08-14T08:44:37Z on release c9b089c92c975297c10649b005401d5ae337cf48, roughly six hours BEFORE PR #1946 merged, so it is not caused by the retrieval row contract; the post-merge group is the same error refingerprinted by the release change. The error string does not appear anywhere in repo source, so it likely originates in a dependency or an instrumentation wrapper — origin unidentified. Nobody owns this. Next step: identify what throws it, then decide whether it is a bot/scanner artefact or a real request-handling gap.",
+    "source": "Sentry clinibase-xz, reviewed 2026-08-15"
+  }
+}

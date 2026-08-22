@@ -33,6 +33,9 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
     return true;
   // factsheets/factsheet-nav-header.tsx, mounted by the detail page.
   if (isSlugDetail(pathname, "/factsheets", ["search"])) return true;
+  if (isSlugDetail(pathname, "/dictionary", ["search", "browse", "topics", "compare", "sources"])) return true;
+  if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
+    return true;
   // clinical-dashboard/medication-nav-header.tsx, mounted by
   // `MedicationRecordPage`. The header drives the panel swap that
   // `SectionTabs` used to own, so the record page now claims the slot too.
@@ -49,5 +52,10 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // — the record and its `/differentials` child, but not /dsm/search or
   // /dsm/compare.
   if (pathname.startsWith("/dsm/diagnoses/")) return true;
+  // developer-area/developer-hub-nav-header.tsx, mounted by the hub index page
+  // only. Its `/ledger` child route owns no header of its own — a plain
+  // back-link `<Link>` — so an exact match is correct here, not a prefix: a
+  // `startsWith` would wrongly claim the slot for that child route too.
+  if (pathname === "/mockups/development") return true;
   return false;
 }

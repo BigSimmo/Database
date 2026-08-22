@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "71399b63-cce0-46d4-9fc3-c5fdc617289d",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Adversarial divergence (S5 harness pin): cite-mismatched-attribution — offline document-match listing cites every retrieved document, not only the claim-bearing one",
+    "detail": "Pinned in tests/rag-adversarial-harness.test.ts KNOWN_DIVERGENCES (self-expiring: the harness asserts the normative B0 fixture contract still FAILS; when behaviour reaches the fixture expectation the pin goes red and must be deleted). Observed shape: cited chunk ids [syn-cite-attrib-a, syn-cite-attrib-b], grounded true, answerQualityTier source_only — the document-match listing attributes both retrieved documents although only one carries the claim. Fixture: scripts/fixtures/rag-adversarial-cases.v1.json case cite-mismatched-attribution (category citation_fabrication). Safety invariants (network, budget, canary absence, forbidden substrings, tenancy) hold; only citation attribution precision diverges. Next: decide whether the document-match listing should cite only claim-bearing documents (RAG-surface change; own PR; RAG impact line; offline harness proves the pin flips; canary pair). Stop: do not delete the pin without the behaviour change; do not weaken the fixture.",
+    "source": "RAG programme coordinator, packet S5 (PR #2056) follow-ups, 2026-08-17",
+    "issueUlid": "01M08C19FYVXB8XATJE3TYZJMS"
+  }
+}

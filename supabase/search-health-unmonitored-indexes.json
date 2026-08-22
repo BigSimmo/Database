@@ -1,0 +1,221 @@
+{
+  "_comment": "Runtime index-monitoring ratchet (docs/database-drift-detection.md, 'Runtime index-monitoring ratchet'). Every repo-defined index on the retrieval-critical tables (documents, document_chunks, document_index_units, document_embedding_fields, document_memory_cards, rag_retrieval_logs) must be either monitored by search_schema_health() required_indexes/index_aliases or listed here with a reason and a disposition. `accepted-unmonitored`: absence would degrade an operational path but not clinical retrieval, and check:drift's full index inventory still reports it missing. `monitor-candidate`: retrieval-facing or currently absent on live (forensics section 1.3, 2026-08-14) — a Phase 4.4 migration extending required_indexes must decide it; it stays visibly flagged here until then. The disposition is currently unused: all eight 2026-08-18 candidates were decided by 20260819100300_monitor_restored_retrieval_indexes.sql and are now monitored, so they were removed from this file (the test rejects a listed index that is also monitored). It remains available for the next index this scope acquires. required_indexes changes travel by migration only, never by editing schema.sql. tests/search-health-index-coverage.test.ts enforces this file. Seeded 2026-08-18 with 44 entries; 2026-08-19 (Phase 4.4, ledger #316): the 8 monitor-candidates entered required_indexes, leaving 36 accepted-unmonitored.",
+  "unmonitored": [
+    {
+      "index": "documents_owner_content_hash_unique_idx",
+      "table": "documents",
+      "disposition": "accepted-unmonitored",
+      "reason": "Upload dedup uniqueness for owner+content_hash; ingestion correctness, not the retrieval read path; check:drift index inventory reports absence"
+    },
+    {
+      "index": "documents_owner_status_idx",
+      "table": "documents",
+      "disposition": "accepted-unmonitored",
+      "reason": "Owner+status listing/queue index for the documents mode and ingestion dashboards; operational, not the answer retrieval path"
+    },
+    {
+      "index": "documents_import_batch_idx",
+      "table": "documents",
+      "disposition": "accepted-unmonitored",
+      "reason": "Bulk-import batch lookup; ingestion-side operational index with no role in retrieval RPCs"
+    },
+    {
+      "index": "documents_indexing_v3_agent_claim_idx",
+      "table": "documents",
+      "disposition": "accepted-unmonitored",
+      "reason": "Indexing-v3 agent claim scan support; worker/queue path, not the retrieval read path"
+    },
+    {
+      "index": "documents_owner_id_covering_idx",
+      "table": "documents",
+      "disposition": "accepted-unmonitored",
+      "reason": "Owner covering index for owner-scoped document listings; documents_indexed_owner_title_idx already covers the monitored owner+indexed retrieval predicate"
+    },
+    {
+      "index": "documents_indexed_updated_at_idx",
+      "table": "documents",
+      "disposition": "accepted-unmonitored",
+      "reason": "Recency ordering for indexed documents in listings and registry sync; operational ordering, not retrieval matching"
+    },
+    {
+      "index": "documents_owner_updated_at_indexed_idx",
+      "table": "documents",
+      "disposition": "accepted-unmonitored",
+      "reason": "Owner+updated_at listing index added 2026-07-20 for the documents mode; operational, not the answer retrieval path"
+    },
+    {
+      "index": "documents_status_idx",
+      "table": "documents",
+      "disposition": "accepted-unmonitored",
+      "reason": "Plain status index, codified into the chain by 20260818111000 (was schema.sql-only — drift backlog item 10, forensics 2.3 b); operational status scans"
+    },
+    {
+      "index": "document_chunks_content_hash_idx",
+      "table": "document_chunks",
+      "disposition": "accepted-unmonitored",
+      "reason": "Chunk content-hash dedup during reindex; ingestion-side, absence slows reindex but not retrieval"
+    },
+    {
+      "index": "document_chunks_generation_idx",
+      "table": "document_chunks",
+      "disposition": "accepted-unmonitored",
+      "reason": "Index-generation bookkeeping used by the atomic reindex commit; ingestion path, not retrieval matching"
+    },
+    {
+      "index": "document_chunks_document_generation_chunk_idx",
+      "table": "document_chunks",
+      "disposition": "accepted-unmonitored",
+      "reason": "Unique document+generation+chunk_index guard for atomic reindex commits; ingestion correctness, not the retrieval read path"
+    },
+    {
+      "index": "document_chunks_document_id_idx",
+      "table": "document_chunks",
+      "disposition": "accepted-unmonitored",
+      "reason": "Redundant with the monitored document_chunks_document_idx (same leading column); codified from live for FK support only"
+    },
+    {
+      "index": "document_chunks_meta_rag_indexing_version_idx",
+      "table": "document_chunks",
+      "disposition": "accepted-unmonitored",
+      "reason": "Version-tag scan for reindex campaigns (metadata rag_indexing_version); operational, not retrieval matching"
+    },
+    {
+      "index": "document_embedding_fields_dedup_idx",
+      "table": "document_embedding_fields",
+      "disposition": "accepted-unmonitored",
+      "reason": "Unique dedup guard on embedding fields; ingestion correctness, not the retrieval read path"
+    },
+    {
+      "index": "document_embedding_fields_document_generation_idx",
+      "table": "document_embedding_fields",
+      "disposition": "accepted-unmonitored",
+      "reason": "Index-generation bookkeeping for atomic reindex commits; ingestion path"
+    },
+    {
+      "index": "document_embedding_fields_document_id_idx",
+      "table": "document_embedding_fields",
+      "disposition": "accepted-unmonitored",
+      "reason": "Redundant with the monitored document_embedding_fields_document_idx (same leading column); codified from live for FK support only"
+    },
+    {
+      "index": "document_embedding_fields_meta_rag_indexing_version_idx",
+      "table": "document_embedding_fields",
+      "disposition": "accepted-unmonitored",
+      "reason": "Version-tag scan index for reindex campaigns, codified into the chain by 20260818111000 (was schema.sql-only — drift backlog item 10); operational"
+    },
+    {
+      "index": "document_embedding_fields_owner_document_created_idx",
+      "table": "document_embedding_fields",
+      "disposition": "accepted-unmonitored",
+      "reason": "Owner+document+created listing index, codified into the chain by 20260818111000 (was schema.sql-only — drift backlog item 10); the monitored document_embedding_fields_owner_chunk_idx covers the retrieval owner predicate"
+    },
+    {
+      "index": "document_embedding_fields_owner_id_idx",
+      "table": "document_embedding_fields",
+      "disposition": "accepted-unmonitored",
+      "reason": "Rename target of the dropped document_embedding_fields_owner_idx, codified into the chain by 20260818111000 (was schema.sql-only — drift backlog item 10); owner FK support, superseded for retrieval by document_embedding_fields_owner_chunk_idx"
+    },
+    {
+      "index": "document_embedding_fields_source_chunk_id_idx",
+      "table": "document_embedding_fields",
+      "disposition": "accepted-unmonitored",
+      "reason": "source_chunk_id FK support, codified into the chain by 20260818111000 (was schema.sql-only — drift backlog item 10); join support for cleanup, not retrieval matching"
+    },
+    {
+      "index": "document_index_units_chunk_idx",
+      "table": "document_index_units",
+      "disposition": "accepted-unmonitored",
+      "reason": "chunk_id FK support for index units; join/cleanup path, the monitored owner_chunk_type index covers the retrieval predicate"
+    },
+    {
+      "index": "document_index_units_document_generation_idx",
+      "table": "document_index_units",
+      "disposition": "accepted-unmonitored",
+      "reason": "Index-generation bookkeeping for atomic reindex commits; ingestion path"
+    },
+    {
+      "index": "document_index_units_document_id_idx",
+      "table": "document_index_units",
+      "disposition": "accepted-unmonitored",
+      "reason": "Redundant with the monitored document_index_units_document_idx (same leading column); codified from live for FK support only"
+    },
+    {
+      "index": "document_index_units_image_idx",
+      "table": "document_index_units",
+      "disposition": "accepted-unmonitored",
+      "reason": "image_id FK support for visual index units; join/cleanup path, not the retrieval predicate"
+    },
+    {
+      "index": "document_index_units_owner_document_created_idx",
+      "table": "document_index_units",
+      "disposition": "accepted-unmonitored",
+      "reason": "Owner+document+created listing index codified from live; operational ordering, retrieval uses owner_chunk_type"
+    },
+    {
+      "index": "document_index_units_owner_id_idx",
+      "table": "document_index_units",
+      "disposition": "accepted-unmonitored",
+      "reason": "Plain owner FK support codified from live; the monitored document_index_units_owner_chunk_type_idx covers the retrieval owner predicate"
+    },
+    {
+      "index": "document_index_units_owner_type_idx",
+      "table": "document_index_units",
+      "disposition": "accepted-unmonitored",
+      "reason": "Owner+unit_type prefix of the monitored owner_chunk_type index; retained for older query shapes, retrieval predicate already monitored"
+    },
+    {
+      "index": "document_index_units_producer_generation_idx",
+      "table": "document_index_units",
+      "disposition": "accepted-unmonitored",
+      "reason": "Producer-scoped generation bookkeeping for deep-memory commits; ingestion path"
+    },
+    {
+      "index": "document_index_units_source_chunk_id_idx",
+      "table": "document_index_units",
+      "disposition": "accepted-unmonitored",
+      "reason": "source_chunk_id FK support codified from live; join/cleanup path"
+    },
+    {
+      "index": "document_index_units_source_image_id_idx",
+      "table": "document_index_units",
+      "disposition": "accepted-unmonitored",
+      "reason": "source_image_id FK support codified from live; join/cleanup path"
+    },
+    {
+      "index": "document_memory_cards_document_generation_idx",
+      "table": "document_memory_cards",
+      "disposition": "accepted-unmonitored",
+      "reason": "Index-generation bookkeeping for atomic reindex commits; ingestion path"
+    },
+    {
+      "index": "document_memory_cards_document_id_idx",
+      "table": "document_memory_cards",
+      "disposition": "accepted-unmonitored",
+      "reason": "Redundant with the monitored document_memory_cards_document_idx (same leading column); codified from live for FK support only"
+    },
+    {
+      "index": "document_memory_cards_owner_document_created_idx",
+      "table": "document_memory_cards",
+      "disposition": "accepted-unmonitored",
+      "reason": "Owner+document+created listing index codified from live; operational ordering"
+    },
+    {
+      "index": "document_memory_cards_owner_idx",
+      "table": "document_memory_cards",
+      "disposition": "accepted-unmonitored",
+      "reason": "Owner FK/RLS support for memory cards; owner predicate is enforced in the hybrid RPC body and the monitored HNSW index carries the retrieval load"
+    },
+    {
+      "index": "document_memory_cards_producer_generation_idx",
+      "table": "document_memory_cards",
+      "disposition": "accepted-unmonitored",
+      "reason": "Producer-scoped generation bookkeeping for deep-memory commits; ingestion path"
+    },
+    {
+      "index": "document_memory_cards_section_idx",
+      "table": "document_memory_cards",
+      "disposition": "accepted-unmonitored",
+      "reason": "section_id FK support for memory cards; join/cleanup path, not the retrieval predicate"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # Database drift detection (`npm run check:drift`)
 
-Last updated: 2026-07-10
+Last updated: 2026-08-18 (migration-history probe, guard-migration contract, index-monitoring ratchet — remediation plan Phase 6)
 
 This repo's worst operational incidents were live-vs-repo schema drift: hybrid
 retrieval RPCs silently broken on live for an unknown period, and migrations
@@ -13,11 +13,12 @@ application-owned object against `supabase/schema.sql`.
 
 Three committed artifacts:
 
-| Artifact                                                       | Role                                                                                                                                                                                                                                        |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `supabase/migrations/20260706200000_schema_drift_snapshot.sql` | `public.schema_drift_snapshot()` — service-role-only RPC returning the normalized live inventory (also declared in `supabase/schema.sql`; a test enforces byte parity).                                                                     |
-| `supabase/drift-manifest.json`                                 | The expected state: the same snapshot captured from a **from-scratch replay of `supabase/schema.sql`** into a disposable `supabase/postgres` Docker container (`npm run drift:manifest`). Embeds the sha256 of the schema.sql it came from. |
-| `supabase/drift-allowlist.json`                                | Known, documented divergence (each entry has a `reason`). Reported as warnings; anything not listed fails the check.                                                                                                                        |
+| Artifact                                                                     | Role                                                                                                                                                                                                                                                             |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `supabase/migrations/20260818090000_schema_drift_snapshot_history_probe.sql` | `public.schema_drift_snapshot()` v2 — service-role-only RPC returning the normalized live inventory plus the migration-history probe (supersedes `20260706200000`; also declared in `supabase/schema.sql`; a test enforces byte parity with the latest definer). |
+| `supabase/drift-manifest.json`                                               | The expected state: the same snapshot captured from a **from-scratch replay of `supabase/schema.sql`** into a disposable `supabase/postgres` Docker container (`npm run drift:manifest`). Embeds the sha256 of the schema.sql it came from.                      |
+| `supabase/drift-allowlist.json`                                              | Known, documented divergence (each entry has a `reason`; `migration_history` entries also need a `guard`). Reported as warnings; anything not listed fails the check.                                                                                            |
+| `supabase/search-health-unmonitored-indexes.json`                            | The runtime index-monitoring ratchet: every repo-defined index on a retrieval-critical table that `search_schema_health()` does not monitor, with a reason and disposition (see below).                                                                          |
 
 `npm run check:drift` (needs live service-role env) verifies the project ref,
 fails fast if the manifest is stale, calls the RPC, diffs, applies the
@@ -43,9 +44,11 @@ storage bucket rows + storage.objects policies.
 - **Column ordinal drift** — live tables grew via `ALTER TABLE ADD COLUMN`;
   columns compare sorted by name, not `attnum`.
 - **ACL append order** — aclitem arrays are sorted.
-- **Duplicate migration-history versions** — history is _not_ compared at all;
-  the check compares actual object state (history presence proved unreliable:
-  see `20260703030000` below).
+- **Duplicate migration-history versions** — history _presence_ is not compared;
+  the object categories compare actual object state (history presence proved
+  unreliable: see `20260703030000` below). The one thing the check now reads
+  from history is the no-statements fingerprint ("Migration-history probe"
+  below), and that is compared live-vs-allowlist, never manifest-vs-live.
 - **Platform-provisioned extensions** (pg_net, pgsodium, pgmq, …) — extra live
   extensions are informational; missing schema.sql-declared ones fail.
 - **Legacy index names** — `alias` allowlist entries assert the live database
@@ -77,6 +80,182 @@ missing on live despite an applied history):
 Both are decisions rather than defects: adding validity to the snapshot RPC is
 a migration, and raising the cadence spends provider budget. Recorded so the
 gap is chosen, not assumed away.
+
+A third limit was closed on the repo side by remediation-plan Phase 6 (2026-08-18)
+and is live once migration `20260818090000` is deployed: **history repairs were
+invisible.** The check compared object state only, so a `supabase_migrations`
+version recorded without executed DDL stayed silent until its objects went
+missing. The probe below turns that into a finding.
+
+## Migration-history probe
+
+`schema_drift_snapshot()` v2 (migration
+`20260818090000_schema_drift_snapshot_history_probe.sql`; plan §6.1;
+evidence `docs/audit/live-drift-forensics-2026-08.md` §1.1/§1.3) adds two keys:
+
+| Key                       | Value                                                                                                                                                                                           |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `migration_history`       | `[{version, name, signal}]` — every `supabase_migrations.schema_migrations` row where `statements IS NULL` (`signal: "null"`) or `cardinality(statements) = 0` (`"empty"`), ordered by version. |
+| `migration_history_probe` | `"ok"`, `"no_history_table"` (the schema does not exist — true of every `drift:manifest` replay container), or `"no_statements_column"` (very old CLI history table). Never a silent `[]`.      |
+
+Why the fingerprint matters: the CLI records the executed statements on every
+`db push`; a row with none is a mark-applied / `migration repair --status
+applied` / hand-applied version whose DDL the CLI never ran. §1.1 found the
+2026-07-01…02 cluster and the 2026-07-12 batch in that state. §1.3 also found
+migrations that **did** record executed DDL yet whose indexes are absent, so
+the probe is a second signal beside the object inventory, never a replacement.
+
+How `check:drift` treats it (`scripts/check-drift.ts`):
+
+- The category is **never compared manifest-vs-live** — the manifest holds
+  `migration_history_probe: "no_history_table"` and `[]`, and the generic
+  category loop deliberately excludes it. Each live row is a finding of kind
+  `no_statements` unless a validated `migration_history` allowlist entry covers
+  that exact version. Output line: `  ! [migration_history] no_statements
+<version> :: <name> (statements null|empty) — …`, captured by
+  `live-drift.yml`'s findings grep and routed into the pinned issue.
+- A malformed entry (missing/unknown class, guard file absent, wrong ordering,
+  pre-contract class on a post-contract version) never matches: the row stays
+  a finding and the entry is printed under stale entries with the reasons.
+- If the live payload lacks the key (probe not deployed), the run prints an
+  `info:` line and the function `def_hash` mismatch on `schema_drift_snapshot`
+  itself is the visible "deploy pending" signal — that is the ordinary
+  repo-ahead mechanism, not a special case. Deployment is a separately approved
+  production migration window (plan approval map, Phase 6.1, after Phase 4).
+
+**Live state after Phase 6.2 (2026-08-19).** The probe went live on production on
+2026-08-18 (forensics §3.7) and reported exactly twenty no-statements rows: the
+2026-07-01…07-02 cluster and the 2026-07-12 batch of §1.1. All twenty are now
+covered — five seeded `superseded` entries (`20260701010000`, `020000`, `030000`,
+`060000`, `20260702000000`) and fifteen `validation` entries pointing at the six
+Phase 6.2 guard migrations `20260819110000`…`20260819110500` (dropped objects,
+comments + retention cron, document foreign keys, operational index shapes, the
+`index_generation_id` promotion, function bodies; see forensics §"6.2
+completion" for the per-version classification). Those guards were applied to
+production by a real `supabase db push` and to staging by the Phase 2 method, so
+their own history rows carry statements and can never themselves surface in the
+probe. **Any `[migration_history] no_statements` line from now on is therefore
+new history repair**, not known backlog: it means someone marked a version
+applied without executing it and without shipping a guard — the exact event the
+contract forbids. Treat it as a P1 finding: author the guard first, never
+allowlist bare. Versions the live probe does not report surface as stale
+entries, which is how a wrong seed is caught; against staging every
+`migration_history` entry reads stale by design (staging's chain was replayed
+with statements), so never run `--prune-stale` there.
+
+## Migration-history alignment (`npm run check:migration-history`)
+
+A second, separate step of `.github/workflows/live-drift.yml`, added by Phase 0
+(PR #1939). It compares the versions in `supabase/migrations` against the versions
+recorded in live `supabase_migrations.schema_migrations` and fails when live holds
+a version with no local file — the state that makes a hosted Supabase Preview
+branch fail with "Remote migration versions not found in local migrations
+directory". It is not the probe above: the probe asks whether an applied version
+executed its DDL, this asks whether an applied version exists in the repo at all.
+
+**It could never pass on this project until 2026-08-20.** The original
+implementation read the history table straight through PostgREST with
+`Accept-Profile: supabase_migrations`, and this project has never exposed that
+schema to the Data API, so the read returned `406 PGRST106` every time. The defect
+stayed hidden because the drift comparison ran first and always failed, leaving
+this step `skipped`; Phase 6.2 cleared the last drift finding on 2026-08-19 and the
+step ran for the first time ever, becoming the sole reason the job still concluded
+`failure` — and therefore the sole reason pinned issue #1963 stayed open against a
+clean database.
+
+The read now goes through **`public.migration_history_versions()`** (migration
+`20260820120000`), a `stable` `security definer` function with `search_path` pinned
+to `''`, granted to `service_role` only, that returns `{probe, versions}` for every
+row of the history table. It is deliberately the smallest possible authority:
+exposing `supabase_migrations` to the Data API would widen the public API surface
+of a clinical project for one weekly read, and routing through the management API
+would put an account-scoped access token into CI.
+
+The Accept-Profile read is retained as a fallback for any environment that does
+expose the schema, and is tried **only** when the RPC itself is absent. Every other
+outcome is an error, including a database with no history table at all
+(`probe: no_history_table`) — a check that reports "aligned" because it could not
+look would be worse than the red job it replaced. When neither path works the
+failure names the remedy: apply `20260820120000` through the normal linked
+migration workflow. Pinned by `tests/migration-history-alignment.test.ts`.
+
+## Guard-migration contract
+
+**Rule (also in `AGENTS.md`, "Supabase project safety"): any mark-applied
+version, `supabase migration repair --status applied`, hand-applied SQL that
+is later recorded as a migration, or other history repair MUST ship a
+fail-fast validation migration in the same change, following
+`supabase/migrations/20260804110240_restore_rag_search_health_indexes.sql`
+exactly.** Such a guard:
+
+- **validates, never builds** — no `create index`, no `create or replace` of
+  the objects it guards; it checks presence (`to_regclass` /
+  `to_regprocedure`), `pg_index.indisvalid AND indisready` for indexes, and a
+  normalized `pg_get_indexdef` / `pg_get_functiondef` match against the pinned
+  canonical definition;
+- uses `set local lock_timeout` / `set local statement_timeout` (never bare
+  `set`), and raises one `raise exception … Missing: %; Invalid: %;
+Mismatched: %` naming every failure;
+- is marked applied only after the live validation passes, and its file name
+  is what the allowlist entry points at.
+
+Allowlist entry shape (`supabase/drift-allowlist.json`):
+
+```json
+{
+  "category": "migration_history",
+  "kind": "no_statements",
+  "key": "<14-digit version>",
+  "reason": "why the row has no executed DDL (mark-applied after prebuild, repair, rename …) — > 20 chars",
+  "guard": { "class": "validation", "migration": "<later>_<stem>.sql", "objects": ["<index or function name>", "…"] }
+}
+```
+
+| `guard.class` | Meaning                                                                                                                                                    | Machine check (`check:drift` structural + `tests/migration-history-guards.test.ts` object-level)                                                 |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `validation`  | A later fail-fast guard migration proves the listed objects. **Required for every version ≥ `20260818000000`.**                                            | file exists, version > key, contains `raise exception`, creates no index, mentions every `objects` name; `objects` non-empty                     |
+| `superseded`  | A later migration re-created every listed object with recorded statements (squashed baseline, renumber, hotfix later codified). Pre-contract history only. | file exists, version > key, `create … <object>` for every listed object in the guard file **and** in the version's own file; key < contract date |
+| `no_ddl`      | The version's own file has no effect (comments only / `select 1;` placeholder).                                                                            | `guard.migration` is the version's own file; stripped body is empty or `select 1;`                                                               |
+
+Retiring an entry: when a version is genuinely re-recorded with statements (or
+history is squashed and the row disappears) the entry shows as stale on the
+next run — delete it. Never widen a class or drop `objects` to make an entry
+pass; the finding is the point.
+
+## Runtime index-monitoring ratchet
+
+`search_schema_health()` monitors a curated `required_indexes` list (22 names
+in the latest definer, `20260706010000_search_schema_health_m13_guard.sql`)
+plus `index_aliases`; the 20 indexes absent on live in 2026-08 were invisible
+to it. `tests/search-health-index-coverage.test.ts` now requires that **every
+repo-defined index on the retrieval-critical tables** — `documents`,
+`document_chunks`, `document_index_units`, `document_embedding_fields`,
+`document_memory_cards`, `rag_retrieval_logs` — is either monitored (in
+`required_indexes` or an alias value) or listed in
+`supabase/search-health-unmonitored-indexes.json` with a `reason` (> 20 chars)
+and a `disposition`:
+
+- `accepted-unmonitored` — absence would degrade an operational path
+  (ingestion bookkeeping, FK support, listings) but not clinical retrieval;
+  `check:drift`'s full index inventory still reports it missing.
+- `monitor-candidate` — retrieval-facing (`*_search_idx` / `*_terms_idx` GINs)
+  or currently absent on live per forensics §1.3 (`document_chunks_anchor_idx`,
+  `document_index_units_heading_path_idx`,
+  `documents_registry_projection_lookup_idx` — the three of the 20 that sit on
+  these tables; the other 17 are on tables outside this scope). A Phase 4.4
+  migration extending `required_indexes` must decide each; they stay flagged
+  until then.
+
+"Repo-defined" is computed two ways and unioned — an order-aware replay of
+every `create/drop index` in `supabase/migrations/`, and the manifest's
+`snapshot.indexes` — so a schema.sql-only index (drift backlog item 10) or a
+migration-only one cannot hide. Constraint-backed `*_pkey` indexes are exempt
+(the constraint inventory guards them). The list is also checked for stale
+entries (index no longer defined, or now monitored) and duplicates.
+`required_indexes` changes travel by migration only, never by editing
+`schema.sql`; the test cross-checks the two copies. Seeded 2026-08-18 with 44
+entries (8 monitor candidates); the test failed with exactly those 44 names
+before the list existed.
 
 ### Workflow
 

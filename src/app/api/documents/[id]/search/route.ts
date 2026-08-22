@@ -11,21 +11,13 @@ import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
 import { parseRouteParams } from "@/lib/validation/params";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
+import {
+  assertDocumentChunkSearchRpcRows,
+  assertDocumentChunkSearchTableRows,
+  type DocumentChunkSearchRow,
+} from "@/lib/validation/row-contracts";
 
 export const runtime = "nodejs";
-
-type DocumentChunkSearchRow = {
-  id: string;
-  page_number: number | null;
-  chunk_index: number;
-  section_heading: string | null;
-  content: string;
-  image_ids: string[] | null;
-  text_rank?: number | null;
-  trigram_score?: number | null;
-  metadata?: Record<string, unknown> | null;
-  index_generation_id?: string | null;
-};
 
 const maxSearchTerms = 8;
 const defaultSearchLimit = 20;
@@ -218,7 +210,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     });
 
     if (!rpcError) {
-      const results = ((rpcData ?? []) as DocumentChunkSearchRow[])
+      const rpcRows = rpcData ?? [];
+      assertDocumentChunkSearchRpcRows(rpcRows);
+      const results = rpcRows
         .filter((row) =>
           isCommittedGenerationMetadata({
             rowMetadata: generationMetadataForRow(row),
@@ -262,7 +256,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (error) throw new Error(error.message);
 
     const importantTerms = importantTermsFor(terms);
-    const committedData = ((data ?? []) as DocumentChunkSearchRow[]).filter((row) =>
+    const fallbackTableRows = data ?? [];
+    assertDocumentChunkSearchTableRows(fallbackTableRows);
+    const committedData = fallbackTableRows.filter((row) =>
       isCommittedGenerationMetadata({
         rowMetadata: generationMetadataForRow(row),
         committedGeneration,

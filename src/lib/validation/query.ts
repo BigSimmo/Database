@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parseSchema } from "@/lib/validation/http";
+import { parseSchema, validationError } from "@/lib/validation/http";
 
 type QueryIntegerOptions = {
   fallback: number;
@@ -51,6 +51,19 @@ export function parseRequestQuery<TSchema extends z.ZodType>(
   schema: TSchema,
   message = "Invalid query parameters.",
 ): z.infer<TSchema> {
-  const params = Object.fromEntries(new URL(request.url).searchParams.entries());
+  let url: URL;
+  try {
+    url = new URL(request.url);
+  } catch {
+    throw validationError(message, "invalid_query");
+  }
+  const params: Record<string, string> = {};
+  try {
+    for (const [key, value] of url.searchParams.entries()) {
+      params[key] = value;
+    }
+  } catch {
+    throw validationError(message, "invalid_query");
+  }
   return parseSchema(schema, params, message, "invalid_query");
 }

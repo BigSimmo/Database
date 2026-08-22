@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "6c0d5004-45a4-42c8-b001-92428f76a0b0",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "R1: unbudgeted strong escalation makes provider_timeout the dominant lithium fallback — route the dosing class to strong before the deadline (packet S1b)",
+    "detail": "S1 (PR #2022) post-fix live probes: 'Lithium dosing?' 4/4 source-only, 3/4 as provider_timeout. fast_unsupported_retry_strong launches a strong generation into the fast route's leftover ~10-13 s; only the truncation self-heal is deadlineAllowsGenerationRetry-gated. Ladder rung 3 (README A1): route medication_dose_risk / dosing to the strong route in chooseAnswerRoute (src/lib/rag/rag-routing.ts) BEFORE the route deadline is created — not in shouldRetryWithStrongAfterFast, and NOT a budget change (#231 stop condition stands). Own PR, RAG impact behaviour change, canary pair, Clinical Governance Preflight, check:production-readiness. Owner decided 2026-08-17 this lands before S2 (A2/A3 add length; length under the unbudgeted retry pushes more dosing queries into timeout). Packet: docs/rag-improvement/HANDOVER.md S1b.",
+    "source": "RAG programme coordinator, S1 PR #2022 residuals and #212 handover follow-ups, 2026-08-17",
+    "issueUlid": "01M07SS6Y4DP6M3GKV5EFQXYPF"
+  }
+}

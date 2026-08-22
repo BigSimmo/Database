@@ -106,6 +106,185 @@ describe("deterministic claim support", () => {
     ]);
   });
 
+  it("supports a claim restating a source sentence split by a PDF visual line wrap (#231)", () => {
+    // Measured live 2026-08-17: the EMHS lithium guideline's starting-dose bullet wraps
+    // mid-sentence, so segment-splitting on raw newlines separated 500 mg/over-65 from
+    // 250 mg and a verbatim-faithful high-risk claim read as unsupported.
+    const wrappedDoseBullet = source(
+      "wrapped-dose-bullet",
+      [
+        "Dosage and administration",
+        "",
+        "• The usual oral starting dose for adults is 500 mg nocte and for patients over 65 years it",
+        "is 250 mg nocte.",
+        "• Dose should be titrated against target serum levels.",
+      ].join("\n"),
+      { title: "Lithium Clinical Guideline(EMHS)", file_name: "Lithium Clinical Guideline(EMHS).pdf" },
+    );
+    const input = answer(
+      "The usual oral starting dose for adults is 500 mg nocte and for patients over 65 years it is 250 mg nocte.",
+      [wrappedDoseBullet],
+    );
+
+    const { claims } = assessClaimSupport(input);
+    expect(claims).toHaveLength(1);
+    expect(claims[0]?.supportStatus).toBe("direct");
+    expect(claims[0]?.supportingChunkIds).toEqual(["wrapped-dose-bullet"]);
+  });
+
+  it("supports an imperative dosing claim against descriptive guideline norm phrasing (S1c R2)", () => {
+    // R2: "The usual … starting dose … is 500 mg" is a descriptive norm. The imperative
+    // claim expects a normative "start" signal, which no prior pattern produced.
+    const emhs = source(
+      "emhs-lithium-dosing",
+      [
+        "Dosage and administration",
+        "",
+        "• The usual oral starting dose for adults is 500 mg nocte and for patients over 65 years it",
+        "is 250 mg nocte.",
+        "• Dose should be titrated against target serum levels.",
+      ].join("\n"),
+      { title: "Lithium Clinical Guideline(EMHS)", file_name: "Lithium Clinical Guideline(EMHS).pdf" },
+    );
+
+    expect(sourceDirectlySupportsAnswerText("Start lithium at 500 mg nocte.", emhs)).toBe(true);
+  });
+
+  it("keeps rejecting imperative claims whose only echo is descriptive care-record prose (S1c R2 negative)", () => {
+    const chartRecord = source(
+      "chart-record",
+      "Progress notes: the patient was started on lithium 500 mg nocte at this visit.",
+    );
+
+    expect(sourceDirectlySupportsAnswerText("Start lithium at 500 mg nocte.", chartRecord)).toBe(false);
+  });
+
+  it("does not let a norm phrase for one action lend normativity to an unrelated imperative (S1c R2 negatives)", () => {
+    const sameSentence = source(
+      "stop-same-sentence",
+      "The usual practice after abrupt stopping of lithium is that the dose is reduced.",
+    );
+    const crossSentence = source(
+      "stop-cross-sentence",
+      "The usual oral starting dose for adults is 500 mg nocte. Abrupt stopping is associated with relapse.",
+      { title: "Lithium Clinical Guideline(EMHS)" },
+    );
+
+    expect(sourceDirectlySupportsAnswerText("Stop lithium.", sameSentence)).toBe(false);
+    expect(sourceDirectlySupportsAnswerText("Stop lithium.", crossSentence)).toBe(false);
+  });
+
+  it("does not read incidental norm-adjacent action words as normative directives (S1c R2 negatives)", () => {
+    const repeatedDoseWarning = source(
+      "repeated-dose-warning",
+      "A typical error is a repeated dose when the schedule is unclear.",
+    );
+    const monitoredPatientDescription = source(
+      "monitored-patient",
+      "The typical patient monitored on this dose is reviewed weekly.",
+    );
+    const startingWeightRecord = source("starting-weight", "The usual practice is to record the starting weight.");
+
+    expect(sourceDirectlySupportsAnswerText("Repeat the dose.", repeatedDoseWarning)).toBe(false);
+    expect(sourceDirectlySupportsAnswerText("Monitor the dose weekly.", monitoredPatientDescription)).toBe(false);
+    expect(sourceDirectlySupportsAnswerText("Start lithium at 500 mg nocte.", startingWeightRecord)).toBe(false);
+  });
+
+  it("still requires the claimed medication itself in the dosing evidence (S1c R2 negative)", () => {
+    const emhs = source(
+      "emhs-lithium-entity",
+      "• The usual oral starting dose for adults is 500 mg nocte and for patients over 65 years it\nis 250 mg nocte.",
+      { title: "Lithium Clinical Guideline(EMHS)", file_name: "Lithium Clinical Guideline(EMHS).pdf" },
+    );
+
+    expect(sourceDirectlySupportsAnswerText("Start sertraline at 500 mg nocte.", emhs)).toBe(false);
+  });
+
+  it("requires normative evidence for a descriptive-norm claim rather than incidental care history (S1c R2 pin)", () => {
+    // R2 also grows the CLAIM side: a descriptive-norm claim now expects normative
+    // evidence, so an incidental care-history sentence stops counting as support.
+    const careHistory = source("care-history", "Patients were started on an average dose of 500 mg nocte.");
+
+    expect(sourceDirectlySupportsAnswerText("The usual starting dose is 500 mg nocte.", careHistory)).toBe(false);
+  });
+
+  it("supports a claim synthesising two adjacent source bullets when one segment carries every atom (S1c R3)", () => {
+    const emhs = source(
+      "emhs-lithium-synthesis",
+      [
+        "Dosage and administration",
+        "",
+        "• The usual oral starting dose for adults is 500 mg nocte and for patients over 65 years it",
+        "is 250 mg nocte.",
+        "• Dose should be titrated against target serum levels.",
+      ].join("\n"),
+      { title: "Lithium Clinical Guideline(EMHS)", file_name: "Lithium Clinical Guideline(EMHS).pdf" },
+    );
+
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "Start lithium at 500 mg nocte and titrate the dose against target serum levels.",
+        emhs,
+      ),
+    ).toBe(true);
+  });
+
+  it("does not borrow topics from an adjacent bullet that carries its own competing dose atoms (S1c R3 negative)", () => {
+    // Cross-bullet value mis-binding: the over-65 population must not be bound to the
+    // adult dose merely because the two bullets are adjacent.
+    const perPopulationBullets = source(
+      "per-population-bullets",
+      [
+        "• Adults: the usual starting dose is 500 mg nocte.",
+        "• Patients over 65 years: the usual starting dose is 250 mg nocte.",
+      ].join("\n"),
+      { title: "Lithium Clinical Guideline(EMHS)", file_name: "Lithium Clinical Guideline(EMHS).pdf" },
+    );
+
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "For patients over 65 years, start lithium at 500 mg nocte.",
+        perPopulationBullets,
+      ),
+    ).toBe(false);
+  });
+
+  it("does not synthesise support across non-adjacent segments (S1c R3 negative)", () => {
+    const spacedBullets = source(
+      "spaced-bullets",
+      [
+        "• The usual oral starting dose for adults is 500 mg nocte.",
+        "• Dose should be titrated against target serum levels.",
+        "• Take samples 12 hours after the last evening dose.",
+        "• Annual thyroid function testing is recommended.",
+      ].join("\n"),
+      { title: "Lithium Clinical Guideline(EMHS)", file_name: "Lithium Clinical Guideline(EMHS).pdf" },
+    );
+
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "Start lithium at 500 mg nocte and arrange annual thyroid function testing.",
+        spacedBullets,
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps rejecting an alien-topic claim whose atoms coincidentally match the dosing bullet (S1c R3 negative)", () => {
+    const emhs = source(
+      "emhs-lithium-alien-topic",
+      [
+        "• The usual oral starting dose for adults is 500 mg nocte and for patients over 65 years it",
+        "is 250 mg nocte.",
+        "• Dose should be titrated against target serum levels.",
+      ].join("\n"),
+      { title: "Lithium Clinical Guideline(EMHS)", file_name: "Lithium Clinical Guideline(EMHS).pdf" },
+    );
+
+    expect(
+      sourceDirectlySupportsAnswerText("Start lithium at 500 mg nocte to prevent migraine recurrence.", emhs),
+    ).toBe(false);
+  });
+
   it("keeps a wrapped escalation recipient in the directly supporting source segment", () => {
     const wrappedRule = source(
       "wrapped-escalation-rule",

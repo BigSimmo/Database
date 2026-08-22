@@ -1,0 +1,51 @@
+{
+  "exportMetadata": {
+    "format": "forms-act-section-cues",
+    "formatVersion": 1,
+    "note": "Draft form-to-section mappings for the seven official forms that data/forms-catalog.json never indexed, so they carry no sourceFacts.sectionCue of their own. Each entry states the basis for review; none is derived from the password-protected form PDF. Drafted mappings remain unavailable in the clinical UI until a named reviewer records sign-off."
+  },
+  "forms": [
+    {
+      "code": "1A attachment",
+      "sections": ["41", "42"],
+      "status": "drafted",
+      "basis": "The attachment carries referral information given in confidence by someone other than the person. s 41(c) and (d) require the referral to set out the information the suspicion rests on and to distinguish its source; s 42(2) is the exception that keeps information supplied on condition of non-disclosure from the person."
+    },
+    {
+      "code": "4D",
+      "sections": ["555"],
+      "status": "drafted",
+      "basis": "s 555 is the interstate transfer order: the person in charge of a hospital, with the Chief Psychiatrist's written approval, may order a State inpatient's transfer to an interstate mental health service."
+    },
+    {
+      "code": "4E",
+      "sections": ["557"],
+      "status": "drafted",
+      "basis": "s 557 creates the transfer approval order, by which the person in charge of a hospital, with the Chief Psychiatrist's written consent, approves an interstate inpatient's transfer to that hospital."
+    },
+    {
+      "code": "7C",
+      "sections": ["110"],
+      "status": "drafted",
+      "basis": "s 110 is the cancelling-leave power: where a psychiatrist reasonably believes it is inappropriate for an involuntary inpatient to remain away on leave, they may order the leave cancelled."
+    },
+    {
+      "code": "10H",
+      "sections": ["238"],
+      "status": "drafted",
+      "basis": "s 238(5) requires a psychiatrist to review the use of bodily restraint once a person has been restrained for more than 6 hours, and to record the date, time and results."
+    },
+    {
+      "code": "12C attachment",
+      "sections": ["262"],
+      "status": "drafted",
+      "basis": "s 262(7) and (8) require a psychiatrist to review a communication-restriction order before the end of each 24-hour period and to confirm, amend or revoke it, filing a record and the reasons."
+    },
+    {
+      "code": "13",
+      "sections": ["201"],
+      "status": "drafted",
+      "basis": "s 201 is the ECT statistics duty: the person in charge of a mental health service where ECT is performed must report monthly to the Chief Psychiatrist."
+    }
+  ]
+}

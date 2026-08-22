@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "739887b7-24d6-4ea8-9aad-e7700a537913",
+  "createdOn": "2026-08-15",
+  "action": "done",
+  "payload": {
+    "id": "#330",
+    "outcome": "Resolved on current main 512b8c20e by commit 247a35936cfdc78e2e85dd889d5d9dbdc3804e32: conservative fuzzy catalogue search and the one-edit cap are implemented with wrong-drug regression coverage."
+  }
+}

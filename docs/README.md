@@ -20,6 +20,7 @@ npm run docs:check-links
 | [agents-guide.md](agents-guide.md)     | Human onboarding pointer; Cursor MCP default read path (Supabase, Railway, Context7); rules in `AGENTS.md` |
 | [scripts-index.md](scripts-index.md)   | Curated map of `scripts/` and the `package.json` command surface by purpose                                |
 | [codex-cloud.md](codex-cloud.md)       | Codex Cloud setup, access profiles, profile-loading command shims, GitHub exception, and acceptance checks |
+| [claude-cloud.md](claude-cloud.md)     | Claude Code on the web: the tiered container provisioner and the checked-in user profile                   |
 
 ## Architecture
 
@@ -50,7 +51,7 @@ npm run docs:check-links
 - [launch-operator-runbook.md](launch-operator-runbook.md) — launch/operational duties and SLO probes
 - [reindex-runbook.md](reindex-runbook.md) — safe reindex and ingestion recovery
 - [retrieval-quality-runbook.md](retrieval-quality-runbook.md) — RAG/retrieval eval gates and tuning
-- [worker-deploy-runbook.md](worker-deploy-runbook.md) — worker build contract, run recipe, secrets
+- [worker-deploy-runbook.md](worker-deploy-runbook.md) — worker build contract, run recipe, secrets, docling shadow extraction (B4)
 - [disaster-recovery-runbook.md](disaster-recovery-runbook.md) — backup/restore and recovery drills
 - [auth-connection-cap-runbook.md](auth-connection-cap-runbook.md) — Supabase auth connection cap (operator)
 - [staging-setup.md](staging-setup.md) — staging environment bootstrap
@@ -87,6 +88,7 @@ npm run docs:check-links
 - [codex-review-protocol.md](codex-review-protocol.md) — shared review protocol for all review skills
 - [codex-prompt-playbook.md](codex-prompt-playbook.md) — copy/paste prompts for common repo work
 - [codex-cloud.md](codex-cloud.md) — reproducible provider-free Codex Cloud environment and acceptance check
+- [claude-cloud.md](claude-cloud.md) — Claude Code on the web container parity: tiered provisioner and checked-in user profile
 - [branch-cleanup-guide.md](branch-cleanup-guide.md) — branch hygiene workflow
 - [branch-review-ledger.md](branch-review-ledger.md) — reviewed branch/SHA ledger; read with `npm run ledger:lookup` (historical tables + immutable records), write with `npm run ledger:append`, and convert a pre-system active-branch row with `npm run ledger:migrate-legacy`
 
@@ -95,11 +97,15 @@ npm run docs:check-links
 - [maturity-backlog-workorders.md](maturity-backlog-workorders.md) — actionable work orders tracking the repository-maturity audit backlog
 - [no-unchecked-indexed-access-migration-plan.md](no-unchecked-indexed-access-migration-plan.md) — staged multi-PR rollout for the `noUncheckedIndexedAccess` TypeScript flag (ledger `#211`)
 - [ledger-id-scheme-proposal.md](ledger-id-scheme-proposal.md) — design for collision-free outstanding-issue ids so concurrent sessions stop contending on `issues:next-id` (ledger `#168`)
-- [pr-handoff-stop-cross-agent-gap.md](pr-handoff-stop-cross-agent-gap.md) — why the PR-handoff stop rule is hook-enforced for Claude Code but prose-only for Codex and Cursor, and what parity would require (ledger `#258`)
+- [pr-handoff-stop-cross-agent-gap.md](pr-handoff-stop-cross-agent-gap.md) — why the PR-babysit budget is hook-enforced for Claude Code but prose-only for Codex and Cursor, and what parity would require (ledger `#258`)
 - [framework-dependency-modernization-checklist.md](framework-dependency-modernization-checklist.md) — ordered Next.js 16, runtime, dependency, Turbopack, and verification migration program
 - [search-rag-master-plan.md](search-rag-master-plan.md) / [search-rag-master-context.md](search-rag-master-context.md) — search/RAG roadmap and shared context
 - [rag-improvement/README.md](rag-improvement/README.md) — reviewed/updated RAG improvement programme: answer-quality track (intent-aware related information, length) + corrected eval/safety infra track
 - [rag-improvement/HANDOVER.md](rag-improvement/HANDOVER.md) — multi-session handover: per-session work packets, status table, checklists, and paste-ready prompts for executing the programme
+- [rag-improvement/COORDINATION.md](rag-improvement/COORDINATION.md) — coordinator handover: programme history, wave/session decisions, babysit playbook, approvals map, and the coordination-chat bootstrap prompt
+- [rag-improvement/231-diagnosis-2026-08-22.md](rag-improvement/231-diagnosis-2026-08-22.md) — `#231` evidence record: the row's timeout premise measured against the 60 Gate E answers, the three populations behind `source_only`, and the grounded-extractive gate gap
+- [rag-improvement/baseline-record.md](rag-improvement/baseline-record.md) — programme evaluation baseline: the six-field report key, gate results, and which gates stay pending an owner-approved provider run
+- [rag-improvement/data-flow-register.md](rag-improvement/data-flow-register.md) — Gate A register: every RAG input, process, sink, retention window, provider egress, and the known gaps
 - [rag-hybrid-findings-and-todo.md](rag-hybrid-findings-and-todo.md) — hybrid retrieval findings backlog
 - [reindex-shadow-harness-design.md](reindex-shadow-harness-design.md) — designed-only shadow reindex harness (driver not built)
 - [ingestion-concurrency-fix-workorder.md](ingestion-concurrency-fix-workorder.md) — ingestion concurrency workorder
@@ -131,6 +137,7 @@ as it was on that date; supersede with a new dated document rather than editing.
 - [audit/audit-remediation-plan-2026-07-14.md](audit/audit-remediation-plan-2026-07-14.md) — sequenced remediation plan for the 2026-07-14 audit, with the 2026-07-17 reconciliation
 - [audit/design-audit-2026-07-17.md](audit/design-audit-2026-07-17.md) — repository-wide design, accessibility, and interaction audit
 - [audit/cloud-connection-acceptance-2026-08-05.md](audit/cloud-connection-acceptance-2026-08-05.md) — hosted versus local MCP boundary acceptance, Personal Pro split control plane, and remaining Cloud launcher blockers
+- [audit/claude-code-cloud-connection-acceptance-2026-08-17.md](audit/claude-code-cloud-connection-acceptance-2026-08-17.md) — Claude Code desktop-vs-cloud connector parity check (Railway/Figma/Sentry/Supabase/GitHub live-verified), dependency-currency hook, open Supabase-scope and GitHub-portability items
 - [current-clinical-work-brief.md](current-clinical-work-brief.md) — ledger #063 product/privacy/persistence brief (decision only, no implementation)
 - [factsheets-reading-model-brief.md](factsheets-reading-model-brief.md) — ledger #041 reading-model decision (no second Factsheets mode)
 - [tooling-follow-through-decisions-2026-08-12.md](tooling-follow-through-decisions-2026-08-12.md) — ledger #150 CodeRabbit cap policy and #151 GitHub Actions observation fallback

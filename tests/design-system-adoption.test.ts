@@ -1204,7 +1204,8 @@ describe("design-system adoption manifest", () => {
     ).toContain("src/components/ui/confirm-dialog.tsx");
     expect(
       manifest.components.find((component: { name: string }) => component.name === "Quantity").directImportFiles,
-    ).toContain("src/components/ui/answer-card.tsx");
+    ).toContain("src/components/ui/dose-line.tsx");
+
     const skeleton = manifest.components.find((component: { name: string }) => component.name === "Skeleton");
     expect(skeleton.productImportFiles).toEqual(
       expect.arrayContaining([
@@ -1237,9 +1238,14 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    // 51: Presentations catalogue page plus a real Compare page (no longer a
-    // route-handler redirect) on top of Documents/Medication mode homes.
-    expect(manifest.routeCoverage.discovered).toHaveLength(51);
+    // 75 = 59 + 6 + 10: the 59 production pages that preceded both changes, the
+    // six `<mode>/search` routes home consolidation split out of the bare paths,
+    // and the ten-route Ward Flow synthetic patient-flow prototype (mode home,
+    // six workspace routes, governance, transport, and the per-patient detail
+    // route). Redirect stubs keep legacy deep links resolving and still count as
+    // declared routes. The conflict resolution on this branch kept the pre-merge
+    // 69, which counted Ward Flow but not the six search routes.
+    expect(manifest.routeCoverage.discovered).toHaveLength(75);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

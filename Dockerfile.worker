@@ -10,6 +10,14 @@
 #   - Tesseract OCR (Debian package, bundles English language data).
 #   - Python venv with worker/python/requirements.txt (PyMuPDF, Pillow,
 #     pytesseract). The venv's `python` matches the PYTHON_BIN default.
+#   - Packet B4 (docs/rag-improvement/README.md §B4, Gate B PASS 2026-08-18):
+#     a SECOND, isolated Python venv (/opt/docling-venv) built from the Gate B
+#     lab's hashed lock (eval/docling/requirements.txt — docling==2.120.2 by
+#     construction, CPU-only torch) plus docling's models baked at build time
+#     (/opt/docling-models). Consumed only by worker/python/shadow_docling_extract.py
+#     when WORKER_DOCUMENT_EXTRACTOR_MODE=shadow; the OCR venv is untouched
+#     (numpy 1.26 vs 2.4 forces the split). Not enabling shadow costs nothing at
+#     run time — the mode defaults to "legacy" and is set as a Railway variable.
 #
 # Build: docker build -f Dockerfile.worker -t clinical-kb-worker .
 # Run:   docker run --env-file <secrets> clinical-kb-worker
@@ -51,14 +59,36 @@ RUN for attempt in 1 2 3; do \
     done
 
 FROM node-base AS runner
+# libgl1 + libglib2.0-0 are OpenCV's runtime shared libraries: docling's rapidocr
+# stage imports cv2 during `docling-tools models download` and again at run time,
+# and the slim base ships neither (Gate B run 32165911181 failed the prefetch with
+# `ImportError: libGL.so.1`). ca-certificates covers the build-time model fetch.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 python3-venv tesseract-ocr \
+  && apt-get install -y --no-install-recommends python3 python3-venv tesseract-ocr ca-certificates libgl1 libglib2.0-0 \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY worker/python/requirements.txt worker/python/requirements.txt
 RUN python3 -m venv /opt/ocr-venv
 RUN /opt/ocr-venv/bin/pip install --no-cache-dir --upgrade --require-hashes -r worker/python/requirements.txt \
   && /opt/ocr-venv/bin/pip check
+# Packet B4: docling shadow-extraction venv from the Gate B lab's hashed lock (read-only
+# consumption; the lock is regenerated only via `npm run generate:docling-lab-lock`).
+# Same image shape as eval/docling/Dockerfile, so shadow measurements are taken with the
+# extractor identity the decision record names. Kept in its own cacheable layer set.
+COPY eval/docling/requirements.txt /tmp/docling-requirements.txt
+RUN python3 -m venv /opt/docling-venv \
+  && /opt/docling-venv/bin/pip install --no-cache-dir --require-hashes -r /tmp/docling-requirements.txt \
+  && /opt/docling-venv/bin/pip check \
+  && rm /tmp/docling-requirements.txt
+# Prefetch docling's models at build time: HF_HUB_OFFLINE=1 below forbids any run-time
+# fetch, so a missing model fails the shadow run loudly instead of reaching HuggingFace
+# from a production worker.
+RUN /opt/docling-venv/bin/docling-tools models download --output-dir /opt/docling-models \
+  && chmod -R a+rX /opt/docling-models
+ENV WORKER_DOCLING_PYTHON_BIN=/opt/docling-venv/bin/python
+ENV DOCLING_ARTIFACTS_PATH=/opt/docling-models
+ENV TORCHDYNAMO_DISABLE=1
+ENV HF_HUB_OFFLINE=1
 ENV PATH="/opt/ocr-venv/bin:${PATH}"
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1

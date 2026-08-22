@@ -90,9 +90,12 @@ src/components/dsm/dsm-page-header.tsx
 src/components/clinical-dashboard/search-results-header-band.tsx
 ```
 
-`PageHeader` and `Breadcrumb` have **zero** product mounts; `InformationPageHeader`
-(`information-page-shell.tsx`) is defined but unused. Adoption converges the hand-rolled
-headers onto `PageHeader` + `Breadcrumb`.
+`InformationPageHeader` (`information-page-shell.tsx`) is defined but unused. `PageHeader`
+is no longer unmounted: ten product files render it — eight under
+`therapy-compass/` (the workspace and its seven screens), `privacy-quiet-signal-page.tsx`, and
+`dsm/dsm-page-header.tsx`, which renders it alongside `InformationPageBreadcrumbs`. `Breadcrumb` is rendered by
+`ui/page-header.tsx` and `information-page-shell.tsx`. Adoption converges the remaining
+hand-rolled headers onto `PageHeader` + `Breadcrumb`.
 
 **Explicitly NOT in the headers allowlist**, despite being header-adjacent:
 `global-search-shell.tsx`, `shared-search-app-shell.tsx`, `master-search-header.tsx`,
@@ -301,7 +304,7 @@ held with the wave's prep material; the files are the contract here.
 
 | Surface    | Pin files                                                                                                                                                                                                                                                                                                                                                      |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| forms      | `tests/ui-tools.spec.ts` (forms home/results/detail) · `tests/forms-back-navigation.dom.test.tsx` · `tests/information-page-shell.dom.test.tsx` · `tests/patient-profile-panel.dom.test.tsx` · `tests/settings-inert-preferences.dom.test.tsx` · `tests/upload-size-precheck.dom.test.tsx` · `tests/ui-v2-form-field.dom.test.tsx`                             |
+| forms      | `tests/ui-tools.spec.ts` (forms home/results/detail) · `tests/forms-back-navigation.dom.test.tsx` · `tests/information-page-shell.dom.test.tsx` · `tests/patient-profile-panel.dom.test.tsx` · `tests/settings-inert-preferences.dom.test.tsx` · `tests/ui-v2-form-field.dom.test.tsx`                                                                         |
 | headers    | `tests/search-results-header-band.dom.test.tsx` · `tests/header-scroll-hide-contract.test.ts` · `tests/ui-style-contract.spec.ts` + `tests/helpers/style-contracts.ts` · `tests/ui-route-coverage.spec.ts`                                                                                                                                                     |
 | catalogues | `tests/ui-tools.spec.ts` (services/differentials) · `tests/ui-specifiers.spec.ts` · `tests/ui-formulation.spec.ts` · `tests/ui-route-coverage.spec.ts` · `tests/registry-retry.dom.test.tsx` · `tests/page-secondary-navigation.dom.test.tsx`                                                                                                                  |
 | docs       | `tests/document-filter-panel.dom.test.tsx` · `tests/document-search-record-fault.dom.test.tsx` · `tests/document-clinical-summary.dom.test.tsx` · `tests/document-section-nav.dom.test.tsx` · `tests/document-section-summary.dom.test.tsx` · `tests/document-section-nav-contract.test.ts` · `tests/ui-smoke.spec.ts` (documents)                             |
@@ -359,12 +362,12 @@ product exclusions; the only route-only disposition is the documented legacy doc
 redirect. Shared shell/component roots carry their own explicit `shared-shell` disposition.
 
 Registered public components: 54
-Declared product roots: 79
+Declared product roots: 93
 Roots with a literal `.ckb-v2` opt-in: 1
-Roots inheriting `.ckb-v2` from the global `<html>`: 78
+Roots inheriting `.ckb-v2` from the global `<html>`: 92
 Production surfaces observed under v2: 15/15
 Dynamic `ckb-v2` constructions: 0
-Declared production page routes: 63/63
+Declared production page routes: 77/77
 
 Source observation and contract declaration are independent. A literal `ckb-v2` on the global `<html>` makes every production surface inherit v2, but it does not approve that adoption.
 The Proof column summarizes each surface's dark, forced-colours, 320px, print and browser declarations; exact statuses and evidence paths live in the manifest.
@@ -373,15 +376,15 @@ Observed v2 under a compatibility declaration fails closed. A declared v2 shell 
 | Surface                            | Disposition     | Routes | Roots | Declared shell | Observed shell (mount)     | Proof          | Baseline       |
 | ---------------------------------- | --------------- | -----: | ----: | -------------- | -------------------------- | -------------- | -------------- |
 | `root-shell-and-settings`          | shared-shell    |      3 |     6 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `catalogues-forms-and-info`        | owned           |     13 |    13 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `differentials`                    | owned           |      6 |     6 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `formulation`                      | owned           |      5 |     5 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `specifiers`                       | owned           |      5 |     5 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `catalogues-forms-and-info`        | owned           |     23 |    23 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `differentials`                    | owned           |      7 |     7 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `formulation`                      | owned           |      6 |     6 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `specifiers`                       | owned           |      6 |     6 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `therapy-compass`                  | owned           |      9 |    10 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `documents-and-source-evidence`    | owned           |      3 |     4 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `documents-source-legacy-redirect` | legacy-redirect |      1 |     0 | v2             | v2 (inherited-global-root) | not-applicable | not-applicable |
 | `favourites`                       | owned           |      1 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `tools-and-calculators`            | owned           |      2 |     2 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `tools-and-calculators`            | owned           |      3 |     3 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `ward-management`                  | owned           |     12 |    20 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `privacy-safety-and-reference`     | owned           |      3 |     3 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `search-results-shared`            | shared-shell    |      0 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |

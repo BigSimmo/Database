@@ -150,6 +150,38 @@ Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit 
 
 <!-- END:codex-review-throttling -->
 
+<!-- BEGIN:resolve-review-threads-after-fixing -->
+
+## Resolve review threads after fixing them
+
+Pushing a fix is not the end of the task when that fix was made in response to a GitHub PR
+review comment. Resolving the corresponding review thread is part of the same unit of work,
+not a follow-up to remember later — an addressed comment left unresolved still blocks merge
+and still reads to reviewers, merge-queue tooling, and `pr-policy.mjs`-style gates as
+unaddressed.
+
+- After pushing a fix for a review comment, reply on that thread with a short summary of what
+  changed (naming the fixing commit where useful), then resolve the thread once the fix is
+  pushed — reply first, resolve second, both before moving to the next item.
+- Only resolve a thread you actually fixed or fully dispositioned. Never resolve a thread you
+  did not act on, never resolve one to tidy away feedback you disagree with, and never resolve
+  a thread on a PR you are only watching on someone else's behalf — leave those for the PR's
+  owner or reviewer.
+- If the comment needs more than a direct fix (a design decision, missing context, reviewer
+  input), reply explaining why instead of resolving, and leave the thread open.
+- This does not grant new GitHub write access or user authorisation for separate provider
+  writes. Reply and resolve only when the user explicitly authorised those actions for that PR
+  (for example, an explicit PR-fixing/babysitting sweep that names replies or thread resolution,
+  or the `Run PR` shortcut where that authority is stated) and the available tooling permits
+  them. If the user's ask was scoped to only committing and pushing the fix, stop there and tell
+  them the reply/resolve step is still open rather than performing it unasked.
+- This applies to every PR you push review-responsive fixes to in this repo, not only the
+  automated Codex resolve workflow — see "Review comment lifecycle" below for that workflow's
+  specific marker convention, and your runtime PR-babysitting instructions for the fuller
+  human-reviewer posture this section summarizes.
+
+<!-- END:resolve-review-threads-after-fixing -->
+
 <!-- BEGIN:local-server-safety -->
 
 # Local server safety
@@ -165,6 +197,39 @@ Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit 
 
 <!-- BEGIN:codex-desktop-worktree-setup -->
 
+# Claude Code hook scripts
+
+`.claude/hooks/*.sh` runs on Linux web containers as well as on the Windows workstation, and the
+workstation cannot see the thing that breaks it.
+
+- **Pin the executable bit in the index, not on disk.** The primary workstation is a Windows ReFS
+  Dev Drive with `core.fileMode=false`, so git ignores filesystem permission bits entirely and a
+  local `chmod +x` is a silent no-op. A hook added there commits as `100644`. Fix it with
+  `git update-index --chmod=+x .claude/hooks/<name>.sh` and confirm with `git ls-files -s`.
+  This is not hypothetical: `session-start.sh` shipped `100644` while both its siblings were
+  `100755` (found 2026-08-18). That script's body only runs when `CLAUDE_CODE_REMOTE=true`, so the
+  sole environment it does work in is the Linux container where a non-executable checkout cannot
+  be run — and it is the script that provisions the Node 24 the engine floor needs, after
+  `npm ci` EBADENGINE blocked PRs #1611, #1697, #1705 and #1740.
+- **Register hooks as `bash "$CLAUDE_PROJECT_DIR/…"`, never as a bare path**, so the mode is never
+  load-bearing. `session-start.sh` was the only bare-path registration and the only one missing the
+  bit; that is not a coincidence worth repeating.
+- **Line endings are LF.** `.gitattributes` sets `* text=auto eol=lf`; all hook blobs measure CR=0.
+  A CR in a shell blob fails on Linux as the near-unreadable `/bin/bash^M: bad interpreter`.
+- **Hooks must not be able to fail a session.** Every hook here exits 0 on any parse problem and
+  makes no decision, so a malformed payload leaves the tool call exactly as it was.
+- **Set an explicit `timeout`.** The default is 60s, which `session-start.sh` can exceed on a cold
+  container (Node tarball download plus `npm ci`) — a killed hook leaves dependencies half
+  installed.
+- **SessionStart context comes from stdout, not stderr.** A hook that reports on stderr is invisible
+  to the model even though it ran and exited 0; `check-base-freshness.mjs` spent its life in that
+  state. Emit `{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"…"}}` on
+  stdout, and only when the message is worth the context it costs.
+
+Enforced by the `claude hook scripts are checked in runnable` block in
+`tests/session-start-hook.test.ts`, which fails on any hook that is not `100755` or that carries CR
+bytes. Do not weaken it.
+
 # Codex Desktop worktree setup
 
 - The Windows Codex Desktop environment setup command is `node scripts/setup-codex-worktree.mjs`.
@@ -176,12 +241,25 @@ Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit 
 - `.codex/environments/environment.toml` is autogenerated and ignored. Change the Database
   environment through Codex settings, then verify the effective command with the generated file and
   `node scripts/setup-codex-worktree.mjs --dry-run`.
+- **Web container runtime requirements:** Package manifests enforce strict Node 24 (`>=24.15.0 <25`) and npm 11 engines. If a web container environment boots with Node 22 on `PATH`, do not drop engine-strict; export `/opt/node24/bin` at the front of `PATH` or install Node 24 to satisfy repository engine contracts before running `npm ci`.
 
 <!-- END:codex-desktop-worktree-setup -->
 
 <!-- BEGIN:reasoning-effort-calibration -->
 
 # Reasoning effort calibration
+
+**Repository baseline.** Use `gpt-5.6-sol` with `high` reasoning effort unless the user explicitly
+chooses another supported model or effort. `.codex/config.toml` records this default for trusted
+Codex clients that honor repository configuration; a task-level selection can override it.
+
+**Cloud xhigh gate.** A running Cloud task cannot raise its own reasoning effort. Before substantive
+inspection, planning, tool use, or edits, classify the request against the table and the risk rules
+below. If `xhigh` is required and the prompt does not contain the exact marker `[xhigh-confirmed]`,
+stop and ask the user to select `xhigh` in the Cloud reasoning control, then resubmit the same request
+with `[xhigh-confirmed]`. Do not begin the work at `high`, and do not claim the runtime changed. When
+the marker is present, treat it as the user's confirmation that `xhigh` was selected and proceed.
+Requests classified as `high` or lower proceed without this gate.
 
 Reasoning effort is a budget in the same way verification is a budget, and it is misspent the same
 way — by defaulting to the maximum instead of matching the spend to the risk. **Scale effort to how
@@ -232,6 +310,15 @@ still free to change, and it stops the blanket default from being applied silent
 
 # Process hardening phases
 
+## Bare PR publication is not readiness work
+
+When the user says `open PR`, `create PR`, or `publish PR` without also requesting review, validation, readiness, or CI observation, treat it as a request to publish the prepared change promptly. GitHub is the requested verification surface.
+
+- Inspect only what is necessary to avoid publishing the wrong change: the branch, base, staged/unstaged scope, and PR title/body. Reuse an existing dedicated branch or worktree rather than recreating it. Do not fetch, pull, rebase, review the ledger, inventory history, load a release/handover skill, or create a worktree unless it is necessary to keep unrelated work out of the PR.
+- Do **not** run or wait for `npm run format`, dependency installation or linking, `npm run verify:pr-local`, tests, lint, typecheck, builds, browser checks, audits, generated-document synchronization, or CI. Do not invoke a release/readiness workflow for this request.
+- If a local commit hook or a readiness-only push guard (format, drift, static, or ledger-write) is the only blocker, publish with `git commit --no-verify` and that guard's own scoped override (`SKIP_FORMAT_GUARD=1`, `SKIP_DRIFT_GUARD=1`, `SKIP_STATIC_GUARD=1`, or `SKIP_LEDGER_WRITE_GUARD=1`, as applicable) instead of `git push --no-verify`; do not spend time preparing dependencies or formatting solely to satisfy the hook. Never skip the push hook wholesale — the auto-merge ownership guard has no override and must never be bypassed, even for a bare-publication request. This exception is limited to the explicit bare-publication request and does not weaken normal-push safeguards.
+- Create the PR immediately after the push, using the repository PR template where its policy fields apply. Report the URL and identify all local and hosted checks as unrun by request. Do not babysit CI, amend, or perform follow-up readiness work unless the user asks. This route overrides generic branch-bundling, handover, review, and babysit instructions.
+
 - **Verification principle:** run the smallest check capable of detecting a plausible regression introduced by the current diff. Before starting a check, identify the failure class it covers, whether a successful check already covered that class, whether a cheaper focused check offers comparable detection, and whether the incremental confidence justifies the runtime, resource use, and repository-lock contention. If there is no plausible changed failure path, do not run the check.
 
 | Tier                    | Use when                                                                                                                            | Default evidence                                                                                                     |
@@ -243,13 +330,13 @@ still free to change, and it stops the blanket default from being applied silent
 | 4 — Broad handoff       | The diff crosses multiple subsystems, cannot be bounded reliably, or the task explicitly requires PR/release confidence             | One appropriate broad gate, selected rather than stacked by default                                                  |
 
 - Do not run a broad baseline routinely before localized work, and do not select `verify:cheap` merely because a change is described as “non-trivial.” Use `npm run verify:cheap` once when cross-module risk warrants a broad offline gate. Use `npm run verify:pr-local` when a change is ready for PR handoff: it now classifies the changed paths, runs focused documentation/workflow contracts for recognised low-risk scopes, and fails closed to lint, typecheck, the full unit suite, RAG fixture validation, and relevant build/domain gates for executable or unknown scope. If the diff has not changed, do not run `verify:cheap` first merely to repeat the same coverage.
-- Do not stack focused tests, full tests, typecheck, lint, build, and browser checks unless each catches a distinct plausible regression. Do not rerun an unchanged successful gate. A deliberately skipped low-yield broad gate is not automatically verification debt; report the skipped check and its risk-based reason concisely.
+- Do not stack focused tests, full tests, typecheck, lint, build, and browser checks unless each catches a distinct plausible regression. Do not rerun an unchanged successful gate. Since 2026-08-21 that last rule is enforced rather than remembered: `scripts/gate-receipts.mjs` memoises `lint`, `typecheck` and non-coverage Vitest runs against a content signature, so an identical re-run on unchanged content exits 0 immediately instead of repeating the work. A reused receipt must be reported as "reused receipt from <time>", never as a fresh run; use `GATE_RECEIPTS=refresh` when fresh evidence is the point, `GATE_RECEIPTS=off` to disable, and `npm run receipts` to inspect the store. Receipts are local-only and never reach CI — `CI` being set disables reuse outright, because GitHub remains the authoritative merge gate. Do not memoise `build` or `test:coverage`; their artefacts are read by later gates. Contract: `docs/process-hardening.md` and `tests/gate-receipts.test.ts`. A deliberately skipped low-yield broad gate is not automatically verification debt; report the skipped check and its risk-based reason concisely.
 - A fast-fail subset may precede a broader required gate only when the later gate excludes that subset for the same event; retain a fail-safe full path whenever the subset is skipped. Likewise, do not pre-run a build, install, or server setup that the selected wrapper performs itself. Guard these disjoint/fallback rules with workflow contract tests so a later edit cannot silently restore duplicate work or create a coverage hole.
 - Use dry-run selectors before expensive gates when scope is uncertain. `npm run verify:pr-local -- --dry-run --files <comma-separated paths>` inspects PR-local selection without running commands. The broader `--extended` plan is dry-run only unless explicit approval is reflected by `ALLOW_EXTENDED_PR_LOCAL=true`.
 - CI uses the same fail-closed scope model: recognised docs and workflow/policy-only changes run focused contracts; executable product/test/config, dependency, database, container, RAG, security-sensitive, mixed, or unknown paths retain the applicable heavy jobs. Do not broaden a path trigger or restore an always-on heavy job without evidence that the focused route misses a realistic failure class. Scheduled drift/release checks and the always-reporting `PR required` aggregate remain safety backstops.
 - Let the repository run coordinator control cross-worktree verification. It permits at most two focused Vitest/read-only typecheck leases from different worktrees; full Vitest, coverage, lint, build, Playwright, and live-provider tests remain exclusive. Do not install while a repository test, build, lint, typecheck, or server command is active. Avoid aggressive short-interval polling, and do not repeat an unchanged full gate after it passes.
 - For UI, frontend, browser, routing, styling, reduced-motion, or forced-colors behaviour changes, run `npm run ensure` before browser work and prove the changed owner or journey first. Use `npm run verify:ui` when shared UI foundations changed or PR/handoff policy requires the complete Chromium gate, not as an automatic addition after focused proof. For phone-chrome changes, run `npm run verify:phone-chrome` first: it checks installed-lock parity, selects the affected browser/PWA owners and exact journeys, and adds `verify:ui` last only when shared chrome foundations make the broad gate necessary. Inspect uncertain scope with `-- --dry-run`. Chromium evidence does not close physical Safari or installed-PWA acceptance gaps.
-- **Run `npm run format` and commit the result before every push.** Formatting is in neither `npm run test`, `npm run typecheck`, nor `npm run lint`, so the ordinary loop can report green while the changed-file CI check or exact-commit pre-push guard fails. Three CI failures on 2026-07-30 came from exactly this (two of them on `ci/circleci: verify`, since removed from the repo by PR #1412). Two traps beyond simply running it:
+- **For normal engineering pushes, run `npm run format` and commit the result before push.** This rule does not apply to the explicit bare PR publication route above. Formatting is in neither `npm run test`, `npm run typecheck`, nor `npm run lint`, so the ordinary loop can report green while the changed-file CI check or exact-commit pre-push guard fails. Three CI failures on 2026-07-30 came from exactly this (two of them on `ci/circleci: verify`, since removed from the repo by PR #1412). Two traps beyond simply running it:
   - **Formatting without committing does nothing for the push.** A push sends commits, not your working tree, so formatting after committing leaves the unformatted blob on the branch. Amend or add a follow-up commit.
   - **A per-file check is not the repository-wide check.** `prettier --check <file>` on the source file you edited passes while a doc or ledger edit in the same push fails; that was the missed file twice out of three.
 
@@ -260,9 +347,107 @@ still free to change, and it stops the blanket default from being applied silent
 - For pull requests that touch ingestion, answer generation, search/ranking, source rendering, document access, privacy, production env, or clinical output, complete the clinical governance preflight in `.github/pull_request_template.md`.
 - Track known verification debts and staged process improvements in `docs/process-hardening.md` instead of relying on chat-only memory.
 
+## Do not pay twice for the verdict GitHub is about to reach
+
+`check:gate-manifest` enforces a one-way invariant: CI never runs LESS of the local
+`verify:cheap` static set than the local chain does. Read that the other way and it says
+something uncomfortable — **every local run of a gate in that chain is work GitHub is
+about to repeat.** `gate-receipts.mjs` removed the local-versus-local duplication (the
+same gate twice on unchanged content); it explicitly cannot touch this one, because CI
+must never reuse a receipt.
+
+That does not make the local run waste. It is a **bet**: a local run that fails saves a CI
+round trip, and a red or superseded push is expensive here (~40% of PR CI runs measured
+2026-07-30 were cancellations). A local run that passes bought nothing the CI run would not
+have established. So the question is never "local or CI" in the abstract, it is:
+
+> **Is this gate, on this kind of change, still catching anything?**
+
+**The rule: run an expensive local gate only while it is still earning its runtime, and
+never re-derive a verdict that already exists.** Before running `lint`, `typecheck`,
+`test`, `verify:cheap`, or `verify:pr-local`, consult the arbiter and quote its verdict:
+
+```bash
+npm run arbiter -- <gate>      # RUN / DEFER / PROVEN, with its evidence
+npm run arbiter:status         # the yield ledger and the duplication bill so far
+```
+
+It weighs three inputs, none of them hard-coded, so the answer moves as the repo moves:
+
+1. **CI coverage**, derived live from `package.json` + `.github/workflows/ci.yml`, and
+   evaluated **for this change** — the step's own `if:` and its job's `if:` are checked
+   against the current change scope, because a step's presence in the YAML is not
+   coverage. `lint` and `typecheck` are step-conditional on `static_heavy_changed` and
+   `test:coverage` is job-conditional on `coverage_changed`, so a docs-only change is
+   covered by none of them. A gate CI does not re-run is never deferrable — local is the
+   only gate there is. Delete the CI job and the arbiter stops deferring to it the same day.
+2. **Observed yield**, a rolling per-gate, per-change-class window of local outcomes that
+   the gate wrappers record automatically. A gate that has caught nothing across a full
+   clean window on this class of change has stopped earning its runtime. The **first catch
+   resets the window** and the gate runs locally again, so the loop re-arms itself instead
+   of decaying toward "never check anything".
+3. **Content identity** — a verdict GitHub already reached on exactly this content
+   (recorded with `npm run arbiter -- record-ci <sha> <gates…>` when a session observes CI
+   go green) is not re-derived locally. This is the common repetition: CI goes green on a
+   branch head, and a later session runs the whole suite again on that same head. Name the
+   gates CI actually ran — the command refuses a bare invocation rather than turning one
+   observed job into proof for every gate.
+
+The window is per change class because the classes are not the same bet: docs-only clears
+in 3 clean runs, source in 12, and **db, RAG, dependency, container, workflow, UI and
+unrecognised scope never defer at all**, however clean the history — the same fail-closed
+routing CI itself uses, not a second risk model.
+
+Non-negotiable boundaries, all of them the conservative direction:
+
+- **Fail open.** Missing data, unreadable CI, an unknown change class, a git failure — every
+  one of them runs the gate. A bug in the arbiter costs a redundant run, never a skipped one.
+- **CI is never advised by it.** `CI` being set disables the arbiter outright. GitHub stays
+  the authoritative merge gate and nothing computed locally may influence what it runs.
+- **Advisory by default.** A `DEFER` or `PROVEN` verdict is a recommendation printed with
+  its evidence; the wrappers act on it only under `GATE_ARBITER=enforce`. Silently skipping
+  a gate a human typed is exactly the failure the evidence rules exist to prevent.
+- **A focused run is not full-suite evidence.** A narrowed Vitest invocation records under
+  its own identity, so a clean run of single-file tests can never let the whole suite defer.
+- **A deferred gate is not a passed gate.** Report it as "deferred to CI — <gate> has caught
+  nothing in N consecutive <class> runs", never as green, and never alongside a claim that
+  the gate ran. The same applies to `PROVEN`: say "reused receipt" or "CI-proven at `<sha>`".
+
+This does not license skipping verification. It licenses not buying the _same_ verdict
+twice. The smallest-correct-gate rule above still decides which gate is right; the arbiter
+only decides whether that gate has anything left to tell you before you push.
+
 <!-- END:process-hardening -->
 
 <!-- BEGIN:page-and-button-wiring -->
+
+# Deleting code you believe is dead
+
+"Nothing imports it" is necessary and **nowhere near sufficient**. On 2026-08-20 a cleanup
+sweep (PR #2204) targeted ~1,644 lines on that single test and had to be walked back seven
+times. Four of the survivors had zero importers and were all alive: Ward Flow's
+`wallClockNow` and `movementsByStage` (named exports in a phase plan whose 55 tasks were all
+unchecked), the Caring Contacts fixtures, and `bestEffortReembedRegistryRecordAfterEdit`
+(`docs/rag-hybrid-findings-and-todo.md` says any future registry write route **must** call
+it). A module contract whose consumer has not been written yet is indistinguishable from
+debris under a reachability scan.
+
+Before removing any exported symbol, run:
+
+```bash
+npm run check:dead-code-candidate -- --diff origin/main
+```
+
+It fails closed and refuses a candidate that is: named in a `docs/superpowers/plans|specs`
+file with unchecked tasks; pinned by a committed test; present as a string literal anywhere
+in `src`/`tests`/`scripts`/`worker` (a dynamic-lookup path no import graph shows);
+introduced within `DEAD_CODE_RECENT_DAYS` (default 30); or assessed on a **shallow clone**,
+where nothing can be dated — run `git fetch --deepen=2000` first rather than proceeding on
+the weaker signal. It also warns when the symbol is mentioned in any doc, and when its file
+still exports other symbols, because deleting the file is then wrong even if the symbol is not.
+
+Do not tune the threshold or the refusal list to make an existing diff pass. The sweep's
+own diff was cut back to satisfy this gate, not the other way round.
 
 # Page and button wiring
 
@@ -379,9 +564,11 @@ system, developer, user, security, or compliance requirements, which remain high
 Output-style plugins such as caveman mode may compress prose. They must never compress proof.
 
 - **Always paste the decisive line.** Report gates with real output, not a summary. Under heavy-lock
-  contention, `npm run verify:ui` queues Playwright admission for up to 15 minutes and exits `1` on
-  timeout (`run-playwright.mjs`) — it does not soft-skip green. When the gate does run, grep for the
-  "N passed" line; exit 0 alone is not proof.
+  contention, `npm run verify:ui` queues Playwright admission for up to 15 minutes and, if still
+  blocked at the deadline, exits `75` with a `DATABASE_HEAVY_RUN_ADMISSION_BUSY` marker
+  (`run-playwright.mjs`) — a distinct non-zero code from an ordinary test failure, so tooling can
+  tell "blocked, retry" apart from "red", but it never soft-skips green either way. When the gate
+  does run, grep for the "N passed" line; exit 0 alone is not proof.
 - **State verified versus assumed.** Calibration is not filler. Say what was actually run, what was
   read, and what is inferred. Do not drop uncertainty to save tokens.
 - **Third-party fix claims stay unverified until checked.** Bot or agent claims that a fix landed
@@ -409,12 +596,52 @@ Output-style plugins such as caveman mode may compress prose. They must never co
 # Supabase project safety
 
 - This repo targets the live Supabase project `Clinical KB Database`.
+- **MERGING TO `main` DEPLOYS TO PRODUCTION.** The Supabase GitHub integration has **"Deploy to
+  production" ENABLED**, production branch **`main`** — confirmed by a dashboard read on 2026-08-21,
+  after two earlier sessions inferred it wrongly in both directions. Any migration merged to `main` is
+  applied to the live clinical database automatically, within seconds (measured at 34 s in
+  `docs/audit/live-drift-forensics-2026-08.md` §3.7). There is no separate deploy step to forget and no
+  window to hold it back. Therefore:
+  - **Treat merge approval as production-deploy approval.** Never merge a PR touching
+    `supabase/migrations/**` outside an approved window, and never enable auto-merge on one.
+  - **After such a PR merges, the schema-application gate is the post-merge `live-drift` workflow**
+    (`.github/workflows/live-drift.yml`), which must complete with BOTH `npm run check:drift` and
+    `npm run check:migration-history` green. `supabase migration list` is not that gate: it reads the
+    recorded history only, so it cannot tell an applied migration from a history row whose statements
+    never executed — the exact shape of the fifteen no-statements rows `#Q5JHBJ` exists for.
+    `check:drift` compares the live schema itself. A manual `supabase migration list --linked
+--project-ref sjrfecxgysukkwxsowpy` read is a useful supplement, but it is provider-backed and so
+    needs explicit user confirmation first, per "API and provider confirmation boundary" above. A
+    merged-but-unapplied migration is silent drift — the incident this whole programme exists to
+    close.
+  - **A migration that cannot run inside a transaction cannot ship this way.** The integration applies
+    each migration in one transaction, so a bare `CREATE INDEX CONCURRENTLY` migration fails outright.
+    Index work stays operator-prebuild + a validate-only guard migration (the `20260804110240` pattern,
+    see the guard-migration contract below).
+  - **Automatic branching is also ON** (one preview database per PR that changes `supabase/**`, limit
+    3). Supabase warns that Branching Compute is **not covered by the organisation's Spend Cap**. CI's
+    `Migration replay` job (`db-reset-verify`, `supabase migration up --local`) independently replays
+    the whole chain on every database-touching PR, so preview branches are a second net rather than the
+    only one.
 - Expected project ref: `sjrfecxgysukkwxsowpy`.
 - Older unused project ref `qjgitjyhxrwxsrydablr` belongs to `Database`; treat it as stale and do not use it.
 - Hosted migrations, `supabase/schema.sql`, `supabase/roles.sql`, CI, and deployment tooling must target role `postgres`; never assume a platform-reserved role. The single older applied migration is immutable and pinned by `npm run check:migration-role`.
 - Bare-image storage scaffolding must discover its local schema owner at runtime and must never be reused as hosted migration SQL.
 - Run `npm run check:migration-role` after changing Supabase SQL, migration tooling, CI replay, or disaster-recovery instructions.
 - Run `npm run check:supabase-project` after changing Supabase env values.
+- **Guard-migration contract.** Any mark-applied version, `supabase migration repair --status applied`,
+  hand-applied SQL later recorded as a migration, or other history repair MUST ship a fail-fast
+  validation guard migration in the same change, following `20260804110240_restore_rag_search_health_indexes.sql`
+  exactly (validates presence + `indisvalid`/`indisready` + normalized definition, never builds,
+  `set local` timeouts, one `raise exception`). `schema_drift_snapshot()` v2 (`20260818090000`) reports every
+  `supabase_migrations` version recorded without executed statements; `check:drift` fails on any such row
+  that lacks a reviewed `migration_history` entry in `supabase/drift-allowlist.json` pointing at its guard
+  (`guard.class` `validation` is mandatory for versions from 2026-08-18; `superseded`/`no_ddl` are for
+  pre-contract history only). Never allowlist a history row bare, and never widen an entry's class to make
+  it pass. Enforced offline by `tests/migration-history-guards.test.ts`; index-monitoring decisions on the
+  retrieval-critical tables are enforced by `tests/search-health-index-coverage.test.ts` +
+  `supabase/search-health-unmonitored-indexes.json` (`required_indexes` changes travel by migration only).
+  Full contract: `docs/database-drift-detection.md`.
 
 <!-- END:supabase-project-safety -->
 
@@ -602,7 +829,7 @@ Durable mitigations in this repo:
   merely behind and the merge tree is clean, let that run settle and sync once,
   late, after review/fix work is assembled. Preempt an in-flight run only when
   the branch is genuinely blocking-conflicted or the user explicitly asks for
-  an immediate sync; do not disable `cancel-in-progress`.
+  an immediate sync; do not disable `cancel-in-progress` for PR branches.
 - The historical review table is frozen during normal PR work. Write a new review
   with `ledger:append`, which creates an immutable record; never resolve a review
   conflict by editing the historical table. The repository deliberately leaves its
@@ -633,7 +860,7 @@ Nothing else inherits this authorization. Only the user's own task message can t
 
 Hard guardrails (never, even during a sweep):
 
-- Never merge a pull request into `main` or any protected branch, and never enable auto-merge; the sweep fixes and reports, the user merges. Per-PR auto-merge state is user-owned: automation must not disable it. When auto-merge is already armed, do not push, update the branch/base, or perform another head-changing action; report the frozen state and leave the PR untouched until it merges or the user manually changes that state.
+- Never merge a pull request into `main` or any protected branch, and never enable auto-merge; the sweep fixes and reports, the user merges. Per-PR auto-merge state is user-owned: automation must not disable or re-enable it. Ordinary fast-forward commits and pushes to fix CI or review findings are allowed while auto-merge is armed — GitHub re-validates required checks against the new head before it will merge, so an additive push cannot make it merge something unvalidated (`guard-push.mjs`'s auto-merge guard warns rather than blocks for this case). Never force-push, rewrite history, or change the PR's base/target while auto-merge is armed — that stays hard-blocked with no override; wait for the user to change the auto-merge state first.
 - Never close a pull request, delete or rename branches, force-push, or rebase.
 - Never run provider-backed gates: `eval:rag`, `eval:quality`, `eval:retrieval:quality`, `verify:release`, `check:supabase-project`, `test:live`, or anything else that touches live Supabase/OpenAI.
 - Respect the `skip-codex-review` label as a full per-PR opt-out.
@@ -647,44 +874,87 @@ Record one immutable review record per PR touched with `npm run ledger:append` (
 
 <!-- END:run-pr-shortcut -->
 
-## Stop when the pull request is open
+## Babysit the pull request, then stop
 
-Opening the PR is the end of the session's handoff, not the start of a supervision
-shift. A session that stays attached to its own PR — polling `gh pr checks`, watching
-workflow runs, re-running failed jobs, syncing the branch from `main` again, replying to
-review bots, or scheduling a wake-up/monitor/loop against it — spends a long tail of
-usage on work the user has not asked for. Claude Code on the web is the worst case: the
-cloud session keeps running after the PR exists, so nothing naturally ends the loop.
+Opening the PR is the handoff, but walking away the instant it exists is not useful
+either — a required check that goes red ninety seconds later is still this session's to
+fix, and this is the cheapest moment to fix it. So the session gets a **budget**, not a
+ban: after the PR is created, follow its CI for **30 minutes**, then stop.
 
-After the PR is created — by `gh pr create` or a GitHub MCP `create_pull_request` tool —
-and a PR URL comes back:
+Inside that budget, following the PR is ordinary work:
 
-- Finish only what the handoff itself still owes: the `npm run ledger:append` row, and
-  the PR URL plus a short summary reported to the user. Then **stop**.
-- Do not follow the PR. CI results, review-bot findings, branch drift, and the merge
-  itself are the user's call, and a later session (or an explicit `Run PR` sweep) is
-  where that work belongs.
-- A failing check discovered _before_ you stopped is still worth reporting in that final
-  summary — reporting it is not the same as staying to fix it.
+- Read checks, workflow runs, and job logs; re-run a failed job; sync the branch from
+  `main` when it is behind but the merge tree is clean.
+- Fix what this change broke and push the fix. The smallest correct gate still applies to
+  every fix before it is pushed.
+- Look on a **slow cadence** — roughly five minutes between checks, and wait with
+  `ScheduleWakeup` or `Monitor` rather than polling tightly. Prefer a terminal-event wait
+  over repeated log reads; never stream logs minute-by-minute.
+- **Stop as soon as CI settles.** A green run ends the babysit; so does a failure that is
+  not this change's to fix (a known flake, an unrelated red on `main`, an infrastructure
+  outage). Say which it was.
+
+When the 30 minutes are up, or CI settles, whichever comes first:
+
+- Record the `npm run ledger:append` row if it is still owed.
+- Give the user the PR URL, a short summary, and **plainly where CI stands** — green, red
+  with the failing check named, or still running.
+- Then stop. The merge, review-bot findings, and anything still unresolved are the user's
+  call, and a later session (or an explicit `Run PR` sweep) is where that work belongs.
+
+Never park a cron job on the PR. A cron entry outlives the session, so nothing can stop it
+afterwards — that is the unbounded loop this budget exists to prevent, and it is denied for
+the whole session regardless of how much budget is left.
 
 Enforcement: `.claude/hooks/pr-handoff-stop.sh` (registered in `.claude/settings.json`)
-drops a session-scoped marker when a PR-creating call — `gh pr create` or any
-`create_pull_request` MCP tool — returns a real PR URL. For the rest of that session it
-then denies three things:
+drops a session-scoped marker, stamped with the open time, when a PR-creating call — `gh pr
+create` or any `create_pull_request` MCP tool — returns a real PR URL. It then measures the
+budget from that stamp:
 
-- **Shell polling** — `gh pr checks|status|view|diff|list|comment|review`, `gh run watch|view|list|rerun|download`,
-  `gh api …actions/runs|check-runs|check-suites|/pulls/`, and `sync:pr-branches`.
-- **GitHub MCP PR/CI tools** — anything whose tool name carries `pull_request`,
-  `workflow_run`, `workflow_job`, `check_run`, `check_suite`, `job_log`, or
-  `update_branch`, so a connector is not a way around the shell rule.
-- **Loop machinery** — `Monitor`, `ScheduleWakeup`, and `CronCreate`, which is how a
-  session parks itself on a PR without running a single command.
+- **Inside the budget** — shell polling (`gh pr checks|status|view|…`, `gh run …`,
+  `gh api …actions/runs`, `sync:pr-branches`), GitHub MCP PR/CI tools, `Monitor`, and
+  `ScheduleWakeup` all pass. Only `CronCreate` is denied.
+- **Past the budget** — all of those are denied, so the session reports and stops rather
+  than drifting into an open-ended supervision shift.
 
 Committing, pushing, ledger appends, and PR create/merge (`gh pr merge`,
-`merge_pull_request`) stay allowed. Unlock only on an explicit user ask: prefix a shell
-command with `CLAUDE_ALLOW_PR_FOLLOW=1`, or delete the marker the deny message names.
+`merge_pull_request`) stay allowed throughout. The budget is `CLAUDE_PR_BABYSIT_BUDGET_MINUTES`
+(default 30, clamped to 1..240). To keep watching past it on an explicit user ask, prefix a
+shell command with `CLAUDE_ALLOW_PR_FOLLOW=1`, or delete the marker the deny message names.
 Sessions that never create a PR are untouched, so `Run PR` sweeps, `pr-ci-fix` work, and
 review sessions on someone else's PR still function normally.
+
+## Automated review coverage (owner decision, 2026-08-22)
+
+CodeRabbit's included allowance is exhausted and the organisation has reached its usage spending
+cap, so it declines most reviews with "Review limit reached" — measured on PRs #2113, #2252, #2255,
+#2256, #2263 and #2278 between 2026-08-18 and 2026-08-22. The owner has decided to **leave the cap
+as it is and accept that CodeRabbit review is intermittent**, rather than raise it (`#CCZ4HB`).
+
+**Read `docs/decisions/ccz4hb-review-coverage.md` before acting on this.** A separate analysis
+written the same day measured the cause and it is not primarily billing: CodeRabbit's included
+reviews refill at one per hour (24/day) while this repo merged 25.4 PRs/day on average over the
+preceding month. It also found that 285 of the last 1,190 merged PRs (24%) changed only
+documentation and 190 (16%) changed only the repo's own record-keeping files — roughly six review
+credits a day spent on files a code-review bot has nothing to say about. Two levers therefore remain
+open at **no cost and no loss of safety**, and the owner's decision above does not foreclose them:
+configure CodeRabbit to skip documentation-only PRs, and stop opening PRs whose only content is a
+bookkeeping record. Do those before anyone proposes raising the cap again.
+
+What the decision means in practice, and what it does not mean:
+
+- The ChatGPT Codex connector reviewed PR #2278 on 2026-08-22 in the same run CodeRabbit skipped, so
+  as of that date automated review is reduced rather than absent. Do not treat that as permanent —
+  the connector reported its own usage limit on PR #2113 on 2026-08-18, so it can lapse too.
+- Draft PRs are skipped by CodeRabbit outright, so a PR that stays in draft gets nothing from it
+  even when allowance is available. Undrafting mid-CI also cancels the in-flight run.
+- **Do not weaken, skip, or relax any required check to compensate.** The required gates are now
+  carrying more of the load, not less, and the whole point of accepting reduced bot review is that
+  the deterministic checks stay strict.
+- Clinical-risk and RAG-surface diffs still require their PR-body preflight sections in full; those
+  are enforced by `scripts/pr-policy.mjs` and are unaffected by review-bot availability.
+
+Reducing PR churn (below) remains the cheapest way to get more value from the allowance that exists.
 
 ## PR bundling (reduce one-task-one-PR churn)
 
@@ -701,19 +971,20 @@ Before opening a new branch, check whether the task can ride an **already-open P
 still own** or be bundled with **other currently-queued low-risk work** instead of
 minting a new one. If the target PR's CI is already running, either wait for it to settle
 before pushing the addition or assemble every commit before that PR's first push —
-`.github/workflows/ci.yml` sets `cancel-in-progress: true`, so a push mid-run cancels and
-restarts CI rather than saving an invocation, reproducing the exact cancellation waste
+`.github/workflows/ci.yml` cancels in-progress runs for pull requests, so a push mid-run
+cancels and restarts CI rather than saving an invocation, reproducing the exact cancellation waste
 this rule exists to cut (reproduced 2026-07-30 pushing a second commit to PR #1406: the
 in-flight `static-pr` run was cancelled, failing `pr-required` on the now-stale head).
 A settle-then-push addition also lands after this repo's one automatic Codex review may
 already have run against the earlier head — in practice the connector re-reviews each new
 push (observed on this same PR), but if it doesn't, request a fresh review explicitly
 before merging rather than assuming the addition was covered. **If the target PR has
-auto-merge armed, settling-then-pushing races the merge itself.** Treat that PR as
-mutation-frozen: do not disable or re-enable auto-merge, push, update its branch/base, or
-otherwise change its head. Let the armed merge land, or wait for the user to manually
-change the auto-merge state before doing further branch work. `guard-push.mjs` enforces
-this for every locally pushed PR branch when authenticated `gh` is available; agent
+auto-merge armed, an ordinary fast-forward push is still safe to bundle onto** — GitHub
+re-validates required checks against the new head before merging. Per-PR auto-merge state is
+user-owned: automation must not disable or re-enable it, and a force-push or base/target change
+while armed still hard-blocks with no override — that is the actual race, not an additive
+commit. `guard-push.mjs` enforces the force-push block for every locally pushed PR branch when
+authenticated `gh` is available; agent
 policy remains the backstop in environments where local hooks or `gh` are unavailable.
 Bundle only when every item being combined is:
 
@@ -781,7 +1052,8 @@ named PR). Future process only.
   stale head that already shares hot files with the open queue.
 - The legacy `docs/branch-review-ledger.md` and `docs/outstanding-issues.md` are **serial-only**:
   normal PRs must not add rows there. `npm run ledger:append` creates an immutable review record;
-  `npm run issues:add|update|done` creates one immutable inbox request. One fresh-base,
+  `npm run issues:add|update|queue|done` creates one immutable inbox request (`queue` corrects a
+  recommended-execution-queue row; see ledger `#M6JNR8`). One fresh-base,
   cross-worktree-locked `npm run issues:reconcile` operation applies landed requests to the
   canonical issue ledger. `check:ledger-write-discipline` rejects direct table-row edits,
   changed request records, deleted requests, and a canonical issue diff that does not exactly
@@ -797,15 +1069,23 @@ named PR). Future process only.
   to settle before pushing again. Apply the same settle-first rule to branch syncs: for a
   behind-but-clean PR with required CI in flight, wait, then perform at most one late
   `update-branch` / `git merge origin/main` after review and fix work is assembled.
-  `cancel-in-progress: true` should remain enabled, but every superseding push or sync cancels
-  Production UI mid-flight (~40% of recent PR CI runs were cancellations).
-- Before push: `npm run format` **and commit the result**, then
-  `npm run verify:pr-local` (or the smallest gate that covers the change). Format is in
-  `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed
-  blob. Whole-tree Prettier, not a single edited file.
+  Cancel-in-progress should remain enabled **for pull requests**, where a newer head genuinely
+  supersedes the work in flight, but every superseding push or sync cancels Production UI
+  mid-flight (~40% of recent PR CI runs were cancellations). It is deliberately NOT enabled for
+  base-branch pushes: a merged commit cannot be superseded, so cancelling there destroyed the
+  only verification `main` received (23 of the last 30 main pushes cancelled, measured
+  2026-08-18). Do not "simplify" that exemption back to a blanket `true` — it is pinned by
+  `tests/ci-cache-safety.test.ts`.
+- For Run PR sweeps and normal readiness pushes — never an explicit bare PR publication — run
+  `npm run format` **and commit the result**, then `npm run verify:pr-local` (or the smallest
+  gate that covers the change). Format is in `static-pr` but not in `verify:cheap`; an
+  uncommitted format leaves CI red on the pushed blob. Whole-tree Prettier, not a single edited
+  file.
 - If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable
-  it. Treat the branch as mutation-frozen: no push, update-branch, base change, or bundled addition
-  until it merges or the user manually changes that state.
+  or re-enable it. Ordinary fast-forward pushes, `update-branch`/merge-main-in syncs, and bundled
+  additions may proceed — GitHub re-validates required checks against the new head before merging,
+  so an additive push cannot slip past that. A force-push, history rewrite, or base/target change
+  while armed still hard-blocks with no override; wait for the user to change that state first.
 - Missing CI checks are not a green pass. `pull_request` workflows do not run when GitHub
   cannot build `refs/pull/<n>/merge`. The `PR mergeability` check uses trusted
   `pull_request_target` events and refreshes unchanged PR heads after protected-base
@@ -874,7 +1154,7 @@ named PR). Future process only.
 
 ## Repository productivity skills
 
-Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. Run `npm run skills` for the validated catalog of 34 canonical single-word skills. `npm run check:skills` verifies those skills, their compatibility aliases, and the Claude, Cursor, and Clinical KB plugin skill surfaces. The older long names remain compatibility aliases and must not be counted as unique skills.
+Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. Run `npm run skills` for the validated catalog of 35 canonical skills. `npm run check:skills` verifies those skills, their compatibility aliases, and the Claude, Cursor, and Clinical KB plugin skill surfaces. The older long names remain compatibility aliases and must not be counted as unique skills.
 
 The foundational orchestration skills are:
 
@@ -908,8 +1188,9 @@ to the recommended queue.
 - `/issues add|done|update|capture …` queue immutable request files under
   `docs/outstanding-issues-inbox/`; ordinary branches never edit the canonical ledger. Commit a
   request only when explicitly asked, and never push unless requested or already handing off.
-  One deliberately serialized fresh-base branch later runs `npm run issues:reconcile` and refreshes
-  the visual register after the canonical transaction succeeds.
+  One deliberately serialized fresh-base branch later runs `npm run issues:reconcile`, which alone
+  edits the canonical ledger. That transaction is the whole deliverable: the legacy `ISSUES-LIST.html`
+  visual register was retired by `#338` on 2026-08-18, so there is no second artifact to refresh.
 - Proactively offer to `capture` unresolved follow-ups, deferrals, and known risks into the ledger
   before a session's context is lost — that is what keeps it a memory rather than a stale list.
 - **An open row is not evidence that nobody is building it.** Some rows do carry a progress marker in

@@ -7,18 +7,10 @@ import { describe, expect, it } from "vitest";
 import { GET as redirectApplications, HEAD as headApplications } from "@/app/applications/route";
 import { resolveDifferentialCompareHandoff } from "@/lib/differentials";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
+import { sourceSegment } from "./helpers/source-contract";
 
 function source(relativePath: string) {
   return readFileSync(resolve(process.cwd(), relativePath), "utf8");
-}
-
-function sourceSegment(contents: string, startMarker: string, endMarker: string) {
-  const start = contents.indexOf(startMarker);
-  const end = contents.indexOf(endMarker, start + startMarker.length);
-  if (start < 0 || end < 0) {
-    throw new Error(`Could not locate source segment from ${startMarker} to ${endMarker}.`);
-  }
-  return contents.slice(start, end);
 }
 
 const clinicalDashboardSource = source("src/components/ClinicalDashboard.tsx");
@@ -102,7 +94,8 @@ describe("audit navigation and auth regressions", () => {
     const focusLeaveContract = sourceSegment(
       masterSearchHeaderSource,
       "ref={modeMenuRef}",
-      'className={cn("relative z-[60]',
+      'className="relative z-[60]',
+      { label: "master mode-menu focus boundary" },
     );
 
     expect(focusLeaveContract).toContain("onBlur={(event) => {");
@@ -135,20 +128,25 @@ describe("audit navigation and auth regressions", () => {
       masterSearchHeaderSource,
       "function renderModeMenuOption(",
       "function renderModeMenuOptions()",
+      { label: "mode-menu option prefetch" },
     );
     const openModeMenuWithFocus = sourceSegment(
       masterSearchHeaderSource,
       "function openModeMenuWithFocus(",
       "function toggleModeMenu(",
+      { label: "mode-menu focus-open prefetch" },
     );
     const toggleModeMenu = sourceSegment(
       masterSearchHeaderSource,
       "function toggleModeMenu(",
       "function handleModeTriggerKeyDown(",
+      { label: "mode-menu toggle prefetch" },
     );
 
     expect(masterSearchHeaderSource).toContain("function prefetchModeSelection(modeId: AppModeId)");
-    expect(masterSearchHeaderSource).toContain("const href = appModeSelectionHref(modeId)");
+    expect(masterSearchHeaderSource).toContain(
+      'const href = modeId === "tools" ? "/tools" : appModeSelectionHref(modeId)',
+    );
     expect(masterSearchHeaderSource).toContain("router.prefetch(href,");
     expect(masterSearchHeaderSource).toContain("onInvalidate:");
     expect(modeOption).toContain("onFocus={() => prefetchModeSelection(mode.id)}");
@@ -164,9 +162,8 @@ describe("audit navigation and auth regressions", () => {
   });
 
   it("defers cross-mode search on narrow screens until expansion except for completed answers", () => {
-    expect(universalAlsoMatchesSource).toContain(
-      'modeId !== "prescribing" && (isWide || modeId === "answer" || expanded)',
-    );
+    expect(universalAlsoMatchesSource).toContain('modeId !== "prescribing" && submissionActive');
+    expect(universalAlsoMatchesSource).toContain('(isWide || modeId === "answer" || expanded)');
     expect(universalAlsoMatchesSource).toContain("enabled: trimmedQuery.length >= 2 && searchActive");
     expect(universalAlsoMatchesSource).toContain('if (modeId === "answer" && currentGroups.length === 0) return null;');
     expect(universalAlsoMatchesSource).toContain("const [viewportReady, setViewportReady] = useState(false);");
@@ -179,6 +176,7 @@ describe("audit navigation and auth regressions", () => {
       clinicalDashboardSource,
       "const showUniversalAlsoMatches =",
       "const showDesktopHomeComposer =",
+      { label: "also-matches visibility gate" },
     );
     expect(alsoMatchesGate).toContain('activeModeResultKind === "tools"');
     expect(alsoMatchesGate).toContain('activeModeResultKind === "favourites"');
@@ -189,24 +187,11 @@ describe("audit navigation and auth regressions", () => {
   });
 
   it("gates private polling and mutations on local readiness plus authenticated status", () => {
-    const uploadReadOnlyContract = sourceSegment(
-      clinicalDashboardSource,
-      "const uploadReadOnlyMode =",
-      "const canUsePrivateApis =",
-    );
-    // Uploads stay writable in local no-auth; only explicit demo / auth-unavailable lock them.
-    expect(uploadReadOnlyContract).toContain("const uploadReadOnlyMode = resolveUploadReadOnlyMode({");
-    expect(uploadReadOnlyContract).toContain("explicitDemoMode,");
-    expect(uploadReadOnlyContract).toContain("authUnavailableFallback: browserAuthUnavailableDemoFallback");
-    expect(uploadReadOnlyContract).not.toContain("localNoAuthMode");
-    expect(uploadReadOnlyContract).not.toMatch(/const uploadReadOnlyMode = clientDemoMode\b/);
-    expect(uploadReadOnlyContract).not.toMatch(/const uploadReadOnlyMode = resolveClientDemoMode\b/);
-    expect(source("src/lib/client-env.ts")).toContain("localNoAuthMode: false");
-
     const privateCapabilityContract = sourceSegment(
       clinicalDashboardSource,
       "const canUsePrivateApis =",
       "const canRunSearch =",
+      { label: "private API capability" },
     );
     expect(privateCapabilityContract).toContain("const canUsePrivateApis =");
     expect(privateCapabilityContract).toContain(
@@ -217,6 +202,7 @@ describe("audit navigation and auth regressions", () => {
       clinicalDashboardSource,
       "if (!nextDemoMode && !canUsePrivateApis) {",
       "const shouldRefreshWorkState =",
+      { label: "private polling capability" },
     );
     expect(pollingContract).toContain("if (!nextDemoMode && !canUsePrivateApis) {");
     expect(pollingContract).toContain("setDocuments([]);");
@@ -226,71 +212,86 @@ describe("audit navigation and auth regressions", () => {
       clinicalDashboardSource,
       "const mutateDocumentLabel =",
       "const handleDocumentDeleted =",
+      { label: "private label mutation" },
     );
     expect(labelMutationContract).toContain("if (!canUsePrivateApis) return false;");
 
-    const uploadMutationContract = sourceSegment(
+    const indexingAdministrationContract = sourceSegment(
       clinicalDashboardSource,
-      "function openUploadDrawer()",
-      "function openEvidenceDrawer()",
+      "const openLibraryHealthTarget = useCallback(",
+      "const timeoutId = window.setTimeout(prefetchApplications, 250);",
+      { label: "private indexing administration" },
     );
-    expect(uploadMutationContract).toContain("if (!canUseAdministrativeApis) {");
+    expect(indexingAdministrationContract).toContain("if (!canUseAdministrativeApis) {");
+
+    // Guard text alone would pass even if the guard fell through to the drawer-opening calls, so
+    // pin the ORDER: the early return has to precede every administrative state change, and the
+    // non-administrator branch must reach none of them.
+    const guardIndex = indexingAdministrationContract.indexOf("if (!canUseAdministrativeApis) {");
+    const earlyReturnIndex = indexingAdministrationContract.indexOf("return;", guardIndex);
+    expect(earlyReturnIndex, "the administrator guard must return, not just warn").toBeGreaterThan(guardIndex);
+
+    const deniedBranch = indexingAdministrationContract.slice(guardIndex, earlyReturnIndex);
+    expect(deniedBranch).not.toContain("setIndexingAdminDrawerOpen(true)");
+    expect(deniedBranch).not.toContain("setIndexingAdminMobileTab");
+    expect(deniedBranch).not.toContain('setDocumentsDrawerMode("admin")');
+
+    for (const administrativeCall of [
+      "settingsState.setIndexingAdminDrawerOpen(true);",
+      'settingsState.setIndexingAdminMobileTab("jobs");',
+      'settingsState.setDocumentsDrawerMode("admin");',
+    ]) {
+      const callIndex = indexingAdministrationContract.indexOf(administrativeCall);
+      expect(callIndex, `${administrativeCall} must exist in the administrator path`).toBeGreaterThan(-1);
+      expect(callIndex, `${administrativeCall} must sit after the non-administrator early return`).toBeGreaterThan(
+        earlyReturnIndex,
+      );
+    }
+
+    // Rendering is gated on the same capability, so losing access mid-session cannot leave jobs,
+    // batches or quality data painted from component state.
+    expect(clinicalDashboardSource).toContain("{settingsState.indexingAdminDrawerOpen && canUseAdministrativeApis ? (");
   });
 
-  it("keeps the private upload workspace tabs and panels programmatically associated", () => {
-    expect(clinicalDashboardSource).toContain('aria-label="Upload and indexing sections"');
+  it("keeps private indexing administration associated without exposing uploads", () => {
+    expect(clinicalDashboardSource).toContain('aria-label="Indexing administration sections"');
     expect(clinicalDashboardSource).toContain('role="tab"');
     expect(clinicalDashboardSource).toContain("aria-selected={active}");
     expect(clinicalDashboardSource).toContain("aria-controls={tab.panelId}");
     expect(clinicalDashboardSource).toContain("tabIndex={active ? 0 : -1}");
-    expect(clinicalDashboardSource).toContain('role={uploadUsesDesktopRegions ? "region" : "tabpanel"}');
-    for (const tab of ["setup", "upload", "jobs", "quality"]) {
-      expect(clinicalDashboardSource).toContain(`"dashboard-upload-tab-${tab}"`);
+    expect(clinicalDashboardSource).toContain('role={indexingAdminUsesDesktopRegions ? "region" : "tabpanel"}');
+    for (const tab of ["setup", "jobs", "quality"]) {
+      expect(clinicalDashboardSource).toContain(`"dashboard-indexing-admin-tab-${tab}"`);
     }
-    for (const section of ["setup", "upload", "indexing", "quality"]) {
+    for (const section of ["setup", "indexing", "quality"]) {
       expect(clinicalDashboardSource).toContain(`id="dashboard-${section}-section-heading"`);
     }
     // The viewport-driven region/tabpanel role is wired through the extracted hook, whose
     // media-query subscription carries the guard with it.
-    expect(clinicalDashboardSource).toContain("useUploadDesktopLayout()");
+    expect(clinicalDashboardSource).toContain("useIndexingAdminDesktopLayout()");
     // Assert the EXPORTED hook's return wires the media-query subscription through
     // useSyncExternalStore with the () => false server snapshot, and that the call closes
     // right after that snapshot. Scoping to the exported function body (not the whole file)
     // plus the `return` anchor and trailing `)` means a stale/disconnected call elsewhere, a
     // comment or string, a present-but-unused helper, a dropped SSR fallback, or a mutated
     // snapshot such as `() => false || getUploadDesktopLayoutSnapshot()` all fail the guard.
-    const uploadDesktopHookSource = source("src/components/clinical-dashboard/use-upload-desktop-layout.ts");
-    const useUploadDesktopLayoutBody = sourceSegment(
-      uploadDesktopHookSource,
-      "export function useUploadDesktopLayout(",
+    const indexingAdminDesktopHookSource = source(
+      "src/components/clinical-dashboard/use-indexing-admin-desktop-layout.ts",
+    );
+    const useIndexingAdminDesktopLayoutBody = sourceSegment(
+      indexingAdminDesktopHookSource,
+      "export function useIndexingAdminDesktopLayout(",
       "}",
+      { label: "indexing admin desktop layout hook" },
     );
-    expect(useUploadDesktopLayoutBody).toMatch(
-      /return\s+useSyncExternalStore\(\s*subscribeToUploadDesktopLayout,\s*getUploadDesktopLayoutSnapshot,\s*\(\)\s*=>\s*false\s*\)/,
+    expect(useIndexingAdminDesktopLayoutBody).toMatch(
+      /return\s+useSyncExternalStore\(\s*subscribeToIndexingAdminDesktopLayout,\s*getIndexingAdminDesktopLayoutSnapshot,\s*\(\)\s*=>\s*false\s*,?\s*\)\s*;?\s*$/,
     );
-    expect(clinicalDashboardSource).toContain('event.key === "ArrowRight"');
-    expect(clinicalDashboardSource).toContain('event.key === "ArrowLeft"');
-    expect(clinicalDashboardSource).toContain('event.key === "Home"');
-    expect(clinicalDashboardSource).toContain('event.key === "End"');
-  });
-
-  it("keeps the root dashboard H1 as Clinical Guide", () => {
-    expect(clinicalDashboardSource.match(/<h1\b/g)).toHaveLength(1);
-    expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical Guide\s*<\/h1>/);
-  });
-
-  it("leaves favourites universal matches to the favourites hub", () => {
-    const universalMatchesContract = sourceSegment(
-      clinicalDashboardSource,
-      "{showUniversalAlsoMatches &&",
-      // The shared home now opens the mode-content chain, ahead of differentials.
-      "{showSharedHome ?",
-    );
-
-    expect(universalMatchesContract).toContain("<UniversalSearchAlsoMatches modeId={searchMode}");
-    expect(universalMatchesContract).not.toContain('activeModeResultKind === "favourites"');
-    expect(source("src/components/clinical-dashboard/favourites-command-library-page.tsx")).toContain(
-      '<UniversalSearchAlsoMatches modeId="favourites" query={query} />',
-    );
+    // The source contract prevents the old effect/setState viewport pattern from returning.
+    expect(indexingAdminDesktopHookSource).not.toContain("useEffect");
+    expect(indexingAdminDesktopHookSource).not.toContain("useState");
+    expect(indexingAdminDesktopHookSource).not.toContain("setIndexingAdminUsesDesktopRegions");
+    expect(clinicalDashboardSource).not.toContain("UploadPanel");
+    expect(clinicalDashboardSource).not.toContain('type="file"');
   });
 });

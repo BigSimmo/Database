@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "55f0d5de-8642-487a-b063-44c1c0bc0921",
+  "createdOn": "2026-08-15",
+  "action": "done",
+  "payload": {
+    "id": "#237",
+    "outcome": "Completed with a real Chromium mockup journey at 320x700 using the production AccessibleTable and MissingValue components. The focused repository wrapper passed twice; computed proof showed normal whitespace, no ellipsis, both full 'Not recorded' phrases within the table wrapper, wrapper scroll delta at most 1px, and zero page overflow. The final 320x700 screenshot was visually inspected and confirmed the low-confidence warning and phrases are legible and uncut. No product CSS adjustment was needed."
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "bcea44bc-5738-41b8-96f1-e96b1488ab29",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "5cf082dd-60c3-42ef-95dc-82b9c255e9be",
+    "reason": "The queued correction is stale: PR #1953's isolated Playwright tsconfig include/exclude fix is now on main."
+  }
+}

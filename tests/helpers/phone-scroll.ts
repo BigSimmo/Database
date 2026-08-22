@@ -36,6 +36,7 @@ export const modeHomeRoutes = [
   "/formulation",
   "/dsm",
   "/tools",
+  "/calculators",
   "/differentials",
   "/specifiers",
   "/factsheets",
@@ -52,6 +53,7 @@ export const longRoutes = [
   "/formulation/worry",
   "/formulation/builder?mechanism=rumination&template=5Ps",
   "/documents/search",
+  "/calculators?q=depression&run=1",
   // Demo-corpus document detail: DocumentViewer owns its composer here, and its
   // scroll container binding has its own failure mode (stale #main-content).
   "/documents/11111111-1111-4111-8111-111111111111?page=1",
@@ -69,6 +71,7 @@ export const appModeHeaderRoutes = [
   { mode: "Formulation", route: "/formulation" },
   { mode: "Medication", route: "/?mode=prescribing" },
   { mode: "Tools", route: "/tools" },
+  { mode: "Calculators", route: "/calculators" },
   { mode: "Therapy", route: "/therapy-compass" },
   { mode: "Factsheets", route: "/factsheets" },
 ];
@@ -123,17 +126,10 @@ export const pageOwnedHeaderRoutes = [
 
 export const standalonePageOwnedFooterRoutes = [
   {
-    name: "calculator composer",
-    route: "/calculators",
-    selector: '[data-testid="calculators-phone-dock"]',
-    focusSelector: 'input[aria-label="Search calculators"]',
-    reserveSelector: '[data-testid="calculators-search-page"]',
-    flushBottom: true,
-  },
-  {
     name: "document composer",
     route: "/documents/11111111-1111-4111-8111-111111111111?page=1",
     selector: "form.document-viewer-composer",
+    openViaDocumentActions: true,
     focusSelector: 'input[placeholder="Search within this document..."]',
     reserveSelector: '[data-testid="document-viewer-content"]',
     flushBottom: false,
@@ -142,6 +138,7 @@ export const standalonePageOwnedFooterRoutes = [
     name: "differential comparison actions",
     route: "/differentials/presentations/acute-confusion-encephalopathy",
     selector: '[data-testid="differential-presentation-phone-footer"]',
+    openViaDocumentActions: false,
     focusSelector: null,
     reserveSelector: null,
     flushBottom: true,
@@ -205,10 +202,90 @@ export function forceCompiledStandalonePhoneCss(page: Page): Promise<number> {
     }
     const style = document.createElement("style");
     style.dataset.testid = "forced-standalone-phone-css";
-    style.textContent = `@layer components { ${standaloneRules.join("\n")} }`;
+    style.textContent = standaloneRules.join("\n");
     document.head.append(style);
     window.dispatchEvent(new Event("resize"));
     return standaloneRules.length;
+  });
+}
+
+/**
+ * Emulates an installed phone PWA environment with `display-mode: standalone`.
+ *
+ * Configures the phone viewport, safe-area CSS variables, and enables the
+ * standalone display-mode media feature via CDP (on Chromium) and by applying
+ * compiled standalone rules from globals.css across all browser engines.
+ */
+export async function emulatePhoneStandalonePwa(
+  page: Page,
+  path: string,
+  options: { safeAreaBottom?: number } = {},
+): Promise<number> {
+  await page.setViewportSize(phoneViewport);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  if (page.context().browser()?.browserType().name() === "chromium") {
+    try {
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send("Emulation.setEmulatedMedia", {
+        features: [{ name: "display-mode", value: "standalone" }],
+      });
+    } catch {
+      // Sandboxed Chromium without CDP access falls back to forced CSS below.
+    }
+  }
+  await gotoPhoneSurface(page, path, options.safeAreaBottom ?? 34);
+  const rulesCount = await forceCompiledStandalonePhoneCss(page);
+  await page.waitForTimeout(300);
+  return rulesCount;
+}
+
+export interface StandaloneShellGeometry {
+  shellHeight: number;
+  shellOverflowY: string;
+  frameHeight: number;
+  framePosition: string;
+  frameOverflow: string;
+  mainOverflowY: string;
+  mainOverscrollBehaviorY: string;
+  scrollOwner: "document" | "main";
+  headerPosition: string;
+  headerHidden: boolean;
+  docScrollTop: number;
+  mainScrollTop: number;
+  horizontalOverflow: number;
+}
+
+export function readStandaloneShellGeometry(page: Page): Promise<StandaloneShellGeometry> {
+  return page.evaluate(() => {
+    const shell =
+      document.querySelector<HTMLElement>(".phone-viewport-shell") ??
+      document.querySelector<HTMLElement>(".mobile-app-shell");
+    const frame = document.querySelector<HTMLElement>(".phone-viewport-frame");
+    const main = document.getElementById("main-content");
+    const header =
+      document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]') ??
+      document.querySelector<HTMLElement>("header#search");
+    const doc = document.scrollingElement ?? document.documentElement;
+    const mainOverflowY = main ? getComputedStyle(main).overflowY : "";
+    const mainOwnsScroll = Boolean(
+      main && /^(?:auto|scroll|overlay)$/.test(mainOverflowY) && main.scrollHeight > main.clientHeight + 1,
+    );
+
+    return {
+      shellHeight: shell?.getBoundingClientRect().height ?? 0,
+      shellOverflowY: shell ? getComputedStyle(shell).overflowY : "",
+      frameHeight: frame?.getBoundingClientRect().height ?? 0,
+      framePosition: frame ? getComputedStyle(frame).position : "",
+      frameOverflow: frame ? getComputedStyle(frame).overflow : "",
+      mainOverflowY,
+      mainOverscrollBehaviorY: main ? getComputedStyle(main).overscrollBehaviorY : "",
+      scrollOwner: mainOwnsScroll ? "main" : "document",
+      headerPosition: header ? getComputedStyle(header).position : "",
+      headerHidden: header?.getAttribute("data-scroll-hidden") === "true",
+      docScrollTop: doc.scrollTop,
+      mainScrollTop: main?.scrollTop ?? 0,
+      horizontalOverflow: Math.max(doc.scrollWidth, document.body?.scrollWidth ?? 0) - window.innerWidth,
+    };
   });
 }
 

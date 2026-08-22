@@ -3,21 +3,63 @@
 Owner: operator (Josh) + specialist session. Source findings: open ledger `#248` (whose causal
 conclusion awaits a read-only history and audit check) and the queued P1 live-drift follow-up.
 Companion evidence: live-drift Actions runs
-`30763871562` (2026-08-02) and
-`31330856982` (2026-08-09), PR #1614, `supabase/migrations/20260804110240_restore_rag_search_health_indexes.sql`.
+`30763871562` (2026-08-02), `31330856982` (2026-08-09) and
+`31813064485` (2026-08-14, the current measurement), PR #1614,
+`supabase/migrations/20260804110240_restore_rag_search_health_indexes.sql`.
 
-**Scope.** Fixes, in dependency order: the live-vs-repo schema gap (21 missing indexes, 2
-unexpected indexes, 10 diverged `match_*` RPC bodies), the unresolved cause of the affected
-migration history, drift-detection routing, and the surrounding database debt (`#102`, `#011`, `#036`,
-`#022`, `#025`, `#056`/`#057`, `#183`, `#188`/`#196`–`#200`, `#191`, `#098`/`#099`). Ends with
-standing protections so unverified history repairs remain visible and cannot silently mask drift.
+> **Status as of 2026-08-14.** Phase 0 is **complete** (routing, post-migration trigger, evidence
+> file, and the forced-dispatch proof — which auto-created issue **#1963**). Phase 1 is **partial**:
+> 1.1 and 1.3 were run in an owner-authorised incident window, but **1.2, the RPC divergence
+> dossier, is outstanding and is the gate for Phase 3**. Phase 4 is **partial**: the two
+> retrieval-critical trigram indexes were restored, ~20 remain.
+>
+> **Next step is Phase 1.2, not Phase 3.** Complete and review the RPC divergence dossier first,
+> then run the Phase 2 staging-parity rehearsal. Only after both prerequisites are complete may an
+> appropriately approved Phase 3 reconciliation proceed. Before starting any phase, check the
+> open-PR list for the surface first (`#292`): Phase 0 was independently built twice on 2026-08-14,
+> and Phases 3 and 4 spend approved production windows and eval-canary budget rather than just tokens.
+
+**Scope.** Fixes, in dependency order: the live-vs-repo schema gap, the unresolved cause of the
+affected migration history, drift-detection routing, and the surrounding database debt (`#102`,
+`#011`, `#036`, `#022`, `#025`, `#056`/`#057`, `#183`, `#188`/`#196`–`#200`, `#191`, `#098`/`#099`).
+Ends with standing protections so unverified history repairs remain visible and cannot silently mask
+drift.
+
+The schema gap, measured 2026-08-14 (superseding the 2026-08-09 figures this plan was written
+against):
+
+| Category                      | 2026-08-09 | 2026-08-14         |
+| ----------------------------- | ---------- | ------------------ |
+| diverged `match_*` RPC bodies | 10         | **10 — unchanged** |
+| `missing_live` indexes        | 21         | **20**             |
+| `unexpected_live` indexes     | 2          | **2 — unchanged**  |
 
 **Standing rules for every phase.** No hosted mutation without explicit approval for that phase.
 Never raw-SQL a drift fix — every live change is codified (migration + `schema.sql` mirror +
-regenerated `drift-manifest.json`) in the same change. PITR/backup restore point captured before
-any mutating phase. Every phase ends with pasted decisive evidence, not exit codes. RAG-protected
+regenerated `drift-manifest.json`) in the same change. Every phase ends with pasted decisive
+evidence, not exit codes. RAG-protected
 surfaces (`match_*` RPCs, anything under `src/lib/rag/**`) are flagged before editing and
 behaviour changes need a live eval-canary pair (36/36, recall 1.0, zero per-case rr regressions).
+
+**Recovery point — owner decision, 2026-08-22 (`#1K6T35`).** This rule used to read "PITR/backup
+restore point captured before any mutating phase". It was unsatisfiable: point-in-time recovery is a
+paid add-on and is **off** on the live project (`supabase backups list` on 2026-08-19 reported
+`pitr_enabled false`, `walg_enabled true`, seven retained daily physical backups). A checklist item
+nobody can satisfy reads as met by default whenever nobody checks it, which is exactly what happened
+through Phases 1-4. The owner has decided to **leave PITR off and accept a worst case of roughly 24
+hours of data loss** on the clinical corpus, so the rule now states the true position:
+
+> The only restore point is the most recent daily physical backup, up to ~24 h old. Before any
+> mutating phase, confirm the latest backup's completion timestamp and record it, and state in the
+> phase's evidence what would be lost by restoring to it. Phases whose every statement has an exact
+> one-statement inverse and no data-loss surface (the Phase 4 index work) may proceed on that basis.
+> Anything that rewrites or drops data or policy objects must additionally have a written, tested
+> reversal path, because there is no restore point finer than the last nightly backup.
+
+This decision covers **this remediation programme only**. It does not relax the separate
+`docs/superpowers/plans/2026-08-20-rag-ingestion-reindex.md` gate, which stops before a production
+re-index or backfill when PITR is disabled — that plan mutates the corpus itself and its stop
+condition stands until it is revisited on its own terms.
 
 ---
 
@@ -63,7 +105,7 @@ hypothesis into a named, evidence-backed conclusion.
 noise** (whitespace/qualifier only). No edits. This is the highest-stakes unknown in the whole
 plan — live retrieval behaviour may currently depend on bodies the repo does not contain.
 
-1.3 **Index inventory & sizing.** For the 21 missing and 2 unexpected indexes: owning-table
+1.3 **Index inventory & sizing.** For the 20 missing and 2 unexpected indexes: owning-table
 `pg_relation_size`, and `EXPLAIN (ANALYZE, BUFFERS)` for the known hot queries
 (`documents` title ILIKE, `document_chunks` content search, `rag_retrieval_logs` miss scan).
 These are the before-measurements for Phase 4, including the `#231` latency hypothesis.
@@ -73,7 +115,9 @@ right now), report before proceeding.
 
 ## Phase 2 — Staging rehearsal (`#056`, prerequisite for safe production work)
 
-2.1 Bring `Clinical KB Staging` to full migration parity (it is ~24 migrations behind). This
+2.1 Bring `Clinical KB Staging` to full migration parity (**26 migrations behind as measured
+2026-08-17** — ten earlier history holes plus sixteen after `20260719055623`; the gap widens as
+`main` advances, so re-measure at the start of the window rather than trusting this figure). This
 doubles as the rehearsal: the replay exercises every migration end-to-end, including the
 `20260804110240` guard (staging must prebuild or take the transactional builds — it is idle, so
 transactional is fine there).

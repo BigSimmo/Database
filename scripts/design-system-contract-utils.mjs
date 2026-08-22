@@ -195,6 +195,153 @@ export function findInteractiveTapLiteralsInSource(relativePath, sourceText) {
   return findings;
 }
 
+/**
+ * Gate 2's remaining named case: an interactive control that declares its OWN
+ * minimum height below the 48px tap floor.
+ *
+ * Scoped to `min-h-*` deliberately, and NOT to `h-*`/`size-*`. A short `h-4` on
+ * an interactive element is frequently the *visible* box of a control whose hit
+ * area is owned by a tap-sized wrapper — `SelectionCheckbox` in
+ * `differentials-home.tsx` is exactly that, and `ui-smoke` asserts the label
+ * around it still meets the floor. Flagging those would pad the baseline with
+ * findings that are not defects, which GATES.md §5 calls out as the way a gate
+ * gets switched off. `min-h-*` carries no such ambiguity: it is the element's
+ * own declared floor, so a value under the token is a lowered tap target by
+ * construction.
+ *
+ * Unprefixed only. `min-h-12 sm:min-h-10` is the repo's correct pattern — 48px
+ * on phones, 40px from `sm` up — so a variant-prefixed short value is a
+ * deliberate desktop release, not a violation. An unprefixed `min-h-tap` or
+ * `min-h-12`+ on the same element rescues it.
+ */
+const TAP_FLOOR_INTERACTIVE_TAGS = new Set(["a", "button", "input", "select", "summary", "textarea"]);
+const MAX_CLASS_ALTERNATIVES = 128;
+
+function combineClassAlternatives(left, right) {
+  const combined = [];
+  for (const first of left) {
+    for (const second of right) {
+      combined.push(`${first} ${second}`.trim());
+      if (combined.length >= MAX_CLASS_ALTERNATIVES) return [...new Set(combined)];
+    }
+  }
+  return [...new Set(combined)];
+}
+
+function classExpressionAlternatives(node) {
+  if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) return [node.text];
+  if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isNonNullExpression(node)) {
+    return classExpressionAlternatives(node.expression);
+  }
+  if (ts.isSatisfiesExpression?.(node)) return classExpressionAlternatives(node.expression);
+  if (ts.isConditionalExpression(node)) {
+    return [
+      ...new Set([...classExpressionAlternatives(node.whenTrue), ...classExpressionAlternatives(node.whenFalse)]),
+    ];
+  }
+  if (ts.isBinaryExpression(node)) {
+    if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+      return [...new Set(["", ...classExpressionAlternatives(node.right)])];
+    }
+    if (
+      node.operatorToken.kind === ts.SyntaxKind.BarBarToken ||
+      node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
+    ) {
+      return [...new Set([...classExpressionAlternatives(node.left), ...classExpressionAlternatives(node.right)])];
+    }
+    if (node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+      return combineClassAlternatives(classExpressionAlternatives(node.left), classExpressionAlternatives(node.right));
+    }
+    return [""];
+  }
+  if (ts.isTemplateExpression(node)) {
+    let alternatives = [node.head.text];
+    for (const span of node.templateSpans) {
+      alternatives = combineClassAlternatives(alternatives, classExpressionAlternatives(span.expression));
+      alternatives = alternatives.map((value) => `${value}${span.literal.text}`);
+    }
+    return alternatives;
+  }
+  if (ts.isCallExpression(node) || ts.isArrayLiteralExpression(node)) {
+    const values = ts.isCallExpression(node) ? node.arguments : node.elements;
+    return values.reduce(
+      (alternatives, value) => combineClassAlternatives(alternatives, classExpressionAlternatives(value)),
+      [""],
+    );
+  }
+  if (ts.isObjectLiteralExpression(node)) {
+    return node.properties.reduce(
+      (alternatives, property) => {
+        if (!ts.isPropertyAssignment(property) && !ts.isShorthandPropertyAssignment(property)) return alternatives;
+        const name = property.name;
+        const className =
+          name && (ts.isStringLiteralLike(name) || ts.isIdentifier(name) || ts.isNumericLiteral(name)) ? name.text : "";
+        return className ? combineClassAlternatives(alternatives, ["", className]) : alternatives;
+      },
+      [""],
+    );
+  }
+  return [""];
+}
+
+function jsxClassAlternatives(attribute) {
+  const initializer = attribute.initializer;
+  if (!initializer) return [];
+  if (ts.isStringLiteral(initializer)) return [initializer.text];
+  if (!ts.isJsxExpression(initializer) || !initializer.expression) return [];
+  return classExpressionAlternatives(initializer.expression);
+}
+
+function minHeightPixels(token) {
+  const normalized = token.replace(/^!/, "");
+  if (normalized === "min-h-tap") return 48;
+  if (normalized === "min-h-px") return 1;
+  const spacing = normalized.match(/^min-h-(\d+(?:\.\d+)?)$/);
+  if (spacing) return Number(spacing[1]) * 4;
+  const arbitrary = normalized.match(/^min-h-\[(-?\d+(?:\.\d+)?)(px|rem)\]$/);
+  if (!arbitrary) return null;
+  const value = Number(arbitrary[1]);
+  return arbitrary[2] === "rem" ? value * 16 : value;
+}
+
+function hasSubFloorEffectiveMinHeight(classText) {
+  const minHeightTokens = classText
+    .split(/\s+/)
+    .filter((token) => token && !token.includes(":"))
+    .map((token) => token.replace(/^!/, ""))
+    .filter((token) => token.startsWith("min-h-"));
+  if (minHeightTokens.length === 0) return false;
+  const pixels = minHeightPixels(minHeightTokens.at(-1));
+  return pixels !== null && pixels < 48;
+}
+
+export function findInteractiveTapFloorDeclarationsInSource(relativePath, sourceText) {
+  if (!relativePath.endsWith(".tsx")) return [];
+  if (!/\bmin-h-(?:[0-9]|1[01]|\[)/.test(sourceText)) return [];
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const findings = [];
+
+  function inspectOpeningElement(node) {
+    if (!TAP_FLOOR_INTERACTIVE_TAGS.has(node.tagName.getText(source))) return;
+    const classAttribute = node.attributes.properties.find(
+      (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
+    );
+    if (!classAttribute || !ts.isJsxAttribute(classAttribute)) return;
+    const alternatives = jsxClassAlternatives(classAttribute);
+    if (!alternatives.some(hasSubFloorEffectiveMinHeight)) return;
+    const line = source.getLineAndCharacterOfPosition(classAttribute.getStart(source)).line + 1;
+    findings.push(`${relativePath}:${line}`);
+  }
+
+  function visit(node) {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) inspectOpeningElement(node);
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return findings;
+}
+
 const BORDER_WIDTH_UTILITY = /^border(?:-[xytrblse])?(?:-(?:0|2|4|8|\[(?!color:)[^\]]+\]))?$/;
 const RING_WIDTH_UTILITY = /^ring(?:-(?:0|1|2|4|8|\[(?!color:)[^\]]+\]))?$/;
 // The status-colour family declared in `globals.css` (`--success`/`--warning`/
@@ -327,6 +474,18 @@ const RAW_LINE_HEIGHT_UTILITY = new RegExp(String.raw`^leading-${RAW_LITERAL_VAL
  */
 const RAW_GAP_UTILITY = new RegExp(String.raw`^gap(?:-[xy])?-${RAW_LITERAL_VALUE}$`);
 /**
+ * Margin, completing the spacing family. Padding, radius, gap and line-height
+ * were each given a ratchet; margin was simply never added, so `mb-[22px]`,
+ * `mt-[30px]` and 41 more sat in production counted by nothing. Found by the
+ * 2026-08-20 design review, which noted the omission is the reason
+ * therapy-compass reads as off the shared spacing grid while its padding and
+ * gap debt is already pinned.
+ *
+ * Own metric, for the same reason gap got one: this debt is concentrated in a
+ * different set of files and will be paid down at its own pace.
+ */
+const RAW_MARGIN_UTILITY = new RegExp(String.raw`^-?m[xytrbles]?-${RAW_LITERAL_VALUE}$`);
+/**
  * The CSS-declaration half of the same four rules, so a literal cannot simply
  * move from a class into `globals.css` to escape the ratchet — the same reason
  * `legacyShadowAliases` and the colour ratchet count both sides.
@@ -345,6 +504,12 @@ const RAW_PADDING_PROPERTY = /^padding(?:-(?:top|right|bottom|left|inline|block)
 const RAW_RADIUS_PROPERTY = /^border(?:-(?:top|bottom)-(?:left|right)|-(?:start|end)-(?:start|end))?-radius$/;
 /** `gap` is the shorthand; `row-gap`/`column-gap` are the longhands it expands to. */
 const RAW_GAP_PROPERTY = /^(?:gap|row-gap|column-gap)$/;
+/**
+ * Margin, matching the padding shape. Both the `[margin-top:22px]` arbitrary-property
+ * utility and a plain `margin-top: 22px` declaration route through
+ * `recordRawScaleLiteralProperty`, so one branch closes both spellings at once.
+ */
+const RAW_MARGIN_PROPERTY = /^margin(?:-(?:top|right|bottom|left|inline|block)(?:-(?:start|end))?)?$/;
 const CSS_WIDE_KEYWORD = /^(?:inherit|initial|unset|revert|revert-layer|normal|auto)$/;
 const CSS_ZERO_VALUE = /^-?0(?:\.0+)?(?:[a-z%]+)?$/i;
 const ARBITRARY_PROPERTY_UTILITY = /^\[([a-z-]+):([^\]]+)\]$/i;
@@ -366,6 +531,9 @@ function recordRawScaleLiteralProperty(result, relativePath, line, prop, value, 
   }
   if (RAW_GAP_PROPERTY.test(prop)) {
     result.rawGapLiterals.push(`${relativePath}:${line} (${label})`);
+  }
+  if (RAW_MARGIN_PROPERTY.test(prop)) {
+    result.rawMarginLiterals.push(`${relativePath}:${line} (${label})`);
   }
   if (prop === "line-height") {
     result.rawLineHeightLiterals.push(`${relativePath}:${line} (${label})`);
@@ -1057,6 +1225,7 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     legacyPaletteUtilities: [],
     literalShadowClasses: [],
     rawGapLiterals: [],
+    rawMarginLiterals: [],
     rawLineHeightLiterals: [],
     rawPaddingLiterals: [],
     rawRadiusLiterals: [],
@@ -1147,6 +1316,7 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     if (RAW_PADDING_UTILITY.test(base)) result.rawPaddingLiterals.push(`${relativePath}:${line} (${token})`);
     if (RAW_RADIUS_UTILITY.test(base)) result.rawRadiusLiterals.push(`${relativePath}:${line} (${token})`);
     if (RAW_GAP_UTILITY.test(base)) result.rawGapLiterals.push(`${relativePath}:${line} (${token})`);
+    if (RAW_MARGIN_UTILITY.test(base)) result.rawMarginLiterals.push(`${relativePath}:${line} (${token})`);
     if (RAW_LINE_HEIGHT_UTILITY.test(base)) result.rawLineHeightLiterals.push(`${relativePath}:${line} (${token})`);
     const arbitraryProperty = base.match(ARBITRARY_PROPERTY_UTILITY);
     if (arbitraryProperty) {
@@ -1297,6 +1467,7 @@ export function analyzeCssContractsInSource(relativePath, sourceText) {
     onePixelShadowSpreads: [],
     rawGapLiterals: [],
     rawLineHeightLiterals: [],
+    rawMarginLiterals: [],
     rawPaddingLiterals: [],
     rawRadiusLiterals: [],
     rawZIndices: [],
@@ -1361,6 +1532,7 @@ export function findRawScaleLiteralClassesInSource(relativePath, sourceText) {
     padding: analysis.rawPaddingLiterals,
     radius: analysis.rawRadiusLiterals,
     gap: analysis.rawGapLiterals,
+    margin: analysis.rawMarginLiterals,
     lineHeight: analysis.rawLineHeightLiterals,
   };
 }
@@ -1514,6 +1686,7 @@ export function findRawScaleLiteralDeclarationsInSource(sourceText) {
     padding: analysis.rawPaddingLiterals,
     radius: analysis.rawRadiusLiterals,
     gap: analysis.rawGapLiterals,
+    margin: analysis.rawMarginLiterals,
     lineHeight: analysis.rawLineHeightLiterals,
   };
 }

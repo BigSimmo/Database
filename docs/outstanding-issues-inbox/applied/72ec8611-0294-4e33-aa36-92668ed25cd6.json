@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "72ec8611-0294-4e33-aa36-92668ed25cd6",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Three standalone mode homes have no loading.tsx (/medications, /calculators, /dictionary) and the contract test cannot catch it",
+    "detail": "All three are in standaloneModeHomePaths (src/lib/search-route-ownership.ts) and chrome invariant 18 requires ModeHomeRouteLoading, but tests/mode-home-loading-contract.test.ts enumerates only ten routes and omits these three, so the gap is invisible to CI. /documents is legitimately exempt (dashboard-owned). Fix: add the three loading.tsx files and derive the contract test's route list from standaloneModeHomePaths instead of a hand-written list. Verified by direct filesystem check during the PR #2160 audit.",
+    "source": "PR #2160 cross-mode home audit",
+    "issueUlid": "01M0BE9FVW6K9YGQY9G8CYM421"
+  }
+}

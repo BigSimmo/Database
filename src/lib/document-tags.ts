@@ -650,13 +650,6 @@ export function groupSmartDocumentTagsFromTags(tags: SmartDocumentTag[]): SmartD
     .map(([group, groupTags]) => ({ group, tags: groupTags }));
 }
 
-export function groupSmartDocumentTags(
-  labels: Array<Pick<DocumentLabel, "label" | "label_type" | "source" | "confidence" | "metadata">> | null | undefined,
-  options: { limit?: number; query?: string; includeManualGroup?: boolean; includeRanking?: boolean } = {},
-) {
-  return groupSmartDocumentTagsFromTags(buildSmartDocumentTags(labels, options));
-}
-
 export function tagSearchText(labels: ClinicalTagSource | null | undefined) {
   return buildSmartDocumentTags(labels?.labels, { includeRanking: true })
     .map((tag) => `${tag.label} ${tag.searchText} ${tag.group}`)

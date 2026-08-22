@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "53491e9a-64f0-4e67-b175-1e69c82a1be4",
+  "createdOn": "2026-08-20",
+  "action": "update",
+  "payload": {
+    "id": "#164Z0H",
+    "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987): the repo-side half is now proven green. git ls-files -s .claude/hooks/ reports mode 100755 for all five hooks, session-start.sh included, so the 100644 asymmetry recorded here is fixed in the index rather than only on disk. What remains is exactly what this row was filed for and cannot be proven from Windows: one real Claude Code web/container session confirming the hook actually runs and provisions Node 24.",
+    "baseRowFingerprint": "2e9aa08de4ac42c17397e2b8aa520a8e8ebc48821043e50fb1bf4e5b53453f74"
+  }
+}

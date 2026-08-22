@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e790f80b-efb3-4684-8195-77ff872ad014",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Three spring easing tokens in globals.css are dead: zero var() references and zero utility usage",
+    "detail": "--spring-tight, --spring-bouncy and --spring-gentle (src/app/globals.css:222-224) are declared in the @theme block but have no var() consumer in any stylesheet and no generated-utility consumer in src/. Tailwind v4.3.3 tree-shakes unused theme variables, so they never reach the compiled CSS — they are source noise, not shipped weight. Found while confirming (during PR #2046) that --animate-answer-ecg survives that same tree-shaking because it IS referenced via var() from the project's own CSS; --ease-spring is the working precedent for that pattern. Next: delete the three tokens, or wire them to the motion surfaces they were intended for.",
+    "source": "PR #2046 phone/PWA answer-progress animation defect, 2026-08-17",
+    "issueUlid": "01M085W28G43SSS0NTZ0VN3D1P"
+  }
+}

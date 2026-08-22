@@ -1,5 +1,6 @@
 import differentialSnapshot from "../../data/differentials-snapshot.json";
 
+import { normalizePresentationWorkflow } from "@/lib/differential-presentation-display";
 import { diagnosisToRow, presentationToRow, type DifferentialRecordInsert } from "@/lib/differential-records";
 import type { DifferentialSnapshot } from "@/lib/differential-snapshot";
 
@@ -15,7 +16,11 @@ function assertUsableDifferentialSnapshot(snapshot: DifferentialSnapshot) {
 
 export function loadDifferentialSnapshot(): DifferentialSnapshot {
   if (!cachedSnapshot) {
-    cachedSnapshot = differentialSnapshot as DifferentialSnapshot;
+    const snapshot = differentialSnapshot as DifferentialSnapshot;
+    cachedSnapshot = {
+      ...snapshot,
+      presentations: snapshot.presentations.map(normalizePresentationWorkflow),
+    };
     assertUsableDifferentialSnapshot(cachedSnapshot);
   }
   return cachedSnapshot;

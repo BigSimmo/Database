@@ -252,7 +252,7 @@ describe("OpenAI query embedding cache", () => {
       // (reasoningHeadroomFloor). The floor only ever raises a budget.
       max_output_tokens: 12000,
       store: false,
-      prompt_cache_key: "clinical-rag-answer-v18",
+      prompt_cache_key: "clinical-rag-answer-v19",
       prompt_cache_retention: "24h",
       metadata: { operation: "answer" },
       reasoning: { effort: "high" },

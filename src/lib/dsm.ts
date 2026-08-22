@@ -11,11 +11,34 @@ export type DsmSpecifier = {
   description: string | null;
 };
 
+/**
+ * A DSM-5 category as this app consumes it.
+ *
+ * The vendored export at `src/data/dsm-clinical-content.json` also ships
+ * `css_class` (e.g. "gmod") and `color` (a raw hex, e.g. "#C43232" for Psychotic
+ * Disorders) on every category. Both are deliberately NOT surfaced here, and
+ * that omission is load-bearing rather than tidiness:
+ *
+ *  - They were dead. Nothing under `src/` ever read either field, and the
+ *    `.gmod` / `.gpsy` classes the export names do not exist in any stylesheet.
+ *  - Wiring them up would reintroduce the exact defect this branch removed from
+ *    factsheets: the palette assigns red to Psychotic Disorders, green to OCD &
+ *    Related and amber to Mood Disorders, so three diagnostic categories would
+ *    wear the danger, success and warning hues that `semantic-tone.ts` reserves
+ *    for claims about safety. A category is a family of content, not a status.
+ *  - They are raw hex, so they cannot be remapped by the dark-theme or
+ *    forced-colors blocks the way a `--type-*` / `--tone-*` token is.
+ *
+ * The JSON keeps the fields because it is a snapshot of the upstream
+ * `dsm-5-diagnosis` repository and is not generated here — editing it would
+ * diverge the snapshot from its source and be overwritten by the next export.
+ * Dropping them from the type is what makes them unreachable: reading
+ * `category.color` is now a compile error rather than a live wire.
+ * `tests/dsm-category-colour-boundary.test.ts` holds this.
+ */
 export type DsmCategory = {
   key: string;
   label: string;
-  css_class: string;
-  color: string;
   diagnosis_count: number;
 };
 
@@ -64,14 +87,19 @@ function slugFromRecordId(recordId: string) {
   return recordId.replace(/^DSM-[^-]+-/, "").toLowerCase();
 }
 
-export const dsmContentMetadata = {
-  version: exportData.export_format_version,
-  generatedAt: exportData.generated_at,
-  sourceRepository: exportData.source_repository,
-  scope: exportData.content_scope,
-} as const;
-
-export const dsmCategories = exportData.categories.filter((category) => category.diagnosis_count > 0);
+/**
+ * Categories the app consumes, projected to the three fields it uses.
+ *
+ * The projection is deliberate, not incidental. Spreading the raw export here
+ * would keep `css_class` and the raw hex `color` on every object at runtime even
+ * though `DsmCategory` no longer declares them — and because this array is
+ * handed to `DsmSearchPage` as a prop, those values would be serialised into the
+ * page payload and shipped to the browser. Picking the fields keeps the runtime
+ * shape honest to the type and drops the dead bytes.
+ */
+export const dsmCategories: DsmCategory[] = exportData.categories
+  .filter((category) => category.diagnosis_count > 0)
+  .map(({ key, label, diagnosis_count }) => ({ key, label, diagnosis_count }));
 
 export const dsmDiagnoses: DsmDiagnosis[] = exportData.diagnoses.map((diagnosis) => ({
   ...diagnosis,
