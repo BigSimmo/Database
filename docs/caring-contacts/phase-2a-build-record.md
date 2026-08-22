@@ -2605,3 +2605,33 @@ tree.** Two lessons, and the second is the one that generalises:
   concurrency.** Any full-suite claim on this branch must name the commit it ran against and be taken
   on a quiet tree; this record's earlier "fully green for the first time" claim predates the discovery
   that the branch is shared and should be read with that caveat.
+
+## The production gate and the browser gate cannot both hold as written
+
+`c3ef20c3f` (the concurrent session's) added a correct rule: the demo role cookie is forgeable, so
+`isCaringContactsDemoEnabled()` returns false whenever `NODE_ENV === "production"`, and
+`src/app/caring-contacts/page.tsx` calls `notFound()`. Nothing about that reasoning is wrong.
+
+It collides with the browser gate, which builds and serves a **production** app. Measured, via the
+repository runner rather than the Playwright CLI: **32 failed**, every test in
+`tests/ui-caring-contacts-workspace.spec.ts` — including the 18 that predate the condensed bar and
+passed at Task 15. The page 404s, so nothing renders and every assertion downstream is moot.
+
+Two process notes worth more than the incident:
+
+- **A direct `npx playwright test` invocation exits 0 while running nothing.** The repo refuses it
+  (`Playwright requires a runner-owned local server`), and that refusal is printed as an `Error:` with
+  exit code **0**. It is the browser-gate twin of the EPERM lock trap: no `passed`/`failed` line means
+  no run, whatever the exit code says. Use `npm run test:e2e -- <spec> --project=chromium`.
+- **`| tail -40` on the runner's output destroyed the per-failure detail** — the whole captured file
+  was 42 lines, so the assertion messages never survived to be read. Capture the full log to a file
+  and slice it afterwards; tailing a gate is how evidence gets thrown away at the moment it is needed.
+
+**Not ruled on. Escalated to the owner instead.** This is an access-control decision on a
+suicide-prevention tool, deliberately made by another session, and widening it is not a plan-conflict
+of the kind a controller settles by fiat. The recommendation put to him: leave the production rule
+exactly as written and let it open only under the repository's existing explicit demo-deployment flag
+(`NEXT_PUBLIC_DEMO_MODE`), which already guards 22 other routes and which `isDemoMode()` honours in
+every environment by design. A real deployment stays closed; a deliberate demo — where every patient
+is fictional — works, and the browser gate runs. Pending his answer, the condensed bar's Finding 1 and
+Finding 3 mutation proofs remain **unrun and are reported as unrun**, not as passed.
