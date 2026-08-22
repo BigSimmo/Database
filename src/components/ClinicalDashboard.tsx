@@ -117,7 +117,7 @@ import {
   setupRecheckPollMs,
   shorterPollDelay,
 } from "@/components/clinical-dashboard/clinical-dashboard-helpers";
-import { answerRecovery, errorCopy } from "@/lib/ui-copy";
+import { answerRecovery, errorCopy, sharedHomeDocumentTitle } from "@/lib/ui-copy";
 import { summarizeBulkReindexPayload } from "@/lib/bulk-reindex-results";
 import {
   type DocumentDrawerMode,
@@ -2984,6 +2984,13 @@ export function ClinicalDashboard({
     loading,
     submittedAnswerSearchActive,
   });
+  // The mode pill rewrites the shared-home URL with history.replaceState rather
+  // than asking Next to navigate. Server metadata therefore cannot update after
+  // an in-place mode choice; keep the accessible browser title aligned with the
+  // visible mode heading on that client-only path as well.
+  useEffect(() => {
+    if (showSharedHome) document.title = sharedHomeDocumentTitle(searchMode);
+  }, [searchMode, showSharedHome]);
   const showAnswerPending =
     activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
   const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";

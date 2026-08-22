@@ -171,10 +171,10 @@ export const tableCardHeader =
 export const tableMicroActionRow =
   "flex min-h-tap flex-wrap items-center gap-1 border-t border-[color:var(--border)] px-2 py-1.5 text-xs font-semibold text-[color:var(--text-muted)] sm:min-h-9";
 export const sidebarItem = `flex min-h-tap min-w-0 w-full items-center gap-2 overflow-hidden rounded-lg px-2.5 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] ${controlDisabled}`;
-const statusDotBase = "inline-block h-2 w-2 shrink-0 rounded-full";
-export const statusDotReady = `${statusDotBase} bg-[color:var(--success)]`;
-export const statusDotReview = `${statusDotBase} bg-[color:var(--warning)]`;
-export const statusDotMuted = `${statusDotBase} bg-[color:var(--decoration-soft)]`;
+const statusMarkerBase = "inline-block h-2 w-2 shrink-0";
+export const statusDotReady = `${statusMarkerBase} rounded-full border-2 border-[color:var(--text-heading)] bg-transparent`;
+export const statusDotReview = `${statusMarkerBase} rotate-45 rounded-sm bg-[color:var(--warning)]`;
+export const statusDotMuted = `${statusMarkerBase} rounded-full bg-[color:var(--decoration-soft)]`;
 
 export const toneSuccess =
   "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
