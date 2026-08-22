@@ -8088,7 +8088,7 @@
         "table": "rag_aliases"
       },
       {
-        "def": "CHECK ((feedback_category = ANY (ARRAY['verified'::text, 'needs_correction'::text, 'source_insufficient'::text, 'wrong_source'::text, 'missing_source'::text, 'unsupported_answer'::text, 'numeric_error'::text, 'outdated_guidance'::text])))",
+        "def": "CHECK ((feedback_category = ANY (ARRAY['verified'::text, 'needs_correction'::text, 'source_insufficient'::text, 'wrong_source'::text, 'missing_source'::text, 'unsupported_answer'::text, 'numeric_error'::text, 'outdated_guidance'::text, 'wrong_mode'::text, 'missed_source'::text, 'unsupported_conclusion'::text, 'important_information_missing'::text, 'source_conflict'::text, 'outdated_source'::text, 'presentation_problem'::text])))",
         "name": "rag_answer_feedback_feedback_category_check",
         "table": "rag_answer_feedback"
       },
