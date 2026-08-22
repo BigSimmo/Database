@@ -112,7 +112,7 @@ its author's first commit is a guard that works.
 
 **Mutation A — `widthStateFor(768)` returns `compact`.**
 
-Checked first that an assertion reads that exact value: `tests/caring-contacts-width-state.ts:10`
+Checked first that an assertion reads that exact value: `tests/caring-contacts-width-state.test.ts:10`
 is literally `expect(widthStateFor(768)).toBe("rail")`, so the mutation changes a value an
 assertion reads. Applied by changing `>=` to `>` on the `rail` comparison:
 

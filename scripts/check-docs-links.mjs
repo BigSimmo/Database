@@ -55,6 +55,12 @@ const ALLOWLIST = new Set([
   "src/app/(search-app)/tools/page.tsx",
   "src/lib/tools.ts",
   "src/components/ServiceDetailPage.tsx",
+  // Caring Contacts Phase 2A evidence records. Both are deliberately absent and both are
+  // named in prose that must not be rewritten: the first is a route file Task 15 considered
+  // and decided against after reading the Next 16 docs, the second is a temporary mutation
+  // probe Task 18 created, quoted the failure of, and deleted.
+  "src/app/caring-contacts/not-found.tsx",
+  "src/components/caring-contacts/workspace/overlays/guard-probe.tsx",
 ]);
 
 const DATED_DOC = /\b20\d{2}-\d{2}(-\d{2})?\b/;
