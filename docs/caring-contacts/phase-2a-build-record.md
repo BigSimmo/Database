@@ -2284,3 +2284,44 @@ Every one is an assertion that cannot fail, which is why none was left:
 `tone` joins `summary`, `decision` and `availability`: no matrix column, so nothing compares it. Inventing
 a check would pin the implementer's own choices while looking like verification of the frozen record. All
 four go to the owner for a human read.
+
+### Task 17 fix round scoped re-review — ALL FIVE ADDRESSED
+
+## Task 17: COMPLETE (commits `003a05e31`..`210139040`, review clean, zero Important findings)
+
+The re-reviewer confirmed Minor 3's bug was **real rather than theoretical**: `table["constructor"]`
+resolves to the inherited `Object` constructor, not `undefined`, so the old guard did not throw and
+returned a function typed as a modality value — an illegible downstream mismatch instead of the named
+"unmapped value" error. `Object.hasOwn` closes it correctly.
+
+Minor 2 now genuinely compares code against the document: the expected side is built from a
+`readFileSync` of the matrix, with no reference to the definitions array or to the expression that
+defines the export. Code-versus-document, not code-versus-itself.
+
+### The implementer corrected MY mutation, and it was right to
+
+I asked it to prove Minor 2 by hand-writing the mutating-id list with one id missing. **That would have
+proven nothing about the rewrite.** A 15-element literal reddens at the _pre-existing_ `toHaveLength(16)`
+first; Vitest's `expect` throws synchronously and halts the test body, so the rewritten assertion is
+never reached. My mutation would have gone red, looked convincing, and demonstrated only that the length
+check works.
+
+It designed the sharper one instead: sixteen ids with a mutating id swapped for a non-mutating one, which
+keeps **both** length checks satisfied — including the document-derived one, which is always 16 — and
+forces the rewritten assertion to be the one that fails, with the matrix document's list on the expected
+side. The re-reviewer traced the argument order and confirmed the reported failure direction matches.
+
+**The general lesson, and it applies to every mutation in this ledger: a mutation must be checked for
+whether it reaches the assertion you are trying to prove, not merely for whether the suite goes red.** A
+red suite proves _some_ assertion is load-bearing. It does not prove the one you care about is. This is
+the same failure the branch has met eleven times, caught here before it happened rather than after — and
+caught by an implementer against its own controller's instruction.
+
+### Minor 4's blast radius — declining to pre-weaken was right
+
+Marking the definition fields `readonly` changes a type Task 18 consumes, and Task 18's files were not
+yet on disk, so a clean project-wide `tsc` could not prove their in-flight code compiles against it. The
+implementer said so plainly rather than hedging, and **deliberately did not pre-emptively weaken the
+type**. The re-reviewer agreed: a consumer that only reads rows is unaffected, and a consumer that tries
+to assign to one is exactly the bug class the change exists to catch. Weakening a contract speculatively,
+against code that does not exist yet, would have reintroduced the gap on purpose.
