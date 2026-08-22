@@ -476,6 +476,22 @@ remaining items are compliance-posture and PHI-minimisation gaps.
 
 ## 11. Recommendation
 
+### Mode-aware Clinical Ask privacy boundary
+
+Clinical Ask adds typed/dictated questions, editable transcripts, non-identifying Case Context, clarification answers,
+request-scoped external authority extracts, and cited answers. Draft, transcript, context, clarification, and response
+remain ephemeral and tab-scoped; audio is disposed after transcription, cancellation, clear, account change, or
+unmount. Identifier-shape detection is a blocking warning aid, not de-identification and not a guarantee that clinical
+text contains no personal information.
+
+Raw Clinical Ask question, transcript, Case Context, audio, answer, and external extracts are excluded from URLs,
+history, browser storage, logs, content-free telemetry, structured feedback, public errors, and default copy output.
+External authority access remains server-only, allowlisted, redirect-checked, attributable, metered, and discarded
+after the request; citations and retrieval dates remain visible. These application controls do not prove provider zero
+retention, approved cross-border/region terms, hosted migration state, authority approval, clinical evaluation,
+protected-staging canary acceptance, production readiness, or physical-device acceptance. Those remain separate
+operator/governance evidence gates.
+
 Before the app is used with real patients in a WA clinical setting, close **PIA-1** (record the Railway
 Singapore processor/APP 8 basis, execute the OpenAI DPA/ZDR basis, and approve the shipped draft APP 5
 wording) and **PIA-2** (place

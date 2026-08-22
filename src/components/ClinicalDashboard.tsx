@@ -48,6 +48,11 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
+import { useClinicalAskSession } from "@/components/clinical-dashboard/clinical-ask-session-context";
+import { ClinicalAskComposerActions } from "@/components/clinical-dashboard/clinical-ask-composer-actions";
+import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-ask-workspace";
+import { isClinicalAskModeId } from "@/lib/clinical-ask/mode-profiles";
+import { streamClinicalAsk } from "@/lib/clinical-ask/client-stream";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
@@ -542,6 +547,25 @@ export function ClinicalDashboard({
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const auth = useAuthSession();
+  const clinicalAskSession = useClinicalAskSession();
+  const [clinicalAskOnline, setClinicalAskOnline] = useState(true);
+  useEffect(() => {
+    const sync = () => setClinicalAskOnline(navigator.onLine);
+    sync();
+    window.addEventListener("online", sync);
+    window.addEventListener("offline", sync);
+    return () => {
+      window.removeEventListener("online", sync);
+      window.removeEventListener("offline", sync);
+    };
+  }, []);
+  const previousClinicalAskAccountRef = useRef(auth.session?.user.id);
+  useEffect(() => {
+    if (previousClinicalAskAccountRef.current !== auth.session?.user.id) {
+      previousClinicalAskAccountRef.current = auth.session?.user.id;
+      clinicalAskSession.clear();
+    }
+  }, [auth.session?.user.id, clinicalAskSession]);
   const {
     status: authStatus,
     authorizationHeader,
@@ -2667,6 +2691,7 @@ export function ClinicalDashboard({
   }
 
   function startNewChat() {
+    clinicalAskSession.clear();
     modeChangeFromUiRef.current = true;
     const href = appModeHomeHref("answer", { focus: true });
     setQuery("");
@@ -3059,8 +3084,30 @@ export function ClinicalDashboard({
       differentialsCompareAddonActive,
       patientDetailsAddonActive,
       heroOwnsPhoneComposer,
+      clinicalAskActionsVisible: isClinicalAskModeId(searchMode),
     }),
   );
+  const clinicalAskMode = isClinicalAskModeId(searchMode) ? searchMode : null;
+  const runModeClinicalAsk = useCallback(() => {
+    if (!clinicalAskMode || !query.trim() || !clinicalAskOnline) return;
+    const controller = new AbortController();
+    clinicalAskSession.setDraft(query, clinicalAskMode);
+    clinicalAskSession.submit(clinicalAskMode, clinicalAskSession.confirmedContext);
+    clinicalAskSession.setAbortController(controller);
+    void streamClinicalAsk(
+      {
+        mode: clinicalAskMode,
+        question: query.trim(),
+        confirmedContext: clinicalAskSession.confirmedContext,
+        clarificationAnswers: clinicalAskSession.clarificationAnswers,
+        priorTurns: [],
+        allowExternalFallback: true,
+        inputTransport: "typed",
+      },
+      controller.signal,
+      clinicalAskSession.receiveEvent,
+    ).finally(() => clinicalAskSession.setAbortController(null));
+  }, [clinicalAskMode, clinicalAskOnline, clinicalAskSession, query]);
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
   const setupCheckCount = setupChecks.length || fallbackSetupChecks.length;
   const activeIndexingWorkCount =
@@ -3291,6 +3338,21 @@ export function ClinicalDashboard({
           canAccessFavourites={favouritesAccessible}
           onRequestAccountSetup={() => openAccountSetup("favourites")}
           onAsk={ask}
+          clinicalAskMode={clinicalAskMode ?? undefined}
+          onClinicalAsk={runModeClinicalAsk}
+          clinicalAskActive={clinicalAskSession.submitted}
+          clinicalAskActions={
+            clinicalAskMode ? (
+              <ClinicalAskComposerActions
+                mode={clinicalAskMode}
+                draft={query}
+                active={clinicalAskSession.submitted}
+                offline={!clinicalAskOnline}
+                onDraftChange={setQuery}
+                onAsk={runModeClinicalAsk}
+              />
+            ) : undefined
+          }
           onClearQuery={() => {
             setQuery("");
             if (!answer) setModeSearchSubmitted(false);
@@ -3625,6 +3687,7 @@ export function ClinicalDashboard({
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 
+                <ClinicalAskWorkspace />
                 {showSharedHome ? (
                   // The one home surface, shared by every registered mode. It sits above every
                   // mode-specific branch so picking a mode on `/` changes only its
@@ -4041,7 +4104,10 @@ export function ClinicalDashboard({
           open={settingsState.settingsOpen}
           onClose={closeSettings}
           identity={sidebarIdentity}
-          onSignOut={auth.signOut}
+          onSignOut={async () => {
+            clinicalAskSession.clear();
+            await auth.signOut();
+          }}
           onOpenGuide={settingsGuideFlow.openGuideFromSettings}
           onPrefetchGuide={loadGuideDialog}
           initialFocus={settingsGuideFlow.settingsInitialFocus}

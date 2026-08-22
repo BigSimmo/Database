@@ -94,6 +94,7 @@ npm run docs:check-links
 
 ## Plans and workstreams (living)
 
+- [mode-aware-clinical-ask-local-handover.md](mode-aware-clinical-ask-local-handover.md) — three-phase local integration, approval-gated staging/governance, and PR publication handover for Mode-aware Clinical Ask
 - [maturity-backlog-workorders.md](maturity-backlog-workorders.md) — actionable work orders tracking the repository-maturity audit backlog
 - [no-unchecked-indexed-access-migration-plan.md](no-unchecked-indexed-access-migration-plan.md) — staged multi-PR rollout for the `noUncheckedIndexedAccess` TypeScript flag (ledger `#211`)
 - [ledger-id-scheme-proposal.md](ledger-id-scheme-proposal.md) — design for collision-free outstanding-issue ids so concurrent sessions stop contending on `issues:next-id` (ledger `#168`)
