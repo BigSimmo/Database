@@ -107,3 +107,47 @@ describe("ward screen restriction notice", () => {
     expect(screen.queryByTestId("ward-unit-beds")).not.toBeInTheDocument();
   });
 });
+
+function ConfirmRphAdultSecureCapacityAtZero() {
+  const { dispatch, now } = useWardFlow();
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        dispatch({
+          type: "CONFIRM_CAPACITY",
+          role: "ward",
+          now,
+          unitId: "rph-adult-secure",
+          value: 0,
+        })
+      }
+    >
+      confirm rph-adult-secure capacity at zero
+    </button>
+  );
+}
+
+describe("ward screen live unit capacity", () => {
+  it("resolves the unit from the provider's live units, not the frozen unitById() fixture", () => {
+    // rph-adult-secure is seeded with allocatable.value 1 (pinned by
+    // tests/ward-flow-reducer.test.ts's "writes the ward's restated allocatable count" case).
+    const seededUnit = unitById("rph-adult-secure");
+    expect(seededUnit?.allocatable.value).toBe(1);
+
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <ConfirmRphAdultSecureCapacityAtZero />
+        <WardScreen unitId="rph-adult-secure" />
+      </WardFlowProvider>,
+    );
+
+    expect(screen.getByText(/Currently confirmed 1 at/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "confirm rph-adult-secure capacity at zero" }));
+
+    // After a real CONFIRM_CAPACITY dispatch updates state.units, the screen must show the new
+    // live count — resolving from the frozen fixture would keep showing 1 forever.
+    expect(screen.getByText(/Currently confirmed 0 at/)).toBeInTheDocument();
+  });
+});

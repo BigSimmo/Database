@@ -13,7 +13,7 @@ import {
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import { DECLINE_REASONS, type DeclineReason, type Movement, type Unit } from "@/components/ward-management/ward-model";
-import { siteByCode, unitById } from "@/components/ward-management/ward-sites";
+import { siteByCode } from "@/components/ward-management/ward-sites";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 
 import styles from "./ward.module.css";
@@ -56,7 +56,7 @@ function holdBlockedReason(movement: Movement, unit: Unit): string | undefined {
 /**
  * Task 8: one inpatient unit's own view — the ward answering what the coordinator refers,
  * never a filtered copy of the coordinator's statewide screen. Everything here is scoped to
- * exactly one `Unit`, resolved by `unitById(unitId)`. An id that resolves to nothing renders an
+ * exactly one `Unit`, resolved from the provider's live `units` by id. An id that resolves to nothing renders an
  * explicit empty state naming the id (Global Constraint, addendum R40) — never a substituted
  * unit, never `?? allUnits()[0]`.
  *
@@ -68,8 +68,11 @@ function holdBlockedReason(movement: Movement, unit: Unit): string | undefined {
  * file for the reasons `shortlist-panel.tsx`'s own comment on `OverrideRecord` explains.
  */
 export function WardScreen({ unitId }: WardScreenProps) {
-  const { movements, now, dispatch } = useWardFlow();
-  const unit = unitById(unitId);
+  const { movements, units, now, dispatch } = useWardFlow();
+  // Resolved from the provider's live `units`, not the frozen `unitById()` fixture — after
+  // `CONFIRM_CAPACITY` or `HOLD_BED` updates `state.units`, this screen must show the current
+  // bed counts (and gate `holdBlockedReason` on them) rather than the stale fixture value.
+  const unit = units.find((candidate) => candidate.id === unitId);
 
   // Declared unconditionally, before the early return below — React hooks must run in the same
   // order on every render, and the not-found branch never touches either of these.

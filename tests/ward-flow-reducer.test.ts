@@ -349,6 +349,41 @@ describe("examination", () => {
     expect(target.legalForm).toBeUndefined();
     expect(target.closure?.outcome).toBe("did_not_proceed");
   });
+
+  it("cancels downstream transport, releases the held bed, and refuses further transitions when a movement closes", () => {
+    // WF-005 is seeded at handover_ready, accepted at fre-adult-open, with a transport job
+    // already accepted (but not yet en route). fre-adult-open's allocatable count reflects an
+    // earlier HOLD_BED on this same movement.
+    const before = seeded();
+    const beforeUnit = before.units.find((candidate) => candidate.id === "fre-adult-open")!;
+
+    const next = wardFlowReducer(before, {
+      type: "RECORD_EXAMINATION",
+      role: "ed",
+      now: NOW,
+      movementId: "WF-005",
+      outcome: "revoked",
+    });
+    const target = movement(next, "WF-005");
+    expect(target.closure?.outcome).toBe("did_not_proceed");
+    // Transport is cancelled, not silently left in its last live state.
+    expect(target.transport?.cancelledAt).toBe(NOW);
+    // The bed reserved by the earlier HOLD_BED is given back to the unit.
+    const afterUnit = next.units.find((candidate) => candidate.id === "fre-adult-open")!;
+    expect(afterUnit.allocatable.value).toBe(beforeUnit.allocatable.value + 1);
+
+    // A closed movement can no longer be moved along the transport pathway — this reproduces
+    // the reported defect, where TRANSPORT_EN_ROUTE was still accepted after the movement had
+    // already been recorded as revoked.
+    const enRoute = wardFlowReducer(next, {
+      type: "TRANSPORT_EN_ROUTE",
+      role: "officer",
+      now: NOW + 5,
+      movementId: "WF-005",
+    });
+    expect(enRoute.rejections).toHaveLength(1);
+    expect(movement(enRoute, "WF-005").transport?.enRouteAt).toBeUndefined();
+  });
 });
 
 describe("capacity confirmation", () => {
