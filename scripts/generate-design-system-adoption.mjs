@@ -549,6 +549,15 @@ export function validateLinuxVisualBaselineSet(
   ) {
     failures.push("visual baseline provenance requires an approved timestamped human review");
   }
+  if (
+    provenance.review?.reviewerType === "human" &&
+    typeof provenance.review?.reviewedBy === "string" &&
+    /(?:automated adopt|human confirmation pending|claude code|codex cloud|ai agent)/i.test(
+      provenance.review.reviewedBy,
+    )
+  ) {
+    failures.push("visual baseline provenance human reviewer attribution must not claim automated or pending review");
+  }
   const runId = provenance.source?.runId;
   if (
     provenance.source?.kind !== "hosted-ci-artifact" ||

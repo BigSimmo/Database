@@ -120,12 +120,14 @@ function writeBaselineSet(
     candidateNames = baselineNames,
     hashOverride,
     candidateSourceHead = git(fixtureRoot, ["rev-parse", "HEAD"]),
+    reviewedBy = "fixture-reviewer",
   }: {
     platform?: string;
     reviewStatus?: string;
     candidateNames?: string[];
     hashOverride?: string;
     candidateSourceHead?: string;
+    reviewedBy?: string;
   } = {},
 ) {
   const paths = candidateNames.map((name) => `tests/__screenshots__/linux/${name}`);
@@ -146,7 +148,7 @@ function writeBaselineSet(
       status: reviewStatus,
       reviewerType: "human",
       candidateSourceHead,
-      reviewedBy: "fixture-reviewer",
+      reviewedBy,
       reviewedAt: "2026-08-05T00:00:00.000Z",
     },
     source: {
@@ -746,13 +748,18 @@ describe("design-system adoption manifest", () => {
         validateLinuxVisualBaselineSet(badHash.paths, { root: hashRoot, trackedFiles: badHash.trackedFiles }),
       ).toContain(`visual baseline provenance candidate ${badHash.paths[0]} has a SHA-256 mismatch`);
 
-      const wrongPlatform = writeBaselineSet(platformRoot, { platform: "win32" });
-      expect(
-        validateLinuxVisualBaselineSet(wrongPlatform.paths, {
-          root: platformRoot,
-          trackedFiles: wrongPlatform.trackedFiles,
-        }),
-      ).toContain("visual baseline provenance platform must be linux");
+      const wrongPlatform = writeBaselineSet(platformRoot, {
+        platform: "win32",
+        reviewedBy: "Claude Code — automated adopt; human confirmation pending",
+      });
+      const wrongPlatformFailures = validateLinuxVisualBaselineSet(wrongPlatform.paths, {
+        root: platformRoot,
+        trackedFiles: wrongPlatform.trackedFiles,
+      });
+      expect(wrongPlatformFailures).toContain("visual baseline provenance platform must be linux");
+      expect(wrongPlatformFailures).toContain(
+        "visual baseline provenance human reviewer attribution must not claim automated or pending review",
+      );
 
       const unreviewed = writeBaselineSet(reviewRoot, { reviewStatus: "pending" });
       expect(
