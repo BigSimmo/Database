@@ -739,12 +739,26 @@ describe("buildDocumentationSection", () => {
     );
   });
 
-  it("does not let an external URL that ends in a doc name catalogue that doc", () => {
-    // `https://example.com/testing.md` must not satisfy `docs/testing.md`. This
-    // fixture catalogues testing.md by a real relative link as well, so the
-    // assertion below is on a doc the external URL is the ONLY candidate for.
-    const section = buildDocumentationSection(["docs/only-external.md"], "[x](https://example.com/only-external.md)");
+  it("is not fooled by a repository URL that contains a doc path", () => {
+    // Removing the URL strip in `catalogueTargets` makes this red: the bare
+    // regex would match `docs/only-external.md` inside the blob URL and mark a
+    // document catalogued that the index never lists.
+    //
+    // The earlier version of this test used `https://example.com/only-external.md`
+    // and could never fail — `path.posix.join("docs", "https://…")` normalises to
+    // `docs/https:/example.com/…`, which never equals `docs/only-external.md`, so
+    // it passed with the guard deleted.
+    const readme = "See the source at https://github.com/BigSimmo/Database/blob/main/docs/only-external.md for detail.";
+    const section = buildDocumentationSection(["docs/only-external.md"], readme);
     expect(section.documents[0].catalogued).toBe(false);
+    expect(section.counts.uncatalogued).toBe(1);
+  });
+
+  it("still catalogues a document named in ordinary prose", () => {
+    // The guard against URLs must not cost us the real prose case, which is the
+    // reason the second scan exists at all.
+    const section = buildDocumentationSection(["docs/testing.md"], "Read `docs/testing.md` before changing a test.");
+    expect(section.documents[0].catalogued).toBe(true);
   });
 
   it("assigns a section from the first directory under docs/, or root", () => {
@@ -797,10 +811,10 @@ to the import block, and add `type DocumentationSection` to the existing
 
 ```ts
 const DOCS_ROOT = "docs";
-const README_PATH = "docs/README.md";
+export const README_PATH = "docs/README.md";
 
 /**
- * Review records get their own panel and would otherwise be 454 of the ~280
+ * Review records get their own panel and would otherwise be 455 of the ~280
  * rows here, drowning the documents a reader is actually looking for. Inbox
  * requests are JSON transactions, not documents.
  */
@@ -830,21 +844,26 @@ function documentSection(repoPath: string): string {
  * uses: a markdown link written relative to `docs/`, or a full `docs/…` path
  * named in prose or a code span.
  *
- * An absolute URL is skipped explicitly. `https://example.com/testing.md`
- * normalises to a plausible-looking `docs/…` path only if you let it, and a
- * document catalogued by a third-party URL is a false negative in the one
- * column this panel exists to report.
+ * Absolute URLs are stripped before EITHER scan runs. Both scans look for a
+ * `docs/…md` substring, and a URL can contain one —
+ * `https://github.com/BigSimmo/Database/blob/main/docs/some-doc.md` would
+ * otherwise mark that document catalogued when the index never listed it.
+ * That is a suppressed finding in the one column this panel exists to report,
+ * and a blob link is a very plausible edit to a docs index.
  */
 function catalogueTargets(readmeMarkdown: string): Set<string> {
   const targets = new Set<string>();
+  const withoutUrls = readmeMarkdown.replace(/https?:\/\/\S+/g, " ");
 
-  for (const match of readmeMarkdown.matchAll(/\]\(([^)\s#]+)/g)) {
+  for (const match of withoutUrls.matchAll(/\]\(([^)\s#]+)/g)) {
     const target = match[1];
-    if (target.includes("://") || target.startsWith("/") || target.startsWith("#")) continue;
+    // The strip above does not cover these two: an absolute repo path is not a
+    // URL, and an anchor is not a document.
+    if (target.startsWith("/") || target.startsWith("#")) continue;
     targets.add(path.posix.normalize(path.posix.join(DOCS_ROOT, target)));
   }
 
-  for (const match of readmeMarkdown.matchAll(/docs\/[A-Za-z0-9._/-]+\.md/g)) targets.add(match[0]);
+  for (const match of withoutUrls.matchAll(/docs\/[A-Za-z0-9._/-]+\.md/g)) targets.add(match[0]);
 
   return targets;
 }
@@ -885,7 +904,7 @@ export function buildDocumentationSection(docPaths: readonly string[], readmeMar
 - [ ] **Step 5: Run the test to verify it passes**
 
 Run: `npm run test -- tests/repo-awareness-generator.test.ts`
-Expected: PASS, 12 tests.
+Expected: PASS, 13 tests.
 
 Run: `npm run typecheck:source`
 Expected: exit 0.
@@ -1075,7 +1094,7 @@ export function readFlakeLedger(ledgerPath = FLAKE_LEDGER_PATH): FlakeLedgerFile
 - [ ] **Step 5: Run the test to verify it passes**
 
 Run: `npm run test -- tests/repo-awareness-generator.test.ts`
-Expected: PASS, 18 tests.
+Expected: PASS, 19 tests.
 
 Run: `npm run typecheck:source`
 Expected: exit 0.
@@ -1304,7 +1323,7 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
 - [ ] **Step 5: Run the test to verify it passes**
 
 Run: `npm run test -- tests/repo-awareness-generator.test.ts`
-Expected: PASS, 25 tests, including the real-corpus parse over 454 records.
+Expected: PASS, 26 tests, including the real-corpus parse over 454 records.
 
 Run: `npm run typecheck:source`
 Expected: exit 0.
@@ -1500,7 +1519,7 @@ non-empty diff means something in the snapshot is not deterministic; find it bef
 - [ ] **Step 7: Run the tests to verify they pass**
 
 Run: `npm run test -- tests/repo-awareness-generator.test.ts`
-Expected: PASS, 29 tests, including the no-git proof.
+Expected: PASS, 30 tests, including the no-git proof.
 
 Run: `npm run typecheck:source`
 Expected: exit 0.
