@@ -390,15 +390,16 @@ test.describe("universal search typeahead", () => {
     await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
   });
 
-  test("shows submitted cross-mode matches once for Favourites and after a Tools search", async ({ page }) => {
+  test("shows submitted cross-mode matches once for Favourites and the composer-free legacy Tools URL", async ({
+    page,
+  }) => {
     await mockUniversalSearch(page);
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/favourites?q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("universal-also-matches")).toHaveCount(1);
 
-    const input = await openComposer(page, "/tools?focus=1");
-    await input.fill("acamprosate");
-    await input.press("Enter");
+    await page.goto("/?mode=tools&q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("global-search-input")).toHaveCount(0);
     await expect(page.getByTestId("universal-also-matches")).toBeVisible();
   });
 });
