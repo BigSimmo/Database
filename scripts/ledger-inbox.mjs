@@ -676,6 +676,41 @@ function createRequest(action, argv) {
   );
 }
 
+/**
+ * `reconcile` is the only sanctioned writer of docs/outstanding-issues.md, and
+ * it also moves every request it applied into `applied/` — so both the ledger
+ * content and the inbox change, and data/outstanding-issues-snapshot.json (which
+ * the developer hub renders) is behind the moment reconciliation returns.
+ * Without this, every reconcile PR failed `check:outstanding-issues` with a fix
+ * command. That is fail-closed and nothing wrong shipped, but a sanctioned path
+ * that is routinely red is how gates come to be routed around.
+ *
+ * Deliberately OUTSIDE the reconciliation transaction, and only after it has
+ * committed. `recoverReconcileTransaction` journals exactly two things — the
+ * ledger backup and the pending request paths — and widening it to cover a
+ * third, derived artifact would complicate the one transaction in this repo
+ * that most needs to stay simple. The snapshot is regenerable from the ledger
+ * at any time, so a failure here is a warning naming its own fix rather than a
+ * failed reconcile: printing "refusing to reconcile" after the ledger has
+ * already been rewritten would misdescribe the repository.
+ *
+ * Spawned with `cwd: ROOT` because the generator resolves its paths relative to
+ * the working directory, and reconcile may be invoked from a subdirectory.
+ */
+function regenerateLedgerSnapshot() {
+  try {
+    execFileSync(process.execPath, ["scripts/generate-outstanding-issues-snapshot.mjs"], {
+      cwd: ROOT,
+      stdio: ["ignore", "inherit", "inherit"],
+    });
+    console.log("Commit data/outstanding-issues-snapshot.json alongside the ledger.");
+  } catch (error) {
+    console.warn(
+      `warning: the ledger was reconciled but data/outstanding-issues-snapshot.json was NOT regenerated (${error instanceof Error ? error.message : String(error)}). Run: npm run snapshot:issues`,
+    );
+  }
+}
+
 function reconcile(argv) {
   const dryRun = argv.includes("--dry-run");
   const pending = loadPending();
@@ -768,6 +803,7 @@ function reconcile(argv) {
     rmSync(path.join(lockPath, RECONCILE_BACKUP_NAME), { force: true });
     transactionOpen = false;
     console.log(`Applied ${pending.length} request(s); their immutable audit records are under ${APPLIED_DIR}.`);
+    regenerateLedgerSnapshot();
   } catch (error) {
     if (transactionOpen) {
       try {

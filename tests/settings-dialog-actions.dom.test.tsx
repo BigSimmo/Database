@@ -105,12 +105,12 @@ describe("SettingsDialog — destructive and account actions", () => {
     renderDialog();
     const development = document.querySelector('[data-settings-section="development"]');
     expect(development).not.toBeNull();
-    expect(development).toHaveTextContent("Development");
+    expect(development).toHaveTextContent("Developer");
     expect(development).toHaveTextContent("Synthetic data only");
 
     const prototypeLink = screen.getByTestId("settings-row-development-page");
     expect(prototypeLink).toHaveAttribute("href", "/mockups/development");
-    expect(prototypeLink).toHaveTextContent("Open Development page");
+    expect(prototypeLink).toHaveTextContent("Developer");
     expect(prototypeLink).toHaveTextContent("Temporary");
     expect(development?.contains(prototypeLink)).toBe(true);
 
