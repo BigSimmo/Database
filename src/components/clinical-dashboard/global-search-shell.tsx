@@ -69,7 +69,7 @@ import { focusComposerInput } from "@/components/clinical-dashboard/focus-compos
 import { ClinicalAskComposerActions } from "@/components/clinical-dashboard/clinical-ask-composer-actions";
 import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-ask-workspace";
 import { isClinicalAskModeId } from "@/lib/clinical-ask/mode-profiles";
-import { streamClinicalAsk } from "@/lib/clinical-ask/client-stream";
+import { useClinicalAskRunner } from "@/components/clinical-dashboard/use-clinical-ask-runner";
 
 // Namespaced mode homes share this client shell but never render the dashboard
 // body — keep ClinicalDashboard out of their parse/eval path until `/` needs it.
@@ -98,10 +98,8 @@ import {
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalQueryMode } from "@/lib/types";
-import {
-  ClinicalAskSessionProvider,
-  useClinicalAskSession,
-} from "@/components/clinical-dashboard/clinical-ask-session-context";
+import { ClinicalAskSessionProvider } from "@/components/clinical-dashboard/clinical-ask-session-context";
+import { useClinicalAskShellState } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
 
 const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
   { value: "auto", label: "Auto" },
@@ -433,25 +431,7 @@ function GlobalStandaloneSearchShellBody({
     [query, searchMode],
   );
   const auth = useAuthSession();
-  const clinicalAskSession = useClinicalAskSession();
-  const [clinicalAskOnline, setClinicalAskOnline] = useState(true);
-  useEffect(() => {
-    const sync = () => setClinicalAskOnline(navigator.onLine);
-    sync();
-    window.addEventListener("online", sync);
-    window.addEventListener("offline", sync);
-    return () => {
-      window.removeEventListener("online", sync);
-      window.removeEventListener("offline", sync);
-    };
-  }, []);
-  const previousClinicalAskAccountRef = useRef(auth.session?.user.id);
-  useEffect(() => {
-    if (previousClinicalAskAccountRef.current !== auth.session?.user.id) {
-      previousClinicalAskAccountRef.current = auth.session?.user.id;
-      clinicalAskSession.clear();
-    }
-  }, [auth.session?.user.id, clinicalAskSession]);
+  const { clinicalAskSession, clinicalAskOnline } = useClinicalAskShellState(auth.session?.user.id);
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const hasSubmittedModeSearch = requestedRun && requestedQuery.length > 0;
   const isDocumentCommandSearchView = pathname === "/documents/search" && requestedQuery.length > 0;
@@ -462,41 +442,12 @@ function GlobalStandaloneSearchShellBody({
     // branch naming it can never be true and would only read as live ownership.
     (pathname === "/differentials/diagnoses" || pathname === "/differentials/search");
   const clinicalAskMode = isClinicalAskModeId(searchMode) ? searchMode : null;
-  const runModeClinicalAsk = useCallback(() => {
-    if (!clinicalAskMode || !query.trim() || !clinicalAskOnline) return;
-    const controller = new AbortController();
-    clinicalAskSession.setDraft(query, clinicalAskMode);
-    clinicalAskSession.submit(clinicalAskMode, clinicalAskSession.confirmedContext);
-    clinicalAskSession.setAbortController(controller);
-    void streamClinicalAsk(
-      {
-        mode: clinicalAskMode,
-        question: query.trim(),
-        confirmedContext: clinicalAskSession.confirmedContext,
-        clarificationAnswers: clinicalAskSession.clarificationAnswers,
-        priorTurns: [],
-        allowExternalFallback: true,
-        inputTransport: "typed",
-      },
-      controller.signal,
-      clinicalAskSession.receiveEvent,
-    )
-      .then((payload) => {
-        // When the stream fails before delivering any SSE event (e.g. 401, 429,
-        // network error), streamClinicalAsk returns a failed payload but never
-        // calls onEvent. Deliver a synthetic error event so the session exits
-        // the submitted/pending state rather than staying stuck.
-        if (payload.response.state === "failed") {
-          clinicalAskSession.receiveEvent({
-            type: "error",
-            code: payload.response.code,
-            retryable: payload.response.retryable,
-            message: payload.response.message,
-          });
-        }
-      })
-      .finally(() => clinicalAskSession.setAbortController(null));
-  }, [clinicalAskMode, clinicalAskOnline, clinicalAskSession, query]);
+  const runModeClinicalAsk = useClinicalAskRunner({
+    clinicalAskMode,
+    clinicalAskOnline,
+    clinicalAskSession,
+    query,
+  });
   // No shell-owned route claims the Patient details dock addon. `/medications`
   // is a standalone mode home (composer in the hero, no dock to portal into),
   // and `/medications/[slug]` already opens the same sheet from its own nav

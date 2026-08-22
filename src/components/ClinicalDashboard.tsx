@@ -48,11 +48,11 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
-import { useClinicalAskSession } from "@/components/clinical-dashboard/clinical-ask-session-context";
+import { useClinicalAskShellState } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
 import { ClinicalAskComposerActions } from "@/components/clinical-dashboard/clinical-ask-composer-actions";
 import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-ask-workspace";
 import { isClinicalAskModeId } from "@/lib/clinical-ask/mode-profiles";
-import { streamClinicalAsk } from "@/lib/clinical-ask/client-stream";
+import { useClinicalAskRunner } from "@/components/clinical-dashboard/use-clinical-ask-runner";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
@@ -548,25 +548,7 @@ export function ClinicalDashboard({
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const auth = useAuthSession();
-  const clinicalAskSession = useClinicalAskSession();
-  const [clinicalAskOnline, setClinicalAskOnline] = useState(true);
-  useEffect(() => {
-    const sync = () => setClinicalAskOnline(navigator.onLine);
-    sync();
-    window.addEventListener("online", sync);
-    window.addEventListener("offline", sync);
-    return () => {
-      window.removeEventListener("online", sync);
-      window.removeEventListener("offline", sync);
-    };
-  }, []);
-  const previousClinicalAskAccountRef = useRef(auth.session?.user.id);
-  useEffect(() => {
-    if (previousClinicalAskAccountRef.current !== auth.session?.user.id) {
-      previousClinicalAskAccountRef.current = auth.session?.user.id;
-      clinicalAskSession.clear();
-    }
-  }, [auth.session?.user.id, clinicalAskSession]);
+  const { clinicalAskSession, clinicalAskOnline } = useClinicalAskShellState(auth.session?.user.id);
   const {
     status: authStatus,
     authorizationHeader,
@@ -3111,41 +3093,12 @@ export function ClinicalDashboard({
         }),
   );
   const clinicalAskMode = isClinicalAskModeId(searchMode) ? searchMode : null;
-  const runModeClinicalAsk = useCallback(() => {
-    if (!clinicalAskMode || !query.trim() || !clinicalAskOnline) return;
-    const controller = new AbortController();
-    clinicalAskSession.setDraft(query, clinicalAskMode);
-    clinicalAskSession.submit(clinicalAskMode, clinicalAskSession.confirmedContext);
-    clinicalAskSession.setAbortController(controller);
-    void streamClinicalAsk(
-      {
-        mode: clinicalAskMode,
-        question: query.trim(),
-        confirmedContext: clinicalAskSession.confirmedContext,
-        clarificationAnswers: clinicalAskSession.clarificationAnswers,
-        priorTurns: [],
-        allowExternalFallback: true,
-        inputTransport: "typed",
-      },
-      controller.signal,
-      clinicalAskSession.receiveEvent,
-    )
-      .then((payload) => {
-        // When the stream fails before delivering any SSE event (e.g. 401, 429,
-        // network error), streamClinicalAsk returns a failed payload but never
-        // calls onEvent. Deliver a synthetic error event so the session exits
-        // the submitted/pending state rather than staying stuck.
-        if (payload.response.state === "failed") {
-          clinicalAskSession.receiveEvent({
-            type: "error",
-            code: payload.response.code,
-            retryable: payload.response.retryable,
-            message: payload.response.message,
-          });
-        }
-      })
-      .finally(() => clinicalAskSession.setAbortController(null));
-  }, [clinicalAskMode, clinicalAskOnline, clinicalAskSession, query]);
+  const runModeClinicalAsk = useClinicalAskRunner({
+    clinicalAskMode,
+    clinicalAskOnline,
+    clinicalAskSession,
+    query,
+  });
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
   const setupCheckCount = setupChecks.length || fallbackSetupChecks.length;
   const activeIndexingWorkCount =
