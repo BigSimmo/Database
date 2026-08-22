@@ -101,17 +101,34 @@ export const README_PATH = "docs/README.md";
  */
 const EXCLUDED_DOC_PREFIXES = ["docs/branch-review-records/", "docs/outstanding-issues-inbox/"];
 
-/**
- * Tracked files only. Walking the filesystem would list a developer's untracked
- * scratch notes, and the staleness gate would then fail on a clean tree for
- * everyone but that developer — a gate that fires when nothing is wrong.
- */
-export function listDocumentPaths(): string[] {
-  const output = execFileSync("git", ["ls-files", "-z", "--", DOCS_ROOT], { encoding: "utf8" });
+function filterDocumentPaths(output: string): string[] {
   return output
     .split("\0")
     .filter((entry) => entry.endsWith(".md"))
     .filter((entry) => !EXCLUDED_DOC_PREFIXES.some((prefix) => entry.startsWith(prefix)));
+}
+
+/**
+ * Snapshots include tracked files only, so every checkout generates the same
+ * output. An untracked Markdown document would otherwise be omitted silently
+ * and let a stale snapshot look current; fail with an explicit staging
+ * requirement instead. Ignored scratch notes remain outside that requirement.
+ */
+export function listDocumentPaths(repoRoot = process.cwd()): string[] {
+  const options = { cwd: repoRoot, encoding: "utf8" as const };
+  const untracked = filterDocumentPaths(
+    execFileSync("git", ["ls-files", "--others", "--exclude-standard", "-z", "--", DOCS_ROOT], options),
+  );
+
+  if (untracked.length > 0) {
+    throw new Error(
+      `Untracked Markdown documents would be omitted from the repo-awareness snapshot: ${untracked.join(
+        ", ",
+      )}. Stage intended documents or add scratch notes to .gitignore before generating.`,
+    );
+  }
+
+  return filterDocumentPaths(execFileSync("git", ["ls-files", "-z", "--", DOCS_ROOT], options));
 }
 
 function documentSection(repoPath: string): string {

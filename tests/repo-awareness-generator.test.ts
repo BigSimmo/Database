@@ -1,4 +1,5 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -10,6 +11,7 @@ import {
   buildReviewStateSection,
   buildRoutesSection,
   buildTestHealthSection,
+  listDocumentPaths,
   readFlakeLedger,
   readReviewRecordRows,
   type SiteMapInput,
@@ -74,6 +76,40 @@ describe("buildRoutesSection", () => {
   });
 });
 
+describe("listDocumentPaths", () => {
+  function withTemporaryRepository(callback: (repoRoot: string) => void) {
+    const repoRoot = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-docs-"));
+    try {
+      execFileSync("git", ["init", "--quiet", repoRoot]);
+      mkdirSync(path.join(repoRoot, "docs"));
+      writeFileSync(path.join(repoRoot, "docs", "tracked.md"), "# Tracked\n");
+      execFileSync("git", ["add", "docs/tracked.md"], { cwd: repoRoot });
+      callback(repoRoot);
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  }
+
+  it("fails closed when a non-ignored Markdown document has not been staged", () => {
+    withTemporaryRepository((repoRoot) => {
+      writeFileSync(path.join(repoRoot, "docs", "new.md"), "# New\n");
+
+      expect(() => listDocumentPaths(repoRoot)).toThrow(
+        "Untracked Markdown documents would be omitted from the repo-awareness snapshot: docs/new.md. Stage intended documents or add scratch notes to .gitignore before generating.",
+      );
+    });
+  });
+
+  it("continues to exclude ignored scratch notes", () => {
+    withTemporaryRepository((repoRoot) => {
+      writeFileSync(path.join(repoRoot, ".gitignore"), "docs/scratch.md\n");
+      writeFileSync(path.join(repoRoot, "docs", "scratch.md"), "# Scratch\n");
+
+      expect(listDocumentPaths(repoRoot)).toEqual(["docs/tracked.md"]);
+    });
+  });
+});
+
 const README = `
 # Clinical KB Documentation Index
 
@@ -122,6 +158,14 @@ describe("buildDocumentationSection", () => {
     const section = buildDocumentationSection(["docs/only-external.md"], readme);
     expect(section.documents[0].catalogued).toBe(false);
     expect(section.counts.uncatalogued).toBe(1);
+  });
+
+  it("does not catalogue a full doc path inside an external Markdown link", () => {
+    // This is the external-link form reported in PR #2292. Without URL
+    // stripping, the prose matcher would see its `docs/testing.md` suffix.
+    const readme = "See [external guidance](https://example.com/docs/testing.md) for detail.";
+    const section = buildDocumentationSection(["docs/testing.md"], readme);
+    expect(section.documents[0].catalogued).toBe(false);
   });
 
   it("still catalogues a document named in ordinary prose", () => {
