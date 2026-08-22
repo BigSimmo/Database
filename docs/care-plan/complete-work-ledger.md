@@ -25,6 +25,8 @@ Task title "Management plan", task id `01a01fb2-575f-7c11-a245-332db7a85a25`, wo
 | Verification log              | `docs/care-plan/verification-log-2026-08-21.md`                 |
 | Start-here entry point        | `docs/care-plan/CLAUDE-START-HERE.md`                           |
 
+Paths in this table are the current post-rename locations. Earlier session artefacts used the `ed-care-plans` names as historical aliases.
+
 **Decided:** the product concept; the domain language, with an explicit `_Avoid_` list
 per term; one longitudinal Management Plan per patient with named senior-clinician
 approval; a separate patient-owned Personal Safety Plan; append-only ED Presentations

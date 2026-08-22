@@ -338,6 +338,21 @@ describe("Patient Plan gap triggers", () => {
     expect(convert("A warm blanket helps their back.")).toEqual({ converted: "A warm blanket helps your back." });
   });
 
+  /**
+   * `his` is only a trailing-boundary match away from rewriting the tail of
+   * `this`. That produced `Tyour`, which the vocabulary then refused, so a
+   * sentence that should have converted became a gap on a he/him copy.
+   */
+  it("does not treat the tail of “this” as the he/him possessive", () => {
+    // Jordan is the no-current-plan fixture, so the converter borrows Rowan's
+    // approved version the same way the Evie naming-context case does.
+    const jordan = createLineConverter(currentVersionFor(ROWAN), patientBy(JORDAN), syntheticPatientResources);
+    expect(jordan("The corridor can feel loud at this time of night.")).toEqual({
+      converted: "The corridor can feel loud at this time of night.",
+    });
+    expect(jordan("A warm blanket helps his back.")).toEqual({ converted: "A warm blanket helps your back." });
+  });
+
   it("gaps a sentence whose verb it cannot put into the second person", () => {
     // `settles` is in the agreement table, so this converts.
     expect(convert("Rowan settles once the room is quiet.")).toEqual({

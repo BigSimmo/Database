@@ -388,6 +388,7 @@ describe("Care Plan synthetic, memory-only boundary", () => {
     `${COMPONENT_ROOT}/patient-plan-fixtures.ts`,
     `${COMPONENT_ROOT}/patient-plan-pages.tsx`,
     `${COMPONENT_ROOT}/patient-plan-form.tsx`,
+    `${COMPONENT_ROOT}/fixtures.ts`,
   ] as const;
 
   it("keeps the Patient Plan transformation offline, deterministic, and free of any model", () => {

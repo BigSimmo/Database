@@ -987,7 +987,7 @@ function convertLine(
 
   const references = personReferences(patient);
   for (const possessive of references.possessive) {
-    text = text.replace(new RegExp(`${escapeForRegExp(possessive)}\\b`, "gi"), "your");
+    text = text.replace(new RegExp(`\\b${escapeForRegExp(possessive)}\\b`, "gi"), "your");
   }
   for (const object of references.object) {
     text = text.replace(new RegExp(`\\b${escapeForRegExp(object)}\\b`, "gi"), "you");
