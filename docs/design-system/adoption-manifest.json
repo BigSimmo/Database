@@ -1027,7 +1027,6 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
-        "src/app/(search-app)/dictionary/browse/page.tsx",
         "src/app/(search-app)/dictionary/search/page.tsx",
         "src/app/(search-app)/dictionary/topics/[slug]/page.tsx",
         "src/app/(search-app)/dictionary/topics/page.tsx",
@@ -1040,7 +1039,6 @@
         "src/components/therapy-compass/ui.tsx"
       ],
       "productImportFiles": [
-        "src/app/(search-app)/dictionary/browse/page.tsx",
         "src/app/(search-app)/dictionary/search/page.tsx",
         "src/app/(search-app)/dictionary/topics/[slug]/page.tsx",
         "src/app/(search-app)/dictionary/topics/page.tsx",
@@ -1469,7 +1467,6 @@
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/dictionary/dictionary-catalogue-pages.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
@@ -1480,7 +1477,6 @@
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/dictionary/dictionary-catalogue-pages.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
@@ -2292,8 +2288,8 @@
         {
           "file": "src/app/(search-app)/dictionary/browse/page.tsx",
           "exists": true,
-          "imports": ["LoadingPanel"],
-          "importedFamilies": ["feedback"],
+          "imports": [],
+          "importedFamilies": [],
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
@@ -2327,7 +2323,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["SearchPage"]
+          "sanctionedPatternsPresent": []
         },
         {
           "file": "src/app/(search-app)/dictionary/sources/page.tsx",
