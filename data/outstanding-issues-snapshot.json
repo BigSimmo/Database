@@ -10,7 +10,7 @@
     "p2": 43,
     "p3": 33,
     "queued": 11,
-    "pending": 32,
+    "pending": 37,
     "resolved": 359
   },
   "queue": [
@@ -884,6 +884,12 @@
       "created_at": "2026-08-21"
     },
     {
+      "request_id": "337fc2e1-c50c-4f80-b865-58c76af4ff81",
+      "action": "done",
+      "summary": "#1K6T35: OWNER DECISION 2026-08-22: leave point-in-time recovery OFF and deliberately accept a worst-case recovery point of roughly 24 hours on the live clinical corpus. This row required either enabling the paid add-on or accepting the RPO and amending the plan's unsatisfiable standing rule; the second was chosen and the rule is amended in docs/database-remediation-plan.md under 'Recovery point — owner decision, 2026-08-22', which now requires confirming and recording the latest daily backup timestamp before a mutating phase, stating what a restore would lose, and having a written tested reversal path for anything that rewrites or drops data or policy objects. Scope is explicitly this remediation programme only: the rag-ingestion-reindex plan's stop-before-production-reindex-when-PITR-disabled condition is untouched.",
+      "created_at": "2026-08-22"
+    },
+    {
       "request_id": "3552c196-bf4f-49c8-a39b-28f8876d8caf",
       "action": "done",
       "summary": "#P5542X: Resolved 2026-08-21: clinical-risk classification includes mode gating, therapy reachability, review/policy/content library surfaces, with explicit app-modes and therapies self-tests.",
@@ -924,6 +930,18 @@
       "action": "done",
       "summary": "#CHW9N3: Resolved 2026-08-22: the loading contract retains its separate fourteen-route inventory for consolidated and standalone homes, while a dedicated assertion now requires every entry in exported standaloneModeHomePaths to remain in that inventory; the dashboard root's in-shell pending skeleton stays separately guarded, and documents now has ModeHomeRouteLoading.",
       "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "54bbb5e0-a573-47e5-9daa-f7eedc4e6b73",
+      "action": "done",
+      "summary": "#M6JNR8: Resolved 2026-08-22: scripts/outstanding-issues.mjs gains updateQueueRow and scripts/ledger-inbox.mjs gains a 'queue' action (npm run issues:queue), so a recommended-execution-queue row can be corrected through the same immutable-request + serial-reconcile transaction as every other ledger mutation — option (a) of the two this row offered, not the audited hand-edit path. Acuity, Capability, When, Estimate and Outcome are editable; Order and the ID(s) cell deliberately are not, since Order is renumbered on every close and changing membership is an add or a done. Queue edits carry their own queueRowFingerprint, so they are optimistic against the QUEUE row rather than the Open-items row, and mutationConflicts namespaces them separately so a re-grade and a detail update for the same id can land in one batch. The #231 instance this row was filed for is queued as a 'queue' request in the same PR.",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "5bdfac3c-a3b4-4f00-869c-9a59cc756e11",
+      "action": "done",
+      "summary": "#CCZ4HB: OWNER DECISION 2026-08-22: leave the CodeRabbit spending cap as it is and accept that automated review from that bot is intermittent. Option (c) of the three this row offered — not a gate, not a cap raise. Recorded in AGENTS.md 'Automated review coverage (owner decision, 2026-08-22)' with the measurements (skipped on PRs #2113, #2252, #2255, #2256, #2263, #2278), the fact that the ChatGPT Codex connector still reviews and is unaffected, the draft-PR interaction, and the standing prohibition on weakening any required check to compensate. Re-open only if the Codex connector also stops reviewing, or if the owner revisits the billing decision.",
+      "created_at": "2026-08-22"
     },
     {
       "request_id": "65494c5f-927b-4d0d-8564-5933a7c723f3",
@@ -980,6 +998,12 @@
       "created_at": "2026-08-21"
     },
     {
+      "request_id": "ae7596a8-9064-4554-9530-4d145a02672c",
+      "action": "queue",
+      "summary": "#231: RE-SCOPED 2026-08-22 (was A1 / retrieval-budget investigation). The retrieval-side premise is CLOSED and measured: retrieval costs 955 ms text / 6,720 ms hybrid against a 25,000 ms fast budget (4-27%), so it cannot bind it. What remains is the generation-side R4 residual — chronic ~30 s strong-route provider_timeout on metformin-renal-dosing and valproate-pregnancy, with a safe source-backed extractive fallback already in place — plus the 2026-08-22 Gate E finding that the remaining provider_timeout label cannot be attributed to one mechanism and partly reflects the quality-retry ladder. **Gate:** focused answer-route tests offline first; live probe only with explicit provider approval. **Stop:** do not weaken quality gates to hide timeouts; flag RAG surfaces before edit.",
+      "created_at": "2026-08-22"
+    },
+    {
       "request_id": "afaa753b-41ae-4bee-8c63-89c649cdcfd5",
       "action": "done",
       "summary": "#CHW9N3: Resolved 2026-08-21: mode-home loading coverage derives from exported standaloneModeHomePaths, and the newly exposed documents gap now has ModeHomeRouteLoading.",
@@ -1032,6 +1056,12 @@
       "action": "cancel",
       "summary": "Cancel request afaa753b-41ae-4bee-8c63-89c649cdcfd5: Duplicate done request created by overlapping command completion; retain 5201bfa7-4966-4583-abff-02305de82219.",
       "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "fac29c48-c558-4249-97ed-c86e61b61b97",
+      "action": "update",
+      "summary": "#9X40BT: detail → MEASURED 2026-08-22 (read-only list_branches on sjrfecxgysukkwxsowpy): there are currently ZERO preview branches. The only entry returned is the default 'main' branch, which is the production project itself and is not billable preview compute. So the uncapped exposure this row describes is POTENTIAL, not active — nothing is running to clean up, and no agent-side cleanup step exists to take. The one remaining action is the dashboard setting itself, which no agent can change: Supabase dashboard -> Project Settings -> Integrations -> GitHub -> lower 'Automatic branching' limit from 3 to 1, or disable branching. Prior context stands and is the reason lowering is safe: CI's Migration replay job (db-reset-verify, supabase migration up --local) independently replays the whole chain on every database-touching PR, so preview branches are a second net rather than the only one. STOP unchanged: do not change Supabase project settings without explicit owner approval. PRIOR RECORD: Dashboard read 2026-08-21 (the same read that settled D4) shows Automatic branching ON with limit 3 and 'Supabase changes only' enabled, and the same screen warns that Branching Compute is NOT covered by the organisation's Spend Cap. Preview branches did earn their keep once (the 20260819100200 guard failure on PR #2151 was caught by a preview branch building from the chain alone), so this is a cost/benefit decision, not a cleanup.",
+      "created_at": "2026-08-22"
     }
   ]
 }

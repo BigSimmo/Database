@@ -924,6 +924,27 @@ shell command with `CLAUDE_ALLOW_PR_FOLLOW=1`, or delete the marker the deny mes
 Sessions that never create a PR are untouched, so `Run PR` sweeps, `pr-ci-fix` work, and
 review sessions on someone else's PR still function normally.
 
+## Automated review coverage (owner decision, 2026-08-22)
+
+CodeRabbit's included allowance is exhausted and the organisation has reached its usage spending
+cap, so it declines most reviews with "Review limit reached" — measured on PRs #2113, #2252, #2255,
+#2256, #2263 and #2278 between 2026-08-18 and 2026-08-22. The owner has decided to **leave the cap
+as it is and accept that CodeRabbit review is intermittent**, rather than raise it (`#CCZ4HB`).
+
+What that means in practice, and what it does not mean:
+
+- The ChatGPT Codex connector still reviews and is unaffected by CodeRabbit's cap — it commented on
+  #2278 in the same run CodeRabbit skipped. Automated review is therefore reduced, not absent.
+- Draft PRs are skipped by CodeRabbit outright, so a PR that stays in draft gets nothing from it
+  even when allowance is available. Undrafting mid-CI also cancels the in-flight run.
+- **Do not weaken, skip, or relax any required check to compensate.** The required gates are now
+  carrying more of the load, not less, and the whole point of accepting reduced bot review is that
+  the deterministic checks stay strict.
+- Clinical-risk and RAG-surface diffs still require their PR-body preflight sections in full; those
+  are enforced by `scripts/pr-policy.mjs` and are unaffected by review-bot availability.
+
+Reducing PR churn (below) remains the cheapest way to get more value from the allowance that exists.
+
 ## PR bundling (reduce one-task-one-PR churn)
 
 Every `newtask`/`handoff` cycle mints a dedicated `claude/<task-slug>` branch and PR, so a
@@ -1020,7 +1041,8 @@ named PR). Future process only.
   stale head that already shares hot files with the open queue.
 - The legacy `docs/branch-review-ledger.md` and `docs/outstanding-issues.md` are **serial-only**:
   normal PRs must not add rows there. `npm run ledger:append` creates an immutable review record;
-  `npm run issues:add|update|done` creates one immutable inbox request. One fresh-base,
+  `npm run issues:add|update|queue|done` creates one immutable inbox request (`queue` corrects a
+  recommended-execution-queue row; see ledger `#M6JNR8`). One fresh-base,
   cross-worktree-locked `npm run issues:reconcile` operation applies landed requests to the
   canonical issue ledger. `check:ledger-write-discipline` rejects direct table-row edits,
   changed request records, deleted requests, and a canonical issue diff that does not exactly
