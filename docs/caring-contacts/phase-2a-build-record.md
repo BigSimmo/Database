@@ -2635,3 +2635,34 @@ exactly as written and let it open only under the repository's existing explicit
 every environment by design. A real deployment stays closed; a deliberate demo — where every patient
 is fictional — works, and the browser gate runs. Pending his answer, the condensed bar's Finding 1 and
 Finding 3 mutation proofs remain **unrun and are reported as unrun**, not as passed.
+
+## The exception works — 31 passed, 1 unresolved — and the session stops here
+
+Owner approved the doubly-flagged exception (asked, not ruled). `isCaringContactsDemoEnabled` now opens
+in production only when **both** `PLAYWRIGHT_OFFLINE_MODE` and `NEXT_PUBLIC_DEMO_MODE` are exactly
+`"true"` — the same exception `shouldBlockProductionMockups` already makes, and one that
+`instrumentation.ts` refuses to let a real production process carry. Four "the production lock" tests
+pin it; the `&&` → `||` widening mutation reddens the right one, with the earlier assertions passing
+first, so it is reachable.
+
+**Measured, via the repository runner, full log kept to a file rather than tailed: `31 passed`,
+`1 failed` (4.9m) — against `32 failed` before the change.** Typecheck clean, `Tests 49 passed` on the
+two gate files.
+
+**The one failure is NOT resolved, and must not be recorded as flake by assumption.**
+`apiRequestContext.post: read ECONNRESET` at `ui-caring-contacts-workspace.spec.ts:822` — pinning the
+condensed bar at **1440px**. Two facts point opposite ways and neither is decisive alone:
+
+- It is a transport error, not an assertion failure, and it landed at 30/32 on a machine that had just
+  spent 13 minutes building 1,854 pages. That reads as load.
+- **It is precisely the assertion the fix round strengthened**, at precisely the width that was proven
+  empty before it. The one test most likely to be genuinely wrong is the one that failed.
+
+So the honest disposition is **unresolved**: re-run that spec alone on a quiet machine. If it passes,
+it was load; if it reproduces, the 1440px pin is a real defect and the fix round is not closed. Do not
+let the plausible explanation stand in for the check — that is the same error as reading a phantom
+failure as a regression, run the other way.
+
+**Also still unrun, and still recorded as unrun:** the condensed bar's 1440px pin mutation and its
+dark-mode colour mutation. Both were blocked on the browser gate; the gate is now available, so the
+next session can run them.
