@@ -23,7 +23,7 @@ import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
   candidateReason,
   destinationUnit,
-  eligibleCandidates,
+  eligibleCandidatesAmong,
   movementHealthService,
   movementTimeline,
   stageCopy,
@@ -102,7 +102,7 @@ function MovementPipeline({
 }
 
 export function WardPatientWorkspace({ patientId }: { patientId: string }) {
-  const { movements, now } = useWardFlow();
+  const { movements, units, now } = useWardFlow();
   // Read the live, single source of truth rather than the frozen fixture — a patient just
   // referred on the coordinator screen must resolve here too, and a missing id must render an
   // explicit "not found" rather than ever substituting a different movement.
@@ -138,9 +138,11 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
   // This workspace shows the movement's own record only — it never falls back to a
   // suggested/top-eligible unit, so `destination` here is always the real recorded destination
   // or nothing.
-  const destination = destinationUnit(patient);
+  const destination = destinationUnit(patient, units);
   const verdict = destination ? eligibility(patient, destination, now) : undefined;
-  const candidates = eligibleCandidates(patient, now).filter((candidate) => candidate.unit.id !== destination?.id);
+  const candidates = eligibleCandidatesAmong(patient, units, now).filter(
+    (candidate) => candidate.unit.id !== destination?.id,
+  );
   const timeline = movementTimeline(patient);
 
   return (

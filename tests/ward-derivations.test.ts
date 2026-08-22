@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { clockState } from "../src/components/ward-management/ward-clock";
 import {
   buildActionInbox,
-  eligibleCandidates,
+  eligibleCandidatesAmong,
   restrictionNotice,
   transportLeg,
 } from "../src/components/ward-management/ward-derivations";
@@ -129,7 +129,7 @@ describe("eligibleCandidates", () => {
   // version (reorder-then-truncate) turns this red — see the task report for the captured output.
   //
   // The "expected" set below is deliberately reimplemented from `allUnits()`/`eligibility()`
-  // directly, never derived by calling `eligibleCandidates(..., Infinity)` — an Infinity call
+  // directly, never derived by calling `eligibleCandidatesAmong(..., Infinity)` — an Infinity call
   // still runs the function's OWN second (restriction-reorder) pass over the whole cohort, which
   // would make the oracle circular: re-sorting that already-reordered array by eligibility alone
   // does not recover the raw `allUnits()`-order tie-break, so slicing it would silently compare
@@ -147,7 +147,7 @@ describe("eligibleCandidates", () => {
         .sort((a, b) => Number(b.verdict.eligible) - Number(a.verdict.eligible))
         .slice(0, CAP);
 
-      const capped = eligibleCandidates(movement, NOW_ANCHOR, CAP);
+      const capped = eligibleCandidatesAmong(movement, allUnits(), NOW_ANCHOR, CAP);
       const cappedIds = new Set(capped.map((candidate) => candidate.unit.id));
       const expectedIds = new Set(eligibleFirstOnly.map((candidate) => candidate.unit.id));
       expect(cappedIds, `${movement.id}: top-${CAP} membership must match the eligible-first cut`).toEqual(expectedIds);

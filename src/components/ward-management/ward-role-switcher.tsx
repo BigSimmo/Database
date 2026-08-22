@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
-import { edById, unitById } from "@/components/ward-management/ward-sites";
+import { edById } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-role-switcher.module.css";
 
@@ -41,7 +41,7 @@ const OFFICER_HREF = "/ward-management/transport/officer";
  * every other conditionally-available control in this phase already use.
  */
 export function WardRoleSwitcher() {
-  const { movements, focusMovementId } = useWardFlow();
+  const { movements, units, focusMovementId } = useWardFlow();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -79,8 +79,13 @@ export function WardRoleSwitcher() {
       ? [focusMovement.acceptedUnitId]
       : focusMovement.referredUnitIds
     : [];
+  // Whole-branch review Critical 1: resolved from the live `units`. Names/ids cannot go stale in
+  // this prototype (no event ever renames a unit), so this specific read was never a capacity
+  // hazard the way `ward-screen.tsx`'s `unitById` was — but `units` was already free to read
+  // here via `useWardFlow()`, so converting it costs nothing and keeps this file off the units
+  // guard's allow-list entirely rather than needing a documented identity-only exception.
   const wardCandidates = wardCandidateIds
-    .map((unitId) => unitById(unitId))
+    .map((unitId) => units.find((unit) => unit.id === unitId))
     .filter((unit): unit is NonNullable<typeof unit> => unit !== undefined);
 
   // ED is never ambiguous — a movement carries exactly one `originEdId` — so this is always a

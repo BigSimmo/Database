@@ -8,7 +8,7 @@ import {
   candidateReason,
   destinationUnit,
   elapsedLabel,
-  eligibleCandidates,
+  eligibleCandidatesAmong,
   referralBlockedReason,
   restrictionNotice,
   unitCapacity,
@@ -17,7 +17,7 @@ import { eligibility, type GateResult } from "@/components/ward-management/ward-
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { PARALLEL_REFERRAL_CAP, type Movement, type Unit } from "@/components/ward-management/ward-model";
 import { operationalScore } from "@/components/ward-management/ward-priority";
-import { allEmergencyDepartments, unitById } from "@/components/ward-management/ward-sites";
+import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 
 import styles from "./coordinator.module.css";
@@ -25,6 +25,7 @@ import styles from "./coordinator.module.css";
 type ShortlistPanelProps = {
   movement: Movement | undefined;
   now: Instant;
+  units: Unit[];
   selectedUnitId: string | undefined;
   onSelectUnit: (unitId: string) => void;
   dispatch: Dispatch<WardFlowEvent>;
@@ -95,10 +96,10 @@ function legalFormLine(movement: Movement, now: Instant) {
  * driven by something other than the gate's own `pass` boolean. Every icon below reads directly
  * off `gate.pass`; nothing else is permitted to decide it (see the report's red/green proof).
  */
-export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, dispatch }: ShortlistPanelProps) {
+export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectUnit, dispatch }: ShortlistPanelProps) {
   const shortlist = useMemo(
-    () => (movement ? eligibleCandidates(movement, now, PARALLEL_REFERRAL_CAP) : []),
-    [movement, now],
+    () => (movement ? eligibleCandidatesAmong(movement, units, now, PARALLEL_REFERRAL_CAP) : []),
+    [movement, units, now],
   );
 
   // The unit whose gates this panel currently explains. A selection carried over from another
@@ -110,10 +111,14 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
   //
   // Whole-branch review Critical 2: this default is ORIENTATION ONLY. It may never be the thing
   // Refer acts on — see `canRefer` below.
+  //
+  // Whole-branch review Critical 1: resolved from the live `units` the provider hands back —
+  // never `unitById`, which reads the frozen fixture and would still call this ward "Eligible
+  // now" after it confirmed zero allocatable beds on its own screen.
   const activeUnit = useMemo(() => {
-    if (selectedUnitId) return unitById(selectedUnitId);
+    if (selectedUnitId) return units.find((unit) => unit.id === selectedUnitId);
     return shortlist[0]?.unit;
-  }, [selectedUnitId, shortlist]);
+  }, [selectedUnitId, shortlist, units]);
 
   const activeVerdict = useMemo(() => {
     if (!movement || !activeUnit) return undefined;
@@ -184,9 +189,9 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
   // one — is offered instead, and only ever labelled "Suggested destination": a computed
   // suggestion must never sit unlabelled in the destination slot, and an ineligible candidate must
   // never be presented as a suggestion at all (review Important 3).
-  const acceptedUnit = movement.acceptedUnitId ? unitById(movement.acceptedUnitId) : undefined;
-  const referredUnits = movement.referredUnitIds.map((id) => ({ id, unit: unitById(id) }));
-  const recordedDestination = destinationUnit(movement);
+  const acceptedUnit = movement.acceptedUnitId ? units.find((unit) => unit.id === movement.acceptedUnitId) : undefined;
+  const referredUnits = movement.referredUnitIds.map((id) => ({ id, unit: units.find((unit) => unit.id === id) }));
+  const recordedDestination = destinationUnit(movement, units);
   const hasRecordedReferral =
     recordedDestination !== undefined || Boolean(movement.acceptedUnitId) || movement.referredUnitIds.length > 0;
   const topEligible = shortlist.find((candidate) => candidate.verdict.eligible);
@@ -282,7 +287,7 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
     overrideRecord.unitIds.length > 0 &&
     overrideRecord.unitIds.every((id) => movement.referredUnitIds.includes(id));
   const overrideRecordUnits = overrideRecord
-    ? overrideRecord.unitIds.map((id) => unitById(id)?.name ?? "an unresolved unit")
+    ? overrideRecord.unitIds.map((id) => units.find((unit) => unit.id === id)?.name ?? "an unresolved unit")
     : [];
 
   return (
@@ -361,8 +366,8 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
       <section aria-label="Candidate units">
         {/* Whole-branch review Critical 1: this list was headed "Nearest candidates", a proximity
             claim the model cannot support — `Unit` has no distance, geo, locality or catchment
-            field, and `eligibleCandidates` filters on cohort and sorts eligible-first, breaking
-            ties on `allUnits()` array order. WF-018, sitting in SCGH's own emergency department,
+            field, and `eligibleCandidatesAmong` filters on cohort and sorts eligible-first,
+            breaking ties on the live `units` array's own order. WF-018, sitting in SCGH's own emergency department,
             was shown RPH Older Adult above SCGH Older Adult under that heading. The subtitle
             states the real ordering rather than leaving the reader to assume one. */}
         <h4 className={styles.shortlistSectionHeading}>Candidates</h4>
@@ -494,7 +499,7 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
         ) : (
           <ul className={styles.shortlistDeclineList}>
             {movement.declines.map((decline, index) => {
-              const unit = unitById(decline.unitId);
+              const unit = units.find((candidate) => candidate.id === decline.unitId);
               return (
                 <li
                   key={`${decline.unitId}-${index}`}

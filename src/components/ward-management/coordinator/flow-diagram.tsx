@@ -6,26 +6,27 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Instant } from "@/components/ward-management/ward-clock";
 import {
   candidateReason,
-  eligibleCandidates,
+  eligibleCandidatesAmong,
   restrictionNotice,
   unitCapacity,
   wardServiceOrder,
 } from "@/components/ward-management/ward-derivations";
 import { PARALLEL_REFERRAL_CAP, type Movement, type Unit } from "@/components/ward-management/ward-model";
 import { edPressure } from "@/components/ward-management/ward-pressure";
-import { allUnits, siteByCode, unitById } from "@/components/ward-management/ward-sites";
+import { siteByCode } from "@/components/ward-management/ward-sites";
 
 import styles from "./coordinator.module.css";
 
 type FlowDiagramProps = {
   movement: Movement | undefined;
   now: Instant;
+  units: Unit[];
   selectedUnitId: string | undefined;
   onSelectUnit: (unitId: string) => void;
 };
 
 type Point = { x: number; y: number };
-type ShortlistCandidate = ReturnType<typeof eligibleCandidates>[number];
+type ShortlistCandidate = ReturnType<typeof eligibleCandidatesAmong>[number];
 type Connector =
   | { id: string; path: string; kind: "demand" }
   | { id: string; path: string; kind: "route"; eligible: boolean }
@@ -65,7 +66,7 @@ function recordedDestinationIds(movement: Movement | undefined): Set<string> {
  *
  * Two further corrections from the whole-branch review:
  *
- * Critical 1 -- the word "nearest" is gone. `eligibleCandidates` ranks cohort-matching units
+ * Critical 1 -- the word "nearest" is gone. `eligibleCandidatesAmong` ranks cohort-matching units
  * eligible-first and breaks ties on array order; the model holds no distance data at all, so a
  * proximity claim here was simply false.
  *
@@ -73,8 +74,12 @@ function recordedDestinationIds(movement: Movement | undefined): Set<string> {
  * them. WF-004 sits at stage `bed_held` with a bed held at BTY Adult Secure, and this line read
  * "WF-004 -- 3 eligible destinations". The recorded fact now leads; the candidate count follows
  * as secondary context, because a coordinator may still be considering alternatives.
+ *
+ * Whole-branch review Critical 1: `units` is the caller's live provider `units`, never
+ * `ward-sites.ts`'s `unitById`/`allUnits` — a name lookup here still must reflect a unit that
+ * exists in the live world the same as any capacity figure would.
  */
-function hubStatusText(movement: Movement | undefined, shortlist: ShortlistCandidate[]) {
+function hubStatusText(movement: Movement | undefined, shortlist: ShortlistCandidate[], units: Unit[]) {
   if (!movement) return "Select a movement from the priority queue to route it";
 
   // "Other" means other than the units already recorded against this movement -- a candidate that
@@ -84,14 +89,14 @@ function hubStatusText(movement: Movement | undefined, shortlist: ShortlistCandi
   const candidateTail = otherCount === 0 ? "" : `; ${otherCount} other candidate${otherCount === 1 ? "" : "s"} shown`;
 
   if (movement.acceptedUnitId) {
-    const accepted = unitById(movement.acceptedUnitId);
+    const accepted = units.find((unit) => unit.id === movement.acceptedUnitId);
     return accepted
       ? `${movement.id} — accepted destination: ${accepted.name}${candidateTail}`
       : `${movement.id} — an accepted destination is recorded but could not be resolved`;
   }
   if (movement.referredUnitIds.length > 0) {
     const names = movement.referredUnitIds
-      .map((id) => unitById(id)?.name)
+      .map((id) => units.find((unit) => unit.id === id)?.name)
       .filter((name): name is string => Boolean(name));
     return names.length === movement.referredUnitIds.length && names.length > 0
       ? `${movement.id} — outstanding referral${names.length === 1 ? "" : "s"}: ${names.join(", ")}${candidateTail}`
@@ -119,7 +124,7 @@ function hubStatusText(movement: Movement | undefined, shortlist: ShortlistCandi
  * is already recorded against; with nothing selected, this renders the network with nothing routed
  * rather than a guessed selection (ruling: display less rather than something plausible).
  *
- * `eligibleCandidates` sorts eligible-first but never filters -- it can and does return units
+ * `eligibleCandidatesAmong` sorts eligible-first but never filters -- it can and does return units
  * that fail a gate (already declined the movement, wrong security tier, stale capacity, ...).
  * Every shortlisted node therefore carries its own verdict (`data-eligible`, plus
  * `candidateReason` rendered as real text) and an ineligible route is drawn visually distinct
@@ -132,11 +137,11 @@ function hubStatusText(movement: Movement | undefined, shortlist: ShortlistCandi
  * and reruns on a `ResizeObserver` plus a window resize listener, so the diagram survives a
  * resize rather than only ever being screenshotted once.
  */
-export function FlowDiagram({ movement, now, selectedUnitId, onSelectUnit }: FlowDiagramProps) {
+export function FlowDiagram({ movement, now, units, selectedUnitId, onSelectUnit }: FlowDiagramProps) {
   const pressure = useMemo(() => edPressure(now), [now]);
   const shortlist = useMemo(
-    () => (movement ? eligibleCandidates(movement, now, PARALLEL_REFERRAL_CAP) : []),
-    [movement, now],
+    () => (movement ? eligibleCandidatesAmong(movement, units, now, PARALLEL_REFERRAL_CAP) : []),
+    [movement, units, now],
   );
   const shortlistByUnitId = useMemo(
     () => new Map(shortlist.map((candidate) => [candidate.unit.id, candidate])),
@@ -149,20 +154,24 @@ export function FlowDiagram({ movement, now, selectedUnitId, onSelectUnit }: Flo
   // group rather than guessing one -- conservative failure, not a crash. `unplacedUnits` below
   // catches exactly that case so the unit still renders (as an explicit anomaly) rather than
   // silently vanishing from the board (review Minor 6).
+  //
+  // Whole-branch review Critical 1: grouped from the caller's live `units`, never `allUnits()` —
+  // every unit NODE on this board (its bed grid, via `unitCapacity` in `UnitNode` below) must
+  // move the instant a ward confirms new capacity, not only at first paint.
   const serviceGroups = useMemo(
     () =>
       wardServiceOrder
         .map((service) => ({
           service,
-          units: allUnits().filter((unit) => siteByCode(unit.siteCode)?.service === service),
+          units: units.filter((unit) => siteByCode(unit.siteCode)?.service === service),
         }))
         .filter((group) => group.units.length > 0),
-    [],
+    [units],
   );
   const unplacedUnits = useMemo(() => {
     const grouped = new Set(serviceGroups.flatMap((group) => group.units.map((unit) => unit.id)));
-    return allUnits().filter((unit) => !grouped.has(unit.id));
-  }, [serviceGroups]);
+    return units.filter((unit) => !grouped.has(unit.id));
+  }, [serviceGroups, units]);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const hubRef = useRef<HTMLDivElement | null>(null);
@@ -378,7 +387,7 @@ export function FlowDiagram({ movement, now, selectedUnitId, onSelectUnit }: Flo
           <div className={styles.diagramHub} ref={hubRef}>
             <Network aria-hidden="true" />
             <strong>Statewide flow hub</strong>
-            <span>{hubStatusText(movement, shortlist)}</span>
+            <span>{hubStatusText(movement, shortlist, units)}</span>
           </div>
 
           <div className={styles.diagramUnitsColumn}>

@@ -13,7 +13,7 @@ import {
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import { DECLINE_REASONS, type DeclineReason, type Movement, type Unit } from "@/components/ward-management/ward-model";
-import { siteByCode, unitById } from "@/components/ward-management/ward-sites";
+import { siteByCode } from "@/components/ward-management/ward-sites";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 
 import styles from "./ward.module.css";
@@ -56,9 +56,9 @@ function holdBlockedReason(movement: Movement, unit: Unit): string | undefined {
 /**
  * Task 8: one inpatient unit's own view — the ward answering what the coordinator refers,
  * never a filtered copy of the coordinator's statewide screen. Everything here is scoped to
- * exactly one `Unit`, resolved by `unitById(unitId)`. An id that resolves to nothing renders an
- * explicit empty state naming the id (Global Constraint, addendum R40) — never a substituted
- * unit, never `?? allUnits()[0]`.
+ * exactly one `Unit`, resolved from the provider's live `units`. An id that resolves to nothing
+ * renders an explicit empty state naming the id (Global Constraint, addendum R40) — never a
+ * substituted unit, never `?? allUnits()[0]`.
  *
  * Every figure is derived fresh from the live `movements`/`units` the provider hands back on
  * every render, never cached in local state — the same discipline `ward-flow-queue-selection`
@@ -66,10 +66,18 @@ function holdBlockedReason(movement: Movement, unit: Unit): string | undefined {
  * and appears under "accepted, held or en route" on the very next render, because both lists are
  * plain filters over the same live array; there is no local "it worked" flag anywhere in this
  * file for the reasons `shortlist-panel.tsx`'s own comment on `OverrideRecord` explains.
+ *
+ * Whole-branch review Critical 1: this screen used to resolve `unit` via `unitById(unitId)` —
+ * `ward-sites.ts`'s frozen fixture — so this ward's own bed grid, its "Currently confirmed"
+ * line, its capacity-input default and `holdBlockedReason`'s allocatable check never moved even
+ * after this exact screen dispatched `CONFIRM_CAPACITY` against itself. `unit` now resolves from
+ * the provider's live `units`, the same collection `CONFIRM_CAPACITY`/`HOLD_BED`/`PATIENT_ARRIVED`
+ * all write to, so a ward reading its own action back is now structurally the same read as
+ * anyone else reading it.
  */
 export function WardScreen({ unitId }: WardScreenProps) {
-  const { movements, now, dispatch } = useWardFlow();
-  const unit = unitById(unitId);
+  const { movements, units, now, dispatch } = useWardFlow();
+  const unit = units.find((candidate) => candidate.id === unitId);
 
   // Declared unconditionally, before the early return below — React hooks must run in the same
   // order on every render, and the not-found branch never touches either of these.

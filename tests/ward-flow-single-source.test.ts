@@ -49,6 +49,50 @@ const NOW_ANCHOR_ALLOWLIST = new Set([
 ]);
 
 /**
+ * Files allowed to read `allUnits` or `unitById` from `ward-sites.ts` anywhere under `SRC_DIR` —
+ * whole-branch review I1, the units-capacity sibling of the `NOW_ANCHOR` rule above. I1 named
+ * this exact gap: `ward-flow-single-source.test.ts` guarded the frozen MOVEMENTS fixture
+ * (`ALLOWED` above) but had no equivalent rule for the frozen UNITS fixture, which is how
+ * whole-branch review Critical 1 shipped — a ward could confirm zero allocatable beds and the
+ * coordinator's shortlist would still read "Eligible now" for it, because `eligibleCandidates`,
+ * `destinationUnit` and several components resolved units via `allUnits()`/`unitById()` instead
+ * of the provider's live `units`. Keys are full paths from the repo root with forward slashes,
+ * matching `NOW_ANCHOR_ALLOWLIST`'s own convention — a bare basename could otherwise collide with
+ * an unrelated same-named file elsewhere in `src`.
+ *
+ * Verified by hand (`grep -rn "allUnits\|unitById" src`, this fix, after converting every
+ * live-surface caller) before writing this list: the only real, non-comment identifier reads of
+ * either name anywhere under `src` are the four files below.
+ *   - `ward-sites.ts` declares both functions — a function declaration's own name is itself an
+ *     `Identifier` node, so the declaring file must be excluded the same way
+ *     `NOW_ANCHOR_ALLOWLIST` excludes the file that declares `NOW_ANCHOR`.
+ *   - `ward-movements.ts` (the movement fixture) calls `allUnits()` to build its own synthetic
+ *     unit-name lookups at module load — a fixture-to-fixture read at data-authoring time, never
+ *     a live surface a user's screen renders from.
+ *   - `ward-flow-reducer.ts`'s `seedWardFlowState` calls `structuredClone(allUnits())` exactly
+ *     once — the single legitimate place the reducer's live `state.units` is ever initialised
+ *     FROM the frozen fixture. Every later read of unit state anywhere in the app must come from
+ *     that live `state.units` (via the provider's `units`), never from `ward-sites.ts` again.
+ *   - `ward-derivations.ts` keeps one narrow, explicitly deprecated `eligibleCandidates(movement,
+ *     now, limit)` wrapper around the real, units-aware `eligibleCandidatesAmong`. It exists only
+ *     because `tests/ward-flow-contracts.test.ts` imports `eligibleCandidates` by that exact name
+ *     with the pre-fix three-argument call shape, and that file was off-limits to this fix (a
+ *     concurrent editing session owned it) — see the wrapper's own doc comment for the full
+ *     reasoning. No component anywhere in `src` calls it; only this one test file does.
+ * Every ward-management component that used to resolve a unit's own capacity, name or existence
+ * via `unitById`/`allUnits` — `ward-screen.tsx`, `flow-diagram.tsx`, `shortlist-panel.tsx`,
+ * `ward-management-console.tsx`, `ward-management-modes.tsx`, `ward-management-network.tsx`,
+ * `ward-role-switcher.tsx`, `ed-screen.tsx`, and `ward-derivations.ts`'s own `destinationUnit`/
+ * `eligibleCandidatesAmong` — now takes the provider's live `units` as a parameter instead.
+ */
+const UNITS_FIXTURE_ALLOWLIST = new Set([
+  "src/components/ward-management/ward-sites.ts",
+  "src/components/ward-management/ward-movements.ts",
+  "src/components/ward-management/ward-flow-reducer.ts",
+  "src/components/ward-management/ward-derivations.ts",
+]);
+
+/**
  * Normalises a walked path to forward-slash form so it can be compared against the
  * forward-slash keys in `NOW_ANCHOR_ALLOWLIST`. `walk` below builds paths with `node:path`'s
  * `join`, which emits backslashes on Windows — comparing those raw against forward-slash keys
@@ -168,6 +212,47 @@ function readsNowAnchor(source: string, fileName: string): boolean {
   const visit = (node: ts.Node): void => {
     if (found) return;
     if (ts.isIdentifier(node) && node.text === "NOW_ANCHOR") {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return found;
+}
+
+/**
+ * True for any real read of `allUnits` or `unitById` — a named import, a namespace-qualified
+ * property access (`sites.allUnits()`), or a bare use of either identifier — never for a mention
+ * inside a comment or a string literal.
+ *
+ * Whole-branch review I1: the same AST-identifier approach as `readsNowAnchor` above, for the
+ * same reason (see that function's own doc comment on the hand-rolled `stripCommentsAndStrings`
+ * scanner it replaced, and this file's history of guards that overclaimed their own scope — one
+ * scoped by co-occurrence, one walked a single directory while its name claimed the whole tree,
+ * one was blinded by a quote inside a regex literal). This walks the real TypeScript AST rather
+ * than hand-rolling a fourth scanner: every `Identifier` node named `allUnits` or `unitById` is a
+ * real reference (import specifier, property access, or plain use) because comment text is
+ * trivia attached to token positions rather than a node the walk ever visits, and the contents of
+ * a string or template literal are `StringLiteral`/template nodes, never `Identifier` nodes. A
+ * cheap `source.includes(...)` pre-filter runs first so the parser is only invoked for files that
+ * could possibly match, exactly like `readsNowAnchor`'s own pre-filter.
+ */
+function readsUnitsFixture(source: string, fileName: string): boolean {
+  if (!source.includes("allUnits") && !source.includes("unitById")) return false;
+
+  const sourceFile = ts.createSourceFile(
+    fileName,
+    source,
+    ts.ScriptTarget.Latest,
+    /* setParentNodes */ false,
+    fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (found) return;
+    if (ts.isIdentifier(node) && (node.text === "allUnits" || node.text === "unitById")) {
       found = true;
       return;
     }
@@ -356,6 +441,31 @@ describe("one source of truth", () => {
     const offenders = srcDirFiles()
       .filter(({ normalizedFile }) => !NOW_ANCHOR_ALLOWLIST.has(normalizedFile))
       .filter(({ file, source }) => readsNowAnchor(source, file))
+      .map(({ file }) => file);
+    expect(offenders).toEqual([]);
+  });
+
+  /**
+   * Whole-branch review I1. Same failure mode as the two zero-match guards above, checked again
+   * here: this specific check must not be able to pass by scanning nothing.
+   */
+  it("scans a non-empty set of src source files for the units-fixture allow-list check", () => {
+    const scanned = srcDirFiles();
+    expect(scanned.length).toBeGreaterThan(0);
+  });
+
+  /**
+   * Whole-branch review I1: the units-capacity sibling of the NOW_ANCHOR restriction above, and
+   * the guard that would have caught Critical 1. It enforces exactly one thing — no file under
+   * `src` outside `UNITS_FIXTURE_ALLOWLIST` may hold a real identifier reference to `allUnits` or
+   * `unitById` — and nothing broader: it says nothing about whether a component actually THREADS
+   * the live `units` it receives correctly, only that it cannot reach for the frozen fixture as
+   * an alternative in the first place.
+   */
+  it("restricts every read of allUnits/unitById under src to the named allow-list", () => {
+    const offenders = srcDirFiles()
+      .filter(({ normalizedFile }) => !UNITS_FIXTURE_ALLOWLIST.has(normalizedFile))
+      .filter(({ file, source }) => readsUnitsFixture(source, file))
       .map(({ file }) => file);
     expect(offenders).toEqual([]);
   });

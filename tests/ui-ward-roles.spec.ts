@@ -456,3 +456,103 @@ test.describe("Role switcher — the loop", () => {
     );
   });
 });
+
+/**
+ * Whole-branch review Critical 1, permanent regression coverage. Reproduces the reviewer's own
+ * decisive live proof, verbatim in shape: a ward drops its own confirmed capacity to zero, and
+ * every screen that reads that unit's capacity — starting with the ward's own — must reflect it
+ * on the very next render, with no `page.goto()` anywhere in the sequence. A `goto` would
+ * re-mount `WardFlowProvider` and re-seed `state.units` from the frozen fixture, which would
+ * make every assertion below pass whether or not the fix actually threads live `units` through —
+ * exactly the class of test that could not have caught C1 in the first place.
+ *
+ * This is added as a permanent test, not a one-off manual probe: C1 was spec §4's own
+ * predicted "correction that most changes the phase", so its rule (a ward's own bed grid, its
+ * own Hold control, and the coordinator's own diagram/shortlist must never disagree about the
+ * same unit at the same instant) is exactly the kind of property that regresses silently — the
+ * whole-branch review found it was wrong for the entirety of Phase 3's development without a
+ * single existing test noticing.
+ */
+test.describe("Live capacity — a ward's own action reaches every screen that reads it", () => {
+  test.describe.configure({ timeout: 45_000 });
+
+  test("a ward confirming zero allocatable beds updates its own screen, then the coordinator, without ever reloading", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+
+    function switcherTrigger() {
+      return page.getByRole("button", { name: "Switch role" });
+    }
+    async function switchTo(menuItemName: string) {
+      await switcherTrigger().click();
+      const matches = page.getByRole("menuitem", { name: menuItemName });
+      await expect(matches, `"${menuItemName}" must resolve to exactly one menu item`).toHaveCount(1);
+      await matches.click();
+    }
+
+    // --- Step 1: the ward's own screen, before the drop. RPH Adult Secure seeds with
+    // allocatable = 1 (Ready 1 · Held 1) and carries WF-003 accepted-awaiting-bed, whose Hold
+    // control is therefore fully live: no `aria-disabled`, no `title`. ---
+    await gotoWard(page, "rph-adult-secure");
+
+    const bedGrid = page.getByTestId("ward-unit-beds");
+    await expect(bedGrid).toContainText("Ready 1");
+    await expect(bedGrid).toContainText("Held 1");
+
+    const holdButton = page.getByTestId("ward-hold-WF-003");
+    await expect(holdButton).toBeVisible();
+    await expect(holdButton).not.toHaveAttribute("aria-disabled");
+    await expect(holdButton).not.toHaveAttribute("title");
+
+    // --- Step 2: confirm zero allocatable beds, on this same page, no reload. ---
+    await page.getByTestId("ward-capacity-input").fill("0");
+    await page.getByTestId("ward-capacity-submit").click();
+
+    // --- Step 3: the ward's own screen must move. This is the exact proof the reviewer
+    // performed and found failing: "typing 0 into Confirm allocatable beds ... beds: Ready 2
+    // ... Currently confirmed 2" — the screen that raised the event never moved. ---
+    await expect(bedGrid).toContainText("Ready 0");
+    await expect(bedGrid).toContainText("Held 2"); // the physically-empty pool is unchanged; it is now unconfirmed rather than ready
+    await expect(page.getByText(/Currently confirmed 0 at/)).toBeVisible();
+
+    // --- Step 4: the Hold control must stop advertising an action the reducer would now
+    // refuse — the reviewer's Proof 2 ("hold button ... aria-disabled = null ... nothing
+    // happened"). It must carry BOTH aria-disabled and a stated reason naming this ward. ---
+    await expect(holdButton).toHaveAttribute("aria-disabled", "true");
+    await expect(holdButton).toHaveAttribute("title", /No allocatable bed remains at RPH Adult Secure/);
+
+    // --- Step 5: click through to the coordinator — the role switcher's real <Link>, never a
+    // goto. Coordinator is never ambiguous (spec §9: "Statewide — no ward or department"). ---
+    await switchTo("Coordinator");
+    await expect(page.getByTestId("ward-coordinator")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+
+    // --- Step 6: the reviewer's Proof 3. Select any open movement (the diagram renders every
+    // one of the 22 units' own capacity regardless of which movement is selected, so which
+    // movement is picked here does not matter to this proof), then select RPH Adult Secure's
+    // own node in the statewide flow diagram. ---
+    const diagram = page.getByRole("region", { name: "Statewide flow" });
+    await expect(diagram.locator("svg path[marker-end]").first()).toBeAttached({ timeout: 15_000 });
+
+    await page.getByRole("region", { name: "Priority queue" }).locator('[data-testid^="ward-queue-row-"]').first().click();
+
+    const rphNode = diagram.getByTestId("ward-diagram-unit-rph-adult-secure");
+    // The diagram's own unit node reads the unit's live capacity directly (Critical 1 also named
+    // `flow-diagram.tsx`'s `serviceGroups`/`unplacedUnits`, which used to be grouped from the
+    // frozen `allUnits()` rather than the live `units` this diagram now receives as a prop).
+    await expect(rphNode).toContainText("Ready 0");
+    await rphNode.click();
+
+    // --- Step 7: the shortlist's own explainable gate row for this exact unit — the reviewer's
+    // literal proof text: "Allocatable bed / Met / 1 allocatable" while the ward had just said
+    // zero. It must now read the opposite: Not met, 0 allocatable. `ward-eligibility.ts` is a
+    // protected surface — this is not a change to what the gate judges, only to which unit's
+    // live data it is judging. ---
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+    await expect(shortlist).toContainText("RPH Adult Secure");
+    const allocatableGate = shortlist.getByTestId("ward-gate-allocatable_bed");
+    await expect(allocatableGate).toHaveAttribute("data-pass", "false");
+    await expect(allocatableGate).toContainText("0 allocatable");
+  });
+});

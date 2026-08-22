@@ -1470,7 +1470,8 @@
         "tests/ui-formulation.spec.ts",
         "tests/ui-smoke.spec.ts",
         "tests/ui-v2-components.dom.test.tsx",
-        "tests/ui-ward-coordinator.spec.ts"
+        "tests/ui-ward-coordinator.spec.ts",
+        "tests/ui-ward-roles.spec.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
