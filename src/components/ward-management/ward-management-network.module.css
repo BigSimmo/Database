@@ -376,10 +376,7 @@
   box-shadow: var(--e1);
 }
 
-/* :not(:focus-visible) so the global focus ring still wins while selected -
-   `:where(...):focus-visible` contributes zero specificity, so an
-   unconditional selection outline would otherwise always beat it. */
-.serviceCard[aria-pressed="true"]:not(:focus-visible) {
+.serviceCard[aria-pressed="true"] {
   outline: 0.125rem solid var(--net-blue);
   outline-offset: 0.0625rem;
 }
@@ -752,17 +749,5 @@
 @media (prefers-reduced-motion: reduce) {
   .networkPage * {
     transition: none !important;
-  }
-}
-
-/* High Contrast Mode. Selection and routing state on this screen is safety
-   information (which service a patient is routed to), and under forced-colors
-   the accent hues these states rely on are discarded. Mirrors the blocks the
-   three sibling ward stylesheets already carry. */
-@media (forced-colors: active) {
-  .serviceCard[data-routed="true"],
-  .serviceCard[aria-pressed="true"]:not(:focus-visible),
-  .queueRow[aria-pressed="true"] {
-    border: 0.125rem solid Highlight;
   }
 }
