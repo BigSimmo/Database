@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { issueRowFingerprint, parseIssues } from "../scripts/check-outstanding-issues.mjs";
 import { displayIdForUlid, issueUlid } from "../scripts/issue-id.mjs";
-import { addIssue, escapeCell, resolveIssue, splitCells, updateIssue } from "../scripts/outstanding-issues.mjs";
+import {
+  addIssue,
+  escapeCell,
+  resolveIssue,
+  splitCells,
+  updateIssue,
+  updateQueueRow,
+} from "../scripts/outstanding-issues.mjs";
 
 const OPEN_CELLS = 7;
 const ARCHIVE_CELLS = 5;
@@ -120,6 +127,33 @@ describe("outstanding-issues writer", () => {
     expect(row?.table).toBe("open");
     expect(splitCells(row!.raw)).toHaveLength(OPEN_CELLS);
     expect(row!.raw).toContain("replaced \\| detail");
+  });
+
+  it("locates a Crockford queue row when a lowercase display id was accepted", () => {
+    const queueLedger = [
+      "# Outstanding",
+      "",
+      "## Recommended execution queue",
+      "",
+      "| Order | ID(s) | Acuity | Capability | When | Estimate | Outcome |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| 1 | `#ABCDEF` | A1 | Specialist | Immediate | 2h | investigate |",
+      "",
+      "## Open items",
+      "",
+      "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| #ABCDEF <!-- issue-ulid:0000000000ABCDEF0000000000 --> | P2 | issue | queued | detail | source | 2026-01-01 |",
+      "",
+      "## Resolved / archive",
+      "",
+      "| ID | Type | Summary | Outcome | Resolved |",
+      "| --- | --- | --- | --- | --- |",
+      "",
+    ].join("\n");
+
+    const next = updateQueueRow(queueLedger, "#abcdef", { acuity: "A2" });
+    expect(next).toContain("| 1 | `#ABCDEF` | A2 | Specialist | Immediate | 2h | investigate |");
   });
 
   it("extends a colliding display id and preserves it through update and archive", () => {
