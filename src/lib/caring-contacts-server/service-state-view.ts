@@ -25,6 +25,7 @@ import { canPerformCaringContactAction, type CaringContactActor } from "@/lib/ca
 import {
   describeServiceStop,
   type ServiceRestartApproval,
+  type ServiceRestartOutcome,
   type ServiceState,
   type ServiceStopReason,
 } from "@/lib/caring-contacts/service-state";
@@ -44,6 +45,46 @@ export type ServiceStateView =
       banner: string | null;
       incidentDetail: ServiceIncidentDetail;
     };
+
+/**
+ * The reply to a recorded restart approval (Ruling 65).
+ *
+ * It takes NO actor, and that is the point: `approveServiceRestart` now returns
+ * `ServiceRestartOutcome`, which carries no note, no `stoppedBy` and no reporting team, so there is
+ * nothing here left to gate. `narrowServiceStateForActor` below is a boundary that decides what may
+ * be released; this is a value that has nothing to withhold — a strictly stronger position, and the
+ * one that also cleans up the store's persisted replay result, which no API boundary can reach.
+ *
+ * It is deliberately NOT a `ServiceStateView`. Reusing that type would force an `incidentDetail` of
+ * `{ visible: false, withheldReason: … }`, which says "there is a note you may not see" — a
+ * different fact from "this reply does not carry one", and the wrong one for a reporting-team
+ * approver who may in fact read it through the GET.
+ */
+export type ServiceRestartView =
+  | { stopped: false; banner: null }
+  | {
+      stopped: true;
+      reason: ServiceStopReason;
+      /** AWST ISO-8601 instant with an explicit `+08:00` offset. */
+      stoppedAt: string;
+      restartApprovals: readonly ServiceRestartApproval[];
+      banner: string | null;
+    };
+
+export function viewRestartOutcome(outcome: ServiceRestartOutcome): ServiceRestartView {
+  if (!outcome.stopped) return { stopped: false, banner: null };
+  return {
+    stopped: true,
+    reason: outcome.reason,
+    stoppedAt: outcome.stoppedAt,
+    restartApprovals: outcome.restartApprovals,
+    banner: describeServiceStop({
+      stopped: true,
+      reason: outcome.reason,
+      restartApprovals: outcome.restartApprovals,
+    }),
+  };
+}
 
 /**
  * The capability that gates incident detail. The note is patient data, so the actor needs the

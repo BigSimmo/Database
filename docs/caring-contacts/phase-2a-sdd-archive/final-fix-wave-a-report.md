@@ -467,3 +467,225 @@ No migration was written. No file owned by the concurrent agent was touched.
    than a lookup hardening. Detail and recommendation under finding 5.
 3. **The retention clearance record is still not readable through `CaringContactRepository`** in
    either store. Detail and reasoning under finding 6.
+
+---
+
+# Closing round — Ruling 65
+
+Authorised by the coordinator against the method's own "no second fix wave" rule, on the grounds
+that the exposure was created by the wave split and closing it repairs that seam. Three items: the
+cross-team note residual reported above, and the two concerns I had escalated for a decision.
+
+## Verification summary
+
+| Gate                                            | Result                                                                                |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `npm run test`                                  | `Test Files 703 passed \| 2 skipped (705)` / `Tests 7834 passed \| 29 skipped (7863)` |
+| `caring-contacts:db:test`                       | `Test Files 2 passed (2)` / `Tests 177 passed (177)`                                  |
+| `tsc -p tsconfig.json --noEmit`                 | clean, no output                                                                      |
+| `npm run lint` (whole repo, `--max-warnings 0`) | clean, no output                                                                      |
+| `npx prettier --check .`                        | `All matched files use Prettier code style!`                                          |
+
+`tests/codex-cloud-setup.test.ts` and `tests/design-sync-contract.test.ts` **both passed** in this
+run — they did not appear as failures, so the suite really is clean rather than
+clean-apart-from-the-usual-two.
+
+The counts moved by exactly the tests added: unit `7818 → 7834` (+16 = 2 contract cases + 12 wording
+cases + 2 route cases) and database `174 → 177` (+3 = the same 2 contract cases run against Postgres,
+plus 1 Postgres-only row assertion).
+
+### The lint warning the other agent reported
+
+`in-memory-repository.ts:29 'PlanState' is defined but never used` is **not live**. It was a genuine
+in-flight state during wave A and I removed the import before committing; `npm run lint` over the
+whole repo at `--max-warnings 0` is clean above. Line 29 now reads
+`import type { Contact, ContactAction, ContactState, Plan, Referral, TransitionResult } from "./model";`.
+
+---
+
+## Ruling 65 — `approveServiceRestart` no longer returns the record
+
+### The exposure, restated
+
+Restart approvals are service-wide, so a TEAM-SOUTH team lead legitimately approves a TEAM-NORTH
+incident, and the first two approvals leave the service stopped — so the method returned the whole
+live `ServiceState`, note included. Every store persists a write's return value as its idempotency
+replay result, keyed by the **writing** team, in a table whose row-level security is team-scoped. So
+the reporting team's incident note sat at rest in a row the approving team could `select`, while
+`narrowServiceStateForActor` withheld that same note from that same actor at the API boundary. An
+API-boundary narrowing cannot reach a stored row; only the return type can.
+
+### Consumer check, done before building on it
+
+The coordinator asked me to check the premise that nothing needs the note from that method's return.
+I did, and it holds:
+
+- `src/app/api/caring-contacts/service-state/route.ts` was the only production consumer, and it
+  already discarded the note through `narrowServiceStateForActor`.
+- `describeServiceStop` cannot see the note at all — its parameter type `ServiceStopBannerFacts`
+  omits it by construction.
+- No component consumes the POST reply; `ServiceStateView` is referenced only by that route and by
+  `tests/caring-contacts-api-handler.test.ts`.
+- The contract's existing assertions on this method's value read `stopped`, `reason` and
+  `restartApprovals` and nothing else.
+
+**No consumer needed the note. Nothing was broken to fix this.**
+
+### What changed
+
+- **`service-state.ts`** — new `ServiceRestartOutcome` (`ServiceState` minus `note`, `stoppedBy` and
+  `reportedByTeamId`) and `restartOutcomeOf`, the projection. Both live in the domain beside
+  `ServiceStopBannerFacts`, which is the same technique for the same reason, so the two stores cannot
+  project differently.
+- **`repository.ts`** — `approveServiceRestart` now declares
+  `Promise<TransitionResult<ServiceRestartOutcome>>`, with the reasoning on the method.
+- **Both stores** — return `restartOutcomeOf(applied.value)`. The commit still writes the whole
+  state; only what leaves the method is narrow.
+- **`service-state-view.ts`** — `ServiceRestartView` and `viewRestartOutcome`, which take **no
+  actor**. That is the point: there is nothing left to gate. It is deliberately not a
+  `ServiceStateView`, because that type would force `incidentDetail: { visible: false, … }` — "there
+  is a note you may not see" — which is a different fact from "this reply does not carry one", and
+  the wrong one for a reporting-team approver who may read it through the GET.
+- **The route** — the two branches now reach their reply by different paths, and the comment says
+  why.
+
+### Truthfulness of the replay
+
+A replay returns the original answer, and the original answer is now the narrow one. The stored
+result and the HTTP reply are clean **by construction** rather than by filtering, so nothing is
+subtracted from what a retry receives. The contract asserts this directly:
+`expect(replay).toEqual(approved)`.
+
+### TDD and mutation evidence
+
+Red first, in the shared contract, against the in-memory store:
+
+```
+FAIL tests/caring-contacts-repository.test.ts > stopService and approveServiceRestart
+  > hands a restart approver the stop it is approving, and never the incident note
+AssertionError: expected { stopped: true, …(6) } to not have property "note"
+FAIL … > narrows the approval reply on the restart too, where there is no incident left to name
+AssertionError: expected { stopped: false, …(1) } to deeply equal { stopped: false }
+```
+
+The second case exists because the approval that completes the restart returns the _running_
+variant, which never carried a note but did carry `reportedByTeamId` — a discriminated union leaks
+through whichever arm is left unnarrowed.
+
+Then the mutation proof against Postgres, with the store's `restartOutcomeOf` call reverted:
+
+```
+FAIL … a cross-team restart approval stores no incident note (postgres only)
+     > leaves the note only in service_stops, never in the approving team's idempotency row
+AssertionError: expected '[{"fingerprint":"11a35125e1c762b50e14…' not to contain 'Rowan'
+Tests  3 failed | 174 passed (177)
+```
+
+That failure string is the whole finding in one line: the `fingerprint` column is already an opaque
+hash — wave A closed that — and the leak was in the `result` column beside it. The mutation was
+reverted immediately.
+
+The new Postgres test carries a positive control (`service_stops.note` still contains the note), so
+an empty search of the idempotency rows means the note went nowhere else rather than never having
+been written.
+
+### Existing assertions
+
+None deleted or loosened. Every existing contract assertion on this method's value —
+`first.stopped`, `second.stopped`, `third.stopped`, `restarted.stopped`, and
+`approved.restartApprovals.map(a => a.approvedAt)` — reads fields the narrow type keeps, so all of
+them still hold unchanged. The narrowing is strictly stronger: the same facts, minus three the
+caller had no need for.
+
+---
+
+## Concern 3 — the two wording lookups, hardened per Ruling 61
+
+The coordinator's decision: harden, do not add a refusal name or a fallback. Both tables are keyed by
+a **closed domain union**, so an unknown key is a programming error rather than a runtime condition,
+and a fallback would render a plausible sentence for a value nobody defined — the exact failure
+Ruling 61 exists to prevent.
+
+- **`service-state.ts`** — `stopReasonWording` guards `STOP_REASON_WORDING` with `Object.hasOwn` and
+  throws, naming the key. This is the sharper of the two: the banner renders on every screen in the
+  workspace, and its whole job is to say truthfully why sending has halted.
+- **`notification-preferences.ts`** — the same guard inside `alertBodyFor` for `ALERT_CLASS_LABELS`.
+
+Both messages follow `blockReasonWording`'s wording in the overlay host, including its instruction
+not to add a default branch.
+
+### TDD evidence
+
+Twelve cases — six inherited or unknown keys against each table — red before the fix with the
+decisive message, which is the defect stated plainly:
+
+```
+FAIL tests/caring-contacts-service-state.test.ts
+  > throws rather than rendering inherited wording for the unknown stop reason constructor
+FAIL tests/caring-contacts-notification-preferences.test.ts
+  > throws rather than labelling the unknown alert class constructor from an inherited property
+AssertionError: expected [Function] to throw an error
+Tests  12 failed | 154 passed (166)
+```
+
+`expected [Function] to throw an error` — the lookup really was returning a function, and it really
+was about to be interpolated into a sentence.
+
+This makes four sites of this pattern now closed on this branch (`overlay-definitions`,
+`overlay-host`, `permissions`, and these two), plus `schedule.ts` which was already guarded. Each
+needed its own fix, which remains the actual lesson.
+
+---
+
+## Concern 2 — the assignment route now refuses a malformed coverage window
+
+`src/app/api/caring-contacts/assignments/[planId]/route.ts` accepted `from`/`until` as any non-empty
+string, so the domain's named refusal was the only thing between nonsense and the database's own
+regular-expression check. The schema now uses a `calendarDay` refinement built on the **same**
+`isAwstCalendarDay` predicate the domain uses — imported, not restated, so the two layers cannot
+drift.
+
+### TDD evidence
+
+```
+FAIL tests/caring-contacts-api-handler.test.ts
+  > the assignment route holds coverage windows to the calendar-day shape
+  > refuses a window that is not a calendar day, without reaching the store
+AssertionError: expected 422 to be 400
+```
+
+`422` is the store's named refusal coming back through the handler — that is, the malformed request
+reaching the store, which is precisely the finding. It is `400` now, and the test also asserts
+`applyAssignment` was never called, so the boundary refuses rather than merely relabelling. A second
+case proves a well-formed window still reaches the store and is accepted, so the refinement is not
+refusing everything.
+
+---
+
+## Files changed in this round
+
+- `src/lib/caring-contacts/service-state.ts` — `ServiceRestartOutcome`, `restartOutcomeOf`,
+  `stopReasonWording`
+- `src/lib/caring-contacts/repository.ts` — narrowed `approveServiceRestart` return type
+- `src/lib/caring-contacts/in-memory-repository.ts`,
+  `src/lib/caring-contacts/db/postgres-repository.ts` — return the outcome
+- `src/lib/caring-contacts/notification-preferences.ts` — guarded label lookup
+- `src/lib/caring-contacts-server/service-state-view.ts` — `ServiceRestartView`, `viewRestartOutcome`
+- `src/app/api/caring-contacts/service-state/route.ts` — the two reply paths
+- `src/app/api/caring-contacts/assignments/[planId]/route.ts` — `calendarDay` refinement
+- `tests/helpers/caring-contacts-repository-contract.ts` — `TEAM_LEAD_B` fixture, two narrowing cases
+- `tests/caring-contacts-postgres-repository.test.ts` — the cross-team idempotency row assertion
+- `tests/caring-contacts-service-state.test.ts`,
+  `tests/caring-contacts-notification-preferences.test.ts` — the Ruling 61 cases
+- `tests/caring-contacts-api-handler.test.ts` — the assignment boundary cases
+
+No migration. No existing assertion deleted or loosened.
+
+## Nothing left open from my half
+
+All three items the coordinator listed are closed, and I am not carrying anything forward. The one
+thing worth a reader's attention is not a defect but a consequence: `describeServiceStop` and
+`alertBodyFor` can now **throw** where they previously returned a plausible string. That is the
+intended Ruling 61 behaviour for a closed union, and every defined member is covered — but it means a
+future edit that adds a `ServiceStopReason` or an `AlertClass` without adding its wording will fail
+loudly at the banner rather than quietly. That is the trade the ruling makes deliberately.

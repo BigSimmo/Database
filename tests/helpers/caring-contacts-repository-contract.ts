@@ -75,6 +75,13 @@ const PATIENT_DETAIL: EpisodePatientDetail = {
  * needs the two approver seats -- neither is reachable from the five fixtures above.
  */
 const SECOND_TEAM_LEAD_A = actorWith("ACTOR-7", "TEAM-NORTH", ["teamLead"]);
+
+/**
+ * A team lead in the OTHER team. Restart approvals are deliberately service-wide, so this actor
+ * legitimately approves an incident that another team reported -- which is the only way to ask
+ * whether `approveServiceRestart` hands a cross-team approver the reporting team's incident note.
+ */
+const TEAM_LEAD_B = actorWith("ACTOR-11", "TEAM-SOUTH", ["teamLead"]);
 const PROGRAMME_LEAD_A = actorWith("ACTOR-8", "TEAM-NORTH", ["clinicalProgrammeLead"]);
 const LIVED_EXPERIENCE_A = actorWith("ACTOR-9", "TEAM-NORTH", ["livedExperienceRepresentative"]);
 
@@ -1177,6 +1184,81 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
           writeContext(COORDINATOR_A, "pause-after-restart"),
         );
         expect(paused.ok).toBe(true);
+      });
+
+      it("hands a restart approver the stop it is approving, and never the incident note", async () => {
+        // Ruling 65. Restart approvals are service-wide by design, so a TEAM-SOUTH team lead
+        // legitimately approves a TEAM-NORTH incident -- and the first two approvals leave the
+        // service STOPPED, so this write used to hand back the whole live record, note and all.
+        // That value is also what both stores persist as the replay result, under the APPROVING
+        // team's id, in a table scoped by row-level security to that team. Narrowing it at the API
+        // boundary could not reach that copy; narrowing what the method returns removes it from
+        // both places by construction.
+        const store = await newStore();
+        const note = "Jordan Nguyen was sent the same message twice on 491 570 156";
+        unwrap(await store.stopService({ reason: "duplicate-send", note }, writeContext(COORDINATOR_A, "narrow-stop")));
+
+        // Positive control: the note really was recorded and really is held, so an absence below is
+        // the return value being narrow rather than the incident being empty.
+        const state = await store.getServiceState({ actor: COORDINATOR_A });
+        if (!state.stopped) throw new Error("expected a stopped service");
+        expect(state.note).toBe(note);
+
+        const approved = unwrap(
+          await store.approveServiceRestart({ role: "incidentLead" }, writeContext(TEAM_LEAD_B, "narrow-approve")),
+        );
+
+        // The approver still gets what an approval is FOR: the stop still standing, what kind of
+        // failure it was, and their own approval now recorded against it.
+        if (!approved.stopped) throw new Error("expected the service to still be stopped");
+        expect(approved.reason).toBe("duplicate-send");
+        expect(approved.restartApprovals.map((approval) => approval.role)).toEqual(["incidentLead"]);
+        expect(approved.restartApprovals[0].actorId).toBe(TEAM_LEAD_B.id);
+
+        // ...and nothing that names the patient, the responder, or the reporting team.
+        expect(approved).not.toHaveProperty("note");
+        expect(approved).not.toHaveProperty("stoppedBy");
+        expect(approved).not.toHaveProperty("reportedByTeamId");
+        expect(JSON.stringify(approved)).not.toContain("Jordan");
+        expect(JSON.stringify(approved)).not.toContain("491 570 156");
+
+        // A replay returns the ORIGINAL answer, which is now the narrow one -- so the replay is
+        // truthful and clean at the same time, rather than one at the cost of the other.
+        const replay = unwrap(
+          await store.approveServiceRestart({ role: "incidentLead" }, writeContext(TEAM_LEAD_B, "narrow-approve")),
+        );
+        expect(replay).toEqual(approved);
+      });
+
+      it("narrows the approval reply on the restart too, where there is no incident left to name", async () => {
+        // The approval that COMPLETES the restart returns a running service. That variant never
+        // carried the note, but it did carry `reportedByTeamId`, and the narrowed shape has to hold
+        // for both variants or the discriminated union would leak through one arm.
+        const store = await newStore();
+        unwrap(
+          await store.stopService(
+            { reason: "wrong-recipient", note: "Jordan Nguyen's number was reached in error" },
+            writeContext(COORDINATOR_A, "narrow-restart-stop"),
+          ),
+        );
+        unwrap(
+          await store.approveServiceRestart({ role: "incidentLead" }, writeContext(TEAM_LEAD_A, "narrow-restart-1")),
+        );
+        unwrap(
+          await store.approveServiceRestart(
+            { role: "privacySecurityOwner" },
+            writeContext(PROGRAMME_LEAD_A, "narrow-restart-2"),
+          ),
+        );
+        const restarted = unwrap(
+          await store.approveServiceRestart(
+            { role: "clinicalProgrammeLead" },
+            writeContext(TEAM_LEAD_B, "narrow-restart-3"),
+          ),
+        );
+
+        expect(restarted).toEqual({ stopped: false });
+        expect(JSON.stringify(restarted)).not.toContain("Jordan");
       });
 
       it("reads restart approvals for the CURRENT incident only, so a new stop starts at zero", async () => {

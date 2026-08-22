@@ -10,7 +10,12 @@
 import { z } from "zod";
 
 import { auditableIdentifier, readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
-import { narrowServiceStateForActor, type ServiceStateView } from "@/lib/caring-contacts-server/service-state-view";
+import {
+  narrowServiceStateForActor,
+  viewRestartOutcome,
+  type ServiceRestartView,
+  type ServiceStateView,
+} from "@/lib/caring-contacts-server/service-state-view";
 import type { CaringContactAction } from "@/lib/caring-contacts/permissions";
 
 export const runtime = "nodejs";
@@ -53,33 +58,43 @@ export const GET = readHandler({
 });
 
 /**
- * Both writes hand back the whole `ServiceState`, so both replies go through the SAME narrowing
- * the GET does -- and they must, because this is the one place where the capability that let the
- * write happen and the capability that releases the note are different questions.
+ * The two branches now reach their reply by different routes, and the difference is the point.
  *
- * `writeHandler` checks the action against the ACTOR'S OWN team, which is right for a service-wide
- * write: a stop must be raisable by anyone, and a restart is approved by three seats that need not
- * sit in the reporting team. `narrowServiceStateForActor` checks `viewPatientRecord` against
- * `state.reportedByTeamId`, because that is whose incident the note describes. A second team's
- * `teamLead` therefore legitimately passes the first check and legitimately fails the second, and
- * an unnarrowed reply would hand them the note anyway -- the first and second restart approvals
- * both leave the service stopped, so `approveServiceRestart` returns the note-bearing record.
+ * `stopService` still hands back the whole `ServiceState`, so its reply goes through the SAME
+ * narrowing the GET does. `writeHandler` checks the action against the ACTOR'S OWN team, while
+ * `narrowServiceStateForActor` checks `viewPatientRecord` against `state.reportedByTeamId` -- whose
+ * incident the note describes -- so the capability that let the write happen and the capability
+ * that releases the note stay separate questions. For a stop those are the same team by
+ * construction (the raiser's team becomes the reporting team), but the narrowing is kept rather
+ * than assumed away.
  *
- * The reply is narrowed rather than emptied. The approver needs to see what their approval did --
- * the stop still standing, and their own approval now among `restartApprovals` -- and a `null`
- * reply would make the caller re-read the state through GET to learn it, through the same
- * narrowing, for the same answer.
+ * `approveServiceRestart` no longer hands back the record at all (Ruling 65). Restart approvals are
+ * service-wide, so a second team's `teamLead` legitimately approves an incident whose note they may
+ * not read -- and the first two approvals leave the service stopped, so the record it used to
+ * return was note-bearing. Narrowing it HERE was not enough: every store persists a write's return
+ * value as its idempotency replay result, under the approving team's own id, in a row scoped to
+ * that team -- somewhere no API boundary can reach. The domain type is narrow now, so this reply
+ * has nothing to withhold and `viewRestartOutcome` takes no actor.
+ *
+ * Neither reply is emptied. The approver still sees what their approval did: the stop still
+ * standing, and their own approval among `restartApprovals`.
  */
-export const POST = writeHandler<z.infer<typeof serviceStateSchema>, ServiceStateView>({
+export const POST = writeHandler<z.infer<typeof serviceStateSchema>, ServiceStateView | ServiceRestartView>({
   schema: serviceStateSchema,
   action: capabilityFor,
   access: { objectType: "serviceState", objectId: () => SERVICE },
   write: async (store, actor, body) => {
-    const result =
-      body.type === "stop"
-        ? await store.stopService({ reason: body.reason, note: body.note }, writeContextFor(actor, body.idempotencyKey))
-        : await store.approveServiceRestart({ role: body.role }, writeContextFor(actor, body.idempotencyKey));
-    if (!result.ok) return result;
-    return { ok: true, value: narrowServiceStateForActor(result.value, actor) };
+    if (body.type === "stop") {
+      const stopped = await store.stopService(
+        { reason: body.reason, note: body.note },
+        writeContextFor(actor, body.idempotencyKey),
+      );
+      return stopped.ok ? { ok: true, value: narrowServiceStateForActor(stopped.value, actor) } : stopped;
+    }
+    const approved = await store.approveServiceRestart(
+      { role: body.role },
+      writeContextFor(actor, body.idempotencyKey),
+    );
+    return approved.ok ? { ok: true, value: viewRestartOutcome(approved.value) } : approved;
   },
 });

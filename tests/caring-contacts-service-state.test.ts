@@ -10,6 +10,7 @@ import {
   runningService,
   serviceStopBlocksDispatch,
   type ServiceState,
+  type ServiceStopReason,
 } from "@/lib/caring-contacts/service-state";
 
 const clock = fixedClock("2026-08-19T02:00:00.000Z");
@@ -125,4 +126,18 @@ describe("service safety stop", () => {
     expect(description).toContain("wrong recipient");
     expect(description).toContain("0 of 3");
   });
+
+  // Ruling 61, applied to this lookup. STOP_REASON_WORDING is a frozen object literal keyed by a
+  // closed union, so `STOP_REASON_WORDING["constructor"]` is a FUNCTION and the banner would have
+  // interpolated its source into a sentence shown on every screen. An unwritten reason is a
+  // programming error, not a runtime condition -- so it throws, naming the key, rather than
+  // rendering a plausible sentence for a value nobody defined.
+  it.each(["constructor", "toString", "valueOf", "__proto__", "hasOwnProperty", "notAReason"])(
+    "throws rather than rendering inherited wording for the unknown stop reason %s",
+    (reason) => {
+      expect(() =>
+        describeServiceStop({ stopped: true, reason: reason as ServiceStopReason, restartApprovals: [] }),
+      ).toThrow(reason);
+    },
+  );
 });

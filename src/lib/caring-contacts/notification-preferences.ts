@@ -65,6 +65,19 @@ const ALERT_CLASS_LABELS: Record<AlertClass, string> = {
  * plan id could reach this string.
  */
 export function alertBodyFor(alertClass: AlertClass, count: number): string {
+  // Ruling 61, applied to this lookup. `ALERT_CLASS_LABELS` is a frozen OBJECT LITERAL, so
+  // `ALERT_CLASS_LABELS["constructor"]` is a function and this body would have read "... affected
+  // by function Object() { [native code] }". The key is a member of a CLOSED union, so an unknown
+  // one is a programming error rather than a runtime condition: it throws, naming the key, instead
+  // of labelling an alert class nobody defined with something that merely reads plausibly. A
+  // per-lookup fix does not travel between lookups, which is why this is stated here too.
+  if (!Object.hasOwn(ALERT_CLASS_LABELS, alertClass)) {
+    throw new Error(
+      `No plain-words label for the alert class "${alertClass}". Ruling 61: add an entry to ` +
+        `ALERT_CLASS_LABELS deliberately. Do not derive it from the identifier and do not add a ` +
+        `default branch -- an unlabelled alert class must be visible, not plausible.`,
+    );
+  }
   const label = ALERT_CLASS_LABELS[alertClass];
   const noun = count === 1 ? "item" : "items";
   return `${count} ${noun} affected by ${label}.`;

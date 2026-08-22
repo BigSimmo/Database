@@ -17,10 +17,23 @@ import {
 import { isAccessObjectIdShape } from "@/lib/caring-contacts/access-audit";
 import { actorId, planId } from "@/lib/caring-contacts/ids";
 import type { CaringContactAction } from "@/lib/caring-contacts/permissions";
+import { isAwstCalendarDay } from "@/lib/caring-contacts/schedule";
 
 export const runtime = "nodejs";
 
 type AssignmentRouteContext = { params: Promise<{ planId: string }> };
+
+/**
+ * A coverage window end, held to the SAME predicate the domain uses.
+ *
+ * `../assignment` refuses a window that is not an AWST calendar day, by name
+ * (`coverage-window-not-calendar-day`), and the Postgres schema carries a matching regular
+ * expression. This boundary accepted any non-empty string, so the store's refusal was the only
+ * thing between nonsense and the database check -- and a boundary that lets a malformed request
+ * through to be refused deeper is a boundary that is not doing its job. One rule, one source:
+ * `isAwstCalendarDay` is imported rather than the pattern being restated here.
+ */
+const calendarDay = z.string().refine(isAwstCalendarDay, { message: "not-an-awst-calendar-day" });
 
 const assignmentSchema = z
   .object({
@@ -31,8 +44,8 @@ const assignmentSchema = z
         .object({
           type: z.literal("startCoverage"),
           actorId: auditableIdentifier,
-          from: z.string().min(1),
-          until: z.string().min(1),
+          from: calendarDay,
+          until: calendarDay,
         })
         .strict(),
       z.object({ type: z.literal("endCoverage") }).strict(),

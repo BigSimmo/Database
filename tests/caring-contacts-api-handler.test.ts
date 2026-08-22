@@ -722,3 +722,57 @@ describe("service-state read narrowing (Ruling 43)", () => {
     expect(body).not.toMatch(/"note"/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The assignment boundary refuses a malformed coverage window before the store has to.
+//
+// A coverage window is an AWST calendar day, and the domain now refuses anything else by name
+// (`coverage-window-not-calendar-day`). The route accepted `from`/`until` as any non-empty string,
+// so the store's named refusal was the ONLY thing standing between nonsense and the database's own
+// regular-expression check. Both layers now hold the same rule, from the same predicate.
+// ---------------------------------------------------------------------------
+describe("the assignment route holds coverage windows to the calendar-day shape", () => {
+  const context = { params: Promise.resolve({ planId: PLAN_ID }) };
+
+  function coverage(from: string, until: string) {
+    return post(`/api/caring-contacts/assignments/${PLAN_ID}`, {
+      action: { type: "startCoverage", actorId: "ACTOR-COVER", from, until },
+      idempotencyKey: "cover-1",
+    });
+  }
+
+  it("refuses a window that is not a calendar day, without reaching the store", async () => {
+    const { store } = await inMemoryStoreWithSpy({ actorRole: "teamLead" });
+    const applyAssignment = vi.spyOn(store, "applyAssignment");
+
+    const { POST } = await import("@/app/api/caring-contacts/assignments/[planId]/route");
+
+    for (const [from, until] of [
+      ["banana", "cherry"],
+      ["2026-02-30", "2026-03-05"],
+      ["2026-08-20T00:00:00.000Z", "2026-08-27T00:00:00.000Z"],
+    ]) {
+      const response = await POST(coverage(from, until), { params: Promise.resolve({ planId: PLAN_ID }) });
+      expect(response.status).toBe(400);
+    }
+
+    expect(applyAssignment).not.toHaveBeenCalled();
+  });
+
+  it("still accepts a well-formed window, so the boundary is not refusing everything", async () => {
+    const { store } = await inMemoryStoreWithSpy({ actorRole: "teamLead" });
+    const claimed = await store.applyAssignment(
+      { planId: planId(PLAN_ID), action: { type: "claim", actorId: demoActorForRole("teamLead").id } },
+      { actor: demoActorForRole("teamLead"), idempotencyKey: idempotencyKey("cover-claim") },
+    );
+    if (!claimed.ok) throw new Error(`seed claim refused: ${claimed.reason}`);
+
+    const { POST } = await import("@/app/api/caring-contacts/assignments/[planId]/route");
+    const response = await POST(coverage("2026-03-03", "2026-03-10"), context);
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(await response.text())).toMatchObject({
+      value: { coveredBy: { from: "2026-03-03", until: "2026-03-10" } },
+    });
+  });
+});

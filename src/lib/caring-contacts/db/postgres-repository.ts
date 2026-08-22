@@ -81,10 +81,12 @@ import { admitRetentionClearance } from "../retention";
 import {
   applyServiceRestartApproval,
   applyServiceStop,
+  restartOutcomeOf,
   runningService,
   serviceStopBlocksDispatch,
   type ServiceRestartApproval,
   type ServiceRestartApprovalRole,
+  type ServiceRestartOutcome,
   type ServiceState,
   type ServiceStopReason,
 } from "../service-state";
@@ -1666,7 +1668,7 @@ export function createPostgresRepository(
     },
 
     async approveServiceRestart(input: { role: ServiceRestartApprovalRole }, context: WriteContext) {
-      return runWrite<ServiceState>({
+      return runWrite<ServiceRestartOutcome>({
         method: "approveServiceRestart",
         input,
         context,
@@ -1732,7 +1734,12 @@ export function createPostgresRepository(
             );
           }
 
-          return { ok: true, value: applied.value };
+          // Ruling 65: the OUTCOME, not the record. The stored replay result is whatever this
+          // returns, and it is stored under the APPROVING team's id -- which for a service-wide
+          // restart approval may not be the reporting team. `restartOutcomeOf` is the domain's own
+          // projection, so both stores narrow identically. The commit below still writes the whole
+          // state; it is only what leaves this method that is narrow.
+          return { ok: true, value: restartOutcomeOf(applied.value) };
         },
       });
     },

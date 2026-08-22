@@ -62,7 +62,12 @@ import type { NotificationPreferences } from "./notification-preferences";
 import type { PathwayVersion, PathwayVersionAction } from "./pathway-versions";
 import type { CaringContactAction, CaringContactActor } from "./permissions";
 import type { ReferralAction } from "./referrals";
-import type { ServiceRestartApprovalRole, ServiceState, ServiceStopReason } from "./service-state";
+import type {
+  ServiceRestartApprovalRole,
+  ServiceRestartOutcome,
+  ServiceState,
+  ServiceStopReason,
+} from "./service-state";
 import type { TrainingCompetency, TrainingRecord } from "./training";
 import type { Episode, EpisodeState } from "./episode";
 import type { PlannedContact } from "./schedule";
@@ -385,10 +390,18 @@ export interface CaringContactRepository {
     input: { reason: ServiceStopReason; note: string },
     context: WriteContext,
   ): Promise<TransitionResult<ServiceState>>;
+  /**
+   * Ruling 65: returns `ServiceRestartOutcome`, NOT the record. Restart approvals are service-wide,
+   * so the approver may sit outside the reporting team, and every store persists a write's return
+   * value as its replay result -- under the APPROVING team's id. Returning the record put the
+   * reporting team's incident note in a row that team could read. The narrow type removes it from
+   * the reply and from storage together, and a replay stays truthful because the original answer
+   * never carried it either.
+   */
   approveServiceRestart(
     input: { role: ServiceRestartApprovalRole },
     context: WriteContext,
-  ): Promise<TransitionResult<ServiceState>>;
+  ): Promise<TransitionResult<ServiceRestartOutcome>>;
 
   // Assignment
   getAssignment(planId: PlanId, context: ReadContext): Promise<PlanAssignment | null>;

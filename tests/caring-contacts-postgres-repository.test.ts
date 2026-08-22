@@ -250,3 +250,66 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Ruling 65: a cross-team restart approval leaves no incident note at rest.
+//
+// Restart approvals are service-wide, so a TEAM-SOUTH team lead legitimately approves a TEAM-NORTH
+// incident. `idempotency_records` is scoped by row-level security to the WRITING team, so the
+// replay result of that approval sits in a row TEAM-SOUTH may select -- while the API boundary's
+// `narrowServiceStateForActor` withholds the very same note from that actor. The two disagreed
+// until `approveServiceRestart` stopped returning the note at all.
+//
+// Read as the migration role deliberately: whether the row holds the note is a question about the
+// table, not about either team's scoped view of it.
+// ---------------------------------------------------------------------------
+describe("a cross-team restart approval stores no incident note (postgres only)", () => {
+  /** 2026-03-02 11:00 AWST, the instant the shared contract fixes its own clock to. */
+  const NOW = "2026-03-02T03:00:00.000Z";
+
+  const NORTH: Actor = {
+    id: actorId("NARROW-ACTOR-NORTH"),
+    teamId: teamId("NARROW-TEAM-NORTH"),
+    roles: ["coordinator"],
+  };
+  const SOUTH: Actor = {
+    id: actorId("NARROW-ACTOR-SOUTH"),
+    teamId: teamId("NARROW-TEAM-SOUTH"),
+    roles: ["teamLead"],
+  };
+
+  const NOTE = "Rowan Delacroix was sent the same message twice on 491 570 156";
+
+  it("leaves the note only in service_stops, never in the approving team's idempotency row", async () => {
+    const store = createPostgresRepository(poolAsSqlConnectionPool(pool), fixedClock(NOW));
+
+    const stopped = await store.stopService(
+      { reason: "duplicate-send", note: NOTE },
+      { actor: NORTH, idempotencyKey: idempotencyKey("narrow-pg-stop") },
+    );
+    expect(stopped.ok).toBe(true);
+
+    const approved = await store.approveServiceRestart(
+      { role: "incidentLead" },
+      { actor: SOUTH, idempotencyKey: idempotencyKey("narrow-pg-approve") },
+    );
+    expect(approved.ok).toBe(true);
+
+    // Positive control: the note IS held, once, in the one table that owns it. An empty search of
+    // the idempotency rows below therefore means the note went nowhere else, not that it was never
+    // written.
+    const incidents = await pool.query("select note from caring_contacts.service_stops");
+    expect(incidents.rows.map((row) => row.note)).toContain(NOTE);
+
+    const southRows = await pool.query(
+      "select fingerprint, result::text as result from caring_contacts.idempotency_records where team_id = $1",
+      [SOUTH.teamId],
+    );
+    expect(southRows.rows.length).toBeGreaterThan(0);
+
+    const stored = JSON.stringify(southRows.rows);
+    for (const secret of ["Rowan", "Delacroix", "491 570 156", NOTE]) {
+      expect(stored).not.toContain(secret);
+    }
+  });
+});

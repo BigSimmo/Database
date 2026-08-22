@@ -90,6 +90,48 @@ export type ServiceStopBannerFacts =
   | { stopped: false }
   | { stopped: true; reason: ServiceStopReason; restartApprovals: readonly ServiceRestartApproval[] };
 
+/**
+ * What recording a restart approval hands back (Ruling 65).
+ *
+ * `ServiceState` minus `note`, `stoppedBy` and `reportedByTeamId` — narrow BY CONSTRUCTION, the
+ * same technique as `ServiceStopBannerFacts` above and for a sharper reason.
+ *
+ * Restart approvals are deliberately service-wide: the three seats need not sit in the team that
+ * reported the incident, and the first two approvals leave the service stopped. So a store method
+ * returning the whole record handed a cross-team approver the reporting team's incident note — and
+ * because every store persists a write's return value as its idempotency replay result, that note
+ * then sat at rest in a row scoped by row-level security to the APPROVING team, which the API
+ * boundary's own narrowing could not reach. Narrowing the return type removes it from the reply and
+ * from storage at once, and keeps a replay truthful: the original answer never contained it either.
+ *
+ * What survives is what an approval is for — the stop still standing, what kind of failure it was,
+ * when it was raised, and the approvals recorded so far, the approver's own among them.
+ */
+export type ServiceRestartOutcome =
+  | { stopped: false }
+  | {
+      stopped: true;
+      reason: ServiceStopReason;
+      /** AWST ISO-8601 instant with an explicit `+08:00` offset. */
+      stoppedAt: string;
+      restartApprovals: readonly ServiceRestartApproval[];
+    };
+
+/**
+ * Projects a state onto that outcome. It lives here, beside the type, rather than in either store:
+ * two stores projecting separately would be two answers to "what does an approver receive", and the
+ * shared contract would only catch the difference where it happened to look.
+ */
+export function restartOutcomeOf(state: ServiceState): ServiceRestartOutcome {
+  if (!state.stopped) return Object.freeze({ stopped: false as const });
+  return Object.freeze({
+    stopped: true as const,
+    reason: state.reason,
+    stoppedAt: state.stoppedAt,
+    restartApprovals: state.restartApprovals,
+  });
+}
+
 /** The five confirmed events that stop the whole service under spec §4.2. */
 export const SERVICE_STOP_REASONS: readonly ServiceStopReason[] = Object.freeze([
   "wrong-recipient",
@@ -221,6 +263,30 @@ export function serviceStopBlocksDispatch(state: ServiceState): boolean {
  * A stopped state can hold at most two approvals (the third restarts the service), so there is
  * always at least one role outstanding to name.
  */
+/**
+ * Ruling 61, applied to this lookup. `STOP_REASON_WORDING` is a frozen OBJECT LITERAL, so every key
+ * an ordinary object inherits resolves to something: `STOP_REASON_WORDING["constructor"]` is a
+ * function, and the banner would have interpolated its source into a sentence rendered on every
+ * screen in the workspace.
+ *
+ * It throws rather than falling back, and the difference matters here more than most places. The key
+ * is a member of a CLOSED union, so an unknown one is a programming error, not a runtime condition
+ * needing a named refusal -- and a fallback would render a plausible sentence about a stop nobody
+ * described, on the one banner whose whole job is to say truthfully why sending has halted. Same
+ * treatment as `blockReasonWording` in the overlay host; a per-lookup fix does not travel between
+ * lookups, which is the actual lesson.
+ */
+function stopReasonWording(reason: ServiceStopReason): string {
+  if (!Object.hasOwn(STOP_REASON_WORDING, reason)) {
+    throw new Error(
+      `No plain-words wording for the service stop reason "${reason}". Ruling 61: add an entry to ` +
+        `STOP_REASON_WORDING deliberately. Do not derive it from the identifier and do not add a ` +
+        `default branch -- an undescribed reason must be visible, not plausible.`,
+    );
+  }
+  return STOP_REASON_WORDING[reason];
+}
+
 export function describeServiceStop(state: ServiceStopBannerFacts): string | null {
   if (!state.stopped) return null;
 
@@ -231,7 +297,7 @@ export function describeServiceStop(state: ServiceStopBannerFacts): string | nul
   ).map((role) => APPROVAL_ROLE_WORDING[role]);
 
   return (
-    `All caring-contact sending is stopped for the whole service because ${STOP_REASON_WORDING[state.reason]}. ` +
+    `All caring-contact sending is stopped for the whole service because ${stopReasonWording(state.reason)}. ` +
     `${recorded} of ${total} restart approvals recorded. ` +
     `Still needed: ${formatList(outstanding)}, each from a different person.`
   );
