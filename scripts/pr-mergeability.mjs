@@ -65,8 +65,10 @@ function assert(condition, label) {
 }
 
 function selfTest() {
-  assert(classifyMergeability({ merged: true, state: "closed" }).reason === "merged", "merged PRs skip");
-  assert(classifyMergeability({ merged: false, state: "closed" }).reason === "closed", "closed PRs skip");
+  const merged = classifyMergeability({ merged: true, state: "closed" });
+  assert(merged.ok === true && merged.action === "skip" && merged.reason === "merged", "merged PRs skip");
+  const closed = classifyMergeability({ merged: false, state: "closed" });
+  assert(closed.ok === true && closed.action === "skip" && closed.reason === "closed", "closed PRs skip");
   assert(classifyMergeability({ draft: true }).action === "skip", "drafts skip");
   assert(classifyMergeability({ mergeable: null, mergeableState: "unknown" }).action === "retry", "unknown retries");
   assert(classifyMergeability({ mergeable: undefined, mergeableState: "" }).action === "retry", "empty retries");

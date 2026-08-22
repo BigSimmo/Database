@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { standaloneModeHomePaths } from "@/lib/search-route-ownership";
 import { describe, expect, it } from "vitest";
 
 const SEARCH_APP_ROOT = join(process.cwd(), "src/app/(search-app)");
@@ -24,6 +25,15 @@ const MODE_HOME_LOADING_ROUTES = [
 ] as const;
 
 describe("mode-home loading contract", () => {
+  it("keeps every named standalone mode home in the broader loading inventory", () => {
+    for (const pathname of standaloneModeHomePaths) {
+      // The dashboard root has no route-level loading.tsx; its in-shell pending
+      // navigation skeleton is asserted in the next test.
+      if (pathname === "/") continue;
+      expect(MODE_HOME_LOADING_ROUTES).toContain(pathname.slice(1));
+    }
+  });
+
   it("uses ModeHomeRouteLoading for every mode-home loading route", () => {
     for (const route of MODE_HOME_LOADING_ROUTES) {
       const loadingPath = join(SEARCH_APP_ROOT, route, "loading.tsx");
