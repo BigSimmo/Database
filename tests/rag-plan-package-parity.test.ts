@@ -330,7 +330,12 @@ describe("RAG plan execution packages", () => {
     const base = "a".repeat(40);
     const head = "b".repeat(40);
     const commits = ["c".repeat(40), "d".repeat(40)];
-    const fullRange = buildReviewPackageBytes(base, head, commits, Buffer.from("diff --git a/a b/a\n@@ -1 +1 @@\n-old\n+new\n"));
+    const fullRange = buildReviewPackageBytes(
+      base,
+      head,
+      commits,
+      Buffer.from("diff --git a/a b/a\n@@ -1 +1 @@\n-old\n+new\n"),
+    );
     expect(reviewPackageEvidenceErrors(fullRange, base, head, commits, "patch-1", "patch-1")).toEqual([]);
     expect(
       reviewPackageEvidenceErrors(fullRange, base, head, commits.slice(1), "patch-1", "patch-1").join("\n"),
