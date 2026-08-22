@@ -430,4 +430,96 @@ describe("fixture stage/stamp coherence (ward-movements.ts)", () => {
     }
     expect(matched).toBe(0);
   });
+
+  it("never leaves a 'placement_requested' movement carrying a referral, decline or withdrawal RAISE_REFERRAL never wrote", () => {
+    // Direct table entry: `RAISE_REFERRAL` is the only reducer branch that produces stage
+    // "placement_requested", and it always creates the movement with `referredUnitIds: []`,
+    // `declines: []` and `withdrawnReferrals: []` in that same update. Nothing can populate any
+    // of the three while a movement is still "placement_requested": `REFER_TO_UNITS` is the only
+    // branch that ever writes a non-empty `referredUnitIds`, and it always advances the stage to
+    // "destination_review" in the same update; `DECLINE` requires the movement already at
+    // "destination_review"; `ACCEPT_IN_PRINCIPLE` (the only writer of `withdrawnReferrals`) also
+    // requires "destination_review". So a movement still at "placement_requested" must have all
+    // three empty. This was the un-asserted RAISE_REFERRAL row R63/R64's own derivation table
+    // named — WF-012 (review C2) shipped with a live `referredUnitIds` entry Graylands' own ward
+    // screen could never see or answer, and WF-018 (review I6) shipped with a `withdrawnReferrals`
+    // entry naming a referral it never received. Both are fixed on `ward-movements.ts`; this
+    // closes the class rather than only the two instances.
+    let matched = 0;
+    for (const movement of wardMovements) {
+      if (movement.stage === "placement_requested") {
+        matched += 1;
+        expect(
+          movement.referredUnitIds,
+          `${movement.id} is stage "placement_requested" but carries a live referral — only ` +
+            `REFER_TO_UNITS ever populates referredUnitIds and it always moves the stage to ` +
+            `"destination_review" in the same update`,
+        ).toHaveLength(0);
+        expect(
+          movement.declines,
+          `${movement.id} is stage "placement_requested" but carries a decline — DECLINE requires ` +
+            `the movement already at "destination_review"`,
+        ).toHaveLength(0);
+        expect(
+          movement.withdrawnReferrals,
+          `${movement.id} is stage "placement_requested" but carries a withdrawn referral — only ` +
+            `ACCEPT_IN_PRINCIPLE ever writes withdrawnReferrals and it requires "destination_review"`,
+        ).toHaveLength(0);
+      }
+    }
+    // 12 records are stage "placement_requested" today (WF-001, WF-012, WF-018, WF-301, WF-305,
+    // WF-308, WF-312, WF-315, WF-319, WF-322, WF-326, WF-329) — measured directly against the real
+    // fixture, not assumed.
+    expect(matched).toBe(12);
+  });
+
+  it("never lets a movement carry a live referral outside the 'destination_review' stage REFER_TO_UNITS put it in", () => {
+    // Direct table entry, the other half of the C2 fix: `REFER_TO_UNITS` is the only branch that
+    // ever writes a non-empty `referredUnitIds`, always in the same update that sets stage to
+    // "destination_review". `DECLINE` can shrink the array but never changes the stage away from
+    // "destination_review", and `ACCEPT_IN_PRINCIPLE` always empties the array in the same update
+    // that moves the stage past it. So a non-empty `referredUnitIds` is unreachable on any stage
+    // other than "destination_review" — the exact shape of C2 (WF-012 held a referral while
+    // "placement_requested", a stage the ward's own incoming-list filter never matches).
+    let matched = 0;
+    for (const movement of wardMovements) {
+      if (movement.referredUnitIds.length > 0) {
+        matched += 1;
+        expect(
+          movement.stage,
+          `${movement.id} carries a live referral (${movement.referredUnitIds.join(", ")}) but is ` +
+            `stage "${movement.stage}", not "destination_review" — REFER_TO_UNITS is the only ` +
+            `reducer transition that populates referredUnitIds and it always sets this stage`,
+        ).toBe("destination_review");
+      }
+    }
+    // 4 records carry a live referral today (WF-002, WF-010, WF-013, WF-017), all at
+    // "destination_review" — measured directly against the real fixture.
+    expect(matched).toBe(4);
+  });
+
+  it("never leaves a withdrawn referral without the acceptance ACCEPT_IN_PRINCIPLE always pairs it with", () => {
+    // Direct table entry: `ACCEPT_IN_PRINCIPLE` is the only reducer branch that ever writes to
+    // `withdrawnReferrals`, and it always does so in the same update that sets `acceptedUnitId` —
+    // withdrawing every other unit's live referral because this one just accepted. So a non-empty
+    // `withdrawnReferrals` without an `acceptedUnitId` is unreachable. This is exactly I6: WF-018
+    // shipped with a withdrawn-referral entry naming SCGH Older Adult while carrying no
+    // acceptedUnitId, an empty referredUnitIds and an empty declines — a withdrawal for a referral
+    // that was never raised.
+    let matched = 0;
+    for (const movement of wardMovements) {
+      if (movement.withdrawnReferrals.length > 0) {
+        matched += 1;
+        expect(
+          movement.acceptedUnitId,
+          `${movement.id} carries a withdrawn referral but no acceptedUnitId — only ` +
+            `ACCEPT_IN_PRINCIPLE ever writes withdrawnReferrals and it always sets acceptedUnitId ` +
+            `in the same update`,
+        ).toBeDefined();
+      }
+    }
+    // 1 record carries a withdrawn referral today (WF-006, accepted at rgh-adult-secure) —
+    // measured directly against the real fixture.
+    expect(matched).toBe(1);
+  });
 });
