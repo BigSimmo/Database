@@ -2454,3 +2454,42 @@ Also outside the scan by design, and correctly so: the server-side modules that 
 (`service-state-view.ts`, the API route, the stores). A route handler cannot be a Client Component, so a
 directive scan is the wrong instrument there — those are governed by Ruling 43's narrowing instead. Worth
 naming so a later reader does not mistake deliberate scope for an oversight.
+
+### Task 18 fix round 2 scoped re-review — ALL FOUR ADDRESSED
+
+## Task 18: COMPLETE (commits `435478849`..`87cfdd40d`, review clean after 2 fix rounds)
+
+**The travelling-fix rule worked the first time it was applied.** The implementer audited its own files
+for the inherited-property lookup shape and found exactly one more — `SHEET_GEOMETRY`. The re-reviewer
+did not accept its judgement that this one is safe; it traced the type flow: both source unions are
+closed string-literal types, the value comes from typed fields on the frozen definition, there is no
+`as` cast and no `any`, and after the `status-banner` early return the value is control-flow-narrowed
+before indexing. **No runtime path exists by which a caller string reaches that index.** The audit's
+judgement is correct rather than merely plausible.
+
+**On the broken history test the implementer went further than I asked, and better.** I said reset the
+leaky module flag; it **removed** the flag and put the marker on the history entry itself, so cross-test
+leakage is structurally impossible rather than cleaned up after. The deep-link test now asserts a
+genuinely discriminating pair — the pathname after close catches an incorrect unconditional `back()`, and
+a further `back()` proving the prior entry is still one step away catches an incorrect unconditional
+`replaceState`. Both are needed; both work.
+
+### An honest verdict on a substitute proof, worth recording
+
+I3 required a source-text assertion over the shared `Sheet`, proven falsifiable. The implementer proved
+it by **mutating the expected string rather than `sheet.tsx`**, because another agent was running
+Playwright against that file at the time. The re-reviewer's verdict is the right shape and worth keeping
+verbatim in substance: mutating the expectation proves the assertion **is not vacuous** — not a
+tautology, not skipped, and the real file does contain the string. It does **not** prove that a genuine
+future edit would be caught, which still rests on the string being a stable unique anchor. So it is
+**"an acceptable substitute proof, not an equivalent one in the strongest sense"**, and the claim
+overreaches if read as equivalent regression coverage.
+
+The implementer disclosed that limitation itself, in its own concerns, rather than letting the
+substitution pass as equivalent. **That is the standard: a substitute proof is fine when the constraint
+is real and the gap is stated. A substitute proof presented as the original is not.**
+
+### Both overstated claims corrected in place
+
+The re-reviewer confirmed the corrections sit as blockquotes **directly beneath the sentences that made
+them**, not appended somewhere vaguer where a later reader would meet the overstatement first.
