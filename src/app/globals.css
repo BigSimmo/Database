@@ -76,6 +76,11 @@
   --breakpoint-phone: 640px;
   --breakpoint-tablet: 768px;
   --breakpoint-desktop: 1024px;
+  /* The one narrow phone interval where the shared filter wordmark would make
+     a single-line control band wrap. The upper token is exclusive, so this is
+     exactly 414–429px. */
+  --breakpoint-filter-label-collapse: 414px;
+  --breakpoint-filter-label-restore: 430px;
 
   /* Radius ladder: 4 · 6 · 10 · 12 · 16 · 20 — the 4px grid with two deliberate
      half-steps. `sm` is 6px, for chips and pills that read as too heavy at 8.
