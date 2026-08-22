@@ -169,13 +169,14 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 
 ### Clinical product data
 
-| Module                                                               | Role                                                                                                                               |
-| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Shared catalogue content with optional owner overrides                                                                             |
-| `dictionary-data.ts`, `dictionary.ts`                                | Governed terminology, sources, topics, aliases, filters; `dictionaryCatalogue` is the one selector behind the merged Terms surface |
-| `dsm.ts`                                                             | Local DSM diagnosis catalogue and comparison helpers                                                                               |
-| `formulation.ts`                                                     | Local formulation mechanism library and builder helpers                                                                            |
-| `clinical-safety.ts`, `demo-data.ts`, `ui-copy.ts`                   | Safety copy and demo mode                                                                                                          |
+| Module                                                               | Role                                                                                                                                                                                                                                           |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Shared catalogue content with optional owner overrides                                                                                                                                                                                         |
+| `mha-act-sections.ts`                                                | Mental Health Act 2014 (WA) section summaries shared across forms; `actSectionsForCue` resolves a form's `sourceFacts.sectionCue` and withholds the whole list until every cited section is clinically reviewed (`docs/wiring-conventions.md`) |
+| `dictionary-data.ts`, `dictionary.ts`                                | Governed terminology, sources, topics, aliases, filters; `dictionaryCatalogue` is the one selector behind the merged Terms surface                                                                                                             |
+| `dsm.ts`                                                             | Local DSM diagnosis catalogue and comparison helpers                                                                                                                                                                                           |
+| `formulation.ts`                                                     | Local formulation mechanism library and builder helpers                                                                                                                                                                                        |
+| `clinical-safety.ts`, `demo-data.ts`, `ui-copy.ts`                   | Safety copy and demo mode                                                                                                                                                                                                                      |
 
 ### Infra helpers
 

@@ -16,7 +16,8 @@ export type FormPriorityFactCard = {
 export type FormActSection = {
   section: string;
   title: string;
-  summary: string;
+  /** Absent until a clinician has signed the section summary off against the Act text. */
+  summary?: string;
 };
 
 export type FormCatalogDetails = {

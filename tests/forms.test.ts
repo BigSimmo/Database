@@ -69,8 +69,11 @@ describe("psychiatry form records", () => {
     expect(form?.summaryCards?.some((card) => card.id === "source")).toBe(false);
     // Source status remains on the rail / overview, not in the priority-fact grid.
     expect(form?.source?.status).toBe("Source checked");
-    // Other forms keep the Source status card until they opt into actSections.
-    expect(getFormRecord("form-1b")?.summaryCards?.some((card) => card.id === "source")).toBe(true);
+    // A form with no archive row has no section cue, so it can never gain an Act-sections
+    // card and keeps Source status permanently. Cued forms flip once every section they
+    // cite has a reviewed summary - see tests/mha-act-sections.test.ts.
+    expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "source")).toBe(true);
+    expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "act-sections")).toBe(false);
   });
 
   it("normalizes form lookup and static params", () => {
@@ -106,6 +109,15 @@ describe("psychiatry form records", () => {
       name: "Cancellation of grant of leave",
       availability: "downloadable",
     });
+
+    // mergeRegistryRecordWithDefaults spreads a stored owner catalog_payload over the
+    // baseline, so a seeded actSections list would win over the catalogue's. Seed rows
+    // must therefore carry exactly what the catalogue derives, never a stale copy.
+    const form1a = rows.find((row) => row.slug === "form-1a");
+    const seededSections = (form1a?.catalog_payload as { actSections?: { section: string }[] })?.actSections;
+    expect(seededSections?.map((entry) => entry.section)).toEqual(
+      formCatalogDetails(getFormRecord("form-1a")!)?.actSections?.map((entry) => entry.section),
+    );
   });
 
   it("searches forms independently from service records", () => {

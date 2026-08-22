@@ -1,0 +1,392 @@
+{
+  "exportMetadata": {
+    "format": "mha-2014-act-section-summaries",
+    "formatVersion": 1,
+    "actVersion": "02-b0-01",
+    "actAsAt": "2025-09-25",
+    "sourceUrl": "https://www.legislation.wa.gov.au/legislation/prod/filestore.nsf/FileURL/mrdoc_48919.htm/$FILE/Mental%20Health%20Act%202014%20-%20%5B02-b0-01%5D.html?OpenElement",
+    "generatedAt": "2026-08-22T06:18:43.762Z",
+    "counts": {
+      "sections": 75,
+      "reviewed": 0,
+      "pending": 75
+    }
+  },
+  "sections": [
+    {
+      "section": "26",
+      "title": "Referral for examination at authorised hospital or other place",
+      "status": "pending"
+    },
+    {
+      "section": "28",
+      "title": "Detention to enable person to be taken to authorised hospital or other place",
+      "status": "pending"
+    },
+    {
+      "section": "29",
+      "title": "Making transport order",
+      "status": "pending"
+    },
+    {
+      "section": "31",
+      "title": "Revoking referral",
+      "status": "pending"
+    },
+    {
+      "section": "34",
+      "title": "Person in charge of ward may order assessment",
+      "status": "pending"
+    },
+    {
+      "section": "35",
+      "title": "Revoking order for assessment",
+      "status": "pending"
+    },
+    {
+      "section": "36",
+      "title": "Referral for examination at authorised hospital",
+      "status": "pending"
+    },
+    {
+      "section": "37",
+      "title": "Revoking referral",
+      "status": "pending"
+    },
+    {
+      "section": "41",
+      "title": "Form of referral",
+      "status": "pending"
+    },
+    {
+      "section": "42",
+      "title": "Providing information contained in referral to person referred",
+      "status": "pending"
+    },
+    {
+      "section": "45",
+      "title": "Extending referral made outside metropolitan area",
+      "status": "pending"
+    },
+    {
+      "section": "46",
+      "title": "Changing place where examination will be conducted",
+      "status": "pending"
+    },
+    {
+      "section": "55",
+      "title": "What psychiatrist must do on completing examination",
+      "status": "pending"
+    },
+    {
+      "section": "56",
+      "title": "Effect of order for continuation of detention",
+      "status": "pending"
+    },
+    {
+      "section": "59",
+      "title": "Detention at place outside metropolitan area",
+      "status": "pending"
+    },
+    {
+      "section": "61",
+      "title": "What psychiatrist must do on completing examination",
+      "status": "pending"
+    },
+    {
+      "section": "62",
+      "title": "Detention to enable person to be taken to hospital",
+      "status": "pending"
+    },
+    {
+      "section": "63",
+      "title": "Making transport order",
+      "status": "pending"
+    },
+    {
+      "section": "65",
+      "title": "Treating psychiatrist must report regularly to Chief Psychiatrist",
+      "status": "pending"
+    },
+    {
+      "section": "66",
+      "title": "Transfer from general hospital to authorised hospital",
+      "status": "pending"
+    },
+    {
+      "section": "67",
+      "title": "Making transport order",
+      "status": "pending"
+    },
+    {
+      "section": "68",
+      "title": "Confirmation of inpatient treatment order",
+      "status": "pending"
+    },
+    {
+      "section": "72",
+      "title": "What psychiatrist must do on completing examination",
+      "status": "pending"
+    },
+    {
+      "section": "75",
+      "title": "What psychiatrist may do on completing examination",
+      "status": "pending"
+    },
+    {
+      "section": "76",
+      "title": "Confirmation of community treatment order",
+      "status": "pending"
+    },
+    {
+      "section": "89",
+      "title": "Examination before end of each detention period",
+      "status": "pending"
+    },
+    {
+      "section": "90",
+      "title": "Changing involuntary inpatient’s status",
+      "status": "pending"
+    },
+    {
+      "section": "91",
+      "title": "Transfer between authorised hospitals",
+      "status": "pending"
+    },
+    {
+      "section": "92",
+      "title": "Making transport order",
+      "status": "pending"
+    },
+    {
+      "section": "98",
+      "title": "Making apprehension and return order",
+      "status": "pending"
+    },
+    {
+      "section": "101",
+      "title": "Revocation of apprehension and return order",
+      "status": "pending"
+    },
+    {
+      "section": "105",
+      "title": "Granting leave",
+      "status": "pending"
+    },
+    {
+      "section": "106",
+      "title": "Extending or varying leave granted",
+      "status": "pending"
+    },
+    {
+      "section": "112",
+      "title": "Making transport order",
+      "status": "pending"
+    },
+    {
+      "section": "118",
+      "title": "Monthly examination of patient",
+      "status": "pending"
+    },
+    {
+      "section": "119",
+      "title": "Supervising psychiatrist may request practitioner to examine involuntary community patient",
+      "status": "pending"
+    },
+    {
+      "section": "120",
+      "title": "What supervising psychiatrist may do after examination",
+      "status": "pending"
+    },
+    {
+      "section": "121",
+      "title": "Continuation order",
+      "status": "pending"
+    },
+    {
+      "section": "122",
+      "title": "Varying order",
+      "status": "pending"
+    },
+    {
+      "section": "123",
+      "title": "Making inpatient treatment order or revoking community treatment order",
+      "status": "pending"
+    },
+    {
+      "section": "124",
+      "title": "Confirmation of inpatient treatment order",
+      "status": "pending"
+    },
+    {
+      "section": "127",
+      "title": "What supervising psychiatrist must do if order breached",
+      "status": "pending"
+    },
+    {
+      "section": "128",
+      "title": "Order to attend if non&#8209;compliance continues",
+      "status": "pending"
+    },
+    {
+      "section": "129",
+      "title": "Making transport order",
+      "status": "pending"
+    },
+    {
+      "section": "131",
+      "title": "Other action that may be taken if non&#8209;compliance",
+      "status": "pending"
+    },
+    {
+      "section": "133",
+      "title": "Making transport order",
+      "status": "pending"
+    },
+    {
+      "section": "135",
+      "title": "Change of supervising psychiatrist",
+      "status": "pending"
+    },
+    {
+      "section": "137",
+      "title": "Change of treating practitioner",
+      "status": "pending"
+    },
+    {
+      "section": "148",
+      "title": "Making transport order",
+      "status": "pending"
+    },
+    {
+      "section": "152",
+      "title": "Extension of other transport orders",
+      "status": "pending"
+    },
+    {
+      "section": "154",
+      "title": "Revocation of transport order if no longer needed",
+      "status": "pending"
+    },
+    {
+      "section": "165",
+      "title": "Record of search and seizure",
+      "status": "pending"
+    },
+    {
+      "section": "166",
+      "title": "Dealing with articles seized when person apprehended",
+      "status": "pending"
+    },
+    {
+      "section": "167",
+      "title": "Return of articles given to or seized by mental health service",
+      "status": "pending"
+    },
+    {
+      "section": "204",
+      "title": "Record of emergency psychiatric treatment",
+      "status": "pending"
+    },
+    {
+      "section": "214",
+      "title": "Giving oral authorisation",
+      "status": "pending"
+    },
+    {
+      "section": "215",
+      "title": "Making seclusion order",
+      "status": "pending"
+    },
+    {
+      "section": "217",
+      "title": "Treating psychiatrist (if any) to be informed",
+      "status": "pending"
+    },
+    {
+      "section": "218",
+      "title": "Extending seclusion order",
+      "status": "pending"
+    },
+    {
+      "section": "219",
+      "title": "Revoking seclusion order",
+      "status": "pending"
+    },
+    {
+      "section": "221",
+      "title": "Record of seclusion order expiring",
+      "status": "pending"
+    },
+    {
+      "section": "222",
+      "title": "Requirements relating to seclusion",
+      "status": "pending"
+    },
+    {
+      "section": "223",
+      "title": "Examination of person released from seclusion",
+      "status": "pending"
+    },
+    {
+      "section": "230",
+      "title": "Giving oral authorisation",
+      "status": "pending"
+    },
+    {
+      "section": "231",
+      "title": "Making bodily restraint order",
+      "status": "pending"
+    },
+    {
+      "section": "233",
+      "title": "Treating psychiatrist (if any) must be informed",
+      "status": "pending"
+    },
+    {
+      "section": "234",
+      "title": "Varying bodily restraint order",
+      "status": "pending"
+    },
+    {
+      "section": "235",
+      "title": "Revoking bodily restraint order",
+      "status": "pending"
+    },
+    {
+      "section": "237",
+      "title": "Record of bodily restraint order expiring",
+      "status": "pending"
+    },
+    {
+      "section": "238",
+      "title": "Requirements relating to bodily restraint",
+      "status": "pending"
+    },
+    {
+      "section": "239",
+      "title": "Examination of person when released",
+      "status": "pending"
+    },
+    {
+      "section": "242",
+      "title": "Provision of urgent non&#8209;psychiatric treatment: report to Chief Psychiatrist",
+      "status": "pending"
+    },
+    {
+      "section": "248",
+      "title": "Right to access medical record and other documents",
+      "status": "pending"
+    },
+    {
+      "section": "262",
+      "title": "Restrictions on freedom of communication",
+      "status": "pending"
+    },
+    {
+      "section": "275",
+      "title": "Formal requirements",
+      "status": "pending"
+    }
+  ]
+}

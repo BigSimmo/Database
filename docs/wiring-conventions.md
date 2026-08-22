@@ -159,6 +159,40 @@ Three rules hold this together and are covered by `tests/document-viewer-keyboar
 The holder's `aria-label` names the bindings, so a screen-reader user hears them on focus rather than
 having to discover them.
 
+## Deriving Act sections on form pages
+
+A form's Priority-facts grid shows either an **Act sections** card (tappable section
+numbers, each opening a plain-English summary) or a **Source status** card. Which one it
+shows is decided by data, never by a per-form branch in the component.
+
+- Section summaries live once, in `data/mha-2014-sections.json`, keyed by section number.
+  75 distinct sections are cited across 46 forms, several by three or four forms each; a
+  summary is a property of the Act, not of a form.
+- A form supplies only the citation list, as free text in
+  `sourceFacts.sectionCue` (e.g. `"sections 66, 91"`). `parseSectionCue` in
+  `src/lib/mha-act-sections.ts` turns that into ordered section numbers, and
+  `actSectionsForCue` resolves them.
+- **`actSectionsForCue` returns sections only when every cited section is `reviewed`.**
+  That is the staged-rollout gate: summaries land in clinically reviewed batches, and a
+  form keeps its Source status card until its whole citation list is signed off, so it
+  can never show a half-populated authority card. Do not weaken this to a per-section
+  filter.
+- A hand-written `actSections` block in `data/forms-catalog.json` still wins, so a form
+  can carry bespoke wording (Form 1A does).
+- Chips are capped at `ACT_SECTION_CHIP_LIMIT` (6) with a wired `+n` overflow control;
+  Form 5A cites 11 sections and would otherwise break the 2x2 grid.
+
+**Tap-for-detail is decided by content, not by a curated-copy flag.** A Priority-facts
+card becomes a button only when its sheet body differs from the card title
+(`hasExtraDetail`). This replaced a gate on the form having curated `priorityFacts`,
+which is why only Form 1A had working popups for months. Never reintroduce a
+form-identity gate here — if a card has nothing more to say, it must stay inert rather
+than promise detail it cannot deliver.
+
+Regenerate and validate with `node scripts/build-mha-act-sections.mjs --check`
+(`check:mha-act-sections`, in `verify:cheap`). `--refresh` is the repo's only
+network-fetching build mode and is manual; never wire it into CI.
+
 ## Mockups are exempt
 
 Design-scratch mockups — `src/app/mockups/**` (404 in production), the `*-mockups/` component
