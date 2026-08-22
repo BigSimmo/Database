@@ -100,8 +100,6 @@ describe("ward sites", () => {
   });
 });
 
-const NOW_ANCHOR = 10 * 60 + 42;
-
 describe("ward movements", () => {
   it("runs at realistic pressure, not comfortable pressure", () => {
     expect(wardMovements.length).toBeGreaterThanOrEqual(40);
@@ -141,19 +139,26 @@ describe("ward movements", () => {
     }
   });
 
-  it("gives every non-voluntary movement a legal form with a deadline", () => {
+  // Renamed 2026-08-23: this used to assert "with a deadline" in its title, but neither a Form
+  // 1A nor a Form 3B carries a `dueAt` any longer (see `LegalForm`'s own doc comment in
+  // ward-model.ts) — the body below never checked `dueAt` at all, only that the form itself is
+  // present, so the assertion is unchanged and still real.
+  it("gives every non-voluntary movement a legal form", () => {
     for (const movement of wardMovements) {
       if (!requiresAuthorisedDestination(movement.legalStatus)) continue;
       expect(movement.legalForm, `${movement.id} has no legal form`).toBeDefined();
     }
   });
 
+  // A fifth expectation here used to require a legal form with a `dueAt` in the past — removed
+  // 2026-08-23, along with `NOW_ANCHOR`'s only use in this file, because no `LegalForm` in this
+  // model carries a `dueAt` any longer (see `LegalForm`'s own doc comment in ward-model.ts):
+  // that state is no longer one this fixture is meant to express.
   it("includes the states the old fixture could not express", () => {
     expect(wardMovements.some((movement) => movement.stage === "accepted_awaiting_bed")).toBe(true);
     expect(wardMovements.some((movement) => movement.declines.length >= 3)).toBe(true);
     expect(wardMovements.some((movement) => movement.statusChanges.length > 0)).toBe(true);
     expect(wardMovements.some((movement) => movement.closure?.outcome === "did_not_proceed")).toBe(true);
-    expect(wardMovements.some((movement) => (movement.legalForm?.dueAt ?? Infinity) < NOW_ANCHOR)).toBe(true);
   });
 
   it("never records a decline against a unit that is also a live referral", () => {

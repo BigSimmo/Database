@@ -24,11 +24,11 @@ function transportJob(overrides: Partial<TransportJob> = {}): TransportJob {
 
 describe("buildActionInbox", () => {
   // RULING 1 (Task 8): buildActionInbox used to build each of its three categories with
-  // `.find()`, so it could only ever report one movement per category. The real fixture at
-  // NOW_ANCHOR carries more than one qualifying movement in two of the three categories — a
-  // drawer built on `.find()` would tell a coordinator a single legal breach exists when several
-  // do. Expected numbers here are derived from `wardMovements` itself, never hard-coded, so this
-  // test keeps proving the real count rather than pinning today's fixture size.
+  // `.find()`, so it could only ever report one movement per category. Expected numbers here
+  // are derived from `wardMovements` itself, never hard-coded, so this test keeps proving the
+  // real count rather than pinning today's fixture size — a shape kept below even though the
+  // legal-timing category is dormant (see the next test): if a `dueAt` ever returns to this
+  // fixture, `.find()` regressing to one-item-per-category must still be caught here.
   it("emits one item per movement that carries a breached legal deadline, not just the first", () => {
     const expectedIds = wardMovements
       .filter(
@@ -43,8 +43,28 @@ describe("buildActionInbox", () => {
       .map((item) => item.id)
       .sort();
 
-    expect(expectedIds.length).toBeGreaterThan(1);
+    // 2026-08-23: neither a Form 1A nor a Form 3B carries a `dueAt` any longer (see
+    // `LegalForm`'s own doc comment in ward-model.ts) — the only other legal-form kinds in this
+    // fixture, the transport/transfer forms 4A/4C, still carry one but are not currently due in
+    // the past — so this category is empty on today's fixture. `expectedIds`/`items` still
+    // agreeing on that, computed independently, is the proof that `buildActionInbox` itself has
+    // not silently started fabricating a breach.
+    expect(expectedIds).toHaveLength(0);
     expect(items).toEqual(expectedIds);
+  });
+
+  // Regression proof for the 2026-08-23 correction: WF-303 is the real fixture Form 1A that an
+  // earlier, now-deleted authored `dueAt` made "breached" at `NOW_ANCHOR` (an arbitrary window
+  // unrelated to how long the patient had actually waited — see the fixture's own file header).
+  // It must never surface a "legal-WF-303" inbox item, because the form now carries no deadline
+  // at all.
+  it("never lists a legal-timing item for WF-303, a long-waiting Form 1A with no dueAt", () => {
+    const movement = wardMovements.find((candidate) => candidate.id === "WF-303");
+    expect(movement?.legalForm?.code).toBe("1A");
+    expect(movement?.legalForm?.dueAt).toBeUndefined();
+
+    const items = buildActionInbox(wardMovements, NOW_ANCHOR);
+    expect(items.find((item) => item.id === "legal-WF-303")).toBeUndefined();
   });
 
   it("emits one item per movement that reached the parallel-referral cap, not just the first", () => {

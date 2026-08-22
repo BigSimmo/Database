@@ -43,9 +43,13 @@ import styles from "./ward-management.module.css";
 
 /**
  * The "label (code) · …" line for a legal form, shared by the readiness card and the legal
- * panel below. Task 6A: a Form 3B honestly carries no `dueAt` (the Mental Health Act imposes no
- * post-examination deadline) — this states that absence explicitly rather than ever formatting
- * an undefined instant, which is how "due NaN:NaN" would ship.
+ * panel below. This states an absent `dueAt` explicitly rather than ever formatting an
+ * undefined instant, which is how "due NaN:NaN" would ship. Task 6A introduced this for a Form
+ * 3B (the Mental Health Act imposes no post-examination deadline, clinician-confirmed); the
+ * 2026-08-23 product-owner correction removed every `dueAt` from every Form 1A too — see
+ * `LegalForm`'s own doc comment in ward-model.ts. Neither code reaches the `dueAt`-defined
+ * branch below any longer, but that branch stays live: the transport/transfer forms (4A/4C, out
+ * of scope for this correction) still carry a real `dueAt` and still render through it.
  */
 function legalFormReadinessLine(legalForm: LegalForm): string {
   const named = `${legalForm.label} (${legalForm.code})`;

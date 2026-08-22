@@ -1,6 +1,5 @@
-import type { Instant } from "@/components/ward-management/ward-clock";
 import { EVENT_ROLE, type WardFlowEvent, type WardFlowRole } from "@/components/ward-management/ward-flow-events";
-import { EXAMINATION_REFERRAL_WINDOW_MINUTES, PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
+import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
 import type { LegalForm, LegalStatus, Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
 import { wardMovements } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
@@ -117,16 +116,16 @@ function nextReferralId(sequence: number): string {
  * recorded (`RECORD_EXAMINATION` refuses unless `legalForm?.code === "1A"`).
  *
  * A brand-new referral has never been examined, so the rule collapses to one condition:
- * non-voluntary means a fresh 1A (with a real statutory `dueAt` — `LegalForm`'s own doc comment
- * says a 1A always carries one); voluntary means no form at all, exactly like every fixture entry.
+ * non-voluntary means a fresh 1A; voluntary means no form at all, exactly like every fixture
+ * entry. The 1A carries no `dueAt` — see `LegalForm`'s own doc comment in `ward-model.ts`: as of
+ * the 2026-08-23 product-owner correction, neither a 1A nor a 3B carries one.
  */
-function initialLegalForm(legalStatus: LegalStatus, now: Instant): LegalForm | undefined {
+function initialLegalForm(legalStatus: LegalStatus): LegalForm | undefined {
   if (legalStatus === "Voluntary") return undefined;
   return {
     code: "1A",
     label: "Referral for examination",
     kind: "examination",
-    dueAt: now + EXAMINATION_REFERRAL_WINDOW_MINUTES,
   };
 }
 
@@ -160,7 +159,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         sex: event.draft.sex,
         specialling: event.draft.specialling,
         legalStatus: event.draft.legalStatus,
-        legalForm: initialLegalForm(event.draft.legalStatus, event.now),
+        legalForm: initialLegalForm(event.draft.legalStatus),
         statusChanges: [],
         stage: "placement_requested",
         owner: department.name,

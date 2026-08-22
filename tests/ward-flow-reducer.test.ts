@@ -309,7 +309,10 @@ describe("new referrals", () => {
       });
       const created = state.movements[state.movements.length - 1];
       expect(created.legalForm?.code).toBe("1A");
-      expect(created.legalForm?.dueAt).toBeGreaterThan(NOW);
+      // 2026-08-23: RAISE_REFERRAL still creates a Form 1A for a non-voluntary referral (I5 is
+      // unchanged), but the form carries no `dueAt` any longer (see `LegalForm`'s own doc
+      // comment in ward-model.ts).
+      expect(created.legalForm?.dueAt).toBeUndefined();
       // The 1A/3B invariant's other half: a movement on 1A never carries an examination.
       expect(created.examination).toBeUndefined();
     }

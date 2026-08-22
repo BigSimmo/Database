@@ -67,11 +67,16 @@ function capacityLine(unit: Unit) {
 }
 
 /**
- * Task 6A: a Form 3B honestly carries no `dueAt` — the Mental Health Act imposes no
- * post-examination deadline (clinician-confirmed). For that case this states the form and the
- * real elapsed ED time via the existing `elapsedLabel` (never a new formatter), worded as time
- * IN the department rather than time left against anything, so it can never be misread as a
- * statutory countdown the way a bare number next to a form code could be.
+ * A `LegalForm` with no `dueAt` states the form and the real elapsed ED time via the existing
+ * `elapsedLabel` (never a new formatter), worded as time IN the department rather than time
+ * left against anything, so it can never be misread as a statutory countdown the way a bare
+ * number next to a form code could be. Task 6A introduced this branch for a Form 3B (the Mental
+ * Health Act imposes no post-examination deadline, clinician-confirmed); the 2026-08-23
+ * product-owner correction removed every `dueAt` from every Form 1A too — see `LegalForm`'s own
+ * doc comment in ward-model.ts. Neither code can reach the `dueAt`-defined branch below any
+ * longer, but that branch stays live code, not dead code: the transport/transfer forms (4A/4C,
+ * out of scope for this correction) still carry a real `dueAt` and still render "due in N min"
+ * or "passed its deadline" through it today.
  */
 function legalFormLine(movement: Movement, now: Instant) {
   if (!movement.legalForm) return "No legal form recorded for this movement";
@@ -183,8 +188,11 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
     ? `Currently at ${originEd.siteCode} — ${originEd.name}`
     : "Currently at an unresolved department";
 
-  // A form with no `dueAt` (Task 6A: a Form 3B honestly carries none) is never breached —
-  // `undefined` must never reach `clockState`'s arithmetic.
+  // A form with no `dueAt` is never breached — `undefined` must never reach `clockState`'s
+  // arithmetic. As of the 2026-08-23 product-owner correction, neither a Form 1A nor a Form 3B
+  // carries one any longer (Task 6A first established this for 3B; see `LegalForm`'s doc
+  // comment in ward-model.ts) — only the transport/transfer forms (4A/4C) still do, and none of
+  // those are due in the past on today's fixture, so `legalBreached` is false today.
   const legalDueAt = movement.legalForm?.dueAt;
   const legalBreached = legalDueAt !== undefined && clockState(legalDueAt, now) === "breached";
 

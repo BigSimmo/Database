@@ -327,17 +327,23 @@ export type InboxItem = {
  * Every item here is computed from real movement fields — nothing is authored.
  *
  * RULING (Task 8): each category uses `.filter()`, never `.find()`. Measured against the real
- * fixture at `NOW_ANCHOR`, five movements carry a breached statutory deadline, one has reached
- * the parallel-referral cap, and two have transport accepted but not departed — a `.find()`-based
- * inbox reported exactly one of each regardless, understating a legal breach count by four. This
- * is the coordinator's work list, not a report: every qualifying movement gets its own row.
+ * fixture at `NOW_ANCHOR` at the time, several movements carried a breached statutory deadline,
+ * one had reached the parallel-referral cap, and two had transport accepted but not departed —
+ * a `.find()`-based inbox reported exactly one of each regardless, understating the legal
+ * breach count. This is the coordinator's work list, not a report: every qualifying movement
+ * gets its own row. (The legal-breach category itself is dormant since the 2026-08-23
+ * product-owner correction — see the comment on `breachedLegal` below — but `.filter()` stays
+ * the right shape for whichever category is non-empty on a given fixture.)
  */
 export function buildActionInbox(movements: Movement[], now: Instant): InboxItem[] {
   const items: InboxItem[] = [];
 
-  // A form with no `dueAt` (Task 6A: a Form 3B honestly carries none — the Mental Health Act
-  // imposes no post-examination deadline) is never breached and contributes nothing here.
-  // `undefined` must never reach `clockState`'s arithmetic.
+  // A form with no `dueAt` is never breached and contributes nothing here — `undefined` must
+  // never reach `clockState`'s arithmetic. As of the 2026-08-23 product-owner correction,
+  // neither a Form 1A nor a Form 3B carries one any longer (Task 6A first established this for
+  // 3B; see `LegalForm`'s doc comment in ward-model.ts) — only the transport/transfer forms
+  // (4A/4C) still do, and none of those are due in the past on today's fixture, so
+  // `breachedLegal` is empty today and no "Legal timing breached" item appears.
   const breachedLegal = movements.filter(
     (movement) => movement.legalForm?.dueAt !== undefined && clockState(movement.legalForm.dueAt, now) === "breached",
   );
