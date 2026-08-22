@@ -34,6 +34,6 @@ test("Show all opens the unfiltered tools search mode", async ({ page }) => {
   const results = page.getByTestId("tools-search-results-page");
   await expect(results).toBeVisible();
   await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
-  await expect(results.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
+  await expect(page.getByTestId("global-search-input")).toHaveCount(0);
   await expectNoPageHorizontalOverflow(page);
 });
