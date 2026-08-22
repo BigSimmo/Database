@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c6d13677-3dc7-4bea-9a49-d3e200b4eb3e",
+  "createdOn": "2026-08-22",
+  "action": "done",
+  "payload": {
+    "id": "#M54C4N",
+    "outcome": "Closed 2026-08-22: fixed by PR #2198 (a341832af), which landed migration 20260820120000_migration_history_versions_rpc together with the supabase/schema.sql mirror, a regenerated supabase/drift-manifest.json and a rewritten scripts/check-migration-history-alignment.ts -- option (c) from this row's own OPTIONS list, a service-role security-definer RPC listing versions, with the PGRST106 Accept-Profile read retained only as a fallback. Verified against the run itself, not the claim: live-drift run 32514326022 (workflow \"Live drift check\", head branch main, head SHA 11550416206e8c90900ddeea0993337824873a55, created 2026-08-21T18:37:51Z, conclusion success). Its \"Compare live schema drift\" step reports \"No unexpected schema drift between live and supabase/schema.sql.\" and the previously failing \"Align migration history for Supabase Preview\" step now reports \"Local migration versions: 211\", \"Remote migration versions: 211 (read via rpc)\", \"Remote-only (Preview blockers): 0\", \"Local-only (pending apply): 0\" and \"Migration history alignment OK: every remote version exists locally.\" Both gates the post-merge contract requires are therefore green in the same run. Pinned issue #1963 auto-closed 2026-08-21T18:38:42Z; this was the first green live-drift since 2026-07-19, ending a 33-day red streak.",
+    "baseRowFingerprint": "cf7ef8e6de8d4480fcdd902dce5a0a13ddbb022f4ef2f43f2812acdf3e68ff40"
+  }
+}
