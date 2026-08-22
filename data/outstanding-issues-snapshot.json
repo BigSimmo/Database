@@ -1,8 +1,8 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "2327bd9624d788a7b9ecb61eee494f1acd9a1997",
-    "committed_at": "2026-08-22T06:11:46+00:00"
+    "sha": "9a382a0504632186bab075b53633cb69a6f92446",
+    "committed_at": "2026-08-22T15:25:05Z"
   },
   "counts": {
     "open": 66,
@@ -10,7 +10,7 @@
     "p2": 36,
     "p3": 29,
     "queued": 10,
-    "pending": 0,
+    "pending": 6,
     "resolved": 375
   },
   "queue": [
@@ -721,5 +721,42 @@
       "added": "2026-08-22"
     }
   ],
-  "pending": []
+  "pending": [
+    {
+      "request_id": "30b8fa7f-5f42-48d9-b6d4-5e255f3c67f1",
+      "action": "add",
+      "summary": "data/outstanding-issues-snapshot.json is a generated file every inbox PR must regenerate, so any two concurrent ledger PRs conflict on it and the loser must re-resolve after every main merge",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "3a1de9e9-ada8-4c72-9b50-cf5025148c25",
+      "action": "update",
+      "summary": "#6GW95D: detail → UPDATE 2026-08-22 (fleet inventory COMPLETE; cleanup deliberately DEFERRED by the owner). The inventory this row asked for is done and the 253 figure is superseded by a measured one. Scanning eight roots (.claude/worktrees, D:/Worktrees, .codex/worktrees, .gemini/antigravity/worktrees, .copilot/repos/copilot-worktrees, .local/share/opencode/worktree, Documents/Codex, AppData/Local/Temp) found 208 checkouts of this repository. Of those, 92 are registered git worktrees of D:/Repos/Database and 116 are SEPARATE FULL CLONES with their own object databases (76 under .codex, 26 under .copilot, 13 under Documents/Codex, 1 under Temp). Zero unregistered worktrees and zero stale gitdir pointers, so scripts/clean-worktree.mjs sees every checkout that points at the main repo - and sees NONE of the 116 clones, which are the real disk mass. 54 carry node_modules. LEFTOVER DIRECTORIES, counted precisely: 18 non-checkout leftovers sat under .claude/worktrees; 11 were removed (ten holding zero files, plus d4-review-fix which held one orphaned node_modules binary, no source and no .git) and the remaining 7 refused with EPERM because a live process holds them; 18 = 11 + 7. One further leftover under .gemini/antigravity was also removed, so 12 removals in total across both roots, the twelfth being outside .claude/worktrees. Those 7 blocked directories are NOT registered worktrees and have no .git entry - they are bare empty directories that seven sessions still treat as their cwd, filed as their own row and not to be counted as worktree debris here. npm run clean:worktree --merged --squashed --dry-run identified 23 landed candidates totalling 9.30 GB (C: 4.74 GB across 11, D: 4.56 GB across 12), of which 12 are proven-or-corroborated and 11 are 'NOT fully corroborated' and are skipped by the tool's own safety re-verification. CAPACITY IS NOT THE ISSUE: D: is 80 GB with 53 GB free (35% used). DECISION 2026-08-22: the owner halted the removal mid-run and all 13 removed worktrees were restored, each verified individually for correct branch, correct head and clean tree, with dependencies restored by byte-identical copy. Five live chats had had their working directory deleted underneath them. Cleanup is DEFERRED indefinitely - do not resume it without an explicit fresh instruction naming the exact paths. Two process lessons for whoever does: a 'git refused' or EPERM removal means a live process holds that directory and is a STOP, never something to retry on a later pass; and the candidate list must be shown and approved before any deletion, not after.; priority → P3; source → session 2026-08-22, GitHub issue #2270 Part A",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "3d5d78c6-6fde-43c5-8cc6-3e5ee7afb4c8",
+      "action": "add",
+      "summary": "tests/gate-receipts.test.ts has two file-mode assertions that can never pass on the Windows workstation, so npm run test is permanently 2-red locally",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "bf12b673-b63e-4683-b45f-96a5fd09976f",
+      "action": "add",
+      "summary": "Seven Claude Code sessions point at .claude/worktrees directories that are empty and not registered git worktrees, so those chats have no working copy",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "cfaeeb46-b114-4798-93f0-84451499b8fc",
+      "action": "add",
+      "summary": "The Claude push-format-guard hook blocks every push from a linked worktree, because it compares core.hooksPath against the worktree root instead of the common git dir",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "edebb730-91d9-42f5-bd93-ca2abb9678bc",
+      "action": "add",
+      "summary": "verify:phone-chrome can report a green pass having run zero browser tests when its changed-file selector finds no phone-chrome-affecting path",
+      "created_at": "2026-08-22"
+    }
+  ]
 }
