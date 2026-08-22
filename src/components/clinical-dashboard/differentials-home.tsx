@@ -670,12 +670,14 @@ function SourceStatusBanner({
   evidenceState,
   loading,
   sourcesChecked,
+  hasCatalogueResults,
   onRunSourceSearch,
 }: {
   sourceCount: number;
   evidenceState: DifferentialEvidenceState;
   loading: boolean;
   sourcesChecked: boolean;
+  hasCatalogueResults: boolean;
   onRunSourceSearch: () => void;
 }) {
   const hasSourceEvidence = evidenceState === "source-backed";
@@ -711,8 +713,12 @@ function SourceStatusBanner({
             : hasSourceEvidence
               ? `${sourceCount.toLocaleString()} indexed source ${sourceCount === 1 ? "match" : "matches"}`
               : sourcesChecked
-                ? "No indexed source matches — showing reviewed catalogue results"
-                : "Indexed sources have not been checked — showing reviewed catalogue results"}
+                ? hasCatalogueResults
+                  ? "No indexed source matches — showing reviewed catalogue results"
+                  : "No indexed source matches"
+                : hasCatalogueResults
+                  ? "Indexed sources have not been checked — showing reviewed catalogue results"
+                  : "Indexed sources have not been checked"}
         </p>
       </div>
       {!loading && !hasSourceEvidence && !sourcesChecked ? (
@@ -1018,6 +1024,7 @@ function SearchResultsView({
         evidenceState={evidenceState}
         loading={loading}
         sourcesChecked={sourcesChecked}
+        hasCatalogueResults={!catalogFailed && results.length > 0}
         onRunSourceSearch={rerunSearch}
       />
       {/* Phone-only by construction: the trigger that opens it lives in the

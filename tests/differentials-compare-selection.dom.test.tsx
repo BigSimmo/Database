@@ -334,6 +334,23 @@ describe("DifferentialsHome compare selection URL handoff", () => {
     expect(screen.queryAllByTestId("differential-best-match-panel")).toHaveLength(0);
   });
 
+  it("does not claim catalogue results exist when the catalogue fails or returns no matches", async () => {
+    catalogState.status = "error";
+    const { rerender } = render(
+      <DifferentialsHome query="Pain" loading={false} searchSubmitted onRunSearch={vi.fn()} />,
+    );
+
+    expect(screen.getByTestId("differentials-source-status")).toHaveTextContent(
+      "Indexed sources have not been checked",
+    );
+    expect(screen.queryByText(/showing reviewed catalogue results/i)).not.toBeInTheDocument();
+
+    catalogState.status = "ready";
+    rerender(<DifferentialsHome query="Pain" loading={false} searchSubmitted onRunSearch={vi.fn()} />);
+
+    expect(screen.queryByText(/showing reviewed catalogue results/i)).not.toBeInTheDocument();
+  });
+
   it("renders duplicate clinical cues without duplicate React keys", async () => {
     const record = getDifferentialRecord("medical-gi-endocrine-painful-organic-cause");
     const lead = getDifferentialRecord("acute-dystonia");

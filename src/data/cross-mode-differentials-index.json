@@ -1010,32 +1010,38 @@
     {
       "id": "acute-confusion-encephalopathy",
       "title": "Acute confusion and delirium",
-      "subtitle": "Covers delirium, acute confusion, toxic-metabolic encephalopathy, and post-ictal confusion."
+      "subtitle": "Delirium and its encephalopathic mimics are acute medical emergencies needing same-hour vitals, glucose and precipitant work-up.",
+      "titleAliases": ["Delirium / Acute Confusion / Encephalopathy", "acute confusional state"]
     },
     {
       "id": "psychosis-first-episode-medical-psychosis",
       "title": "First-episode and acute psychosis",
-      "subtitle": "Covers primary, mood-related, substance-induced, neurological, and medical causes."
+      "subtitle": "First-episode psychosis needs same-day assessment to exclude medical/substance causes; graded urgent unless medical instability or delirium escalates it to emergent.",
+      "titleAliases": ["Psychosis / First-Episode Medical Psychosis", "first episode psychosis"]
     },
     {
       "id": "catatonia-psychomotor-shutdown-malignant-syndromes",
       "title": "Catatonia and severe psychomotor syndromes",
-      "subtitle": "Covers catatonia, hypoactive delirium, neuroleptic malignant syndrome, serotonin toxicity, and autoimmune encephalitis."
+      "subtitle": "Malignant catatonia, NMS and serotonin toxicity are life-threatening; catatonia risks dehydration, VTE and autonomic instability.",
+      "titleAliases": ["Catatonia / Psychomotor Shutdown / Malignant Syndromes", "psychomotor shutdown"]
     },
     {
       "id": "suicidal-ideation-suicide-attempt-self-harm",
       "title": "Suicidality and self-harm",
-      "subtitle": "Covers suicidal thoughts, suicide attempts, recurrent self-harm, and crisis-related risk."
+      "subtitle": "Active suicidality or a recent attempt requires urgent safety review and medical clearance.",
+      "titleAliases": ["Suicidal Ideation / Suicide Attempt / Self-Harm"]
     },
     {
       "id": "aggression-violence-homicidal-ideation",
       "title": "Violence, aggression, and risk to others",
-      "subtitle": "Covers aggressive or violent behaviour, homicidal ideation, and medical or psychiatric precipitants."
+      "subtitle": "Acute aggression or homicidal intent threatens immediate safety and may signal delirium, intoxication or mania.",
+      "titleAliases": ["Aggression / Violence / Homicidal Ideation"]
     },
     {
       "id": "mania-hypomania-mixed-states",
       "title": "Mania and mixed mood states",
-      "subtitle": "Covers mania, hypomania, mixed states, induced activation, and organic causes."
+      "subtitle": "Acute mania carries high risk from impaired judgement, exhaustion and behavioural dyscontrol; mixed states elevate suicide risk.",
+      "titleAliases": ["Mania / Hypomania / Mixed States"]
     },
     {
       "id": "substance-intoxication",
@@ -1050,12 +1056,14 @@
     {
       "id": "medication-side-effects-iatrogenic-toxicity-qt-risk",
       "title": "Psychotropic adverse effects and toxicity",
-      "subtitle": "Covers medication side effects, iatrogenic toxicity, and QT-prolongation risk."
+      "subtitle": "Lithium toxicity, clozapine adverse effects, serotonin syndrome, NMS and QT prolongation are time-critical iatrogenic emergencies.",
+      "titleAliases": ["Medication Side Effects / Iatrogenic Toxicity / QT Risk"]
     },
     {
       "id": "akathisia-epse-tremor-sedation",
       "title": "Medication-related movement effects and sedation",
-      "subtitle": "Covers akathisia, extrapyramidal effects, tremor, dystonia, tardive syndromes, and sedation."
+      "subtitle": "Akathisia and EPSE cause marked distress and adherence breakdown and elevate suicide risk; acute dystonia can need faster intervention.",
+      "titleAliases": ["Akathisia / EPSE / Tremor / Sedation", "extrapyramidal side effects"]
     },
     {
       "id": "hallucinations",
@@ -1065,12 +1073,14 @@
     {
       "id": "delusions-paranoia-thought-interference-command-phenomena",
       "title": "Delusions and threat-related experiences",
-      "subtitle": "Covers paranoia, thought interference, command phenomena, and trauma-related mistrust."
+      "subtitle": "Delusions / Paranoia / Thought Interference / Command Phenomena",
+      "titleAliases": ["Delusions / Paranoia / Thought Interference / Command Phenomena"]
     },
     {
       "id": "disorganised-behaviour-disorganised-thought-or-speech",
       "title": "Disorganised thought, speech, and behaviour",
-      "subtitle": "Covers disorganisation arising from psychiatric, substance-related, neurological, developmental, or medical causes."
+      "subtitle": "Disorganised Behaviour / Disorganised Thought or Speech",
+      "titleAliases": ["Disorganised Behaviour / Disorganised Thought or Speech"]
     },
     {
       "id": "depression",
@@ -1080,47 +1090,56 @@
     {
       "id": "anxiety-panic-obsessions-health-anxiety",
       "title": "Anxiety and obsessional presentations",
-      "subtitle": "Covers panic, generalised anxiety, obsessive-compulsive symptoms, health anxiety, and physiological mimics."
+      "subtitle": "Anxiety / Panic / Obsessions / Health Anxiety",
+      "titleAliases": ["Anxiety / Panic / Obsessions / Health Anxiety"]
     },
     {
       "id": "dissociation-trauma-response-somatisation-functional-neurological-symptoms",
       "title": "Trauma-related, dissociative, and functional symptoms",
-      "subtitle": "Covers trauma responses, dissociation, somatic symptoms, and functional neurological symptoms."
+      "subtitle": "Dissociation / Trauma Response / Somatisation / Functional Neurological Symptoms",
+      "titleAliases": ["Dissociation / Trauma Response / Somatisation / Functional Neurological Symptoms"]
     },
     {
       "id": "sleep-disturbance-insomnia-reduced-need-for-sleep",
       "title": "Sleep disturbance and reduced need for sleep",
-      "subtitle": "Covers insomnia, circadian disorders, reduced sleep need, and psychiatric or substance-related causes."
+      "subtitle": "Sleep Disturbance / Insomnia / Reduced Need for Sleep",
+      "titleAliases": ["Sleep Disturbance / Insomnia / Reduced Need for Sleep"]
     },
     {
       "id": "mood-lability-emotional-dysregulation",
       "title": "Mood instability and emotional dysregulation",
-      "subtitle": "Covers bipolar, trauma-related, personality, neurodevelopmental, substance-related, and neurological causes."
+      "subtitle": "Mood Lability / Emotional Dysregulation",
+      "titleAliases": ["Mood Lability / Emotional Dysregulation"]
     },
     {
       "id": "cognitive-impairment-memory-dementia-bpsd",
       "title": "Cognitive impairment and behavioural change",
-      "subtitle": "Covers memory problems, dementia, delirium, depression-related cognitive symptoms, and behavioural and psychological symptoms."
+      "subtitle": "Cognitive Impairment / Memory / Dementia / BPSD",
+      "titleAliases": ["Cognitive Impairment / Memory / Dementia / BPSD"]
     },
     {
       "id": "poor-functioning-neglect-negative-symptoms-poor-judgement-poor-rapport",
       "title": "Functional decline and reduced engagement",
-      "subtitle": "Covers self-neglect, negative symptoms, impaired judgement, reduced engagement, and medical or medication-related causes."
+      "subtitle": "Poor Functioning / Neglect / Negative Symptoms / Poor Judgement / Poor Rapport",
+      "titleAliases": ["Poor Functioning / Neglect / Negative Symptoms / Poor Judgement / Poor Rapport"]
     },
     {
       "id": "treatment-refusal-non-adherence-poor-insight",
       "title": "Treatment refusal, non-adherence, and impaired insight",
-      "subtitle": "Covers psychiatric, cognitive, adverse-effect, trauma-related, cultural, and practical contributors."
+      "subtitle": "Treatment Refusal / Non-Adherence / Poor Insight",
+      "titleAliases": ["Treatment Refusal / Non-Adherence / Poor Insight"]
     },
     {
       "id": "autism-intellectual-disability-adhd-developmental-overlap",
       "title": "Neurodevelopmental diagnostic overlap",
-      "subtitle": "Covers autism, intellectual disability, ADHD, and coexisting psychiatric or catatonic presentations."
+      "subtitle": "Autism / Intellectual Disability / ADHD / Developmental Overlap",
+      "titleAliases": ["Autism / Intellectual Disability / ADHD / Developmental Overlap"]
     },
     {
       "id": "food-refusal-not-eating-eating-disorder-spectrum",
       "title": "Reduced intake and eating-disorder presentations",
-      "subtitle": "Covers eating disorders, ARFID, medical causes, psychosis, depression, catatonia, and swallowing difficulty."
+      "subtitle": "Food Refusal / Not Eating / Eating Disorder Spectrum",
+      "titleAliases": ["Food Refusal / Not Eating / Eating Disorder Spectrum"]
     },
     {
       "id": "perinatal-acute-psychiatry",
@@ -1130,7 +1149,8 @@
     {
       "id": "personality-related-interpersonal-conflict-antisocial-conduct",
       "title": "Interpersonal conflict and complex behavioural presentations",
-      "subtitle": "Covers personality-related patterns, trauma, neurodevelopmental differences, mood or psychotic illness, neurological causes, and substance effects."
+      "subtitle": "Personality-Related Interpersonal Conflict / Antisocial Conduct",
+      "titleAliases": ["Personality-Related Interpersonal Conflict / Antisocial Conduct"]
     },
     {
       "id": "older-adult-first-presentation-psychosis-traps",
@@ -1150,12 +1170,16 @@
     {
       "id": "psychomotor-retardation-mutism-severe-withdrawal",
       "title": "Psychomotor slowing, mutism, and withdrawal",
-      "subtitle": "Covers catatonia, severe depression, hypoactive delirium, negative symptoms, medication effects, dementia, and dissociation."
+      "subtitle": "Psychomotor Retardation / Mutism / Severe Withdrawal",
+      "titleAliases": ["Psychomotor Retardation / Mutism / Severe Withdrawal"]
     },
     {
       "id": "somatic-symptoms-illness-anxiety-functional-neurological-symptoms-factitious-presentation",
       "title": "Complex physical and functional symptom presentations",
-      "subtitle": "Covers somatic symptoms, illness anxiety, functional neurological symptoms, medical disease, factitious disorder, and malingering as distinct differentials."
+      "subtitle": "Somatic Symptoms / Illness Anxiety / Functional Neurological Symptoms / Factitious Presentation",
+      "titleAliases": [
+        "Somatic Symptoms / Illness Anxiety / Functional Neurological Symptoms / Factitious Presentation"
+      ]
     },
     {
       "id": "focused-diagnostic-trap-tables",
