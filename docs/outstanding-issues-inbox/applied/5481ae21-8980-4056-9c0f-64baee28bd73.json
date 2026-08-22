@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5481ae21-8980-4056-9c0f-64baee28bd73",
+  "createdOn": "2026-08-21",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Two clinical questions are answered with a bare list of document titles instead of an answer, and no gate fires",
+    "detail": "Found 2026-08-22 while diagnosing #231 against the 60 Gate E answers (docs/rag-improvement/231-diagnosis-2026-08-22.md section 3.1). Two of the eight identical plain source_only cases are clinical questions that receive the document-inventory answer shape reserved for source-lookup questions. 'What is the duress procedure pathway?' (case quality-duress-pathway, classified query_class document_lookup, intent pathway_referral) and 'When is IM medication used in the agitation pathway?' (case quality-agitation-im-route, query_class medication_dose_risk, intent pathway_referral, routed high_confidence_extractive_retrieval) both return: I found 5 indexed documents that support this query: followed by five titles. Neither question asked which documents exist. The routing chain for both ends at the first token -- no fallback reason, no gate reason, no retry, provider_attempted false -- so nothing flags it. CONTRAST, and why this is a real defect rather than a design choice: the other four cases in the same group (lithium-monitoring-documents, long-acting-injectable-documents, patient-safety-plan-documents, nocc-document-support) literally ask which documents or sources support X, and for those the same document list IS the correct answer. So the shape is right for four and wrong for two, which points at route selection or query classification rather than at the extractive answer builder. NEXT: diagnose separately -- establish whether the fault is hasSourceSupportLookupIntent / the query classifier assigning document_lookup to a pathway question, or shouldUseExtractiveMedicationLookup admitting a pathway question into the high-confidence extractive route. Do NOT fold this into the #231 retry-ladder work or the grounded-extractive gate work; it is a different surface with a different fix. STOP: protected RAG surface (src/lib/rag/rag-routing.ts, clinical-search), flag before editing, behaviour change needs a live eval-canary pair. Lower priority than the other two because the answer is at least honest and cites real documents, rather than being wrong or incoherent.",
+    "source": "docs/rag-improvement/231-diagnosis-2026-08-22.md section 3.1; Gate E dumps output/gate-e/dump-v18.json and dump-v19.json of 2026-08-21; session 2026-08-22",
+    "issueUlid": "01M0K1EKN5S4R2W3QTQCYQWW1P"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4725cf30-67a3-4f7c-8303-a664bd37eb36",
+  "createdOn": "2026-08-21",
+  "action": "done",
+  "payload": {
+    "id": "#EP1BQS",
+    "outcome": "Resolved 2026-08-21: the RAG programme handover now points implementing sessions back to the canonical ledger and requires a duplicate-implementation check when provider reads are authorised.",
+    "baseRowFingerprint": "06c8ed536d9ed2c0f5798b6dfd56bf236a03f9ce707006ccef96835269a4154c"
+  }
+}

@@ -4,10 +4,13 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import formsActSectionCues from "../data/forms-act-section-cues.json";
+
 import { formDetailsClipboardText } from "@/components/forms/form-detail-page";
 import { formCatalogDetails } from "@/lib/form-catalog";
 import { defaultFormSlug, formRecords, formStaticParams, getFormRecord, searchFormRecords } from "@/lib/forms";
 import { buildDefaultFormRows } from "@/lib/registry-fixtures";
+import { mergeRegistryRecordsWithDefaults } from "@/lib/registry-seed";
 
 describe("psychiatry form records", () => {
   it("copies the visible form details rather than only the primary contact", () => {
@@ -69,8 +72,63 @@ describe("psychiatry form records", () => {
     expect(form?.summaryCards?.some((card) => card.id === "source")).toBe(false);
     // Source status remains on the rail / overview, not in the priority-fact grid.
     expect(form?.source?.status).toBe("Source checked");
-    // Other forms keep the Source status card until they opt into actSections.
+    // Draft section summaries and supplemental form mappings remain staged for
+    // clinical review; they cannot replace the conservative Source status card.
     expect(getFormRecord("form-1b")?.summaryCards?.some((card) => card.id === "source")).toBe(true);
+    expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "source")).toBe(true);
+    expect(formCatalogDetails(getFormRecord("transfer-order")!)?.actSections).toBeUndefined();
+  });
+
+  it("keeps every unreviewed form on the Source status card", () => {
+    expect(formRecords).toHaveLength(54);
+    for (const form of formRecords.filter((entry) => entry.slug !== "form-1a")) {
+      expect(
+        form.summaryCards?.some((card) => card.id === "source"),
+        form.slug,
+      ).toBe(true);
+      expect(formCatalogDetails(form)?.actSections, form.slug).toBeUndefined();
+    }
+  });
+
+  it("never lets a seeded owner row keep a superseded Act summary", () => {
+    // Reproduces the merge path an owner seeded before an Act amendment or a summary
+    // correction takes: mergeRegistryRecordWithDefaults spreads the stored payload over
+    // the baseline, so without forcing actSections from the baseline the owner would read
+    // the superseded legal summary forever and bypass the hash gate entirely.
+    const rows = buildDefaultFormRows("00000000-0000-4000-8000-000000000001");
+    const seeded = structuredClone(rows.find((row) => row.slug === "form-1b"))!;
+    const payload = seeded.catalog_payload as { actSections?: { section: string; summary?: string }[] };
+    payload.actSections = [{ section: "66", summary: "SUPERSEDED SUMMARY" }];
+
+    const merged = mergeRegistryRecordsWithDefaults("form", [seeded as never]);
+    const record = merged.find((entry) => entry.slug === "form-1b");
+    expect(formCatalogDetails(record!)?.actSections).toBeUndefined();
+  });
+
+  it("covers the seven unindexed forms from the supplemental cue map", () => {
+    // These have no archive row, so no sourceFacts.sectionCue of their own. Their
+    // governing sections are asserted in data/forms-act-section-cues.json with a stated
+    // basis, and each entry must still resolve to a written summary.
+    expect(formsActSectionCues.forms).toHaveLength(7);
+    for (const entry of formsActSectionCues.forms) {
+      const record = formRecords.find((form) => formCatalogDetails(form)?.form === entry.code);
+      expect(record, entry.code).toBeTruthy();
+      const details = formCatalogDetails(record!);
+      expect(details?.sourceFacts?.sectionCue, entry.code).toBeFalsy();
+      expect(details?.actSections, entry.code).toBeUndefined();
+      expect(entry.status, entry.code).toBe("drafted");
+      expect(entry.basis.trim().length, entry.code).toBeGreaterThan(40);
+    }
+  });
+
+  it("keeps the existing reviewed Form 1A override renderable", () => {
+    // Form 1A's existing reviewed override remains the only renderable Act-section
+    // card until the staged shared summaries receive review sign-off.
+    const form1a = getFormRecord("form-1a");
+    expect(formCatalogDetails(form1a!)?.actSections).toHaveLength(6);
+    expect(form1a?.summaryCards?.find((card) => card.id === "act-sections")?.detail).toBe(
+      "26 · 31 · 36 · 37 · 41 · 42",
+    );
   });
 
   it("normalizes form lookup and static params", () => {
@@ -106,6 +164,15 @@ describe("psychiatry form records", () => {
       name: "Cancellation of grant of leave",
       availability: "downloadable",
     });
+
+    // mergeRegistryRecordWithDefaults spreads a stored owner catalog_payload over the
+    // baseline, so a seeded actSections list would win over the catalogue's. Seed rows
+    // must therefore carry exactly what the catalogue derives, never a stale copy.
+    const form1a = rows.find((row) => row.slug === "form-1a");
+    const seededSections = (form1a?.catalog_payload as { actSections?: { section: string }[] })?.actSections;
+    expect(seededSections?.map((entry) => entry.section)).toEqual(
+      formCatalogDetails(getFormRecord("form-1a")!)?.actSections?.map((entry) => entry.section),
+    );
   });
 
   it("searches forms independently from service records", () => {

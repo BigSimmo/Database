@@ -523,6 +523,23 @@ describe("committed lighthouse-budget.json", () => {
     expect(routeWithLighthouseParams("/forms")).toBe("/forms?pwa-dev=0");
     expect(routeWithLighthouseParams("/forms?feature=abc")).toBe("/forms?feature=abc&pwa-dev=0");
   });
+
+  it("attributes a failing layout-shift cell from the reports before they are cleared", () => {
+    const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
+
+    // `#TYZK23`: mobile-/ CLS is bistable and fires only on CI, so a red gate
+    // that prints a bare number forces every investigation through the retained
+    // artifact. The report already names the shifting element.
+    expect(runner).toContain('const LAYOUT_SHIFT_AUDIT_IDS = ["layout-shifts", "layout-shift-elements"');
+    expect(runner).toContain("if (childProcessExitCode(grade) !== 0) reportLayoutShiftAttribution(reportDirectory);");
+
+    // Diagnostics run against the reports, so they must precede the delete that a
+    // non-`--keep` run performs, and must not influence the graded exit code.
+    const attribution = runner.indexOf("if (childProcessExitCode(grade) !== 0) reportLayoutShiftAttribution");
+    const clear = runner.indexOf("if (!keep) removePathSync(reportDirectory, { recursive: true });");
+    expect(attribution).toBeGreaterThan(-1);
+    expect(clear).toBeGreaterThan(attribution);
+  });
 });
 
 describe("Lighthouse time budget", () => {

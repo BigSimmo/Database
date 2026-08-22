@@ -63,8 +63,8 @@ export type CarePlanShellFrameProps = {
   prototypeUsers: readonly PrototypeUser[];
   /** Called with the chosen synthetic user; the caller dispatches `set-active-user`. */
   onSelectUser: (userId: string) => void;
-  /** Called when the one search slot is submitted. */
-  onSearchSubmit: () => void;
+  /** Called with the trimmed query when the one search slot is submitted. */
+  onSearchSubmit: (query: string) => void;
   /**
    * The route owns an in-flow search of its own, so the shell stands its
    * composer down. One page never carries two search fields: Home and Patients
@@ -123,7 +123,7 @@ export function CarePlanShellFrame({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSearchSubmit();
+    onSearchSubmit(searchTerm.trim());
   }
 
   const moreIsActive = CARE_PLAN_MORE_DESTINATIONS.some(({ label }) => label === activeDestination);

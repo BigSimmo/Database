@@ -65,3 +65,5 @@ a394d76631c7ea3405037baf58091b1c4c47fa3f:tests/codex-cloud-setup.test.ts:generic
 # still read on each run and has to be pinned by its own fingerprint. Rewriting it out
 # of history would need a force-push, which is worse than one more pinned line.
 14535ffc5f05d559f6bccac84099f9e6874bba6a:.gitleaksignore:generic-api-key:49
+# Reviewed false positive: a localhost example URL with a dummy API key in a removed handoff document.
+92097e53e096bc33c8b23f73874981b2e3214af3:docs/ed-care-plans/claude-build-handover-2026-08-21.md:generic-api-key:360

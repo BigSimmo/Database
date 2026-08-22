@@ -279,6 +279,13 @@ describe("favourites auth gate DOM", () => {
     expect(screen.getByRole("heading", { name: "Saved workflows" })).toBeVisible();
   });
 
+  it("offers an all-tools recovery path when a URL query has no matching tools", () => {
+    render(<ToolsSearchResultsPage initialQuery="no-such-tool" canAccessFavourites={false} />);
+
+    expect(screen.getByRole("heading", { level: 2, name: "No tools match" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Show all tools" })).toHaveAttribute("href", "/tools");
+  });
+
   it("omits Favourites from the mode menu for guests", async () => {
     const user = userEvent.setup();
     render(<MasterSearchHeader {...headerProps(false)} />);

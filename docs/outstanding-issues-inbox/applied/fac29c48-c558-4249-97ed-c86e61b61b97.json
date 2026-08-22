@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "fac29c48-c558-4249-97ed-c86e61b61b97",
+  "createdOn": "2026-08-22",
+  "action": "update",
+  "payload": {
+    "id": "#9X40BT",
+    "detail": "MEASURED 2026-08-22 (read-only list_branches on sjrfecxgysukkwxsowpy): there are currently ZERO preview branches. The only entry returned is the default 'main' branch, which is the production project itself and is not billable preview compute. So the uncapped exposure this row describes is POTENTIAL, not active — nothing is running to clean up, and no agent-side cleanup step exists to take. The one remaining action is the dashboard setting itself, which no agent can change: Supabase dashboard -> Project Settings -> Integrations -> GitHub -> lower 'Automatic branching' limit from 3 to 1, or disable branching. Prior context stands and is the reason lowering is safe: CI's Migration replay job (db-reset-verify, supabase migration up --local) independently replays the whole chain on every database-touching PR, so preview branches are a second net rather than the only one. STOP unchanged: do not change Supabase project settings without explicit owner approval. PRIOR RECORD: Dashboard read 2026-08-21 (the same read that settled D4) shows Automatic branching ON with limit 3 and 'Supabase changes only' enabled, and the same screen warns that Branching Compute is NOT covered by the organisation's Spend Cap. Preview branches did earn their keep once (the 20260819100200 guard failure on PR #2151 was caught by a preview branch building from the chain alone), so this is a cost/benefit decision, not a cleanup.",
+    "baseRowFingerprint": "711b9f0b05f996932d7a38adfc3782dcce964a7f838f48540c6e8c0771ba8c81"
+  }
+}

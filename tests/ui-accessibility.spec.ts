@@ -275,6 +275,27 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(modeButton).toHaveAttribute("aria-expanded", "false");
   });
 
+  test("shared-home mode changes keep the document title aligned with visible copy", async ({ page }) => {
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+
+    await expect(page).toHaveTitle("Clinical Answers | Clinical KB");
+    await page.getByRole("button", { name: /Mode\s*Answer/i }).click();
+    const modeMenu = page.getByRole("menu");
+    await expect(modeMenu).toBeVisible();
+    await modeMenu.getByText("Dictionary", { exact: true }).click();
+
+    await expect(page).toHaveURL(/\?mode=dictionary$/);
+    await expect(page.getByRole("heading", { level: 2, name: "Clinical Dictionary" })).toBeVisible();
+    await expect(page).toHaveTitle("Clinical Dictionary | Clinical KB");
+
+    // Repeated parameters are an adversarial deep-link case. The first value is
+    // the canonical selection used by both the server metadata and client state.
+    await page.goto("/?mode=therapy-compass&mode=dictionary", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 2, name: "Therapy" })).toBeVisible();
+    await expect(page).toHaveTitle("Therapy | Clinical KB");
+  });
+
   test("an open sheet deactivates the page behind it and releases it on close", async ({ page }) => {
     // jsdom cannot enforce `inert`, so the browser is the only place the modal
     // containment contract (and its release) can actually be proven.
@@ -492,8 +513,8 @@ test.describe("Clinical KB accessibility coverage", () => {
     await filterGroup.getByRole("radio", { name: /^Presentations/ }).click();
     await expect(filterGroup.getByRole("radio", { name: /^Presentations/ })).toBeChecked();
     await expect(filterGroup.getByRole("radio", { name: /^All/ })).not.toBeChecked();
-    await filterGroup.getByRole("radio", { name: /^Diagnoses/ }).click();
-    await expect(filterGroup.getByRole("radio", { name: /^Diagnoses/ })).toBeChecked();
+    await filterGroup.getByRole("radio", { name: /^Differentials/ }).click();
+    await expect(filterGroup.getByRole("radio", { name: /^Differentials/ })).toBeChecked();
 
     // The radio role promises a keyboard model, so prove it in a real browser and
     // not only in jsdom: one tab stop, arrows moving focus AND selection, Home and
@@ -501,19 +522,19 @@ test.describe("Clinical KB accessibility coverage", () => {
     // focus trap, which is what the sheet puts around this group.
     const all = filterGroup.getByRole("radio", { name: /^All/ });
     const presentations = filterGroup.getByRole("radio", { name: /^Presentations/ });
-    const diagnoses = filterGroup.getByRole("radio", { name: /^Diagnoses/ });
-    await diagnoses.focus();
-    await diagnoses.press("Home");
+    const differentials = filterGroup.getByRole("radio", { name: /^Differentials/ });
+    await differentials.focus();
+    await differentials.press("Home");
     await expect(all).toBeFocused();
     await expect(all).toBeChecked();
     await all.press("ArrowRight");
     await expect(presentations).toBeFocused();
     await expect(presentations).toBeChecked();
     await presentations.press("End");
-    await expect(diagnoses).toBeFocused();
-    await expect(diagnoses).toBeChecked();
+    await expect(differentials).toBeFocused();
+    await expect(differentials).toBeChecked();
     // Exactly one tab stop for the group — the checked option.
-    await expect(diagnoses).toHaveAttribute("tabindex", "0");
+    await expect(differentials).toHaveAttribute("tabindex", "0");
     await expect(all).toHaveAttribute("tabindex", "-1");
     await expect(presentations).toHaveAttribute("tabindex", "-1");
 

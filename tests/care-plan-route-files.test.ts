@@ -15,6 +15,7 @@ import {
   isSyntheticPresentationId,
 } from "@/components/care-plan/mockups/routes";
 import { DEVELOPER_GATED_PATH_PREFIXES } from "@/lib/developer-area/headers";
+import { HUB_PANELS } from "@/lib/developer-area/hub-panels";
 
 const APP_ROOT = "src/app/mockups/care-plan";
 const COMPONENT_ROOT = "src/components/care-plan/mockups";
@@ -301,28 +302,14 @@ describe("Care Plan route registration", () => {
   });
 
   it("links the Care Plan surface from the developer index", () => {
-    const source = readFileSync(resolve(process.cwd(), "src/app/mockups/development/page.tsx"), "utf8");
-    // Scoped to the Care Plan surface object only. Asserting against the whole
-    // file could not fail: "Patients" and "System states" already appear in the
-    // pre-existing Caring Contact block, so deleting every Care Plan deep link
-    // would still have passed.
-    const start = source.indexOf('id: "care-plan"');
-    expect(start, "the developer index has no Care Plan surface").toBeGreaterThanOrEqual(0);
-    const fromCarePlan = source.slice(start);
-    const nextSurface = fromCarePlan.indexOf('id: "', 1);
-    const surface = nextSurface === -1 ? fromCarePlan : fromCarePlan.slice(0, nextSurface);
-    expect(surface).not.toContain('id: "caring-contacts"');
-
-    expect(surface).toContain("CARE_PLAN_ROUTES.home");
-    for (const [label, accessor] of [
-      ["Patients", "CARE_PLAN_ROUTES.patients"],
-      ["Reviews", "CARE_PLAN_ROUTES.reviews"],
-      ["Governance", "CARE_PLAN_ROUTES.governance"],
-      ["System states", "CARE_PLAN_ROUTES.systemStates"],
-    ] as const) {
-      expect(surface, `the Care Plan surface is missing the ${label} deep link`).toContain(accessor);
-      expect(surface, `the Care Plan surface is missing the ${label} label`).toContain(`"${label}"`);
-    }
+    expect(HUB_PANELS).toContainEqual(
+      expect.objectContaining({
+        id: "care-plan",
+        name: "Care Plan",
+        href: CARE_PLAN_ROUTES.home,
+        phase: 1,
+      }),
+    );
   });
 });
 

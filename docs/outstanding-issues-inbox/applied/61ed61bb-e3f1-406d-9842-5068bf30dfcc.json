@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "61ed61bb-e3f1-406d-9842-5068bf30dfcc",
+  "createdOn": "2026-08-21",
+  "action": "update",
+  "payload": {
+    "id": "#CCZ4HB",
+    "detail": "CONFIRMED IN THE WILD 2026-08-22, with numbers. This row predicted that PR churn would exhaust the review-bot budget and leave PRs landing unreviewed. That happened today, observed directly on PR #2258: CodeRabbit posted a Fair-Usage notice reading 'You have reached a temporary PR review limit', 'Next review available in: 46 minutes', '89 included PR review attempts over the past 7 days set your current allowance at 1 review per hour', and -- the part that makes this a billing decision rather than a pacing one -- 'Your organization has reached its usage spending cap.' CONSEQUENCE OBSERVED, NOT INFERRED: PR #2261, the serialized reconcile that closes #316, was opened inside that window and is expected to land with no automated review. It was verified locally against check:outstanding-issues and check:ledger-write-discipline, so this was judged acceptable for a ledger-only diff -- but the general case is not acceptable, because merging to main now deploys database migrations to the live clinical project automatically (D4 ON, AGENTS.md). CONTRIBUTING CAUSE, OWNED: the 2026-08-22 Phase 5 session alone opened three PRs (#2250, #2258, #2261). Two of the three were unavoidable by contract -- a serialized reconcile must be its own fresh-base branch, and an immutable review record cannot be edited in place -- which is worth noting because it means the AGENTS.md 'PR bundling' rule cannot fully solve this on its own. TWO OPTIONS, NOT ONE: (a) raise or remove the CodeRabbit spending cap in the billing tab, which is the only option that restores review coverage on a repo that auto-deploys to production; or (b) accept reduced automated review and lean on verify:pr-local plus the domain gates, in which case that acceptance should be written down here rather than left implicit. RECOMMENDATION: (a). STOP: do not change billing or spending-cap settings without the owner deciding; this row is a decision request.",
+    "source": "CodeRabbit Fair-Usage notice on PR #2258, 2026-08-22; PRs #2250/#2258/#2261; AGENTS.md 'PR bundling' and 'Supabase project safety'",
+    "baseRowFingerprint": "bfc39e062f42860bc22db9ef0a32c955317e8d8dd73f75d35a3f8de95933eb0e"
+  }
+}

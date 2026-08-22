@@ -287,7 +287,10 @@ export function isPatientPlanVersionStale(
   managementPlanCurrentVersionId: SyntheticId | null,
 ): boolean {
   if (version === null || version.state !== "current") return false;
-  if (managementPlanCurrentVersionId === null) return false;
+  // A withdrawn source is not a safe exception. The patient copy still exists
+  // and may already be on paper, but there is no Current Management Plan for it
+  // to represent, so it has to carry the same needs-updating state as a copy
+  // made from an older Current version.
   return version.derivedFromManagementVersionId !== managementPlanCurrentVersionId;
 }
 

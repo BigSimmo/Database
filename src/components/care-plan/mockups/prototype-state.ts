@@ -952,6 +952,31 @@ export function prototypeReducer(
 
       const withdrawnAt = prototypeTimestamp(state);
       const actor = state.users.find(({ id }) => id === state.activeUserId);
+      const patientPlan = state.patientPlans.find((candidate) => candidate.patientId === patient.id) ?? null;
+      const currentPatientVersion =
+        patientPlan === null ? null : getCurrentPatientPlanVersion(state.patientPlanVersions, patientPlan.id);
+      const staleTriggerAlreadyOpen = state.reviewTriggers.some(
+        (trigger) =>
+          trigger.managementPlanId === plan.id && trigger.source === "patient_plan_stale" && trigger.status === "open",
+      );
+      const staleTrigger: ReviewTrigger | null =
+        currentPatientVersion !== null && !staleTriggerAlreadyOpen
+          ? {
+              id: nextSyntheticId(
+                "SYN-TRIGGER",
+                state.reviewTriggers.map(({ id }) => id),
+              ),
+              patientId: patient.id,
+              managementPlanId: plan.id,
+              source: "patient_plan_stale",
+              sourceId: currentPatientVersion.id,
+              reason: `Patient Plan version ${currentPatientVersion.version} stays readable, but the Management Plan version it was written from was withdrawn and there is no Current Plan. Go through the copy with the person before treating it as current.`,
+              status: "open",
+              createdAt: prototypeTimestamp(state, 1),
+              resolvedAt: null,
+              resolution: null,
+            }
+          : null;
 
       return {
         ...state,
@@ -970,6 +995,7 @@ export function prototypeReducer(
         managementPlans: state.managementPlans.map((candidate) =>
           candidate.id === plan.id ? { ...candidate, currentVersionId: null } : candidate,
         ),
+        reviewTriggers: staleTrigger === null ? state.reviewTriggers : [...state.reviewTriggers, staleTrigger],
         auditEvents: withAudit(state, {
           type: "management_version_withdrawn",
           patientId: patient.id,
@@ -978,7 +1004,10 @@ export function prototypeReducer(
         }),
         lastOutcome: {
           kind: "success",
-          message: `Version ${current.version} withdrawn. ${patient.preferredName} now has no Current Plan, and no earlier version was put back into use.`,
+          message:
+            staleTrigger === null
+              ? `Version ${current.version} withdrawn. ${patient.preferredName} now has no Current Plan, and no earlier version was put back into use.`
+              : `Version ${current.version} withdrawn. ${patient.preferredName} now has no Current Plan, and their Patient Plan stays readable but needs updating; an open Review Trigger was raised.`,
         },
       };
     }
@@ -1222,11 +1251,54 @@ export function prototypeReducer(
         amendedAt: prototypeTimestamp(state),
       };
 
+      // The timeline renders an amendment over the original record. Review
+      // triggers must make the same decision from that effective record; using
+      // the stored original here leaves a newly corrected admission or adverse
+      // plan-use answer visible on screen but absent from Reviews.
+      const amendments = [...state.presentationAmendments, amendment];
+      const reviewRelevant = action.field === "planHelpfulness" || action.field === "disposition";
+      const effectivePresentation: EdPresentation = {
+        ...presentation,
+        planHelpfulness: getEffectivePresentationValue(amendments, presentation, "planHelpfulness") as PlanHelpfulness,
+        disposition: getEffectivePresentationValue(amendments, presentation, "disposition") as Disposition,
+      };
+      const patient = findPatient(state, presentation.patientId);
+      const plan = patient === null ? null : findManagementPlan(state, patient);
+      const hasEverHadAVersion =
+        plan !== null && state.managementPlanVersions.some((existing) => existing.planId === plan.id);
+      const candidate = reviewRelevant && hasEverHadAVersion ? reviewTriggerReasonFor(effectivePresentation) : null;
+      const alreadyOpen =
+        plan !== null &&
+        candidate !== null &&
+        state.reviewTriggers.some(
+          (trigger) =>
+            trigger.managementPlanId === plan.id && trigger.source === candidate.source && trigger.status === "open",
+        );
+      const newTrigger: ReviewTrigger | null =
+        plan !== null && candidate !== null && !alreadyOpen
+          ? {
+              id: nextSyntheticId(
+                "SYN-TRIGGER",
+                state.reviewTriggers.map(({ id }) => id),
+              ),
+              patientId: presentation.patientId,
+              managementPlanId: plan.id,
+              source: candidate.source,
+              sourceId: presentation.id,
+              reason: candidate.reason,
+              status: "open",
+              createdAt: prototypeTimestamp(state, 1),
+              resolvedAt: null,
+              resolution: null,
+            }
+          : null;
+
       return {
         ...state,
         // The episode is untouched. A correction is appended beside it, with who
         // made it, when, what it replaced, and why.
-        presentationAmendments: [...state.presentationAmendments, amendment],
+        presentationAmendments: amendments,
+        reviewTriggers: newTrigger === null ? state.reviewTriggers : [...state.reviewTriggers, newTrigger],
         auditEvents: withAudit(state, {
           type: "presentation_amended",
           patientId: presentation.patientId,
@@ -1235,7 +1307,10 @@ export function prototypeReducer(
         }),
         lastOutcome: {
           kind: "success",
-          message: "Correction recorded beside the original. The original ED Presentation record is unchanged.",
+          message:
+            newTrigger === null
+              ? "Correction recorded beside the original. The original ED Presentation record is unchanged."
+              : "Correction recorded beside the original. The original ED Presentation record is unchanged, and an open Review Trigger was raised for the team to look at.",
         },
       };
     }
@@ -1504,6 +1579,19 @@ export function prototypeReducer(
       }
       const plan = state.patientPlans.find(({ id }) => id === version.planId) ?? null;
       if (plan === null) return refuse(state, "That version has no Patient Plan record.");
+
+      const patient = findPatient(state, plan.patientId);
+      const managementPlan = patient === null ? null : findManagementPlan(state, patient);
+      const currentManagement =
+        managementPlan === null
+          ? null
+          : getCurrentManagementPlanVersion(state.managementPlanVersions, managementPlan.id);
+      if (currentManagement === null || currentManagement.id !== version.derivedFromManagementVersionId) {
+        return refuse(
+          state,
+          `Patient Plan version ${version.version} was made from a Management Plan that is no longer Current, so it cannot be approved. Start a new copy from the agreed plan instead.`,
+        );
+      }
 
       const approver = state.users.find(({ id }) => id === state.activeUserId) ?? null;
       if (approver === null || isBlank(approver.displayName)) {
