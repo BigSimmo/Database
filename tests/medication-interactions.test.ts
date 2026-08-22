@@ -239,3 +239,30 @@ describe("interactionNoteBody", () => {
     expect(severityLabel("unknown")).toBe("Unknown");
   });
 });
+
+describe("loperamide over-match: the other directions", () => {
+  // Complements the reverse-row test above. The over-match had two halves, fixed by
+  // two different mechanisms, so each needs its own guard: `denySlugs` stops
+  // loperamide being pulled INTO the opioids term (its catalogue subclass is
+  // "Peripheral Opioid Agonist", which the term matches as a substring), and
+  // `sourceDenySlugs` stops loperamide's OWN P-gp row — "…causing opioid
+  // sedation…" — expanding to all 14 opioids.
+  it("stays silent when loperamide is the medication being viewed", () => {
+    const result = evaluateMedicationInteractions("loperamide", ["morphine-ir-iv"]);
+    expect(result.interactions.some((item) => item.counterpartySlug === "morphine-ir-iv")).toBe(false);
+  });
+
+  it("keeps the genuine P-gp counterparty on loperamide's own row", () => {
+    // Verapamil really is a P-gp inhibitor, which is what that row is about.
+    // Losing it would mean the fix had over-corrected in the dangerous direction.
+    const result = evaluateMedicationInteractions("loperamide", ["verapamil"]);
+    expect(result.interactions.some((item) => item.counterpartySlug === "verapamil")).toBe(true);
+  });
+
+  it("leaves the sedation alerts a real opioid still triggers", () => {
+    // Guards the other over-correction: the deny-list must remove loperamide only,
+    // not weaken the term for opioids that do cross the blood-brain barrier.
+    const result = evaluateMedicationInteractions("diazepam", ["morphine-ir-iv"]);
+    expect(result.interactions.length).toBeGreaterThan(0);
+  });
+});
