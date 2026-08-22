@@ -233,24 +233,107 @@ export function dictionaryBrowseLetter(hit: DictionarySearchHit) {
   return title.charAt(0).toLocaleUpperCase();
 }
 
-export function browseDictionary(params: {
-  view: "az" | "abbreviations";
+/**
+ * The catalogue's two scopes.
+ *
+ * `/dictionary/search` and `/dictionary/browse` were one catalogue behind two
+ * destinations, and this is the axis that actually separated them: Browse's
+ * Definitions/Abbreviations view switch. The retired search lenses `all` and
+ * `topics` are not scopes — Topics is its own mode-nav destination, and `all`
+ * mixed two row shapes that read as one list.
+ */
+export type DictionaryCatalogueScope = "definitions" | "abbreviations";
+
+/** Relevance is only meaningful against a query; A–Z / Z–A order the catalogue. */
+export type DictionaryCatalogueSort = "relevance" | "az" | "za";
+
+export type DictionaryCatalogueParams = {
+  q: string;
+  scope: DictionaryCatalogueScope;
+  /** `all`, or a single A–Z initial. Ignored while a query runs — see below. */
   letter: string;
   topics: readonly string[];
   kinds: readonly DictionaryEntryKind[];
-  sort: "az" | "za";
-}) {
+  sources: readonly string[];
+  sort: DictionaryCatalogueSort;
+};
+
+const catalogueSorts = new Set<DictionaryCatalogueSort>(["relevance", "az", "za"]);
+
+/**
+ * Reads the merged catalogue's URL state.
+ *
+ * `view=all` and `view=topics` are the two retired lenses. They degrade to the
+ * definitions scope rather than 404-ing a bookmark or, worse, rendering an empty
+ * list for a `view` value nothing can produce any more.
+ *
+ * Sort defaults by state, not by constant: relevance ranking on an empty query
+ * scores every entry identically (`entryScore` returns a flat 10), so the
+ * catalogue would arrive in source order. A–Z is the browse answer, relevance is
+ * the search answer, and the URL only carries `sort` once the reader picks one.
+ */
+export function parseDictionaryCatalogueParams(params: URLSearchParams): DictionaryCatalogueParams {
+  const filters = parseDictionaryFilters(params);
+  const rawLetter = (params.get("letter") ?? "all").toLocaleUpperCase();
+  const rawSort = params.get("sort");
+  return {
+    q: filters.q,
+    scope: filters.view === "abbreviations" ? "abbreviations" : "definitions",
+    letter: /^[A-Z]$/.test(rawLetter) ? rawLetter : "all",
+    topics: filters.topics,
+    kinds: filters.kinds,
+    sources: filters.sources,
+    sort:
+      rawSort && catalogueSorts.has(rawSort as DictionaryCatalogueSort)
+        ? (rawSort as DictionaryCatalogueSort)
+        : filters.q
+          ? "relevance"
+          : "az",
+  };
+}
+
+/**
+ * One selector for the merged catalogue: the query, the scope, the alphabet and
+ * the facets all narrow the same list.
+ *
+ * **The letter is dropped while a query runs.** The alphabetical index stands
+ * down mid-search in the UI — an A–Z jump is meaningless against a ranked result
+ * set and only competes for phone width — so honouring a stale `letter` here
+ * would silently withhold matches with no visible control to explain it. That is
+ * exactly the "filter the reader cannot see" failure `docs/filter-contract.md`
+ * exists to prevent, so the rule lives with the predicate rather than in the
+ * component that happens to hide the chip.
+ */
+/**
+ * The URL keys a "clear the search" control has to remove.
+ *
+ * `letter` is the one that is easy to miss, and it lives here rather than in the
+ * component because it is the direct consequence of the rule below: while a
+ * query runs `dictionaryCatalogue` ignores `letter` and the chip that owns it
+ * stands down, so a `letter` in the URL is invisible AND inert. Delete only
+ * `q`/`query`/`run` and dismissing the search hands the reader back a catalogue
+ * silently narrowed to one initial — 6 of 96 entries for `?q=tardive&letter=T`,
+ * which is exactly what the Terms tab's own self-link produces — under a control
+ * whose accessible name promises the whole catalogue.
+ *
+ * Anything `dictionaryCatalogue` learns to ignore while searching belongs in
+ * this list too; `tests/dictionary-data.test.ts` pins the pair together.
+ */
+export const dictionaryClearedQueryKeys = ["q", "query", "run", "letter"] as const;
+
+export function dictionaryCatalogue(params: DictionaryCatalogueParams): DictionarySearchHit[] {
   const filters: DictionaryFilters = {
-    q: "",
-    view: params.view === "abbreviations" ? "abbreviations" : "definitions",
+    q: params.q,
+    view: params.scope,
     topics: params.topics,
     kinds: params.kinds,
-    sources: [],
-    sort: "az",
+    sources: params.sources,
+    sort: params.sort === "relevance" ? "relevance" : "az",
   };
+  const letter = params.q ? "all" : params.letter;
   let hits = searchDictionary(filters).filter((hit) => {
-    if (!params.letter || params.letter === "all") return true;
-    return dictionaryBrowseLetter(hit) === params.letter.toLocaleUpperCase();
+    if (!letter || letter === "all") return true;
+    return dictionaryBrowseLetter(hit) === letter.toLocaleUpperCase();
   });
   if (params.sort === "za") hits = hits.reverse();
   return hits;

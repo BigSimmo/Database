@@ -144,7 +144,6 @@ export type ModeActionId =
   | "factsheets-search"
   | "factsheets-browse"
   | "dictionary-search"
-  | "dictionary-browse"
   | "dictionary-topics"
   | "dictionary-compare"
   | "dictionary-sources";
@@ -383,16 +382,12 @@ const modeActionSets = {
   dictionary: [
     {
       id: "dictionary-search",
-      label: "Search terms",
-      description: "Find definitions and abbreviations",
+      // Search and Browse were one catalogue behind two destinations, so the
+      // pair collapsed to one action naming the content rather than the verb.
+      label: "Terms",
+      description: "Search or browse the governed catalogue",
       icon: Search,
       primary: true,
-    },
-    {
-      id: "dictionary-browse",
-      label: "Browse A–Z",
-      description: "Scan the governed catalogue",
-      icon: BookOpenText,
     },
     {
       id: "dictionary-topics",

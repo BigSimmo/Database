@@ -13,7 +13,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { createBrowserStore } from "@/lib/client-store-factory";
 
@@ -233,6 +233,62 @@ function InstallManualSteps() {
  * nothing or shrinks to nothing — never resizes while a sibling card is still
  * on screen.
  */
+/**
+ * The one element every phone geometry rule for this component selects on.
+ *
+ * `.pwa-notice-stack` and the native install sheet are sized and positioned by
+ * `body:has(#main-content[data-phone-footer-owner="hero"]) …` — the bottom gap
+ * collapses from `0.75rem + 5rem` to `max(0.5rem, safe-area)`, and the sheet
+ * drops its grip, tagline, copy, support and benefits rows. While that selector
+ * is false the stack paints tall and high; when it turns true the stack is
+ * restyled underneath itself.
+ */
+const APP_SHELL_SELECTOR = "#main-content";
+
+function subscribeToAppShell(onStoreChange: () => void): () => void {
+  // The shell is replaced as a subtree (React swapping a Suspense fallback for
+  // the route, then hydrating), so observe the document rather than a node that
+  // may not exist yet — or may momentarily stop existing.
+  const observer = new MutationObserver(onStoreChange);
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+  window.addEventListener("load", onStoreChange);
+  return () => {
+    observer.disconnect();
+    window.removeEventListener("load", onStoreChange);
+  };
+}
+
+let appShellHasEverMounted = false;
+
+function appShellReadySnapshot(): boolean {
+  if (document.querySelector(APP_SHELL_SELECTOR)) {
+    appShellHasEverMounted = true;
+    return true;
+  }
+  // A surface that renders no `#main-content` at all must still get notices, so
+  // `load` releases the gate — but ONLY while the shell has never been seen. It
+  // deliberately does not release a shell that exists and is momentarily absent:
+  // that gap is the bug. Measured on `/` at Lighthouse's 412x823 mobile
+  // emulation with the install prompt firing early on a throttled connection:
+  // shell at 4726ms, GONE at 7855ms, install card mounts at 9083ms into the gap
+  // (401px tall, bottom 731), shell returns at 9930ms and the card is restyled
+  // to 161px at bottom 815 — one shift, 0.2230, matching CI's mobile-root
+  // breach to four decimals. `load` has long since fired by 9083ms, which is
+  // exactly why a bare readyState check does not hold here (ledger `#TYZK23`).
+  return document.readyState === "complete" && !appShellHasEverMounted;
+}
+
+/** Server render has no DOM to inspect, and must not paint the stack. */
+function appShellAbsentOnServer(): boolean {
+  return false;
+}
+
+function useAppShellReady(): boolean {
+  // A DOM subscription, not derived state: `useSyncExternalStore` is the
+  // supported shape for "read an external system, re-render when it changes".
+  return useSyncExternalStore(subscribeToAppShell, appShellReadySnapshot, appShellAbsentOnServer);
+}
+
 function useSettledNoticeSignature(signature: string | null): string | null {
   const [rendered, setRendered] = useState(signature);
   const previousSignatureRef = useRef(signature);
@@ -552,6 +608,11 @@ export function PwaLifecycle() {
   const settledSignature = useSettledNoticeSignature(desiredSignature);
   // Mid-transition: the stack is passing through its one-frame unmounted gap
   // (see useSettledNoticeSignature) before the new combination renders.
+  // The stack's phone geometry is chosen by `:has(#main-content…)`. Painting
+  // while that element is absent — including the hydration gap where it briefly
+  // stops existing — means being restyled a moment later. See useAppShellReady.
+  const appShellReady = useAppShellReady();
+  if (!appShellReady) return null;
   if (settledSignature === null || settledSignature !== desiredSignature) return null;
   const showOffline = wantsOffline;
   const showUpdate = wantsUpdate;
