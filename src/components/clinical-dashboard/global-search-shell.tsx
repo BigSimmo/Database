@@ -904,7 +904,7 @@ function GlobalStandaloneSearchShellBody({
             onClinicalAsk={runModeClinicalAsk}
             clinicalAskActive={clinicalAskSession.submitted}
             clinicalAskActions={
-              showClinicalAskDockChrome ? (
+              showClinicalAskDockChrome && clinicalAskMode ? (
                 <ClinicalAskComposerActions
                   mode={clinicalAskMode}
                   draft={query}
