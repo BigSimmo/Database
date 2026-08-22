@@ -1797,3 +1797,76 @@ in-flight files before committing with `--no-verify`. It handled both correctly 
 until a clean run, formatting only its own files, and staging only its own paths — but that is friction
 the sequential order would not have produced, and a less careful agent could have misread the other's
 work as its own regression. **I would not repeat this for two tasks that share any file.**
+
+## Task 15 — the production route group and four-state shell, first commit `65afc286f`
+
+**Ruling 13 is satisfied with evidence, not assertion.** The workspace's client code exclusive to
+`/caring-contacts` measures **2,121 gzip bytes across two chunks**, and the dashboard route `/`
+downloads **zero** of them — measured on a `rm -rf .next` rebuild verified by `BUILD_ID` mtime, which is
+the trap the brief names. That is 0.14% of the production budget's headroom, so no baseline was
+refreshed and no route key was needed.
+
+The implementer returned DONE_WITH_CONCERNS with three concerns and, correctly, **did not** resolve the
+blocking one by declaring a proof it could not honestly make.
+
+### Ruling 51 — the design-system adoption surface
+
+The gate: every production page route must appear in `docs/design-system/adoption-contract.json`'s
+`productionSurfaces`. I reproduced the failure rather than accepting the description — it is
+`production page route is undeclared: src/app/caring-contacts/page.tsx` plus a manifest determinism
+check. Every existing surface declares `expectedShellState: "v2"` and five proof categories, each with
+**evidence naming a real test file**, and a v2 surface requires a **passed** browser proof.
+
+The conflict: Task 19 is the task that produces browser proof, and **Task 19 cannot be brought
+forward** — I read its brief, and its spec requires all 24 overlays deep-linked, which needs Tasks 17
+and 18. So the plan's own ordering leaves this gate red from Task 15 to Task 19. That is a plan defect,
+and it is mine to settle.
+
+Ruling: [51] Establish what is TRUE for this surface first — the workspace is a standalone application
+that does not mount the Clinical KB `ckb-v2` shell, so a truthful declaration may exist that the gate
+accepts today. If one does, use it and state why it is truthful. **If none does**, the surface declares
+v2 and the browser claim is made TRUE rather than asserted: Task 15 writes the SHELL HALF of Task 19's
+spec now (widths, no horizontal overflow, dock-versus-rail, the width-state attribute), registers it in
+**both** `playwright.config.ts` patterns with the isolation guard written test-first, runs it, and proves
+it can fail. Task 19 then extends the same spec with the overlay half and the dark / forced-colours /
+400%-zoom half. — Why: this is a deliberate split of Task 19 rather than a duplication, because the
+shell half is exactly the part that exists after Task 15 and the overlay half is exactly the part that
+does not. — Cost if wrong: one Playwright spec is authored across two tasks instead of one, and Task 19's
+Step 1 guard is already green when it arrives. Recorded here so that is not read as a skipped step.
+
+**Standing prohibition attached to it: no proof category may point its evidence at a test file that does
+not actually cover this surface.** A false evidence pointer is worse than a red gate — it is a red gate
+that has been silenced. If a category has no honest evidence yet, it is reported as such.
+
+### Ruling 52 — the brief contradicts its own test, and the PROSE wins
+
+The brief's prose says unbuilt destinations are rendered unavailable **with a stated reason**; the test
+code it supplies verbatim demands four `link` roles in the desktop rail. Only `today` ships a page in
+this plan. The implementer followed the test, as instructed, which means Patients, Schedule and Templates
+shipped as links to routes that **404**.
+
+Ruling: [52] The prose wins and the test is authored to match. — Why: a link to a 404 is precisely what
+this repository's button-wiring convention exists to prevent, and the plan's Global Constraints require a
+control unavailable for a stated reason to say so. A clinician clicking "Patients" in a
+suicide-prevention workspace and receiving a not-found page is the concrete harm. The decisive point
+that keeps this clean: `tests/caring-contacts-workspace-shell.dom.test.tsx` is a **new file created by
+this task**, not a pre-existing committed assertion — so writing it correctly is authoring, not
+loosening, and the plan's absolute prohibition is untouched. — Cost if wrong: three destinations are
+reachable a phase later than they might have been. The replacement assertion is strictly stronger than
+the one it replaces: it pins the full destination set in order AND each one's kind, so no dead link can
+appear in either navigation, which a four-link count never checked.
+
+### Ruling 53 — `retry`, not `reset`, in the error boundary
+
+The implementer kept `reset` "for repo consistency". I read
+`node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/error.md` rather than reasoning
+about it. Both props exist in Next 16, so `reset` is not dead — but the documentation is explicit at
+line 157 that `retry()` is what you should use in most cases, and that `reset()` re-renders the
+boundary's children **without re-fetching**. `retry` became stable in v16.3.0, the version this repo runs.
+
+Ruling: [53] Use `retry`, with a comment saying why. — Why: on a data-driven workspace, an error
+boundary's "try again" that does not re-fetch will re-render the same failed state and fail again
+immediately. That is a control advertising an action it does not perform, which is the same defect class
+the button-wiring convention exists to catch. Consistency with older `reset` call sites is not a reason
+to ship it. — Cost if wrong: one file differs in idiom from older error boundaries, which the comment
+explains.
