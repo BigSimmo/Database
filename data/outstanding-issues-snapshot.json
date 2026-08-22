@@ -10,7 +10,7 @@
     "p2": 43,
     "p3": 33,
     "queued": 11,
-    "pending": 31,
+    "pending": 32,
     "resolved": 359
   },
   "queue": [
@@ -870,6 +870,12 @@
       "action": "done",
       "summary": "#HDYCQP: Resolved 2026-08-21: mergeability classifies merged/closed PRs as successful skips before unknown-state retry; both workflow call sites pass state and merged, with offline self-test coverage.",
       "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "296db779-44cb-4817-9592-3ebf22aca38b",
+      "action": "update",
+      "summary": "#1YPV51: detail → PARTIAL PROGRESS 2026-08-22, NOT a clinical sign-off. The sign-off block in docs/medication-interaction-lexicon-review.md is deliberately still empty and the document still reads Status: UNREVIEWED, because a Clinical Lead read of the 37-term sheet has still not happened. What DID happen: the owner reviewed seven specific questions raised from the report and one real defect was found and fixed. FIXED: loperamide was resolving as a member of the opioids term because the selector matches the substring Opioid and the catalogue classifies it Peripheral Opioid Agonist. It is P-gp-restricted at therapeutic doses and does not contribute to the sedation and respiratory-depression rows that term drives (35 of 36 rows CRITICAL or HIGH). It is now deny-listed alongside naltrexone and naloxone, which were already excluded for the same class of reason. Proven, not asserted: regenerating the index with and without the change alters 35 medications, removes loperamide as a counterparty from every one of them, adds nothing anywhere, and leaves resolvedRows/unresolvedRows/rowsWithCatalogueTarget unchanged at 392/133/440. FOUR OTHER CHANGES WERE PROPOSED AND WITHDRAWN after reading the implementation: adding moclobemide to maois, removing atomoxetine from snris, folding the Z-drugs into benzodiazepines, and splitting antihistamines by sedation. All four would have overridden deliberate catalogue classifications (moclobemide is subclass RIMA not MAOI; atomoxetine is subclass SNRI (Non-stimulant); zolpidem and zopiclone are class Sedative subclass Z-Drug) or broken a term's meaning. The sedation concern they were aimed at is carried by the cns-depressants term, which is kind: mechanism and deliberately unenumerable, so it warns on no specific drug by design. TWO QUESTIONS REMAIN FOR THE OWNER, both catalogue-level rather than lexicon-level: (1) should moclobemide's RIMA classification make it fire serotonergic interaction warnings alongside the irreversible MAOIs; (2) is atomoxetine correctly classed SNRI for interaction purposes. STILL OPEN: the full clinical read. Do not close this row without explicit owner confirmation that the review was actually carried out.",
+      "created_at": "2026-08-22"
     },
     {
       "request_id": "2b98cd3b-a7be-454b-a819-9d6a42d52423",
