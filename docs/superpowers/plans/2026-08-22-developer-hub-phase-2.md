@@ -844,8 +844,8 @@ function documentSection(repoPath: string): string {
  * uses: a markdown link written relative to `docs/`, or a full `docs/…` path
  * named in prose or a code span.
  *
- * Absolute URLs are stripped before EITHER scan runs. Both scans look for a
- * `docs/…md` substring, and a URL can contain one —
+ * An `http(s)://` URL is stripped before EITHER scan runs. Both scans look for
+ * a `docs/…md` substring, and a URL can contain one —
  * `https://github.com/BigSimmo/Database/blob/main/docs/some-doc.md` would
  * otherwise mark that document catalogued when the index never listed it.
  * That is a suppressed finding in the one column this panel exists to report,

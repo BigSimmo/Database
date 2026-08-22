@@ -122,12 +122,21 @@ function documentSection(repoPath: string): string {
  * uses: a markdown link written relative to `docs/`, or a full `docs/…` path
  * named in prose or a code span.
  *
- * An absolute URL is stripped before either scan runs, so neither route can be
- * fooled by a plausible-looking `docs/…md` substring inside it — a GitHub blob
- * link such as `https://github.com/…/blob/main/docs/some-doc.md` must not
- * catalogue `docs/some-doc.md`, and a document catalogued by a third-party or
- * repository URL rather than the index's own text is a false positive in the
- * one column this panel exists to report.
+ * An `http(s)://` URL is stripped before either scan runs, so neither route can
+ * be fooled by a plausible-looking `docs/…md` substring inside it — a GitHub
+ * blob link such as `https://github.com/…/blob/main/docs/some-doc.md` must not
+ * catalogue `docs/some-doc.md`, and a document catalogued by a repository URL
+ * rather than the index's own text is a false positive in the one column this
+ * panel exists to report.
+ *
+ * Scheme-specific on purpose, and the wording says so rather than claiming
+ * "absolute URLs": two narrow forms are NOT covered — a protocol-relative
+ * `//host/…/docs/a.md` written as bare prose, and an `https://` URL manually
+ * wrapped across two lines, since `\S+` cannot cross a newline. Neither occurs
+ * in `docs/README.md`, which currently contains no URLs at all. Broadening the
+ * pattern to a bare `//` was considered and rejected: it would also strip the
+ * `//` of a comment inside a fenced code block, which fails in the worse
+ * direction by hiding a document the index really does list.
  */
 function catalogueTargets(readmeMarkdown: string): Set<string> {
   const targets = new Set<string>();
