@@ -2493,3 +2493,48 @@ is real and the gap is stated. A substitute proof presented as the original is n
 
 The re-reviewer confirmed the corrections sit as blockquotes **directly beneath the sentences that made
 them**, not appended somewhere vaguer where a later reader would meet the overstatement first.
+
+# FINAL WHOLE-BRANCH REVIEW — Phase 2A
+
+Dispatched as three parallel reviewers on Opus, each with a distinct lens, because the branch is 134
+code files / ~23,500 lines / 119 commits and a single pass over that would skim. Lenses: clinical safety
+and privacy; assertions that cannot fail; cross-task consistency and triage of the carried findings.
+
+## CRITICAL — patient data written in plaintext to a table nobody classified as holding it
+
+**Verdict: confirmed independently before acting.** This is the most consequential finding of the phase
+and it survived nineteen task reviews, because every one of them looked at the table it was told to.
+
+`fingerprintOf` in `src/lib/caring-contacts/fingerprint.ts` produces a canonical **string**, not a hash —
+`{input:{patientDetail:{patientMobileNumber:string:+61 …,patientName:string:…}}}`. Both stores compute it
+over `{ method, input }` and insert it **verbatim** into `caring_contacts.idempotency_records.fingerprint`.
+For `createPlan` the input is the whole `CreatePlanInput`, carrying patient name, mobile number,
+identifiers and cultural identity. For `stopService` and `resolveDispatchDiscrepancy` it carries the
+responder's free-text incident note, and for `stopService` the `result` column holds it too.
+
+Why nineteen reviews missed it, which is the part worth learning from:
+
+- **The guards are excellent and they all point at the audit trail.** `assertAuditEventFreeOfPatientData`
+  scans every own key; `note` is a forbidden field name; the stop's `objectId` is the constant `"service"`.
+  The table written **in the same transaction, one table over**, has no guard at all.
+- **The contract test that proves patient detail stays out of the trail checks the RETURNED records**,
+  not the stored rows, so it passes over this untouched.
+- **`idempotency_records` appears in the entire test corpus twice**: once as a truncate target and once in
+  a table-exists list. Nothing has ever asserted on its content. I verified both facts myself.
+- 0001's headline design claim is that cultural identity lives in exactly one table so "de-identification
+  has one table to clear". **It now has two, and the second is not named anywhere.**
+
+**It also crosses teams**, by the same path the HTTP boundary was carefully built to close. Restart
+approvals are deliberately service-wide, so a TEAM-SOUTH approver's `approveServiceRestart` row stores
+TEAM-NORTH's incident note under TEAM-SOUTH's `team_id`, readable by TEAM-SOUTH under row-level security.
+
+**The general lesson: a data-privacy guard protects the table it names, and the review that verifies it
+inherits that scope.** Every reviewer here was asked to trace the note to its egresses and every one
+traced it through the paths the design documents describe. The escape was through a table whose purpose
+is replay bookkeeping, which no design note classifies as holding patient data — so nobody looked, for
+nineteen tasks. **Ask what a mechanism stores incidentally, not only what it is for.**
+
+Fix: hash the canonical string inside `fingerprint.ts`, so both stores change together and cannot drift.
+The value is only ever compared for equality, so replay semantics are unchanged. Then narrow what
+`result` may hold. And add the test that would have caught it, beside the existing one that checks the
+same property about the audit trail and stops one table short.
