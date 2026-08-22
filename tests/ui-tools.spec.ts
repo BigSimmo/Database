@@ -536,6 +536,21 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("a no-match Tools URL can return to the full catalogue without a composer", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoLauncher(page, "/tools?q=unknown&run=1");
+
+    const results = page.getByTestId("tools-search-results-page");
+    await expect(results.getByRole("heading", { level: 2, name: "No tools match" })).toBeVisible();
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
+    const showAll = results.getByRole("link", { name: "Show all tools" });
+    await expect(showAll).toHaveAttribute("href", "/tools");
+    await Promise.all([page.waitForURL(/\/tools$/), showAll.click()]);
+    await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("submitted Tools results use the shared phone filter and approved detail sheet", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/tools?q=Compare&run=1");
