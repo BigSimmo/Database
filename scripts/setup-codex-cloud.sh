@@ -47,7 +47,7 @@ expected_node_range="$(sed -n 's/.*"node"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/
 expected_node_floor="$(printf '%s\n' "$expected_node_range" | sed -n 's/^>=\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\) <[0-9][0-9]*$/\1/p')"
 expected_node_ceiling="$(printf '%s\n' "$expected_node_range" | sed -n 's/^>=[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]* <\([0-9][0-9]*\)$/\1/p')"
 expected_npm_version="$(sed -n 's/.*"packageManager"[[:space:]]*:[[:space:]]*"npm@\([^"]*\)".*/\1/p' package.json | head -n 1)"
-codex_cli_version="0.146.0"
+codex_cli_version="0.147.0"
 expected_cloud_python="3.12"
 [[ -n "$expected_node_major" ]] || fail "Could not read the Node major from .node-version."
 [[ -n "$expected_node_floor" && -n "$expected_node_ceiling" ]] || fail "Could not read the bounded Node range from package.json engines.node."
@@ -302,16 +302,17 @@ if ! command -v deno >/dev/null 2>&1 || [[ "$(deno --version 2>/dev/null | sed -
 fi
 
 setup_step="system-packages"
-python_bin="$(command -v python3 || command -v python || true)"
-setup_step="system-packages"
+# shellcheck source=scripts/select-codex-cloud-python.sh
+source scripts/select-codex-cloud-python.sh
+python_bin="$(select_codex_cloud_python "$expected_cloud_python" || true)"
+[[ -n "$python_bin" ]] ||
+  fail "Python ${expected_cloud_python} is required for the Cloud worker lock. Pin Python ${expected_cloud_python} in the Codex Cloud environment."
 system_packages=()
 if ! command -v tesseract >/dev/null 2>&1; then
   system_packages+=(tesseract-ocr)
 fi
-if [[ -z "$python_bin" ]]; then
-  system_packages+=(python3 python3-venv)
-elif ! "$python_bin" -c 'import venv' >/dev/null 2>&1; then
-  system_packages+=(python3-venv)
+if ! "$python_bin" -c 'import venv' >/dev/null 2>&1; then
+  system_packages+=("python${expected_cloud_python}-venv")
 fi
 
 if (( ${#system_packages[@]} > 0 )); then
@@ -328,8 +329,8 @@ if (( ${#system_packages[@]} > 0 )); then
   fi
 fi
 
-python_bin="$(command -v python3 || command -v python || true)"
-[[ -n "$python_bin" ]] || fail "Python 3 is unavailable."
+python_bin="$(select_codex_cloud_python "$expected_cloud_python" || true)"
+[[ -n "$python_bin" ]] || fail "Python ${expected_cloud_python} is unavailable after system package setup."
 actual_python_version="$($python_bin -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
 [[ "$actual_python_version" = "$expected_cloud_python" ]] || fail "Python ${expected_cloud_python} is required for the Cloud worker lock; detected ${actual_python_version}. Select Python ${expected_cloud_python} in the Cloud environment."
 ocr_venv="$HOME/.cache/clinical-kb-codex/ocr-venv-${expected_cloud_python}"
