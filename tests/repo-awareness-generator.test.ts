@@ -11,6 +11,7 @@ import {
   buildRoutesSection,
   buildTestHealthSection,
   readFlakeLedger,
+  readReviewRecordRows,
   type SiteMapInput,
 } from "../scripts/generate-repo-awareness-snapshot";
 
@@ -301,6 +302,16 @@ describe("buildReviewStateSection", () => {
     };
     expect(buildReviewStateSection([abbreviated]).records[0].head).toBe("1a2b3c4");
   });
+
+  it("names the file when a record carries no parsable row", () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "review-records-empty-"));
+    try {
+      writeFileSync(path.join(dir, "fff.record.md"), "# not a table row\n", "utf8");
+      expect(() => readReviewRecordRows(dir)).toThrow(/fff\.record\.md: no review record row found/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("the real review record corpus", () => {
@@ -316,6 +327,8 @@ describe("the real review record corpus", () => {
       expect(record.ref.length).toBeGreaterThan(0);
       expect(record.head).toMatch(/^[0-9a-f]{7,40}$/);
       expect(record.checks).not.toMatch(/\\\|/);
+      expect(record.scope.length).toBeGreaterThan(0);
+      expect(record.outcome.length).toBeGreaterThan(0);
     }
   });
 });

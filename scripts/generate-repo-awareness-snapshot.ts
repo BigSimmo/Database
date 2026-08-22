@@ -330,11 +330,23 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
       // rejecting them would drop real reviews from the panel.
       return { date, ref, head, scope, outcome, checks };
     })
-    // Newest first, then ref, then head — a total order, so two records sharing
-    // a date cannot swap places between runs and fail the staleness gate.
+    // Newest first, then ref, head and scope. That is NOT guaranteed to be a
+    // total order: 21 records in the current corpus share a date, ref AND head,
+    // because one branch can be reviewed twice at one commit under different
+    // scopes, and nothing structurally prevents two records sharing all four.
+    //
+    // Determinism therefore rests on two further facts, not on the comparator:
+    // `readReviewRecordRows` sorts filenames, so its output order is the same on
+    // every platform, and `Array.prototype.sort` is specified stable, so ties
+    // keep that order. If either ever stops holding — records merged from a
+    // second source, or an unsorted glob — this comparator will start flapping
+    // the staleness gate for exactly those records, and no test will say why.
     .sort(
       (left, right) =>
-        right.date.localeCompare(left.date) || left.ref.localeCompare(right.ref) || left.head.localeCompare(right.head),
+        right.date.localeCompare(left.date) ||
+        left.ref.localeCompare(right.ref) ||
+        left.head.localeCompare(right.head) ||
+        left.scope.localeCompare(right.scope),
     );
 
   return {
