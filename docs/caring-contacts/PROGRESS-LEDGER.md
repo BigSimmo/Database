@@ -4,7 +4,11 @@
 a second copy of the detail: each row points at the file that holds the reasoning. Where this file and a
 detailed record disagree, **the detailed record wins** — this one is a summary and can go stale.
 
-Last updated at head `87cfdd40d`, 2026-08-22. Branch `claude/suicide-contact-mockup-b5aaa0`, pushed.
+Last updated at head `05584f9b5`, 2026-08-23. Branch `claude/suicide-contact-mockup-b5aaa0`, pushed.
+
+> **The branch is SHARED.** On 2026-08-22 a commit (`c3ef20c3f`) authored elsewhere — not from this
+> machine's clone — landed on it while a session was mid-task. `git fetch` before every push, and treat
+> any full-suite result taken on a moving tree as a hypothesis. See Ruling 66.
 
 ---
 
@@ -24,7 +28,7 @@ experience and clinical sign-off are required before any real use.
 | Phase | Deliverable                                                                  | State                                 |
 | ----- | ---------------------------------------------------------------------------- | ------------------------------------- |
 | 1     | The rules and the database                                                   | **Complete**, 2026-08-19              |
-| 2A    | Foundations — sealed domain, storage, data path, shell, overlays             | **In progress** — 11 of 19 tasks done |
+| 2A    | Foundations — sealed domain, storage, data path, shell, overlays             | **19 of 19 built**; closing work open |
 | 2B    | The working clinician-facing screens                                         | Not started; needs its own plan       |
 | 3     | Demonstrable — demo clock, synthetic caseload, training mode, record summary | Not started                           |
 
@@ -38,43 +42,72 @@ experience and clinical sign-off are required before any real use.
 
 ## 4. Task status — Phase 2A (19 tasks, 5 groups)
 
-| Task | What it is                                       | State                                                  |
-| ---- | ------------------------------------------------ | ------------------------------------------------------ |
-| 1    | Patient-visible copy into the sealed domain      | Complete, reviewed clean                               |
-| 2    | Roles and actions                                | Complete, reviewed clean                               |
-| 3    | Service safety stop                              | Complete, 1 fix round                                  |
-| 4    | Pathway versions and dual approval               | Complete, 1 fix round                                  |
-| 5    | Referrals                                        | Complete (batched 5-7)                                 |
-| 6    | Plan ownership, reassignment, coverage           | Complete (batched 5-7)                                 |
-| 7    | Moving a contact / changing its date             | Complete (batched 5-7)                                 |
-| 8    | Auditing a view, not only a write                | Complete, 1 fix round (a CRITICAL finding)             |
-| 9    | Notification preferences and training            | Complete, reviewed clean                               |
-| —    | **Checkpoint 1**                                 | **PASSED** — 7,604 tests, typecheck and lint green     |
-| 10   | Storage contract + in-memory store (~21 methods) | Complete, 1 fix round (7 findings), 101 tests          |
-| 11a  | Migration 0003 + row-level security              | Complete, **3 fix rounds**, 96 database tests          |
-| 11b  | Shared-contract move + 22 Postgres methods       | Complete, 2 fix rounds, review clean — typecheck GREEN |
-| —    | **Checkpoint 2**                                 | **PASSED** — see the build record                      |
-| 12   | Database config that can never hit Clinical KB   | Complete, batched with 13, 1 fix round, review clean   |
-| 13   | Demo role switcher                               | Complete, batched with 12, 1 fix round, review clean   |
-| 14   | Route handlers that audit every view             | Complete, 2 fix rounds, review clean                   |
-| 15   | Route group, four width states, inbound link     | Complete, 1 fix round, review clean                    |
-| 16   | Service-state banner                             | Complete, 1 fix round, review clean                    |
-| 17   | The frozen 24-row overlay definition table       | Complete, 1 fix round, review clean — 0 Important      |
-| 18   | One renderer, twenty-four overlays               | Complete, 2 fix rounds, review clean                   |
-| 19   | Browser proof at six widths + plan closing steps | **IN PROGRESS** — Opus, last build task                |
-| —    | Final whole-branch review                        | Pending — Opus work                                    |
+| Task | What it is                                       | State                                                   |
+| ---- | ------------------------------------------------ | ------------------------------------------------------- |
+| 1    | Patient-visible copy into the sealed domain      | Complete, reviewed clean                                |
+| 2    | Roles and actions                                | Complete, reviewed clean                                |
+| 3    | Service safety stop                              | Complete, 1 fix round                                   |
+| 4    | Pathway versions and dual approval               | Complete, 1 fix round                                   |
+| 5    | Referrals                                        | Complete (batched 5-7)                                  |
+| 6    | Plan ownership, reassignment, coverage           | Complete (batched 5-7)                                  |
+| 7    | Moving a contact / changing its date             | Complete (batched 5-7)                                  |
+| 8    | Auditing a view, not only a write                | Complete, 1 fix round (a CRITICAL finding)              |
+| 9    | Notification preferences and training            | Complete, reviewed clean                                |
+| —    | **Checkpoint 1**                                 | **PASSED** — 7,604 tests, typecheck and lint green      |
+| 10   | Storage contract + in-memory store (~21 methods) | Complete, 1 fix round (7 findings), 101 tests           |
+| 11a  | Migration 0003 + row-level security              | Complete, **3 fix rounds**, 96 database tests           |
+| 11b  | Shared-contract move + 22 Postgres methods       | Complete, 2 fix rounds, review clean — typecheck GREEN  |
+| —    | **Checkpoint 2**                                 | **PASSED** — see the build record                       |
+| 12   | Database config that can never hit Clinical KB   | Complete, batched with 13, 1 fix round, review clean    |
+| 13   | Demo role switcher                               | Complete, batched with 12, 1 fix round, review clean    |
+| 14   | Route handlers that audit every view             | Complete, 2 fix rounds, review clean                    |
+| 15   | Route group, four width states, inbound link     | Complete, 1 fix round, review clean                     |
+| 16   | Service-state banner                             | Complete, 1 fix round, review clean                     |
+| 17   | The frozen 24-row overlay definition table       | Complete, 1 fix round, review clean — 0 Important       |
+| 18   | One renderer, twenty-four overlays               | Complete, 2 fix rounds, review clean                    |
+| 19   | Browser proof at six widths + plan closing steps | Complete, 1 fix round, review clean                     |
+| —    | Final whole-branch review                        | **Done** — three parallel reviewers, distinct lenses    |
+| —    | Post-review fixes (Rulings 60-65)                | Complete — incl. a CRITICAL patient-data finding        |
+| —    | Condensed pinned safety bar (owner-requested)    | Built, 1 fix round; **2 mutation proofs still unrun**   |
+| —    | Copy review document for the owner               | **Delivered** — `copy-review.md`, 7 items need his call |
 
 ## 5. Verification evidence, as recorded
 
-| Gate                         | Result                                                                               |
-| ---------------------------- | ------------------------------------------------------------------------------------ |
-| Phase 1 gate                 | 7,531 tests / 682 files; tsc silent; lint 0 warnings; 55 database tests              |
-| Phase 2A Checkpoint 1        | 7,604 tests passed; typecheck and lint green                                         |
-| Task 10                      | 101 tests (up from 84)                                                               |
-| Task 11a, through 3 rounds   | 55 → 71 → 87 → 93 → **96 passed**                                                    |
-| Task 11b, through 2 rounds   | 96 → 159 → 162 → **163 passed** database; full suite **7671 passed, 0 failed**       |
-| Current known-red (expected) | **NONE.** Task 11b closed both. `tsc --noEmit` produces no output; the full suite is |
-|                              | green. This is the first point in Phase 2A with no expected failure at all.          |
+| Gate                         | Result                                                                                  |
+| ---------------------------- | --------------------------------------------------------------------------------------- |
+| Phase 1 gate                 | 7,531 tests / 682 files; tsc silent; lint 0 warnings; 55 database tests                 |
+| Phase 2A Checkpoint 1        | 7,604 tests passed; typecheck and lint green                                            |
+| Task 10                      | 101 tests (up from 84)                                                                  |
+| Task 11a, through 3 rounds   | 55 → 71 → 87 → 93 → **96 passed**                                                       |
+| Task 11b, through 2 rounds   | 96 → 159 → 162 → **163 passed** database; full suite **7671 passed, 0 failed**          |
+| Full suite, 2026-08-23       | `Test Files 2 failed \| 701 passed \| 2 skipped (705)`; `Tests 3 failed \| 7841 passed` |
+| Current known-red (expected) | **NONE in this work.** Both 2026-08-23 failures were artefacts, proven so: the          |
+|                              | caring-contacts one passed 22/22 on re-run of the same commit (a concurrent agent       |
+|                              | held a source file mid-edit), and the other was a 120 s timeout under machine load.     |
+| Browser gate                 | **Was fully red — 32/32 — for a reason outside this work**, then unblocked. See §5b.    |
+
+### 5b. The production lock, and why the browser gate went red
+
+`c3ef20c3f` (from the concurrent session) correctly made every Caring Contacts route fail closed when
+`NODE_ENV === "production"`, because the demo role cookie is forgeable and there is no real sign-on yet.
+The browser gate builds and serves a **production** app, so the workspace 404'd and **all 32 tests in
+`tests/ui-caring-contacts-workspace.spec.ts` failed, including the 18 that predate the condensed bar**.
+
+Resolved on the owner's explicit approval (asked, not ruled — it is an access-control decision on a
+suicide-prevention tool, deliberately made by another session). `isCaringContactsDemoEnabled` now takes
+**one** exception, requiring **both** `PLAYWRIGHT_OFFLINE_MODE` and `NEXT_PUBLIC_DEMO_MODE` to be exactly
+`"true"`. This is the same exception `shouldBlockProductionMockups` (`src/proxy.ts`) already makes, and
+`src/instrumentation.ts` refuses to start a production process carrying `PLAYWRIGHT_OFFLINE_MODE` unless
+the output is the runner's isolated directory AND the process is provider-free — inert loopback Supabase,
+no service-role key, no OpenAI key. The exception therefore only opens where there is nothing real to
+reach. Four "the production lock" tests pin it, and the `&&` → `||` widening mutation reddens them.
+
+Two traps found while measuring it, both worth more than the incident:
+
+- **`npx playwright test` directly exits 0 while running nothing.** The repo refuses it with an
+  `Error:` and exit code **0**. Use `npm run test:e2e -- <spec> --project=chromium`.
+- **Piping a gate through `| tail -40` destroyed the per-failure detail** at the moment it was needed.
+  Redirect the full log to a file, then slice it.
 
 **Deliberate-breakage discipline.** Passing tests are never taken as proof. Across the programme, mutation
 has caught: a contact dispatched after a recorded death; ten dispatches across nine days; a fourth retry;

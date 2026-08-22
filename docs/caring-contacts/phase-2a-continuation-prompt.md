@@ -9,11 +9,18 @@ file.
 ---
 
 ```
-Caring Contacts — Phase 2A, continue with Task 11b. Read before writing anything.
+Caring Contacts — Phase 2A is BUILT. Finish its closing work, then plan Phase 2B. Read before
+writing anything.
 
 ═══ WHERE THE WORK IS ═══
 Repository:  D:\Repos\Database            (remote: github.com/BigSimmo/Database)
 Branch:      claude/suicide-contact-mockup-b5aaa0  — PUSHED. origin holds it. That is the source of truth.
+
+THE BRANCH IS SHARED. It is not yours alone. On 2026-08-22 commit c3ef20c3f landed on it from a clone
+that is NOT on this machine (this repo's branch reflog never held it), while a session was mid-task.
+So: `git fetch` BEFORE every push, not after a rejection; never force-push it; and treat any full-suite
+result taken while another agent is editing as a hypothesis, not a result. A phantom failure and a
+phantom pass are equally possible — see "the phantom failures" in the build record.
 
 FIRST ACTION — make yourself a working copy. Do NOT assume one already exists:
     cd D:\Repos\Database
@@ -52,11 +59,39 @@ READ NOW, IN THIS ORDER. Stop once you can state the resume point back to me.
   2. docs/caring-contacts/phase-2a-handoff.md
        Session entry point: what this is, exactly where work stopped, the rules that fail the build.
   3. docs/caring-contacts/phase-2a-build-record.md
-       THE ledger and the most important file here. All 34 rulings with what each costs if wrong,
+       THE ledger and the most important file here. All 66 rulings with what each costs if wrong,
        every deferred finding, every review outcome, every test result. Its FINAL "RESUME POINT"
        supersedes everything above it. Trust this file and `git log` over any assumption.
-  4. docs/caring-contacts/phase-2a-sdd-archive/task-11b-brief.md
-       YOUR TASK. Complete and self-contained — follow it rather than re-deriving it.
+  4. docs/caring-contacts/copy-review.md
+       189 strings — every word the system can show a patient or a clinician. DELIVERED to the owner
+       2026-08-23. Its last section lists SEVEN items awaiting his clinical decision. Do not change
+       patient-visible wording until he has answered.
+
+═══ WHERE WORK ACTUALLY STOPPED, 2026-08-23 ═══
+
+All 19 Phase 2A tasks are built and reviewed, the final whole-branch review ran (three parallel
+reviewers, distinct lenses), and its findings were fixed through Ruling 65 — including a CRITICAL one:
+patient name, mobile number and the free-text incident note were being written in plaintext to the
+idempotency table. Rulings now run to 66.
+
+OPEN, in the order I would take them:
+
+  1. THE BROWSER GATE WAS RUNNING WHEN THE SESSION ENDED, and its result is unknown. Re-run it:
+         npm run test:e2e -- tests/ui-caring-contacts-workspace.spec.ts --project=chromium
+     Redirect the whole log to a file; do NOT pipe it through `tail`, which destroys the per-failure
+     detail. NEVER invoke `npx playwright test` directly — the repo refuses it with an `Error:` line
+     and EXIT CODE 0, so it looks like a pass and ran nothing. Expect 33 tests.
+  2. TWO MUTATION PROOFS ARE UNRUN and are recorded as unrun, not as passed — the condensed bar's
+     pin assertion at 1440px, and its dark-mode colour assertion. Both were blocked on the browser
+     gate. Run them once (1) is green, or the bar's fix round is not closed.
+  3. THE SEVEN COPY ITEMS await the owner. Recommendations are already written and given to him.
+  4. PHASE 2B has no plan yet. The owner's stated order: patients and their plans -> schedule and
+     what's due -> message templates -> team, workload and coverage.
+  5. An `/issues capture` sweep has NOT been run. Deferred items currently survive only in the build
+     record: the accidental same-team serialisation; postgres-repository.ts at ~2,080 lines; four
+     bare foreign keys onto plans/contacts; the prohibited-language gate covering only the 24 overlay
+     rows; the frozen matrix's ambiguous "Recovery action only" wording; Ruling 60's 640-767px band;
+     `connection-unavailable` and `permission-unavailable` having no runtime caller.
 
 THE AUTHORITIES, if the brief sends you there or a conflict arises
   - docs/superpowers/plans/2026-08-19-caring-contact-phase-2a-foundations.md
