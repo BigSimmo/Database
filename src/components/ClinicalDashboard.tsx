@@ -3051,6 +3051,10 @@ export function ClinicalDashboard({
     showDesktopHomeComposer && (showSharedHome || activeModeResultKind !== "tools") ? "all" : "sm-up";
   const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
   const hasMobileBottomSearch = searchMode !== "answer" && !heroOwnsPhoneComposer && !toolsDirectoryWithoutComposer;
+  // Tools owns its local catalogue controls, so the sidebar's cross-guide
+  // search action must leave the directory before trying to focus a shared
+  // composer that is intentionally absent.
+  const openSidebarSearch = toolsDirectoryWithoutComposer ? startNewChat : focusComposerInput;
   // Favourites and Tools are content-rich hubs that stay top-aligned; the shared
   // home mounts neither, so it centres like every other mode.
   const centeredModeHome =
@@ -3287,7 +3291,7 @@ export function ClinicalDashboard({
         onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
         onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
-        onOpenSearch={focusComposerInput}
+        onOpenSearch={openSidebarSearch}
         showAccountLibrary={favouritesAccessible}
       />
       <PhoneFooterLayerFrame
@@ -4084,7 +4088,7 @@ export function ClinicalDashboard({
           onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
           onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
           onPrefetchApplications={prefetchApplications}
-          onOpenSearch={focusComposerInput}
+          onOpenSearch={openSidebarSearch}
           showAccountLibrary={favouritesAccessible}
         />
       </PhoneFooterLayerFrame>

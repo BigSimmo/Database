@@ -481,7 +481,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       await expect(page.getByLabel("Mode Tools")).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
       await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
-      await expect(page.getByTestId("tools-local-search-input")).toHaveCount(0);
+      await expect(page.getByTestId("tools-local-search-input")).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     });
   }
@@ -1191,9 +1191,9 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("tablet mode homes keep the shared search in the hero, not the bottom dock", async ({ page }) => {
+  test("tablet non-Tools mode homes keep the shared search in the hero, not the bottom dock", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
-    for (const home of ["/services", "/forms", "/differentials", "/tools"]) {
+    for (const home of ["/services", "/forms", "/differentials"]) {
       await gotoLauncher(page, home);
       const heroInput = page.locator(".mode-home-composer-slot").getByTestId("global-search-input");
       await expect(heroInput).toBeVisible({ timeout: 15_000 });
@@ -1208,6 +1208,17 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       expect(geometry.bottom).toBeLessThan(geometry.viewportHeight - 40);
       await expectNoPageHorizontalOverflow(page);
     }
+  });
+
+  test("tablet legacy Tools alias uses its local filter without shared search chrome", async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await gotoLauncher(page, "/?mode=tools");
+
+    await expect(page.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
+    await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
+    await expect(page.getByTestId("tools-local-search-input")).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
   });
 
   test("desktop answer footer opens the command surface above the pill", async ({ page }) => {
