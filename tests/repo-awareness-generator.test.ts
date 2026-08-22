@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { appModeDefinitions } from "@/lib/app-modes";
@@ -5,6 +9,7 @@ import {
   buildDocumentationSection,
   buildRoutesSection,
   buildTestHealthSection,
+  readFlakeLedger,
   type SiteMapInput,
 } from "../scripts/generate-repo-awareness-snapshot";
 
@@ -191,12 +196,25 @@ describe("buildTestHealthSection", () => {
     expect(section.counts.quarantined).toBe(1);
   });
 
-  it("never stores whether an entry has expired", () => {
-    // Expiry is arithmetic against the current date. Storing it would change
-    // the file's bytes daily and fail the staleness gate on an unchanged repo.
+  it("emits exactly the ten mapped fields, so no time-derived flag can be added quietly", () => {
+    // Expiry is arithmetic against the current date. Storing it under ANY name
+    // would change the snapshot's bytes daily and fail the staleness gate on an
+    // unchanged repository. A `not.toHaveProperty("expired")` check pins one
+    // spelling; this pins the rule, and goes red for `isExpired` or `lapsed` too.
     const section = buildTestHealthSection({ flakes: [FLAKE] });
-    expect(section.quarantined[0]).not.toHaveProperty("expired");
-    expect(section.counts).not.toHaveProperty("expired");
+    expect(Object.keys(section.quarantined[0]).sort()).toEqual([
+      "expires",
+      "first_seen",
+      "id",
+      "last_seen",
+      "owner",
+      "reason",
+      "reproduction",
+      "spec",
+      "title",
+      "tracking",
+    ]);
+    expect(Object.keys(section.counts)).toEqual(["quarantined"]);
   });
 
   it("fails loudly and names the entry when a required field is missing or blank", () => {
@@ -211,5 +229,16 @@ describe("buildTestHealthSection", () => {
     const sameDay = { ...FLAKE, id: "a-same" };
     const section = buildTestHealthSection({ flakes: [later, FLAKE, sameDay] });
     expect(section.quarantined.map((entry) => entry.id)).toEqual(["a-same", "ui-smoke-composer", "b-later"]);
+  });
+
+  it("names the file when the ledger is malformed, rather than emptying the panel", () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "flake-ledger-malformed-"));
+    try {
+      const bad = path.join(dir, "flake-ledger.json");
+      writeFileSync(bad, JSON.stringify({ $comment: "no flakes key" }), "utf8");
+      expect(() => readFlakeLedger(bad)).toThrow(/flake-ledger\.json: expected a "flakes" array/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -982,12 +982,29 @@ describe("buildTestHealthSection", () => {
     expect(section.counts.quarantined).toBe(1);
   });
 
-  it("never stores whether an entry has expired", () => {
-    // Expiry is arithmetic against the current date. Storing it would change
-    // the file's bytes daily and fail the staleness gate on an unchanged repo.
+  it("emits exactly the ten mapped fields, so no time-derived flag can be added quietly", () => {
+    // Expiry is arithmetic against the current date. Storing it under ANY name
+    // would change the snapshot's bytes daily and fail the staleness gate on an
+    // unchanged repository.
+    //
+    // This pins the whole key set rather than one spelling. The earlier version
+    // asserted `not.toHaveProperty("expired")`, which sailed straight past
+    // `isExpired`, `lapsed` or `stale` — the rule was enforced only incidentally,
+    // by a `toEqual` in a different test.
     const section = buildTestHealthSection({ flakes: [FLAKE] });
-    expect(section.quarantined[0]).not.toHaveProperty("expired");
-    expect(section.counts).not.toHaveProperty("expired");
+    expect(Object.keys(section.quarantined[0]).sort()).toEqual([
+      "expires",
+      "first_seen",
+      "id",
+      "last_seen",
+      "owner",
+      "reason",
+      "reproduction",
+      "spec",
+      "title",
+      "tracking",
+    ]);
+    expect(Object.keys(section.counts)).toEqual(["quarantined"]);
   });
 
   it("fails loudly and names the entry when a required field is missing or blank", () => {
@@ -1087,14 +1104,30 @@ export function buildTestHealthSection(ledger: FlakeLedgerFile): TestHealthSecti
 }
 
 export function readFlakeLedger(ledgerPath = FLAKE_LEDGER_PATH): FlakeLedgerFile {
-  return JSON.parse(readFileSync(ledgerPath, "utf8")) as FlakeLedgerFile;
+  // A corrupt ledger must fail loudly NAMING the file, not surface as a bare
+  // `SyntaxError` or `Cannot read properties of undefined (reading 'map')`, and
+  // above all must not become a silently empty panel — which is exactly the
+  // under-reporting failure this feature exists to prevent.
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(ledgerPath, "utf8"));
+  } catch (error) {
+    throw new Error(`${ledgerPath}: could not be read or parsed — ${(error as Error).message}`);
+  }
+  const ledger = parsed as FlakeLedgerFile;
+  if (!Array.isArray(ledger?.flakes)) {
+    throw new Error(
+      `${ledgerPath}: expected a "flakes" array; a corrupt ledger must not silently become an empty panel.`,
+    );
+  }
+  return ledger;
 }
 ```
 
 - [ ] **Step 5: Run the test to verify it passes**
 
 Run: `npm run test -- tests/repo-awareness-generator.test.ts`
-Expected: PASS, 19 tests.
+Expected: PASS, 20 tests.
 
 Run: `npm run typecheck:source`
 Expected: exit 0.
@@ -1323,7 +1356,7 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
 - [ ] **Step 5: Run the test to verify it passes**
 
 Run: `npm run test -- tests/repo-awareness-generator.test.ts`
-Expected: PASS, 26 tests, including the real-corpus parse over 454 records.
+Expected: PASS, 27 tests, including the real-corpus parse over 454 records.
 
 Run: `npm run typecheck:source`
 Expected: exit 0.
@@ -1519,7 +1552,7 @@ non-empty diff means something in the snapshot is not deterministic; find it bef
 - [ ] **Step 7: Run the tests to verify they pass**
 
 Run: `npm run test -- tests/repo-awareness-generator.test.ts`
-Expected: PASS, 30 tests, including the no-git proof.
+Expected: PASS, 31 tests, including the no-git proof.
 
 Run: `npm run typecheck:source`
 Expected: exit 0.

@@ -206,7 +206,7 @@ export type FlakeLedgerFile = { $comment?: string; flakes: readonly Record<strin
 function requireString(entry: Record<string, unknown>, field: string): string {
   const value = entry[field];
   if (typeof value !== "string" || value.trim() === "") {
-    throw new Error(`${FLAKE_LEDGER_PATH}: entry ${String(entry.id ?? "(no id)")} is missing "${field}".`);
+    throw new Error(`flake ledger entry ${String(entry.id ?? "(no id)")} is missing "${field}".`);
   }
   return value;
 }
@@ -231,7 +231,11 @@ export function buildTestHealthSection(ledger: FlakeLedgerFile): TestHealthSecti
       };
     })
     // Soonest expiry first: the quarantine closest to lapsing is the one that
-    // needs a decision. `id` breaks ties so the order is total.
+    // needs a decision. `id` breaks ties, and `id` is unique because
+    // `validateFlakeLedgerEntries` in `scripts/flake-ledger.mjs` enforces that —
+    // this module never checks it itself. `Array.prototype.sort` is specified
+    // as stable, so even if that external guarantee ever lapsed, a duplicate
+    // `id` could only ever tie deterministically, never reorder between runs.
     .sort((left, right) => left.expires.localeCompare(right.expires) || left.id.localeCompare(right.id));
 
   return {
@@ -242,5 +246,17 @@ export function buildTestHealthSection(ledger: FlakeLedgerFile): TestHealthSecti
 }
 
 export function readFlakeLedger(ledgerPath = FLAKE_LEDGER_PATH): FlakeLedgerFile {
-  return JSON.parse(readFileSync(ledgerPath, "utf8")) as FlakeLedgerFile;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(ledgerPath, "utf8"));
+  } catch (error) {
+    throw new Error(`${ledgerPath}: could not be read or parsed — ${(error as Error).message}`);
+  }
+  const ledger = parsed as FlakeLedgerFile;
+  if (!Array.isArray(ledger?.flakes)) {
+    throw new Error(
+      `${ledgerPath}: expected a "flakes" array; a corrupt ledger must not silently become an empty panel.`,
+    );
+  }
+  return ledger;
 }
