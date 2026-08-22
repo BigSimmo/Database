@@ -48,6 +48,7 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
+import { ClinicalAskSessionProvider } from "@/components/clinical-dashboard/clinical-ask-session-context";
 import { useClinicalAskShellState } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
 import {
   ClinicalAskComposerActions,
@@ -280,12 +281,27 @@ export type { AnswerFeedbackType } from "@/lib/answer-feedback";
  * @param focusSearch - Whether to focus the search input on load.
  * @param autoRunSearch - Whether to automatically submit the initial query.
  */
-export function ClinicalDashboard({
+type ClinicalDashboardProps = {
+  initialSearchMode?: AppModeId;
+  initialQuery?: string;
+  focusSearch?: boolean;
+  autoRunSearch?: boolean;
+};
+
+export function ClinicalDashboard(props: ClinicalDashboardProps = {}) {
+  return (
+    <ClinicalAskSessionProvider>
+      <ClinicalDashboardContent {...props} />
+    </ClinicalAskSessionProvider>
+  );
+}
+
+function ClinicalDashboardContent({
   initialSearchMode = "answer",
   initialQuery = "",
   focusSearch = false,
   autoRunSearch = false,
-}: { initialSearchMode?: AppModeId; initialQuery?: string; focusSearch?: boolean; autoRunSearch?: boolean } = {}) {
+}: ClinicalDashboardProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -2667,6 +2683,11 @@ export function ClinicalDashboard({
     focusComposerInput();
   }
 
+  function stageClinicalAskFollowUpDraft(draft: string) {
+    setQuery(draft);
+    focusComposerInput();
+  }
+
   function handleFollowUpQuote(quote: QuoteCard) {
     stageAnswerFollowUpDraft(createQuoteFollowUp(quote));
   }
@@ -3681,7 +3702,7 @@ export function ClinicalDashboard({
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 
-                <ClinicalAskWorkspace />
+                <ClinicalAskWorkspace onDraftChange={stageClinicalAskFollowUpDraft} />
                 {showSharedHome ? (
                   // The one home surface, shared by every registered mode. It sits above every
                   // mode-specific branch so picking a mode on `/` changes only its

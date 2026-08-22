@@ -62,7 +62,7 @@ function minimalSearchResult(evidence: ClinicalAskEvidence): SearchResult {
  * the browser would expose raw external-search text, violating the server-only
  * contract in docs/clinical-governance.md.
  */
-function publicEvidence(items: readonly ClinicalAskEvidence[]): ClinicalAskEvidence[] {
+export function publicClinicalAskEvidence(items: readonly ClinicalAskEvidence[]): ClinicalAskEvidence[] {
   return items.map((item) => ({ ...item, extract: "" }));
 }
 
@@ -106,8 +106,8 @@ function evidenceGap(
     state: "evidence_gap",
     mode: profile.id,
     explanation: "The available evidence does not directly support every required part of this answer.",
-    evidence: publicEvidence(evidence),
-    missingInformation: [...new Set(missingInformation)],
+    evidence: publicClinicalAskEvidence(evidence),
+    missingInformation: [...new Set(safeAuxiliaryText(profile.id, missingInformation))],
     nextActions: ["Review the linked evidence", "Clarify the unsupported clinical details"],
   };
 }
@@ -144,7 +144,7 @@ export function governClinicalAskDraft(
     mode: profile.id,
     lead,
     sections,
-    evidence: publicEvidence(evidence),
+    evidence: publicClinicalAskEvidence(evidence),
     conflicts,
     missingInformation: safeAuxiliaryText(profile.id, draft.missingInformation),
     followUps: safeAuxiliaryText(profile.id, draft.followUps),

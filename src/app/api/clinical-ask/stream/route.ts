@@ -114,8 +114,21 @@ function clinicalAskStream(
   return new Response(
     new ReadableStream<Uint8Array>({
       async start(controller) {
-        const send = (event: Parameters<ClinicalAskSseEncoder["encode"]>[0]) =>
-          controller.enqueue(textEncoder.encode(sse.encode(event)));
+        const send = (event: Parameters<ClinicalAskSseEncoder["encode"]>[0]) => {
+          const frame = textEncoder.encode(sse.encode(event));
+          try {
+            controller.enqueue(frame);
+            return true;
+          } catch {
+            // Cancellation can race a terminal frame after the encoder has
+            // already committed its one-terminal-event state. Do not re-enter
+            // the encoder with a synthetic error or reject start().
+            if (!cancel.signal.aborted) {
+              cancel.abort(new DOMException("Clinical Ask stream cancelled.", "AbortError"));
+            }
+            return false;
+          }
+        };
         const heartbeat = setInterval(() => {
           try {
             controller.enqueue(textEncoder.encode(clinicalAskHeartbeatFrame));

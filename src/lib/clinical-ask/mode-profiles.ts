@@ -9,7 +9,6 @@ export type ClinicalAskModeProfile = {
   acceptedContextFields: readonly ClinicalAskContextField[];
   materialClarificationFields: readonly ClinicalAskContextField[];
   catalogueDomains: readonly string[];
-  indexedDomains: readonly string[];
   allowedAuthorityIds: readonly string[];
   handoffModes: readonly ClinicalAskModeId[];
   prohibitedOutcomes: readonly string[];
@@ -31,7 +30,6 @@ const profile = (
   acceptedContextFields: [...new Set([...commonContext, ...materialClarificationFields])],
   materialClarificationFields,
   catalogueDomains,
-  indexedDomains: catalogueDomains,
   allowedAuthorityIds,
   handoffModes,
   prohibitedOutcomes,

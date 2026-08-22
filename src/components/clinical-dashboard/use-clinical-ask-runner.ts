@@ -23,6 +23,9 @@ export function useClinicalAskRunner({
     clinicalAskSession.setDraft(query, clinicalAskMode);
     clinicalAskSession.submit(clinicalAskMode, clinicalAskSession.confirmedContext);
     clinicalAskSession.setAbortController(controller);
+    const receiveCurrentEvent = (event: Parameters<ClinicalAskSession["receiveEvent"]>[0]) => {
+      if (!controller.signal.aborted) clinicalAskSession.receiveEvent(event);
+    };
     void import("@/lib/clinical-ask/client-stream")
       .then(({ streamClinicalAsk }) =>
         streamClinicalAsk(
@@ -36,7 +39,7 @@ export function useClinicalAskRunner({
             inputTransport: "typed",
           },
           controller.signal,
-          clinicalAskSession.receiveEvent,
+          receiveCurrentEvent,
         ),
       )
       .then((payload) => {
@@ -44,8 +47,8 @@ export function useClinicalAskRunner({
         // network error), streamClinicalAsk returns a failed payload but never
         // calls onEvent. Deliver a synthetic error event so the session exits
         // the submitted/pending state rather than staying stuck.
-        if (payload?.response.state === "failed") {
-          clinicalAskSession.receiveEvent({
+        if (!controller.signal.aborted && payload?.response.state === "failed") {
+          receiveCurrentEvent({
             type: "error",
             code: payload.response.code,
             retryable: payload.response.retryable,
@@ -53,6 +56,6 @@ export function useClinicalAskRunner({
           });
         }
       })
-      .finally(() => clinicalAskSession.setAbortController(null));
+      .finally(() => clinicalAskSession.releaseAbortController(controller));
   }, [clinicalAskMode, clinicalAskOnline, clinicalAskSession, query]);
 }

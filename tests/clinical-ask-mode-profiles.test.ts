@@ -9,7 +9,7 @@ describe("Clinical Ask mode profiles", () => {
     const value = clinicalAskModeProfiles[mode];
     expect(value.sectionOrder.length).toBeGreaterThan(2);
     expect(value.acceptedContextFields.length).toBeGreaterThan(0);
-    expect(value.indexedDomains.length).toBeGreaterThan(0);
+    expect(value).not.toHaveProperty("indexedDomains");
     expect(value.allowedAuthorityIds.length).toBeGreaterThan(0);
     expect(value.prohibitedOutcomes.length).toBeGreaterThan(0);
     expect(new Set(value.sectionOrder).size).toBe(value.sectionOrder.length);

@@ -7,7 +7,7 @@ import { identifierShapeWarning } from "@/lib/clinical-ask/context";
 import { ClinicalAskAnswerSurface } from "./clinical-ask-answer-surface";
 import { useClinicalAskSession } from "./clinical-ask-session-context";
 
-export function ClinicalAskWorkspace() {
+export function ClinicalAskWorkspace({ onDraftChange }: { onDraftChange?(draft: string): void } = {}) {
   const router = useRouter();
   const session = useClinicalAskSession();
   const [contextOpen, setContextOpen] = useState(false);
@@ -46,7 +46,10 @@ export function ClinicalAskWorkspace() {
           clarificationAnswers={session.clarificationAnswers}
           onClarificationChange={session.setClarificationAnswer}
           onPrepareHandoff={session.prepareHandoff}
-          onFollowUp={(value) => session.setDraft(value, session.mode ?? undefined)}
+          onFollowUp={(value) => {
+            session.setDraft(value, session.mode ?? undefined);
+            onDraftChange?.(value);
+          }}
           feedbackMetadata={session.feedback}
         />
       ) : null}

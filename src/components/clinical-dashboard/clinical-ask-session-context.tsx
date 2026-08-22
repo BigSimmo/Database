@@ -51,8 +51,16 @@ type Action =
 
 function reducer(state: ClinicalAskSessionState, action: Action): ClinicalAskSessionState {
   switch (action.type) {
-    case "setDraft":
-      return { ...state, draft: action.draft, mode: action.mode ?? state.mode };
+    case "setDraft": {
+      const mode = action.mode ?? state.mode;
+      const questionChanged = action.draft !== state.draft || mode !== state.mode;
+      return {
+        ...state,
+        draft: action.draft,
+        mode,
+        clarificationAnswers: questionChanged ? {} : state.clarificationAnswers,
+      };
+    }
     case "setSuggestions":
       return { ...state, suggestions: action.suggestions };
     case "confirmSuggestion": {
@@ -164,7 +172,8 @@ type SessionValue = ClinicalAskSessionState & {
   dismissHandoff(): void;
   cancel(): void;
   clear(): void;
-  setAbortController(controller: AbortController | null): void;
+  setAbortController(controller: AbortController): void;
+  releaseAbortController(controller: AbortController): void;
   setRetryAudio(blob: Blob | null): void;
 };
 const SessionContext = createContext<SessionValue | null>(null);
@@ -217,6 +226,9 @@ export function ClinicalAskSessionProvider({
       setAbortController: (controller) => {
         abortRef.current?.abort();
         abortRef.current = controller;
+      },
+      releaseAbortController: (controller) => {
+        if (abortRef.current === controller) abortRef.current = null;
       },
       setRetryAudio: (blob) => {
         retryAudioRef.current = blob;

@@ -90,8 +90,11 @@ Last reviewed: 2026-07-10. Applies to any feature branch or release candidate.
 
 The readiness script reads local, gitignored evidence receipts from `.local/clinical-ask-evidence/`:
 `hosted-migration.json`, `authority-approval.json`, `synthetic-evaluation.json`,
-`protected-staging-canary.json`, `contractual-basis.json`, and `physical-iphone-acceptance.json`. Presence is reported
-as evidence supplied, not independently validated truth; reviewers must inspect issuer, target, date, and scope.
+`protected-staging-canary.json`, `contractual-basis.json`, and `physical-iphone-acceptance.json`. A receipt counts as
+supplied only when it is a JSON object whose `area` exactly matches the readiness area, whose `issuer`, `target`,
+`date`, and `scope` are non-empty (`date` is ISO-shaped), and whose `status` is one of `accepted`, `applied`,
+`approved`, `green`, `passed`, or `verified`. This structural validation rejects empty or unrelated files; it does not
+independently establish truth, so reviewers must still inspect the receipt.
 
 - [ ] Clinical Ask master and external-search flags are explicitly set; a seven-mode launch has an empty
       `CLINICAL_ASK_DISABLED_MODES` emergency denylist and an explicit `OPENAI_TRANSCRIPTION_MODEL`.

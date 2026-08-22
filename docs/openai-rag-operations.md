@@ -88,9 +88,10 @@ search is server-only and is permitted only for a deterministic evidence gap, un
 publisher attribution and retrieval time, meters the request, and discards the fetched page/extract after the request.
 It does not turn provider output or an external page into durable catalogue or indexed content.
 
-Transcription, external-search, and synthesis output are untrusted provider outputs. Identifier-shaped input is
-blocked before microphone upload or Clinical Ask submission; the clinician reviews transcription before explicitly
-asking. Synthesis is accepted only after deterministic mode-shape, citation, claim-support, prohibited-outcome, and
+Transcription, external-search, and synthesis output are untrusted provider outputs. The browser uploads the in-memory
+audio Blob only after format, size, and duration checks; it does not strip identifiers from speech before
+`/api/speech/transcribe`. The clinician reviews and may edit the returned transcript, and identifier-shaped text is
+blocked before Clinical Ask submission. Synthesis is accepted only after deterministic mode-shape, citation, claim-support, prohibited-outcome, and
 Clinician Confirmation gates. Provider confidence is not an evidence-sufficiency or release signal. Raw question,
 transcript, Case Context, audio, answer, and extracts are excluded from logs, telemetry, feedback, and public errors.
 

@@ -34,6 +34,7 @@ type TextGenerationOptions = {
   maxRetries?: number;
   signal?: AbortSignal;
   safetyIdentifier?: string;
+  store?: boolean;
 };
 
 type ResolvedTextGenerationOptions = Required<Pick<TextGenerationOptions, "model" | "maxOutputTokens">> &
@@ -305,7 +306,7 @@ function responseBody(
     input,
     ...(resolved.instructions ? { instructions: resolved.instructions } : {}),
     max_output_tokens: Math.max(resolved.maxOutputTokens, reasoningHeadroomFloor(resolvedReasoningEffort)),
-    store: env.OPENAI_STORE_RESPONSES,
+    store: resolved.store ?? env.OPENAI_STORE_RESPONSES,
     prompt_cache_key: resolved.promptCacheKey ?? promptCacheKeyFor(operation),
     ...(capabilities.usesPromptCacheOptions
       ? promptCacheTtl

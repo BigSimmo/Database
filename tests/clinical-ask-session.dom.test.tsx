@@ -14,9 +14,16 @@ function Harness() {
   return (
     <>
       <output data-testid="state">
-        {JSON.stringify({ draft: session.draft, context: session.confirmedContext, response: session.response })}
+        {JSON.stringify({
+          draft: session.draft,
+          context: session.confirmedContext,
+          response: session.response,
+          clarifications: session.clarificationAnswers,
+        })}
       </output>
       <button onClick={() => session.setDraft(question, "dsm")}>Draft</button>
+      <button onClick={() => session.setDraft(`${question} updated`, "dsm")}>Change draft</button>
+      <button onClick={() => session.setClarificationAnswer("dsm:duration", "six weeks")}>Clarification</button>
       <button onClick={() => session.submit("dsm", { workingDiagnosis: "fictional diagnosis" })}>Context</button>
       <button
         onClick={() =>
@@ -77,10 +84,25 @@ describe("ClinicalAskSessionProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reject suggestion" }));
     expect(screen.getByTestId("state")).not.toHaveTextContent("fictional duration");
     fireEvent.click(screen.getByRole("button", { name: "Clear case" }));
-    expect(screen.getByTestId("state")).toHaveTextContent(JSON.stringify({ draft: "", context: {}, response: null }));
+    expect(screen.getByTestId("state")).toHaveTextContent(
+      JSON.stringify({ draft: "", context: {}, response: null, clarifications: {} }),
+    );
     expect(storage).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("clears question-bound clarification answers when the draft changes", () => {
+    render(
+      <ClinicalAskSessionProvider>
+        <Harness />
+      </ClinicalAskSessionProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Draft" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clarification" }));
+    expect(screen.getByTestId("state")).toHaveTextContent('"dsm:duration":"six weeks"');
+    fireEvent.click(screen.getByRole("button", { name: "Change draft" }));
+    expect(screen.getByTestId("state")).toHaveTextContent('"clarifications":{}');
   });
 
   it("clears on account change and unmount aborts active work", () => {

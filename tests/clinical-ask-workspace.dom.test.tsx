@@ -9,7 +9,7 @@ import {
 } from "@/components/clinical-dashboard/clinical-ask-session-context";
 import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-ask-workspace";
 
-function Harness() {
+function Harness({ onDraftChange }: { onDraftChange?(draft: string): void } = {}) {
   const session = useClinicalAskSession();
   return (
     <>
@@ -101,7 +101,7 @@ function Harness() {
       >
         Answer
       </button>
-      <ClinicalAskWorkspace />
+      <ClinicalAskWorkspace onDraftChange={onDraftChange} />
     </>
   );
 }
@@ -145,10 +145,11 @@ describe("ClinicalAskWorkspace", () => {
 
   it("expands evidence, copies without the question by default, and reviews handoffs", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
+    const onDraftChange = vi.fn();
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     render(
       <ClinicalAskSessionProvider>
-        <Harness />
+        <Harness onDraftChange={onDraftChange} />
       </ClinicalAskSessionProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Seed" }));
@@ -176,6 +177,8 @@ describe("ClinicalAskWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: /Copied|Copy answer/ }));
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
     expect(writeText.mock.calls[1][0]).toContain("Question: synthetic");
+    fireEvent.click(screen.getByRole("button", { name: "Check urgency" }));
+    expect(onDraftChange).toHaveBeenCalledWith("Check urgency");
     fireEvent.click(screen.getByRole("button", { name: "Continue to Forms" }));
     expect(screen.getByRole("dialog", { name: "Review Clinical Ask handoff" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Accept handoff" }));

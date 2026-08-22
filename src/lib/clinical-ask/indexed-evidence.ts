@@ -1,5 +1,4 @@
 import type { ClinicalAskEvidence, ClinicalAskRequest, SourceReviewState } from "@/lib/clinical-ask/contracts";
-import { clinicalAskModeProfile } from "@/lib/clinical-ask/mode-profiles";
 import type { RetrievalAccessScope } from "@/lib/owner-scope";
 import { searchChunksWithTelemetry } from "@/lib/rag/rag";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
@@ -62,8 +61,11 @@ export async function retrieveIndexedEvidence(
   accessScope: RetrievalAccessScope,
   signal: AbortSignal,
 ): Promise<ClinicalAskEvidence[]> {
-  const profile = clinicalAskModeProfile(request.mode);
-  if (profile.indexedDomains.length === 0) return [];
+  // Indexed documents do not carry a reliable mode/domain field: only
+  // registry-backed records have registry_record_kind, while guidelines and
+  // other organisational documents intentionally do not. Keep this tier
+  // owner-scoped and query-relevant, and do not imply that catalogue domain
+  // labels constrain the protected hybrid retrieval ordering.
   const { results } = await searchChunksWithTelemetry({
     query: request.question,
     topK: RESULT_LIMIT,

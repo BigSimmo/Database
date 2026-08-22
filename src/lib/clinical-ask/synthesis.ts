@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { env } from "@/lib/env";
 import type {
   ClinicalAskDraft,
@@ -8,15 +7,9 @@ import type {
 } from "@/lib/clinical-ask/contracts";
 import { projectConfirmedContext } from "@/lib/clinical-ask/context";
 import { clinicalAskModeProfile } from "@/lib/clinical-ask/mode-profiles";
-import { createOpenAIClient } from "@/lib/openai";
+import { generateStructuredTextResponse } from "@/lib/openai";
 
 const PROVIDER_TIMEOUT_MS = 20_000;
-
-function outputText(response: unknown) {
-  const text = (response as { output_text?: unknown }).output_text;
-  if (typeof text !== "string" || !text.trim()) throw new Error("Clinical Ask returned invalid structured output.");
-  return text;
-}
 
 async function structuredCall(
   model: string,
@@ -25,19 +18,17 @@ async function structuredCall(
   input: Array<Record<string, unknown>>,
   signal: AbortSignal,
 ) {
-  const client = createOpenAIClient();
-  const response = await client.responses.create(
-    {
-      model,
-      input: input as never,
-      store: false,
-      max_output_tokens: 4_000,
-      metadata: { operation: "clinical_ask", interaction_id: randomUUID() },
-      text: { format: { type: "json_schema", name: schemaName, strict: true, schema } },
-    } as never,
-    { signal, timeout: PROVIDER_TIMEOUT_MS, maxRetries: 0 },
-  );
-  return JSON.parse(outputText(response)) as unknown;
+  const text = await generateStructuredTextResponse(input, schema, {
+    model,
+    operation: "answer",
+    schemaName,
+    timeoutMs: PROVIDER_TIMEOUT_MS,
+    maxRetries: 0,
+    signal,
+    store: false,
+  });
+  if (!text.trim()) throw new Error("Clinical Ask returned invalid structured output.");
+  return JSON.parse(text) as unknown;
 }
 
 export async function suggestClinicalAskContext(
@@ -118,7 +109,7 @@ export async function synthesizeClinicalAskDraft(
     properties: {
       id: { type: "string" },
       text: { type: "string" },
-      evidenceIds: { type: "array", minItems: 1, uniqueItems: true, items: { type: "string", enum: evidenceIds } },
+      evidenceIds: { type: "array", minItems: 1, items: { type: "string", enum: evidenceIds } },
     },
   };
   const schema = {

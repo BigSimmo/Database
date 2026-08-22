@@ -119,6 +119,32 @@ describe("POST /api/clinical-ask/stream", () => {
     );
   });
 
+  it("does not reject the stream when cancellation races the terminal frame", async () => {
+    let resolveRun!: (response: {
+      state: "failed";
+      mode: "services";
+      code: "aborted";
+      retryable: false;
+      message: string;
+    }) => void;
+    mocks.run.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveRun = resolve;
+      }),
+    );
+    const response = await POST(post());
+    await expect(response.body?.cancel()).resolves.toBeUndefined();
+    resolveRun({
+      state: "failed",
+      mode: "services",
+      code: "aborted",
+      retryable: false,
+      message: "Clinical Ask was cancelled.",
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mocks.run).toHaveBeenCalledOnce();
+  });
+
   it("rejects unknown input before access", async () => {
     const response = await POST(post({ ...body, unknown: true }));
     expect(response.status).toBe(400);

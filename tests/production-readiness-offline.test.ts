@@ -7,6 +7,7 @@ import {
   clinicalAskReadinessFindings,
   isProviderFreeCodexCloud,
   openAIReadinessPolicy,
+  validClinicalAskEvidenceArtifact,
 } from "../scripts/production-readiness";
 import { providerEnvironmentKeys } from "../scripts/test-environment.mjs";
 
@@ -24,6 +25,17 @@ describe("production readiness provider policy", () => {
         OPENAI_TRANSCRIPTION_MODEL: "gpt-4o-mini-transcribe",
       },
       (filePath) => existing.has(filePath),
+      (filePath) =>
+        filePath.endsWith("synthetic-evaluation.json")
+          ? JSON.stringify({
+              area: "synthetic evaluation",
+              issuer: "Synthetic evaluator",
+              target: "seven Clinical Ask modes",
+              date: "2026-08-22",
+              scope: "offline synthetic cases",
+              status: "passed",
+            })
+          : undefined,
     );
     expect(findings.filter((finding) => finding.status === "config_present").map((finding) => finding.area)).toEqual([
       "master flag",
@@ -40,6 +52,35 @@ describe("production readiness provider policy", () => {
       "not_verified",
     );
     expect(findings.find((finding) => finding.area === "physical iPhone acceptance")?.status).toBe("not_verified");
+  });
+
+  it("does not treat empty or unrelated evidence files as readiness passes", () => {
+    expect(validClinicalAskEvidenceArtifact("", "synthetic evaluation")).toBe(false);
+    expect(validClinicalAskEvidenceArtifact("{}", "synthetic evaluation")).toBe(false);
+    expect(
+      validClinicalAskEvidenceArtifact(
+        JSON.stringify({
+          area: "authority approval",
+          issuer: "Reviewer",
+          target: "authority registry",
+          date: "2026-08-22",
+          scope: "registered authorities",
+          status: "approved",
+        }),
+        "synthetic evaluation",
+      ),
+    ).toBe(false);
+    const findings = clinicalAskReadinessFindings(
+      {
+        CLINICAL_ASK_ENABLED: "false",
+        CLINICAL_ASK_EXTERNAL_SEARCH_ENABLED: "false",
+        CLINICAL_ASK_DISABLED_MODES: "",
+        OPENAI_TRANSCRIPTION_MODEL: "gpt-4o-mini-transcribe",
+      },
+      () => true,
+      () => "{}",
+    );
+    expect(findings.filter(({ status }) => status === "evidence_supplied")).toEqual([]);
   });
 
   it("blocks a seven-mode launch claim with a non-empty emergency denylist or missing explicit configuration", () => {

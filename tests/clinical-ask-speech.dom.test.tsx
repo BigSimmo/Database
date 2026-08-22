@@ -78,6 +78,31 @@ describe("useClinicalAskSpeech", () => {
     hook.unmount();
   });
 
+  it("stops a media stream that resolves after cancellation", async () => {
+    const lateTrack = { stop: vi.fn() };
+    let resolvePermission!: (stream: MediaStream) => void;
+    vi.mocked(navigator.mediaDevices.getUserMedia).mockReturnValueOnce(
+      new Promise<MediaStream>((resolve) => {
+        resolvePermission = resolve;
+      }),
+    );
+    const hook = renderHook(() => useClinicalAskSpeech());
+    let startPromise!: Promise<void>;
+    act(() => {
+      startPromise = hook.result.current.start() as Promise<void>;
+    });
+    expect(hook.result.current.state).toBe("requesting_permission");
+    act(() => hook.result.current.cancel());
+    await act(async () => {
+      resolvePermission({ getTracks: () => [lateTrack] } as MediaStream);
+      await startPromise;
+    });
+    expect(lateTrack.stop).toHaveBeenCalledOnce();
+    expect(hook.result.current.state).toBe("cancelled");
+    expect(instances).toHaveLength(0);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("retains only the in-memory blob for one editable retry", async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce({ ok: false } as Response)

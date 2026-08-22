@@ -14,7 +14,7 @@ import type {
 } from "@/lib/clinical-ask/contracts";
 import { annotateEvidenceCoverage, assessEvidenceSufficiency } from "@/lib/clinical-ask/evidence-sufficiency";
 import { clinicalAskModeProfile } from "@/lib/clinical-ask/mode-profiles";
-import { governClinicalAskDraft } from "@/lib/clinical-ask/response-governance";
+import { governClinicalAskDraft, publicClinicalAskEvidence } from "@/lib/clinical-ask/response-governance";
 import type { RetrievalAccessScope } from "@/lib/owner-scope";
 import { clinicalAskRequestSchema } from "@/lib/validation/clinical-ask-request";
 
@@ -34,7 +34,7 @@ function evidenceGap(request: ClinicalAskRequest, evidence: readonly ClinicalAsk
     state: "evidence_gap" as const,
     mode: request.mode,
     explanation,
-    evidence: [...evidence],
+    evidence: publicClinicalAskEvidence(evidence),
     missingInformation: ["The requested conclusion is not fully supported by the available evidence."],
     nextActions: ["Review the linked evidence", "Clarify the unsupported details"],
   };

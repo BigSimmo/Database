@@ -353,7 +353,6 @@ function GlobalStandaloneSearchShellBody({
   const pathname = usePathname() ?? "/";
   const searchParams = useMemo(() => new URLSearchParams(searchParamString), [searchParamString]);
   const inputRef = useRef<HTMLInputElement>(null);
-  const clinicalAskClearRef = useRef<() => void>(() => undefined);
   const [mainElement, setMainElement] = useState<HTMLDivElement | null>(null);
   // The header hides at every breakpoint; only the phone bottom dock stays
   // phone-gated (MasterSearchHeader keeps that behind its own phone layout
@@ -484,7 +483,7 @@ function GlobalStandaloneSearchShellBody({
     (!isInfoPage || isToolDetailWithFooterSearch(pathname));
   // `/tools` owns its catalogue controls rather than a shared composer. Keep
   // the sidebar's cross-guide search usable by returning to Answer first.
-  const openSidebarSearch = pathname === "/tools" ? startNewAnswerChat : () => focusComposerInput(inputRef);
+  const openSidebarSearch = pathname === "/tools" ? () => startNewAnswerChat() : () => focusComposerInput(inputRef);
   const heroOwnsPhoneComposer = isStandaloneModeHome && mobileHomeComposerPlacement === "hero";
   // This flag controls sm+ padding for standalone mode homes. Tools has no
   // shared composer, so it cannot reserve floating-composer space. Phone
@@ -745,8 +744,8 @@ function GlobalStandaloneSearchShellBody({
     router.push(href);
   }
 
-  function startNewAnswerChat() {
-    clinicalAskClearRef.current();
+  function startNewAnswerChat(clearClinicalAsk: () => void = () => undefined) {
+    clearClinicalAsk();
     setQuery("");
     setMobileMenuOpen(false);
     setQueryMode("auto");
@@ -817,7 +816,11 @@ function GlobalStandaloneSearchShellBody({
     clinicalAskOnline,
     runModeClinicalAsk,
   }: ClinicalAskShellBindings) => {
-    clinicalAskClearRef.current = clinicalAskSession.clear;
+    const startNewChat = () => startNewAnswerChat(clinicalAskSession.clear);
+    const stageClinicalAskDraft = (draft: string) => {
+      setQuery(draft);
+      focusComposerInput(inputRef);
+    };
     if (!chromeVisible) {
       return (
         <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
@@ -864,7 +867,7 @@ function GlobalStandaloneSearchShellBody({
                 activeMode={searchMode}
                 showAccountLibrary={favouritesAccessible}
                 onCollapsedChange={setSidebarCollapsed}
-                onNewChat={startNewAnswerChat}
+                onNewChat={startNewChat}
                 onPickRecent={pickRecentQuery}
                 onOpenSettings={openSettingsWithDefaultFocus}
                 onOpenAccount={openAccountProfileWithDefaultFocus}
@@ -935,7 +938,7 @@ function GlobalStandaloneSearchShellBody({
               onScopeFiltersChange={setScopeFilters}
               onToggleScope={() => undefined}
               onOpenEvidence={() => navigateToMode("answer", { focus: true })}
-              onNewChat={startNewAnswerChat}
+              onNewChat={startNewChat}
               showDesktopNewChat={!shouldShowDesktopSidebar}
               onOpenMobileSidebar={() => setMobileMenuOpen(true)}
               queryModeOptions={mockupQueryModeOptions}
@@ -1067,7 +1070,9 @@ function GlobalStandaloneSearchShellBody({
               {/* Paint RSC mode-home HTML immediately. A ClientHydrationBoundary here
                 blanked every standalone mode until JS mounted (hard-load LCP hit). */}
               <SearchCommandProvider value={searchCommandContextValue}>
-                {clinicalAskMode || clinicalAskSession.submitted ? <ClinicalAskWorkspace /> : null}
+                {clinicalAskMode || clinicalAskSession.submitted ? (
+                  <ClinicalAskWorkspace onDraftChange={stageClinicalAskDraft} />
+                ) : null}
                 {pendingModeNavigation ? (
                   <div aria-busy="true" aria-live="polite" data-testid="mode-navigation-loading">
                     <span className="sr-only">Loading {appModeDefinition(pendingModeNavigation.mode).label}</span>
@@ -1103,7 +1108,7 @@ function GlobalStandaloneSearchShellBody({
           activeMode={searchMode}
           showAccountLibrary={favouritesAccessible}
           onOpenChange={setMobileMenuOpen}
-          onNewChat={startNewAnswerChat}
+          onNewChat={startNewChat}
           onPickRecent={pickRecentQuery}
           onOpenSettings={openSettingsWithDefaultFocus}
           onOpenAccount={openAccountProfileWithDefaultFocus}

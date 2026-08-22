@@ -4726,28 +4726,28 @@ html.theme-transitioning *:after {
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
-    gap: 0.5rem;
-    padding-inline: 0.75rem;
+    gap: calc(2 * var(--radius-xs));
+    padding-inline: var(--spacing-icon-xs);
   }
   .clinical-ask-action-rail button {
-    min-height: 2.75rem;
-    border-radius: 999px;
-    padding-inline: 0.875rem;
+    min-height: var(--spacing-tap);
+    border-radius: var(--radius-pill);
+    padding-inline: var(--spacing-icon-sm);
     background: var(--surface-raised);
     border: 1px solid var(--border);
   }
   .clinical-ask-action-rail p {
     flex-basis: 100%;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     color: var(--text-muted);
   }
 }
 .clinical-ask-workspace {
-  margin: 1rem auto;
+  margin: var(--spacing-icon-md) auto;
   max-width: 56rem;
   border: 1px solid var(--border);
-  border-radius: 1rem;
-  padding: 1rem;
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-icon-md);
   background: var(--surface);
 }
 .clinical-ask-action-rail,
@@ -4755,32 +4755,32 @@ html.theme-transitioning *:after {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: calc(2 * var(--radius-xs));
 }
 .clinical-ask-action-rail button,
 .clinical-ask-workspace button,
 .clinical-ask-output-actions button {
-  min-height: 3rem;
+  min-height: var(--spacing-tap);
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  padding: 0.625rem 0.875rem;
+  border-radius: var(--radius-lg);
+  padding: var(--radius-md) var(--spacing-icon-sm);
 }
 .clinical-ask-field {
   display: grid;
-  gap: 0.375rem;
-  margin-block: 0.75rem;
+  gap: var(--radius-sm);
+  margin-block: var(--spacing-icon-xs);
 }
 .clinical-ask-field input {
-  min-height: 3rem;
+  min-height: var(--spacing-tap);
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  padding-inline: 0.75rem;
+  border-radius: var(--radius-lg);
+  padding-inline: var(--spacing-icon-xs);
   background: var(--surface);
   color: var(--text);
 }
 .clinical-ask-context-item {
   border-block-end: 1px solid var(--border);
-  padding-block: 0.75rem;
+  padding-block: var(--spacing-icon-xs);
 }
 @media (prefers-reduced-motion: reduce) {
   .clinical-ask-workspace *,

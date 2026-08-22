@@ -33,6 +33,7 @@ export function useClinicalAskSpeech() {
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAt = useRef(0);
   const cancelled = useRef(false);
+  const requestGeneration = useRef(0);
 
   const dispose = useCallback((dropBlob = true) => {
     if (timer.current) clearInterval(timer.current);
@@ -89,6 +90,7 @@ export function useClinicalAskSpeech() {
 
   const start = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") return setState("unsupported");
+    const generation = ++requestGeneration.current;
     setError(null);
     setCanRetry(false);
     cancelled.current = false;
@@ -96,8 +98,13 @@ export function useClinicalAskSpeech() {
     try {
       const mime = [...clinicalAskAudioMimeTypes].find((candidate) => MediaRecorder.isTypeSupported(candidate));
       if (!mime) return setState("unsupported");
-      stream.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const active = new MediaRecorder(stream.current, { mimeType: mime });
+      const requestedStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (requestGeneration.current !== generation || cancelled.current) {
+        requestedStream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      stream.current = requestedStream;
+      const active = new MediaRecorder(requestedStream, { mimeType: mime });
       recorder.current = active;
       chunks.current = [];
       startedAt.current = Date.now();
@@ -119,12 +126,14 @@ export function useClinicalAskSpeech() {
         if (elapsed >= maxClinicalAskRecordingMs) stop();
       }, 250);
     } catch (cause) {
+      if (requestGeneration.current !== generation) return;
       dispose();
       setState((cause as { name?: string }).name === "NotAllowedError" ? "permission_denied" : "failed");
     }
   }, [dispose, stop, transcribe]);
 
   const cancel = useCallback(() => {
+    requestGeneration.current += 1;
     cancelled.current = true;
     controller.current?.abort();
     if (recorder.current?.state === "recording") recorder.current.stop();
@@ -133,7 +142,10 @@ export function useClinicalAskSpeech() {
     setState("cancelled");
   }, [dispose]);
   const reset = useCallback(() => {
+    requestGeneration.current += 1;
+    cancelled.current = true;
     controller.current?.abort();
+    if (recorder.current?.state === "recording") recorder.current.stop();
     dispose();
     setTranscript("");
     setElapsedMs(0);
@@ -146,6 +158,7 @@ export function useClinicalAskSpeech() {
   }, [transcribe]);
   useEffect(
     () => () => {
+      requestGeneration.current += 1;
       cancelled.current = true;
       controller.current?.abort();
       if (recorder.current?.state === "recording") recorder.current.stop();

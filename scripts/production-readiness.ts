@@ -1,5 +1,5 @@
 import { access, readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { constants } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -70,9 +70,43 @@ export type ClinicalAskReadinessFinding = {
   message: string;
 };
 
+const acceptedClinicalAskEvidenceStatuses = new Set(["accepted", "applied", "approved", "green", "passed", "verified"]);
+
+function readClinicalAskEvidenceArtifact(filePath: string) {
+  try {
+    return readFileSync(filePath, "utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+export function validClinicalAskEvidenceArtifact(content: string | undefined, expectedArea: string) {
+  if (!content?.trim()) return false;
+  try {
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") return false;
+    const requiredText = (key: "issuer" | "target" | "scope") =>
+      typeof parsed[key] === "string" && parsed[key].trim().length > 0;
+    const date = typeof parsed.date === "string" ? parsed.date.trim() : "";
+    const status = typeof parsed.status === "string" ? parsed.status.trim().toLowerCase() : "";
+    return (
+      parsed.area === expectedArea &&
+      requiredText("issuer") &&
+      requiredText("target") &&
+      requiredText("scope") &&
+      /^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(date) &&
+      Number.isFinite(Date.parse(date)) &&
+      acceptedClinicalAskEvidenceStatuses.has(status)
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function clinicalAskReadinessFindings(
   environment: Record<string, string | undefined>,
   fileExists: (filePath: string) => boolean = existsSync,
+  readArtifact: (filePath: string) => string | undefined = readClinicalAskEvidenceArtifact,
 ): ClinicalAskReadinessFinding[] {
   const enabled = environment.CLINICAL_ASK_ENABLED;
   const external = environment.CLINICAL_ASK_EXTERNAL_SEARCH_ENABLED;
@@ -85,9 +119,10 @@ export function clinicalAskReadinessFindings(
     message,
   });
   const evidence = (area: string, artifact: string, message: string): ClinicalAskReadinessFinding => {
+    const supplied = fileExists(artifact) && validClinicalAskEvidenceArtifact(readArtifact(artifact), area);
     return {
       area,
-      status: fileExists(artifact) ? "evidence_supplied" : "not_verified",
+      status: supplied ? "evidence_supplied" : "not_verified",
       message: `${message} (${artifact})`,
     };
   };

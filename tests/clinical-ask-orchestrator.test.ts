@@ -185,6 +185,9 @@ describe("runClinicalAsk", () => {
     await vi.advanceTimersByTimeAsync(45_000);
     const response = await pending;
     expect(response.state).toBe("evidence_gap");
-    if (response.state === "evidence_gap") expect(response.evidence).toHaveLength(1);
+    if (response.state === "evidence_gap") {
+      expect(response.evidence).toHaveLength(1);
+      expect(response.evidence[0]?.extract).toBe("");
+    }
   });
 });
