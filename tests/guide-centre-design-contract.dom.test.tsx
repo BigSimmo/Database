@@ -10,7 +10,7 @@ afterEach(async () => {
   });
 });
 
-it("keeps Guide chrome on approved elevation and non-layout transitions", () => {
+it("keeps Guide chrome on approved elevation and scoped compact transitions", () => {
   render(<GuideDialog open onClose={vi.fn()} />);
 
   const dialog = screen.getByRole("dialog", { name: "Clinical KB guide" });
@@ -19,7 +19,7 @@ it("keeps Guide chrome on approved elevation and non-layout transitions", () => 
 
   expect(header).not.toBeNull();
   expect(footer).not.toBeNull();
-  expect(header).toHaveClass("transition-[border-color,opacity]");
+  expect(header).toHaveClass("transition-[border-color,background-color]");
   expect(header).not.toHaveClass("transition-[max-height,padding,border-color,opacity]");
   expect(footer).not.toHaveClass("shadow-[var(--shadow-elevated)]");
   expect(footer).toHaveClass("transition-[transform,opacity]");
@@ -45,6 +45,7 @@ it("gives the Guide footer the shared phone dock chrome at the compact scrim hei
   expect(footer).not.toBeNull();
   expect(footer).toHaveClass("answer-footer-search-dock");
   expect(footer).toHaveClass("answer-footer-search-edge");
+  expect(footer).toHaveClass("guide-tour-dock");
   expect(footer).toHaveAttribute("data-footer-variant", "compact");
 
   // Phone band chrome is off; the sm+ Sheet footer keeps it.

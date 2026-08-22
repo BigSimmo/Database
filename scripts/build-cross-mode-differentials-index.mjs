@@ -20,14 +20,28 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const source = join(root, "data", "differentials-snapshot.json");
 const target = join(root, "src", "data", "cross-mode-differentials-index.json");
+const presentationDisplaySource = join(root, "src", "data", "differential-presentation-display-metadata.json");
 const checkOnly = process.argv.includes("--check");
 
 const snapshot = JSON.parse(readFileSync(source, "utf8"));
+const presentationDisplayMetadata = JSON.parse(readFileSync(presentationDisplaySource, "utf8")).presentations;
 
 // Bare-number aliases (e.g. a field-weight "1.1" leaked from snapshot template
 // metadata) would match unrelated records by substring — drop them, mirroring
 // differentialSearchAliases() in src/lib/differentials.ts.
 const isBareNumber = (value) => /^\d+(\.\d+)?$/.test(value.trim());
+
+const distinctTerms = (values) => {
+  const seen = new Set();
+  return values.flatMap((value) => {
+    const trimmed = value?.trim();
+    if (!trimmed) return [];
+    const key = trimmed.toLocaleLowerCase("en-AU");
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [trimmed];
+  });
+};
 
 const catalog = {
   diagnoses: snapshot.diagnoses.map((diagnosis) => ({
@@ -35,11 +49,22 @@ const catalog = {
     title: diagnosis.title,
     clinicalHinge: diagnosis.clinicalHinge,
   })),
-  presentations: snapshot.presentations.map((presentation) => ({
-    id: presentation.id,
-    title: presentation.title,
-    subtitle: presentation.subtitle,
-  })),
+  presentations: snapshot.presentations.map((presentation) => {
+    const metadata = presentationDisplayMetadata[presentation.id];
+    const titleAliases = metadata
+      ? distinctTerms([
+          presentation.sourceTitle ?? presentation.title,
+          ...metadata.aliases,
+          ...(presentation.titleAliases ?? []),
+        ])
+      : presentation.titleAliases;
+    return {
+      id: presentation.id,
+      title: metadata?.title ?? presentation.title,
+      subtitle: presentation.subtitle,
+      ...(titleAliases?.length ? { titleAliases } : {}),
+    };
+  }),
   aliases: Object.fromEntries(
     Object.entries(snapshot.searchAliases)
       .map(([token, aliases]) => [token, aliases.filter((alias) => !isBareNumber(alias))])

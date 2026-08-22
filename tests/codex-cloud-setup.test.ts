@@ -112,6 +112,13 @@ function bashPathList(value: string) {
   return value.split(path.delimiter).filter(Boolean).map(bashPathEntry).join(":");
 }
 
+function writeFakePython(directory: string, name: string, version: string) {
+  const executable = path.join(directory, name);
+  writeFileSync(executable, `#!/usr/bin/env bash\nprintf '%s\\n' '${version}'\n`);
+  chmodSync(executable, 0o755);
+  return executable;
+}
+
 function runSetupPolicyOnly(home: string, env: Record<string, string | undefined> = {}) {
   // The test redirects HOME to isolate the generated Codex config. Put the
   // running test process's Node binary first so version-manager launchers that
@@ -749,6 +756,29 @@ describe("Codex Cloud environment contract", () => {
     expect(resolvedPath[0]).toBe(bashNodeBin);
     expect(resolvedPath).not.toContain(shimDir);
     expect(resolvedPath).toEqual(expect.arrayContaining(["/usr/bin", "/bin"]));
+  });
+
+  it("prefers the exact Python 3.12 interpreter over an older python3 alias", () => {
+    const home = temporaryDirectory("codex-cloud-python-home-");
+    const bin = temporaryDirectory("codex-cloud-python-");
+    writeFakePython(bin, "python3", "3.11");
+    const exactPython = writeFakePython(bin, "python3.12", "3.12");
+    const staleVenvBin = path.join(home, ".cache", "clinical-kb-codex", "ocr-venv-3.12", "bin");
+    mkdirSync(staleVenvBin, { recursive: true });
+    writeFakePython(staleVenvBin, "python3.12", "3.12");
+
+    const result = spawnSync(bashCommand, ["scripts/select-codex-cloud-python.sh", "3.12"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        HOME: bashPathEntry(home),
+        PATH: `${bashPathEntry(staleVenvBin)}:${bashPathEntry(bin)}:/usr/bin:/bin`,
+      },
+    });
+
+    expect(result.status, result.stderr || result.stdout).toBe(0);
+    expect(result.stdout.trim()).toBe(bashPathEntry(exactPython));
   });
 
   it("writes managed shell policy behaviorally and preserves unrelated Codex config", () => {

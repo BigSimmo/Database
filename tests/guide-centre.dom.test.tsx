@@ -52,7 +52,7 @@ describe("Clinical KB Guide Centre", () => {
     expect(within(dialog).queryByRole("heading", { name: "3-minute guided tour" })).not.toBeInTheDocument();
   });
 
-  it("shows a useful verification example and hides only the bottom dock while scrolling down", async () => {
+  it("compacts the phone header while hiding only the bottom dock on downward scroll", async () => {
     vi.spyOn(window, "matchMedia").mockImplementation(
       () =>
         ({
@@ -82,8 +82,7 @@ describe("Clinical KB Guide Centre", () => {
     expect(content).not.toBeNull();
     expect(footer?.querySelector("[data-guide-tour-action-row]")).not.toBeNull();
     expect(header).toHaveClass("pt-[max(1rem,var(--safe-area-top))]");
-    // The header no longer collapses, so it never carries the hidden-state utilities.
-    expect(header).not.toHaveClass("max-h-48", "overflow-hidden");
+    expect(header).not.toHaveClass("guide-centre-header--compact");
 
     Object.defineProperty(scrollBody, "scrollHeight", { configurable: true, value: 1_600 });
     Object.defineProperty(scrollBody, "clientHeight", { configurable: true, value: 600 });
@@ -91,30 +90,32 @@ describe("Clinical KB Guide Centre", () => {
     fireEvent.scroll(scrollBody!);
     await waitFor(() => expect(footerLayer).toHaveClass("translate-y-full"));
     /**
-     * The header stays PINNED through the hide. It used to collapse with the
-     * dock, which took "Close guide" and the view tabs out of reach — scrolled
-     * down, the dialog had no exit — and cost 153px of a ~330px scroll range,
-     * so `collapseHasSafeRunway` refused to hide anything at all once these
-     * pages were shortened.
+     * The header stays pinned and only its branded row compacts. It used to
+     * collapse with the dock, which took "Close guide" and the view tabs out
+     * of reach and consumed the dock reporter's available runway.
      */
     expect(header).not.toHaveClass("max-h-0");
-    expect(header).toHaveClass("pt-[max(1rem,var(--safe-area-top))]");
+    expect(header).toHaveClass("guide-centre-header--compact");
+    expect(header).toHaveClass("max-sm:pt-[max(0.5rem,var(--safe-area-top))]");
     expect(header).toHaveAttribute("aria-hidden", "false");
     expect(header).not.toHaveAttribute("inert");
+    expect(within(header!).getByRole("button", { name: "Close guide" })).toBeVisible();
+    expect(within(header!).getByRole("button", { name: "Guide home" })).toBeVisible();
     expect(footer).toHaveAttribute("aria-hidden", "true");
     expect(footer).toHaveAttribute("inert", "");
     expect(within(footer!).queryByRole("button", { name: "Start guided tour" })).not.toBeInTheDocument();
     expect(content).toHaveClass("pb-0");
-    expect(content).not.toHaveClass("pb-24");
+    expect(content).not.toHaveClass("pb-[calc(5rem+var(--safe-area-bottom))]");
 
     Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 0 });
     fireEvent.scroll(scrollBody!);
     await waitFor(() => expect(footerLayer).not.toHaveClass("translate-y-full"));
     expect(header).toHaveAttribute("aria-hidden", "false");
     expect(header).not.toHaveAttribute("inert");
+    expect(header).not.toHaveClass("guide-centre-header--compact");
     expect(footer).toHaveAttribute("aria-hidden", "false");
     expect(footer).not.toHaveAttribute("inert");
-    expect(content).toHaveClass("pb-24");
+    expect(content).toHaveClass("pb-[calc(5rem+var(--safe-area-bottom))]");
   });
 
   it("keeps the guide footer available while the desktop body scrolls", () => {
@@ -130,7 +131,7 @@ describe("Clinical KB Guide Centre", () => {
     expect(footerLayer).not.toHaveClass("translate-y-full");
     expect(footer).toHaveAttribute("aria-hidden", "false");
     expect(footer).not.toHaveAttribute("inert");
-    expect(content).toHaveClass("pb-24");
+    expect(content).toHaveClass("pb-[calc(5rem+var(--safe-area-bottom))]");
   });
 
   it("wires every quick task to its complete guide topic", async () => {

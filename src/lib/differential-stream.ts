@@ -139,7 +139,7 @@ function presentationItemFromWorkflow(
     id: `presentation-${workflow.id}`,
     slug: workflow.id,
     title: workflow.title,
-    description: workflow.subtitle,
+    description: workflow.scopeLabel ?? workflow.subtitle,
     examples: workflow.safetySnapshot.tags.slice(0, 3),
     href: `/differentials/presentations/${workflow.id}`,
     status: workflow.status,
