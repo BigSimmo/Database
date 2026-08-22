@@ -1573,6 +1573,7 @@
         "src/components/DocumentManagementActions.tsx",
         "src/components/DocumentViewer.tsx",
         "src/components/applications-launcher-page.tsx",
+        "src/components/caring-contacts/workspace/overlays/overlay-host.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/answer-content.tsx",
@@ -1601,6 +1602,7 @@
         "src/components/DocumentManagementActions.tsx",
         "src/components/DocumentViewer.tsx",
         "src/components/applications-launcher-page.tsx",
+        "src/components/caring-contacts/workspace/overlays/overlay-host.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/answer-content.tsx",
@@ -1631,6 +1633,7 @@
       },
       "testFiles": [
         "tests/accessible-table.dom.test.tsx",
+        "tests/caring-contacts-overlay-host.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
         "tests/document-filter-panel.dom.test.tsx",
         "tests/document-organization.test.ts",
@@ -1650,6 +1653,7 @@
         "tests/sheet.dom.test.tsx",
         "tests/therapy-global-convergence-contract.test.ts",
         "tests/ui-accessibility.spec.ts",
+        "tests/ui-caring-contacts-workspace.spec.ts",
         "tests/ui-overlay-css-contract.test.ts",
         "tests/ui-phone-scroll-page-owned.spec.ts",
         "tests/ui-smoke.spec.ts",
@@ -1899,6 +1903,7 @@
         "tests/rsc-boundary.test.ts",
         "tests/therapy-compass-responsive-contract.test.ts",
         "tests/therapy-tabs.dom.test.tsx",
+        "tests/ui-caring-contacts-workspace.spec.ts",
         "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
@@ -3300,6 +3305,61 @@
       ]
     },
     {
+      "id": "caring-contacts-workspace",
+      "disposition": "owned",
+      "documentedDisposition": null,
+      "routes": ["src/app/caring-contacts/page.tsx"],
+      "routeRoots": true,
+      "proofApplicability": "required",
+      "nonVisualRoute": null,
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
+        },
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "permittedComponentFamilies": [],
+      "sanctionedSpecialPatterns": ["CaringContactsShell"],
+      "roots": [
+        {
+          "file": "src/app/caring-contacts/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CaringContactsShell"]
+        }
+      ]
+    },
+    {
       "id": "ward-management",
       "disposition": "owned",
       "documentedDisposition": "Ward Flow is a synthetic operational coordination surface with a coordinator command home, statewide flow diagram and explainable shortlist, rail-based mode navigation, role-aware queue-first phone fallback, linked operational workspaces, and an explainable human-confirmed destination workflow.",
@@ -3883,6 +3943,7 @@
       "src/app/(search-app)/therapy-compass/review/page.tsx",
       "src/app/(search-app)/therapy-compass/search/page.tsx",
       "src/app/(search-app)/tools/page.tsx",
+      "src/app/caring-contacts/page.tsx",
       "src/app/privacy/page.tsx",
       "src/app/reference/colour-coding/page.tsx",
       "src/app/safety-plan/page.tsx",
@@ -3962,6 +4023,7 @@
       "src/app/(search-app)/therapy-compass/review/page.tsx",
       "src/app/(search-app)/therapy-compass/search/page.tsx",
       "src/app/(search-app)/tools/page.tsx",
+      "src/app/caring-contacts/page.tsx",
       "src/app/privacy/page.tsx",
       "src/app/reference/colour-coding/page.tsx",
       "src/app/safety-plan/page.tsx",
@@ -3984,17 +4046,17 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 92,
+    "inheritedCkbV2RootCount": 93,
     "dynamicCkbV2RootCount": 0,
-    "v2MountedSurfaceCount": 15,
-    "declaredV2SurfaceCount": 15
+    "v2MountedSurfaceCount": 16,
+    "declaredV2SurfaceCount": 16
   },
   "summary": {
     "registeredComponentCount": 54,
     "previewCount": 54,
     "productImportedComponentCount": 34,
-    "rootCount": 93,
-    "productionRouteCount": 77,
-    "nextUiEntryCount": 135
+    "rootCount": 94,
+    "productionRouteCount": 78,
+    "nextUiEntryCount": 139
   }
 }
