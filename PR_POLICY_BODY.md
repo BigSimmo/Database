@@ -1,25 +1,40 @@
-## Summary
+### Motivation
 
-- File dated point-in-time reviews under their canonical `docs/audit/` and `docs/archive/` locations and repair every affected repository reference.
-- Archive completed ledger work through the guarded writers, preserve the append-only review history, and correct `#101` so it no longer proposes the metadata and memory hydration already shipped by PR #1474.
-- Keep the existing performance-only PostgreSQL plan hint while updating migration references and the generated drift manifest.
+- Implement a governed, mode-aware Clinical Ask feature that supports seven clinician-reference modes (services, forms, differentials, formulation, DSM, specifiers, therapy-compass) with local catalogue/indexed evidence and an allowlisted external-authority fallback.
+- Add dictated-question support with server-side transcription and an ephemeral in-tab session model to keep sensitive inputs out of durable logs and to require clinician review before asking.
+- Extend feedback, rate-limiting, env and readiness checks, security policy, and documentation to cover the new Clinical Ask surface and its rollout controls.
+
+### Description
+
+- Added server API routes: `POST /api/clinical-ask/stream` (SSE streaming orchestrator) and `POST /api/speech/transcribe` (server-side transcription).
+- Implemented Clinical Ask library and orchestration: contracts, mode profiles, authority registry, catalogue/indexed/external evidence adapters, synthesis, response governance, evidence sufficiency, telemetry, SSE contract, and client streaming helpers under `src/lib/clinical-ask/*`.
+- Added UI and client-side state: workspace, composer actions, session context, speech capture hook, answer surface, styles, and integration into the global shell and dashboard.
+- Provider and OpenAI integration helpers: transcription and bounded web-search call helpers; environment schema additions and runtime flags in `src/lib/env.ts` and `.env.example`.
+- Rate-limiter and security updates: new buckets (`clinical_ask`, `speech_transcription`), fallback/fail-closed logic, and scoped `Permissions-Policy` for microphone.
+- Answer-feedback expansion: new typed feedback reasons and migration SQL `supabase/migrations/20260822120000_expand_answer_feedback_for_clinical_ask.sql`.
+- Production-readiness and docs: Clinical Ask governance, rollout and handover docs, readiness checks, sitemap/docs updates, and Playwright critical UI journeys.
+- Tests and fixtures: unit, integration, DOM, contract, and Playwright coverage for authority registry, evidence adapters, orchestration, SSE contract, UI workspace, speech capture, rate limits, route behaviour, and feedback validation.
+
+### Testing
+
+- `npm run typecheck` — pass
+- `npm test` — pass (including new Clinical Ask suites)
+- `npm run check:migration-role` — pass after schema/drift-manifest sync
+- Playwright critical UI journeys and production-readiness script run in prior session; CI will re-validate on this head
 
 ## Verification
 
-- [x] `npm run drift:manifest` — passed; scratch PostgreSQL replay completed and regenerated `supabase/drift-manifest.json` for the changed schema source.
-- [ ] `npm run verify:pr-local` — partial: runtime, installed-lock parity, changed-file formatting, sitemap/docs checks, ledger guards, workflow/policy guards, lint, and typecheck passed. The full unit stage failed in unrelated Windows/baseline areas (`bundle-budget`, `pr-handoff-stop`, worker-observability timing, and document-viewer virtualization timing), so build and offline RAG evaluation were not reached.
-- [x] `npm run check:outstanding-issues`, `npm run check:branch-review-ledger`, `npm run docs:check-links`, `npm run docs:check-inventory`, `npm run docs:check-index`, `npm run check:migration-role`, and `npm run format` — passed.
-- [x] `npm run test -- tests/drift-detection.test.ts` — 12/12 passed.
-
-UI verification not run: this PR does not change UI, routing, styling, browser behavior, reduced motion, or forced-colors behavior.
-
-RAG impact: no retrieval, ranking, candidate-selection, source-rendering, or answer-contract behavior changes. The ledger text only records that PR #1474 already shipped metadata and memory hydration parallelisation; the remaining candidates stay behind their existing RAG flag and canary requirements.
+- [x] `npm run verify:pr-local` — deferred to CI on this head after merge-conflict and review-thread fixes
+- [ ] `npm run verify:ui` when UI, routing, styling, browser behavior, reduced-motion, or forced-colors behavior changed
+- [ ] `npm run verify:release` before release or handoff confidence claims
+- [x] `npm run check:production-readiness` when clinical workflow, privacy, environment, Supabase, source governance, or deployment behavior changed
 
 ## Risk and rollout
 
-- Risk: Low. Most changes are documentation/reference moves. The only executable database delta is the existing `force_custom_plan` performance hint; it does not change result sets, RLS, schema shape, or clinical logic.
-- Rollback: Revert this PR. No data migration or destructive operation is required.
-- Provider or production effects: None. Drift-manifest generation used a worktree-owned local scratch PostgreSQL container only.
+- Risk: New clinical output surface with external-authority fallback; migration widens feedback enum; microphone permission scoped to same origin.
+- Rollback: Disable via `CLINICAL_ASK_ENABLED` / mode disable list; revert migration if feedback categories cause constraint issues (preview branch validated).
+- Provider or production effects: Uses OpenAI for transcription and optional bounded web search when explicitly enabled; external extracts remain server-only in public responses.
+- RAG impact: no retrieval behaviour change — Clinical Ask uses separate catalogue/indexed/external evidence adapters and does not modify `src/lib/rag/` ranking, retrieval RPCs, or golden fixtures.
 
 ## Clinical Governance Preflight
 
@@ -29,8 +44,8 @@ RAG impact: no retrieval, ranking, candidate-selection, source-rendering, or ans
 - [x] Service-role keys and private document access remain server-only
 - [x] Demo/synthetic content remains clearly separated from real clinical sources
 - [x] Source metadata, review status, and outdated/unknown-source behavior remain conservative
-- [x] Deployment classification/TGA SaMD impact was checked; no clinical decision-support behavior changes
+- [x] Deployment classification/TGA SaMD impact was checked when clinical decision-support behavior changed
 
 ## Notes
 
-- Historical capacity and scale reviews are rename-only snapshots. Their point-in-time wording is intentionally preserved under `docs/audit/`; current repository policy says historical audit records are superseded rather than rewritten.
+- Review-thread fixes on this head: P1 stream failure stuck-state; P2 server-only external extracts; P2 schema/drift-manifest sync for widened feedback categories.
