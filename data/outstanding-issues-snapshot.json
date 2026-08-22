@@ -10,7 +10,7 @@
     "p2": 43,
     "p3": 33,
     "queued": 11,
-    "pending": 7,
+    "pending": 31,
     "resolved": 359
   },
   "queue": [
@@ -842,16 +842,112 @@
   ],
   "pending": [
     {
+      "request_id": "15cb3337-f69b-4c99-9595-3626de605eee",
+      "action": "cancel",
+      "summary": "Cancel request 1c7db1b1-d744-4702-b2d8-8117f4cc85ef: Duplicate done request created by overlapping command completion; retain 453dc608-a999-4789-9792-35431b805245.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "16814751-b8dd-4318-83ef-e95881a93eb1",
+      "action": "cancel",
+      "summary": "Cancel request 1fa94774-8d3a-422e-8dee-30df290cf371: Duplicate done request created by overlapping command completion; retain 725bdcac-1dd2-45dd-bb99-2901797f9ade.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "17162b23-6fdf-4fa4-8ccb-6f45018bf5b2",
+      "action": "cancel",
+      "summary": "Cancel request 2b98cd3b-a7be-454b-a819-9d6a42d52423: Duplicate done request created by overlapping command completion; retain dd5a438d-41bd-4bf7-9fa6-7636159b3af0.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "1c7db1b1-d744-4702-b2d8-8117f4cc85ef",
+      "action": "done",
+      "summary": "#75JA0P: Resolved 2026-08-21 by explicit test strategy: retain reduced-motion suite stability while the motion-emulation contract requires every motion-sensitive spec to declare reduced or no-preference coverage; contract tests pass.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "1fa94774-8d3a-422e-8dee-30df290cf371",
+      "action": "done",
+      "summary": "#HDYCQP: Resolved 2026-08-21: mergeability classifies merged/closed PRs as successful skips before unknown-state retry; both workflow call sites pass state and merged, with offline self-test coverage.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "2b98cd3b-a7be-454b-a819-9d6a42d52423",
+      "action": "done",
+      "summary": "#99KVDF: Resolved 2026-08-21 by accepting the measured stop decision: do not retry folding AnswerCard support text into VerificationNotice because the 4.5px saving does not remove a row.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "3552c196-bf4f-49c8-a39b-28f8876d8caf",
+      "action": "done",
+      "summary": "#P5542X: Resolved 2026-08-21: clinical-risk classification includes mode gating, therapy reachability, review/policy/content library surfaces, with explicit app-modes and therapies self-tests.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "39ba082d-4a81-4340-8d56-b9c0e1519724",
+      "action": "done",
+      "summary": "#G4M3DV: Resolved 2026-08-21: verify:pr-local detects an active Clinical KB dev server before its build and prints the stop/clear/rerun remedy while preserving fail-closed build behavior.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "453dc608-a999-4789-9792-35431b805245",
+      "action": "done",
+      "summary": "#75JA0P: Resolved 2026-08-21 by explicit test strategy: retain reduced-motion suite stability while the motion-emulation contract requires every motion-sensitive spec to declare reduced or no-preference coverage; contract tests pass.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "4725cf30-67a3-4f7c-8303-a664bd37eb36",
+      "action": "done",
+      "summary": "#EP1BQS: Resolved 2026-08-21: the RAG programme handover now points implementing sessions back to the canonical ledger and requires a duplicate-implementation check when provider reads are authorised.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "4bc642e9-5fba-4b43-90e8-407fe2c11408",
+      "action": "done",
+      "summary": "#P5542X: Resolved 2026-08-21: clinical-risk classification includes mode gating, therapy reachability, review/policy/content library surfaces, with explicit app-modes and therapies self-tests.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "4f754fec-20c4-4ca8-8e07-0d948089eaf1",
+      "action": "done",
+      "summary": "#0HFDWD: Resolved 2026-08-21: CI and PR-policy UI classifiers include the narrow mode, route, copy, navigation, and therapies library owners; self-tests pin app-modes and route ownership as UI.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "5201bfa7-4966-4583-abff-02305de82219",
+      "action": "done",
+      "summary": "#CHW9N3: Resolved 2026-08-22: the loading contract retains its separate fourteen-route inventory for consolidated and standalone homes, while a dedicated assertion now requires every entry in exported standaloneModeHomePaths to remain in that inventory; the dashboard root's in-shell pending skeleton stays separately guarded, and documents now has ModeHomeRouteLoading.",
+      "created_at": "2026-08-21"
+    },
+    {
       "request_id": "65494c5f-927b-4d0d-8564-5933a7c723f3",
       "action": "update",
       "summary": "#47M1XD: detail → UPDATED 2026-08-22 07:23 UTC by a second read-only production window; supersedes the 2026-08-21 detail, which is preserved in git history. Net effect: the attribution retraction is now STRONGER, and the experiment this row proposed to settle it turns out to be one that CANNOT settle it. (1) A SECOND OBSERVATION WINDOW CLOSES MOST OF THE COUNTER-RESET CAVEAT. Between the 2026-08-21 read and this one the serving indexes advanced under live traffic -- document_chunks_search_idx 37,717 -> 37,911, documents_title_search_idx 37,299 -> 37,512, document_chunks_embedding_hnsw_idx 4,906 -> 4,921, and the sibling-table trigram index document_table_facts_title_row_param_trgm_idx 2,372 -> 2,389 -- while document_chunks_content_trgm_idx (OID 1491258, 68 MB) and documents_title_trgm_idx (OID 1491257, 648 kB) stayed at idx_scan 0 AND idx_tup_read 0, with both OIDs unchanged. Two readings a day apart, with demonstrable retrieval traffic in between, make \"a per-index counter reset hid the usage\" a substantially weaker explanation than \"the planner does not choose these indexes\": a reset before the first read would have been re-populated by the traffic between the two. It is still not proof -- pg_stat_reset_single_table_counters(oid) remains invisible, and the production server is PostgreSQL 17.6 (read via current_setting('server_version')), which predates the pg_stat_all_indexes.stats_reset column added in PG 18. pg_stat_database.stats_reset is NULL and pg_postmaster_start_time() is 2026-06-19, so no database-wide reset is recorded across the whole period in question. (2) THE BEFORE/AFTER ANALYZE EXPERIMENT SHOULD NOT BE RUN AS FRAMED, BECAUSE IT CANNOT DISCRIMINATE. pg_stat_all_tables shows documents, document_chunks, document_table_facts and document_index_units were each ANALYZEd on 2026-08-18 18:08 UTC (the Phase 4 window) and every one of them now reports n_mod_since_analyze = 0. Re-ANALYZing a table with zero modifications since its last analyze re-samples the same rows and produces statistically equivalent statistics, so a flat before/after latency result would be uninformative rather than evidence against the ANALYZE hypothesis. Spending an approved production window on it would buy a null that cannot be interpreted. (3) ONE GENUINELY STALE TABLE, AND IT IS MINOR. document_embedding_fields was last analyzed 2026-06-25 and carries 3,148 modifications against 271,097 live tuples -- about 1.2%, far below the default autoanalyze threshold of 50 + 0.1 * n_live_tup (~27,160), which is why autovacuum has not fired on it. Worth an ANALYZE at the next convenient window as hygiene; not a plausible cause of a 31-second regression. (4) DATABASE-SIDE RETRIEVAL IS FAST RIGHT NOW. EXPLAIN ANALYZE through public.explain_retrieval_rpc in the same window: match_documents_for_query 1.000 ms, match_document_chunks_text 4.306 ms, match_document_lookup_chunks_text 0.904 ms, match_document_table_facts_text 15.760 ms. All four return a single Function Scan node with no inner index names, re-confirming #8VAY97 -- this instrument cannot show plan flips, and the four supported names are still the only ones it accepts. REVISED NEXT: (a) treat the mis-attribution as settled for triage purposes -- the next 30-second retrieval incident checks planner statistics BEFORE hunting missing indexes; (b) do NOT spend an approved production window on a before/after ANALYZE of the four already-current tables, and if a discriminating test is ever wanted it needs a table with pending modifications or a controlled statistics reset, neither of which is worth doing on the live clinical database; (c) an ANALYZE of document_embedding_fields alone is cheap hygiene and needs owner approval like any other production mutation; (d) whether the two trigram indexes earn their ~69 MB is a repo-side migration decision, not an operational one. STOP unchanged: do NOT drop them -- they are repo-defined, the migration chain commands them, and dropping them reopens live drift.; source → read-only production windows 2026-08-21 and 2026-08-22 07:23 UTC (pg_stat_all_indexes, pg_stat_all_tables, pg_stat_database, explain_retrieval_rpc); docs/audit/live-drift-forensics-2026-08.md Phase 5 close-out 5.1(c)",
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "6711c332-f825-4d58-9137-d740ce976026",
+      "action": "done",
+      "summary": "#G4M3DV: Resolved 2026-08-21: verify:pr-local detects an active Clinical KB dev server before its build and prints the stop/clear/rerun remedy while preserving fail-closed build behavior.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "725bdcac-1dd2-45dd-bb99-2901797f9ade",
+      "action": "done",
+      "summary": "#HDYCQP: Resolved 2026-08-21: mergeability classifies merged/closed PRs as successful skips before unknown-state retry; both workflow call sites pass state and merged, with offline self-test coverage.",
+      "created_at": "2026-08-21"
+    },
+    {
       "request_id": "7ab00925-b9c6-4395-b708-5485d9908fc0",
       "action": "done",
       "summary": "#056: Closed 2026-08-22: staging ikoiolksxqxfxgiyqpnu is at full parity with production and with the repository chain, so the migration-history gap this row was opened for no longer exists. Verified by a read-only query run from a dedicated linked worktree (project ref re-read from supabase/.temp/project-ref immediately before the call, and the worktree unlinked afterwards; production sjrfecxgysukkwxsowpy was never a target of this read): supabase_migrations.schema_migrations holds 211 rows, latest version 20260820120000, zero rows with statements IS NULL, public.migration_history_versions() present via to_regprocedure, and the 20260820120000 row carries 3 statements. That equals both the 211 migration files on main and the 211 remote versions live-drift run 32514326022 read from production, so all three sides agree. THE 19 CHECK:DRIFT FINDINGS IN THIS ROW ARE NOT LOST BY CLOSING IT. They were a schema.sql-versus-chain disagreement rather than staging staleness, and they were resolved separately: PR #2106 codified the live SET work_mem on the ten match_* RPCs, the eight schema-only objects and the three chain-stale columns, and PR #2151 (remediation Phase 4) settled document_chunks_content_trgm_idx. grep now finds work_mem in supabase/schema.sql, and live-drift 32514326022 reports \"No unexpected schema drift between live and supabase/schema.sql.\" NOT RE-RUN IN THIS WINDOW, and never gated on the history gap: indexing, health, identity and data-boundary proof. #057 (documented staging soak and rollback against an exact candidate) remains the open follow-on and is unblocked on parity grounds. Nothing was recreated and no production clinical document was copied.",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "7e2b4e6e-29b5-4e72-8fbb-e06ab80e5c17",
+      "action": "cancel",
+      "summary": "Cancel request 6711c332-f825-4d58-9137-d740ce976026: Duplicate done request created by overlapping command completion; retain 39ba082d-4a81-4340-8d56-b9c0e1519724.",
+      "created_at": "2026-08-21"
     },
     {
       "request_id": "7eab660a-07d4-4a78-86c9-06d71904ec1b",
@@ -872,15 +968,63 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "a43050b7-4b4d-4cc9-af64-9a4a8f049798",
+      "action": "cancel",
+      "summary": "Cancel request 3552c196-bf4f-49c8-a39b-28f8876d8caf: Duplicate done request created by overlapping command completion; retain 4bc642e9-5fba-4b43-90e8-407fe2c11408.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "afaa753b-41ae-4bee-8c63-89c649cdcfd5",
+      "action": "done",
+      "summary": "#CHW9N3: Resolved 2026-08-21: mode-home loading coverage derives from exported standaloneModeHomePaths, and the newly exposed documents gap now has ModeHomeRouteLoading.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "b4451cc1-6b7f-4d9b-8b78-05cc990eec0c",
+      "action": "cancel",
+      "summary": "Cancel request 4f754fec-20c4-4ca8-8e07-0d948089eaf1: Duplicate done request created by overlapping command completion; retain eeac3580-2340-415d-824f-e31c23d8e2f7.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "c4984226-e979-4e43-842e-0ff4f6cd006a",
+      "action": "done",
+      "summary": "#GKFK9V: Resolved 2026-08-21: docs/rag-improvement/HANDOVER.md session-start now links the canonical outstanding ledger, programme status table, and duplicate-PR check with provider-boundary guidance.",
+      "created_at": "2026-08-21"
+    },
+    {
       "request_id": "c6d13677-3dc7-4bea-9a49-d3e200b4eb3e",
       "action": "done",
       "summary": "#M54C4N: Closed 2026-08-22: fixed by PR #2198 (a341832af), which landed migration 20260820120000_migration_history_versions_rpc together with the supabase/schema.sql mirror, a regenerated supabase/drift-manifest.json and a rewritten scripts/check-migration-history-alignment.ts -- option (c) from this row's own OPTIONS list, a service-role security-definer RPC listing versions, with the PGRST106 Accept-Profile read retained only as a fallback. Verified against the run itself, not the claim: live-drift run 32514326022 (workflow \"Live drift check\", head branch main, head SHA 11550416206e8c90900ddeea0993337824873a55, created 2026-08-21T18:37:51Z, conclusion success). Its \"Compare live schema drift\" step reports \"No unexpected schema drift between live and supabase/schema.sql.\" and the previously failing \"Align migration history for Supabase Preview\" step now reports \"Local migration versions: 211\", \"Remote migration versions: 211 (read via rpc)\", \"Remote-only (Preview blockers): 0\", \"Local-only (pending apply): 0\" and \"Migration history alignment OK: every remote version exists locally.\" Both gates the post-merge contract requires are therefore green in the same run. Pinned issue #1963 auto-closed 2026-08-21T18:38:42Z; this was the first green live-drift since 2026-07-19, ending a 33-day red streak.",
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "cb683fd7-842a-49bd-90f1-c180a4c50cc2",
+      "action": "done",
+      "summary": "#3SG2H9: Resolved 2026-08-21: modern Crockford display IDs now exercise the inbox update path in repo-hygiene coverage and ledger-inbox self-test; focused tests pass.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "dd5a438d-41bd-4bf7-9fa6-7636159b3af0",
+      "action": "done",
+      "summary": "#99KVDF: Resolved 2026-08-21 by accepting the measured stop decision: do not retry folding AnswerCard support text into VerificationNotice because the 4.5px saving does not remove a row.",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "eeac3580-2340-415d-824f-e31c23d8e2f7",
+      "action": "done",
+      "summary": "#0HFDWD: Resolved 2026-08-21: CI and PR-policy UI classifiers include the narrow mode, route, copy, navigation, and therapies library owners; self-tests pin app-modes and route ownership as UI.",
+      "created_at": "2026-08-21"
+    },
+    {
       "request_id": "f7a561a7-1fe2-4aaa-bbfc-90d24baecc7a",
       "action": "add",
       "summary": "tests/settings-dialog-actions.dom.test.tsx contains an assertion that can never run: data-settings-nav-target is emitted nowhere in src",
+      "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "fa22db97-d86d-42aa-bd9e-068d1d978c75",
+      "action": "cancel",
+      "summary": "Cancel request afaa753b-41ae-4bee-8c63-89c649cdcfd5: Duplicate done request created by overlapping command completion; retain 5201bfa7-4966-4583-abff-02305de82219.",
       "created_at": "2026-08-21"
     }
   ]

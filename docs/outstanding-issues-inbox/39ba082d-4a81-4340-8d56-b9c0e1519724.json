@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "39ba082d-4a81-4340-8d56-b9c0e1519724",
+  "createdOn": "2026-08-21",
+  "action": "done",
+  "payload": {
+    "id": "#G4M3DV",
+    "outcome": "Resolved 2026-08-21: verify:pr-local detects an active Clinical KB dev server before its build and prints the stop/clear/rerun remedy while preserving fail-closed build behavior.",
+    "baseRowFingerprint": "2497c309e17a2cd8ccbaf9b0476e08c346d6287c0fe9dc7278c53f1c0b42741a"
+  }
+}

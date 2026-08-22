@@ -25,7 +25,7 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
  * Derived from the URL alone so an optimistic mode-state update during
  * navigation cannot flip the shell into dock reserve mid-transition.
  */
-const standaloneModeHomePaths = new Set<string>([
+export const standaloneModeHomePaths = [
   // The four modes that still own a home of their own. Every other mode was
   // consolidated onto the shared home at `/?mode=<id>`, whose composer the
   // dashboard owns; their bare paths redirect and render nothing to reserve
@@ -34,7 +34,7 @@ const standaloneModeHomePaths = new Set<string>([
   "/tools",
   "/medications",
   "/documents",
-]);
+] as const;
 
 /**
  * Mode homes whose body is rendered by ClinicalDashboard rather than by their own
@@ -49,7 +49,7 @@ const standaloneModeHomePaths = new Set<string>([
 const dashboardOwnedModeHomePaths = { "/documents": "documents" } as const satisfies Record<string, AppModeId>;
 
 export function isStandaloneModeHomePath(pathname: string): boolean {
-  return standaloneModeHomePaths.has(pathname);
+  return standaloneModeHomePaths.includes(pathname as (typeof standaloneModeHomePaths)[number]);
 }
 
 /** Exact pathnames that mount ClinicalDashboard for an unsubmitted mode home. */
