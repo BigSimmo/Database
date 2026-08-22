@@ -60,7 +60,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, lstatSync, mkdtempSync, readFileSync, rmdirSync, rmSync, symlinkSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -261,10 +261,18 @@ function ghIsAvailable() {
  * force-push while armed is the actual race — it can discard the commit GitHub
  * already validated or is mid-evaluating — so that alone still blocks.
  */
-export function autoMergeVerdict(branch, prPayload, isForcePush = false) {
+export function autoMergeVerdict(branch, prPayload, isForcePush = false, carriesMigration = false) {
   if (!prPayload) return { block: false, warn: false, reason: "no-open-pr" };
   if (prPayload.state && prPayload.state !== "OPEN") return { block: false, warn: false, reason: "pr-not-open" };
   if (prPayload.autoMergeRequest) {
+    // Merging to `main` applies migrations to the live clinical database automatically,
+    // within seconds, with no deploy step in between (AGENTS.md, "Supabase project safety").
+    // Auto-merge on such a PR therefore schedules an unattended production schema change,
+    // which is why AGENTS.md forbids it outright. That rule was documentation-only until
+    // this branch: nothing in the push path knew what a migration was.
+    if (carriesMigration) {
+      return { block: true, warn: false, reason: "auto-merge-armed-migration", number: prPayload.number };
+    }
     if (isForcePush) {
       return { block: true, warn: false, reason: "auto-merge-armed-force-push", number: prPayload.number };
     }
@@ -273,11 +281,17 @@ export function autoMergeVerdict(branch, prPayload, isForcePush = false) {
   return { block: false, warn: false, reason: "auto-merge-not-armed" };
 }
 
-function autoMergeGuard(branches, forcePushBranches = new Set()) {
+/** Exported for tests: does this push carry a hosted migration? */
+export function touchesProductionMigrations(changedFiles = []) {
+  return changedFiles.some((f) => f.startsWith("supabase/migrations/"));
+}
+
+function autoMergeGuard(branches, forcePushBranches = new Set(), changedFiles = []) {
   if (!ghIsAvailable()) {
     return { name: "auto-merge", ok: true, note: "gh not available — auto-merge check skipped (fail-open)" };
   }
   const warnings = [];
+  const migrations = touchesProductionMigrations(changedFiles);
   for (const branch of branches) {
     let payload;
     try {
@@ -290,16 +304,18 @@ function autoMergeGuard(branches, forcePushBranches = new Set()) {
       // No PR for this branch, or gh unauthenticated: fail open.
       continue;
     }
-    const verdict = autoMergeVerdict(branch, payload, forcePushBranches.has(branch));
+    const verdict = autoMergeVerdict(branch, payload, forcePushBranches.has(branch), migrations);
     if (verdict.block) {
-      return {
-        name: "auto-merge",
-        ok: false,
-        message:
-          `PR #${verdict.number} on ${branch} has auto-merge ARMED and this push force-updates the branch.\n` +
-          `  A force-push while armed can discard the commit GitHub already validated or is mid-evaluating.\n` +
-          `  Push a fast-forward commit instead, or wait for the user to change the auto-merge state. No override.`,
-      };
+      const message =
+        verdict.reason === "auto-merge-armed-migration"
+          ? `PR #${verdict.number} on ${branch} has auto-merge ARMED and this push carries a hosted migration.\n` +
+            `  Merging to main applies migrations to the LIVE clinical database automatically, within seconds.\n` +
+            `  Auto-merge on a migration PR therefore schedules an unattended production schema change.\n` +
+            `  Ask the user to disable auto-merge and merge it inside an approved window. No override.`
+          : `PR #${verdict.number} on ${branch} has auto-merge ARMED and this push force-updates the branch.\n` +
+            `  A force-push while armed can discard the commit GitHub already validated or is mid-evaluating.\n` +
+            `  Push a fast-forward commit instead, or wait for the user to change the auto-merge state. No override.`;
+      return { name: "auto-merge", ok: false, message };
     }
     if (verdict.warn) {
       warnings.push(`PR #${verdict.number} on ${branch} has auto-merge ARMED — pushing anyway (fast-forward).`);
@@ -414,13 +430,18 @@ export function defaultRunsFetch(branch, exec = execFileSync) {
 export function inFlightCiGuard(
   branches,
   _ranges = [],
-  { prViewer = defaultPrView, runFetcher = defaultRunsFetch } = {},
+  // `ghAvailable` is injectable for the same reason `prViewer`/`runFetcher` are: without it
+  // the fail-open below short-circuits before either injected fetcher is consulted, so the
+  // message-formatting cases could only ever run where the `gh` binary happens to be
+  // installed. They passed in CI and failed in every container without it, which reads as a
+  // product regression and is not one.
+  { prViewer = defaultPrView, runFetcher = defaultRunsFetch, ghAvailable = ghIsAvailable } = {},
 ) {
   void _ranges;
   if (process.env.SKIP_IN_FLIGHT_CI_GUARD === "1") {
     return { name: "in-flight-ci", ok: true, skipped: "SKIP_IN_FLIGHT_CI_GUARD=1" };
   }
-  if (!ghIsAvailable()) {
+  if (!ghAvailable()) {
     return { name: "in-flight-ci", ok: true, note: "gh not available — in-flight CI check skipped (fail-open)" };
   }
 
@@ -481,6 +502,13 @@ function worktreeRoots() {
  * guard must work before that junction exists, but accepting an arbitrary
  * sibling would let a stale Prettier version disagree with CI. Byte-identical
  * lockfiles plus the installed package version make the fallback deterministic.
+ *
+ * The borrow is deliberately NOT gated on whether the donor worktree is idle.
+ * "Actively in use" is not cheaply detectable — an in-flight `npm ci` in another
+ * process leaves nothing this can read — and a heuristic that misfires would
+ * silently disable the format guard. The borrow is read-only; the deletion risk
+ * lived entirely in the scratch checkout's teardown, which unlinkDependencyLink
+ * and cleanupFormatCheckout now handle without following the link.
  */
 export function findPrettierBin(projectRoot, candidateRoots) {
   const lockPath = path.join(projectRoot, "package-lock.json");
@@ -621,15 +649,113 @@ function checkPushedCommit(prettierBin, sha, files) {
     }
     return { verdict: "formatted" };
   } finally {
-    const modulesPath = path.join(dir, "node_modules");
-    try {
-      if (existsSync(modulesPath)) rmSync(modulesPath, { recursive: false, force: true });
-    } catch {
-      // Continue cleanup even if unlinking junction throws
-    }
-    tryGit(["worktree", "remove", "--force", dir]);
-    rmSync(dir, { recursive: true, force: true });
+    cleanupFormatCheckout(dir);
   }
+}
+
+/**
+ * Remove the linked dependency tree from a scratch checkout WITHOUT following it.
+ *
+ * That link is not necessarily this worktree's own `node_modules`. When the
+ * pushing worktree has none, findPrettierBin deliberately borrows ANOTHER
+ * worktree's real tree, and on Windows the borrow is linked in as a junction.
+ * Everything cleanupFormatCheckout runs afterwards — `git worktree remove
+ * --force` and a recursive rmSync — is a force-delete over the directory holding
+ * that link, and neither respects `git worktree lock`. So the link is removed
+ * first, by a call that operates on the link itself rather than on what it points
+ * at.
+ *
+ * lstat, not existsSync: existsSync FOLLOWS the link, so once the borrowed tree
+ * has gone away the link reads as absent and an existsSync-gated cleanup skips
+ * it — leaving it in place for the force-deletes to interpret instead. lstat
+ * sees the link whether or not it still resolves.
+ *
+ * unlink removes a junction and a POSIX directory symlink alike, and Windows can
+ * want rmdir for a directory reparse point; rmdir on a junction also removes the
+ * link, never its target. Neither call descends, and rmSync({recursive:true}) is
+ * never used on this path under any branch.
+ *
+ * A real directory here is refused outright. Nothing in guard-push creates one,
+ * so one means something unexpected — and recursively deleting an unexpected
+ * directory is precisely the outcome this function exists to prevent.
+ *
+ * @returns {{removed: boolean, reason: "unlink"|"rmdir"|"absent"|"not-a-link"|"unreadable"|"failed", detail?: string}}
+ */
+export function unlinkDependencyLink(linkPath) {
+  let stats;
+  try {
+    stats = lstatSync(linkPath);
+  } catch (error) {
+    if (error?.code === "ENOENT") return { removed: false, reason: "absent" };
+    return { removed: false, reason: "unreadable", detail: describeError(error) };
+  }
+  if (!stats.isSymbolicLink()) return { removed: false, reason: "not-a-link" };
+  try {
+    unlinkSync(linkPath);
+    return { removed: true, reason: "unlink" };
+  } catch {
+    // A directory reparse point can refuse unlink on Windows; rmdir removes the
+    // link itself in that case, and still never touches the target.
+  }
+  try {
+    rmdirSync(linkPath);
+    return { removed: true, reason: "rmdir" };
+  } catch (error) {
+    return { removed: false, reason: "failed", detail: describeError(error) };
+  }
+}
+
+function describeError(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Tear down a format-check scratch checkout, link first.
+ *
+ * The ordering is the point: the link is gone before `git worktree remove
+ * --force` and before the recursive delete, so whether either of those can
+ * traverse a junction never has to be relied upon.
+ *
+ * When the link could NOT be removed, neither force-delete runs. Swallowing that
+ * failure and continuing is the single case where a force-delete would run over
+ * a directory still holding a live link into another worktree's node_modules. A
+ * leftover scratch directory is cheap and the `git worktree prune` at the top of
+ * checkPushedCommit clears its registration on the next push; the alternative is
+ * not cheap.
+ *
+ * Dependencies are injectable so the ordering and the skip are unit-testable
+ * without creating and destroying real worktrees.
+ */
+export function cleanupFormatCheckout(
+  dir,
+  {
+    unlink = unlinkDependencyLink,
+    removeWorktree = (target) => tryGit(["worktree", "remove", "--force", target]),
+    removeDir = (target) => rmSync(target, { recursive: true, force: true }),
+    log = console.error,
+  } = {},
+) {
+  const linkPath = path.join(dir, "node_modules");
+  const result = unlink(linkPath);
+  if (!result.removed && result.reason !== "absent") {
+    log(
+      "[guard-push] left " +
+        dir +
+        " in place: could not remove the linked dependency tree at " +
+        linkPath +
+        " (" +
+        result.reason +
+        (result.detail ? ": " + result.detail : "") +
+        ").\n" +
+        "  Skipping the force worktree removal and the recursive delete — neither may run over a " +
+        "directory that still holds a live link into another worktree's node_modules.\n" +
+        "  Remove it by hand once nothing is using it.",
+    );
+    return result;
+  }
+  removeWorktree(dir);
+  removeDir(dir);
+  return result;
 }
 
 function chunk(items, size) {
@@ -1177,7 +1303,7 @@ function main() {
   const changedFiles = collectChangedFiles(ranges);
   // formatGuard reads the pushed blobs; drift/static only need the paths.
   const results = [
-    autoMergeGuard(pushedBranches, forcePushBranches),
+    autoMergeGuard(pushedBranches, forcePushBranches, changedFiles),
     inFlightCiGuard(pushedBranches, ranges),
     formatGuard(collectChangedBlobs(ranges)),
     driftGuard(changedFiles),
@@ -1266,6 +1392,9 @@ function selfTest() {
   const mockBlockedGuard = inFlightCiGuard(["claude/feature"], [], {
     prViewer: () => ({ state: "OPEN", number: 99 }),
     runFetcher: () => [activeCiRun],
+    // Same reason as the injected fetchers: the real probe short-circuits this case on any
+    // machine without `gh`, so the self-test would silently assert nothing there.
+    ghAvailable: () => true,
   });
   assert(mockBlockedGuard.ok === false, "inFlightCiGuard blocks on active CI run");
   assert(

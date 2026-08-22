@@ -47,8 +47,103 @@
 set -uo pipefail
 
 mode="${1:-}"
-payload="$(cat 2>/dev/null || true)"
+case "$mode" in
+post | pre) ;;
+*) exit 0 ;;
+esac
+
+# Read stdin with the `read` builtin instead of `$(cat)`: one fewer fork+exec on
+# every Bash/PowerShell call, and not slower — measured from 1 KB to 2 MB it wins
+# below 256 KB and draws above. `read -d ''` consumes to EOF and reports non-zero
+# *there* having already filled the variable, so `|| true` is the expected path.
+payload=""
+IFS= read -r -d '' payload || true
 [ -z "$payload" ] && exit 0
+
+# --- fast reject, before any subprocess ---------------------------------------
+# Both modes are registered on EVERY Bash/PowerShell call, and in almost all of
+# them there is nothing to do. Reaching that conclusion used to cost four jq
+# runs, a grep and a `git rev-parse` — on Windows/Git Bash that is roughly two
+# seconds of pure process-spawn latency, twice per tool call. Everything under
+# this banner uses shell builtins only.
+#
+# Each test below is a deliberate SUPERSET of the decision it stands in for, so
+# it can only ever let MORE through, never less. Anything it rejects would have
+# reached the same exit further down, just slower.
+
+# Post mode acts only when tool_response carries a `github.com/<…>/pull/<n>` URL
+# (the URL gate in the post branch). That match is case-sensitive, so the raw
+# payload must contain the lowercase bytes `pull`; JSON escaping `/` as `\/`
+# cannot hide them. The `\u` arm keeps the claim airtight against a hypothetical
+# encoder emitting `\u0070ull`.
+if [ "$mode" = post ]; then
+  case "$payload" in
+  *pull* | *\\u*) ;;
+  *) exit 0 ;;
+  esac
+fi
+
+# Resolve the git directory the way `git rev-parse --absolute-git-dir` does, with
+# builtins only. fast_git_dir is left EMPTY whenever the answer is not certain —
+# any of git's own discovery controls being set, a `.git` file that does not
+# resolve, a cwd that is itself a git dir, or no repository above cwd — and every
+# one of those falls through to the authoritative `git rev-parse` in the marker
+# section below.
+#
+# The discovery controls are load-bearing, not decoration. GIT_CEILING_DIRECTORIES
+# in particular stops git ascending, so from a ceiling-excluded subdirectory git
+# reports NO repository and the marker belongs in TMPDIR — while a naive upward
+# walk finds the excluded checkout's `.git` and puts it there instead. Those two
+# answers disagreeing across a post/pre pair is exactly how this guard would stop
+# firing, so treat every discovery control as uncertain rather than guessing.
+fast_git_dir=""
+resolve_fast_git_dir() {
+  # Keep in sync with git's discovery controls; an unrecognised one must fail
+  # closed to `git rev-parse`, never be walked past.
+  [ -n "${GIT_DIR:-}${GIT_COMMON_DIR:-}${GIT_WORK_TREE:-}${GIT_CEILING_DIRECTORIES:-}${GIT_DISCOVERY_ACROSS_FILESYSTEM:-}" ] && return 0
+  # cwd is itself a git dir (bare repo): walking up would find a different repo.
+  [ -f "$PWD/HEAD" ] && [ -d "$PWD/objects" ] && [ -d "$PWD/refs" ] && return 0
+  local dir="$PWD" line target
+  while :; do
+    if [ -d "$dir/.git" ]; then
+      fast_git_dir="$dir/.git"
+      return 0
+    fi
+    if [ -f "$dir/.git" ]; then
+      # Linked worktree: a one-line `gitdir: <path>` pointer.
+      IFS= read -r line <"$dir/.git" 2>/dev/null || return 0
+      line="${line%$'\r'}"
+      case "$line" in
+      "gitdir: "*)
+        target="${line#gitdir: }"
+        case "$target" in
+        /* | [A-Za-z]:[/\\]*) ;;
+        *) target="$dir/$target" ;;
+        esac
+        [ -d "$target" ] && fast_git_dir="$target"
+        ;;
+      esac
+      return 0
+    fi
+    case "$dir" in "" | /) break ;; esac
+    dir="${dir%/*}"
+    [ -z "$dir" ] && dir=/
+  done
+  return 0
+}
+resolve_fast_git_dir
+
+# Pre mode's entire job is gated on this session's marker existing (the first
+# line of the pre branch), and no marker is written until this session opens a
+# PR. The id is read with bash's own regex engine and accepted only in the same
+# safe charset the full parse enforces, so a path-injection id matches nothing
+# here and falls through to be rejected there. `-e`, not `-f`: anything present
+# at that path defers to the slow path rather than short-circuiting it.
+if [ "$mode" = pre ] && [ -n "$fast_git_dir" ]; then
+  if [[ "$payload" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([A-Za-z0-9_-]+)\" ]]; then
+    [ -e "$fast_git_dir/claude-pr-handoff-${BASH_REMATCH[1]}" ] || exit 0
+  fi
+fi
 
 # Extract a JSON string value for key $1 from the raw payload (first match).
 # Handles only simple double-quoted values (no escapes). Empty on miss.
@@ -148,8 +243,11 @@ fi
 
 # --- marker location ----------------------------------------------------------
 # Absolute git dir so the marker path is valid from any cwd (and for linked
-# worktrees). Falls back to TMPDIR outside a repo.
-git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
+# worktrees). The builtin resolver above answers this without spawning git in
+# the ordinary cases; `git rev-parse` stays the authority everywhere it did not.
+# Falls back to TMPDIR outside a repo.
+git_dir="$fast_git_dir"
+[ -z "$git_dir" ] && git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
 [ -z "$git_dir" ] && git_dir="${TMPDIR:-/tmp}"
 marker="$git_dir/claude-pr-handoff-$session_id"
 
@@ -232,7 +330,7 @@ post)
   fi
   [ -f "$marker" ] || exit 0
 
-  context="The pull request is open, and this session may babysit its CI for the next ${budget_minutes} minutes: read checks and run logs, re-run a failed job, sync the branch from main, and push fixes for what this change broke. Look on a slow cadence — roughly five minutes between checks, waiting with ScheduleWakeup or Monitor rather than polling tightly — and stop as soon as CI settles. When the ${budget_minutes}-minute budget is spent those tools are denied: record the ledger row if it is still owed, give the user the PR URL, say plainly where CI stands, and stop. Do not park a cron job on this PR — it would outlive the session. See AGENTS.md \"Babysit the pull request, then stop\"."
+  context="The pull request is open: hand over its URL and stop. Do not read checks, wait, sync from main, or push follow-up fixes unless the user expressly asks to babysit or continue PR work. If they do ask in this session, CI follow-up is bounded to ${budget_minutes} minutes; use a slow cadence and stop as soon as CI settles. Do not park a cron job on this PR — it would outlive the session. See AGENTS.md \"Babysit the pull request, then stop\"."
   printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' "$(json_escape "$context")"
   exit 0
   ;;

@@ -102,8 +102,22 @@ function main() {
 
   const plan = [];
   for (const pr of prs) {
+    const skipReason = shouldSkip(pr) || (pr.autoMergeRequest ? "auto-merge-armed" : null);
+    if (skipReason) {
+      plan.push({
+        pr,
+        behindBy: 0,
+        requiredCiInFlight: false,
+        stateUnavailable: false,
+        action: "skip",
+        reason: skipReason,
+      });
+      continue;
+    }
+
     let behindBy = 0;
     let requiredCiInFlight = false;
+    let stateUnavailable = false;
     try {
       const cmp = ghJson([
         "api",
@@ -111,7 +125,7 @@ function main() {
       ]);
       behindBy = cmp.behind_by ?? 0;
       requiredCiInFlight =
-        behindBy > 0 && !shouldSkip(pr)
+        behindBy > 0 && pr.headRefOid?.length > 0
           ? hasRequiredCiInFlight(
               ghJson([
                 "api",
@@ -122,9 +136,12 @@ function main() {
     } catch {
       behindBy = 0;
       requiredCiInFlight = false;
+      stateUnavailable = true;
     }
-    const decision = classifyPr({ ...pr, requiredCiInFlight }, behindBy);
-    plan.push({ pr, behindBy, requiredCiInFlight, ...decision });
+    const decision = stateUnavailable
+      ? { action: "skip", reason: "api-unavailable" }
+      : classifyPr({ ...pr, requiredCiInFlight }, behindBy);
+    plan.push({ pr, behindBy, requiredCiInFlight, stateUnavailable, ...decision });
   }
 
   console.log(`Open PRs against ${BASE}: ${plan.length} (${APPLY ? "APPLY" : "dry-run"})`);
@@ -132,6 +149,12 @@ function main() {
     console.log(
       `#${row.pr.number} draft=${row.pr.isDraft} behind=${row.behindBy} -> ${row.action} (${row.reason}) ${row.pr.headRefName}`,
     );
+  }
+
+  const unavailable = plan.filter((row) => row.stateUnavailable).length;
+  if (unavailable > 0) {
+    console.error(`Incomplete scan: GitHub state unavailable for ${unavailable} PR(s); re-run to confirm.`);
+    process.exitCode = 1;
   }
 
   if (!APPLY) {

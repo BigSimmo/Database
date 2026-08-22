@@ -296,16 +296,6 @@ const MAX_CALLOUT_INTERACTIONS = 3;
 const calloutActionClass =
   "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-semibold text-[color:var(--text-heading)] transition hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
-/** Badge for a result row summarising how many considerations apply. */
-export function considerationSummaryBadge(count: number, highestTone: SemanticTone | null): ClinicalBadgeItem | null {
-  if (!count || !highestTone) return null;
-  return {
-    id: "patient-alerts",
-    label: `${count} alert${count === 1 ? "" : "s"}`,
-    tone: highestTone,
-  };
-}
-
 function considerationBadges(consideration: MedicationConsideration): ClinicalBadgeItem[] {
   return [
     ...consideration.factorLabels.map((label, index) => ({

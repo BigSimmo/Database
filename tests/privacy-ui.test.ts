@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -44,6 +46,9 @@ describe("privacy UI", () => {
       "External provider processing",
       "Retention",
       "Your responsibilities",
+      "Who can access your data",
+      "What stays in this browser",
+      "Third parties involved",
     ]) {
       expect(markup).toContain(heading);
     }
@@ -63,6 +68,95 @@ describe("privacy UI", () => {
     expect(markup).toContain("even when the final response is source-only");
     expect(markup).toContain("bounded hourly purge of expired response-cache rows");
     expect(markup).not.toContain("approved privacy policy");
+
+    // Added sections. Each of these is a claim about configured behaviour that a
+    // reader can check against the repository, so the wording is pinned too.
+    expect(markup).toContain("database row-level security restricts reads to that owner");
+    expect(markup).toContain("those links expire after ten minutes by default");
+    expect(markup).toContain("append-only audit record");
+    expect(markup).toContain("Recent searches use per-tab session storage");
+    expect(markup).toContain("Safety-plan working content is stricter again");
+    expect(markup).toContain("OpenAI, in the United States");
+    expect(markup).toContain("browser session replay is not enabled");
+    expect(markup).toContain("rather than validated clinical decision support");
+    expect(markup).toContain("degrades to a deterministic source-only answer");
+
+    // The provider section states only what the application itself does. A
+    // zero-retention or no-training claim is an operator/contractual matter the
+    // app cannot observe, and docs/openai-cross-border-basis.md still records it
+    // as unresolved — so it must not appear here.
+    expect(markup).toContain("a keyed pseudonym is used instead when the operator configures one");
+    expect(markup).toContain("not a deletion deadline");
+    expect(markup).not.toContain("zero-retention arrangement is in place");
+    expect(markup).not.toContain("not used for training");
+
+    // Status line: describes configured behaviour, never asserts a review.
+    expect(markup).toContain("Describes configured behaviour as of");
+    expect(markup).not.toContain("Reviewed on");
+  });
+
+  it("exposes every section as a stable anchor so /privacy#retention can be linked", () => {
+    const markup = renderToStaticMarkup(createElement(PrivacyPage));
+
+    for (const id of [
+      "what-this-tool-is",
+      "what-is-collected",
+      "how-questions-are-handled",
+      "where-data-is-stored",
+      "external-providers",
+      "who-can-access",
+      "in-this-browser",
+      "retention",
+      "third-parties",
+      "your-responsibilities",
+    ]) {
+      expect(markup).toContain(`id="${id}"`);
+    }
+  });
+
+  it("summarises the load-bearing facts above the detail", () => {
+    const markup = renderToStaticMarkup(createElement(PrivacyPage));
+
+    expect(markup).toContain("At a glance");
+    for (const fact of [
+      "Documents and logs at rest",
+      "Sydney, Australia",
+      "AI provider",
+      "OpenAI, United States",
+      "Keyed hash · 30 days",
+      "Up to 12 hours",
+      "Never leaves this tab",
+    ]) {
+      expect(markup).toContain(fact);
+    }
+    expect(markup).toContain("Question text and selected excerpts can leave Australia.");
+  });
+
+  it("collapses detail with the hidden utility so nothing is dropped from print", () => {
+    const markup = renderToStaticMarkup(createElement(PrivacyPage));
+
+    // The HTML `hidden` attribute beats `print:block`, so a collapsed section
+    // would print as though the page never mentioned it — invisibly, on paper.
+    // See the same contract on the design system's Disclosure.
+    expect(markup).not.toContain('hidden=""');
+    expect(markup).toContain("print:block");
+    expect(markup).toContain('data-testid="privacy-print"');
+  });
+
+  it("keeps the headings, summary and full width of the printed copy", () => {
+    const markup = renderToStaticMarkup(createElement(PrivacyPage));
+    const globals = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
+
+    // globals.css drops `header`, `nav` and `button` from print. This page's
+    // section headings ARE disclosure triggers and its summary tiles ARE
+    // buttons, so without the scoped restore the printed copy loses its title,
+    // its fact summary and all ten headings — silently, on paper.
+    expect(markup).toContain("privacy-page");
+    expect(markup).toContain("data-print-keep");
+    expect(markup).toContain("data-print-stack");
+    expect(globals).toContain(".privacy-page header");
+    expect(globals).toContain(".privacy-page [data-print-keep]");
+    expect(globals).toContain(".privacy-page [data-print-stack]");
   });
 
   it("exposes sticky-chrome state so oversized banners can drop sticky positioning", () => {

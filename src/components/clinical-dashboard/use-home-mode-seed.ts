@@ -172,8 +172,11 @@ export function useHomeModeSeed({
    * race that redirect and leave the landing preference ignored.
    */
   useEffect(() => {
+    if (pathname !== "/") {
+      homeModeSeededRef.current = false;
+      return;
+    }
     if (homeModeSeededRef.current) return;
-    if (pathname !== "/") return;
     if (searchParams.has("mode") || searchParams.has("q") || searchParams.has("query")) return;
     homeModeSeededRef.current = true;
     if (landingModeForPreference(readAppPreferences().landing)) return;

@@ -103,6 +103,14 @@ it is limited to the documented, exact GitHub connector-gap operation in
 | `npm run check:lighthouse-budget`         | Grade Lighthouse JSON that already exists. `-- --update` refreshes the baseline in `lighthouse-budget.json`.                                            |
 | `npm run check:coverage-inventory`        | Fail if a declared executable root is absent from the generated `coverage/lcov.info`.                                                                   |
 | `npm run check:bundle-budget`             | Enforce aggregate production, five route-local, and mockup-only client-JS gzip baselines after a clean build.                                           |
+| `npm run receipts`                        | Show the gate-receipt store: current input signature per memoised gate and how many stored receipts are valid right now.                                |
+| `npm run receipts:clear`                  | Empty the gate-receipt store, forcing the next `lint`/`typecheck`/Vitest run to execute for real.                                                       |
+
+`lint`, `typecheck` and non-coverage Vitest runs are memoised against a content signature, so an identical
+re-run on unchanged content exits 0 without repeating the work. Failures are never memoised, `CI` disables
+reuse entirely, and `build`/`test:coverage` are excluded because later gates read their artefacts. Report a
+reused gate as a reused receipt, not a fresh run; `GATE_RECEIPTS=refresh` forces the real thing. Full
+contract: `docs/process-hardening.md`.
 
 Set `FAST_CHECK_SEED` to reproduce a property-test run. Local and ordinary CI runs default to `424242`; scheduled CI may derive a bounded seed from the run ID.
 

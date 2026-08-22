@@ -17,7 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { useRef, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
+import { useEffect, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
@@ -81,6 +81,17 @@ export function CaringContactShellFrame({
   const [moreOpen, setMoreOpen] = useState(false);
   const [announcement, setAnnouncement] = useState(`${activeDestination} selected`);
   const moreTriggerRef = useRef<HTMLButtonElement>(null);
+  // The deferred focus hop below outlives a fast unmount: it fires 250ms later and
+  // touches `document`, which throws once the tree (or a jsdom test environment)
+  // is gone. Hold the id so teardown can cancel it.
+  const focusTimerRef = useRef<number | undefined>(undefined);
+
+  useEffect(
+    () => () => {
+      if (focusTimerRef.current !== undefined) window.clearTimeout(focusTimerRef.current);
+    },
+    [],
+  );
 
   function selectDestination(destination: WorkspaceDestination) {
     const returningFromMore = moreOpen;
@@ -88,7 +99,8 @@ export function CaringContactShellFrame({
     setMoreOpen(false);
     setAnnouncement(`${destination} selected`);
     if (returningFromMore) {
-      window.setTimeout(() => {
+      focusTimerRef.current = window.setTimeout(() => {
+        focusTimerRef.current = undefined;
         document.querySelector<HTMLElement>("[data-caring-contact-page-title]")?.focus({ preventScroll: true });
       }, 250);
     }

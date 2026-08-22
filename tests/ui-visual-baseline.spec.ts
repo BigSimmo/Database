@@ -87,25 +87,37 @@ const targets: readonly BaselineTarget[] = [
     selector: "#main-content",
     viewport: desktop,
     /**
-     * The document header and the search composer are viewport-pinned
-     * (`sm:sticky sm:top-0` and `sm:fixed` in `DocumentViewer.tsx`), and this
-     * target clips a ~2900px region against a 900px viewport. Playwright stitches
-     * an oversized element capture, so both land partway DOWN the image, overlap
-     * whatever content sits behind them at that offset, and move whenever the
-     * content above them changes height. That made an unrelated edit anywhere on
-     * the page redraw two bands of the golden and inflated every diff (#278).
+     * The document header is viewport-pinned (`sm:sticky sm:top-0` in
+     * `DocumentViewer.tsx`), and this target clips a ~2900px region against a
+     * 900px viewport. Playwright stitches an oversized element capture, so the
+     * header lands partway DOWN the image, overlaps whatever content sits behind
+     * it at that offset, and moves whenever the content above it changes height.
+     * That made an unrelated edit anywhere on the page redraw a band of the
+     * golden and inflated every diff (#278).
      *
-     * Masked rather than clipped away: both are real chrome that belongs in the
+     * Masked rather than clipped away: it is real chrome that belongs in the
      * frame, and narrowing the selector would drop the rail panels this target
-     * exists to watch. A mask is a hole in the gate, so it is limited to the two
-     * pinned elements — their own geometry is covered by the phone chrome
-     * contracts in `docs/search-chrome-behaviour.md`, not by this pixel gate.
-     * The header selector is the document-specific `data-document-sticky-header`
-     * attribute, not `.edge-glass-header`, because the universal search header
-     * also carries that class and would keep the fail-loud mask guard green after
-     * a DocumentViewer rename.
+     * exists to watch. A mask is a hole in the gate, so it is limited to that one
+     * pinned element — its own geometry is covered by the phone chrome contracts
+     * in `docs/search-chrome-behaviour.md`, not by this pixel gate. The selector
+     * is the document-specific `data-document-sticky-header` attribute, not
+     * `.edge-glass-header`, because the universal search header also carries that
+     * class and would keep the fail-loud mask guard green after a DocumentViewer
+     * rename.
+     *
+     * `.document-viewer-composer` was masked here for the same reason until
+     * document search became on-demand: the composer is now rendered only after
+     * "Search document" is pressed, so the default state this target captures has
+     * no composer at all. `assertMaskSelectors` fails loudly on a mask that
+     * matches nothing — deliberately, so a rename cannot silently stop masking —
+     * which would have turned this advisory job red on every run for a reason
+     * that has nothing to do with pixels. Nothing is lost: a masked region was
+     * never compared. The closed composer is now inside the golden, which is the
+     * state a reader actually lands on. If a target ever needs the open composer
+     * in frame, open it in that target's own `prepare` and re-declare the mask
+     * there.
      */
-    mask: ["[data-document-sticky-header]", ".document-viewer-composer"],
+    mask: ["[data-document-sticky-header]"],
     prepare: async (page) => {
       const sectionIndex = page.getByTestId("document-section-index");
       const sourceText = sectionIndex.getByRole("button", { name: /Indexed source text/ });

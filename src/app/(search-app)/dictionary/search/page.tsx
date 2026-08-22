@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { DictionarySearchPage } from "@/components/dictionary/dictionary-catalogue-pages";
+import { DictionaryCataloguePage } from "@/components/dictionary/dictionary-catalogue-pages";
 import { LoadingPanel } from "@/components/ui-primitives";
 
 export const metadata: Metadata = {
-  title: "Search clinical terms | Clinical KB",
-  description: "Search definitions, governed abbreviations, and clinical topic collections.",
+  title: "Clinical terms | Clinical KB",
+  description: "Search or browse 96 source-governed clinical terms and their governed abbreviations.",
 };
 
-export default function DictionarySearchRoute() {
+export default function DictionaryCatalogueRoute() {
   return (
-    <Suspense fallback={<LoadingPanel variant="skeleton" lines={6} label="Loading dictionary results" />}>
-      <DictionarySearchPage />
+    <Suspense fallback={<LoadingPanel variant="skeleton" lines={6} label="Loading the dictionary catalogue" />}>
+      <DictionaryCataloguePage />
     </Suspense>
   );
 }

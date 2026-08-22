@@ -208,6 +208,22 @@ test.describe("universal search typeahead", () => {
     expect(await input.getAttribute("aria-activedescendant")).toBeNull();
   });
 
+  test("Escape dismisses the dropdown without erasing the typed query", async ({ page }) => {
+    // The composer input is `type="search"`, whose native Chromium Escape gesture
+    // clears the field. Escape must only dismiss the dropdown; the query stays put
+    // so a reader can reopen or edit it instead of retyping from scratch.
+    await mockUniversalSearch(page);
+    const input = await openComposer(page);
+    await input.fill("acamprosate");
+
+    const listbox = page.getByRole("listbox", { name: "Documents search suggestions" });
+    await expect(listbox).toBeVisible();
+
+    await input.press("Escape");
+    await expect(listbox).toBeHidden();
+    await expect(input).toHaveValue("acamprosate");
+  });
+
   test("does not count document-only hits as visible Medication rows", async ({ page }) => {
     await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
       await fulfillUniversalSearch(route, {

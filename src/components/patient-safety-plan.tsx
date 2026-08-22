@@ -57,7 +57,7 @@ const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 const softButton = cn(
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-sm-minus font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+  "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-sm-minus font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
   focusRing,
 );
 
@@ -280,7 +280,7 @@ function AddRow({
         }}
         placeholder={primaryPlaceholder}
         aria-label={primaryPlaceholder}
-        className={cn(fieldControlPlain, "min-h-10")}
+        className={cn(fieldControlPlain, "min-h-tap")}
       />
       {kind === "contact" ? (
         <input
@@ -298,14 +298,14 @@ function AddRow({
           }}
           placeholder={secondaryPlaceholder}
           aria-label={secondaryPlaceholder}
-          className={cn(fieldControlPlain, "min-h-10")}
+          className={cn(fieldControlPlain, "min-h-tap")}
         />
       ) : null}
       <button
         type="button"
         onClick={submit}
         className={cn(
-          "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] px-3 text-sm-minus font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]",
+          "inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] px-3 text-sm-minus font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]",
           kind === "list" && "justify-self-start",
           focusRing,
         )}
@@ -725,7 +725,7 @@ export function PatientSafetyPlan() {
               aria-controls={`spg-panel-${tab}`}
               onClick={() => setMobileTab(tab)}
               className={cn(
-                "min-h-10 rounded-md px-3 text-sm-minus font-bold transition",
+                "min-h-tap rounded-md px-3 text-sm-minus font-bold transition",
                 mobileTab === tab
                   ? "bg-[color:var(--surface)] text-[color:var(--text-heading)] shadow-[var(--e1)]"
                   : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",

@@ -275,6 +275,27 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(modeButton).toHaveAttribute("aria-expanded", "false");
   });
 
+  test("shared-home mode changes keep the document title aligned with visible copy", async ({ page }) => {
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+
+    await expect(page).toHaveTitle("Clinical Answers | Clinical KB");
+    await page.getByRole("button", { name: /Mode\s*Answer/i }).click();
+    const modeMenu = page.getByRole("menu");
+    await expect(modeMenu).toBeVisible();
+    await modeMenu.getByText("Dictionary", { exact: true }).click();
+
+    await expect(page).toHaveURL(/\?mode=dictionary$/);
+    await expect(page.getByRole("heading", { level: 2, name: "Clinical Dictionary" })).toBeVisible();
+    await expect(page).toHaveTitle("Clinical Dictionary | Clinical KB");
+
+    // Repeated parameters are an adversarial deep-link case. The first value is
+    // the canonical selection used by both the server metadata and client state.
+    await page.goto("/?mode=therapy-compass&mode=dictionary", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 2, name: "Therapy" })).toBeVisible();
+    await expect(page).toHaveTitle("Therapy | Clinical KB");
+  });
+
   test("an open sheet deactivates the page behind it and releases it on close", async ({ page }) => {
     // jsdom cannot enforce `inert`, so the browser is the only place the modal
     // containment contract (and its release) can actually be proven.
@@ -521,7 +542,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(filterTrigger).toHaveAccessibleName(/1 filter active/);
   });
 
-  test("guest upload action exposes the admin boundary and opens Sources", async ({ page }) => {
+  test("document actions do not offer uploads and preserve focus", async ({ page }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockMinimalDashboardApi(page);
     await gotoApp(page);
@@ -531,15 +552,10 @@ test.describe("Clinical KB accessibility coverage", () => {
     await menuTrigger.click();
     const menu = page.getByTestId("daily-actions-menu");
     await expect(menu).toBeVisible();
-    await menu.getByRole("menuitem", { name: "Add document" }).click();
-    await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
-    const sourcesDialog = page.getByRole("dialog", { name: "Sources" });
-    await expect(sourcesDialog).toBeVisible();
-    await expect(page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only" })).toContainText(
-      "Upload and indexing tools are admin-only. Use Sources to open indexed documents.",
-    );
-    await sourcesDialog.getByRole("button", { name: "Close Sources" }).click();
-    await expect(sourcesDialog).toHaveCount(0);
+    await expect(menu.getByRole("menuitem", { name: /Add document|Upload PDF/ })).toHaveCount(0);
+    await expect(page.locator('input[type="file"]')).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
     await expect
       .poll(() =>
         page.evaluate(() => {
@@ -549,7 +565,7 @@ test.describe("Clinical KB accessibility coverage", () => {
             : "none";
         }),
       )
-      .toBe("BUTTON:Open documents options:visible");
+      .toBe("BUTTON:Open answer options:visible");
   });
 
   test("Therapy Compass preserves focus, selection, tap targets, and fixed paper tokens", async ({

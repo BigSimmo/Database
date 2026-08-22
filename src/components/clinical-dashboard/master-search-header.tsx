@@ -200,10 +200,11 @@ export function MasterSearchHeader({
   onScopeFiltersChange,
   onToggleScope,
   onScopeOpenChange,
-  onOpenUpload,
   onOpenEvidence,
   onOpenRecentDocuments,
   onOpenLibrary,
+  onOpenDocumentAdmin,
+  canManageDocuments = false,
   onOpenSourcePdf,
   onNewChat,
   onOpenMobileSidebar,
@@ -255,10 +256,13 @@ export function MasterSearchHeader({
   onScopeFiltersChange: (filters: SearchScopeFilters) => void;
   onToggleScope: (documentId: string) => void;
   onScopeOpenChange?: (open: boolean) => void;
-  onOpenUpload?: () => void;
   onOpenEvidence?: () => void;
   onOpenRecentDocuments?: () => void;
   onOpenLibrary?: () => void;
+  /** Opens the administrator document/indexing surface. Paired with `canManageDocuments`. */
+  onOpenDocumentAdmin?: () => void;
+  /** Gates the administrator-only rows in the mode action list. Defaults to hidden. */
+  canManageDocuments?: boolean;
   onOpenSourcePdf?: () => void;
   onNewChat?: () => void;
   onOpenMobileSidebar?: () => void;
@@ -673,7 +677,7 @@ export function MasterSearchHeader({
                             : searchMode === "dictionary"
                               ? "dictionary"
                               : "answer";
-  const actionMenuItems = modeActionItemsFor(actionMenuSetId);
+  const actionMenuItems = modeActionItemsFor(actionMenuSetId, { canManageDocuments });
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
 
   function currentUsesScopeSheet() {
@@ -731,10 +735,6 @@ export function MasterSearchHeader({
       onSearchModeChange("documents");
       return;
     }
-    if (actionId === "documents-upload") {
-      onOpenUpload?.();
-      return;
-    }
     if (actionId === "documents-scope") {
       openScopePicker();
       return;
@@ -751,6 +751,11 @@ export function MasterSearchHeader({
     if (actionId === "documents-recent") {
       onSearchModeChange("documents");
       onOpenRecentDocuments?.();
+      return;
+    }
+    if (actionId === "documents-admin") {
+      onSearchModeChange("documents");
+      onOpenDocumentAdmin?.();
       return;
     }
     if (actionId === "documents-status" || actionId === "documents-collections") {
@@ -774,10 +779,6 @@ export function MasterSearchHeader({
     }
     if (actionId === "dictionary-search") {
       router.push(`/dictionary/search${trimmedQuery ? `?q=${encodeURIComponent(trimmedQuery)}` : ""}`);
-      return;
-    }
-    if (actionId === "dictionary-browse") {
-      router.push("/dictionary/browse");
       return;
     }
     if (actionId === "dictionary-topics") {
@@ -1783,6 +1784,9 @@ export function MasterSearchHeader({
   function renderSearchComposer(placement: "default" | "desktop-home" | "desktop-page") {
     const isDesktopHomeComposer = placement === "desktop-home";
     const isDesktopPageComposer = placement === "desktop-page";
+    const isDefaultComposer = placement === "default";
+    const isPageDesktopComposerPending =
+      isDefaultComposer && Boolean(desktopPageComposerSlotId) && !desktopComposerPortalFallback;
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
@@ -1903,6 +1907,7 @@ export function MasterSearchHeader({
                       "universal-top-search-edge mx-auto box-border w-full px-3 py-3 sm:px-4",
                       stickySearchOwnedByOuterStack ? "relative z-20" : cn("sticky z-20", stickySearchTopClass),
                     ),
+          isPageDesktopComposerPending && "sm:hidden",
           usesBottomComposerPlacement && "answer-footer-search-edge",
           usesPhoneFooterDock && "answer-footer-search-dock",
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
@@ -2032,6 +2037,7 @@ export function MasterSearchHeader({
               pr-* utility, which let text run under an overlaid button. */}
             <div className="flex min-w-0 flex-1 items-center overflow-hidden">
               <input
+                type="search"
                 ref={bindQueryInputRef}
                 data-testid="global-search-input"
                 autoFocus={queryInputAutoFocus}
@@ -2495,16 +2501,18 @@ export function MasterSearchHeader({
   const portalPlacement = desktopHomeComposerSlotId ? "desktop-home" : "desktop-page";
   const homePortalPending =
     Boolean(desktopHomeComposerSlotId) && homeComposerMediaEligible && !desktopComposerPortalFallback;
-  const pagePortalPending =
-    Boolean(desktopPageComposerSlotId) && !usesPhoneSearchLayout && !desktopComposerPortalFallback;
-  const portalPending = homePortalPending || pagePortalPending;
+  const portalPending = homePortalPending;
   const searchComposer = searchComposerVisible ? (
     <>
       {/* ModeHomeTemplate and desktop page slots reserve their settled geometry
           in SSR, so a temporary header fallback would make the stack grow and
           shift all main content when the portal attaches (CLS 0.118 on desktop
-          /documents/search). A failed adoption restores the header fallback after
-          the bounded retry window above. */}
+          /documents/search). Mode home routes suppress the header fallback entirely
+          because the hero slot in the page body reserves geometry during SSR;
+          generic page slots keep the phone fallback rendered during SSR and
+          unknown media state while applying sm:hidden so the desktop fallback
+          never renders over the reserved page slot. A failed adoption restores
+          the header fallback after the bounded retry window above. */}
       {desktopComposerPortalActive && desktopComposerPortalHost
         ? null
         : portalPending

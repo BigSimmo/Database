@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5b31b1a6-6ac7-4cf6-983e-1520a40d570e",
+  "createdOn": "2026-08-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "therapies-home and therapies-index generated assets are byte-identical, so the home projection saves nothing",
+    "detail": "public/therapy-compass-data/therapies-home.211dab554c4ec62d.json and therapies-index.211dab554c4ec62d.json have identical content hashes. The home asset exists so the Therapy landing page can paint the catalogue count and default artifact destinations without downloading and parsing a full record projection first, but it is currently a byte-for-byte copy of the index, so the landing page pays the full 136 KB it was meant to avoid. This is a projection bug in scripts/build-therapies-index.mjs rather than stray duplication. Next step: either narrow the home projection to the fields THERAPY_CATALOGUE_SUMMARY actually needs, or drop the asset and point the home path at the index. Note the immutable Cache-Control in next.config.ts is keyed on the content hash, so a narrowed projection lands under a new URL and needs the one-generation retention already implemented in generated-assets.ts. Found by the 2026-08-20 repo-cleanup audit.",
+    "source": "scripts/build-therapies-index.mjs, src/components/therapy-compass/data/generated-assets.ts, public/therapy-compass-data/",
+    "issueUlid": "01M0GDNEA0V15EASF9590NW3HT"
+  }
+}
