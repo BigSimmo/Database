@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "cb683fd7-842a-49bd-90f1-c180a4c50cc2",
+  "createdOn": "2026-08-21",
+  "action": "done",
+  "payload": {
+    "id": "#3SG2H9",
+    "outcome": "Resolved 2026-08-21: modern Crockford display IDs now exercise the inbox update path in repo-hygiene coverage and ledger-inbox self-test; focused tests pass.",
+    "baseRowFingerprint": "7d8a281ebed1da2bbb0ad1f9c31519d9dc79fe1de390ae4b858ca5bd48dfcc59"
+  }
+}

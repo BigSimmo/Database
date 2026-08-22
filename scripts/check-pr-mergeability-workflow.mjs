@@ -91,6 +91,11 @@ if (!job) {
     if (!signalStep.includes("classifyMergeability")) {
       failures.push("pr-mergeability signal step must call classifyMergeability.");
     }
+    for (const field of ["state: latestPr.state", "merged: latestPr.merged"]) {
+      if (!signalStep.includes(field)) {
+        failures.push(`pr-mergeability signal step must pass ${field} to classifyMergeability.`);
+      }
+    }
   }
 }
 
@@ -142,6 +147,8 @@ if (!basePushJob) {
       "github.rest.checks.create",
       'name: "PR mergeability"',
       "head_sha: latestPr.head.sha",
+      "state: latestPr.state",
+      "merged: latestPr.merged",
     ]) {
       if (!refreshStep.includes(required)) {
         failures.push(`protected-base refresh step is missing ${JSON.stringify(required)}.`);

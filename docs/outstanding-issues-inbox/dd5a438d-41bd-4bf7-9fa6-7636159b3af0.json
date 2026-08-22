@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "dd5a438d-41bd-4bf7-9fa6-7636159b3af0",
+  "createdOn": "2026-08-21",
+  "action": "done",
+  "payload": {
+    "id": "#99KVDF",
+    "outcome": "Resolved 2026-08-21 by accepting the measured stop decision: do not retry folding AnswerCard support text into VerificationNotice because the 4.5px saving does not remove a row.",
+    "baseRowFingerprint": "5fe7b6fd9911f5fc1be547f61a47dcb9a0ad4da11b6243046a3ab425b654408a"
+  }
+}
