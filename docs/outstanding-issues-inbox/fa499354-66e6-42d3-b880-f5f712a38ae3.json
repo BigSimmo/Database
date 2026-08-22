@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "fa499354-66e6-42d3-b880-f5f712a38ae3",
+  "createdOn": "2026-08-22",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "A caring-contacts mockup timer fires after jsdom teardown, so the full unit suite can exit 1 with 8359/8359 passing",
+    "detail": "FOUND 2026-08-22 during PR #2285's verification, unrelated to that change. npm run test can exit 1 while reporting 'Test Files 714 passed (714) / Tests 8359 passed | 1 skipped (8360)' plus 'Errors 1 error'. The error is 'ReferenceError: document is not defined' thrown from Timeout._onTimeout at src/components/caring-contacts/mockups/caring-contact-shell-frame.tsx:104, inside the 250ms window.setTimeout that selectDestination schedules when returning from the More sheet; the callback calls document.querySelector after the jsdom environment for tests/caring-contact-product-redesign.dom.test.tsx has been torn down. Timing-dependent: two runs of verify:pr-local on byte-identical content in the same container disagreed — the first completed all 19 gates at exit 0, the second failed at 'test (exit 1)' on this error and never reached build or the eval gates. IMPACT: an unhandled post-teardown error is indistinguishable at the summary line from a real failure, and it can fail a PR whose diff cannot reach the component. The component is design scratch under mockups/, so no production surface is affected. LIKELY FIX: the component already holds focusTimerRef; the gap is that nothing clears it on unmount. A cleanup effect that calls window.clearTimeout(focusTimerRef.current) on teardown, and/or a guard on document existence inside the callback, should close it. STOP: do not respond by skipping, disabling or quarantining tests/caring-contact-product-redesign.dom.test.tsx — the test is not what is broken, the uncancelled timer is.",
+    "source": "verify:pr-local run 2026-08-22 during PR #2285; src/components/caring-contacts/mockups/caring-contact-shell-frame.tsx:104; tests/caring-contact-product-redesign.dom.test.tsx",
+    "issueUlid": "01M0MPB6D80YK2S3PCVRBKZ9RN"
+  }
+}
