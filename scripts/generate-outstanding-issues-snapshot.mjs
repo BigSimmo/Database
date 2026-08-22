@@ -107,21 +107,35 @@ export function buildSnapshot({ ledgerMarkdown, inboxRecords, revision }) {
   const resolvedCount = tableRowsUnder(ledgerMarkdown, "## Resolved / archive", 5).length;
 
   /**
-   * Only `add` requests carry `summary`. An `update` request carries the target
-   * row's `id` plus a `detail`, and a `done` request carries an `outcome`, so
-   * reading `summary` alone renders those as blank rows on the hub — which is
-   * under-reporting outstanding work, the exact failure this feature exists to
-   * prevent. Fall back through the fields each action actually has, and prefix
-   * the target id so an update reads as being about a specific row.
+   * Give each inbox action the context its payload carries. The developer hub
+   * is a task ledger, so a valid priority-only/source-only update or a
+   * cancellation must not collapse into the fallback message.
    */
   const pending = inboxRecords.map((record) => {
     const payload = record.payload ?? {};
-    const body = payload.summary || payload.detail || payload.outcome || "";
     const target = payload.id ? `${payload.id}: ` : "";
+    let summary;
+
+    if (record.action === "update") {
+      const changes = [
+        payload.summary !== undefined ? `summary → ${payload.summary || "(clear)"}` : null,
+        payload.detail !== undefined ? `detail → ${payload.detail || "(clear)"}` : null,
+        payload.pri !== undefined ? `priority → ${payload.pri}` : null,
+        payload.source !== undefined ? `source → ${payload.source || "(clear)"}` : null,
+      ].filter(Boolean);
+      summary = changes.length > 0 ? `${target}${changes.join("; ")}` : `${target}(no change in the update request)`;
+    } else if (record.action === "cancel") {
+      const request = payload.requestId ? `Cancel request ${payload.requestId}` : "Cancel request";
+      summary = `${request}: ${payload.reason || "(no reason in the cancel request)"}`;
+    } else {
+      const body = payload.summary || payload.detail || payload.outcome || "";
+      summary = body ? `${target}${body}` : `${target}(no summary in the ${record.action} request)`;
+    }
+
     return {
       request_id: record.id,
       action: record.action,
-      summary: body ? `${target}${body}` : `${target}(no summary in the ${record.action} request)`,
+      summary,
       created_at: record.createdOn ?? null,
     };
   });

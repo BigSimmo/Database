@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "f048c9c7-fc23-4361-8cb8-38bee74e3405",
+  "createdOn": "2026-08-22",
+  "action": "cancel",
+  "payload": {
+    "requestId": "61ed61bb-e3f1-406d-9842-5068bf30dfcc",
+    "reason": "Stale optimistic-concurrency fingerprint. Superseded by a01b19c4-f58a-4d57-915a-f9e62849ca6c, reread from current main so reconciliation does not stop at the stale request."
+  }
+}

@@ -80,6 +80,36 @@ describe("buildSnapshot", () => {
     expect(snapshot.pending[0].summary).toBe("Add docling fixtures");
   });
 
+  it("describes priority-only, source-only, and cancellation inbox requests", () => {
+    const records = [
+      {
+        version: 2,
+        id: "5b99217d-d500-4d4b-9bd1-543e53c00f81",
+        action: "update",
+        payload: { id: "#231", pri: "P1" },
+      },
+      {
+        version: 2,
+        id: "9478861f-0671-4c17-a025-1c191a12d48c",
+        action: "update",
+        payload: { id: "#316", source: "PR #901" },
+      },
+      {
+        version: 2,
+        id: "ef3c9cdf-dce0-449a-bac6-9d840c7ff342",
+        action: "cancel",
+        payload: { requestId: "5b99217d-d500-4d4b-9bd1-543e53c00f81", reason: "Superseded request" },
+      },
+    ];
+
+    const snapshot = buildSnapshot({ ledgerMarkdown: LEDGER, inboxRecords: records, revision: REVISION });
+    expect(snapshot.pending.map((request) => request.summary)).toEqual([
+      "#231: priority → P1",
+      "#316: source → PR #901",
+      "Cancel request 5b99217d-d500-4d4b-9bd1-543e53c00f81: Superseded request",
+    ]);
+  });
+
   it("fails loudly on a malformed row rather than dropping it", () => {
     const broken = LEDGER.replace("| #316 | P1 | issue |", "| #316 | P1 |");
     expect(() => buildSnapshot({ ledgerMarkdown: broken, inboxRecords: [], revision: REVISION })).toThrow(/#316/);
