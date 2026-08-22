@@ -4070,9 +4070,7 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "moderate",
-          "counterparties": [
-            "verapamil"
-          ],
+          "counterparties": ["verapamil"],
           "termIds": ["azole-antifungals", "pgp"],
           "resolved": false,
           "note": "MODERATE — P-gp inhibitors (e.g., Verapamil, Ketoconazole) can theoretically push loperamide across the blood-brain barrier, causing opioid sedation, but rare at normal doses."
