@@ -27,7 +27,7 @@ import {
   type Unit,
 } from "@/components/ward-management/ward-model";
 import { bedReleases } from "@/components/ward-management/ward-movements";
-import { allEmergencyDepartments, allUnits, siteByCode } from "@/components/ward-management/ward-sites";
+import { allEmergencyDepartments, siteByCode } from "@/components/ward-management/ward-sites";
 import { REFERRABLE_MOVEMENT_STAGES } from "@/components/ward-management/ward-flow-reducer";
 
 /** UI-only role concept; not part of the domain model. */
@@ -297,25 +297,6 @@ export function eligibleCandidatesAmong(movement: Movement, units: Unit[], now: 
     const bRestricted = restrictionNotice(movement, b.unit) ? 1 : 0;
     return aRestricted - bRestricted;
   });
-}
-
-/**
- * DEPRECATED — do not call from a new live surface. Reads the frozen `ward-sites.ts` fixture via
- * `allUnits()`, exactly the defect class whole-branch review Critical 1 exists to close.
- *
- * This exists solely because `tests/ward-flow-contracts.test.ts` — owned by a concurrent editing
- * session at the time of this fix and explicitly off-limits to it — imports `eligibleCandidates`
- * by this exact name and calls it with the pre-fix three-argument shape
- * (`movement, now, limit`). Changing that file's calls to pass live `units` was not possible
- * without touching a file another session was actively editing in the same working tree, which
- * risked clobbering that concurrent work. Every real caller — every ward-management component —
- * calls `eligibleCandidatesAmong` directly with the provider's live `units` instead; `grep -rn
- * "eligibleCandidates(" src` should show no component call, only this wrapper's own definition
- * and its one remaining test caller. If `tests/ward-flow-contracts.test.ts` is ever updated to
- * pass `units` explicitly, delete this wrapper and its `allUnits` import.
- */
-export function eligibleCandidates(movement: Movement, now: Instant, limit = 3) {
-  return eligibleCandidatesAmong(movement, allUnits(), now, limit);
 }
 
 /**

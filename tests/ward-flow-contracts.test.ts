@@ -5,7 +5,7 @@ import type { WardFlowState } from "../src/components/ward-management/ward-flow-
 import { PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 import type { MovementStage } from "../src/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
-import { eligibleCandidates } from "../src/components/ward-management/ward-derivations";
+import { eligibleCandidatesAmong } from "../src/components/ward-management/ward-derivations";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
 
 const NOW = NOW_ANCHOR;
@@ -111,15 +111,19 @@ describe("invariants across every reachable state", () => {
     // a unit that could never have been a candidate anyway), then prove the walk's own DECLINE
     // event removes it from the real candidate list the screens use.
     const states = walk();
-    const beforeDecline = states[AFTER_REFER_TO_UNITS].movements.find((movement) => movement.id === MOVEMENT_ID)!;
-    const beforeCandidates = eligibleCandidates(beforeDecline, NOW, Number.POSITIVE_INFINITY);
+    const beforeState = states[AFTER_REFER_TO_UNITS];
+    const beforeDecline = beforeState.movements.find((movement) => movement.id === MOVEMENT_ID)!;
+    // R70: reads the walk's own live `units`, never the frozen `allUnits()` fixture the deleted
+    // `eligibleCandidates` wrapper read from — the wrapper existed only because this call site
+    // had not yet been repointed at the units-aware `eligibleCandidatesAmong`.
+    const beforeCandidates = eligibleCandidatesAmong(beforeDecline, beforeState.units, NOW, Number.POSITIVE_INFINITY);
     expect(beforeCandidates.some((c) => c.unit.id === DECLINED_UNIT_ID && c.verdict.eligible)).toBe(true);
 
     const final = states.at(-1)!;
     const target = final.movements.find((movement) => movement.id === MOVEMENT_ID)!;
     expect(target.declines.some((decline) => decline.unitId === DECLINED_UNIT_ID)).toBe(true);
 
-    const afterCandidates = eligibleCandidates(target, NOW, Number.POSITIVE_INFINITY);
+    const afterCandidates = eligibleCandidatesAmong(target, final.units, NOW, Number.POSITIVE_INFINITY);
     const eligibleIds = new Set(afterCandidates.filter((c) => c.verdict.eligible).map((c) => c.unit.id));
     expect(eligibleIds.has(DECLINED_UNIT_ID)).toBe(false);
   });

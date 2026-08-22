@@ -62,7 +62,7 @@ const NOW_ANCHOR_ALLOWLIST = new Set([
  *
  * Verified by hand (`grep -rn "allUnits\|unitById" src`, this fix, after converting every
  * live-surface caller) before writing this list: the only real, non-comment identifier reads of
- * either name anywhere under `src` are the four files below.
+ * either name anywhere under `src` are the three files below.
  *   - `ward-sites.ts` declares both functions — a function declaration's own name is itself an
  *     `Identifier` node, so the declaring file must be excluded the same way
  *     `NOW_ANCHOR_ALLOWLIST` excludes the file that declares `NOW_ANCHOR`.
@@ -73,12 +73,12 @@ const NOW_ANCHOR_ALLOWLIST = new Set([
  *     once — the single legitimate place the reducer's live `state.units` is ever initialised
  *     FROM the frozen fixture. Every later read of unit state anywhere in the app must come from
  *     that live `state.units` (via the provider's `units`), never from `ward-sites.ts` again.
- *   - `ward-derivations.ts` keeps one narrow, explicitly deprecated `eligibleCandidates(movement,
- *     now, limit)` wrapper around the real, units-aware `eligibleCandidatesAmong`. It exists only
- *     because `tests/ward-flow-contracts.test.ts` imports `eligibleCandidates` by that exact name
- *     with the pre-fix three-argument call shape, and that file was off-limits to this fix (a
- *     concurrent editing session owned it) — see the wrapper's own doc comment for the full
- *     reasoning. No component anywhere in `src` calls it; only this one test file does.
+ * `ward-derivations.ts` is no longer on this list (final-fix-wave R70): its own explicitly
+ * deprecated `eligibleCandidates(movement, now, limit)` wrapper — kept only because
+ * `tests/ward-flow-contracts.test.ts` called it with the pre-fix three-argument shape while a
+ * concurrent session owned that test file — has been deleted now that the concurrent session is
+ * finished. `tests/ward-flow-contracts.test.ts` calls `eligibleCandidatesAmong` directly with the
+ * walk's own live `units`, the same as every other caller.
  * Every ward-management component that used to resolve a unit's own capacity, name or existence
  * via `unitById`/`allUnits` — `ward-screen.tsx`, `flow-diagram.tsx`, `shortlist-panel.tsx`,
  * `ward-management-console.tsx`, `ward-management-modes.tsx`, `ward-management-network.tsx`,
@@ -89,7 +89,6 @@ const UNITS_FIXTURE_ALLOWLIST = new Set([
   "src/components/ward-management/ward-sites.ts",
   "src/components/ward-management/ward-movements.ts",
   "src/components/ward-management/ward-flow-reducer.ts",
-  "src/components/ward-management/ward-derivations.ts",
 ]);
 
 /**
