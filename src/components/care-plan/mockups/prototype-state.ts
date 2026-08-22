@@ -238,13 +238,28 @@ const CAPABILITY_BY_ACTION: Record<CarePlanPrototypeAction["type"], PrototypeCap
 };
 
 /**
- * Printing the person's own Personal Safety Plan is the one action you most want
- * available when systems are down, and it appends an audit event rather than
- * changing any clinical record. Connectivity is the only block it skips:
- * printing the wrong person's safety plan is a real harm, so identity
- * uncertainty, unavailable permission, and a version conflict all still apply.
+ * Both print intents. Printing is the single action you most want available when
+ * systems are down, and it appends an audit event rather than changing any
+ * clinical record — and both of those are properties of the action, not of which
+ * document it happens to print.
+ *
+ * This list named only the Personal Safety Plan until Task 5, because that was
+ * the only print route in existence when the exemption was written. Narrowing
+ * the rule to the document it happened to name would have made two identical
+ * operations diverge, and in the worse direction: the browser print dialogue
+ * opens either way, so a refused Management Plan print meant paper could leave
+ * the building while `auditEvents` said nothing had happened and the reader was
+ * told the device was offline and nothing was changed. An application's own
+ * account of itself must not underclaim what it did.
+ *
+ * Connectivity is the only block either intent skips. Printing the wrong
+ * person's plan is a real harm, so identity uncertainty, unavailable permission,
+ * and a version conflict all still apply to both.
  */
-const CONNECTIVITY_EXEMPT_ACTIONS: readonly CarePlanPrototypeAction["type"][] = ["record-safety-plan-print-intent"];
+const CONNECTIVITY_EXEMPT_ACTIONS: readonly CarePlanPrototypeAction["type"][] = [
+  "record-safety-plan-print-intent",
+  "record-management-plan-print-intent",
+];
 
 /**
  * The single funnel every changing action passes through, so no transition can

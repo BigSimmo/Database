@@ -13,6 +13,7 @@ import {
   CurrentPlanSummary,
   DefinitionRow,
   MANAGEMENT_VERSION_STATE_LABEL,
+  PROTOTYPE_OUTCOME_TONE,
   ParticipationMarker,
   PinnedSafetyBoundary,
   ReviewWarning,
@@ -32,8 +33,6 @@ import type {
 } from "./types";
 
 const AGE_COHORT_LABEL = { adult: "Adult", older_adult: "Older adult" } as const;
-
-const OUTCOME_TONE = { success: "success", info: "info", blocked: "warning", error: "danger" } as const;
 
 function displayName(users: readonly PrototypeUser[], id: SyntheticId | null): string | undefined {
   if (id === null) return undefined;
@@ -154,7 +153,7 @@ export function PatientWorkspace({
 
           {outcome === null ? null : (
             <div data-testid="care-plan-outcome">
-              <InlineNotice tone={OUTCOME_TONE[outcome.kind]}>{outcome.message}</InlineNotice>
+              <InlineNotice tone={PROTOTYPE_OUTCOME_TONE[outcome.kind]}>{outcome.message}</InlineNotice>
             </div>
           )}
 

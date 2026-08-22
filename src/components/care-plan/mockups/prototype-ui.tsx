@@ -12,6 +12,7 @@ import {
   type ManagementPlanContent,
   type ManagementPlanVersion,
   type ParticipationState,
+  type PrototypeOutcome,
   type ReviewState,
 } from "./types";
 
@@ -63,6 +64,18 @@ export function formatPerthDate(iso: string | null): string {
 }
 
 export const NOT_RECORDED = "Not recorded";
+
+/**
+ * How each outcome the reducer returns is weighted on screen. Shared, because a
+ * refusal that reads as a warning on one route and as an error on the next tells
+ * a reader the two are different events when they are the same object.
+ */
+export const PROTOTYPE_OUTCOME_TONE = {
+  success: "success",
+  info: "info",
+  blocked: "warning",
+  error: "danger",
+} as const satisfies Record<PrototypeOutcome["kind"], SemanticChipTone>;
 
 export const REVIEW_STATE_LABEL: Record<ReviewState, string> = {
   within_review: "Within review",

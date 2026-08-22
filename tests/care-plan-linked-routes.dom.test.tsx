@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CarePlanErrorBoundary } from "@/components/care-plan/mockups/care-plan-error-boundary";
 import { buildPatientSnapshot } from "@/components/care-plan/mockups/domain";
-import { PROTOTYPE_NOW } from "@/components/care-plan/mockups/fixtures";
+import { PROTOTYPE_NOW, syntheticManagementPlanVersions } from "@/components/care-plan/mockups/fixtures";
+import { FULL_PLAN_SECTION_KEYS } from "@/components/care-plan/mockups/management-plan-read";
 import { PatientWorkspace } from "@/components/care-plan/mockups/patient-workspace";
 import { CarePlanPrototypeProvider } from "@/components/care-plan/mockups/prototype-provider";
 import { createInitialPrototypeState } from "@/components/care-plan/mockups/prototype-state";
@@ -994,9 +995,8 @@ describe("Care Plan Management Plan reading", () => {
 
   it("presents version, approval, ownership, review and sharing facts as metadata", () => {
     renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
-    // Approval and ownership belong to the shared summary card, which the
-    // Clinical Snapshot renders too. Repeating them below would be a second
-    // copy of the same facts on one page.
+    // Version, approval, ownership and review currency belong to the shared
+    // summary card, which the Clinical Snapshot renders too.
     const summary = screen.getByTestId("care-plan-current-plan-metadata");
     expect(summary).toHaveTextContent("Current version 2");
     expect(summary).toHaveTextContent("Morgan Sample");
@@ -1005,14 +1005,49 @@ describe("Care Plan Management Plan reading", () => {
     expect(summary).toHaveTextContent("20/05/2027");
     expect(summary).toHaveTextContent("Within review");
 
+    // The governance block carries only what the card does not.
     const governance = screen.getByTestId("care-plan-plan-governance");
-    expect(governance).toHaveTextContent("Current version 2");
-    expect(governance).toHaveTextContent("Within review");
     expect(governance).toHaveTextContent("22/05/2026");
     expect(governance).toHaveTextContent(/1 open Review Trigger/);
     expect(governance).toHaveTextContent(/No current Patient Plan/i);
     // Metadata, never a sixth content section.
     expect(within(governance).queryAllByRole("heading", { level: 3 })).toEqual([]);
+  });
+
+  // The same fact stated twice on one page is not emphasis; it is a second copy
+  // that a later edit can leave saying something different. Counted across the
+  // whole page rather than asserted absent from one block, so moving the copy
+  // somewhere else cannot satisfy it.
+  it("states each version and currency fact exactly once", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    for (const fact of ["Current version 2", "Within review"]) {
+      expect(screen.getAllByText(fact), `${fact} must be rendered once`).toHaveLength(1);
+    }
+  });
+
+  it("marks a version written without this person's involvement exactly once", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-002"));
+    const markers = screen.getAllByText("Written without this person's involvement");
+    expect(markers).toHaveLength(1);
+    expect(markers[0]?.closest("[data-testid='care-plan-awaiting-version']")).not.toBeNull();
+  });
+
+  /**
+   * `satisfies readonly (keyof ManagementPlanContent)[]` checks membership, not
+   * exhaustiveness. A twelfth content field added later could render on no
+   * surface at all, which is the failure the specification legislated against
+   * for the summary card — so the same treatment applies to the full-plan tier.
+   *
+   * Measured against a fixture version's own content object, so the runtime keys
+   * come from real data rather than from another hand-written list.
+   */
+  it("renders every Management Plan content field across the two tiers", () => {
+    const content = syntheticManagementPlanVersions[0]?.content;
+    expect(content, "the fixtures must carry at least one version").toBeDefined();
+    const rendered = [...FIRST_MINUTE_CONTENT_KEYS, "whyThisPlanExists", ...FULL_PLAN_SECTION_KEYS];
+    expect([...rendered].sort()).toEqual(Object.keys(content ?? {}).sort());
+    // Fails closed if the tiers ever collapse into one another.
+    expect(new Set(rendered).size).toBe(rendered.length);
   });
 
   it("derives the review state at render rather than reading a stored one", () => {

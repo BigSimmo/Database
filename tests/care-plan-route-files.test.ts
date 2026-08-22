@@ -357,8 +357,11 @@ describe("Care Plan synthetic, memory-only boundary", () => {
     // print` rule that hid the full-plan tier, would leave every DOM assertion
     // in `care-plan-linked-routes.dom.test.tsx` green while the content nobody
     // may lose became unreadable on paper.
+    // `currentPlanCard` is on this list because it is the card that *contains*
+    // the five first-minute sections: a print rule hiding the card would take
+    // all five with it while every per-section selector below stayed clean.
     const protectedSelector =
-      /\.(?:firstMinuteSection\w*|pinnedBoundary\w*|fullPlanSection\w*|printPaper|printRecordWarning|printIdentity|printCmht)\b/;
+      /\.(?:firstMinuteSection\w*|pinnedBoundary\w*|fullPlanSection\w*|currentPlanCard|printPaper|printRecordWarning|printIdentity|printCmht)\b/;
 
     /**
      * Declarations are parsed rather than pattern-matched over the block text.
@@ -418,7 +421,7 @@ describe("Care Plan synthetic, memory-only boundary", () => {
     const guarded = blocks.filter(({ selector }) => protectedSelector.test(selector));
     // Fails closed: if the class names are ever renamed, this guard must stop
     // silently matching nothing rather than quietly passing.
-    expect(guarded.length, "no protected selector matched — has the class naming changed?").toBeGreaterThanOrEqual(8);
+    expect(guarded.length, "no protected selector matched — has the class naming changed?").toBeGreaterThanOrEqual(9);
 
     for (const { selector, body } of guarded) {
       for (const declaration of declarationsOf(body)) {
@@ -430,6 +433,37 @@ describe("Care Plan synthetic, memory-only boundary", () => {
         }
       }
     }
+  });
+
+  /**
+   * The same outcome object rendered at two severities tells a reader the two
+   * are different events. The reducer returns one `PrototypeOutcome`, so the
+   * mapping from its `kind` to a tone belongs in one place — and the way that
+   * regresses is a route quietly declaring its own copy again, which no DOM
+   * assertion would see because nothing asserts a tone.
+   */
+  it("maps an outcome to a tone in exactly one place", () => {
+    const consumers = [
+      `${COMPONENT_ROOT}/patient-workspace.tsx`,
+      `${COMPONENT_ROOT}/management-plan-read.tsx`,
+      `${COMPONENT_ROOT}/management-plan-print.tsx`,
+    ];
+    for (const file of consumers) {
+      const source = readFileSync(resolve(process.cwd(), file), "utf8");
+      expect(source, `${file} must use the shared outcome tone map`).toContain("PROTOTYPE_OUTCOME_TONE[");
+      expect(/(?:const|let)\s+\w*OUTCOME_TONE\w*\s*=/.test(source), `${file} declares its own outcome tone map`).toBe(
+        false,
+      );
+      expect(
+        /tone=\{[^}]*lastOutcome\.kind\s*===/.test(source) || /tone=\{[^}]*outcome\.kind\s*===/.test(source),
+        `${file} maps an outcome tone inline`,
+      ).toBe(false);
+    }
+
+    const shared = readFileSync(resolve(process.cwd(), `${COMPONENT_ROOT}/prototype-ui.tsx`), "utf8");
+    expect(shared).toMatch(
+      /export const PROTOTYPE_OUTCOME_TONE[\s\S]{0,400}satisfies Record<PrototypeOutcome\["kind"\]/,
+    );
   });
 
   /**

@@ -13,6 +13,7 @@ import {
   CurrentPlanSummary,
   DefinitionRow,
   NOT_RECORDED,
+  PROTOTYPE_OUTCOME_TONE,
   PinnedSafetyBoundary,
   SyntheticMarker,
   formatPerthDate,
@@ -149,11 +150,7 @@ export function ManagementPlanPrintSurface({
 
       {state.lastOutcome === null ? null : (
         <div data-testid="care-plan-print-outcome" data-print-hide="true">
-          <InlineNotice
-            tone={state.lastOutcome.kind === "error" || state.lastOutcome.kind === "blocked" ? "warning" : "info"}
-          >
-            {state.lastOutcome.message}
-          </InlineNotice>
+          <InlineNotice tone={PROTOTYPE_OUTCOME_TONE[state.lastOutcome.kind]}>{state.lastOutcome.message}</InlineNotice>
         </div>
       )}
 

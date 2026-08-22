@@ -911,6 +911,46 @@ describe("Care Plan management plan print intent", () => {
     expect(never.lastOutcome?.message).toMatch(/no Current Plan to print/i);
   });
 
+  /**
+   * The exemption exists because a print intent changes no clinical record and
+   * because printing is what you most want when systems are down — both
+   * properties of the action, not of which document it prints.
+   *
+   * The failure it prevents is specific and one-directional. `BrowserPrintButton`
+   * calls `window.print()` unconditionally and ignores anything the caller's
+   * hook returns, so a refusal here cannot stop the dialogue opening. Without the
+   * exemption the offline specimen let a clinical document leave the building
+   * while `auditEvents` stayed empty and the reader was told nothing had
+   * changed — the application underclaiming what it did, which is the direction
+   * this prototype's audit discipline exists to prevent.
+   */
+  it("still records the print intent when the device is offline", () => {
+    const offline = createInitialPrototypeState("offline");
+    const next = prototypeReducer(offline, { type: "record-management-plan-print-intent", patientId: ROWAN });
+
+    expect(next.lastOutcome?.kind).toBe("info");
+    expect(next.auditEvents).toHaveLength(1);
+    expect(next.auditEvents[0]).toMatchObject({
+      type: "management_plan_print_intent_opened",
+      objectId: ROWAN_CURRENT_VERSION,
+    });
+    // The two print intents are the same operation and must not diverge.
+    const safetyPlan = prototypeReducer(offline, { type: "record-safety-plan-print-intent", patientId: ROWAN });
+    expect(safetyPlan.auditEvents).toHaveLength(1);
+    expect(next.lastOutcome?.kind).toBe(safetyPlan.lastOutcome?.kind);
+  });
+
+  // Connectivity is the only block the exemption skips. Printing the wrong
+  // person's plan is a real harm, and paper cannot be recalled.
+  it("is still blocked offline by identity uncertainty, permission, and a version conflict", () => {
+    for (const scenario of ["identity-uncertain", "permission-unavailable", "version-conflict"] as const) {
+      const state = { ...createInitialPrototypeState(scenario), connectivity: { online: false } };
+      const next = prototypeReducer(state, { type: "record-management-plan-print-intent", patientId: ROWAN });
+      expect(next.auditEvents, `${scenario} must still block the print intent`).toEqual([]);
+      expect(next.lastOutcome?.kind).toBe("blocked");
+    }
+  });
+
   it("refuses an unknown synthetic patient and a record not confirmed as the right person", () => {
     const unknown = prototypeReducer(createInitialPrototypeState(), {
       type: "record-management-plan-print-intent",

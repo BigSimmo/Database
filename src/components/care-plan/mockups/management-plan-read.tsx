@@ -17,10 +17,9 @@ import {
   FIRST_MINUTE_SECTION_LABEL,
   MANAGEMENT_VERSION_STATE_LABEL,
   NOT_RECORDED,
+  PROTOTYPE_OUTCOME_TONE,
   ParticipationMarker,
   PinnedSafetyBoundary,
-  REVIEW_STATE_LABEL,
-  REVIEW_STATE_UNKNOWN_LABEL,
   ReviewWarning,
   SectionFrame,
   StatusMark,
@@ -52,29 +51,35 @@ import {
  */
 
 /**
- * The full-plan tier, in the one approved order. `whyThisPlanExists` is required
- * before a version can be approved and is rendered first; the five below it are
- * optional and say `Not recorded` when empty rather than being omitted, so a
- * reader can tell "nothing here" from "never asked".
+ * The full-plan tier: every content field that is neither one of the five
+ * first-minute sections nor `whyThisPlanExists`, which the tier renders first in
+ * its own right.
+ *
+ * Derived from the content type rather than transcribed. A transcribed list
+ * checks membership but not exhaustiveness, so a twelfth content field added
+ * later would render on no surface at all and nothing would go red — the exact
+ * failure the specification legislated against for the summary card. Because
+ * `FullPlanContentKey` is an `Exclude` over `keyof ManagementPlanContent`, the
+ * label record below stops compiling the moment a field is added without a
+ * heading, and `FULL_PLAN_SECTION_KEYS` is read back off that record rather than
+ * being written out a second time.
  */
-const FULL_PLAN_SECTION_KEYS = [
-  "whatThePersonWants",
-  "practicalNeeds",
-  "physicalHealthAndMedication",
-  "whoElseIsInvolved",
-  "reviewTriggers",
-] as const satisfies readonly (keyof ManagementPlanContent)[];
+type FullPlanContentKey = Exclude<
+  keyof ManagementPlanContent,
+  (typeof FIRST_MINUTE_CONTENT_KEYS)[number] | "whyThisPlanExists"
+>;
 
-/** The same mapping the Clinical Snapshot uses, so one outcome reads one way. */
-const OUTCOME_TONE = { success: "success", info: "info", blocked: "warning", error: "danger" } as const;
-
-const FULL_PLAN_SECTION_LABEL: Record<(typeof FULL_PLAN_SECTION_KEYS)[number], string> = {
+/** Headings, in the one approved order; the order of this literal is the order
+ *  the tier renders, because the keys are read back from it. */
+const FULL_PLAN_SECTION_LABEL: Record<FullPlanContentKey, string> = {
   whatThePersonWants: "What this person wants",
   practicalNeeds: "Practical needs",
   physicalHealthAndMedication: "Physical health and medication",
   whoElseIsInvolved: "Who else is involved",
   reviewTriggers: "What should prompt a review",
 };
+
+export const FULL_PLAN_SECTION_KEYS = Object.keys(FULL_PLAN_SECTION_LABEL) as readonly FullPlanContentKey[];
 
 function displayName(users: readonly PrototypeUser[], id: SyntheticId | null): string | undefined {
   if (id === null) return undefined;
@@ -234,7 +239,7 @@ export function ManagementPlanSurface({
 
       {state.lastOutcome === null ? null : (
         <div data-testid="care-plan-outcome" data-print-hide="true">
-          <InlineNotice tone={OUTCOME_TONE[state.lastOutcome.kind]}>{state.lastOutcome.message}</InlineNotice>
+          <InlineNotice tone={PROTOTYPE_OUTCOME_TONE[state.lastOutcome.kind]}>{state.lastOutcome.message}</InlineNotice>
         </div>
       )}
 
@@ -257,23 +262,18 @@ export function ManagementPlanSurface({
 
           <FullPlanTier content={currentManagementVersion.content} />
 
+          {/*
+            Deliberately carries no version mark, review-state mark, or
+            participation marker. All three are on the summary card above, and
+            the same fact stated twice on one page is not emphasis — it is a
+            second copy that a later edit can leave saying something different.
+          */}
           <SectionFrame
             id="care-plan-plan-governance"
-            heading="Version and review"
+            heading="Review and sharing"
             testId="care-plan-plan-governance"
             tone="secondary"
           >
-            <div className={styles.metadataMarks}>
-              <StatusMark
-                tone="success"
-                label={`${MANAGEMENT_VERSION_STATE_LABEL[currentManagementVersion.state]} version ${currentManagementVersion.version}`}
-              />
-              <StatusMark
-                tone={reviewState === "overdue" ? "danger" : reviewState === "within_review" ? "success" : "warning"}
-                label={reviewState === null ? REVIEW_STATE_UNKNOWN_LABEL : REVIEW_STATE_LABEL[reviewState]}
-              />
-              <ParticipationMarker participationState={currentManagementVersion.participationState} />
-            </div>
             <dl className={styles.definitionGrid}>
               <DefinitionRow term="Open Review Triggers">
                 {openTriggers.length === 0
