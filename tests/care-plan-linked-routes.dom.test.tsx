@@ -871,7 +871,7 @@ describe("Care Plan review currency with no review date", () => {
         activeSection={null}
         reviewsHref={CARE_PLAN_ROUTES.reviews}
         onRecordContactIntent={() => {}}
-        contactBlockedReason={null}
+        contactActionBlockedReason={null}
       />,
     );
   }
@@ -992,22 +992,10 @@ describe("Care Plan CMHT contact actions", () => {
     expect(within(contacts).getByRole("link", { name: "Call North River CMHT" })).toBeInTheDocument();
   });
 
-  it("stops a guarded contact launch instead of opening the external application anyway", async () => {
-    const user = userEvent.setup();
-    renderRoute(CARE_PLAN_ROUTES.patient, "scenario=permission-unavailable");
-    const contacts = screen.getByRole("region", { name: "Community mental health team" });
-    const emailLink = within(contacts).getByRole("link", { name: "Email North River CMHT" });
-
-    await user.click(emailLink);
-
-    // The mutation guard's own reason is shown, and no contact-intent audit
-    // outcome ever appears: the reducer was never asked to dispatch, which is
-    // the observable half of "the launch never happened" available in jsdom
-    // (a `mailto:`/`tel:` anchor click is not real navigation either way).
-    const blocked = within(contacts).getByTestId("care-plan-contact-blocked");
-    expect(blocked).toHaveTextContent(/permission for this action could not be confirmed/i);
-    expect(screen.queryByTestId("care-plan-outcome")).not.toBeInTheDocument();
-  });
+  // The guarded-launch behaviour itself (aria-disabled, preventDefault, no
+  // audit outcome) is covered by "prevents an unrecordable contact launch
+  // when %s blocks its audit intent" above, across both scenarios that can
+  // block record-contact-intent.
 });
 
 describe("Care Plan Management Plan reading", () => {

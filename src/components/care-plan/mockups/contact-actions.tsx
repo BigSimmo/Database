@@ -35,24 +35,19 @@ export function ContactActions({
   scenario: PrototypeScenario;
   reviewsHref: string;
   onIntent: (channel: ContactChannel) => void;
-  /**
-   * Set when the mutation guard refuses `record-contact-intent` (offline,
-   * permission unavailable, identity uncertain, a version conflict, or a role
-   * that does not carry the capability). The anchors stay on screen with their
-   * real `mailto:`/`tel:` targets — withholding the details would send the
-   * reader nowhere at all — but the launch itself is stopped and no intent is
-   * recorded, matching every other guarded action in this prototype.
-   */
+  /** The reducer's current refusal, if an attempted contact action cannot be recorded. */
   blockedReason: string | null;
 }) {
   const [failedChannel, setFailedChannel] = useState<ContactChannel | null>(null);
 
   function handleLaunch(channel: ContactChannel) {
     return (event: MouseEvent<HTMLAnchorElement>) => {
-      // Guarded: the reducer would refuse this dispatch, so the external
-      // application is never asked to open and nothing is recorded either.
+      // The URI and audit event are one action. If the reducer would refuse the
+      // audit event, do not open an external application and create an
+      // unrecorded contact attempt.
       if (blockedReason !== null) {
         event.preventDefault();
+        setFailedChannel(null);
         return;
       }
       // The launch-failure specimen: the external application never opens, so
@@ -108,31 +103,37 @@ export function ContactActions({
         <a
           href={buildCmhtMailto(contact)}
           className={styles.contactAction}
+          aria-disabled={blockedReason === null ? undefined : true}
+          aria-describedby={blockedReason === null ? undefined : "care-plan-contact-action-blocked"}
           onClick={handleLaunch("email")}
-          aria-disabled={blockedReason === null ? undefined : "true"}
-          aria-describedby={blockedReason === null ? undefined : "care-plan-contact-blocked"}
         >
           {`Email ${contact.name}`}
         </a>
         <a
           href={buildCmhtTel(contact)}
           className={styles.contactAction}
+          aria-disabled={blockedReason === null ? undefined : true}
+          aria-describedby={blockedReason === null ? undefined : "care-plan-contact-action-blocked"}
           onClick={handleLaunch("call")}
-          aria-disabled={blockedReason === null ? undefined : "true"}
-          aria-describedby={blockedReason === null ? undefined : "care-plan-contact-blocked"}
         >
           {`Call ${contact.name}`}
         </a>
         <a
           href={buildCmhtTel(contact, "after_hours")}
           className={styles.contactAction}
+          aria-disabled={blockedReason === null ? undefined : true}
+          aria-describedby={blockedReason === null ? undefined : "care-plan-contact-action-blocked"}
           onClick={handleLaunch("call")}
-          aria-disabled={blockedReason === null ? undefined : "true"}
-          aria-describedby={blockedReason === null ? undefined : "care-plan-contact-blocked"}
         >
           Call the after-hours line
         </a>
       </div>
+
+      {blockedReason === null ? null : (
+        <p id="care-plan-contact-action-blocked" role="alert" className={styles.contactWarning}>
+          {blockedReason}
+        </p>
+      )}
 
       <p className={styles.contactBoundary}>
         These controls open an application on this device. This prototype transmits nothing and holds no evidence of
@@ -146,17 +147,6 @@ export function ContactActions({
             ? "Nothing was sent, and no message exists."
             : "No call was placed, and no call exists."}{" "}
           {`Use the details above directly: ${contact.sharedMailbox}, or ${contact.dutyTelephoneDisplay}.`}
-        </p>
-      )}
-
-      {blockedReason === null ? null : (
-        <p
-          id="care-plan-contact-blocked"
-          role="alert"
-          data-testid="care-plan-contact-blocked"
-          className={styles.contactWarning}
-        >
-          {blockedReason}
         </p>
       )}
     </SectionFrame>

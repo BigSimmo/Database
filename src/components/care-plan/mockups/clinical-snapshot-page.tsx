@@ -59,7 +59,7 @@ export function ClinicalSnapshotSurface({
     dispatch({ type: "record-contact-intent", patientId: snapshot.patient.id, cmhtId: contact.id, channel });
   }
 
-  const contactBlockedReason =
+  const contactActionBlockedReason =
     snapshot === null || snapshot.cmht === null
       ? null
       : getPrototypeMutationBlockReason(state, {
@@ -128,7 +128,7 @@ export function ClinicalSnapshotSurface({
         activeSection={variant === "patient" ? "overview" : null}
         reviewsHref={CARE_PLAN_ROUTES.reviews}
         onRecordContactIntent={recordContactIntent}
-        contactBlockedReason={contactBlockedReason}
+        contactActionBlockedReason={contactActionBlockedReason}
         showFullRecordLink={variant !== "patient"}
       />
     );
