@@ -143,6 +143,42 @@ entries, which is how a wrong seed is caught; against staging every
 `migration_history` entry reads stale by design (staging's chain was replayed
 with statements), so never run `--prune-stale` there.
 
+## Migration-history alignment (`npm run check:migration-history`)
+
+A second, separate step of `.github/workflows/live-drift.yml`, added by Phase 0
+(PR #1939). It compares the versions in `supabase/migrations` against the versions
+recorded in live `supabase_migrations.schema_migrations` and fails when live holds
+a version with no local file — the state that makes a hosted Supabase Preview
+branch fail with "Remote migration versions not found in local migrations
+directory". It is not the probe above: the probe asks whether an applied version
+executed its DDL, this asks whether an applied version exists in the repo at all.
+
+**It could never pass on this project until 2026-08-20.** The original
+implementation read the history table straight through PostgREST with
+`Accept-Profile: supabase_migrations`, and this project has never exposed that
+schema to the Data API, so the read returned `406 PGRST106` every time. The defect
+stayed hidden because the drift comparison ran first and always failed, leaving
+this step `skipped`; Phase 6.2 cleared the last drift finding on 2026-08-19 and the
+step ran for the first time ever, becoming the sole reason the job still concluded
+`failure` — and therefore the sole reason pinned issue #1963 stayed open against a
+clean database.
+
+The read now goes through **`public.migration_history_versions()`** (migration
+`20260820120000`), a `stable` `security definer` function with `search_path` pinned
+to `''`, granted to `service_role` only, that returns `{probe, versions}` for every
+row of the history table. It is deliberately the smallest possible authority:
+exposing `supabase_migrations` to the Data API would widen the public API surface
+of a clinical project for one weekly read, and routing through the management API
+would put an account-scoped access token into CI.
+
+The Accept-Profile read is retained as a fallback for any environment that does
+expose the schema, and is tried **only** when the RPC itself is absent. Every other
+outcome is an error, including a database with no history table at all
+(`probe: no_history_table`) — a check that reports "aligned" because it could not
+look would be worse than the red job it replaced. When neither path works the
+failure names the remedy: apply `20260820120000` through the normal linked
+migration workflow. Pinned by `tests/migration-history-alignment.test.ts`.
+
 ## Guard-migration contract
 
 **Rule (also in `AGENTS.md`, "Supabase project safety"): any mark-applied

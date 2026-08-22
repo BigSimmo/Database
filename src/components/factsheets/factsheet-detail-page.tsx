@@ -735,15 +735,19 @@ function FactsheetBody({
 
 function FactsheetPrintSheet({ factsheet, blocks }: { factsheet: Factsheet; blocks: ReturnType<typeof printBlocks> }) {
   return (
+    /* Colours here are deliberate LIGHT-theme literals, not tokens: the print
+       stylesheet forces a white ground but does NOT force light token values,
+       so var(--danger-text) would print the dark-theme colour for a reader in
+       dark mode. Keep these pinned to the light values in globals.css. */
     <div
       className="factsheet-print-sheet"
       style={{ maxWidth: "720px", margin: "0 auto", padding: "8px", color: "#111", fontFamily: "var(--font-sans)" }}
     >
       <div
         style={{
-          border: "1.5px solid #b42318",
+          border: "1.5px solid #a3190f",
           background: "#fef3f2",
-          color: "#b42318",
+          color: "#a3190f",
           fontSize: "11px",
           fontWeight: 700,
           textTransform: "uppercase",
@@ -808,9 +812,19 @@ function FactsheetPrintSheet({ factsheet, blocks }: { factsheet: Factsheet; bloc
                 <tbody>
                   {block.items.map((fact) => (
                     <tr key={fact.k}>
-                      <td style={{ padding: "5px 8px", border: "1px solid #ddd", color: "#555", width: "40%" }}>
+                      <th
+                        scope="row"
+                        style={{
+                          padding: "5px 8px",
+                          border: "1px solid #ddd",
+                          color: "#555",
+                          width: "40%",
+                          textAlign: "left",
+                          fontWeight: 400,
+                        }}
+                      >
                         {fact.k}
-                      </td>
+                      </th>
                       <td style={{ padding: "5px 8px", border: "1px solid #ddd", fontWeight: 600, color: "#111" }}>
                         {fact.v}
                       </td>
@@ -848,7 +862,7 @@ function FactsheetPrintSheet({ factsheet, blocks }: { factsheet: Factsheet; bloc
           lineHeight: 1.5,
         }}
       >
-        <strong style={{ color: "#b42318" }}>{FACTSHEET_DEMO_NOTICE}</strong> This sheet is general information, not
+        <strong style={{ color: "#a3190f" }}>{FACTSHEET_DEMO_NOTICE}</strong> This sheet is general information, not
         personal medical advice. Always follow the instructions from your own doctor or pharmacist. In an emergency call
         000.
       </p>

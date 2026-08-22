@@ -27,6 +27,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // Draws its own phone/desktop frames with a top bar, mode nav and composer in
   // every frame, because the header under study sits directly beneath them.
   const isDictionaryBrowseHeaderMockup = pathname.startsWith("/mockups/dictionary-browse-header");
+  // Same reason: this study draws its own tab rail, page card and site-wide
+  // composer inside every frame, so shared chrome would read as a second real
+  // header and a second real search bar over the row under review.
+  const isDictionaryControlRowMockup = pathname === "/mockups/dictionary-control-row";
   // Renders the results header inside its own device frames; the shared composer
   // would read as a second, real search bar over the study.
   const isSearchRefineAdaptiveMockup = pathname === "/mockups/search-refine-adaptive";
@@ -82,6 +86,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // search mode, and its synthetic patient context must never enter shared search.
   const isCaringContactMockup =
     pathname === "/mockups/caring-contacts" || pathname.startsWith("/mockups/caring-contacts/");
+  // Care Plan owns a complete clinical shell with its own rail, phone dock and a
+  // single search slot of its own. It is not a search mode, and its synthetic
+  // patient context must never enter shared search.
+  const isCarePlanMockup = pathname === "/mockups/care-plan" || pathname.startsWith("/mockups/care-plan/");
 
   return (
     <GlobalMockupSearchShell
@@ -126,7 +134,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPhoneModeSheetYesMockup &&
         !isSidebarLiveMockup &&
         !isCaringContactMockup &&
-        !isDictionaryBrowseHeaderMockup
+        !isCarePlanMockup &&
+        !isDictionaryBrowseHeaderMockup &&
+        !isDictionaryControlRowMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -149,7 +159,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPhoneModeSheetYesMockup &&
         !isSidebarLiveMockup &&
         !isCaringContactMockup &&
-        !isDictionaryBrowseHeaderMockup
+        !isCarePlanMockup &&
+        !isDictionaryBrowseHeaderMockup &&
+        !isDictionaryControlRowMockup
       }
     >
       {children}

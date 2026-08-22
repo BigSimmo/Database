@@ -3243,6 +3243,57 @@ function hasCompleteOpeningSentence(value: string) {
   return openingSentenceActionPattern.test(opening);
 }
 
+// The extractive completer's last-resort branch (completeExtractiveSentence, above) wraps a
+// fragment it could not complete as "The guidance is that <fragment>.", and sentenceFromFact may
+// then splice the query entity in as "The guidance for <entity> is that …". The wrapper supplies
+// both a terminator and the finite verb "is", so the wrapped result passes
+// hasCompleteOpeningSentence even though the text inside it did not.
+//
+// That wrapper is NOT purely laundering — it legitimately rescues well-formed clauses whose only
+// flaw is that openingSentenceActionPattern is a narrow list of clinical directives rather than a
+// general finite-verb test ("… the ECT Coordinator places the patient onto BASE" is a real
+// sentence built on "places", which is not and should not be on that list). So this gate does not
+// ask "does the continuation carry a clinical action". It rejects only two shapes that no verb
+// list could rescue, both observed live in the 2026-08-21 capture
+// (docs/rag-improvement/231-diagnosis-2026-08-22.md §3.1):
+//
+//   1. Layout debris: a ">" breadcrumb pointing at a word rather than a number, which is a
+//      flattened heading trail, not a clinical comparator ("QTc > 500" is untouched).
+//   2. A bare coordinated noun list with no determiner, auxiliary or directive verb anywhere —
+//      "compliance, monitoring and evaluation" — which states nothing that can be checked
+//      against a source.
+//
+// Runs after the other prose gates so anything they already reject keeps its existing reason;
+// this only catches what nothing else does. clippedClinicalFragmentPattern (rag-answer-text.ts)
+// covers the same wrapper for four continuations enumerated one incident at a time, and is
+// deliberately left in place rather than replaced.
+const launderedGuidanceWrapperPattern = /^the\s+guidance(?:\s+for\s+[^.!?]{1,60}?)?\s+is\s+that\s+(.+?)\.?$/i;
+// A ">" aimed at a word, not a figure: "aim > To effectively identify…" is a heading trail left
+// by PDF flattening. Numeric comparators ("ANC > 2.0", "eGFR > 30 mL/min") never match.
+const guidanceWrapperLayoutDebrisPattern = />\s*[A-Za-z]/;
+// A coordinated list of bare nouns: letters, spaces, commas, apostrophes and hyphens only (so a
+// clause carrying parentheses, digits, slashes or other punctuation is never judged here), joined
+// by a comma or "and"/"or".
+const guidanceWrapperNounListShapePattern = /^[A-Za-z][A-Za-z\s,'-]*(?:,|\band\b|\bor\b)[A-Za-z\s,'-]*[A-Za-z]$/;
+const guidanceWrapperDeterminerPattern =
+  /\b(?:the|a|an|this|that|these|those|their|its|his|her|our|your|any|each|every|all|both|no)\b/i;
+const guidanceWrapperAuxiliaryPattern =
+  /\b(?:is|are|was|were|be|been|being|has|have|had|do|does|did|can|could|may|might|must|shall|should|will|would)\b/i;
+
+/** Is laundered guidance wrapper answer. */
+export function isLaunderedGuidanceWrapperAnswer(text: string) {
+  const opening = firstSentence(normalizeSectionText(text)).replace(/\*\*/g, "").trim();
+  const continuation = opening.match(launderedGuidanceWrapperPattern)?.[1]?.trim();
+  if (!continuation) return false;
+  if (guidanceWrapperLayoutDebrisPattern.test(continuation)) return true;
+  return (
+    guidanceWrapperNounListShapePattern.test(continuation) &&
+    !guidanceWrapperDeterminerPattern.test(continuation) &&
+    !guidanceWrapperAuxiliaryPattern.test(continuation) &&
+    !openingSentenceActionPattern.test(continuation)
+  );
+}
+
 /** Has invalid model evidence ids. */
 export function hasInvalidModelEvidenceIds(answer: Pick<RagAnswer, "routingReason">) {
   return /\binvalid_model_citation_ids\b/.test(answer.routingReason ?? "");
@@ -3261,6 +3312,7 @@ export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: st
   if (hasClinicalAnswerQualityIssue(cleanedAnswer)) return "clinical_answer_quality_issue";
   if (isLowYieldClinicalText(cleanedAnswer)) return "low_yield_answer";
   if (isFragmentLikeClinicalAnswer(cleanedAnswer, query)) return "fragment_like_answer";
+  if (isLaunderedGuidanceWrapperAnswer(cleanedAnswer)) return "guidance_wrapper_fragment";
   if (isMissingCriticalQueryIntent(query, cleanedAnswer)) return "missing_query_intent";
   // Core-term (entity/intent) overlap responsiveness check. For extractive/low-confidence answers
   // it always applies. For synthesized model answers it is only safe on narrow simple direct

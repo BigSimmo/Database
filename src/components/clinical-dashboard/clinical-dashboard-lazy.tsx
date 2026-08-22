@@ -53,15 +53,11 @@ export const DocumentSearchResultsPanel = dynamic(
 );
 
 // Admin/setup tools are rare paths — keep them out of the initial dashboard chunk.
-// All four resolve to the same DocumentManagerPanel module, so whichever mounts
+// All three resolve to the same DocumentManagerPanel module, so whichever mounts
 // first pays for the whole chunk; the fallback covers that wait.
 export const SetupChecklist = dynamic(
   () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.SetupChecklist),
   { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={4} label="Loading setup checklist" /> },
-);
-export const UploadPanel = dynamic(
-  () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.UploadPanel),
-  { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={4} label="Loading upload panel" /> },
 );
 export const IndexingMonitor = dynamic(
   () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.IndexingMonitor),

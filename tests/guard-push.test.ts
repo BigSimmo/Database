@@ -1,5 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -7,6 +16,7 @@ import { normalizedSchemaSha256 as driftSha } from "../scripts/check-drift";
 import {
   ACTIVE_CI_RUN_STATES,
   autoMergeVerdict,
+  touchesProductionMigrations,
   changedFilesForRange,
   defaultRunsFetch,
   driftVerdict,
@@ -33,6 +43,8 @@ import {
   pushedBranchNames,
   pushedTipMatchesHead,
   staticGuard,
+  cleanupFormatCheckout,
+  unlinkDependencyLink,
 } from "../scripts/guard-push.mjs";
 
 const ZERO = "0".repeat(40);
@@ -451,6 +463,38 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     expect(verdict.reason).toBe("no-in-flight-ci");
   });
 
+  it("blocks an armed auto-merge when the push carries a hosted migration", () => {
+    // Merging to main applies migrations to the live clinical database automatically,
+    // so auto-merge on such a PR schedules an unattended production schema change.
+    const armed = { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 88 };
+    const v = autoMergeVerdict("claude/x", armed, false, true);
+    expect(v.block).toBe(true);
+    expect(v.reason).toBe("auto-merge-armed-migration");
+    expect(v.number).toBe(88);
+  });
+
+  it("blocks a migration push even when it is an ordinary fast-forward", () => {
+    // The fast-forward carve-out exists because GitHub re-validates required checks.
+    // It does not make an unattended production schema change acceptable.
+    const armed = { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 89 };
+    expect(autoMergeVerdict("claude/x", armed, false, false).block).toBe(false);
+    expect(autoMergeVerdict("claude/x", armed, false, true).block).toBe(true);
+  });
+
+  it("does not block a migration push when auto-merge is not armed", () => {
+    // The risk is the unattended merge, not the migration itself.
+    const v = autoMergeVerdict("claude/x", { autoMergeRequest: null, state: "OPEN", number: 90 }, false, true);
+    expect(v.block).toBe(false);
+  });
+
+  it("counts only supabase/migrations as a production migration path", () => {
+    expect(touchesProductionMigrations(["supabase/migrations/20260101_x.sql"])).toBe(true);
+    expect(touchesProductionMigrations(["src/lib/a.ts", "docs/b.md"])).toBe(false);
+    // schema.sql is a mirror of the chain, not a thing the integration applies.
+    expect(touchesProductionMigrations(["supabase/schema.sql"])).toBe(false);
+    expect(touchesProductionMigrations([])).toBe(false);
+  });
+
   it("never blocks base branch pushes or closed PRs", () => {
     const runs = [{ databaseId: 101, name: "CI", status: "in_progress", conclusion: null }];
     expect(inFlightCiVerdict("main", { state: "OPEN", number: 1 }, runs).block).toBe(false);
@@ -464,12 +508,30 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     const result = inFlightCiGuard(["claude/my-fix"], [], {
       prViewer: () => ({ state: "OPEN", number: 77 }),
       runFetcher: () => runs,
+      // Without this the guard fails open at the `gh --version` probe and never reaches the
+      // formatting under test, so the case would assert nothing on any machine that has no
+      // `gh` on PATH — green in CI, red in a bare container, for no product reason.
+      ghAvailable: () => true,
     });
     expect(result.ok).toBe(false);
     expect(result.message).toContain("PR #77 on claude/my-fix has required CI run(s) currently IN-FLIGHT");
     expect(result.message).toContain("Run 555: CI (in_progress) https://github.com/run/555");
     expect(result.message).toContain("SKIP_IN_FLIGHT_CI_GUARD=1 git push");
     expect(result.message).toContain("#HSSHRG");
+  });
+
+  it("inFlightCiGuard fails open when gh is unavailable", () => {
+    const result = inFlightCiGuard(["claude/my-fix"], [], {
+      prViewer: () => {
+        throw new Error("prViewer must not be consulted without gh");
+      },
+      runFetcher: () => {
+        throw new Error("runFetcher must not be consulted without gh");
+      },
+      ghAvailable: () => false,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.note).toContain("gh not available");
   });
 
   it("inFlightCiGuard skips when SKIP_IN_FLIGHT_CI_GUARD=1 is set", () => {
@@ -509,5 +571,136 @@ describe("in-flight CI push guard (#HSSHRG)", () => {
     const limitIndex = capturedArgs.indexOf("--limit");
     expect(limitIndex).not.toBe(-1);
     expect(Number(capturedArgs[limitIndex + 1])).toBeGreaterThan(10);
+  });
+});
+
+describe("format-checkout cleanup never deletes through the linked dependency tree", () => {
+  // checkPushedCommit checks out the pushed commit into a scratch directory and
+  // links a node_modules tree in so a dynamic prettier config can resolve its
+  // plugins. When the pushing worktree has no dependencies of its own,
+  // findPrettierBin borrows ANOTHER worktree's real node_modules, and on Windows
+  // that borrow is a junction. The scratch directory is then torn down with
+  // `git worktree remove --force` plus a recursive rmSync, neither of which
+  // respects `git worktree lock`. These tests pin the invariant that the link is
+  // unlinked-not-followed first, and that the force-deletes are skipped entirely
+  // when it could not be.
+  //
+  // Platform note: the link below is a junction on win32 and a directory symlink
+  // everywhere else, so CI (Linux) proves the symlink case and a Windows run
+  // proves the junction case. Both are exercised by the same assertions.
+  function linkFixture() {
+    const sentinel = mkdtempSync(join(tmpdir(), "guard-push-sentinel-"));
+    created.push(sentinel);
+    mkdirSync(join(sentinel, "prettier", "bin"), { recursive: true });
+    writeFileSync(join(sentinel, "prettier", "package.json"), '{"version":"3.9.6"}');
+    const container = mkdtempSync(join(tmpdir(), "guard-push-container-"));
+    created.push(container);
+    const link = join(container, "node_modules");
+    symlinkSync(sentinel, link, process.platform === "win32" ? "junction" : "dir");
+    return { sentinel, container, link, canary: join(sentinel, "prettier", "package.json") };
+  }
+
+  it("removes the link itself and leaves the borrowed tree intact", () => {
+    const { container, link, canary } = linkFixture();
+    expect(existsSync(canary)).toBe(true);
+
+    unlinkDependencyLink(link);
+    expect(existsSync(link)).toBe(false);
+    expect(existsSync(canary)).toBe(true);
+
+    // The force-delete that follows in checkPushedCommit can no longer reach it.
+    rmSync(container, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    expect(existsSync(canary)).toBe(true);
+  });
+
+  it("removes a DANGLING link, which existsSync reports as absent", () => {
+    // Regression guard. existsSync follows the link, so once the borrowed tree
+    // is gone the link reads as absent and an existsSync-gated cleanup leaves it
+    // in place — for `git worktree remove --force` and a recursive rmSync to
+    // interpret instead. lstat sees the link whether or not it resolves.
+    const { sentinel, link } = linkFixture();
+    rmSync(sentinel, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    expect(existsSync(link)).toBe(false); // the trap: it is still there
+
+    unlinkDependencyLink(link);
+    expect(() => lstatSync(link)).toThrow(/ENOENT/);
+  });
+
+  it("is tolerant of the link already being gone", () => {
+    const container = mkdtempSync(join(tmpdir(), "guard-push-container-"));
+    created.push(container);
+    const result = unlinkDependencyLink(join(container, "node_modules"));
+    expect(result.removed).toBe(false);
+    expect(result.reason).toBe("absent");
+  });
+
+  it("refuses a real directory at the link path instead of deleting its contents", () => {
+    // Nothing in guard-push creates a real directory here, so one means something
+    // unexpected — and recursively deleting an unexpected directory is the exact
+    // hazard these tests exist to prevent.
+    const container = mkdtempSync(join(tmpdir(), "guard-push-container-"));
+    created.push(container);
+    const real = join(container, "node_modules");
+    mkdirSync(join(real, "prettier"), { recursive: true });
+    writeFileSync(join(real, "prettier", "package.json"), '{"version":"3.9.6"}');
+
+    const result = unlinkDependencyLink(real);
+    expect(result.removed).toBe(false);
+    expect(result.reason).toBe("not-a-link");
+    expect(existsSync(join(real, "prettier", "package.json"))).toBe(true);
+  });
+
+  it("SKIPS both force-deletes when the link could not be removed", () => {
+    // Regression guard. Swallowing the unlink failure and continuing is the one
+    // case where a force-delete runs over a directory that still holds a live
+    // link into another worktree's node_modules. A leftover scratch directory is
+    // cheap; that is not.
+    const calls: string[] = [];
+    cleanupFormatCheckout("D:/nonexistent-scratch", {
+      unlink: () => ({ removed: false, reason: "failed" }) as const,
+      removeWorktree: () => {
+        calls.push("removeWorktree");
+      },
+      removeDir: () => {
+        calls.push("removeDir");
+      },
+      log: () => {},
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it("still tears down the checkout when the link was removed or was never there", () => {
+    for (const reason of ["unlink", "absent"] as const) {
+      const calls: string[] = [];
+      cleanupFormatCheckout("D:/nonexistent-scratch", {
+        unlink: () => ({ removed: reason === "unlink", reason }),
+        removeWorktree: () => {
+          calls.push("removeWorktree");
+        },
+        removeDir: () => {
+          calls.push("removeDir");
+        },
+        log: () => {},
+      });
+      expect(calls).toEqual(["removeWorktree", "removeDir"]);
+    }
+  });
+
+  it("unlinks BEFORE either force-delete, so traversal behaviour cannot matter", () => {
+    const order: string[] = [];
+    cleanupFormatCheckout("D:/nonexistent-scratch", {
+      unlink: () => {
+        order.push("unlink");
+        return { removed: true, reason: "unlink" } as const;
+      },
+      removeWorktree: () => {
+        order.push("removeWorktree");
+      },
+      removeDir: () => {
+        order.push("removeDir");
+      },
+      log: () => {},
+    });
+    expect(order).toEqual(["unlink", "removeWorktree", "removeDir"]);
   });
 });

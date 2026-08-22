@@ -146,6 +146,7 @@ export function SearchResultsHeaderBand({
   onClearFilters,
   filterLabel = "Filter search results",
   headingLevel = 2,
+  resultNoun: resultNounOverride,
   className,
 }: {
   modeId: AppModeId;
@@ -206,6 +207,19 @@ export function SearchResultsHeaderBand({
   filterLabel?: string;
   /** Use level 1 when the ribbon is the route's primary page heading. */
   headingLevel?: 1 | 2;
+  /**
+   * What this count counted, when the mode registry's noun is not specific
+   * enough to be true.
+   *
+   * The default is `resultHeading` and it is right for the eleven modes whose
+   * result list is one kind of thing. Dictionary's is not: the same list is
+   * terms or abbreviations depending on which scope segment is pressed, so
+   * "1 dictionary result" would name a category the reader did not choose while
+   * "1 abbreviation" names what is actually on screen. Pass it already
+   * singularised for the count you passed — the band cannot know that the plural
+   * of this mode's noun is not the word plus "s".
+   */
+  resultNoun?: string;
   className?: string;
 }) {
   const displayQuery = query.trim() || "All";
@@ -222,7 +236,7 @@ export function SearchResultsHeaderBand({
   // rather than "Could not load <noun>" avoids having to lower-case the leading
   // word, which would mangle the acronym in "DSM diagnoses".
   const searchConfig = appModeSearchConfig(modeId);
-  const resultNoun = searchConfig?.resultHeading?.replace(/ matches$/i, "s") ?? "Results";
+  const resultNoun = resultNounOverride ?? searchConfig?.resultHeading?.replace(/ matches$/i, "s") ?? "Results";
   const resolvedFaultTitle =
     faultTitle ?? (resolvedStatus === "unauthorized" ? "Sign in to continue" : `${resultNoun} could not be loaded`);
   const resolvedFaultBody =
@@ -397,7 +411,13 @@ export function SearchResultsHeaderBand({
                       Once the query stops being the heading, an unlabelled number
                       is unanchored on a deep link or below the fold — and the mode
                       registry already carries the noun. */}
-                  {matchCount === 1 ? singularNoun(inlineNoun(resultNoun)) : inlineNoun(resultNoun)}
+                  {/* An override is already correct for the count it was given —
+                      a caller that knows "abbreviation" is the singular of
+                      "abbreviations" also knows which one this count needs, and
+                      `singularNoun` would turn a supplied "abbreviation" into
+                      itself only by luck of the suffix rules. */}
+                  {resultNounOverride ??
+                    (matchCount === 1 ? singularNoun(inlineNoun(resultNoun)) : inlineNoun(resultNoun))}
                   {/* Nested in the count phrase, not a sibling flex item: the
                       status row is `flex … gap-1.5`, so a separate span with a
                       leading space doubled the gap before the middot and still

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d0a9a345-d7da-44e4-b512-e7d413ad2239",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#90EVWZ",
+    "outcome": "Resolved 2026-08-21. Verified on main at 1cc0d2987: scripts/check-drift.ts now exports diffColumns, which builds name-keyed maps of the manifest and live column arrays and diffs per column rather than serialising and clipping each side to 240 characters. A late-alphabet column drift such as token_estimate on document_chunks can now be named. Verification: read of the diffColumns implementation in check-drift.ts.",
+    "baseRowFingerprint": "1fc3de182d5abffb91ae7e4e16311aadb6fdc373ad0cdd5b5dc54cf92fc207e4"
+  }
+}

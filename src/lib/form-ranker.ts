@@ -16,7 +16,13 @@ export type FormPriorityFactCard = {
 export type FormActSection = {
   section: string;
   title: string;
-  summary: string;
+  /** Absent until the section summary has been written from the Act text. */
+  summary?: string;
+  /**
+   * Provenance of `summary` when it came from the shared Act-section file. Absent for a
+   * hand-written per-form override, which carries its own review history.
+   */
+  reviewStatus?: "reviewed" | "drafted";
 };
 
 export type FormCatalogDetails = {
@@ -137,14 +143,6 @@ export function formRecordSearchText(form: FormRecord) {
   ].filter((value): value is string => Boolean(value?.trim()));
 
   return normalizeSearchText(values.join(" "));
-}
-
-export function formNavigatorQuery(form: FormRecord) {
-  return (
-    [form.navigatorQuery, form.title, form.primaryContact?.value, form.subtitle, form.slug].find((value) =>
-      value?.trim(),
-    ) ?? form.slug
-  );
 }
 
 export function rankFormRecords(

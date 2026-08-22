@@ -38,6 +38,10 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
     "/documents/source/evidence",
     "Legacy compatibility redirect target reached by external/legacy deep links, not in-app navigation (frontend-architecture.md).",
   ],
+  [
+    "/dictionary/browse",
+    "Retired half of the merged Dictionary catalogue. It redirects to /dictionary/search (proxy fast path plus a page backstop), so in-app navigation deliberately links the surviving route directly rather than routing readers through a redirect.",
+  ],
 ]);
 
 function isMockupPath(relPosix: string) {

@@ -182,7 +182,8 @@ export async function POST(request: Request) {
     }
     if (error instanceof Error) {
       const fallbackBody = body;
-      const fallbackReason = fallbackBody ? nonProductionSupabaseDemoFallbackReason(error) : null;
+      const fallbackReason =
+        fallbackBody && process.env.NODE_ENV !== "production" ? nonProductionSupabaseDemoFallbackReason(error) : null;
       if (fallbackBody && fallbackReason) {
         return NextResponse.json(
           { ...buildDemoAnswerPayload(fallbackBody, fallbackReason), interactionId },

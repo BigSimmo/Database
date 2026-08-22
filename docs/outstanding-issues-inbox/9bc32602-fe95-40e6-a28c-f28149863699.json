@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "9bc32602-fe95-40e6-a28c-f28149863699",
+  "createdOn": "2026-08-22",
+  "action": "done",
+  "payload": {
+    "id": "#3514B7",
+    "outcome": "Closed 2026-08-22: the premise is falsified -- 20260820120000_migration_history_versions_rpc no longer \"exists nowhere in the repository\". It landed on main in PR #2198 (a341832af, \"fix(db): read migration history through a service-role RPC so live-drift can pass (#316)\"), which added supabase/migrations/20260820120000_migration_history_versions_rpc.sql alongside the supabase/schema.sql mirror and a regenerated supabase/drift-manifest.json in the same commit, so the chain, the mirror and the manifest agree by construction. supabase/migrations now holds 211 files with that version as the newest, and \"migration_history_versions\" resolves in supabase/schema.sql, supabase/drift-manifest.json and scripts/check-migration-history-alignment.ts. This row's own suspicion was right: the RPC was indeed the fix for the PGRST106 failure recorded in #M54C4N, applied live on 2026-08-20 with the repo side still unmerged, and PR #2198 is the merge that closed the window. The row's NEXT asked to identify the PR or, failing that, to capture the live definition and land it forward; the PR is identified and the forward migration is landed, so no live capture is needed. Repo/live agreement is proven rather than assumed: live-drift run 32514326022 (head main 11550416206e8c90900ddeea0993337824873a55, conclusion success) reports \"No unexpected schema drift between live and supabase/schema.sql.\", \"Local migration versions: 211\", \"Remote migration versions: 211 (read via rpc)\" and \"Remote-only (Preview blockers): 0\" -- production is no longer ahead of the repository. The row's STOP was honoured: nothing was applied, repaired or mark-applied on production.",
+    "baseRowFingerprint": "5f97437bd7d589fd89c33744fb0e538f7dbc5f6e024d2e6e37febd03989d245c"
+  }
+}

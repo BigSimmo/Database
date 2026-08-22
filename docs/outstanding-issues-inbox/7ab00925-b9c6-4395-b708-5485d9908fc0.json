@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "7ab00925-b9c6-4395-b708-5485d9908fc0",
+  "createdOn": "2026-08-22",
+  "action": "done",
+  "payload": {
+    "id": "#056",
+    "outcome": "Closed 2026-08-22: staging ikoiolksxqxfxgiyqpnu is at full parity with production and with the repository chain, so the migration-history gap this row was opened for no longer exists. Verified by a read-only query run from a dedicated linked worktree (project ref re-read from supabase/.temp/project-ref immediately before the call, and the worktree unlinked afterwards; production sjrfecxgysukkwxsowpy was never a target of this read): supabase_migrations.schema_migrations holds 211 rows, latest version 20260820120000, zero rows with statements IS NULL, public.migration_history_versions() present via to_regprocedure, and the 20260820120000 row carries 3 statements. That equals both the 211 migration files on main and the 211 remote versions live-drift run 32514326022 read from production, so all three sides agree. THE 19 CHECK:DRIFT FINDINGS IN THIS ROW ARE NOT LOST BY CLOSING IT. They were a schema.sql-versus-chain disagreement rather than staging staleness, and they were resolved separately: PR #2106 codified the live SET work_mem on the ten match_* RPCs, the eight schema-only objects and the three chain-stale columns, and PR #2151 (remediation Phase 4) settled document_chunks_content_trgm_idx. grep now finds work_mem in supabase/schema.sql, and live-drift 32514326022 reports \"No unexpected schema drift between live and supabase/schema.sql.\" NOT RE-RUN IN THIS WINDOW, and never gated on the history gap: indexing, health, identity and data-boundary proof. #057 (documented staging soak and rollback against an exact candidate) remains the open follow-on and is unblocked on parity grounds. Nothing was recreated and no production clinical document was copied.",
+    "baseRowFingerprint": "a198a4735ad22d7ae1d6cd8f573ccf5fea7b1a9374934f329af9ce256ab78cf0"
+  }
+}

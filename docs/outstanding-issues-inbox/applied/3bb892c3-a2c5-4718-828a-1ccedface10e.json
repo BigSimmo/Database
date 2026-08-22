@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3bb892c3-a2c5-4718-828a-1ccedface10e",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#ZF006G",
+    "outcome": "Resolved 2026-08-21. Verified on main at 1cc0d2987: there is now exactly one SectionHeading definition, src/components/ui/section-heading.tsx, and the former independent implementations re-export it - dashboard-shell.tsx re-exports SectionHeading and SectionHeadingProps, formulation-ui.tsx and specifier-ui.tsx re-export SectionHeading. The fifth (therapy-compass/ui.tsx) was already deleted unreferenced. The stop rule was respected: the shared component lives in its own file, not folded into ui-primitives.tsx. Verification: grep for the SectionHeading declaration across src/ (one hit) plus the three re-export lines.",
+    "baseRowFingerprint": "f38c6f1947fb845da03b8d01d4a4723699d337e0ebbdaff0c7c1f9d194f64270"
+  }
+}

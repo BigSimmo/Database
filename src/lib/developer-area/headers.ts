@@ -18,4 +18,13 @@ export const DEVELOPER_AREA_HEADER = "x-developer-area";
  *  just the area root. */
 export const DEVELOPER_AREA_PATH_HEADER = "x-developer-area-path";
 
-export const DEVELOPER_GATED_PATH_PREFIXES = ["/mockups/development", "/mockups/caring-contacts"] as const;
+/** Exact prefixes only. A path that merely begins with the same characters —
+ *  `/mockups/care-plan-archive`, say — is not a match and stays behind the
+ *  blanket production block, because `isDeveloperGatedPath` requires either an
+ *  exact hit or a following `/`. Add a prefix here one subtree at a time; never
+ *  widen this to `/mockups`. */
+export const DEVELOPER_GATED_PATH_PREFIXES = [
+  "/mockups/development",
+  "/mockups/caring-contacts",
+  "/mockups/care-plan",
+] as const;

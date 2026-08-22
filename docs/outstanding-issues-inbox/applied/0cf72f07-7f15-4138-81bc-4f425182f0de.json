@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "0cf72f07-7f15-4138-81bc-4f425182f0de",
+  "createdOn": "2026-08-21",
+  "action": "cancel",
+  "payload": {
+    "requestId": "67bf71cf-25cb-40d9-a8a2-bbf993bf6b29",
+    "reason": "Superseded: its diagnosis was partly wrong. It reasoned that failures 1 and 2 were deterministic state assertions and therefore real Windows-only defects rather than load noise. Failure 1 turned out to be a timeout — the test's assertions are fixed but its runtime is not, because it spawns Git Bash twice. Replaced by a single corrected record carrying the resolved status of all five."
+  }
+}

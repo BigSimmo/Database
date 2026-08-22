@@ -35,8 +35,19 @@ function isDeveloperGatedPath(pathname: string) {
 //      API requests still pass through this refresh path because route handlers
 //      cannot write rotated SSR cookies back to the browser themselves.
 
-const documentFlowRedirects: Record<string, string> = {
+/**
+ * Retired paths that forward, query string intact, to the surface that replaced
+ * them. Resolved here as one 307 rather than left to the page's own
+ * `redirect()`, which under the streaming `(search-app)` layout emits a
+ * client-side meta refresh — a second of empty shell. Each page keeps its
+ * redirect as a backstop for anything the matcher misses.
+ */
+const staticRouteRedirects: Record<string, string> = {
   "/mockups/document-search-command": "/documents/search",
+  // Dictionary's Search and Browse were one catalogue behind two destinations
+  // and are now one route; `view`, `letter`, `topic` and `kind` mean the same
+  // thing there, so the query string travels unchanged.
+  "/dictionary/browse": "/dictionary/search",
 };
 
 const publicPwaPaths = new Set(["/sw.js", "/offline.html", "/manifest.webmanifest", "/apple-icon", "/icon.svg"]);
@@ -77,6 +88,22 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  if (
+    ["POST", "PUT", "PATCH", "DELETE"].includes(request.method) &&
+    pathname.startsWith("/api/") &&
+    !pathname.startsWith("/api/webhooks/")
+  ) {
+    const secFetchSite = request.headers.get("sec-fetch-site");
+    if (secFetchSite === "cross-site") {
+      const response = NextResponse.json(
+        { error: "Cross-site request blocked.", code: "cross_site_forbidden" },
+        { status: 403 },
+      );
+      response.headers.set("content-security-policy", csp);
+      return response;
+    }
+  }
+
   // Request headers Next.js reads during SSR: `x-nonce` for our own inline
   // <script>, and the CSP header from which Next extracts the nonce for its
   // scripts. Rebuilt from the *current* request each call so session-cookie
@@ -87,7 +114,9 @@ export async function proxy(request: NextRequest) {
     headers.set("content-security-policy", csp);
     // Untrusted: strip unconditionally so a client cannot set this header itself
     // and spoof past the parent `/mockups` layout's production gate on a route
-    // that is not actually one of the two developer-gated subtrees below.
+    // that is not actually one of the developer-gated subtrees listed in
+    // DEVELOPER_GATED_PATH_PREFIXES (`/mockups/development`, the Caring Contact
+    // prototype, and the Care Plan prototype).
     headers.delete(DEVELOPER_AREA_HEADER);
     headers.delete(DEVELOPER_AREA_PATH_HEADER);
     if (isDeveloperGatedPath(pathname)) {
@@ -105,7 +134,7 @@ export async function proxy(request: NextRequest) {
   const legacyHomeTarget = legacyHomeRedirectUrl(request.nextUrl, request.method);
   if (legacyHomeTarget) return withCsp(NextResponse.redirect(legacyHomeTarget));
 
-  const redirectTarget = documentFlowRedirects[pathname];
+  const redirectTarget = staticRouteRedirects[pathname];
 
   if (redirectTarget) {
     const url = request.nextUrl.clone();
@@ -197,11 +226,13 @@ export function shouldBlockProductionMockups(
 ) {
   if (!pathname.startsWith("/mockups") || environment.NODE_ENV !== "production") return false;
 
-  // `/mockups/development` and the Caring Contact prototype it links to carry
-  // their own signed-in-administrator gate (`DeveloperAreaGate`, applied in
-  // `src/app/mockups/layout.tsx` via the x-developer-area header set above) —
-  // let them through this blanket block so that gate can run instead of a bare
-  // 404. Every other /mockups/** path is unaffected.
+  // `/mockups/development` and the two prototypes it links to — Caring Contact
+  // and Care Plan — carry their own signed-in-administrator gate
+  // (`DeveloperAreaGate`, applied in each subtree's layout via the
+  // x-developer-area header set above), so let them through this blanket block
+  // and let that gate run instead of a bare 404. The match is exact-or-slash, so
+  // a look-alike path such as `/mockups/care-plan-archive` is NOT let through.
+  // Every other /mockups/** path is unaffected.
   if (isDeveloperGatedPath(pathname)) return false;
 
   // Mockups remain unavailable in every normal production process. The one

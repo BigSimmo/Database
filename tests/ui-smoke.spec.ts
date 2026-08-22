@@ -1062,15 +1062,12 @@ async function expectAccountProviderLayout(setup: Locator, layout: "row" | "stac
   ).toBeLessThanOrEqual(1);
 }
 
-async function expectAdminOnlyUploadNotice(page: Page) {
+async function expectDocumentUploadUnavailable(page: Page) {
   const menu = await openDailyActions(page);
-  const uploadAction = menu.getByRole("menuitem", { name: "Add document" });
-  await expect(uploadAction).toBeVisible();
-  await uploadAction.click();
-  await expect(page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only." })).toContainText(
-    "Use Sources to open indexed documents.",
-  );
-  await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
+  await expect(menu.getByRole("menuitem", { name: /Add document|Upload PDF/ })).toHaveCount(0);
+  await expect(page.locator('input[type="file"]')).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
 }
 
 async function dismissOverlayByHeaderClick(page: Page) {
@@ -1587,7 +1584,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       element.scrollTop = element.scrollHeight;
       element.style.scrollBehavior = previous;
     });
-    await expect(settings.getByRole("button", { name: "Development", exact: true })).toHaveAttribute(
+    await expect(settings.getByRole("button", { name: "Developer", exact: true })).toHaveAttribute(
       "aria-current",
       "true",
     );
@@ -2347,6 +2344,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByRole("main")).toBeVisible();
       await expect(page.getByRole("heading", { level: 1, name: "How Clinical KB handles your data" })).toBeVisible();
       await expect(page.getByRole("heading", { level: 2, name: "Before you use Clinical KB" })).toBeVisible();
+      // The scannable answer layer and the print affordance are the two things a
+      // reader arriving from the composer notice needs without opening anything.
+      await expect(page.getByRole("heading", { level: 2, name: "At a glance" })).toBeVisible();
+      // The footer control, not the sm+ header one: the header print button is
+      // hidden on a phone, and this assertion runs at 320px too.
+      await expect(page.getByRole("button", { name: "Print this page" })).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     });
   }
@@ -2469,6 +2472,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const header = document.querySelector("header");
       const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
       const alsoMatches = document.querySelector('[data-testid="universal-also-matches"]');
+      const supportLabel = document.querySelector('[data-testid="answer-card-support"]');
       // Include vertical margins: the phone bottom clearance (`max-sm:mb-4`) sits
       // outside getBoundingClientRect().height and still consumes scroll budget.
       let alsoMatchesHeight = 0;
@@ -2479,10 +2483,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
           box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
         );
       }
+      // AnswerCard's required evidence-support label is real content the answer
+      // surface always renders, same as universal-also-matches above.
+      let supportLabelHeight = 0;
+      if (supportLabel instanceof HTMLElement) {
+        const box = supportLabel.getBoundingClientRect();
+        const styles = window.getComputedStyle(supportLabel);
+        supportLabelHeight = Math.ceil(
+          box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
+        );
+      }
       return {
         headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
         surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
         alsoMatchesHeight,
+        supportLabelHeight,
       };
     });
     // Content-sized section => no unexplained phantom scroll. Submitted universal
@@ -2493,7 +2508,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // universal matches are real content, so subtract their measured height
     // before applying that phantom-overflow budget. That measured height already
     // includes the section's phone bottom margin, so the 8px allowance stays put.
-    const permittedOverflow = geo.alsoMatchesHeight + 8;
+    // AnswerCard's required support label is likewise real, always-rendered
+    // content (`support` became a required prop), so it is measured and added
+    // the same way rather than absorbed into the flat allowance.
+    const permittedOverflow = geo.alsoMatchesHeight + geo.supportLabelHeight + 8;
     expect(scrollGeometry.owner).toBe("document");
     expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(permittedOverflow);
     // Top-aligned: the answer sits just under the header, not pushed toward the dock
@@ -2655,6 +2673,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
         (collapse?.getBoundingClientRect().height ?? 0) + Number.parseFloat(window.getComputedStyle(node).paddingBottom)
       );
     });
+    // AnswerCard's required evidence-support label is real, always-rendered
+    // content in this scroll container; account for its measured height the
+    // same way the geometry above accounts for chrome, rather than baking a
+    // stale pre-label constant into the post-collapse ceiling.
+    const supportLabelHeight = await page.evaluate(() => {
+      const supportLabel = document.querySelector('[data-testid="answer-card-support"]');
+      if (!(supportLabel instanceof HTMLElement)) return 0;
+      const box = supportLabel.getBoundingClientRect();
+      const styles = window.getComputedStyle(supportLabel);
+      return Math.ceil(
+        box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
+      );
+    });
     const geometry = {
       maxOffset: scrollGeometry.maxScrollTop,
       collapseBudget,
@@ -2667,10 +2698,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // must remain pinned by the near-bottom guard while still clearing the dock.
     // Long-answer hide/reveal is covered independently above.
     expect(geometry.maxOffset).toBeGreaterThan(100);
-    expect(geometry.maxOffset).toBeLessThan(200);
+    expect(geometry.maxOffset).toBeLessThan(200 + supportLabelHeight);
     expect(geometry.collapseBudget).toBeGreaterThan(112);
     expect(geometry.collapseBudget).toBeLessThan(128);
-    expect(geometry.postCollapseMaxOffset).toBeLessThan(72);
+    expect(geometry.postCollapseMaxOffset).toBeLessThan(72 + supportLabelHeight);
     // A jump straight onto the bottom edge (PageDown / full-page flick) lands
     // past the post-collapse range; hiding there would clamp content under the
     // finger, so the near-bottom guard keeps both chrome edges visible.
@@ -4412,6 +4443,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     // The fixed document composer is the single search owner; the indexed-text
     // disclosure must not duplicate a large search field inside its content.
+    await page.getByRole("button", { name: "Search document" }).click();
     const sourceSearch = page.getByRole("textbox", { name: "Search within this document" });
     await expect(page.getByLabel("Search within indexed source text")).toHaveCount(0);
     await waitForReactEventHandler(sourceSearch, "onChange");
@@ -4435,6 +4467,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const nextActiveHit = desktopTextPanel.locator('details[data-source-active-hit="true"]');
     await expect(nextActiveHit).toHaveJSProperty("open", true);
     await expect(initialActiveDisclosure).toHaveJSProperty("open", false);
+    await page.getByRole("button", { name: "Close document search" }).click();
+    await expect(sourceSearch).toHaveCount(0);
+    await expect(desktopTextPanel.getByText("Hit 2 of 2")).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -4706,8 +4741,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const documentActions = page.getByRole("dialog", { name: "This document" });
     await expect(documentActions).toBeVisible();
     await expect(openDocumentActions).toHaveAttribute("aria-expanded", "true");
-    await expect(documentActions.getByRole("button", { name: "Add to scope" })).toBeVisible();
+    await expect(documentActions.getByRole("button", { name: "Add to scope" })).toHaveCount(0);
+    await documentActions.getByRole("button", { name: "Search document" }).click();
     const composer = page.locator("form.document-viewer-composer");
+    await expect(composer).toBeVisible();
+    await openDocumentActions.click();
+    await expect(documentActions).toBeVisible();
     const composerBox = await composer.boundingBox();
     expect(composerBox).not.toBeNull();
     const sheetOwnsComposerPoint = await documentActions.evaluate(
@@ -5162,7 +5201,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
     const composer = page.locator("form.document-viewer-composer");
+    await page.getByRole("button", { name: "Open document actions" }).click();
+    await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
     await expect(composer).toBeVisible();
+    await composer.locator("input").evaluate((element) => element.blur());
     // The chunk deep link intentionally scrolls the highlighted passage into
     // view, which can initially hide the phone composer. Returning to the top
     // must restore it before the explicit hide-on-scroll checks below.
@@ -5226,6 +5268,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
       )
       .toBeGreaterThan(250);
     await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
+
+    await scrollPrimarySurface(page, 0);
+    await composer.getByRole("button", { name: "Close document search" }).click();
+    await expect(composer).toHaveCount(0);
+    await expect(viewerContent).toHaveAttribute("data-phone-footer-owner", "none");
+    await expect
+      .poll(async () =>
+        viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
+      )
+      .toBeLessThanOrEqual(13);
   });
 
   test("document search stays separate from the shared answer stream and summary action", async ({ page }) => {
@@ -5252,12 +5304,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     );
 
     const composer = page.locator("form.document-viewer-composer");
+    await page.getByRole("button", { name: "Open document actions" }).click();
+    await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
     await composer.getByRole("textbox", { name: "Search within this document" }).fill("safety plan include");
     await activateFocusedControl(page, composer.getByRole("button", { name: "Search within this document" }));
     await expect(page.getByTestId("source-chunk-indexed-text-panel").getByText("Hit 1 of 2").first()).toBeVisible();
     expect(answerRequests).toEqual([]);
 
-    await composer.getByRole("button", { name: "Open document actions" }).click();
+    const openDocumentActions = page.getByRole("button", { name: "Open document actions" });
+    await composer.getByRole("button", { name: "Close document search" }).click();
+    await expect(composer).toHaveCount(0);
+    await expect(openDocumentActions).toBeFocused();
+    await openDocumentActions.click();
     const documentActions = page.getByRole("dialog", { name: "This document" });
     await documentActions.getByRole("button", { name: "Answer from this", exact: true }).click();
 
@@ -5369,7 +5427,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(JSON.stringify(payload)).not.toMatch(/sk-|service_role|eyJ/i);
   });
 
-  test("production upload action remains admin-only for unauthenticated users", async ({ page, request }) => {
+  test("production site does not offer document uploads to unauthenticated users", async ({ page, request }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockPrivateUnauthenticatedApi(page);
     const setupStatusResponse = await request.get("/api/setup-status");
@@ -5379,16 +5437,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await expect(visibleQuestionInput(page)).toBeVisible();
 
-    await expectAdminOnlyUploadNotice(page);
+    await expectDocumentUploadUnavailable(page);
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("demo upload action cannot bypass the production admin gate", async ({ page }) => {
+  test("demo site does not offer document uploads", async ({ page }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
 
-    await expectAdminOnlyUploadNotice(page);
+    await expectDocumentUploadUnavailable(page);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -5441,8 +5499,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await expect(mobileFooter).toHaveAttribute("aria-hidden", "true");
     await expect(mobileFooter).toHaveAttribute("inert", "");
-    // Only the dock hides. The header is pinned so "Close guide" and the view
-    // tabs stay reachable however far the reader has scrolled.
+    // Only the dock hides. The pinned header compacts, while "Close guide" and
+    // the view tabs stay reachable however far the reader has scrolled.
+    await expect(mobileHeader).toHaveClass(/guide-centre-header--compact/);
     await expect(mobileHeader).toHaveAttribute("aria-hidden", "false");
     await expect(mobileHeader).not.toHaveAttribute("inert");
     await expect(dialog.getByRole("button", { name: "Close guide" })).toBeVisible();
@@ -5480,6 +5539,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await expect(mobileFooter).toHaveAttribute("aria-hidden", "false");
     await expect(mobileFooter).not.toHaveAttribute("inert");
+    await expect(mobileHeader).not.toHaveClass(/guide-centre-header--compact/);
     // The dock carries the guided tour and nothing else — no composer, no input.
     await expect(dialog.locator("[data-guide-universal-search]")).toHaveCount(0);
     await expect(dialog.locator("input")).toHaveCount(0);
@@ -5512,5 +5572,83 @@ test.describe("Clinical KB UI smoke coverage", () => {
       reopenedDialog.getByRole("heading", { level: 2, name: "Ask for one decision at a time" }),
     ).toBeFocused();
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("guide centre phone dock paints through the bottom safe area", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+
+    const dialog = await openGuide(page);
+    await dialog.evaluate((element) => element.style.setProperty("--safe-area-bottom", "34px"));
+    const band = dialog.locator(".guide-tour-dock");
+    await expect(band).toBeVisible();
+
+    const painted = await band.evaluate((element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      const scrim = element.querySelector(".answer-footer-search-backdrop");
+      const scrimStyle = scrim ? window.getComputedStyle(scrim) : null;
+      const action = element.querySelector<HTMLElement>("[data-guide-tour-action-row] button");
+      const actionRect = action?.getBoundingClientRect();
+      const contentElement = element.closest('[role="dialog"]')?.querySelector("[data-guide-content]");
+      return {
+        background: style.backgroundColor,
+        borderTopWidth: style.borderTopWidth,
+        boxShadow: style.boxShadow,
+        paddingBottom: Number.parseFloat(style.paddingBottom),
+        left: Math.round(rect.left),
+        right: Math.round(window.innerWidth - rect.right),
+        bottom: Math.round(window.innerHeight - rect.bottom),
+        scrimDisplay: scrimStyle?.display ?? null,
+        scrimHeight: scrimStyle ? Math.round(Number.parseFloat(scrimStyle.height)) : 0,
+        scrimBackground: scrimStyle?.backgroundImage ?? "",
+        scrimMask: scrimStyle?.maskImage || scrimStyle?.getPropertyValue("-webkit-mask-image") || "",
+        actionBottomClearance: actionRect ? Math.round(window.innerHeight - actionRect.bottom) : 0,
+        contentPaddingBottom: contentElement
+          ? Number.parseFloat(window.getComputedStyle(contentElement).paddingBottom)
+          : 0,
+      };
+    });
+
+    // The wrapper remains a flush, transparent dock; its child scrim owns paint.
+    expect(painted.background).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+    expect(painted.borderTopWidth).toBe("0px");
+    expect(painted.boxShadow === "none" || /rgba\(0, 0, 0, 0\)/.test(painted.boxShadow)).toBe(true);
+    expect(painted.left).toBe(0);
+    expect(painted.right).toBe(0);
+    expect(painted.bottom).toBe(0);
+
+    // At a seeded 34px inset, the guide-specific 130px scrim remains compact
+    // while its opaque terminal mask keeps the Home Indicator region painted.
+    expect(painted.scrimDisplay).toBe("block");
+    expect(painted.scrimHeight).toBeGreaterThanOrEqual(130);
+    expect(painted.scrimHeight).toBeLessThan(160);
+    expect(painted.scrimBackground).not.toBe("none");
+    expect(painted.scrimMask).toMatch(/100%/);
+    expect(painted.scrimMask).not.toMatch(/transparent 100%/);
+    expect(painted.paddingBottom).toBeGreaterThanOrEqual(44);
+    expect(painted.actionBottomClearance).toBeGreaterThanOrEqual(44);
+    expect(painted.contentPaddingBottom).toBeGreaterThanOrEqual(114);
+
+    const action = band.locator("[data-guide-tour-action-row] button");
+    await expect(action).toHaveCount(1);
+    const pill = await action.evaluate((element) => {
+      const style = window.getComputedStyle(element);
+      const probe = document.createElement("div");
+      probe.style.backgroundColor = "var(--command)";
+      element.parentElement?.append(probe);
+      const commandFill = window.getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return {
+        background: style.backgroundColor,
+        commandFill,
+        borderRadius: Number.parseFloat(style.borderTopLeftRadius),
+        minHeight: Number.parseFloat(style.minHeight),
+      };
+    });
+    expect(pill.borderRadius).toBeGreaterThan(100);
+    expect(pill.minHeight).toBeGreaterThanOrEqual(48);
+    expect(pill.background).toBe(pill.commandFill);
   });
 });

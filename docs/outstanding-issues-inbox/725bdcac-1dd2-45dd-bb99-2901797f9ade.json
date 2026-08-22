@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "725bdcac-1dd2-45dd-bb99-2901797f9ade",
+  "createdOn": "2026-08-21",
+  "action": "done",
+  "payload": {
+    "id": "#HDYCQP",
+    "outcome": "Resolved 2026-08-21: mergeability classifies merged/closed PRs as successful skips before unknown-state retry; both workflow call sites pass state and merged, with offline self-test coverage.",
+    "baseRowFingerprint": "2989d52e307a5088b384dd5da3407f2de3a12a6af540a50c4b9b59a59b4f0e33"
+  }
+}
