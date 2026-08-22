@@ -579,25 +579,25 @@ export function serverRenderedHandlerViolations(
     if (seen.has(key)) return false;
     seen.add(key);
 
-    const module = load(target);
-    if (module.isClient) return false;
+    const moduleInfo = load(target);
+    if (moduleInfo.isClient) return false;
 
-    const local = exported === "default" ? (module.defaultAlias ?? "default") : exported;
-    if (module.functionExports.has(local)) return true;
+    const local = exported === "default" ? (moduleInfo.defaultAlias ?? "default") : exported;
+    if (moduleInfo.functionExports.has(local)) return true;
 
-    const forwarded = module.imports.get(local);
+    const forwarded = moduleInfo.imports.get(local);
     if (forwarded && exportIsFunction(target, forwarded.specifier, forwarded.imported, seen)) return true;
-    for (const reExport of module.reExports) {
+    for (const reExport of moduleInfo.reExports) {
       if (reExport.exported === exported && exportIsFunction(target, reExport.specifier, reExport.local, seen)) {
         return true;
       }
     }
-    return module.starReExports.some((starSpecifier) => exportIsFunction(target, starSpecifier, exported, seen));
+    return moduleInfo.starReExports.some((starSpecifier) => exportIsFunction(target, starSpecifier, exported, seen));
   };
 
-  const handlerValueIsFunction = (fromFile: string, module: ModuleComponents, value: HandlerValueSource) => {
+  const handlerValueIsFunction = (fromFile: string, moduleInfo: ModuleComponents, value: HandlerValueSource) => {
     if (value.kind === "local") return true;
-    const imported = module.imports.get(value.binding);
+    const imported = moduleInfo.imports.get(value.binding);
     if (!imported) return false;
     return exportIsFunction(fromFile, imported.specifier, imported.imported, new Set());
   };
@@ -615,24 +615,24 @@ export function serverRenderedHandlerViolations(
     if (visited.has(key)) continue;
     visited.add(key);
 
-    const module = load(file);
-    let declaration = module.declarations.get(name);
-    if (!declaration && name === "default" && module.defaultAlias) {
-      declaration = module.declarations.get(module.defaultAlias);
+    const moduleInfo = load(file);
+    let declaration = moduleInfo.declarations.get(name);
+    if (!declaration && name === "default" && moduleInfo.defaultAlias) {
+      declaration = moduleInfo.declarations.get(moduleInfo.defaultAlias);
     }
 
     if (!declaration) {
       // The name is not declared here: follow it through re-export barrels.
-      const imported = module.imports.get(name);
+      const imported = moduleInfo.imports.get(name);
       if (imported) {
         enqueueExternal(file, imported.specifier, imported.imported, via, `${name} (re-export)`);
       }
-      for (const reExport of module.reExports) {
+      for (const reExport of moduleInfo.reExports) {
         if (reExport.exported === name) {
           enqueueExternal(file, reExport.specifier, reExport.local, via, `${name} (re-export)`);
         }
       }
-      for (const specifier of module.starReExports) {
+      for (const specifier of moduleInfo.starReExports) {
         enqueueExternal(file, specifier, name, via, `${name} (star re-export)`);
       }
       continue;
@@ -642,14 +642,14 @@ export function serverRenderedHandlerViolations(
       const report = (target: string) =>
         violations.push({ file, component: name, attribute: handler.attribute, target, line: handler.line, via });
 
-      if (!handlerValueIsFunction(file, module, handler.value)) continue;
+      if (!handlerValueIsFunction(file, moduleInfo, handler.value)) continue;
 
       if (handler.target === null) {
         // An intrinsic host element rendered on the server: always a throw.
         report("host element");
         continue;
       }
-      const imported = module.imports.get(handler.target.root);
+      const imported = moduleInfo.imports.get(handler.target.root);
       // A locally declared component is another Server Component; a function
       // prop between two Server Components never crosses the boundary.
       if (!imported) continue;
@@ -660,13 +660,13 @@ export function serverRenderedHandlerViolations(
     }
 
     for (const rendered of declaration.renders) {
-      const imported = module.imports.get(rendered.root);
+      const imported = moduleInfo.imports.get(rendered.root);
       if (imported) {
         const exported = imported.imported === "*" ? (rendered.member ?? "default") : imported.imported;
         enqueueExternal(file, imported.specifier, exported, via, `<${rendered.root}>`);
         continue;
       }
-      if (module.declarations.has(rendered.root)) {
+      if (moduleInfo.declarations.has(rendered.root)) {
         queue.push({ file, name: rendered.root, via: [...via, `<${rendered.root}>`] });
       }
     }

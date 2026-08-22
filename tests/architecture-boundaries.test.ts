@@ -79,8 +79,8 @@ describe("architecture boundaries", () => {
   it("keeps server environment and provider modules out of the client graph", () => {
     const { files, graph, parsed } = runtimeGraph();
     const clientEntries = files.filter((file) => {
-      const module = parsed.get(file);
-      return Boolean(module && hasUseClientDirective(module.source));
+      const moduleInfo = parsed.get(file);
+      return Boolean(moduleInfo && hasUseClientDirective(moduleInfo.source));
     });
     const clientGraph = new Set(clientEntries);
     const pending = [...clientEntries];
