@@ -781,10 +781,6 @@ export function MasterSearchHeader({
       router.push(`/dictionary/search${trimmedQuery ? `?q=${encodeURIComponent(trimmedQuery)}` : ""}`);
       return;
     }
-    if (actionId === "dictionary-browse") {
-      router.push("/dictionary/browse");
-      return;
-    }
     if (actionId === "dictionary-topics") {
       router.push("/dictionary/topics");
       return;
