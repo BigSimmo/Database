@@ -57,7 +57,7 @@ import {
 import { measurementFailureReason } from "./lighthouse-measurement-outcome.mjs";
 import {
   deadlineAfter,
-  LIGHTHOUSE_BUILD_TIMEOUT_MS,
+  lighthouseBuildTimeoutMs,
   LIGHTHOUSE_MEASUREMENT_SUITE_TIMEOUT_MS,
   LIGHTHOUSE_PROCESS_TIMEOUT_MS,
   LIGHTHOUSE_SERVER_READY_TIMEOUT_MS,
@@ -432,12 +432,16 @@ try {
     NEXT_PUBLIC_MOCKUPS_ENABLED: "false",
   });
 
+  const buildTimeoutMs = lighthouseBuildTimeoutMs({
+    platform: process.platform,
+    ci: process.env.CI !== undefined,
+  });
   console.log(`Building isolated production app for Lighthouse (${relativeRunRoot})`);
   const build = spawnSync(process.execPath, ["--max-old-space-size=8192", nextBin, "build", "--webpack"], {
     cwd: projectRoot,
     env: offlineEnv,
     stdio: "inherit",
-    timeout: LIGHTHOUSE_BUILD_TIMEOUT_MS,
+    timeout: buildTimeoutMs,
   });
   if (childProcessExitCode(build) !== 0) {
     throw new Error(`Lighthouse production build failed (${childProcessFailureSummary(build)}).`);
