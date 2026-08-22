@@ -48,12 +48,12 @@ function capabilityLabel(unit: Unit) {
   return `${unit.security} · ${cohortLabel}`;
 }
 
-function candidatesFor(patient: Movement, now: Instant): Candidate[] {
+function candidatesFor(patient: Movement, now: Instant, units: readonly Unit[]): Candidate[] {
   // Only the movement's actual recorded destination may show a real transport state — the
   // other two candidates are computed shortlist entries the movement was never referred to,
   // and must not inherit a transport job that belongs to a different unit (Task 6 Important 3).
   const recordedDestinationId = destinationUnit(patient)?.id;
-  return eligibleCandidates(patient, now, 3).map((candidate, index) => ({
+  return eligibleCandidates(patient, now, 3, units).map((candidate, index) => ({
     unit: candidate.unit,
     verdict: candidate.verdict,
     rank: index + 1,
@@ -148,7 +148,7 @@ export function WardNetworkWorkspace() {
     () => movements.find((candidate) => candidate.id === selectedPatientId),
     [movements, selectedPatientId],
   );
-  const candidates = useMemo(() => (patient ? candidatesFor(patient, now) : []), [patient, now]);
+  const candidates = useMemo(() => (patient ? candidatesFor(patient, now, units) : []), [patient, now, units]);
   const routedIds = useMemo(() => new Set(candidates.map((candidate) => candidate.unit.id)), [candidates]);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
