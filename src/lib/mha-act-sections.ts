@@ -1,3 +1,4 @@
+import formsActSectionCues from "../../data/forms-act-section-cues.json";
 import mhaSections from "../../data/mha-2014-sections.json";
 import type { FormActSection } from "@/lib/form-ranker";
 
@@ -42,6 +43,28 @@ export const mhaActMetadata = {
 } as const;
 
 const bySection = new Map(file.sections.map((entry) => [entry.section, entry]));
+
+type FormsActSectionCuesFile = { forms: { code: string; sections: string[]; basis: string }[] };
+
+const normalizeFormCode = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
+
+/**
+ * Governing sections for the seven official forms that the archive never indexed, so
+ * they carry no `sourceFacts.sectionCue`. Each entry states its basis in
+ * `data/forms-act-section-cues.json` so the mapping can be checked.
+ */
+const supplementalCueByCode = new Map(
+  (formsActSectionCues as FormsActSectionCuesFile).forms.map((form) => [
+    normalizeFormCode(form.code),
+    form.sections.join(", "),
+  ]),
+);
+
+/** The section cue for a form: its own if the archive indexed one, else the supplemental map. */
+export function sectionCueForForm(code: string, catalogCue: string | undefined | null): string | undefined {
+  if (typeof catalogCue === "string" && catalogCue.trim()) return catalogCue;
+  return supplementalCueByCode.get(normalizeFormCode(code));
+}
 
 /**
  * Free-text section cue -> ordered, de-duplicated section numbers.

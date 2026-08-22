@@ -172,6 +172,13 @@ shows is decided by data, never by a per-form branch in the component.
   `sourceFacts.sectionCue` (e.g. `"sections 66, 91"`). `parseSectionCue` in
   `src/lib/mha-act-sections.ts` turns that into ordered section numbers, and
   `actSectionsForCue` resolves them.
+- Seven official forms have no archive row and so no cue of their own
+  (`1A attachment`, `4D`, `4E`, `7C`, `10H`, `12C attachment`, `13`).
+  `data/forms-act-section-cues.json` supplies their governing sections, and
+  `sectionCueForForm` falls back to it. Every entry there must state a `basis` —
+  the reason that section governs that form — because unlike a catalogue cue it is an
+  assertion this repo makes rather than one it inherited. `check:mha-act-sections`
+  rejects an entry with no basis, and one that duplicates a catalogue cue.
 - **`actSectionsForCue` returns sections only when every cited section has a summary.**
   That is the staged-rollout gate: a form keeps its Source status card until its whole
   citation list is written, so it can never show a half-populated authority card. Do not

@@ -1,7 +1,7 @@
 import formsCatalog from "../../data/forms-catalog.json";
 import formsPdfManifest from "../../data/forms-pdf-manifest.json";
 
-import { actSectionsForCue } from "@/lib/mha-act-sections";
+import { actSectionsForCue, sectionCueForForm } from "@/lib/mha-act-sections";
 
 import type { FormActSection, FormAvailability, FormCatalogDetails, FormPriorityFactCard } from "@/lib/form-ranker";
 import type { ServiceChipTone, ServiceRecord, ServiceSummaryCard } from "@/lib/services";
@@ -372,7 +372,8 @@ function detailsFor(form: OfficialForm): FormCatalogDetails {
     // A hand-written per-form override wins; otherwise the form's own section cue
     // resolves against the shared Act summaries, which yields sections only once every
     // one of them has been clinically reviewed.
-    actSections: actSections(raw.actSections) ?? actSectionsForCue(sourceFacts?.sectionCue),
+    actSections:
+      actSections(raw.actSections) ?? actSectionsForCue(sectionCueForForm(form.code, sourceFacts?.sectionCue)),
     sourceFacts,
     availability,
     officialPdfUrl: pdfAsset?.officialPdfUrl,

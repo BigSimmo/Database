@@ -28,6 +28,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const catalogPath = join(root, "data", "forms-catalog.json");
+const supplementalCuePath = join(root, "data", "forms-act-section-cues.json");
 const sourcePath = join(root, "data", "mha-2014-sections.source.json");
 const curatedPath = join(root, "data", "mha-2014-sections.json");
 const reviewPath = join(root, "docs", "evidence", "mha-2014-section-summaries-review.md");
@@ -44,6 +45,12 @@ const FORMAT_VERSION = 1;
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
+const normalizeFormCode = (value) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
 /**
  * Free-text section cue -> ordered, de-duplicated section numbers.
  *
@@ -58,11 +65,19 @@ export function parseSectionCue(cue) {
   return [...new Set(cue.match(/\d+[A-Z]*/g) ?? [])];
 }
 
-/** Every section number cited by any archived form, in numeric order. */
-export function citedSections(catalog) {
+/**
+ * Every section number cited by any form, in numeric order.
+ *
+ * Two sources: the archive rows' own `sourceFacts.sectionCue`, and the supplemental
+ * map covering the seven official forms the archive never indexed.
+ */
+export function citedSections(catalog, supplemental) {
   const cited = new Set();
   for (const form of catalog.forms ?? []) {
     for (const section of parseSectionCue(form?.sourceFacts?.sectionCue)) cited.add(section);
+  }
+  for (const form of supplemental?.forms ?? []) {
+    for (const section of form?.sections ?? []) cited.add(section);
   }
   return [...cited].sort(compareSections);
 }
@@ -146,7 +161,8 @@ const writeJson = (path, value) => writeFileSync(path, `${JSON.stringify(value, 
 
 async function refresh() {
   const catalog = readJson(catalogPath);
-  const wanted = citedSections(catalog);
+  const supplemental = readJson(supplementalCuePath);
+  const wanted = citedSections(catalog, supplemental);
   process.stdout.write(`Fetching Mental Health Act 2014 (WA) ${ACT_VERSION}…\n`);
   const response = await fetch(ACT_SOURCE_URL);
   if (!response.ok) throw new Error(`Act fetch failed: HTTP ${response.status} ${response.statusText}`);
@@ -172,6 +188,7 @@ async function refresh() {
 function draft() {
   const source = readJson(sourcePath);
   const catalog = readJson(catalogPath);
+  const supplemental = readJson(supplementalCuePath);
   let curated;
   try {
     curated = readJson(curatedPath);
@@ -206,20 +223,24 @@ function draft() {
     sections,
   });
 
-  writeFileSync(reviewPath, reviewSheet(source, sections, catalog));
+  writeFileSync(reviewPath, reviewSheet(source, sections, catalog, supplemental));
   process.stdout.write(
     `Wrote ${sections.length} curated entries (${tally("reviewed")} reviewed, ${tally("drafted")} drafted, ` +
       `${tally("pending")} pending) to ${curatedPath} and the review sheet to ${reviewPath}.\n`,
   );
 }
 
-function citingForms(catalog, section) {
-  return (catalog.forms ?? [])
+function citingForms(catalog, supplemental, section) {
+  const fromCatalog = (catalog.forms ?? [])
     .filter((form) => parseSectionCue(form?.sourceFacts?.sectionCue).includes(section))
     .map((form) => `Form ${form.form}`);
+  const fromSupplemental = (supplemental?.forms ?? [])
+    .filter((form) => (form.sections ?? []).includes(section))
+    .map((form) => `Form ${form.code}`);
+  return [...new Set([...fromCatalog, ...fromSupplemental])];
 }
 
-function reviewSheet(source, sections, catalog) {
+function reviewSheet(source, sections, catalog, supplemental) {
   const header = [
     "# Mental Health Act 2014 (WA) — section summary review sheet",
     "",
@@ -240,7 +261,7 @@ function reviewSheet(source, sections, catalog) {
   const byCuratedSection = new Map(sections.map((entry) => [entry.section, entry]));
   const body = source.sections.map((entry) => {
     const curated = byCuratedSection.get(entry.section);
-    const cited = citingForms(catalog, entry.section);
+    const cited = citingForms(catalog, supplemental, entry.section);
     return [
       `### s${entry.section} — ${entry.heading}`,
       "",
@@ -272,12 +293,12 @@ function reviewSheet(source, sections, catalog) {
  * Offline gate. Returns the problems found so tests can assert on them directly
  * rather than shelling out.
  */
-export function checkProblems({ source, curated, catalog }) {
+export function checkProblems({ source, curated, catalog, supplemental }) {
   const problems = [];
   const sourceBySection = new Map(source.sections.map((entry) => [entry.section, entry]));
   const curatedBySection = new Map(curated.sections.map((entry) => [entry.section, entry]));
 
-  for (const section of citedSections(catalog)) {
+  for (const section of citedSections(catalog, supplemental)) {
     if (!sourceBySection.has(section)) {
       problems.push(`Form cue cites section ${section}, which is absent from the Act extraction.`);
     }
@@ -324,6 +345,20 @@ export function checkProblems({ source, curated, catalog }) {
     if (!entry.reviewedAt?.trim()) problems.push(`Reviewed section ${entry.section} has no reviewedAt.`);
   }
 
+  const catalogCodes = new Set((catalog.forms ?? []).map((form) => normalizeFormCode(form.form)));
+  for (const form of supplemental?.forms ?? []) {
+    if (!form.sections?.length) problems.push(`Supplemental cue for Form ${form.code} lists no sections.`);
+    if (!form.basis?.trim()) {
+      // The basis is what makes an asserted mapping checkable rather than folklore.
+      problems.push(`Supplemental cue for Form ${form.code} has no stated basis.`);
+    }
+    if (catalogCodes.has(normalizeFormCode(form.code))) {
+      problems.push(
+        `Form ${form.code} has both a catalogue section cue and a supplemental one — remove the supplemental entry.`,
+      );
+    }
+  }
+
   const sourceMeta = source.exportMetadata;
   const curatedMeta = curated.exportMetadata;
   if (curatedMeta.actVersion !== sourceMeta.actVersion || curatedMeta.actAsAt !== sourceMeta.actAsAt) {
@@ -342,7 +377,12 @@ export function checkProblems({ source, curated, catalog }) {
 }
 
 export function loadForCheck() {
-  return { source: readJson(sourcePath), curated: readJson(curatedPath), catalog: readJson(catalogPath) };
+  return {
+    source: readJson(sourcePath),
+    curated: readJson(curatedPath),
+    catalog: readJson(catalogPath),
+    supplemental: readJson(supplementalCuePath),
+  };
 }
 
 function check() {

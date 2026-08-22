@@ -5,11 +5,11 @@
     "actVersion": "02-b0-01",
     "actAsAt": "2025-09-25",
     "sourceUrl": "https://www.legislation.wa.gov.au/legislation/prod/filestore.nsf/FileURL/mrdoc_48919.htm/$FILE/Mental%20Health%20Act%202014%20-%20%5B02-b0-01%5D.html?OpenElement",
-    "generatedAt": "2026-08-22T07:02:11.535Z",
+    "generatedAt": "2026-08-22T07:18:30.264Z",
     "counts": {
-      "sections": 75,
+      "sections": 79,
       "reviewed": 0,
-      "drafted": 75,
+      "drafted": 79,
       "pending": 0
     }
   },
@@ -246,6 +246,13 @@
       "sourceTextSha256": "9619197f2c3d6d277780ec63144ab6e26bf6e9f426c7828ca3368c5fe019ed7c"
     },
     {
+      "section": "110",
+      "title": "Cancelling leave",
+      "summary": "Where a psychiatrist forms the reasonable belief that it is inappropriate for an involuntary inpatient to remain away from hospital on leave of absence, the psychiatrist may order the leave cancelled. The order is in the approved form with the time made, the reasons for that belief and the psychiatrist's details. The psychiatrist must, as soon as practicable, tell the patient orally that the leave has been cancelled, and file the order with a copy to the inpatient. Making it is a Part 9 notifiable event.",
+      "status": "drafted",
+      "sourceTextSha256": "20f2b48a3dba32fcfd5476ee7dabd50f055fdfe66dedca3175509712fcef5af1"
+    },
+    {
       "section": "112",
       "title": "Making transport order",
       "summary": "A psychiatrist may make a transport order for the involuntary inpatient, but only if satisfied no other safe means of taking them to the hospital is reasonably available. Part 10 governs how the order is carried out.",
@@ -393,6 +400,13 @@
       "sourceTextSha256": "bdd98897338d046629babda875aa755ef59c3288517e2a3473d24c4524dbe6d8"
     },
     {
+      "section": "201",
+      "title": "Statistics about ECT",
+      "summary": "Where a mental health service performs electroconvulsive therapy, the person in charge must report to the Chief Psychiatrist in the approved form as soon as practicable after each month ends. The report covers the number of people whose ECT course was completed or discontinued that month, broken down by children, voluntary patients, involuntary patients and supervised persons (both those detained at an authorised hospital under the CLMI Act and those treated as a condition of a community supervision, interim, extended, leave-of-absence or interim-disposition order), with the child counts for each. It must also state the number of treatments in each course, how many were emergency ECT under s 199, and details of any serious adverse event that occurred or is suspected — including premature consciousness, anaesthetic complications, an acute and persistent confused state, muscle tears or vertebral column damage, severe persistent headaches, or persistent memory deficit. A course counts as completed in the month its last treatment was performed, and as discontinued in the month the decision to stop was made.",
+      "status": "drafted",
+      "sourceTextSha256": "3b980d375960919dec2675c38c6b798e12145f994059bd4fed9aa02a8ac63385"
+    },
+    {
       "section": "204",
       "title": "Record of emergency psychiatric treatment",
       "summary": "A medical practitioner who provides emergency psychiatric treatment must, as soon as practicable, file a record of it and give a copy to the person, the Chief Psychiatrist, and — for a supervised person — the Mental Impairment Review Tribunal. The record is in the approved form and must include the person's name, the name and qualifications of the practitioner who provided the treatment, the names of anyone else involved, the date, time and place, the particulars of the circumstances, and the particulars of the treatment provided.",
@@ -538,6 +552,20 @@
       "summary": "A nomination is not valid unless it is in the approved form, states the nominated person's name and contact details and the date it takes effect, and is signed by the person making it — or by someone else in their presence and at their direction — with that signature witnessed. The nominated person must also sign to indicate they accept the nomination, and that signature must be witnessed too. Each witness must be authorised by law to take declarations and cannot be the person who signed the part being witnessed.",
       "status": "drafted",
       "sourceTextSha256": "07dbdf7f9569e9ad1f31595d7c7236f7c2562020f6697430a871e2c71cabb768"
+    },
+    {
+      "section": "555",
+      "title": "Transfer from hospital to interstate mental health service",
+      "summary": "The person in charge of a hospital may, with the Chief Psychiatrist's written approval, make a transfer order authorising a State inpatient's transfer to the interstate mental health service named in it — including an inpatient who is absent without leave as described in s 551(2). The order is in the approved form and must include the inpatient's name, the hospital transferred from and the interstate service transferred to, the time made, the reasons and the maker's details. Both the approval and the order must be filed with a copy of each to the inpatient, and a copy of each transmitted to the person in charge of the interstate service. Making it is a Part 9 notifiable event.",
+      "status": "drafted",
+      "sourceTextSha256": "f56ed16515352fe691285c8bf48b27b2f57b090cc4ab44cc7cd6fcfb0abdd88e"
+    },
+    {
+      "section": "557",
+      "title": "Transfer from interstate mental health service to hospital",
+      "summary": "The person in charge of a hospital may, with the Chief Psychiatrist's written consent, make a transfer approval order approving an interstate inpatient's transfer to that hospital — including one absent without leave as described in s 551(3). The order is in the approved form and must include the patient's name, the interstate service transferred from and the hospital transferred to, the time made, the reasons and the maker's details. A copy of both the consent and the order must be transmitted to the interstate service as soon as practicable. On admission the interstate inpatient treatment order is taken to be an inpatient treatment order made under this Act, and the consent and order must then be filed with a copy of each given to the patient. Making it is a Part 9 notifiable event.",
+      "status": "drafted",
+      "sourceTextSha256": "5a0f3c9e6a604adba98447b25b6f4ddfbe452451207b93742d4ed4fee4feef95"
     }
   ]
 }

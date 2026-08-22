@@ -5,11 +5,11 @@
     "sourceUrl": "https://www.legislation.wa.gov.au/legislation/prod/filestore.nsf/FileURL/mrdoc_48919.htm/$FILE/Mental%20Health%20Act%202014%20-%20%5B02-b0-01%5D.html?OpenElement",
     "actVersion": "02-b0-01",
     "actAsAt": "2025-09-25",
-    "fetchedAt": "2026-08-22T06:57:08.564Z",
+    "fetchedAt": "2026-08-22T07:18:00.053Z",
     "documentSha256": "b808fd903f6ad9c50aa9d8cf350d54c42e5838afc66411d522228e79c6383e39",
     "extractorVersion": 1,
     "counts": {
-      "sections": 75
+      "sections": 79
     }
   },
   "sections": [
@@ -212,6 +212,12 @@
       "textSha256": "9619197f2c3d6d277780ec63144ab6e26bf6e9f426c7828ca3368c5fe019ed7c"
     },
     {
+      "section": "110",
+      "heading": "Cancelling leave",
+      "text": "(1)This section applies if, while an involuntary inpatient is away from a hospital on leave of absence, a psychiatrist forms the reasonable belief that it is inappropriate for the inpatient to continue to be away from the hospital.\n(2)The psychiatrist may make an order cancelling the leave of absence.\n(3)The order must be in the approved form and must include the following —\n(a)the date and time when it is made;\n(b)the reasons for that belief;\n(c)the name, qualifications and signature of the psychiatrist.\n(4)The psychiatrist must, as soon as practicable —\n(a)orally advise the involuntary patient that the leave of absence has been cancelled; and\n(b)file the order and give a copy to the involuntary inpatient.\n(5)The making of an order under subsection (2) is an event to which Part 9 applies and the psychiatrist who makes the order is the person responsible under that Part for notification of that event.\nSubdivision 3 — Transport to and from hospital",
+      "textSha256": "20f2b48a3dba32fcfd5476ee7dabd50f055fdfe66dedca3175509712fcef5af1"
+    },
+    {
       "section": "112",
       "heading": "Making transport order",
       "text": "(1)A psychiatrist may make a transport order in respect of the involuntary inpatient.\n(2)The psychiatrist cannot make the transport order unless satisfied that no other safe means of taking the involuntary inpatient to the hospital is reasonably available.\n(3)Part 10 applies in relation to the transport order.\nPart 8\n—\nCommunity treatment orders\nDivision 1\n—\nPreliminary matters",
@@ -338,6 +344,12 @@
       "textSha256": "bdd98897338d046629babda875aa755ef59c3288517e2a3473d24c4524dbe6d8"
     },
     {
+      "section": "201",
+      "heading": "Statistics about ECT",
+      "text": "(1)This section applies in relation to a mental health service where electroconvulsive therapy is performed.\n(2)In this section —\nmonth\nmeans any of the 12 months of the year;\nserious adverse event\n, in relation to a course of treatments with electroconvulsive therapy, includes any of the following —\n(a)premature consciousness during a treatment;\n(b)anaesthetic complications (for example, cardiac arrhythmia) during recovery from a treatment;\n(c)an acute and persistent confused state during recovery from a treatment;\n(d)muscle tears or vertebral column damage;\n(e)severe and persistent headaches;\n(f)persistent memory deficit.\n(3)The person in charge of the mental health service must, as soon as practicable after the end of each month, report to the Chief Psychiatrist on these matters —\n(a)the number of people in respect of whom a course of electroconvulsive therapy at the mental health service was completed under subsection (4), or was discontinued under subsection (5), during the month;\n(b)the number of those people who were children;\n(c)the number of those people who were voluntary patients;\n(d)the number of those voluntary patients who were children;\n(e)the number of those people who were involuntary patients;\n(f)the number of those involuntary patients who were children;\n(g)the number of those people who were supervised persons required under the CLMI Act to be detained at an authorised hospital;\n(h)the number of those supervised persons referred to in paragraph (g) who were children;\n(ha)the number of those people who were supervised persons required to undergo treatment (as defined in section 4 of this Act) as a condition of one of the following under the CLMI Act —\n(i)a community supervision order;\n(ii)an interim community supervision order;\n(iii)an extended community supervision order;\n(iv)a leave of absence order;\n(v)an interim disposition under the CLMI Act section 205(1)(b);\n(hb)the number of those supervised persons referred to in paragraph (ha) who were children;\n(i)the number of treatments with electroconvulsive therapy in each of those courses;\n(j)the number of those courses that were courses of emergency electroconvulsive therapy performed under section 199;\n(k)details of any serious adverse event that occurred, or is suspected of having occurred, during or after any of those courses.\n(4)For the purposes of subsection (3)(a), a course of electroconvulsive therapy is taken to have been completed during a month if the last treatment in the course was performed during the month, whether or not any of the other treatments in the course were performed during the month.\n(5)For the purposes of subsection (3)(a), a course of electroconvulsive therapy is taken to have been discontinued during a month if —\n(a)one or more of the treatments in the course have been performed, whether or not during the month; and\n(b)the decision not to perform any more of the treatments in the course was made (for whatever reason) during the month.\n(6)The report must be in the approved form.\n[Section 201 amended: No. 10 of 2023 s. 367.]\nDivision 2\n—\nEmergency psychiatric treatment",
+      "textSha256": "3b980d375960919dec2675c38c6b798e12145f994059bd4fed9aa02a8ac63385"
+    },
+    {
       "section": "204",
       "heading": "Record of emergency psychiatric treatment",
       "text": "(1)A medical practitioner who provides emergency psychiatric treatment to a person must, as soon as practicable —\n(a)file a record, in accordance with subsection (2), of the provision of the emergency psychiatric treatment to the person; and\n(b)give a copy of the record to each of the following —\n(i)the person;\n(ii)the Chief Psychiatrist;\n(iii)if the person is a supervised person — the Mental Impairment Review Tribunal.\n(2)The record of the treatment provided must be in the approved form and must include these things —\n(a)the name of the person provided with the treatment;\n(b)the name and qualifications of the practitioner who provided the treatment;\n(c)the names of any other people involved in providing the treatment;\n(d)the date, time and place the treatment was provided;\n(e)particulars of the circumstances in which the treatment was provided;\n(f)particulars of the treatment provided.\n[Section 204 amended: No. 10 of 2023 s. 368.]\nDivision 3\n—\nPsychosurgery",
@@ -462,6 +474,18 @@
       "heading": "Formal requirements",
       "text": "(1)A nomination is not valid unless —\n(a)it is in the approved form; and\n(b)it states the name and contact details of the person being nominated; and\n(c)it states the date on which it takes effect; and\n(d)it is signed by the person making the nomination or by another person in the presence of, and at the direction of, the person making the nomination; and\n(e)the signature referred to in paragraph (d) is witnessed by a person referred to in subsection (2); and\n(f)it is signed by the person being nominated to indicate that the person accepts the nomination; and\n(g)the signature referred to in paragraph (f) is witnessed by a person referred to in subsection (2).\n(2)For the purposes of subsection (1)(e) and (g), the witness must be authorised by law to take declarations but cannot be a person referred to in subsection (1)(d) or (f).",
       "textSha256": "07dbdf7f9569e9ad1f31595d7c7236f7c2562020f6697430a871e2c71cabb768"
+    },
+    {
+      "section": "555",
+      "heading": "Transfer from hospital to interstate mental health service",
+      "text": "(1)The person in charge of a hospital may, with the written approval of the Chief Psychiatrist, make an order (a\ntransfer order\n) authorising the transfer of a State inpatient who is detained at, or who is absent without leave as described in section 551(2) from, the hospital to the interstate mental health service specified in the order.\n(2)The transfer order must be in the approved form and must include the following —\n(a)the State inpatient’s name;\n(b)the hospital from which the State inpatient is to be transferred;\n(c)the interstate mental health service to which the State inpatient is to be transferred;\n(d)the date and time when the order is made;\n(e)the reasons for the transfer;\n(f)the name, qualifications and signature of the person in charge of the hospital.\n(3)The person in charge of the hospital must, as soon as practicable —\n(a)file the approval and the transfer order and give a copy of each to the State inpatient; and\n(b)transmit a copy of each to the person in charge of the interstate mental health service.\n(4)The making of a transfer order under subsection (1) is an event to which Part 9 applies and the person in charge of the hospital is the person responsible under that Part for notification of that event.",
+      "textSha256": "f56ed16515352fe691285c8bf48b27b2f57b090cc4ab44cc7cd6fcfb0abdd88e"
+    },
+    {
+      "section": "557",
+      "heading": "Transfer from interstate mental health service to hospital",
+      "text": "(1)The person in charge of a hospital may, with the written consent of the Chief Psychiatrist, make an order (a\ntransfer approval order\n) approving the transfer of an interstate inpatient who is detained at, or who is absent without leave as described in section 551(3) from, an interstate mental health service to the hospital.\n(2)The transfer approval order must be in the approved form and must include the following —\n(a)the interstate patient’s name;\n(b)the interstate mental health service from which the interstate inpatient is to be transferred;\n(c)the hospital to which the interstate inpatient is to be transferred;\n(d)the date and time when the order is made;\n(e)the reasons for the approval;\n(f)the name, qualifications and signature of the person in charge of the hospital.\n(3)The person in charge of the hospital must, as soon as practicable, transmit a copy of each of the consent and the transfer approval order to the person in charge of the interstate mental health service.\n(4)On the interstate inpatient’s admission by the hospital as an inpatient, the interstate inpatient treatment order is taken to be an inpatient treatment order made under this Act.\n(5)The person in charge of the hospital must, as soon as practicable after the interstate inpatient is admitted as an inpatient, file the consent and the transfer approval order and give a copy of each to the interstate inpatient.\n(6)The making of a transfer approval order under subsection (1) is an event to which Part 9 applies and the person in charge of the hospital is the person responsible under that Part for notification of that event.",
+      "textSha256": "5a0f3c9e6a604adba98447b25b6f4ddfbe452451207b93742d4ed4fee4feef95"
     }
   ]
 }

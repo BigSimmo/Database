@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import formsActSectionCues from "../data/forms-act-section-cues.json";
 import formsCatalog from "../data/forms-catalog.json";
 import curatedSections from "../data/mha-2014-sections.json";
 import sourceSections from "../data/mha-2014-sections.source.json";
@@ -68,7 +69,14 @@ describe("Act section coverage", () => {
   it("keeps the curated and extracted files consistent", () => {
     // The same validation `npm run check:mha-act-sections` runs, so sign-off drift fails
     // the unit suite too rather than waiting for verify:cheap.
-    expect(checkProblems({ source: sourceSections, curated: curatedSections, catalog: formsCatalog })).toEqual([]);
+    expect(
+      checkProblems({
+        source: sourceSections,
+        curated: curatedSections,
+        catalog: formsCatalog,
+        supplemental: formsActSectionCues,
+      }),
+    ).toEqual([]);
   });
 });
 

@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import formsActSectionCues from "../data/forms-act-section-cues.json";
+
 import { formDetailsClipboardText } from "@/components/forms/form-detail-page";
 import { formCatalogDetails } from "@/lib/form-catalog";
 import { defaultFormSlug, formRecords, formStaticParams, getFormRecord, searchFormRecords } from "@/lib/forms";
@@ -69,11 +71,10 @@ describe("psychiatry form records", () => {
     expect(form?.summaryCards?.some((card) => card.id === "source")).toBe(false);
     // Source status remains on the rail / overview, not in the priority-fact grid.
     expect(form?.source?.status).toBe("Source checked");
-    // A form with no archive row has no section cue, so it can never gain an Act-sections
-    // card and keeps Source status permanently. Cued forms flip once every section they
-    // cite has a summary - see tests/mha-act-sections.test.ts.
-    expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "source")).toBe(true);
-    expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "act-sections")).toBe(false);
+    // Form 13 has no archive row and so no section cue of its own; it reaches the same
+    // card through the supplemental map instead of falling back to Source status.
+    expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "source")).toBe(false);
+    expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "act-sections")).toBe(true);
 
     // Form 4C is the shape that motivated the rollout: a boilerplate catalogue row whose
     // only real authority content is its section cue.
@@ -82,23 +83,36 @@ describe("psychiatry form records", () => {
     expect(form4c?.actSections?.every((entry) => entry.summary?.trim())).toBe(true);
   });
 
-  it("gives every cued form an Act-sections card and leaves the uncued ones on Source status", () => {
-    const cued = formRecords.filter((form) => formCatalogDetails(form)?.sourceFacts?.sectionCue);
-    const uncued = formRecords.filter((form) => !formCatalogDetails(form)?.sourceFacts?.sectionCue);
-    expect(cued).toHaveLength(47);
-    expect(uncued).toHaveLength(7);
-
-    for (const form of cued) {
+  it("gives every one of the 54 forms an Act-sections card", () => {
+    expect(formRecords).toHaveLength(54);
+    for (const form of formRecords) {
       expect(
         form.summaryCards?.map((card) => card.id),
         form.slug,
       ).toEqual(["clock", "authority", "criteria", "act-sections"]);
+      expect(formCatalogDetails(form)?.actSections?.length, form.slug).toBeGreaterThan(0);
     }
-    for (const form of uncued) {
+  });
+
+  it("covers the seven unindexed forms from the supplemental cue map", () => {
+    // These have no archive row, so no sourceFacts.sectionCue of their own. Their
+    // governing sections are asserted in data/forms-act-section-cues.json with a stated
+    // basis, and each entry must still resolve to a written summary.
+    expect(formsActSectionCues.forms).toHaveLength(7);
+    for (const entry of formsActSectionCues.forms) {
+      const record = formRecords.find((form) => formCatalogDetails(form)?.form === entry.code);
+      expect(record, entry.code).toBeTruthy();
+      const details = formCatalogDetails(record!);
+      expect(details?.sourceFacts?.sectionCue, entry.code).toBeFalsy();
       expect(
-        form.summaryCards?.some((card) => card.id === "source"),
-        form.slug,
+        details?.actSections?.map((section) => section.section),
+        entry.code,
+      ).toEqual(entry.sections);
+      expect(
+        details?.actSections?.every((section) => section.summary?.trim()),
+        entry.code,
       ).toBe(true);
+      expect(entry.basis.trim().length, entry.code).toBeGreaterThan(40);
     }
   });
 
