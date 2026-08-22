@@ -1627,6 +1627,7 @@
         "tests/sheet.dom.test.tsx",
         "tests/therapy-global-convergence-contract.test.ts",
         "tests/ui-accessibility.spec.ts",
+        "tests/ui-caring-contacts-workspace.spec.ts",
         "tests/ui-overlay-css-contract.test.ts",
         "tests/ui-phone-scroll-page-owned.spec.ts",
         "tests/ui-smoke.spec.ts",
@@ -1875,6 +1876,7 @@
         "tests/design-sync-visual-exports.test.ts",
         "tests/therapy-compass-responsive-contract.test.ts",
         "tests/therapy-tabs.dom.test.tsx",
+        "tests/ui-caring-contacts-workspace.spec.ts",
         "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {

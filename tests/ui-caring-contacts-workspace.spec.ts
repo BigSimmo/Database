@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "playwright/test";
 
+import {
+  WORKSPACE_OVERLAY_DEFINITIONS,
+  type WorkspaceOverlayDefinition,
+} from "../src/components/caring-contacts/workspace/overlays/definitions";
 import { WORKSPACE_WIDTH_BREAKPOINTS, widthStateFor } from "../src/components/caring-contacts/workspace/width-state";
 
 /**
@@ -196,4 +200,392 @@ test.describe("caring-contacts workspace shell", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Today" })).toBeVisible();
     expect(await documentOverflow(page), "horizontal overflow in print").toBeLessThanOrEqual(2);
   });
+});
+
+/* ------------------------------------------------------------------------- *
+ * Task 19 — the overlay half, and the accessibility half.
+ *
+ * Task 15 (Ruling 51) wrote everything above: the six review widths, the
+ * dock/rail exchange, dock clearance, the width-state markers, dark, forced
+ * colours and print. Nothing above is weakened here; this file only grows.
+ *
+ * What is added below is brief item 5 and the remainder of item 6:
+ *
+ *  - all twenty-four overlays deep-linked by `?overlay=<id>` at 390 and 1440,
+ *    checked against the FROZEN TABLE rather than against a second copy of it;
+ *  - the dismissal contract, likewise read off the table;
+ *  - return of focus to the control an overlay was opened from;
+ *  - a visible focus ring in dark, under forced colours, and at the 400% zoom
+ *    equivalent of a 1280px viewport, with no horizontal overflow there.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * The two widths the overlay matrix is proved at.
+ *
+ * 390 samples `compact` (phone modalities) and 1440 samples `wide` (desktop
+ * modalities), which is every branch the host's modality decision has.
+ *
+ * Ruling 60 — deliberately NOT sampled, and it must stay that way. Between 640
+ * and 767 the stamped modality and the shared Sheet's own geometry breakpoint
+ * disagree: `widthStateFor` switches compact→rail at 768, while `Sheet` switches
+ * to a centred dialog at Tailwind `sm:` = 640, so a `bottom-sheet` row in that
+ * band stamps `bottom-sheet` and renders as a dialog. That divergence is pinned
+ * by `tests/caring-contacts-overlay-host.dom.test.tsx` and left in place on
+ * purpose; adding a width here to chase it would turn an owner's design-record
+ * question into a red gate.
+ */
+const OVERLAY_MATRIX_WIDTHS = [390, 1440] as const;
+
+/** The query parameter that names an open overlay (`workspace-overlays.tsx`). */
+const OVERLAY_PARAM = "overlay";
+
+/** A `dialog` is a dialog and not a page: it never grows past this. */
+const DIALOG_MAX_WIDTH = 640;
+
+/** An `inspection-drawer` inspects something; the thing being inspected stays visible beside it. */
+const INSPECTION_DRAWER_MAX_WIDTH_RATIO = 0.56;
+
+/** Sub-pixel rounding on a fractional viewport, not a licence to be off by a control's width. */
+const EDGE_TOLERANCE = 2;
+
+type OverlayBox = { x: number; y: number; width: number; height: number };
+
+/**
+ * Which modality the FROZEN TABLE chooses for this row at this width.
+ *
+ * Read from the definition and `widthStateFor`, never written into this spec by
+ * hand: a modality typed in here would agree with the table on the day it was
+ * typed and silently disagree afterwards, which is the one thing a browser proof
+ * of a frozen contract must not do.
+ */
+function expectedModalityAt(definition: WorkspaceOverlayDefinition, width: number) {
+  return widthStateFor(width) === "compact" ? definition.phoneModality : definition.desktopModality;
+}
+
+/**
+ * Whether Escape dismisses this row, read off the table's `dismissal`.
+ *
+ * Deliberately throws on anything else rather than falling through to "yes". The
+ * frozen matrix expresses exactly two values and `action-only` is reserved and
+ * unreachable (Ruling 58); if a future row ever takes a third value, the
+ * conservative reading — "the user must not be able to walk away from this" — is
+ * the one that must not be assumed away by a test. Same shape as
+ * `dismissesOnEscapeOrBackdrop` in the host, and deliberately not imported from
+ * it: a proof that borrows the implementation's own decision cannot catch that
+ * decision being wrong.
+ *
+ * Note that the brief names only `session-expiry` as surviving Escape. The table
+ * marks `offline-banner` `recovery-only` too, and driving from the table rather
+ * than from that list is what makes both hold.
+ */
+function dismissesOnEscape(dismissal: WorkspaceOverlayDefinition["dismissal"]): boolean {
+  if (dismissal === "escape-backdrop-close") return true;
+  if (dismissal === "recovery-only") return false;
+  throw new Error(
+    `Unrecognised overlay dismissal "${dismissal}". Decide it against ` +
+      `docs/caring-contacts/interaction-matrix.md before this spec is taught to expect anything.`,
+  );
+}
+
+/** The surface a modality is carried on: every modality but `status-banner` is a Sheet. */
+function overlaySurface(page: Page, modality: string) {
+  return modality === "status-banner"
+    ? page.getByTestId("workspace-overlay-status-banner")
+    : page.getByTestId("workspace-overlay-sheet");
+}
+
+/** Deep-links one overlay and waits for it, exactly as a pasted URL would. */
+async function deepLinkOverlay(page: Page, width: number, id: string) {
+  await page.setViewportSize({ width, height: VIEWPORT_HEIGHT });
+  await page.goto(`${WORKSPACE_ROUTE}?${OVERLAY_PARAM}=${id}`, { waitUntil: "load" });
+  const content = page.locator(`[data-testid="workspace-overlay-content"][data-overlay-id="${id}"]`);
+  await expect(content, `${id} did not open from its deep link at ${width}px`).toHaveCount(1);
+  return content;
+}
+
+function overlayParamOf(page: Page) {
+  return new URL(page.url()).searchParams.get(OVERLAY_PARAM);
+}
+
+/** Nothing is ever off-screen: no edge of the overlay lies outside the viewport. */
+function expectFullyOnScreen(box: OverlayBox, width: number, label: string) {
+  expect(box.x, `${label} starts left of the viewport`).toBeGreaterThanOrEqual(-EDGE_TOLERANCE);
+  expect(box.y, `${label} starts above the viewport`).toBeGreaterThanOrEqual(-EDGE_TOLERANCE);
+  expect(box.x + box.width, `${label} runs past the right edge`).toBeLessThanOrEqual(width + EDGE_TOLERANCE);
+  expect(box.y + box.height, `${label} runs past the bottom edge`).toBeLessThanOrEqual(
+    VIEWPORT_HEIGHT + EDGE_TOLERANCE,
+  );
+}
+
+/**
+ * The geometry each modality owes, stated once.
+ *
+ * Every branch is a statement about what the modality MEANS rather than a
+ * transcription of a measurement: a stage that does not fill the screen is not a
+ * stage, a drawer that covers the record it is inspecting is not a drawer, and a
+ * session gate the size of a dialog reads as something the user may wave away
+ * and carry on.
+ */
+function expectModalityGeometry(box: OverlayBox, modality: string, width: number, label: string) {
+  expectFullyOnScreen(box, width, label);
+  const compact = widthStateFor(width) === "compact";
+
+  switch (modality) {
+    case "full-screen-stage":
+      // A stage owns the whole phone screen. It occurs only as a phone modality.
+      expect(compact, `${label}: full-screen-stage is a phone modality`).toBe(true);
+      expect(box.width, `${label} does not fill the viewport width`).toBeGreaterThanOrEqual(width - EDGE_TOLERANCE);
+      expect(box.height, `${label} does not fill the viewport height`).toBeGreaterThanOrEqual(
+        VIEWPORT_HEIGHT - EDGE_TOLERANCE,
+      );
+      break;
+
+    case "session-gate":
+      if (compact) {
+        expect(box.width, `${label} does not fill the viewport width`).toBeGreaterThanOrEqual(width - EDGE_TOLERANCE);
+        expect(box.height, `${label} does not fill the viewport height`).toBeGreaterThanOrEqual(
+          VIEWPORT_HEIGHT - EDGE_TOLERANCE,
+        );
+      } else {
+        // On a wide screen the gate is not full height — but it must never be
+        // sized like an ordinary dialog, or it reads as one.
+        expect(box.width, `${label} is no wider than a dialog, so it reads as one`).toBeGreaterThan(DIALOG_MAX_WIDTH);
+      }
+      break;
+
+    case "bottom-sheet":
+      expect(compact, `${label}: bottom-sheet is a phone modality`).toBe(true);
+      expect(box.width, `${label} does not span the phone width`).toBeGreaterThanOrEqual(width - EDGE_TOLERANCE);
+      expect(box.y + box.height, `${label} is not anchored to the bottom edge`).toBeGreaterThanOrEqual(
+        VIEWPORT_HEIGHT - EDGE_TOLERANCE,
+      );
+      break;
+
+    case "inspection-drawer":
+      expect(compact, `${label}: inspection-drawer is a desktop modality`).toBe(false);
+      expect(box.x + box.width, `${label} is not anchored to the right edge`).toBeGreaterThanOrEqual(
+        width - EDGE_TOLERANCE,
+      );
+      expect(box.width, `${label} covers too much of the record it is inspecting`).toBeLessThanOrEqual(
+        width * INSPECTION_DRAWER_MAX_WIDTH_RATIO,
+      );
+      break;
+
+    case "dialog":
+      expect(compact, `${label}: dialog is a desktop modality`).toBe(false);
+      expect(box.width, `${label} is wider than a dialog may be`).toBeLessThanOrEqual(DIALOG_MAX_WIDTH);
+      break;
+
+    case "status-banner":
+      // A banner reports; it never becomes a modal. It sits on the bottom edge
+      // and spans the width at every size.
+      expect(box.width, `${label} does not span the viewport width`).toBeGreaterThanOrEqual(width - EDGE_TOLERANCE);
+      expect(box.y + box.height, `${label} is not anchored to the bottom edge`).toBeGreaterThanOrEqual(
+        VIEWPORT_HEIGHT - EDGE_TOLERANCE,
+      );
+      break;
+
+    default:
+      throw new Error(`${label}: no geometry is stated for the modality "${modality}".`);
+  }
+}
+
+test.describe("caring-contacts workspace overlays", () => {
+  for (const width of OVERLAY_MATRIX_WIDTHS) {
+    test(`opens all ${WORKSPACE_OVERLAY_DEFINITIONS.length} overlays at their frozen modality and geometry at ${width}px`, async ({
+      page,
+    }) => {
+      // Twenty-four full page loads; the suite default of 60s is sized for one journey.
+      test.setTimeout(240_000);
+
+      for (const definition of WORKSPACE_OVERLAY_DEFINITIONS) {
+        const content = await deepLinkOverlay(page, width, definition.id);
+        const label = `${definition.id} at ${width}px`;
+
+        // The URL names the open overlay, which is what makes it linkable at all.
+        expect(overlayParamOf(page), `${label}: the URL does not carry the overlay id`).toBe(definition.id);
+
+        const modality = expectedModalityAt(definition, width);
+        await expect(content, `${label}: stamped modality`).toHaveAttribute("data-overlay-modality", modality);
+        await expect(content, `${label}: stamped dismissal`).toHaveAttribute(
+          "data-overlay-dismissal",
+          definition.dismissal,
+        );
+
+        const box = await overlaySurface(page, modality).boundingBox();
+        expect(box, `${label}: the overlay surface has no box`).not.toBeNull();
+        expectModalityGeometry(box!, modality, width, label);
+
+        // The decision control is the whole point of the overlay; an overlay whose
+        // action is off-screen is unusable however well the panel itself is placed.
+        await expect(
+          content.getByTestId("workspace-overlay-action"),
+          `${label}: the decision control is not fully in the viewport`,
+        ).toBeInViewport({ ratio: 1 });
+
+        await page.keyboard.press("Escape");
+
+        if (dismissesOnEscape(definition.dismissal)) {
+          await expect(content, `${label}: Escape did not close it`).toHaveCount(0);
+          await expect
+            .poll(() => overlayParamOf(page), { message: `${label}: Escape left the id in the URL` })
+            .toBeNull();
+        } else {
+          // Proving that nothing happened needs a settle window: a dismissal that
+          // was going to happen would have happened inside it.
+          await page.waitForTimeout(300);
+          await expect(content, `${label}: Escape dismissed a recovery-only overlay`).toHaveCount(1);
+          expect(overlayParamOf(page), `${label}: Escape cleared a recovery-only overlay's id`).toBe(definition.id);
+        }
+      }
+    });
+
+    test(`returns focus to the control an overlay was opened from at ${width}px`, async ({ page }) => {
+      test.setTimeout(240_000);
+      await openWorkspace(page, width);
+
+      // The workspace has no control that opens an overlay yet — `?overlay=<id>`
+      // is reachable only by typing it, and the screens that raise these overlays
+      // are Plan 2B. So the opener is stood in for by the two lines
+      // `openWorkspaceOverlay()` performs: push the parameter onto the history
+      // stack, and let the store's own `popstate` subscription notice. Everything
+      // actually under test here — the host capturing `document.activeElement` as
+      // the overlay opens, and the Sheet restoring focus to it on close — is
+      // production code, reached exactly as it would be from a real button.
+      const trigger = page.getByRole("button", { name: /^New plan/ });
+      await expect(trigger).toBeVisible();
+
+      for (const definition of WORKSPACE_OVERLAY_DEFINITIONS) {
+        // A recovery-only overlay never closes on Escape, so it has no focus to
+        // return; the matrix test above is what holds it open.
+        if (!dismissesOnEscape(definition.dismissal)) continue;
+        const label = `${definition.id} at ${width}px`;
+
+        await trigger.focus();
+        await expect(trigger, `${label}: the stand-in opener never took focus`).toBeFocused();
+
+        await page.evaluate(
+          ({ id, param }) => {
+            const url = new URL(window.location.href);
+            url.searchParams.set(param, id);
+            window.history.pushState(null, "", `${url.pathname}${url.search}`);
+            window.dispatchEvent(new PopStateEvent("popstate"));
+          },
+          { id: definition.id, param: OVERLAY_PARAM },
+        );
+
+        const content = page.locator(`[data-testid="workspace-overlay-content"][data-overlay-id="${definition.id}"]`);
+        await expect(content, `${label}: did not open`).toHaveCount(1);
+
+        await page.keyboard.press("Escape");
+        await expect(content, `${label}: Escape did not close it`).toHaveCount(0);
+        await expect(trigger, `${label}: focus was not returned to the opener`).toBeFocused();
+      }
+    });
+  }
+});
+
+/**
+ * WCAG 2.1 1.4.10 reflow, and the focus ring that has to survive it.
+ *
+ * 400% zoom is emulated as a 320x200 layout viewport — 1280x800 divided by four
+ * — rather than by setting `zoom: 4` on the root element. That is not a shortcut.
+ * Measured in this Chromium, `document.documentElement.style.zoom = "4"` on a
+ * 1280px viewport leaves `innerWidth`, `documentElement.clientWidth` and
+ * `documentElement.scrollWidth` all reporting 1280 and leaves `(width < 768px)`
+ * matching false, so the page keeps its `split` desktop layout and an overflow
+ * check written against it can never fail. The divided viewport is what the
+ * success criterion actually describes, it moves the media queries with it, and
+ * it is the same equivalence `ui-smoke.spec.ts` already uses for 200%.
+ */
+const ZOOM_400_BASE = { width: 1280, height: 800 } as const;
+const ZOOM_400_EQUIVALENT = { width: ZOOM_400_BASE.width / 4, height: ZOOM_400_BASE.height / 4 } as const;
+
+/** Horizontal overflow measured against the LAYOUT viewport, so it stays true under a resized frame. */
+function layoutOverflow(page: Page) {
+  return page.evaluate(
+    () =>
+      Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0) -
+      document.documentElement.clientWidth,
+  );
+}
+
+/**
+ * Tabs until the workspace's own `Today` destination has focus.
+ *
+ * A keyboard press rather than `.focus()`: the ring is attached to
+ * `:focus-visible`, which a programmatic focus does not reliably raise.
+ */
+async function tabToWorkspaceDestination(page: Page) {
+  const destination = page.getByRole("link", { name: "Today" });
+  for (let press = 0; press < 40; press += 1) {
+    await page.keyboard.press("Tab");
+    if (await destination.evaluate((node) => node === document.activeElement)) return destination;
+  }
+  throw new Error("Tab never reached the workspace's Today destination");
+}
+
+function focusRingOf(page: Page) {
+  return page.evaluate(() => {
+    const focused = document.activeElement;
+    if (!(focused instanceof HTMLElement)) throw new Error("nothing has focus");
+    const style = getComputedStyle(focused);
+    return { style: style.outlineStyle, width: style.outlineWidth, colour: style.outlineColor };
+  });
+}
+
+/**
+ * The ring has to be one the application drew.
+ *
+ * Measured, because it changes how a failure here should be read: TWO
+ * independent declarations supply this ring — the app-wide
+ * `:where(button, a, …):focus-visible` rule in `globals.css`, and the shell's own
+ * `focus-visible:outline-2` utilities — and either one alone satisfies every
+ * assertion below. Removing just the shell's classes leaves this green, which is
+ * the honest answer: the ring is still drawn. Removing both turns `outlineStyle`
+ * to `none` and reddens it.
+ *
+ * Width and colour are checked as well as style because a ring declared at zero
+ * width, or in a transparent colour, still reports as `solid`.
+ */
+function expectVisibleFocusRing(ring: { style: string; width: string; colour: string }, label: string) {
+  expect(ring.style, `${label}: the focused control has no focus outline`).not.toBe("none");
+  expect(
+    Number.parseFloat(ring.width),
+    `${label}: the focus outline is thinner than the declared ring`,
+  ).toBeGreaterThanOrEqual(2);
+  expect(ring.colour, `${label}: the focus outline is transparent`).not.toBe("rgba(0, 0, 0, 0)");
+}
+
+test.describe("caring-contacts workspace accessibility modes", () => {
+  test("reflows at the 400% zoom equivalent without spilling sideways", async ({ page }) => {
+    await page.setViewportSize(ZOOM_400_EQUIVALENT);
+    await page.goto(WORKSPACE_ROUTE, { waitUntil: "load" });
+    await expect(page.getByRole("heading", { level: 1, name: "Today" })).toBeVisible();
+
+    expect(await layoutOverflow(page), "horizontal overflow at the 400% zoom equivalent").toBeLessThanOrEqual(2);
+
+    // Reflow really happened rather than the page merely not overflowing: at the
+    // 400% equivalent the frozen mapping must have dropped to its phone layout.
+    expect(await displayedWidthStates(page), "width state at the 400% zoom equivalent").toEqual([
+      widthStateFor(ZOOM_400_EQUIVALENT.width),
+    ]);
+    await expect(page.getByTestId("caring-contacts-phone-dock")).toBeVisible();
+  });
+
+  for (const mode of ["default", "dark", "forced-colors", "zoom-400"] as const) {
+    test(`draws a visible focus ring in ${mode}`, async ({ page, browserName }) => {
+      test.skip(mode === "forced-colors" && browserName !== "chromium", "forced-colors emulation is Chromium-only");
+
+      if (mode === "dark") await page.emulateMedia({ colorScheme: "dark" });
+      if (mode === "forced-colors") await page.emulateMedia({ forcedColors: "active" });
+      await page.setViewportSize(mode === "zoom-400" ? ZOOM_400_EQUIVALENT : { width: 1024, height: VIEWPORT_HEIGHT });
+      await page.goto(WORKSPACE_ROUTE, { waitUntil: "load" });
+      await expect(page.getByRole("heading", { level: 1, name: "Today" })).toBeVisible();
+
+      await tabToWorkspaceDestination(page);
+      expectVisibleFocusRing(await focusRingOf(page), `focus ring in ${mode}`);
+      expect(await layoutOverflow(page), `horizontal overflow in ${mode}`).toBeLessThanOrEqual(2);
+    });
+  }
 });
