@@ -3,12 +3,14 @@ import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import DeveloperHubPage from "@/app/mockups/development/page";
 import {
   MEDICATION_TAB_IDS,
   medicationNavSections,
   medicationSectionsByTab,
 } from "@/components/clinical-dashboard/medication-nav-header";
 import { MedicationRecordPage } from "@/components/clinical-dashboard/medication-record-page";
+import { developerHubNavSections } from "@/components/developer-area/developer-hub-nav-header";
 import { DsmDiagnosisPage } from "@/components/dsm/dsm-diagnosis-page";
 import { dsmDiagnosisNavSections } from "@/components/dsm/dsm-diagnosis-nav-header";
 import {
@@ -198,6 +200,11 @@ const routes: RouteCase[] = [
       />
     ),
   },
+  {
+    name: "/mockups/development",
+    sections: developerHubNavSections,
+    render: () => <DeveloperHubPage />,
+  },
   factsheetRoute("medRich"),
   factsheetRoute("medLite"),
   factsheetRoute("condition"),
@@ -274,10 +281,10 @@ describe("in-page navigation section contracts", () => {
 
   it("covers every route that mounts the shared header", () => {
     // A component converted without a case here would leave its declared
-    // sections unguarded, which is the whole failure mode. Eight anchor-scrolling
+    // sections unguarded, which is the whole failure mode. Nine anchor-scrolling
     // routes plus one factsheet case per `kind`; the medication page swaps
     // panels rather than scrolling and is guarded by the suite below.
-    expect(routes).toHaveLength(13);
+    expect(routes).toHaveLength(14);
   });
 
   it("keeps the specifier map jump cards synchronized during ordinary scrolling", async () => {
