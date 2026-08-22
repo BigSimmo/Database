@@ -338,6 +338,66 @@ describe("Patient Plan gap triggers", () => {
     expect(convert("A warm blanket helps their back.")).toEqual({ converted: "A warm blanket helps your back." });
   });
 
+  /**
+   * A negated sentence about the person is refused whether the name is bare or
+   * possessive.
+   *
+   * `wordsOf` keeps the apostrophe, so "Rowan's" tokenises as `rowan's` and did
+   * not match the `rowan` in `ownNames` — the negation rule saw a sentence that
+   * was not about anybody. "Rowan was not told what was happening." was refused;
+   * "Rowan's family was not told." converted to "Your family was not told." with
+   * `gap: false`, ready to approve straight onto the person's own copy.
+   */
+  it("refuses a negated sentence about this person whether the name is bare or possessive", () => {
+    expect(convert("Rowan was not told what was happening.")).toEqual({ gapReasonKey: "clinicalNegation" });
+    expect(convert("Rowan's family was not told.")).toEqual({ gapReasonKey: "clinicalNegation" });
+    // Literal, so the specific sentence that used to print cannot come back.
+    expect(convert("Rowan's family was not told.")).not.toEqual({ converted: "Your family was not told." });
+    // A possessive with no negation still converts, so the rule stays narrow.
+    expect(convert("Rowan's family can ring the team.")).toEqual({ converted: "Your family can ring the team." });
+  });
+
+  /**
+   * Pronoun substitution across all three pronoun sets, built from constructed
+   * patients rather than fixtures.
+   *
+   * The fixtures cover they/them and she/her only: Jordan is the sole he/him
+   * patient and has no Management Plan, so nothing exercised that path. It was
+   * broken. The possessive replacement had no leading word boundary, so "his"
+   * matched inside "This", turning "This is what helps you." into "Tyour is what
+   * helps you." — which then failed the vocabulary check and told the clinician
+   * the section used wording with no everyday equivalent, a reason that was
+   * simply untrue.
+   */
+  it.each([
+    ["they/them", "their"],
+    ["she/her", "her"],
+    ["he/him", "his"],
+  ])("leaves ordinary English alone for a %s patient", (pronouns, possessive) => {
+    const patient = { ...patientBy(ROWAN), pronouns };
+    const forPatient = createLineConverter(currentVersionFor(ROWAN), patient, syntheticPatientResources);
+
+    // Every one of these is plain English that must survive untouched, and each
+    // contains the substring of some patient's possessive pronoun: "This" holds
+    // "his", "there" holds "her", "theirs" would hold "their".
+    for (const sentence of [
+      "This is what helps you.",
+      "There is a quiet room here.",
+      "You can ring the team.",
+      "The nurse will tell you what is happening.",
+    ]) {
+      expect(forPatient(sentence), `“${sentence}” was corrupted for a ${pronouns} patient`).toEqual({
+        converted: sentence,
+      });
+    }
+    // And the possessive is still substituted where it really is one.
+    expect(forPatient(`A warm blanket helps ${possessive} back.`)).toEqual(
+      // she/her is refused outright, because its possessive and object pronouns
+      // are the same word and cannot be told apart.
+      possessive === "her" ? { gapReasonKey: "ambiguousPronoun" } : { converted: "A warm blanket helps your back." },
+    );
+  });
+
   it("gaps a sentence whose verb it cannot put into the second person", () => {
     // `settles` is in the agreement table, so this converts.
     expect(convert("Rowan settles once the room is quiet.")).toEqual({
@@ -387,6 +447,56 @@ describe("Patient Plan gap triggers", () => {
     expect(section?.body).toEqual(["A quiet room.", "A warm drink."]);
     expect(section?.gapReason).toMatch(/2 of 3 points converted/);
     expect(section?.gapReason).toMatch(/written by a clinician/i);
+    // The refused point is quoted, not merely counted. A number alone let a
+    // clinician satisfy the approval gate without ever learning what was
+    // missing — and on the real fixtures the refused points are the clinical
+    // ones while the survivors are administrative.
+    expect(section?.gapReason).toContain("“To be seen without your distress being the first thing anybody says.”");
+    expect(section?.gapReason).toMatch(/Still to write, from the Management Plan/);
+  });
+
+  /** Every refused point is quoted, not just the first. */
+  it("quotes every point it refused, so nothing is dropped silently", () => {
+    const mixed = versionWithContent({
+      whatThePersonWants: [
+        "A quiet room.",
+        "Assess the presentation on its merits.",
+        "Your distress is the first thing anybody says.",
+      ],
+    });
+    const section = buildPatientPlanDraft(mixed, patientBy(ROWAN), syntheticPatientResources).sections.find(
+      (candidate) => candidate.key === "whatMattersToYou",
+    );
+    expect(section?.body).toEqual(["A quiet room."]);
+    expect(section?.gapReason).toContain("“Assess the presentation on its merits.”");
+    expect(section?.gapReason).toContain("“Your distress is the first thing anybody says.”");
+  });
+
+  /**
+   * Points refused for different reasons are reported under their own reasons.
+   *
+   * Attributing every quoted point to the first refusal's reason was recorded as
+   * latent while only a count was shown. Quoting the points made it live: a
+   * clinician would read two sentences under one reason that is false of one of
+   * them, which is the same false-reason failure the naming rule was narrowed to
+   * avoid.
+   */
+  it("attributes each refused point to the reason it was actually refused for", () => {
+    const mixed = versionWithContent({
+      whatThePersonWants: ["A quiet room.", "No interpreter is needed here.", "Assess the presentation on its merits."],
+    });
+    const reason =
+      buildPatientPlanDraft(mixed, patientBy(ROWAN), syntheticPatientResources).sections.find(
+        (candidate) => candidate.key === "whatMattersToYou",
+      )?.gapReason ?? "";
+
+    // Each quoted point sits with its own reason, and both reasons appear.
+    expect(reason).toContain(
+      "“No interpreter is needed here.” It was refused because: This section says what does not happen.",
+    );
+    expect(reason).toContain(
+      "“Assess the presentation on its merits.” It was refused because: This section uses wording the plain-language conversion has no confident everyday equivalent for",
+    );
   });
 
   /** Nothing convertible at all still reads as one whole refusal, with the one
@@ -595,12 +705,13 @@ describe("Patient Plan reads as something a person can be handed", () => {
   /**
    * Every line the conversion actually produces, across every fixture.
    *
-   * The checks below have to run over converted prose, and a section gaps whole
-   * — so on this corpus every *section* is a gap and every `section.body` is
-   * empty. Reading the checks off the section bodies would make them vacuous:
-   * they would pass over nothing, for ever, and pass loudest at the moment the
-   * conversion broke completely. So they run over the line converter directly,
-   * behind the non-vacuity guard below.
+   * The checks below have to run over converted prose. On this corpus every
+   * section is still flagged, and most carry no content at all, so reading the
+   * checks off the section bodies would leave them nearly empty — and a rule
+   * change that made the conversion refuse everything would empty them
+   * completely, at which point they would pass over nothing, for ever, and pass
+   * loudest at the moment the conversion broke. So they run over the line
+   * converter directly, behind the non-vacuity guard below.
    */
   function everyConvertedLine(): string[] {
     const state = createInitialPrototypeState();
@@ -935,6 +1046,50 @@ describe("Patient Plan lifecycle", () => {
   });
 
   /**
+   * The reducer is the guard, not a restatement of the form's opinion.
+   *
+   * `unfilledGapSections` filtered on the flag alone, so a caller saving a
+   * section with an empty body and `gap: false` was approved — and the page then
+   * printed that heading and its lead-in with nothing beneath them. A heading
+   * over a blank on somebody's own copy is the Task 8 defect exactly, and it was
+   * one dispatch away with only the form standing in front of it.
+   */
+  it("refuses approval for an empty section however the caller flagged it", () => {
+    const { state, draft } = stateWithDraft(ROWAN);
+    const sections = filled(draft.sections).map((section, index) =>
+      index === 3 ? { ...section, body: [], gap: false, gapReason: null } : section,
+    );
+
+    const saved = prototypeReducer(state, {
+      type: "save-patient-plan-draft",
+      versionId: draft.id,
+      input: { sections, resources: [...draft.resources] },
+    });
+    const blocked = prototypeReducer(saved, { type: "approve-patient-plan-version", versionId: draft.id });
+
+    expect(blocked.lastOutcome?.kind).toBe("error");
+    expect(blocked.lastOutcome?.message).toMatch(/cannot be approved while/i);
+    expect(blocked.patientPlanVersions.find((version) => version.id === draft.id)?.state).toBe("draft");
+  });
+
+  /** A version that has lost headings is not a copy of the plan. */
+  it("refuses approval for a version missing any of the eight headings", () => {
+    const { state, draft } = stateWithDraft(ROWAN);
+    const sections = filled(draft.sections).slice(0, 6);
+
+    const saved = prototypeReducer(state, {
+      type: "save-patient-plan-draft",
+      versionId: draft.id,
+      input: { sections, resources: [...draft.resources] },
+    });
+    const blocked = prototypeReducer(saved, { type: "approve-patient-plan-version", versionId: draft.id });
+
+    expect(blocked.lastOutcome?.kind).toBe("error");
+    expect(blocked.lastOutcome?.message).toMatch(/missing 2 of the eight headings/i);
+    expect(blocked.patientPlanVersions.find((version) => version.id === draft.id)?.state).toBe("draft");
+  });
+
+  /**
    * Any clinical role, and no senior. Requiring a senior clinician would mean a
    * person waits days for their own copy of their own plan, which defeats the
    * point of giving them one — so the check is that all four clinical roles
@@ -1176,6 +1331,47 @@ describe("Patient Plan staleness", () => {
       { type: "approve-management-version", versionId: nextDraft.id },
     );
     expect(twice.reviewTriggers.filter((trigger) => trigger.source === "patient_plan_stale")).toHaveLength(1);
+  });
+
+  /**
+   * A withdrawn Management Plan makes the copy stale.
+   *
+   * The selector used to return "not stale" when the plan had no version in use,
+   * because withdrawal sets `currentVersionId` to null. So a person holding a
+   * copy of a plan the service had taken out of use entirely was told nothing,
+   * printed it unmarked, and nobody's queue heard about it — the case that most
+   * needs marking, quietly exempted by an unstated carve-out.
+   */
+  it("marks a copy stale when the Management Plan it describes has been withdrawn", () => {
+    const before = withApprovedCopy();
+    const plan = before.patientPlans[0];
+    const copy = getCurrentPatientPlanVersion(before.patientPlanVersions, plan?.id ?? "SYN-NONE");
+    expect(
+      isPatientPlanVersionStale(
+        copy,
+        before.managementPlans.find((p) => p.patientId === MIRA)?.currentVersionId ?? null,
+      ),
+    ).toBe(false);
+
+    const withdrawn = prototypeReducer(before, {
+      type: "withdraw-current-management-version",
+      patientId: MIRA,
+      reason: "Withdrawn at review; a new plan will be written with this person.",
+    });
+
+    const management = withdrawn.managementPlans.find((candidate) => candidate.patientId === MIRA);
+    expect(management?.currentVersionId).toBeNull();
+    const after = getCurrentPatientPlanVersion(withdrawn.patientPlanVersions, plan?.id ?? "SYN-NONE");
+    expect(isPatientPlanVersionStale(after, management?.currentVersionId ?? null)).toBe(true);
+
+    // The copy itself is untouched — never regenerated, hidden, or withdrawn.
+    expect(after).toEqual(copy);
+
+    // And it reaches a human rather than only a screen.
+    const raised = withdrawn.reviewTriggers.filter((trigger) => trigger.source === "patient_plan_stale");
+    expect(raised).toHaveLength(1);
+    expect(raised[0]?.reason).toMatch(/no longer in use/i);
+    expect(raised[0]?.reason).toMatch(/stays readable and unchanged/i);
   });
 
   it("raises nothing when the person holds no patient copy at all", () => {

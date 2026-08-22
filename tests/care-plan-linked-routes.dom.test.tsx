@@ -3292,19 +3292,31 @@ describe("Care Plan Patient Plan", () => {
     await createDraft(user);
 
     const field = screen.getByLabelText(/^What matters to you/);
-    // The lines the conversion managed, verbatim, in the box the clinician edits.
+    /*
+     * The lines the conversion managed, verbatim, in the box the clinician
+     * edits. Two of four, not three: "To have Jess contacted only with Rowan's
+     * agreement on the day, not automatically." is a negated sentence naming
+     * the person, and is refused. It used to convert only because the
+     * possessive token never matched the name, which is the same hole that let
+     * "Rowan's family was not told." through — so this line is the price of
+     * closing it, and it is the right price.
+     */
     expect(field).toHaveValue(
       [
         "To be told what is happening and roughly how long it will take, rather than being left to guess.",
         "To go home the same day where that is safe, with a mental health team call the next working day.",
-        "To have Jess contacted only with your agreement on the day, not automatically.",
       ].join("\n"),
     );
 
     const flag = screen.getByTestId("care-plan-patient-plan-form-gap-whatMattersToYou");
     expect(flag).toHaveTextContent("Partly converted — the rest needs writing");
-    expect(flag).toHaveTextContent(/3 of 4 points converted/);
+    expect(flag).toHaveTextContent(/2 of 4 points converted/);
     expect(flag).toHaveTextContent(/written by a clinician/i);
+    // Both refused points are quoted, so the clinician can see exactly what is
+    // missing without opening the Management Plan alongside.
+    expect(flag).toHaveTextContent("To have Jess contacted only with Rowan's agreement on the day, not automatically.");
+    expect(flag).toHaveTextContent("To be addressed as Rowan, and referred to as they/them.");
+    expect(flag).toHaveTextContent(/Still to write, from the Management Plan/);
   });
 
   /**
@@ -3457,5 +3469,23 @@ describe("Care Plan Patient Plan", () => {
       within(screen.getByTestId("care-plan-patient-plan-sections")).getAllByRole("heading", { level: 3 }),
     ).toHaveLength(8);
     expect(screen.queryByTestId("care-plan-patient-plan-no-current")).toBeNull();
+
+    /*
+     * And it says so on the paper. The printed sheet outlives the screen — it
+     * goes in a bag, then a drawer — and it is the artefact that would be lying
+     * if it stayed silent. The screen notice is worded for a clinician ("go
+     * through it with them") and stays off the paper; the sheet carries its own
+     * line, addressed to the person.
+     */
+    goTo(carePlanRoute.patientPlanPrint("SYN-PATIENT-002"));
+    const paper = screen.getByTestId("care-plan-patient-plan-print-output");
+    const printedStale = screen.getByTestId("care-plan-patient-plan-paper-stale");
+    expect(printedStale.closest("[data-print-output]")).toBe(paper);
+    expect(printedStale.closest("[data-print-hide='true']")).toBeNull();
+    expect(printedStale).toHaveTextContent("Some of this may have changed.");
+    // Written to the person, not about them: no clinician instruction reaches
+    // the sheet.
+    expect(paper.textContent ?? "").not.toContain("go through it with them");
+    expect(paper.textContent ?? "").not.toContain("Go through it with them");
   });
 });

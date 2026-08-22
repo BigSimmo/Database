@@ -1562,6 +1562,17 @@
   line-height: 1.6;
 }
 
+/* Printed, and never clipped: the sheet may be read months after the plan it
+ * came from moved on, and this is the line that stops it lying by omission. */
+.appRoot .patientPlanPaperStale {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.625rem;
+  color: var(--text);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
 @media print {
   /*
    * Large readable type, for the same reason the Personal Safety Plan uses it:
@@ -1594,7 +1605,8 @@
   }
 
   .appRoot .patientPlanPaper,
-  .appRoot .patientPlanPaperHead {
+  .appRoot .patientPlanPaperHead,
+  .appRoot .patientPlanPaperStale {
     border-color: CanvasText;
     background: none;
   }

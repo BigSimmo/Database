@@ -44,8 +44,16 @@ import { PATIENT_PLAN_SECTION_KEYS } from "./types";
  *
  * ## Everything not confidently convertible is a gap
  *
- * A section gaps whole. It never carries part of its content, because three of
- * five points with two silently dropped looks finished and is not.
+ * Each point is converted or refused on its own. A section keeps the points that
+ * converted and is flagged for the ones that did not, with the refused source
+ * text quoted in the reason so nothing is dropped silently — that quoting is
+ * what makes partial content safe to show, rather than three of five points
+ * looking finished when they are not.
+ *
+ * A section carries no content at all in three cases: nothing in it could be
+ * converted, the Management Plan records nothing under that heading, or it is a
+ * heading that is never converted. A flagged section cannot be approved, and
+ * only an approved version prints, so partial text never reaches the person.
  *
  * The result is an incomplete draft by design, and often a mostly incomplete
  * one. That is the intended outcome, not a shortfall: the machine does the part
@@ -954,8 +962,20 @@ function convertLine(
       return { gapReasonKey: "unknownTerm" };
     }
 
-    const refersToThisPerson =
-      words.some((word) => ownNames.has(word)) || words.some((word) => THIRD_PERSON_PRONOUN_SET.has(word));
+    /**
+     * The possessive is stripped before the name is looked up.
+     *
+     * `wordsOf` keeps an internal apostrophe, so the token for "Rowan's" is
+     * `rowan's` and `ownNames` holds only `rowan` — which meant a sentence
+     * naming the person possessively was not counted as being *about* them, and
+     * the negation rule below never fired for it. "Rowan was not told what was
+     * happening." was correctly refused while "Rowan's family was not told."
+     * converted to "Your family was not told." and, carrying no flag at all,
+     * could be approved straight onto the person's own copy. No fixture
+     * triggers it, which is exactly why nothing went red.
+     */
+    const namesThisPerson = words.some((word) => ownNames.has(word.replace(/['’]s$/, "")));
+    const refersToThisPerson = namesThisPerson || words.some((word) => THIRD_PERSON_PRONOUN_SET.has(word));
 
     // "known as" is a naming construction; a bare "known" is not, and treating
     // it as one refused "Mira is known to the Coastal Plains team" as though it
@@ -991,7 +1011,18 @@ function convertLine(
 
   const references = personReferences(patient);
   for (const possessive of references.possessive) {
-    text = text.replace(new RegExp(`${escapeForRegExp(possessive)}\\b`, "gi"), "your");
+    /*
+     * The leading `\b` is not decoration. Without it, a he/him patient's
+     * possessive "his" matched inside "This", so "This is what helps you."
+     * became "Tyour is what helps you.", failed the vocabulary check, and the
+     * clinician was told the section used wording with no everyday equivalent —
+     * which was untrue, and a false reason is the exact thing the naming rule
+     * was narrowed to avoid. It corrupted any word ending in the patient's name
+     * or pronoun. Jordan is the only he/him fixture patient and has no
+     * Management Plan, so the whole pronoun class went uncovered; the object and
+     * subject replacements below always had the boundary.
+     */
+    text = text.replace(new RegExp(`\\b${escapeForRegExp(possessive)}\\b`, "gi"), "your");
   }
   for (const object of references.object) {
     text = text.replace(new RegExp(`\\b${escapeForRegExp(object)}\\b`, "gi"), "you");
@@ -1061,15 +1092,49 @@ function gapSection(key: PatientPlanSectionKey, reasonKey: PatientPlanGapReasonK
 /**
  * What a partly converted section says.
  *
- * It states the arithmetic first — how many points came through — so a clinician
- * can see at a glance whether they are checking a nearly finished section or
- * writing most of it themselves, then gives the reason the rest was refused. The
- * underlying reason already ends by naming who writes it, so that sentence is
- * not repeated here.
+ * It states the arithmetic, then **quotes the clinical points it refused**, then
+ * gives the reason. Quoting them is the part that matters. A count alone told a
+ * clinician a number and nothing else: on Rowan's "If something new is
+ * happening" the two survivors are administrative while the seven refused are
+ * the clinical red flags — chest pain, head injury, a change in conscious state
+ * — and none of that was visible without opening the Management Plan alongside.
+ * Combined with a flag that clears on any textual edit, a hurried clinician
+ * could satisfy the approval gate without ever learning what was missing.
+ *
+ * The quoted text is the clinician's own source wording, unconverted, shown on a
+ * draft only. It never reaches the person: a flagged section cannot be approved
+ * and only an approved version prints.
+ *
+ * The underlying reason already ends by naming who writes it, so that sentence
+ * is not repeated here.
  */
-function partialGapReason(converted: number, total: number, reasonKey: PatientPlanGapReasonKey): string {
-  const refused = total - converted;
-  return `${converted} of ${total} ${total === 1 ? "point" : "points"} converted, and ${converted === 1 ? "is" : "are"} shown here. The other ${refused === 1 ? "one was" : `${refused} were`} refused: ${PATIENT_PLAN_GAP_REASON[reasonKey]}`;
+function partialGapReason(
+  converted: number,
+  refusals: readonly { line: string; reasonKey: PatientPlanGapReasonKey }[],
+): string {
+  /*
+   * Grouped by reason, because each quoted point is now shown to a clinician
+   * beside the reason it was refused for — and attributing every point to the
+   * first refusal's reason would put a false statement in front of them.
+   *
+   * That flaw was recorded as latent while only a count was shown, on the
+   * grounds that refusals within a section happened to share a reason. Quoting
+   * them made it live and wrong on the real fixtures at once: Rowan's "Things
+   * that might help" refuses "No interpreter needed…" as a negation and
+   * "Sensory: bright overhead lighting…" for vocabulary, and a single reason
+   * cannot be true of both.
+   */
+  const grouped = new Map<PatientPlanGapReasonKey, string[]>();
+  for (const { line, reasonKey } of refusals) {
+    grouped.set(reasonKey, [...(grouped.get(reasonKey) ?? []), line]);
+  }
+
+  const parts = [...grouped].map(([reasonKey, lines]) => {
+    const quoted = lines.map((line) => `“${line}”`).join(" ");
+    return `${quoted} ${lines.length === 1 ? "It was" : "They were"} refused because: ${PATIENT_PLAN_GAP_REASON[reasonKey]}`;
+  });
+
+  return `${converted} of ${converted + refusals.length} points converted, and ${converted === 1 ? "is" : "are"} shown here. Still to write, from the Management Plan: ${parts.join(" ")}`;
 }
 
 /**
@@ -1133,11 +1198,11 @@ export function buildPatientPlanDraft(
      * on, which is the one place it helps.
      */
     const body: string[] = [];
-    const refusals: PatientPlanGapReasonKey[] = [];
+    const refusals: { line: string; reasonKey: PatientPlanGapReasonKey }[] = [];
     for (const line of lines) {
       const outcome = convert(line);
       if ("gapReasonKey" in outcome) {
-        refusals.push(outcome.gapReasonKey);
+        refusals.push({ line, reasonKey: outcome.gapReasonKey });
         continue;
       }
       body.push(outcome.converted);
@@ -1149,22 +1214,45 @@ export function buildPatientPlanDraft(
     }
     // Nothing converted: the section reads exactly as it did before, so a whole
     // section refused for one stated reason still says that one reason plainly.
-    if (body.length === 0) return gapSection(key, firstRefusal);
+    if (body.length === 0) return gapSection(key, firstRefusal.reasonKey);
 
     return {
       key,
       heading: PATIENT_PLAN_SECTION_HEADING[key],
       body,
       gap: true,
-      gapReason: partialGapReason(body.length, lines.length, firstRefusal),
+      gapReason: partialGapReason(body.length, refusals),
     };
   });
 
   return { derivedFromManagementVersionId: version.id, sections, resources: forThisPatient };
 }
 
-/** The gaps still to be filled. Approval is refused while any remains: an
- *  unfilled gap prints as a heading with nothing under it. */
+/**
+ * The sections still to be finished. Approval is refused while any remains.
+ *
+ * A section counts as unfinished when it is flagged **or** when it holds
+ * nothing, and the second half is the one that makes this a guard rather than a
+ * restatement of the form's own opinion. Filtering on `gap` alone let a caller
+ * saving `{ gap: false, body: [] }` through approval, after which the page
+ * prints that section's heading and lead-in with nothing beneath them — a
+ * heading over a blank on a person's own copy, which is the Task 8 defect
+ * exactly, one dispatch away. Only the form stood between that and paper, and
+ * the reducer's own comment claimed otherwise.
+ */
 export function unfilledGapSections(sections: readonly PatientPlanSection[]): readonly PatientPlanSection[] {
-  return sections.filter((section) => section.gap);
+  return sections.filter((section) => section.gap || section.body.length === 0);
+}
+
+/**
+ * The approved headings that are missing from a version altogether.
+ *
+ * `unfilledGapSections` can only inspect the sections it is given, so a caller
+ * that sends six sections instead of eight passes it trivially. The person's
+ * copy has eight headings by specification, and a version that has quietly lost
+ * two of them is not a copy of the plan.
+ */
+export function missingSectionKeys(sections: readonly PatientPlanSection[]): readonly PatientPlanSectionKey[] {
+  const present = new Set(sections.map((section) => section.key));
+  return PATIENT_PLAN_SECTION_KEYS.filter((key) => !present.has(key));
 }

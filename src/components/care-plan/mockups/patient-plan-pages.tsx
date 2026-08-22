@@ -195,6 +195,30 @@ function StaleNotice({ version, patient }: { version: PatientPlanVersion; patien
   );
 }
 
+/**
+ * The same fact as `StaleNotice`, written to the person rather than about them,
+ * and printed.
+ *
+ * The screen notice is worded for a clinician — "go through it with them" — so
+ * it stays off the paper. But the paper is the artefact that outlives
+ * everything: it goes in a bag, then a drawer, and may be read months later by
+ * somebody who has no way to know the plan behind it has moved on. A sheet that
+ * says nothing in that situation is the one thing here that would be lying, so
+ * the printed copy carries its own line.
+ *
+ * It does not tell the person the sheet is wrong, or to stop using it. Most of
+ * what is on it will still be true, and a document that disowns itself is worse
+ * than useless to somebody holding it in a waiting room.
+ */
+function PrintedStaleBanner({ patient }: { patient: Patient }) {
+  return (
+    <p data-testid="care-plan-patient-plan-paper-stale" className={styles.patientPlanPaperStale}>
+      <strong>Some of this may have changed.</strong>{" "}
+      {`Your team has updated the plan this copy was written from, so parts of it may be out of date. It is still yours to keep, and most of it will still be right. Bring it with you and ask someone on your team to go through it with you, and they can write you a new one.`}
+    </p>
+  );
+}
+
 function PatientPlanIdentityBand({ patient }: { patient: Patient }) {
   return (
     <div data-testid="care-plan-patient-plan-identity" className={styles.identityBand}>
@@ -563,6 +587,7 @@ export function PatientPlanPrintSurface({
             and bring it with you if you can. If something in it stops fitting, tell someone on your team so you can
             write it again together.
           </p>
+          {stale ? <PrintedStaleBanner patient={patient} /> : null}
         </PrintSection>
 
         <PatientPlanSections sections={version.sections} gaps="omit" />

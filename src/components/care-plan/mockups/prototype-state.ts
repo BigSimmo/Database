@@ -28,7 +28,7 @@ import {
   getOpenPatientPlanDraft,
 } from "./domain";
 import { getPatientResources, syntheticPatientResources } from "./patient-plan-fixtures";
-import { buildPatientPlanDraft, unfilledGapSections } from "./patient-plan-transform";
+import { buildPatientPlanDraft, missingSectionKeys, unfilledGapSections } from "./patient-plan-transform";
 import {
   PROTOTYPE_NOW,
   identificationPolicy,
@@ -953,6 +953,42 @@ export function prototypeReducer(
       const withdrawnAt = prototypeTimestamp(state);
       const actor = state.users.find(({ id }) => id === state.activeUserId);
 
+      /**
+       * Withdrawal makes any patient copy stale, for the same reason approving a
+       * newer version does — the copy now describes a plan that is not in use —
+       * and it deserves the same deduplicated trigger. Without it, taking a plan
+       * out of use was the one change to it that reached nobody's queue, on the
+       * case where somebody is holding paper describing care the service has
+       * just stopped agreeing to.
+       */
+      const withdrawnPatientPlan = state.patientPlans.find((candidate) => candidate.patientId === patient.id) ?? null;
+      const copyLeftBehind =
+        withdrawnPatientPlan === null
+          ? null
+          : getCurrentPatientPlanVersion(state.patientPlanVersions, withdrawnPatientPlan.id);
+      const staleAlreadyOpen = state.reviewTriggers.some(
+        (trigger) =>
+          trigger.managementPlanId === plan.id && trigger.source === "patient_plan_stale" && trigger.status === "open",
+      );
+      const staleTrigger: ReviewTrigger | null =
+        copyLeftBehind === null || staleAlreadyOpen
+          ? null
+          : {
+              id: nextSyntheticId(
+                "SYN-TRIGGER",
+                state.reviewTriggers.map(({ id }) => id),
+              ),
+              patientId: patient.id,
+              managementPlanId: plan.id,
+              source: "patient_plan_stale",
+              sourceId: copyLeftBehind.id,
+              reason: `Patient Plan version ${copyLeftBehind.version} describes a Management Plan that has now been withdrawn, so ${patient.preferredName} may be holding a printed copy of a plan that is no longer in use. It stays readable and unchanged until somebody goes through it with them.`,
+              status: "open",
+              createdAt: prototypeTimestamp(state, 1),
+              resolvedAt: null,
+              resolution: null,
+            };
+
       return {
         ...state,
         managementPlanVersions: state.managementPlanVersions.map((candidate) =>
@@ -970,6 +1006,7 @@ export function prototypeReducer(
         managementPlans: state.managementPlans.map((candidate) =>
           candidate.id === plan.id ? { ...candidate, currentVersionId: null } : candidate,
         ),
+        reviewTriggers: staleTrigger === null ? state.reviewTriggers : [...state.reviewTriggers, staleTrigger],
         auditEvents: withAudit(state, {
           type: "management_version_withdrawn",
           patientId: patient.id,
@@ -978,7 +1015,10 @@ export function prototypeReducer(
         }),
         lastOutcome: {
           kind: "success",
-          message: `Version ${current.version} withdrawn. ${patient.preferredName} now has no Current Plan, and no earlier version was put back into use.`,
+          message:
+            staleTrigger === null
+              ? `Version ${current.version} withdrawn. ${patient.preferredName} now has no Current Plan, and no earlier version was put back into use.`
+              : `Version ${current.version} withdrawn. ${patient.preferredName} now has no Current Plan, and their own copy now needs updating; it stays readable and an open Review Trigger was raised.`,
         },
       };
     }
@@ -1511,10 +1551,26 @@ export function prototypeReducer(
       }
 
       /**
-       * The gap block. A gap is a place the conversion refused to guess, and an
-       * unfilled one prints as a heading with nothing under it — handed to the
-       * person it is about. The form makes the control unavailable with this
-       * reason; the reducer is the guard that means it cannot happen anyway.
+       * A copy is not approvable unless it still has all eight headings. The
+       * gap block below can only inspect the sections it is given, so a version
+       * that has quietly lost two of them would pass it without ever being
+       * looked at.
+       */
+      const missing = missingSectionKeys(version.sections);
+      if (missing.length > 0) {
+        return refuse(
+          state,
+          `Patient Plan version ${version.version} is missing ${missing.length} of the eight headings the person's copy is made of, so it is not a copy of the plan. Nothing was changed.`,
+        );
+      }
+
+      /**
+       * The gap block. A flagged section is one some part of which still needs a
+       * person, and an unfinished one prints as a heading with nothing under it
+       * — handed to the person it is about. The form makes the control
+       * unavailable with this reason; the reducer is the guard that means it
+       * cannot happen anyway, which is why it counts an empty section as
+       * unfinished whatever flag the caller attached to it.
        */
       const gaps = unfilledGapSections(version.sections);
       if (gaps.length > 0) {

@@ -281,13 +281,19 @@ export function getOpenPatientPlanDraft(
  * A stale copy stays fully readable and is never regenerated, hidden, or
  * withdrawn on the person's behalf. They may be holding the paper; the
  * application's account of what they were given has to stay true to it.
+ *
+ * A plan with no version in use makes the copy stale too. Withdrawal sets
+ * `currentVersionId` to null, and returning "not stale" for that meant a person
+ * holding a copy of a plan that had been *taken out of use entirely* was told
+ * nothing, printed it unmarked, and raised no trigger — the case that most needs
+ * marking, quietly exempted. The rule is now simply that a copy is stale unless
+ * it was written from the version currently in use.
  */
 export function isPatientPlanVersionStale(
   version: PatientPlanVersion | null,
   managementPlanCurrentVersionId: SyntheticId | null,
 ): boolean {
   if (version === null || version.state !== "current") return false;
-  if (managementPlanCurrentVersionId === null) return false;
   return version.derivedFromManagementVersionId !== managementPlanCurrentVersionId;
 }
 
