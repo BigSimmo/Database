@@ -39,6 +39,11 @@ describe("evaluateMedicationInteractions", () => {
     expect(result.highestTone).toBe("danger");
   });
 
+  it("does not reintroduce loperamide's excluded opioid term through a reverse row", () => {
+    const result = evaluateMedicationInteractions("morphine-ir-iv", ["loperamide"]);
+    expect(result.interactions.some((item) => item.counterpartySlug === "loperamide")).toBe(false);
+  });
+
   it("warns on lithium plus an NSAID or a thiazide", () => {
     // Both are textbook lithium-toxicity interactions and both were silent: the
     // catalogue record is "Lithium carbonate (IR/SR)", so no name-derived
