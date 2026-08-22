@@ -122,6 +122,16 @@ raising the source-only fallback rate or weakening a single grounding gate.
 
 ### A1 — Diagnose generation-quality fallbacks before changing length (prerequisite; `#231`)
 
+> **Diagnosis updated 2026-08-22 — read it before acting on `#231`:**
+> [`231-diagnosis-2026-08-22.md`](231-diagnosis-2026-08-22.md). The retrieval-budget premise is
+> false: `answerRouteBudgetMs.fast` binds in only 3 of 60 case-runs, and half the timeouts use the
+> 35 s strong budget. The remaining `provider_timeout` label contains two paths: response-bearing
+> cases support a quality-retry ladder with no deadline admission check, while three zero-response
+> cases need per-attempt timing/response telemetry before attribution. A grounded first-choice
+> extractive answer bypasses the quality-gate call site, but the two cited incoherent answers pass
+> the current predicates, so predicate strictness must be established before a reachability edit.
+> Item 4 below stands and is reinforced, not rebutted.
+
 **Problem.** Healthy retrieval still sometimes ends in a source-only fallback. The decisive
 extended-budget probe completed generation inside the route deadline and still failed the
 quality path, so route duration is not established as the binding cause. Increasing output

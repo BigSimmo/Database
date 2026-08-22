@@ -79,9 +79,17 @@ export const modeSecondaryNavigationRegistry = {
     { id: "topics", label: "Topics", href: appModeHomeHref("factsheets") },
     { id: "search", label: "Search", href: "/factsheets/search" },
   ],
+  // Search and Browse were one catalogue behind two destinations: the same
+  // entries, the same rows, the same data, so a reader who typed a term while on
+  // Browse had to change tab to see it. They are merged onto `/dictionary/search`,
+  // which is why the surviving tab is labelled for the content ("Terms") rather
+  // than for one of the two verbs it now covers. `/dictionary/browse` redirects.
+  //
+  // Four destinations, not five, is also what puts Terms and Topics — the two a
+  // reader reaches for — in the phone bar's three slots beside More, instead of
+  // Search and Browse, which were the same place.
   dictionary: [
-    { id: "search", label: "Search", href: "/dictionary/search" },
-    { id: "browse", label: "Browse", href: "/dictionary/browse" },
+    { id: "search", label: "Terms", href: "/dictionary/search" },
     { id: "topics", label: "Topics", href: "/dictionary/topics" },
     { id: "compare", label: "Compare", href: "/dictionary/compare" },
     { id: "sources", label: "Sources", href: "/dictionary/sources" },
@@ -186,8 +194,9 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     return null;
   }
   if (modeId === "dictionary") {
+    // `/dictionary/browse` is absent deliberately: it redirects to
+    // `/dictionary/search` before a page renders, so it can never reach here.
     if (pathname === "/dictionary/search") return "search";
-    if (pathname === "/dictionary/browse") return "browse";
     if (pathname === "/dictionary/topics" || pathname.startsWith("/dictionary/topics/")) return "topics";
     if (pathname === "/dictionary/compare") return "compare";
     if (pathname === "/dictionary/sources") return "sources";
@@ -238,13 +247,9 @@ export function isModeSecondaryNavigationRoute(params: {
   if (modeId === "factsheets") return pathname === "/factsheets/search";
   if (modeId === "therapy-compass") return pathname !== "/therapy-compass";
   if (modeId === "dictionary") {
-    return [
-      "/dictionary/search",
-      "/dictionary/browse",
-      "/dictionary/topics",
-      "/dictionary/compare",
-      "/dictionary/sources",
-    ].includes(pathname);
+    return ["/dictionary/search", "/dictionary/topics", "/dictionary/compare", "/dictionary/sources"].includes(
+      pathname,
+    );
   }
   return false;
 }
@@ -391,14 +396,15 @@ export function modeSecondaryNavigationHref(params: {
 
   if (modeId === "dictionary") {
     if (itemId === "search") {
+      // Terms is the current tab on `/dictionary/search`, so its own link must
+      // not reset what you are looking at: `view` (the Terms/Abbrev scope),
+      // `letter` and `run` travel with the query and the facets. `run` in
+      // particular flips `hasSubmittedModeSearch` in `global-search-shell.tsx`,
+      // which re-places the composer — a layout jump from clicking the tab you
+      // are already on.
       return navigationHrefWithParams(href, [
         ...(query ? ([["q", query]] as const) : []),
-        ...currentSearchParams.getAll("topic").map((value) => ["topic", value] as const),
-        ...currentSearchParams.getAll("kind").map((value) => ["kind", value] as const),
-      ]);
-    }
-    if (itemId === "browse") {
-      return navigationHrefWithParams(href, [
+        ...(query && currentSearchParams.get("run") === "1" ? ([["run", "1"]] as const) : []),
         ...(currentSearchParams.get("view") ? ([["view", currentSearchParams.get("view") ?? ""]] as const) : []),
         ...(currentSearchParams.get("letter") ? ([["letter", currentSearchParams.get("letter") ?? ""]] as const) : []),
         ...currentSearchParams.getAll("topic").map((value) => ["topic", value] as const),

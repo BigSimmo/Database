@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronDown, Funnel, Search, X } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/components/ui-primitives";
@@ -217,7 +217,12 @@ export function ResultFilterTrigger({
   /** Pointer tooltip, e.g. "Filter services". The accessible name comes from the
       visible label plus the state note below, so this is decoration. */
   title: string;
-  label?: string;
+  /** A node rather than a string so a page can decide where its own wordmark is
+      affordable — Dictionary hands over `<span className="max-sm:sr-only">Filter</span>`,
+      because on its phone control row the word is ~40px of a 284px budget. The
+      accessible name is unchanged either way: `sr-only` keeps the label in the
+      accessibility tree, it only stops it taking width. */
+  label?: ReactNode;
 }) {
   return (
     <button

@@ -249,6 +249,18 @@ bytes. Do not weaken it.
 
 # Reasoning effort calibration
 
+**Repository baseline.** Use `gpt-5.6-sol` with `high` reasoning effort unless the user explicitly
+chooses another supported model or effort. `.codex/config.toml` records this default for trusted
+Codex clients that honor repository configuration; a task-level selection can override it.
+
+**Cloud xhigh gate.** A running Cloud task cannot raise its own reasoning effort. Before substantive
+inspection, planning, tool use, or edits, classify the request against the table and the risk rules
+below. If `xhigh` is required and the prompt does not contain the exact marker `[xhigh-confirmed]`,
+stop and ask the user to select `xhigh` in the Cloud reasoning control, then resubmit the same request
+with `[xhigh-confirmed]`. Do not begin the work at `high`, and do not claim the runtime changed. When
+the marker is present, treat it as the user's confirmation that `xhigh` was selected and proceed.
+Requests classified as `high` or lower proceed without this gate.
+
 Reasoning effort is a budget in the same way verification is a budget, and it is misspent the same
 way — by defaulting to the maximum instead of matching the spend to the risk. **Scale effort to how
 expensive the mistake is to undo (irreversibility × branching factor), never to the phase label.**
