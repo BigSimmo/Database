@@ -33,6 +33,17 @@ function writeFixtureFile(fixtureRoot: string, relativePath: string, content: st
   fs.writeFileSync(absolutePath, content);
 }
 
+const NON_VISUAL_REDIRECT_PAGES = [
+  "src/app/(search-app)/documents/source/page.tsx",
+  "src/app/ward-management/constellation/page.tsx",
+] as const;
+
+function writeNonVisualRedirectFixtures(fixtureRoot: string) {
+  for (const relativePath of NON_VISUAL_REDIRECT_PAGES) {
+    writeFixtureFile(fixtureRoot, relativePath, read(relativePath));
+  }
+}
+
 function createCheckerFixture() {
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-adoption-check-"));
   writeFixtureFile(
@@ -396,6 +407,15 @@ describe("design-system adoption manifest", () => {
     ).toBe(true);
   });
 
+  it("recognises the retired constellation route as redirect-only", () => {
+    expect(
+      analyzeNextRedirectOnlyRoute(
+        "src/app/ward-management/constellation/page.tsx",
+        read("src/app/ward-management/constellation/page.tsx"),
+      ).redirectOnly,
+    ).toBe(true);
+  });
+
   it("fails the adoption contract when a declared root constructs ckb-v2", () => {
     const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     const manifest = {
@@ -442,13 +462,33 @@ describe("design-system adoption manifest", () => {
     const manifest = {
       ...current,
       surfaces: current.surfaces.map((surface: { id: string }) =>
-        surface.id === "documents-source-legacy-redirect" ? { ...surface, documentedDisposition: null } : surface,
+        surface.id === "documents-source-legacy-redirect" ||
+        surface.id === "ward-management-constellation-legacy-redirect"
+          ? { ...surface, documentedDisposition: null }
+          : surface,
       ),
     };
 
-    expect(checkAdoptionManifest(manifest)).toContain(
-      "documents-source-legacy-redirect legacy-redirect disposition is undocumented",
+    const failures = checkAdoptionManifest(manifest);
+    expect(failures).toContain("documents-source-legacy-redirect legacy-redirect disposition is undocumented");
+    expect(failures).toContain(
+      "ward-management-constellation-legacy-redirect legacy-redirect disposition is undocumented",
     );
+  });
+
+  it("models the retired constellation route as a non-visual legacy redirect", () => {
+    const manifest = JSON.parse(read("docs/design-system/adoption-manifest.json"));
+    const redirect = manifest.surfaces.find(
+      (surface: { id: string }) => surface.id === "ward-management-constellation-legacy-redirect",
+    );
+    const owned = manifest.surfaces.find((surface: { id: string }) => surface.id === "ward-management");
+
+    expect(redirect).toMatchObject({
+      disposition: "legacy-redirect",
+      proofApplicability: "not-applicable",
+      routes: ["src/app/ward-management/constellation/page.tsx"],
+    });
+    expect(owned.routes).not.toContain("src/app/ward-management/constellation/page.tsx");
   });
 
   it("does not let a visual catalogue opt out by relabelling itself as a legacy redirect", () => {
@@ -561,11 +601,7 @@ describe("design-system adoption manifest", () => {
     const fixtureRoot = createCheckerFixture();
     try {
       writeFixtureFile(fixtureRoot, "tests/proof.test.ts");
-      writeFixtureFile(
-        fixtureRoot,
-        "src/app/(search-app)/documents/source/page.tsx",
-        read("src/app/(search-app)/documents/source/page.tsx"),
-      );
+      writeNonVisualRedirectFixtures(fixtureRoot);
       initialiseCandidateRepository(fixtureRoot);
       setCurrentAwaitingValues(fixtureRoot, "");
       const baselineSet = writeBaselineSet(fixtureRoot);
