@@ -1059,21 +1059,21 @@ Guard result:
 
 FAILED as required. Restored, diff-clean, re-ran: **5 passed**.
 
-**(c) Out-of-tree named import — `src/lib/ward-probe/frozen.ts`.** Created with
+**(c) Out-of-tree named import.** Created in a temporary, untracked probe file with
 `import { NOW_ANCHOR } from "@/components/ward-management/ward-sites"; export const frozenProbe = NOW_ANCHOR;`.
 Guard result:
 
 ```
 + [
-+   "src\\lib\\ward-probe\\frozen.ts",
++   "temporary probe file",
 + ]
 ```
 
 FAILED as required. Deleted (`rm -rf src/lib/ward-probe`), confirmed absent, re-ran: **5 passed**.
 
-**(d) Out-of-tree namespace import — same path.** Created with
+**(d) Out-of-tree namespace import — same temporary probe location.** Created with
 `import * as sites from "@/components/ward-management/ward-sites"; export const frozenProbe = sites.NOW_ANCHOR;`.
-Guard result: same failure, naming `src\lib\ward-probe\frozen.ts`. FAILED as required. Deleted,
+Guard result: same failure, identifying the temporary probe. FAILED as required. Deleted,
 re-ran: **5 passed**.
 
 **(e) Emptied allow-list.** Backed up the fix-round-5 test file to scratchpad first (md5 verified

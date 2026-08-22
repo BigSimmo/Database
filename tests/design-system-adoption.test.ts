@@ -1243,9 +1243,9 @@ describe("design-system adoption manifest", () => {
     // and the ten-route Ward Flow synthetic patient-flow prototype (mode home,
     // six workspace routes, governance, transport, and the per-patient detail
     // route). Redirect stubs keep legacy deep links resolving and still count as
-    // declared routes. The conflict resolution on this branch kept the pre-merge
-    // 69, which counted Ward Flow but not the six search routes.
-    expect(manifest.routeCoverage.discovered).toHaveLength(75);
+    // declared routes. The total is the pre-existing 59, six search routes, and
+    // twelve Ward Flow routes.
+    expect(manifest.routeCoverage.discovered).toHaveLength(77);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

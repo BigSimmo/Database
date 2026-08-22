@@ -4,7 +4,7 @@
 
 - Create: `src/components/ward-management/ward-flow-provider.tsx`
 - Create: `src/app/ward-management/layout.tsx`
-- Create: `tests/ward-flow-provider.test.tsx`
+- Create: `tests/ward-flow-provider.dom.test.tsx`
 
 **Interfaces:**
 
@@ -14,7 +14,7 @@
 - [ ] **Step 1: Write the failing test**
 
 ```tsx
-// tests/ward-flow-provider.test.tsx
+// tests/ward-flow-provider.dom.test.tsx
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -56,7 +56,7 @@ describe("WardFlowProvider", () => {
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `npx vitest run tests/ward-flow-provider.test.tsx`
+Run: `npx vitest run tests/ward-flow-provider.dom.test.tsx`
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Build the provider**
@@ -85,7 +85,7 @@ const now = NOW_ANCHOR + elapsed + state.clockOffsetMinutes;
 
 - [ ] **Step 4: Run to verify it passes**
 
-Run: `npx vitest run tests/ward-flow-provider.test.tsx`
+Run: `npx vitest run tests/ward-flow-provider.dom.test.tsx`
 Expected: PASS, 2 tests.
 
 - [ ] **Step 5: Prove the app still boots**
@@ -102,7 +102,7 @@ Expected: 21 passed, 0 skipped. Adding a layout above the routes must change not
 
 ```bash
 npm run format
-git add src/components/ward-management/ward-flow-provider.tsx src/app/ward-management/layout.tsx tests/ward-flow-provider.test.tsx
+git add src/components/ward-management/ward-flow-provider.tsx src/app/ward-management/layout.tsx tests/ward-flow-provider.dom.test.tsx
 git commit -m "feat(ward-flow): add the state provider and the ticking clock"
 ```
 

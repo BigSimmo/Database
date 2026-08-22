@@ -39,7 +39,7 @@ cannot tell apart:
   it's your session or a different one** — I can only say the evidence is consistent with
   your account and I found no evidence contradicting it (no second dev server, no second
   git identity, no commit you didn't make).
-- `docs/…/progress.md` under the SDD folder for this task was last modified at 03:47 today
+- the SDD progress file for this task was last modified at 03:47 today
   — recent, but I cannot attribute that write to a specific session either.
 
 **Bottom line, with confidence:** something is actively running in this worktree right now
