@@ -349,14 +349,6 @@ function visibleGlobalSearchInput(page: Page) {
   return page.locator('[data-testid="global-search-input"]:visible');
 }
 
-async function fillHydratedGlobalSearch(page: Page, value: string) {
-  const input = visibleGlobalSearchInput(page).first();
-  await expect(input).toBeVisible();
-  await waitForReactEventHandler(input, "onChange");
-  await input.fill(value);
-  await expect(input).toHaveValue(value);
-}
-
 async function globalSearchComposerMetrics(page: Page, homeTestId?: string) {
   return visibleGlobalSearchInput(page)
     .first()
@@ -624,8 +616,10 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await gotoLauncher(page, "/tools?q=medication");
 
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
-    await expect(page.getByTestId("application-card-medication-prescribing")).toBeVisible();
-    await expect(page.getByTestId("application-card-documents")).toBeHidden();
+    const results = page.getByTestId("tools-search-results-page");
+    await expect(results).toBeVisible();
+    await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
+    await expect(results.getByRole("heading", { level: 2, name: "Documents" })).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
 
