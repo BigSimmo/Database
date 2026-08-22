@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "531c3f7f-baab-4a11-9882-b60cfdabe31c",
+  "createdOn": "2026-08-22",
+  "action": "done",
+  "payload": {
+    "id": "#778Q0H",
+    "outcome": "Resolved on current main by PR #2282 / commit c677ea25f. tests/rsc-boundary.test.ts now statically traces the Server Component graph and rejects event handlers on the server side of the RSC boundary, including the exact ignoreUnavailableActivation pattern that caused the Developer Hub request-time failure; panel-card.tsx is explicitly marked use client. The focused RSC boundary test passes on this branch.",
+    "baseRowFingerprint": "312e2c00a271d0a60fad315d5e5b81b95bb287a49b85263e1d1bfef179cf9052"
+  }
+}
